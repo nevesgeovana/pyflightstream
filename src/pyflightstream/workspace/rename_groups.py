@@ -23,7 +23,7 @@ import os
 import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from pyflightstream._errors import ProductError
@@ -99,7 +99,8 @@ def rename_group_products(
     base = Path(root)
     if not base.is_dir():
         raise ProductError(f"the workspace root {base.as_posix()} is not a directory")
-    stamp = datetime.now(UTC).strftime(ARCHIVE_STAMP)
+    # Local time, as every other ARCHIVE_STAMP writer stamps (the stamp carries no zone).
+    stamp = datetime.now().strftime(ARCHIVE_STAMP)
     archive_root = base / "archive" / f"rename-groups-{stamp}"
 
     # PASS ONE: PLAN AND REFUSE. Nothing touches the disk until every candidate

@@ -64,8 +64,20 @@ from pyflightstream.cases import (
     VolumeSectionSpec,
 )
 from pyflightstream.cases._ccs import CcsControlSurface, CcsImportOptions, CcsSubdivisions
+from pyflightstream.cases._farfield_spec import (
+    FarfieldSpec,
+    LatticeShape,
+    LedgersSpec,
+    TrefftzSpec,
+)
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.matrix import _COLUMNS, ATTITUDE_KEYS, FLIGHT_CONDITION_KEYS
+from pyflightstream.cases.pproc import (
+    TABLE_DECLARED_KINDS,
+    StreamlineLine,
+    StreamlinesSpec,
+    StreamlineTube,
+)
 from pyflightstream.cases.workflows import RATE_VARIABLES, RAW_VARIABLE, WORKFLOWS
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.workspace.flight_condition import PINNED_KEYS
@@ -108,7 +120,11 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
     drops fail here, and not only a key the code adds.
     """
     row_keys = {key for workflow in WORKFLOWS.values() for key in workflow.keys}
-    exports = {kind for kind, _, _, _ in EXPORT_KINDS} - set(VOLUME_SECTION_KINDS.values())
+    exports = (
+        {kind for kind, _, _, _ in EXPORT_KINDS}
+        - set(VOLUME_SECTION_KINDS.values())
+        - TABLE_DECLARED_KINDS
+    )
     blocks = guides.REFERENCE_BLOCK_HEADINGS
     return {
         # --- the run matrix -------------------------------------------------
@@ -160,6 +176,10 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[sections]`"): _fields(SectionsSpec),
         ("pproc", "`[[sections.distributions]]`"): _fields(SectionDistribution),
         ("pproc", "`[volume_section]`"): _fields(VolumeSectionSpec),
+        # 0.40.0 (FR-460): the streamlines table and its two lists.
+        ("pproc", "`[streamlines]`"): _fields(StreamlinesSpec),
+        ("pproc", "`[[streamlines.lines]]`"): _fields(StreamlineLine),
+        ("pproc", "`[[streamlines.tubes]]`"): _fields(StreamlineTube),
         ("pproc", "`[plots]`"): _fields(PlotsSpec),
         ("pproc", "`[[plots.groups]]`"): _fields(ForcePlotGroup),
         ("pproc", "`[[probes]]`"): _fields(ProbesSpec),
@@ -167,6 +187,12 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[[probes.lines]]`"): _fields(ProbeLine),
         ("pproc", "`[[probes.rectangles]]`"): _fields(ProbeRectangle),
         ("pproc", "`[[probes.circles]]`"): _fields(ProbeCircle),
+        # FR-459 R2 (0.40.0): the survey lattice, a probe shape.
+        ("pproc", "`[[probes.lattices]]`"): _fields(LatticeShape),
+        # FR-454 (0.40.0): the far-field family's table.
+        ("pproc", "`[farfield]`"): _fields(FarfieldSpec),
+        ("pproc", "`[farfield.trefftz]`"): _fields(TrefftzSpec),
+        ("pproc", "`[farfield.ledgers]`"): _fields(LedgersSpec),
         ("pproc", "`[products]`"): _fields(ProductsSpec),
         # --- the reference artifact -----------------------------------------
         ("reference", "Top-level keys and tables"): _fields(
@@ -300,8 +326,11 @@ def test_no_meaning_is_kept_for_a_key_no_registry_holds():
     row_keys = {key for workflow in WORKFLOWS.values() for key in workflow.keys}
     assert set(ROW_KEY_MEANINGS) == row_keys | {RAW_VARIABLE}
     assert set(COLUMN_MEANINGS) == set(_COLUMNS)
-    assert set(EXPORT_KIND_MEANINGS) == {kind for kind, _, _, _ in EXPORT_KINDS} - set(
-        VOLUME_SECTION_KINDS.values()
+    assert (
+        set(EXPORT_KIND_MEANINGS)
+        == {kind for kind, _, _, _ in EXPORT_KINDS}
+        - set(VOLUME_SECTION_KINDS.values())
+        - TABLE_DECLARED_KINDS
     )
     assert set(SOLVER_SETTING_COMMANDS) <= set(SolverSettings.model_fields)
     assert set(guides.PACKAGE_SET_FIELDS) == {

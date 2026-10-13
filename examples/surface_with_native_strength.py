@@ -19,7 +19,7 @@ import argparse
 import json
 from pathlib import Path
 
-from pyflightstream._cli import cli_entrypoint
+from pyflightstream import cli_entrypoint
 from pyflightstream.results.surface import SurfaceFrame, translate_vtk_surface
 
 

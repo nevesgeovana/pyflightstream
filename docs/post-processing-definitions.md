@@ -55,9 +55,45 @@ them was inferred from an implementation.
 
 [Integrated sectional loads](definitions/the-sections-table-and-which-row-is-which.md#integrated-sectional-loads-since-0260).
 
+The integrated strips extend half a station spacing beyond each
+end station, preserving the full span when the exported stations sit at strip
+centers. The linked definition states the rule for every block.
+
 <a id="the-probes-table"></a>
 
 [The probes table](definitions/the-probes-table.md#the-probes-table).
+
+<a id="the-far-field-family"></a>
+
+[The far-field family](definitions/the-far-field-family.md#the-far-field-family).
+
+<a id="the-discrete-trace"></a>
+
+[The discrete trace (shared by Trefftz A and B)](definitions/the-far-field-family.md#the-discrete-trace).
+
+<a id="trefftz-a"></a>
+
+[Trefftz A, from the section loads](definitions/the-far-field-family.md#trefftz-a).
+
+<a id="trefftz-b"></a>
+
+[Trefftz B, from the solver's wake](definitions/the-far-field-family.md#trefftz-b).
+
+<a id="trefftz-c"></a>
+
+[Trefftz C, from a plane of probes](definitions/the-far-field-family.md#trefftz-c).
+
+<a id="the-balances"></a>
+
+[The balances on the survey lattice](definitions/the-far-field-family.md#the-balances).
+
+<a id="the-survey-lattice"></a>
+
+[The survey lattice and the far-field plane are probes](definitions/the-far-field-family.md#the-survey-lattice).
+
+<a id="what-the-plan-adds"></a>
+
+[What the far-field plan adds](definitions/the-far-field-family.md#what-the-plan-adds).
 
 <a id="the-reductions-of-an-unsteady-point"></a>
 
@@ -97,7 +133,7 @@ them was inferred from an implementation.
 
 <a id="probe-parameters"></a>
 
-[Probe parameters](definitions/probe-parameters.md#probe-parameters).
+[Probe parameters](definitions/the-probes-table.md#probe-parameters).
 
 <a id="the-averaging-window"></a>
 
@@ -153,7 +189,7 @@ them was inferred from an implementation.
 
 <a id="the-mesh-face-count-since-0340"></a>
 
-[The mesh face count](definitions/the-mesh-face-count-since-0340.md#the-mesh-face-count-since-0340).
+[The mesh face count](definitions/the-mesh-face-count.md#the-mesh-face-count-since-0340).
 
 <a id="rotor-coefficients"></a>
 
@@ -225,8 +261,8 @@ them was inferred from an implementation.
 
 <a id="the-post-of-other-records-since-0320"></a>
 
-[The post of other records](definitions/the-post-of-other-records-since-0320.md#the-post-of-other-records-since-0320).
+[The post of other records](definitions/the-post-of-other-records.md#the-post-of-other-records-since-0320).
 
 <a id="posting-and-collecting-some-simulations-since-0330"></a>
 
-[Posting and collecting some simulations](definitions/posting-and-collecting-some-simulations-since-0330.md#posting-and-collecting-some-simulations-since-0330).
+[Posting and collecting some simulations](definitions/posting-and-collecting-some-simulations.md#posting-and-collecting-some-simulations-since-0330).

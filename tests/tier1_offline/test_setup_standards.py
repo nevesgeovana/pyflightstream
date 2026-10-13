@@ -151,10 +151,10 @@ def test_explicit_no_trailing_edge_is_preserved_and_emits_no_detection(tmp_path)
     from pyflightstream.cases import RawMeshConditions
     from pyflightstream.cases.workflows._geometry import _raw_mesh_boundary_conditions
     from pyflightstream.workspace.inputs import InputArtifactError
-    from pyflightstream.workspace.sidecars import _read_trailing_edges
+    from pyflightstream.workspace.sidecars import read_trailing_edges
 
     try:
-        marking = _read_trailing_edges(tmp_path / "body.boundaries.toml", {"none": True})
+        marking = read_trailing_edges(tmp_path / "body.boundaries.toml", {"none": True})
     except InputArtifactError:
         marking = None
     assert marking is not None, "a blunt body can explicitly declare no trailing edge"
@@ -278,7 +278,11 @@ def test_inlet_outlet_ownership_preserves_order_and_normal_velocity(tmp_path):
     _settings(case, script)
     text = script.render()
     assert text.index("CREATE_NEW_INLET") < text.index("CREATE_NEW_OUTLET")
-    assert "-10.0" in text and "10.0" in text
+    # Each velocity on ITS OWN line: "10.0" is a substring of "-10.0".
+    inlet = next(line for line in text.splitlines() if line.startswith("CREATE_NEW_INLET"))
+    outlet = next(line for line in text.splitlines() if line.startswith("CREATE_NEW_OUTLET"))
+    assert "-10.0" in inlet.split(), inlet
+    assert "10.0" in outlet.split() and "-10.0" not in outlet.split(), outlet
 
 
 @pytest.mark.parametrize("workflow", ["steady", "unsteady_rotor"], ids=["steady", "G35"])

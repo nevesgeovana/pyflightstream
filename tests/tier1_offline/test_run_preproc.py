@@ -94,7 +94,7 @@ def test_every_path_the_solver_reads_is_absolute_under_a_relative_workdir(tmp_pa
 
 def test_failed_run_raises_with_the_log_excerpt(tmp_path):
     executor = FakeMeshExporter(write_mesh=False, return_code=1)
-    with pytest.raises(SurfaceMeshExportError, match="returned 1.*solver said no"):
+    with pytest.raises(SurfaceMeshExportError, match="return code 1.*solver said no"):
         export_surface_mesh(
             tmp_path / "case.fsm", tmp_path / "pre", version="26.120", executor=executor
         )

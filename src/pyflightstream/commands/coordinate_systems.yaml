@@ -368,11 +368,9 @@ DELETE_COORDINATE_SYSTEM:
     Deletes a local coordinate system; the reference frame cannot be
     deleted and the manual requires an index greater than 1.
 
-    NO EDITION SAYS WHAT HAPPENS TO THE INDICES ABOVE IT, or to an
-    actuator or motion citing the deleted frame. If the remaining frames
-    are renumbered, then every index a script recorded earlier means
-    something else afterwards, exactly as WRAPPER_TRANSFER does to
-    surface indices. The script builder tracks frames, so it would be
-    the layer that has to model this; PLN-20260808-2100 carries the
-    probe, and until it runs the safe pattern is to delete nothing a
-    later command cites.
+    RPT-021 section 3 measured that the surviving frames above the
+    deleted index are renumbered down by one. The entity registry drops
+    the deleted frame's label and shifts the surviving labels with their
+    frames. Placements and motion attachments are conservatively unproved
+    after deletion; the report does not settle what happens to an actuator
+    or motion attached to the deleted frame.

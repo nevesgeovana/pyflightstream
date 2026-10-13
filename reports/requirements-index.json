@@ -1,9 +1,9 @@
 {
- "source": "docs/srs",
+ "source": "docs/unpublished/requirements",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 458,
-  "total": 458,
+  "cited_by_a_test": 471,
+  "total": 471,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -465,7 +465,7 @@
   },
   {
    "id": "FR-38",
-   "text": "The far-field subpackage computes the mass, momentum, swirl, crossflow-kinetic-energy, and rothalpy conservation ledgers on the survey lattice, evaluates gates G1, G3, and G4 and the near-field versus far-field spurious diagnostic, and records each ledger and gate outcome in the run outputs.",
+   "text": "The far-field subpackage computes the mass, momentum, swirl and crossflow-kinetic-energy conservation ledgers on the survey lattice, evaluates gates G1, G3, and G4 and the near-field versus far-field spurious diagnostic, and records each ledger and gate outcome in the run outputs.",
    "priority": "D",
    "status": "deferred",
    "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C11 acceptance of the same subject. Evidence for the delivered half: milestone M7; the G0 synthetic gate in tests/tier1_offline/test_farfield.py.*",
@@ -972,7 +972,7 @@
    "text": "A matrix row names its build in FS_BUILD and nothing else about it. The package decides, per point and before the first emission, how the row runs on that build, from the command database and recorded evidence and never from a list of builds:",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the 0.20.0 scope, every workflow on every registered build with the build as the only cell that changes. Evidence: tests/tier1_offline/test_goal023_every_build.py (every run type and case shape against every registered build, the cells that do not render named exactly, the single march on each build without actions, each feature only actions give refused at plan time by name, the strategy in the plan and the run record, one row planned under every build, and the 26.123 goldens unchanged). tests/tier1_offline/test_workflows.py (coverage derived with the substitute, and the Euclidean rotor's speed, axis and mark). And reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md (the unit and sense of the Euclidean angular velocity measured on 26.000 against the rotary motion on 26.120, and the rotor mark removed on 26.100). reports/RPT-051_a-rotor-on-26100-without-the-rotor-mark_2026-09-15.md (the 26.100 rotor without the mark, in rev/min, recorded as a decision at 0.20.1). AMENDS FR-98 and FR-96, whose wall clock and continuations are refused on a build without actions, and the coverage rule of the workflow table.*",
+   "evidence": "*Origin: the 0.20.0 scope, every workflow on every registered build with the build as the only cell that changes. Evidence: tests/tier1_offline/test_goal023_every_build.py (every run type and case shape against every registered build, the cells that do not render named exactly, the single march on each build without actions, each feature only actions give refused at plan time by name, the strategy in the plan and the run record, one row planned under every build, and the 26.123 goldens unchanged). tests/tier1_offline/test_workflows.py (coverage derived with the substitute, and the Euclidean rotor's speed, axis and mark). And reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md (the unit and sense of the Euclidean angular velocity measured on 26.000 against the rotary motion on 26.120, and the rotor mark removed on 26.100). reports/RPT-051_a-rotor-on-26100-without-the-rotor-mark_2026-09-15.md (the 26.100 rotor without the mark, in rev/min, recorded as a decision at 0.20.1). tests/tier1_offline/test_p0400_script_helpers.py and the 26.100 rotor goldens of tests/tier1_offline/goldens/workflows/ (the refusal of 0.40.0). AMENDS FR-98 and FR-96, whose wall clock and continuations are refused on a build without actions, and the coverage rule of the workflow table.*",
    "verification": "test"
   },
   {
@@ -3269,6 +3269,110 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: scope GOAL-049 item S8; backlog entry R03 (one configuration file for the workspace as a whole, holding defaults such as the console detail and the acceptance of an unregistered build). The design was decided on 2026-10-10 from a use case written as files before any code: one table of defaults for every command plus a log table, a versioned file with a machine overlay read over it, and the acceptance stated by either of two routes. Verification: test, tests/tier1_offline/test_p0390_r03.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-450",
+   "text": "Plan: PFS-2139.007 (0.40.0). Marker: P0400-FFAMILY.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the far-field family restructure approved for 0.40.0 and the rule that everything is accessible and functional through the workspace. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-451",
+   "text": "Plan: PFS-2139.002 (0.40.0). Marker: P0400-TREFFTZA.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the Trefftz-plane request and the three-variant decision of 2026-10-12; on a panel mesh refinement study the far-field induced drag from the section loads moved by under 1 percent per mesh level while the surface-pressure value moved by 2.5 to 10 percent. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-452",
+   "text": "Plan: PFS-2139.003 (0.40.0). Marker: P0400-TREFFTZB.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the three-variant decision of 2026-10-12. Evidence on the export: a recorded wake export of a wing alone (<name>_wakes.vtk, written when SET_VTK_EXPORT_VARIABLES states ENABLE) holds POINTS, two-point LINES and one cell scalar Normalized_Vorticity; the lines chain into one wake line per trailing-edge node, the scalar is constant along each line to round-off, of one sign across the span and zero at the tips (measured 2026-10-12, 160 lines). Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-453",
+   "text": "Plan: PFS-2139.004 (0.40.0). Marker: P0400-TREFFTZC.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the three-variant decision of 2026-10-12 and the decision that variant C and FR-38 share one far-field home. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-454",
+   "text": "Plan: PFS-2139.005 (0.40.0). Marker: P0400-FFTABLE.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the decision of 2026-10-12 that the three variants are selectable in the pproc artifact, the input-synergy rule of the same day, and the keys and defaults accepted then. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-455",
+   "text": "Plan: PFS-2139.005 (0.40.0). Marker: P0400-FFPLAN.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the input-synergy rule of 2026-10-12 (the far-field inputs reuse what the pproc artifact declares, a declared section distribution is reused and a missing one is added), the FSI rule of the same day, and the plan rule accepted then. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-456",
+   "text": "Plan: PFS-2139.006 (0.40.0). Marker: P0400-FFOUT.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: PFS-2139.006 and the outputs accepted on 2026-10-12. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-457",
+   "text": "Plan: PFS-2139.007, PFS-2023.03 (0.40.0). Marker: P0400-NUMPY.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the decision of 2026-10-12 to avoid xarray and use numpy wherever possible, the far field moving to numpy in the release of Trefftz C, and the direct break accepted the same day. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-458",
+   "text": "Plan: PFS-2139.009 (0.40.0). Marker: P0400-ROTHALPY.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the decision of 2026-10-12 to remove both functions from the package and hand them to ITACA for evaluation, with no deprecation release: both apply to an Euler CFD field, where total enthalpy and entropy exist, and no FlightStream product can feed them. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-459",
+   "text": "Plan: PFS-2140.001 (0.40.0). Marker: P0400-PROBEHOME.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the reachability audit of 2026-10-12 (probes as the single home of probe geometry, with a lattice) and the probes home accepted the same day. Verification: test.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-460",
+   "text": "Plan: PFS-2081.15 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (routes Q0-1, P3-Q1 to P3-Q3). Verification: test, tests/tier1_offline/test_p0400_gaps_rt_streamlines.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-461",
+   "text": "Plan: PFS-2081.16 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P4-Q2 to P4-Q4); reference case: a free-to-pitch model. Verification: test, tests/tier1_offline/test_p0400_gaps_rt_sixdof.py.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-462",
+   "text": "Plan: PFS-2081.17 (0.40.0).",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P5-Q1 to P5-Q3). Verification: test, tests/tier1_offline/test_p0400_gaps_rt_fsiext.py.*",
    "verification": "test"
   },
   {

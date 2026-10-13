@@ -166,7 +166,7 @@ def test_the_program_the_run_layer_writes_carries_the_step_degrees_and_the_thres
 
     # rotor_case: 1200 rev/min and a step of 0.0001 s, so 0.72 degrees per
     # step and 500 steps per revolution; one revolution is step 500 of 720.
-    threshold = unsteady_export_threshold(rotor_case(**{REV: "1"}))
+    threshold = unsteady_export_threshold(rotor_case(**{REV: "1"}), version="26.120")
     assert threshold is not None
     assert threshold.stated_form == "revolutions"
     assert threshold.stated_value == 1.0
@@ -199,7 +199,7 @@ def test_the_per_step_exports_are_read_from_the_export_set_and_update_before_exp
     case = unsteady_case(**{ITER: "2"}).model_copy(
         update={"outputs": names, "pproc": PprocSpec(singularity_strength=True)}
     )
-    threshold = unsteady_export_threshold(case)
+    threshold = unsteady_export_threshold(case, version="26.120")
     assert threshold is not None
     lines = threshold.exports.splitlines()
     verbs = [line for line in lines if line and not line.startswith("p")]
@@ -233,7 +233,7 @@ def test_the_program_leaves_the_script_empty_until_the_count_reaches_the_thresho
     from pyflightstream.run._actions_counter import render_program
 
     case = unsteady_case(**{ITER: "4", "TIME_ITERATIONS": "8", "DELTA_TIME": "0.01"})
-    threshold = unsteady_export_threshold(case)
+    threshold = unsteady_export_threshold(case, version="26.120")
     assert threshold is not None
     program = tmp_path / PROGRAM
     program.parent.mkdir(parents=True)
@@ -446,9 +446,7 @@ def test_a_run_without_a_threshold_records_the_count_only_program(tmp_path):
 
 def test_the_worked_example_on_the_page_builds_to_the_lines_it_shows():
     text = PAGE.read_text(encoding="utf-8")
-    cell = re.search(
-        r"^(VELOCITY: 30\.0 / RPM: 1200 / .*EXPORT_UNSTEADY_AFTER_REV: 2)$", text, re.M
-    )
+    cell = re.search(r"^(RPM: 1200 / .*EXPORT_UNSTEADY_AFTER_REV: 2)$", text, re.M)
     assert cell, "the page shows no VAR_NAMES_VALUES cell stating EXPORT_UNSTEADY_AFTER_REV"
     variables = dict(
         (key.strip(), value.strip())
@@ -469,7 +467,7 @@ def test_the_worked_example_on_the_page_builds_to_the_lines_it_shows():
     # And the arithmetic the page states beside it.
     from pyflightstream.cases.workflows import unsteady_export_threshold
 
-    threshold = unsteady_export_threshold(case)
+    threshold = unsteady_export_threshold(case, version="26.120")
     assert threshold is not None
     assert threshold.first_step == 72 and threshold.time_iterations == 108
     assert "step 72" in text and "108" in text
@@ -493,7 +491,7 @@ def test_the_program_first_exports_on_the_step_the_package_computed(tmp_path, st
     from pyflightstream.cases.workflows import unsteady_export_threshold
     from pyflightstream.run._actions_counter import render_program
 
-    threshold = unsteady_export_threshold(rotor_case(**stated))
+    threshold = unsteady_export_threshold(rotor_case(**stated), version="26.120")
     assert threshold is not None
     program = tmp_path / PROGRAM
     program.parent.mkdir(parents=True)
@@ -764,18 +762,13 @@ def test_goal019_watchdog_the_margin_lives_in_the_setup(tmp_path):
 
 def _a_threshold():
     """One export threshold, built the way a row states it."""
-    from pyflightstream.cases.workflows import UnsteadyExportThreshold
+    from pyflightstream.cases.workflows import unsteady_export_threshold
 
-    return UnsteadyExportThreshold(
-        stated_form="EXPORT_UNSTEADY_AFTER_ITER",
-        stated_value=4.0,
-        first_step=4,
-        time_iterations=10,
-        step_deg=None,
-        delta_time_s=0.001,
-        rpm=None,
-        exports=(("log", "_log.txt", "EXPORT_LOG"),),
-    )
+    # Resolved from a row by the library, so every field has the type the builders produce
+    # (``exports`` is the child script's text, not a tuple; PFS-2135.008).
+    threshold = unsteady_export_threshold(unsteady_case(**{ITER: "4"}))
+    assert threshold is not None
+    return threshold
 
 
 def test_goal019_watchdog_restart_reads_the_three_forms_and_refuses_a_fourth():
@@ -963,7 +956,7 @@ def test_goal019_watchdog_the_rescue_exports_update_before_it_exports(tmp_path):
     case, conventions = _conventions_for(
         ["loads_{point}.txt", "loads_{point}_cp.txt", "loads_{point}_probes.txt"]
     )
-    text = walltime_stop_text(case, conventions)
+    text = walltime_stop_text(case, conventions, version="26.120")
     lines = [line for line in text.splitlines() if line and not line.startswith("#")]
 
     for command in (
@@ -995,7 +988,7 @@ def test_goal019_watchdog_the_rescue_claims_its_names_the_way_the_reader_does(tm
     from pyflightstream.cases.workflows import walltime_stop_text
 
     case, conventions = _conventions_for(["loads_{point}_cp.txt", "loads_{point}.txt"])
-    lines = walltime_stop_text(case, conventions).splitlines()
+    lines = walltime_stop_text(case, conventions, version="26.120").splitlines()
     pairs = {
         lines[index]: lines[index + 1]
         for index, line in enumerate(lines)
@@ -1022,10 +1015,12 @@ def test_goal019_watchdog_the_rescue_and_the_counter_export_the_same_lines(tmp_p
     case, conventions = _conventions_for(
         ["loads_{point}.txt", "loads_{point}_cp.txt", "loads_{point}_probes.txt"]
     )
-    counter = [line for line in _per_step_exports(conventions, case).splitlines() if line]
+    counter = [
+        line for line in _per_step_exports(conventions, case, version="26.120").splitlines() if line
+    ]
     rescue = [
         line
-        for line in walltime_stop_text(case, conventions).splitlines()
+        for line in walltime_stop_text(case, conventions, version="26.120").splitlines()
         if line and not line.startswith("#") and line != WALLTIME_STOP_VERB
     ]
     assert rescue == counter, (
@@ -1055,14 +1050,14 @@ def test_goal019_watchdog_the_rescue_writes_the_whole_run_exports_too(tmp_path):
             "loads_{point}_log.txt",
         ]
     )
-    rescue = walltime_stop_text(case, conventions)
+    rescue = walltime_stop_text(case, conventions, version="26.120")
     assert "EXPORT_LOG" in rescue, rescue
     assert any("PLOTS" in line for line in rescue.splitlines()), rescue
     assert rescue.rstrip().endswith(WALLTIME_STOP_VERB)
 
     # AND THE PER-STEP ACTION STILL DROPS THEM, which is the other half:
     # one function, two answers, and the switch is what says which.
-    per_step = _per_step_exports(conventions, case)
+    per_step = _per_step_exports(conventions, case, version="26.120")
     assert "EXPORT_LOG" not in per_step, (
         "the per-step action exports the log every time step, which is not a per-step "
         "export and is the reason the whole-run kinds are dropped there"

@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream.cases import PprocSpec, classify_outputs
+from pyflightstream.cases import CampaignConfigError, PprocSpec, classify_outputs
 from pyflightstream.cases.windows import regate, replan
 from pyflightstream.post._condition import (
     _defaulted_window,
@@ -72,6 +72,8 @@ class _Admitted:
     point_windows: dict[str, tuple[int, int]] = field(default_factory=dict)
     frozen_points: dict[str, FrozenSolve] = field(default_factory=dict)
     probe_positions: dict[int, tuple[float, float, float, str]] = field(default_factory=dict)
+    #: FR-460: each point's streamline exports, by kind.
+    streamlines: dict[str, dict[str, Path]] = field(default_factory=dict)
 
 
 # ------------------------------------------------------------------ admitting the records
@@ -88,8 +90,15 @@ def _admit(
     loads = _loads_of(record, sim_dir, admitted.skipped)
     if loads is None:
         return
-    stem = _admit_point(admitted, record, loads)
-    _admit_windows(admitted, record, stem, matrix_row, pproc)
+    stem = loads[0][: -len(".txt")]
+    try:
+        _admit_windows(admitted, record, stem, matrix_row, pproc)
+    except CampaignConfigError as error:
+        reason = f"invalid current averaging window: {error}"
+        admitted.skipped[f"runs/{record.run_id}"] = reason
+        warn(f"{stem}: {reason}", PyflightstreamWarning, stacklevel=2)
+        return
+    _admit_point(admitted, record, loads)
     # FR-91. Where this run put its probe points. Per SIM and identical
     # across the sweep, so the first record that names one answers for
     # every point; a record written before 0.16.0 names none and the
@@ -213,6 +222,11 @@ def _admit_point(
     plots_path = by_name.get(kinds["plots"]) if "plots" in kinds else None
     probes_path = by_name.get(kinds["probes"]) if "probes" in kinds else None
     admitted.exports[stem] = (sloads_path, plots_path, probes_path)
+    admitted.streamlines[stem] = {
+        kind: by_name[kinds[kind]]
+        for kind in ("streamlines_surface", "streamlines_off_body")
+        if kind in kinds and kinds[kind] in by_name
+    }
     return stem
 
 
@@ -231,8 +245,15 @@ def _warn_the_point_s_state(stem: str, report: LoadsReport, point: PolarPoint) -
         warn(
             f"{stem}: the export states a reference velocity of {vref:g} m/s and a free "
             f"stream of {vinf:g} m/s. The steady polar's coefficients are normalised by "
-            "the REFERENCE velocity; the plots table, the reductions and the unsteady "
-            "polar are rescaled to the FREE STREAM. Both are in every row, as VREF and VINF.",
+            "the REFERENCE velocity; "
+            + (
+                "the plots table's coefficient columns read NA because the FREE STREAM "
+                "velocity is not positive. "
+                if vinf <= 0.0
+                else "the plots table, the reductions and the unsteady polar are rescaled "
+                "to the FREE STREAM. "
+            )
+            + "Both are in every row, as VREF and VINF.",
             PyflightstreamWarning,
             stacklevel=2,
         )
@@ -261,6 +282,7 @@ def _admit_windows(
     row_variables = getattr(matrix_row, "variables", None)
     gate = getattr(pproc, "phase_locked", None)
     replanned = replan(record.reductions, row_variables, gate=gate)
+    point_window = _matrix_window(matrix_row, record) or _stated_window(record)
     if replanned is not None and stem not in admitted.plans:
         ran = _recorded_window(record.reductions)
         now = _recorded_window(replanned)
@@ -282,7 +304,6 @@ def _admit_windows(
     current = replanned or record.reductions
     regated = regate(current, gate) if replanned is None else None
     admitted.plans.setdefault(stem, regated or current)
-    point_window = _matrix_window(matrix_row, record) or _stated_window(record)
     if point_window is None:
         point_window = _defaulted_point_window(admitted, record, stem)
     if point_window is not None:

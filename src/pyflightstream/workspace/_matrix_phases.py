@@ -61,7 +61,9 @@ from pyflightstream.cases.workflows import (
     refuse_what_a_saved_point_cannot_give,
     row_outputs,
 )
+from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace._geometry_record import judge_the_row_geometry
 from pyflightstream.workspace._matrix_binding import (
     _bind_setup_ports,
     _Binding,
@@ -85,6 +87,7 @@ from pyflightstream.workspace.inputs import (
     rotor_integration_groups,
 )
 from pyflightstream.workspace.naming import group_token
+from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
 from pyflightstream.workspace.wake_edges import (
     length_scale,
     matched_trailing_edge_points,
@@ -1526,16 +1529,36 @@ def _bind_geometry(binding: _Binding, row: MatrixRow, update: dict[str, object])
     # `tests/tier1_offline/test_matrix_run.py`, at the reader AND here, rather than
     # defended twice in code and proven in neither place.
     fsi = resolve_row_fsi(binding.workspace.inputs_dir, row.variables)
-    if fsi is not None:
+    if isinstance(fsi, ExternalStructure):
+        # FR-462: the user's program, hashed; the run stages its manifest.
+        update["fsi_external"] = fsi
+        update["fsi_provenance"] = fsi.provenance()
+    elif fsi is not None:
         binding.fsis[row.pol] = fsi
         update["fsi"] = fsi.effective
         update["fsi_provenance"] = fsi.provenance()
+    # FR-461: the body the row's SIXDOF key frees, refused off the unsteady run type.
+    sixdof = resolve_row_sixdof(
+        binding.workspace.inputs_dir, row.variables, workflow=row.workflow, pol=row.pol
+    )
+    if sixdof is not None:
+        update["sixdof"] = sixdof.spec
+        update["sixdof_provenance"] = sixdof.provenance()
     stem = row.variables.get(GEOMETRY_VARIABLE, "")
     if stem:
         geometry_path = _resolve_geometry(binding.workspace, stem, row.pol)
         update["geometry"] = str(geometry_path)
         update["inventory"], update["inventory_source"] = _inventory_of(geometry_path, row.pol)
         mesh_import = _mesh_import_of(geometry_path, row.pol)
+        # THE GEOMETRY STAGE (FR-473, FR-476): a built body's record, and the
+        # warning of a route the stage replaces.
+        judge_the_row_geometry(
+            geometry_path,
+            row.pol,
+            fs_build=row.fs_build.strip() or None,
+            symmetry=str(row.variables.get("SYMMETRY", "")) or None,
+            mesh_import=mesh_import,
+        )
         update["mesh_import"] = mesh_import
         update["raw_mesh_conditions"] = _raw_mesh_conditions_of(
             geometry_path, row.pol, mesh_import, cast(SolverSettings, update["solver"])

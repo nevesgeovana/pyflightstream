@@ -9,18 +9,24 @@ The table is `polars/P<sim>-<alias>_rotor.csv`. It opens with `POL` and
 `ROTOR`, the rotor's alias, on every row, then the condition block,
 `RPM_<alias>`, `DIAMETER_<alias>` and the six, `J_<alias>` to `ETAW_<alias>`,
 then `MTIP_<alias>` and `MHEL_<alias>`
-([Tip and helical Mach numbers](tip-and-helical-mach-numbers.md#tip-and-helical-mach-numbers)), and then, last
+([Tip and helical Mach numbers](tip-and-helical-mach-numbers.md#tip-and-helical-mach-numbers)), and then
 `CN_<alias>`, `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`
-([The in-plane coefficients](#the-in-plane-coefficients)). The column contract
+([The in-plane coefficients](#the-in-plane-coefficients)), and, last since 0.40.0,
+`MADV_<alias>`, the advancing-tip Mach number. The column contract
 grows at its end only, so every earlier column keeps its position.
-Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../migrating-to-0.27.0.md) for older files with an alias line.
+Its first line is its header; the `ROTOR` column identifies the rotor on every row. See [the CSV migration](../upgrading.md#older-layouts) for older files with an alias line.
 
 ### Where an unsteady point's numbers come from
 
 A steady point's row is built from the loads export. **An unsteady point's row
-is the average of the PLOTS history over the row's window**, the same window the
-unsteady polar and the reductions use, because the loads export of an unsteady
-run states the last time step, one instant of a cycle.
+is the average of the PLOTS history over the row's window**, because the loads
+export of an unsteady run states the last time step, one instant of a cycle.
+**Each rotor's table follows its own rotor's clock**, as each blade does
+([`per_blade`](per_blade.md#per_blade)): `LAST_REVS_AVG` counts that rotor's
+own revolutions, so on a row with several rotors turning at different rates
+each table averages over the stated number of its own revolutions, and its
+window in steps can differ from the clock rotor's, which the unsteady polar
+uses. `LAST_ITERS_AVG` is the stated step count for every rotor.
 
 - **The history is the rotor's own six components in the global `MRP` frame**,
   `FX, FY, FZ, MX, MY, MZ` in Newtons, over the rotor's own families, general
@@ -33,9 +39,14 @@ run states the last time step, one instant of a cycle.
 - **A row that states a window never holds an instant.** A point whose history
   does not cover the window, or holds no such columns, is LEFT OUT of the table
   and named in `products.json`, as the unsteady polar beside it does. The
-  table's manifest entry states `source` and `window`.
+  table's manifest entry states `source`, `window`, the row's window on its
+  clock rotor, and `windows`, each point's window of THIS rotor in steps.
+- **A rotor's revolution is its own `steps_per_revolution`** in the run's
+  plan, and its window ends at the row's last step. A row whose matrix states
+  no window key, or a record that states no clock of the rotor, averages every
+  rotor over the row's window.
 
-See [the rotor-table migration](../migrating-to-0.24.0.md) for the correction to historical unsteady tables.
+See [the rotor-table migration](../upgrading.md#older-layouts) for the correction to historical unsteady tables.
 
 ### `ETAW`
 

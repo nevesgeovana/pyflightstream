@@ -30,8 +30,9 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT
-from pyflightstream.run._mark_converged import keep_verdict, person_verdicts
+from pyflightstream._errors import PyflightstreamError
+from pyflightstream.run._executors import PROGRESS_EVERY_DEFAULT, SCRIPT_ARGUMENT
+from pyflightstream.run._mark_converged import RunsManifestError, keep_verdict, person_verdicts
 from pyflightstream.run._rebuild_evidence import (
     _changes,
     _copy_inputs,
@@ -59,6 +60,9 @@ from pyflightstream.run._rebuild_grouped import (
     simulation_home,
     with_job,
 )
+from pyflightstream.run._rebuild_summary import MINT_REMEDY, NOT_RECOVERABLE_NOTE
+from pyflightstream.run._rebuild_summary import REBUILT as REBUILT
+from pyflightstream.run._rebuild_summary import summary_lines as summary_lines
 from pyflightstream.run._record_files import (
     RecordsError,
     _now_stamp,
@@ -78,41 +82,30 @@ from pyflightstream.workspace.naming import (
 #: still be writing (RST-7); 30 minutes is the window the prototype measured.
 QUIET_WINDOW_S = 1800.0
 
-#: The word every rebuilt record's warning starts with.
-REBUILT = "REBUILT"
-
-#: What to do about a row this version cannot mint again (FR-412 R3).
-_MINT_REMEDY = (
-    "rebuild with the pyflightstream version that ran it, or pass the matrix revision that "
-    "ran (CLI: --matrix FILE)"
-)
-
-_NOT_RECOVERABLE_NOTE = (
-    "do not run `pyfs-matrix run --resume` on a refused simulation: with no record, the "
-    "resume takes it as never run and runs it again"
-)
-
 
 # ---------------------------------------------------------------------------
 # the run layer's own machinery, public
 # ---------------------------------------------------------------------------
 
 
-def row_versions(resolved: Any) -> dict[str, str]:
+def row_versions(resolved: Any, default: str | None = None) -> dict[str, str]:
     """Return the per-simulation solver version of a bound matrix, keyed by sim id.
 
-    The version each row's build declares in the build registry; a row on a
-    build declaring none is absent and runs under the campaign default. The
-    same answer ``pyfs-matrix plan`` and ``run`` use.
+    The version each row's build declares in the build registry, else
+    ``default``, else the build id itself, which is the version the run emits
+    the row's scripts under; a row naming no build is absent and runs under
+    the campaign default. The same answer ``pyfs-matrix plan`` and ``run`` use.
 
     Parameters
     ----------
     resolved : pyflightstream.workspace.matrix.ResolvedMatrix
         The bound matrix.
+    default : str, optional
+        The campaign's default version, as the run binds the rows' builds with.
     """
     from pyflightstream.run import matrix as run_matrix
 
-    return run_matrix._row_versions(resolved)
+    return run_matrix._row_versions(resolved, default)
 
 
 def campaign_executor(
@@ -308,7 +301,7 @@ def _mint(
     if plan.blocked:
         return (
             f"pyflightstream {context.version} refuses this row now, so its record cannot be "
-            f"minted again: {plan.blocked[0].error}; correct the row, or {_MINT_REMEDY}"
+            f"minted again: {plan.blocked[0].error}; correct the row, or {MINT_REMEDY}"
         )
     executor = SubmittingExecutor(
         profile or _stub_profile(),
@@ -337,7 +330,7 @@ def _mint(
     bad = [row for row in rows if row.get("status") != "SUBMITTED"]
     if bad or not rows:
         reason = f"{bad[0].get('status')}: {bad[0].get('error')}" if bad else "no record came out"
-        return f"the package could not mint this row's record again ({reason}); {_MINT_REMEDY}"
+        return f"the package could not mint this row's record again ({reason}); {MINT_REMEDY}"
     scripts = {str(row["script_path"]) for row in rows}
     rendered = "\n".join(
         (shadow / "sims" / f"sim_{sim}" / script).read_text(encoding="utf-8", errors="replace")
@@ -409,7 +402,7 @@ def _mint_one(
             _clear_shadow_run(shadow, sim)
             return (
                 "the package could not mint this row's record again: "
-                f"{type(error).__name__}: {error}; {_MINT_REMEDY}"
+                f"{type(error).__name__}: {error}; {MINT_REMEDY}"
             )
         _clear_shadow_run(shadow, sim)
         if isinstance(attempt, str):
@@ -515,9 +508,14 @@ def _complete_rows(
     notes: list[str],
     out: _Outcome,
 ) -> None:
-    """Complete each minted row of one proved simulation from the files on disk."""
-    base, shadow = context.base, context.shadow
-    descriptor_name = getattr(context.profile, "descriptor_name", None)
+    """Complete each minted row of one proved simulation from the files on disk.
+
+    THE SIMULATION IS REBUILT WHOLE OR NOT AT ALL (PFS-2103.028): its records
+    reach ``out`` only once every row of it succeeded, so one reported NOT
+    RECOVERABLE has none of its records written. A person's mark that cannot
+    be kept refuses the simulation alone (PFS-2095.053), never the rebuild.
+    """
+    done: list[dict[str, Any]] = []
     for row in rows:
         facts = _facts(context, sim_dir, row)
         if facts is None:
@@ -527,13 +525,13 @@ def _complete_rows(
             out.refused[sim] = facts
             return
         grouped = grouped_point(
-            base,
+            context.base,
             stem,
             str(row["run_id"]),
             executed=executed,
             home=sim_dir,
             run_root=run_root,
-            descriptor_name=descriptor_name,
+            descriptor_name=getattr(context.profile, "descriptor_name", None),
         )
         refusal = grouped_facts(facts, grouped)
         if refusal is not None:
@@ -544,20 +542,24 @@ def _complete_rows(
             completed, deferred = dict(row), facts["keep_submitted"]
         else:
             completed, deferred = collect_without_writing(
-                base, row, staging=shadow / "collect" / f"sim_{sim}"
+                context.base, row, staging=context.shadow / "collect" / f"sim_{sim}"
             )
         record = _finalise(context, sim, completed, facts, deferred, notes)
         if grouped is not None:
             record = with_job(record, grouped, row.get("submission") or {})
-        record = keep_verdict(record, context.verdicts.get(str(record.get("run_id"))))
         try:
+            record = keep_verdict(record, context.verdicts.get(str(record.get("run_id"))))
             from pyflightstream.workspace import RunRecord
 
             RunRecord.model_validate(record)
-        except Exception as error:  # noqa: BLE001 - the model's refusal is the reason given
-            out.refused[sim] = f"the rebuilt record does not validate: {error}; {_MINT_REMEDY}"
+        except RunsManifestError as error:
+            out.refused[sim] = str(error)
             return
-        out.records.append(record)
+        except Exception as error:  # noqa: BLE001 - the model's refusal is the reason given
+            out.refused[sim] = f"the rebuilt record does not validate: {error}; {MINT_REMEDY}"
+            return
+        done.append(record)
+    out.records.extend(done)
 
 
 def _facts(context: _Context, sim_dir: Path, row: Mapping[str, Any]) -> dict[str, Any] | str | None:
@@ -628,6 +630,23 @@ def _facts(context: _Context, sim_dir: Path, row: Mapping[str, Any]) -> dict[str
     return facts
 
 
+def _matrix_hidden(base: Path, stem: object) -> bool:
+    """Whether ``pyfs-matrix run`` ran the matrix's points windowless, by its HIDDEN column.
+
+    The rule of the run (``run.matrix``): windowless when every row says so, and when the
+    matrix has no row; a matrix that cannot be read here is taken as the default, hidden.
+    """
+    from pyflightstream.cases.matrix import read_matrix
+
+    if not stem:
+        return True
+    try:
+        rows = read_matrix(matrix_path(base, str(stem)))
+    except (PyflightstreamError, OSError, ValueError):
+        return True
+    return all(row.hidden for row in rows) if rows else True
+
+
 def _finalise(
     context: _Context,
     sim: str,
@@ -637,7 +656,6 @@ def _finalise(
     notes: Sequence[str],
 ) -> dict[str, Any]:
     """Put back what the shadow could not know, and say what was reconstructed."""
-    from pyflightstream.run import LocalExecutor
     from pyflightstream.run.collect import assessment_of_collected
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
 
@@ -679,21 +697,21 @@ def _finalise(
             record["submission"] = submission
         else:
             record["submission"] = None
-        posix = run_root.startswith("/")
         own_root = facts.get("run_root") is not None
         record["cwd"] = (
             _join_root(run_root, work_dir.relative_to(base)) if own_root else str(work_dir)
         )
         script_at_run = _join_root(run_root, script.relative_to(base)) if own_root else str(script)
-        try:
-            local = LocalExecutor(record["fs_exe"], hidden=True)
-            argv = [str(item) for item in local._argv(Path(script_at_run))]
-            if posix:
-                argv = [
-                    script_at_run if item == str(Path(script_at_run)) else item for item in argv
-                ]
-        except Exception:  # noqa: BLE001 - an executable not on this machine still has an argv
-            argv = [str(record.get("fs_exe")), "-script", script_at_run]
+        # ONE RECONSTRUCTION (PFS-2103.004), whether or not the executable is on
+        # this machine: the command line LocalExecutor writes, with the window
+        # the matrix's HIDDEN column gave the run (as `pyfs-matrix run` reads it).
+        hidden = _matrix_hidden(base, record.get("matrix_stem"))
+        argv = [
+            str(record.get("fs_exe")),
+            *(["-hidden"] if hidden else []),
+            SCRIPT_ARGUMENT,
+            script_at_run,
+        ]
         record["argv"] = argv
         record["executor"] = {"class_name": "LocalExecutor", "argv": argv}
         reconstructed += ["argv", "executor", "cwd"]
@@ -1013,7 +1031,7 @@ def rebuild(
         "waiting_for_matrix": sorted(out_come.waiting),
         "never_ran": out_come.never_ran,
         "build_aliases": dict(out_come.aliases),
-        "notes": notes + ([_NOT_RECOVERABLE_NOTE] if out_come.refused else []),
+        "notes": notes + ([NOT_RECOVERABLE_NOTE] if out_come.refused else []),
     }
     if out_come.changes:
         entry["changes"] = out_come.changes
@@ -1069,69 +1087,6 @@ def rebuild(
         _replace_bytes(manifest, (json.dumps([*rows, *fresh], indent=2) + "\n").encode("utf-8"))
     entry.update(applied=True, written=DEFAULT_MANIFEST)
     return entry
-
-
-def _restore_lines(entry: Mapping[str, Any]) -> list[str]:
-    """Return the lines ``pyfs-matrix restore`` prints for its entry."""
-    lines = [
-        f"restore {entry['kind']}: {entry['source']} -> {entry['target']} (stamp {entry['stamp']})",
-        f"  stamps available: {', '.join(entry['stamps_available'])}",
-    ]
-    if "records" in entry:
-        lines.append(f"  the archived manifest holds {entry['records']} record(s)")
-    if entry["same"]:
-        lines.append("  the current file already holds these bytes; nothing to do")
-    elif entry["applied"]:
-        kept = entry["archived_as"]
-        lines.append("  restored" + (f"; the current file was archived as {kept}" if kept else ""))
-    else:
-        lines.append("  preview only: add --apply to restore it")
-    return lines
-
-
-def summary_lines(entry: Mapping[str, Any]) -> list[str]:
-    """Return the lines ``pyfs-matrix restore`` and ``rebuild`` print for an entry.
-
-    The entry is what :func:`~pyflightstream.run.records.restore` or
-    :func:`rebuild` returned: the lines say what was, or would be, written,
-    and name every refusal. A rebuild's lines end with the count rebuilt and
-    the count refused (FR-412 R3).
-    """
-    if "kind" in entry:
-        return _restore_lines(entry)
-    lines: list[str] = []
-    rebuilt, refused = entry["rebuilt"], entry["refused"]
-    lines.append(
-        f"rebuild: {len(rebuilt)} record(s) rebuilt with pyflightstream "
-        f"{entry['package_version']}, {len(refused)} simulation(s) refused"
-    )
-    for row in rebuilt:
-        lines.append(f"  sim_{row['sim']}: {REBUILT} {row['status']} {row['run_id']}")
-    for sim, reason in refused.items():
-        lines.append(f"  sim_{sim}: NOT RECOVERABLE: {reason}")
-    for run_id in entry["submitted"]:
-        lines.append(f"  SUBMITTED, for pyfs-matrix collect: {run_id}")
-    if entry["waiting_for_matrix"]:
-        lines.append(
-            "  waiting for the matrix revision that ran (--matrix FILE): "
-            + ", ".join(f"sim_{sim}" for sim in entry["waiting_for_matrix"])
-        )
-    for run_id in entry["never_ran"]:
-        lines.append(f"  never ran (no datapoint folder), no record: {run_id}")
-    for line in entry["notes"]:
-        lines.append(f"  note: {line}")
-    for line in entry.get("changes", [])[:30]:
-        lines.append(f"  the workspace changed during the rebuild: {line}")
-    if entry["applied"]:
-        kept = entry["archived_as"]
-        lines.append(
-            f"  wrote {entry['written']}"
-            + (f"; the previous runs.json was archived as {kept}" if kept else "")
-        )
-    else:
-        lines.append(f"  preview only: add --apply to write {entry['target']}")
-    lines.append(f"rebuild: {len(rebuilt)} rebuilt, {len(refused)} refused")
-    return lines
 
 
 def _rebuild_all(

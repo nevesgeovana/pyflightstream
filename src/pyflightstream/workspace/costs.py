@@ -27,11 +27,11 @@ import dataclasses
 import math
 import warnings
 from collections.abc import Collection, Mapping, Sequence
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TypeGuard
 
-from pyflightstream._cli import for_this_invocation
+from pyflightstream._cli import _SELECTED_COST_FILE
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.script import CommandArgumentError
 from pyflightstream.script.toggles import resolve_toggle
@@ -65,9 +65,6 @@ _TABLES: dict[str, frozenset[str]] = {
     "steps": frozenset({"exponent"}),
     "flags": frozenset(),
 }
-
-#: The stem selected by ``--cost-file NAME``, or None.
-_SELECTED_COST_FILE: ContextVar[str | None] = ContextVar("pyflightstream_cost_file", default=None)
 
 
 @dataclass(frozen=True)
@@ -179,6 +176,8 @@ def select_cost_file(name: str | None) -> None:
         command restores it when it ends (PFS-2094.045), and a Python caller
         sets it plainly.
     """
+    from pyflightstream._cli import for_this_invocation
+
     for_this_invocation(_SELECTED_COST_FILE, None if name is None else Path(name).stem)
 
 
@@ -222,19 +221,21 @@ def resolve_cost_file(inputs_dir: str | Path) -> CostFile | None:
     return read_cost_file(found[0]) if found else None
 
 
+def _is_number(value: object) -> TypeGuard[int | float]:
+    """Whether ``value`` is a finite TOML number (a boolean is not one)."""
+    return not isinstance(value, bool) and isinstance(value, int | float) and math.isfinite(value)
+
+
 def _number(table: Mapping, key: str, where: str, path: Path, *, positive: bool = False) -> float:
     """Return ``table[key]`` as a finite number, refusing it by name otherwise.
 
-    ``positive`` also refuses zero and below: a reference figure the estimate
-    divides by (PFS-2097.019).
+    ``positive`` also refuses zero and a negative value: the reference
+    quantities divide an estimate, so a zero is a division by zero later.
     """
     value = table.get(key)
-    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
-        raise InputArtifactError(f"the cost file {path} needs [{where}] {key} to be a number.")
-    if positive and value <= 0:
-        raise InputArtifactError(
-            f"the cost file {path} needs [{where}] {key} to be a positive number; it is {value}."
-        )
+    if not _is_number(value) or (positive and value <= 0):
+        kind = "a positive number" if positive else "a number"
+        raise InputArtifactError(f"the cost file {path} needs [{where}] {key} to be {kind}.")
     return float(value)
 
 
@@ -262,20 +263,10 @@ def _curve(parallel: Mapping, path: Path) -> tuple[tuple[float, ...], tuple[floa
         raise InputArtifactError(
             f"the cost file {path} needs [parallel] ncpus and speedup to be lists of one length."
         )
-    # Every entry a real, finite, positive number before any arithmetic (PFS-2097.019):
-    # a text entry crashed float() or the comparison, and a nan priced every point nan.
-    for key, values in (("ncpus", ncpus), ("speedup", speedup)):
-        for value in values:
-            if (
-                isinstance(value, bool)
-                or not isinstance(value, int | float)
-                or not math.isfinite(value)
-                or value <= 0
-            ):
-                raise InputArtifactError(
-                    f"the cost file {path} needs every [parallel] {key} entry to be a positive "
-                    f"number; it holds {value!r}."
-                )
+    if not all(_is_number(value) for value in (*ncpus, *speedup)):
+        raise InputArtifactError(
+            f"the cost file {path} needs every [parallel] ncpus and speedup entry to be a number."
+        )
     xs = tuple(float(x) for x in ncpus)
     if list(xs) != sorted(set(xs)) or any(s <= 0 for s in speedup):
         raise InputArtifactError(

@@ -1,5 +1,11 @@
 # CAD geometry inputs
 
+!!! note "Since 0.40.0: build the body first"
+    An IGES file is converted once by the geometry stage, `[cad]` in an instruction file,
+    with its CAD body operations, and the row names the built `.fsm`
+    ([Geometry: build a body before the run](geometry.md)). The in-row route below still
+    runs in 0.40.0, warned at plan, and is refused from 0.41.0.
+
 A workflow can import IGES (`.igs` or `.iges`) through the native CAD importer,
 then convert selected CAD bodies into a surface mesh. STEP (`.step` or `.stp`)
 is refused before script emission: native controls produced empty geometry,

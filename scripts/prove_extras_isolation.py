@@ -50,6 +50,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _mutation_harness import classify  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[1]
 PYTHON = Path(sys.executable)
 
@@ -218,12 +222,7 @@ class Battery:
         # mutant: pytest exits non-zero on a collection error too, so a
         # mutant that merely breaks the file would read as KILLED and
         # inflate the count. Require the suite to say a test FAILED.
-        if code and "failed" in summary:
-            got = "KILLED"
-        elif code:
-            got = "INCONCLUSIVE"
-        else:
-            got = "SURVIVED"
+        got = classify(code, summary)
         flag = ""
         if got != expect:
             flag = f"  <-- EXPECTED {expect}"
@@ -266,7 +265,12 @@ class Battery:
         original = path.read_bytes()
         try:
             park(path, original)
-            path.write_bytes(original + extra.replace("\n", "\r\n").encode("utf-8"))
+            # The FILE'S OWN line ends, as `patch` does: always writing CRLF
+            # gave an LF checkout mixed line ends for the length of the run.
+            extra = extra.replace("\r\n", "\n")
+            if b"\r\n" in original:
+                extra = extra.replace("\n", "\r\n")
+            path.write_bytes(original + extra.encode("utf-8"))
             self._verdict(label, *run(self.target), expect=expect)
         finally:
             path.write_bytes(original)
@@ -283,6 +287,8 @@ class Battery:
             print(f"  {label:52} SKIPPED ({path.name} already exists)")
             self.failures.append(f"{label} (target exists)")
             return
+        # The folders this mutant creates, deepest first, so they go with it.
+        made = [parent for parent in path.parents if not parent.exists()]
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             # A tombstone: an empty slot means "this path did not exist,
@@ -290,10 +296,15 @@ class Battery:
             # an untracked file holding a deliberately unguarded import,
             # and `recover()` has nothing to find.
             park(path, b"")
-            path.write_bytes(content.replace("\n", "\r\n").encode("utf-8"))
+            # LF, the repository's own line end for a new file, rather than
+            # CRLF whatever the checkout.
+            path.write_bytes(content.replace("\r\n", "\n").encode("utf-8"))
             self._verdict(label, *run(self.target), expect=expect)
         finally:
             path.unlink(missing_ok=True)
+            for folder in made:
+                if folder.is_dir() and not any(folder.iterdir()):
+                    folder.rmdir()
             unpark(path)
 
 
@@ -374,8 +385,10 @@ def prove_guard_a() -> list[str]:
     )
     battery.patch(
         REPO / ".github" / "workflows" / "ci.yml",
-        "        run: pip install -e .[dev,fsi,geom,manual,plot]",
-        "        run: pip install -e .[dev,fsi,geom]",
+        # The all-extras leg as ci.yml spells it since excel joined it
+        # (2026-09-27); the old spelling left this mutant with no anchor.
+        "        run: pip install -e .[dev,fsi,geom,excel,manual,plot]",
+        "        run: pip install -e .[dev,fsi,geom,excel]",
         "M14 the all-extras leg reduced to the lean set",
     )
     battery.create(

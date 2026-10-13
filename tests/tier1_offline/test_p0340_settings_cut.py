@@ -17,6 +17,7 @@ import inspect
 
 import pytest
 
+from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
 from pyflightstream.script._settings import (
     ADVANCED_FAMILY,
@@ -179,7 +180,10 @@ EVERY = {
     },
 }
 
-#: The keywords each build refuses, measured on the 0.33.0 tree.
+#: The keywords each build refuses, measured on the 0.33.0 tree. 26.121 also
+#: refuses bulk_separation since 2026-10-12: its edition prints only the
+#: successor CREATE_CYLINDRICAL_BULK_SEPARATION and 26.120 measured the old name
+#: deprecated and stopping the script (RPT-166).
 REFUSED = {
     "25.000": {
         "adaptive_field_grid_refinement",
@@ -234,6 +238,7 @@ REFUSED = {
     },
     "26.121": {
         "adverse_gradient_boundary_layer",
+        "bulk_separation",
         "axial_separation_boundaries",
         "axial_vortex_separation",
         "crossflow_separation_axisymmetric",
@@ -326,7 +331,6 @@ V0330_SCRIPTS = {
     "26.121": _HEAD
     + "SET_THIN_BOUNDARIES -1\n\n"
     + "DELETE_SEPARATION -1\n"
-    + "CREATE_BULK_SEPARATION b1 CYLINDRICAL 2 0.2\n1,2\n\n"
     + _MODELS_26_12X
     + _TAIL,
     "26.124": _HEAD
@@ -445,12 +449,23 @@ def test_p0340_settings_cut_emits_every_separation_model_in_the_v0330_order(vers
     rendered: a bulk model moved after the assignments, or two assignment
     kinds swapped, fails here.
     """
+    # Since 2026-10-12 the four-argument bulk model is refused on both builds
+    # (RPT-166): their editions print only CREATE_CYLINDRICAL_BULK_SEPARATION,
+    # and 26.120 measured the old name deprecated and stopping the script. The
+    # refusal names the successor; every other model keeps its 0.33.0 order.
+    refused = Script(version=version)
+    refused.declare_existing(boundaries={"wing": 1, "body": 2, "tail": 3})
+    with pytest.raises(CommandNotInVersionError, match="CREATE_CYLINDRICAL_BULK_SEPARATION"):
+        helpers.solver_settings(refused, **EVERY_MODEL)
     script = Script(version=version)
     script.declare_existing(boundaries={"wing": 1, "body": 2, "tail": 3})
-    setup = helpers.solver_settings(script, **EVERY_MODEL)
-    assert script.render() == V0330_EVERY_MODEL
+    models = {key: value for key, value in EVERY_MODEL.items() if key != "bulk_separation"}
+    setup = helpers.solver_settings(script, **models)
+    assert script.render() == V0330_EVERY_MODEL.replace(
+        "CREATE_BULK_SEPARATION b1 FLAT_PLATE 2 0.2\n1,2\n\n", ""
+    )
     emitted = [command for command, record in setup.flags.items() if record.emitted]
-    assert "CREATE_BULK_SEPARATION" in emitted
+    assert "CREATE_BULK_SEPARATION" not in emitted
     assert "DELETE_SEPARATION" in emitted
 
 

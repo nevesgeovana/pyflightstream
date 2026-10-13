@@ -39,9 +39,9 @@ code columns below are assigned here, densely from 1, so 999 is free in
 them by construction. The value columns are not ours: they carry
 iteration counts, angles and boundary indices, any of which can
 legitimately be 999, and read back a filled cell and a real setting
-equal to the fill are the same bytes. So an unknown flag is written as
-the provenance code `3` with the value columns EMPTY, and a caller may
-ask for empty CODE cells to be filled; asking to fill a value column is
+equal to the fill are the same bytes. A cell that does not apply is written
+`NA` by default. The `fill` option writes a numeric sentinel into code columns
+only; value columns are never filled, and asking to fill one is
 refused, naming the flags whose legal range contains the fill.
 
 ## Columns
@@ -51,11 +51,11 @@ The tidy form, one row per run and flag:
 `codebook_version`, `run_index`, `flag_id`, `provenance_code`, `emitted`, `value_kind`, `value_num`, `value_code`, `value_count`
 
 The wide form gives one row per run, and each flag contributes
-`f<id>_value` and `f<id>_prov`. Two columns are enough there and three
-are needed in the tidy form for a structural reason: a per-flag column
-is monomorphic, so `f15_value` always holds an enumeration code and
-`f11_value` always holds an iteration count, whereas one shared value
-column would hold both.
+`f<id>_value`, `f<id>_prov` and `f<id>_kind`. Boundary flags accept either
+the token `all` (enumeration code 1) or a list (its length). The kind column
+distinguishes those meanings even when both values are 1. It uses the value
+kind codes below; the existing code meanings and codebook version remain
+unchanged. A fill sentinel may replace an absent kind, never a value.
 
 Column ORDER is documented and not guaranteed. A reader resolves a
 column by its label (the convention recorded 2026-08-17, NFR-19).

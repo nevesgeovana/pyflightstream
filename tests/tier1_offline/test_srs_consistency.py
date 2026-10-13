@@ -67,7 +67,7 @@ _ID = re.compile(r"^(?P<prefix>[A-Za-z]+)-(?P<number>\d+)(?P<letter>[a-z]?)$")
 def _boxes() -> list[tuple[str, str]]:
     """Return every declared box as (kind, identifier), pages in order."""
     found: list[tuple[str, str]] = []
-    for page in sorted(SRS.glob("*.md")):
+    for page in sorted([*SRS.glob("*.md"), *(REPO / "docs" / "srs").glob("*.md")]):
         for match in BOX.finditer(page.read_text(encoding="utf-8")):
             found.append((match.group("kind"), match.group("id")))
     return found
@@ -115,7 +115,8 @@ def test_the_index_prose_range_ends_at_the_highest_identifier(prefix, pattern):
     match = re.search(pattern, index)
     assert match, f"the index no longer announces a {prefix} range in the expected shape"
     assert int(match.group(1)) == _highest(prefix), (
-        f"docs/srs/index.md announces {prefix}-01 to {prefix}-{match.group(1)} while "
+        f"docs/unpublished/requirements/index.md announces "
+        f"{prefix}-01 to {prefix}-{match.group(1)} while "
         f"the highest {prefix} the SRS declares is {prefix}-{_highest(prefix)}"
     )
 
@@ -155,7 +156,7 @@ def test_the_acceptance_mapping_names_only_identifiers_that_exist():
 
 def test_the_roadmap_names_only_identifiers_that_exist():
     """Same rule for the backlog: an open line cites live work or nothing."""
-    roadmap = (SRS / "roadmap.md").read_text(encoding="utf-8")
+    roadmap = (REPO / "docs" / "srs" / "roadmap.md").read_text(encoding="utf-8")
     declared = {identifier for _, identifier in _boxes()}
     cited = set(re.findall(r"\b((?:FR|NFR|NREQ|AD)-\d+[a-z]?)\b", roadmap))
     assert cited, "the roadmap cites no identifier at all; the scan is broken"

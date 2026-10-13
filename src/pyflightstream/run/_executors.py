@@ -15,10 +15,11 @@ import json
 import os
 import platform
 import re
+import string
 import subprocess
 import sys
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -529,13 +530,26 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
             ) from None
         rendered[key] = text
     if profile.descriptor_format == "json":
-        return json.dumps(rendered, indent=2) + "\n"
+        # THE YAML RULE, IN JSON (PFS-2094.009): a boolean is a JSON boolean and a
+        # single substitution of a number is a JSON number; the rest are strings.
+        typed: dict[str, object] = {}
+        for key, text in rendered.items():
+            template = profile.fields[key]
+            if isinstance(template, bool):
+                typed[key] = template
+            elif _numeric_field(template, values):
+                typed[key] = values[str(template).strip()[1:-1]]
+            else:
+                typed[key] = text
+        return json.dumps(typed, indent=2) + "\n"
     for key, text in rendered.items():
         template = profile.fields[key]
         if profile.descriptor_format == "text":
             lines.append(f"{key}: {text}")
         elif profile.descriptor_format == "toml":
-            lines.append(f"{key} = {text}" if isinstance(template, bool) else f'{key} = "{text}"')
+            # A boolean and a single substitution of a number are bare, as in yaml.
+            bare = _numeric_field(template, values)
+            lines.append(f"{key} = {text}" if bare else f'{key} = "{text}"')
         else:
             # yaml. A number stays bare and everything else is quoted, which
             # is what the predecessor's own descriptor does.
@@ -548,6 +562,55 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
             bare = _numeric_field(template, values)
             lines.append(f"{key}: {text}" if bare else f'{key}: "{text}"')
     return "\n".join(lines) + "\n"
+
+
+#: Every name a run can supply to a submit command beyond the executor's own
+#: values: the run's (``run_script``), a point's (:func:`bind_submission_values`)
+#: and a grouped job's (``job_values`` of the grouped run).
+_SUBMIT_VALUES = frozenset(
+    {
+        "application_id",
+        "script_path",
+        "work_dir",
+        "descriptor_path",
+        HPC_BUILD_ALIAS,
+        "sim",
+        "point",
+        "fs_build",
+        "ncpus",
+        "walltime",
+        "walltime_s",
+        "walltime_written",
+        "sims",
+        "first_sim",
+        "last_sim",
+        "batch",
+        "batch_id",
+    }
+)
+
+
+def _unknown_submit_placeholders(profile, values: Mapping[str, object]) -> list[str]:
+    """Return the ``{name}`` of the profile's submit command that no run supplies."""
+    known = _SUBMIT_VALUES | set(values)
+    unknown: list[str] = []
+    pending = list(profile.submit)
+    while pending:
+        part = pending.pop()
+        try:
+            fields = list(string.Formatter().parse(str(part)))
+        except ValueError:
+            unknown.append(f"an unreadable brace in {part!r}")
+            continue
+        for _, field, spec, _ in fields:
+            if field is None:
+                continue
+            if spec:
+                pending.append(spec)
+            name = re.split(r"[.\[]", field, maxsplit=1)[0]
+            if name not in known and f"{{{field}}}" not in unknown:
+                unknown.append(f"{{{field}}}")
+    return unknown
 
 
 def _names_the_build_alias(profile) -> bool:
@@ -616,6 +679,15 @@ class Submitting(Protocol):
 
     def submission_record(self) -> dict | None:
         """Return what was handed to the scheduler, or None before anything was."""
+
+
+def submits_jobs(executor: object) -> bool:
+    """Whether an executor submits jobs, including wrappers over a local executor.
+
+    Older implementations of Submitting without the explicit predicate keep
+    their declared protocol behavior.
+    """
+    return bool(getattr(executor, "submits", isinstance(executor, Submitting)))
 
 
 def bind_submission_values(executor, case, point_case) -> None:
@@ -749,6 +821,16 @@ class SubmittingExecutor:
                 "shape reads as no profile downstream, which is silently the "
                 "behaviour of the release before this one."
             )
+        # THE SUBMIT COMMAND'S PLACEHOLDERS, CHECKED HERE (PFS-2094.010): a name no
+        # run supplies (``{queue}``, a typo) was a KeyError at the first point,
+        # after earlier rows were already submitted.
+        unknown = _unknown_submit_placeholders(profile, values)
+        if unknown:
+            raise ExecutorConfigurationError(
+                f"the HPC profile {profile.path} writes {', '.join(unknown)} in its submit "
+                "command, and no run supplies it. What a run can supply: "
+                f"{', '.join(sorted(_SUBMIT_VALUES | set(values)))}."
+            )
         self.profile = profile
         #: What every point of this campaign shares, held apart so a
         #: per-point binding can REBUILD on it rather than merge into the
@@ -821,42 +903,29 @@ class SubmittingExecutor:
     def run_script(
         self, script_path: Path, working_dir: Path, timeout_s: float | None = None
     ) -> ExecutionResult:
-        """Write the descriptor, submit it, and return without waiting."""
+        """Write the descriptor, submit it, and return without waiting.
+
+        A REFUSAL IS THIS POINT'S FAILURE (PFS-2094.037): a build the profile
+        maps nothing for, a steady coupled script, a placeholder the row does
+        not resolve, or a submit command that does not return in time is a
+        failed result for this point, never an exception that ended the
+        campaign with the point unrecorded and every later row unrun.
+        """
         started = _utc_now()
-        values = {
-            **self.values,
-            "application_id": self.profile.application_id,
-            "script_path": Path(script_path).as_posix(),
-            "work_dir": Path(working_dir).as_posix(),
-        }
-        # PFS-2010.01.06. The scheduler's word for this point's build, when
-        # the profile maps it; refused by name when the profile writes the
-        # substitution and maps nothing for the build.
-        refusal = _unmapped_build_refusal(self.profile, [values.get("fs_build")])
-        if refusal is not None:
-            raise CampaignConfigError(refusal)
-        if _a_steady_coupled_script(Path(script_path)):
-            # FSI-G: a steady coupled script never exits by itself; only a local
-            # run reads its completion line and stops it, and a submitted job
-            # would hold its node until the wall clock.
-            raise CampaignConfigError(
-                f"{Path(script_path).name} is a steady coupled run (it ends at "
-                "EXECUTE_AEROELASTIC_ANALYSIS), whose process never exits by itself: a "
-                "local run stops it once the analysis ends, and a submitted job would hold "
-                "its node until the wall clock. Run it with local (CLI: --local) in this "
-                "release."
+        try:
+            descriptor, argv = self._prepared(script_path, working_dir)
+        except (
+            CampaignConfigError,
+            KeyError,
+            ValueError,
+            IndexError,
+            AttributeError,
+            TypeError,
+        ) as error:
+            said = f"the placeholder {{{error.args[0]}}}" if isinstance(error, KeyError) else error
+            return _unsubmitted(
+                (), working_dir, timeout_s, started, f"nothing was submitted: {said}", code=2
             )
-        build = values.get("fs_build")
-        if build and _canonical_build(build) in (getattr(self.profile, "builds", None) or {}):
-            values[HPC_BUILD_ALIAS] = self.profile.builds[_canonical_build(build)]
-        descriptor = Path(working_dir) / self.profile.descriptor_name
-        descriptor.parent.mkdir(parents=True, exist_ok=True)
-        _textio.write_text(descriptor, render_descriptor(self.profile, values))
-        self.descriptor_path = descriptor
-        argv = [
-            part.format(descriptor_path=descriptor.as_posix(), **values)
-            for part in self.profile.submit
-        ]
         if not self.submit:
             # The switch the predecessor spells `esub`, and it gates the
             # CALL alone: the descriptor above is written either way.
@@ -894,28 +963,32 @@ class SubmittingExecutor:
                 # chose.
                 env=os.environ.copy(),
             )
+        except subprocess.TimeoutExpired:
+            return _unsubmitted(
+                argv,
+                working_dir,
+                timeout_s,
+                started,
+                f"the submit command {argv[0]!r} did not return within {timeout_s} s; whether "
+                f"the scheduler took the job is unknown; the descriptor is {descriptor}",
+                code=124,
+                timed_out=True,  # PFS-2094.010: the submit command hung
+            )
         except OSError as error:
             # THE SCHEDULER IS NOT ON THIS MACHINE, which is what a
             # mistyped submit command or a login node without the client
             # looks like from here. It is this point's failure and not the
             # campaign's: uncaught, one wrong profile aborted every
             # remaining row after the descriptors were already written.
-            return ExecutionResult(
-                return_code=127,
-                stdout="",
-                stderr=(
-                    f"the submit command {argv[0]!r} could not be run: {error}. It is "
-                    f"named by the submit table of {self.profile.path}; the descriptor "
-                    f"was written to {descriptor} and nothing was submitted."
-                ),
-                argv=tuple(argv),
-                cwd=str(working_dir),
-                timeout_s=timeout_s,
-                started_at=started,
-                finished_at=_utc_now(),
-                wall_time_s=0.0,
-                timed_out=False,
-                log_text=None,
+            return _unsubmitted(
+                argv,
+                working_dir,
+                timeout_s,
+                started,
+                f"the submit command {argv[0]!r} could not be run: {error}. It is "
+                f"named by the submit table of {self.profile.path}; the descriptor "
+                f"was written to {descriptor} and nothing was submitted.",
+                code=127,
             )
         return ExecutionResult(
             return_code=completed.returncode,
@@ -930,6 +1003,88 @@ class SubmittingExecutor:
             timed_out=False,
             log_text=None,
         )
+
+    def _prepared(self, script_path: Path, working_dir: Path) -> tuple[Path, list[str]]:
+        """Refuse what cannot be submitted, then write the descriptor; return it and the argv.
+
+        The argv is formatted BEFORE the descriptor is written, so a profile
+        whose submit command names a value the row does not resolve leaves no
+        descriptor behind.
+        """
+        values = {
+            **self.values,
+            "application_id": self.profile.application_id,
+            "script_path": Path(script_path).as_posix(),
+            "work_dir": Path(working_dir).as_posix(),
+        }
+        # PFS-2010.01.06. The scheduler's word for this point's build, when
+        # the profile maps it; refused by name when the profile writes the
+        # substitution and maps nothing for the build.
+        refusal = _unmapped_build_refusal(self.profile, [values.get("fs_build")])
+        if refusal is not None:
+            raise CampaignConfigError(refusal)
+        if _a_steady_coupled_script(Path(script_path)):
+            # FSI-G: a steady coupled script never exits by itself; only a local
+            # run reads its completion line and stops it, and a submitted job
+            # would hold its node until the wall clock.
+            raise CampaignConfigError(
+                f"{Path(script_path).name} is a steady coupled run (it ends at "
+                "EXECUTE_AEROELASTIC_ANALYSIS), whose process never exits by itself: a "
+                "local run stops it once the analysis ends, and a submitted job would hold "
+                "its node until the wall clock. Run it with local (CLI: --local) in this "
+                "release."
+            )
+        build = values.get("fs_build")
+        if build and _canonical_build(build) in (getattr(self.profile, "builds", None) or {}):
+            values[HPC_BUILD_ALIAS] = self.profile.builds[_canonical_build(build)]
+        descriptor = Path(working_dir) / self.profile.descriptor_name
+        try:
+            argv = [
+                part.format(descriptor_path=descriptor.as_posix(), **values)
+                for part in self.profile.submit
+            ]
+        except (KeyError, IndexError, ValueError, AttributeError, TypeError) as error:
+            # A name the executor accepted (a point's or a grouped job's value) that
+            # this point does not supply, or a brace the format cannot read (an
+            # attribute or index access, a format specification): refused by name,
+            # before any descriptor, and the point records it (R1-002, PFS-2094.010).
+            said = f"{{{error.args[0]}}}" if isinstance(error, KeyError) else str(error)
+            raise CampaignConfigError(
+                f"the HPC profile {self.profile.path} writes {said} in its "
+                "submit command, and this point cannot supply it. What it can: "
+                f"{', '.join(sorted({'descriptor_path', *values}))}."
+            ) from None
+        rendered = render_descriptor(self.profile, values)
+        descriptor.parent.mkdir(parents=True, exist_ok=True)
+        _textio.write_text(descriptor, rendered)
+        self.descriptor_path = descriptor
+        return descriptor, argv
+
+
+def _unsubmitted(
+    argv: Sequence[str],
+    working_dir: Path,
+    timeout_s: float | None,
+    started: str,
+    said: str,
+    *,
+    code: int,
+    timed_out: bool = False,
+) -> ExecutionResult:
+    """Return the failed result of a point that was not submitted, ``said`` as its stderr."""
+    return ExecutionResult(
+        return_code=code,
+        stdout="",
+        stderr=said,
+        argv=tuple(argv),
+        cwd=str(working_dir),
+        timeout_s=timeout_s,
+        started_at=started,
+        finished_at=_utc_now(),
+        wall_time_s=0.0,
+        timed_out=timed_out,
+        log_text=None,
+    )
 
 
 #: G43 of 0.28.0: how often an unsteady run's progress is said, in completed time
@@ -1305,6 +1460,10 @@ class LocalExecutor:
             "cwd": str(working_dir),
             "timeout_s": timeout_s,
         }
+        # A FlightStreamLog.txt AN EARLIER ATTEMPT LEFT is not this run's log
+        # (PFS-2103.003): it is read after the run only if this run wrote it, which
+        # its size and modification time say. It is kept, as the earlier attempt's.
+        stale_log = _file_stamp(Path(working_dir) / _LOG_NAME)
         start = time.perf_counter()
         started_at = _utc_now()
         timed_out = False
@@ -1319,7 +1478,9 @@ class LocalExecutor:
             if getattr(self, "progress_every", 0) > 0
             else None
         )
-        if _a_steady_coupled_script(script_path):
+        # A RELATIVE SCRIPT PATH IS THE SOLVER'S, read from its working directory as
+        # the solver reads it (PFS-2094.011), never from this process's.
+        if _a_steady_coupled_script(Path(working_dir) / script_path):
             return_code, stdout, stderr, timed_out = _run_until_the_analysis_ends(
                 argv, Path(working_dir), timeout_s
             )
@@ -1362,7 +1523,7 @@ class LocalExecutor:
         finished_at = _utc_now()
         log_path = Path(working_dir) / _LOG_NAME
         log_text = None
-        if log_path.is_file():
+        if log_path.is_file() and _file_stamp(log_path) != stale_log:
             log_text = log_path.read_text(encoding="utf-8", errors="replace")
         modal_log = Path(working_dir) / "pyfs-modal-error.log"
         if modal_log.is_file() and "solver modal/error detected" in stderr:
@@ -1378,6 +1539,15 @@ class LocalExecutor:
             finished_at=finished_at,
             **invocation,
         )
+
+
+def _file_stamp(path: Path) -> tuple[int, int] | None:
+    """Return a file's size and modification time in ns, or None where there is no file."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return stat.st_size, stat.st_mtime_ns
 
 
 def _a_steady_coupled_script(script_path: Path) -> bool:
@@ -1521,9 +1691,11 @@ def export_surface_mesh(
         Target FlightStream version; emission is validated against it.
     executor : Executor, optional
         Executor to run the script with; alternatively give
-        ``fs_exe`` to build a :class:`LocalExecutor`.
+        ``fs_exe`` to build a :class:`LocalExecutor`. Given both, the
+        executor runs the script and ``fs_exe`` is not read.
     fs_exe : str or pathlib.Path, optional
-        FlightStream executable path (explicit input, never guessed).
+        FlightStream executable path (explicit input, never guessed),
+        read only when no ``executor`` is given.
     file_type : str
         Export format token, one of STL, TRI, OBJ (SRC-003 p.307);
         OBJ is the geometry gate default.
@@ -1573,11 +1745,12 @@ def export_surface_mesh(
 
     result = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
     if result.failed or not mesh_path.is_file():
-        outcome = "timed out" if result.timed_out else f"returned {result.return_code}"
-        log_excerpt = (result.log_text or "")[-2000:]
+        # THE ONE SENTENCE (ExecutionResult.diagnosis, PFS-2094.012): every captured
+        # channel, stdout included, which is the only one a failure before the
+        # script carries; the log alone was empty for exactly those.
         raise SurfaceMeshExportError(
-            f"the pre-processing run {outcome} and the mesh file "
-            f"{mesh_path.name} {'exists' if mesh_path.is_file() else 'was not written'}; "
-            f"check the simulation file and the log excerpt: {log_excerpt!r}"
+            f"the pre-processing run {result.diagnosis()}; the mesh file {mesh_path.name} "
+            f"{'exists' if mesh_path.is_file() else 'was not written'}. Check the "
+            "simulation file and what the run said."
         )
     return mesh_path

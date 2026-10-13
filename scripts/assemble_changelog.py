@@ -42,7 +42,6 @@ REPO = Path(__file__).resolve().parents[1]
 FRAGMENTS_DIR = "changelog.d"
 README = "README.md"
 CHANGELOG = "CHANGELOG.md"
-DEFAULT_MIGRATION_PAGE = "docs/migrating-to-0.32.0.md"
 #: The change log sections a fragment may carry, in the order they are created.
 CHANGELOG_SECTIONS = ("Added", "Changed", "Fixed", "Removed")
 MIGRATION = "Migration"
@@ -113,6 +112,16 @@ def _trim_end(lines: list[str], start: int, end: int) -> int:
     return end
 
 
+def _holds(lines: list[str], block_lines: list[str]) -> bool:
+    """Whether ``block_lines`` appear in ``lines`` as a run of WHOLE lines.
+
+    A substring test said a bullet was already present when it was only the
+    start of a longer one, and the fragment was then deleted unfolded.
+    """
+    width = len(block_lines)
+    return any(lines[i : i + width] == block_lines for i in range(len(lines) - width + 1))
+
+
 def _add_to_section(body: list[str], name: str, block: str) -> bool:
     """Append ``block`` under ``### name`` of ``body``; return whether it was added."""
     headings = [index for index, line in enumerate(body) if line.startswith("### ")]
@@ -121,7 +130,7 @@ def _add_to_section(body: list[str], name: str, block: str) -> bool:
     if own:
         start = own[0]
         end = next((index for index in headings if index > start), len(body))
-        if block in "\n".join(body[start + 1 : end]):
+        if _holds(body[start + 1 : end], block_lines):
             return False
         last = _trim_end(body, start + 1, end)
         insert = block_lines if last > start + 1 else ["", *block_lines]
@@ -166,7 +175,7 @@ def fold_migration(text: str | None, page: str, blocks: list[str]) -> tuple[str,
         text = f"# Migrating to {version.group(1)}\n" if version else "# Migration\n"
     added = 0
     for block in blocks:
-        if block in text:
+        if _holds(text.split("\n"), block.split("\n")):
             continue
         text = text.rstrip("\n") + "\n\n" + block + "\n"
         added += 1
@@ -182,7 +191,7 @@ def _read(path: Path) -> tuple[str | None, str]:
     return raw.decode("utf-8").replace("\r\n", "\n"), newline
 
 
-def assemble(repo: Path, migration_page: str = DEFAULT_MIGRATION_PAGE) -> dict[str, object]:
+def assemble(repo: Path, migration_page: str | None = None) -> dict[str, object]:
     """Fold every fragment of ``repo`` and delete them; return what was done."""
     found = fragments(repo)
     parsed = [(path, parse_fragment(path)) for path in found]
@@ -200,13 +209,19 @@ def assemble(repo: Path, migration_page: str = DEFAULT_MIGRATION_PAGE) -> dict[s
         if name in sections
     ]
     migrations = [sections[MIGRATION] for _, sections in parsed if MIGRATION in sections]
+    if migrations and migration_page is None:
+        raise FragmentError(
+            "a fragment carries ## Migration; name the release's page with "
+            "--migration-page docs/migrating-to-<version>.md"
+        )
     changelog_path = repo / CHANGELOG
     changelog, changelog_newline = _read(changelog_path)
     if changelog is None:
         raise FragmentError(f"{changelog_path} does not exist")
     folded, report["changelog_entries"] = fold_changelog(changelog, additions)
-    page_path = repo / migration_page
     if migrations:
+        assert migration_page is not None
+        page_path = repo / migration_page
         page, page_newline = _read(page_path)
         new_page, report["migration_entries"] = fold_migration(page, migration_page, migrations)
         if new_page != page:
@@ -225,8 +240,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", type=Path, default=REPO, help="the checkout to fold")
     parser.add_argument(
         "--migration-page",
-        default=DEFAULT_MIGRATION_PAGE,
-        help=f"the migration page, relative to the checkout (default: {DEFAULT_MIGRATION_PAGE})",
+        help="the migration page, relative to the checkout, for example "
+        "docs/migrating-to-0.40.0.md; needed when a fragment carries ## Migration",
     )
     args = parser.parse_args(argv)
     try:

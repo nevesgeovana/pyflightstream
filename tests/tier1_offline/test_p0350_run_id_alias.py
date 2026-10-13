@@ -10,7 +10,8 @@ plan reading disagree is refused naming both.
 
 What it does NOT check: a solver. A stub stands in for the executor.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 
@@ -104,7 +105,9 @@ def test_fr395_a_steady_jobs_points_have_aliases(tmp_path, monkeypatch, capsys):
     assert [found[f"5001_{index}"] for index in (1, 2, 3)] == names
     capsys.readouterr()
     assert cli.main(["mark-failed", "--sims", "5001_3", "--workspace", str(workspace.root)]) == 0
-    assert "warm/sim_5001/sweep" in capsys.readouterr().out
+    # 0.40.0 (PFS-2103.009): the job's third point alone, by its own run id.
+    out = capsys.readouterr().out
+    assert f"warm/sim_5001/{names[2]}" in out and f"warm/sim_5001/{names[0]}" not in out
 
 
 def test_fr395_points_takes_an_alias_and_a_name_alike(tmp_path, monkeypatch, capsys):
@@ -112,7 +115,9 @@ def test_fr395_points_takes_an_alias_and_a_name_alike(tmp_path, monkeypatch, cap
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     assert cli.main(_argv("plan", workspace, matrix, "--points", "5002_2")) == 0
-    planned = json.dumps(json.loads(_plan_file(workspace, matrix).read_text(encoding="utf-8")))
+    planned = json.dumps(
+        json.loads(_plan_file(workspace, matrix).read_text(encoding="utf-8"))["points"]
+    )
     assert names[1] in planned and names[0] not in planned and "5001" not in planned, planned
     capsys.readouterr()
     assert cli.main(_argv("plan", workspace, matrix, "--sims", "5001", "--points", "5002_2")) == 2
@@ -142,7 +147,8 @@ def test_fr395_mark_failed_marks_the_point_of_the_alias_alone(tmp_path, monkeypa
     argv = ["mark-failed", "--sims", "5002_2", "--workspace", str(workspace.root), "--apply"]
     assert cli.main(argv) == 0
     status = {
-        row["run_id"]: row["status"] for row in json.loads(workspace.manifest_path.read_text())
+        row["run_id"]: row["status"]
+        for row in json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
     }
     assert status[f"warm/sim_5002/{names[1]}"] == "FAILED_MARKED"
     assert status[f"warm/sim_5002/{names[0]}"] == "CONVERGED"

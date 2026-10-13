@@ -58,6 +58,11 @@ from dataclasses import dataclass
 #: which is not a decision this module is entitled to make; tightening it
 #: below print resolution would fire on rounding.
 #:
+#: A PARSED LOADS EXPORT STATES ITS OWN WIDTH for the free-stream velocity
+#: (``LoadsReport.print_tolerances``, PFS-2092.001): that velocity is compared
+#: at half a count of the digit the export printed, and the 5e-4 above is the
+#: width of a report that does not say.
+#:
 #: ``tests/tier1_offline/test_conditions.py`` reads this citation out of this file,
 #: opens the export it names and asserts the three printed widths against
 #: these tolerances, so the premise cannot rot back into a recollection.
@@ -104,8 +109,14 @@ class ConditionCheck:
 
     @property
     def within(self) -> bool:
-        """True when the deviation is no larger than print rounding."""
-        return self.deviation <= self.tolerance
+        """True when the deviation is no larger than print rounding.
+
+        The slack of one part in 1e9 absorbs the binary representation
+        of the difference: a request at an exact half count, 0.0625
+        printed ``0.063``, differs by 5.000000000000004e-4 in floating
+        point, which is the tolerance itself and not past it.
+        """
+        return self.deviation <= self.tolerance * (1.0 + 1e-9)
 
     def describe(self) -> str:
         """Return one human-readable line for an error message."""
@@ -244,9 +255,15 @@ def bind_conditions(
     unbound = tuple(
         sorted(axis for axis, value in requested.items() if axis not in known and value is not None)
     )
-    for axis, attribute, tolerance, unit in bindings:
+    # THE PRINTED PRECISION OF THIS EXPORT (PFS-2092.001): a report that says
+    # how finely it printed a value is compared at half a count of that digit,
+    # so a velocity the package derives from the Mach number is held to what
+    # the solver could print, not to a width another build printed.
+    printed_at = getattr(reported, "print_tolerances", None) or {}
+    for axis, attribute, table_tolerance, unit in bindings:
         if axis not in requested or requested[axis] is None:
             continue
+        tolerance = float(printed_at.get(attribute, table_tolerance))
         printed = getattr(reported, attribute, None)
         if printed is None:
             unprinted.append(axis)

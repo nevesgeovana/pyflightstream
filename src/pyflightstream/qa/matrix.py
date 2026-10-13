@@ -55,8 +55,11 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
+import numpy as np
+
 import pyflightstream
 import pyflightstream._textio as _textio
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import MatrixRow, read_matrix
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.qa.drift import DriftRun, diff_runs
@@ -80,10 +83,12 @@ from pyflightstream.run.matrix import run_matrix
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
     CampaignWorkspace,
+    InputArtifactError,
     RunRecord,
     RunStatus,
     WorkspaceError,
     matrix_files,
+    resolve_build,
 )
 from pyflightstream.workspace._matrix_homes import matrix_path, names_its_folder
 from pyflightstream.workspace.inputs import LOCAL_EXECUTABLES_FILE
@@ -108,6 +113,18 @@ DEFAULT_MATRIX = "matriz_physics.fs"
 
 #: A row names its case at the head of its DESCRIPTION cell.
 _CASE_ID = re.compile(r"^(PHY-\d{2})(?:_|$)")
+
+#: What reducing one case can raise once the matrix has run, besides the
+#: evidence refusal: the results layer's refusals of a loads table, an
+#: output no longer on disk, a coefficient column a reduction indexes, an
+#: exhausted search and a fit numpy cannot make (PFS-2102.007).
+_CASE_FAILURES = (
+    PyflightstreamError,
+    OSError,
+    KeyError,
+    StopIteration,
+    np.linalg.LinAlgError,
+)
 
 #: A point the run finished and judged from its loads table.
 _TERMINAL_OK = (
@@ -180,8 +197,20 @@ def case_of_row(row: MatrixRow) -> str | None:
     return match.group(1) if match else None
 
 
+def _inputs_of(matrix: Path) -> Path:
+    """Return the ``inputs/`` directory of the workspace a matrix file sits in.
+
+    A matrix lives at the workspace root or under ``inputs/matrices/``
+    (FR-310), and the build registry is ``inputs/executables.toml``.
+    """
+    folder = matrix.resolve().parent
+    if folder.name == "matrices" and folder.parent.name == "inputs":
+        return folder.parent
+    return folder / "inputs"
+
+
 def physics_build(matrix: str | Path) -> str:
-    """Return the one canonical build every active row of the matrix names.
+    """Return the one canonical version the build every active row names declares.
 
     A ``PHY`` report is evidence of ONE build, and its stem carries that
     build, so the pre-flight that protects a licensed seat has to know it
@@ -196,13 +225,17 @@ def physics_build(matrix: str | Path) -> str:
     Returns
     -------
     str
-        The canonical build identifier the active rows name.
+        The canonical version the registry entry of that build id
+        declares, which is the version the records carry and the report
+        stem is written under. The build id itself is a name the user
+        chose and is never read as a version (PFS-2102.006).
 
     Raises
     ------
     PhysicsEnvironmentError
-        When an active row leaves FS_BUILD empty, or the rows name more
-        than one build. The convention of a workspace matrix is that
+        When an active row leaves FS_BUILD empty, the rows name more
+        than one build, or the build's registry entry cannot be read or
+        declares no version. The convention of a workspace matrix is that
         every row names its build (PFS-2029.01), so no default is offered.
     """
     rows = read_matrix(matrix)
@@ -222,7 +255,22 @@ def physics_build(matrix: str | Path) -> str:
             "of one case set is a drift: run pyfs-qa drift with the two executables, or "
             "give every row the same FS_BUILD."
         )
-    return resolve(builds[0]).canonical
+    inputs = _inputs_of(Path(matrix))
+    try:
+        declared = resolve_build(inputs, builds[0]).fs_version
+    except InputArtifactError as error:
+        raise PhysicsEnvironmentError(
+            f"the build {builds[0]!r} the rows of {Path(matrix).name} name cannot be read "
+            f"from the registry: {error}"
+        ) from error
+    if declared is None:
+        raise PhysicsEnvironmentError(
+            f"the build {builds[0]!r} the rows of {Path(matrix).name} name declares no "
+            f"version in {inputs / 'executables.toml'}, and a physics report is evidence of "
+            "one version; write the entry as "
+            f'"{builds[0]}" = {{ path = "...", version = "<version>" }}.'
+        )
+    return resolve(declared).canonical
 
 
 def _campaign_name(root: Path, name: str | None) -> tuple[str, str]:
@@ -322,22 +370,47 @@ def point_result(workspace: CampaignWorkspace, record: RunRecord) -> PointResult
     PointResult
         The point's angle of attack, its Total loads row, its iteration count, its label and its
         convergence word.
+
+    Raises
+    ------
+    QaEvidenceError
+        If the record's point has no ``alpha`` axis: a point of unknown incidence
+        cannot be judged.
     """
+    if "alpha" not in record.point:
+        # PFS-2102.009. Defaulting to 0 deg judged an unknown incidence as
+        # zero, beside a real 0 deg point of the same sweep.
+        raise QaEvidenceError(
+            f"{record.run_id} records no alpha axis (its point is {record.point}); every "
+            "physics row sweeps ALPHA, and a point of unknown incidence cannot be judged"
+        )
     report = parse_run_loads(workspace, record)
     return PointResult(
-        alpha_deg=float(record.point.get("alpha", 0.0)),
+        alpha_deg=float(record.point["alpha"]),
         total=dict(report.total),
         iterations=report.current_iteration,
         converged=record.status is RunStatus.CONVERGED,
         label=f"sim_{record.sim_id}/{record.run_id.rsplit('/', 1)[-1]}",
+        minimum_cp=(record.solver_setup or {})
+        .get("flags", {})
+        .get("SOLVER_MINIMUM_CP", {})
+        .get("value"),
     )
 
 
-def _records_by_row(workspace: CampaignWorkspace, stem: str) -> dict[str, list[RunRecord]]:
-    """Return the manifest's records of one matrix by POL, the latest per point winning."""
+def _records_by_row(
+    workspace: CampaignWorkspace, stem: str, campaign: str
+) -> dict[str, list[RunRecord]]:
+    """Return the manifest's records of one matrix run by POL, the latest per point winning.
+
+    PFS-2102.034. Only the records of ``campaign``, the name the run used:
+    a workspace that ran the matrix under its directory name and again
+    under ``--name`` holds two records per point, and pooling them made
+    a polar of duplicate angles or an unpacking crash after the run.
+    """
     latest: dict[str, dict[str, RunRecord]] = {}
     for record in workspace.read_manifest():
-        if record.matrix_stem != stem:
+        if record.matrix_stem != stem or record.run_id.split("/", 1)[0] != campaign:
             continue
         # THE MANIFEST STORES JOBS SINCE 0.17.0 and this reduction reasons
         # per POINT: it sorts by angle of attack and reports one row per
@@ -378,7 +451,41 @@ def _points_of_row(
             f"row {row.pol} has {len(unfinished)} point(s) the run did not finish: "
             + "; ".join(unfinished)
         )
+    # PFS-2085.016. MAX_ITER_REACHED is a STEADY point stopped at the
+    # iteration limit with the residual not settled (FR-434), and the
+    # references are of converged data, so such a point is not judged.
+    # COMPLETED_MAX_ITER stays judged: an unsteady row ends its time loop
+    # by design.
+    unsettled = [record.run_id for record in records if record.status is RunStatus.MAX_ITER_REACHED]
+    if unsettled:
+        raise QaEvidenceError(
+            f"row {row.pol} has {len(unsettled)} steady point(s) that stopped at the "
+            "iteration limit with the residual not settled below the convergence limit "
+            f"(MAX_ITER_REACHED): {', '.join(unsettled)}. The references are of converged "
+            "data, so this case is not judged; raise the row's iteration limit and resume."
+        )
+    by_point: dict[tuple, list[str]] = {}
+    for record in records:
+        by_point.setdefault(tuple(sorted(record.point.items())), []).append(record.run_id)
+    repeated = [ids for ids in by_point.values() if len(ids) > 1]
+    if repeated:
+        # PFS-2102.034. Two records of one point would put the angle twice
+        # into a fit, or let the last one win without a word.
+        raise QaEvidenceError(
+            f"row {row.pol} has more than one record of one point: "
+            + "; ".join(", ".join(ids) for ids in repeated)
+        )
     return sorted((point_result(workspace, record) for record in records), key=_by_angle)
+
+
+def _one_point(case_id: str, row: MatrixRow, points: list[PointResult]) -> PointResult:
+    """Return the one point a single-point case reads, refusing a sweep (PFS-2102.034)."""
+    if len(points) != 1:
+        raise QaEvidenceError(
+            f"{case_id} reads one point of row {row.pol}, and the row recorded "
+            f"{len(points)}: {', '.join(point.label for point in points)}"
+        )
+    return points[0]
 
 
 def _by_angle(point: PointResult) -> float:
@@ -423,12 +530,18 @@ def _reduce_case(
                 f"PHY-02 is one full-span row and one row under SYMMETRY MIRROR; the matrix "
                 f"names {len(fulls)} full and {len(halves)} mirrored row(s) for it"
             )
-        (full,) = _points_of_row(workspace, fulls[0], by_row.get(fulls[0].pol, []))
-        (half,) = _points_of_row(workspace, halves[0], by_row.get(halves[0].pol, []))
+        full = _one_point(
+            case_id, fulls[0], _points_of_row(workspace, fulls[0], by_row.get(fulls[0].pol, []))
+        )
+        half = _one_point(
+            case_id,
+            halves[0],
+            _points_of_row(workspace, halves[0], by_row.get(halves[0].pol, [])),
+        )
         return (full, half), phy02_metrics(full, half)
     if case_id == "PHY-05":
         (row,) = rows
-        (point,) = _points_of_row(workspace, row, by_row.get(row.pol, []))
+        point = _one_point(case_id, row, _points_of_row(workspace, row, by_row.get(row.pol, [])))
         return (point,), phy05_metrics(point)
     if case_id == "PHY-06":
         (row,) = rows
@@ -502,12 +615,29 @@ def physics_rows(matrix: str | Path) -> dict[str, list[MatrixRow]]:
     return by_case
 
 
+def _require_one_build(records: list, path: Path) -> list[str]:
+    """Return the one requested version of ``records``; refuse a drift of version or binary."""
+    versions = sorted({record.fs_version_requested for record in records})
+    if len(versions) != 1:
+        raise PhysicsEnvironmentError(
+            f"the records of {path.name} name {len(versions)} solver versions "
+            f"({', '.join(versions)}), and a physics report is evidence of one build; two "
+            "builds of one case set is a drift (pyfs-qa drift)."
+        )
+    # PFS-2085.017. One version can be two programs: a rebuilt hotfix
+    # prints the same version, and a resumed run after the registry entry
+    # was repointed records the new binary beside the old one.
+    _check_executable_records(records, path, versions[0])
+    return versions
+
+
 def reduce_physics(
     workspace: CampaignWorkspace,
     matrix: str | Path,
     *,
     references_dir: str | Path | None = None,
     source: str | None = None,
+    name: str | None = None,
 ) -> PhysicsRun:
     """Reduce the recorded rows of the physics matrix into a judged physics run.
 
@@ -531,6 +661,10 @@ def reduce_physics(
     source : str, optional
         The sentence the report prints as its source; derived from the
         matrix and the workspace directory when left out.
+    name : str, optional
+        The campaign name the run used, by the rule of
+        :func:`run_physics_matrix`: the workspace directory's name when
+        left out. Only that campaign's records are reduced.
 
     Returns
     -------
@@ -541,26 +675,24 @@ def reduce_physics(
     ------
     PhysicsEnvironmentError
         When a row names a case the registry does not know, when the
-        manifest holds no record of this matrix, or when the records name
-        more than one solver version (a physics report is evidence of
-        one build; two is a drift).
+        manifest holds no record of this matrix under the campaign name,
+        or when the records name more than one solver version, build or
+        executable digest (a physics report is evidence of one build;
+        two is a drift).
     """
     path = Path(matrix)
     by_case = physics_rows(path)
-    by_row = _records_by_row(workspace, path.stem)
+    campaign, _ = _campaign_name(Path(workspace.root), name)
+    by_row = _records_by_row(workspace, path.stem, campaign)
     if not by_row:
         raise PhysicsEnvironmentError(
-            f"the manifest {workspace.manifest_path} holds no record of {path.name}; "
-            "run the matrix first (pyfs-qa physics runs it, and pyfs-matrix run does)."
+            f"the manifest {workspace.manifest_path} holds no record of {path.name} under "
+            f"the campaign name {campaign!r}; run the matrix first (pyfs-qa physics runs "
+            "it, and pyfs-matrix run does), and reduce it under the name it ran with, "
+            "name (CLI: --name)."
         )
     records = [record for points in by_row.values() for record in points]
-    versions = sorted({record.fs_version_requested for record in records})
-    if len(versions) != 1:
-        raise PhysicsEnvironmentError(
-            f"the records of {path.name} name {len(versions)} solver versions "
-            f"({', '.join(versions)}), and a physics report is evidence of one build; two "
-            "builds of one case set is a drift (pyfs-qa drift)."
-        )
+    versions = _require_one_build(records, path)
     results: list[CaseResult] = []
     steady_rows = by_case.get("PHY-01", [])
     for case_id, case in PHYSICS_CASES.items():
@@ -573,12 +705,26 @@ def reduce_physics(
         try:
             _one_row_each(case_id, case_rows)
             points, metrics = _reduce_case(case_id, case_rows, workspace, by_row, steady_rows, path)
+            reference = load_reference(case_id, references_dir, fs_version=versions[0])
         except QaEvidenceError as error:
             results.append(
                 CaseResult(case_id=case_id, title=case.title, geometry=geometry, error=str(error))
             )
             continue
-        reference = load_reference(case_id, references_dir)
+        except _CASE_FAILURES as error:
+            # PFS-2102.007. The matrix has run by now, so a case that cannot
+            # be reduced is reported beside the others rather than hiding
+            # them: a loads table the results layer refuses, an archived
+            # output, a column a reduction indexes, a degenerate fit.
+            results.append(
+                CaseResult(
+                    case_id=case_id,
+                    title=case.title,
+                    geometry=geometry,
+                    error=f"{type(error).__name__}: {error}",
+                )
+            )
+            continue
         results.append(
             CaseResult(
                 case_id=case_id,
@@ -611,6 +757,19 @@ def reduce_physics(
         executor=next((record.executor for record in records if record.executor), None),
         source=source or f"{path.name} in workspace {Path(workspace.root).name}",
     )
+
+
+def _check_executable_records(records: list[RunRecord], path: Path, version: str) -> None:
+    """Refuse records of distinct binaries even when their declared version agrees."""
+    for field_name in ("fs_build", "fs_exe_sha256"):
+        seen = sorted({str(getattr(r, field_name)) for r in records if getattr(r, field_name)})
+        if len(seen) > 1:
+            raise PhysicsEnvironmentError(
+                f"the records of {path.name} name {len(seen)} different {field_name} values "
+                f"({', '.join(seen)}) for FlightStream {version}, and a physics report "
+                "is evidence of one executable; two binaries of one case set is a drift "
+                "(pyfs-qa drift)."
+            )
 
 
 def physics_from_workspace(
@@ -676,7 +835,27 @@ def physics_from_workspace(
         # Every point is recorded by now; the failed rows reach the
         # report as cases with an error beside the cases that finished.
         pass
-    return reduce_physics(workspace, path, references_dir=references_dir)
+    return _reduce_after_the_run(workspace, path, references_dir=references_dir, name=name)
+
+
+def _reduce_after_the_run(
+    workspace: CampaignWorkspace, path: Path, *, name: str | None, **options
+) -> PhysicsRun:
+    """Reduce a matrix that has run, saying so when the reduction fails.
+
+    PFS-2102.034, PFS-2102.007. A failure here used to reach the command
+    line as the run layer's ``matrix not run``, after the matrix had
+    run; it is re-raised as the post-run refusal it is.
+    """
+    try:
+        return reduce_physics(workspace, path, name=name, **options)
+    except PhysicsEnvironmentError:
+        raise
+    except (PyflightstreamError, OSError, ValueError) as error:
+        raise PhysicsEnvironmentError(
+            f"the matrix ran and its points are recorded in {workspace.manifest_path}, "
+            f"and reducing them failed: {type(error).__name__}: {error}"
+        ) from error
 
 
 def _overlay_line(build_id: str, fs_exe: str | Path, version: str) -> str:
@@ -744,8 +923,71 @@ def drift_from_workspace(
     canonical_a = resolve(version_a).canonical
     canonical_b = resolve(version_b).canonical
     builds = sorted({row.fs_build.strip() for row in read_matrix(path) if row.fs_build.strip()})
+    sides = drift_sides(canonical_a, canonical_b, fs_exes=fs_exes, workroot=workroot)
     runs: list[PhysicsRun] = []
-    for side, canonical in (("a", canonical_a), ("b", canonical_b)):
+    for side, canonical, exe, side_root in sides:
+        try:
+            runs.append(
+                _run_one_side(
+                    root,
+                    path,
+                    side=side,
+                    canonical=canonical,
+                    exe=exe,
+                    side_root=side_root,
+                    builds=builds,
+                    name=name,
+                    references_dir=references_dir,
+                )
+            )
+        except (PyflightstreamError, OSError, ValueError) as error:
+            if not runs:
+                raise
+            # PFS-2102.008. Side A has spent its seats by now; say so.
+            raise PhysicsEnvironmentError(
+                f"side a ran and is kept under {sides[0][3]}, and side {side} failed: "
+                f"{type(error).__name__}: {error}"
+            ) from error
+    run_a, run_b = runs
+    return diff_runs(run_a, run_b)
+
+
+def drift_sides(
+    version_a: str,
+    version_b: str,
+    *,
+    fs_exes: Mapping[str, str | Path],
+    workroot: str | Path,
+) -> list[tuple[str, str, str | Path, Path]]:
+    """Check both sides of a drift before either runs, and return them.
+
+    PFS-2102.008. Side B's executable and root used to be checked only
+    after side A had run the whole matrix on a licensed seat, so a typo
+    in the second path cost a full run and left side A's root behind to
+    refuse the retry. Both are checked here first.
+
+    Parameters
+    ----------
+    version_a, version_b : str
+        The canonical baseline and compared versions.
+    fs_exes : mapping of str to path
+        The executable per canonical version.
+    workroot : str or Path
+        Where the two side workspaces are made.
+
+    Returns
+    -------
+    list of tuple
+        ``(side, canonical, executable, side_root)`` for side ``a`` then ``b``.
+
+    Raises
+    ------
+    PhysicsEnvironmentError
+        A version with no executable, an executable that is not a file,
+        or a side root that already exists.
+    """
+    sides = []
+    for side, canonical in (("a", version_a), ("b", version_b)):
         exe = fs_exes.get(canonical)
         if exe is None:
             raise PhysicsEnvironmentError(
@@ -753,37 +995,56 @@ def drift_from_workspace(
                 "fs_exe (CLI: --fs-exe), written VERSION=PATH, one per version and never "
                 "guessed."
             )
+        if not Path(exe).is_file():
+            raise PhysicsEnvironmentError(
+                f"the executable given for {canonical} (side {side}), {exe}, is not a file; "
+                "nothing ran on either side."
+            )
         side_root = Path(workroot) / f"{side}_{canonical.replace('.', '')}"
         if side_root.exists():
             raise PhysicsEnvironmentError(
                 f"{side_root} already exists, and a drift is two fresh runs of the matrix; "
-                "remove it or choose another workroot (CLI: --workroot)."
+                "remove it or choose another workroot (CLI: --workroot). Nothing ran on "
+                "either side."
             )
-        shutil.copytree(
-            Path(root) / "inputs",
-            side_root / "inputs",
-            ignore=shutil.ignore_patterns("*.local.toml"),
-        )
-        shutil.copy(path, side_root / path.name)
-        _textio.write_text(
-            side_root / "inputs" / LOCAL_EXECUTABLES_FILE,
-            f"# Written by pyfs-qa drift: side {side} runs every build the rows name on "
-            f"FlightStream {canonical}.\n"
-            + "".join(_overlay_line(build, exe, canonical) for build in builds),
-        )
-        workspace = _workspace(side_root)
-        try:
-            run_physics_matrix(workspace, side_root / path.name, name=name)
-        except CampaignErrors:
-            pass
-        runs.append(
-            reduce_physics(
-                workspace,
-                side_root / path.name,
-                references_dir=references_dir,
-                source=f"{path.name} in workspace {Path(root).name}, side {side} under "
-                f"{side_root.name}",
-            )
-        )
-    run_a, run_b = runs
-    return diff_runs(run_a, run_b)
+        sides.append((side, canonical, exe, side_root))
+    return sides
+
+
+def _run_one_side(
+    root: str | Path,
+    path: Path,
+    *,
+    side: str,
+    canonical: str,
+    exe: str | Path,
+    side_root: Path,
+    builds: list[str],
+    name: str | None,
+    references_dir: str | Path | None,
+) -> PhysicsRun:
+    """Copy the workspace into one side root, run the matrix there and reduce it."""
+    shutil.copytree(
+        Path(root) / "inputs",
+        side_root / "inputs",
+        ignore=shutil.ignore_patterns("*.local.toml"),
+    )
+    shutil.copy(path, side_root / path.name)
+    _textio.write_text(
+        side_root / "inputs" / LOCAL_EXECUTABLES_FILE,
+        f"# Written by pyfs-qa drift: side {side} runs every build the rows name on "
+        f"FlightStream {canonical}.\n"
+        + "".join(_overlay_line(build, exe, canonical) for build in builds),
+    )
+    workspace = _workspace(side_root)
+    try:
+        run_physics_matrix(workspace, side_root / path.name, name=name)
+    except CampaignErrors:
+        pass
+    return _reduce_after_the_run(
+        workspace,
+        side_root / path.name,
+        name=name,
+        references_dir=references_dir,
+        source=f"{path.name} in workspace {Path(root).name}, side {side} under {side_root.name}",
+    )

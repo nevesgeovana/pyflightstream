@@ -20,6 +20,8 @@ from pathlib import (
     Path,
 )
 
+import numpy as np
+
 from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
@@ -30,12 +32,19 @@ from pyflightstream.cases import (
     CampaignConfigError,
     SimCase,
 )
+from pyflightstream.probes.layouts import circle_points, line_points, rectangle_points
 from pyflightstream.script import (
     Script,
 )
 
-from ._export_first_step import (
-    stated_threshold_keys,
+from ._clock import (
+    unsteady_export_threshold,
+)
+from ._farfield import (
+    declared_lattices,
+    farfield_probes,
+    needs_fresh_probes,
+    warn_declared_inside,
 )
 from ._frames import (
     _pproc_frame,
@@ -55,6 +64,7 @@ from ._vocabulary import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     RESTART_VARIABLE,
+    SIMULATION_LENGTH_UNIT,
     Frames,
 )
 
@@ -64,6 +74,22 @@ def _pproc_surface_probes(case: SimCase, script: Script, frames: Frames) -> None
     pproc = case.pproc
     if pproc is None or not pproc.surface_probes:
         return
+    allowed = (
+        next(
+            arg.values
+            for arg in script.entry("NEW_UNSTEADY_SOLVER_SURFACE_PROBE").args
+            if arg.name == "parameter"
+        )
+        or ()
+    )
+    unavailable = [
+        probe.parameter for probe in pproc.surface_probes if probe.parameter not in allowed
+    ]
+    if unavailable:
+        raise CampaignConfigError(
+            f"surface_probes {', '.join(unavailable)} unavailable on FlightStream "
+            f"{script.version.canonical}; select parameters supported by this build"
+        )
     invalid = [
         probe.parameter for probe in pproc.surface_probes if probe.parameter.startswith("BL_")
     ]
@@ -153,6 +179,10 @@ def _pproc_probes(
     sampled = pproc.volume_section is not None or any(
         entry.field_formats or entry.reusable_inflow for entry in pproc.probes
     )
+    # FR-455 (0.40.0): a steady point whose far field lays probes starts from
+    # none, as a sampled field does, so its export holds each point once.
+    sampled = sampled or (not unsteady and needs_fresh_probes(case))
+    declared: list[tuple[int, str, np.ndarray]] = []
     previous_layout = list(script.probe_field_layout)
     _open_the_probe_points(case, script, sampled=sampled, steady=not unsteady, normal=normal)
     for entry_number, probes in enumerate(pproc.probes, start=1):
@@ -185,6 +215,16 @@ def _pproc_probes(
                 )
         first_vertex = vertex + 1
         vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
+        declared.append(
+            (
+                entry_number,
+                _the_probe_frame(case, probes.frame),
+                np.array(
+                    [p[1:4] for p in script.probe_points if first_vertex <= p[0] <= vertex],
+                    dtype=float,
+                ).reshape(-1, 3),
+            )
+        )
         if (probes.field_formats or probes.reusable_inflow) and vertex >= first_vertex:
             resolved_frame = _the_probe_frame(case, probes.frame)
             frame_index = (
@@ -192,13 +232,26 @@ def _pproc_probes(
                 if resolved_frame == "REFERENCE"
                 else _pproc_frame(case, frames, resolved_frame, "the sampled probe field")
             )
+            if not unsteady:
+                # THE POINTS THE SOLVER WAS GIVEN, in the reference frame its
+                # steady probe commands take, as the sampled volume records
+                # them: the layout declared reference coordinates and carried
+                # the frame-local ones, and the positions file named the local
+                # frame, which a continued field refuses.
+                for at, point in enumerate(script.probe_points):
+                    if first_vertex <= point[0] <= vertex:
+                        x, y, z = _in_the_reference_frame(
+                            case, script, frame_index, resolved_frame, list(point[1:4])
+                        )
+                        script.probe_points[at] = (point[0], x, y, z, "REFERENCE")
             script.probe_field_layout.append(
                 {
                     "entry": entry_number,
                     "kind": "probe-field",
                     "probe_ids": list(range(first_vertex, vertex + 1)),
-                    "frame": resolved_frame,
-                    "frame_index": frame_index,
+                    "frame": resolved_frame if unsteady else "REFERENCE",
+                    "frame_index": frame_index if unsteady else 1,
+                    "declared_frame": probes.frame,
                     "coordinate_frame_index": frame_index if unsteady else 1,
                     "command_coordinate_units": "m" if unsteady else script.simulation_length_unit,
                     "coordinate_source": "emitted-local" if unsteady else "native-export-reference",
@@ -217,6 +270,16 @@ def _pproc_probes(
             )
 
     _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
+    # FR-455 and FR-459 R4 (0.40.0): the far field's plane and lattice after
+    # every declared point, then the inside-the-body check of the declared ones.
+    farfield_probes(
+        case,
+        script,
+        max((point[0] for point in script.probe_points), default=0),
+        unsteady=unsteady,
+        frames=frames,
+    )
+    warn_declared_inside(case, declared)
     if sampled and previous_layout and previous_layout != script.probe_field_layout:
         raise CampaignConfigError(
             "a steady job changed its sampled field layout between points; "
@@ -233,14 +296,36 @@ def _open_the_probe_points(
     probes of a row with a per-step window, which the exports script of the
     window's first step already created; the creation after the march deletes
     them first, so the final export holds each point once.
+
+    SO DOES EVERY STEADY CREATION. A steady sweep run as one script creates its
+    probes after each point's solve, and a grouped job restates a point's
+    creation into an instance that still holds the earlier point's: the points
+    persist across solves, as the sections did (RPT-148), so each later export
+    held every point once per earlier point, under vertex numbers that restarted
+    at 1 in the positions file.
     """
     if sampled:
         if steady:
             script.emit("DELETE_PROBE_POINTS")
         script.probe_points.clear()
         script.probe_field_layout.clear()
-    elif normal and stated_threshold_keys(case):
+    elif normal:
+        if _has_a_per_step_window(case, script):
+            script.emit("DELETE_PROBE_POINTS")
+    elif steady and case.pproc is not None and case.pproc.probes:
         script.emit("DELETE_PROBE_POINTS")
+        script.probe_points.clear()
+
+
+def _has_a_per_step_window(case: SimCase, script: Script) -> bool:
+    """Whether the row exports at every step of a window, stated or from [time_averaging].
+
+    THE THRESHOLD ITSELF ANSWERS, not the stated keys: a ``[time_averaging]``
+    window builds a per-step window with no key stated, and its exports update
+    and export the normal probes at every step, so the first exporting step must
+    create them, as it does for a stated key (FR-417 R7).
+    """
+    return unsteady_export_threshold(case, version=script.version) is not None
 
 
 def _refuse_unmeasured_normal_probes(case: SimCase, script: Script) -> None:
@@ -271,25 +356,14 @@ def _normal_probes_of(case: SimCase) -> bool:
         The pproc mixes the two kinds on this row, naming the entries of each.
     """
     pproc = case.pproc
-    if pproc is None or not pproc.probes:
+    if pproc is None:
         return False
-    normal = [str(n) for n, entry in enumerate(pproc.probes, 1) if entry.kind == "normal"]
-    if not normal:
-        return False
-    unsteady = [str(n) for n, entry in enumerate(pproc.probes, 1) if entry.kind != "normal"]
-    if pproc.volume_section is not None:
-        unsteady.append("[volume_section]")
-    if unsteady:
+    try:
+        return pproc.samples_normal_probes()
+    except CampaignConfigError as error:
         raise CampaignConfigError(
-            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} mixes probe kinds "
-            f"on an unsteady row: unsteady (fluid plots at every time step) "
-            f"{', '.join(unsteady)}; normal (probe points at the last time step) "
-            f"{', '.join(normal)}. One unsteady row samples every [[probes]] entry one "
-            'way, an entry stating no kind counting as kind = "unsteady", and a '
-            "[volume_section] is sampled through fluid plots. State one kind on every "
-            "entry, or move the other entries to a second pproc on their own row."
-        )
-    return True
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} {error}"
+        ) from error
 
 
 #: FR-417: the commands that create the probe points of a normal entry.
@@ -400,9 +474,11 @@ def _creation_of_normal_probes(
     taken from the row built from the mesh on a scratch script; empty for a
     row whose probes are not normal or that states no per-step window.
     """
-    if case.recipe not in ("unsteady", "unsteady_rotor") or not stated_threshold_keys(case):
+    if case.recipe not in ("unsteady", "unsteady_rotor"):
         return ""
     if case.pproc is None or not _normal_probes_of(case):
+        return ""
+    if not _has_a_per_step_window(case, script):
         return ""
     return _built_from_the_mesh(case, script, build).recorded_text
 
@@ -424,101 +500,15 @@ PROBE_PROFILE_DIR = "profiles"
 PROBE_POSITION_COLUMNS: tuple[str, ...] = ("PROBE", "X", "Y", "Z", "FRAME")
 
 
-def _rectangle_points(rectangle, scale: float) -> list[list[float]]:
-    """Lay out the grid of a rectangular probe plane, row by row (FR-79).
-
-    Three corners give two edge vectors from `origin`, and the grid runs along
-    both with BOTH ENDS INCLUDED, so a declaration of 3 by 4 is twelve points
-    and three of its corners are the three declared vertices. The order is v
-    fastest within u, which is the reading order of a row of stations.
-    """
-    origin = list(rectangle.origin)
-    edge_u = [b - a for a, b in zip(rectangle.origin, rectangle.along_u, strict=True)]
-    edge_v = [b - a for a, b in zip(rectangle.origin, rectangle.along_v, strict=True)]
-    out: list[list[float]] = []
-    for index_u in range(rectangle.points_u):
-        fraction_u = index_u / (rectangle.points_u - 1)
-        for index_v in range(rectangle.points_v):
-            fraction_v = index_v / (rectangle.points_v - 1)
-            out.append(
-                [
-                    round(
-                        (origin[axis] + edge_u[axis] * fraction_u + edge_v[axis] * fraction_v)
-                        * scale,
-                        5,
-                    )
-                    for axis in range(3)
-                ]
-            )
-    return out
-
-
-def _circle_points(circle, scale: float) -> list[list[float]]:
-    """Lay out the polar grid of a circular probe plane (FR-79).
-
-    `points_radial` stations from the centre to the rim INCLUDING both, and
-    `points_azimuth` around. THE CENTRE APPEARS ONCE rather than once per
-    azimuth: a survey that sampled its own centre eight times would weight it
-    eight times in anything that averages the file.
-
-    The two in-plane axes are built from the normal by taking the world axis
-    least aligned with it, which is the standard way to get a stable basis and
-    avoids the degenerate cross product a fixed choice hits when the normal
-    happens to be that axis.
-    """
-    import math
-
-    normal = list(circle.normal)
-    length = math.sqrt(sum(value * value for value in normal))
-    normal = [value / length for value in normal]
-    least = min(range(3), key=lambda axis: abs(normal[axis]))
-    seed = [1.0 if axis == least else 0.0 for axis in range(3)]
-    first = [
-        seed[1] * normal[2] - seed[2] * normal[1],
-        seed[2] * normal[0] - seed[0] * normal[2],
-        seed[0] * normal[1] - seed[1] * normal[0],
-    ]
-    span = math.sqrt(sum(value * value for value in first))
-    first = [value / span for value in first]
-    second = [
-        normal[1] * first[2] - normal[2] * first[1],
-        normal[2] * first[0] - normal[0] * first[2],
-        normal[0] * first[1] - normal[1] * first[0],
-    ]
-
-    out: list[list[float]] = []
-    for index_r in range(circle.points_radial):
-        radius = circle.radius * index_r / (circle.points_radial - 1)
-        if radius == 0.0:
-            out.append([round(value * scale, 5) for value in circle.center])
-            continue
-        for index_a in range(circle.points_azimuth):
-            angle = 2.0 * math.pi * index_a / circle.points_azimuth
-            out.append(
-                [
-                    round(
-                        (
-                            circle.center[axis]
-                            + radius
-                            * (math.cos(angle) * first[axis] + math.sin(angle) * second[axis])
-                        )
-                        * scale,
-                        5,
-                    )
-                    for axis in range(3)
-                ]
-            )
-    return out
-
-
 def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[float]]:
     """Read the counted X,Y,Z,TYPE profile defined by PROBE_POINTS_IMPORT.
 
     Both surface (0) and volume (1) rows supply fixed vertices to unsteady
     fluid plots. The type does not change the fluid-plot sampling command.
 
-    With ``volume_only`` (a steady row whose profile is expanded point by
-    point into ``NEW_PROBE_POINT VOLUME``), a surface row is refused by
+    With ``volume_only`` (a steady row whose profile is scaled, transformed
+    into the reference frame, or requested as a field and expanded into
+    ``NEW_PROBE_POINT VOLUME``), a surface row is refused by
     number: a surface probe and a point in the flow are different
     observations, and expanding one as the other would sample the wrong
     quantity under the right coordinates.
@@ -538,9 +528,11 @@ def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[fl
             if volume_only and row[3].strip() == "0":
                 raise ValueError(
                     f"point {number}: a surface TYPE 0 row cannot be expanded as a "
-                    "volume probe; a steady row that requests a field (or a volume "
-                    "section, or a reusable inflow) samples every cited point in the "
-                    "flow, so cite a profile of TYPE 1 rows or drop the field request"
+                    "volume probe; a steady row that scales or transforms a survey, "
+                    "or requests a field, volume section or reusable inflow, expands "
+                    "every cited point in the flow. Cite TYPE 1 rows for that route. "
+                    "A TYPE 0 survey needs the native import: REFERENCE frame, scale "
+                    "m, and no field request."
                 )
             point = [float(value) for value in row[:3]]
             if not all(math.isfinite(value) for value in point):
@@ -574,10 +566,24 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             not unsteady
             and case.pproc.volume_section is None
             and not any(entry.field_formats or entry.reusable_inflow for entry in case.pproc.probes)
+            # IN ROTOR RADII the file's numbers are not the positions, and the
+            # import takes them as written: the lattice below scales them, as
+            # the unsteady and the sampled routes do (FR-80).
+            and probes.scale == "m"
+            and probes.frame.strip().upper() == "REFERENCE"
         ):
-            emit_probe_import(script, probes.resolved_points_file)
+            # A script that has established no unit (a saved geometry whose header
+            # states none, no explicit setup key) is in the solver's default, the
+            # metre, which the import used to assume (P0400-INTEGFIX-PROBE-UNITS).
+            emit_probe_import(
+                script,
+                probes.resolved_points_file,
+                units=script.simulation_length_unit or SIMULATION_LENGTH_UNIT,
+            )
             return vertex
-    if not (probes.points_file or probes.lines or probes.rectangles or probes.circles):
+    if not (
+        probes.points_file or probes.lines or probes.rectangles or probes.circles or probes.lattices
+    ):
         return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
     # A PROBE TABLE NAMES ONE ROTOR'S FRAME, and a row that does not turn
@@ -619,12 +625,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     # simulation. Keep the recorded local points in native units, then
     # convert only this command boundary back to SI. Steady probes differ.
     for line in probes.lines:
-        for step in range(probes.points):
-            fraction = step / (probes.points - 1)
-            point = [
-                round((a + (b - a) * fraction) * scale, 5)
-                for a, b in zip(line.start, line.end, strict=True)
-            ]
+        for point in line_points(line.start, line.end, probes.points, scale):
             vertex += 1
             # FR-91. RECORDED BY THE LOOP THAT PLACES IT, so the position a
             # reader is given is the position the solver was given. It is
@@ -715,9 +716,11 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             for point in _read_probe_profile(probes.resolved_points_file, volume_only=not unsteady)
         ]
     for rectangle in probes.rectangles:
-        lattice += _rectangle_points(rectangle, scale)
+        lattice += rectangle_points(rectangle, scale)
     for circle in probes.circles:
-        lattice += _circle_points(circle, scale)
+        lattice += circle_points(circle, scale)
+    # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`.
+    lattice += declared_lattices(case, probes, native_per_m, unsteady=unsteady)
     for point in lattice:
         vertex += 1
         # FR-91, and the lattice reaches here for BOTH run types, so one
@@ -772,7 +775,30 @@ def _in_the_reference_frame(
             "them. State the probes in a frame the reference declares, or in the reference frame."
         )
     origin = placement.origin
-    ex, ey, ez = placement.axes
+    # UNIT AXES, as the solver reads a frame: the axes are kept as emitted, and
+    # a [[frames]] x_axis of length 2 doubled every probe's distance from the
+    # origin on this route while the unsteady route, which hands the solver the
+    # frame, placed the same declaration at its stated distance.
+    axes = []
+    for axis in placement.axes:
+        length = math.sqrt(sum(float(value) ** 2 for value in axis))
+        if length == 0.0:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} places probes in "
+                f"the frame {name!r}, one of whose axes has zero length as the script placed "
+                "it, so it points nowhere. Give the frame an x_axis and a y_axis that are not "
+                "zero and not parallel."
+            )
+        axes.append([float(value) / length for value in axis])
+    ex, ey, ez = axes
+    for first, second in ((ex, ey), (ey, ez), (ex, ez)):
+        if abs(sum(a * b for a, b in zip(first, second, strict=True))) > 1e-6:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} places probes in "
+                f"the frame {name!r}, whose axes are not square to each other as the script "
+                "placed it, so a point stated in it has no single position. Give the frame "
+                "an x_axis and a y_axis at right angles."
+            )
     return [
         round(origin[i] + point[0] * ex[i] + point[1] * ey[i] + point[2] * ez[i], 5)
         for i in range(3)

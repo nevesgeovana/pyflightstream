@@ -19,7 +19,7 @@ import json
 import math
 from pathlib import Path
 
-from pyflightstream._cli import cli_entrypoint
+from pyflightstream import cli_entrypoint
 from pyflightstream.workspace.fsi_setup import (
     FSI_TEMPLATE,
     resolve_fsi_setup,

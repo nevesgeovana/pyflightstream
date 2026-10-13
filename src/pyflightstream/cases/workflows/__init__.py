@@ -194,6 +194,8 @@ from ._rows import (
     SONIC_HELICAL_MACH,
     RotorMach,
     RotorSpeed,
+    advancing_tip_mach_number,
+    free_stream_direction_at,
     qsteady_case_kind,
     rotor_mach_numbers,
     rotor_speed,
@@ -218,6 +220,9 @@ from ._rows import (
     row_ncpus as row_ncpus,
 )
 from ._rows import (
+    row_solver_setting as row_solver_setting,
+)
+from ._rows import (
     row_walltime_s as row_walltime_s,
 )
 from ._rows import (
@@ -225,6 +230,9 @@ from ._rows import (
 )
 from ._rows import (
     walltime_margin_s as walltime_margin_s,
+)
+from ._sixdof import (
+    sixdof_commands,
 )
 from ._skeleton import (
     effective_fsi_config,
@@ -240,6 +248,10 @@ from ._steady import (
 )
 from ._steady import (
     refuse_an_untranslatable_surface,
+)
+from ._streamlines import (
+    streamline_commands,
+    streamline_count,
 )
 from ._timing import (
     MARCH_ACTIONS,
@@ -523,6 +535,8 @@ __all__ = [
     "RotorSpeed",
     "RAD_PER_S_PER_REV_PER_MIN",
     "SONIC_HELICAL_MACH",
+    "advancing_tip_mach_number",
+    "free_stream_direction_at",
     "rotor_mach_numbers",
     "rotor_machs",
     "TimeStepping",
@@ -579,6 +593,9 @@ __all__ = [
     "normal_probe_creation",
     "unsteady_time_stepping",
     "select_workflow",
+    "sixdof_commands",
+    "streamline_commands",
+    "streamline_count",
     "workflow_names",
     "workflow_registry",
     "PASSAGE_POSITIONS_VARIABLE",

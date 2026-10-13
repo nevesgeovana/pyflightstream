@@ -45,8 +45,29 @@ if TYPE_CHECKING:
 _ADDITIONAL_NATIVE_KINDS = ("tecplot", "vtk", "csv", "plots")
 
 
+def _saved_digest(saved: Path, digests: dict[tuple[Path, int, int], str] | None) -> str | None:
+    """Hash a saved simulation once per post, keyed on its path, size and mtime.
+
+    Several extractions of one point open the same saved simulation, and each
+    post hashed it again for every one of them. A file whose size or mtime
+    changed is a new key, so the cache never answers for a file that changed.
+    """
+    if not saved.is_file():
+        return None
+    if digests is None:
+        return file_sha256(saved)
+    stat = saved.stat()
+    key = (saved, stat.st_size, stat.st_mtime_ns)
+    if key not in digests:
+        digests[key] = file_sha256(saved)
+    return digests[key]
+
+
 def _current_extraction(
-    workspace: CampaignWorkspace, extraction: AdditionalRecord, point: RunRecord | None
+    workspace: CampaignWorkspace,
+    extraction: AdditionalRecord,
+    point: RunRecord | None,
+    digests: dict[tuple[Path, int, int], str] | None = None,
 ) -> str | None:
     """Say why an extraction no longer describes its point, or None when it does.
 
@@ -59,7 +80,8 @@ def _current_extraction(
     THE SAVED SIMULATION IS HASHED ON DISK, not only read off the two records:
     a file deleted or replaced under a record nobody rewrote is not the state
     the extraction opened, and a product of it would describe a state nothing on
-    disk holds.
+    disk holds. ``digests`` is the post's cache of those hashes
+    (:func:`_saved_digest`).
     """
     if point is None:
         return (
@@ -73,11 +95,11 @@ def _current_extraction(
             f"stale: the point's saved simulation {extraction.fsm} is "
             f"{(now or 'unrecorded')[:12]} in its record and the extraction opened "
             f"{extraction.fsm_sha256[:12]}; the point ran again, so extract it again "
-            "(pyfs-matrix post --additional-pproc)"
+            f"({_the_extraction_command(extraction)})"
         )
     folder = workspace.sim_dir(extraction.sim_id)
     saved = folder / extraction.fsm
-    on_disk = file_sha256(saved) if saved.is_file() else None
+    on_disk = _saved_digest(saved, digests)
     if on_disk != extraction.fsm_sha256:
         found = "is gone" if on_disk is None else f"hashes {on_disk[:12]} on disk"
         return (
@@ -89,8 +111,35 @@ def _current_extraction(
     # here is one the next --additional-pproc extracts again.
     changed = workspace.changed_extraction_file(extraction)
     if changed is not None:
-        return f"stale: {changed}; extract the point again (pyfs-matrix post --additional-pproc)"
+        return f"stale: {changed}; extract the point again ({_the_extraction_command(extraction)})"
     return None
+
+
+def _warn_reopened_streamlines(run_id: str, prefix: str, files: list[str]) -> None:
+    """Warn once per extraction that traced streamlines (FR-460 R6), in the post log's form.
+
+    The owner's decision of 2026-10-12: allowed in an additional pproc, and said.
+    """
+    if not any(kind.startswith("streamlines_") for kind in classify_outputs(files)):
+        return
+    warn(
+        f"point={run_id} product={prefix}: the streamlines were traced in the reopened saved "
+        "simulation, not in the run; a reopened simulation may trace differently from the "
+        "run (off-body probe values did not come back identical after reopening, up to 4 "
+        "percent in speed, RPT-062).",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
+def _the_extraction_command(extraction: AdditionalRecord) -> str:
+    """Name the command that extracts a point again, its matrix included.
+
+    The CLI refuses ``--additional-pproc`` without the matrix (its rows carry the
+    ADDITIONAL_PPROC key), so a remedy that omits it names a command that fails.
+    """
+    matrix = extraction.matrix_stem or "<matrix>"
+    return f"pyfs-matrix post {matrix} --additional-pproc"
 
 
 def _additional_products(
@@ -140,10 +189,11 @@ def _additional_products(
         if extraction.status is ExtractionStatus.EXTRACTED:
             extractions[extraction.extraction_id] = extraction
     groups: dict[tuple[str, str], list[tuple[AdditionalRecord, RunRecord]]] = {}
+    digests: dict[tuple[Path, int, int], str] = {}
     for extraction in extractions.values():
         prefix = f"{ADDITIONAL_DIR}/{extraction.pproc}"
         point = admitted.get(extraction.run_id)
-        reason = _current_extraction(workspace, extraction, point)
+        reason = _current_extraction(workspace, extraction, point, digests)
         if reason is not None or point is None:
             skipped[f"{prefix}/runs/{extraction.extraction_id}"] = str(reason)
             continue
@@ -180,6 +230,7 @@ def _additional_products(
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
+            _warn_reopened_streamlines(extraction.run_id, prefix, files)
             for kind, name in classify_outputs(extraction.outputs).items():
                 if kind not in _ADDITIONAL_NATIVE_KINDS:
                     continue

@@ -1431,7 +1431,7 @@ def test_an_entry_must_cite_exactly_one_kind_of_evidence():
     ],
 )
 def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation(note):
-    """The override citation goes into the field the entry already uses.
+    """A probe-cited entry's override changes its grammar and neither citation field.
 
     ``model_copy`` runs no validator, so writing the per-version
     citation into ``manual_ref`` unconditionally would hand a
@@ -1472,13 +1472,12 @@ def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation(note):
         "a probe-cited entry was handed a manual_ref by the override, which is the "
         "both-citations state the model refuses and which model_copy cannot catch"
     )
-    assert resolved.probe_ref.startswith(report), (
-        "the note's own manual page was taken as this entry's citation, so probe_ref "
-        "now holds a page reference that fails its repository-relative-path rule. "
-        "The second parameter of this test is that case: a note may mention a manual "
-        "page even when the entry rests on a report"
+    assert resolved.probe_ref == report, (
+        "the override wrote its provenance into probe_ref, so the field no longer "
+        "names a committed report and fails its repository-relative-path rule. "
+        "The second parameter of this test is the case where the note also mentions "
+        "a manual page (P0400-CMDPROBEREF, PFS-2102.024)"
     )
-    assert resolved.probe_ref.endswith("the 26.100 grammar")
     assert resolved.citation == resolved.probe_ref
 
 
@@ -1669,19 +1668,6 @@ def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
         ("SELECT_GEOMETRY_BY_ID", "surface"),
         ("DELETE_SURFACES", "index"),
         ("EXPORT_SURFACE_MESH", "surface"),
-        # And the first one that is not a surface at all: a BASE REGION
-        # boundary, stated on SRC-750 p.331. The sentinel is declared
-        # here because it sits on an index that cites an inventory, and
-        # base regions are boundaries; the entry arrived with the 26.122
-        # edition, which is the first to document the command.
-        ("SET_OUTFLOW_TRAILING_EDGES", "base_region_boundary"),
-        # Its 26.123 spelling, and the pair is why this inventory is a
-        # set of tuples rather than a set of command names: a rename
-        # carried as two entries declares the same sentinel twice, on
-        # the same page (SRC-751 p.331), and both rows are real. Losing
-        # either would leave one of the two names refusing -1 while its
-        # own edition prints -1 in the sample.
-        ("SET_OUTLET_TRAILING_EDGES", "base_region_boundary"),
     }, (
         "every boundary index that states an all-form declares it, and no other does: "
         "absent means the page states none, so SURFACE_RENAME and SURFACE_MIRROR refuse "

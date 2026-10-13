@@ -5,7 +5,8 @@ FAILED_MARKED, keeping the status they had, when and why; every other record
 keeps its bytes, and runs.json is archived first. Every workspace is a real
 ``tmp_path`` tree.
 """
-# The evidence line of this requirement cites this module (docs/srs/functional-requirements.md):
+# The evidence line of this requirement cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 
 from __future__ import annotations
 
@@ -179,9 +180,16 @@ def test_cli_marks_through_the_library_fr_309(tmp_path, capsys):
 def test_mutant_leaving_the_status_turns_the_check_red_fr_309(tmp_path):
     # Verifies FR-309.
     source = Path(records_module.__file__).read_text(encoding="utf-8")
-    old = '            row["status"] = str(RunStatus.FAILED_MARKED)\n'
-    assert source.count(old) == 1
-    mutant = source.replace(old, "")
+    # Both status writes of the marking (PFS-2103.010 marks each point, then the
+    # record takes its worst point's status): a record is its own one unit, so
+    # leaving one write alone still marks it.
+    mutant = source
+    for old in (
+        '        unit["status"] = str(RunStatus.FAILED_MARKED)\n',
+        '    row["status"] = str(worst)\n',
+    ):
+        assert source.count(old) == 1, old
+        mutant = mutant.replace(old, "")
     assert mutant != source
     spec = importlib.util.spec_from_loader("records_mutant_mark", loader=None)
     module = importlib.util.module_from_spec(spec)

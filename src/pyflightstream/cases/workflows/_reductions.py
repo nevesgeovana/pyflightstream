@@ -31,10 +31,12 @@ from ._rows import (
     _require_the_averaging_window,
     _required_float,
     _required_int,
+    _the_rotor_a_flat_row_turns,
     _variable,
     rotor_speed,
 )
 from ._timing import (
+    TimeStepping,
     rotor_time_stepping,
     unsteady_time_stepping,
 )
@@ -111,9 +113,11 @@ class ExportWindow:
         """
         if self.delta_theta_deg:
             return 360.0 / self.delta_theta_deg
-        if self.rpm is None or self.delta_time_s is None:
+        if not self.rpm or self.delta_time_s is None or self.delta_time_s <= 0:
             return None
-        return 60.0 / (self.rpm * self.delta_time_s)
+        # THE MAGNITUDE: a rotor turning the other way (`rpm_sign` -1) takes the
+        # same number of steps per revolution, as TimeStepping counts it.
+        return 60.0 / (abs(self.rpm) * self.delta_time_s)
 
     @property
     def degrees(self) -> float | None:
@@ -232,8 +236,8 @@ def export_window(
         Solver physical time step in s. Required for the degrees and
         revolutions forms.
     time_iterations : int
-        Physical time steps of the whole run; the window ends here and
-        may not be longer than it.
+        Physical time steps of the whole run. The window ends here and
+        is clipped to the available history when it is longer.
 
     delta_theta_deg : float, optional
         Rotor rotation per solver physical time step in degrees, used to
@@ -250,8 +254,10 @@ def export_window(
     CampaignConfigError
         If two forms or none are given; if an angular form is given with
         no rotor speed or no time step, naming the physical cause; or if
-        the window is longer than the run, naming BOTH numbers.
+        the run or the resolved window contains no time steps.
     """
+    if time_iterations < 1:
+        raise CampaignConfigError("an export window requires at least one solver time step")
     given = {
         name: value
         for name, value in (
@@ -286,12 +292,18 @@ def export_window(
                 "both. State the window in steps instead if the rotor speed is not a "
                 "fact of this run."
             )
-        if rpm <= 0.0 or delta_time_s <= 0.0:
+        # THE SPEED IS SIGNED BY THE HAND, so its magnitude is what spins: a
+        # left-handed rotor was refused here as not spinning.
+        if rpm == 0.0 or delta_time_s <= 0.0:
             raise CampaignConfigError(
                 f"an angular export window needs a spinning rotor and an advancing "
                 f"clock: got {rpm} rev/min and a time step of {delta_time_s} s."
             )
-        per_revolution = 60.0 / (rpm * delta_time_s)
+        per_revolution = (
+            360.0 / delta_theta_deg
+            if delta_theta_deg is not None and delta_theta_deg > 0
+            else 60.0 / (abs(rpm) * delta_time_s)
+        )
         turns = value / 360.0 if form == "degrees" else value
         span = int(round(turns * per_revolution))
     else:
@@ -301,13 +313,7 @@ def export_window(
             f"an export window of {value} {form} works out at {span} solver steps, "
             "which is not a window. Widen it, or export more often."
         )
-    if span > time_iterations:
-        raise CampaignConfigError(
-            f"the export window of {value} {form} is {span} solver steps and the run is "
-            f"only {time_iterations} steps long, so it would begin before the run does. "
-            "The window is counted BACKWARDS from the end of the run; shorten it, or "
-            "lengthen the run."
-        )
+    span = min(span, time_iterations)
     return ExportWindow(
         stated_form=form,
         stated_value=float(value),
@@ -385,32 +391,50 @@ class ReductionPlan:
 
 
 def _blade_count(case: SimCase) -> int | None:
-    """Return the blade count: ``BLADES``, ``PERIODIC_COPIES``, the sole rotor, else None.
+    """Return the blade count: the sole rotor's block, ``BLADES``, ``PERIODIC_COPIES``, else None.
+
+    THE BLOCK FIRST (FR-68). A row whose reference declares its one rotor has
+    said how many blades it has, in the file where the study's vocabulary
+    lives. ``PERIODIC_COPIES`` is what the FILE is, not the rotor: a 4-blade
+    rotor meshed as a 2-blade half states two copies, and reading those as
+    blades halved its passage and its per-blade table. A row ``BLADES`` that
+    disagrees with the block is refused, naming both.
 
     PFS-2015.04.01, found by the reproduction of 2026-09-09: an isolated
-    rotor meshed as one blade and stated as ``PERIODIC_COPIES: 6``
-    with no ``BLADES`` is a six-bladed rotor, and its phase-locked and
-    per-blade reductions were skipped for want of a key that said the
-    same number twice. The copies are the count when the blades are not
-    stated; a row stating both keeps ``BLADES``, the key written for it.
+    rotor meshed as one blade and stated as ``PERIODIC_COPIES: 6``, with no
+    block and no ``BLADES``, is a six-bladed rotor. The copies are the count
+    only where nothing else states it.
     """
-    if _variable(case, BLADES_VARIABLE) is not None:
-        return _required_int(case, BLADES_VARIABLE, quantity="blade count", unit="blades")
+    # One rotor only: a row turning several has no single count, and its
+    # rotors are reduced one at a time by `_the_passages_of_one_rotor`.
+    block = None
+    if case.motions:
+        turning, _lost = _the_rotors_the_row_turns(case)
+        if len(turning) == 1:
+            block = case.rotors.get(turning[0][0])
+    else:
+        block = _the_rotor_a_flat_row_turns(case)
+    stated = (
+        _required_int(case, BLADES_VARIABLE, quantity="blade count", unit="blades")
+        if _variable(case, BLADES_VARIABLE) is not None
+        else None
+    )
+    if block is not None and block.families_blades:
+        declared = len(block.families_blades)
+        if stated is not None and stated != declared:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {BLADES_VARIABLE}: {stated} and its reference "
+                f"declares rotor {block.alias!r} with {declared} blade(s) "
+                f"({', '.join(block.families_blades)}). The block is the count (FR-68); "
+                f"remove {BLADES_VARIABLE} from the row, or correct the block."
+            )
+        return declared
+    if stated is not None:
+        return stated
     if _variable(case, PERIODIC_COPIES_VARIABLE) is not None:
         return _required_int(
             case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies"
         )
-    # THE REFERENCE ALREADY STATES IT (FR-68). A row naming ONE rotor by
-    # alias has said how many blades it has, in the file where the study's
-    # vocabulary lives, so asking the ROW for the number again is the
-    # second home this release exists to remove. One rotor only here: a
-    # row turning several has no single count, and its rotors are reduced
-    # one at a time by `_the_passages_of_one_rotor`.
-    turning, _lost = _the_rotors_the_row_turns(case)
-    if len(turning) == 1:
-        block = case.rotors.get(turning[0][0])
-        if block is not None and block.families_blades:
-            return len(block.families_blades)
     return None
 
 
@@ -600,6 +624,7 @@ def _the_passages_of_one_rotor(
     delta_time_s: float | None,
     span: tuple[int, int],
     last_step: int,
+    clock: TimeStepping | None = None,
 ) -> dict[str, object]:
     """Return one rotor's blade count and its two passage reductions (FR-68).
 
@@ -652,7 +677,7 @@ def _the_passages_of_one_rotor(
         entry["phase_locked"] = {"skipped": reason}
         entry["per_blade"] = {"skipped": reason}
         return entry
-    per_revolution = 60.0 / (abs(speed.rpm) * delta_time_s)
+    per_revolution = _own_steps_per_revolution(speed.rpm, delta_time_s, clock)
     entry["steps_per_revolution"] = per_revolution
     period = int(round(per_revolution / blades))
     if period < 1:
@@ -666,13 +691,16 @@ def _the_passages_of_one_rotor(
         return entry
     entry["period_steps"] = period
 
+    rotor_steps = _stated_blade_steps(case, per_revolution)
+    own_steps = rotor_steps if rotor_steps is not None else int(round(per_revolution))
+    own_span = (max(last_step - own_steps + 1, 1), last_step)
     entry["phase_locked"] = _windows.phase_locked_plan(
         getattr(case.pproc, "phase_locked", None),
         last_step=last_step,
         per_revolution=per_revolution,
         who=alias,
-        span=span,
-        period=period,
+        span=own_span,
+        period=per_revolution / blades,
     )
     # ITEM 8: ONE WINDOW, not one per blade. What this replaces is the list
     # that stood here -- blade k over `last_step - (blades - k) * period`
@@ -706,7 +734,6 @@ def _the_passages_of_one_rotor(
     # the old shape needed a whole revolution because it CUT the window into one
     # passage per blade, and one shared window is not cut. Each blade's row
     # carries the azimuth it actually swept.
-    rotor_steps = _stated_blade_steps(case, per_revolution)
     if rotor_steps is not None:
         rotor_span = (max(span[1] - rotor_steps + 1, 1), span[1])
         window_from = (
@@ -719,20 +746,19 @@ def _the_passages_of_one_rotor(
         # revolution. Falling back to the ROW'S span instead would impose one
         # rotor's turn on the other, which is the defect FR-68 exists against and
         # which a test in this file refused when I tried it.
-        fallback = per_blade_window(last_step=span[1], blades=blades, period_steps=period)
-        if fallback is None:
+        if last_step < own_steps:
             entry["per_blade"] = {
                 "skipped": (
                     f"the run is {span[1]} steps and {alias} has {blades} blades of "
-                    f"{period} steps each, needing {blades * period}, so the run holds no "
+                    f"{per_revolution / blades} steps each, needing {own_steps}, "
+                    "so the run holds no "
                     "complete revolution of it to split by blade"
                 )
             }
             return entry
-        rotor_span = fallback
+        rotor_span = own_span
         window_from = (
-            f"the last revolution of {alias}, {blades} blades of {period} steps, "
-            "shared by every blade"
+            f"the last revolution of {alias}, {own_steps} solver steps, shared by every blade"
         )
     entry["per_blade"] = {
         "windows": [list(rotor_span)],
@@ -740,6 +766,20 @@ def _the_passages_of_one_rotor(
         "window_from": window_from,
     }
     return entry
+
+
+def _own_steps_per_revolution(rpm: float, delta_time_s: float, clock: TimeStepping | None) -> float:
+    """Return one rotor's steps per revolution, from the azimuthal step where the clock has one.
+
+    THE PACKAGE'S OWN RULE (`TimeStepping.steps_per_revolution`): a ten-degree
+    step is thirty-six steps a turn exactly, and the seconds derived from it read
+    back as 36.0000000001. A rotor at another speed sweeps the clock rotor's
+    step scaled by the ratio of the speeds, which is exactly 1 for the clock
+    rotor itself.
+    """
+    if clock is not None and clock.delta_theta_deg and clock.rpm:
+        return (360.0 / clock.delta_theta_deg) * (abs(clock.rpm) / abs(rpm))
+    return 60.0 / (abs(rpm) * delta_time_s)
 
 
 def _stated_blade_steps(case: SimCase, per_revolution: float) -> int | None:
@@ -792,56 +832,44 @@ def _averaging_window(
     Returns None when neither averaging key is stated. Older recorded plans
     retain their stored windows; a new plan requires an averaging key.
 
-    A ROW THAT STATES REVOLUTIONS WITHOUT A CLOCK gets None rather than a guess.
-    Without `steps_per_revolution` a count of revolutions has no length in steps,
-    and the caller's own refusal path says so with the row named.
+    A ROW THAT STATES REVOLUTIONS WITHOUT A CLOCK IS REFUSED rather than guessed:
+    without `steps_per_revolution` a count of revolutions has no length in steps.
+    The refusal names the row, and :func:`reduction_windows` records it as every
+    reduction skipped with that reason.
     """
-    revs = _variable(case, LAST_REVS_AVG_VARIABLE)
-    iters = _variable(case, LAST_ITERS_AVG_VARIABLE)
-    if revs is not None and iters is not None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} states both {LAST_REVS_AVG_VARIABLE} = {revs} and "
-            f"{LAST_ITERS_AVG_VARIABLE} = {iters}, and they are two ways to say one "
-            "window. State the revolutions on a row that turns a rotor and the "
-            "iterations on one that does not."
-        )
-    if revs is not None:
-        turns = _required_float(
-            case, LAST_REVS_AVG_VARIABLE, quantity="averaging window", unit="revolutions"
-        )
-        if per_revolution is None or per_revolution <= 0:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} states {LAST_REVS_AVG_VARIABLE} = {revs} and the row "
-                "states no rotor speed, so a count of revolutions has no length in solver "
-                f"steps. State the speed, or use {LAST_ITERS_AVG_VARIABLE}."
-            )
-        steps = int(round(turns * float(per_revolution)))
-        detail = f"{turns:g} revolution(s) of {per_revolution:g} steps"
-        key = LAST_REVS_AVG_VARIABLE
-    elif iters is not None:
-        steps = int(
-            round(
-                _required_float(
-                    case, LAST_ITERS_AVG_VARIABLE, quantity="averaging window", unit="iterations"
-                )
-            )
-        )
-        detail = f"{steps} iteration(s)"
-        key = LAST_ITERS_AVG_VARIABLE
-    else:
+    try:
+        stated = _windows.stated_key(case.variables)
+        steps = _windows.averaging_steps(case.variables, per_revolution=per_revolution)
+    except CampaignConfigError as error:
+        raise CampaignConfigError(f"case {case.sim_id!r}: {error}") from error
+    if stated is None:
         return None
-    if steps < 1:
+    key, value = stated
+    if steps is None:
         raise CampaignConfigError(
-            f"case {case.sim_id!r} states an averaging window of {steps} solver step(s), "
-            "which averages nothing. State a window of at least one step."
+            f"case {case.sim_id!r} states {key} = {value:g} and the row "
+            "states no rotor speed, so a count of revolutions has no length in solver "
+            f"steps. State the speed, or use {LAST_ITERS_AVG_VARIABLE}."
         )
+    detail = (
+        f"{value:g} revolution(s) of {per_revolution:g} steps"
+        if key == LAST_REVS_AVG_VARIABLE
+        else f"{steps} iteration(s)"
+    )
     # LONGER THAN THE RUN IS THE WHOLE RUN, not a refusal. A row asking to
     # average the last four revolutions of a run that turned three has asked for
     # everything it has, and refusing there would discard the products of a
     # campaign that already happened over an arithmetic edge.
     first = max(last_step - steps + 1, 1)
+    # AND THE RECORD SAYS SO: "the window the row states" over a window that
+    # was cut is a sentence a reader of the record takes at its word.
+    cut = (
+        f", cut to the whole run because the run is {last_step} step(s) and the window {steps}"
+        if steps > last_step
+        else ""
+    )
     return (first, last_step), (
-        f"the averaging window the row states: {key} = {detail}, steps {first} to {last_step}"
+        f"the averaging window the row states: {key} = {detail}, steps {first} to {last_step}{cut}"
     )
 
 
@@ -937,8 +965,11 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     revolution = None if per_revolution is None else int(round(per_revolution))
 
     # Every unsteady product shares the averaging span stated on the row.
-    averaging = _averaging_window(case, last_step=last_step, per_revolution=per_revolution)
+    # INSIDE THE TRY, as the docstring promises: a window the row states and the
+    # clock cannot resolve is a skip with its reason, not an exception out of
+    # the point record the run is building.
     try:
+        averaging = _averaging_window(case, last_step=last_step, per_revolution=per_revolution)
         if averaging is not None:
             span, window_from = averaging
         elif revolution is not None:
@@ -997,6 +1028,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
                 delta_time_s=stepping.delta_time_s,
                 span=span,
                 last_step=last_step,
+                clock=stepping,
             )
             for alias, view, speed in turning
         }
@@ -1030,7 +1062,12 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         # sentence and what keeps every workspace written before 0.15.0,
         # and every golden, reducing into exactly the files it always did.
         named = ", ".join(rotors)
-        plan["blades"] = _blade_count(case)
+        try:
+            plan["blades"] = _blade_count(case)
+        except CampaignConfigError:
+            # Each rotor's own block carries its count and its skip; the row's
+            # single count is a convenience no reduction reads.
+            plan["blades"] = None
         pointer = (
             f"case {case.sim_id!r} names its rotors, so each reduces over ITS OWN blade "
             f"passage and there is no single passage of the ROW: the windows are under "
@@ -1088,7 +1125,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         per_revolution=per_revolution,
         who="the rotor",
         span=span,
-        period=period,
+        period=per_revolution / blades,
     )
     # One window per blade over the LAST complete revolution, contiguous
     # and ending at the run's last step: :meth:`ReductionPlan.blade_windows`.

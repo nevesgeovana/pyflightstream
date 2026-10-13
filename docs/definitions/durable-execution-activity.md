@@ -24,3 +24,5 @@ Pass `--verbose` to `pyfs-matrix plan`, `run`, `post` or `collect` to print
 Python's full warning format and one line per point again. A Python caller keeps
 Python's standard warnings and absolute paths. Every command ends with the
 signature box on stderr; `--help` and `--version` end with one short line.
+
+A scheduler submission is recorded as SUBMITTED with no completed outputs. Collection requires stable exports and unchanged source and script hashes before recording EXTRACTED. Native scheduler logs remain native when EXPORT_LOG is disabled; scheduler acceptance text is not presented as a solver log.

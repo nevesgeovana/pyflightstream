@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fold the SRS fragments of ``docs/srs/fr.d/`` into the functional requirements.
+"""Fold the SRS fragments of ``docs/unpublished/requirements/fr.d/`` into the register.
 
     python scripts/assemble_srs.py
     python scripts/assemble_srs.py --repo <another checkout>
@@ -7,12 +7,12 @@
 WHY FRAGMENTS. The requirements of the releases 0.25.0 to 0.31.0 that the SRS
 never stated, and the ones 0.32.0 adds, were written by parallel work packages
 (K1, K2 and the packages that deliver a capability). Each writes
-``docs/srs/fr.d/<package>.md``, numbered inside its own range, so two packages
+``docs/unpublished/requirements/fr.d/<package>.md``, numbered inside its own range, so two packages
 merged one after the other never touch the same lines of
-``docs/srs/functional-requirements.md``. This script folds them once, at
+``docs/unpublished/requirements/functional-requirements.md``. This script folds them once, at
 integration, the way ``scripts/assemble_changelog.py`` folds the change log.
 
-WHAT IT DOES. Every ``docs/srs/fr.d/*.md`` except ``README.md`` is a fragment:
+WHAT IT DOES. Every ``docs/unpublished/requirements/fr.d/*.md`` except ``README.md`` is a fragment:
 requirement boxes in the form of ``functional-requirements.md``
 (``!!! requirement "FR-NNN <title> <span class='srs-implemented'>implemented</span>"``
 and its indented body), and no ``## `` heading of its own. The fragments, in
@@ -38,10 +38,16 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _requirements_paths import (  # noqa: E402
+    FUNCTIONAL_REQUIREMENTS,
+    REQUIREMENTS_FRAGMENTS_DIR,
+)
+
 REPO = Path(__file__).resolve().parents[1]
-FRAGMENTS_DIR = Path("docs") / "srs" / "fr.d"
+FRAGMENTS_DIR = REQUIREMENTS_FRAGMENTS_DIR
 README = "README.md"
-PAGE = Path("docs") / "srs" / "functional-requirements.md"
+PAGE = FUNCTIONAL_REQUIREMENTS
 HEADING = "## 0.25.0 to 0.32.0 additions"
 INTRO = (
     "Requirements written after the specification was last reconciled with the package: "
@@ -74,10 +80,19 @@ def fragments(repo: Path) -> list[Path]:
 def split_boxes(text: str) -> list[tuple[str, str]]:
     """Return ``(id, box text)`` of every requirement box of ``text``, in order."""
     starts = list(_BOX_START.finditer(text))
-    ends = [m.start() for m in starts[1:]] + ([len(text)] if starts else [])
-    return [
-        (m["id"], text[m.start() : end].strip("\n")) for m, end in zip(starts, ends, strict=True)
-    ]
+    boxes = []
+    for match in starts:
+        lines = text[match.start() :].split("\n")
+        end = next(
+            (
+                i
+                for i, line in enumerate(lines[1:], 1)
+                if line.strip() and not line.startswith("    ")
+            ),
+            len(lines),
+        )
+        boxes.append((match["id"], "\n".join(lines[:end]).strip("\n")))
+    return boxes
 
 
 def parse_fragment(path: Path) -> list[tuple[str, str]]:
@@ -93,6 +108,13 @@ def parse_fragment(path: Path) -> list[tuple[str, str]]:
     boxes = split_boxes(text)
     if not boxes:
         raise FragmentError(f"{path}: the fragment holds no requirement box")
+    first = _BOX_START.search(text)
+    assert first is not None
+    if text[: first.start()].strip():
+        raise FragmentError(f"{path}: non-box text before the first requirement would be lost")
+    for line in text[first.start() :].splitlines():
+        if line.strip() and not line.startswith(("!!! requirement ", "    ")):
+            raise FragmentError(f"{path}: non-box text must be inside an indented requirement body")
     return boxes
 
 
@@ -109,7 +131,7 @@ def fold_page(text: str, blocks: list[tuple[Path, list[tuple[str, str]]]]) -> tu
     for path, boxes in blocks:
         present = [rid in page_boxes for rid, _ in boxes]
         for rid, box in boxes:
-            if rid in page_boxes and box not in text:
+            if rid in page_boxes and page_boxes[rid] != box:
                 raise FragmentError(
                     f"{path}: {rid} is already in {PAGE.name} with another text; "
                     "a numbered requirement is never rewritten by a fragment"

@@ -63,10 +63,16 @@ def _parts(archive: ZipFile) -> dict[str, str]:
             raise ExcelSyncError("Workbook worksheet target escapes the XLSX package.")
         targets[item.get("Id")] = path
     workbook = _xml(archive.read("xl/workbook.xml"))
-    return {
-        sheet.attrib["name"]: targets[sheet.attrib[_REL + "id"]]
-        for sheet in workbook.findall(_NS + "sheets/" + _NS + "sheet")
-    }
+    sheets = {}
+    for sheet in workbook.findall(_NS + "sheets/" + _NS + "sheet"):
+        name, relation = sheet.get("name"), sheet.get(_REL + "id")
+        if name is None or relation not in targets:
+            raise ExcelSyncError(
+                f"xl/workbook.xml lists sheet {name!r} with no name or no worksheet part "
+                f"({relation!r}); save the workbook again from Excel."
+            )
+        sheets[name] = targets[relation]
+    return sheets
 
 
 def _column(name: str) -> int:
@@ -87,9 +93,14 @@ def _address(row: int, column: int) -> str:
 def _table(archive: ZipFile, path: str, strings: list[str]) -> dict[tuple[int, int], Cell]:
     result = {}
     for node in _xml(archive.read(path)).iter(_NS + "c"):
-        match = re.fullmatch(r"([A-Z]+)([1-9][0-9]*)", node.attrib["r"])
+        # The r attribute is optional in OOXML; a cell without it is refused,
+        # named, rather than placed by a guess.
+        match = re.fullmatch(r"([A-Z]+)([1-9][0-9]*)", node.get("r", ""))
         if match is None:
-            raise ExcelSyncError("Unsupported worksheet cell address.")
+            raise ExcelSyncError(
+                f"Unsupported worksheet cell address {node.get('r')!r} in {path}; save the "
+                "workbook again from Excel."
+            )
         formula = node.find(_NS + "f")
         kind = node.get("t", "n")
         value = node.findtext(_NS + "v", "")
@@ -212,14 +223,17 @@ def _patch_sheet(raw: bytes, changes: dict[tuple[int, int], str]) -> bytes:
     for (row_index, column), value in changes.items():
         grouped.setdefault(row_index, {})[column] = value
     for row_number, columns in sorted(grouped.items()):
-        row_pattern = rf'<row\b(?=[^>]*\br="{row_number}")[^>]*(?:/>|>.*?</row>)'
+        # The attribute run is LAZY: a greedy one eats the "/" of a
+        # self-closing tag, and the body alternative then runs on through the
+        # NEXT element's close, so the patch would delete or misplace it.
+        row_pattern = rf'<row\b(?=[^>]*\br="{row_number}")[^>]*?(?:/>|>.*?</row>)'
         found = re.search(row_pattern, body, re.S)
         row = found.group() if found else f'<row r="{row_number}"></row>'
         if row.endswith("/>"):
             row = row[:-2] + "></row>"
         for column, value in sorted(columns.items()):
             address = _address(row_number, column)
-            cell_pattern = rf'<c\b(?=[^>]*\br="{address}")[^>]*(?:/>|>.*?</c>)'
+            cell_pattern = rf'<c\b(?=[^>]*\br="{address}")[^>]*?(?:/>|>.*?</c>)'
             old = re.search(cell_pattern, row, re.S)
             style = ""
             if old:

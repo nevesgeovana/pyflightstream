@@ -320,7 +320,7 @@ def overview(*, path: str | Path | None = None, open_browser: bool = True) -> Pa
     target = Path(path)
     _textio.write_text(target, render_overview_html())
     if open_browser:
-        webbrowser.open(target.as_uri())
+        webbrowser.open(target.resolve().as_uri())
     return target
 
 

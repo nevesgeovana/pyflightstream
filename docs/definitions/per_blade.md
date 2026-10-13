@@ -2,7 +2,7 @@
 
 !!! note "The output file"
     `probes/<point>_per_blade_<ALIAS>.csv` is one row per blade with its start
-    and end azimuth, as defined here. See [the migration record](../migrating-to-0.24.0.md)
+    and end azimuth, as defined here. See [the migration record](../upgrading.md#older-layouts)
     for the shape of historical files.
 
 The per-blade table averages each blade over the LAST part of the run, the

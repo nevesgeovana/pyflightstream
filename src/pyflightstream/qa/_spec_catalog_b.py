@@ -298,8 +298,46 @@ def _vsection_export_epilogue(script: Script, workdir: Path) -> None:
     script.emit("EXPORT_VOLUME_SECTION_VTK", 1, workdir / "vsection.vtk")
 
 
-def _delete_vsection_effect(artifacts: ProbeArtifacts) -> bool:
-    return not (artifacts.workdir / "vsection.vtk").is_file()
+#: A second section, at another offset, created before the deletion: the
+#: survivor that is the positive control of DELETE_VOLUME_SECTION.
+_CREATE_SECOND_VSECTION = _emit(
+    "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
+    1,
+    "XZ",
+    0.5,
+    1,
+    -1.0,
+    -1.0,
+    1.0,
+    1.0,
+    "NONE",
+    0.1,
+    1,
+    1.2,
+)
+
+
+def _delete_vsection_epilogue(script: Script, workdir: Path) -> None:
+    """Export both section indices after the deletion of section 1.
+
+    PFS-2102.001. Absence alone was read as the deletion, so an export
+    that failed or aborted on a build verified the target. Two sections
+    exist before the deletion; after it, exactly one of the two exports
+    can produce a file whether the build renumbers the survivor to 1 or
+    keeps it at 2. Two files mean nothing was deleted, and none means
+    the export instrument proved nothing in this run.
+    """
+    _vsection_export_epilogue(script, workdir)
+    script.emit("EXPORT_VOLUME_SECTION_VTK", 2, workdir / "vsection_2.vtk")
+
+
+def _delete_vsection_effect(artifacts: ProbeArtifacts) -> bool | None:
+    written = sum(
+        (artifacts.workdir / name).is_file() for name in ("vsection.vtk", "vsection_2.vtk")
+    )
+    if written == 0:
+        return None  # no positive control: the export instrument proved nothing
+    return written == 1
 
 
 _spec(
@@ -366,12 +404,12 @@ _spec(
     command="DELETE_VOLUME_SECTION",
     build_target=_emit("DELETE_VOLUME_SECTION", 1),
     requires=Requires.SOLUTION,
-    prelude=_CREATE_RECT_VSECTION,
-    epilogue=_vsection_export_epilogue,
+    prelude=_seq(_CREATE_RECT_VSECTION, _CREATE_SECOND_VSECTION),
+    epilogue=_delete_vsection_epilogue,
     assert_effect=_delete_vsection_effect,
     effect_note=(
-        "exporting the deleted section 1 afterwards produces no file (the export "
-        "command's own probe rules out an export failure)"
+        "of two sections, exporting indices 1 and 2 after deleting section 1 writes "
+        "exactly one file: the survivor is the positive control, whichever index it holds"
     ),
 )
 
@@ -545,12 +583,19 @@ _spec(
     assert_effect=fsm_changed(),
     effect_note=("the saved simulation carries the motion frame binding"),
 )
-_motion_setter(
-    "SET_MOTION_START_TIME",
-    1,
-    0.05,
-    note="the motion start time is stored in binary form; no instrument yet",
+# PFS-2135.066. The start time is judged on the saved simulation across the
+# command: the 0.40.0 gap probes measured that a 6DOF setter's value moves a
+# line of the saved file on 26.124 and 26.125 (gravity -9.81 written into the
+# motion record), so "stored in binary form, no instrument" no longer holds for
+# this family, and a probe that cannot fail could not refute the old aborts.
+_spec(
+    command="SET_MOTION_START_TIME",
+    build_target=_emit("SET_MOTION_START_TIME", 1, 0.05),
+    requires=Requires.SIM,
     prelude=_SIXDOF_PRELUDE,
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note="the saved simulation changes across the motion start time",
 )
 _motion_setter(
     "SET_MOTION_ROTOR_AXIS",
@@ -685,4 +730,29 @@ _spec(
     assert_effect=file_effect("sweep.txt"),
     effect_note="the sweep spreadsheet the command names exists and is not empty",
     timeout_s=240.0,
+)
+
+
+# --- separation models (SRC-003 p.342, SRC-741 p.339) -----------------------
+#
+# PFS-2135.060 and .061: two entries whose records rest on ad-hoc runs (RPT-015,
+# RPT-018), which promote nothing. The bulk model names itself, so its effect is
+# the name entering the saved simulation; the Valarezo erase has no instrument,
+# and what its probe settles is whether the build answers to the name at all.
+_spec(
+    command="CREATE_BULK_SEPARATION",
+    build_target=_emit("CREATE_BULK_SEPARATION", "PYFS_BULK", "CYLINDRICAL", -1, 0.5),
+    requires=Requires.SIM,
+    save_state=True,
+    assert_effect=fsm_gained("PYFS_BULK", strict=False),
+    effect_note="the saved simulation names the bulk separation model after the command",
+)
+_spec(
+    command="DELETE_VALAREZO_CRITERION_BOUNDARIES",
+    build_target=_emit("DELETE_VALAREZO_CRITERION_BOUNDARIES"),
+    assert_effect=_unobservable,
+    effect_note=(
+        "the Valarezo list is not exposed by any instrument; the probe settles whether "
+        "the build answers to the name"
+    ),
 )

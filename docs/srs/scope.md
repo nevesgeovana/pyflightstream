@@ -27,12 +27,26 @@ and are never silently dropped.
     The package is a library and a set of command-line tools. No
     graphical interface is planned or accepted.
 
-!!! nonrequirement "NREQ-02 No geometry generation or meshing"
+!!! nonrequirement "NREQ-02 No geometry generation or meshing (narrowed 2026-10-12)"
     The predecessor imported pre-built meshes; so does pyflightstream.
     Synthetic QA geometry generators exist for testing, not as a
     meshing product. Open-source meshers are reachable only as
     external tools through file exchange (see the integrations
     research card, RPT-008).
+
+    NARROWED on 2026-10-12, recording what 0.38.0 and 0.39.0 shipped.
+    Three capabilities derive a new mesh from an imported panel mesh
+    and are in scope: `pyfs-matrix refine` refines or coarsens the
+    families of an OBJ by a factor, remeshing a family whose grid is
+    not recovered (FR-424 to FR-428, FR-430 to FR-433);
+    `pyfs-matrix degenerate` derives the thin blade of a blade mesh
+    (FR-429); and `pyfs-matrix audit-mesh` audits a mesh against its
+    source (FR-426). Each starts from a mesh the user imported; the
+    first two write a new mesh beside it, and the audit writes its
+    figures beside the mesh it reads. What stays excluded: a
+    mesh built from CAD, from a parametric description or from
+    nothing; a volume mesh; and any change to the imported source,
+    which these commands never modify.
 
 !!! nonrequirement "NREQ-03 No solver-accuracy claims"
     The physics regression matrix guards regressions of the pipeline

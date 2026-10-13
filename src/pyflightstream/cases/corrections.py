@@ -375,20 +375,58 @@ class ComponentGrid:
             cell[axis] = [low, high]
             brackets.append((axis, index, weight))
         total = [0.0, 0.0, 0.0, 0.0]
-        for corner in itertools.product((0, 1), repeat=len(brackets)):
-            share = 1.0
-            key: dict[str, float] = {
-                axis: self.values[axis][0] for axis in AXES if len(self.values[axis]) == 1
-            }
-            for (axis, index, weight), side in zip(brackets, corner, strict=True):
-                share *= weight if side else 1.0 - weight
-                key[axis] = self.values[axis][index + side]
-            if share == 0.0:
-                continue
-            row = self.nodes[tuple(key[axis] for axis in AXES)]
-            for position, value in enumerate(row.coefficients()):
+        # THE PHASE IS AN ANGLE: each corner's PHASE_1P_DEG is read on the
+        # shorter arc from the first corner's, so 350 and 10 interpolate through
+        # 0 and not through 180 (PFS-2081.18); a cell whose phases lie within
+        # half a turn of one another interpolates exactly as plain numbers do.
+        corners = [
+            (share, row)
+            for corner in itertools.product((0, 1), repeat=len(brackets))
+            for share, row in [self._corner(brackets, corner)]
+            if share != 0.0
+        ]
+        reference = corners[0][1].phase_1p_deg
+        phases = [_on_the_shorter_arc(row.phase_1p_deg, reference) for _, row in corners]
+        if max(phases) - min(phases) > 180.0:
+            return Lookup(
+                None,
+                cell,
+                reason=(
+                    f"the {self.component} calibration phase spans more than half a turn "
+                    "among contributing corners; refine the grid to state an unambiguous arc"
+                ),
+            )
+        for (share, row), nearest in zip(corners, phases, strict=True):
+            offset, gain_0p, gain_1p, phase = row.coefficients()
+            for position, value in enumerate((offset, gain_0p, gain_1p, nearest)):
                 total[position] += share * value
         return Lookup((total[0], total[1], total[2], total[3]), cell)
+
+    def _corner(
+        self, brackets: Sequence[tuple[str, int, float]], corner: Sequence[int]
+    ) -> tuple[float, CalibrationRow]:
+        """Return one corner of the cell: its share of the point and its row."""
+        share = 1.0
+        key: dict[str, float] = {
+            axis: self.values[axis][0] for axis in AXES if len(self.values[axis]) == 1
+        }
+        for (axis, index, weight), side in zip(brackets, corner, strict=True):
+            share *= weight if side else 1.0 - weight
+            key[axis] = self.values[axis][index + side]
+        return share, self.nodes[tuple(key[axis] for axis in AXES)]
+
+
+def _on_the_shorter_arc(phase_deg: float, reference_deg: float) -> float:
+    """Return ``phase_deg`` as its equivalent within half a turn of ``reference_deg``.
+
+    A phase already within (-180, 180] of the reference is returned unchanged,
+    so a cell with no wrap interpolates exactly as plain numbers do.
+    """
+    difference = phase_deg - reference_deg
+    if -180.0 < difference <= 180.0:
+        return phase_deg
+    folded = (difference + 180.0) % 360.0 - 180.0
+    return reference_deg + (180.0 if folded == -180.0 else folded)
 
 
 def _bisect(values: Sequence[float], x: float) -> int:
@@ -733,6 +771,28 @@ def _number(value: float) -> str:
     return text if ("." in text or "e" in text or "inf" in text or "nan" in text) else text + ".0"
 
 
+#: The short escapes a TOML basic string has; every other control character is \uXXXX.
+_TOML_SHORT_ESCAPES = {
+    "\\": "\\\\",
+    '"': '\\"',
+    "\b": "\\b",
+    "\t": "\\t",
+    "\n": "\\n",
+    "\f": "\\f",
+    "\r": "\\r",
+}
+
+
+def _toml_basic_string(value: str) -> str:
+    """Return a TOML basic string that reads back to ``value``, control characters escaped."""
+    escaped = "".join(
+        _TOML_SHORT_ESCAPES.get(char)
+        or (f"\\u{ord(char):04X}" if ord(char) < 0x20 or ord(char) == 0x7F else char)
+        for char in value
+    )
+    return f'"{escaped}"'
+
+
 def calibration_text(
     route: str,
     rows: Sequence[CalibrationRow],
@@ -741,7 +801,7 @@ def calibration_text(
     wheel_run_id: str | None = None,
     description: str | None = None,
 ) -> str:
-    """Return a calibration file's text, which :func:`parse_calibration` reads back unchanged.
+    r"""Return a calibration file's text, which :func:`parse_calibration` reads back unchanged.
 
     Parameters
     ----------
@@ -768,6 +828,9 @@ def calibration_text(
     >>> text = calibration_text("table", [row])
     >>> parse_calibration(text).rows[0].offset_0p
     0.001
+    >>> text = calibration_text("table", [row], description="line1\nline2")
+    >>> parse_calibration(text).description == "line1\nline2"
+    True
     """
     lines = [f'route = "{route}"']
     for key, value in (
@@ -776,8 +839,7 @@ def calibration_text(
         ("description", description),
     ):
         if value is not None:
-            escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
-            lines.append(f'{key} = "{escaped}"')
+            lines.append(f"{key} = {_toml_basic_string(str(value))}")
     for row in rows:
         lines += [
             "",

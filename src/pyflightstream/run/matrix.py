@@ -57,7 +57,6 @@ from pyflightstream._progress import workspace_activity
 from pyflightstream.cases import (
     EXPORT_KINDS,
     Campaign,
-    CampaignConfigError,
     ScriptRecipe,
     SimCase,
     case_at_point,
@@ -65,7 +64,6 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases import point_name as point_name
 from pyflightstream.cases.matrix import (
-    LEGACY_WORKFLOW,
     MatrixError,
     read_matrix,
     refuse_silent_rows_without_default,
@@ -73,14 +71,12 @@ from pyflightstream.cases.matrix import (
 from pyflightstream.cases.workflows import (
     ADDITIONAL_PPROC_VARIABLE,
     EXPORT_LOG_VARIABLE,
-    SONIC_HELICAL_MACH,
     WORKFLOW_KEY,
     additional_outputs,
     build_additional_script,
     frame_definitions,
     frames_of_the_run,
 )
-from pyflightstream.results import translate_surface_exports
 from pyflightstream.results.tables import superseded_by_a_continuation
 from pyflightstream.run import (
     JOB_TAG,
@@ -100,8 +96,19 @@ from pyflightstream.run import (
     run_campaign,
     runs_as_one_job,
 )
+from pyflightstream.run._additional import complete_extraction, discard_extraction_copy
+from pyflightstream.run._additional import (
+    record_additional_extraction as record_additional_extraction,
+)
 from pyflightstream.run._identity import entry_accepted_builds
-from pyflightstream.run._ids import narrow_to_selection
+from pyflightstream.run._ids import narrow_to_selection, whole_sweeps
+from pyflightstream.run._matrix_warnings import (
+    _warn_the_legacy_rows_saving_no_simulation,
+    _warn_the_rows_whose_additional_post_is_one_instant,
+    _warn_when_a_helical_mach_may_reach_one,
+    _warn_when_a_quasi_steady_point_leaves_its_assumption,
+    _warn_when_the_points_may_not_fit,
+)
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
@@ -251,232 +258,6 @@ def _default_version(
     # which runs before anything is bound; what went is the requirement
     # to repeat on the command line a build every row already states.
     return default_fs_version
-
-
-def _warn_the_legacy_rows_saving_no_simulation(resolved: ResolvedMatrix) -> None:
-    """Name each LEGACY row whose outputs declare no saved simulation (G11, 0.27.0).
-
-    A row naming a run type saves its final ``.fsm`` on every point, which the
-    pproc artifact cannot switch off. A LEGACY row's recipe decides what it
-    writes, and only a ``.fsm`` name among its OUTPUTS is collected and hashed,
-    so a row declaring none leaves no final state in its record. A warning,
-    never a refusal: such a row runs as it always did. Called from
-    :func:`plan_matrix` alone, so ``run`` does not repeat what ``plan`` said.
-    """
-    unsaved = [
-        sim.sim_id
-        for sim in resolved.campaign.sims
-        if sim.variables.get(WORKFLOW_KEY) == LEGACY_WORKFLOW
-        and "simulation" not in classify_outputs(sim.outputs)
-    ]
-    if unsaved:
-        warn(
-            f"POL {', '.join(unsaved)}: {LEGACY_WORKFLOW} row(s) that declare no saved "
-            "simulation. No name among their OUTPUTS ends in .fsm, so no final .fsm of "
-            "theirs is collected into datapoints/DP-<point>/ or hashed in their run "
-            "record, and nothing can reopen it from the record. A row naming a run type "
-            f"saves one on every point; a {LEGACY_WORKFLOW} recipe saves one only when it "
-            "writes SAVEAS to a name its OUTPUTS declare, so declare that name and save "
-            "to it, or leave the row as it is if its final state is not wanted.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-
-
-def _warn_when_the_points_may_not_fit(workspace: CampaignWorkspace, ready: int) -> None:
-    """Warn at plan when the READY points may not fit on the workspace's disk (0.30.0, S6).
-
-    The estimate is the mean recorded datapoint of this workspace times the
-    points the run will write; the warning names ``free-space``, the command
-    that makes room. A plan with nothing to run, or a disk that cannot be
-    measured, says nothing.
-    """
-    if ready <= 0:
-        return
-    from pyflightstream.workspace.storage import disk_estimate
-
-    try:
-        line, fits = disk_estimate(workspace, ready)
-    except OSError:
-        return
-    if not fits:
-        warn(
-            f"disk: {line}. The run may not fit: make room first, for example with "
-            "`pyfs-matrix free-space m<id>` (a recipe in inputs/management/) after "
-            "`pyfs-matrix space-in-use` shows where the space is.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-
-
-def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: CampaignPlan) -> None:
-    """Name each polar point whose rotor or disc has a helical Mach of 1 or more (0.30.0, M1).
-
-    ``M_hel = sqrt(V^2 + (Omega R)^2) / a``, the geometric speed the blade tip
-    meets the flow at (free stream plus rotation, no induced velocity), over the
-    speed of sound; at 1 or more the tip is sonic or
-    supersonic. A warning, never a refusal: the plan says it once per matrix,
-    naming every such point by its name, its rotor and its ``M_hel``. A row
-    whose rotor's numbers are not known (no radius, no resolved speed) is
-    named too, with the reason, because the plan cannot say for it. Called
-    from :func:`plan_matrix` alone.
-    """
-    cases = {case.sim_id: case for case in resolved.campaign.sims}
-    sonic: list[str] = []
-    unknown: dict[str, None] = {}
-    for entry in plan.points:
-        for alias, mach in entry.rotor_mach.items():
-            helical = mach.get("mach_helical")
-            if not isinstance(helical, int | float):
-                unknown[str(mach.get("note"))] = None
-                continue
-            if helical < SONIC_HELICAL_MACH:
-                continue
-            case = cases.get(entry.sim_id)
-            try:
-                name = point_name(case, entry.point) if case is not None else entry.run_id
-            except CampaignConfigError:
-                name = entry.run_id
-            kind = mach.get("kind") or "rotor"
-            sonic.append(f"POL {entry.sim_id} point {name}, {kind} {alias}, M_hel {helical:.3f}")
-    if sonic:
-        warn(
-            f"helical Mach >= 1 on {len(sonic)} polar point(s): {'; '.join(sonic)}. "
-            "M_hel = sqrt(V^2 + (Omega R)^2) / a is the geometric speed the blade tip "
-            "meets the flow at (free stream plus rotation, no induced velocity) over the "
-            "speed of sound, so at 1 or more the tip is sonic or supersonic. Nothing is "
-            "refused; check these points before running them.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-    if unknown:
-        warn(
-            f"helical Mach not known, so the plan cannot say whether it reaches 1: "
-            f"{'; '.join(unknown)}.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-
-
-def _warn_when_a_quasi_steady_point_leaves_its_assumption(
-    resolved: ResolvedMatrix, plan: CampaignPlan
-) -> None:
-    """Name each quasi-steady wheel point whose blade has k above 0.1 anywhere (0.30.0).
-
-    ``k = Omega c / (2 V_rel)`` is the 1P reduced frequency of a blade station
-    (:mod:`pyflightstream.cases.qsteady`); above 0.1 the lag of the unsteady
-    wake is no longer small against the once-per-revolution load, so the
-    quasi-steady load there is an estimate. A warning, never a refusal, naming
-    each point with the four values the plan shows for it. A wheel point whose
-    chord is not known at plan time is named in a second warning, with why.
-    Called from :func:`plan_matrix` alone.
-
-    WITH ``--inflow-fft`` (0.30.0) a point carrying the harmonic content of its
-    custom inflow is judged by ``k_eff = n95 k_1P`` instead of ``k``, where
-    that is known, and a point whose row states fewer ``PASSAGE_POSITIONS``
-    than ``n_max / N + 1`` is named in a warning of its own. nP is counted on
-    ONE BLADE, not the blade-passing N P of a fixed surface, nor the rotor
-    total, in which only multiples of N P survive.
-    """
-    from pyflightstream.cases.qsteady import (
-        REDUCED_FREQUENCY_LIMIT,
-        summarise,
-        summarise_inflow_harmonics,
-    )
-
-    cases = {case.sim_id: case for case in resolved.campaign.sims}
-    above: list[str] = []
-    unknown: list[str] = []
-    too_few: list[str] = []
-    for entry in plan.points:
-        validity = entry.qsteady_validity
-        if not validity:
-            continue
-        case = cases.get(entry.sim_id)
-        try:
-            name = point_name(case, entry.point) if case is not None else entry.run_id
-        except CampaignConfigError:
-            name = entry.run_id
-        harmonics = validity.get("inflow_fft")
-        if isinstance(harmonics, Mapping):
-            suggested = harmonics.get("suggested_passage_positions")
-            stated = harmonics.get("passage_positions")
-            if isinstance(suggested, int) and isinstance(stated, int) and stated < suggested:
-                too_few.append(
-                    f"POL {entry.sim_id} point {name}: PASSAGE_POSITIONS {stated}, the inflow "
-                    f"needs {suggested} (n_max {harmonics.get('n_max')} on "
-                    f"{harmonics.get('blades')} blades)"
-                )
-            effective_share = harmonics.get("span_pct_k_eff_gt_0_1")
-            if isinstance(effective_share, int | float):
-                # THE VALIDITY WARNING READS k_eff WHEN IT IS KNOWN.
-                if effective_share > 0.0:
-                    above.append(
-                        f"POL {entry.sim_id} point {name}: {summarise_inflow_harmonics(harmonics)}"
-                    )
-                continue
-        if validity.get("note"):
-            unknown.append(f"POL {entry.sim_id} point {name}: {validity['note']}")
-            continue
-        share = validity.get("span_pct_k_gt_0_1")
-        if isinstance(share, int | float) and share > 0.0:
-            above.append(f"POL {entry.sim_id} point {name}: {summarise(validity)}")
-    if above:
-        warn(
-            f"quasi-steady rotor: the 1P reduced frequency k = Omega c / (2 V_rel) exceeds "
-            f"{REDUCED_FREQUENCY_LIMIT:g} on part of the blade at {len(above)} point(s): "
-            f"{'; '.join(above)}. There the unsteady wake lags the once-per-revolution load "
-            "and the quasi-steady load is an estimate. Nothing is refused; every product of "
-            "these points carries the values.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-    if unknown:
-        warn(
-            f"quasi-steady rotor: the 1P reduced frequency is not known at plan time for "
-            f"{'; '.join(unknown)}.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-    if too_few:
-        warn(
-            f"quasi-steady rotor: {len(too_few)} wheel point(s) state fewer clockings than "
-            f"their custom inflow's harmonics need: {'; '.join(too_few)}. n_max is the highest "
-            "harmonic one blade meets per revolution holding 95 % of its angle-of-attack "
-            "perturbation (nP counted on the blade, not the N P a fixed surface or a balance "
-            "under the whole rotor sees; only multiples of N P reach the rotor's total), and "
-            "PASSAGE_POSITIONS >= n_max / N + 1 samples them in one blade passage. Nothing is "
-            "refused.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-
-
-def _warn_the_rows_whose_additional_post_is_one_instant(resolved: ResolvedMatrix) -> None:
-    """Name each unsteady row stating ADDITIONAL_PPROC, whose extraction is one instant (G12).
-
-    The additional post reopens a point's final saved simulation, which holds
-    the LAST instant of an unsteady run (RPT-062), so what it extracts there is
-    one instant and not the run's per-step history. A warning, never a
-    refusal: the plan says it once per matrix, naming the rows, and the post
-    says it again per point. Called from :func:`plan_matrix` alone.
-    """
-    instants = [
-        sim.sim_id
-        for sim in resolved.campaign.sims
-        if sim.variables.get(ADDITIONAL_PPROC_VARIABLE)
-        and str(sim.variables.get(WORKFLOW_KEY, "")).startswith("unsteady")
-    ]
-    if instants:
-        warn(
-            f"POL {', '.join(instants)}: unsteady row(s) stating "
-            f"{ADDITIONAL_PPROC_VARIABLE}. The additional post reopens each point's final "
-            "saved simulation, which is the LAST instant of its run (RPT-062): what it "
-            "extracts there is that one instant and not the run's per-step history. The "
-            "plots history it exports is the run's own.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
 
 
 def _refuse_a_run_that_names_no_build(path: str | Path, default: str | None) -> None:
@@ -766,6 +547,7 @@ def plan_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
+    planned_order = whole_sweeps(resolved)
     resolved = narrow_to_selection(resolved, sims, points, workspace)  # FR-326
     warn_a_matrix_outside_the_homes(path, workspace.root)
     _warn_the_legacy_rows_saving_no_simulation(resolved)
@@ -773,7 +555,7 @@ def plan_matrix(
     warn_saved_actions_of_unsteady_rows(resolved.campaign.sims, WORKFLOW_KEY)  # FR-313
     from pyflightstream.workspace.setup_inspection import inspect_case_setup
 
-    row_versions = _row_versions(resolved)
+    row_versions = _row_versions(resolved, default)
     inspections = [
         inspect_case_setup(case, row_versions.get(case.sim_id, resolved.campaign.fs_version))
         for case in resolved.campaign.sims
@@ -786,6 +568,7 @@ def plan_matrix(
         name_from=name_from,
         versions=row_versions,
         setup_inspections=inspections,
+        planned_order=planned_order,
         matrix_path=path,
         accept_unregistered_build=accept_unregistered_build,
         inflow_fft=inflow_fft,
@@ -817,13 +600,15 @@ def plan_matrix(
     return plan
 
 
-def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
+def _row_versions(resolved: ResolvedMatrix, default: str | None = None) -> dict[str, str]:
     """Return the per-simulation version override, keyed by sim id.
 
-    Per simulation, from the build each row named and the version its
-    registry entry declares; a row on a build declaring no version, or on
-    the campaign's own, is absent here and pre-flights under the campaign
-    default. One function for the two callers, because the first fix
+    Per simulation, from the build each row named, by the fallback chain the
+    run emits its scripts under (:func:`_bind_row_builds`): the version its
+    registry entry declares, else ``default``, else the build id itself
+    (PFS-2094.018: with no default, a bare-path row pre-flighted under the
+    first row's build). A row naming no build is absent here and pre-flights
+    under the campaign default. One function for the two callers, because the first fix
     (PFS-2009.05.01) reached ``plan_matrix`` alone and ``pyfs-matrix run``
     kept refusing the row ``plan`` had said READY: pfs0130's row 1226 on
     26.123, in a matrix whose default is 26.120, met exactly that on the
@@ -832,8 +617,8 @@ def _row_versions(resolved: ResolvedMatrix) -> dict[str, str]:
     versions: dict[str, str] = {}
     for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
         registered = resolved.builds.get(build) if build else None
-        if registered is not None and registered.fs_version:
-            versions[case.sim_id] = registered.fs_version
+        if registered is not None:
+            versions[case.sim_id] = registered.fs_version or (default or "").strip() or str(build)
     return versions
 
 
@@ -1314,7 +1099,7 @@ def run_matrix(
         resolved.campaign,
         workspace,
         recipes=recipe_registry,
-        versions=_row_versions(resolved),
+        versions=_row_versions(resolved, default),
         matrix_path=path,
         write_plan=False,
     )
@@ -1408,6 +1193,8 @@ class AdditionalSkip(enum.StrEnum):
     SUPERSEDED = "SUPERSEDED"
     #: The point is still in a scheduler's queue.
     NOT_FINISHED = "NOT_FINISHED"
+    #: This point's additional extraction is still queued; collect it first.
+    EXTRACTION_SUBMITTED = "EXTRACTION_SUBMITTED"
     #: The record names no saved simulation, or the file it names is not there.
     NO_SAVED_SIMULATION = "NO_SAVED_SIMULATION"
     #: The file on disk does not hash as the record says, or the record holds no hash.
@@ -1479,6 +1266,22 @@ def _skipped(
         message=message,
         unsteady=str(point.recipe or "").startswith("unsteady"),
     )
+
+
+def _unfinished_extraction(point, done) -> tuple[AdditionalSkip, str] | None:
+    """Explain an unfinished solve or extraction without building another script."""
+    if point.status is RunStatus.SUBMITTED:
+        return (
+            AdditionalSkip.NOT_FINISHED,
+            "the point is still in a scheduler's queue; collect it (pyfs-matrix collect) first",
+        )
+    if done is not None and done.status is ExtractionStatus.SUBMITTED:
+        return (
+            AdditionalSkip.EXTRACTION_SUBMITTED,
+            f"the extraction {done.extraction_id} is already submitted; "
+            "collect it (pyfs-matrix collect) before extracting again",
+        )
+    return None
 
 
 def _canonical(version: str) -> str:
@@ -1750,13 +1553,10 @@ def _plan_point(
             f"this run was continued by {superseded[point.run_id]}, whose saved simulation is "
             "the point's; that run is extracted instead",
         )
-    if point.status is RunStatus.SUBMITTED:
-        return _skipped(
-            point,
-            pid,
-            AdditionalSkip.NOT_FINISHED,
-            "the point is still in a scheduler's queue; collect it (pyfs-matrix collect) first",
-        )
+    extraction_id = f"{point.run_id}/{ADDITIONAL_DIR}/{pid}"
+    done = latest.get(extraction_id)
+    if (unfinished := _unfinished_extraction(point, done)) is not None:
+        return _skipped(point, pid, *unfinished)
     sim_dir = workspace.sim_dir(point.sim_id)
     fsm = classify_outputs(point.outputs).get("simulation")
     if fsm is None:
@@ -1788,8 +1588,6 @@ def _plan_point(
     artifact = resolved.additional_pprocs[pid]
     artifact_path = workspace.inputs_dir / "pproc" / f"{pid}.toml"
     pproc_sha256 = optional_file_sha256(artifact_path)
-    extraction_id = f"{point.run_id}/{ADDITIONAL_DIR}/{pid}"
-    done = latest.get(extraction_id)
     if (
         done is not None
         and done.status is ExtractionStatus.EXTRACTED
@@ -2141,7 +1939,7 @@ def _extract(
 
     bind_submission_values(executor, case, case)
     result = executor.run_script(script_path, working_dir=folder, timeout_s=case.solver.timeout_s)
-    if not isinstance(executor, Submitting) or result.failed:
+    if result.failed:
         copy.unlink(missing_ok=True)
     base.update(
         {
@@ -2186,32 +1984,22 @@ def _extract(
         return record_additional_extraction(
             workspace, base, status=ExtractionStatus.SUBMITTED, error=None, original=original
         )
-    translations = context.get("translations")
-    if isinstance(translations, list) and translations:
-        # G45: the Tecplot written from the VTK before the outputs are checked.
-        base["surface_translations"] = translate_surface_exports(folder, translations)
     relative = folder.relative_to(sim_dir).as_posix()
     names = [f"{relative}/{name}" for name in case.outputs]
     if not context.get("exports_log", True):
         names = _the_extraction_s_log(base, names, sim_dir, result.captured_output())
-    missing = [name for name in names if not (sim_dir / name).is_file()]
-    if missing:
-        return record_additional_extraction(
-            workspace,
-            base,
-            status=ExtractionStatus.FAILED_INCOMPLETE_OUTPUT,
-            error=f"the extraction ended and did not write {', '.join(missing)}",
-            original=original,
-            outputs=[name for name in names if name not in missing],
-        )
-    return record_additional_extraction(
+    # ONE COMPLETION FOR THE LOCAL AND THE COLLECTED EXTRACTION (PFS-2103.008): this
+    # path judged by existence alone, over a translation problem collect refuses.
+    translations = context.get("translations")
+    completed = complete_extraction(
         workspace,
         base,
-        status=ExtractionStatus.EXTRACTED,
-        error=None,
+        folder=folder,
         original=original,
-        outputs=names,
+        names=names,
+        translations=translations if isinstance(translations, list) else None,
     )
+    return discard_extraction_copy(workspace, completed, copy)
 
 
 #: The suffix of a declared solver log, the log export kind's own.
@@ -2251,60 +2039,3 @@ def _the_extraction_s_log(
 
 def _script_name(pproc: str, stem: str) -> str:
     return f"{ADDITIONAL_DIR}/{pproc}/{stem}.txt"
-
-
-def record_additional_extraction(
-    workspace: CampaignWorkspace,
-    base: Mapping[str, object],
-    *,
-    status: ExtractionStatus,
-    error: str | None,
-    original: Path,
-    outputs: list[str] | None = None,
-) -> AdditionalRecord:
-    """Hash the original again, then write the record; an original that moved fails it.
-
-    Parameters
-    ----------
-    workspace : CampaignWorkspace
-        The workspace whose manifest of additional records is appended to.
-    base : mapping of str to object
-        The record's fields so far, with the ``sim_id`` and the original's ``fsm_sha256`` before
-        the extraction.
-    status : ExtractionStatus
-        The extraction's status; FAILED_EXECUTION when the original moved.
-    error : str or None
-        What went wrong, if anything.
-    original : Path
-        The original saved simulation, hashed again.
-    outputs : list of str, optional
-        The files the extraction wrote, in the simulation folder; each is hashed into the record.
-
-    Returns
-    -------
-    AdditionalRecord
-        The record, appended to the workspace.
-    """
-    sim_dir = workspace.sim_dir(str(base["sim_id"]))
-    after = optional_file_sha256(original)
-    if after != base["fsm_sha256"]:
-        status = ExtractionStatus.FAILED_EXECUTION
-        error = (
-            f"THE ORIGINAL SAVED SIMULATION MOVED during the extraction: {original} hashed "
-            f"{str(base['fsm_sha256'])[:12]} before and {(after or 'nothing')[:12]} after. "
-            "The extraction opens a copy and never the original, so something else wrote "
-            "it; the point's record no longer describes the file." + (f" {error}" if error else "")
-        )
-    listed = outputs or []
-    record = AdditionalRecord.model_validate(
-        {
-            **base,
-            "fsm_sha256_after": after,
-            "status": status,
-            "error": error,
-            "outputs": listed,
-            "outputs_sha256": {name: file_sha256(sim_dir / name) for name in listed},
-        }
-    )
-    workspace.append_additional(record)
-    return record

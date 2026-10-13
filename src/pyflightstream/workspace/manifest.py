@@ -37,9 +37,10 @@ from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.cases.windows import surface_average_window, surface_averaging_window
 from pyflightstream.script import MarchStrategy
 from pyflightstream.script._surface_averaging import SurfaceAverageWindow, SurfaceAveragingWindow
-from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
+from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, free_root_archive
 
 __all__ = [
+    "COST_EXCLUDED_STATUSES",
     "ADDITIONAL_MANIFEST",
     "ADDITIONAL_MANIFEST_SCHEMA",
     "AdditionalRecord",
@@ -200,6 +201,15 @@ class RunStatus(enum.StrEnum):
     #: named in ``residual_note`` as unavailable, and the point is never
     #: CONVERGED by assumption.
     RAN_MISSING_LOG = "RAN_MISSING_LOG"
+
+
+COST_EXCLUDED_STATUSES = frozenset(
+    status
+    for status in RunStatus
+    if status.name.startswith("FAILED")
+    or status in {RunStatus.WALLTIME_REACHED, RunStatus.SUBMITTED, RunStatus.RAN_MISSING_LOG}
+)
+"""Statuses whose wall clock is not a completed-run cost sample."""
 
 
 class ExecutorRecord(TypedDict):
@@ -1033,6 +1043,18 @@ class RunRecord(BaseModel):
         out: list[RunRecord] = []
         for entry in self.points_ran:
             tag = str(entry.get("tag") or "")
+            # A JOB marked failed WHOLE (the mark on the row, as a record marked
+            # before mark-failed marked each entry carries it) fails every point
+            # that carries no verdict of its own; the entry's own CONVERGED would
+            # otherwise hand a failed point to the post, status and re-run as
+            # converged. A job FAILED_MARKED because ONE of its points was
+            # marked (PFS-2103.009) has no mark on the row, and its other
+            # points keep their own status.
+            failed_job = (
+                self.status == RunStatus.FAILED_MARKED
+                and self.marked is not None
+                and not entry.get("marked")
+            )
             out.append(
                 self.model_copy(
                     update={
@@ -1041,12 +1063,18 @@ class RunRecord(BaseModel):
                         # recorded, and a per-point record carries it as such.
                         "point_name": tag or None,
                         "point": dict(entry.get("point") or {}),
-                        "status": RunStatus(entry["status"])
-                        if entry.get("status")
-                        else self.status,
+                        "status": self.status
+                        if failed_job or not entry.get("status")
+                        else RunStatus(entry["status"]),
                         "outputs": list(entry.get("outputs") or []),
                         "iterations": entry.get("iterations"),
                         "residual": entry.get("residual"),
+                        # The point's own limit and note (FR-434 R4); the job's
+                        # note is the excused-log one, or none.
+                        "residual_note": entry.get("residual_note") or self.residual_note,
+                        "iterations_requested": entry.get(
+                            "iterations_requested", self.iterations_requested
+                        ),
                         "points_ran": [],
                         # 0.30.0 (M1): a job keys its Mach numbers by point name.
                         "rotor_mach": (self.rotor_mach or {}).get(tag) or None,
@@ -1618,17 +1646,15 @@ def supersede_records(
     """
     if not workspace.manifest_path.is_file():
         return None
-    archive = workspace.root / ARCHIVE_DIR
-    archive.mkdir(parents=True, exist_ok=True)
-    target = archive / f"runs-{(stamp or datetime.now()).strftime(ARCHIVE_STAMP)}.json"
-    if target.exists():
-        # Two supersedes inside one stamp window, which the stamp cannot
-        # separate. Numbering beats overwriting the older copy, which is
-        # the one that holds the state before either change.
-        index = 2
-        while (archive / f"runs-{target.stem.split('runs-', 1)[1]}.{index}.json").exists():
-            index += 1
-        target = archive / f"runs-{target.stem.split('runs-', 1)[1]}.{index}.json"
+    (workspace.root / ARCHIVE_DIR).mkdir(parents=True, exist_ok=True)
+    # The spelling has one home, which restore reads: archive/runs-<stamp>.json,
+    # numbered .2, .3 when two supersedes share one stamp window, so the older
+    # copy, the state before either change, is never overwritten.
+    target = free_root_archive(
+        workspace.root,
+        workspace.manifest_path.name,
+        (stamp or datetime.now()).strftime(ARCHIVE_STAMP),
+    )
     shutil.copy2(workspace.manifest_path, target)
 
     superseded = set(run_ids)

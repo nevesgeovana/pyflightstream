@@ -21,6 +21,7 @@ from pyflightstream._deprecations import (
     refusal_text,
 )
 from pyflightstream.cases import (
+    AXIS_UNIT_VECTORS,
     CampaignConfigError,
     SimCase,
 )
@@ -39,6 +40,8 @@ from ._rows import (
     _the_rotor_a_flat_row_turns,
     _variable,
     _velocity,
+    advancing_tip_mach_number,
+    free_stream_direction,
     rotor_mach_numbers,
     rotor_speed,
 )
@@ -107,7 +110,9 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
         rpm: float | None,
         diameter: float | None,
         why: str | None,
+        *,
         kind: str = "rotor",
+        axis: tuple[float, float, float] | None = None,
     ) -> RotorMach:
         note = why
         if note is None and diameter is None:
@@ -128,7 +133,19 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
             velocity_m_per_s=velocity,
             sonic_velocity_m_per_s=sound,
         )
-        return RotorMach(alias, rpm, diameter, velocity, sound, tip, helical, None, kind)
+        # FR-176 R1: the advancing tip; an axis the row cannot resolve gives the
+        # edgewise bound, which the record and the plan line say.
+        advancing, resolved = advancing_tip_mach_number(
+            rpm=rpm,
+            diameter_m=diameter,
+            velocity_m_per_s=velocity,
+            sonic_velocity_m_per_s=sound,
+            flow_direction=None if axis is None else free_stream_direction(case),
+            axis=axis,
+        )
+        return RotorMach(
+            alias, rpm, diameter, velocity, sound, tip, helical, None, kind, advancing, resolved
+        )
 
     machs: list[RotorMach] = []
     if case.recipe in ("unsteady_rotor", QSTEADY_ROTOR) or (
@@ -150,6 +167,7 @@ def _rotor_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> li
                 float(speed.rpm),
                 case.rotors[alias].diameter_m if alias in case.rotors else None,
                 None,
+                axis=case.rotors[alias].axis_vector if alias in case.rotors else None,
             )
             for alias, _view, speed in turning
         ]
@@ -169,7 +187,7 @@ def _rotor_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> li
         why = None
     except CampaignConfigError as error:
         rpm, why = None, f"{where}: rotor {alias}: its speed is not resolved: {error}"
-    return [one(alias, rpm, diameter, why)]
+    return [one(alias, rpm, diameter, why, axis=None if block is None else block.axis_vector)]
 
 
 def _disc_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> list[RotorMach]:
@@ -192,7 +210,7 @@ def _disc_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> lis
                 None,
                 None,
                 f"{where}: actuator {alias}: its disc is not resolved: {error}",
-                "actuator",
+                kind="actuator",
             )
         ]
     discs = named if isinstance(named, tuple) else (() if named is None else (named,))
@@ -202,10 +220,33 @@ def _disc_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> lis
             disc.block.rpm_sign * float(disc.rpm),
             2.0 * disc.block.tip_radius_m,
             None,
-            "actuator",
+            kind="actuator",
+            axis=_disc_axis(case, disc.block.frame, disc.block.axis),
         )
         for disc in discs
     ]
+
+
+def _disc_axis(case: SimCase, frame: str, letter: str) -> tuple[float, float, float] | None:
+    """Return a disc's axis in the geometry's frame, or None where it cannot be resolved.
+
+    ``MRP`` is the reference frame itself and a ``[[frames]]`` entry states its
+    axes; a rotor's own frame is built from a shaft this function does not
+    rebuild, so a disc on one is unresolved and its ``M_adv`` is the edgewise
+    bound (FR-176 R1).
+    """
+    if frame.upper() == "MRP":
+        return AXIS_UNIT_VECTORS[letter]
+    for spec in case.frames:
+        if spec.name.upper() == frame.upper():
+            x, y = spec.x_axis, spec.y_axis
+            z = (
+                x[1] * y[2] - x[2] * y[1],
+                x[2] * y[0] - x[0] * y[2],
+                x[0] * y[1] - x[1] * y[0],
+            )
+            return {"X": x, "Y": y, "Z": z}[letter]
+    return None
 
 
 def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:

@@ -62,6 +62,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _mutation_harness import REPO, verdict  # noqa: E402
+from _requirements_paths import FUNCTIONAL_REQUIREMENTS  # noqa: E402
 
 TEST = (
     "tests/tier1_offline/test_claim_currency.py::"
@@ -219,7 +220,7 @@ MUTANTS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         ),
     ),
     ("docs/getting-started.md", ((GETTING_STARTED_LIVE, GETTING_STARTED_STALE),)),
-    ("docs/srs/functional-requirements.md", ((SRS_LIVE, SRS_STALE),)),
+    (FUNCTIONAL_REQUIREMENTS.as_posix(), ((SRS_LIVE, SRS_STALE),)),
     ("examples/steady_polar.py", ((EXAMPLE_LIVE, EXAMPLE_STALE),)),
     ("src/pyflightstream/commands/_meta.yaml", ((META_LIVE, META_STALE),)),
 )

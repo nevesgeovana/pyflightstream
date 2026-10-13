@@ -628,6 +628,13 @@ def removed_names_hook(module: str) -> Callable[[str], object]:
     def refuse(name: str) -> object:
         if name in REMOVED_AT_0_16_0:
             raise AttributeError(removed_name_refusal(module, name))
+        # The names retired in 0.40.0 (FR-457) answer through the same hook,
+        # naming their replacement, rather than a second hook per module.
+        from pyflightstream._retired_names import RetiredAttributeError, retired_attribute
+
+        retired = retired_attribute(module, name)
+        if retired is not None:
+            raise RetiredAttributeError(retired.message())
         raise AttributeError(f"module {module!r} has no attribute {name!r}")
 
     return refuse
@@ -825,9 +832,18 @@ REFUSED_IN_0_15_0: tuple[Deprecation, ...] = (
 #: architecture lens of 2026-09-09: the mapping was private to one module
 #: and its sibling reached into it).
 
+INFLOW_STATION_HARMONICS = DeprecatedFunction(
+    function="pyflightstream.post.inflow_tools.StationHarmonics",
+    deprecated_since="0.40.0",
+    removal_version="1.0.0",
+    advice="use pyflightstream.post.inflow_tools.InflowStationHarmonics",
+)
+
+
 DEPRECATIONS: tuple[Deprecation, ...] = (
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
+    INFLOW_STATION_HARMONICS,
 )

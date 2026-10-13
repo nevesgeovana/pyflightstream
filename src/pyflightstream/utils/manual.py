@@ -128,7 +128,7 @@ from typing import Any, Protocol, runtime_checkable
 import yaml
 
 import pyflightstream._textio as _textio
-from pyflightstream._yamlflow import flow_mapping
+from pyflightstream._yamlflow import flow_mapping, flow_scalar
 from pyflightstream.utils.errors import ManualDraftError
 
 __all__ = [
@@ -476,8 +476,11 @@ def _parameters_after(
     ]
     rows: dict[str, list[str]] = {}
     current: str | None = None
+    # LONGEST FIRST, so a FRAME_TYPE row opens FRAME_TYPE and is not read
+    # as a continuation of FRAME, the placeholder its name starts with.
+    longest_first = sorted(keys, key=len, reverse=True)
     for line in block:
-        opened = next((key for key in keys if line.startswith(key)), None)
+        opened = next((key for key in longest_first if line.startswith(key)), None)
         if opened is not None and opened not in rows:
             current = opened
             rows[current] = [line[len(opened) :].strip()]
@@ -1446,6 +1449,68 @@ _MANIFEST_KEYS = {
 _MANIFEST_REQUIRED = ("label", "manual", "chapter")
 
 
+def _manifest_range(row: dict, key: str, where: str) -> tuple[int, int]:
+    """Return the FIRST-LAST page range ``row[key]`` states; refuse a malformed one."""
+    spec = str(row[key])
+    first, _, last = spec.partition("-")
+    if not last or not first.isdigit() or not last.isdigit():
+        raise ManualDraftError(f"{where}: {key} must read FIRST-LAST in page numbers, got {spec!r}")
+    if int(first) > int(last):
+        raise ManualDraftError(f"{where}: {key} ends before it starts, {spec!r}")
+    return int(first), int(last)
+
+
+def _edition_from_row(row: dict, where: str, known: str) -> Edition:
+    """Check one manifest row and return its :class:`Edition`; refuse the first fault."""
+    for key in _MANIFEST_REQUIRED:
+        if key not in row:
+            raise ManualDraftError(f"{where}: missing {key!r}. An edition row holds {known}")
+    unknown = sorted(set(row) - set(_MANIFEST_KEYS))
+    if unknown:
+        # Refused rather than ignored, because the shape of the
+        # degradation is misleading: a misspelled 'index' key leaves
+        # every command unlabelled, and the report then says the
+        # index does not name them, which is a statement about the
+        # manual rather than about the typo that caused it.
+        raise ManualDraftError(f"{where}: unknown key(s) {unknown}. An edition row holds {known}")
+    # TEXT, OR REFUSED, the hazard the command loader refuses for its
+    # version keys. YAML reads an unquoted 26.120 as the number 26.12
+    # and a blank `source:` as null, and str() of either is a
+    # different build or the four letters "None" as a citation.
+    label = row["label"]
+    if not isinstance(label, str) or not label.strip():
+        raise ManualDraftError(
+            f"{where}: label {label!r} parsed as {type(label).__name__}, not as the "
+            'name of a build; quote it in the YAML (label: "26.120"), because an '
+            "unquoted 26.120 is read as the number 26.12"
+        )
+    source = row.get("source")
+    if "source" in row and (not isinstance(source, str) or not source.strip()):
+        raise ManualDraftError(
+            f"{where}: source {source!r} parsed as {type(source).__name__}, not as a "
+            'citation id; write it (source: "SRC-751") or leave the key out'
+        )
+    # Ranges before existence: both are checked before any manual is
+    # opened, which is the point, and within a row a malformed page
+    # range is the more specific complaint of the two.
+    chapter = _manifest_range(row, "chapter", where)
+    index = _manifest_range(row, "index", where) if "index" in row else None
+    manual = Path(str(row["manual"]))
+    if not manual.is_file():
+        raise ManualDraftError(
+            f"{where}: manual {str(manual)!r} is not a readable file. Manual paths are "
+            "relative to the working directory and name licensed material this "
+            "repository never carries, so a fresh clone has to point them at its own copy"
+        )
+    return Edition(
+        label=label,
+        manual=manual,
+        chapter=chapter,
+        index=index,
+        source=source,
+    )
+
+
 def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
     """Read an edition manifest, the file that makes a sweep repeatable.
 
@@ -1477,8 +1542,11 @@ def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
     ------
     ManualDraftError
         If the file is not a list of mappings, if a row lacks ``label``,
-        ``manual`` or ``chapter``, carries a key outside the five, names
-        a manual that does not exist, or writes a page range that is not
+        ``manual`` or ``chapter``, carries a key outside the five, has a
+        ``label`` or ``source`` that YAML did not read as non-blank text
+        (an unquoted ``26.120`` is the number 26.12, a blank ``source:``
+        is null), names a manual that does not exist, or writes a page
+        range that is not
         ``FIRST-LAST`` with FIRST no greater than LAST. Every check names
         the offending row, because a manifest is edited rarely and by
         hand, and EVERY row is checked before any manual is opened: a
@@ -1502,55 +1570,11 @@ def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
             f"{path} must hold a list of edition mappings, not {type(rows).__name__}"
         )
 
-    def _range(row: dict, key: str, where: str) -> tuple[int, int]:
-        spec = str(row[key])
-        first, _, last = spec.partition("-")
-        if not last or not first.isdigit() or not last.isdigit():
-            raise ManualDraftError(
-                f"{where}: {key} must read FIRST-LAST in page numbers, got {spec!r}"
-            )
-        if int(first) > int(last):
-            raise ManualDraftError(f"{where}: {key} ends before it starts, {spec!r}")
-        return int(first), int(last)
-
     known = ", ".join(f"{key} ({why})" for key, why in _MANIFEST_KEYS.items())
     editions = []
     for position, row in enumerate(rows, start=1):
         where = f"{path} entry {position}"
-        for key in _MANIFEST_REQUIRED:
-            if key not in row:
-                raise ManualDraftError(f"{where}: missing {key!r}. An edition row holds {known}")
-        unknown = sorted(set(row) - set(_MANIFEST_KEYS))
-        if unknown:
-            # Refused rather than ignored, because the shape of the
-            # degradation is misleading: a misspelled 'index' key leaves
-            # every command unlabelled, and the report then says the
-            # index does not name them, which is a statement about the
-            # manual rather than about the typo that caused it.
-            raise ManualDraftError(
-                f"{where}: unknown key(s) {unknown}. An edition row holds {known}"
-            )
-        # Ranges before existence: both are checked before any manual is
-        # opened, which is the point, and within a row a malformed page
-        # range is the more specific complaint of the two.
-        chapter = _range(row, "chapter", where)
-        index = _range(row, "index", where) if "index" in row else None
-        manual = Path(str(row["manual"]))
-        if not manual.is_file():
-            raise ManualDraftError(
-                f"{where}: manual {str(manual)!r} is not a readable file. Manual paths are "
-                "relative to the working directory and name licensed material this "
-                "repository never carries, so a fresh clone has to point them at its own copy"
-            )
-        editions.append(
-            Edition(
-                label=str(row["label"]),
-                manual=manual,
-                chapter=chapter,
-                index=index,
-                source=str(row["source"]) if "source" in row else None,
-            )
-        )
+        editions.append(_edition_from_row(row, where, known))
     return tuple(editions)
 
 
@@ -1661,11 +1685,15 @@ _GENERIC_NAMES = {
 #: Section of the Script Index to the database's phase vocabulary. A
 #: section this does not name yields None, and the draft says `phase: ???`
 #: rather than guessing, because emitting a wrong phase would make the
-#: ordering checks refuse a correct script.
+#: ordering checks refuse a correct script. Every value is a Phase member,
+#: read off the phase the chapter file of that section already gives all of
+#: its entries; a section whose recorded entries span more than one phase
+#: (Opening Closing Saving, Solver Initialization Execution, Unsteady
+#: Solver, Sweeper Toolbox, Solver Analysis) or whose chapter is not one
+#: file (Output Status) is left out, so it drafts as `???`.
 _PHASE_BY_SECTION = {
     "Script Controls": "control",
-    "Opening  Closing    Saving": "init",
-    "Mesh Import   Export": "init",
+    "Mesh Import   Export": "geometry",
     "Coordinate Systems": "setup",
     "Actuators": "setup",
     "Motion Definitions": "setup",
@@ -1677,14 +1705,9 @@ _PHASE_BY_SECTION = {
     "Solver Settings": "init",
     "Advanced Settings": "init",
     "Runtime Settings": "init",
-    "Fluid Properties": "init",
+    "Fluid Properties": "setup",
     "Free Stream Velocity": "init",
-    "Solver Initialization   Execution": "solve",
-    "Unsteady Solver": "solve",
-    "Sweeper Toolbox": "solve",
-    "Solver Analysis": "post",
-    "Solver Data Export": "post",
-    "Output Status": "post",
+    "Solver Data Export": "export",
 }
 
 
@@ -2140,7 +2163,9 @@ def render_entry(
             lines.append(f"    - name: {_argument_name(raw)}")
             lines.append(f"      type: {proposed or '???'}")
             if values:
-                lines.append(f"      values: [{', '.join(values)}]")
+                # QUOTED, every token: YAML 1.1 reads a bare ON, OFF, YES or
+                # NO as a boolean, and ArgSpec.values holds strings.
+                lines.append(f"      values: {flow_scalar(list(values))}")
             if proposed is None:
                 unanswered += 1
             else:
@@ -2539,8 +2564,13 @@ def insert_version_row(
         keep the last and drop the first, silently.
     """
     newline = "\r\n" if "\r\n" in text else "\n"
-    trailing = text.endswith(("\n", "\r"))
-    lines = text.splitlines()
+    # Split on CRLF and LF ONLY, each line keeping its own terminator.
+    # str.splitlines also breaks on form feed, NEL, U+2028 and other
+    # characters a note may hold, and rejoining with one newline rewrote
+    # a file of mixed line ends.
+    chunks = re.findall(r".*?(?:\r\n|\n)|.+\Z", text, flags=re.S)
+    lines = [chunk.removesuffix("\n").removesuffix("\r") for chunk in chunks]
+    ends = [chunk[len(line) :] for chunk, line in zip(chunks, lines, strict=True)]
     try:
         start = next(i for i, line in enumerate(lines) if line == f"{command}:")
     except StopIteration:
@@ -2594,5 +2624,11 @@ def insert_version_row(
             raise ManualDraftError(f"{command} already records {canonical}")
 
     row = flow_mapping({"status": status, "note": note})
+    # The new row takes the terminator of the line it follows; a last line
+    # with none gains the file's own before it.
+    original_end = ends[last_content]
+    after = original_end or newline
+    ends[last_content] = after
     lines.insert(last_content + 1, f'    "{canonical}": {row}')
-    return newline.join(lines) + (newline if trailing else "")
+    ends.insert(last_content + 1, original_end)
+    return "".join(line + end for line, end in zip(lines, ends, strict=True))

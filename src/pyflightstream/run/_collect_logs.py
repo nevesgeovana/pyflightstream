@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace._batches import job_of
 from pyflightstream.workspace.inputs import resolve_hpc_profile
 
 __all__ = [
@@ -32,6 +33,34 @@ __all__ = [
 
 #: The suffix every solver log this package names carries, from EXPORT_KINDS.
 LOG_SUFFIX = "_log.txt"
+
+
+def _glob_values(record: RunRecord, point: str) -> dict[str, object]:
+    """Return what a profile glob of this record is formatted with (PFS-2095.026).
+
+    ``{sim}`` and ``{point}``, the record's own; a point of a grouped job also
+    offers its job's values (``batch``, ``sims``, ...), which the grouped
+    collect formats the same globs with, so a glob naming one of them is no
+    crash here.
+    """
+    job = job_of(record)
+    values = job.get("values") if job is not None else None
+    return {**(values if isinstance(values, Mapping) else {}), "sim": record.sim_id, "point": point}
+
+
+def _profile_glob(key: str, pattern: str, values: Mapping[str, object]) -> tuple[str | None, str]:
+    """Return the glob ``pattern`` formats to, or None and the refusal naming what it lacks."""
+    try:
+        return pattern.format(**values), ""
+    except KeyError as error:
+        lacking = f"{{{error.args[0]}}}"
+    except (IndexError, ValueError, AttributeError, TypeError) as error:
+        lacking = f"a placeholder it cannot read ({error})"
+    return None, (
+        f"the HPC profile's {key} ({pattern!r}) names {lacking}, which this point does not "
+        f"fill; it fills {', '.join('{' + name + '}' for name in values)}. Correct the "
+        "pattern in the profile."
+    )
 
 
 @dataclass(frozen=True)
@@ -95,7 +124,9 @@ def native_log(
     # not `point_name` alone: that is empty for exactly the records 0.21.1
     # supports, so a profile naming the point in its pattern would glob nothing,
     # copy no log, and wait for a file nothing writes (the qa lens, FIX-0211).
-    glob = pattern.format(sim=record.sim_id, point=point, **{})
+    glob, refusal = _profile_glob("native_log", pattern, _glob_values(record, point))
+    if glob is None:
+        return NativeLog(refusal)
     found = sorted(path for path in work_dir.glob(glob) if path.is_file())
     if len(found) > 1:
         return NativeLog(
@@ -167,7 +198,9 @@ def job_ended_without_log(
         return None
     matched: list[Path] = []
     for pattern in patterns:
-        found = sorted(p for p in work_dir.glob(pattern.format(sim=record.sim_id, point=point)))
+        # A pattern this point cannot fill matches nothing, as a pattern with no file does.
+        glob, _ = _profile_glob("job_end_files", pattern, _glob_values(record, point))
+        found = sorted(work_dir.glob(glob)) if glob is not None else []
         if not any(path.is_file() for path in found):
             return None
         matched += [path for path in found if path.is_file()]

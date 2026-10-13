@@ -55,6 +55,20 @@ CHANGELOG = REPO / "CHANGELOG.md"
 #: either.
 VERSION_TAG = re.compile(r"^v\d[\w.\-]*$")
 
+
+def architecture_problem(tag: str, text: str | None = None) -> str | None:
+    """Refuse a release whose version has no public architecture section."""
+    version = tag.removeprefix("v")
+    if text is None:
+        text = (REPO / "docs/srs/architecture-srs.md").read_text(encoding="utf-8")
+    headings = re.findall(r"(?m)^##+ (.+)$", text)
+    if not any(
+        re.search(rf"(?<![\d.]){re.escape(version)}(?![\d.])", heading) for heading in headings
+    ):
+        return f"{tag} has no version section in docs/srs/architecture-srs.md"
+    return None
+
+
 #: The rows below v0.3.0 were never recorded, which CITATION.cff's own header
 #: states. Judging them would report a gap in a LIST as a gap in the archive.
 FIRST_RECORDED = "v0.3.0"
@@ -214,22 +228,30 @@ def main(argv: list[str] | None = None) -> int:
 
     judged = [t for t in tags if _sortable(t) >= _sortable(FIRST_RECORDED)]
     skipped = [t for t in tags if t not in judged]
+    # THE NEWEST TAG OF THE CHECKOUT, not of the judged list: a tag named
+    # alone (or named after a newer one) was the last judged tag, so an old
+    # owed tag asked about by name read as inside its one-release window.
+    newest = max(version_tags(), key=_sortable)
 
     dois = recorded_dois()
     owed = owed_in_the_changelog()
     problems: list[str] = []
+    failed: set[str] = set()
+    for tag in args.tag:
+        if problem := architecture_problem(tag):
+            problems.append(problem)
+            failed.add(tag)
     # THE FAILING TAGS, not the failing CLAIMS. One tag can contribute two
     # problems, a missing release object and a missing row, and the first
     # writing of the summary subtracted the problem count from the tag count
     # and printed "-1 of 1". A success line that reports a number no run
     # could produce is the defect that is hardest to see, because the line
     # looks right until a failure makes it print.
-    failed: set[str] = set()
     for tag in judged:
         doi = dois.get(tag)
         if doi:
             row = f"DOI {doi}"
-        elif tag in owed and tag == judged[-1]:
+        elif tag in owed and tag == newest:
             # THE WINDOW IS ONE RELEASE WIDE, and it was unbounded. The
             # docstring defines it as the one commit between a tag and the
             # row that pays it, and nothing enforced that: a sentence in the
@@ -239,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
             # exactly that. Found by the quality and verification lenses of
             # the 0.18.0 round, independently, 2026-09-14.
             #
-            # `judged[-1]` is the NEWEST judged tag, which is the only one
+            # `newest` is the NEWEST tag of the checkout, which is the only one
             # that can legitimately be inside its window: once a further
             # release has shipped, the debt is not a window any more, it is a
             # release that stopped being citable.

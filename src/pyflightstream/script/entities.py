@@ -71,9 +71,10 @@ class ScriptDeclarationTypeError(PyflightstreamError, TypeError):
     existing ``except TypeError`` around a declaration catches exactly
     what it caught before.
 
-    Raised by :meth:`EntityRegistry.declare` when a declaration is
-    neither a positive integer total nor a mapping of labels to 1-based
-    indices.
+    Raised by :meth:`EntityRegistry.declare_boundaries` when a
+    declaration is neither a zero or positive integer total nor a
+    mapping of labels to 1-based indices, and by
+    :meth:`EntityRegistry.declare` when a count is not an integer.
     """
 
 
@@ -225,22 +226,35 @@ class EntityRegistry:
             self._labels[kind][label] = index
         return index
 
-    def delete(self, kind: str) -> None:
-        """Record one deleted entity and drop labels left dangling.
+    def delete(self, kind: str, index: int) -> None:
+        """Record the deletion of entity ``index`` and renumber the labels.
 
-        FlightStream renumbers the surviving entities of the kind, so
-        the ledger only tracks the count; labels whose index now
-        exceeds the shrunken range are removed, because they can no
-        longer resolve to an existing entity.
+        FlightStream renumbers the surviving entities of the kind: each
+        one above the deleted index takes the index below it, keeping its
+        name (RPT-021 section 3, measured on coordinate systems). So the
+        label of the deleted entity is dropped, and every label above it
+        moves down one with the entity it names. Until 0.40.0 the ledger
+        was not told which index went and dropped the TOP label instead,
+        so after deleting entity 1 of 2 the label of entity 1 resolved to
+        the survivor (PFS-2104.025).
+
+        Parameters
+        ----------
+        kind : str
+            One of ``frames``, ``actuators``, ``motions``.
+        index : int
+            The 1-based index the delete command cited, already checked
+            against the range.
         """
         if kind not in CREATED_KINDS:
             raise ScriptReferenceError(
                 f"entity kind {kind!r} is not script-created, so not deletable"
             )
         self._counts[kind] -= 1
-        limit = self.limit(kind)
         self._labels[kind] = {
-            label: index for label, index in self._labels[kind].items() if index <= limit
+            label: held - 1 if held > index else held
+            for label, held in self._labels[kind].items()
+            if held != index
         }
 
     def declare(self, kind: str, extra: int) -> None:
@@ -253,11 +267,26 @@ class EntityRegistry:
         extra : int
             Number of entities the opened project file already holds;
             must be zero or positive.
+
+        Raises
+        ------
+        ScriptDeclarationTypeError
+            If ``extra`` is not an integer (a bool is not one): a float
+            would make the range limit fractional and a string fail the
+            comparison with Python's own TypeError.
+        ScriptReferenceError
+            If ``extra`` is negative.
         """
         if kind not in CREATED_KINDS:
             raise ScriptReferenceError(
                 f"entity kind {kind!r} is not count-declared; declare mesh boundaries "
                 "through declare_existing(boundaries=...)"
+            )
+        if isinstance(extra, bool) or not isinstance(extra, int):
+            raise ScriptDeclarationTypeError(
+                f"{kind} takes a whole count of the {kind} the opened project already "
+                f"holds, got {extra!r}; the count is what citations of them are "
+                "range-checked against"
             )
         if extra < 0:
             raise ScriptReferenceError(f"declared {kind} must be zero or positive, got {extra}")

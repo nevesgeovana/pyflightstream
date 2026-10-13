@@ -7,9 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import pyflightstream._cli as _cli
-import pyflightstream.workspace.hpc as hpc_module
 from pyflightstream._errors import InputArtifactError
+from pyflightstream.run._cli_parsers import _build_parser, parsed
 from pyflightstream.run.cli import main
 from pyflightstream.workspace.hpc import resolve_hpc_profile, select_hpc_profile
 
@@ -62,24 +61,19 @@ def test_selection_of_an_absent_stem_names_the_available_ones(tmp_path):
         resolve_hpc_profile(inputs)
 
 
-def test_cli_parse_sets_the_selection(tmp_path, monkeypatch):
+def test_cli_parse_sets_the_selection(tmp_path):
     inputs = _inputs(tmp_path, "h001", "h002")
-    # The selection belongs to the command (PFS-2094.045): read it as the command ends.
-    seen: list[str | None] = []
-    close = _cli._close_invocation
-
-    def recording(scoped, show):
-        seen.append(hpc_module._SELECTED_HPC.get())
-        close(scoped, show)
-
-    monkeypatch.setattr(_cli, "_close_invocation", recording)
-    # `plan` and `run` parse the option, then stop at their own gates.
-    main(["run", "none.fs", "--workspace", str(tmp_path), "--hpc", "h002"])
-    assert seen == ["h002"]
-    select_hpc_profile(seen[0])
+    # The parse selects the profile; outside a console command it stays set.
+    parsed(_build_parser(), ["run", "none.fs", "--workspace", str(tmp_path), "--hpc", "h002"])
     profile = resolve_hpc_profile(inputs)
     assert profile is not None
     assert profile.application_id == "app-h002"
+    # A console command selects it for itself alone (PFS-2094.008): `run` stops
+    # at its own gate and a later resolve sees no selection.
+    select_hpc_profile(None)
+    main(["run", "none.fs", "--workspace", str(tmp_path), "--hpc", "h002"])
+    with pytest.raises(InputArtifactError, match="holds 2 profiles"):
+        resolve_hpc_profile(inputs)
 
 
 def test_one_profile_without_selection_is_unchanged(tmp_path):

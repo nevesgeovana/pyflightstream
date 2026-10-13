@@ -22,6 +22,8 @@ import pytest
 import yaml
 from packaging.version import parse as parse_version
 
+from tests.tier1_offline._docs_site import NONFUNCTIONAL_REQUIREMENTS, REQUIREMENTS_DIR
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -72,7 +74,7 @@ def test_srs_requirement_ids_are_unique() -> None:
     seen: dict[str, str] = {}
     srs_dir = REPO_ROOT / "docs" / "srs"
     pattern = re.compile(r'"((?:FR|NFR|NREQ|AD)-\w+)\s')
-    for page in sorted(srs_dir.glob("*.md")):
+    for page in sorted([*srs_dir.glob("*.md"), *(REPO_ROOT / REQUIREMENTS_DIR).glob("*.md")]):
         for match in pattern.finditer(page.read_text(encoding="utf-8")):
             req_id = match.group(1)
             assert req_id not in seen, (
@@ -90,7 +92,9 @@ def _glossary_rows() -> dict[str, str]:
     section appended after the glossary cannot silently widen the term
     source.
     """
-    index = (REPO_ROOT / "docs" / "srs" / "index.md").read_text(encoding="utf-8")
+    index = (REPO_ROOT / "docs" / "unpublished" / "requirements" / "index.md").read_text(
+        encoding="utf-8"
+    )
     body = index.partition("## Glossary")[2]
     assert body, "the SRS index lost its Glossary section"
     rows: dict[str, str] = {}
@@ -115,9 +119,7 @@ def _terms_nfr24_names() -> list[str]:
     and not to the glossary, which is the exact direction of drift NFR-24
     exists to stop; the constant that used to sit here had that hole.
     """
-    text = (REPO_ROOT / "docs" / "srs" / "nonfunctional-requirements.md").read_text(
-        encoding="utf-8"
-    )
+    text = (REPO_ROOT / NONFUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
     body = text.partition("NFR-24")[2]
     assert body, "NFR-24 is gone from the SRS"
     anchor = "requirement's list ("
@@ -334,6 +336,21 @@ def _owed_claims(owed: str) -> list[str]:
     return claims
 
 
+def _owed_claim_names_the_debt(claim: str, version: str) -> bool:
+    """Whether one Owed claim says the archive of ``version`` is owed.
+
+    It must name the release, name the archive and say something is owed: a
+    bullet that merely mentions a version and the word archive owes nothing.
+    One definition, read by both guards that accept a debt in place of a row.
+    """
+    lowered = claim.lower()
+    return (
+        re.search(rf"(?<!\w)v{re.escape(version)}(?![\w+-]|\.\w)", claim) is not None
+        and re.search(r"\b(?:archives?|dois?|identifiers?)\b", lowered) is not None
+        and re.search(r"\b(?:owe[ds]?|not\s+exist|missing)\b", lowered) is not None
+    )
+
+
 def _the_owed_section() -> str:
     """Return the changelog's `### Owed` block of the Unreleased section.
 
@@ -423,15 +440,13 @@ def test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed(
         if rows:
             by_row.append(tag)
         elif any(
-            f"v{version}" in claim
-            and any(word in claim.lower() for word in ("archive", "doi", "identifier"))
             # AND IT SAYS THE THING IS OWED. Reading the claim rather than the
             # line closed the false NEGATIVE and left the false POSITIVE open:
             # a bullet that merely MENTIONS a version and an archive declared
             # the debt, so prose owing nothing satisfied the guard. Measured by
             # restoring exactly that on 2026-09-11, under this heading, and
             # watching it pass. A debt is a claim that something is owed.
-            and any(word in claim.lower() for word in ("owed", "owe", "not exist", "missing"))
+            _owed_claim_names_the_debt(claim, version)
             for claim in _owed_claims(owed)
         ):
             # THE CLAIM MUST NAME THE ARCHIVE, not merely the version. The
@@ -472,6 +487,23 @@ def test_every_released_tag_has_an_archive_row_or_the_changelog_says_it_is_owed(
         "neither reading matched any tag, so this guard passed without reading "
         "either of the two things it exists to read"
     )
+
+
+def test_p0400_an_owed_claim_is_a_bullet_that_says_the_archive_is_owed():
+    """The control of both guards that accept a debt in place of a row (PFS-2135.070).
+
+    Prose that only mentions the version and the word archive owes nothing,
+    and a debt wrapped across physical lines is still one claim.
+    """
+    owed = (
+        "- The v9.9.9 archive DOI is owed: it is minted\n"
+        "  one commit after the tag.\n"
+        "- v9.9.9 shipped; the archive page of the docs was rewritten.\n"
+    )
+    first, second = _owed_claims(owed)
+    assert _owed_claim_names_the_debt(first, "9.9.9")
+    assert not _owed_claim_names_the_debt(second, "9.9.9")
+    assert not _owed_claim_names_the_debt(first, "9.9.8")
 
 
 def test_the_newest_archive_row_names_the_version_this_tree_states():
@@ -524,10 +556,9 @@ def test_the_newest_archive_row_names_the_version_this_tree_states():
     # merely mentioned in the section does not satisfy it.
     owed = _the_owed_section()
     named = [
-        line
-        for line in owed.splitlines()
-        if f"v{_pyproject_version()}" in line
-        and any(word in line.lower() for word in ("archive", "doi", "identifier"))
+        claim
+        for claim in _owed_claims(owed)
+        if _owed_claim_names_the_debt(claim, _pyproject_version())
     ]
     assert named, (
         f"the newest archive row reads {rows[0].get('description')!r} while this tree "

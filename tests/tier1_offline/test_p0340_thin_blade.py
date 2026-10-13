@@ -338,7 +338,7 @@ def test_a_mesh_whose_two_sides_cannot_be_separated_is_refused(tmp_path):
     vertices, faces = _blade()
     two = tmp_path / "two.obj"
     _write_obj(two, vertices, faces)
-    two.write_text(two.read_text() + "o Spinner\nf 1 2 3\n", encoding="utf-8")
+    two.write_text(two.read_text(encoding="utf-8") + "o Spinner\nf 1 2 3\n", encoding="utf-8")
     with pytest.raises(InputArtifactError, match=r"2 groups of faces \(Blade1, Spinner\)"):
         derive_thin_blade(two, root_offset=0.05)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["sheet.obj", "two.obj"]

@@ -23,6 +23,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from tests.tier1_offline._docs_site import NONFUNCTIONAL_REQUIREMENTS
+
 ROOT = Path(__file__).resolve().parents[2]
 
 #: SHA-256 (of the lowercase token, UTF-8) of each digest RPT-050 once recorded
@@ -52,7 +54,7 @@ HEX_TOKEN = re.compile(r"(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])")
 FILES_READ_FLOOR = 1000
 
 RPT_050 = next((ROOT / "reports").glob("RPT-050_*.md"))
-NFR_PAGE = ROOT / "docs" / "srs" / "nonfunctional-requirements.md"
+NFR_PAGE = ROOT / NONFUNCTIONAL_REQUIREMENTS
 
 
 def _tracked() -> list[Path]:

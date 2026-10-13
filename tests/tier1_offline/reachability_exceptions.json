@@ -1,0 +1,601 @@
+{
+ "about": "The workspace reachability register of PFS-2140.011: every public capability the guard tests/tier1_offline/test_p0400_reach_guard.py finds unreached from the workspace entry points, each expressly identified. A row is deleted when its capability becomes reached; the register only shrinks.",
+ "limit": "Reached means a static reference path from a workspace entry point, not an observed execution: a reached class reaches all its methods (public methods are not inventoried on their own), a registry entry is reached with its registry even when a runtime check refuses it, and a branch decided at run time counts both ways. Annotations, TYPE_CHECKING and constant-false branches and code after an unconditional exit do not count. The guard's module docstring states the full list.",
+ "reasons": {
+  "routed later": "a planning node routes the capability to the workspace, or removes it, at the release named; the row expires at that release",
+  "maintainer or developer API": "maintainer or developer API, outside the workspace rule by the decision named",
+  "Python-only by design": "Python-only by design, by the decision named"
+ },
+ "seed": "the reachability audit of 2026-10-12, translated; groups map to PFS-2140.001 to .005 and .007 and to the far-field nodes PFS-2139.005, .008 and .009",
+ "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
+ "rows": [
+  {
+   "id": "RX-01",
+   "capability": "Far-field conservation ledgers (mass, axial and transverse momentum, shaft torque, in-plane moment, crossflow kinetic energy)",
+   "reason": "routed later",
+   "node": "PFS-2139.008",
+   "release": "0.40.0",
+   "names": [
+    "pyflightstream.farfield.TransverseForce",
+    "pyflightstream.farfield.transverse_force"
+   ]
+  },
+  {
+   "id": "RX-02",
+   "capability": "Far-field lattice dataset, annular quadrature, azimuthal harmonics and the spurious-drag diagnostic, selected by a [farfield] table of the pproc",
+   "reason": "routed later",
+   "node": "PFS-2139.005",
+   "release": "0.40.0",
+   "names": [
+    "pyflightstream.farfield.sample_coverage"
+   ]
+  },
+  {
+   "id": "RX-04",
+   "capability": "Cylindrical survey lattice of probe points and its emission, and the lattice dataset point writer",
+   "reason": "routed later",
+   "node": "PFS-2140.001",
+   "release": "0.40.0",
+   "names": [
+    "pyflightstream.post.write_tecplot_points",
+    "pyflightstream.probes.emit_probe_export",
+    "pyflightstream.probes.emit_probe_points",
+    "pyflightstream.probes.write_points_csv",
+    "pyflightstream.probes.write_probe_csv"
+   ]
+  },
+  {
+   "id": "RX-05",
+   "capability": "Planar probe grids on a frame with per-axis distributions and refinement bands",
+   "reason": "routed later",
+   "node": "PFS-2140.001",
+   "release": "0.40.0",
+   "names": [
+    "pyflightstream.probes.AxisSpec",
+    "pyflightstream.probes.FrameDefinition",
+    "pyflightstream.probes.GeometryGateReport",
+    "pyflightstream.probes.PlanarProbeGrid",
+    "pyflightstream.probes.PlannedProbes",
+    "pyflightstream.probes.RefinementBand"
+   ]
+  },
+  {
+   "id": "RX-06",
+   "capability": "Inside-the-body check of probe points against the surface mesh, and the surface mesh export it reads",
+   "reason": "routed later",
+   "node": "PFS-2140.001",
+   "release": "0.40.0",
+   "names": [
+    "pyflightstream.exceptions.SurfaceMeshExportError",
+    "pyflightstream.probes.geometry.apply_geometry_gate",
+    "pyflightstream.run.export_surface_mesh"
+   ]
+  },
+  {
+   "id": "RX-07",
+   "capability": "Script probe helpers the pproc probe route reimplements (line, file and export helpers)",
+   "reason": "routed later",
+   "node": "PFS-2140.001",
+   "release": "0.40.0",
+   "names": [
+    "pyflightstream.script.helpers.export_probes",
+    "pyflightstream.script.helpers.probe_line",
+    "pyflightstream.script.helpers.probe_points"
+   ]
+  },
+  {
+   "id": "RX-08",
+   "capability": "Natural frequencies, Campbell diagram and Southwell fit of the configured blade (the n Omega / omega_n check before a coupled run)",
+   "reason": "routed later",
+   "node": "PFS-2140.002",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.fsi.beam.ModalResult",
+    "pyflightstream.fsi.beam.lumped_station_masses",
+    "pyflightstream.fsi.beam.modal_frequencies",
+    "pyflightstream.fsi.centrifugal.CampbellData",
+    "pyflightstream.fsi.centrifugal.campbell_sweep",
+    "pyflightstream.fsi.centrifugal.rotating_frequencies",
+    "pyflightstream.fsi.centrifugal.southwell_fit"
+   ]
+  },
+  {
+   "id": "RX-09",
+   "capability": "Airfoil or NACA section contour as an FSI section input",
+   "reason": "routed later",
+   "node": "PFS-2140.002",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.fsi.sections.airfoil_section_contour",
+    "pyflightstream.qa.geometry.naca4_contour"
+   ]
+  },
+  {
+   "id": "RX-10",
+   "capability": "Structural outcome per station (deflection and elastic twist from the node translations) and the loads cross-check",
+   "reason": "routed later",
+   "node": "PFS-2140.003",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.fsi.kinematics.decode_station_translations",
+    "pyflightstream.fsi.kinematics.twist_from_node_translations",
+    "pyflightstream.fsi.loads.cross_check_totals"
+   ]
+  },
+  {
+   "id": "RX-11",
+   "capability": "Quasi-steady rotor loading noise (observer signals and Gutin harmonics)",
+   "reason": "routed later",
+   "node": "PFS-2140.004",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.exceptions.ContractNotImplementedError",
+    "pyflightstream.post.qsteady_noise.AzimuthalSeries",
+    "pyflightstream.post.qsteady_noise.BladeLoad",
+    "pyflightstream.post.qsteady_noise.PointForce",
+    "pyflightstream.post.qsteady_noise.RotorMotion",
+    "pyflightstream.post.qsteady_noise.SignalComparison",
+    "pyflightstream.post.qsteady_noise.azimuth_from_moment",
+    "pyflightstream.post.qsteady_noise.compare_signals",
+    "pyflightstream.post.qsteady_noise.emission_times",
+    "pyflightstream.post.qsteady_noise.fit_azimuthal_series",
+    "pyflightstream.post.qsteady_noise.gutin_harmonic_rms",
+    "pyflightstream.post.qsteady_noise.loading_noise",
+    "pyflightstream.post.qsteady_noise.reconstruct_blade_load",
+    "pyflightstream.post.qsteady_noise.rotating_components",
+    "pyflightstream.post.qsteady_noise.rotor_loading_noise",
+    "pyflightstream.post.qsteady_noise.rotor_point_forces",
+    "pyflightstream.post.qsteady_noise.write_qsteady_noise_report"
+   ]
+  },
+  {
+   "id": "RX-12",
+   "capability": "Blade-view harmonics map of a custom inflow over the advance ratio",
+   "reason": "routed later",
+   "node": "PFS-2140.004",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.post.inflow_tools.HarmonicsMap",
+    "pyflightstream.post.inflow_tools.InflowStationHarmonics",
+    "pyflightstream.post.inflow_tools.blade_view_harmonics",
+    "pyflightstream.post.inflow_tools.inflow_harmonics_map",
+    "pyflightstream.post.inflow_tools.write_inflow_harmonics"
+   ]
+  },
+  {
+   "id": "RX-13",
+   "capability": "Route-2 sector-offset calibration written from a recorded wheel point and sector point",
+   "reason": "routed later",
+   "node": "PFS-2140.004",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.post.corrections.bessel_y",
+    "pyflightstream.post.corrections.sector_offset_calibration"
+   ]
+  },
+  {
+   "id": "RX-14",
+   "capability": "Wind-axes and stability-axes force coefficients",
+   "reason": "routed later",
+   "node": "PFS-2140.004",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.post.axes.stability_force_coefficients"
+   ]
+  },
+  {
+   "id": "RX-15",
+   "capability": "Force-distribution and solver-analysis CSV exports tabled as per-point products",
+   "reason": "routed later",
+   "node": "PFS-2140.005",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.results.ForceDistributionReport",
+    "pyflightstream.results.SolverAnalysisCsvReport",
+    "pyflightstream.results.parse_force_distributions",
+    "pyflightstream.results.parse_solver_analysis_csv"
+   ]
+  },
+  {
+   "id": "RX-17",
+   "capability": "The Sweeper toolbox and its spreadsheet (a run type, or documented as outside the workspace)",
+   "reason": "routed later",
+   "node": "PFS-2140.005",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.results.SweepSpreadsheetReport",
+    "pyflightstream.results.parse_sweep_spreadsheet",
+    "pyflightstream.script.helpers.sweep"
+   ]
+  },
+  {
+   "id": "RX-18",
+   "capability": "Trailing-edge points file of a raw mesh's sidecar route 'file'",
+   "reason": "routed later",
+   "node": "PFS-2140.005",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.workspace.TrailingEdge",
+    "pyflightstream.workspace.extract_trailing_edge",
+    "pyflightstream.workspace.trailing_edge_midpoints",
+    "pyflightstream.workspace.wake_edges.write_node_file",
+    "pyflightstream.workspace.wake_edges.write_trailing_edge_points",
+    "pyflightstream.workspace.write_trailing_edge_node_file"
+   ]
+  },
+  {
+   "id": "RX-19",
+   "capability": "Renaming the products of a renamed group",
+   "reason": "routed later",
+   "node": "PFS-2140.005",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.workspace.RenamedProduct",
+    "pyflightstream.workspace.rename_group_products",
+    "pyflightstream.workspace.unmapped_group_numbers"
+   ]
+  },
+  {
+   "id": "RX-20",
+   "capability": "Migrating an input library written before the id rule",
+   "reason": "routed later",
+   "node": "PFS-2140.005",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.workspace.IdMigration",
+    "pyflightstream.workspace.migrate_input_ids"
+   ]
+  },
+  {
+   "id": "RX-21",
+   "capability": "Support level of a FlightStream build",
+   "reason": "routed later",
+   "node": "PFS-2140.005",
+   "release": "0.42.0",
+   "names": [
+    "pyflightstream.SupportLevel",
+    "pyflightstream.support.VersionSupport",
+    "pyflightstream.support.minimal_workflow",
+    "pyflightstream.support_level",
+    "pyflightstream.support_table",
+    "pyflightstream.version_support"
+   ]
+  },
+  {
+   "id": "RX-22",
+   "capability": "QA tooling of the pyfs-qa console tool (compatibility, cost, drift, physics, probes, reports, synthetic geometry)",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.exceptions.PhysicsEnvironmentError",
+    "pyflightstream.exceptions.ProbeEnvironmentError",
+    "pyflightstream.exceptions.QaEvidenceError",
+    "pyflightstream.qa.BuildComparison",
+    "pyflightstream.qa.BuildKey",
+    "pyflightstream.qa.CostCell",
+    "pyflightstream.qa.CostView",
+    "pyflightstream.qa.Judgment",
+    "pyflightstream.qa.PointCost",
+    "pyflightstream.qa.PointKey",
+    "pyflightstream.qa.ProbeArtifacts",
+    "pyflightstream.qa.ProbeOutcome",
+    "pyflightstream.qa.ProbeResult",
+    "pyflightstream.qa.ProbeRun",
+    "pyflightstream.qa.ProbeSpec",
+    "pyflightstream.qa.Requires",
+    "pyflightstream.qa.apply_compat",
+    "pyflightstream.qa.cli.main",
+    "pyflightstream.qa.compat.ExecutableIdentity",
+    "pyflightstream.qa.compat.ExecutableVerdict",
+    "pyflightstream.qa.compat.LicenceCandidate",
+    "pyflightstream.qa.compat.classify_executable",
+    "pyflightstream.qa.compat.licence_sensitive_candidates",
+    "pyflightstream.qa.compat.read_executable_baseline",
+    "pyflightstream.qa.compat.resolve_commands_dir",
+    "pyflightstream.qa.compat_report_paths",
+    "pyflightstream.qa.contradicting_evidence",
+    "pyflightstream.qa.cost_rows",
+    "pyflightstream.qa.cost_view",
+    "pyflightstream.qa.drift.DriftCaseResult",
+    "pyflightstream.qa.drift.DriftMetric",
+    "pyflightstream.qa.drift.DriftRun",
+    "pyflightstream.qa.drift.diff_runs",
+    "pyflightstream.qa.drift.write_drift_report",
+    "pyflightstream.qa.drift_report_paths",
+    "pyflightstream.qa.dump_changed",
+    "pyflightstream.qa.dump_gained",
+    "pyflightstream.qa.file_effect",
+    "pyflightstream.qa.fsm_changed",
+    "pyflightstream.qa.fsm_gained",
+    "pyflightstream.qa.generate_probe_script",
+    "pyflightstream.qa.geometry.BladeSpec",
+    "pyflightstream.qa.geometry.WingSpec",
+    "pyflightstream.qa.geometry.blade_triangles",
+    "pyflightstream.qa.geometry.generate_blade_stl",
+    "pyflightstream.qa.geometry.generate_wing_stl",
+    "pyflightstream.qa.geometry.mean_edge_length",
+    "pyflightstream.qa.geometry.wing_triangles",
+    "pyflightstream.qa.geometry.write_stl",
+    "pyflightstream.qa.matrix.case_of_row",
+    "pyflightstream.qa.matrix.drift_from_workspace",
+    "pyflightstream.qa.matrix.physics_build",
+    "pyflightstream.qa.matrix.physics_from_workspace",
+    "pyflightstream.qa.matrix.physics_matrix",
+    "pyflightstream.qa.matrix.physics_rows",
+    "pyflightstream.qa.matrix.point_result",
+    "pyflightstream.qa.matrix.reduce_physics",
+    "pyflightstream.qa.matrix.run_physics_matrix",
+    "pyflightstream.qa.physics.CaseReference",
+    "pyflightstream.qa.physics.CaseResult",
+    "pyflightstream.qa.physics.MetricSpec",
+    "pyflightstream.qa.physics.PhysicsCase",
+    "pyflightstream.qa.physics.PhysicsRun",
+    "pyflightstream.qa.physics.PointResult",
+    "pyflightstream.qa.physics.ReferenceBand",
+    "pyflightstream.qa.physics.Verdict",
+    "pyflightstream.qa.physics.build_smi_script",
+    "pyflightstream.qa.physics.case_table",
+    "pyflightstream.qa.physics.compare_metrics",
+    "pyflightstream.qa.physics.load_reference",
+    "pyflightstream.qa.physics.phy01_metrics",
+    "pyflightstream.qa.physics.phy02_metrics",
+    "pyflightstream.qa.physics.phy05_metrics",
+    "pyflightstream.qa.physics.phy06_metrics",
+    "pyflightstream.qa.physics.registered_cases",
+    "pyflightstream.qa.physics.smi_metrics",
+    "pyflightstream.qa.physics.update_reference",
+    "pyflightstream.qa.physics.write_physics_report",
+    "pyflightstream.qa.physics_report_paths",
+    "pyflightstream.qa.printed_line",
+    "pyflightstream.qa.probe_version",
+    "pyflightstream.qa.probes.emit_solver_setup",
+    "pyflightstream.qa.probes.emit_tier_prelude",
+    "pyflightstream.qa.read_compat_report",
+    "pyflightstream.qa.read_compat_reports",
+    "pyflightstream.qa.refuse_existing_report",
+    "pyflightstream.qa.region_printed",
+    "pyflightstream.qa.report_paths",
+    "pyflightstream.qa.resolve_report_date",
+    "pyflightstream.qa.unrecognised_commands",
+    "pyflightstream.qa.write_compat_report"
+   ]
+  },
+  {
+   "id": "RX-23",
+   "capability": "Vendor manual tooling of the pyfs-manual console tool and the manual-edition registry",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.exceptions.ManualCallError",
+    "pyflightstream.exceptions.ManualDraftError",
+    "pyflightstream.utils.CommandEntryLike",
+    "pyflightstream.utils.Coverage",
+    "pyflightstream.utils.Edition",
+    "pyflightstream.utils.EditionDelta",
+    "pyflightstream.utils.EditionVerdict",
+    "pyflightstream.utils.ManualCommand",
+    "pyflightstream.utils.Reachability",
+    "pyflightstream.utils.RegistryLike",
+    "pyflightstream.utils.StaleCitation",
+    "pyflightstream.utils.SurfaceChange",
+    "pyflightstream.utils.SweptCommand",
+    "pyflightstream.utils.TypeRule",
+    "pyflightstream.utils.UnreachableCommand",
+    "pyflightstream.utils.VersionRowLike",
+    "pyflightstream.utils.cli.main",
+    "pyflightstream.utils.coverage_against",
+    "pyflightstream.utils.database.Registration",
+    "pyflightstream.utils.database.register_edition",
+    "pyflightstream.utils.documentation_delta",
+    "pyflightstream.utils.edition_surfaces",
+    "pyflightstream.utils.insert_version_row",
+    "pyflightstream.utils.manual_editions",
+    "pyflightstream.utils.parse_script_index",
+    "pyflightstream.utils.parse_signatures",
+    "pyflightstream.utils.propose_layout",
+    "pyflightstream.utils.propose_type",
+    "pyflightstream.utils.read_edition",
+    "pyflightstream.utils.read_edition_manifest",
+    "pyflightstream.utils.read_pdf_pages",
+    "pyflightstream.utils.render_chapter",
+    "pyflightstream.utils.render_entry",
+    "pyflightstream.utils.sample_contradiction",
+    "pyflightstream.utils.stale_citations",
+    "pyflightstream.utils.surface_changes",
+    "pyflightstream.utils.unreachable_commands",
+    "pyflightstream.utils.write_chapter",
+    "pyflightstream.versions.manual_editions"
+   ]
+  },
+  {
+   "id": "RX-24",
+   "capability": "Test assertions for downstream test suites",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.testing.assert_records_close",
+    "pyflightstream.testing.assert_scripts_equal"
+   ]
+  },
+  {
+   "id": "RX-25",
+   "capability": "Package options (the registered options are QA timeouts and scratch root)",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.describe_option",
+    "pyflightstream.get_option",
+    "pyflightstream.option_context",
+    "pyflightstream.reset_option",
+    "pyflightstream.set_option"
+   ]
+  },
+  {
+   "id": "RX-26",
+   "capability": "Offline HTML command reference and architecture overview",
+   "reason": "Python-only by design",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.help",
+    "pyflightstream.overview"
+   ]
+  },
+  {
+   "id": "RX-27",
+   "capability": "Markdown and HTML builders of the documentation site",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.overview.markdown_overview",
+    "pyflightstream.overview.render_overview_html",
+    "pyflightstream.reference.conventions_markdown",
+    "pyflightstream.reference.markdown_build_table",
+    "pyflightstream.reference.markdown_compatibility_matrix",
+    "pyflightstream.reference.markdown_reference_pages",
+    "pyflightstream.reference.percent_script_markdown",
+    "pyflightstream.reference.render_html"
+   ]
+  },
+  {
+   "id": "RX-28",
+   "capability": "Python campaign-file form beside the matrix",
+   "reason": "Python-only by design",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.cases.derived_body_sha256",
+    "pyflightstream.cases.load_campaign",
+    "pyflightstream.cases.workflows.rotor_relaxed_trailing_edges"
+   ]
+  },
+  {
+   "id": "RX-29",
+   "capability": "Moving structural-node frame of the unsteady_rotor FSI route, which is refused",
+   "reason": "routed later",
+   "node": "PFS-2140.007",
+   "release": "0.43.0",
+   "names": [
+    "pyflightstream.cases.fsi_workspace.patch_structural_node_frame"
+   ]
+  },
+  {
+   "id": "RX-30",
+   "capability": "FSI developer surface: the structural solver protocol, alternative setup entry points, config dump and test helpers",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.fsi.StructuralSolver",
+    "pyflightstream.fsi.centrifugal.axial_tension",
+    "pyflightstream.fsi.centrifugal.propeller_moment_twist_stiffness",
+    "pyflightstream.fsi.config.dump_config",
+    "pyflightstream.fsi.nodes.unflatten_translations",
+    "pyflightstream.fsi.nodes.write_node_file",
+    "pyflightstream.workspace.fsi_setup.fsi_input_payloads",
+    "pyflightstream.workspace.fsi_setup.load_fsi_setup",
+    "pyflightstream.workspace.fsi_setup.stage_fsi_setup"
+   ]
+  },
+  {
+   "id": "RX-31",
+   "capability": "Library building blocks behind routed products (reduction plans and windows, matrix code rewrite, calibration text)",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.cases.corrections.calibration_text",
+    "pyflightstream.cases.matrix.rewrite_codes",
+    "pyflightstream.cases.workflows.ExportWindow",
+    "pyflightstream.cases.workflows.ReductionPlan",
+    "pyflightstream.cases.workflows.export_window",
+    "pyflightstream.cases.workflows.phase_locked_gate",
+    "pyflightstream.cases.workflows.reduction_plan"
+   ]
+  },
+  {
+   "id": "RX-32",
+   "capability": "Post readers and writer wrappers whose products the workspace writes through other entry points",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.post.CustomPolarTable",
+    "pyflightstream.post.custom_polar.custom_count",
+    "pyflightstream.post.custom_polar.custom_polar_file_name",
+    "pyflightstream.post.disc_maps.write_disc_map",
+    "pyflightstream.post.passage_windows",
+    "pyflightstream.post.point_tables.is_force_or_moment_column",
+    "pyflightstream.post.products.polar_file_name",
+    "pyflightstream.post.read_custom_polar_format",
+    "pyflightstream.post.read_timestep_series",
+    "pyflightstream.post.settings_table.read_settings_table",
+    "pyflightstream.post.write_polar_table",
+    "pyflightstream.post.write_recorded_polar",
+    "pyflightstream.post.write_reduction",
+    "pyflightstream.post.write_series"
+   ]
+  },
+  {
+   "id": "RX-33",
+   "capability": "Result readers, export registry lookups and the section-family protocol of the sectional loads split",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.exceptions.UnsupportedResultTypeError",
+    "pyflightstream.results.ExportConversion",
+    "pyflightstream.results.export_conversion",
+    "pyflightstream.results.native_surface.read_native_tecplot_surface",
+    "pyflightstream.results.origin_code",
+    "pyflightstream.results.reduction_code",
+    "pyflightstream.results.require_export_parser",
+    "pyflightstream.results.run_table",
+    "pyflightstream.results.sectional_loads.FamilyMap",
+    "pyflightstream.results.to_csv",
+    "pyflightstream.results.to_table"
+   ]
+  },
+  {
+   "id": "RX-34",
+   "capability": "Run library entry points beside the console (collected assessment, additional post plan, invocation text, sim identity reconstruction)",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.run.Reconstruction",
+    "pyflightstream.run.collect.assess_collected",
+    "pyflightstream.run.describe_invocation",
+    "pyflightstream.run.matrix.plan_additional_post",
+    "pyflightstream.run.reconstruct"
+   ]
+  },
+  {
+   "id": "RX-35",
+   "capability": "Script helpers for hand-written scripts (rotor azimuth basis and blade frames, settings block from a snapshot)",
+   "reason": "Python-only by design",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.script.helpers.azimuth_basis",
+    "pyflightstream.script.helpers.blade_frames",
+    "pyflightstream.script.solver_setup.script_from_setup"
+   ]
+  },
+  {
+   "id": "RX-36",
+   "capability": "Workspace helpers (cost files without a mark, workbook cell patch, setup inspection summary, wake-edge evidence notice)",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "names": [
+    "pyflightstream.workspace.costs.unmarked_cost_files",
+    "pyflightstream.workspace.excel_file.patch_cells",
+    "pyflightstream.workspace.setup_inspection.setup_inspection_summary",
+    "pyflightstream.workspace.wake_edges.WakeEdgeImport",
+    "pyflightstream.workspace.wake_edges.evidence_notice"
+   ]
+  },
+  {
+   "id": "RX-37",
+   "capability": "Library selection of a cost file and of an HPC profile, the Python form of the console flags --cost-file and --hpc",
+   "reason": "maintainer or developer API",
+   "decision": "classified by the integfix lane after RX-36, its sibling among the workspace helpers; the owner confirms",
+   "names": [
+    "pyflightstream.workspace.costs.select_cost_file",
+    "pyflightstream.workspace.hpc.select_hpc_profile"
+   ]
+  }
+ ]
+}

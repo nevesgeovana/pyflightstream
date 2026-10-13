@@ -81,6 +81,7 @@ from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import (
     LIVE_LOG_COMMANDS,
     command_console,
+    say_data,
     say_summary,
     stage_progress,
 )
@@ -89,8 +90,6 @@ from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
     WorkflowCoverageError,
-    resolve_workflow,
-    workflow_names,
     workflow_registry,
 )
 
@@ -110,7 +109,17 @@ from pyflightstream.run import inflow_harmonics_line as inflow_harmonics_line
 from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
-from pyflightstream.run._cli_parsers import _build_parser, cmd_mark_converged, parsed, resume_hint
+from pyflightstream.run._cli_parsers import (
+    GEOMETRY_COMMANDS,
+    _build_parser,
+    cmd_geometry,
+    cmd_mark_converged,
+    collect_interval_error,
+    parsed,
+    resume_hint,
+)
+from pyflightstream.run._cli_parsers import _parse_workflows as _parse_workflows
+from pyflightstream.run._cli_parsers import _whole_sims as _whole_sims
 from pyflightstream.run._cli_print import (
     _print_collect,
     _print_delete_sims,
@@ -128,9 +137,11 @@ from pyflightstream.workspace import (
     InputArtifactError,
     RunStatus,
     WorkspaceError,
-    derive_thin_blade,
     post_diagnostics,
     selected_sims,
+)
+from pyflightstream.workspace import (
+    derive_thin_blade as derive_thin_blade,
 )
 from pyflightstream.workspace._matrix_homes import resolve_matrix_arguments
 from pyflightstream.workspace.ledger import listed_sims
@@ -155,30 +166,6 @@ def _parse_recipes(pairs: list[str]) -> dict[str, str]:
             )
         recipes[code.strip()] = reference.strip()
     return recipes
-
-
-def _parse_workflows(pairs: list[str]) -> dict[str, str]:
-    """Turn repeated ``CODE=NAME`` options into the mapping.
-
-    Each name is resolved against the workflow table HERE, so a typo is
-    refused before a file is opened rather than per point.
-    """
-    workflows: dict[str, str] = {}
-    for item in pairs:
-        code, separator, name = item.partition("=")
-        if not separator or not code.strip() or not name.strip():
-            # CampaignConfigError rather than a bare ValueError: FR-39 says
-            # a refusal raised from an exported public name is catalogued,
-            # and this one keeps ValueError as its standard-library base, so
-            # `except ValueError` around main() catches exactly what it did.
-            raise CampaignConfigError(
-                f"--workflow expects CODE=NAME (the FS_SCRIPT code and the run type it "
-                f"maps to), got {item!r}; the registered types are "
-                f"{', '.join(workflow_names())}"
-            )
-        resolve_workflow(name.strip())
-        workflows[code.strip()] = name.strip()
-    return workflows
 
 
 def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) -> dict[str, str]:
@@ -214,20 +201,12 @@ def _listed_sims(text: str) -> list[str]:
     return listed_sims(text)
 
 
-def _whole_sims(args: argparse.Namespace) -> list[str]:
-    """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
-    manifest = getattr(args, "runs", None) or "runs.json"
-    return split_typed_ids(
-        _listed_sims(args.sims), args.workspace, manifest=manifest, whole_only=True
-    )[0]
-
-
 def _confirmed_destruction(yes: bool) -> bool:
-    """Ask before a product is destroyed rather than archived.
+    """Ask before the deprecated explicit-confirmation rebuild path.
 
-    `--force-overwrite` is named so it
-    cannot be reached by habit, and it asks. `--yes` answers it, for the
-    script that means it.
+    Rebuilds overwrite in place by default without an archive; ``--archive``
+    opts into keeping a copy. ``--force-overwrite`` and ``--yes`` are retained
+    as deprecated confirmation controls and do not change that archive policy.
 
     A NON-INTERACTIVE SESSION IS A NO. If there is nobody to ask, the
     answer is not "assume yes": that is how a flag in a saved command line
@@ -238,10 +217,10 @@ def _confirmed_destruction(yes: bool) -> bool:
     if not sys.stdin or not sys.stdin.isatty():
         return False
     answer = input(
-        "--force-overwrite DESTROYS the products that are there and keeps no copy. "
-        "The default archives them instead. Type 'destroy' to go on: "
+        "--force-overwrite is deprecated and confirms a rebuild. The default "
+        "writes no archive; --archive keeps a copy. Type 'rebuild' to go on: "
     )
-    return answer.strip().lower() == "destroy"
+    return answer.strip().lower() == "rebuild"
 
 
 @cli_entrypoint
@@ -291,8 +270,12 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_post(args)
         if args.subcommand == "collect":
             return _cmd_collect(args)
-        if args.subcommand in _GEOMETRY_COMMANDS:
-            return _cmd_geometry(args)
+        if args.subcommand in GEOMETRY_COMMANDS:
+            # FR-477 R1: the identical result, and one warning naming the home.
+            from pyflightstream.run._cli_geometry import alias_warning
+
+            warnings.warn(alias_warning(args.subcommand), PyflightstreamWarning, stacklevel=2)
+            return cmd_geometry(args)
         if args.subcommand == "upgrade":
             return _cmd_upgrade(args)
         if args.subcommand == "rename":
@@ -507,7 +490,12 @@ def _cmd_records(args: argparse.Namespace) -> int:
 def _cmd_mark_failed(args: argparse.Namespace) -> int:
     """Mark the named simulations' records FAILED_MARKED (FR-309)."""
     try:
-        sims, points = split_typed_ids(_listed_sims(args.sims), args.workspace)  # FR-395
+        from pyflightstream.run._mark_converged import _listed
+
+        sims, points = split_typed_ids(_listed(args.sims), args.workspace)  # FR-395
+        if args.points:
+            points = {**points, **{sim: list(args.points) for sim in sims}}
+            sims = []
         entry = run_records.mark_failed(
             args.workspace, sims, reason=args.reason, apply=args.apply, points=points
         )
@@ -647,6 +635,13 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    # THE SETTLE WAIT IS A NUMBER OF SECONDS ABOVE 0 (0.40.0, PFS-2081.28):
+    # zero takes both observations at one instant, so nothing is ever seen to
+    # settle, and a negative wait reached time.sleep mid-sweep. Checked here
+    # rather than by the parser, so a value from pyfs.toml is held to it too.
+    if (interval_error := collect_interval_error(args.interval)) is not None:
+        print(interval_error, file=sys.stderr)
+        return 2
     # THE POST STAGE IS REACHED THROUGH THE WORKSPACE REGISTRY, exactly as
     # `_cmd_post` reaches it, and not by importing the products writer here.
     # Dependencies flow downward and a function-body import does not make an
@@ -697,6 +692,10 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 **({"sims": sims} if sims is not None else {}),
             )
 
+    # A POST REFUSAL IS NOT A COLLECTION FAILURE (PFS-2095.052): the stages
+    # raise what `post` catches, and here it escaped as a traceback after the
+    # records were written. It is said as the post's own refusal and exits 2,
+    # as `post` does, so 1 and 3 keep meaning what the collection found.
     try:
         with stage_progress("collect"):
             report = collect_and_post(
@@ -709,7 +708,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 post_matrix=_post if args.post else None,
                 sims=None if args.sims is None else _listed_sims(args.sims),
             )
-    except (WorkspaceError, CampaignConfigError) as error:
+    except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return 2
 
@@ -844,7 +843,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
                     file=sys.stderr,
                 )
                 return 2
-            print(
+            say_data(
                 post_diagnostics(
                     [workspace.products_dir(matrix) / "post.log.json" for matrix in matrices]
                 )
@@ -866,8 +865,8 @@ def _cmd_post(args: argparse.Namespace) -> int:
             return 2
         if args.force_overwrite and not _confirmed_destruction(args.yes):
             print(
-                "--force-overwrite was not confirmed; nothing was written. Run without "
-                "it to archive what is there and rebuild, which loses nothing.",
+                "--force-overwrite was not confirmed; nothing was written. Confirm the "
+                "rebuild with --yes, or omit the deprecated confirmation option.",
                 file=sys.stderr,
             )
             return 2
@@ -1030,96 +1029,6 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
     return skipped
 
 
-def _cmd_inventory(args: argparse.Namespace) -> int:
-    """Write the boundary inventory sidecar of one saved simulation.
-
-    A saved simulation that carries unsteady solver actions is named on
-    standard error with each action and the ``--clean`` command, on every
-    call (FR-308); ``--clean`` reduces the file to its meshes and boundary
-    conditions first (FR-308, FR-312), and then an existing sidecar is kept,
-    since the boundaries it lists did not change.
-    """
-    from datetime import UTC, datetime
-
-    from pyflightstream.workspace._geometry_clean import saved_action_warning
-    from pyflightstream.workspace.inputs import (
-        OBJ_SUFFIX,
-        clean_saved_actions,
-        inventory_sidecar,
-        write_inventory,
-    )
-
-    geometry = Path(args.geometry)
-    saved = geometry.is_file() and geometry.suffix.lower() != OBJ_SUFFIX
-    if saved and args.clean:
-        stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        try:
-            cleaned = clean_saved_actions(geometry, stamp=stamp)
-        except (OSError, PyflightstreamError) as error:
-            print(str(error), file=sys.stderr)
-            return 2
-        said = [f"removed saved action {n} [{k}] {c}" for n, c, k in cleaned.actions]
-        said += [f"reset block {name} to its fresh-import content" for name in cleaned.blocks_reset]
-        said += [cleaned.note] if cleaned.note else []
-        said += [
-            f"the file as it was is {cleaned.backup.name}"
-            if cleaned.backup is not None
-            else f"{geometry.name} carries no saved unsteady solver action"
-            + ("" if cleaned.note else ", and each measured block holds its fresh-import content")
-        ]
-        for line in said:
-            print(line, file=sys.stderr)
-        if inventory_sidecar(geometry).exists() and not args.overwrite:
-            print(inventory_sidecar(geometry))
-            return 0
-    elif saved and (warning := saved_action_warning(geometry, args.geometry)) is not None:
-        print(f"warning: {warning}", file=sys.stderr)
-    try:
-        sidecar = write_inventory(args.geometry, overwrite=args.overwrite)
-    except (OSError, PyflightstreamError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
-    print(sidecar)
-    return 0
-
-
-#: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330),
-#: and `audit-mesh` (0.38.0, FR-426), whose parser names its handler in ``mesh_command``.
-_GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
-
-
-def _cmd_geometry(args: argparse.Namespace) -> int:
-    """Run the geometry command ``args`` names."""
-    if (mesh_command := getattr(args, "mesh_command", None)) is not None:
-        return int(mesh_command(args))
-    return _cmd_degenerate(args) if args.subcommand == "degenerate" else _cmd_inventory(args)
-
-
-def _cmd_degenerate(args: argparse.Namespace) -> int:
-    """Derive the degenerate geometry of one blade mesh and write it beside it (FR-330).
-
-    The OBJ and its boundary inventory are named on standard output, one per
-    line; the offset used and a unit the source does not state are said on
-    standard error. A refusal names the file and the reason on standard error
-    and writes nothing.
-    """
-    try:
-        made = derive_thin_blade(
-            args.geometry,
-            root_offset=args.root_offset,
-            overwrite=args.overwrite,
-            boundary=args.boundary,
-        )
-    except (OSError, PyflightstreamError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
-    print(made.mesh)
-    print(made.sidecar)
-    unit = made.unit or "a length unit the source does not state"
-    print(f"the root moved outward by {made.root_offset!r} in {unit}", file=sys.stderr)
-    return 0
-
-
 def _notices_for(before: str) -> list[str]:
     """Return the notices this upgrade owes, one per stage its INPUT needs.
 
@@ -1203,6 +1112,13 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
 
 
 def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
+    from pyflightstream.run._cli_mesh import _chosen
+
+    output, _, refusal = _chosen(args, ("--out", "out"), ("--output", "output"), since="0.40.0")
+    if refusal is not None:
+        print(refusal, file=sys.stderr)
+        return 2
+    args.output = output
     if args.name is None:
         print(
             "convert has no workspace to name the campaign after; pass name (CLI: --name).",
@@ -1254,15 +1170,21 @@ def _the_missing_family_choice(args: argparse.Namespace) -> bool:
 
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
-    if getattr(args, "setup_guidelines", False) or getattr(args, "setup_standards", False):
+    setup = getattr(args, "setup_guidelines", False) or getattr(args, "setup_standards", False)
+    # EVERY REFUSAL THE ARGUMENTS ALONE DECIDE COMES BEFORE THE FIRST WRITE
+    # (PFS-2096.023): the setup guides and the --update-ids renumbering were
+    # written, and then a contradiction between two flags refused the plan.
+    if setup and args.fs_version is None:
+        print(
+            "setup generation requires --fs-version to identify the target build",
+            file=sys.stderr,
+        )
+        return 2
+    name, name_from = _campaign_name(args)
+    missing_families = _the_missing_family_choice(args)
+    if setup:
         from pyflightstream.workspace.setup_standards import write_setup_library
 
-        if args.fs_version is None:
-            print(
-                "setup generation requires --fs-version to identify the target build",
-                file=sys.stderr,
-            )
-            return 2
         try:
             generated = write_setup_library(
                 workspace.root,
@@ -1275,7 +1197,6 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             return 2
         for filename, status in generated.items():
             print(f"setup {status}: inputs/setups/{filename}")
-    name, name_from = _campaign_name(args)
     renumbered = 0
     if getattr(args, "update_ids", False):
         # PFS-2031.21. BEFORE the plan, so the receipt the plan writes is
@@ -1283,7 +1204,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # then refuse it as a matrix edited after it was planned.
         try:
             changes = renumber_repeated_pols(args.matrix, workspace, in_place=True)
-        except (MatrixError, OSError) as error:
+        except (MatrixError, PyflightstreamError, OSError) as error:
             print(f"matrix not planned: {error}", file=sys.stderr)
             return 2
         matrix_name = Path(args.matrix).name
@@ -1295,7 +1216,6 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 f"--update-ids: {matrix_name} row {change.row_number}: "
                 f"POL {change.old} -> {change.new}"
             )
-    missing_families = _the_missing_family_choice(args)
     # THE WARNINGS ARE HELD while the plan is made and printed as one titled
     # block after its header (0.31.0), because a reader could not tell what
     # the warnings were about when they arrived first, unannounced. They are released
@@ -1325,7 +1245,11 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 sims=args.sims,  # FR-326
                 points=args.points,
             )
-    except (MatrixError, InputArtifactError, OSError, ValueError) as error:
+    # PyflightstreamError, AS `_cmd_run` CATCHES IT (PFS-2095.051): a
+    # WorkspaceError, the refusal read_manifest writes for a recorded defect,
+    # is neither a ValueError nor an OSError and reached the user as a
+    # traceback.
+    except (MatrixError, InputArtifactError, PyflightstreamError, OSError, ValueError) as error:
         release_warnings(held)
         print(f"matrix not planned: {error}", file=sys.stderr)
         if renumbered:
@@ -1419,7 +1343,9 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # anything, so a sweep with one failed point left no table at
         # all, which is the acceptance of PFS-2014.03 exactly inverted.
         print(f"matrix run with failures: {error}", file=sys.stderr)
-        for line in failure_alias_lines(error.failures, workspace.read_raw_manifest()):
+        for line in failure_alias_lines(
+            error.failures, workspace.read_raw_manifest(), workspace.root
+        ):
             print(line, file=sys.stderr)
         # The call's records ride on the error, so a run that also SUBMITTED a
         # point is still seen as one below (G43).
@@ -1501,7 +1427,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PyflightstreamWarning)
             table = sweep_table(workspace, require_loads=False, matrix_stem=stem)
-        write_table(table, target)
+        write_table(table, target, overwrite=True)
     except (LoadsNotFoundError, MalformedOutputError, OSError, ValueError) as error:
         print(f"runs completed, sweep table not written: {error}", file=sys.stderr)
         return 2

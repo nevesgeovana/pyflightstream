@@ -108,4 +108,5 @@ EUCLIDEAN_ROTOR_UNIT = "rad/s"
 #: :func:`unmarked_euclidean_rotor` holds. A maintainer decision, NOT a
 #: measurement: no run in this repository settles the unit on 26.100, and
 #: that build's manual tutorial gives rad/s for the dialog field (RPT-051).
+#: A rotor requested in it is refused during plan rehearsal (PFS-2088.010).
 UNMARKED_EUCLIDEAN_ROTOR_UNIT = "rev/min"

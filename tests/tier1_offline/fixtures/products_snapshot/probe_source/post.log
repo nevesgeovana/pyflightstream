@@ -3,6 +3,7 @@ workspace=<ROOT>
 matrix=None
 time=<TIME>
 check_frozen=False (refuse instead of warn)
+WARNING point=polars/7001 product=polars/7001: simulation 7001's group polars are read from the loads export of an unsteady run, its LAST TIME STEP, one instant of a cycle, because no averaging window resolves for it; the manifest marks them kind: instant.
 INFO point=camp/sim_7001/AL-020 product=settings/products_settings.csv: no row in the settings table: its record holds no solver-setup snapshot; run the point again to record it
 INFO point=campaign product=settings/products_settings.csv: no point of the matrix has a solver-setup snapshot, so the settings table and its codebook are not written
 WARNING point=probes/AL-020_time_average.csv product=probes/AL-020_time_average.csv: the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states. Remedy: restore the required data or correct the stated inputs and post again.

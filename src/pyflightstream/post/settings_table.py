@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -307,12 +308,10 @@ def settings_table(
         ``run_index`` is the 0-based position in this sequence.
     wide : bool, keyword-only
         One row per run instead of one row per run and flag. Each flag
-        contributes ``f<id>_value`` and ``f<id>_prov``, never one column
-        doing both jobs. Two columns suffice here and three are needed
-        in the tidy form for a structural reason: a per-flag column is
-        monomorphic, so ``f15_value`` always holds an enumeration code
-        and ``f11_value`` always holds a count, whereas one shared
-        ``value`` column would hold both.
+        contributes ``f<id>_value``, ``f<id>_prov`` and ``f<id>_kind``.
+        The kind distinguishes enumeration codes from list lengths for
+        boundary flags that accept either ``all`` or a list of boundaries.
+        The code meanings remain those of codebook version 1.
     fill : int, optional
         NUMERIC value written into a CODE column that does not apply, for a
         tool that needs a number there rather than a token. 999 is the
@@ -325,7 +324,8 @@ def settings_table(
         the problem `NA` now solves for every product at once. So `fill` is
         no longer the answer to a blank; it is the answer to a tool that
         needs the column to stay NUMERIC, which `NA` does not satisfy and
-        999 does. A caller who passed it to avoid blanks can stop.
+        999 does. A caller who passed it to avoid blanks can stop. The wide
+        form fills only an absent ``f<id>_kind``, never ``f<id>_value``.
     fill_values : bool, keyword-only
         Ask for the VALUE columns to be filled too. Always REFUSED, and
         the refusal names the flags whose legal range contains the fill:
@@ -358,9 +358,13 @@ def settings_table(
     """
     if fill_values:
         _refuse_a_value_fill(fill)
-    tidy = [row for index, setup in enumerate(setups) for row in _rows_for(setup, index, fill)]
     if not wide:
-        return tidy
+        return [row for index, setup in enumerate(setups) for row in _rows_for(setup, index, fill)]
+    # THE WIDE FORM IS PROJECTED FROM THE UNFILLED ROWS (PFS-2105.019): it has
+    # `f<id>_value` is a value
+    # column, which never carries the sentinel; filled first, a list-valued
+    # flag's 999 code was carried into it in place of its length.
+    tidy = [row for index, setup in enumerate(setups) for row in _rows_for(setup, index, None)]
 
     by_run: dict[int, Row] = {}
     for row in tidy:
@@ -374,6 +378,7 @@ def settings_table(
             carried = row["value_count"]
         wide_row[f"f{flag_id}_value"] = carried
         wide_row[f"f{flag_id}_prov"] = row["provenance_code"]
+        wide_row[f"f{flag_id}_kind"] = row["value_kind"] if row["value_kind"] is not None else fill
     return [by_run[run] for run in sorted(by_run)]
 
 
@@ -508,17 +513,29 @@ def write_settings_table(
     # the same ambiguity -- zero, not measured, or not applicable -- that the
     # rule exists to end (the architect lens, v0.22.0 push round, which found
     # the commit claiming `_cell` was the one funnel while this bypassed it).
+    # EVERY VALUE AT FULL PRECISION, through the same funnel. The funnel writes a
+    # float at five decimals, the precision of a coefficient, and a convergence
+    # threshold of 1e-6 was written 0.00000 and read back as 0: a setting is
+    # not a coefficient. A finite float goes in as its shortest exact spelling
+    # (repr), so it reads back equal; a NaN and None stay `NA`.
     held = keys or [{} for _ in rows]
     write_csv_table(
         destination,
         [*lead, *columns],
         [
-            [*(own[name] for name in lead), *(row.get(key) for key in columns)]
+            [*(own[name] for name in lead), *(_exact(row.get(key)) for key in columns)]
             for own, row in zip(held, rows, strict=True)
         ],
     )
     _textio.write_text(legend_path, json.dumps(codebook(), indent=2) + "\n")
     return destination, legend_path
+
+
+def _exact(value: object) -> object:
+    """Return a finite float as its shortest exact text; anything else as it is."""
+    if isinstance(value, float) and math.isfinite(value):
+        return repr(value)
+    return value
 
 
 def read_settings_table(path: str | Path) -> list[Row]:

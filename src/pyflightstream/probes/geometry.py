@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -44,9 +45,11 @@ from pyflightstream.probes.planar import (
 
 __all__ = [
     "GeometryEngineMissingError",
+    "InsideReport",
     "OpenMeshError",
     "load_surface_mesh",
     "apply_geometry_gate",
+    "points_inside",
 ]
 
 
@@ -164,14 +167,29 @@ def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
     reached.
     """
     mesh = read_mesh(path)
-    if require_watertight and not mesh.is_watertight:
-        raise OpenMeshError(
-            f"the surface mesh {path} is not watertight, so inside/outside is "
-            "undefined and containment culling would guess. Close the geometry "
-            "(mirror a half model, close open ends) or run the gate with "
-            "cull disabled."
-        )
+    if require_watertight:
+        _refuse_open(mesh, str(path))
     return mesh
+
+
+def _refuse_open(mesh, source: str) -> None:
+    """Refuse an open mesh where containment is about to be asked of it.
+
+    PFS-2100.010. The remedy names the path that works: the gate loads
+    ``mesh_path`` with the watertight check only when it culls, so a
+    distance-only run (a standoff margin, a refinement band) is
+    ``cull=False``. Until 0.40.0 the gate loaded with the check whatever
+    ``cull`` was, and a user who followed the old remedy met the same
+    refusal again.
+    """
+    if not mesh.is_watertight:
+        raise OpenMeshError(
+            f"the surface mesh {source} is not watertight, so inside/outside is "
+            "undefined and containment culling would guess. Close the geometry "
+            "(mirror a half model, close open ends), or, for a distance-only use "
+            "(a standoff margin, a refinement band), run apply_geometry_gate with "
+            "cull=False, which tests no containment."
+        )
 
 
 def _fine_axis(values: np.ndarray, factor: int) -> np.ndarray:
@@ -240,12 +258,16 @@ def apply_geometry_gate(
         honored here, because only the mesh knows where the surface
         is.
     mesh : trimesh.Trimesh, optional
-        Loaded surface mesh; alternatively give ``mesh_path``.
+        Loaded surface mesh; alternatively give ``mesh_path``, never
+        both. The report records no file for a mesh object.
     mesh_path : str or pathlib.Path, optional
-        Mesh file to load through :func:`load_surface_mesh`.
+        Mesh file to load through :func:`load_surface_mesh`; the
+        watertight check runs only when ``cull`` is set.
     cull : bool
-        Discard points inside the body. Disabling keeps every point
-        while still allowing band refinement.
+        Discard points inside the body; it needs a closed mesh.
+        Disabling keeps every point, asks no containment (so an open
+        mesh serves a standoff margin or a refinement band), and is the
+        way to run the gate without a mesh.
     standoff : float
         Also discard points closer to the surface than this margin
         (simulation length units). A probe on or hugging the wall
@@ -267,11 +289,15 @@ def apply_geometry_gate(
         If the grid asks for refinement, or a positive standoff is
         requested, without a mesh: both are measured from the
         surface, so they cannot exist without one. Also if the
-        standoff is negative. It is a ``ValueError``.
+        standoff is negative, if ``cull`` is set without a mesh, or if
+        both ``mesh`` and ``mesh_path`` are given. It is a
+        ``ValueError``.
+    OpenMeshError
+        If ``cull`` is set and the mesh is not watertight, whether it
+        came as ``mesh`` or through ``mesh_path``.
     """
     resolved_path = str(mesh_path) if mesh_path is not None else None
-    if mesh is None and mesh_path is not None:
-        mesh = load_surface_mesh(mesh_path)
+    mesh = _gate_mesh(mesh, mesh_path, cull=cull)
     if grid.refinement is not None and mesh is None:
         raise ProbeGeometryError(
             "the grid prescribes a near-surface refinement band, but no surface "
@@ -284,6 +310,14 @@ def apply_geometry_gate(
         raise ProbeGeometryError(
             "a standoff margin is measured from the surface, so it needs a mesh; "
             "pass mesh or mesh_path, or drop the margin"
+        )
+    if cull and mesh is None:
+        # PFS-2088.007. The default asked for culling, and without a mesh
+        # it culled nothing while the report read like a gated grid.
+        raise ProbeGeometryError(
+            "cull=True discards the points inside the body, and no surface mesh was "
+            "given to say where the body is, so nothing would be culled; pass mesh or "
+            "mesh_path, or cull=False to keep every point"
         )
 
     base = grid.base_points()
@@ -322,13 +356,37 @@ def apply_geometry_gate(
     return PlannedProbes(grid=grid, points=points, report=report)
 
 
+def _gate_mesh(mesh, mesh_path, *, cull: bool):
+    """Resolve exactly one surface, checking closure only for containment."""
+    if mesh is not None and mesh_path is not None:
+        raise ProbeGeometryError(
+            "pass mesh or mesh_path, not both: the report records the mesh file the "
+            "gate tested against, and with both it would name a file it never loaded"
+        )
+    if mesh_path is not None:
+        return load_surface_mesh(mesh_path, require_watertight=cull)
+    if mesh is not None and cull:
+        _refuse_open(mesh, "passed as mesh=")
+    return mesh
+
+
+def _band_centers(mesh, centers, distance, *, cull: bool):
+    """Select nearby cell centers, without containment for distance-only use."""
+    flagged = _surface_distance(mesh, centers) < distance
+    if cull:
+        flagged &= ~_inside(mesh, centers)
+    return flagged
+
+
 def _refine_band(
     grid: PlanarProbeGrid, mesh, *, cull: bool, standoff: float = 0.0
 ) -> tuple[np.ndarray, int, int]:
     """Fine nodes of the cells within the band distance of the surface.
 
     Cells are flagged by their center: within ``distance`` of the
-    surface and not inside the body. Flagged cells are re-sampled
+    surface and, when the gate culls, not inside the body (without
+    culling no containment is asked, because the mesh may be open).
+    Flagged cells are re-sampled
     ``factor`` times finer per direction; nodes already present in the
     base grid are skipped, and nodes shared between adjacent flagged
     cells are emitted once, in cell-major order. Candidates inside the
@@ -346,9 +404,7 @@ def _refine_band(
     centers_local[:, 1] = np.tile(centers_v, len(centers_u))
     centers = grid.frame.to_reference(centers_local)
 
-    center_distance = _surface_distance(mesh, centers)
-    center_inside = _inside(mesh, centers)
-    flagged = (center_distance < distance) & ~center_inside
+    flagged = _band_centers(mesh, centers, distance, cull=cull)
     flagged = flagged.reshape(len(centers_u), len(centers_v))
 
     fine_u = _fine_axis(u, factor)
@@ -384,3 +440,68 @@ def _refine_band(
     else:
         near = np.zeros(len(candidates), dtype=bool)
     return candidates[~(inside | near)], int(inside.sum()), int(near.sum())
+
+
+@dataclass(frozen=True, eq=False)
+class InsideReport:
+    """Which probe points lie inside the body (FR-459 R4).
+
+    Attributes
+    ----------
+    checked : bool
+        Whether the containment test ran.
+    reason : str or None
+        Why it did not run (the spatial index absent, a mesh that is not
+        watertight), or None.
+    inside : numpy.ndarray
+        One flag per point, True inside the body; all False when unchecked.
+    """
+
+    checked: bool
+    reason: str | None
+    inside: np.ndarray
+
+    @property
+    def count(self) -> int:
+        """How many points lie inside the body."""
+        return int(np.count_nonzero(self.inside))
+
+    def first(self, points: np.ndarray, n: int = 3) -> list[tuple[float, float, float]]:
+        """Return the first ``n`` inside points of ``points``, for a message."""
+        rows = np.asarray(points, dtype=float)[self.inside][:n]
+        return [(float(x), float(y), float(z)) for x, y, z in rows]
+
+
+def points_inside(points: np.ndarray, *, mesh_path: str | Path) -> InsideReport:
+    """Test probe points against the body, never refusing for a missing tool (FR-459 R4).
+
+    The containment of the geometry gate, run on any probe points. Where it
+    cannot run, because the ``[geom]`` spatial index is absent or the mesh is
+    not watertight, the report says so and flags nothing: a caller warns that
+    the points were not checked and goes on.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        Probe positions ``(n, 3)`` in the mesh's frame and length unit.
+    mesh_path : str or pathlib.Path
+        The geometry mesh of the row.
+
+    Returns
+    -------
+    InsideReport
+        The flags, or why there are none.
+    """
+    array = np.asarray(points, dtype=float).reshape(-1, 3)
+    unchecked = np.zeros(len(array), dtype=bool)
+    try:
+        mesh = load_surface_mesh(mesh_path, require_watertight=True)
+    except OpenMeshError:
+        return InsideReport(False, f"the mesh {Path(mesh_path).name} is not watertight", unchecked)
+    if len(array) == 0:
+        return InsideReport(True, None, unchecked)
+    try:
+        inside = _inside(mesh, array)
+    except GeometryEngineMissingError:
+        return InsideReport(False, "the [geom] extra (scipy and rtree) is not installed", unchecked)
+    return InsideReport(True, None, inside)

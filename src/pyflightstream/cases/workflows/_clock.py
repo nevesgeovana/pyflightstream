@@ -27,6 +27,7 @@ from pyflightstream.cases._unsteady_actions import (
     WALLTIME_CLOCK_STATE,
     WALLTIME_STOP_SCRIPT,
 )
+from pyflightstream.cases.pproc import TABLE_DECLARED_KINDS
 from pyflightstream.script import (
     Script,
 )
@@ -47,30 +48,29 @@ from ._export_first_step import (
 )
 from ._exports import (
     _UPDATED_KINDS,
+    _export_log,
+    _exports_its_log,
     _surface_export,
     surface_time_averaging,
 )
 from ._freestream import (
     refuse_a_wake_length,
-)
-from ._motion import (
-    _motion_view,
+    rotor_row_stepping,
 )
 from ._rows import (
     _variable,
     continuation_of,
-    rotor_speed,
     row_walltime_s,
     walltime_margin_s,
 )
 from ._timing import (
     TimeStepping,
-    rotor_time_stepping,
     unsteady_time_stepping,
 )
 from ._vocabulary import (
     _UNSTEADY_RECIPES,
     END_OF_RUN_EXPORT_KINDS,
+    LOG_OUTPUT_VARIABLE,
     ROTORLESS_REFUSED_KEYS,
     WALLTIME_STOP_VERB,
     WALLTIME_VARIABLE,
@@ -201,7 +201,7 @@ def action_export_lines(
     case: SimCase,
     *,
     whole_run: bool = False,
-    version: str | FsVersion = "26.120",
+    version: str | FsVersion,
 ) -> list[str]:
     """Return the export lines an ACTION writes: the update prelude, then the verbs.
 
@@ -255,6 +255,17 @@ def action_export_lines(
     # half of that, so an action never exports a section nobody cut.
     for kind in VOLUME_SECTION_KINDS.values():
         kinds.pop(kind, None)
+    # FR-460, FR-461: a trace or a trajectory is written once, where its
+    # command sits; an action never exports it.
+    for kind in TABLE_DECLARED_KINDS:
+        kinds.pop(kind, None)
+    # THE LOG ASKS THE END-OF-RUN BLOCK'S TWO QUESTIONS (`_export_block`): a
+    # machine whose profile turns EXPORT_LOG off gets none, and a row that names
+    # its log through LOG_OUTPUT gets it by position below rather than by
+    # suffix. The rescue wrote EXPORT_LOG on the machine that aborts at it.
+    declared_log = whole_run and _variable(case, LOG_OUTPUT_VARIABLE) is not None
+    if declared_log or not _exports_its_log(case):
+        kinds.pop("log", None)
     lines: list[str] = []
     if any(kind in kinds for kind in _UPDATED_KINDS):
         lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
@@ -270,11 +281,17 @@ def action_export_lines(
                 lines += rendered.splitlines() if rendered.strip() else []
             else:
                 lines += [verb, kinds[kind]]
+    if declared_log:
+        payload = Script(version)
+        claimed = tuple(names.index(name) + 1 for name in kinds.values())
+        _export_log(conventions, case, payload, claimed=claimed)
+        rendered = payload.render()
+        lines += rendered.splitlines() if rendered.strip() else []
     return lines
 
 
 def _per_step_exports(
-    conventions: WorkflowConventions, case: SimCase, *, version: str | FsVersion = "26.120"
+    conventions: WorkflowConventions, case: SimCase, *, version: str | FsVersion
 ) -> str:
     """Return the child script text: the per-step kinds of the row's outputs.
 
@@ -286,20 +303,21 @@ def _per_step_exports(
 
 
 def _rotor_clock(case: SimCase) -> TimeStepping:
-    """Resolve the rotor run type's clock, off the fastest rotor where the row states several."""
-    if case.motions:
-        speeds = [rotor_speed(_motion_view(case, record)) for record in case.motions]
-        speed = max(speeds, key=lambda each: abs(each.rpm))
-    else:
-        speed = rotor_speed(case)
-    return rotor_time_stepping(case, speed=speed)
+    """Resolve the rotor run type's clock, the builder's own (FR-64).
+
+    THE MOTION ``CLOCK_MOTION`` NAMES, through :func:`rotor_row_stepping`, and
+    never the fastest rotor: the threshold and the counter took the fastest
+    while the script's SET_SOLVER_UNSTEADY took the named one, so a row
+    clocked on its slower rotor exported and counted on the other's clock.
+    """
+    return rotor_row_stepping(case)
 
 
 def unsteady_export_threshold(
     case: SimCase,
     conventions: WorkflowConventions | None = None,
     *,
-    version: str | FsVersion = "26.120",
+    version: str | FsVersion,
 ) -> UnsteadyExportThreshold | None:
     """Resolve the export threshold a row states, or None when it states none.
 
@@ -316,9 +334,10 @@ def unsteady_export_threshold(
         ``EXPORT_UNSTEADY_LAST_ITER``.
     conventions : WorkflowConventions, optional
         The rendered output names; defaults to the case's own.
-    version : str or FsVersion, optional
-        The solver version whose conventions the resolved threshold follows;
-        defaults to ``"26.120"``.
+    version : str or FsVersion
+        The solver version whose conventions the resolved threshold follows:
+        the case's build, required because the export lines are build-dependent
+        and no literal build is right for every row.
 
     Returns
     -------
@@ -450,7 +469,7 @@ STATE.write_text(json.dumps(state, indent=2), encoding="utf-8", newline="\\n")
 
 
 def walltime_clock_program(
-    case: SimCase, conventions: WorkflowConventions, *, version: str | FsVersion = "26.120"
+    case: SimCase, conventions: WorkflowConventions, *, version: str | FsVersion
 ) -> str:
     """Render the clock program for one row, with its deadline baked in.
 
@@ -511,7 +530,7 @@ def unsteady_counter_steps(case: SimCase) -> int:
 
 
 def walltime_stop_text(
-    case: SimCase, conventions: WorkflowConventions, *, version: str | FsVersion = "26.120"
+    case: SimCase, conventions: WorkflowConventions, *, version: str | FsVersion
 ) -> str:
     """Render what the clock writes into the stop script when it fires.
 

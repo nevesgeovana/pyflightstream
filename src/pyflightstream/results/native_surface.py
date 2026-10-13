@@ -65,7 +65,12 @@ def _count(zone: str, name: str, *, allow_zero: bool = False) -> int:
     token = match.group(1)
     if re.fullmatch(r"[0-9]+", token) is None:
         raise MalformedOutputError(f"Native Tecplot {name} has invalid count {token!r}")
-    count = int(token)
+    try:
+        count = int(token)
+    except ValueError:
+        raise MalformedOutputError(
+            f"Native Tecplot {name} count cannot be read as a whole number"
+        ) from None
     if count < (0 if allow_zero else 1):
         raise MalformedOutputError(f"Native Tecplot {name} has invalid count {count}")
     return count
@@ -137,10 +142,39 @@ class _Tokens:
 
 
 def _variable_names(header: str) -> list[str]:
-    var_text = re.split(r"\bVARIABLES\s*=", header, maxsplit=1, flags=re.I)[1]
+    declaration = re.split(r"\bVARIABLES\s*=", header, maxsplit=1, flags=re.I)
+    if len(declaration) != 2:
+        raise MalformedOutputError(
+            "Native Tecplot VARIABLES needs an equals sign followed by quoted variable names"
+        )
+    var_text = declaration[1]
     # Auxdata after VARIABLES is not a native variable declaration.
     var_text = re.split(r"\bDATASETAUXDATA\b", var_text, maxsplit=1, flags=re.I)[0]
     return re.findall(r'"([^"]+)"', var_text)
+
+
+def _cell_centered_variables(zone: str, variable_count: int) -> set[int]:
+    """Return the 1-based indices of the variables a zone's VARLOCATION declares cell centered."""
+    cell_variables: set[int] = set()
+    var_location = re.search(r"VARLOCATION\s*=\s*\(([^)]*)\)", zone, re.I)
+    if var_location:
+        parts = re.findall(r"\[([\d,\-]+)\]\s*=\s*CELLCENTERED", var_location.group(1), re.I)
+        if not parts:
+            raise MalformedOutputError("Native Tecplot variable location is unsupported")
+        for part in parts:
+            for token in part.split(","):
+                bounds = token.split("-")
+                try:
+                    lo, hi = int(bounds[0]), int(bounds[-1])
+                except ValueError:
+                    raise MalformedOutputError(
+                        f"Native Tecplot variable location has invalid index {token!r}; "
+                        "use a whole index or an inclusive range"
+                    ) from None
+                if not 1 <= lo <= hi <= variable_count:
+                    raise MalformedOutputError("Native Tecplot variable location index is invalid")
+                cell_variables.update(range(lo, hi + 1))
+    return cell_variables
 
 
 def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSurface:
@@ -158,19 +192,7 @@ def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSu
         raise IncompleteOutputError(
             "Native Tecplot ends before the payload required by its declared counts"
         )
-    cell_variables: set[int] = set()
-    var_location = re.search(r"VARLOCATION\s*=\s*\(([^)]*)\)", zone, re.I)
-    if var_location:
-        parts = re.findall(r"\[([\d,\-]+)\]\s*=\s*CELLCENTERED", var_location.group(1), re.I)
-        if not parts:
-            raise MalformedOutputError("Native Tecplot variable location is unsupported")
-        for part in parts:
-            for token in part.split(","):
-                bounds = token.split("-")
-                lo, hi = int(bounds[0]), int(bounds[-1])
-                if not 1 <= lo <= hi <= len(names):
-                    raise MalformedOutputError("Native Tecplot variable location index is invalid")
-                cell_variables.update(range(lo, hi + 1))
+    cell_variables = _cell_centered_variables(zone, len(names))
     for key in ("X", "Y", "Z", _STRENGTH):
         if names.index(key) + 1 in cell_variables:
             raise MalformedOutputError(f"Native Tecplot {key} must be nodal")
@@ -237,7 +259,7 @@ def read_native_tecplot_zones(source: str | Path, *, zones: int = 1) -> list[Vtk
     size = path.stat().st_size
     surfaces: list[VtkSurface] = []
     names: list[str] = []
-    with path.open(encoding="utf-8-sig") as stream:
+    with path.open(encoding="utf-8-sig", errors="replace") as stream:
         lines = iter(stream)
         tokens = _Tokens(lines)
         while len(surfaces) < zones:

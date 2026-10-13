@@ -48,7 +48,8 @@ def test_uniform_axis_prescribes_the_element_size():
     axis = AxisSpec(start=0.0, stop=1.0, spacing=0.25)
     assert axis.points() == pytest.approx([0.0, 0.25, 0.5, 0.75, 1.0])
     snapped = AxisSpec(start=0.0, stop=1.0, spacing=0.3)
-    assert len(snapped.points()) == 4  # 3 elements of 1/3, snapped to fill
+    # 4 elements of 0.25 since 0.40.0 (PFS-2104.016): never coarser than asked.
+    assert len(snapped.points()) == 5
     assert snapped.points()[-1] == 1.0
 
 
@@ -127,7 +128,7 @@ def test_grid_emission_goes_through_the_documented_import(tmp_path):
     # registered build documents this command since 2026-08-10.
     silent = registry_without("PROBE_POINTS_IMPORT")
     with pytest.raises(CommandNotInVersionError, match="no recorded evidence"):
-        emit_probe_import(Script(version="26.120", registry=silent), csv)
+        emit_probe_import(Script(version="26.120", registry=silent), csv, units="METER")
 
 
 def test_coordinate_frame_helper_mirrors_the_frame_definition():

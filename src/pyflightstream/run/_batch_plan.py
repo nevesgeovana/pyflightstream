@@ -186,7 +186,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     steady = workflow in STEADY_RUN_TYPES
     if workflow not in UNSTEADY_WORKFLOWS and not steady:
         return LEFT_OUT_REASONS["run_type"].format(workflow=workflow or "LEGACY")
-    if case.fsi is not None and steady:
+    if (case.fsi is not None or case.fsi_external is not None) and steady:
         return LEFT_OUT_REASONS["coupled"]
     warm = _warm_steady(case, steady)
     if warm is not None:
@@ -396,7 +396,7 @@ def _job_of(
         walltime_s=walltime,
         walltime_written=walltime_text(walltime, split=split) if walltime is not None else "",
         walltime_source=source,
-        fits=fits is not False,
+        fits=fits,
         shortfall_s=short,
     )
     return job, warnings, refusal
@@ -527,8 +527,21 @@ def _eligible_units(
             pending = _rejudged(
                 plan, resolved, case, workspace=workspace, version=version, registry=registry
             )
-        if any(entry.status is not PlanStatus.READY for entry in pending):
-            continue  # the plan already names why a point is blocked
+        blocked = [entry for entry in pending if entry.status is not PlanStatus.READY]
+        if blocked:
+            # LEFT OUT AND NAMED (PFS-2094.005): a job holds a polar whole, so
+            # its READY points do not run either, and nothing said so.
+            said = ", ".join(
+                f"{entry.run_id.rsplit('/', 1)[-1]} ({entry.status.value})" for entry in blocked
+            )
+            left_out.append(
+                {
+                    "sim": case.sim_id,
+                    "reason": f"point(s) {said} are not ready, and a grouped job holds a "
+                    "polar whole; the plan names why each is blocked",
+                }
+            )
+            continue
         refusal = _pristine_refusal(case)
         if refusal is not None:
             _block(plan, [entry.run_id for entry in pending], refusal)

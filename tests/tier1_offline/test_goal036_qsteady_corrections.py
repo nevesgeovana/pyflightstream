@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from pyflightstream._digest import text_sha256
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import PprocSpec
 from pyflightstream.cases.corrections import (
@@ -720,8 +721,22 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
     )
     sector_run = "camp/sim_6003/SECTOR"
     record = next(r for r in workspace.read_manifest() if r.run_id == wheel_run)
+    # Its script proves whole-rotor loads: a periodic sector with symmetry loads on
+    # (PFS-2093.002, the helper refuses a sector whose record does not).
+    script = "SYMMETRY PERIODIC 6\nSET_ANALYSIS_SYMMETRY_LOADS ENABLE\n"
+    (workspace.sim_dir("6003") / "scripts").mkdir(parents=True, exist_ok=True)
+    (workspace.sim_dir("6003") / "scripts" / "SECTOR.txt").write_bytes(script.encode("utf-8"))
     workspace.append_record(
-        RunRecord(**{**record.model_dump(), "run_id": sector_run, "sim_id": "6003", "recipe": None})
+        RunRecord(
+            **{
+                **record.model_dump(),
+                "run_id": sector_run,
+                "sim_id": "6003",
+                "recipe": None,
+                "script_path": "scripts/SECTOR.txt",
+                "script_sha256": text_sha256(script),
+            }
+        )
     )
     # Its export, where a sweep table of the workspace reads it.
     for output in record.outputs:

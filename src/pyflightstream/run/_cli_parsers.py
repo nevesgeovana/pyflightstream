@@ -1,5 +1,7 @@
 """The ``pyfs-matrix`` argument parser: every subcommand, option and help text.
 
+Size exemption: a declarative catalogue of command options and their argument readers.
+
 Private to :mod:`pyflightstream.run.cli`, which builds the parser through
 :func:`_build_parser` and dispatches the parsed command. The builders live
 apart from the commands they parse for so that the command line's own module
@@ -25,24 +27,73 @@ import shlex
 import subprocess
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
+from pyflightstream._cli import _SELECTED_COST_FILE, _SELECTED_HPC, for_this_invocation
 from pyflightstream._console import CONSOLE_LEVELS
+from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.workflows import (
     read_a_choice,
+    resolve_workflow,
     workflow_names,
 )
 from pyflightstream.run import records as run_records
-from pyflightstream.run._cli_mesh import add_mesh_parsers
+from pyflightstream.run._alias import split_typed_ids
+from pyflightstream.run._cli_mesh import GEOMETRY_COMMANDS as GEOMETRY_COMMANDS
+from pyflightstream.run._cli_mesh import (
+    add_degenerate_parser,
+    add_inventory_parser,
+    add_mesh_parsers,
+)
+from pyflightstream.run._cli_mesh import cmd_geometry as cmd_geometry
+from pyflightstream.run._cli_parsers_storage import (
+    add_storage_parsers as _add_storage_parsers,
+)
 from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
-from pyflightstream.workspace.costs import select_cost_file
-from pyflightstream.workspace.hpc import select_hpc_profile
-from pyflightstream.workspace.ledger import SIMS_IDS_HELP
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.workspace.costs import select_cost_file as select_cost_file
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.workspace.hpc import select_hpc_profile as select_hpc_profile
+from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
+
+
+def _whole_sims(args: argparse.Namespace) -> list[str]:
+    """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
+    manifest = getattr(args, "runs", None) or "runs.json"
+    return split_typed_ids(
+        listed_sims(args.sims), args.workspace, manifest=manifest, whole_only=True
+    )[0]
+
+
+def _parse_workflows(pairs: list[str]) -> dict[str, str]:
+    """Resolve repeated ``CODE=NAME`` options before any input file is opened."""
+    workflows: dict[str, str] = {}
+    for item in pairs:
+        code, separator, name = item.partition("=")
+        if not separator or not code.strip() or not name.strip():
+            raise CampaignConfigError(
+                f"--workflow expects CODE=NAME (the FS_SCRIPT code and the run type it "
+                f"maps to), got {item!r}; the registered types are "
+                f"{', '.join(workflow_names())}"
+            )
+        resolve_workflow(name.strip())
+        workflows[code.strip()] = name.strip()
+    return workflows
+
+
+def collect_interval_error(value: float | None) -> str | None:
+    """Return the refusal for an invalid settle interval from arguments or settings."""
+    if value is not None and not 0.0 < value < float("inf"):
+        return f"interval (CLI: --interval) takes a number of seconds above 0, not {value}"
+    return None
 
 
 def _a_word_that_means_false(word: str) -> bool:
@@ -80,6 +131,26 @@ def _batch_count(text: str) -> int:
             f"batch (CLI: --batch) takes a whole number of at least 1, not {value}"
         )
     return value
+
+
+def _rounds(text: str) -> int:
+    """Parse the N of ``collect --rounds N``: a whole number of at least 1 (PFS-2097.009)."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"rounds (CLI: --rounds) takes a whole number, not {text!r}"
+        ) from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(
+            f"rounds (CLI: --rounds) takes a whole number of at least 1, not {value}"
+        )
+    return value
+
+
+def _matrix_stem(text: str) -> str:
+    """Read ``restore --matrix`` as rebuild and post read it: a matrix path or its stem."""
+    return Path(text).stem
 
 
 def _add_grouping_arguments(parser: argparse.ArgumentParser) -> None:
@@ -272,7 +343,23 @@ def parsed(parser: argparse.ArgumentParser, argv: Sequence[str] | None) -> argpa
     with withhold_defaults(parser, argv) as held:
         args = parser.parse_args(argv)
     take_settings(parser, args, held)
+    _select_for_this_invocation(args)
     return args
+
+
+def _select_for_this_invocation(args: argparse.Namespace) -> None:
+    """Select ``--hpc`` and ``--cost-file`` for THIS command alone (PFS-2094.008).
+
+    After the parse and the settings files, never as a side effect of argparse
+    reading the flag: the selection is restored when the command ends, so a
+    later command in the same process does not inherit it.
+    """
+    hpc = getattr(args, "hpc", None)
+    if hpc is not None:
+        for_this_invocation(_SELECTED_HPC, hpc)
+    cost_file = getattr(args, "cost_file", None)
+    if cost_file is not None:
+        for_this_invocation(_SELECTED_COST_FILE, Path(cost_file).stem)
 
 
 def resume_hint(argv: Sequence[str]) -> str:
@@ -326,130 +413,6 @@ _HELP_NOTICE = (
 )
 
 
-def _add_storage_parsers(subparsers: Any) -> None:
-    """Register the four storage subcommands; each also reads as a flag."""
-    workspace_help = "the workspace root carrying runs.json (default: the current directory)"
-    apply_help = "change files; without it the command previews and changes nothing"
-    space = subparsers.add_parser(
-        "space-in-use",
-        help="report the sizes on disk: by top-level folder, by sims/sim_*, by extension",
-        description=(
-            "Prints the workspace's sizes in three groupings, in this order: by top-level "
-            "folder, by simulation (sims/sim_*, compacted ones included) and by extension. "
-            "Changes no file; the call is recorded in storage_management.json."
-        ),
-    )
-    space.add_argument("--workspace", default=".", help=workspace_help)
-    space.add_argument("--top", type=int, default=15, help="rows shown per grouping (default: 15)")
-    free = subparsers.add_parser(
-        "free-space",
-        help="run a storage recipe inputs/management/m<id>.toml (preview unless --apply)",
-        description=(
-            "Runs the recipe's steps in order: [[prune_step_exports]] deletes an unsteady point's "
-            "per-step exports (the *_iteration=<step> files) except the last step of each export "
-            "(keep_last = K keeps the last K steps, delete_steps = [A, B] deletes the steps A to B "
-            "and keeps the rest), and a later post refuses a product that needs a deleted step, "
-            "naming it; [[compact_sims]] zips a simulation folder into sims/sim_<id>.zip (post, "
-            "collect and a continuation restore it automatically), [[delete_extensions]] deletes "
-            "files of the named extensions under sims/ except what a later post needs (saved "
-            "simulations, scripts, logs, and every file a run record names or hashes), "
-            "[[post_archives]] compacts or deletes the archive/<stamp>/ folders the post wrote. "
-            "Nothing outside sims/ and the post archives is touched. Every call is recorded in "
-            "storage_management.json."
-        ),
-    )
-    free.add_argument("recipe", help="the recipe id, m<id> (inputs/management/m<id>.toml)")
-    free.add_argument("--workspace", default=".", help=workspace_help)
-    free.add_argument("--apply", action="store_true", help=apply_help)
-    free.add_argument(
-        "--list",
-        dest="list_paths",
-        action="store_true",
-        help="after each step, print every path it would touch (preview) or touched "
-        "(--apply) with its size and what happens to it",
-    )
-    delete = subparsers.add_parser(
-        "delete-sims",
-        help="delete simulations, their post products and their records (preview unless --apply)",
-        description=(
-            "Deletes each named simulation: its sims/sim_<id> folder (or zip), its own post "
-            "products and its records in runs.json, which keeps one note row per "
-            "simulation saying its id belonged to a deleted one. The full mention (id, "
-            "matrix, run ids, statuses, dates, sizes and hashes, caller) is recorded in "
-            "storage_management.json. The id may be reused afterwards. A product that "
-            "mixes the deleted points with others needs --matrix-products: points-only "
-            "leaves it, recorded stale; regenerate reruns that matrix's post without them."
-        ),
-    )
-    delete.add_argument("sims", help=SIMS_IDS_HELP)
-    delete.add_argument("--workspace", default=".", help=workspace_help)
-    delete.add_argument(
-        "--matrix-products",
-        dest="matrix_products",
-        choices=("points-only", "regenerate"),
-        default=None,
-        help="what happens to a matrix product that also holds the deleted points",
-    )
-    delete.add_argument(
-        "--force",
-        action="store_true",
-        help="delete a simulation whatever the status of its records; without it a "
-        "simulation with a run still SUBMITTED is refused",
-    )
-    delete.add_argument("--apply", action="store_true", help=apply_help)
-    sync = subparsers.add_parser(
-        "sync",
-        help="bring runs and results from the workspaces in inputs/sync-workspaces.toml",
-        description=(
-            "Levels are cumulative: runs (runs.json and run provenance: scripts/ and the "
-            "datapoint logs), post (+ post/), fsm (+ the datapoints' saved simulations), all "
-            "(+ everything else under sims/). Run on the main workspace. A record only in "
-            "the other workspace is added; a main record still SUBMITTED takes the other's; "
-            "any other difference is a conflict where main wins unless --prefer-other. A "
-            "simulation still SUBMITTED there syncs its record only. A file conflict keeps "
-            "main's copy unless --overwrite, which archives it first. Nothing in main is "
-            "deleted and inputs/ is never touched, except a declared matrix. MATRICES: "
-            "each is declared in sync-workspaces.toml by the one workspace that owns it "
-            '(matrices = ["<stem>", ...]); a difference is always reported as a MERGE '
-            "CONFLICT and the owning workspace's copy wins. A synced simulation's "
-            "inputs/ is linked into main's own geometry library, never copied. "
-            "Every call is recorded in storage_management.json."
-        ),
-    )
-    sync.add_argument("level", choices=("runs", "post", "fsm", "all"), help="what to bring")
-    sync.add_argument("--workspace", default=".", help=workspace_help)
-    sync.add_argument(
-        "--from",
-        dest="source",
-        default=None,
-        help="one workspace name from sync-workspaces.toml (default: every non-main one)",
-    )
-    sync.add_argument("--apply", action="store_true", help=apply_help)
-    sync.add_argument(
-        "--prefer-other",
-        dest="prefer_other",
-        action="store_true",
-        help="on a runs.json conflict, take the other workspace's record",
-    )
-    sync.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="on a file conflict, archive main's copy and take the other's",
-    )
-    # 0.32.0 (package B2): both off by default.
-    sync.add_argument(
-        "--restore",
-        action="store_true",
-        help="with --apply, rebuild the records of the sims/ folders no record carries",
-    )
-    sync.add_argument(
-        "--include-archives",
-        dest="include_archives",
-        action="store_true",
-        help="also bring the files under folders named archive (skipped by default)",
-    )
-
-
 #: The commands that take ``--runs NAME``, the manifest they read (0.32.0).
 _RUNS_COMMANDS = ("post", "collect", "free-space", "delete-sims", "sync")
 
@@ -467,9 +430,11 @@ def _add_records_parsers(subparsers: Any) -> None:
     restore.add_argument("--stamp", default=None, help="the archive stamp to restore from")
     restore.add_argument(
         "--matrix",
+        type=_matrix_stem,
         default=None,
-        metavar="STEM",
-        help="for products and plan: the matrix whose file to restore, when several have archives",
+        metavar="MATRIX",
+        help="for products and plan: the matrix whose file to restore, when several have "
+        "archives; its file path or its stem, as rebuild and post read it",
     )
     restore.add_argument("--apply", action="store_true", help=apply_help)
     rebuild = subparsers.add_parser(
@@ -578,92 +543,12 @@ def _add_workspace_parsers(subparsers: Any) -> None:
         "before the workspace is rewritten",
     )
 
-    inventory = subparsers.add_parser(
-        "inventory",
-        help=(
-            "write <stem>.boundaries.toml beside a saved simulation, from its mesh block, "
-            "or beside an OBJ, from its groups"
-        ),
-        description=(
-            "Reads the mesh block of a saved simulation and writes its boundary order as "
-            "a sidecar beside it; a run whose sidecar disagrees with the file is refused "
-            "before the solver starts. Needs no executable (PFS-2029.06.02). For an OBJ "
-            "the order is its groups that hold a face, in the order of the file, which is "
-            "what a plan writes when the OBJ has no sidecar (G30, RPT-078); an OBJ's "
-            "existing sidecar is never rewritten."
-        ),
-    )
-    inventory.add_argument("geometry", help="a saved simulation or an OBJ under inputs/geometries/")
-    inventory.add_argument(
-        "--overwrite",
-        action="store_true",
-        help=(
-            "rewrite a saved simulation's sidecar that already exists; without it an "
-            "existing one is refused"
-        ),
-    )
-    inventory.add_argument(
-        "--clean",
-        action="store_true",
-        help=(
-            "remove the unsteady solver actions saved in the simulation, which inventory "
-            "otherwise names as a warning, keeping a copy <file>.bak-<stamp> beside it; an "
-            "existing sidecar is then kept unless --overwrite (FR-308)"
-        ),
-    )
+    add_inventory_parser(subparsers)
 
 
 def _add_degenerate_parsers(subparsers: Any) -> None:
     """Add the subcommand that derives a degenerate geometry from a mesh: degenerate (FR-330)."""
-    degenerate = subparsers.add_parser(
-        "degenerate",
-        help=(
-            "derive a degenerate geometry, the thin blade first, from a blade mesh and write "
-            "it beside the source"
-        ),
-        description=(
-            "Derives the thin blade of a blade mesh, the sheet midway between its two sides "
-            "from the root to the tip, with the root moved outward along the span by "
-            "--root-offset so it does not cross the spinner, and writes it beside the source "
-            "as <stem>_thin_blade.obj with its boundary inventory "
-            "<stem>_thin_blade.boundaries.toml. The root is the end of the blade nearer the "
-            "origin of the mesh's own coordinates. The source is read only; a file holding "
-            "more than one boundary needs --boundary. The derived geometry is a modelling "
-            "choice: a run confirms what the solver makes of it. Needs no executable."
-        ),
-    )
-    degenerate.add_argument("geometry", help="a blade mesh: a saved simulation or an OBJ")
-    degenerate.add_argument(
-        "--kind",
-        choices=["thin-blade"],
-        default="thin-blade",
-        help="the degenerate geometry to derive; thin-blade is the one kind of 0.34.0 "
-        "(default: %(default)s)",
-    )
-    degenerate.add_argument(
-        "--root-offset",
-        type=float,
-        required=True,
-        metavar="LENGTH",
-        help="how far the root of the thin blade is moved outward along the span, a positive "
-        "length in the mesh's own unit, shorter than the blade",
-    )
-    degenerate.add_argument(
-        "--boundary",
-        metavar="NAME",
-        help=(
-            "the boundary (an OBJ's group) that is the blade, for a file that also holds a "
-            "spinner, a nacelle or other bodies; only its faces are read and the output is "
-            "named <stem>_<NAME>_thin_blade; without it a file holding more than one "
-            "boundary is refused"
-        ),
-    )
-    degenerate.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="rewrite a thin blade and its inventory that already exist; without it an "
-        "existing one is refused",
-    )
+    add_degenerate_parser(subparsers)
 
 
 def _add_convert_parsers(subparsers: Any) -> None:
@@ -679,21 +564,29 @@ def _add_convert_parsers(subparsers: Any) -> None:
         help="explicit path of the FlightStream executable (never guessed)",
     )
     convert.add_argument(
+        "--out",
+        help="write the campaign.toml here instead of standard output",
+    )
+    convert.add_argument(
         "-o",
         "--output",
-        help="write the campaign.toml here instead of standard output",
+        help="deprecated alias of --out, with the identical result",
     )
 
 
 def _hpc_profile_name(name: str) -> str:
-    """Select the HPC profile ``name`` as argparse reads it, and return it."""
-    select_hpc_profile(name)
+    """Read the HPC profile ``name``; :func:`parsed` selects it for the command alone."""
+    if not name.strip():
+        raise argparse.ArgumentTypeError(
+            "names no profile; give the stem of inputs/hpc/<NAME>.toml"
+        )
     return name
 
 
 def _cost_file_name(name: str) -> str:
-    """Select the cost file ``name`` as argparse reads it, and return it."""
-    select_cost_file(name)
+    """Read the cost file ``name``; :func:`parsed` selects it for the command alone."""
+    if not name.strip():
+        raise argparse.ArgumentTypeError("names no file; give the stem of inputs/costs/<NAME>.toml")
     return name
 
 
@@ -989,7 +882,7 @@ def _add_collect_parsers(subparsers: Any) -> None:
     )
     collect.add_argument(
         "--rounds",
-        type=int,
+        type=_rounds,
         default=None,
         help="stop a watch after this many sweeps, whatever is still outstanding",
     )
@@ -1108,18 +1001,16 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         "--force-overwrite",
         dest="force_overwrite",
         action="store_true",
-        help="DESTROY an existing product instead of archiving it. Since v0.17.0 a "
-        "rebuild MOVES what is there into post/<matrix>/archive/<day and hour>/ and "
-        "then writes, so nothing is lost and nothing is refused; this is the escape "
-        "from that, it keeps no copy, and it asks for a confirmation first. Pass "
-        "--yes to answer that confirmation in a script",
+        help="Deprecated confirmation control. Rebuilds overwrite in place without an "
+        "archive by default; use --archive to keep a copy. This option adds an "
+        "explicit confirmation before rebuilding and does not change the archive policy. "
+        "Pass --yes to confirm in a script.",
     )
     post.add_argument(
         "--yes",
         action="store_true",
-        help="answer the --force-overwrite confirmation. Only meaningful with it, and "
-        "refused without it: a flag that answers a question nobody asked is a flag "
-        "somebody will carry into the run that did ask",
+        help="Deprecated confirmation control for --force-overwrite. It confirms a "
+        "rebuild, whose default still writes no archive; --archive keeps a copy.",
     )
     post.add_argument(
         "--strict",
@@ -1152,7 +1043,8 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         metavar="IDS",
         help="rebuild only these simulations' products of the matrix, comma separated as "
         "delete-sims takes them (2006,2007 or [2006,2007]), in place: their files are "
-        "archived and rewritten, every other simulation's files and products.json entries "
+        "rewritten (archived only with --archive), every other simulation's files and "
+        "products.json entries "
         "stay as they were, and the super files, whose columns are the union over every "
         "simulation, are left as the last whole post wrote them and named under "
         "partial.not_rebuilt in products.json and in post.log. An id with no record of the "

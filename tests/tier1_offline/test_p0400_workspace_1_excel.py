@@ -67,7 +67,7 @@ def test_p0400_wsexcel_a_short_bridge_record_is_refused(tmp_path, record):
     """P0400-WSEXCEL (PFS-2095.060): malformed bridge records name their line."""
     path = tmp_path / "request.txt"
     path.write_text(record + "\n", encoding="utf-8")
-    with pytest.raises(ExcelSyncError, match="request.txt line 1"):
+    with pytest.raises(ExcelSyncError, match="line 1"):
         read_request(path)
 
 

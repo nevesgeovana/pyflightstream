@@ -25,7 +25,7 @@ revolution) and its `rotor`.
 
 **How the history is cut.** Revolution `k` is rows `(k-1) * N + 1` to `k * N` of
 the table, counted from its first row, where `N` is the rotor's steps per
-revolution rounded to a whole solver step, as the phase-locked reduction does.
+revolution rounded to a whole solver step.
 A history that starts at step 1 cuts at steps 1 to `N`, `N+1` to `2N` and so
 on. Each mean is the package's one average over that window, the one the time
 average takes.
@@ -68,9 +68,9 @@ defaults to 1 per cent where the table or the key is absent.
 
 **The warning judges a load against its SCALE, not against itself**. A force or moment column is a plotted column whose parameter (the text
 before the first underscore) is one of `FX`, `FY`, `FZ`, `MX`, `MY`, `MZ` or the
-force coefficients `CL`, `CDI`, `CDO`, `CD`; the text after it is the column's
+force coefficients `CL`, `CDI`, `CDO`, `CD`, `CDP`, `CDV`; the text after it is the column's
 group. Its KIND is a force (`FX`, `FY`, `FZ`), a moment (`MX`, `MY`, `MZ`) or a
-force coefficient (`CL`, `CDI`, `CDO`, `CD`), and the columns of one kind and
+force coefficient (`CL`, `CDI`, `CDO`, `CD`, `CDP`, `CDV`), and the columns of one kind and
 one group are the components of one load of one body in one frame. The SCALE of
 a column at the last revolution `n` is the largest magnitude among the means at
 revolution `n - 1` of the columns of its kind and group, so an in-plane force is

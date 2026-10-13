@@ -75,7 +75,7 @@ from __future__ import annotations
 import argparse
 import glob
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -110,10 +110,37 @@ __all__ = [
     "WITHHELD",
     "fill_from_settings",
     "main",
+    "register_command_group",
     "take_settings",
     "typed_value",
     "withhold_defaults",
 ]
+
+#: The command groups a higher layer registers, as (name, parser builder,
+#: handler): ``geometry`` (FR-471 to FR-477) runs the solver, which the run
+#: layer owns, so its group is registered from there at import, the way the post
+#: stages are, and this module never imports the run layer.
+_COMMAND_GROUPS: list[tuple[str, Callable[[Any], None], Callable[[argparse.Namespace], int]]] = []
+
+
+def register_command_group(
+    name: str,
+    add: Callable[[Any], None],
+    handler: Callable[[argparse.Namespace], int],
+) -> None:
+    """Register a command group of ``pyfs-workspace`` that a higher layer defines.
+
+    Parameters
+    ----------
+    name : str
+        The subcommand, such as ``geometry``.
+    add : callable
+        Adds the group's parser to the subparsers it is given.
+    handler : callable
+        Runs the parsed command and returns its exit code.
+    """
+    if all(entry[0] != name for entry in _COMMAND_GROUPS):
+        _COMMAND_GROUPS.append((name, add, handler))
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -141,11 +168,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "archive",
         help="zip one recorded simulation under archive/ and remove its folder",
         description=(
-            "Zips sims/sim_<sim_id>/ of a completed simulation into archive/ and removes "
+            "Zips sims/sim_<sim_id>/ of a recorded simulation into archive/ and removes "
             "the folder, so the simulation can be re-run into a clean folder while its "
             "evidence stays. Refuses a simulation the manifest (runs.json) does not "
             "record, and an archive name already taken: file management never destroys "
-            "an unrecorded run or an earlier archive."
+            "an unrecorded run or an earlier archive. It does not read the status of the "
+            "simulation's runs, so a failed or stale run is archived like a finished one; "
+            "do not archive a simulation whose run is still going."
         ),
     )
     archive.add_argument("root", help="campaign root carrying runs.json and sims/")
@@ -184,6 +213,8 @@ def _build_parser() -> argparse.ArgumentParser:
         )
     _add_field_commands(subparsers)
     _add_profile_commands(subparsers)
+    for _, add, _ in _COMMAND_GROUPS:
+        add(subparsers)
     return parser
 
 
@@ -478,6 +509,9 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_field(args)
         if args.subcommand == "profile":
             return _cmd_profile(args)
+        for name, _, handler in _COMMAND_GROUPS:
+            if args.subcommand == name:
+                return handler(args)
         return _cmd_init(args)
 
 
@@ -558,7 +592,11 @@ def _dests(sub: argparse.ArgumentParser) -> dict[str, argparse.Action]:
     for action in sub._actions:
         # Options only: a positional sharing a key's name (the recipe id of
         # `free-space`) is never typed as an option, so no file answers for it.
-        if action.option_strings and action.dest in {*DEFAULT_KEYS, *_CONSOLE_OPTIONS}:
+        if action.option_strings and action.dest in {
+            *DEFAULT_KEYS,
+            *_CONSOLE_OPTIONS,
+            "accept_unregistered_build",
+        }:
             found.setdefault(action.dest, action)
     return found
 
@@ -601,6 +639,11 @@ def withhold_defaults(
     inside, so the parser a reader inspects (``--help``, the generated
     command-line reference) shows the package's defaults.
 
+    Abbreviated options are refused for the length of the parse: the
+    settings are read from the folder an exact ``--workspace`` names, so an
+    abbreviation argparse would expand (``--works PATH``) would parse to one
+    workspace while the settings came from another.
+
     Parameters
     ----------
     parser : argparse.ArgumentParser
@@ -616,6 +659,10 @@ def withhold_defaults(
     supplied = settings_supplied(_named_workspace(argv))
     held = _Held()
     changed: list[tuple[argparse.Action, object, bool]] = []
+    parsers = {id(sub): sub for sub in (parser, *_subparsers(parser).values())}.values()
+    abbreviating = [(each, each.allow_abbrev) for each in parsers]
+    for each, _ in abbreviating:
+        each.allow_abbrev = False
     for sub in {id(sub): sub for sub in _subparsers(parser).values()}.values():
         for dest in _dests(sub):
             for action in (a for a in sub._actions if a.dest == dest and a.option_strings):
@@ -630,6 +677,8 @@ def withhold_defaults(
     finally:
         for action, default, required in changed:
             action.default, action.required = default, required
+        for each, allowed in abbreviating:
+            each.allow_abbrev = allowed
 
 
 def fill_from_settings(

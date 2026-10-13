@@ -537,13 +537,24 @@ def renumber_repeated_pols(
         if first and any(
             record.sim_id == row.pol and record.matrix_stem == stem for record in records
         ):
+            # The remedy is one that clears the condition: archiving the
+            # simulation zips its folder and leaves its records in the
+            # manifest, so the same records would refuse again.
+            others = sorted(
+                other.name
+                for other, rows in siblings.items()
+                if any(r.pol == row.pol for r in rows)
+            )
             raise MatrixError(
                 f"{matrix.name} row {row.row_number} states POL {row.pol}, which another matrix "
                 f"of this workspace also states, and {workspace.manifest_path.name} already holds "
                 f"runs of POL {row.pol} from {matrix.name}. Moving this row would orphan those "
                 "runs from the row that produced them, and nothing was renumbered. Renumber the "
-                "other matrix instead, or archive the simulation "
-                f"(pyfs-workspace archive <root> {row.pol}) and then renumber this one."
+                "other matrix instead (renumber_repeated_pols on it, update_ids (CLI: "
+                f"--update-ids) of its plan: pyfs-matrix plan {' / '.join(others)} --update-ids "
+                f"moves its row), and this one then keeps POL {row.pol}. Archiving the "
+                f"simulation does not clear this: its records stay in "
+                f"{workspace.manifest_path.name}."
             )
         ceiling += 1
         changes.append(PolChange(row_number=row.row_number, old=row.pol, new=str(ceiling)))

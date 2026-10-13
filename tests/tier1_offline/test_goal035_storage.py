@@ -44,6 +44,9 @@ from pyflightstream.workspace import storage as storage_module
 from pyflightstream.workspace.naming import ARCHIVE_DIR
 
 STORAGE_SRC = Path(storage_module.__file__)
+#: The free-space recipe runner and the protection it applies live in this
+#: sibling of storage since the 0.40.0 size split; storage imports them.
+RECIPE_SRC = STORAGE_SRC.with_name("_free_space.py")
 
 
 # --------------------------------------------------------------------------- fixtures
@@ -802,6 +805,30 @@ def _mutant_module(tmp_path: Path, old: str, new: str, tag: str, *, source: Path
     return module
 
 
+def _recipe_mutant(tmp_path: Path, old: str, new: str, tag: str):
+    """A storage module whose recipe runner is the mutated sibling module.
+
+    The mutant of ``_free_space.py`` is loaded under its real name while a
+    fresh copy of ``storage.py`` is executed, so that copy's free_space runs
+    the mutated runner; the real module is put back afterwards.
+    """
+    runner = _mutant_module(tmp_path, old, new, f"{tag}_runner", source=RECIPE_SRC)
+    real = "pyflightstream.workspace._free_space"
+    saved = sys.modules[real]
+    sys.modules[real] = runner
+    try:
+        path = tmp_path / f"_storage_with_{tag}_runner.py"
+        path.write_text(STORAGE_SRC.read_text(encoding="utf-8"), encoding="utf-8")
+        module_name = f"_storage_with_{tag}_runner_{id(path)}"
+        spec = importlib.util.spec_from_file_location(module_name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+        return module
+    finally:
+        sys.modules[real] = saved
+
+
 # ---- 1: a named output is protected from delete_extensions
 
 
@@ -848,7 +875,7 @@ def test_a_named_output_is_protected_from_delete_extensions(tmp_path):
 
 
 def test_mutant_disabling_named_output_protection_is_caught(tmp_path):
-    mutant = _mutant_module(tmp_path, _PROTECTION_OLD, _PROTECTION_NEW, "protection")
+    mutant = _recipe_mutant(tmp_path, _PROTECTION_OLD, _PROTECTION_NEW, "protection")
     assert not _protection_holds(mutant, tmp_path / "mut")
 
 
@@ -884,7 +911,7 @@ def test_free_space_preview_changes_nothing(tmp_path):
 
 
 def test_mutant_preview_deleting_files_is_caught(tmp_path):
-    mutant = _mutant_module(tmp_path, _PREVIEW_OLD, _PREVIEW_NEW, "preview")
+    mutant = _recipe_mutant(tmp_path, _PREVIEW_OLD, _PREVIEW_NEW, "preview")
     assert not _preview_changes_nothing(mutant, tmp_path / "mut")
 
 
@@ -921,7 +948,7 @@ def test_a_submitted_sim_is_never_compacted(tmp_path):
 
 
 def test_mutant_compacting_a_submitted_sim_is_caught(tmp_path):
-    mutant = _mutant_module(tmp_path, _SUBMITTED_OLD, _SUBMITTED_NEW, "submitted")
+    mutant = _recipe_mutant(tmp_path, _SUBMITTED_OLD, _SUBMITTED_NEW, "submitted")
     assert not _submitted_not_compacted(mutant, tmp_path / "mut")
 
 

@@ -106,7 +106,7 @@ matrix workflows read without importing the structural side branch.
     from the filesystem.
 
 !!! decision "AD-05 Optional heavy dependencies behind extras"
-    The core runtime set stays minimal; [NFR-06](nonfunctional-requirements.md)
+    The core runtime set stays minimal; [NFR-06](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/unpublished/requirements/nonfunctional-requirements.md)
     is its single home and this decision does not restate it.
     Structural analysis (`[fsi]`), geometry gating (`[geom]`), manual
     reading for the maintainer tool (`[manual]`, licence card
@@ -118,7 +118,7 @@ matrix workflows read without importing the structural side branch.
 
 !!! decision "AD-06 One substrate for results (restated 2026-07-27)"
     Tabular results and multidimensional labeled fields rest on one
-    substrate ([glossary](index.md#glossary)): the sister library's
+    substrate ([glossary](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/unpublished/requirements/index.md#glossary)): the sister library's
     structures over NumPy. pandas and xarray leave the runtime set.
 
     This decision previously read "tables are pandas; multidimensional
@@ -129,21 +129,25 @@ matrix workflows read without importing the structural side branch.
     deleted, because a decision that changes content is only readable
     against what it replaced.
 
+    Amended for 0.40.0 (0.40.0, pending): xarray leaves the runtime set in release
+    0.40.0 (FR-457), the far field resting on plain numpy arrays, so the transition
+    below concerns pandas alone from that release.
+
     Transition, stated because the code and this decision do not yet
     agree. pandas and xarray are still declared and still imported at
     three sites in `src/` (`results/tables.py`, `farfield/__init__.py`,
     `post/writers.py`, with the test suite as a fourth surface), and
     they stayed through v0.5.0, which shipped without the migration; the removal release number is NFR-06's to state and is unset, that release number
-    being stated by [NFR-06](nonfunctional-requirements.md) as its home
+    being stated by [NFR-06](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/unpublished/requirements/nonfunctional-requirements.md) as its home
     of record. There is no deprecation cycle in between and that is
     deliberate:
-    [NFR-20](nonfunctional-requirements.md) governs from 1.0, so a
+    [NFR-20](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/unpublished/requirements/nonfunctional-requirements.md) governs from 1.0, so a
     consumer finds out on upgrade. The accepted cost is stated in the
     decision record, not softened here.
 
     Who "a consumer" means is worth naming, because the shorthand for
     this decision has been "the tidy table"
-    ([glossary](index.md#glossary)) and that is the smaller half.
+    ([glossary](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/unpublished/requirements/index.md#glossary)) and that is the smaller half.
     `farfield` carries xarray in the SIGNATURES of its public ledger
     functions, so a rotor or far-field user is affected exactly
     as much as a table user. The changelog notice states both.
@@ -168,7 +172,7 @@ matrix workflows read without importing the structural side branch.
       review pass that asserted otherwise was wrong.
     - The dependency's own metadata propagates to ours: its version pin
       form and its `requires-python` ceiling are governed by
-      [NFR-22](nonfunctional-requirements.md), which is their single
+      [NFR-22](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/unpublished/requirements/nonfunctional-requirements.md), which is their single
       home.
 
     The direction is not a change of direction. The sister already
@@ -593,7 +597,7 @@ one of them keeps.
     Read with PFS-2074, PFS-2074.22 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     0.33.0 does everything 0.32.0 does. The rules that keep it so, while
-    [NFR-20](nonfunctional-requirements.md) does not yet bind:
+    [NFR-20](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/unpublished/requirements/nonfunctional-requirements.md) does not yet bind:
 
     - Every name in every `__all__` of v0.32.0 imports from the same
       dotted path in 0.33.0, and each `__all__` keeps its content and its
@@ -1025,6 +1029,36 @@ exit codes. A named difference needs its FR id and migration entry.
     comparisons must preserve product bytes as well as scripts,
     records, console text and exit codes.
 
+!!! decision "AD-24 Every root module is ranked, and private cross-package imports are frozen <span class='srs-implemented'>implemented</span>"
+    *0.40.0 (PFS-2083.002 and PFS-2098.005, marker P0400-PRIVATEIMPORT).
+    Evidence: `tests/tier1_offline/test_conventions.py`
+    (`_ROOT_UNIT_ROWS`, `test_every_root_module_has_a_layer_row_and_the_named_exceptions_do_not_grow`),
+    `tests/tier1_offline/test_p0400_every_root_module_ranked.py` and
+    `tests/tier1_offline/test_p0400_private_import_ratchet.py`.*
+
+    Layering section, rule one. Every module and every package of the
+    package root has a layer row in the layer rule of AD-01, and the layer
+    guards of NFR-23 (module level and function bodies) read all of them. A
+    unit with no row is not examined, so a ranked module that imported
+    one which imported upward would reach up with no guard firing; the
+    guard therefore fails on any root unit that has no row. A unit takes
+    the row one step above the highest row it imports (a floor module
+    that imports only the errors takes the floor), so a planted upward
+    import through any root module is refused. The one named exception,
+    counted and not allowed to grow, is the package root file
+    `pyflightstream/__init__.py`, which imports `post` and `run.records`
+    and is imported back by `post`, `qa`, `results`, `run` and
+    `workspace`, a cycle no single row can hold. `exceptions` takes the
+    top row because it imports every layer and no module imports it.
+
+    Layering section, rule two. A private module of one package is not
+    imported by another package. The pairs that exist at 0.40.0 (sixty-three
+    module pairs; `run` imports 11 private `workspace` modules and 8 private
+    `cases` modules, `workspace` imports 5 private `cases` modules) are
+    frozen in a tier-1 list that may only shrink: the test fails on any new
+    pair, and when a listed pair has gone it passes and tells the author to
+    remove the line from the list. No import is moved by this decision.
+
 ## Command-line surface
 
 Five console entry points, one per operational concern: `pyfs-qa`
@@ -1099,9 +1133,9 @@ may have a different boundary convention from the geometry it samples:
 measured unsteady fluid-plot coordinates are SI, while native steady probe
 coordinates use the simulation length unit. Export-kind and build evidence
 must remain distinct. See [units and starts](../geometry-units-and-starts.md)
-and [simulation controls](../simulation-geometry-controls.md).
+and [simulation controls](../geometry-units-and-starts.md#simulation-geometry-controls).
 
-[Custom inflow](../custom-field-units.md) keeps the supplied physical
+[Custom inflow](../workflow-row-flow-inputs.md#custom-field-units) keeps the supplied physical
 orientation. Explicit SI input may produce a separate solver-unit copy,
 with both source and effective hashes; undeclared files keep their bytes.
 No automatic incidence/vector rotation is implied. Coverage uses the final
@@ -1372,7 +1406,8 @@ bodies and those under `TYPE_CHECKING` included.
 - `run/records.py`, in the run row, imports the floor `_errors`, the four
   private modules of the records family (`run._record_files`,
   `run._rebuild_evidence`, `run._rebuild` and `run._assemble`, AD-11), `workspace.naming` and `workspace.storage`, the alias helper
-  `run._alias` (the point selector of mark-failed), `run._mark_converged`
+  `run._alias` (the point selector of mark-failed), `run._assessment`
+  (`worse_of`, which orders two run statuses by severity), `run._mark_converged`
   (the person's verdict of CONVERGED, re-exported as `mark_converged`, FR-414), and inside a
   function body `workspace`. It holds the operations on a workspace's
   records: the exact restore of a records file from the archive and the
@@ -1448,8 +1483,9 @@ byte (the manifest, the storage record, the additional-post record, a
 matrix's products record or its plan receipt), previewing until applied,
 archiving the current file first so a restore can be undone, and writing
 under the leases a sync holds, refusing while one writes. The writers of
-the storage record, the additional-post record, the plan receipt and the
-products record archive the previous file first, through the one home of the
+the storage record, the additional-post record and the plan receipt archive the
+previous file on every write. Products are archived only with `post --archive`
+(FR-397), through the one home of the
 archive names (`workspace.naming.archive_previous`), so each kind has a copy
 to restore; a failed copy warns and never blocks the write (FR-291 to
 FR-294). `pyfs-matrix
@@ -2113,3 +2149,54 @@ its earlier deferred import of the private module.
 No key, script, record or product of 0.37.0 changes. The new verbs need no
 executable, no matrix and no workspace: they read the OBJ they are given and
 write a level folder beside it, never into the source's folder.
+
+## The 0.39.0 additions and their limits
+
+0.39.0 adds three modules, each in the row of its package, and no new row. The
+order of the stack is unchanged. RPT-163 is the release's architecture record
+(296 modules, these three among them; no import from `workspace` to `run`).
+
+### The settings files in the workspace row
+
+`workspace/_settings_file.py` is the one reader of the workspace settings
+files, `pyfs.toml` and this machine's `pyfs.local.toml` (FR-436), and the one
+place that decides which of their values a command takes. It sits in the
+`workspace` row because the files are the workspace's. It imports the floors
+`_cli` (the per-invocation console level and post-warning policy it sets),
+`_console` (the console levels a file may name) and `_errors`, and, in its own
+row, `workspace.builds` (the name of the local executables file). It imports
+nothing of `run`, `cases`, `post` or `qa`.
+
+Its readers are above it. `workspace/cli.py` holds the command-line side of
+the files: it adapts an `argparse` parser so that an option the command line
+does not state takes its default from the files (`withhold_defaults`,
+`take_settings`), and `pyfs-matrix` (`run/cli.py`, through
+`run/_cli_parsers.py`) parses inside that adaptation. In `run`, the plan (`run/_plan.py`), the campaign
+(`run/_campaign.py`) and the run identity (`run/_identity.py`) read the
+provenance of the invocation and the build-acceptance sources, so `plan.json`
+and every run record name the file each value came from. The parsing of a
+command line stays in each command family (FR-436 R11); this module holds
+the schema, the precedence and the provenance, never the parsing.
+
+### Two modules below `_remesh`
+
+The remesh of `workspace/_refine/` gains two modules, both private, both
+below `_remesh.py` in the order given for 0.38.0:
+
+- `_remesh_group.py` is the group a remesh works on: its local numbering,
+  targets, curves and order (FR-424 R7, R8). It imports `_geometry` and
+  `_obj` of the same package.
+- `_remesh_pairs.py` is the quad-dominant remesh: triangles paired into
+  quadrilaterals, and the element report. It imports `_geometry` and
+  `_remesh_group`.
+
+`_remesh.py` imports both at module level and re-exports the names other
+modules read, so their import paths hold. Neither imports the geometry extra
+nor anything outside `workspace/_refine/` but numpy, and both load only
+with `_remesh`, which `_level.py` still imports deferred: a refinement whose
+families are all grids loads neither.
+
+### What 0.39.0 keeps
+
+A workspace without either settings file parses every command exactly as
+0.38.0 did, and the refinement modules keep the layering rule of 0.38.0.

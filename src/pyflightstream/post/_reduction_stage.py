@@ -480,7 +480,23 @@ def _judged_reduction_windows(
 ):
     """Read the history once and judge the samples of each planned window."""
     stated = cast(Iterable[Iterable[int | str]], entry.get("windows", ()))
-    windows = [tuple(int(v) for v in window) for window in stated]
+    try:
+        # Inside the guard: a recorded window holding a non-number (a
+        # hand-edited runs.json) is a skip of this reduction, and outside it
+        # the TypeError or ValueError ended the whole post.
+        windows = [tuple(int(v) for v in window) for window in stated]
+    except (TypeError, ValueError) as error:
+        ctx.skipped[relative] = (
+            f"the record's {name} windows {stated!r} are not whole numbers of "
+            f"steps ({error}), so no window of the reduction can be cut"
+        )
+        return None
+    if any(len(window) != 2 for window in windows):
+        ctx.skipped[relative] = (
+            f"the record's {name} windows {stated!r} must each hold two bounds "
+            "(first and last solver steps), so no window of the reduction can be cut"
+        )
+        return None
     try:
         if ctx.series is None:
             ctx.columns, ctx.series = plots_table_series(ctx.plots_table)
@@ -734,7 +750,13 @@ def _write_point_revolutions(
         try:
             ctx.columns, ctx.series = plots_table_series(ctx.plots_table)
         except (PyflightstreamError, OSError, ValueError) as error:
-            ctx.skipped[f"{PROBES_DIR}/{ctx.stem}_{_PER_REVOLUTION}.csv"] = str(error)
+            # Under each file the plan would write: a plan with a rotors block
+            # writes one per rotor, never the single-rotor name.
+            targets = _per_revolution_targets(ctx.plan, ctx.stem) or [
+                (None, None, f"{PROBES_DIR}/{ctx.stem}_{_PER_REVOLUTION}.csv")
+            ]
+            for _alias, _stated, relative in targets:
+                ctx.skipped[relative] = str(error)
             return
         ctx.names = _dictionary_the_table_can_honour(ctx.columns, ctx.names, ctx.stem, ctx.skipped)
     _write_the_per_revolution_products(

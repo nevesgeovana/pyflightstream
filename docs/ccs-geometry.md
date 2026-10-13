@@ -1,5 +1,11 @@
 # CCS geometry
 
+!!! note "Since 0.40.0: build the body first"
+    A CCS file is lofted once by the geometry stage, `[ccs]` in an instruction file with the
+    keys of `[import.ccs]` below, and the row names the built `.fsm`
+    ([Geometry: build a body before the run](geometry.md)). The in-row route below still
+    runs in 0.40.0, warned at plan, and is refused from 0.41.0.
+
 A matrix row can name a CCS file (Component Cross-Section, the solver's
 parametric geometry format) in its `GEOMETRY` cell. The solver then makes the
 mesh itself, from the cross-sections of the file, with its CCS commands: a
@@ -105,7 +111,7 @@ name in `boundaries`; the wing is always the first name.
 **`space = "REAL"` is refused when the row is planned.** Licensed round 2 on
 FlightStream 26.124 ran the same aileron in both forms: the PARAMETRIC form
 completed and its saved simulation differs from the wing without it, and the
-REAL form ended `FAILED_EXECUTION` with no saved simulation (RPT-097). No other
+REAL form ended `FAILED_EXECUTION` with no saved simulation (RPT-097). RPT-096 records the prior probe round. No other
 build measured it, so the plan refuses it on every build; write the limits as
 fractions of the span and leave `space` at `PARAMETRIC`. The round observed the
 PARAMETRIC aileron adding two boundaries after the wing's (`PYFS_AIL` and
@@ -166,5 +172,5 @@ fuselage saved simulations that differ in the per-face marks of the relaxed
 trailing edge. The eight-argument control-surface line was refused there, which
 is why the package writes all ten arguments. A run through a whole campaign row,
 the control surface in its ten-argument form and the effect of the shedding
-direction on a solution are still to be confirmed on a licensed run; the change
+direction on a solution were measured in RPT-126; the change
 log of the release says which of them were.

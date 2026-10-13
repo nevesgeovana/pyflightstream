@@ -76,6 +76,17 @@ from typing import TYPE_CHECKING
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.cases import CampaignConfigError, InputKey, classify_outputs
 
+# THE SUFFIXES AND THEIR PREDICATE LIVE IN pproc, beside the export kinds the
+# classifier reads, and are published here; pproc imported this module inside a
+# function for them, which hid the cycle pproc -> acoustics -> root -> pproc.
+from pyflightstream.cases.pproc import (
+    ACOUSTIC_SECTION_SUFFIX as ACOUSTIC_SECTION_SUFFIX,
+)
+from pyflightstream.cases.pproc import (
+    ACOUSTIC_SIGNALS_SUFFIX as ACOUSTIC_SIGNALS_SUFFIX,
+)
+from pyflightstream.cases.pproc import is_acoustic_output as is_acoustic_output
+
 if TYPE_CHECKING:
     from pyflightstream.cases import SimCase
     from pyflightstream.script import Script
@@ -115,15 +126,6 @@ __all__ = [
     "with_acoustic_signals",
 ]
 
-#: The end of the name of a point's acoustic export, written beside its
-#: other exports as ``<point><suffix>``. Confirmed by the round-1 probe A1 on
-#: 26.124: the solver writes the export to the path it is given, and the file
-#: is text (``Observer:``, ``Position:`` and ``Columns:`` lines, then rows).
-ACOUSTIC_SIGNALS_SUFFIX = "_acoustic_signals.txt"
-
-#: The end of the name of the folder a point's acoustic section writes its VTK
-#: files into, ``<point><suffix>/``, beside the point's other exports.
-ACOUSTIC_SECTION_SUFFIX = "_acoustic_section"
 
 #: The note the run writes into the section's folder before the solver starts,
 #: which is how the folder exists when the solver writes into it. It states
@@ -590,29 +592,6 @@ def with_acoustic_signals(outputs: Sequence[str], case: SimCase, stem: str) -> l
     return listed
 
 
-def is_acoustic_output(name: str | PurePath) -> bool:
-    """Whether a declared or recorded output is an acoustic file, never a surface export.
-
-    The signals export ends in ``.txt`` like the loads table, and a section's
-    files end in ``.vtk`` like the surface export, so the classifier asks this
-    before it pairs a name with a kind.
-
-    Parameters
-    ----------
-    name : str or PurePath
-        A declared or recorded output name.
-
-    Returns
-    -------
-    bool
-        True for the signals export and for any file inside an acoustic section folder.
-    """
-    path = PurePosixPath(str(name).replace("\\", "/"))
-    if path.name.lower().endswith(ACOUSTIC_SIGNALS_SUFFIX):
-        return True
-    return any(part.lower().endswith(ACOUSTIC_SECTION_SUFFIX) for part in path.parts[:-1])
-
-
 def refuse_acoustics_on_a_continuation(case: SimCase) -> None:
     """Refuse a continuation of a row that asks for acoustic signals.
 
@@ -870,7 +849,9 @@ def read_observers_file(path: str | Path) -> tuple[tuple[float, float, float], .
     """
     where = Path(path)
     try:
-        lines = [line.strip() for line in where.read_text(encoding="utf-8").splitlines()]
+        # utf-8-sig: a spreadsheet's "CSV UTF-8" opens with a byte order mark,
+        # which read as text made the count line '\ufeff3' (PFS-2095.039).
+        lines = [line.strip() for line in where.read_text(encoding="utf-8-sig").splitlines()]
     except (OSError, UnicodeDecodeError) as error:
         raise CampaignConfigError(
             f"the acoustic observer file {where} cannot be read ({error})."

@@ -37,7 +37,12 @@ import sys
 import time
 from pathlib import Path
 
-from tests.support_tier3 import (
+# Started as a script (the action's .cmd does that), sys.path[0] is this folder and the
+# repository root is absent, so ``tests`` cannot be imported (PFS-2135.004). The root is
+# derived from this file's own location, like every other path here.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from tests.support_tier3 import (  # noqa: E402
     _NUMBERED as _NUMBERED,
 )
 from tests.support_tier3 import (

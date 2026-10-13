@@ -13,6 +13,7 @@ import re
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,10 @@ class WindowDiagnostic:
     #: Window classes of the controls inside (``Button``, ``Static``, ...),
     #: read with the text; empty when they were not read.
     controls: tuple[str, ...] = ()
+    #: What could NOT be read (a control whose text read timed out, controls left
+    #: unread past the bound), kept apart from ``text`` so that a window busy
+    #: starting up is not taken for one that says something (PFS-2094.017).
+    unread: tuple[str, ...] = ()
 
 
 #: What a window that ASKS NOTHING is, measured: FlightStream 26.124 launched
@@ -67,7 +72,7 @@ def select_owned_dialogs(pid: int, windows: Iterable[WindowDiagnostic]) -> tuple
     A window that asks nothing (:func:`asks_nothing`) is not selected.
     """
     return tuple(
-        "\n".join(part for part in (window.title, window.text) if part)
+        "\n".join(part for part in (window.title, window.text, *window.unread) if part)
         or "solver dialog contains no readable text"
         for window in windows
         if _could_be_a_dialog(pid, window) and not asks_nothing(window)
@@ -98,17 +103,11 @@ def owned_solver_dialogs(pid: int) -> tuple[str, ...]:
     return select_owned_dialogs(pid, _native_windows(pid))
 
 
-def _native_windows(pid: int) -> list[WindowDiagnostic]:
-    """Enumerate exact-owned windows with bounded cross-process text reads."""
-    # The platform check is written the way the type checker narrows it: on a
-    # non-Windows host the Windows-only ctypes names below do not exist.
-    if sys.platform != "win32":
-        return []
+def _declare_user32_signatures(user32: Any, callback_type: Any) -> None:
+    """Declare the argument and result types of the user32 calls the window walk makes."""
     import ctypes
     from ctypes import wintypes
 
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     user32.EnumWindows.argtypes = [callback_type, wintypes.LPARAM]
     user32.EnumWindows.restype = wintypes.BOOL
     user32.EnumChildWindows.argtypes = [wintypes.HWND, callback_type, wintypes.LPARAM]
@@ -135,6 +134,20 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
         ctypes.POINTER(ctypes.c_size_t),
     ]
     user32.SendMessageTimeoutW.restype = wintypes.LPARAM
+
+
+def _native_windows(pid: int) -> list[WindowDiagnostic]:
+    """Enumerate exact-owned windows with bounded cross-process text reads."""
+    # The platform check is written the way the type checker narrows it: on a
+    # non-Windows host the Windows-only ctypes names below do not exist.
+    if sys.platform != "win32":
+        return []
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    _declare_user32_signatures(user32, callback_type)
     windows: list[WindowDiagnostic] = []
 
     def belongs(handle):
@@ -156,6 +169,7 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
         if not _could_be_a_dialog(pid, snapshot):
             return True
         texts: list[str] = []
+        unread: list[str] = []
         controls: list[str] = []
         visited = 0
 
@@ -166,7 +180,7 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
                 return True
             visited += 1
             if visited > 32:
-                texts.append("[remaining controls omitted after 32 bounded reads]")
+                unread.append("[remaining controls omitted after 32 bounded reads]")
                 return False
             kind = ctypes.create_unicode_buffer(256)
             user32.GetClassNameW(control, kind, len(kind))
@@ -185,7 +199,8 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
                 ctypes.byref(result),
             )
             if not ok:
-                texts.append("[control text unavailable or timed out]")
+                if "[control text unavailable or timed out]" not in unread:
+                    unread.append("[control text unavailable or timed out]")
             elif buffer.value and buffer.value not in texts:
                 texts.append(buffer.value)
             return True
@@ -199,6 +214,7 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
                 class_name.value,
                 modal=modal,
                 controls=tuple(controls),
+                unread=tuple(unread),
             )
         )
         return True

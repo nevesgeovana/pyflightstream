@@ -22,6 +22,9 @@ FIXTURES = Path(__file__).parent / "fixtures"
 EXTRA = ("Strip_length", "Fx_int", "Fz_int", "My_int")
 BASE = ("Offset", "Chord", "X_QC", "Z_QC", "Fx", "Fz", "Moment")
 OFFSETS = (0.0, 0.2, 0.7, 1.0)
+#: P0400 (PFS-2081.40): stations at the centers of four equal strips of [0, 1],
+#: where the export places them; the extended rule tiles exactly [0, 1].
+CENTERED = (0.125, 0.375, 0.625, 0.875)
 
 
 def _spec(option=None, *, validate=True):
@@ -117,7 +120,7 @@ def test_opt_in_columns_and_glossary(tmp_path, monkeypatch):
     workspace = _case(tmp_path, monkeypatch)
     _, columns, rows = _table(workspace)
     assert tuple(columns[-11:]) == (*BASE, *EXTRA), "integrated columns missing after Moment"
-    assert [float(rows[0][name]) for name in EXTRA] == pytest.approx([0.1, 0.2, 0.1, 0.4])
+    assert [float(rows[0][name]) for name in EXTRA] == pytest.approx([0.2, 0.4, 0.2, 0.8])
     for token, name in zip(("STRIP_LENGTH", "FX_INT", "FZ_INT", "MY_INT"), EXTRA, strict=True):
         assert getattr(_tokens, token, None) == name
         assert name in VARIABLE_DEFINITIONS
@@ -139,29 +142,31 @@ def test_uneven_midpoint_lengths(tmp_path, monkeypatch):
     _, columns, rows = _table(_case(tmp_path, monkeypatch))
     assert "Strip_length" in columns, "midpoint strip lengths missing"
     widths = [float(row["Strip_length"]) for row in rows]
-    assert widths == pytest.approx([0.1, 0.35, 0.4, 0.15], abs=1e-12)
-    assert sum(widths) == pytest.approx(1.0)
+    # P0400 (PFS-2081.40): the end strips reach half a spacing beyond the end stations.
+    assert widths == pytest.approx([0.2, 0.35, 0.4, 0.3], abs=1e-12)
+    assert sum(widths) == pytest.approx(1.25)
 
 
 @pytest.mark.requirement("FR-116")
 def test_linear_closed_form_integral(tmp_path, monkeypatch):
-    """Linear densities integrate exactly; 2e-5 allows four CSV half-ulp errors."""
-    _, columns, rows = _table(_case(tmp_path, monkeypatch))
+    """Linear densities integrate exactly at strip centers; 2e-5 allows CSV half-ulp errors."""
+    _, columns, rows = _table(_case(tmp_path, monkeypatch, blocks=[CENTERED]))
     assert "Fx_int" in columns, "closed-form integral has no integrated forces"
     assert sum(float(r["Fx_int"]) for r in rows) == pytest.approx(3.5, abs=2e-5)
     assert sum(float(r["My_int"]) for r in rows) == pytest.approx(3.0, abs=2e-5)
 
 
 def test_blade_strip_sum_matches_fixture_polar(tmp_path, monkeypatch):
-    """Band (L04): 0.02670 N -- quadratic error sum(h^3)/6 plus CSV rounding.
+    """Band (L04, P0400): 0.00523 N -- the midpoint rule's error h^2/24 f'' plus CSV rounding.
 
-    Fz=1+r^2 on [0,1] has integral 4/3 N. Midpoint strip weighting sums
-    to composite trapezoidal quadrature: h=(0.2,0.5,0.3) gives 0.0266667 N
-    error. Four strip roundings plus one polar rounding add at most 0.000025 N.
-    The band is fixed analytically, independent of the writer's result.
-    The fixture's native total states that exact integral with q S = 1 N.
+    Fz=1+r^2 on [0,1] has integral 4/3 N. With the stations at the centers
+    of four equal strips (the extended rule, PFS-2081.40), the strips are the
+    composite midpoint rule: h = 0.25 gives 0.0052083 N error. Four strip
+    roundings plus one polar rounding add at most 0.000025 N. The band is
+    fixed analytically, independent of the writer's result. The fixture's
+    native total states that exact integral with q S = 1 N.
     """
-    workspace = _case(tmp_path, monkeypatch)
+    workspace = _case(tmp_path, monkeypatch, blocks=[CENTERED])
     path, columns, rows = _table(workspace)
     assert "Fz_int" in columns, "blade strips cannot be compared with the fixture polar"
     polars = list((path.parent.parent / "polars").glob("*.csv"))
@@ -169,7 +174,7 @@ def test_blade_strip_sum_matches_fixture_polar(tmp_path, monkeypatch):
     _, polar = read_csv_table(polars[0])
     assert float(polar[0]["CLB"]) == pytest.approx(4 / 3, abs=5e-6)
     assert sum(float(r["Fz_int"]) for r in rows) == pytest.approx(
-        float(polar[0]["CLB"]), abs=0.02670, rel=0
+        float(polar[0]["CLB"]), abs=0.00523, rel=0
     )
 
 
@@ -178,7 +183,7 @@ def test_each_step_and_block_is_integrated_separately(tmp_path, monkeypatch):
     _, columns, rows = _table(workspace)
     assert "My_int" in columns, "instant integrated moments missing"
     for step in (3, 4, 5):
-        for family, widths in (("Blade1", [0.1, 0.35, 0.4, 0.15]), ("Blade2", [0.2, 0.5, 0.3])):
+        for family, widths in (("Blade1", [0.2, 0.35, 0.4, 0.3]), ("Blade2", [0.4, 0.5, 0.6])):
             selected = [r for r in rows if r["STEP"] == str(step) and r["FAMILY"] == family]
             assert [float(r["Strip_length"]) for r in selected] == pytest.approx(widths)
             for row in selected:
@@ -213,11 +218,12 @@ def test_invalid_distribution_warns_and_keeps_plain_file(tmp_path, monkeypatch, 
 def test_descending_offsets_tile_the_same_interval(tmp_path, monkeypatch):
     _, columns, rows = _table(_case(tmp_path, monkeypatch, blocks=[tuple(reversed(OFFSETS))]))
     assert "Strip_length" in columns, "descending monotonic stations were not integrated"
-    assert [float(r["Strip_length"]) for r in rows] == pytest.approx([0.15, 0.4, 0.35, 0.1])
+    assert [float(r["Strip_length"]) for r in rows] == pytest.approx([0.3, 0.4, 0.35, 0.2])
 
 
 def _reordered_case(tmp_path, monkeypatch, *, legacy=False, ambiguous=False):
-    workspace = _case(tmp_path, monkeypatch, blocks=[OFFSETS, OFFSETS])
+    # Strip-centred stations, so the extended rule (PFS-2081.40) tiles exactly [0, 1].
+    workspace = _case(tmp_path, monkeypatch, blocks=[CENTERED, CENTERED])
     record = workspace.read_manifest()[0]
     for position, (block, family) in enumerate(
         zip(record.sections_layout, ("Wing", "Blade1"), strict=True), 1

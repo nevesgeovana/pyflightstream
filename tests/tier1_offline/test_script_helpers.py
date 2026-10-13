@@ -500,17 +500,20 @@ def test_the_altitude_path_still_works_under_a_waiver():
 
 @pytest.mark.parametrize("canonical", ["26.120", "26.121"])
 def test_the_motion_start_time_path_refuses_on_every_version(canonical):
-    """No registered version accepts SET_MOTION_START_TIME.
+    """No registered version accepts SET_MOTION_START_TIME on a ROTARY motion.
 
-    Both records say the solver ABORTS script processing at the line, so
-    everything after it never ran. The rotor golden used to pin exactly
-    that script. Parametrized over both versions because the hotfix
-    repaired AIR_ALTITUDE and did not repair this one, and a reader
-    could reasonably assume otherwise.
+    The solver ABORTS script processing at the line for a rotary motion
+    ("Start time cannot be set for rotary motion", RPT-026), so everything
+    after it never ran. The rotor golden used to pin exactly that script.
+    Since 2026-10-12 the command is verified on 26.120 for a 6DOF motion
+    (RPT-166), so the status no longer refuses it there and the helper must:
+    parametrized over both builds, the verified one and the one whose record
+    is still broken, and the caller's script is left untouched.
     """
     script = Script(version=canonical)
     script.emit("CREATE_NEW_COORDINATE_SYSTEM")
-    with pytest.raises(BrokenCommandError) as caught:
+    before = script.render()
+    with pytest.raises(CommandArgumentError, match="rotary motion") as caught:
         helpers.rotary_motion(
             script,
             frame=2,
@@ -520,6 +523,7 @@ def test_the_motion_start_time_path_refuses_on_every_version(canonical):
             start_time=0.05,
         )
     assert "SET_MOTION_START_TIME" in str(caught.value)
+    assert script.render() == before
 
 
 def test_rotary_motion_without_a_start_time_needs_no_waiver():
@@ -847,8 +851,8 @@ def test_a_first_blade_off_the_four_anchor_angles_is_refused_with_its_angle():
         )
     message = str(raised.value)
     assert "37.0" in message
-    for anchor in ("0", "90", "180", "270"):
-        assert anchor in message
+    # The whole list, in the form the message prints: a bare "0" is inside "37.0".
+    assert "0.0, 90.0, 180.0, 270.0" in message, message
     assert script.render() == "\n", "the refusal must leave the script untouched"
 
 

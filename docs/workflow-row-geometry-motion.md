@@ -20,7 +20,7 @@ record is ONE rotation and two records are two rotations in the order
 written, so a pitch and then a toe is `{...}, {...}`. `ANGLE` is in
 degrees; `AXIS` names a coordinate system and one of its axes, as
 `PUSHER_SMRP-Y`, where the system is one the row's REFERENCE declares in
-its `[[frames]]` table (above) or one the package creates itself (`MRP` on
+its `[[frames]]` table ([reference frames](workflow-reference-artifact.md#the-reference-declares-the-studys-vocabulary)) or one the package creates itself (`MRP` on
 every run type; and a rotor's own
 `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`).
 
@@ -65,7 +65,7 @@ unaffected.
 The rotation is emitted after every frame exists and before any motion is
 created, on every run type. One row is one geometry, so the angles of a
 study are one row each, and the sweep column keeps its meaning: the
-reserved key `angle_sweep_deg` (the reserved-keys paragraph above) is
+reserved key `angle_sweep_deg` ([reserved keys](workflow-unsteady-rotor.md#a-rotor-row-states-the-decisions-and-the-arithmetic-is-derived)) is
 still read as a geometric rotation sweep of its own, and a row sweeping it
 beside an aerodynamic axis is refused as it always was; it is not the way
 to state the study's angles, `ROTATE` is.
@@ -106,7 +106,7 @@ TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {DISTANCE: -0
 ```
 
 Each record is ONE translation, and two records are two, in the order written.
-`DISTANCE` is in **metres**, as `ANGLE` is in degrees, and it moves the alias
+`DISTANCE` is in **metres**, as `ANGLE` is in degrees. The emitted surface move and frame origins carry an explicit `METER` unit and are converted from the simulation unit; a save whose unit cannot be read is refused. It moves the alias
 along ONE axis of the named frame, so a diagonal is two records. `AXIS` names a
 coordinate system and one of its axes exactly as a rotation's does, and `ALIAS`
 names exactly one word the reference declares. `AUX_FRAMES` names frames the
@@ -155,6 +155,6 @@ them, a frame nothing defines, an axis of zero length, and the key on a
 mirror, translation and rotation, the ones that make the file into the body,
 are declared once in its sidecar as `[[import.operations]]` and applied right
 after the import, before any frame exists, for every row that names the file
-([mesh inputs](mesh-inputs.md#the-mesh-operations-of-an-import)). `TRANSLATE`
+([mesh inputs](mesh/reference.md#the-mesh-operations-of-an-import)). `TRANSLATE`
 and `ROTATE` are the study's moves, per row, after the frames, and they act on
 the body those operations left.

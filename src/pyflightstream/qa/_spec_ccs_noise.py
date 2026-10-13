@@ -24,7 +24,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pyflightstream._textio as _textio
-from pyflightstream._fsm import boundary_names
+from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.qa._spec_catalog_b import _CREATE_RECT_VSECTION
 from pyflightstream.qa._spec_kit import (
     _emit,
@@ -457,16 +457,20 @@ def _surface_section_prelude(script: Script, workdir: Path) -> None:
     script.emit("CREATE_NEW_SURFACE_SECTION", 1, "XZ", 0.05, "1", "DISABLE", -1)
 
 
+def _surface_section_export(script: Script, workdir: Path) -> None:
+    script.emit("EXPORT_SURFACE_SECTIONS", 1, workdir / "section_1.txt")
+
+
 _spec(
     command="EXPORT_SURFACE_SECTIONS",
-    build_target=_emit("EXPORT_SURFACE_SECTIONS", 1),
+    build_target=_surface_section_export,
     requires=Requires.SOLUTION,
     prelude=_surface_section_prelude,
     assert_effect=_a_file_was_added,
     observe=_added_files_read,
     effect_note=(
-        "the solver adds a file to its working folder: the manual states no file name "
-        "for the one-section export, so the folder is read, and silence records unprobed"
+        "the solver adds the requested section export to its working folder; "
+        "silence records unprobed"
     ),
     timeout_s=240.0,
 )
@@ -557,19 +561,38 @@ _spec(
 # --- DELETE_SURFACES (FR-333) --------------------------------------------
 
 
+def _inventories(
+    artifacts: ProbeArtifacts,
+) -> tuple[tuple[str, ...] | None, tuple[str, ...] | None]:
+    """Both saved inventories, None for a state that cannot be read (PFS-2102.028).
+
+    A SAVEAS that failed leaves no state file, and the reader raises
+    MeshReadError on it; that ended the whole probe run.
+    """
+    found: list[tuple[str, ...] | None] = []
+    for name in ("state_before.fsm", "state_after.fsm"):
+        try:
+            found.append(boundary_names(artifacts.workdir / name))
+        except MeshReadError:
+            found.append(None)
+    return found[0], found[1]
+
+
 def _one_surface_gone(artifacts: ProbeArtifacts) -> bool | None:
     """Judge whether the inventory after is the one before, less its first name."""
-    before = boundary_names(artifacts.workdir / "state_before.fsm")
-    after = boundary_names(artifacts.workdir / "state_after.fsm")
+    before, after = _inventories(artifacts)
     if not before or after is None:
         return None
     return tuple(after) == tuple(before[1:])
 
 
 def _inventories_read(artifacts: ProbeArtifacts) -> str:
-    before = boundary_names(artifacts.workdir / "state_before.fsm")
-    after = boundary_names(artifacts.workdir / "state_after.fsm")
-    return f"inventory before {before}, after {after}"
+    before, after = _inventories(artifacts)
+    unreadable = "state unreadable"
+    return (
+        f"inventory before {unreadable if before is None else before}, "
+        f"after {unreadable if after is None else after}"
+    )
 
 
 _spec(
@@ -860,11 +883,29 @@ def _one_observer_gone(artifacts: ProbeArtifacts) -> bool | None:
     return False if len(survivors) == 2 else None
 
 
+_CONTROL_OBSERVER = "PYFS_CTRL"
+
+
+def _control_observer(script: Script, workdir: Path) -> None:
+    """Create an observer after the deletion: the positive control (PFS-2102.001)."""
+    script.emit("CREATE_NEW_ACOUSTIC_OBSERVER", _CONTROL_OBSERVER, 0.0, 10.0, 0.0)
+
+
 def _no_observer_left(artifacts: ProbeArtifacts) -> bool | None:
+    """Judge the deletion against the control observer created after it.
+
+    PFS-2102.001. An empty signals file verified the deletion, and a
+    computation or an export that captured no observer writes one too.
+    The control's block is what proves the instrument read observers in
+    this run; without it nothing is judged.
+    """
     blocks = _signal_blocks(artifacts)
     if blocks is None:
         return None
-    return not blocks
+    names = {name for name, _ in blocks}
+    if names & {"PYFS_OBS1", "PYFS_OBS2"}:
+        return False
+    return True if _CONTROL_OBSERVER in names else None
 
 
 _spec(
@@ -886,9 +927,12 @@ _spec(
     build_target=_emit("DELETE_ALL_ACOUSTIC_OBSERVERS"),
     requires=Requires.SIM,
     prelude=_TWO_OBSERVERS,
-    epilogue=_seq(_run, _compute, _export),
+    epilogue=_seq(_control_observer, _observer_time, _run, _compute, _export),
     assert_effect=_no_observer_left,
     observe=_signals_read,
-    effect_note="the signals file holds no observer block after both observers were deleted",
+    effect_note=(
+        "the signals file holds the block of an observer created after the deletion "
+        "(the positive control) and none of the two observers deleted"
+    ),
     timeout_s=240.0,
 )

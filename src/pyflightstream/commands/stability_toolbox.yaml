@@ -205,7 +205,7 @@ COMPUTE_STABILITY_COEFFICIENTS:
 
 STABILITY_TOOLBOX_EXPORT:
   layout: inline
-  phase: analysis
+  phase: export
   args:
     - name: file
       type: path

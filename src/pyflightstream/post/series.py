@@ -498,7 +498,8 @@ def write_point_series(
     Parameters
     ----------
     root : Path
-        The workspace root, which the listed files are named relative to.
+        The workspace root. Listed files, like product keys, are named
+        relative to ``out``, the matrix's products folder.
     sim_dir : Path
         The simulation folder, where the solver left the stamped files.
     record : RunRecord
@@ -640,7 +641,9 @@ def write_point_series(
             path, (POLAR_ID_COLUMN, *columns), [(record.sim_id, *row) for row in rows]
         )
         written.append(done)
-        tabled = sorted(step for step in steps if step in files)
+        # THE STEPS THE ROWS HOLD, every series leading with its STEP: a step
+        # whose export declared no section has a file and no row (PFS-2105.038).
+        tabled = sorted({int(str(row[0])) for row in rows})
         entry: dict[str, object] = {
             "runs": [record.run_id],
             "steps": [first, last],
@@ -651,7 +654,9 @@ def write_point_series(
             for listed, listed_suffix, extension in LISTED_KINDS:
                 found = stamped.get((listed_suffix, extension), {})
                 entry[f"{listed}_files"] = [
-                    found[step].relative_to(root).as_posix() for step in steps if step in found
+                    Path(os.path.relpath(found[step], out)).as_posix()
+                    for step in steps
+                    if step in found
                 ]
         # KEYED BY WHERE THE TABLE WENT, as write_superfiles keys its entries
         # (the API lens, round two): keyed by the path asked for, a target that

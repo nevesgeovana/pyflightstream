@@ -304,7 +304,10 @@ def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Pa
     2. An input the script does not name is the staged one when the staged
        inputs hold it (a recipe that never names its geometry), else the file
        the run wrote beside the script in the folder it ran in: the action
-       programs and the clock.
+       programs and the clock. A key with a folder part is relative to the
+       simulation folder (a continuation's inherited probe layout,
+       ``profiles/<sim>_probe_points.csv``) and is read there when it holds
+       it (PFS-2103.027).
     """
     wanted = Path(name).parts
     staged = sim / "inputs" / name
@@ -317,7 +320,11 @@ def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Pa
             return path
     if by_script:
         return by_script[0]
-    return staged if staged.is_file() else work_dir / name
+    if staged.is_file():
+        return staged
+    if len(wanted) > 1 and (sim / name).is_file():
+        return sim / name
+    return work_dir / name
 
 
 @lru_cache(maxsize=1)
@@ -521,16 +528,17 @@ def check_solver_identity(
         # from the solver". That is the misattribution this function's
         # own path fix was about, one line further on, and the timeout
         # case is one the operator can act on by raising timeout_s.
+        # PFS-2094.012: what the run said comes from ExecutionResult.diagnosis,
+        # the single home, which reads stdout too.
         if result.timed_out:
             cause = (
-                f"the pre-flight run was killed by its {timeout_s} second timeout, so "
-                "no build number could be read; raise timeout_s if this installation "
-                "is simply slow to start"
+                f"the pre-flight run {result.diagnosis()}, so no build number could be "
+                "read; raise timeout_s if this installation is simply slow to start"
             )
         elif result.failed:
             cause = (
-                f"the pre-flight run exited with return code {result.return_code} and "
-                "wrote no readable log, so no build number could be read"
+                f"the pre-flight run {result.diagnosis()} and wrote no readable log, so no "
+                "build number could be read"
             )
         else:
             cause = "the pre-flight could not read a build number from the solver"
@@ -818,7 +826,9 @@ def _check_scheduled_builds(
         # name means (PFS-2010.01.06). So a submitted point is NOT guarded
         # here; which build it ran on is known only from the build number in
         # its collected log.
-        if getattr(case_executor, "descriptor_path", "missing") != "missing":
+        from pyflightstream.run._executors import submits_jobs
+
+        if submits_jobs(case_executor):
             continue
         workdir = Path(tempfile.mkdtemp(prefix="pyfs-preflight-"))
         accepted, accepted_by = acceptance_of(key, accept_unregistered_build, accepted_builds)

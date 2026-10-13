@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import pytest
 
+from pyflightstream.cases import CampaignConfigError
 from pyflightstream.post._condition import _matrix_window, _stated_window
 
 
@@ -123,13 +124,10 @@ def test_revolutions_without_a_rotor_rate_resolve_to_nothing_rather_than_a_guess
     assert _matrix_window(_Row(LAST_REVS_AVG="1.0"), no_clock) is None
 
 
-def test_both_keys_together_resolve_to_nothing_rather_than_picking_one():
-    """`_averaging_window` refuses the pair at plan time and names both.
-
-    Reaching it HERE can only mean a matrix edited after the run, so this falls
-    through to what the record states rather than silently preferring one.
-    """
-    assert _matrix_window(_Row(LAST_REVS_AVG="1.0", LAST_ITERS_AVG="100"), _ran()) is None
+def test_p0400_both_keys_together_are_refused_at_post_too():
+    """P0400-WINDOW-REFUSAL: a contradictory edited row cannot reuse the record."""
+    with pytest.raises(CampaignConfigError, match="both LAST_REVS_AVG.*LAST_ITERS_AVG"):
+        _matrix_window(_Row(LAST_REVS_AVG="1.0", LAST_ITERS_AVG="100"), _ran())
 
 
 @pytest.mark.parametrize(
@@ -138,9 +136,6 @@ def test_both_keys_together_resolve_to_nothing_rather_than_picking_one():
         {},
         {"LAST_REVS_AVG": "-"},
         {"LAST_REVS_AVG": ""},
-        {"LAST_REVS_AVG": "0"},
-        {"LAST_REVS_AVG": "-2"},
-        {"LAST_ITERS_AVG": "not a number"},
     ],
 )
 def test_a_row_that_states_no_usable_key_falls_through_to_the_record(variables):
@@ -150,6 +145,20 @@ def test_a_row_that_states_no_usable_key_falls_through_to_the_record(variables):
     nothing, so the window the run recorded stands.
     """
     assert _matrix_window(_Row(**variables), _ran()) is None
+
+
+@pytest.mark.parametrize(
+    "variables",
+    [
+        {"LAST_REVS_AVG": "0"},
+        {"LAST_REVS_AVG": "-2"},
+        {"LAST_ITERS_AVG": "not a number"},
+    ],
+)
+def test_p0400_invalid_current_window_never_falls_through(variables):
+    """P0400-WINDOW-REFUSAL: a malformed edit names its refusal."""
+    with pytest.raises(CampaignConfigError):
+        _matrix_window(_Row(**variables), _ran())
 
 
 def test_a_malformed_record_costs_this_product_and_never_the_stage():

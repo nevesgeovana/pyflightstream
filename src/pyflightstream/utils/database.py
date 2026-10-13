@@ -50,9 +50,12 @@ invariant is that its rows are not hand-edited.
 from __future__ import annotations
 
 import dataclasses
+import os
+import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NoReturn
 
 import yaml
 
@@ -179,6 +182,100 @@ def _validate_chapter(path: Path, text: str, names: list[str]) -> None:
             ) from None
 
 
+def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]) -> None:
+    """Replace every chapter of ``edited``, or leave every one as it was.
+
+    Each new text goes to a sibling temporary file first; only when all of
+    them are on disk are the chapters replaced. A failure while writing
+    the temporaries replaces nothing; a failure while replacing puts back
+    the chapters already replaced from their original bytes. Either way
+    the OSError arrives as a ManualDraftError naming the files.
+    """
+    pending: dict[Path, Path] = {}
+    try:
+        for path, text in edited.items():
+            handle, name = tempfile.mkstemp(
+                prefix=f".{path.name}.", suffix=".register-tmp", dir=path.parent
+            )
+            os.close(handle)
+            temporary = Path(name)
+            pending[path] = temporary
+            _textio.write_text(temporary, text)
+    except OSError as error:
+        for temporary in pending.values():
+            temporary.unlink(missing_ok=True)
+        raise ManualDraftError(
+            f"could not write the new text of {path.name} ({error}); no chapter was "
+            f"replaced: {', '.join(sorted(p.name for p in edited))} are unchanged"
+        ) from error
+    replaced: list[Path] = []
+    try:
+        for path, temporary in pending.items():
+            os.replace(temporary, path)
+            replaced.append(path)
+    except OSError as error:
+        failed_path = path
+        for path in replaced:
+            _textio.write_text(path, originals[path])
+        for temporary in pending.values():
+            temporary.unlink(missing_ok=True)
+        raise ManualDraftError(
+            f"could not replace {failed_path.name} ({error}); the chapters already replaced "
+            f"({', '.join(p.name for p in replaced) or 'none'}) were put back, so no "
+            "chapter changed"
+        ) from error
+
+
+def _refuse_unlabelled_build(build: str, labels: Sequence[str]) -> NoReturn:
+    """Refuse a build the manifest has no row labelled, naming the closest true cause."""
+    # THE MOST USEFUL REFUSAL FIRST, and it used to be unreachable
+    # for the input that most needs it. Membership was tested before
+    # anything resolved, so `--fs-version 26.0` against a correctly
+    # labelled manifest was told "no row labelled '26.0'", while the
+    # tool already knew, one line later, that 26.0 names 26.000 and
+    # that the manifest carries THAT. The reader went editing a
+    # manifest that was right. Resolving costs nothing and opens no
+    # manual, so it is asked here.
+    # BOTH ALIAS SHAPES, not only the unique one. The first version
+    # of this branch caught `AmbiguousVersionAliasError` into a bare
+    # None and fell through to the generic message, so a reader who
+    # typed the release name off their manual's cover was told
+    # nothing about which of the four registered builds their
+    # edition is, by a tool that had just computed the list.
+    try:
+        resolved = resolve(build)
+    except AmbiguousVersionAliasError as ambiguous:
+        carried = [name for name in ambiguous.candidates if name in labels]
+        if carried:
+            raise ManualDraftError(
+                f"the manifest has no row labelled {build!r}, and {build} is a "
+                f"vendor release name shared by "
+                f"{', '.join(ambiguous.candidates)}. The manifest carries "
+                f"{', '.join(carried)}; re-run with the canonical identifier of "
+                "the edition you actually read, since a documented row is keyed "
+                "by that identifier and one edition documents one build."
+            ) from None
+        raise ManualDraftError(
+            f"the manifest has no row labelled {build!r}, and {build} is a "
+            f"vendor release name shared by "
+            f"{', '.join(ambiguous.candidates)}, none of which the manifest "
+            "carries either. Add the row for the edition you read, keyed by "
+            "its canonical identifier."
+        ) from None
+    except UnknownVersionError:
+        resolved = None
+    if resolved is not None and resolved.canonical in labels:
+        raise ManualDraftError(
+            f"the manifest has no row labelled {build!r}, but {build} is a vendor "
+            f"display name for {resolved.canonical}, which the manifest DOES carry. "
+            f"Re-run with {resolved.canonical}: a documented row is keyed by the "
+            "canonical identifier, so the label and the key are one string."
+        )
+    raise ManualDraftError(
+        f"the manifest has no row labelled {build!r}; it carries " + ", ".join(labels)
+    )
+
+
 def register_edition(
     editions: Sequence[Edition],
     build: str,
@@ -226,52 +323,7 @@ def register_edition(
     """
     labels = [edition.label for edition in editions]
     if build not in labels:
-        # THE MOST USEFUL REFUSAL FIRST, and it used to be unreachable
-        # for the input that most needs it. Membership was tested before
-        # anything resolved, so `--fs-version 26.0` against a correctly
-        # labelled manifest was told "no row labelled '26.0'", while the
-        # tool already knew, one line later, that 26.0 names 26.000 and
-        # that the manifest carries THAT. The reader went editing a
-        # manifest that was right. Resolving costs nothing and opens no
-        # manual, so it is asked here.
-        # BOTH ALIAS SHAPES, not only the unique one. The first version
-        # of this branch caught `AmbiguousVersionAliasError` into a bare
-        # None and fell through to the generic message, so a reader who
-        # typed the release name off their manual's cover was told
-        # nothing about which of the four registered builds their
-        # edition is, by a tool that had just computed the list.
-        try:
-            resolved = resolve(build)
-        except AmbiguousVersionAliasError as ambiguous:
-            carried = [name for name in ambiguous.candidates if name in labels]
-            if carried:
-                raise ManualDraftError(
-                    f"the manifest has no row labelled {build!r}, and {build} is a "
-                    f"vendor release name shared by "
-                    f"{', '.join(ambiguous.candidates)}. The manifest carries "
-                    f"{', '.join(carried)}; re-run with the canonical identifier of "
-                    "the edition you actually read, since a documented row is keyed "
-                    "by that identifier and one edition documents one build."
-                ) from None
-            raise ManualDraftError(
-                f"the manifest has no row labelled {build!r}, and {build} is a "
-                f"vendor release name shared by "
-                f"{', '.join(ambiguous.candidates)}, none of which the manifest "
-                "carries either. Add the row for the edition you read, keyed by "
-                "its canonical identifier."
-            ) from None
-        except UnknownVersionError:
-            resolved = None
-        if resolved is not None and resolved.canonical in labels:
-            raise ManualDraftError(
-                f"the manifest has no row labelled {build!r}, but {build} is a vendor "
-                f"display name for {resolved.canonical}, which the manifest DOES carry. "
-                f"Re-run with {resolved.canonical}: a documented row is keyed by the "
-                "canonical identifier, so the label and the key are one string."
-            )
-        raise ManualDraftError(
-            f"the manifest has no row labelled {build!r}; it carries " + ", ".join(labels)
-        )
+        _refuse_unlabelled_build(build, labels)
     position = labels.index(build)
     if position == 0:
         raise ManualDraftError(
@@ -389,6 +441,7 @@ def register_edition(
     # late chapter left the earlier ones on disk and the database was in
     # a state no single command produced.
     edited: dict[Path, str] = {}
+    originals: dict[Path, str] = {}
     written = 0
     per_chapter: dict[str, list[EditionDelta]] = {}
     for delta in writable:
@@ -407,9 +460,9 @@ def register_edition(
             written += 1
         _validate_chapter(path, text, [delta.name for delta in rows])
         edited[path] = text
+        originals[path] = texts[chapter]
 
-    for path, text in edited.items():
-        _textio.write_text(path, text)
+    _write_all_or_none(edited, originals)
     # REPLACED, not rebuilt. The class docstring says a dry run and a
     # write report the same object, and nothing enforced it: seven fields
     # were repeated across two constructions, so one added to the write

@@ -8,7 +8,7 @@ row of the rotor table is the mean of its clockings (both below). The rotor tabl
 the free stream turns at, read from the point's quasi-steady record
 (`<point>_qsteady.json`), as an unsteady rotor's is read from its plan. The same speed is
 the point's clock in every product that states one (`RPM_CLOCK`, `J_CLOCK`), and its super-file
-row states it as `RPM_<alias>` beside `DIAMETER_<alias>` (they read `NA`). Where the row states `ADVANCE_RATIO`, the speed is n = V / (J D) with D the rotor block's own `diameter_m`, never the reference's top-level `rotor_diameter_m`. A
+row states it as `RPM_<alias>` beside `DIAMETER_<alias>`. Where the row states `ADVANCE_RATIO`, the speed is n = V / (J D) with D the rotor block's own `diameter_m`, never the reference's top-level `rotor_diameter_m`. A
 sector's table is its one solve's export as it stands, with no factor for
 the periodic copies (the export carries the whole rotor where the row enables
 symmetry loads and the sector alone where it does not).
@@ -81,9 +81,12 @@ blade meets an inflow that varies once around the disc, never the
 blade-passing frequency a fixed surface near the rotor feels, nor what a
 balance summing every blade reads. Where the point has
 a sectional loads export (`K_1P_SOURCE` `sections`), `c` is the export's
-`Chord` and `r` the absolute `Offset` of the rows the record's layout gives to
-the rotor, read as the radius of a distribution cut along the blade from the
-hub; the summary is taken over the rotor's first blade present, so a wheel's
+`Chord` and `r` the station's distance from the hub. In a rotor frame this is
+the absolute `Offset`; for an MRP cut, subtract the hub coordinate along the
+cut normal before taking the magnitude. If the hub sits off the cut's radial
+line, the radius and `K_1P` read `NA`, and the load shares are unavailable,
+with a note. The torque lever arm is also measured from the hub.
+The summary is taken over the rotor's first blade present, so a wheel's
 blades do not count one station several times. Each station stands for a
 strip, half-way to its neighbours. The two shares are the strips above 0.1
 over all strips, of the thrust and of the torque per unit span, both taken
@@ -108,7 +111,7 @@ with `w` each station's strip, so the torque comes from the in-plane
 clocking's copy of one) `a` is the frame's shaft axis, the rotor's letter or
 `z` for a shaft stated as a vector, because every such frame is the hub frame
 turned about the shaft; in `MRP`, whose axes are the geometry's, `a` is
-`axis_vector` itself. See [the wheel migration](../migrating-to-0.31.0.md) for the historical thrust and torque correction. The reading of an XZ cut rests on the FSI pilot records (RPT-005,
+`axis_vector` itself. See [the wheel migration](../upgrading.md#older-layouts) for the historical thrust and torque correction. The reading of an XZ cut rests on the FSI pilot records (RPT-005,
 RPT-006); the reading of an XY cut was measured on the 0.31.0 short licensed
 confirmation of a clocked wheel, where the strip integrals of `Fx`, `Fz` and
 `Fz Offset` over blade one matched the blade's force along the shaft, its

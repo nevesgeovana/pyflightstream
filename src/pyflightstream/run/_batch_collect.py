@@ -37,6 +37,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.cases.workflows._batch_script import REFRESH_VERB, REINIT_VERB
 from pyflightstream.results.log import point_log_text, split_job_log
+from pyflightstream.run._collect_logs import _profile_glob
 from pyflightstream.run._pending import _walltime_stop
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -126,10 +127,7 @@ def _job_dir(workspace: CampaignWorkspace, job: JobEntry) -> Path:
 
 def _formatted(pattern: str, job: JobEntry) -> str | None:
     """Format a profile glob with the job's values (reading 9); None when it names another key."""
-    try:
-        return pattern.format(**job["values"])
-    except (KeyError, IndexError, ValueError):
-        return None
+    return _profile_glob("profile glob", pattern, job["values"])[0]
 
 
 def _matches(folder: Path, pattern: str | None, job: JobEntry) -> list[Path]:
@@ -365,8 +363,13 @@ def _coupled(record: RunRecord) -> bool:
 def _not_started(
     workspace: CampaignWorkspace, point: _Point, source: Path | None, job: _Job
 ) -> None:
-    """Complete a point of an ended job that left no file and no stop (FR-369, D5)."""
-    files = [*_waited(point, source)]
+    """Complete a point of an ended job that left no file and no stop (FR-369, D5).
+
+    Only the point's OWN files count: under ``export_log = false`` the log's source
+    is the job's native log, which exists for every point once the job started.
+    """
+    shared = job.profile is not None and not job.profile.export_log
+    files = _waited(point, None if shared else source)
     if any(path.exists() for path in files):
         return
     if _walltime_stop(point.work / WALLTIME_CLOCK_STATE) is not None:
@@ -483,7 +486,10 @@ def _sweep_job(workspace: CampaignWorkspace, job: _Job, submitted: list[RunRecor
     )
     in_batch = job.job["kind"] == "batch"
     if in_batch and verdict.ended:
-        _move_job(workspace, job, {record.sim_id for record in submitted})
+        # EVERY SIMULATION OF THE JOB (PFS-2103.022): one whose points all
+        # completed from copies while the job ran has no SUBMITTED record,
+        # and its batch copy was never moved home.
+        _move_job(workspace, job, {record.sim_id for record in job.members})
         in_batch = False
     for record in sorted(submitted, key=lambda r: (job_of(r) or {"order": 0})["order"]):
         entry = job_of(record)
@@ -532,7 +538,7 @@ def prepare_grouped_points(
         The manifest after the step, its notes and its failures.
     """
     watch = _Watch(observer, settled, sleep, interval)
-    jobs = _jobs_of(records)
+    jobs = _jobs_of([r for r in records if sims is None or r.sim_id in sims])
     pending = {
         key: [
             r
@@ -541,19 +547,26 @@ def prepare_grouped_points(
         ]
         for key, members in jobs.items()
     }
-    if not any(pending.values()):
+    if not jobs:
         return GroupedSweep(records=records)
-    profile = resolve_hpc_profile(workspace.inputs_dir)
     notes: list[str] = []
     failed: list[tuple[str, str]] = []
     for key, submitted in sorted(pending.items()):
-        entry = job_of(submitted[0]) if submitted else None
+        members = jobs[key]
+        entry = job_of(members[0])
         if entry is None:
+            continue
+        # Completed points may still have batch copies until the job ends.
+        # Only the selected simulations belong to this preparation step.
+        if not submitted and (
+            entry["kind"] != "batch"
+            or not any((_job_dir(workspace, entry) / f"sim_{r.sim_id}").is_dir() for r in members)
+        ):
             continue
         job = _Job(
             job=entry,
-            members=jobs[key],
-            profile=profile,
+            members=members,
+            profile=resolve_hpc_profile(workspace.inputs_dir),
             watch=watch,
             opening=_opening_orders(workspace, entry),
         )
@@ -562,7 +575,7 @@ def prepare_grouped_points(
         except (OSError, WorkspaceError) as error:
             job.failed += [
                 (r.run_id, f"the grouped job {entry['name']} could not be prepared: {error}")
-                for r in submitted
+                for r in submitted or members
             ]
         notes += job.notes
         failed += job.failed

@@ -80,10 +80,16 @@ from pathlib import Path
 # an unrowed module is not examined. So the guard's no-allowlist property is
 # weaker than it reads, because an unrowed module can be a conduit. Found by
 # the architect lens of the 0.18.0 release round, 2026-09-14.
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
+from pyflightstream.run._additional import (
+    extraction_context,
+    extraction_job_end,
+    finish_extraction,
+)
+from pyflightstream.run._assessment import job_solver_identity
 from pyflightstream.run._batch_collect import clock_stop_update, prepare_grouped_points
 from pyflightstream.run._collect_logs import JOB_END_TAIL_LINES as JOB_END_TAIL_LINES
 from pyflightstream.run._collect_logs import LOG_SUFFIX as LOG_SUFFIX
@@ -92,6 +98,17 @@ from pyflightstream.run._collect_logs import (
     job_ended_without_log,
     native_log,
     observed_paths,
+)
+from pyflightstream.run._collect_notes import (
+    _datapoint_of,
+    _declared_outputs,
+    _RecordAsCase,
+    is_a_sweep_job,
+    job_log_note,
+    limit_for_its_word,
+    no_time_without_the_log,
+    note_untranslated,
+    refused_entry,
 )
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace._batches import job_of
@@ -119,7 +136,6 @@ from ..workspace import (
     selected_sims,
 )
 from ..workspace.inputs import resolve_hpc_profile
-from ..workspace.naming import datapoint_name_of
 
 if TYPE_CHECKING:  # the return type of the whole judgement, without a runtime cycle
     from pyflightstream.run import Assessment
@@ -148,6 +164,31 @@ DEFAULT_SETTLE_INTERVAL_S = 2.0
 #: thing it is waiting for is a solver run, and a sweep that finds nothing
 #: costs a directory listing per submitted point.
 DEFAULT_WATCH_INTERVAL_S = 60.0
+
+
+# THE CALLBACKS' REAL CONTRACT (PFS-2095.027). They were annotated without
+# ``sims`` and called with it under `type: ignore` when the collect is
+# scoped, so a callback written to the annotation crashed after the records
+# were written. The keyword is passed only when the collect is scoped.
+class _Post(Protocol):
+    """The ``post`` of :func:`collect_and_post`."""
+
+    def __call__(
+        self, workspace: CampaignWorkspace, /, *, sims: list[str] | None = None
+    ) -> None: ...
+
+
+class _PostMatrix(Protocol):
+    """The ``post_matrix`` of :func:`collect_and_post`."""
+
+    def __call__(
+        self,
+        workspace: CampaignWorkspace,
+        matrix_stem: str | None,
+        /,
+        *,
+        sims: list[str] | None = None,
+    ) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -278,110 +319,6 @@ class CollectReport:
 def _outcome_line(outcome: CollectOutcome) -> str:
     """Return the human line of one point's outcome: its state, its run, what happened."""
     return f"  {outcome.state:9} {outcome.run_id}: {outcome.detail}"
-
-
-def _declared_outputs(record: RunRecord) -> list[str]:
-    """Return the output names the submitted point was built to write.
-
-    THEY COME OFF THE RECORD AND NOT OFF THE MATRIX, deliberately. A
-    collector that re-read the matrix would read whatever the matrix says
-    NOW, and a matrix edited between the submission and the collection is
-    exactly the shape that made a recorded REmi of 11.7716754 read back as
-    99.0 in a regenerated product (GEO-039-F02). The submission block
-    carries what was declared at the moment the job was handed over.
-    """
-    submission = record.submission or {}
-    declared = submission.get("declared_outputs")
-    if isinstance(declared, (list, tuple)):
-        return [str(name) for name in declared]
-    return []
-
-
-def _datapoint_of(record: RunRecord) -> str | None:
-    """Return the datapoint folder's NAME for this record's outputs, or None.
-
-    The name the run RECORDED when it has one. When it does not -- every record
-    written before 0.21.0 -- the folder the record's own submission block says
-    the job ran in, which is read rather than recomputed: a name recomputed now
-    would file the outputs where no record of them points, and that is the thing
-    to avoid. None when the record names neither, which is a point submitted
-    before 0.18.1, whose job ran in the simulation folder.
-
-    ONE HOME, because the two callers must not disagree. `_recorded_name`
-    refuses when this is None and the assessor's shim carries the None through,
-    and when they disagreed the shim fell into the branch written for a real
-    case and asked it for a field only a case has.
-    """
-    if record.point_name:
-        return record.point_name
-    # THE FOLDER NAME IS READ BY THE MODULE THAT WRITES IT, which answers None
-    # for anything that is not a point's folder rather than raising an error
-    # this sweep's handler does not catch (the architect lens, FIX-0211).
-    #
-    # WHAT THIS DOES NOT CHECK, stated because the same field is read twice in
-    # this module with two different trust models: `_working_dir` resolves
-    # `working_dir` and REFUSES one that is not a direct child of this record's
-    # own `datapoints/`, and it runs before this on the collecting path. This
-    # reads the name only and is not itself that check.
-    ran_in = datapoint_name_of(Path(str((record.submission or {}).get("working_dir") or "")).name)
-    if ran_in is None:
-        return None
-    # AND IT IS THIS RECORD'S FOLDER, not merely a datapoint folder of this
-    # simulation. `_working_dir` checks the second and not the first, so an
-    # edited `working_dir` naming ANOTHER point's folder was refused for a
-    # record that carries a point name and accepted for one that does not --
-    # this release's own records (the qa lens, FIX-0211). A 0.20.x record ends
-    # its `run_id` in the tag, which is what `pyfs-matrix rename` reads it by,
-    # so the record carries its own cross-check and only had to be asked.
-    tail = str(record.run_id).rsplit("/", 1)[-1]
-    return str(ran_in) if tail in ("", str(ran_in)) else None
-
-
-class _RecordAsCase:
-    """The two fields the standard assessor reads, taken off the run record.
-
-    NOT A SimCase AND NOT PRETENDING TO BE ONE. :class:`LoadsAssessor` reads
-    exactly three things from its first argument: ``point``, ``outputs``, and
-    the flight condition it binds the export against, and both of the first
-    two are recorded on the row at submission from the case that produced it.
-    So the values here are the RUN'S OWN, carried across, and nothing is
-    invented.
-
-    The assessor accepts ``None`` in this position and documents what happens
-    then: the condition binding is recorded as EMPTY rather than as agreement.
-    Passing the record's real point instead is what makes the binding a
-    comparison rather than a blank, which is the whole reason this exists
-    rather than a bare ``None``.
-    """
-
-    __slots__ = ("point", "outputs", "velocity", "datapoint_name", "recipe")
-
-    def __init__(self, record: RunRecord, *, velocity_is_the_point_s: bool = True) -> None:
-        self.point = dict(record.point or {})
-        # 0.21.0: the folder the assessor judges is named by the name the run
-        # RECORDED, never recomputed from a record that is not a case. 0.21.1:
-        # a record written before 0.21.0 recorded no name and names its folder
-        # in its submission block instead, and reading it here is what keeps
-        # the assessor out of the branch that would ask this shim for a field
-        # only a real case has.
-        self.datapoint_name = _datapoint_of(record)
-        self.outputs = list(record.outputs or _declared_outputs(record))
-        # THE VELOCITY THE RUN REQUESTED, which the record has carried since
-        # OPS-2009.01.13 and which this read as None until 0.24.0, calling None
-        # the honest answer. It was not: a local point whose export printed
-        # 30 m/s against a requested 80 is FAILED_INCOMPLETE_OUTPUT, and the
-        # same files collected from a cluster were CONVERGED, because nothing
-        # here asked. The two paths claim one judgement and now make it.
-        #
-        # None still, in the one place the record cannot answer: a POINT OF A
-        # JOB that sweeps a flow variable. The job's record carries the row's
-        # velocity and not that point's, and holding a point to another
-        # point's speed would refuse a correct export. Unasked is recorded as
-        # unasked there, which rule 3 of `_bind_case_conditions` exists for.
-        self.velocity = record.velocity_requested_m_s if velocity_is_the_point_s else None
-        # 0.31.0: the run type the record states, which the assessor reads to
-        # know a quasi-steady point (its record is judged per clocking).
-        self.recipe = record.recipe
 
 
 def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str | None]:
@@ -534,81 +471,6 @@ def _copy_native_log(native: NativeLog) -> None:
         shutil.copy2(native.source, native.target)
 
 
-def _additional_context(workspace, record):
-    """Resolve contained extraction paths and verify immutable source evidence."""
-    from pyflightstream._digest import optional_file_sha256
-
-    sim_dir = workspace.sim_dir(record.sim_id)
-    root = sim_dir.resolve()
-    folder = (sim_dir / record.working_dir).resolve()
-    original = (sim_dir / record.fsm).resolve()
-    script = (sim_dir / record.script_path).resolve()
-    copy = folder / (record.reopened_copy or "")
-    names = record.declared_outputs
-    paths = [folder, original, script, copy, *(folder / name for name in names)]
-    if (
-        not names
-        or not record.reopened_copy
-        or any(not path.resolve().is_relative_to(root) for path in paths)
-    ):
-        raise WorkspaceError("submitted extraction has no safe declared outputs or private copy")
-    changed = [
-        label
-        for label, path, digest in (
-            ("original saved simulation", original, record.fsm_sha256),
-            ("saved extraction script", script, record.script_sha256),
-            ("private reopened simulation", copy, record.fsm_sha256),
-        )
-        if optional_file_sha256(path) != digest
-    ]
-    if changed:
-        raise WorkspaceError("changed or missing " + ", ".join(changed))
-    return sim_dir, folder, original, copy
-
-
-def _finish_additional(workspace, record, context):
-    """Translate settled exports and record their hashes before removing the copy."""
-    from pyflightstream.run.matrix import record_additional_extraction
-    from pyflightstream.workspace import ExtractionStatus
-
-    sim_dir, folder, original, copy = context
-    base = record.model_dump()
-    if record.surface_translations:
-        base["surface_translations"] = translate_surface_exports(
-            folder,
-            record.surface_translations,
-        )
-    # A TRANSLATION PROBLEM IS A FAILED EXTRACTION (Q0 CX-4), even where the
-    # declared `.dat` exists: a file whose source, frame or content proof no
-    # longer holds is preserved, not re-derived, and existence alone would
-    # record it EXTRACTED and delete the private copy it could be re-made from.
-    # The caller records this refusal as FAILED_EXECUTION and keeps the copy.
-    problems = [
-        str(problem)
-        for translation in base.get("surface_translations") or []
-        for problem in translation.get("problems") or []
-    ]
-    if problems:
-        raise WorkspaceError("surface translation failed: " + "; ".join(problems))
-    missing = [name for name in record.declared_outputs if not (folder / name).is_file()]
-    outputs = [
-        (folder / name).relative_to(sim_dir).as_posix()
-        for name in record.declared_outputs
-        if name not in missing
-    ]
-    completed = record_additional_extraction(
-        workspace,
-        base,
-        status=ExtractionStatus.FAILED_INCOMPLETE_OUTPUT if missing else ExtractionStatus.EXTRACTED,
-        error="missing extraction outputs: " + ", ".join(missing) if missing else None,
-        original=original,
-        outputs=outputs,
-    )
-    if completed.status is ExtractionStatus.EXTRACTED:
-        copy.unlink()
-    return completed
-
-
 def _collect_additional(workspace, report, *, interval, sleep, observer, sims=None) -> None:
     """Complete stable submitted extractions; retain pending jobs and native logs."""
     from pyflightstream.workspace import ExtractionStatus
@@ -620,7 +482,11 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
         if sims is not None and record.sim_id not in sims:
             continue  # FR-307: another simulation's extraction is left as it is.
         try:
-            context = _additional_context(workspace, record)
+            # A COMPACTED SIMULATION IS EXPANDED FIRST, as the point path does
+            # (PFS-2103.006): read zipped, its original and private copy were
+            # "changed or missing" and the extraction failed for good.
+            ensure_sim_expanded(workspace, record.sim_id, reason="collect")
+            context = extraction_context(workspace, record)
             folder = context[1]
             generated = {str(item.get("dat")) for item in record.surface_translations or []}
             waited = [folder / name for name in record.declared_outputs if name not in generated]
@@ -629,6 +495,12 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
             second = observer(waited)
             if not settled(first, second):
                 missing = [Path(name).name for name, stamp in second.items() if stamp is None]
+                # A JOB THAT ENDED WITHOUT ITS OUTPUTS NEVER SETTLES
+                # (PFS-2085.008): counted outstanding, it kept a watch sweeping
+                # forever. The point path's job-end rule (FR-311) fails it.
+                ended = extraction_job_end(workspace, record, folder) if missing else None
+                if ended is not None:
+                    raise WorkspaceError(f"{ended}; absent: {', '.join(missing)}")
                 report.waiting.append(
                     CollectOutcome(
                         run_id=record.extraction_id,
@@ -642,7 +514,7 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
                     )
                 )
                 continue
-            completed = _finish_additional(workspace, record, context)
+            completed = finish_extraction(workspace, record, context)
         except (OSError, ValueError, WorkspaceError, CampaignConfigError) as error:
             completed = record.model_copy(
                 update={
@@ -663,6 +535,19 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
             record=completed,
         )
         (report.collected if success else report.failed).append(outcome)
+
+
+def _refuse_a_string(sims: object) -> None:
+    """Refuse ``sims`` given as one string, which would be read character by character.
+
+    PFS-2089.009: ``"2006,2007"`` was refused as simulations 2, 0, 6, and
+    the message told a Python caller to write the ids comma separated.
+    """
+    if isinstance(sims, str):
+        raise WorkspaceError(
+            f'sims takes a list of ids, e.g. ["2006", "2007"], not the string {sims!r}: '
+            'pass sims=["2006", "2007"], or --sims 2006,2007 on the command line'
+        )
 
 
 def _run_label(record: RunRecord) -> str:
@@ -759,15 +644,20 @@ def collect_once(
     WorkspaceError
         If the manifest cannot be read, or ``sims`` names a simulation no record holds.
     """
+    _refuse_a_string(sims)
     report = CollectReport()
     try:
-        records = _records_after_grouped_jobs(
-            workspace, report, sims=sims, interval=interval, sleep=sleep, observer=observer
-        )
+        recorded = workspace.read_manifest()
     except (WorkspaceError, CampaignConfigError) as error:
         raise WorkspaceError(f"the manifest could not be read: {error}") from error
-
-    selected = None if sims is None else selected_sims(records, sims, scope="in the manifest")
+    # THE SELECTION IS VALIDATED BEFORE THE GROUPED STEP (PFS-2096.005), as
+    # the docstring says: that step moves files home and writes failed
+    # records, and ran first on the unstripped ids, before an unknown one
+    # was refused. Its own refusals keep their own words.
+    selected = None if sims is None else selected_sims(recorded, sims, scope="in the manifest")
+    records = _records_after_grouped_jobs(
+        workspace, report, sims=selected, interval=interval, sleep=sleep, observer=observer
+    )
     submitted = [
         r for r in _of_the_simulations(records, selected) if r.status is RunStatus.SUBMITTED
     ]
@@ -909,7 +799,7 @@ def _job_log_name(
     exports its logs, a job whose points declare none, and a record that is one
     point, whose scheduler log is its own and is copied to its declared name.
     """
-    if not _is_a_sweep_job(record) or not record.script_path:
+    if not is_a_sweep_job(record) or not record.script_path:
         return None
     if not any(name.endswith(LOG_SUFFIX) for name in names):
         return None
@@ -1008,7 +898,7 @@ def _complete(
     files belongs to which point. The local sweep pays two passes to honour
     it and carries a comment about the defect that taught it.
     """
-    if _is_a_sweep_job(record):
+    if is_a_sweep_job(record):
         return _complete_sweep(
             workspace, record, sim_dir, assessor, job_log=job_log, missing_logs=missing_logs
         )
@@ -1058,8 +948,8 @@ def _complete(
         **_wall_time_update(record, _working_dir(workspace, record), stamped),
     }
     if missing_logs:
-        update["wall_time_s"] = None  # FR-413 R2: the solver clock is the log's; never estimated.
-    _limit_for_its_word(update)
+        no_time_without_the_log(update)
+    limit_for_its_word(update)
     counter = _action_counter(workspace, record)
     update["action_count"] = counter
     raw_steps = stamped.get("time_steps", record.time_steps)
@@ -1087,17 +977,6 @@ def _complete(
         + ("; WARNING: " + "; ".join(status_warnings) if status_warnings else ""),
         record=completed,
     )
-
-
-def _limit_for_its_word(update: dict[str, object]) -> None:
-    """Keep ``iterations_requested`` only where the FINAL status is MAX_ITER_REACHED (FR-434 R1).
-
-    The assessor stamps the limit with its own verdict; the log verdicts and the
-    walltime stop that may replace that verdict come after it, so the field is
-    settled on the status the record is written with.
-    """
-    if update.get("status") != RunStatus.MAX_ITER_REACHED:
-        update["iterations_requested"] = None
 
 
 #: The axes a point of a job can carry that say nothing about its speed. A
@@ -1170,24 +1049,6 @@ def _wall_time_update(
     return update
 
 
-def _refused_entry(tag: str, point: dict, outputs: list[str] | None) -> dict[str, object]:
-    """Return the ``points_ran`` entry of a point of a job whose outputs were refused."""
-    entry: dict[str, object] = {
-        "tag": tag,
-        "point": point,
-        "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
-    }
-    if outputs:
-        entry["outputs"] = list(outputs)
-    return entry
-
-
-def _is_a_sweep_job(record: RunRecord) -> bool:
-    """Whether the record carries a job's per-point mapping, even for one point."""
-    by_point = (record.submission or {}).get("declared_by_point")
-    return isinstance(by_point, Mapping) and bool(by_point)
-
-
 def _sweep_point_entry(
     record: RunRecord,
     as_point: RunRecord,
@@ -1196,14 +1057,17 @@ def _sweep_point_entry(
     *,
     job_log_text: str | None,
     missing: Sequence[str],
-) -> tuple[dict[str, object], RunStatus, str | None]:
+) -> tuple[dict[str, object], RunStatus, str | None, tuple[str | None, str | None]]:
     """Assess one point of a submitted sweep: its ``points_ran`` entry, status and error.
 
     ``as_point`` is the point as a record of its own (its tag as its name, its
     own point and outputs), which is what both assessors are written against.
     A point whose own declared log is in ``missing`` (FR-413) is RAN_MISSING_LOG
     unless its outputs prove a failure, with no iteration count or residual.
+    The fourth answer is the solver build and version the point read (None
+    under an injected assessor), which the job folds (PFS-2103.033).
     """
+    identity: tuple[str | None, str | None] = (None, None)
     tag = str(as_point.point_name)
     point = dict(as_point.point)
     collected = list(as_point.outputs)
@@ -1213,6 +1077,7 @@ def _sweep_point_entry(
 
         shim = _RecordAsCase(as_point, velocity_is_the_point_s=set(point) <= _ATTITUDE_AXES)
         assessment = LoadsAssessor()(shim, None, sim_dir)  # type: ignore[arg-type]
+        identity = (assessment.fs_build, assessment.fs_version_reported)
         status, verdict = _log_verdicts(
             record,
             sim_dir,
@@ -1243,7 +1108,7 @@ def _sweep_point_entry(
     entry.update(status=str(status), outputs=collected, **read)
     if note is not None:
         entry["residual_note"] = note
-    return entry, status, verdict
+    return entry, status, verdict, identity
 
 
 def _complete_sweep(
@@ -1288,19 +1153,7 @@ def _complete_sweep(
     # (`_job_log_name`). No point is held to a log of its own, each is judged
     # from its loads export, and the job's log is read for the one import count
     # the job's script states. Every point, and the job, says where it is.
-    job_note: str | None = None
-    job_log_text: str | None = None
-    if job_log is not None:
-        where = (
-            job_log.relative_to(sim_dir).as_posix() if job_log.is_relative_to(sim_dir) else job_log
-        )
-        job_note = (
-            "no solver log of its own: this machine's HPC profile states export_log = false, so "
-            f"the job's one log is the scheduler's, filed as {where} in the simulation folder, "
-            "where the job ran; each point is judged from its loads export"
-        )
-        if job_log.is_file():
-            job_log_text = job_log.read_text(encoding="utf-8", errors="replace")
+    job_note, job_log_text = job_log_note(job_log, sim_dir)
     for tag, owned in by_point.items():
         if job_log is not None:
             owned = [name for name in owned if not str(name).endswith(LOG_SUFFIX)]
@@ -1324,23 +1177,7 @@ def _complete_sweep(
             # Filed and listed, and the point still fails (0.27.0), unless all
             # it misses is the package's own translation (0.30.0).
             collected_by_tag[tag] = list(error.collected)
-            owned_names = {str(name) for name in owned}
-            untranslated = untranslated_surfaces(
-                [
-                    entry
-                    for entry in record.surface_translations or []
-                    if isinstance(entry, Mapping) and str(entry.get("dat")) in owned_names
-                ],
-                error.missing,
-                error.collected,
-            )
-            if untranslated is None:
-                refused[tag] = str(error)
-            else:
-                for line in untranslated:
-                    if f"{tag}: {line}" not in job_warnings:
-                        job_warnings.append(f"{tag}: {line}")
-                    warnings.warn(f"{tag}: {line}", PyflightstreamWarning, stacklevel=2)
+            note_untranslated(tag, error, owned, record, job_warnings=job_warnings, refused=refused)
         except (WorkspaceError, CampaignConfigError) as error:
             refused[tag] = str(error)
 
@@ -1348,10 +1185,11 @@ def _complete_sweep(
     worst = RunStatus.CONVERGED
     collected_all: list[str] = []
     error_lines: list[str] = []
+    reported: list[tuple[str, str | None, str | None]] = []
     for tag in by_point:
         point = dict(points.get(tag) or {})
         if tag in refused:
-            ran.append(_refused_entry(tag, point, collected_by_tag.get(tag)))
+            ran.append(refused_entry(tag, point, collected_by_tag.get(tag)))
             collected_all.extend(collected_by_tag.get(tag) or [])
             worst = worse_of(worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
             error_lines.append(f"{tag}: {refused[tag]}")
@@ -1367,7 +1205,7 @@ def _complete_sweep(
                 "points_ran": [],
             }
         )
-        entry, status, verdict = _sweep_point_entry(
+        entry, status, verdict, (build, version) = _sweep_point_entry(
             record,
             as_point,
             sim_dir,
@@ -1375,6 +1213,7 @@ def _complete_sweep(
             job_log_text=job_log_text,
             missing=[name for name in missing_logs if name in by_point[tag]],
         )
+        reported.append((tag, build, version))
         if job_note is not None:
             entry["residual_note"] = job_note
         ran.append(entry)
@@ -1382,6 +1221,13 @@ def _complete_sweep(
         if str(status).startswith("FAILED"):
             error_lines.append(f"{tag}: {verdict or status}")
         worst = worse_of(worst, status)
+    # THE JOB'S SOLVER IDENTITY, by the local sweep's one rule (PFS-2103.033):
+    # this path stamped neither field, so the post could not state the
+    # velocity convention of the job's sampled fields.
+    identity, disagreements = job_solver_identity(reported)
+    if disagreements:
+        worst = worse_of(worst, RunStatus.FAILED_EXECUTION)
+        error_lines.extend(disagreements)
 
     try:
         sweep_digests = workspace.output_digests(record.sim_id, collected_all)
@@ -1395,6 +1241,7 @@ def _complete_sweep(
             "error": "; ".join(error_lines) or None,
             "warnings": job_warnings,
             "points_ran": ran,
+            **identity,
             **({"residual_note": job_note} if job_note is not None else {}),
         }
     )
@@ -1596,8 +1443,8 @@ def collect_and_post(
     watch_interval: float = DEFAULT_WATCH_INTERVAL_S,
     rounds: int | None = None,
     sleep: Callable[[float], None] = time.sleep,
-    post: Callable[[CampaignWorkspace], None] | None = None,
-    post_matrix: Callable[[CampaignWorkspace, str | None], None] | None = None,
+    post: _Post | None = None,
+    post_matrix: _PostMatrix | None = None,
     # NAMED, NOT PASSED THROUGH `**kwargs`. These are the two injection points
     # of the primitive and they used to reach it as `object`, with a
     # `type: ignore` recording that the checker had refused: on a module this
@@ -1653,10 +1500,12 @@ def collect_and_post(
     sleep : callable, optional
         The clock, injected so a test runs with none.
     post : callable, optional
-        Called with the workspace once per sweep that collected or discarded something.
+        Called with the workspace once per sweep that collected or discarded something,
+        and with the keyword ``sims`` too when ``sims`` scopes the collect; it must take it.
     post_matrix : callable, optional
         Called once per matrix a sweep changed a record of, with the workspace and the matrix
-        stem.
+        stem, and with the keyword ``sims`` too when ``sims`` scopes the collect; it must
+        take it.
     observer : callable, optional
         Stamps the paths, :func:`observe` by default.
     assessor : callable, optional
@@ -1670,11 +1519,16 @@ def collect_and_post(
         The points every sweep collected, failed and discarded, and the points the last sweep
         left waiting or could not wait for.
     """
+    _refuse_a_string(sims)
     selected = None
     if sims is not None:
         # REFUSED BEFORE THE FIRST SWEEP, so a watch over a typo stops at once.
         selected = selected_sims(workspace.read_manifest(), sims, scope="in the manifest")
     total = CollectReport()
+    # ONE FAILED OUTCOME PER POINT, the latest (PFS-2103.032): a refusal that
+    # writes no record leaves the point SUBMITTED, so a watch kept going by
+    # other points refused it again each sweep and piled up its outcome.
+    failed: dict[str, CollectOutcome] = {}
     swept = 0
     while True:
         report = collect_once(
@@ -1689,7 +1543,8 @@ def collect_and_post(
             report.discarded = _discard_walltime(workspace, selected)
         total.discarded.extend(report.discarded)
         total.collected.extend(report.collected)
-        total.failed.extend(report.failed)
+        failed.update((outcome.run_id, outcome) for outcome in report.failed)
+        total.failed = list(failed.values())
         total.waiting = list(report.waiting)
         total.unknown = list(report.unknown)
         swept += 1
@@ -1729,8 +1584,29 @@ def _post_sweep(
     report: CollectReport,
     *,
     selected: frozenset[str] | None,
-    post: Callable[[CampaignWorkspace], None] | None,
-    post_matrix: Callable[[CampaignWorkspace, str | None], None] | None,
+    post: _Post | None,
+    post_matrix: _PostMatrix | None,
+) -> None:
+    """Post the changed matrices; a refused post is said as the post's own (PFS-2095.052).
+
+    The records are written before the post runs, so a product stage's
+    refusal or an OSError is no collection failure: it reaches the caller as
+    one WorkspaceError saying so, where it escaped as a traceback.
+    """
+    try:
+        _post_each(workspace, report, selected=selected, post=post, post_matrix=post_matrix)
+    except (OSError, PyflightstreamError) as error:
+        said = "the points were collected and their records written; the post was refused"
+        raise WorkspaceError(f"{said}: {error}") from error
+
+
+def _post_each(
+    workspace: CampaignWorkspace,
+    report: CollectReport,
+    *,
+    selected: frozenset[str] | None,
+    post: _Post | None,
+    post_matrix: _PostMatrix | None,
 ) -> None:
     """Post matrices changed by collection or discard after their records are written."""
     if not report.collected and not report.discarded:
@@ -1739,7 +1615,7 @@ def _post_sweep(
         if selected is None:
             post(workspace)
         else:
-            post(workspace, sims=sorted(selected))  # type: ignore[call-arg]
+            post(workspace, sims=sorted(selected))
     if post_matrix is None:
         return
     records = [outcome.record for outcome in report.collected if outcome.record is not None]
@@ -1750,4 +1626,4 @@ def _post_sweep(
             post_matrix(workspace, stem)
             continue
         of_matrix = {record.sim_id for record in recorded if record.matrix_stem == stem}
-        post_matrix(workspace, stem, sims=sorted(selected & of_matrix))  # type: ignore[call-arg]
+        post_matrix(workspace, stem, sims=sorted(selected & of_matrix))

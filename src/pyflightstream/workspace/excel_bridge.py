@@ -77,6 +77,10 @@ def unescape(value: str) -> str:
     return "".join(result)
 
 
+#: The number of tab-separated fields each request record kind needs, its kind included.
+_RECORD_WIDTHS = {"META": 3, "HEADER": 2, "DICTIONARY": 4, "CELL": 5, "BASELINE": 3}
+
+
 def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
     """Read a UTF-8 snapshot written by VBA, never a workbook file.
 
@@ -93,20 +97,27 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
     Raises
     ------
     ExcelSyncError
-        If the file holds a record kind this runtime does not know.
+        If the file holds a record kind this runtime does not know, or a
+        record shorter than its kind or with a cell position that is not a
+        number; the message names the line.
     """
     metadata: dict[str, str] = {}
     headers: list[str] = []
     dictionary = []
     baseline: dict[str, str] = {}
     cells: dict[tuple[int, int], Cell] = {}
-    for number, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
+    for number, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), start=1):
         row = [unescape(value) for value in raw.split("\t")]
-        widths = {"META": 3, "HEADER": 2, "DICTIONARY": 4, "CELL": 5, "BASELINE": 3}
-        if row[0] in widths and len(row) != widths[row[0]]:
+        width = _RECORD_WIDTHS.get(row[0], 0)
+        if len(row) < width:
             raise ExcelSyncError(
-                f"{path} line {number}: {row[0]} needs {widths[row[0]]} fields; "
-                f"it holds {len(row)}. Recreate the workbook snapshot."
+                f"bridge record {row[0]} on line {number} holds {len(row) - 1} field(s) and "
+                f"needs {width - 1}; recreate the request with this runtime."
+            )
+        if row[0] == "CELL" and not (row[1].isdigit() and row[2].isdigit()):
+            raise ExcelSyncError(
+                f"bridge record CELL on line {number} names row {row[1]!r} and column "
+                f"{row[2]!r}, which are not cell positions; recreate the request with this runtime."
             )
         if row[0] == "META":
             metadata[row[1]] = row[2]
@@ -159,14 +170,24 @@ def preview_from_json(data: dict[str, Any]) -> SyncPreview:
     -------
     SyncPreview
         The preview, its changes and mappings rebuilt as objects.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the batch does not hold a preview's fields.
     """
-    return SyncPreview(
-        **{
-            **data,
-            "changes": [Change(**change) for change in data["changes"]],
-            "mappings": [DictionaryEntry(**entry) for entry in data["mappings"]],
-        }
-    )
+    try:
+        return SyncPreview(
+            **{
+                **data,
+                "changes": [Change(**change) for change in data["changes"]],
+                "mappings": [DictionaryEntry(**entry) for entry in data["mappings"]],
+            }
+        )
+    except (KeyError, TypeError) as error:
+        raise ExcelSyncError(
+            f"the preview batch does not hold a preview ({error}); preview again before Apply."
+        ) from error
 
 
 def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
@@ -187,7 +208,9 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
     -------
     int
         0 when the action ran; 1 when it was refused, the reason written to the response and
-        nothing changed by the refused step.
+        nothing changed by the refused step, or when an apply stopped partway (its PARTIAL
+        record, and the cells and files it did write, are in the response), as
+        ``pyfs-excel apply`` returns 1 for the same batch.
     """
     try:
         metadata, snapshot = read_request(request)
@@ -281,7 +304,7 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
         else:
             raise ExcelSyncError(f"unknown action {action!r}; accepted: preview, apply, check.")
         _write_response(response, records)
-        return 0
+        return 1 if records and records[-1][0] == "PARTIAL" else 0
     except (ExcelSyncError, OSError, ValueError, KeyError) as exc:
         _write_response(response, [["ERROR", str(exc)]])
         return 1

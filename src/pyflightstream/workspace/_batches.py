@@ -12,6 +12,7 @@ on these names, and ``workspace.storage`` may read the layout without importing
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -193,8 +194,11 @@ class GroupedJob:
         The walltime as written in the scheduler or clock text.
     walltime_source : str
         ``BEST``, ``matrix``, ``max_walltime`` or ``none``.
-    fits : bool
-        Whether the job fits the profile's maximum walltime.
+    fits : bool or None
+        Whether the job fits its walltime budget: the profile maximum, or
+        the estimate against the matrix cells. None means not judged.
+        False includes a requested clock above the profile maximum or a
+        matrix clock shorter than the estimate; shortfall_s measures the latter.
     shortfall_s : float or None
         By how much it does not fit, when it does not.
     """
@@ -218,7 +222,7 @@ class GroupedJob:
     walltime_s: int | None
     walltime_written: str
     walltime_source: str
-    fits: bool
+    fits: bool | None
     shortfall_s: float | None
 
     def to_json(self) -> dict[str, object]:
@@ -327,6 +331,23 @@ class GroupingReceipt:
             longest_estimate_s=payload["longest_estimate_s"],
             max_walltime_s=payload["max_walltime_s"],
             warnings=tuple(payload["warnings"]),
+        )
+
+
+def read_grouping(path: Path) -> tuple[GroupingReceipt | None, str | None]:
+    """Read one plan's grouping block, returning a receipt or its refusal reason."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        block = payload.get("grouping") if isinstance(payload, Mapping) else None
+        if block is None:
+            return None, None
+        if not isinstance(block, Mapping):
+            raise TypeError(f"a {type(block).__name__}, not a table")
+        return GroupingReceipt.from_json(block), None
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        return None, (
+            f"the plan holds no readable grouping ({type(error).__name__}: {error}): "
+            "plan it again with the same --batch or --polar-sweep."
         )
 
 

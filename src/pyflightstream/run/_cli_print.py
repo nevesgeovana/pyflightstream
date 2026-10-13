@@ -21,7 +21,7 @@ from pyflightstream.run import (
     inflow_harmonics_line,
     qsteady_validity_line,
 )
-from pyflightstream.run._alias import alias_lines
+from pyflightstream.run._alias import alias_lines, planned_by_sim
 from pyflightstream.run._batch_plan import grouping_table_lines
 from pyflightstream.run._continuation_frame import continuation_block
 
@@ -99,13 +99,9 @@ def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> Non
                 steps = point["deleted_steps"]
                 shown = f"{steps[0]} to {steps[-1]}" if steps else "none"
                 print(f"    {point['folder']}: steps {shown} ({len(steps)} step(s))")
-            for sim, why in step["refused"].items():
-                print(f"    refused sim {sim}: {why}")
         elif step["mode"] == "compact_sims":
             sims = [str(item["sim_id"]) for item in step["sims"]]
             print(f"  compact_sims: {len(sims)} sim(s) {', '.join(sims)}")
-            for sim, why in step["refused"].items():
-                print(f"    refused sim {sim}: {why}")
         elif step["mode"] == "delete_extensions":
             size = sum(item["bytes"] for item in step["files"])
             print(
@@ -118,6 +114,10 @@ def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> Non
                 f"  post_archives ({step['action']}): {len(step['archives'])} folder(s), "
                 f"{human_bytes(size)}"
             )
+        # Every mode that skips a simulation records why, and each is printed
+        # (PFS-2093.006: delete_extensions recorded its refusals and printed none).
+        for sim, why in step.get("refused", {}).items():
+            print(f"    refused sim {sim}: {why}")
         if list_paths:
             _print_free_space_paths(step, entry["applied"])
     if entry["applied"]:
@@ -273,14 +273,20 @@ def _blocked_block(plan: CampaignPlan) -> tuple[str, list[str]]:
 
 
 def _alias_block(plan: CampaignPlan, rows: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Return one line per planned point: its run id alias beside the point (FR-395 R3)."""
-    planned: dict[str, list[str]] = {}
+    """Return one line per planned point: its run id alias beside the point (FR-395 R3).
+
+    Numbered against each simulation's WHOLE sweep (:attr:`CampaignPlan.planned_order`),
+    as ``run --points`` reads an alias, and printed for the planned points only: a plan
+    of a selection prints the selection's aliases, never a renumbering of it.
+    """
+    selected: dict[str, list[str]] = {}
     for entry in plan.points:
-        planned.setdefault(entry.sim_id, []).append(_point_of(entry.run_id))
+        selected.setdefault(entry.sim_id, []).append(_point_of(entry.run_id))
+    planned = planned_by_sim((), [plan.planned_order, selected])
     return [
         f"  {alias}  POL {sim} {point}"
-        for alias, sim, point in alias_lines(rows, planned)
-        if point in planned[sim]
+        for alias, sim, point in alias_lines(rows, {sim: planned[sim] for sim in selected})
+        if point in selected[sim]
     ]
 
 
@@ -358,15 +364,28 @@ def _point_of(run_id: str) -> str:
 
 def _rotor_mach_block(plan: CampaignPlan) -> list[str]:
     """Return one aligned row per rotor per point, then each rotor the plan could not compute."""
-    rows = [["POL", "point", "rotor", "M_tip", "M_hel"]]
+    rows = [["POL", "point", "rotor", "M_tip", "M_hel", "M_adv"]]
     unknown: list[str] = []
+    edgewise = False
     for entry in plan.points:
         for alias, mach in entry.rotor_mach.items():
             rotor = f"{mach.get('kind') or 'rotor'} {alias}"
             tip, helical = mach.get("mach_tip"), mach.get("mach_helical")
             if isinstance(tip, int | float) and isinstance(helical, int | float):
+                advancing = mach.get("mach_advancing")
+                said = f"{advancing:.3f}" if isinstance(advancing, int | float) else "NA"
+                if mach.get("mach_advancing_bound") == "edgewise":
+                    said += "*"
+                    edgewise = True
                 rows.append(
-                    [entry.sim_id, _point_of(entry.run_id), rotor, f"{tip:.3f}", f"{helical:.3f}"]
+                    [
+                        entry.sim_id,
+                        _point_of(entry.run_id),
+                        rotor,
+                        f"{tip:.3f}",
+                        f"{helical:.3f}",
+                        said,
+                    ]
                 )
             else:
                 unknown.extend(
@@ -376,4 +395,9 @@ def _rotor_mach_block(plan: CampaignPlan) -> list[str]:
                         first="  ",
                     )
                 )
-    return [*(table(rows) if len(rows) > 1 else []), *unknown]
+    note = (
+        ["  * rotor axis not resolved: M_adv is the edgewise bound (Omega R + V) / a"]
+        if edgewise
+        else []
+    )
+    return [*(table(rows) if len(rows) > 1 else []), *note, *unknown]

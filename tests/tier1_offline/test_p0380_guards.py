@@ -88,8 +88,11 @@ def test_p0380_guards_the_fold_gives_one_digest_for_either_separator(text):
 def test_p0380_guards_the_fold_is_needed():
     """P0380-GUARDS (NFR-44 R2), control: without the fold the two spellings hash apart."""
     a, b = "TMP\\sims\\a.fsm", "TMP/sims/a.fsm"
-    assert hashlib.sha256(a.encode()).hexdigest() != hashlib.sha256(b.encode()).hexdigest()
+    # The fold must change the backslash spelling (a constant hash comparison of two
+    # different strings could not fail, PFS-2135.022) and leave the other one alone.
+    assert fold_separators(a) != a
     assert fold_separators(a) == b  # the Linux half of R2 is the CI run of this file
+    assert fold_separators(b) == b
 
 
 def test_p0380_guards_a_guard_that_ran_no_test_is_red(tmp_path, monkeypatch, capsys):

@@ -89,7 +89,9 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: citations stay in the explicit leftover list rather than gaining a marker.
 #: Raised from 201 to 203 on 2026-10-05, measured on rel/0-37: the count
 #: of requirements carrying a falsifying marked test, re-measured for 0.37.0.
-MARKED_FLOOR = 203
+#: Raised from 203 to 211 on 2026-10-12 on lane/0.40.0/farfield: the far-field
+#: family's tests mark its requirements (P0400 markers).
+MARKED_FLOOR = 211
 
 
 def _marked() -> dict[str, list[str]]:

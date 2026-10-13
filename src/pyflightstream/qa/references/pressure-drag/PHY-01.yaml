@@ -1,0 +1,38 @@
+schema: pyflightstream-physics-reference/1
+case: PHY-01
+fs_version_basis: '26.125'
+updated: '2026-10-12'
+reason: first 26.125 reference, measured 2026-10-12 by pyfs-qa physics on build 10052026 after the Blade1
+  alias and sweep solve-count fixes (reports/physics/PHY-26125_2026-10-12_all-cases.yaml)
+source_report: reports/physics/PHY-26125_2026-10-12_all-cases.yaml
+metrics:
+  CL_a0:
+    value: 0.0023
+    warn: 0.005
+    fail: 0.02
+    kind: abs
+  CL_a2:
+    value: 0.1706
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_a4:
+    value: 0.3385
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_a6:
+    value: 0.5057
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CL_slope_per_rad:
+    value: 4.807402380045173
+    warn: 0.02
+    fail: 0.05
+    kind: rel
+  CDp_a4:
+    value: 0.0049
+    warn: 0.05
+    fail: 0.15
+    kind: rel

@@ -28,6 +28,7 @@ from tests.p0380_mesh_fixtures import (
     tube_zipper,
     write_source,
 )
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
 
 
 def _source(folder: Path, stem: str = "wing", refine_toml: str | None = None) -> Path:
@@ -518,9 +519,9 @@ def test_ind07_the_limitations_say_when_the_audit_warns_and_never_by_constructio
         "CHANGELOG.md": _known_limitations(),
         "docs/mesh/how-to.md": (REPO / "docs/mesh/how-to.md").read_text(encoding="utf-8"),
         "docs/mesh/reference.md": (REPO / "docs/mesh/reference.md").read_text(encoding="utf-8"),
-        "docs/srs/functional-requirements.md": (
-            REPO / "docs/srs/functional-requirements.md"
-        ).read_text(encoding="utf-8"),
+        FUNCTIONAL_REQUIREMENTS.as_posix(): (REPO / FUNCTIONAL_REQUIREMENTS).read_text(
+            encoding="utf-8"
+        ),
     }
     for name, text in pages.items():
         flat = " ".join(text.split())

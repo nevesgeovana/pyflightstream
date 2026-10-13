@@ -82,6 +82,11 @@ _EXPLICIT: Literal["explicit"] = "explicit"
 _DEFAULT: Literal["default"] = "default"
 _UNKNOWN: Literal["unknown"] = "unknown"
 
+# The 26.125 evidence row contradicts the entry-level default (SRC-753
+# p.358). Until version rows can carry structured defaults, suppress that
+# inherited value, including for builds inheriting this evidence row.
+_UNREPRESENTED_DEFAULTS = frozenset({("SET_JET_WAKE_DECAY_NORMALIZED_LENGTH", "26.125")})
+
 
 @dataclass(frozen=True)
 class FlagSpec:
@@ -713,8 +718,16 @@ def _family_record(
         # A command with no argument: there is nothing to record but
         # whether it was asked for. False is NOT explicit-and-not-emitted,
         # it is the absence of a request, because the solver has no way
-        # to be told not to do this.
-        if passed.get(spec.param):
+        # to be told not to do this. A bool and nothing else (PFS-2104.046):
+        # truthiness read 'DISABLE' as a request.
+        requested = passed.get(spec.param)
+        if spec.param in passed and not isinstance(requested, bool):
+            raise CommandArgumentError(
+                f"snapshot flag {entry.name} (the {spec.param} keyword of solver_settings) "
+                f"is {requested!r}, and it is a request with no off form. Pass True to "
+                "request it; omit it otherwise"
+            )
+        if requested is True:
             return FlagRecord(**base, provenance=_EXPLICIT, value=True, emitted=True)
     elif spec.kind == "mode_steady":
         if passed.get("mode") == "STEADY":
@@ -761,25 +774,50 @@ def _family_record(
         # a reader from thinking the keyword was simply not passed.
         return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
     else:
-        value = passed.get(spec.param)
-        if value is not None:
-            return FlagRecord(**base, provenance=_EXPLICIT, value=_normalize(value), emitted=True)
-        if entry.name == "SOLVER_MINIMUM_CP" and minimum_cp_default_emitted:
-            return FlagRecord(
-                **base,
-                provenance=_DEFAULT,
-                value=LIBRARY_MINIMUM_CP,
-                emitted=True,
-                evidence=_minimum_cp_evidence(entry),
-            )
-        if entry.default is not None and available:
-            return FlagRecord(
-                **base,
-                provenance=_DEFAULT,
-                value=entry.default,
-                emitted=False,
-                evidence=entry.default_ref,
-            )
+        return _generic_family_record(
+            spec,
+            entry,
+            passed,
+            available=available,
+            minimum_cp_default_emitted=minimum_cp_default_emitted,
+        )
+    return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
+
+
+def _generic_family_record(
+    spec: FlagSpec,
+    entry: CommandEntry,
+    passed: Mapping[str, object],
+    *,
+    available: bool,
+    minimum_cp_default_emitted: bool,
+) -> FlagRecord:
+    """Build the record of a settings-family command with one plain keyword.
+
+    Explicit when the keyword was passed, the library minimum-Cp default when
+    that one was emitted, the solver's documented default when the build has
+    the command, and unknown otherwise.
+    """
+    base = {"command": entry.name, "family": entry.chapter}
+    value = passed.get(spec.param)
+    if value is not None:
+        return FlagRecord(**base, provenance=_EXPLICIT, value=_normalize(value), emitted=True)
+    if entry.name == "SOLVER_MINIMUM_CP" and minimum_cp_default_emitted:
+        return FlagRecord(
+            **base,
+            provenance=_DEFAULT,
+            value=LIBRARY_MINIMUM_CP,
+            emitted=True,
+            evidence=_minimum_cp_evidence(entry),
+        )
+    if entry.default is not None and available:
+        return FlagRecord(
+            **base,
+            provenance=_DEFAULT,
+            value=entry.default,
+            emitted=False,
+            evidence=entry.default_ref,
+        )
     return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
 
 
@@ -824,6 +862,50 @@ def with_vorticity_selection(
         }
     )
     return setup.model_copy(update={"flags": {**setup.flags, VORTICITY_COMMAND: record}})
+
+
+def with_unsteady_regime(
+    setup: SolverSetup, *, time_iterations: int, delta_time: float
+) -> SolverSetup:
+    """Return the snapshot recording an unsteady regime emitted outside solver_settings.
+
+    Helper-facing like :func:`with_vorticity_selection`, and for the same
+    reason: :func:`pyflightstream.script.helpers.unsteady_solver` emits
+    SET_SOLVER_UNSTEADY after the settings call built the snapshot, and the
+    record must describe the script that will run (PFS-2103.037).
+
+    Parameters
+    ----------
+    setup : SolverSetup
+        Snapshot built by the settings call.
+    time_iterations : int
+        Physical time steps, as emitted.
+    delta_time : float
+        Physical time step in s, as emitted.
+
+    Returns
+    -------
+    SolverSetup
+        A new snapshot; the input is left untouched (the model is frozen).
+    """
+    record = setup.flags[_UNSTEADY_COMMAND].model_copy(
+        update={
+            "provenance": _EXPLICIT,
+            "value": {"time_iterations": time_iterations, "delta_time": delta_time},
+            "emitted": True,
+            "evidence": None,
+        }
+    )
+    steady = setup.flags["SET_SOLVER_STEADY"].model_copy(
+        update={"provenance": _UNKNOWN, "value": None, "emitted": False, "evidence": None}
+    )
+    return setup.model_copy(
+        update={"flags": {**setup.flags, _UNSTEADY_COMMAND: record, "SET_SOLVER_STEADY": steady}}
+    )
+
+
+#: The unsteady regime command, whose record :func:`with_unsteady_regime` restamps.
+_UNSTEADY_COMMAND = "SET_SOLVER_UNSTEADY"
 
 
 def _vorticity_record(
@@ -943,11 +1025,13 @@ def build_setup(
                 "three settings families, or the provenance record would silently lag "
                 "the command database)"
             )
+        evidence = entry.evidence_in(view.version)
+        default_known = evidence is None or (name, evidence.source) not in _UNREPRESENTED_DEFAULTS
         flags[name] = _family_record(
             spec,
             entry,
             passed,
-            available=name in view,
+            available=name in view and default_known,
             minimum_cp_default_emitted=minimum_cp_default_emitted,
         )
     flags[VORTICITY_COMMAND] = _vorticity_record(

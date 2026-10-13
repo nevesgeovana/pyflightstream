@@ -70,7 +70,6 @@ from pyflightstream.run._continuation import (
     workflow_conventions_for,
 )
 from pyflightstream.run._executors import (
-    _LOG_OUTPUT_SUFFIX,
     ExecutionResult,
     Executor,
     LocalExecutor,
@@ -92,6 +91,7 @@ from pyflightstream.run._ids import (
 from pyflightstream.run._pending import (
     _declared_logs,
     _descriptor_of,
+    _local_logs,
     _run_log_text,
     _walltime_stop,
     _write_probe_points,
@@ -281,18 +281,19 @@ _NO_LOCAL_LOG_NOTE = (
 
 
 def _the_local_log(
-    executor: object, outputs: Sequence[str], work_dir: Path, result: ExecutionResult
+    executor: object, logs: Sequence[str], work_dir: Path, result: ExecutionResult
 ) -> _LocalLog:
     """Write a local point's declared log from the solver's output, or excuse it (0.27.0).
 
     Only on a local executor whose machine cannot export the log; on any other
-    run nothing is written and nothing is excused. The declared log is the
-    output named like one (``_log.txt``), the name `collect` copies a
-    scheduler's log to, and a log the solver did write is never overwritten.
+    run nothing is written and nothing is excused. ``logs`` are the point's
+    declared logs (``_declared_logs``, PFS-2103.030: a case built in Python
+    names its log as it likes, so the ``_log.txt`` suffix did not find it),
+    and a log the solver did write is never overwritten.
     """
     if not isinstance(executor, LocalExecutor) or executor.export_log:
         return _LocalLog()
-    declared = [str(name) for name in outputs if str(name).endswith(_LOG_OUTPUT_SUFFIX)]
+    declared = [str(name) for name in logs]
     if not declared or (work_dir / declared[0]).is_file():
         return _LocalLog()
     captured = result.captured_output()
@@ -435,6 +436,27 @@ def _execute_point(
     return _assess_point_record(job)
 
 
+def staging_provenance(
+    workspace: CampaignWorkspace, sim_id: str, staged_geometry: str | None
+) -> dict[str, str | None]:
+    """Return ``staged_as`` and ``staged_as_reason`` of a record (PFS-2029.17).
+
+    One home for the point path and the steady job path (PFS-2103.026): how the
+    geometry was staged, read off the workspace that staged it, so the record
+    says link or copy and why; None for both where nothing was staged.
+    """
+    mode, reason = workspace.staged_as(sim_id) if staged_geometry is not None else (None, None)
+    return {"staged_as": mode, "staged_as_reason": reason}
+
+
+def waived_record(script: Script) -> list[dict[str, Any]]:
+    """Return a script's waived broken commands as a record writes them (FR-48).
+
+    One home for the point path and the steady job path (PFS-2103.026).
+    """
+    return [use.model_dump(mode="json") for use in script.waived_commands]
+
+
 def _prepare_point_script(job: _PointJob) -> RunRecord | None:
     """Prepare point script."""
     package_commit, package_dirty = package_vcs_state()
@@ -517,15 +539,7 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
         "rotor_mach": {mach.alias: mach.record() for mach in rotor_machs(at_point)} or None,
         # How the geometry was staged (PFS-2029.17), read off the workspace
         # that staged it, so the record says link or copy and why.
-        **dict(
-            zip(
-                ("staged_as", "staged_as_reason"),
-                job.workspace.staged_as(job.case.sim_id)
-                if job.staged_geometry is not None
-                else (None, None),
-                strict=True,
-            )
-        ),
+        **staging_provenance(job.workspace, job.case.sim_id, job.staged_geometry),
         # The template that rendered this point's names (PFS-2029.19.01),
         # so a reader can tell a name from the identity beside it.
         "point_name_template": job.workspace.naming.point_name,
@@ -894,9 +908,7 @@ def _write_point_pending_files(job: _PointJob) -> RunRecord | None:
     # run, not with the recipe: this is the only place a reader of the
     # manifest can learn that the numbers below came from a command a
     # probe measured not to work.
-    job.base["waived_commands"] = [
-        use.model_dump(mode="json") for use in job.script.waived_commands
-    ]
+    job.base["waived_commands"] = waived_record(job.script)
 
     # PYFS-006. Every point of a case ran in the same simulation folder until
     # 0.27.0, and collection asks only whether the declared output EXISTS, never
@@ -956,9 +968,17 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
     bind_submission_values(job.executor, job.case, job.point_case)
     if job.progress is not None:
         job.progress.solver_started = True
-    job.result = job.executor.run_script(
-        job.script_path, working_dir=job.work_dir, timeout_s=job.case.solver.timeout_s
-    )
+    try:
+        job.result = job.executor.run_script(
+            job.script_path, working_dir=job.work_dir, timeout_s=job.case.solver.timeout_s
+        )
+    except CampaignConfigError as exc:
+        # THIS POINT'S REFUSAL, recorded, and the campaign goes on (PFS-2094.010): a
+        # submitting executor refuses a steady coupled script, or a descriptor or
+        # submit placeholder this row does not supply, before anything is sent.
+        return RunRecord(
+            **job.base, status=RunStatus.FAILED_SCRIPT, error=f"{type(exc).__name__}: {exc}"
+        )
     # PYFS-015. The invocation is the half of a run that lived only in the
     # executor's code: which flags, which directory, which effective
     # timeout. Reproducing a run from its record used to mean re-deriving
@@ -1065,7 +1085,9 @@ def _collect_point_outputs(job: _PointJob) -> RunRecord | None:
     # written from what the solver printed, or, with nothing printed, excused:
     # the machine cannot write one locally, which is not an output the run
     # failed to produce. Nothing happens here on any other run.
-    job.local_log = _the_local_log(job.executor, job.point_case.outputs, job.work_dir, job.result)
+    job.local_log = _the_local_log(
+        job.executor, _local_logs(job.point_case, job.rendered), job.work_dir, job.result
+    )
     # 0.30.0: what the package's own post-processing of an output could not
     # write, where the solver wrote its sources (`untranslated_surfaces`).
     job.post_warnings = []

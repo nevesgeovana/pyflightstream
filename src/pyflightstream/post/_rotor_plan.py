@@ -33,6 +33,7 @@ from pyflightstream.cases import (
     select_group_members,
 )
 from pyflightstream.cases.qsteady import QsteadyRecord, QsteadyRecordError, read_qsteady_record
+from pyflightstream.cases.windows import averaging_span
 from pyflightstream.cases.workflows import FLAT_RPM_KEY, ORIGINAL_FRAME_SUFFIX, QSTEADY_ROTOR
 from pyflightstream.post import qsteady as _qsteady
 from pyflightstream.post._condition import (
@@ -207,7 +208,9 @@ def rotor_plot_source(
         if took and taken_by is None:
             taken_by = (name, frame)
         try:
-            resolved = select_families(group.families, list(inventory), is_blade, aliases)
+            resolved = select_families(
+                group.families, list(inventory), is_blade, aliases, strict=False
+            )
         except PyflightstreamError:
             continue
         if frame not in {"SMRP", "RMRP"}:
@@ -338,7 +341,10 @@ def _rotor_surfaces_carried(
             *(getattr(rotor, "families_blades", None) or []),
         ]
     ]
-    owned = {name.casefold() for name in select_group_members(stated, list(surfaces), aliases)}
+    owned = {
+        name.casefold()
+        for name in select_group_members(stated, list(surfaces), aliases, strict=False)
+    }
     return [str(name) for name in surfaces if str(name).casefold() in owned]
 
 
@@ -351,6 +357,7 @@ def _rotor_tables(
     reference: ReferenceValues,
     matrix_row: MatrixRow | None,
     out: Path,
+    *,
     plots: Mapping[str, Path] | None = None,
     window: tuple[int, int] | None = None,
     pproc: object | None = None,
@@ -358,11 +365,14 @@ def _rotor_tables(
     aliases: Mapping[str, Sequence[str]] | None = None,
     frozen: Mapping[str, FrozenSolve] | None = None,
     skipped: dict[str, str] | None = None,
+    mach: float | None = None,
 ) -> list[tuple[Path, str, dict[str, object]]]:
     """Assemble one rotor table per rotor the ROW's reference declares (item 6).
 
     Returns the destination, the alias and everything `write_rotor_table` needs.
     A missing matrix row or unresolved reference is named in ``skipped``.
+    ``mach`` is the simulation's Mach, which a record stating none takes (the
+    first record that states one where it is not given).
     Empty where the row names no reference, the reference declares no rotor, or
     no point states a speed -- each of which is an ordinary campaign rather
     than a fault, so none of them refuses the simulation's other products.
@@ -426,6 +436,7 @@ def _rotor_tables(
         rotors=rotors,
         by_run=by_run,
         sources_read=sources_read,
+        mach=next((m for m in (mach, *(r.mach for r in records)) if m is not None), None),
     )
 
     tables: list[tuple[Path, str, dict[str, object]]] = []
@@ -448,9 +459,7 @@ def _rotor_tables(
         # the table into a subfolder the manifest then keyed with a slash, and a
         # colon on Windows wrote a stream nobody can see. The rotor's own
         # spelling is the file's first line and the manifest's `rotor` field.
-        name = (
-            f"{sweep_file_stem(sim_id, _a_name_a_file_may_carry(str(alias)))}{ROTOR_TABLE_SUFFIX}"
-        )
+        name = _rotor_table_name(sim_id, str(alias))
         if not rows:
             # EVERY ROW REJECTED IS STILL A REPORT. Returning nothing here made
             # the whole product vanish with no explanation, which is the same
@@ -476,6 +485,8 @@ def _rotor_tables(
                     # history was read from, or None where it is the native export
                     # of a steady run.
                     "read_from": sources_read.get(str(alias)),
+                    # EACH POINT'S WINDOW OF THIS ROTOR (PFS-2088.013), in its own turns.
+                    "windows": _rotor_windows(ctx, str(alias)),
                 },
             )
         )
@@ -500,6 +511,17 @@ class _RotorTablePlan:
     rotors: Mapping[str, RotorReference]
     by_run: Mapping[str, RunRecord]
     sources_read: dict[str, str]
+    #: The simulation's Mach, for a record that states none of its own.
+    mach: float | None = None
+
+
+def _rotor_table_name(sim_id: str, alias: str) -> str:
+    """Return the rotor table's file name, the alias sanitised (NL-04).
+
+    One builder for the file and for every message that names it, so a
+    warning about the table names the path the table is written to.
+    """
+    return f"{sweep_file_stem(sim_id, _a_name_a_file_may_carry(alias))}{ROTOR_TABLE_SUFFIX}"
 
 
 def _rotor_point_record(ctx: _RotorTablePlan, point: PolarPoint) -> RunRecord | None:
@@ -518,6 +540,68 @@ def _rotor_point_record(ctx: _RotorTablePlan, point: PolarPoint) -> RunRecord | 
 #: The six components a plots table states for one group, in NEWTONS, and
 #: the order `rotor_shaft_loads` reads them back in as coefficients.
 _PLOT_COMPONENTS = ("FX", "FY", "FZ", "MX", "MY", "MZ")
+
+
+def _rotor_span_or_reason(
+    ctx: _RotorTablePlan, name: str, alias: str
+) -> tuple[tuple[int, int] | None, str | None]:
+    """Return the window THIS rotor is averaged over at one point, or why it has none.
+
+    A WINDOW IS A COUNT OF TURNS (FR-68, PFS-2088.013, PFS-2081.30). The row's
+    span is counted on its clock rotor, and a second rotor at another speed
+    averaged over it took a non-integer number of its own revolutions. The
+    row's ``LAST_REVS_AVG`` is counted on this rotor's ``steps_per_revolution``
+    from the record's plan and ends at the row's last step, as the per-blade
+    and per-revolution reductions cut each rotor (:func:`cases.windows.replan`).
+    A row that states no key takes the count the record's time average states
+    it was cut on, so a rebuild from a recorded window keeps each rotor's turns.
+    A count of iterations is the same steps for every rotor and keeps the row's
+    span. A count of turns with no clock of this rotor (a single rotor may use
+    the plan's own clock) is a reason, never a silent fallback to the row's span.
+    """
+    span = (ctx.windows or {}).get(name, ctx.window)
+    record = ctx.by_run.get((ctx.sources.get(name) or [""])[0])
+    reductions = getattr(record, "reductions", None)
+    variables = getattr(ctx.matrix_row, "variables", {}) or {}
+    if isinstance(reductions, Mapping) and not any(
+        key in variables for key in ("LAST_REVS_AVG", "LAST_ITERS_AVG")
+    ):
+        average = reductions.get("time_average")
+        note = average.get("window_from", "") if isinstance(average, Mapping) else ""
+        stated = re.search(r"LAST_REVS_AVG = ([+\-\d.eE]+) revolution", str(note))
+        if stated:
+            variables = {"LAST_REVS_AVG": stated.group(1)}
+    if span is None or not isinstance(reductions, Mapping) or "LAST_REVS_AVG" not in variables:
+        return span, None
+    rotors = reductions.get("rotors")
+    own = (
+        next(
+            (value for key, value in rotors.items() if str(key).casefold() == alias.casefold()),
+            None,
+        )
+        if isinstance(rotors, Mapping)
+        else None
+    )
+    clock = own.get("steps_per_revolution") if isinstance(own, Mapping) else None
+    if clock is None and len(getattr(ctx, "rotors", {})) == 1:
+        clock = reductions.get("steps_per_revolution")
+    if isinstance(clock, bool) or not isinstance(clock, int | float) or clock <= 0:
+        return None, f"rotor {alias} states no clock for its averaging window"
+    try:
+        return averaging_span(variables, last_step=span[1], per_revolution=float(clock)), None
+    except (PyflightstreamError, ValueError) as error:
+        return None, f"rotor {alias}'s averaging window cannot be read: {error}"
+
+
+def _rotor_span(ctx: _RotorTablePlan, name: str, alias: str) -> tuple[int, int] | None:
+    """Return the window THIS rotor is averaged over at one point, in its own turns."""
+    return _rotor_span_or_reason(ctx, name, alias)[0]
+
+
+def _rotor_windows(ctx: _RotorTablePlan, alias: str) -> dict[str, tuple[int, int]]:
+    """Return each point's window of this rotor, for its table's manifest entry."""
+    spans = {name: _rotor_span(ctx, name, alias) for name in ctx.windows or {}}
+    return {name: span for name, span in spans.items() if span is not None}
 
 
 def _averaged_rotor_newtons(
@@ -539,7 +623,9 @@ def _averaged_rotor_newtons(
     The second value is the reason, for the caller to record; the third is the
     group the history was read from, which the manifest states.
     """
-    span = (ctx.windows or {}).get(point.name, ctx.window)
+    span, refused = _rotor_span_or_reason(ctx, point.name, alias)
+    if refused is not None:
+        return None, refused, None
     if ctx.plots is None or span is None:
         return None, "the row states no averaging window", None
     where = f"over steps {span[0]} to {span[1]}"
@@ -577,7 +663,7 @@ def _averaged_rotor_newtons(
         (ctx.frozen or {}).get(point.name),
         read_steps,
         point=point.name,
-        product=f"polars/P{ctx.sim_id}-{alias}_rotor.csv",
+        product=f"{POLARS_DIR}/{_rotor_table_name(ctx.sim_id, str(alias))}",
     )
     if refusal is not None:
         return None, refusal, None
@@ -729,7 +815,8 @@ def _warn_rotor_advance_ratio(
         and isinstance(flight, int | float)
         and span > 0.0
         and rpm
-        and (len(ctx.rotors) == 1 or clock == str(alias))
+        # CASE-FOLDED, as clock_rotor_facts resolves the same name.
+        and (len(ctx.rotors) == 1 or clock.casefold() == str(alias).casefold())
     ):
         ran = float(flight) / (abs(rpm) / 60.0 * span)
         if abs(ran - float(requested)) > 5e-4 * max(1.0, abs(float(requested))):
@@ -772,10 +859,23 @@ def _rotor_row_surfaces(
         return None
     instant = True
     if newtons is not None:
-        ctx.sources_read[str(alias)] = str(read_from)
         averaged_surfaces = _rotor_coefficients_from_newtons(
             ctx.reference, newtons, density=float(density), speed=float(speed)
         )
+        if not averaged_surfaces:
+            # THE SAME RULE WHEN THE AVERAGE CANNOT BE MADE COEFFICIENTS: the
+            # last time step under a time-averaged label is the instant RI-01
+            # refuses, so the point is left out and named instead.
+            left_out.append(
+                (
+                    run_id,
+                    f"{point.name}: its window average cannot be made coefficients, because "
+                    "the dynamic pressure, the reference area or the reference length is "
+                    "not positive",
+                )
+            )
+            return None
+        ctx.sources_read[str(alias)] = str(read_from)
         families = list(getattr(rotor, "families_blades", None) or [])
         if averaged_surfaces and families:
             # ONE SYNTHETIC SURFACE CARRYING THE WHOLE GROUP, UNDER THE
@@ -911,7 +1011,10 @@ def _plan_rotor_row(
         "clockings": clockings,
         "condition": point_condition(
             point,
-            mach=record.mach or 0.0,
+            # A RECORD STATING NO MACH TAKES THE SIMULATION'S, as every other
+            # product family does (`_mach_of`); a literal 0.0 here published
+            # a Mach the run never had.
+            mach=next((m for m in (record.mach, ctx.mach) if m is not None), float("nan")),
             clock=clock_rotor_facts(
                 record,
                 ctx.matrix_row,

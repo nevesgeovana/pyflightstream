@@ -93,9 +93,9 @@ def test_p0400_wscost_only_an_enabled_row_flag_is_priced(tmp_path, value, second
         ("steps = 10", 'steps = "10"', "[reference] steps"),
         ("wall_time_s = 100.0", "wall_time_s = -1.0", "[reference] wall_time_s"),
         ("ncpus = 4\n", "ncpus = 0\n", "[reference] ncpus"),
-        ("speedup = [1.0, 2.0, 6.0]", 'speedup = ["1", "2", "6"]', "[parallel] speedup"),
+        ("speedup = [1.0, 2.0, 6.0]", 'speedup = ["1", "2", "6"]', "speedup entry"),
         ("ncpus = [2, 4, 8]", 'ncpus = ["a", 4, 8]', "[parallel] ncpus"),
-        ("speedup = [1.0, 2.0, 6.0]", "speedup = [1.0, 2.0, nan]", "[parallel] speedup"),
+        ("speedup = [1.0, 2.0, 6.0]", "speedup = [1.0, 2.0, nan]", "speedup entry"),
         ("ncpus = [2, 4, 8]", "ncpus = [true, 4, 8]", "[parallel] ncpus"),
     ],
 )

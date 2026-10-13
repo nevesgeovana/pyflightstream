@@ -14,14 +14,17 @@ consulted directly, the block is read off the rendered script. It is not a
 native claim; what the solver does with each line is the native-evidence
 obligations' business.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# The evidence line of these requirements cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 # FR-152.
 
 from __future__ import annotations
 
+import ast
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -848,7 +851,8 @@ SETUP_CHAPTERS = (
     "aeroelastic_coupling",
 )
 
-#: In-scope commands whose operation is held by the recorded native replays elsewhere.
+#: In-scope commands requiring private native replays. They are unproven in CI when those
+#: receipts are absent; the gates below execute the replay instead of accepting its tag.
 PROVED_ELSEWHERE = {
     "tests/tier1_offline/test_fsi_native_interface_evidence.py": (
         "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS",
@@ -867,6 +871,80 @@ PROVED_ELSEWHERE = {
         "SOLVER_SET_MACH_NUMBER",
     ),
 }
+
+TAG = "GOAL033:setup_bc:operational_commands:"
+#: The helpers the replaying files read a recorded receipt with.
+REPLAY_READERS = frozenset(
+    {"_case", "_block", "_output", "_fresh_calls", "_artifact", "_moved_fields"}
+)
+
+
+def tag_holders(source: str) -> dict[str, str]:
+    """Map each tagged command in ``source`` to ``"ok"`` or the reason its tag proves nothing.
+
+    The replays in ``PROVED_ELSEWHERE`` run only where the private native receipts are
+    supplied; offline they skip, so what CI can hold is that each tag is a comment inside a
+    ``test_`` function that reads a recorded receipt and asserts on it (not that the replay
+    ran here). A tag in a stray comment or in a test asserting nothing is refused.
+    """
+    import ast
+
+    tree = ast.parse(source)
+    found: dict[str, str] = {}
+    for number, line in enumerate(source.splitlines(), start=1):
+        if TAG not in line or not line.lstrip().startswith("#"):
+            continue
+        owner = next(
+            (
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef)
+                and node.name.startswith("test_")
+                and node.lineno < number <= (node.end_lineno or 0)
+            ),
+            None,
+        )
+        command = line.split(TAG, 1)[1].strip()
+        if owner is None:
+            found[command] = "not inside a test function"
+            continue
+        calls = {
+            call.func.id
+            for call in ast.walk(owner)
+            if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+        }
+        asserts = any(isinstance(node, ast.Assert) for node in ast.walk(owner))
+        found[command] = (
+            "ok" if asserts and calls & REPLAY_READERS else "no assertion on a replayed receipt"
+        )
+    return found
+
+
+def _prove_elsewhere(path: str, commands: tuple[str, ...]) -> None:
+    """Execute each tagged replay; absent evidence skips the gate as explicitly unproven."""
+    root = Path(__file__).resolve().parents[2]
+    source = (root / path).read_text(encoding="utf-8")
+    lines = source.splitlines()
+    tree = ast.parse(source)
+    module = import_module(path.removesuffix(".py").replace("/", "."))
+    for command in commands:
+        tag = f"GOAL033:setup_bc:operational_commands:{command}"
+        owners = [
+            node.name
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name.startswith("test_")
+            and any(
+                line.strip().removeprefix("#").strip() == tag
+                for line in lines[node.lineno - 1 : node.end_lineno]
+            )
+        ]
+        assert len(owners) == 1, (path, command, owners)
+        try:
+            getattr(module, owners[0])()
+        except pytest.skip.Exception as absent:
+            pytest.skip(f"operational evidence unproven for {command}: {absent}")
+
 
 #: Every setup/BC command the emitter refuses on 26.124, by the error it refuses with:
 #: no recorded 26.124 evidence, recorded removed there, or recorded broken there.
@@ -972,9 +1050,9 @@ def test_every_in_scope_setup_command_is_in_the_26124_database_and_the_rest_refu
     assert not unsupported, f"routed but not supported on {BUILD}: {unsupported}"
     root = Path(__file__).resolve().parents[2]
     for path, commands in PROVED_ELSEWHERE.items():
-        text = (root / path).read_text(encoding="utf-8")
+        held = tag_holders((root / path).read_text(encoding="utf-8"))
         for command in commands:
-            assert f"GOAL033:setup_bc:operational_commands:{command}" in text, (path, command)
+            assert held.get(command) == "ok", (path, command, held.get(command))
     admitted = []
     for command, error in REFUSED_ON_26124.items():
         script = Script(BUILD)
@@ -985,6 +1063,8 @@ def test_every_in_scope_setup_command_is_in_the_26124_database_and_the_rest_refu
             continue
         admitted.append(command)
     assert not admitted, f"{BUILD} admits a command recorded absent: {admitted}"
+    for path, commands in PROVED_ELSEWHERE.items():
+        _prove_elsewhere(path, commands)
 
 
 # --- settings that act on one another ------------------------------------------------
@@ -1057,3 +1137,25 @@ def test_interacting_setup_settings_are_emitted_in_the_order_and_units_they_need
     assert len(incompressible) == len(subsonic)
     moved = [(a, b) for a, b in zip(incompressible, subsonic, strict=True) if a != b]
     assert moved == [("SOLVER_MODEL INCOMPRESSIBLE", "SOLVER_MODEL SUBSONIC_PRANDTL_GLAUERT")]
+
+
+def test_tag_holders_refuses_a_stray_tag_and_a_test_that_replays_nothing():
+    """The control of the tag gates: they can refuse, and they accept a real replay."""
+    stray = (
+        f"# {TAG}A_COMMAND\n"
+        "def test_empty():\n"
+        f"    # {TAG}B_COMMAND\n"
+        "    pass\n"
+        "def test_asserting_nothing_replayed():\n"
+        f"    # {TAG}C_COMMAND\n"
+        "    assert True\n"
+        "def test_replaying():\n"
+        f"    # {TAG}D_COMMAND\n"
+        "    assert _block('x')\n"
+    )
+    assert tag_holders(stray) == {
+        "A_COMMAND": "not inside a test function",
+        "B_COMMAND": "no assertion on a replayed receipt",
+        "C_COMMAND": "no assertion on a replayed receipt",
+        "D_COMMAND": "ok",
+    }

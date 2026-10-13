@@ -101,7 +101,20 @@ def main(argv: list[str] | None = None) -> int:
 
     editions = read_edition_manifest(args.editions)
     labels = [edition.label for edition in editions]
+    # The two refusals prove_edition_comparison.main has: `labels.index`
+    # raised a bare ValueError for a manifest without the build, and at
+    # position ZERO `editions[position - 1]` is the LAST row, so the newest
+    # document was compared against the oldest, tidily and wrongly.
+    if BUILD not in labels:
+        raise SystemExit(
+            f"the manifest has no row labelled {BUILD!r}; it carries " + ", ".join(labels)
+        )
     position = labels.index(BUILD)
+    if position == 0:
+        raise SystemExit(
+            f"{BUILD} is the first row of the manifest, so it has no predecessor whose "
+            "notes it could restate"
+        )
     target, previous = editions[position], editions[position - 1]
 
     registry = CommandRegistry.load()

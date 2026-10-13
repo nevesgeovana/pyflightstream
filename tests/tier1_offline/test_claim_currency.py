@@ -20,6 +20,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tier1_offline._docs_site import REQUIREMENTS_INDEX
+
 REPO = Path(__file__).resolve().parents[2]
 README = REPO / "README.md"
 EXAMPLES = REPO / "examples"
@@ -73,17 +75,10 @@ def test_the_readme_status_line_names_the_version_being_released() -> None:
     )
     assert released, "the changelog states no released version, so this guard reads nothing"
     version = released[0]
-    # BOTH FRONT PAGES, which this guard's own docstring has named since it was
-    # written and which it read only half of. `README.md` is what PyPI renders
-    # and `docs/index.md` is what the site publishes, the README routes new
-    # readers at the site, and a tag cut with the two disagreeing sends a
-    # reader from a page announcing this release to one announcing the last.
-    # Measured at the v0.16.0 release commit, where the README moved and the
-    # site page did not (the technical writing lens, 2026-09-11).
-    pages = {
-        "README.md": README,
-        "docs/index.md": REPO / "docs" / "index.md",
-    }
+    # `README.md` is what PyPI renders. The site's front page `docs/index.md` gave up
+    # its hard-coded status line in the 0.40.0 restructure (docs-structure.md, the
+    # `index.md` row), so the README is the one front page that states the version.
+    pages = {"README.md": README}
     for name, path in pages.items():
         status = [
             line
@@ -436,7 +431,7 @@ _ALIAS_TALLY_HISTORY = {
     "CHANGELOG.md",
     # The SRS revision history, whose 1.23.0 and 1.26.0 rows exist
     # precisely to record that an enumeration moved.
-    "docs/srs/index.md",
+    REQUIREMENTS_INDEX.as_posix(),
 }
 
 

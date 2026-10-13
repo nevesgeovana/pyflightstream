@@ -398,7 +398,7 @@ def test_g16_the_rotor_table_opens_with_its_header_polar_and_rotor(tmp_path):
     first, second = table.read_text(encoding="utf-8").splitlines()[:2]
     assert first == (
         f"POL,ROTOR,{ROTOR_COLUMNS_BEFORE},MTIP_PUSHER,MHEL_PUSHER,"
-        "CN_PUSHER,CS_PUSHER,CMN_PUSHER,CMS_PUSHER"
+        "CN_PUSHER,CS_PUSHER,CMN_PUSHER,CMS_PUSHER,MADV_PUSHER"
     ), first
     assert second.startswith("7001,PUSHER,"), second
     assert ROTOR_COLUMNS_BEFORE.split(",")[: len(CONTEXT_COLUMNS)] == list(CONTEXT_COLUMNS)

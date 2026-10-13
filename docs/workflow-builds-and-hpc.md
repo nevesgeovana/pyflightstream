@@ -57,11 +57,11 @@ build spells the same thing in its own vocabulary, the package writes
 that vocabulary, and the plan and the run record say what was chosen.
 What each run type does on each registered build:
 
-| run type | 25.000 | 25.100, 26.000 | 26.100 | 26.101, 26.120, 26.121 | 26.122, 26.123, 26.124 |
+| run type | 25.000 | 25.100, 26.000 | 26.100 | 26.101, 26.120, 26.121 | 26.122, 26.123, 26.124, 26.125 |
 |---|---|---|---|---|---|
 | `steady` | refused | runs | runs | runs | runs |
 | `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
-| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | single march, Euclidean rotor without the rotor mark, speed in rev/min (not run) | single march | actions where the row asks for them |
+| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | refused until the rotor speed unit is measured | single march | actions where the row asks for them |
 
 **A single march** is how an unsteady row runs on a build whose manual
 documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
@@ -73,8 +73,7 @@ that documents the actions, also registers the step counter alone, which
 counts the time steps and writes nothing else, so the progress bar of a
 local run (FR-129) appears on every unsteady row; its script differs from
 the one 0.32.0 wrote by those three lines only, and its `march_strategy`
-stays `single_march`. That the counter leaves the results unchanged is owed
-by the licensed round of 0.33.0. The per-step history of
+stays `single_march`. RPT-112 measured no effect from the counter on 26.124, build 8172026. The per-step history of
 the products stage comes from the plots table the solver writes, so the
 reductions and the series are built on every build.
 
@@ -108,17 +107,16 @@ run.
 
 **On 26.100 the Euclidean rotor carries no rotor mark.** Its manual prints
 the mark and its solver answers it as an unrecognized command (RPT-049).
-The package writes the Euclidean motion without it, with the angular
-velocity in REV/MIN along the axis, and a comment in the script says so.
-None of this is measured (RPT-051):
+The package refuses rotor motions and rotor-speed rows on this build during
+plan rehearsal until a rotation null test settles the angular-velocity unit
+(RPT-051):
 
 - the unit is a maintainer decision, while that build's manual tutorial
   gives rad/s for the field and 26.000 measured rad/s;
 - the sense of rotation is not measured on that build;
 - the solver is never told the motion is a rotor.
 
-Before trusting the loads of a 26.100 rotor, check on one short run that
-the blade turned the angle the row states, and in the direction it states.
+The 26.100 build-compare sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT despite the rev/min input and absent rotor mark (build-compare finding 4; answer G77-0335).
 
 **25.000 is refused for every run type.** Its `INITIALIZE_SOLVER` takes
 five settings no later edition exposes and no edition gives a default
@@ -305,3 +303,8 @@ workstation or on the cluster with no cell changed. A profile that writes
 any point is submitted, naming the build and the table. A key that is not one
 registered build, `26.1` for instance, is refused when the profile is read. A
 profile that does not write the substitution is unaffected by the table.
+
+In every grouped job template (`job_root`, `native_log`, `job_end_files` and
+the descriptor), {sim} is the first simulation of the job and {batch} is
+the job label. {point} names the collected point where available.
+On the 26.100 rotor route, which states rev/min without a rotor mark, the sector and blade cases agree with 26.124 in sign and within 4 to 5 percent in CT (build-compare finding 4; answer G77-0335).

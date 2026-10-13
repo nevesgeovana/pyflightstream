@@ -5,7 +5,8 @@ exercises the package's behaviour for it, offline: no solver runs, and where a
 capability also has a licensed acceptance, that half is named and not claimed.
 The fixtures are the ones the capability's own module already tests with.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# The evidence line of these requirements cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 # FR-152, FR-153, FR-158, FR-164.
 
 import re
@@ -23,6 +24,7 @@ from pyflightstream.post import OutputProvenance, write_probe_field
 from pyflightstream.post.guides import input_template_markdown
 from pyflightstream.script import Script, helpers
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi, stage_fsi_setup
+from tests.tier1_offline._docs_site import site_pages
 from tests.tier1_offline.test_examples import EXAMPLE_EXTRAS
 from tests.tier1_offline.test_geometry_units import _case as _units_case
 from tests.tier1_offline.test_goal031_sections_layout_recorded import (
@@ -227,9 +229,8 @@ def test_d14_the_0_29_0_documentation_reaches_its_reader():
     migration guide, and the guide names every change the CHANGELOG says a
     reader must act on."""
     # GOAL033:capability_ids:items:D14
-    menu = set(
-        re.findall(r"^\s*- [^:\n]+: (\S+\.md)\s*$", (REPO / "properdocs.yml").read_text(), re.M)
-    )
+    # Published pages: the nav, plus the retained legacy URLs the nav leaves out.
+    menu = set(site_pages(REPO / "docs"))
     for page, example in PAGES_029.items():
         text = (REPO / "docs" / page).read_text(encoding="utf-8")
         assert page in menu, f"docs/{page} is not in the properdocs.yml nav"

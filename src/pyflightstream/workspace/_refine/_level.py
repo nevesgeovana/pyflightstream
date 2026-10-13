@@ -54,6 +54,7 @@ from numpy.typing import NDArray
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
+from pyflightstream._lengths import scale as length_scale
 from pyflightstream.workspace._refine import _blocks, _config, _geometry, _grid, _obj, _periodic
 from pyflightstream.workspace._refine._audit import MeshAudit, audit_mesh
 from pyflightstream.workspace._refine._config import FamilySpec, RefineRequest
@@ -73,6 +74,8 @@ STAGING_SUFFIX = ".partial"
 #: ``overwrite`` replaces it, until the new level is in place (FR-424 R5): an error before
 #: then puts it back.
 PREVIOUS_SUFFIX = ".previous"
+#: Version 2 names native-unit target lengths explicitly when mesh units are absent.
+REFINE_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -141,6 +144,10 @@ class _Work:
     te_detected: dict[str, Points] = field(default_factory=dict)
     # FR-433 R4: the selected families of a summary tag, taken with the tag before any work
     tag_selection: list[str] | None = None
+    # The working copy of the request's specs: a factor-1 family leaves it, a band or a
+    # rebuilt family joins it; the request itself, which refine.json records, never changes.
+    specs: dict[str, FamilySpec] = field(default_factory=dict)
+    te_edges: dict[str, set[tuple[int, int]]] = field(default_factory=dict)
 
 
 def _refuse(where: str, reason: str) -> InputArtifactError:
@@ -152,12 +159,17 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
 
 def _te_vertices(mesh: ObjMesh, family: str, points: Points, scale: float) -> set[int]:
     """Return the trailing-edge vertices: the ends of the edges whose mid-point is listed."""
+    return {v for edge in _listed_edges(mesh, family, points, scale) for v in edge}
+
+
+def _listed_edges(mesh: ObjMesh, family: str, points: Points, scale: float) -> set[tuple[int, int]]:
+    """Keep the listed edges themselves; their vertex set cannot represent a wake gap."""
     if not len(points):
         return set()
     edges, mid = _obj.edge_midpoints(mesh.verts, mesh.families[family])
     dist, index = NearestIndex(mid).query(points)
     hit = dist < _geometry.TE_POINT_FRACTION * scale
-    return {int(v) for v in edges[index[hit]].ravel()}
+    return {(int(a), int(b)) for a, b in edges[index[hit]]}
 
 
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
@@ -182,6 +194,8 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
         te_of={n: _te_vertices(mesh, n, points, scale) for n in names},
         scale=scale,
         te_route=_obj.te_route(source),
+        specs=dict(request.specs),
+        te_edges={n: _listed_edges(mesh, n, points, scale) for n in names},
     )
 
 
@@ -190,7 +204,7 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
 
 def _decide(work: _Work) -> None:
     """Recover the grids and choose each family's method, refusing before any work (R9, R10)."""
-    for name in [n for n in work.names if n in work.request.specs]:
+    for name in [n for n in work.names if n in work.specs]:
         _decide_family(work, name)
     _grid_after_grid(work)
     for name in work.keep_rows:
@@ -201,8 +215,9 @@ def _decide(work: _Work) -> None:
                 "first and is remeshed",
             )
     _bodies_apart(work)
+    _no_stretched_cut(work)
     for name in work.remesh:
-        spec = work.request.specs[name]
+        spec = work.specs[name]
         if spec.chordwise is not None or spec.spanwise is not None:
             raise _refuse(
                 f"{work.source} family {name}",
@@ -217,7 +232,7 @@ def _decide(work: _Work) -> None:
 
 def _decide_family(work: _Work, name: str) -> None:
     """Recover one selected family's grid, or choose its remesh, refusing before any work."""
-    spec = work.request.specs[name]
+    spec = work.specs[name]
     if spec.method == "remesh" or spec.axial is not None:
         _remesh_or_keep(work, name, "the refinement file states remesh")
         return
@@ -225,6 +240,20 @@ def _decide_family(work: _Work, name: str) -> None:
     if spec.keep_first_row:
         _kept_trailing_edge(work, name)
     found = _blocks.recover_family(work.mesh.verts, work.mesh.families[name], work.te_of[name])
+    if not isinstance(found, str) and work.te_edges[name]:
+        if isinstance(found, _blocks.Blocks):
+            chains = [found.arcs[i] for i in found.te_arcs]
+        elif found.smooth:
+            chains = []
+        else:
+            chains = [found.ids[:, 0].tolist()]
+        represented = {
+            (min(a, b), max(a, b))
+            for chain in chains
+            for a, b in zip(chain, chain[1:], strict=False)
+        }
+        if represented != work.te_edges[name]:
+            found = "the listed trailing-edge edges are not complete grid lines; use remesh"
     if isinstance(found, str):
         if spec.keep_first_row:
             raise _refuse(
@@ -286,10 +315,13 @@ def _kept_trailing_edge(work: _Work, name: str) -> None:
             "no edge of it is listed in the trailing-edge points file, and the boundaries file "
             "does not route its trailing edge to detection",
         )
-    faces = work.mesh.families[name]
-    dihedral = _geometry.dihedral_degrees(work.mesh.verts, faces)
-    sharp = {e for e, degrees in dihedral.items() if degrees > _geometry.RIDGE_DEGREES}
-    line = _detected_line(work.mesh.verts, faces, sharp) if sharp else None
+    if _obj.mesh_unit(work.source) is None:
+        raise _refuse(
+            where,
+            "detection writes a points file with a length unit; state [import] units in "
+            "the boundaries file before detecting the trailing edge",
+        )
+    sharp, line = _detection(work, name)
     if line is None or isinstance(line, str):
         why = line or (
             "the detection marks no edge of the family (no edge sharper than "
@@ -304,8 +336,28 @@ def _kept_trailing_edge(work: _Work, name: str) -> None:
     work.te_of[name] = line
     work.te_source[name] = "detected"
     edges = sorted(e for e in sharp if e[0] in line and e[1] in line)
+    work.te_edges[name] = set(edges)
     ends = numpy.array(edges, dtype=numpy.int64).reshape(-1, 2)
     work.te_detected[name] = 0.5 * (work.mesh.verts[ends[:, 0]] + work.mesh.verts[ends[:, 1]])
+
+
+def _detection(work: _Work, name: str) -> tuple[set[tuple[int, int]], set[int] | str | None]:
+    """Return a family's sharp edges and the trailing edge detected on them (FR-430 R7).
+
+    Measure across all families before filtering to this family's edges.
+    A sheet's trailing edge can have its opposite face in another family.
+    """
+    faces = work.mesh.families[name]
+    own = set(_geometry.edge_faces(faces))
+    measured = [f for fs in work.mesh.families.values() for f in fs]
+    dihedral = _geometry.dihedral_degrees(work.mesh.verts, measured)
+    sharp = {e for e, deg in dihedral.items() if deg > _geometry.RIDGE_DEGREES and e in own}
+    line = (
+        _detected_line(work.mesh.verts, faces, sharp, work.specs[name].trailing_edge_direction)
+        if sharp
+        else None
+    )
+    return sharp, line
 
 
 def _te_rows(work: _Work, points: Points) -> list[list[float]]:
@@ -318,7 +370,12 @@ def _te_rows(work: _Work, points: Points) -> list[list[float]]:
     return [[float(w) for w in _obj.coordinates(p * work.te_to_file).split()] for p in points]
 
 
-def _detected_line(verts: Points, faces: Faces, sharp: set[tuple[int, int]]) -> set[int] | str:
+def _detected_line(
+    verts: Points,
+    faces: Faces,
+    sharp: set[tuple[int, int]],
+    direction: tuple[float, float, float] | None = None,
+) -> set[int] | str:
     """Return the vertices of the detected trailing edge, or why the sharp edges hold none (R7).
 
     The grid is recovered on every sharp edge's vertices, and the trailing
@@ -326,7 +383,8 @@ def _detected_line(verts: Points, faces: Faces, sharp: set[tuple[int, int]]) -> 
     far station, is sharp, at a chordwise extreme: the first or last line of
     a sheet, either end of the chord of a tube's middle station. Of two such
     lines, a sharp leading edge and the trailing edge, the trailing edge is
-    the aft one, aft being +x (the frame is x aft, y starboard, z up). A
+    the one farther along the family's explicit trailing_edge_direction. A
+    missing direction or equal projections is ambiguous and refused. A
     family no single grid is recovered on gets every sharp edge, and the
     recovery's own refusal follows.
     """
@@ -348,13 +406,21 @@ def _detected_line(verts: Points, faces: Faces, sharp: set[tuple[int, int]]) -> 
             "the edges sharper than the ridge angle form no grid line from station 0 to the "
             "far station at a chordwise extreme"
         )
-    aft = [float(verts[ids[:, c], 0].mean()) for c in lines]
+    if len(lines) > 1 and direction is None:
+        return (
+            "both chordwise extremes are sharp; state trailing_edge_direction in the "
+            "family's refinement table, pointing from leading to trailing edge, or list "
+            "the trailing-edge points"
+        )
+    axis = numpy.asarray(direction if direction is not None else (1.0, 0.0, 0.0))
+    axis = axis / numpy.linalg.norm(axis)
+    aft = [float((verts[ids[:, c]] @ axis).mean()) for c in lines]
     extent = float(numpy.ptp(verts[ids.ravel()], axis=0).max())
-    # one position along x, by the rule of two nodes that are one position (FR-426 R2 G1)
+    # Equal projections cannot distinguish the two sharp extremes.
     if len(lines) == 2 and abs(aft[0] - aft[1]) <= _geometry.DUPLICATE_FRACTION * extent:
         return (
             "both chordwise extremes are sharp grid lines from station 0 to the far station "
-            "and neither lies aft (+x) of the other"
+            "and trailing_edge_direction does not distinguish them"
         )
     return {int(v) for v in ids[:, lines[int(numpy.argmax(aft))]].tolist()}
 
@@ -422,7 +488,7 @@ def _planned_bands(work: _Work) -> list[str]:
     any other (FR-424 R10, R11).
     """
     planned: list[str] = []
-    for name in [n for n in work.names if n not in work.request.specs]:
+    for name in [n for n in work.names if n not in work.specs]:
         for grid_name, grid in work.grids.items():
             old = work.fam_v[grid_name] & work.fam_v[name]
             edges = [
@@ -432,7 +498,7 @@ def _planned_bands(work: _Work) -> list[str]:
             ]
             if not edges:
                 continue
-            chordwise, spanwise = work.request.specs[grid_name].directions
+            chordwise, spanwise = work.specs[grid_name].directions
             if isinstance(grid, _blocks.Blocks):
                 changes = _blocks.nodes_change(grid, chordwise)
             else:
@@ -457,7 +523,7 @@ def _grid_after_grid(work: _Work) -> None:
         if not first:
             done.append(name)
             continue
-        if work.request.specs[name].method == "grid":
+        if work.specs[name].method == "grid":
             raise _refuse(
                 f"{work.source} family {name}",
                 f"method is grid and it shares nodes with {first[0]}, refined as a grid first",
@@ -475,9 +541,9 @@ def _remesh_or_keep(work: _Work, name: str, reason: str) -> None:
     grid beside it changed their shared curve (FR-425 R3). A family the
     refinement file states ``method = "remesh"`` is remeshed at any factor.
     """
-    spec = work.request.specs[name]
+    spec = work.specs[name]
     if spec.unchanged and spec.method == "auto":
-        del work.request.specs[name]
+        del work.specs[name]
         work.report[name] = {"method": "unchanged", "reason": f"factor 1 ({reason})"}
         return
     work.remesh.append(name)
@@ -486,7 +552,7 @@ def _remesh_or_keep(work: _Work, name: str, reason: str) -> None:
 
 def _stretch_of(work: _Work, name: str) -> Stretch | None:
     """Return the stretch of a body (FR-428), its origin defaulting to the family's centroid."""
-    spec = work.request.specs.get(name)
+    spec = work.specs.get(name)
     if spec is None or spec.axis is None:
         return None
     centroid = work.mesh.verts[sorted(work.fam_v[name])].mean(axis=0)
@@ -514,7 +580,7 @@ def _kept_apart(work: _Work, name: str, other: str) -> bool:
     neighbour (FR-425 R3). The curve they share keeps its nodes on both
     sides, as an interface with an unchanged family does (FR-424 R8).
     """
-    specs = work.request.specs
+    specs = work.specs
     unchanged = specs[name].unchanged or specs[other].unchanged
     return unchanged and _stretched_unlike(work, name, other)
 
@@ -542,13 +608,35 @@ def _bodies_apart(work: _Work) -> None:
             )
 
 
+def _no_stretched_cut(work: _Work) -> None:
+    """Refuse a body stretched unlike along and around that holds a periodic cut (FR-427, FR-428).
+
+    A cut is resampled by ONE factor and its nodes are then fixed; a sector cut
+    about a body's axis runs along the axis, where the remesh spaces nodes by
+    the axial factor, but which of the two factors a cut takes is not decided,
+    so a body whose two factors differ is refused before any work rather than
+    given three times the nodes along the axis that its interior wants.
+    """
+    on_cut = {n for cut in work.cuts for side in cut.families for n in side}
+    for name in [n for n in work.remesh if n in on_cut]:
+        spec = work.specs[name]
+        if spec.axis is not None and (spec.axial or 1.0) != (spec.circumferential or 1.0):
+            raise _refuse(
+                f"{work.source} family {name} [periodic]",
+                f"the family holds a cut of the periodic sector and is stretched by axial "
+                f"{spec.axial or 1.0:g} and circumferential {spec.circumferential or 1.0:g}; "
+                "which of the two resamples the cut is not decided, so state the two equal, or "
+                "refine the family without [periodic]",
+            )
+
+
 # ------------------------------------------------------------------- refining
 
 
 def _refine_grids(work: _Work) -> None:
     """Refine every grid family and record what its neighbours must take (FR-425 R2, R3)."""
     for name, grid in work.grids.items():
-        chordwise, spanwise = work.request.specs[name].directions
+        chordwise, spanwise = work.specs[name].directions
         if isinstance(grid, _blocks.Blocks):
             level = _blocks.refine_blocks(
                 work.mesh.verts, work.mesh.families[name], grid, factor=chordwise
@@ -594,9 +682,13 @@ def _interface_points(
     """Return the grid's new boundary nodes on the curve it shares with a neighbour.
 
     The curve is the grid's source boundary edges whose two ends are shared
-    (``old``); a new node is on it when it lies within
+    (``old``). A new boundary node is on it when it lies within
     :data:`._geometry.ON_CURVE_FRACTION` of a segment's length from one of
-    those edges.
+    those edges AND one of its own boundary edges runs along the curve: both
+    ends within :data:`._periodic.ALONG_FRACTION` of the EDGE's length from it (an edge
+    leaving the curve at a right angle has its far end one length away). A node of another
+    boundary curve next to the curve's end, closer to it than a quarter of a
+    curve segment, is no node of it: its edges run away from the curve.
     """
     source_edges = [
         e for e in _geometry.boundary_edges(work.mesh.families[name]) if e[0] in old and e[1] in old
@@ -607,16 +699,28 @@ def _interface_points(
     b = work.mesh.verts[[e[1] for e in source_edges]]
     length = numpy.linalg.norm(b - a, axis=1)
     ab = b - a
-    keep = []
-    for v in sorted({v for e in _geometry.boundary_edges(level.faces) for v in e}):
-        p = level.points[v]
+
+    def distance(p: Points) -> tuple[float, int]:
         t = numpy.clip(
             ((p - a) * ab).sum(axis=1) / numpy.maximum((ab * ab).sum(axis=1), 1e-300), 0.0, 1.0
         )
         d = numpy.linalg.norm(a + t[:, None] * ab - p, axis=1)
         j = int(numpy.argmin(d))
-        if d[j] < _geometry.ON_CURVE_FRACTION * length[j]:
-            keep.append(v)
+        return float(d[j]), j
+
+    edges = _geometry.boundary_edges(level.faces)
+    near = {}
+    for v in sorted({v for e in edges for v in e}):
+        d, j = distance(level.points[v])
+        if d < _geometry.ON_CURVE_FRACTION * length[j]:
+            near[v] = d
+    along: set[int] = set()
+    for u, w in edges:
+        if u in near and w in near:
+            span = float(numpy.linalg.norm(level.points[u] - level.points[w]))
+            if max(near[u], near[w]) < _periodic.ALONG_FRACTION * span:
+                along.update((u, w))
+    keep = [v for v in near if v in along]
     return level.points[keep] if keep else None
 
 
@@ -634,7 +738,7 @@ def _bands(work: _Work) -> None:
     family is rebuilt whole at factor 1 instead, as if stated ``factor = 1``,
     ``method = "remesh"``, with one warning and its record (FR-431).
     """
-    for name in [n for n in work.names if n in work.conform and n not in work.request.specs]:
+    for name in [n for n in work.names if n in work.conform and n not in work.specs]:
         seed = set().union(*(old for old, _ in work.conform[name]))
         faces = work.mesh.families[name]
         band = _band(faces, seed, _geometry.BAND_LAYERS)
@@ -654,7 +758,8 @@ def _bands(work: _Work) -> None:
         for n in (name, bname):
             work.fam_v[n] = set(work.mesh.family_vertices(n).tolist())
             work.te_of[n] = _te_vertices(work.mesh, n, work.te_points, work.scale)
-        work.request.specs[bname] = FamilySpec(factor=1.0, method="remesh")
+            work.te_edges[n] = _listed_edges(work.mesh, n, work.te_points, work.scale)
+        work.specs[bname] = FamilySpec(factor=1.0, method="remesh")
         work.remesh.append(bname)
         work.conform[bname] = work.conform.pop(name)
         if name in work.shared:
@@ -669,7 +774,7 @@ def _bands(work: _Work) -> None:
 
 def _rebuild_whole(work: _Work, name: str, band: int) -> None:
     """Remesh a neighbour the band covers whole at factor 1, warn and record it (FR-431)."""
-    work.request.specs[name] = FamilySpec(factor=1.0, method="remesh")
+    work.specs[name] = FamilySpec(factor=1.0, method="remesh")
     work.remesh.append(name)
     work.remesh.sort(key=work.names.index)
     faces = len(work.original[name])
@@ -685,7 +790,7 @@ def _rebuild_whole(work: _Work, name: str, band: int) -> None:
         f"the refined grid covers all {faces} faces of the family, so it was rebuilt whole at "
         'factor 1, as if stated factor = 1, method = "remesh"',
         PyflightstreamWarning,
-        stacklevel=2,
+        stacklevel=4,  # warn's caller is _rebuild_whole: past _bands and refine_mesh, the user
     )
 
 
@@ -715,7 +820,7 @@ def _conform_cuts(work: _Work) -> None:
         work.mesh.families,
         work.cuts,
         work.request.periodic,
-        remeshed={n: _cut_factor(work.request.specs[n]) for n in work.remesh},
+        remeshed={n: _cut_factor(work.specs[n]) for n in work.remesh},
         grids={n: (pts, fams[n]) for n, (pts, fams, _) in work.parts.items() if n in work.grids},
     )
     for name, entries in planned.items():
@@ -736,7 +841,7 @@ def _remesh_groups(work: _Work) -> None:
     for group in groups:
         ordered = [n for n in work.names if n in group]
         te = set().union(*(work.te_of[n] for n in ordered))
-        factors = {n: work.request.specs[n].factor for n in ordered}
+        factors = {n: work.specs[n].factor for n in ordered}
         conform = [c for n in ordered for c in work.conform.get(n, [])]
         stretches = [s for s in (_stretch_of(work, n) for n in ordered) if s is not None]
         stretch = stretches[0] if stretches else None
@@ -751,9 +856,20 @@ def _remesh_groups(work: _Work) -> None:
             stretch=stretch,
             elements=modes,
             shared=shared,
+            te_edges=set().union(*(work.te_edges[n] for n in ordered)),
         )
-        at_curve = done.info.get("shared_edge_target_m", {})
-        info = {k: v for k, v in done.info.items() if k != "shared_edge_target_m"}
+        at_curve = done.info.get("shared_edge_target_mesh_units", {})
+        unit = _obj.mesh_unit(work.source)
+        to_metres = None if unit is None else length_scale(unit, "METER")
+        target_key = (
+            "shared_edge_target_mesh_units" if to_metres is None else "shared_edge_target_m"
+        )
+        if to_metres is not None:
+            at_curve = {
+                n: {key: value * to_metres for key, value in measures.items()}
+                for n, measures in at_curve.items()
+            }
+        info = {k: v for k, v in done.info.items() if k != "shared_edge_target_mesh_units"}
         for n in ordered:
             entry = work.report.setdefault(n, {"method": "remesh"})
             entry.update(
@@ -764,10 +880,10 @@ def _remesh_groups(work: _Work) -> None:
             )
             entry.update(work.rebuilt.get(n, {}))
             if n in at_curve and n not in work.bands:  # FR-432 R3, under the rebuilt family
-                entry["shared_edge_target_m"] = at_curve[n]
+                entry[target_key] = at_curve[n]
         for n in ordered:
             if n in work.bands and n in at_curve:  # FR-432 R3, under the band's family
-                work.report[work.bands[n]]["shared_edge_target_m"] = at_curve[n]
+                work.report[work.bands[n]][target_key] = at_curve[n]
         work.parts[ordered[0]] = (done.points, done.families, done.trailing_edge)
 
 
@@ -790,7 +906,7 @@ def _assemble(work: _Work) -> tuple[Points, dict[str, Faces], Points]:
     te: list[Points] = []
     offset = 0
     copied_te = numpy.zeros(len(work.te_points), dtype=bool)
-    changed = set(work.request.specs)
+    changed = set(work.specs)
     for name in work.names:
         if name in work.parts:
             pts, fams, mids = work.parts[name]
@@ -816,9 +932,25 @@ def _assemble(work: _Work) -> tuple[Points, dict[str, Faces], Points]:
         faces[family] = order_like(
             verts, faces[family] + faces.pop(band), work.mesh.verts, work.original[family]
         )
-    midpoints = numpy.vstack(te) if te else numpy.zeros((0, 3))
+    midpoints = _distinct(numpy.vstack(te) if te else numpy.zeros((0, 3)), work.scale)
     verts, faces = _source_numbering(verts, faces, work.mesh.verts, work.scale)
     return verts, faces, midpoints
+
+
+def _distinct(points: Points, scale: float) -> Points:
+    """Return the trailing-edge mid-points with each edge's named once, the first kept.
+
+    A grid whose trailing-edge nodes did not change and an unchanged family
+    holding the same edges both write them; the workflow refuses a points file
+    naming one edge twice, so a point within TE_POINT_FRACTION of the size of
+    one kept before is dropped.
+    """
+    tolerance = _geometry.TE_POINT_FRACTION * scale
+    kept: list[int] = []
+    for i, point in enumerate(points):
+        if not kept or float(numpy.linalg.norm(points[kept] - point, axis=1).min()) >= tolerance:
+            kept.append(i)
+    return points[kept]
 
 
 def _source_numbering(
@@ -930,6 +1062,92 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
     return text
 
 
+def _route_detected_te(work: _Work, stem: str) -> None:
+    """Name the level's points file in its boundaries file when the refinement detected it.
+
+    A kept row's trailing edge detected by the refinement (FR-430 R4, R7) is
+    written to ``<stem>.te.txt``, and a boundaries file that routes the
+    trailing edge to detection names no file, so the run would mark the
+    trailing edge by the workflow's own rule and never read the audited line
+    (PFS-2088.018). When every family the ``detect`` route selects is one
+    whose line the refinement detected, the level's boundaries file states
+    ``file = "<stem>.te.txt"`` in place of ``detect``: the run then marks
+    exactly the line the refinement kept and the audit checked. A ``file``
+    and a ``detect`` cannot both be stated, so when the route also selects a
+    family the refinement did not detect on, ``detect`` stays (that family
+    still needs it) and a warning names the points file as one the run does
+    not read.
+
+    Raises
+    ------
+    InputArtifactError
+        The ``detect`` value cannot be rewritten; nothing was written.
+    """
+    detected = sorted(n for n, how in work.te_source.items() if how == "detected")
+    if not detected or work.sidecar is None:
+        return
+    data = tomllib.loads(work.sidecar)
+    table = data.get(_obj.TRAILING_EDGES_TABLE)
+    if not isinstance(table, dict) or "detect" not in table:
+        return
+    routed = [n for n in work.names if work.te_route.detects(n)]
+    others = [n for n in routed if n not in detected]
+    target = f"{stem}{TE_SUFFIX}"
+    if others:
+        warn(
+            f"{work.source}: the trailing edge of {', '.join(detected)} detected for its kept "
+            f"rows is written to {target}, which the level's boundaries file does not name: "
+            f"its detect route also covers {', '.join(others)}, and a boundaries file states "
+            "either a points file or detection, so the run detects with its own rule. List "
+            "every trailing edge in a points file to make the run read the refined line.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+        return
+    wanted = copy.deepcopy(data)
+    del wanted[_obj.TRAILING_EDGES_TABLE]["detect"]
+    wanted[_obj.TRAILING_EDGES_TABLE]["file"] = target
+    work.sidecar = _replace_key(
+        work.source, work.sidecar, "detect", table["detect"], "file", target, wanted
+    )
+
+
+def _replace_key(
+    side: Path, text: str, key: str, old: object, new_key: str, new: str, wanted: dict[str, Any]
+) -> str:
+    """Return ``text`` with ``key = old`` replaced by ``new_key = new``, parsing to ``wanted``.
+
+    The same search as :func:`_rewrite`: every spelling of the key, the
+    shortest value text that parses to ``old``, and the first replacement
+    whose whole file parses to ``wanted``.
+    """
+    spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
+    for match in re.finditer(spelled, text):
+        start = match.end()
+        # A detect value may be an inline table, closed by its brace.
+        for end in (m.end() for m in re.finditer(r"[\"'\]}]", text[start:])):
+            end += start
+            try:
+                value = tomllib.loads("v = " + text[start:end] + "\n")["v"]
+            except tomllib.TOMLDecodeError:
+                continue
+            if value != old:
+                continue
+            replaced = f"{new_key} = {json.dumps(new, ensure_ascii=False)}"
+            candidate = text[: match.start()] + replaced + text[end:]
+            try:
+                if tomllib.loads(candidate) == wanted:
+                    return candidate
+            except tomllib.TOMLDecodeError:
+                pass
+            break
+    raise _refuse(
+        str(side),
+        f"the trailing-edge route {key} cannot be rewritten to name the level's points file; "
+        f"state it as {key} = {json.dumps(old, ensure_ascii=False)} and run again",
+    )
+
+
 #: The places a value can be closed: a quote of a string or the bracket of an array.
 _VALUE_ENDS = re.compile(r"[\"'\]]")
 
@@ -974,15 +1192,16 @@ def _value_of(data: dict[str, Any], key: str) -> object:
 
 
 def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]:
+    # FR-433 R4: every selected family and its factor, a factor-1 family kept unchanged
+    # included; the method each got is in "families".
     specs = {
         n: {k: v for k, v in vars(s).items() if v is not None}
         for n, s in work.request.specs.items()
-        if n not in work.bands and n not in work.rebuilt
     }
     periodic = {} if work.periodic is None else {"periodic": work.periodic}
     shortened = {} if work.tag_selection is None else {"tag_selection": work.tag_selection}
     return {
-        "schema_version": _geometry.SCHEMA_VERSION,
+        "schema_version": REFINE_SCHEMA_VERSION,
         "source": work.source.name,
         "level": stem,
         "config": None if work.request.config is None else work.request.config.name,
@@ -1034,7 +1253,8 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
     its name, and never the source's folder, one holding it, or one inside
     it, so neither ``overwrite`` nor the write reaches anything else.
     """
-    root = Path(out_dir) if out_dir is not None else source.parent.parent
+    # Resolved first: a bare file name's parent is ".", whose parent is "." again.
+    root = Path(out_dir) if out_dir is not None else source.resolve().parent.parent
     folder = root / stem
     level, home = folder.resolve(), source.parent.resolve()
     if Path(stem).name != stem or level.parent != root.resolve():
@@ -1047,18 +1267,18 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
     if level == home:
         raise _refuse(
             str(folder),
-            "the level folder is the source's folder; choose another out_dir (CLI: --out-dir)",
+            "the level folder is the source's folder; choose another out_dir (CLI: --out)",
         )
     if home.is_relative_to(level):
         raise _refuse(
             str(folder),
-            "the level folder holds the source's folder; choose another out_dir (CLI: --out-dir)",
+            "the level folder holds the source's folder; choose another out_dir (CLI: --out)",
         )
     if level.is_relative_to(home):
         raise _refuse(
             str(folder),
             "the level folder lies inside the source's folder; choose an out_dir "
-            "(CLI: --out-dir) outside the source's folder",
+            "(CLI: --out) outside the source's folder",
         )
     if folder.exists() and not overwrite:
         raise _refuse(
@@ -1128,12 +1348,14 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     'W1_R2'
     """
     source = Path(mesh)
+    if not source.is_file():
+        raise _refuse(str(source), "no such OBJ file; name an existing OBJ and run again")
     obj = _obj.read_obj(source)
     request = _config.resolve_request(
         source,
         list(obj.families),
         factor=factor,
-        families=families,
+        families=[families] if isinstance(families, str) else families,
         chordwise=chordwise,
         spanwise=spanwise,
         config=config,
@@ -1149,6 +1371,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
         obj.verts, obj.families, request.periodic, size=work.scale, where=where
     )
     _decide(work)
+    _route_detected_te(work, stem)
     _refine_grids(work)
     _bands(work)
     _conform_cuts(work)
@@ -1184,7 +1407,7 @@ def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
     one, in the level's family order. ``refine.json`` lists them, so the
     audit of a saved level judges G6 as the refinement's own audit does.
     """
-    ones = {n for n in work.grids if work.request.specs[n].directions == (1.0, 1.0)}
+    ones = {n for n in work.grids if work.specs[n].directions == (1.0, 1.0)}
     components = work.request.components
     return [
         n

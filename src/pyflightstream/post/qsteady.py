@@ -575,6 +575,48 @@ GEOMETRY_SECTION_FRAMES = frozenset({"MRP"})
 _CLOCKING_FRAME = re.compile(rf"^(?P<frame>.+){POSITION_SUFFIX.upper()}\d{{2}}$")
 
 
+def _radius_from_the_hub(
+    frame: str | None,
+    plane: str,
+    offset: float,
+    *,
+    hub_m: Sequence[float] | None,
+    axis_vector: Sequence[float] | None,
+) -> float | None:
+    """Return a station's ``Offset`` measured from the hub, or None where it cannot be placed.
+
+    A frame of the rotor has the hub for its origin, so ``Offset`` is the
+    radius. A frame of :data:`GEOMETRY_SECTION_FRAMES` (and a clocking's copy
+    of one, turned about the shaft through the hub) has the moment point for
+    its origin: the station ``r = Offset e_n`` (``e_y`` of an XZ cut, ``e_z``
+    of an XY cut) is ``Offset - hub . e_n`` from the hub along the blade, and
+    only while the hub sits on the plane's radial line, ``hub . (a x e_n)``
+    zero; off it, Offset does not place the station and the radius is None.
+    """
+    name = str(frame or "").strip().upper()
+    clocked = _CLOCKING_FRAME.match(name)
+    if clocked is not None:
+        name = clocked.group("frame")
+    normal = {"XZ": 1, "XY": 2}.get(str(plane).strip().upper())
+    if name not in GEOMETRY_SECTION_FRAMES or normal is None:
+        return offset
+    if hub_m is None or axis_vector is None:
+        return None
+    hub = [float(value) for value in hub_m]
+    axis = [float(value) for value in axis_vector]
+    unit = [0.0, 0.0, 0.0]
+    unit[normal] = 1.0
+    side = (
+        axis[1] * unit[2] - axis[2] * unit[1],
+        axis[2] * unit[0] - axis[0] * unit[2],
+        axis[0] * unit[1] - axis[1] * unit[0],
+    )
+    scale = max(1.0, math.sqrt(sum(value * value for value in hub)))
+    if abs(sum(h * s for h, s in zip(hub, side, strict=True))) > 1e-9 * scale:
+        return None
+    return offset - hub[normal]
+
+
 def shaft_in_section_frame(record: QsteadyRecord, frame: str) -> tuple[float, float, float] | None:
     """Return the rotor's axis in the axes of section frame ``frame``, or None (0.31.0).
 
@@ -636,6 +678,29 @@ def _section_frames(layout: Sequence[Mapping[str, object]]) -> dict[tuple[str, s
         key: next(iter(names)) if len(names) == 1 and "" not in names else None
         for key, names in frames.items()
     }
+
+
+def _share_above(
+    values: Sequence[float],
+    above: Sequence[bool],
+    name: str,
+    alias: str,
+    notes: list[str],
+) -> float | None:
+    """Return the per cent of ``values`` carried above the limit, or None with a note."""
+    total = sum(values)
+    if total == 0.0:
+        notes.append(f"{name} reads NA: the total over the stations of rotor {alias} is zero")
+        return None
+    value = 100.0 * sum(v for v, hot in zip(values, above, strict=True) if hot) / total
+    if not 0.0 <= value <= 100.0:
+        notes.append(
+            f"{name} reads NA: the stations of rotor {alias} carry loads of opposite "
+            f"sign, so the share above k = 0.1 would be {value:.5g} per cent, outside "
+            "0 to 100, and the total has no sign to read it against"
+        )
+        return None
+    return value
 
 
 def add_reduced_frequency_to_sections(
@@ -700,9 +765,40 @@ def add_reduced_frequency_to_sections(
         return None
     alias = record.rotor_alias
     omega = _omega(record)
-    k_of_row: list[float | None] = []
+    notes: list[str] = []
+    frame_of = _section_frames(layout) if layout is not None else None
+
+    def frame_of_row(row: Sequence[str]) -> tuple[str | None, str, str]:
+        family = row[index["FAMILY"]] if "FAMILY" in index else ""
+        plane = row[index["PLANE"]] if "PLANE" in index else ""
+        frame = f"{alias}_RMRP" if frame_of is None else frame_of.get((family, plane))
+        return frame, family, plane
+
+    # THE STATION'S RADIUS IS FROM THE HUB (PFS-2105.035): Offset is measured
+    # from its frame's origin, which is the hub for a frame of the rotor and
+    # the moment point for MRP.
+    radius_of_row: list[float | None] = []
+    unplaced = False
     for row in rows:
-        radius = _number(row[index["Offset"]])
+        offset = _number(row[index["Offset"]])
+        frame, family, plane = frame_of_row(row)
+        radius = (
+            None
+            if offset is None
+            else _radius_from_the_hub(
+                frame, plane, offset, hub_m=record.hub_m, axis_vector=record.axis_vector
+            )
+        )
+        if row[index["ROTOR"]] == alias and offset is not None and radius is None:
+            unplaced = True
+            notes.append(
+                f"K_1P of rotor {alias} reads NA in block {family} {plane}: the cut is in the "
+                f"axes of frame {frame} and the hub sits off the plane's radial line, so "
+                "Offset does not place the station on the blade"
+            )
+        radius_of_row.append(radius)
+    k_of_row: list[float | None] = []
+    for row, radius in zip(rows, radius_of_row, strict=True):
         chord = _number(row[index["Chord"]])
         if row[index["ROTOR"]] != alias or radius is None or chord is None:
             k_of_row.append(None)
@@ -728,15 +824,13 @@ def add_reduced_frequency_to_sections(
         if first is not None
         else candidates
     )
-    chosen.sort(key=lambda at: abs(_number(rows[at][index["Offset"]]) or 0.0))
-    radii = [abs(_number(rows[at][index["Offset"]]) or 0.0) for at in chosen]
+    chosen.sort(key=lambda at: abs(radius_of_row[at] or 0.0))
+    radii = [abs(radius_of_row[at] or 0.0) for at in chosen]
     chords = [_number(rows[at][index["Chord"]]) or 0.0 for at in chosen]
     frequencies = reduced_frequencies(
         radii, chords, omega_rad_s=omega, velocity_m_per_s=velocity_m_per_s, source="sections"
     )
     strips = strip_lengths(radii)
-    notes: list[str] = []
-    frame_of = _section_frames(layout) if layout is not None else None
     along: list[tuple[float, float]] = []
     gaps = _unread_stations(path.name, columns, rows, alias, first)
     if gaps:
@@ -746,22 +840,17 @@ def add_reduced_frequency_to_sections(
             + f", so the sectional loads of rotor {alias} are not all known and a gap is "
             "never read as a zero load"
         )
-    projected = not gaps
+    projected = not gaps and not unplaced
     stations = list(zip(chosen, strips, strict=True)) if projected else []
     for at, w in stations:
         row = rows[at]
-        family = row[index["FAMILY"]] if "FAMILY" in index else ""
-        plane = row[index["PLANE"]] if "PLANE" in index else ""
-        if frame_of is None:
-            frame: str | None = f"{alias}_RMRP"
-        else:
-            frame = frame_of.get((family, plane))
+        frame, family, plane = frame_of_row(row)
         shaft = shaft_in_section_frame(record, frame) if frame is not None else None
         station = (
             section_station_shaft_loads(
                 _number(row[index["Fx"]]) or 0.0,
                 _number(row[index["Fz"]]) or 0.0,
-                _number(row[index["Offset"]]) or 0.0,
+                radius_of_row[at] or 0.0,
                 plane=plane,
                 shaft=shaft,
             )
@@ -784,26 +873,14 @@ def add_reduced_frequency_to_sections(
             break
         along.append((station[0] * w, station[1] * w))
     above = [k > REDUCED_FREQUENCY_LIMIT for k in frequencies.k]
-
-    def share(values: Sequence[float], name: str) -> float | None:
-        total = sum(values)
-        if total == 0.0:
-            notes.append(f"{name} reads NA: the total over the stations of rotor {alias} is zero")
-            return None
-        value = 100.0 * sum(v for v, hot in zip(values, above, strict=True) if hot) / total
-        if not 0.0 <= value <= 100.0:
-            notes.append(
-                f"{name} reads NA: the stations of rotor {alias} carry loads of opposite "
-                f"sign, so the share above k = 0.1 would be {value:.5g} per cent, outside "
-                "0 to 100, and the total has no sign to read it against"
-            )
-            return None
-        return value
-
     thrust_share = torque_share = None
     if projected:
-        thrust_share = share([pair[0] for pair in along], "THRUST_PCT_K_GT_0_1")
-        torque_share = share([pair[1] for pair in along], "TORQUE_PCT_K_GT_0_1")
+        thrust_share = _share_above(
+            [pair[0] for pair in along], above, "THRUST_PCT_K_GT_0_1", alias, notes
+        )
+        torque_share = _share_above(
+            [pair[1] for pair in along], above, "TORQUE_PCT_K_GT_0_1", alias, notes
+        )
     validity = PointValidity(
         {
             "K_1P_MIN": frequencies.k_min,
@@ -953,7 +1030,15 @@ def clockings_of(
             report = parse_loads(path.read_text(encoding="utf-8", errors="replace"))
         except Exception as error:  # noqa: BLE001 -- any unreadable export is named, not raised
             return f"the loads export of clocking {position.index}, {path.name}: {error}"
-        speed = report.reference_velocity_m_s or report.freestream_velocity_m_s
+        speed = report.reference_velocity_m_s
+        if not isinstance(speed, int | float) or not math.isfinite(speed) or speed <= 0.0:
+            # ITS LOADS ARE TAKEN AT ITS REFERENCE VELOCITY (the definition of
+            # the quasi-steady rotor), so a clocking that states none is named,
+            # as mean_clocking_surfaces names it, never read at the free stream.
+            return (
+                f"the loads export of clocking {position.index}, {path.name}, states no "
+                "reference velocity, which is what its coefficients are normalised by"
+            )
         arguments = {
             "reference": reference,
             "density_kg_m3": density_kg_m3,

@@ -20,6 +20,7 @@ from pyflightstream.cases import (
     PlotsSpec,
     PprocSpec,
     SimCase,
+    classify_outputs,
 )
 from pyflightstream.commands import (
     CommandRegistry,
@@ -59,6 +60,9 @@ from ._solver_settings import (
 )
 from ._steady import (
     refuse_an_untranslatable_surface,
+)
+from ._streamlines import (
+    _pproc_streamlines,
 )
 from ._vocabulary import (
     _NOT_EXTRACTED_KINDS,
@@ -234,6 +238,12 @@ def additional_outputs(pproc: PprocSpec, *, stem: str, unsteady: bool) -> tuple[
     ]
     if unsteady and chosen.get("plots", True):
         kinds.append("plots")
+    if pproc.streamlines is not None:
+        # FR-460 R6: the traces of the reopened simulation.
+        if pproc.streamlines.surface:
+            kinds.append("streamlines_surface")
+        if pproc.streamlines.off_body:
+            kinds.append("streamlines_off_body")
     if chosen.get("log", True):
         kinds.append("log")
     # G45: the Tecplot is written from a VTK, which the extraction exports and keeps.
@@ -441,7 +451,18 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
     _analysis(case, script, moment_frame if isinstance(moment_frame, int) else None)
     if not unsteady:
         _setup_link.loads_selections(case, script)
-    _export_block(WorkflowConventions(outputs=tuple(case.outputs)), case, script, unsteady=unsteady)
+    # FR-460 R6: the streamlines of the additional pproc, traced in the reopened
+    # simulation after deleting those it carries; the post warns per extraction.
+    extraction = WorkflowConventions(outputs=tuple(case.outputs))
+    _pproc_streamlines(
+        case,
+        script,
+        frames,
+        surface_file=classify_outputs(list(case.outputs)).get("streamlines_surface"),
+        reopened=True,
+        placed=shadow,
+    )
+    _export_block(extraction, case, script, unsteady=unsteady)
     if case.pproc.products.boundary_layer_integrals:
         for block in script.section_blocks:
             block["loads_frame_index"] = script.loads_frame

@@ -68,7 +68,7 @@ def transition_case(**overrides) -> SimCase:
         "point": {"alpha": 0.0},
     }
     fields.update(overrides)
-    return SimCase(**fields)
+    return SimCase.model_validate(fields)
 
 
 def test_a_row_that_states_its_speeds_in_motions_reduces_at_all():
@@ -257,13 +257,12 @@ def test_the_windows_of_each_rotor_are_that_rotors_last_revolution():
     plan = reduction_windows(transition_case())
     assert plan is not None
     lengths = {}
-    for alias, blades in (("LIFT_L1", 4), ("PUSHER", 3)):
+    for alias, length in (("LIFT_L1", 273), ("PUSHER", 667)):
         windows = plan["rotors"][alias]["per_blade"]["windows"]
         assert len(windows) == 1, (alias, "item 8: one window, not one per blade", windows)
         (first, last) = windows[0]
         assert last == 720, (alias, "the window does not end at the run")
-        period = plan["rotors"][alias]["period_steps"]
-        assert last - first + 1 == blades * period, (alias, windows, blades, period)
+        assert last - first + 1 == length, (alias, windows, length)
         lengths[alias] = last - first + 1
 
     # PER ROTOR, which is the whole point of this file: two rotors at two
@@ -272,24 +271,27 @@ def test_the_windows_of_each_rotor_are_that_rotors_last_revolution():
     assert lengths["LIFT_L1"] != lengths["PUSHER"], lengths
 
 
-def test_the_phase_locked_passages_of_each_rotor_start_at_the_rows_window():
+def test_the_phase_locked_passages_of_each_rotor_start_at_its_own_window():
     """THE HALF NOTHING ASSERTED, and a mutant lived in it.
 
     A mutant cutting each rotor's phase-locked passages from STEP ONE
-    instead of from the row's export window survived the whole suite (the
+    instead of from the rotor's export window survived the whole suite (the
     QA lens, 2026-09-10). That is the requirement's own defect sentence
     for the phase-locked half: the file is written, the columns are
     right, and the average is over the wrong window.
     """
     plan = reduction_windows(transition_case())
     assert plan is not None
-    opens = plan["time_average"]["windows"][0][0]
+    expected = {
+        "LIFT_L1": [[448, 515], [516, 583], [584, 651], [652, 719]],
+        "PUSHER": [[54, 275], [276, 497], [498, 719]],
+    }
     for alias in ("LIFT_L1", "PUSHER"):
         entry = plan["rotors"][alias]["phase_locked"]
-        windows, period = entry["windows"], entry["period_steps"]
-        assert windows[0][0] == opens, (alias, "the passages do not start at the row's window")
-        for first, last in windows:
-            assert last - first + 1 == period, (alias, "a passage is not one blade passage")
+        windows = entry["windows"]
+        opens = plan["rotors"][alias]["per_blade"]["windows"][0][0]
+        assert windows[0][0] == opens, (alias, "the passages do not start at its own window")
+        assert windows == expected[alias], (alias, "physical passage boundaries drift")
         for earlier, later in zip(windows, windows[1:], strict=False):
             assert later[0] == earlier[1] + 1, (alias, "the passages are not contiguous")
 
@@ -432,7 +434,7 @@ def swept_ratio_case(**overrides) -> SimCase:
         "point": {"alpha": 0.0, "beta": 0.0, "advance_ratio": 1.7},
     }
     fields.update(overrides)
-    return SimCase(**fields)
+    return SimCase.model_validate(fields)
 
 
 def test_a_motions_row_that_sweeps_the_advance_ratio_reduces_at_all():

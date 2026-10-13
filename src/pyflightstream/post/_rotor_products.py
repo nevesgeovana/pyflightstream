@@ -262,7 +262,8 @@ def _acoustic_products(
     layer records it, ``with_acoustic_signals``): a path relative to the point's
     simulation folder, or absolute. A record without one asks for no acoustics,
     and nothing is said. A file
-    that cannot be read is named under ``acoustics`` in ``skipped`` and warned
+    that cannot be read is named in ``skipped`` under the point's own key,
+    ``acoustics/<stem>_acoustics_summary.csv``, and warned
     in ``post.log``; every ``NA`` the writer owes is warned too. Nothing blocks.
     """
     listed = next(
@@ -278,7 +279,12 @@ def _acoustic_products(
     source = Path(listed)
     if not source.is_absolute():
         source = sim_dir / source
-    key = _acoustics.ACOUSTICS_DIR
+    folder = _acoustics.ACOUSTICS_DIR
+    # THE SKIP IS THE POINT'S, keyed by the path its summary would have had:
+    # `skipped` is the campaign's, so one key for every point kept only the
+    # last point's reason, and a post limited with --sims could not tell whose
+    # it was.
+    key = f"{folder}/{stem}_acoustics_summary.csv"
     try:
         signals = _acoustics.read_acoustic_signals(source)
     except ProductError as error:
@@ -294,14 +300,14 @@ def _acoustic_products(
         )
     try:
         made = _acoustics.write_acoustic_products(
-            signals, out / key, stem=stem, rotors=speeds, target=target
+            signals, out / folder, stem=stem, rotors=speeds, target=target
         )
     except (ProductError, OSError) as error:
         skipped[key] = str(error)
         warn(f"point={stem} product={key}: {error}", PyflightstreamWarning, stacklevel=2)
         return [], {}
     for note in made.notes:
-        warn(f"point={stem} product={key}: {note}", PyflightstreamWarning, stacklevel=2)
+        warn(f"point={stem} product={folder}: {note}", PyflightstreamWarning, stacklevel=2)
     names: dict[str, dict[str, object]] = {
         (path.relative_to(out) if path.is_relative_to(out) else path).as_posix(): {
             "runs": [record.run_id],
@@ -418,6 +424,11 @@ def _wheel_harmonics(
         blades=tuple((str(family),) for family in quasi.families_blades),
         diameter_m=float(quasi.diameter_m),
         azimuth_is_blade_one=False,
+        hub_m=quasi.hub_m,
+        axis_vector=quasi.axis_vector,
+        section_frames=_qsteady._section_frames(record.sections_layout)
+        if record.sections_layout is not None
+        else None,
     )
     return _write_harmonics(
         table,
@@ -481,10 +492,25 @@ def _harmonic_rotors(
                 blades=blades,
                 diameter_m=stated_diameter,
                 azimuth_is_blade_one=False,
+                hub_m=(block.x_m, block.y_m, block.z_m) if block is not None else None,
+                axis_vector=block.axis_vector if block is not None else None,
+                section_frames=_qsteady._section_frames(record.sections_layout)
+                if record.sections_layout is not None
+                else None,
             ),
             clock.get("steps_per_revolution"),
         )
     return table
+
+
+def _last_step_held(table: Path, *, fallback: int) -> int:
+    """Return the last STEP a written series holds, ``fallback`` where it cannot be read."""
+    try:
+        _columns, rows = read_csv_table(table)
+    except (ProductError, OSError):
+        return fallback
+    steps = [step for row in rows if (step := _step_of(row.get("STEP"))) is not None]
+    return max(steps) if steps else fallback
 
 
 def _unsteady_harmonics(
@@ -532,7 +558,12 @@ def _unsteady_harmonics(
         warn(f"point={stem} product={relative}: {missing}", PyflightstreamWarning, stacklevel=2)
         _skip_disc_maps(stem, missing, skipped)
         return None
-    first, last = int(window["first_step"]), int(window["time_iterations"])
+    first = int(window["first_step"])
+    # THE HISTORY ENDS AT THE LAST STEP THE SERIES HOLDS, not at the step the
+    # plan asked for: a run a wall clock stopped holds fewer, and the last
+    # revolution counted to the planned end was fitted over a partial cycle.
+    planned = int(window["time_iterations"])
+    last = min(_last_step_held(table, fallback=_last_time_step(record) or planned), planned)
     windows: dict[str, tuple[int, int]] = {}
     clocks: dict[str, float] = {}
     for alias, (_, per_revolution) in rotors.items():
@@ -630,8 +661,9 @@ def _qsteady_products(
 
     One pair per rotor, named after it like the rotor table:
     ``polars/P<sim>-<ALIAS>_qs_positions.csv`` and ``_qs_avg.csv``. A point
-    whose record or clocking export is missing is left out and named under the
-    file's key. A sector point is one clocking and is tabled like a wheel of
+    whose clocking export is missing is left out and named under the file's
+    key; one whose record cannot be read names no rotor, and is named under
+    ``runs/<run id>#qsteady_record``. A sector point is one clocking and is tabled like a wheel of
     one position. The validity is the sections' where the point has them, else
     the plan's estimate from the mesh (:mod:`pyflightstream.post.qsteady`).
     """
@@ -643,12 +675,16 @@ def _qsteady_products(
         record = record_of.get(point.name)
         if record is None or record.recipe != QSTEADY_ROTOR:
             continue
-        # A MISSING, UNREADABLE OR UNKNOWN RECORD is one refusal (0.31.0), and
-        # the point is named under the clockings tables' key, never a traceback.
+        # A MISSING, UNREADABLE OR UNKNOWN RECORD is one refusal (0.31.0), never
+        # a traceback. It is keyed under the point, beside its validity skip:
+        # with no record there is no rotor alias, and a made-up one named a
+        # positions file of a rotor called "rotor" that no plan writes.
         try:
             quasi = read_qsteady_record(point.loads_path)
         except QsteadyRecordError as error:
-            left_out.setdefault("?", []).append(f"{point.name}: {error}")
+            skipped[f"runs/{record.run_id}#qsteady_record"] = (
+                f"the quasi-steady point {point.name} is not a row of any clockings table: {error}"
+            )
             continue
         alias = quasi.rotor_alias
         validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)

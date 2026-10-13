@@ -17,11 +17,10 @@ from __future__ import annotations
 import re
 import string
 from collections.abc import Mapping
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pyflightstream._cli import for_this_invocation
+from pyflightstream._cli import _SELECTED_HPC
 from pyflightstream._digest import aliased_name_fault
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
@@ -220,10 +219,6 @@ def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
     return sorted(directory.glob("*.toml"))
 
 
-#: The profile stem the invocation selected (``--hpc NAME``), or None.
-_SELECTED_HPC: ContextVar[str | None] = ContextVar("pyflightstream_selected_hpc", default=None)
-
-
 def select_hpc_profile(name: str | None) -> None:
     """Select which profile :func:`resolve_hpc_profile` returns (0.35.0).
 
@@ -239,7 +234,10 @@ def select_hpc_profile(name: str | None) -> None:
         The selection is held in a context variable, so it belongs to the
         invocation that made it.
     """
-    for_this_invocation(_SELECTED_HPC, name)
+    # The stem, as select_cost_file takes it: h002 and h002.toml select one file.
+    from pyflightstream._cli import for_this_invocation
+
+    for_this_invocation(_SELECTED_HPC, None if name is None else Path(name).stem)
 
 
 def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
@@ -369,6 +367,33 @@ def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
                         )
 
 
+def _read_log_table(
+    target: Path, table: Mapping[str, object]
+) -> tuple[Mapping[str, object], bool, str | None]:
+    """Return the ``[log]`` table of a profile with its export_log and native_log, or refuse it."""
+    log = table.get("log") or {}
+    if not isinstance(log, Mapping):
+        raise InputArtifactError(
+            f"the HPC profile {target} has a log entry that is not a table. Write it as "
+            "[log], with export_log and native_log under it."
+        )
+    _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
+    export_log = _export_log(target, log)
+    native_log = str(log.get("native_log") or "").strip() or None
+    if native_log is not None:
+        _log_pattern(target, "native_log", native_log)
+    if not export_log and native_log is None:
+        raise InputArtifactError(
+            f"the HPC profile {target} states export_log = false and no native_log, which "
+            "asks for a run with no log at all. This package judges an unsteady run BY its "
+            "log -- the time loop always reaches its prescribed end, so without one every "
+            "such run is recorded COMPLETED_MAX_ITER whether it converged at every step or "
+            'at none. Name the log your scheduler writes, as native_log = "FTS{sim}.l*", '
+            "or leave export_log alone and let the script write it."
+        )
+    return log, export_log, native_log
+
+
 def read_hpc_profile(path: str | Path) -> HpcProfile:
     """Read one HPC profile, refusing what it cannot act on.
 
@@ -388,8 +413,10 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         If the file is not valid TOML, lacks the scheduler's application name,
         asks for a descriptor format or walltime arithmetic this package does
         not write, names a descriptor that is not a plain file name, lists no
-        descriptor fields or no submit command, or states a key this package
-        does not read (or one it owns under the wrong table).
+        descriptor fields or no submit command, states a key this package
+        does not read (or one it owns under the wrong table), states
+        descriptor, submit, defaults or log as something other than a table,
+        or states export_log as anything but true or false.
     """
     target = Path(path)
     table = load_toml(target, "hpc profile")
@@ -400,6 +427,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
                 "name for the application and the one field nothing else in the "
                 "workspace can supply, which is why it is the only mandatory one."
             )
+    _refuse_a_value_for_a_table(target, table)
     descriptor = table.get("descriptor") or {}
     fmt = str(descriptor.get("format") or "yaml").strip().lower()
     if fmt not in HPC_FORMATS:
@@ -444,24 +472,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         )
     _refuse_unknown_keys(target, table, HPC_PROFILE_KEYS, "at its top level")
     _refuse_a_misplaced_key(target, table)
-    log = table.get("log") or {}
-    if not isinstance(log, Mapping):
-        raise InputArtifactError(
-            f"the HPC profile {target} has a log entry that is not a table. Write it as "
-            "[log], with export_log and native_log under it."
-        )
-    _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
-    export_log = bool(log.get("export_log", True))
-    native_log = str(log.get("native_log") or "").strip() or None
-    if not export_log and native_log is None:
-        raise InputArtifactError(
-            f"the HPC profile {target} states export_log = false and no native_log, which "
-            "asks for a run with no log at all. This package judges an unsteady run BY its "
-            "log -- the time loop always reaches its prescribed end, so without one every "
-            "such run is recorded COMPLETED_MAX_ITER whether it converged at every step or "
-            'at none. Name the log your scheduler writes, as native_log = "FTS{sim}.l*", '
-            "or leave export_log alone and let the script write it."
-        )
+    log, export_log, native_log = _read_log_table(target, table)
     return HpcProfile(
         walltime_arithmetic=arithmetic,
         export_log=export_log,
@@ -486,6 +497,27 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         defaults=dict(table.get("defaults") or {}),
         path=target,
     )
+
+
+def _refuse_a_value_for_a_table(target: Path, table: Mapping) -> None:
+    """Refuse descriptor, submit or defaults stated as a value, before their keys are read."""
+    for name in ("descriptor", "submit", "defaults", "log"):
+        if name in table and not isinstance(table[name], Mapping):
+            raise InputArtifactError(
+                f"the HPC profile {target} has a {name} entry that is not a table. Write it "
+                f"as [{name}], with its keys under it."
+            )
+
+
+def _export_log(target: Path, log: Mapping) -> bool:
+    """Return ``[log] export_log``, a TOML boolean; bool("false") is True, so it is never cast."""
+    export_log = log.get("export_log", True)
+    if not isinstance(export_log, bool):
+        raise InputArtifactError(
+            f"the HPC profile {target} states export_log = {export_log!r} under [log]; "
+            "export_log is true or false, unquoted."
+        )
+    return export_log
 
 
 #: The one form ``max_walltime`` takes: hours (which may exceed 24), minutes, seconds.
@@ -529,11 +561,34 @@ def _job_root(target: Path, stated: object) -> str:
     return text
 
 
+def _log_pattern(target: Path, key: str, pattern: str) -> str:
+    """Validate the placeholders both log patterns can fill at collection."""
+    if not isinstance(pattern, str):
+        raise InputArtifactError(
+            f"the HPC profile {target} states {key} = {pattern!r}; write a string pattern"
+        )
+    try:
+        fields = {name for _, name, _, _ in string.Formatter().parse(pattern) if name is not None}
+        allowed = _JOB_ROOT_FIELDS | {"point"}
+        unknown = fields - allowed
+        if unknown:
+            raise ValueError(f"unknown placeholder(s): {', '.join(sorted(unknown))}")
+        pattern.format(**dict.fromkeys(allowed, "value"))
+        if not pattern.strip():
+            raise ValueError("an empty pattern")
+    except (KeyError, IndexError, ValueError) as error:
+        raise InputArtifactError(
+            f"the HPC profile {target} states {key} = {pattern!r}: {error}. "
+            "Use {work_dir}, {batch}, {sim} or {point}."
+        ) from error
+    return pattern.strip()
+
+
 def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:
     """Read ``[log] job_end_files`` (FR-311): a list of globs with native_log's placeholders."""
     try:
         valid = isinstance(ends, list) and all(
-            str(pattern.format(sim="s", point="p")).strip() for pattern in ends
+            _log_pattern(target, "job_end_files", pattern) for pattern in ends
         )
     except (AttributeError, IndexError, KeyError, ValueError):
         valid = False

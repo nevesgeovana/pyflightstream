@@ -20,6 +20,7 @@ import os
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
+from zipfile import BadZipFile
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import (
@@ -32,6 +33,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.matrix import ATTITUDE_KEYS, UNSTATED_CELLS, MatrixRow, read_matrix
 from pyflightstream.cases.windows import LAST_REVS_AVG, replan, stated_key
 from pyflightstream.results import parse_loads, parse_unsteady_plots
+from pyflightstream.run._collect_notes import _RecordAsCase
 from pyflightstream.workspace import (
     AdditionalRecord,
     CampaignWorkspace,
@@ -53,6 +55,7 @@ from pyflightstream.workspace.naming import (
     datapoint_name_of,
     resolve_manifest,
 )
+from pyflightstream.workspace.storage import ensure_sim_expanded
 
 # ---------------------------------------------------------------------------
 # 0.32.0, work package B3: the post and the collect of other records.
@@ -228,7 +231,9 @@ def manifest_workspace(root: str | Path, runs: str | None = None) -> CampaignWor
     path = resolve_manifest(root, runs)
     if path == resolve_manifest(root):
         return CampaignWorkspace(root)
-    if path.stem == FROM_SIMS_LABEL:
+    # Folded: on a case-insensitive file system post/<matrix>@Sims/ IS the
+    # from-sims folder.
+    if path.stem.casefold() == FROM_SIMS_LABEL:
         raise RunsManifestError(
             f"the manifest name {runs!r} would post into post/<matrix>{APART_MARK}"
             f"{FROM_SIMS_LABEL}/, the folder of the from_sims (CLI: --from-sims) post, whose "
@@ -254,6 +259,26 @@ def from_sims_workspace(
         root, matrix_stem, steps_per_revolution=steps_per_revolution
     )
     return ManifestWorkspace(root, label=FROM_SIMS_LABEL, assembled=assembled, refusals=refusals)
+
+
+def _settle_points(
+    by_point: dict[str, list[tuple[str, RunRecord]]],
+    pol: str,
+    assembled: list[RunRecord],
+    refusals: dict[str, str],
+) -> None:
+    """Keep the point with one export; refuse every export of a point with several."""
+    for pairs in by_point.values():
+        if len(pairs) == 1:
+            assembled.append(pairs[0][1])
+            continue
+        # TWO EXPORTS AT ONE POINT COST BOTH, never a choice between them.
+        names = ", ".join(export for export, _ in pairs)
+        for export, record in pairs:
+            refusals[export] = (
+                f"the point of the sweep: {names} report one point of row POL {pol}'s "
+                f"sweep, {dict(record.point)}; a point is one export, so none is chosen"
+            )
 
 
 def assemble_records(
@@ -324,9 +349,17 @@ def assemble_records(
     refusals: dict[str, str] = {}
     for row in read_matrix(matrix, active_only=False):
         sim_dir = workspace.root / "sims" / f"sim_{row.pol}"
+        where = f"sims/sim_{row.pol}"
+        try:
+            # A compacted simulation is read as if it never was, as post reads it.
+            ensure_sim_expanded(workspace, row.pol, reason="post --from-sims")
+        except (PyflightstreamError, OSError, BadZipFile) as error:
+            refusals[where] = (
+                f"the compacted simulation {where}.zip cannot be restored to be read ({error})"
+            )
+            continue
         if not sim_dir.is_dir():
             continue
-        where = f"sims/sim_{row.pol}"
         try:
             reference, pins, origin = _sims_row_inputs(workspace, row)
         except (PyflightstreamError, OSError, ValueError) as error:
@@ -352,17 +385,7 @@ def assemble_records(
                 refusals[export] = str(error)
                 continue
             by_point.setdefault(repr(sorted(record.point.items())), []).append((export, record))
-        for pairs in by_point.values():
-            if len(pairs) == 1:
-                assembled.append(pairs[0][1])
-                continue
-            # TWO EXPORTS AT ONE POINT COST BOTH, never a choice between them.
-            names = ", ".join(export for export, _ in pairs)
-            for export, record in pairs:
-                refusals[export] = (
-                    f"the point of the sweep: {names} report one point of row POL {row.pol}'s "
-                    f"sweep, {dict(record.point)}; a point is one export, so none is chosen"
-                )
+        _settle_points(by_point, row.pol, assembled, refusals)
         if not by_point and not any(name.startswith(f"{where}/") for name in refusals):
             refusals[where] = (
                 "the simulation folder holds no loads export, so no point of it can be assembled"
@@ -488,6 +511,24 @@ def _the_point(row: MatrixRow, export: str, alpha: float, beta: float) -> dict[s
     )
 
 
+class _FoundExports:
+    """A record as the collect's assessor reads it, with the folder its exports were found in.
+
+    The assessor reads ``exports_dir`` where a caller names one and judges that
+    folder alone; every other field is the record's own, read through the
+    collect's :class:`~pyflightstream.run.collect._RecordAsCase`.
+    """
+
+    __slots__ = ("_case", "exports_dir")
+
+    def __init__(self, case: object, exports_dir: Path) -> None:
+        self._case = case
+        self.exports_dir = exports_dir
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._case, name)
+
+
 def _assembled_record(
     workspace: CampaignWorkspace,
     row: MatrixRow,
@@ -502,7 +543,7 @@ def _assembled_record(
     version: str,
 ) -> RunRecord:
     """Assemble the record of one point from its loads export, or refuse it by name."""
-    from pyflightstream.run.collect import assessment_of_collected
+    from pyflightstream.run import LoadsAssessor
 
     export = f"sims/sim_{row.pol}/{loads.relative_to(sim_dir).as_posix()}"
     try:
@@ -573,7 +614,12 @@ def _assembled_record(
         warnings=[ASSEMBLED_NOTE],
     )
     try:
-        judged = assessment_of_collected(record, sim_dir)
+        # JUDGED IN THE FOLDER THE EXPORT WAS FOUND IN (PFS-2103.017): the
+        # collect's assessor reads a point's own datapoint folder, else outputs/
+        # and raw/, and an export elsewhere under the simulation folder read as
+        # no output at all.
+        case = _FoundExports(_RecordAsCase(record), loads.parent)
+        judged = LoadsAssessor()(case, None, sim_dir)  # type: ignore[arg-type]
     except (PyflightstreamError, OSError, ValueError) as error:
         raise WorkspaceError(
             f"the status: the collect's assessor cannot judge {export} ({error})"

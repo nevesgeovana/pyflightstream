@@ -63,6 +63,7 @@ from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import (
     CITATION_REACH_OUTCOMES,
     EditionVerdict,
+    ManualCommand,
     SurfaceChange,
     SweptCommand,
     citation_reach,
@@ -111,6 +112,15 @@ def _parser() -> argparse.ArgumentParser:
             "database. The manual is licensed vendor material: pass its path "
             "explicitly, it is never guessed, and nothing from it is copied "
             "into anything this writes."
+        ),
+        epilog=(
+            "coverage and draft require --manual PDF, --source ID and --chapter-pages "
+            "FIRST-LAST. Find the scripting reference range and optional --index-pages "
+            "range in that edition's table of contents; use one-based PDF page numbers, "
+            "inclusive. The source ID is its bibliography citation (for example SRC-753). "
+            "Example for the 26.121 edition: pyfs-manual coverage --manual manual.pdf "
+            "--source SRC-740 --chapter-pages 284-379. "
+            "Install pyflightstream[manual] to read PDFs."
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -750,6 +760,19 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     return 0
 
 
+def _manual_extra_error() -> str | None:
+    """Return the installation remedy when PDF support is unavailable."""
+    try:
+        import pypdf  # noqa: F401
+    except ImportError:
+        from pyflightstream.extras import missing_extra
+
+        return str(
+            missing_extra("manual", package="pypdf", purpose="reading a FlightStream manual pdf")
+        )
+    return None
+
+
 @cli_entrypoint
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line and return a process exit code.
@@ -767,6 +790,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     """
     parser = _parser()
     args = parser.parse_args(argv)
+    if remedy := _manual_extra_error():
+        print(remedy, file=sys.stderr)
+        return 2
 
     if args.command == "sweep":
         return _sweep(parser, args)
@@ -786,36 +812,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     index_range = _pages(parser, "--index-pages", args.index_pages) if args.index_pages else None
     if args.command == "draft" and args.write and not args.out:
         parser.error("--write needs --out; refusing to guess where to put a draft")
+    if not Path(args.manual).is_file():
+        parser.error(f"--manual {args.manual} is not a file; give the path of the manual pdf")
 
-    # A library refusal is a usage error when it arrives here: the caller
-    # typed a page range or a manual path. Letting it escape delivered
-    # the two failure modes of one flag two different ways, a parser
-    # error for a malformed range and a traceback for an out-of-range
-    # one.
-    try:
-        index = (
-            parse_script_index(
-                read_pdf_pages(args.manual, first=index_range[0], last=index_range[1])
-            )
-            if index_range is not None
-            else {}
-        )
-        manual = parse_signatures(
-            read_pdf_pages(args.manual, first=chapter_first, last=chapter_last), sections=index
-        )
-    except ManualDraftError as error:
-        parser.error(str(error))
+    manual = _read_manual(parser, args, (chapter_first, chapter_last), index_range)
     report = coverage_against(manual, recorded=CommandRegistry.load().commands)
 
     if args.command == "coverage":
-        print(f"{args.source}: {report.summary()}")
-        for name in report.absent:
-            command = report.details[name]
-            layout, _why = propose_layout(command)
-            print(f"  ABSENT  p.{command.page:<4} {name:<48} {command.section or '?'} [{layout}]")
-        for name in report.undocumented:
-            print(f"  ONLY IN THE DATABASE   {name}")
-        return 0
+        return _print_coverage(args, report)
 
     wanted = [
         command
@@ -830,20 +834,67 @@ def main(argv: Sequence[str] | None = None) -> int:
         wanted, source=args.source, versions=dict.fromkeys(args.versions, "documented")
     )
     if not args.write:
-        print(body)
-        # The CLI words its own closing line: write_chapter's dry-run
-        # sentence names the Python keyword `write=True`, which a
-        # command-line user cannot type, and printed the placeholder path
-        # as though it were a destination.
-        entries = body.count("\n  layout: ")
-        unanswered = body.count("???")
-        destination = f" --out {args.out}" if args.out else " --out PATH"
-        print(
-            f"dry run: {entries} entr(ies) drafted, {unanswered} unanswered field(s), "
-            f"nothing written. Re-run with --write{destination} to write them."
-        )
-        return 0
+        return _print_dry_run(args, body)
     print(write_chapter(body, path=args.out, write=True))
+    return 0
+
+
+def _read_manual(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    chapter_range: tuple[int, int],
+    index_range: tuple[int, int] | None,
+) -> dict[str, ManualCommand]:
+    """Return the signatures parsed from the manual, a library refusal being a usage error.
+
+    A library refusal is a usage error when it arrives here: the caller
+    typed a page range or a manual path. Letting it escape delivered
+    the two failure modes of one flag two different ways, a parser
+    error for a malformed range and a traceback for an out-of-range
+    one.
+    """
+    try:
+        index = (
+            parse_script_index(
+                read_pdf_pages(args.manual, first=index_range[0], last=index_range[1])
+            )
+            if index_range is not None
+            else {}
+        )
+        return parse_signatures(
+            read_pdf_pages(args.manual, first=chapter_range[0], last=chapter_range[1]),
+            sections=index,
+        )
+    except ManualDraftError as error:
+        parser.error(str(error))
+
+
+def _print_coverage(args: argparse.Namespace, report) -> int:
+    """Print the coverage of the manual against the database; return the exit code."""
+    print(f"{args.source}: {report.summary()}")
+    for name in report.absent:
+        command = report.details[name]
+        layout, _why = propose_layout(command)
+        print(f"  ABSENT  p.{command.page:<4} {name:<48} {command.section or '?'} [{layout}]")
+    for name in report.undocumented:
+        print(f"  ONLY IN THE DATABASE   {name}")
+    return 0
+
+
+def _print_dry_run(args: argparse.Namespace, body: str) -> int:
+    """Print the drafted chapter and the closing line of a dry run; return the exit code."""
+    print(body)
+    # The CLI words its own closing line: write_chapter's dry-run
+    # sentence names the Python keyword `write=True`, which a
+    # command-line user cannot type, and printed the placeholder path
+    # as though it were a destination.
+    entries = body.count("\n  layout: ")
+    unanswered = body.count("???")
+    destination = f" --out {args.out}" if args.out else " --out PATH"
+    print(
+        f"dry run: {entries} entr(ies) drafted, {unanswered} unanswered field(s), "
+        f"nothing written. Re-run with --write{destination} to write them."
+    )
     return 0
 
 

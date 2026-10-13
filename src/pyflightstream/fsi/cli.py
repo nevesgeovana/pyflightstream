@@ -9,8 +9,11 @@ dispatched on the run folder's content:
 * Coupled mode (WP7): a ``config.json`` in the working directory makes
   every call run :func:`pyflightstream.fsi.driver.coupling_step`, the
   complete four-phase machine of WP6. The loads and displacement
-  files of every call are archived under ``fsi_archive/`` so a run is
-  replayable offline afterwards.
+  files of every call, and the solver's ``FSInodes.txt`` when it wrote
+  one (direct morphing), are archived under ``fsi_archive/`` so a run is
+  replayable offline afterwards; a call that fails archives the same
+  files under ``fsi_archive/failed_<stamp>/``, so the loads that broke
+  it are kept too.
 * Dummy mode (WP1, kept as the fallback): with no ``config.json``,
   write zero displacements so the blade stays rigid and archive every
   interface file FlightStream produces; this is how the dry-run
@@ -18,7 +21,10 @@ dispatched on the run folder's content:
 
 Nothing printed to stdout is visible from inside the solver, so both
 modes log to files and any coupled-mode failure lands with its
-traceback in ``pyfs_fsi_error.log`` instead of a silent nonzero exit.
+traceback in ``pyfs_fsi_error.log`` instead of a silent nonzero exit,
+a missing ``[fsi]`` extra included. A failure of the explicit
+``pyfs-fsi step``, which a person runs, also prints its one-line cause
+and the log's path to stderr.
 """
 
 import argparse
@@ -31,6 +37,7 @@ from pathlib import Path
 
 import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint
+from pyflightstream.fsi._direct_morphing import AERO_NODES_FILE
 from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
 
 __all__ = [
@@ -78,14 +85,41 @@ def init_dummy(directory: Path, node_count: int) -> None:
     print(f"dummy config written: {directory / DUMMY_CONFIG} (node_count {node_count})")
 
 
-def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
+def _archive_call_files(cwd: Path, archive: Path) -> None:
+    """Copy the files that replay a coupled call into ``archive``.
+
+    The loads the call read, the displacement file, and the solver's
+    per-call ``FSInodes.txt`` when it wrote one: a direct-morphing call
+    reads that vertex list, so without it the call cannot be replayed.
+    """
+    archive.mkdir(parents=True, exist_ok=True)
+    for name in (LOADS_FILE, DISPLACEMENT_FILE, AERO_NODES_FILE):
+        source = cwd / name
+        if source.is_file():
+            shutil.copy2(source, archive / name)
+
+
+def _echo_failure(cwd: Path, message: str) -> None:
+    """Print a failed explicit step's one-line cause and the error log's path to stderr."""
+    first_line = message.strip().splitlines()[0] if message.strip() else "no message"
+    print(
+        f"pyfs-fsi step failed: {first_line}\nthe traceback is in {cwd / ERROR_LOG}",
+        file=sys.stderr,
+    )
+
+
+def coupled_step(
+    cwd: Path, received_argv: tuple[str, ...] = (), *, echo_failure: bool = False
+) -> int:
     """Execute one real coupling call in ``cwd`` (WP7 wiring).
 
     Runs :func:`pyflightstream.fsi.driver.coupling_step`, archives the
-    call's loads and displacement files for offline replay, and logs
-    the outcome. Any failure writes its traceback to the error log
-    and returns a nonzero exit code, which aborts the FlightStream
-    coupling instead of silently continuing rigid.
+    call's loads, displacement and (under direct morphing) aerodynamic
+    node files for offline replay, and logs the outcome. Any failure,
+    a missing ``[fsi]`` extra included, writes its traceback to the
+    error log, archives the files under ``failed_<stamp>`` and returns a
+    nonzero exit code, which aborts the FlightStream coupling instead of
+    silently continuing rigid.
 
     Parameters
     ----------
@@ -93,6 +127,10 @@ def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
         The coupling working directory.
     received_argv : tuple of str, optional
         The arguments the solver passed, recorded in the call log as evidence.
+    echo_failure : bool, optional
+        Also print a failure's one-line cause and the error log's path to
+        stderr: the explicit ``pyfs-fsi step`` is run by a person, who
+        reads the console; the solver's bare call shows no console.
 
     Returns
     -------
@@ -101,23 +139,27 @@ def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     """
     stamp = datetime.datetime.now().isoformat(timespec="milliseconds")
     argv_note = f"argv {list(received_argv)}" if received_argv else "argv none"
-    # PyNite lives behind the optional [fsi] extra; import at call time
-    # so the dummy mode keeps working without it.
-    from pyflightstream.fsi import driver
-
     try:
+        # PyNite lives behind the optional [fsi] extra; import at call time
+        # so the dummy mode keeps working without it, and inside the try so
+        # a missing extra reaches the error log like any other failure.
+        from pyflightstream.fsi import driver
+
         result = driver.coupling_step(cwd)
-    except Exception:
+    except Exception as exc:
         with _textio.open_text(cwd / ERROR_LOG, "a") as log:
             log.write(f"{stamp} coupled step failed in {cwd} ({argv_note})\n")
             log.write(traceback.format_exc() + "\n")
+        try:
+            _archive_call_files(cwd, cwd / ARCHIVE_DIR / f"failed_{stamp.replace(':', '-')}")
+        except OSError as archive_error:
+            # Archival is evidence of this failure, not a replacement for it.
+            with _textio.open_text(cwd / ERROR_LOG, "a") as log:
+                log.write(f"could not archive the failed call: {archive_error}\n")
+        if echo_failure:
+            _echo_failure(cwd, f"{type(exc).__name__}: {exc}")
         return 1
-    archive = cwd / ARCHIVE_DIR / f"call_{result.call:04d}"
-    archive.mkdir(parents=True, exist_ok=True)
-    for name in (LOADS_FILE, DISPLACEMENT_FILE):
-        source = cwd / name
-        if source.is_file():
-            shutil.copy2(source, archive / name)
+    _archive_call_files(cwd, cwd / ARCHIVE_DIR / f"call_{result.call:04d}")
     with _textio.open_text(cwd / CALL_LOG, "a") as log:
         log.write(
             f"{stamp} coupled call {result.call} (step {result.step}, phase "
@@ -126,7 +168,9 @@ def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     return 0
 
 
-def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
+def dummy_step(
+    cwd: Path, received_argv: tuple[str, ...] = (), *, echo_failure: bool = False
+) -> int:
     """Execute one dummy coupling call in ``cwd``.
 
     Archives the visible interface files, writes zero displacements,
@@ -140,6 +184,9 @@ def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
         The coupling working directory.
     received_argv : tuple of str, optional
         The arguments the solver passed, recorded in the call log as evidence.
+    echo_failure : bool, optional
+        Also print a failure's one-line cause and the error log's path to
+        stderr, as :func:`coupled_step` does for the explicit step.
 
     Returns
     -------
@@ -156,6 +203,8 @@ def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
             f"{stamp} pyfs-fsi called without {DUMMY_CONFIG} in {cwd} ({argv_note})\n"
             f"directory listing:\n{listing}\n",
         )
+        if echo_failure:
+            _echo_failure(cwd, f"no {COUPLED_CONFIG} and no {DUMMY_CONFIG} in {cwd}")
         return 1
     node_count = json.loads(config_path.read_text(encoding="utf-8"))["node_count"]
 
@@ -197,11 +246,11 @@ def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     return 0
 
 
-def _step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
+def _step(cwd: Path, received_argv: tuple[str, ...] = (), *, echo_failure: bool = False) -> int:
     """Dispatch one coupling call: coupled if configured, dummy otherwise."""
     if (cwd / COUPLED_CONFIG).is_file():
-        return coupled_step(cwd, received_argv=received_argv)
-    return dummy_step(cwd, received_argv=received_argv)
+        return coupled_step(cwd, received_argv=received_argv, echo_failure=echo_failure)
+    return dummy_step(cwd, received_argv=received_argv, echo_failure=echo_failure)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -223,9 +272,25 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     p_init = sub.add_parser("init-dummy", help="write the dummy configuration into a run directory")
     p_init.add_argument("--node-count", type=int, required=True)
-    p_init.add_argument("--dir", type=Path, default=Path.cwd())
+    init_out = p_init.add_mutually_exclusive_group()
+    init_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
+    init_out.add_argument("--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out")
     p_step = sub.add_parser("step", help="execute one coupling step explicitly")
-    p_step.add_argument("--dir", type=Path, default=Path.cwd())
+    step_out = p_step.add_mutually_exclusive_group()
+    step_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
+    step_out.add_argument("--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out")
+    p_external = sub.add_parser(
+        "external",
+        help=(
+            "run one coupling call of an external structural program: run it, archive "
+            "and validate the call (FR-462)"
+        ),
+    )
+    external_out = p_external.add_mutually_exclusive_group()
+    external_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
+    external_out.add_argument(
+        "--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out"
+    )
     return parser
 
 
@@ -249,19 +314,34 @@ def main(argv: list[str] | None = None) -> int:
         # FlightStream calls the executable bare: one coupling step,
         # coupled when the working directory carries a config.json.
         return _step(Path.cwd())
-    if argv[0] not in ("init-dummy", "step", "-h", "--help"):
+    if argv[0] not in ("init-dummy", "step", "external", "-h", "--help"):
         # Unknown call convention: the Toolbox may pass arguments of its
         # own. Execute the coupling step anyway and record the arguments
         # as evidence instead of dying on argparse.
         return _step(Path.cwd(), received_argv=tuple(argv))
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "legacy_dir", None) is not None:
+        from pyflightstream._errors import PyflightstreamWarning, warn
+
+        warn(
+            "--dir is deprecated since 0.40.0; use --out for the identical result.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        args.dir = args.legacy_dir
     if args.command == "init-dummy":
         if args.node_count < 1:
             parser.error("a structural node list has at least one node")
         init_dummy(args.dir, args.node_count)
         return 0
-    return _step(args.dir)
+    if args.command == "external":
+        from pyflightstream.fsi.external import external_step
+
+        return external_step(args.dir)
+    # The explicit step is run by a person at a console, so its failure is
+    # also said there (PFS-2085.003); the bare call above is the solver's.
+    return _step(args.dir, echo_failure=True)
 
 
 if __name__ == "__main__":

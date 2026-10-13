@@ -59,14 +59,13 @@ from __future__ import annotations
 
 import math
 import re
+import sys
 import warnings
 from collections.abc import Mapping, Sequence
 from os import PathLike, fspath
 from typing import Literal
 
-from pyflightstream._decimal import plain_decimal
 from pyflightstream._deprecations import ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES
-from pyflightstream._digest import one_file_key
 from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
@@ -80,6 +79,7 @@ from pyflightstream.script import (
     UnsteadyActionUse,
 )
 from pyflightstream.script._build_forms import (  # noqa: F401  (this module is the public path)
+    _unmarked_unit_refusal,
     assign_selected_ccs_curves,
     detect_every_boundary,
     every_boundary_detection,
@@ -101,6 +101,7 @@ from pyflightstream.script._settings import (  # noqa: F401  (this module is the
     _flush_pending_vorticity,
     _optional_toggle,
     _read,
+    _refuse_empty,
     _reject_bare_label,
     _reject_empty_selection,
     _toggle,
@@ -112,6 +113,18 @@ from pyflightstream.script._settings import (  # noqa: F401  (this module is the
     unsteady_solver,
 )
 from pyflightstream.script._settings import emit_solver_settings as _emit_solver_settings
+from pyflightstream.script._wake_edge_file import (  # noqa: F401  (this module is the public path)
+    WAKE_EDGE_ANGLE_ROUTE,
+    WAKE_EDGE_FILE_ROUTE_MEASURED_ON,
+    WAKE_EDGE_FILE_ROUTE_REPORT,
+    WAKE_EDGE_IMPORT_ROUTE,
+    WAKE_EDGE_NODE_PLACEHOLDER,
+    _refuse_a_parked_file_of_the_other_kind,
+    _same_file,
+    _simulation_length_units,
+    _where_parked,
+    render_wake_edge_node_file,
+)
 from pyflightstream.script.rotor_vocabulary import (
     EUCLIDEAN_ROTOR_UNIT,
     UNMARKED_EUCLIDEAN_ROTOR_UNIT,
@@ -239,30 +252,6 @@ def render_actuator_profile(text: str, *, source: str = "the radial thrust profi
             f"distribution needs at least two. {_PROFILE_FORM}"
         )
     return "\n".join(rows)
-
-
-def _same_file(parked: str, path: str) -> bool:
-    """Whether two paths a script parks are one file where the run writes them.
-
-    A path through a parent folder (``sub/../x``) names the file the folded path
-    names, and a path equal to another but for case is the same file on a
-    case-insensitive file system, as on Windows, as is a name Windows reads as
-    another's alias (a trailing dot or space); the run's writer holds every
-    parked file to the same rule (run._pending._write_pending_files).
-    """
-    return one_file_key(parked) == one_file_key(path)
-
-
-def _where_parked(parked: str, path: str) -> str:
-    """How a refusal names the parked file that ``path`` would replace."""
-    if parked == path:
-        return repr(path)
-    if parked.casefold() == path.casefold():
-        return (
-            f"{parked!r}, which differs from {path!r} only in case: a case-insensitive "
-            "file system reads the two as one file"
-        )
-    return f"{parked!r}, which is the file {path!r} names through a parent folder: one file"
 
 
 def actuator_disc(
@@ -417,6 +406,9 @@ def actuator_disc(
                 "both discs would read whichever won. Give this disc's profile a path of "
                 "its own"
             )
+        _refuse_a_parked_file_of_the_other_kind(
+            script, path, writing="input file", helper="actuator_disc"
+        )
     if swirl is not None and not 0.0 <= swirl <= 1.0:
         raise CommandArgumentError(
             f"actuator_disc swirl must lie between 0 and 1, got {swirl}: it is the "
@@ -487,12 +479,10 @@ def rotary_motion(
     missing ``CREATE_NEW_MOTION``.
 
     ON 26.100, WHICH NAMES THE TYPE EUCLIDEAN AND HAS NO SCRIPTED ROTOR MARK
-    (RPT-049), the motion is written as a Euclidean motion whose angular
-    velocity is the speed IN REV/MIN along the axis, with no rotor mark
-    (:func:`pyflightstream.script.rotor_vocabulary.unmarked_euclidean_rotor`,
-    RPT-051). The unit and the sense of rotation there are not measured, the
-    unit is a maintainer decision, and the solver is never told the motion is
-    a rotor; the script says so in a comment above the motion.
+    (RPT-049), a rotor is refused before emission (RPT-051). The angular
+    velocity unit has not been measured; the earlier rev/min decision
+    disagrees with the manual's rad/s and could turn the rotor 9.55 times
+    too fast. A rotation null test on this build must settle the unit.
 
     Each Euclidean speed is converted from rev/min by the unit its constant
     names (:data:`_FROM_REV_PER_MIN`), so a constant and the value written
@@ -521,6 +511,9 @@ def rotary_motion(
     start_time : float, optional
         Motion start within the solver physical time, in s; a positive
         value converges a steady base flow before the motion begins.
+        Refused on a ROTARY motion on every build: the solver stops the
+        script there with "Start time cannot be set for rotary motion"
+        (RPT-026), although the command runs on a 6DOF motion (RPT-166).
     wake_stabilization_blades : int, optional
         Enables slipstream wake stabilization with this blade count,
         which is PER ROTOR and not a total across the motion
@@ -542,44 +535,44 @@ def rotary_motion(
     Raises
     ------
     CommandArgumentError
-        On a Euclidean build, marked or not, if the axis is given by index
+        On 26.100 until the rotor unit is measured. On a Euclidean build,
+        marked or not, if the axis is given by index
         or a wake stabilization blade count is asked for, neither of which
         that vocabulary can state.
     """
     _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
     _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
+    if boundaries != "all":
+        boundaries = list(boundaries)
+        _refuse_empty("rotary_motion", "boundaries", boundaries, every="'all'")
+    if moving_frames is not None and moving_frames != "all":
+        moving_frames = list(moving_frames)
+        _refuse_empty("rotary_motion", "moving_frames", moving_frames, every="'all'")
+    # Upper-cased before the build's checks and the vector: the rotary
+    # builds match the axis case-insensitively, and the Euclidean ones
+    # refused 'z' as an axis given by index (PFS-2095.055).
+    axis = axis.upper() if isinstance(axis, str) else axis
     marked = euclidean_rotor(script._view)
     unmarked = unmarked_euclidean_rotor(script._view)
     euclidean = marked or unmarked
     if euclidean:
         _refuse_what_a_euclidean_rotor_cannot_state(script, axis, wake_stabilization_blades)
     if unmarked:
-        script.comment(
-            "\n".join(
-                (
-                    f"FlightStream {script.version.canonical} has no SET_MOTION_IS_ROTOR in the "
-                    "command database: the 26.100 solver",
-                    "does not recognize it (RPT-049), so this Euclidean motion is not marked as "
-                    "a rotor. Its angular velocity is",
-                    f"written in {UNMARKED_EUCLIDEAN_ROTOR_UNIT}, a maintainer decision, and "
-                    "neither the unit nor the sense is",
-                    "measured on this build. The 26.100 manual's rotor tutorial gives rad/s; if "
-                    "the solver reads",
-                    "rad/s, the rotor turns 60/(2 pi), about 9.55, times the speed stated "
-                    "(pyflightstream RPT-051).",
-                )
-            )
+        raise CommandArgumentError(_unmarked_unit_refusal(script.version.canonical))
+    if start_time is not None and not euclidean:
+        # A semantic refusal, not a status: SET_MOTION_START_TIME runs on a
+        # 6DOF motion (verified 2026-10-12, RPT-166) and the solver declines
+        # it for a ROTARY one, stopping the script (RPT-026). Refused before
+        # anything is emitted, so the caller's script is left untouched.
+        raise CommandArgumentError(
+            "rotary_motion(start_time=...) is refused: FlightStream stops the script at "
+            "SET_MOTION_START_TIME on a ROTARY motion ('Start time cannot be set for "
+            "rotary motion', RPT-026), although the command runs on a 6DOF motion "
+            "(RPT-166). Drop start_time for a rotary motion"
         )
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
     motion_id = script.num_motions
-    if boundaries == "all":
-        script.emit("SET_MOTION_BOUNDARIES", motion_id, -1)
-    else:
-        script.emit("SET_MOTION_BOUNDARIES", motion_id, len(boundaries), list(boundaries))
-    if moving_frames == "all":
-        script.emit("SET_MOTION_MOVING_FRAMES", motion_id, -1)
-    elif moving_frames is not None:
-        script.emit("SET_MOTION_MOVING_FRAMES", motion_id, len(moving_frames), list(moving_frames))
+    _emit_motion_selections(script, motion_id, boundaries, moving_frames)
     script.emit("SET_MOTION_COORDINATE_SYSTEM", motion_id, frame)
     if euclidean:
         unit = EUCLIDEAN_ROTOR_UNIT if marked else UNMARKED_EUCLIDEAN_ROTOR_UNIT
@@ -604,6 +597,23 @@ def rotary_motion(
             wake_stabilization_blades,
         )
     return motion_id
+
+
+def _emit_motion_selections(
+    script: Script,
+    motion_id: int,
+    boundaries: Sequence[int | str] | Literal["all"],
+    moving_frames: Sequence[int | str] | Literal["all"] | None,
+) -> None:
+    """Emit the boundaries and moving frames assigned to one motion."""
+    if boundaries == "all":
+        script.emit("SET_MOTION_BOUNDARIES", motion_id, -1)
+    else:
+        script.emit("SET_MOTION_BOUNDARIES", motion_id, len(boundaries), list(boundaries))
+    if moving_frames == "all":
+        script.emit("SET_MOTION_MOVING_FRAMES", motion_id, -1)
+    elif moving_frames is not None:
+        script.emit("SET_MOTION_MOVING_FRAMES", motion_id, len(moving_frames), list(moving_frames))
 
 
 def _refuse_what_a_euclidean_rotor_cannot_state(
@@ -720,7 +730,9 @@ def solver_settings(
     :class:`~pyflightstream.script.solver_setup.SolverSetup` snapshot
     records the effective value and provenance of every flag, passed or
     not, and is attached to the script as ``script.solver_setup`` for
-    the run manifest.
+    the run manifest. On a re-emission call a flag this call did not
+    pass keeps the record of the earlier call that emitted it, since its
+    line is still in the script.
 
     Two flags have library-level behavior:
 
@@ -736,11 +748,14 @@ def solver_settings(
       analysis phase: :func:`start_solver`, :func:`sweep`,
       :func:`analysis_setup`, or :func:`export_results`. A raw
       ``script.emit("START_SOLVER")`` does not flush it.
-    - ``minimum_cp`` unset emits ``SOLVER_MINIMUM_CP -100``: the
+    - ``minimum_cp`` unset emits ``SOLVER_MINIMUM_CP -100`` while the
+      script carries no SOLVER_MINIMUM_CP yet: the
       solver's own default -20 (SRC-003 p.221) clips the suction peaks
       of rotor blades, so -100 is the library default (design decision
       of 2026-07-22, retiring the earlier reference-velocity
-      workaround); pass the flag to override. The physics references
+      workaround); pass the flag to override. A re-emission call that
+      omits it leaves the limiter already in the script as it is, where
+      before 0.40.0 it wrote -100 over an earlier explicit value. The physics references
       were re-validated under this default, 30 of 30 metrics
       bit-identical (report
       PHY-26120_2026-07-23_reseed-cp100-2026-07-23). On a
@@ -976,7 +991,10 @@ def solver_settings(
     jet_wake_decay_normalized_length : float, optional
         Distance at which a jet wake decays to a tenth of its initial
         strength, in MULTIPLES OF THE JET WAKE DIAMETER rather than in
-        length units. Solver default 100.0, minimum 1.0. Not available
+        length units. Solver default 100.0 through 26.124 and 10.0 on
+        26.125 (SRC-753 p.358), minimum 1.0. The 26.125 snapshot records
+        an omitted value as unknown until version defaults have a structured
+        database field. Not available
         on 26.100 (SRC-003 p.346).
     solver_stabilization : float, optional
         Maximum level of stabilization applied to the main convergence,
@@ -990,7 +1008,8 @@ def solver_settings(
         command takes no argument, so False is the ABSENCE of the
         request rather than a way of asking for the opposite: the solver
         has no way to be told not to do this. Documented by the 26.121
-        edition alone (SRC-740 p.342).
+        edition alone (SRC-740 p.342). A bool only: a toggle word such
+        as 'DISABLE' is refused, because no line can say off.
     wake_decay_constant : float, optional
         Rate at which wake vorticity decays with distance, in units of
         1/m. The manual gives it as 19.1 divided by a characteristic
@@ -1160,10 +1179,11 @@ def sweep(
     clear_solution = _optional_toggle("sweep", "clear_solution", clear_solution)
     ref_velocity_same = _optional_toggle("sweep", "ref_velocity_same", ref_velocity_same)
     start = _read("sweep", "start", start)
-    if aoa is not None:
-        script.emit("SWEEPER_SET_AOA_SWEEP", "CUSTOM", list(aoa))
-    if beta is not None:
-        script.emit("SWEEPER_SET_BETA_SWEEP", "CUSTOM", list(beta))
+    aoa = _sweep_values("aoa", aoa)
+    beta = _sweep_values("beta", beta)
+    for command, values in (("SWEEPER_SET_AOA_SWEEP", aoa), ("SWEEPER_SET_BETA_SWEEP", beta)):
+        if values is not None:
+            script.emit(command, "CUSTOM", values)
     if velocity_file is not None:
         # BY NAME, not positionally. The velocity command used to declare
         # `filename` as its only tail, so a path was the second positional;
@@ -1172,17 +1192,36 @@ def sweep(
         # second. A positional path bound to `values` and raised, and no
         # test covered this keyword, so the whole suite stayed green.
         script.emit("SWEEPER_SET_VELOCITY_SWEEP", "CUSTOM", filename=velocity_file)
+    _emit_sweep_options(script, clear_solution, ref_velocity_same, post_run_script)
+    if start:
+        script.emit("SWEEPER_START")
+        _flush_pending_vorticity(script)
+    if export_spreadsheet is not None:
+        script.emit("SWEEPER_EXPORT_SPREADSHEET", export_spreadsheet)
+
+
+def _sweep_values(name: str, values: Sequence[float] | None) -> list[float] | None:
+    """Return one sweep axis as a list, refusing an empty one by name."""
+    if values is None:
+        return None
+    listed = list(values)
+    _refuse_empty("sweep", name, listed, every=None)
+    return listed
+
+
+def _emit_sweep_options(
+    script: Script,
+    clear_solution: Toggle | None,
+    ref_velocity_same: Toggle | None,
+    post_run_script: str | None,
+) -> None:
+    """Emit the sweep options that were given, in their documented order."""
     if clear_solution is not None:
         script.emit("SWEEPER_CLEAR_SOLUTION", _toggle(clear_solution))
     if ref_velocity_same is not None:
         script.emit("SWEEPER_REF_VELOCITY_SAME", _toggle(ref_velocity_same))
     if post_run_script is not None:
         script.emit("SWEEPER_POST_RUN_SCRIPT", "ENABLE", post_run_script)
-    if start:
-        script.emit("SWEEPER_START")
-        _flush_pending_vorticity(script)
-    if export_spreadsheet is not None:
-        script.emit("SWEEPER_EXPORT_SPREADSHEET", export_spreadsheet)
 
 
 def analysis_setup(
@@ -1253,36 +1292,15 @@ def analysis_setup(
     _reject_bare_label(
         "analysis_setup", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
     )
+    if boundaries is not None:
+        boundaries = list(boundaries)
+        _refuse_empty("analysis_setup", "boundaries", boundaries, every=None)
     symmetry_loads = _optional_toggle("analysis_setup", "symmetry_loads", symmetry_loads)
     inviscid_only = _optional_toggle("analysis_setup", "inviscid_only", inviscid_only)
     # Resolve this call's own selection before anything is emitted or
     # recorded, exactly as solver_settings does: a bad label must leave
     # the script, the deferred selection, and the snapshot untouched.
-    chosen: list[int] | Literal["all"] | None = None
-    if vorticity_drag_boundaries is not None:
-        if vorticity_drag_boundaries == "all":
-            chosen = "all"
-        else:
-            items = list(vorticity_drag_boundaries)
-            _reject_empty_selection("analysis_setup", "vorticity_drag_boundaries", items)
-            chosen = [
-                script.resolve_boundary(
-                    item, context="analysis_setup: argument 'vorticity_drag_boundaries'"
-                )
-                for item in items
-            ]
-        replaced = (
-            " This explicit call replaces the selection deferred by solver_settings."
-            if script._pending_vorticity is not None
-            else ""
-        )
-        # The text comes from the ledger, so the version it names and
-        # the one the deadline guard enforces cannot disagree.
-        warnings.warn(
-            f"{ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES.message()}{replaced}",
-            PyflightstreamDeprecationWarning,
-            stacklevel=2,
-        )
+    chosen = _deprecated_vorticity_selection(script, vorticity_drag_boundaries)
     # THE INIT GROUP FIRST, and it does not flush. symmetry_loads, the loads
     # frame and the moments model are init-phase settings, read DURING the
     # solve: the per-step force plots consume the symmetry setting, and the
@@ -1334,6 +1352,39 @@ def analysis_setup(
             script.solver_setup = with_vorticity_selection(script.solver_setup, chosen)
 
 
+def _deprecated_vorticity_selection(
+    script: Script, selection: Sequence[int | str] | Literal["all"] | None
+) -> list[int] | Literal["all"] | None:
+    """Resolve analysis_setup's deprecated induced-drag selection and warn at its caller."""
+    if selection is None:
+        return None
+    chosen: list[int] | Literal["all"]
+    if selection == "all":
+        chosen = "all"
+    else:
+        items = list(selection)
+        _reject_empty_selection("analysis_setup", "vorticity_drag_boundaries", items)
+        chosen = [
+            script.resolve_boundary(
+                item, context="analysis_setup: argument 'vorticity_drag_boundaries'"
+            )
+            for item in items
+        ]
+    replaced = (
+        " This explicit call replaces the selection deferred by solver_settings."
+        if script._pending_vorticity is not None
+        else ""
+    )
+    # The text comes from the ledger, so the version it names and
+    # the one the deadline guard enforces cannot disagree.
+    warnings.warn(
+        f"{ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES.message()}{replaced}",
+        PyflightstreamDeprecationWarning,
+        stacklevel=3,
+    )
+    return chosen
+
+
 def export_results(
     script: Script,
     *,
@@ -1367,12 +1418,32 @@ def export_results(
         of ``CP_REFERENCE`` and ``CP_FREESTREAM`` (SRC-003 p.352); the
         helper warns when it is requested.
     vtk_wake : bool or 'ENABLE' or 'DISABLE'
-        Include the wake in the VTK variable selection.
+        Include the wake in the VTK variable selection. Written only by
+        that selection, so True without ``vtk_variables`` is refused.
     force_distributions : str, optional
         Path of the force distribution vectors export, all boundaries.
+
+    Raises
+    ------
+    CommandArgumentError
+        If ``vtk_wake`` is True without ``vtk_variables``, or a boundary or
+        variable selection is a bare label the command cannot take.
     """
     _reject_bare_label("export_results", "vtk_boundaries", vtk_boundaries, allows_all=True)
+    _reject_bare_label("export_results", "vtk_variables", vtk_variables, allows_all=True)
     vtk_wake = _read("export_results", "vtk_wake", vtk_wake)
+    if vtk_wake and vtk_variables is None:
+        raise CommandArgumentError(
+            "export_results: vtk_wake=True includes the wake in the VTK variable "
+            "selection, which only vtk_variables writes (SET_VTK_EXPORT_VARIABLES, "
+            "SRC-003 p.352), and vtk_variables is None, so nothing would carry it. "
+            "Pass vtk_variables with it, 'all' for every variable, or drop vtk_wake"
+        )
+    # EVERY PATH OF THE CALL IS CHECKED BEFORE THE FIRST LINE (PFS-2093.004),
+    # against the script's export register and against each other, so a
+    # collision leaves the script untouched rather than half exported.
+    paths = [path for path in (spreadsheet, tecplot, vtk, force_distributions) if path is not None]
+    _refuse_export_path_collisions(script, paths)
     # Exports read the analysis state: land the induced-drag selection
     # deferred by solver_settings before the first export command.
     _flush_pending_vorticity(script)
@@ -1380,19 +1451,7 @@ def export_results(
         script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", spreadsheet)
     if tecplot is not None:
         script.emit("EXPORT_SOLVER_ANALYSIS_TECPLOT", tecplot)
-    if vtk_variables == "all":
-        script.emit("SET_VTK_EXPORT_VARIABLES", -1, _toggle(vtk_wake))
-    elif vtk_variables is not None:
-        if any(variable.upper() == "CP" for variable in vtk_variables):
-            warnings.warn(
-                "the CP export variable is flagged for depreciation; prefer "
-                "CP_REFERENCE or CP_FREESTREAM (SRC-003 p.352)",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
-        script.emit(
-            "SET_VTK_EXPORT_VARIABLES", len(vtk_variables), _toggle(vtk_wake), list(vtk_variables)
-        )
+    _emit_vtk_variables(script, vtk_variables, vtk_wake)
     if vtk is not None:
         if vtk_boundaries == "all":
             script.emit("EXPORT_SOLVER_ANALYSIS_VTK", vtk, -1)
@@ -1402,6 +1461,43 @@ def export_results(
             )
     if force_distributions is not None:
         script.emit("EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS", force_distributions, -1)
+    for path in paths:
+        # The emission registered each path under its command; the call site a
+        # caller wrote is this helper.
+        script._exported_paths[path] = "export_results"
+
+
+def _refuse_export_path_collisions(script: Script, paths: Sequence[str]) -> None:
+    """Refuse a path the register holds, or two paths of one call that are one file."""
+    for position, path in enumerate(paths):
+        script._refuse_export_collision(path, asker="export_results")
+        twin = next((p for p in paths[:position] if _same_file(p, path)), None)
+        if twin is not None:
+            raise CommandArgumentError(
+                f"export_results: {path!r} and {twin!r} are one file, and this call "
+                "exports two results to it. The solver writes one file per path, so "
+                "the second would silently replace the first. Give each export a path "
+                "of its own"
+            )
+
+
+def _emit_vtk_variables(
+    script: Script, vtk_variables: Sequence[str] | Literal["all"] | None, vtk_wake: bool
+) -> None:
+    """Emit the VTK variable selection, warning at export_results' caller about CP."""
+    if vtk_variables == "all":
+        script.emit("SET_VTK_EXPORT_VARIABLES", -1, _toggle(vtk_wake))
+    elif vtk_variables is not None:
+        if any(variable.upper() == "CP" for variable in vtk_variables):
+            warnings.warn(
+                "the CP export variable is flagged for depreciation; prefer "
+                "CP_REFERENCE or CP_FREESTREAM (SRC-003 p.352)",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
+        script.emit(
+            "SET_VTK_EXPORT_VARIABLES", len(vtk_variables), _toggle(vtk_wake), list(vtk_variables)
+        )
 
 
 def probe_points(
@@ -1471,6 +1567,13 @@ def probes_from_file(script: Script, path: str, *, units: str, frame: int | str 
     script.emit("PROBE_POINTS_IMPORT", units, frame, path)
 
 
+def _caller_site(depth: int) -> str:
+    """Name the ``file:line`` of the frame ``depth`` calls above this function's caller."""
+    frame = sys._getframe(depth + 1)
+    name = frame.f_code.co_filename.replace("\\", "/").rsplit("/", 1)[-1]
+    return f"{name}:{frame.f_lineno}"
+
+
 def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
     """Export the probe values, refreshing them first (SRC-003 pp.362-363).
 
@@ -1494,9 +1597,12 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
         identical lines and nothing anywhere recorded that only one
         survived (PFS-2011.02).
 
-        The message names BOTH call sites, because one naming only the
+        The message names the conflicting path and the EARLIER call: the
+        helper name the script stored with the path and, for this helper,
+        the file and line it was called from, because one naming only the
         second sends the reader to the wrong line: the one they need to
-        change is usually the earlier one.
+        change is usually the earlier one. The second site is the
+        traceback's.
 
     Notes
     -----
@@ -1504,19 +1610,13 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
     rather than here, because the collision is between two CALLS and
     only the script sees both.
     """
-    already = script._exported_paths.get(path)
-    if already is not None:
-        raise CommandArgumentError(
-            f"this script already exports to {path!r}, from {already}. The solver "
-            "writes one file per path, so the second export would silently replace "
-            f"the first and the script would carry two identical lines. Give "
-            f"export_probes a path of its own, for example one carrying the point "
-            "or the survey name."
-        )
+    # Checked before UPDATE_PROBE_POINTS, so a refusal writes no line; the
+    # script's one check (PFS-2093.004), which the emission repeats.
+    script._refuse_export_collision(path, asker="export_probes")
     if _read("export_probes", "update", update):
         script.emit("UPDATE_PROBE_POINTS")
     script.emit("EXPORT_PROBE_POINTS", path)
-    script._exported_paths[path] = "export_probes"
+    script._exported_paths[path] = f"export_probes (called at {_caller_site(1)})"
 
 
 def coordinate_frame(
@@ -2224,6 +2324,10 @@ def unsteady_action(
             "the first and both registration lines would point at whichever text won. "
             "Give this action a filename of its own"
         )
+    if action_script is not None:
+        _refuse_a_parked_file_of_the_other_kind(
+            script, filename, writing="action script", helper="unsteady_action"
+        )
 
     entry = script.registry.commands.get(UNSTEADY_ACTION_COMMAND)
     evidence = entry.evidence_in(script.version) if entry is not None else None
@@ -2243,111 +2347,6 @@ def unsteady_action(
     if action_script is not None:
         script._pending_action_scripts[filename] = action_script
     return record
-
-
-#: Marking wake edges from an imported node list, and the angle
-#: criterion it replaces. Named as a pair because the whole point of the
-#: refusal below is that one is never silently substituted for the other.
-WAKE_EDGE_IMPORT_ROUTE = "IMPORT_WAKE_EDGES_FROM_FILE"
-WAKE_EDGE_ANGLE_ROUTE = "AUTO_DETECT_TRAILING_EDGES"
-
-#: The coordinate line the 26.124 import consumes after the count and does
-#: not use (RPT-061): the first line holding three numbers is read and
-#: discarded, so a file without it loses its first point. It is a triple
-#: because a bare number or an empty line is skipped rather than consumed.
-WAKE_EDGE_NODE_PLACEHOLDER = "0,0,0"
-
-
-def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
-    """Return the text of the node file the wake-edge import reads on 26.124.
-
-    The layout is the one measured to mark (RPT-061): the number of points,
-    then :data:`WAKE_EDGE_NODE_PLACEHOLDER`, the coordinate line the solver
-    consumes and does not use, then one ``x,y,z`` row per trailing-edge
-    MID-POINT, in the simulation's length unit. There is no unit line and
-    no id column: the file's unit is not read, and a word or an id on any
-    line makes the import mark nothing, in silence.
-
-    Parameters
-    ----------
-    midpoints : sequence of (x, y, z)
-        The mid-points of the mesh edges to mark, already in the
-        simulation's length unit. Any sequence of three-number rows,
-        including an (n, 3) array.
-
-    Returns
-    -------
-    str
-        The file's text, newline separated and newline terminated.
-
-    Raises
-    ------
-    CommandArgumentError
-        If there is no point, a row is not three coordinates, or a
-        coordinate is not a finite number. Each names the point.
-
-    Examples
-    --------
-    >>> from pyflightstream.script import helpers
-    >>> print(helpers.render_wake_edge_node_file([(1.0, -3.75, 0.0)]), end="")
-    1
-    0,0,0
-    1.0,-3.75,0.0
-    """
-    rows = list(midpoints)
-    if not rows:
-        raise CommandArgumentError(
-            f"{WAKE_EDGE_IMPORT_ROUTE} node file: 0 edge mid-points were given, and the "
-            "points are what name the edges to mark. With none the import marks nothing "
-            "and says nothing, so the run would solve with no wake"
-        )
-    lines = [str(len(rows)), WAKE_EDGE_NODE_PLACEHOLDER]
-    for position, row in enumerate(rows, start=1):
-        where = f"point {position} of {len(rows)}"
-        try:
-            values = [float(value) for value in row]
-        except (TypeError, ValueError) as error:
-            raise CommandArgumentError(
-                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} is {row!r}, which is not "
-                f"three coordinates ({error})"
-            ) from error
-        if len(values) != 3:
-            raise CommandArgumentError(
-                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} holds {len(values)} values, "
-                "and every point is three coordinates, x, y and z"
-            )
-        if not all(math.isfinite(value) for value in values):
-            raise CommandArgumentError(
-                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} is {tuple(values)!r}, and a "
-                "coordinate that is not a finite number would be written as a word, which "
-                "makes the import mark nothing"
-            )
-        lines.append(",".join(plain_decimal(value) for value in values))
-    return "\n".join(lines) + "\n"
-
-
-# The command whose enumeration is the simulation's length-unit vocabulary,
-# which is where the import's third token is drawn from, is
-# `LENGTH_UNIT_COMMAND`, imported from its one home in the script root (AD-10).
-
-#: The one build the file route was run on, and the report that ran it.
-WAKE_EDGE_FILE_ROUTE_MEASURED_ON = "26.124"
-WAKE_EDGE_FILE_ROUTE_REPORT = "RPT-061"
-
-
-def _simulation_length_units(script: Script) -> tuple[str, ...]:
-    """Return the length-unit tokens the script's database records, OTHER excluded.
-
-    OTHER names no scale, so a node file converted to it would carry
-    coordinates in nothing the package can state.
-    """
-    entry = script.registry.commands.get(LENGTH_UNIT_COMMAND)
-    if entry is None:
-        return ()
-    for arg in entry.args:
-        if arg.name == "units":
-            return tuple(value for value in (arg.values or ()) if value != "OTHER")
-    return ()
 
 
 def mark_wake_edges(
@@ -2393,15 +2392,21 @@ def mark_wake_edges(
         point for the two to count as the same edge, in the simulation's
         own length units.
     units : str
-        The simulation's length unit, a token of SET_SIMULATION_LENGTH_UNITS
-        other than OTHER. Written as the third token; the points must
-        already be in it, because the solver reads no unit from the file.
+        The length unit of ``midpoints``, a token of
+        SET_SIMULATION_LENGTH_UNITS other than OTHER. The solver reads the
+        file in the simulation's unit and reads no unit from it, so where
+        the script knows that unit
+        (:attr:`~pyflightstream.script.Script.simulation_length_unit`) and
+        it differs, the points are converted into it and it is the unit
+        written as the third token (PFS-2104.027); where the script does
+        not know it, ``units`` is taken to be it and written.
     node_file : str or path-like
         Where the node file is written and read, the path the command's
         next line names.
     midpoints : sequence of (x, y, z)
         The mid-points of the mesh edges to mark, in ``units``. See
-        :func:`render_wake_edge_node_file`.
+        :func:`render_wake_edge_node_file`. ``tolerance`` is in the
+        simulation's unit whatever ``units`` says.
 
     Returns
     -------
@@ -2490,6 +2495,24 @@ def mark_wake_edges(
             "already be in it"
         )
     text = render_wake_edge_node_file(midpoints)
+    simulation = script.simulation_length_unit
+    if simulation is not None and simulation != units:
+        # THE SOLVER READS THE FILE IN THE SIMULATION'S UNIT (PFS-2104.027), so
+        # points stated in another are converted, and that unit is the one
+        # written: a METER file under a MILLIMETER simulation marked edges a
+        # thousand times too close to the origin, in silence.
+        from pyflightstream._lengths import scale
+
+        factor = scale(units, simulation)
+        if factor is None:
+            raise CommandArgumentError(
+                f"mark_wake_edges: the points are in {units} and this script's "
+                f"simulation length unit is {simulation}, which names no scale, so the "
+                "points cannot be stated in it. Set a simulation length unit with a scale"
+            )
+        midpoints = [[float(value) * factor for value in row] for row in midpoints]
+        text = render_wake_edge_node_file(midpoints)
+        units = simulation
     path = fspath(node_file)
     # A path equal to a parked one but for case is the same file on a
     # case-insensitive file system (Windows), so it is held to the same rule,
@@ -2504,6 +2527,9 @@ def mark_wake_edges(
             "the first and both import lines would read whichever text won. Give "
             "this import a node file of its own"
         )
+    _refuse_a_parked_file_of_the_other_kind(
+        script, path, writing="input file", helper="mark_wake_edges"
+    )
 
     # Emit, then park, then record: a build or an argument the emitter
     # refuses leaves no file parked and no count recorded.

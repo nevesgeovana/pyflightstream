@@ -76,7 +76,9 @@ def test_upgrade_drops_fs_script_and_round_trips(tmp_path, source):
     workflow = before_header.index("WORKFLOW")
     for pol, cells in old_rows.items():
         row = after[pol]
-        assert row.pproc_code == "p" + cells[entry][1:] if cells[entry][:1] == "e" else cells[entry]
+        old_entry = cells[entry]
+        expected = ("p" + old_entry[1:]) if old_entry[:1] == "e" else old_entry
+        assert row.pproc_code == expected, (pol, old_entry, row.pproc_code)
         if cells[workflow] == "LEGACY":
             assert row.script_code == cells[script], "a LEGACY row keeps its recipe code"
             assert row.variables[RECIPE_VARIABLE] == cells[script]
@@ -114,22 +116,24 @@ def test_groups_migrate_to_pproc_verbatim(tmp_path):
 
 
 def test_upgrade_adds_the_extension_to_every_geometry_cell(tmp_path):
-    """PFS-2029.09.02: a GEOMETRY value with no extension gains .fsm; one with one is kept."""
-    source = FIXTURES / "workflow_rotor_matrix.fs"
-    text = source.read_text(encoding="utf-8")
-    assert "GEOMETRY:" not in text, "the fixture is expected to name no geometry"
+    """PFS-2029.09.02: a GEOMETRY value with no extension gains .fsm; one with one is kept.
+
+    Read on a 0.11.0 file, the layout whose free cell held GEOMETRY: since
+    0.40.0 (PFS-2096.001) a file already at the current layout is returned
+    unchanged, so the stage is never asked to rename text the user wrote there.
+    """
+    source = FIXTURES / "pfs202609_matrix14.fs"
+    lines = source.read_text(encoding="utf-8").splitlines(keepends=True)
+    rows = [index for index, line in enumerate(lines) if line[:1].isdigit()]
+    for index, pair in zip(
+        rows, ("GEOMETRY: blade_sector / ", "GEOMETRY: wing.v2.fsm / "), strict=False
+    ):
+        head, separator, tail = lines[index].rpartition("| ")
+        lines[index] = head + separator + pair + tail
     target = tmp_path / "geometry.fs"
-    target.write_text(
-        text.replace(
-            "| VELOCITY: 30.0 / RPM", "| GEOMETRY: blade_sector / VELOCITY: 30.0 / RPM", 1
-        ).replace("| VELOCITY: 30.0\n", "| GEOMETRY: wing.v2.fsm / VELOCITY: 30.0\n", 1),
-        encoding="utf-8",
-    )
-    before = target.read_bytes()
+    target.write_text("".join(lines), encoding="utf-8")
     upgraded = upgrade_matrix(target, in_place=True)
-    assert b"GEOMETRY: blade_sector.fsm / VELOCITY" in upgraded
-    assert b"GEOMETRY: wing.v2.fsm / VELOCITY" in upgraded, (
-        "a value with an extension is left alone"
-    )
-    assert upgraded.count(b".fsm") == before.count(b".fsm") + 1
+    assert b"| blade_sector.fsm |" in upgraded
+    assert b"| wing.v2.fsm |" in upgraded, "a value with an extension is left alone"
+    assert b"wing.v2.fsm.fsm" not in upgraded
     assert upgrade_matrix(target) == upgraded, "running it twice is safe"

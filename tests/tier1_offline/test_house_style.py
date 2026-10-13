@@ -6,6 +6,7 @@ pre-commit and in the CI guard job.
 """
 
 import importlib.util
+import os
 import re
 import subprocess
 from collections.abc import Iterable, Mapping
@@ -61,18 +62,33 @@ FORBIDDEN_WORDS = (
 )
 
 
-def iter_style_checked_files():
+def iter_style_checked_files(root: Path = REPO_ROOT):
     # YAML joined the list on 2026-08-06. The command database is the
     # largest English prose surface in this repository, roughly 900 lines
     # of notes across the chapter files, and invariants 5 and 6 did not
     # reach a line of it: the walk read *.md and *.py only. Nothing was
     # in violation when it was widened, which is the cheap moment to do
     # it rather than the moment it would have caught something.
-    for pattern in ("*.md", "*.py", "*.yaml"):
-        for path in REPO_ROOT.rglob(pattern):
-            if SKIP_DIRS.intersection(path.parts):
-                continue
-            yield path
+    # A name in SKIP_DIRS is tested on the part of the path BELOW ``root`` only (a
+    # checkout at /build/pyflightstream must not blank itself) and the skipped
+    # directories are pruned during the walk, so .venv is never descended into.
+    for folder, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name not in SKIP_DIRS]
+        for name in filenames:
+            if Path(name).suffix in (".md", ".py", ".yaml"):
+                yield Path(folder) / name
+
+
+def test_the_style_walk_skips_by_name_below_the_root_only(tmp_path):
+    """A root that sits under a skipped name is walked; a skipped name below it is not."""
+    root = tmp_path / "build" / "site" / "checkout"
+    for relative in ("a.md", "pkg/b.py", "data/c.yaml", ".venv/lib/d.py", "pkg/build/e.md"):
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("x\n", encoding="utf-8")
+    (root / "pkg" / "f.txt").write_text("x\n", encoding="utf-8")
+    walked = sorted(path.relative_to(root).as_posix() for path in iter_style_checked_files(root))
+    assert walked == ["a.md", "data/c.yaml", "pkg/b.py"]
 
 
 #: The walk's own floor. Three guards subtract from it and none of them

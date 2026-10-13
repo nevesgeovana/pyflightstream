@@ -67,8 +67,10 @@ Units are SI throughout and encoded in the field names
 blade frame is right handed with spanwise from root to tip along the
 pitch axis and chordwise toward the leading edge. Offsets chain as
 pitch axis -> elastic axis (`elastic_axis_offset_*`, used by the load
-transfer) and elastic axis -> CG (`cg_offset_*`, source of the
-centrifugal bend-twist coupling).
+transfer) and elastic axis -> CG (`cg_offset_*`, read by a fixed wing for its own
+weight; a rotating blade carries it only as the parallel-axis term of
+the twist inertia, with no centrifugal moment and no bend-twist
+coupling, and a warning says so).
 
 Only synthetic blades appear in tests and examples; real blade
 property sets are research data and never enter the repository.
@@ -274,7 +276,7 @@ the tributary widths against the integrated loads of the same run
 (the pilot closed to a few percent on the axial component). Moments
 arrive about the quarter chord, the pitch axis reference;
 `to_elastic_axis` transfers them with the configured e(r)
-(M_EA = M_PA + e x F, FSI-R04), so refining the elastic axis estimate
+(M_EA = M_PA - e_c F_n + e_n F_c, FSI-R04), so refining the elastic axis estimate
 never touches the FlightStream setup. Axes: the export columns are
 the cut-plane axes (axial and in-plane on a rotating blade, RPT-006
 finding 3); on a spinning configuration `to_elastic_axis` projects

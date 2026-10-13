@@ -48,7 +48,7 @@ it is a row of a private workspace, which is the next release's work.
 from __future__ import annotations
 
 import enum
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
@@ -62,6 +62,7 @@ from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.geometry import WingSpec
 from pyflightstream.qa.reports import (
+    load_yaml,
     public_executable_identity,
     refuse_existing_report,
     report_paths,
@@ -200,6 +201,21 @@ class ReferenceBand:
     fail: float
     kind: str
 
+    def __post_init__(self) -> None:
+        """Refuse a relative band that can only judge FAIL (PFS-2102.036).
+
+        A relative band's half widths are fractions of ``|value|``, so
+        centred on zero both are zero and every nonzero measurement is a
+        FAIL, with nothing saying why. Such a metric needs ``abs`` bands
+        (see :class:`MetricSpec`).
+        """
+        if self.kind == "rel" and self.value == 0.0:
+            raise QaEvidenceError(
+                "a relative band centred on a reference of exactly zero has zero width, "
+                "so every nonzero measurement would judge FAIL; a metric that can be zero "
+                "needs absolute bands (kind 'abs' in its MetricSpec)"
+            )
+
     def judge(self, measured: float) -> Verdict:
         """Judge a measured value against this band."""
         deviation = abs(measured - self.value)
@@ -263,6 +279,7 @@ class PointResult:
     iterations: int
     converged: bool
     label: str = ""
+    minimum_cp: float | None = None
 
 
 @dataclass(frozen=True)
@@ -364,7 +381,10 @@ def _total_metrics(total: Mapping[str, float]) -> dict[str, float]:
 
 
 def _induced_name(total: Mapping[str, float]) -> str:
-    """Return the induced drag column a Total row prints: ``CDi``, or ``CDp`` on 26.125."""
+    """Return the printed drag name: induced CDi, or pressure CDp on 26.125.
+
+    Selecting a column preserves its name and makes no claim of equivalence.
+    """
     return next((pair[0] for pair in DRAG_PAIRS if pair[0] in total), DRAG_PAIRS[0][0])
 
 
@@ -414,7 +434,28 @@ def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
     -------
     dict of str to float
         Metric name to value.
+
+    Raises
+    ------
+    QaEvidenceError
+        When the sweep holds fewer than two angles of attack, or no
+        4 deg point.
     """
+    # PFS-2102.009. A slope from one angle is a fabricated number, and a
+    # sweep without 4 deg raised a bare StopIteration past the per-case
+    # error handling.
+    angles = sorted({point.alpha_deg for point in points})
+    if len(angles) < 2:
+        raise QaEvidenceError(
+            f"PHY-01 fits its lift slope over at least two angles of attack, and the sweep "
+            f"holds {len(angles)} ({', '.join(f'{a:g}' for a in angles) or 'none'} deg)"
+        )
+    reference_point = next((point for point in points if point.alpha_deg == 4.0), None)
+    if reference_point is None:
+        raise QaEvidenceError(
+            "PHY-01 reads its drag metric at alpha = 4 deg, and the sweep holds no 4 deg "
+            f"point (it holds {', '.join(f'{a:g}' for a in angles)} deg)"
+        )
     metrics: dict[str, float] = {}
     for point in points:
         tag = f"a{point.alpha_deg:g}"
@@ -422,7 +463,6 @@ def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
     alphas_rad = np.radians([point.alpha_deg for point in points])
     lifts = [point.total["CL"] for point in points]
     metrics["CL_slope_per_rad"] = float(np.polyfit(alphas_rad, lifts, 1)[0])
-    reference_point = next(point for point in points if point.alpha_deg == 4.0)
     # THE INDUCED DRAG UNDER THE NAME THE TABLE PRINTS (FR-423): ``CDp`` on 26.125.
     induced = _induced_name(reference_point.total)
     metrics[f"{induced}_a4"] = reference_point.total[induced]
@@ -576,11 +616,21 @@ class PhysicsCase:
     title: str
     metric_specs: tuple[MetricSpec, ...]
     minimum_version: str | None = None
+    pressure_metric_specs: tuple[MetricSpec, ...] = ()
 
     @property
     def specs_by_name(self) -> dict[str, MetricSpec]:
         """The metric specifications keyed by metric name."""
-        return {spec.name: spec for spec in self.metric_specs}
+        return {spec.name: spec for spec in (*self.metric_specs, *self.pressure_metric_specs)}
+
+    def specs_for_version(self, version: str) -> dict[str, MetricSpec]:
+        """Return specs for one drag vocabulary, preserving the distinct quantities."""
+        excluded = ("CDi", "CDo") if version == "26.125" else ("CDp", "CDv")
+        return {
+            name: spec
+            for name, spec in self.specs_by_name.items()
+            if not any(token in name for token in excluded)
+        }
 
     def supports(self, canonical: str) -> bool:
         """Whether the case's command set has evidence for ``canonical``.
@@ -705,6 +755,9 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
                 fail=0.15,
             ),
         ),
+        pressure_metric_specs=(
+            MetricSpec("CDp_a4", "pressure drag coefficient at 4 deg", warn=0.05, fail=0.15),
+        ),
     ),
     "PHY-02": PhysicsCase(
         case_id="PHY-02",
@@ -725,6 +778,15 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
             MetricSpec(
                 "delta_CDi_a4",
                 "CDi(half) - CDi(full) at 4 deg; zero in exact equivalence",
+                kind="abs",
+                warn=0.0005,
+                fail=0.002,
+            ),
+        ),
+        pressure_metric_specs=(
+            MetricSpec(
+                "delta_CDp_a4",
+                "CDp(half) - CDp(full) pressure drag at 4 deg",
                 kind="abs",
                 warn=0.0005,
                 fail=0.002,
@@ -764,6 +826,16 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
             ),
         ),
         minimum_version="26.120",
+        pressure_metric_specs=(
+            MetricSpec("CDp", "pressure drag coefficient at the final step", warn=0.01, fail=0.03),
+            MetricSpec(
+                "CDv",
+                "viscous drag coefficient at the final step; near zero",
+                kind="abs",
+                warn=0.0005,
+                fail=0.002,
+            ),
+        ),
     ),
     "PHY-06": PhysicsCase(
         case_id="PHY-06",
@@ -913,7 +985,27 @@ def smi_metrics(point: PointResult) -> dict[str, float]:
 
 def _smi_case(case_id: str, title: str, band_kind: str) -> PhysicsCase:
     """One SMI entry; the title names the local simulation file the case opens."""
-    return PhysicsCase(case_id=case_id, title=title, metric_specs=_smi_metric_specs(band_kind))
+    return PhysicsCase(
+        case_id=case_id,
+        title=title,
+        metric_specs=_smi_metric_specs(band_kind),
+        pressure_metric_specs=(
+            MetricSpec(
+                "CDp",
+                "aggregated pressure drag coefficient at 2 deg",
+                kind=band_kind,
+                warn=0.002,
+                fail=0.01,
+            ),
+            MetricSpec(
+                "CDv",
+                "aggregated viscous drag coefficient at 2 deg",
+                kind=band_kind,
+                warn=0.002,
+                fail=0.01,
+            ),
+        ),
+    )
 
 
 #: The two local cases: ``28_B.fsm`` (SMI-01) and ``31_WBH_IH0.fsm`` (SMI-02),
@@ -939,7 +1031,9 @@ def _references_dir() -> Path:
     return Path(str(resources.files("pyflightstream.qa"))) / "references"
 
 
-def load_reference(case_id: str, references_dir: str | Path | None = None) -> CaseReference | None:
+def load_reference(
+    case_id: str, references_dir: str | Path | None = None, *, fs_version: str | None = None
+) -> CaseReference | None:
     """Load the committed reference of one case, when it exists.
 
     Parameters
@@ -949,6 +1043,9 @@ def load_reference(case_id: str, references_dir: str | Path | None = None) -> Ca
     references_dir : str or Path, optional
         Alternative directory, used by tests; defaults to the package
         data directory ``qa/references/``.
+    fs_version : str, optional
+        Build whose reference to read. 26.125 uses the independent
+        pressure-drag reference directory; no induced-drag reference is substituted.
 
     Returns
     -------
@@ -961,30 +1058,43 @@ def load_reference(case_id: str, references_dir: str | Path | None = None) -> Ca
         If the file exists and does not carry the physics reference schema.
     """
     directory = Path(references_dir) if references_dir else _references_dir()
+    if fs_version == "26.125":
+        directory = directory / "pressure-drag"
     path = directory / f"{case_id}.yaml"
     if not path.is_file():
         return None
-    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    document = load_yaml(path)
     if not isinstance(document, dict) or document.get("schema") != REFERENCE_SCHEMA:
         raise QaEvidenceError(
             f"{path} is not a physics reference (expected schema {REFERENCE_SCHEMA!r})"
         )
-    metrics = {
-        name: ReferenceBand(
-            value=float(body["value"]),
-            warn=float(body["warn"]),
-            fail=float(body["fail"]),
-            kind=str(body["kind"]),
+    # PFS-2102.010. A hand-edited reference missing a key raised a bare
+    # KeyError or TypeError.
+    try:
+        metrics = {
+            name: ReferenceBand(
+                value=float(body["value"]),
+                warn=float(body["warn"]),
+                fail=float(body["fail"]),
+                kind=str(body["kind"]),
+            )
+            for name, body in document["metrics"].items()
+        }
+        return CaseReference(
+            case_id=document["case"],
+            fs_version_basis=str(document["fs_version_basis"]),
+            updated=str(document["updated"]),
+            reason=str(document["reason"]),
+            metrics=metrics,
         )
-        for name, body in document["metrics"].items()
-    }
-    return CaseReference(
-        case_id=document["case"],
-        fs_version_basis=str(document["fs_version_basis"]),
-        updated=str(document["updated"]),
-        reason=str(document["reason"]),
-        metrics=metrics,
-    )
+    except QaEvidenceError:
+        raise
+    except (KeyError, TypeError, ValueError, AttributeError) as error:
+        raise QaEvidenceError(
+            f"{path} does not carry the physics reference fields (case, fs_version_basis, "
+            "updated, reason, and value, warn, fail and kind per metric): "
+            f"{type(error).__name__}: {error}"
+        ) from None
 
 
 def compare_metrics(
@@ -993,7 +1103,9 @@ def compare_metrics(
     """Judge every measured metric against the stored reference bands.
 
     A metric missing from the reference (new metric, old reference)
-    judges ``NO_REFERENCE`` rather than guessing a band.
+    judges ``NO_REFERENCE`` rather than guessing a band. A reference
+    metric the run did not produce judges ``FAIL``: part of the
+    reference went unread, and that is not a pass.
 
     Parameters
     ----------
@@ -1005,11 +1117,12 @@ def compare_metrics(
     Returns
     -------
     dict of str to Verdict
-        Metric name to its verdict; ``NO_REFERENCE`` for every metric without a band.
+        Metric name to its verdict; ``NO_REFERENCE`` for every metric without a band,
+        and ``FAIL`` for every reference metric the measurement lacks.
     """
     if reference is None:
         return {name: Verdict.NO_REFERENCE for name in measured}
-    return {
+    verdicts = {
         name: (
             reference.metrics[name].judge(value)
             if name in reference.metrics
@@ -1017,6 +1130,12 @@ def compare_metrics(
         )
         for name, value in measured.items()
     }
+    # PFS-2085.015. A reference metric the run did not produce was never
+    # judged, so the run read as a pass with part of its reference unread.
+    for name in reference.metrics:
+        if name not in measured:
+            verdicts[name] = Verdict.FAIL
+    return verdicts
 
 
 def registered_cases(*, include_smi: bool = False) -> dict[str, PhysicsCase]:
@@ -1238,6 +1357,7 @@ def write_physics_report(
                         "alpha_deg": point.alpha_deg,
                         "iterations": point.iterations,
                         "converged": point.converged,
+                        "minimum_cp": point.minimum_cp,
                         "total": {key: float(value) for key, value in point.total.items()},
                     }
                     for point in result.points
@@ -1298,10 +1418,20 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
             lines.extend([f"Case aborted: {result.error}", ""])
             continue
         lines.extend([result.geometry, ""])
+        lines.extend(
+            f"Minimum Cp clip for {point.label or f'a{point.alpha_deg:g}'}: "
+            f"{point.minimum_cp if point.minimum_cp is not None else 'not recorded'}."
+            for point in result.points
+        )
+        lines.append("")
         if result.points:
+            # PFS-2102.035. The drag column under the name the point's table
+            # prints: CDi up to 26.124, CDp on 26.125 (FR-423), which was a
+            # column of nan under a CDi header.
+            drag = _induced_name(result.points[0].total)
             lines.extend(
                 [
-                    "| point | alpha (deg) | CL | CDi | iterations | converged |",
+                    f"| point | alpha (deg) | CL | {drag} | iterations | converged |",
                     "|---|---|---|---|---|---|",
                 ]
             )
@@ -1310,7 +1440,7 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
                 lines.append(
                     f"| {label} | {point.alpha_deg:+.1f} "
                     f"| {point.total.get('CL', float('nan')):.5f} "
-                    f"| {point.total.get('CDi', float('nan')):.5f} | {point.iterations} "
+                    f"| {point.total.get(drag, float('nan')):.5f} | {point.iterations} "
                     f"| {'yes' if point.converged else 'no'} |"
                 )
             lines.append("")
@@ -1329,19 +1459,75 @@ def _render_markdown(run: PhysicsRun, date: str, counts: dict[str, int]) -> str:
                 band_cell = f"{band.warn:g}/{band.fail:g} ({band.kind})"
             verdict = result.verdicts.get(name, Verdict.NO_REFERENCE).value
             lines.append(f"| {name} | {value:.5f} | {reference_cell} | {band_cell} | {verdict} |")
+        for name, verdict_of_missing in result.verdicts.items():
+            # PFS-2085.015: a reference metric the run did not produce.
+            if name in result.metrics or result.reference is None:
+                continue
+            band = result.reference.metrics[name]
+            lines.append(
+                f"| {name} | not produced | {band.value:.5f} | "
+                f"{band.warn:g}/{band.fail:g} ({band.kind}) | {verdict_of_missing.value} |"
+            )
         lines.append("")
     return "\n".join(lines)
 
 
 def read_physics_report(path: str | Path) -> dict:
     """Load and check a machine-readable physics report."""
-    document = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    document = load_yaml(path)
     if not isinstance(document, dict) or document.get("schema") != PHYSICS_SCHEMA:
         raise QaEvidenceError(
             f"{path} is not a physics report (expected schema {PHYSICS_SCHEMA!r}); "
             "references are seeded only from committed physics evidence"
         )
     return document
+
+
+def _refuse_unconverged_reference(case_id: str, case_body: dict, report_path: str | Path) -> None:
+    """Check historical as well as current reports before promoting steady evidence."""
+    # PHY-06 stores its paired polars as steady points followed by
+    # unsteady points (_reduce_case); only the steady half must converge.
+    points = case_body.get("points", [])
+    steady_points = points if case_id in {"PHY-01", "PHY-02"} else []
+    if case_id == "PHY-06":
+        if len(points) % 2:
+            raise QaEvidenceError(
+                f"{report_path} carries {len(points)} points for PHY-06, which requires "
+                "paired steady and unsteady polars; an incomplete pair cannot establish "
+                "which points are steady evidence. Write a complete report before "
+                "updating the reference"
+            )
+        steady_points = points[: len(points) // 2]
+    if any(point.get("converged") is not True for point in steady_points):
+        raise QaEvidenceError(
+            f"{report_path} carries an unconverged steady point for {case_id}; "
+            "references require converged steady evidence. Raise the iteration limit, "
+            "resume the run and write a new report before updating the reference"
+        )
+
+
+def _refuse_lost_metrics(
+    case_id: str,
+    report_path: str | Path,
+    existing: CaseReference | None,
+    measured: Mapping[str, object],
+    dropped: set[str],
+) -> None:
+    """Refuse an update that would delete curated bands of metrics the report lacks (PFS-2102.011).
+
+    The file is replaced whole, so a reference metric the report lacks
+    (CL_a6 from a sweep without 6 deg) used to vanish with its curated bands.
+    """
+    if existing is None:
+        return
+    lost = sorted(name for name in existing.metrics if name not in measured and name not in dropped)
+    if lost:
+        raise QaEvidenceError(
+            f"{report_path} does not carry {', '.join(lost)}, which the {case_id} "
+            "reference holds with curated bands; updating from it would delete them. "
+            "Use a report that measures them, or name them in drop (CLI: --drop) to "
+            "remove them deliberately"
+        )
 
 
 def update_reference(
@@ -1351,6 +1537,8 @@ def update_reference(
     *,
     references_dir: str | Path | None = None,
     date: str | None = None,
+    repo_root: str | Path = ".",
+    drop: Iterable[str] = (),
 ) -> Path:
     """Update (or seed) one case reference from a committed physics report.
 
@@ -1375,6 +1563,15 @@ def update_reference(
         Alternative directory, used by tests.
     date : str, optional
         ISO date recorded as the update date; defaults to today.
+    repo_root : str or Path
+        The repository the report is committed in; the reference records
+        the report's path relative to it, because a reference is
+        committed and a machine's path is not.
+    drop : iterable of str
+        Metrics of the existing reference to remove deliberately. A
+        reference metric the report does not carry is otherwise refused,
+        because replacing the file would lose its value and its curated
+        bands without a word.
 
     Returns
     -------
@@ -1387,8 +1584,11 @@ def update_reference(
         When the reason is empty, the date is not spelled
         ``YYYY-MM-DD``, the case is unknown, the report is
         not a physics report, the report carries no metrics for the
-        case, or a metric it carries is neither in the existing
-        reference nor declared by the case. A subclass of ``ValueError``,
+        case, a metric it carries is neither in the existing
+        reference nor declared by the case, the report lacks a metric
+        the existing reference holds and ``drop`` does not name, or the
+        report lies outside ``repo_root``, a steady point is unconverged,
+        or the resulting reference band is invalid. A subclass of ``ValueError``,
         so a caller written before the catalogue existed still catches
         it.
     """
@@ -1407,8 +1607,20 @@ def update_reference(
     case_body = report.get("cases", {}).get(case_id)
     if not case_body or not case_body.get("metrics"):
         raise QaEvidenceError(f"{report_path} carries no measured metrics for {case_id}")
-    existing = load_reference(case_id, references_dir)
-    specs = case.specs_by_name
+    _refuse_unconverged_reference(case_id, case_body, report_path)
+    root = Path(repo_root).resolve()
+    try:
+        source_report = Path(report_path).resolve().relative_to(root).as_posix()
+    except ValueError:
+        # PFS-2102.012, the rule apply_compat keeps for the same reason.
+        raise QaEvidenceError(
+            f"{report_path} is outside {root}, so the source path written into the "
+            "committed reference would be a machine's path no reader could follow. Move "
+            "the report under the repository first, or pass repo_root (CLI: --root)"
+        ) from None
+    existing = load_reference(case_id, references_dir, fs_version=str(report["fs_version"]))
+    _refuse_lost_metrics(case_id, report_path, existing, case_body["metrics"], set(drop))
+    specs = case.specs_for_version(str(report["fs_version"]))
     metrics: dict[str, dict] = {}
     for name, value in case_body["metrics"].items():
         if existing is not None and name in existing.metrics:
@@ -1421,8 +1633,13 @@ def update_reference(
                 f"metric {name!r} is neither in the existing reference nor declared "
                 f"by {case_id}; declare it in the case's metric specifications first"
             )
-        metrics[name] = {"value": float(value), "warn": warn, "fail": fail, "kind": kind}
+        # Validate before replacing the file: a zero-centred relative band
+        # must not be written successfully only to fail in load_reference.
+        band = ReferenceBand(value=float(value), warn=warn, fail=fail, kind=kind)
+        metrics[name] = {"value": band.value, "warn": warn, "fail": fail, "kind": kind}
     directory = Path(references_dir) if references_dir else _references_dir()
+    if str(report["fs_version"]) == "26.125":
+        directory = directory / "pressure-drag"
     directory.mkdir(parents=True, exist_ok=True)
     document = {
         "schema": REFERENCE_SCHEMA,
@@ -1430,7 +1647,7 @@ def update_reference(
         "fs_version_basis": report["fs_version"],
         "updated": resolve_report_date(date),
         "reason": reason.strip(),
-        "source_report": Path(report_path).as_posix(),
+        "source_report": source_report,
         "metrics": metrics,
     }
     path = directory / f"{case_id}.yaml"

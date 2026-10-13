@@ -153,6 +153,28 @@ def run_query(args: argparse.Namespace) -> int:
     """
     if args.subcommand in ("history", "diff"):
         return run_history_query(args)
+    if args.subcommand == "status" and args.additional:
+        # A SELECTION THE REGISTER LISTING DOES NOT READ IS REFUSED, not ignored
+        # (PFS-2094.030), as collect refuses --rounds without --watch.
+        idle = [
+            name
+            for name, value in (
+                ("--sims", args.sims),
+                ("--matrix", args.matrix),
+                ("--status", args.statuses),
+                ("--failed", args.failed),
+                ("--points", args.per_point),
+            )
+            if value
+        ]
+        if idle:
+            print(
+                f"{', '.join(idle)} select the polars of status, and --additional lists the "
+                "additional register whole, as recorded. Drop "
+                f"{'them' if len(idle) > 1 else 'it'}, or drop --additional to select polars.",
+                file=sys.stderr,
+            )
+            return 2
     if args.subcommand != "status" or args.additional:
         return _run_point_query(args, _emit)
     return _cmd_status(args)

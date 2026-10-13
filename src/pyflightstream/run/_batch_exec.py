@@ -28,7 +28,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
-from pyflightstream.run._executors import ExecutionResult, Executor, Submitting
+from pyflightstream.run._executors import ExecutionResult, Executor
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, JobEntry
 from pyflightstream.workspace.hpc import HpcProfile
@@ -212,11 +212,6 @@ class GroupingExecutor:
         the per-point scripts keep the machine's ``export_log`` decision.
     """
 
-    #: Present on an instance ONLY when the inner submits, so the identity
-    #: pre-flight skips a submitting run and probes a local one, as it does
-    #: for the inner alone.
-    descriptor_path: Path | None
-
     def __init__(
         self, inner: Executor, collector: JobCollector, *, profile: HpcProfile | None
     ) -> None:
@@ -224,11 +219,11 @@ class GroupingExecutor:
         self.collector = collector
         self.profile = profile
         self.forced_local = bool(getattr(inner, "forced_local", False))
-        self.submits = isinstance(inner, Submitting)
+        from pyflightstream.run._executors import submits_jobs
+
+        self.submits = submits_jobs(inner)
         self.values: dict[str, object] = {}
         self._record: dict | None = None
-        if self.submits:
-            self.descriptor_path = None
 
     def bind_point(self, values: Mapping[str, object], *, replace: bool = False) -> None:
         """Keep the values of the point the loop is about to run.

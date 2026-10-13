@@ -44,12 +44,32 @@ ALLOWED_FUNCTIONS: dict[str, Callable[..., float]] = {
     "max": max,
 }
 
+#: How many positional arguments each function takes, as (fewest, most), with
+#: None for no upper bound. Checked when the artifact is READ, so ``min(CT)``
+#: or ``sqrt(CT, CP)`` is refused there instead of failing on every row at post.
+_ARITY: dict[str, tuple[int, int | None]] = {
+    **{name: (1, 1) for name in ALLOWED_FUNCTIONS if name not in ("min", "max")},
+    "min": (2, None),
+    "max": (2, None),
+}
+
+
+def _power(left: float, right: float) -> float:
+    """``left ** right``, refusing the case whose value is complex rather than real."""
+    if left < 0 and not float(right).is_integer():
+        raise ValueError(
+            f"the negative base {left!r} raised to the non-integer power {right!r} "
+            "has no real value"
+        )
+    return left**right
+
+
 _BINARY: dict[type[ast.operator], Callable[[float, float], float]] = {
     ast.Add: lambda left, right: left + right,
     ast.Sub: lambda left, right: left - right,
     ast.Mult: lambda left, right: left * right,
     ast.Div: lambda left, right: left / right,
-    ast.Pow: lambda left, right: left**right,
+    ast.Pow: _power,
 }
 _UNARY: dict[type[ast.unaryop], Callable[[float], float]] = {
     ast.USub: lambda value: -value,
@@ -66,6 +86,25 @@ def _refuse(expression: str, what: str) -> InputArtifactError:
         f"the expression {expression!r} {what}. An [equations] expression is arithmetic "
         f"and nothing else: {_GRAMMAR}. Rewrite it with those."
     )
+
+
+def _check_call(node: ast.Call, expression: str) -> None:
+    """Refuse a call that is not a plain call of one allowed function."""
+    called = node.func.id if isinstance(node.func, ast.Name) else None
+    if called not in ALLOWED_FUNCTIONS:
+        shown = called if called is not None else ast.unparse(node.func)
+        raise _refuse(expression, f"calls {shown!r}, which is not one of its functions")
+    if node.keywords or not node.args:
+        raise _refuse(expression, f"calls {called}() without plain positional arguments")
+    fewest, most = _ARITY[called]
+    if len(node.args) < fewest or (most is not None and len(node.args) > most):
+        wanted = str(fewest) if most == fewest else f"at least {fewest}"
+        given = f"{len(node.args)} argument" + ("" if len(node.args) == 1 else "s")
+        raise _refuse(expression, f"calls {called}() with {given}; it takes {wanted}")
+    for argument in node.args:
+        if isinstance(argument, ast.Starred):
+            raise _refuse(expression, f"unpacks an argument of {called}()")
+        _check(argument, expression)
 
 
 def _check(node: ast.AST, expression: str) -> None:
@@ -88,16 +127,7 @@ def _check(node: ast.AST, expression: str) -> None:
         _check(node.operand, expression)
         return
     if isinstance(node, ast.Call):
-        called = node.func.id if isinstance(node.func, ast.Name) else None
-        if called not in ALLOWED_FUNCTIONS:
-            shown = called if called is not None else ast.unparse(node.func)
-            raise _refuse(expression, f"calls {shown!r}, which is not one of its functions")
-        if node.keywords or not node.args:
-            raise _refuse(expression, f"calls {called}() without plain positional arguments")
-        for argument in node.args:
-            if isinstance(argument, ast.Starred):
-                raise _refuse(expression, f"unpacks an argument of {called}()")
-            _check(argument, expression)
+        _check_call(node, expression)
         return
     raise _refuse(expression, f"holds a {type(node).__name__}, which is not arithmetic")
 
@@ -149,9 +179,9 @@ def evaluate_expression(expression: str, resolve: Callable[[str], float]) -> flo
 
     ``resolve`` raises whatever refusal the caller wants for a name it cannot
     answer; this function adds nothing to it. A division by zero, a root of a
-    negative or an overflow is an :class:`ArithmeticError` or a
-    :class:`ValueError` of the standard library and is left to the caller, who
-    knows which equation and which row it happened on.
+    negative, a negative base raised to a non-integer power or an overflow is
+    an :class:`ArithmeticError` or a :class:`ValueError` and is left to the
+    caller, who knows which equation and which row it happened on.
 
     Examples
     --------

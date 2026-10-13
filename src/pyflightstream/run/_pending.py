@@ -35,6 +35,7 @@ from pyflightstream.cases.workflows import (
     effective_fsi_config,
 )
 from pyflightstream.run._executors import (
+    _LOG_OUTPUT_SUFFIX,
     ExecutionResult,
 )
 from pyflightstream.run._wake_edge_verdict import (
@@ -478,6 +479,23 @@ def _declared_logs(case: SimCase, script_text: str) -> list[str]:
     if 1 <= position <= len(case.outputs):
         name = Path(case.outputs[position - 1]).name
         if name not in names:
+            names.append(name)
+    return names
+
+
+def _local_logs(case: SimCase, script_text: str) -> list[str]:
+    """Name the declared logs a local run on a machine that cannot export one writes.
+
+    ``_declared_logs`` reads the script's EXPORT_LOG lines, and on a machine
+    whose profile states ``export_log = false`` the script exports no log, so
+    the output named like one (``_log.txt``) is named as well: the finder
+    added the logs a case names without the suffix (PFS-2103.030) and must not
+    lose the ones it names with it.
+    """
+    names = _declared_logs(case, script_text)
+    for output in case.outputs:
+        name = str(output)
+        if name.endswith(_LOG_OUTPUT_SUFFIX) and name not in names:
             names.append(name)
     return names
 

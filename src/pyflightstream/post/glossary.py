@@ -58,6 +58,7 @@ from pyflightstream.cases import (
     default_outputs,
 )
 from pyflightstream.cases.matrix import ATTITUDE_KEYS, COLUMN_MEANINGS, FLIGHT_CONDITION_KEYS
+from pyflightstream.cases.pproc import TABLE_DECLARED_KINDS
 from pyflightstream.cases.workflows import (
     LOADS_SELECTION_KEYS,
     RATE_VARIABLES,
@@ -189,6 +190,10 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         ("PprocSpec", "sections"): "NEW_SURFACE_SECTION_DISTRIBUTION",
         ("PprocSpec", "volume_section"): (
             "CREATE_NEW_RECTANGLE_VOLUME_SECTION, CREATE_NEW_CIRCLE_VOLUME_SECTION"
+        ),
+        ("PprocSpec", "streamlines"): (
+            "GENERATE_ALL_SURFACE_STREAMLINES, NEW_STREAMLINE_DISTRIBUTION, "
+            "NEW_OFF_BODY_STREAMTUBE, GENERATE_ALL_OFF_BODY_STREAMLINES"
         ),
         ("PprocSpec", "plots"): "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
         ("PprocSpec", "probes"): "UNSTEADY_SOLVER_NEW_FLUID_PLOT, NEW_PROBE_POINT",
@@ -855,7 +860,8 @@ def _exports_table() -> GlossaryTable:
     """Build the table of the kinds ``[exports]`` may name, what each takes and where."""
     rows = []
     for kind, suffix, verb, only_unsteady in EXPORT_KINDS:
-        if kind in VOLUME_SECTION_KINDS.values():
+        if kind in VOLUME_SECTION_KINDS.values() or kind in TABLE_DECLARED_KINDS:
+            # Declared by their own tables (FR-460 streamlines, FR-461 trajectory).
             continue
         try:
             PprocSpec(exports={kind: False})
@@ -1091,8 +1097,12 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
             "\nCompatibility note: [pproc/INPUTS.md](pproc/INPUTS.md) is preserved "
             "unchanged as legacy content. This file is the generated input glossary.\n"
         )
-    block = begin + b"\n" + generated.encode("utf-8") + end + b"\n"
     before = page.read_bytes() if page.is_file() else b""
+    # THE PAGE'S OWN LINE ENDINGS: a checkout that turned the page CRLF held
+    # an LF block that never compared equal, so every plan and post rewrote
+    # it, mixed. The block takes the ending the page already has.
+    newline = b"\r\n" if b"\r\n" in before else b"\n"
+    block = (begin + b"\n" + generated.encode("utf-8") + end + b"\n").replace(b"\n", newline)
     if begin in before or end in before:
         if before.count(begin) != 1 or before.count(end) != 1:
             raise InputArtifactError(
@@ -1103,9 +1113,9 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
             raise InputArtifactError(
                 f"{page}: reversed generated glossary markers; preserve and repair them"
             )
-        after = before[:first] + block.rstrip(b"\n") + before[last + len(end) :]
+        after = before[:first] + block.rstrip(b"\r\n") + before[last + len(end) :]
     else:
-        after = before + (b"\n\n" if before else b"") + block
+        after = before + (newline * 2 if before else b"") + block
     if before != after:
         page.write_bytes(after)
         if changed is not None:

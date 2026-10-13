@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib
-import json
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
@@ -165,12 +164,21 @@ def read_receipt(workspace: CampaignWorkspace, matrix_stem: str) -> GroupingRece
         The ``grouping`` block of ``plan.json``; None when the plan has none
         or cannot be read.
     """
-    plan_file = workspace.plan_dir(matrix_stem) / "plan.json"
-    try:
-        block = json.loads(plan_file.read_text(encoding="utf-8")).get("grouping")
-    except (OSError, ValueError, AttributeError):
-        return None
-    return None if block is None else GroupingReceipt.from_json(block)
+    return _read_grouping(workspace, matrix_stem)[0]
+
+
+def _read_grouping(
+    workspace: CampaignWorkspace, matrix_stem: str
+) -> tuple[GroupingReceipt | None, str | None]:
+    """Return the plan's grouping receipt, or None and why a block there cannot be read.
+
+    No plan, a plan that is not JSON and a plan with no ``grouping`` block are
+    None with no reason (the caller says the plan holds no grouping); a block
+    of another shape or schema is None with the reason, never a traceback.
+    """
+    from pyflightstream.workspace._batches import read_grouping
+
+    return read_grouping(workspace.plan_dir(matrix_stem) / "plan.json")
 
 
 def _job_ran(root: Path, job: GroupedJob, *, mode: str) -> bool:
@@ -231,7 +239,9 @@ def batch_receipt_error(
     stale = plan_receipt_error(workspace, matrix_path, matrix_stem)
     if stale is not None:
         return stale
-    receipt = read_receipt(workspace, matrix_stem)
+    receipt, unreadable = _read_grouping(workspace, matrix_stem)
+    if unreadable is not None:
+        return unreadable
     if receipt is None:
         return "the plan holds no grouping: plan it again with the same --batch or --polar-sweep."
     if receipt.mode != mode:

@@ -68,6 +68,27 @@ def make_run(tmp_path, references_dir=None) -> PhysicsRun:
     )
 
 
+FROZEN_TODAY = "2031-02-03"
+
+
+@pytest.fixture
+def frozen_today(monkeypatch):
+    """The date source of the report helpers, fixed, so a test that crosses local midnight
+    between the writer's call and its own cannot disagree with it (PFS-2135.013)."""
+    import datetime
+    import types
+
+    from pyflightstream.qa import reports
+
+    class _Date(datetime.date):
+        @classmethod
+        def today(cls):
+            return cls.fromisoformat(FROZEN_TODAY)
+
+    monkeypatch.setattr(reports, "datetime", types.SimpleNamespace(date=_Date))
+    return FROZEN_TODAY
+
+
 def test_band_judgment_covers_pass_warn_fail():
     relative = ReferenceBand(value=1.0, warn=0.02, fail=0.05, kind="rel")
     assert relative.judge(1.015) is Verdict.PASS
@@ -217,6 +238,7 @@ def test_reference_roundtrip_and_band_reuse(tmp_path):
         "initial reference from the first 26.120 run",
         references_dir=refs,
         date="2026-07-21",
+        repo_root=tmp_path,
     )
     reference = load_reference("PHY-01", refs)
     assert reference is not None
@@ -226,7 +248,14 @@ def test_reference_roundtrip_and_band_reuse(tmp_path):
     # incidence sits at zero, where relative bands are meaningless.
     assert reference.metrics["CL_a0"].kind == "abs"
     verdicts = compare_metrics({"CL_a4": 0.35, "CL_a0": 0.0}, reference)
-    assert verdicts == {"CL_a4": Verdict.PASS, "CL_a0": Verdict.PASS}
+    assert {name: verdicts[name] for name in ("CL_a4", "CL_a0")} == {
+        "CL_a4": Verdict.PASS,
+        "CL_a0": Verdict.PASS,
+    }
+    # Since 0.40.0 (PFS-2085.015) the reference metrics not measured judge FAIL.
+    assert {verdicts[name] for name in reference.metrics if name not in ("CL_a4", "CL_a0")} == {
+        Verdict.FAIL
+    }
     # A second update keeps curated bands but must still record a reason.
     path = update_reference(
         "PHY-01",
@@ -234,6 +263,7 @@ def test_reference_roundtrip_and_band_reuse(tmp_path):
         "re-seeded in the same session (test)",
         references_dir=refs,
         date="2026-07-21",
+        repo_root=tmp_path,
     )
     stored = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert stored["reason"] == "re-seeded in the same session (test)"
@@ -244,7 +274,7 @@ def test_full_run_against_seeded_reference_passes(tmp_path):
     refs = tmp_path / "refs"
     seed_run = make_run(tmp_path)
     yaml_path, _ = write_physics_report(seed_run, tmp_path, date="2026-07-21")
-    update_reference("PHY-01", yaml_path, "seed (test)", references_dir=refs)
+    update_reference("PHY-01", yaml_path, "seed (test)", references_dir=refs, repo_root=tmp_path)
     compared = make_run(tmp_path, references_dir=refs)
     verdicts = compared.results[0].verdicts
     assert set(verdicts.values()) == {Verdict.PASS}
@@ -420,7 +450,7 @@ def test_a_build_registered_later_is_inside_the_minimum_without_an_edit():
             )
 
 
-def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path):
+def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path, frozen_today):
     """The two-arm guard compat has, which physics did not.
 
     `INC-20260817-2210` happened because the date default lived in the
@@ -438,9 +468,7 @@ def test_the_physics_helper_and_writer_default_their_date_the_same_way(tmp_path)
     construction", which was true of `report_paths` and false of the two
     helpers that wrap it.
     """
-    import datetime
-
-    today = datetime.date.today().isoformat()
+    today = frozen_today  # the report date source is fixed (PFS-2135.013)
 
     yaml_path, md_path = physics_report_paths(tmp_path, version="26.120", label="probe")
     assert yaml_path.name == f"PHY-26120_{today}_probe.yaml"

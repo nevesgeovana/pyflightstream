@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.extras import EXTRAS, MissingExtraError, missing_extra
+from tests.tier1_offline._docs_site import NONFUNCTIONAL_REQUIREMENTS
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -469,7 +470,7 @@ def test_the_requirement_that_calls_itself_the_home_of_record_names_the_shipped_
     """
     import re
 
-    srs = (REPO / "docs" / "srs" / "nonfunctional-requirements.md").read_text(encoding="utf-8")
+    srs = (REPO / NONFUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
     rows = re.findall(r"^\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*$", srs, re.M)
     today = [left for left, _ in rows if "numpy" in left and "pydantic" in left]
     assert len(today) == 1, (

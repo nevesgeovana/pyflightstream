@@ -57,13 +57,16 @@ from pyflightstream.cases.workflows import (
     actuator_records,
     qsteady_validity,
     rotor_machs,
+    streamline_count,
 )
+from pyflightstream.cases.workflows._farfield import plan_record as farfield_plan_record
 from pyflightstream.cases.workflows._freestream import (
     WakeTermination,
     planned_run_wake,
     planned_wake,
     wake_warnings,
 )
+from pyflightstream.run._alias import PLANNED_ORDER_KEY
 from pyflightstream.run._continuation import (
     _refuse_an_import_count_nothing_logs,
     resolve_continuation,
@@ -103,6 +106,7 @@ from pyflightstream.workspace._settings_file import (
     invocation_sources,
 )
 from pyflightstream.workspace.costs import priced_rows
+from pyflightstream.workspace.manifest import COST_EXCLUDED_STATUSES
 from pyflightstream.workspace.naming import (
     PointName,
     archive_previous,
@@ -200,6 +204,10 @@ class PointPlan:
         in rotor radii, the rule and V_ax, the resulting ``time_iterations`` and
         the revolutions they turn. Empty on every other point, and then left
         out of ``plan.json``.
+    streamlines : int
+        The off-body streamlines the point's pproc traces (FR-460 R3, 0.40.0):
+        every seed line's count and every tube's ``radial * circular``. 0, and
+        left out of ``plan.json``, where it traces none.
     """
 
     run_id: str
@@ -216,6 +224,8 @@ class PointPlan:
     continuation: str | None = None
     wake_termination: dict[str, object] = field(default_factory=dict)
     run_wake_length: dict[str, object] = field(default_factory=dict)
+    streamlines: int = 0
+    farfield: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -366,12 +376,22 @@ def _recorded_is_unsteady(record: dict) -> bool:
     return bool(record.get("reductions"))
 
 
+#: The statuses whose wall time is no sample of what a point costs (PFS-2094.014):
+#: a failure ended early or never ran, WALLTIME_REACHED would teach the estimate
+#: that a point costs exactly the clock it was given, SUBMITTED has not run here,
+#: and RAN_MISSING_LOG is no verdict. The set of qa/cost.py's _EXCLUDED_STATUSES,
+#: which run/ cannot import (qa imports run).
+_NOT_A_COST_SAMPLE = COST_EXCLUDED_STATUSES
+
+
 def _recorded_costs(workspace) -> list[dict]:
-    """Every recorded point that carries a wall time, as plain mappings.
+    """Every recorded point that carries a wall time and ran to an end, as plain mappings.
 
     The model's whole training set. A workspace that has run nothing produces
     an empty list, and every estimate below then reports `samples = 0`, which
-    the table prints as `unknown` rather than as a number.
+    the table prints as `unknown` rather than as a number. A record in a status
+    of :data:`_NOT_A_COST_SAMPLE` is left out, as restore-and-rebuild.md says
+    of FAILED_MARKED.
     """
     # READ THE MANIFEST BY ITS OWN READER, and let a missing FILE be the only
     # empty answer. The first version called `workspace.records()`, which does
@@ -388,6 +408,8 @@ def _recorded_costs(workspace) -> list[dict]:
     for record in records:
         data = record if isinstance(record, dict) else record.model_dump(mode="json")
         seconds = data.get("wall_time_s")
+        if str(data.get("status")) in _NOT_A_COST_SAMPLE:
+            continue
         if isinstance(seconds, (int, float)) and seconds > 0:
             out.append(data)
     return out
@@ -453,8 +475,14 @@ def estimate_point_cost(
 
     # PROCESSORS: `max_threads` on the solver settings, which is what
     # `SET_MAX_PARALLEL_THREADS` is emitted from. The first version read a
-    # variable key no row writes and reported a dash for every point.
-    processors = getattr(solver, "max_threads", None)
+    # variable key no row writes and reported a dash for every point. THE
+    # ROW'S NCPUS FIRST, through the one resolver the script and the
+    # descriptor read (PFS-2094.038): the setup's count alone printed 8 for a
+    # row whose script set 48.
+    from pyflightstream.cases.workflows import row_ncpus
+
+    from_setup = getattr(solver, "max_threads", None)
+    processors = row_ncpus(case, from_setup if isinstance(from_setup, int) else None)
     if not isinstance(processors, int):
         processors = None
 
@@ -505,10 +533,21 @@ def estimate_point_cost(
                 continue
             work = float(steps)
         else:
-            work = 1.0
+            # A STEADY JOB RECORD IS ITS POINTS' SOLVES IN ONE PROCESS
+            # (PFS-2094.015): its wall time is the whole job's, so it is
+            # one solve per point it ran, not one solve.
+            work = float(len(record.get("points_ran") or []) or 1)
         rates.append(float(record["wall_time_s"]) / work)
     samples = len(rates)
-    if rates:
+    if rates and unsteady and not iterations:
+        # THE POINT'S OWN WORK IS UNKNOWN (PFS-2094.016): priced at one
+        # time step, the per-step rate was shown as its expected time.
+        basis = (
+            "this point's step count is unknown (its row states none this reader "
+            "can step), so no estimate is offered rather than one priced at a "
+            "single time step"
+        )
+    elif rates:
         rate = sum(rates) / len(rates)
         work = float(iterations) if unsteady and iterations else 1.0
         seconds = round(rate * work, 1)
@@ -748,6 +787,10 @@ class CampaignPlan:
     #: The grouping a ``plan --batch`` or ``--polar-sweep`` decided (FR-365); None for single
     #: points. LAST, for the reason of ``costs``.
     grouping: GroupingReceipt | None = None
+    #: Each simulation's WHOLE sweep, point names in sweep order (0.40.0, FR-395): what an
+    #: alias is numbered against, also for a plan of a ``--sims``/``--points`` selection,
+    #: whose ``points`` list only the selection. LAST, for the reason of ``costs``.
+    planned_order: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def blocked(self) -> list[PointPlan]:
@@ -826,7 +869,34 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
     for entry in points:
         if entry.run_wake_length:
             lines.append(f"  {entry.run_id}: {run_wake_length_line(entry.run_wake_length)}")
+    return lines + _streamline_lines(points) + _farfield_lines(points)
+
+
+def _streamline_lines(points: Sequence[PointPlan]) -> list[str]:
+    """Return the plan's line per point that seeds off-body streamlines (FR-460 R3)."""
+    return [
+        f"  {entry.run_id}: {entry.streamlines} off-body streamlines traced "
+        "(the [streamlines] lines and tubes of its pproc)"
+        for entry in points
+        if entry.streamlines
+    ]
+
+
+def _farfield_lines(points: Sequence[PointPlan]) -> list[str]:
+    """Return one line per far-field input a plan adds or cannot serve (FR-455 R4, 0.40.0)."""
+    lines: list[str] = []
+    for entry in points:
+        inputs = entry.farfield.get("inputs", ()) if entry.farfield else ()
+        for item in cast(Sequence[Mapping[str, object]], inputs):
+            if item.get("state") in ("added", "not_applicable", "refused"):
+                lines.append(f"  {entry.run_id}: far field {farfield_line(item)}")
     return lines
+
+
+def farfield_line(item: Mapping[str, object]) -> str:
+    """Return one far-field input of the plan as its console line (FR-455 R4)."""
+    what = item.get("source") or item.get("reason") or ""
+    return f"{item.get('analysis')} {item.get('input')} {item.get('state')}: {what}".rstrip(": ")
 
 
 def run_wake_length_line(run: Mapping[str, object]) -> str:
@@ -907,7 +977,13 @@ def rotor_mach_line(alias: str, mach: Mapping[str, object]) -> str:
     tip, helical = mach.get("mach_tip"), mach.get("mach_helical")
     kind = mach.get("kind") or "rotor"
     if isinstance(tip, int | float) and isinstance(helical, int | float):
-        return f"{kind} {alias} M_tip {tip:.3f}, M_hel {helical:.3f}"
+        line = f"{kind} {alias} M_tip {tip:.3f}, M_hel {helical:.3f}"
+        advancing = mach.get("mach_advancing")
+        if isinstance(advancing, int | float):
+            line += f", M_adv {advancing:.3f}"
+            if mach.get("mach_advancing_bound") == "edgewise":
+                line += " (rotor axis not resolved: the edgewise bound)"
+        return line
     return f"{kind} {alias} M_tip and M_hel not computed: {mach.get('note')}"
 
 
@@ -1000,6 +1076,7 @@ def plan_campaign(
     setup_inspections: Sequence[dict[str, object]] | None = None,
     inflow_fft: bool = False,
     accepted_builds: Collection[str] = (),
+    planned_order: Mapping[str, Sequence[str]] | None = None,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -1085,6 +1162,13 @@ def plan_campaign(
         the campaign's own. ``plan.json`` then states the acceptance, the
         builds it holds for and its file, as the run's records will. Default
         empty.
+    planned_order : mapping of str to sequence of str, optional
+        Per simulation id, the point names of its WHOLE sweep in sweep order,
+        for a campaign narrowed to a ``--sims``/``--points`` selection before
+        planning (FR-326): run id aliases are numbered against the whole sweep,
+        as ``run`` numbers them (FR-395). None reads it off ``campaign``, which
+        is the whole sweep when nothing was selected. Written into ``plan.json``
+        as ``planned_order`` and onto :attr:`CampaignPlan.planned_order`.
 
     Returns
     -------
@@ -1097,6 +1181,10 @@ def plan_campaign(
     ExecutorConfigurationError
         When a case names an ``fs_build`` that ``builds`` does not
         carry.
+    WorkspaceError
+        When :meth:`CampaignWorkspace.read_manifest` refuses a recorded
+        row, for example a surface averaging window that does not
+        validate.
 
     Warns
     -----
@@ -1169,6 +1257,7 @@ def plan_campaign(
     _warn_on_relaxed_discs_naming_a_profile(campaign.sims)
     _warn_on_short_wakes(points)
     groups = _build_groups(campaign)
+    order = _planned_order(campaign, planned_order)
     plan_file = None
     if write_plan:
         plan_file = workspace.plan_dir(campaign.matrix_stem) / "plan.json"
@@ -1180,6 +1269,8 @@ def plan_campaign(
             "build_groups": groups,
             "setup_inspections": list(setup_inspections or ()),
             "points": [_point_record(entry) for entry in points],
+            # FR-395 (0.40.0): the whole sweep, the order an alias is numbered against.
+            PLANNED_ORDER_KEY: order,
             # FR-97: WHICH MATRIX THIS PLAN MEASURED. A
             # mandatory plan that does not say is satisfied by a stale one,
             # and then "plan, edit the matrix, run" passes a gate that read
@@ -1207,7 +1298,21 @@ def plan_campaign(
         plan_file=plan_file,
         build_groups=groups,
         setup_inspections=list(setup_inspections or ()),
+        planned_order=order,
     )
+
+
+def _planned_order(
+    campaign: Campaign, given: Mapping[str, Sequence[str]] | None
+) -> dict[str, list[str]]:
+    """Return each simulation's whole sweep: ``given`` where it names one, else the campaign's."""
+    order = {
+        case.sim_id: [point_name(case, point) for point in case.sweep.points()]
+        for case in campaign.sims
+    }
+    for sim, names in (given or {}).items():
+        order[sim] = list(names)
+    return order
 
 
 def _settings_provenance(
@@ -1319,10 +1424,17 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
     record = {**asdict(entry), "status": str(entry.status)}
     if not entry.run_wake_length:
         del record["run_wake_length"]
+    if not entry.streamlines:
+        del record["streamlines"]
+    # FR-455 R4 (0.40.0): the far-field resolution, on a row with [farfield] only.
+    if not entry.farfield:
+        del record["farfield"]
     return record
 
 
-def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
+def _point_facts(
+    point_case: SimCase, *, inflow_fft: bool, fs_version: str | None = None
+) -> dict[str, Any]:
     """Return what a point's plan states about its rotors, wheel and wake, READY or not.
 
     The rotors' tip and helical Mach numbers (0.30.0, M1), a quasi-steady
@@ -1336,6 +1448,8 @@ def _point_facts(point_case: SimCase, *, inflow_fft: bool) -> dict[str, Any]:
         "qsteady_validity": qsteady_validity(point_case, inflow_fft=inflow_fft) or {},
         "wake_termination": {} if wake is None else wake.record(),
         "run_wake_length": {} if run is None else run.record(),
+        "streamlines": streamline_count(point_case),
+        "farfield": {} if fs_version is None else farfield_plan_record(point_case, fs_version),
     }
 
 
@@ -1399,7 +1513,7 @@ def _plan_point(
     # reason is still a point whose rotor may reach the speed of sound.
     # 0.30.0: a quasi-steady wheel point states its blade's 1P reduced frequency,
     # READY or not, as the Mach numbers do; 0.34.0: a rotor point its wake.
-    base.update(_point_facts(point_case, inflow_fft=inflow_fft))
+    base.update(_point_facts(point_case, inflow_fft=inflow_fft, fs_version=fs_version))
     # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
     # reason is that a rehearsal which refuses what the run accepts is not a
     # rehearsal. A row stating RESTART carries no saved file and no step count

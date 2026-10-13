@@ -15,6 +15,7 @@ from collections.abc import (
 )
 from pathlib import (
     Path,
+    PurePath,
 )
 from typing import (
     Literal,
@@ -29,6 +30,7 @@ from pyflightstream._errors import (
 from pyflightstream._fsm import (
     MeshReadError,
     boundary_vertices,
+    saved_length_unit,
     saved_mesh_coordinate_unit,
 )
 from pyflightstream._lengths import (
@@ -122,10 +124,34 @@ from ._vocabulary import (
     PASSAGE_POSITIONS_VARIABLE,
     QSTEADY_ROTOR,
     ROTATE_VARIABLE,
+    SIMULATION_LENGTH_UNIT,
+    SIMULATION_SUFFIX,
     SYMMETRY_VARIABLE,
     TRANSLATE_VARIABLE,
     Frames,
 )
+
+
+def _the_fields_native_unit(case: SimCase, script: Script | None = None) -> str | None:
+    """Return the simulation's length unit a custom inflow's native rows are read in.
+
+    ONE RULE FOR THE BUILDER AND THE PLAN. The builder reads the unit its script
+    set (`_from_metres` records it); the plan has no script and resolved the
+    raw mesh file's own import unit instead, which is the unit of the OBJ
+    vertices and not of the simulation. Without a script it is the setup's
+    ``simulation_length_unit``, else metres for a raw mesh
+    (``SIMULATION_LENGTH_UNIT``) and the saved unit for a saved simulation.
+    """
+    if script is not None:
+        return script.simulation_length_unit
+    if case.solver.simulation_length_unit:
+        return str(case.solver.simulation_length_unit)
+    geometry = case.geometry
+    if geometry is None:
+        return None
+    if PurePath(str(geometry)).suffix.lower() == SIMULATION_SUFFIX:
+        return saved_length_unit(geometry)
+    return SIMULATION_LENGTH_UNIT
 
 
 def _refuse_fsi_on_a_quasi_steady_rotor(case: SimCase, kind: str) -> None:
@@ -254,18 +280,20 @@ def _refuse_what_is_not_the_rotor(
     blades_found = []
     exact = {name.casefold() for name in labels}
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
-    for member in rotor.members:
-        found = _resolve_token(case, member, labels)
-        owned.update(found)
+    # THE ROTOR'S MEMBERS ARE READ AS A LIST, members and not cells (the decision
+    # of 2026-10-12 on PFS-2029.25): a numbered blade the mesh lacks selects
+    # nothing and is not refused by name here, because the wheel and sector
+    # checks below say what a missing blade means for this run type.
+    members = [str(member) for member in rotor.members]
+    owned.update(labels[name] for name in select_group_members(members, ordered, case.aliases))
+    for member in members:
         # A BLADE IS PRESENT BY ITS OWN NAME, OR BY THE ALIAS THE ROW GIVES IT.
-        # The resolver reads a token ending in a digit as its family too, so
-        # `Blade3` would find `Blade1` on a mesh of two blades; a blade named
-        # with its number must be a label of its own or an alias of the row that
-        # selects a surface (the ownership check above resolves it the same
-        # way), and only a family token (no number) is answered by the family
-        # reading.
+        # A blade named with its number must be a label of its own or an alias
+        # of the row that selects a surface, never a sibling of its family, and
+        # only a family token (no number) is answered by the family reading.
         numbered = member[-1:].isdigit()
         aliased = bool(resolve_alias(member, ordered, case.aliases)) if numbered else False
+        found = () if numbered else _resolve_token(case, member, labels)
         if member in rotor.families_blades and (
             (member.casefold() in exact or aliased) if numbered else bool(found)
         ):
@@ -346,7 +374,7 @@ def _qsteady_free_stream(
             "shaft must be the global X axis."
         )
     _from_metres(case, script, "the custom field's coordinates and velocities")
-    native = script.simulation_length_unit
+    native = _the_fields_native_unit(case, script)
     if kind == "sector":
         _, rows = field_rows_in_metres(
             Path(custom.path),
@@ -620,16 +648,15 @@ def qsteady_inflow_fft(case: SimCase) -> dict[str, object] | None:
     omega = rpm * RAD_PER_S_PER_REV_PER_MIN
     from ..freestream import field_rows_in_metres
 
-    unit = getattr(case.mesh_import, "units", None)
-    native = str(unit) if unit else None
     try:
+        native = _the_fields_native_unit(case)
         _, rows = field_rows_in_metres(
             Path(custom.path),
             form=custom.form,
             source_units=custom.source_units,
             native_unit=native,
         )
-    except (CampaignConfigError, OSError, UnicodeError) as error:
+    except (CampaignConfigError, MeshReadError, OSError, UnicodeError) as error:
         return {"note": f"POL {case.sim_id}: the custom inflow cannot be read: {error}"}
     stations = _blade_stations_from_the_mesh(case, rotor)
     if isinstance(stations, str):
@@ -794,11 +821,18 @@ def _solve_one_clocking(
     declares (:func:`_clocking_section_exports`), after the updates they read,
     so a wheel's radial loads exist at every clocking and not at clocking 0
     alone.
+
+    THE ROW'S RAW LINES OF EACH PHASE reach every clocking, in the positions
+    `_script_solve_and_export` gives them at clocking 0: a raw exec or analysis
+    line is a setting of the solve, and it reached the last solve alone.
     """
+    _raw_commands(case, script, "exec")
     helpers.start_solver(script)
     _setup_link.loads_selections(case, script)
     if case.solver.clear_vorticity_drag_boundaries:
         script.emit("DELETE_VORTICITY_DRAG_BOUNDARIES")
+    _raw_commands(case, script, "analysis")
+    _raw_commands(case, script, "export")
     sections = _clocking_section_exports(conventions, case, index)
     if sections:
         script.emit("UPDATE_ALL_SURFACE_SECTIONS")

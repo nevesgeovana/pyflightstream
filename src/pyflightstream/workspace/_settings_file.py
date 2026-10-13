@@ -2,7 +2,7 @@
 
 A user who runs the same commands day after day writes once, in the workspace,
 the defaults of the options otherwise typed on every command: the
-version, the HPC profile, the cost file, the acceptance of the installed build,
+version, the HPC profile and the cost file,
 how much the console says. This module is the one reader of those two files,
 and the one place that decides which of their values a command takes.
 
@@ -102,8 +102,6 @@ DEFAULT_KEYS: Mapping[str, str] = MappingProxyType(
         "fs_version": "text",
         "hpc": "text",
         "cost_file": "text",
-        "runs": "text",
-        "accept_unregistered_build": "switch",
         "fs_exe": "text",
         "point_name": "text",
         "recipe": "texts",
@@ -122,6 +120,7 @@ LOG_KEYS: Mapping[str, str] = MappingProxyType({"console": "level", "pproc_warni
 #: The options that act on one invocation: refused in a file, because a file that
 #: made one of them the default would act without being asked (R4).
 ACT_KEYS = (
+    "runs",
     "apply",
     "yes",
     "overwrite",
@@ -220,6 +219,13 @@ def _checked(path: Path) -> dict[str, dict[str, object]]:
             f"{path} is not valid TOML: {error}. Nothing ran: the workspace settings are "
             "read before any work."
         ) from error
+    except UnicodeDecodeError as error:
+        # TOML is UTF-8, and tomllib decodes before it parses, so a file saved
+        # in a legacy code page never reaches TOMLDecodeError.
+        raise InputArtifactError(
+            f"{path} is not UTF-8 ({error}); save it as UTF-8, which TOML requires. "
+            "Nothing ran: the workspace settings are read before any work."
+        ) from error
     tables: dict[str, dict[str, object]] = {}
     for name, value in raw.items():
         if name == "schema_version":
@@ -248,6 +254,21 @@ def _check_schema(value: object, path: Path) -> None:
 
 def _check_default(key: str, value: object, path: Path) -> None:
     """Refuse one ``[defaults]`` key that is not settable, or holds the wrong kind of value."""
+    if key in {"console", "verbose", "log_level", "pproc_warnings"}:
+        remedy = "pproc_warnings" if key == "pproc_warnings" else "console"
+        raise InputArtifactError(
+            f"{path} [defaults] sets {key!r}; write it under [log] as {remedy}. Nothing ran."
+        )
+    if key == "accept_unregistered_build":
+        raise InputArtifactError(
+            f"{path} [defaults] sets {key!r}; accept a build on its entry in "
+            "inputs/executables.local.toml or type --accept-unregistered-build. Nothing ran."
+        )
+    if key in {"fs_exe", "local"} and path.name == SETTINGS_FILE:
+        raise InputArtifactError(
+            f"{path} [defaults] sets {key!r}, a machine choice; write it in "
+            f"{LOCAL_SETTINGS_FILE}. Nothing ran."
+        )
     if key == "workspace":
         raise InputArtifactError(
             f"{path} [defaults] sets 'workspace', which is what locates this file and so "

@@ -6,10 +6,10 @@ is installed, the sectional loads report of
 :mod:`pyflightstream.fsi.loads`) into tidy :class:`pandas.DataFrame`
 tables, then assembles run-level and sweep-level tables by joining the
 campaign manifest records with the parsed coefficient tables. Tables
-rest on pandas today and labeled physical fields on xarray in
-:mod:`pyflightstream.farfield`; both substrates leave the runtime set
-at the release SRS NFR-06 names (SRS AD-06, which replaced the division
-this docstring used to state as permanent). Downstream code should
+rest on pandas today, which leaves the runtime set at the release SRS
+NFR-06 names (SRS AD-06, which replaced the division this docstring used
+to state as permanent); the far field of :mod:`pyflightstream.farfield`
+rests on plain numpy arrays. Downstream code should
 depend on the documented column schema (SRS NFR-19), not on the
 library holding the values.
 
@@ -32,8 +32,8 @@ requirement of 2026-08-16). Each frame these functions build carries
 write one that does not. They are constant columns for a single parsed
 result and genuinely PER ROW in the sweep table, which is the one file
 here that mixes provenances: a steady point's coefficients are a direct
-integration and an unsteady point's are the solver's own time average,
-printed under the same names. The vocabulary and its integer codes live
+integration and an unsteady point's are the last time step, one instant
+of a cycle, printed under the same names. The vocabulary and its integer codes live
 in :mod:`pyflightstream.results`, one layer below the writers that
 publish them.
 
@@ -93,12 +93,14 @@ from pyflightstream.results.core import (
     REDUCTION_COLUMN,
     REDUCTION_WINDOW_CODES,
     REDUCTION_WINDOW_COLUMN,
-    IncompleteOutputError,
     MalformedOutputError,
     UnsupportedResultTypeError,
     reduction_for_solver_mode,
     window_for_reduction,
 )
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.results.core import IncompleteOutputError as IncompleteOutputError
 from pyflightstream.results.exports import (
     FORCE_DISTRIBUTION_COLUMNS,
     OFF_BODY_STREAMLINE_COLUMNS,
@@ -321,12 +323,13 @@ def to_table(result: object) -> pd.DataFrame:
     Every one of them also carries the three provenance columns
     (PFS-2014.05, PFS-2014.03): ``data_origin``, ``raw`` for anything
     read off a solver export; ``reduction_window``, ``not_applicable``
-    where nothing was averaged, ``not_printed`` where the solver averaged
-    and printed no window, and ``unknown`` where the mode itself never
-    printed; and ``reduction``, which is ``none`` where nothing
-    was averaged, ``time_average`` where the unsteady solver averaged
-    over its window, and ``unknown`` where the file printed no solver
-    mode to decide it by.
+    where nothing was averaged, ``last_time_step`` on an unsteady export,
+    and ``unknown`` where the mode itself never printed; and
+    ``reduction``, which is ``none`` where nothing was averaged,
+    ``last_step`` on an unsteady export, which states the last time step
+    only, and ``unknown`` where the file printed no solver mode to decide
+    it by. ``time_average`` with ``not_printed`` is what files written
+    before 0.40.0 carry on an unsteady export.
 
     Parameters
     ----------
@@ -402,14 +405,14 @@ def to_table(result: object) -> pd.DataFrame:
     )
 
 
-def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True) -> Path:
+def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = False) -> Path:
     """Write one table as a csv, refusing a file that cannot say what it is.
 
     THE ONE WRITE PATH of this module (PFS-2014.05). Every file this
     package writes has to state whether its numbers came off the run or
     out of a reduction, and the identifier is carried PER ROW, because
     the sweep table mixes a steady point's direct integration with an
-    unsteady point's time average under the same column names. A reader
+    unsteady point's last time step under the same column names. A reader
     who cannot tell those apart compares them and reads a method
     difference as physics.
 
@@ -432,10 +435,8 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True
     path : str or Path
         Target csv file; its parent folder must exist.
     overwrite : bool, optional
-        Whether an existing file may be replaced. True by default, which
-        is what this module has always done; the non-overwrite policy of
-        the flow-visualization writers is a separate decision and this
-        function does not smuggle it in.
+        Whether an existing file may be replaced. False by default;
+        pass True to replace it deliberately.
 
     Returns
     -------
@@ -483,7 +484,7 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True
     return target
 
 
-def to_csv(result: object, path: str | Path) -> Path:
+def to_csv(result: object, path: str | Path, *, overwrite: bool = False) -> Path:
     r"""Write one parsed FlightStream result as a csv file.
 
     The tidy table of :func:`to_table` is written without the
@@ -499,6 +500,9 @@ def to_csv(result: object, path: str | Path) -> Path:
         One parsed result of the kinds :func:`to_table` covers.
     path : str or Path
         Target csv file; its parent folder must exist.
+    overwrite : bool, optional
+        Whether an existing file may be replaced, as in
+        :func:`write_table`, which takes the same default.
 
     Returns
     -------
@@ -518,7 +522,7 @@ def to_csv(result: object, path: str | Path) -> Path:
     >>> header.split(',')[:2]
     ['Time (sec)', 'CL']
     """
-    return write_table(to_table(result), path)
+    return write_table(to_table(result), path, overwrite=overwrite)
 
 
 def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
@@ -593,10 +597,29 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
         if not pairs.empty:
             raise MalformedOutputError(
                 f"{len(pairs)} row(s) pair reduction {reduction!r} with reduction_window "
-                f"{window!r}, which contradicts itself: {why}. The pairs this package "
-                "writes are none with not_applicable, time_average with not_printed, and "
-                "unknown with unknown"
+                f"{window!r}, which contradicts itself: {why}. {_WRITTEN_PAIRS}"
             )
+    # `last_step` and `last_time_step` (0.40.0) state one fact, the instant
+    # of an unsteady export's last time step, so each goes with the other
+    # and with nothing else.
+    lone = frame[
+        (frame[REDUCTION_COLUMN] == "last_step")
+        != (frame[REDUCTION_WINDOW_COLUMN] == "last_time_step")
+    ]
+    if not lone.empty:
+        raise MalformedOutputError(
+            f"{len(lone)} row(s) pair reduction last_step or reduction_window "
+            "last_time_step with another token, which contradicts itself: both say the "
+            f"row is the last time step of an unsteady export. {_WRITTEN_PAIRS}"
+        )
+
+
+#: The provenance pairs this package writes, named in every pair refusal.
+_WRITTEN_PAIRS = (
+    "The pairs this package writes are none with not_applicable, last_step with "
+    "last_time_step, and unknown with unknown; time_average with not_printed is what "
+    "a file written before 0.40.0 carries on an unsteady export"
+)
 
 
 def run_table(record: _ManifestRecord, *, loads: LoadsReport | None = None) -> pd.DataFrame:
@@ -681,7 +704,12 @@ def parse_run_loads(
         normal outcome of a failed point).
     AmbiguousLoadsError
         When several collected outputs parse as loads spreadsheets and
-        ``loads_file`` does not single one out.
+        ``loads_file`` does not single one out, or when ``loads_file``
+        names several outputs.
+    MalformedOutputError or IncompleteOutputError
+        When an output that opens as a loads spreadsheet (its ``Surface,``
+        header within its first kilobytes) is malformed or truncated: it
+        is refused with that reason, never skipped as another file.
     FileNotFoundError
         When a recorded output is no longer on disk, for example after
         the simulation folder was archived.
@@ -706,6 +734,14 @@ def parse_run_loads(
                 f"recorded outputs: {', '.join(record.outputs)}. The name must match "
                 "the file the recipe exported."
             )
+        if len(candidates) > 1:
+            # Outputs live under datapoints/DP-<point>/ (FR-92), so one base
+            # name can be several files; auto mode refuses the same guess.
+            raise AmbiguousLoadsError(
+                f"run {record.run_id!r} holds {len(candidates)} collected outputs named "
+                f"{loads_file!r} ({', '.join(candidates)}); the base name does not say "
+                "which is the coefficient table of this run"
+            )
         report = parse_loads(
             _read_output(sim_dir, candidates[0], record),
             requested_version=record.fs_version_requested,
@@ -714,13 +750,19 @@ def parse_run_loads(
         return report
     parsed: list[tuple[str, LoadsReport]] = []
     for name in record.outputs:
-        try:
-            report = parse_loads(
-                _read_output(sim_dir, name, record),
-                requested_version=record.fs_version_requested,
-            )
-        except (IncompleteOutputError, ValueError):
-            continue  # not a loads spreadsheet (a solver log, a probe export, ...)
+        # WHETHER A FILE IS A LOADS SPREADSHEET is decided from its head
+        # alone, before it is read whole (PFS-2085.007), and is a separate
+        # question from whether it is a sound one (PFS-2105.025): a file
+        # that is one and is truncated, duplicated or malformed is refused
+        # with that reason rather than skipped as "not a loads file".
+        # A file not on disk falls through to _read_output, which says so.
+        path = Path(sim_dir) / name
+        if path.is_file() and not _heads_a_loads_spreadsheet(path):
+            continue  # a solver log, a probe export, a surface, ...
+        report = parse_loads(
+            _read_output(sim_dir, name, record),
+            requested_version=record.fs_version_requested,
+        )
         parsed.append((name, report))
     if not parsed:
         raise LoadsNotFoundError(
@@ -810,7 +852,11 @@ def sweep_table(
         leave a file a colleague can open, and raising here would leave
         nothing to write. The condition is warned about instead, and
         the identity rows are returned; per-record misses are already
-        tolerated either way, as NaN coefficient rows.
+        tolerated either way, as NaN coefficient rows. A record whose
+        loads cannot be read for another reason (an output no longer on
+        disk, an ambiguous, truncated or wrong-point spreadsheet) raises
+        that error when True and, when False, keeps its NaN row and is
+        warned about by run id (0.40.0).
     matrix_stem : str, optional
         The stem of one run matrix of the workspace; the table then holds
         the records that name it and no other's (PFS-2031.04). A record
@@ -843,7 +889,8 @@ def sweep_table(
     Warns
     -----
     UserWarning
-        In the same condition when ``require_loads`` is False.
+        In the same condition when ``require_loads`` is False, and once per
+        record whose loads could not be read.
 
     Examples
     --------
@@ -896,35 +943,56 @@ def sweep_table(
             runs_with_loads += 1
         except LoadsNotFoundError:
             loads = None  # the row keeps identity and status, coefficients stay NaN
+        except (PyflightstreamError, OSError, ValueError) as error:
+            # ONE RECORD'S FAILURE IS THAT RECORD'S (PFS-2095.025): an output
+            # archived away, an ambiguous or truncated spreadsheet, a wrong
+            # point. It used to end the whole table, and the callers that
+            # tolerate that wrote no sweep at all for every other point.
+            if require_loads:
+                raise
+            warn(
+                f"the loads of run {record.run_id!r} could not be read, so its row keeps "
+                f"its identity and status and its coefficients stay NaN: {error}",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            loads = None
         rows.append(_run_row(record, loads))
     if runs_with_loads == 0:
-        successful = [r for r in records if str(r.status) in _RAN_TO_OUTPUTS]
-        if successful:
-            hint = (
-                f"no collected output is named {loads_file!r}"
-                if loads_file is not None
-                else "no collected output parses as a loads spreadsheet"
-            )
-            # THE EXAMPLE IS A RECORD THAT COLLECTED SOMETHING, never simply
-            # the first: on a cluster row the first record is often a point
-            # whose outputs list is empty, and the hint then read "for
-            # example [] for run ..." (PFS-2010.01.04).
-            example = next((r for r in successful if r.outputs), None)
-            pointer = (
-                "Check the exported file name against the recorded outputs, for example "
-                f"{list(example.outputs)!r} for run {example.run_id!r}."
-                if example is not None
-                else "None of them recorded a collected output at all, so check that the "
-                "run exported a loads spreadsheet before checking its name."
-            )
-            complaint = (
-                f"none of the {len(successful)} successful runs yielded a coefficient "
-                f"table: {hint}. {pointer}"
-            )
-            if require_loads:
-                raise LoadsNotFoundError(complaint)
-            warn(complaint, PyflightstreamWarning, stacklevel=2)
+        _complain_no_loads(records, loads_file, require_loads)
     return pd.DataFrame(rows)
+
+
+def _complain_no_loads(records: list, loads_file: str | None, require_loads: bool) -> None:
+    """Raise or warn that no successful run of the sweep yielded a coefficient table."""
+    successful = [r for r in records if str(r.status) in _RAN_TO_OUTPUTS]
+    if not successful:
+        return
+    hint = (
+        f"no collected output is named {loads_file!r}"
+        if loads_file is not None
+        else "no collected output parses as a loads spreadsheet"
+    )
+    # THE EXAMPLE IS A RECORD THAT COLLECTED SOMETHING, never simply
+    # the first: on a cluster row the first record is often a point
+    # whose outputs list is empty, and the hint then read "for
+    # example [] for run ..." (PFS-2010.01.04).
+    example = next((r for r in successful if r.outputs), None)
+    pointer = (
+        "Check the exported file name against the recorded outputs, for example "
+        f"{list(example.outputs)!r} for run {example.run_id!r}."
+        if example is not None
+        else "None of them recorded a collected output at all, so check that the "
+        "run exported a loads spreadsheet before checking its name."
+    )
+    complaint = (
+        f"none of the {len(successful)} successful runs yielded a coefficient "
+        f"table: {hint}. {pointer}"
+    )
+    if require_loads:
+        raise LoadsNotFoundError(complaint)
+    # stacklevel 3: the caller of sweep_table, as it was when this lived inline.
+    warn(complaint, PyflightstreamWarning, stacklevel=3)
 
 
 def _stamped(frame: pd.DataFrame, *, origin: str, reduction: str) -> pd.DataFrame:
@@ -970,9 +1038,9 @@ def _loads_frame(report: LoadsReport) -> pd.DataFrame:
         row["force_units"] = report.force_units
         row["moment_units"] = report.moment_units
         rows.append(row)
-    # The solver did the averaging on an unsteady export, so the numbers
-    # are still raw off the run and it is the reduction token that names
-    # what they are.
+    # An unsteady export states its last time step, so the numbers are
+    # still raw off the run and it is the reduction token that names what
+    # they are.
     return _stamped(
         pd.DataFrame(rows),
         origin="raw",
@@ -1027,8 +1095,8 @@ def _unsteady_plots_frame(report: UnsteadyPlotsReport) -> pd.DataFrame:
     ``reduction`` is ``none`` and that is physical rather than
     bookkeeping. This file IS the per-time-step history, so no window
     was averaged to produce a row; a time average taken OF it would be
-    ``time_average``, and the unsteady loads spreadsheet, which the
-    solver averages itself, already is.
+    ``time_average``. The unsteady loads spreadsheet is neither: it
+    states the last time step only, ``last_step``.
 
     Raises
     ------
@@ -1268,14 +1336,14 @@ def _run_row(record: _ManifestRecord, loads: LoadsReport | None) -> dict[str, ob
     # PER ROW, straight after the identity, because this is the one table
     # this package writes that MIXES provenances: a steady point's
     # coefficients are a direct integration and an unsteady point's are the
-    # solver's own time average, under the same column names.
+    # last time step, one instant of a cycle, under the same column names.
     row[DATA_ORIGIN_COLUMN] = "raw"
     reduction = "unknown" if loads is None else reduction_for_solver_mode(loads.solver_mode)
     row[REDUCTION_COLUMN] = reduction
     # AND OVER WHAT WINDOW (PFS-2014.03). A steady point averages over
-    # nothing; an unsteady point's coefficients are the solver's own time
-    # average and the spreadsheet does not print the window it used, which
-    # this column says rather than leaving blank. A row whose loads never
+    # nothing; an unsteady point's coefficients are its last time step,
+    # `last_time_step`, which this column says rather than leaving blank
+    # (it said `not_printed`, a solver average, until 0.40.0). A row whose loads never
     # parsed reduces to `unknown` and takes the window of the same name:
     # this line used to hard-code `not_printed` for that branch, which
     # asserted a solver average on the one row class where nothing at all
@@ -1387,6 +1455,24 @@ def _read_output(sim_dir: Path, name: str, record: _ManifestRecord) -> str:
             "cleaned, and sweep tables read the live sims folders only"
         )
     return path.read_text(encoding="utf-8", errors="replace")
+
+
+#: How much of a collected output is read to tell a loads spreadsheet from
+#: any other export: its ``Surface,`` header stands within the first thirty
+#: lines of every committed loads export.
+_LOADS_HEAD_BYTES = 8192
+
+
+def _heads_a_loads_spreadsheet(path: Path) -> bool:
+    """Whether a file opens as a loads spreadsheet, from its first kilobytes.
+
+    The test is the ``Surface,`` table header :func:`parse_loads` reads its
+    columns from: a solver log has none, and a probe, section or surface
+    export has another (their own parsers refuse it as AnchorNotFoundError).
+    """
+    with path.open("rb") as stream:
+        head = stream.read(_LOADS_HEAD_BYTES).decode("utf-8", errors="replace")
+    return any(line.strip().startswith("Surface,") for line in head.splitlines())
 
 
 def _check_point_printback(record: _ManifestRecord, report: LoadsReport, name: str) -> None:

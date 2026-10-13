@@ -6,7 +6,7 @@ folder holds a fresh ``FS_SurfaceSection_Loads.txt``; the driver
 parses it, assembles per-blade loads about the elastic axis, solves
 the rotating beam per blade, relaxes the displacements against the
 previous call, writes ``FSIDisp.txt`` in the single-source node order,
-appends the convergence log, and persists ``state.json`` atomically.
+persists ``state.json`` atomically, and then appends the convergence log.
 Everything is file-driven, so the offline replay harness of the tier 1
 suite exercises the complete machine on archived fixtures with no
 FlightStream in the loop (DLV-007 Section 8).
@@ -36,7 +36,10 @@ and the time increment printed in the loads file itself:
 Frozen mode (FSI-R10) is first class: when the run folder holds a
 ``fsi_frozen_displacements.txt``, every call replays it verbatim, with
 no loads parsing and no solve, so a stored deformation can be held
-fixed for sensitivity runs and Gate 2.
+fixed for sensitivity runs and Gate 2. The file holds one row per
+structural node, so a configuration with direct morphing, whose solver
+reads one row per surface vertex, is refused in frozen mode; direct
+morphing is honoured on the quasi-steady rotor route only.
 
 The convergence log carries the config hash on every row (FSI-R15)
 and states the quasi-steady validity boundary in its header (DLV-007
@@ -63,14 +66,15 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
 import pyflightstream._textio as _textio
 import pyflightstream.fsi._direct_morphing as _direct_morphing
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
@@ -190,9 +194,9 @@ def revolutions_per_step(omega_rad_per_s: float, time_increment_s: float) -> flo
     Parameters
     ----------
     omega_rad_per_s : float
-        The rotor's angular speed [rad/s], positive.
+        The rotor's angular speed [rad/s], positive and finite.
     time_increment_s : float
-        The unsteady time step [s], positive.
+        The unsteady time step [s], positive and finite.
 
     Returns
     -------
@@ -202,9 +206,11 @@ def revolutions_per_step(omega_rad_per_s: float, time_increment_s: float) -> flo
     Raises
     ------
     FsiInputError
-        If the angular speed or the time step is not positive.
+        If the angular speed or the time step is not positive and finite.
     """
-    if omega_rad_per_s <= 0.0 or time_increment_s <= 0.0:
+    # PFS-2086.004: `<= 0` is False for a NaN, so a NaN or an infinite dt
+    # passed and came back as a NaN or infinite revolution count.
+    if not (0.0 < omega_rad_per_s < math.inf and 0.0 < time_increment_s < math.inf):
         raise FsiInputError(
             "revolutions need a spinning rotor and an advancing clock: got "
             f"Omega {omega_rad_per_s} rad/s and dt {time_increment_s} s; the "
@@ -434,6 +440,21 @@ def _append_log(run_dir: Path, row: dict[str, object]) -> None:
             handle.write(line)
 
 
+def _commit_call(run_dir: Path, state: FsiState, row: dict[str, object]) -> None:
+    """Persist the call's state, then append its convergence-log row.
+
+    In that order (PFS-2103.016). The state is what a resumed call continues
+    from, and it is written atomically; the log appends in place. With the
+    row appended first, a call killed between the two left a row for a call
+    the state never recorded, and the retry, resuming from the previous
+    state, appended a second row under the same call number. With the state
+    first, the same kill can lose the row of a call whose state is complete,
+    and no call number is ever written twice.
+    """
+    write_state_atomic(state, run_dir / STATE_FILE)
+    _append_log(run_dir, row)
+
+
 def _tip_columns(tip_flap_m: Sequence[float], tip_twist_deg: Sequence[float]) -> dict[str, str]:
     """Return the convergence log's tip columns from the tip value of each blade.
 
@@ -452,6 +473,20 @@ def _tip_columns(tip_flap_m: Sequence[float], tip_twist_deg: Sequence[float]) ->
     }
 
 
+def _rotating_log_columns(solved: Sequence[centrifugal.RotatingSolution]) -> dict[str, object]:
+    """Return the inner-iteration columns of a rotating blade's convergence-log row.
+
+    One format for both rotor routes (PFS-2087.001): the quasi-steady rotor
+    wrote the residual and its tolerance with three decimals while the
+    unsteady route wrote six and one, for the same columns.
+    """
+    return {
+        "inner_solves": max(result.inner_solves for result in solved),
+        "twist_residual_rad": f"{max(result.twist_residual_rad for result in solved):.6e}",
+        "twist_tolerance_rad": f"{solved[0].tolerance_rad:.1e}",
+    }
+
+
 def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
     """Regenerate the node layout and hold the staged map to it (FSI-R14).
 
@@ -459,13 +494,20 @@ def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
     single source); a serialized map in the run folder must agree with
     it, and a missing one is written so downstream consumers read the
     same bookkeeping.
+
+    Raises
+    ------
+    FsiInputError
+        If the staged map disagrees with the generated layout. It was a
+        bare ``ValueError`` until 0.40.0 (FR-39, PFS-2095.015);
+        ``FsiInputError`` is one, so a handler of either still catches it.
     """
     layout = nodes.generate_node_layout(cfg)
     map_path = run_dir / cfg.node_map_file
     if map_path.is_file():
         staged = nodes.load_node_map(map_path)
         if staged != layout:
-            raise ValueError(
+            raise FsiInputError(
                 f"the staged node map {map_path.name} disagrees with the layout "
                 "generated from config.json; the imported node file and the "
                 "FSIDisp ordering would desynchronize, which is exactly the "
@@ -477,16 +519,43 @@ def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
     return layout
 
 
+def _write_displacements(run_dir: Path, state: FsiState, written: np.ndarray) -> None:
+    """Write ``FSIDisp.txt`` and remember the rows as the next call's previous ones."""
+    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
+    state.previous_displacements = written.tolist()
+
+
+def _relaxed(state: FsiState, computed: np.ndarray, relaxation: float) -> np.ndarray:
+    """Relax the computed rows against the previous call's, d_old + lambda (d_calc - d_old).
+
+    The previous-displacement shape guard lives here, so every route that
+    relaxes holds it (PFS-2087.001): the unsteady route relaxed without it.
+    A state with no previous rows relaxes against zeros.
+    """
+    previous = (
+        np.asarray(state.previous_displacements, dtype=float)
+        if state.previous_displacements is not None
+        else np.zeros_like(computed)
+    )
+    if previous.shape != computed.shape:
+        raise FsiInputError(
+            f"call {state.call_count} computed {len(computed)} displacement rows and the "
+            f"previous call wrote {len(previous)}: the solver's node list changed between two "
+            "calls of one run, so the relaxation would blend displacements of other nodes"
+        )
+    return relax_displacements(previous, computed, relaxation)
+
+
 def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
     """Replay the stored deformation without coupling (FSI-R10)."""
     layout = _verified_layout(cfg, run_dir)
     translations = nodes.read_fsidisp(run_dir / FROZEN_FILE, expected_rows=layout.total_nodes)
-    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, translations)
     state.call_count += 1
     state.step_count += 1
-    state.previous_displacements = translations.tolist()
-    _append_log(
+    _write_displacements(run_dir, state, translations)
+    _commit_call(
         run_dir,
+        state,
         {
             "call": state.call_count,
             "step": state.step_count,
@@ -504,7 +573,6 @@ def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
             "tip_flap_signed_m": "",
         },
     )
-    write_state_atomic(state, run_dir / STATE_FILE)
     logger.info("frozen replay: call %d wrote the stored deformation", state.call_count)
     return StepResult(
         call=state.call_count,
@@ -549,8 +617,8 @@ def _refuse_an_unsettled_blade(solved: Sequence[centrifugal.RotatingSolution]) -
         "NOT written: the solver would fly them and the run would continue as "
         "though they were a solution. The usual cause is a propeller moment "
         "unusually strong for this blade stiffness; check the torsional "
-        "stiffness distribution and the chordwise mass offsets of the "
-        "configuration.",
+        "stiffness distribution against the inertia difference I1 - I2 of the "
+        "configuration (a centre of gravity offset does not enter this solve).",
         residuals_rad=residuals,
         tolerance_rad=twist_tolerance,
         inner_solves=inner_solves,
@@ -577,6 +645,159 @@ class _StructuralSolve:
     log: dict[str, object]
 
 
+#: How far a printed time increment may sit from the configured one. The
+#: loads header prints dt with three decimals (RPT-006), so the printed value
+#: is within 5e-4 s of the true one, and exactly 5e-4 s away when dt ends in a
+#: 5 at the fourth decimal (0.0035 prints .004). The difference of the two
+#: doubles then lands one ulp either side of 5e-4, so the bare bound accepted
+#: or refused that case by float representation (PFS-2088.005); the relative
+#: epsilon settles it on the accepting side.
+_PRINTED_TIME_INCREMENT_BOUND_S = 5.0e-4 * (1.0 + 1.0e-9)
+#: The relative print error above which an unconfigured dt is warned of: a
+#: three-decimal print carries fewer than three significant digits below
+#: 0.1 s (PFS-2088.004).
+_COARSE_PRINT_RELATIVE_ERROR = 5.0e-3
+
+
+@dataclass(frozen=True)
+class _CallInputs:
+    """What the shared front half of a loads-reading call hands its route.
+
+    Attributes
+    ----------
+    layout : nodes.NodeOrderingMap
+        The node layout, held to the staged map.
+    report : SectionalLoadsReport
+        The parsed loads export of the solve before this call.
+    family_map : SectionFamilyMap
+        The run folder's family map.
+    time_increment_s : float or None
+        The time increment the call runs on: the configured one when
+        stated, else the printed one; None when the route does not read it
+        or a steady export carries none.
+    """
+
+    layout: nodes.NodeOrderingMap
+    report: SectionalLoadsReport
+    family_map: SectionFamilyMap
+    time_increment_s: float | None
+
+
+def _call_time_increment(
+    cfg: FsiConfig, report: SectionalLoadsReport, *, required: bool
+) -> float | None:
+    """Return the time increment a call runs on, the configured one when stated.
+
+    The header prints the increment with three decimals only (RPT-006), so a
+    configured dt drives the bookkeeping and the printed value is held to it
+    at print precision.
+
+    Raises
+    ------
+    FsiInputError
+        If ``required`` and the export carries no time increment (a steady
+        solve's export), if the printed one is not finite, or if it lies
+        beyond print precision from the configured one.
+    """
+    printed = report.time_increment_s
+    if printed is None:
+        if required:
+            raise FsiInputError(
+                "the loads export carries no time increment, so it comes from a "
+                "steady solve; the coupled driver runs inside the unsteady solver "
+                "(SET_AEROELASTIC_COUPLING_IN_UNSTEADY, RPT-005)"
+            )
+        return None
+    if not math.isfinite(printed):
+        raise FsiInputError(
+            f"the loads export prints a time increment of {printed} s, which is not a "
+            "finite number, so no revolution count or phase can be scheduled on it "
+            "(RPT-006)"
+        )
+    if cfg.time_increment_s is None:
+        return printed
+    if abs(cfg.time_increment_s - printed) > _PRINTED_TIME_INCREMENT_BOUND_S:
+        raise FsiInputError(
+            f"the loads export prints a time increment of {printed} s but "
+            f"the configuration declares {cfg.time_increment_s} s; beyond the header's "
+            "three-decimal print precision this is a different run than the configuration "
+            "describes (RPT-006)"
+        )
+    return cfg.time_increment_s
+
+
+def _read_the_call(
+    run_dir: Path,
+    cfg: FsiConfig,
+    state: FsiState,
+    *,
+    stale_cause: str,
+    time_increment: Literal["ignore", "check", "require"],
+) -> _CallInputs:
+    """Read a call's inputs: the front half every loads-reading route shares (PFS-2087.001).
+
+    Hold the staged node map to the configuration, parse the loads of the
+    solve before, refuse stale ones (``stale_cause`` says what a stale file
+    means on the route), resolve the time increment (``"ignore"`` it,
+    ``"check"`` a printed one against a configured one, or ``"require"``
+    one), advance the counters and read the family map.
+    """
+    layout = _verified_layout(cfg, run_dir)
+    report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))
+    if state.last_solver_iteration is not None and (
+        report.current_iteration <= state.last_solver_iteration
+    ):
+        raise StaleLoadsError(
+            f"call {state.call_count + 1} received solver iteration "
+            f"{report.current_iteration}, not ahead of the previous "
+            f"{state.last_solver_iteration}: {stale_cause}"
+        )
+    time_increment_s = (
+        None
+        if time_increment == "ignore"
+        else _call_time_increment(cfg, report, required=time_increment == "require")
+    )
+    state.call_count += 1
+    state.step_count += 1
+    state.last_solver_iteration = report.current_iteration
+    family_map = SectionFamilyMap.model_validate_json(
+        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
+    )
+    return _CallInputs(layout, report, family_map, time_increment_s)
+
+
+def _blade_family_names(family_map: SectionFamilyMap, cfg: FsiConfig) -> list[str]:
+    """Return the blade families of the map, refusing a count the configuration does not hold."""
+    blade_families = [family.name for family in family_map.families if family.is_blade]
+    if len(blade_families) != cfg.blade_count:
+        raise FsiInputError(
+            f"the family map marks {len(blade_families)} blade families "
+            f"({blade_families}) but the configuration expects {cfg.blade_count} "
+            "blades; attribution is single-sourced in the map (RPT-005 finding 6)"
+        )
+    return blade_families
+
+
+def _per_blade_densities(
+    report: SectionalLoadsReport, family_map: SectionFamilyMap, names: Sequence[str], cfg: FsiConfig
+) -> tuple[list[list[float]], list[list[float]], float]:
+    """Return every blade's flap and torsion densities at the stations, and the normal force."""
+    blocks = report.split(family_map)
+    stations = cfg.blade.station_radii_m
+    flap_per_blade: list[list[float]] = []
+    torsion_per_blade: list[list[float]] = []
+    total_normal_force = 0.0
+    for name in names:
+        ea_loads = to_elastic_axis(blocks[name], cfg)
+        flap, torsion = _blade_densities(ea_loads, stations)
+        flap_per_blade.append(flap)
+        torsion_per_blade.append(torsion)
+        total_normal_force += float(
+            (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
+        )
+    return flap_per_blade, torsion_per_blade, total_normal_force
+
+
 def _steady_coupling_step(
     run_dir: Path,
     cfg: FsiConfig,
@@ -593,78 +814,47 @@ def _steady_coupling_step(
     The fixed wing and the quasi-steady rotor sector share everything but the
     structure: read the loads of the solve before, refuse stale ones, count the
     call, hand the family map and the loads to ``solve``, write the relaxed
-    displacement d_new = d_old + lambda (d_calc - d_old), log and persist the
-    state. ``subject`` names what the stale loads would deflect and ``label``
+    displacement d_new = d_old + lambda (d_calc - d_old), persist the state and
+    log. ``subject`` names what the stale loads would deflect and ``label``
     the route in the log line.
     """
-    layout = _verified_layout(cfg, run_dir)
-    report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))
-    if state.last_solver_iteration is not None and (
-        report.current_iteration <= state.last_solver_iteration
-    ):
-        raise StaleLoadsError(
-            f"call {state.call_count + 1} received solver iteration "
-            f"{report.current_iteration}, not ahead of the previous "
-            f"{state.last_solver_iteration}: the loads file was not rewritten by a solve "
-            f"since the last call, so the {subject} would be deflected by loads it already had"
-        )
-    if (
-        check_time_increment
-        and cfg.time_increment_s is not None
-        and report.time_increment_s is not None
-        and abs(cfg.time_increment_s - report.time_increment_s) > 5.0e-4
-    ):
-        raise FsiInputError(
-            f"the loads export prints a time increment of {report.time_increment_s} s but "
-            f"the configuration declares {cfg.time_increment_s} s; beyond the header's "
-            "three-decimal print precision this is a different run than the configuration "
-            "describes (RPT-006)"
-        )
-    state.call_count += 1
-    state.step_count += 1
-    state.last_solver_iteration = report.current_iteration
-    family_map = SectionFamilyMap.model_validate_json(
-        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
-    )
-    solved = solve(family_map, report)
-    solutions = solved.solutions
-    computed = _computed_displacements(run_dir, cfg, layout, solutions)
-    previous = (
-        np.asarray(state.previous_displacements, dtype=float)
-        if state.previous_displacements is not None
-        else np.zeros_like(computed)
-    )
-    if previous.shape != computed.shape:
-        raise FsiInputError(
-            f"call {state.call_count} computed {len(computed)} displacement rows and the "
-            f"previous call wrote {len(previous)}: the solver's node list changed between two "
-            "calls of one run, so the relaxation would blend displacements of other nodes"
-        )
-    relaxation = cfg.phases.coupling_relaxation
-    written = relax_displacements(previous, computed, relaxation)
-    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
-    state.previous_displacements = written.tolist()
-    state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
-    _append_log(
+    call = _read_the_call(
         run_dir,
+        cfg,
+        state,
+        stale_cause=(
+            "the loads file was not rewritten by a solve since the last call, so the "
+            f"{subject} would be deflected by loads it already had"
+        ),
+        time_increment="check" if check_time_increment else "ignore",
+    )
+    solved = solve(call.family_map, call.report)
+    solutions = solved.solutions
+    relaxation = cfg.phases.coupling_relaxation
+    computed = _computed_displacements(run_dir, cfg, call.layout, solutions)
+    written = _relaxed(state, computed, relaxation)
+    _write_displacements(run_dir, state, written)
+    state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
+    _commit_call(
+        run_dir,
+        state,
         {
             "call": state.call_count,
             "step": state.step_count,
             "phase": phase,
             "revolutions": "",
-            "solver_iteration": report.current_iteration,
+            "solver_iteration": call.report.current_iteration,
             "total_normal_force_n": f"{solved.total_normal_force_n:.6f}",
             **solved.log,
             "relaxation": f"{relaxation:.3f}",
             "config_sha256": config_sha256(cfg),
         },
     )
-    write_state_atomic(state, run_dir / STATE_FILE)
     logger.info(
         "%s coupling call %d (solver iteration %d) written",
         label,
         state.call_count,
-        report.current_iteration,
+        call.report.current_iteration,
     )
     return StepResult(
         call=state.call_count,
@@ -677,19 +867,49 @@ def _steady_coupling_step(
     )
 
 
+def _at_the_elastic_axis_nodes(
+    layout: nodes.NodeOrderingMap, solutions: Sequence[Any]
+) -> Sequence[Any]:
+    """Return the solutions with each station's flap taken at its elastic-axis node.
+
+    PFS-2104.014. A section-generated layout moves an elastic-axis node off
+    a configured axis outside the chord window, while the beam is solved
+    about the configured axis; every offset of the layout is measured from
+    the node, so the node's own flap must be w + theta (e_node - e_true) for
+    every row of the station to move as the rigid section does. A layout
+    with every node on the configured axis returns the solutions unchanged.
+    """
+    if layout.ea_configured_chordwise_m is None:
+        return solutions
+    return [
+        replace(
+            sol,
+            flap_deflection_m=tuple(
+                nodes._elastic_axis_node_flap(
+                    layout, sol.flap_deflection_m, sol.elastic_twist_rad
+                ).tolist()
+            ),
+        )
+        for sol in solutions
+    ]
+
+
 def _computed_displacements(
     run_dir: Path, cfg: FsiConfig, layout: nodes.NodeOrderingMap, solutions: Sequence[Any]
 ) -> np.ndarray:
-    """Return the displacement rows a steady call computes, before relaxation.
+    """Return the displacement rows a call computes, before relaxation.
 
     The mapped route writes one row per structural node of ``layout``. With
     direct morphing (FR-341) the solver lists the surface vertices it morphs
     and reads one row per vertex, so the beam solution is evaluated at each of
     them (:func:`pyflightstream.fsi._direct_morphing.translations_at_points`).
+    Both measure from the elastic-axis nodes of the layout
+    (:func:`_at_the_elastic_axis_nodes`).
     """
+    at_nodes = _at_the_elastic_axis_nodes(layout, solutions)
     if cfg.morphing == DIRECT_MORPHING:
         points = _direct_morphing.read_aero_nodes(run_dir / _direct_morphing.AERO_NODES_FILE)
-        return _direct_morphing.translations_at_points(layout, solutions, points)
+        return _direct_morphing.translations_at_points(layout, at_nodes, points)
     return nodes.flatten_blade_translations(
         layout,
         [
@@ -699,7 +919,7 @@ def _computed_displacements(
                 np.asarray(layout.le_offset_m),
                 np.asarray(layout.te_offset_m),
             )
-            for sol in solutions
+            for sol in at_nodes
         ],
     )
 
@@ -728,28 +948,16 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
         )
 
     def solve(family_map: SectionFamilyMap, report: SectionalLoadsReport) -> _StructuralSolve:
-        blade_families = [family.name for family in family_map.families if family.is_blade]
-        if len(blade_families) != cfg.blade_count:
-            raise FsiInputError(
-                f"the family map marks {len(blade_families)} blade families "
-                f"({blade_families}) but the configuration expects {cfg.blade_count} "
-                "blades; attribution is single-sourced in the map (RPT-005 finding 6)"
+        names = _blade_family_names(family_map, cfg)
+        flap_per_blade, torsion_per_blade, total_normal_force = _per_blade_densities(
+            report, family_map, names, cfg
+        )
+        solved = [
+            centrifugal.solve_rotating_static(
+                cfg, flap_load_n_per_m=flap, torsion_moment_n_m_per_m=torsion
             )
-        blocks = report.split(family_map)
-        stations = cfg.blade.station_radii_m
-        solved = []
-        total_normal_force = 0.0
-        for name in blade_families:
-            ea_loads = to_elastic_axis(blocks[name], cfg)
-            flap, torsion = _blade_densities(ea_loads, stations)
-            total_normal_force += float(
-                (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
-            )
-            solved.append(
-                centrifugal.solve_rotating_static(
-                    cfg, flap_load_n_per_m=list(flap), torsion_moment_n_m_per_m=list(torsion)
-                )
-            )
+            for flap, torsion in zip(flap_per_blade, torsion_per_blade, strict=True)
+        ]
         _refuse_an_unsettled_blade(solved)
         solutions = tuple(result.solution for result in solved)
         return _StructuralSolve(
@@ -760,9 +968,7 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
                     [s.flap_deflection_m[-1] for s in solutions],
                     [math.degrees(s.elastic_twist_rad[-1]) for s in solutions],
                 ),
-                "inner_solves": max(result.inner_solves for result in solved),
-                "twist_residual_rad": f"{max(r.twist_residual_rad for r in solved):.3e}",
-                "twist_tolerance_rad": f"{solved[0].tolerance_rad:.3e}",
+                **_rotating_log_columns(solved),
             },
         )
 
@@ -800,13 +1006,13 @@ def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResu
                 f"the family map marks {len(wings)} structural families ({wings}); a "
                 "fixed-wing configuration is one cantilever, fed by one section distribution"
             )
-        ea_loads = to_elastic_axis(report.split(family_map)[wings[0]], cfg)
-        flap, torsion = _blade_densities(ea_loads, cfg.blade.station_radii_m)
-        total_normal_force = float(
-            (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
+        flap_per_blade, torsion_per_blade, total_normal_force = _per_blade_densities(
+            report, family_map, wings, cfg
         )
         solution = wing.solve_wing_static(
-            cfg, flap_load_n_per_m=flap, torsion_moment_n_m_per_m=torsion
+            cfg,
+            flap_load_n_per_m=flap_per_blade[0],
+            torsion_moment_n_m_per_m=torsion_per_blade[0],
         )
         return _StructuralSolve(
             solutions=(solution,),
@@ -833,13 +1039,355 @@ def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResu
     )
 
 
+def _warn_of_a_coarse_printed_time_increment(cfg: FsiConfig, time_increment_s: float) -> None:
+    """Warn when the phase schedule runs on a printed dt of fewer than three significant digits.
+
+    PFS-2088.004. Without a configured ``time_increment_s`` the schedule
+    takes the loads header's three-decimal print, so a 0.003525 s step reads
+    as 0.004 s, 13.5 percent off in every revolution count, phase boundary,
+    averaging window and recording length.
+    """
+    if cfg.time_increment_s is not None:
+        return
+    relative = 5.0e-4 / time_increment_s
+    if relative > _COARSE_PRINT_RELATIVE_ERROR:
+        warn(
+            "the configuration states no time_increment_s, so the phase schedule runs on "
+            f"the loads header's three-decimal print of dt, {time_increment_s} s, which can "
+            f"be off by up to {relative:.1%} (RPT-006); state the solver's time increment as "
+            "time_increment_s in config.json to schedule on the exact value",
+            PyflightstreamWarning,
+            stacklevel=4,
+        )
+
+
+def _solve_the_phase(
+    cfg: FsiConfig,
+    state: FsiState,
+    phase: int,
+    flap_per_blade: list[list[float]],
+    torsion_per_blade: list[list[float]],
+) -> tuple[float | None, list[centrifugal.RotatingSolution] | None]:
+    """Solve every blade as the phase asks, returning the relaxation and the solves.
+
+    Phase 1 solves nothing (None, None). Phase 4 solves the instantaneous
+    loads unrelaxed (lambda = 1, module docstring); phases 2 and 3 the loads
+    averaged over the window, relaxed by the configured factor.
+    """
+    if phase == 1:
+        return None, None
+    if phase == 4:
+        relaxation = 1.0
+        flap_solve = np.asarray(flap_per_blade)
+        torsion_solve = np.asarray(torsion_per_blade)
+    else:
+        relaxation = cfg.phases.coupling_relaxation
+        flap_solve, torsion_solve = _averaged_history(state.load_history)
+    solved = [
+        centrifugal.solve_rotating_static(
+            cfg,
+            flap_load_n_per_m=list(flap_solve[i]),
+            torsion_moment_n_m_per_m=list(torsion_solve[i]),
+        )
+        for i in range(cfg.blade_count)
+    ]
+    return relaxation, solved
+
+
+def _record_the_revolution(
+    cfg: FsiConfig,
+    state: FsiState,
+    phase: int,
+    revolutions: float,
+    *,
+    tip_twist_deg: list[float],
+    tip_flap_m: list[float],
+    total_normal_force: float,
+) -> None:
+    """Record a completed revolution and, in phase 3, judge convergence on it (FSI-R09)."""
+    completed = math.floor(revolutions + 1e-9)
+    if completed <= state.completed_revolutions:
+        return
+    state.revolution_history.append(
+        RevolutionSample(
+            revolution=completed,
+            tip_twist_deg=tip_twist_deg,
+            tip_flap_m=tip_flap_m,
+            # REV010-010. This value existed at this point and went only
+            # to the log; carrying it here is what makes the second
+            # acceptance criterion testable at all.
+            total_normal_force_n=total_normal_force,
+        )
+    )
+    if phase != 3 or len(state.revolution_history) < 2:
+        return
+    last, previous_rev = state.revolution_history[-1], state.revolution_history[-2]
+    # REV010-010. BOTH criteria, which is what this package's own
+    # configuration docstring has said since the field existed:
+    # structural twist constant AND the integrated normal force
+    # stable between consecutive revolutions. The force compared is
+    # the one SAMPLED at the revolution-completing call rather than
+    # a mean over the revolution; the two coincide only when the
+    # steps per revolution divide evenly, and where they do not the
+    # sampled azimuth drifts and 1P content can read as an unsettled
+    # thrust (V and V pass, 2026-08-03). Only the first was tested, so the workflow could
+    # promote itself to its final recording phase while the
+    # aerodynamic loading was still oscillating materially, and the
+    # recording it then made would be of a state it had declared
+    # converged rather than one that was.
+    verdict = _phase3_verdict(cfg, previous_rev, last)
+    if verdict.converged:
+        state.phase = 4
+        state.phase4_start_step = state.step_count + 1
+        logger.info(
+            "convergence declared at revolution %d (tip twist change "
+            "%.4f deg < %.4f deg; thrust change %.4f < %.4f); phase 4 "
+            "recording starts next step",
+            completed,
+            verdict.twist_change_deg,
+            cfg.phases.tip_twist_tolerance_deg,
+            verdict.thrust_change,
+            cfg.phases.thrust_tolerance_fraction,
+        )
+    elif verdict.twist_ok:
+        logger.info(
+            "revolution %d: tip twist has settled (%.4f deg < %.4f deg) but "
+            "thrust has not (%s); phase 3 continues",
+            completed,
+            verdict.twist_change_deg,
+            cfg.phases.tip_twist_tolerance_deg,
+            "not recorded for both revolutions"
+            if verdict.thrust_change is None
+            else (f"{verdict.thrust_change:.4f} >= {cfg.phases.thrust_tolerance_fraction:.4f}"),
+        )
+
+
+def _record_phase4_twist(
+    cfg: FsiConfig,
+    state: FsiState,
+    phase: int,
+    steps_per_rev: float,
+    solutions: tuple[beam.StaticBeamSolution, ...] | None,
+) -> None:
+    """Advance the phase and, while phase 4 records, keep this step's twist distributions."""
+    if phase != 4 and state.phase != 4:
+        state.phase = phase
+    if phase != 4 or state.phase4_start_step is None or solutions is None:
+        return
+    recording_steps = math.ceil(cfg.phases.recording_revolutions * steps_per_rev)
+    if state.step_count - state.phase4_start_step < recording_steps:
+        state.recorded_twist.append(
+            RecordedTwist(
+                step=state.step_count,
+                elastic_twist_rad=[list(sol.elastic_twist_rad) for sol in solutions],
+            )
+        )
+
+
+def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
+    """One coupling call of the unsteady rotor: the four-phase machine (module docstring).
+
+    The front half (loads, stale check, time increment, counters, family map)
+    and the back half (relaxation with its shape guard, the write, the state
+    and the log) are the ones the steady routes call (PFS-2087.001); what is
+    this route's own is the phase schedule, the averaging buffer and the
+    revolution bookkeeping.
+    """
+    call = _read_the_call(
+        run_dir,
+        cfg,
+        state,
+        stale_cause=(
+            "FlightStream is running more than one FSI iteration per time step; "
+            "SET_AEROELASTIC_ITERATIONS must stay 1 (FSI-R12)"
+        ),
+        time_increment="require",
+    )
+    names = _blade_family_names(call.family_map, cfg)
+    flap_per_blade, torsion_per_blade, total_normal_force = _per_blade_densities(
+        call.report, call.family_map, names, cfg
+    )
+    time_increment_s = call.time_increment_s
+    assert time_increment_s is not None  # "require" refused an export without one
+    rev_per_step = revolutions_per_step(cfg.omega_rad_per_s, time_increment_s)
+    _warn_of_a_coarse_printed_time_increment(cfg, time_increment_s)
+    steps_per_rev = 1.0 / rev_per_step
+    revolutions = state.step_count * rev_per_step
+    phase = _schedule_phase(cfg, state, revolutions)
+    state.load_history.append(
+        LoadSample(
+            step=state.step_count,
+            flap_n_per_m=flap_per_blade,
+            torsion_nm_per_m=torsion_per_blade,
+        )
+    )
+    window_steps = max(1, math.ceil(cfg.phases.averaging_window_revolutions * steps_per_rev))
+    state.load_history = state.load_history[-window_steps:]
+
+    relaxation, solved = _solve_the_phase(cfg, state, phase, flap_per_blade, torsion_per_blade)
+    solutions: tuple[beam.StaticBeamSolution, ...] | None = None
+    # Phase 1 runs no solve, so it has no residual: its cells are empty rather
+    # than zero, which would read as a perfectly converged iteration.
+    columns: dict[str, object] = {
+        "inner_solves": 0,
+        "twist_residual_rad": "",
+        "twist_tolerance_rad": "",
+    }
+    tip_twist_deg = [0.0] * cfg.blade_count
+    tip_flap_m = [0.0] * cfg.blade_count
+    if solved is None or relaxation is None:
+        written = np.zeros((call.layout.total_nodes, 3))
+    else:
+        # PYFS-013. Refused HERE, before the write, because the write is the
+        # irreversible act. The driver used to take result.solution and never
+        # look at result.twist_residual_rad, so an iterate that was still
+        # moving when the solve budget ran out was applied exactly like a
+        # converged one, and the only trace was a logger.warning that nobody
+        # reads in a batch run. One home for the refusal, shared with the
+        # quasi-steady rotor's steady call.
+        _refuse_an_unsettled_blade(solved)
+        solutions = tuple(result.solution for result in solved)
+        computed = _computed_displacements(run_dir, cfg, call.layout, solutions)
+        written = _relaxed(state, computed, relaxation)
+        state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
+        columns = _rotating_log_columns(solved)
+        tip_twist_deg = [math.degrees(sol.elastic_twist_rad[-1]) for sol in solutions]
+        tip_flap_m = [sol.flap_deflection_m[-1] for sol in solutions]
+    _write_displacements(run_dir, state, written)
+
+    _record_the_revolution(
+        cfg,
+        state,
+        phase,
+        revolutions,
+        tip_twist_deg=tip_twist_deg,
+        tip_flap_m=tip_flap_m,
+        total_normal_force=total_normal_force,
+    )
+    _record_phase4_twist(cfg, state, phase, steps_per_rev, solutions)
+    _commit_call(
+        run_dir,
+        state,
+        {
+            "call": state.call_count,
+            "step": state.step_count,
+            "phase": phase,
+            "revolutions": f"{revolutions:.6f}",
+            "solver_iteration": call.report.current_iteration,
+            "total_normal_force_n": f"{total_normal_force:.6f}",
+            **_tip_columns(tip_flap_m, tip_twist_deg),
+            **columns,
+            "relaxation": "" if relaxation is None else f"{relaxation:.3f}",
+            "config_sha256": config_sha256(cfg),
+        },
+    )
+    logger.info(
+        "coupling call %d (step %d, phase %s, %.3f rev) written",
+        state.call_count,
+        state.step_count,
+        phase,
+        revolutions,
+    )
+    return StepResult(
+        call=state.call_count,
+        step=state.step_count,
+        phase=phase,
+        revolutions=revolutions,
+        relaxation=relaxation,
+        displacements=written,
+        solutions=solutions,
+    )
+
+
+def _hold_the_state_to_the_config(run_dir: Path, cfg: FsiConfig, state: FsiState) -> None:
+    """Hold a resumed state to the configuration, and stamp it with the configuration's identity.
+
+    PYFS-012: a resumed state must describe the configured blade. Checked at
+    the single point where a persisted state meets its config, and before the
+    frozen-run branch, because a frozen run replays the same arrays and
+    inherits the same mismatch.
+
+    PFS-2094.001: when the marker carried the run across a configuration
+    change, the state is restamped with the new identity and the transition
+    is logged, so the decision covers that one change. The stamp used to be
+    written only on a state that had none, so the state kept the OLD digest:
+    removing the marker made the next call refuse again, and leaving it let
+    every later edit through unrecorded, while the log rows already carried
+    the new digest.
+    """
+    identity = config_sha256(cfg)
+    check_state_matches_config(
+        state,
+        blade_count=cfg.blade_count,
+        station_count=len(cfg.blade.station_radii_m),
+        # REV010-009. The shape check above answers "do these arrays fit";
+        # this answers "did this model produce them", and the two are not
+        # the same question. The hash was already computed here for a log
+        # row, which is what made the omission easy to miss: the value
+        # existed and simply was not consulted where it decides anything.
+        config_sha256=identity,
+        # A RUN-FOLDER MARKER rather than a keyword a caller passes, because
+        # there is no caller to pass it: FlightStream invokes this executable
+        # bare, coupling_step takes only the directory, and pyfs-fsi exposes
+        # no such flag. The refusal message named allow_config_change=True,
+        # which the user who meets it in pyfs_fsi_error.log has nowhere to
+        # put (api-designer pass, 2026-08-03). The precedent is FROZEN_FILE:
+        # a marker file is how this driver already takes a per-run decision
+        # from a bare invocation.
+        allow_config_change=(run_dir / ALLOW_CONFIG_CHANGE_FILE).is_file(),
+    )
+    if state.config_sha256 == identity:
+        return
+    if state.config_sha256 is not None:
+        logger.warning(
+            "%s carried this run across a configuration change: the state was created "
+            "under %s and is restamped %s, so a further change needs the decision again",
+            ALLOW_CONFIG_CHANGE_FILE,
+            state.config_sha256[:12],
+            identity[:12],
+        )
+    # First contact with a state that predates the field, a fresh one, or a
+    # change the marker allowed: stamp it so the NEXT resume compares against
+    # the configuration this call runs.
+    state.config_sha256 = identity
+
+
+def _refuse_direct_morphing_off_its_route(
+    cfg: FsiConfig, *, frozen: bool, quasi_steady: bool
+) -> None:
+    """Refuse direct morphing on a route that writes structural-node rows (PFS-2085.006).
+
+    Only the quasi-steady rotor route evaluates the beam at the vertices the
+    solver lists (FR-341). The unsteady rotor's phase machine and the frozen
+    replay write, and hold a file to, one row per structural node, while
+    under direct morphing the solver reads one row per vertex of
+    ``FSInodes.txt``, so either would hand it a file of the wrong length
+    (PFS-2085.014). The configuration refuses direct morphing on a wing
+    itself.
+    """
+    if cfg.morphing != DIRECT_MORPHING or (quasi_steady and not frozen):
+        return
+    route = (
+        f"the frozen replay ({FROZEN_FILE}), which holds its file to the structural node rows"
+        if frozen
+        else "the unsteady rotor route, whose phase machine writes one row per structural node"
+    )
+    raise FsiInputError(
+        "the configuration asks for direct morphing (morphing = 'direct', FR-341), which "
+        "this executable honours only on the quasi-steady rotor route, where the beam is "
+        "evaluated at every vertex the solver lists; this run folder is on "
+        f"{route}. Leave morphing out of config.json, or stage the run as a quasi-steady "
+        f"rotor sector ({QUASI_STEADY_ROTOR_FILE}) without a frozen file"
+    )
+
+
 def coupling_step(run_dir: str | Path) -> StepResult:
     """Execute one coupling call inside a run folder.
 
     Reads ``config.json``, ``state.json`` (or starts fresh),
     ``fsi_family_map.json``, and the loads export; writes
-    ``FSIDisp.txt``, the convergence log row, and the atomically
-    updated ``state.json``. With a ``fsi_frozen_displacements.txt``
+    ``FSIDisp.txt``, the atomically updated ``state.json`` and then the
+    convergence log row. With a ``fsi_frozen_displacements.txt``
     present the call replays it instead (FSI-R10).
 
     Parameters
@@ -870,7 +1418,11 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         started under 0.33.0 and resumed under 0.34.0 (FR-339).
 
         Also if the loads export carries no time increment, so it comes
-        from a steady solve.
+        from a steady solve, or prints one that is not finite.
+
+        Also if the configuration asks for direct morphing on the
+        unsteady rotor route or in a frozen replay: only the quasi-steady
+        rotor route writes the vertex rows the solver then reads.
     StaleLoadsError
         If the loads export's solver iteration is not ahead of the
         previous call's: the solver is running more than one FSI
@@ -886,281 +1438,15 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     # is a previous run's history in a folder being reused.
     _refuse_a_log_this_run_cannot_append_to(run_dir / LOG_FILE, state_path)
     state = load_state(state_path) if state_path.is_file() else initial_state()
-    # PYFS-012: a resumed state must describe the configured blade. Checked
-    # here, at the single point where a persisted state meets its config,
-    # and before the frozen-run branch below, because a frozen run replays
-    # the same arrays and inherits the same mismatch.
-    check_state_matches_config(
-        state,
-        blade_count=cfg.blade_count,
-        station_count=len(cfg.blade.station_radii_m),
-        # REV010-009. The shape check above answers "do these arrays fit";
-        # this answers "did this model produce them", and the two are not
-        # the same question. The hash was already computed here for a log
-        # row, which is what made the omission easy to miss: the value
-        # existed and simply was not consulted where it decides anything.
-        config_sha256=config_sha256(cfg),
-        # A RUN-FOLDER MARKER rather than a keyword a caller passes, because
-        # there is no caller to pass it: FlightStream invokes this executable
-        # bare, coupling_step takes only the directory, and pyfs-fsi exposes
-        # no such flag. The refusal message named allow_config_change=True,
-        # which the user who meets it in pyfs_fsi_error.log has nowhere to
-        # put (api-designer pass, 2026-08-03). The precedent is FROZEN_FILE:
-        # a marker file is how this driver already takes a per-run decision
-        # from a bare invocation.
-        allow_config_change=(run_dir / ALLOW_CONFIG_CHANGE_FILE).is_file(),
-    )
-    if state.config_sha256 is None:
-        # First contact with a state that predates the field, or one just
-        # created: stamp it so the NEXT resume has an identity to compare.
-        state.config_sha256 = config_sha256(cfg)
+    _hold_the_state_to_the_config(run_dir, cfg, state)
 
-    if (run_dir / FROZEN_FILE).is_file():
+    frozen = (run_dir / FROZEN_FILE).is_file()
+    quasi_steady = (run_dir / QUASI_STEADY_ROTOR_FILE).is_file()
+    _refuse_direct_morphing_off_its_route(cfg, frozen=frozen, quasi_steady=quasi_steady)
+    if frozen:
         return _frozen_step(run_dir, cfg, state)
     if cfg.wing is not None:
         return _fixed_wing_step(run_dir, cfg, state)
-    if (run_dir / QUASI_STEADY_ROTOR_FILE).is_file():
+    if quasi_steady:
         return _quasi_steady_rotor_step(run_dir, cfg, state)
-
-    layout = _verified_layout(cfg, run_dir)
-    report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))
-    if state.last_solver_iteration is not None and (
-        report.current_iteration <= state.last_solver_iteration
-    ):
-        raise StaleLoadsError(
-            f"call {state.call_count + 1} received solver iteration "
-            f"{report.current_iteration}, not ahead of the previous "
-            f"{state.last_solver_iteration}: FlightStream is running more than "
-            "one FSI iteration per time step; SET_AEROELASTIC_ITERATIONS must "
-            "stay 1 (FSI-R12)"
-        )
-    if report.time_increment_s is None:
-        raise FsiInputError(
-            "the loads export carries no time increment, so it comes from a "
-            "steady solve; the coupled driver runs inside the unsteady solver "
-            "(SET_AEROELASTIC_COUPLING_IN_UNSTEADY, RPT-005)"
-        )
-    # The header prints the increment with three decimals only (RPT-006),
-    # so a configured dt drives the revolution bookkeeping and the printed
-    # value is held to it at print precision.
-    time_increment_s = report.time_increment_s
-    if cfg.time_increment_s is not None:
-        if abs(cfg.time_increment_s - report.time_increment_s) > 5.0e-4:
-            raise FsiInputError(
-                f"the loads export prints a time increment of "
-                f"{report.time_increment_s} s but the configuration declares "
-                f"{cfg.time_increment_s} s; beyond the header's three-decimal "
-                "print precision this is a different run than the "
-                "configuration describes (RPT-006)"
-            )
-        time_increment_s = cfg.time_increment_s
-    state.call_count += 1
-    state.step_count += 1
-    state.last_solver_iteration = report.current_iteration
-
-    family_map = SectionFamilyMap.model_validate_json(
-        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
-    )
-    blade_families = [family.name for family in family_map.families if family.is_blade]
-    if len(blade_families) != cfg.blade_count:
-        raise FsiInputError(
-            f"the family map marks {len(blade_families)} blade families "
-            f"({blade_families}) but the configuration expects {cfg.blade_count} "
-            "blades; attribution is single-sourced in the map (RPT-005 finding 6)"
-        )
-    blocks = report.split(family_map)
-
-    rev_per_step = revolutions_per_step(cfg.omega_rad_per_s, time_increment_s)
-    steps_per_rev = 1.0 / rev_per_step
-    revolutions = state.step_count * rev_per_step
-    phase = _schedule_phase(cfg, state, revolutions)
-
-    stations = cfg.blade.station_radii_m
-    flap_per_blade, torsion_per_blade = [], []
-    total_normal_force = 0.0
-    for name in blade_families:
-        ea_loads = to_elastic_axis(blocks[name], cfg)
-        flap, torsion = _blade_densities(ea_loads, stations)
-        flap_per_blade.append(flap)
-        torsion_per_blade.append(torsion)
-        total_normal_force += float(
-            (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
-        )
-    state.load_history.append(
-        LoadSample(
-            step=state.step_count,
-            flap_n_per_m=flap_per_blade,
-            torsion_nm_per_m=torsion_per_blade,
-        )
-    )
-    window_steps = max(1, math.ceil(cfg.phases.averaging_window_revolutions * steps_per_rev))
-    state.load_history = state.load_history[-window_steps:]
-
-    zeros = np.zeros((layout.total_nodes, 3))
-    le = np.asarray(layout.le_offset_m)
-    te = np.asarray(layout.te_offset_m)
-    if phase == 1:
-        relaxation = None
-        solutions: tuple[beam.StaticBeamSolution, ...] | None = None
-        written = zeros
-        inner_solves = 0
-        # No solve ran, so there is no residual. Empty rather than zero:
-        # zero would read as a perfectly converged iteration.
-        twist_residual = None
-        twist_tolerance = None
-    else:
-        if phase == 4:
-            relaxation = 1.0
-            flap_solve = np.asarray(flap_per_blade)
-            torsion_solve = np.asarray(torsion_per_blade)
-        else:
-            relaxation = cfg.phases.coupling_relaxation
-            flap_solve, torsion_solve = _averaged_history(state.load_history)
-        solved = [
-            centrifugal.solve_rotating_static(
-                cfg,
-                flap_load_n_per_m=list(flap_solve[i]),
-                torsion_moment_n_m_per_m=list(torsion_solve[i]),
-            )
-            for i in range(cfg.blade_count)
-        ]
-        solutions = tuple(result.solution for result in solved)
-        computed = nodes.flatten_blade_translations(
-            layout,
-            [
-                kinematics.encode_station_translations(
-                    np.asarray(sol.flap_deflection_m),
-                    np.asarray(sol.elastic_twist_rad),
-                    le,
-                    te,
-                )
-                for sol in solutions
-            ],
-        )
-        previous = (
-            np.asarray(state.previous_displacements, dtype=float)
-            if state.previous_displacements is not None
-            else zeros
-        )
-        written = relax_displacements(previous, computed, relaxation)
-        state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
-        inner_solves = max(result.inner_solves for result in solved)
-        twist_residual = max(result.twist_residual_rad for result in solved)
-        twist_tolerance = solved[0].tolerance_rad
-        # PYFS-013. Refused HERE, one line above the write, because the
-        # write is the irreversible act. The driver used to take
-        # result.solution and never look at result.twist_residual_rad, so
-        # an iterate that was still moving when the solve budget ran out
-        # was applied exactly like a converged one, and the only trace was
-        # a logger.warning that nobody reads in a batch run. One home for
-        # the refusal, shared with the quasi-steady rotor's steady call.
-        _refuse_an_unsettled_blade(solved)
-    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
-    state.previous_displacements = written.tolist()
-
-    tip_twist_deg = [math.degrees(sol.elastic_twist_rad[-1]) for sol in (solutions or ())] or [
-        0.0
-    ] * cfg.blade_count
-    tip_flap_m = [sol.flap_deflection_m[-1] for sol in (solutions or ())] or [0.0] * cfg.blade_count
-
-    completed = math.floor(revolutions + 1e-9)
-    if completed > state.completed_revolutions:
-        state.revolution_history.append(
-            RevolutionSample(
-                revolution=completed,
-                tip_twist_deg=tip_twist_deg,
-                tip_flap_m=tip_flap_m,
-                # REV010-010. This value existed at this point and went only
-                # to the log; carrying it here is what makes the second
-                # acceptance criterion testable at all.
-                total_normal_force_n=total_normal_force,
-            )
-        )
-        if phase == 3 and len(state.revolution_history) >= 2:
-            last, previous_rev = state.revolution_history[-1], state.revolution_history[-2]
-            # REV010-010. BOTH criteria, which is what this package's own
-            # configuration docstring has said since the field existed:
-            # structural twist constant AND the integrated normal force
-            # stable between consecutive revolutions. The force compared is
-            # the one SAMPLED at the revolution-completing call rather than
-            # a mean over the revolution; the two coincide only when the
-            # steps per revolution divide evenly, and where they do not the
-            # sampled azimuth drifts and 1P content can read as an unsettled
-            # thrust (V and V pass, 2026-08-03). Only the first was tested, so the workflow could
-            # promote itself to its final recording phase while the
-            # aerodynamic loading was still oscillating materially, and the
-            # recording it then made would be of a state it had declared
-            # converged rather than one that was.
-            verdict = _phase3_verdict(cfg, previous_rev, last)
-            if verdict.converged:
-                state.phase = 4
-                state.phase4_start_step = state.step_count + 1
-                logger.info(
-                    "convergence declared at revolution %d (tip twist change "
-                    "%.4f deg < %.4f deg; thrust change %.4f < %.4f); phase 4 "
-                    "recording starts next step",
-                    completed,
-                    verdict.twist_change_deg,
-                    cfg.phases.tip_twist_tolerance_deg,
-                    verdict.thrust_change,
-                    cfg.phases.thrust_tolerance_fraction,
-                )
-            elif verdict.twist_ok:
-                logger.info(
-                    "revolution %d: tip twist has settled (%.4f deg < %.4f deg) but "
-                    "thrust has not (%s); phase 3 continues",
-                    completed,
-                    verdict.twist_change_deg,
-                    cfg.phases.tip_twist_tolerance_deg,
-                    "not recorded for both revolutions"
-                    if verdict.thrust_change is None
-                    else (
-                        f"{verdict.thrust_change:.4f} >= {cfg.phases.thrust_tolerance_fraction:.4f}"
-                    ),
-                )
-    if phase != 4 and state.phase != 4:
-        state.phase = phase
-    if phase == 4 and state.phase4_start_step is not None:
-        recording_steps = math.ceil(cfg.phases.recording_revolutions * steps_per_rev)
-        if state.step_count - state.phase4_start_step < recording_steps:
-            state.recorded_twist.append(
-                RecordedTwist(
-                    step=state.step_count,
-                    elastic_twist_rad=[list(sol.elastic_twist_rad) for sol in solutions],
-                )
-            )
-
-    _append_log(
-        run_dir,
-        {
-            "call": state.call_count,
-            "step": state.step_count,
-            "phase": phase,
-            "revolutions": f"{revolutions:.6f}",
-            "solver_iteration": report.current_iteration,
-            "total_normal_force_n": f"{total_normal_force:.6f}",
-            **_tip_columns(tip_flap_m, tip_twist_deg),
-            "inner_solves": inner_solves,
-            "twist_residual_rad": "" if twist_residual is None else f"{twist_residual:.6e}",
-            "twist_tolerance_rad": ("" if twist_tolerance is None else f"{twist_tolerance:.1e}"),
-            "relaxation": "" if relaxation is None else f"{relaxation:.3f}",
-            "config_sha256": config_sha256(cfg),
-        },
-    )
-    write_state_atomic(state, run_dir / STATE_FILE)
-    logger.info(
-        "coupling call %d (step %d, phase %s, %.3f rev) written",
-        state.call_count,
-        state.step_count,
-        phase,
-        revolutions,
-    )
-    return StepResult(
-        call=state.call_count,
-        step=state.step_count,
-        phase=phase,
-        revolutions=revolutions,
-        relaxation=relaxation,
-        displacements=written,
-        solutions=solutions,
-    )
+    return _unsteady_rotor_step(run_dir, cfg, state)

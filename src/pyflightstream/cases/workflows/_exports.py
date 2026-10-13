@@ -40,6 +40,7 @@ from pyflightstream.script._surface_averaging import (
 from ._conventions import (
     WorkflowConventions,
 )
+from ._farfield import wants_wake
 from ._freestream import (
     _log_position_shape,
 )
@@ -216,6 +217,26 @@ def _export_surface_vtk(script: Script, case: SimCase, name: str) -> None:
     selection at all the solver also writes a ``<name>_wakes.vtk`` (RPT-074).
     """
     variables = case.pproc.vtk_variables if case.pproc is not None else None
+    if variables:
+        allowed = (
+            next(
+                arg.values
+                for arg in script.entry("SET_VTK_EXPORT_VARIABLES").args
+                if arg.name == "variables"
+            )
+            or ()
+        )
+        unknown = [name for name in variables if name not in allowed]
+        if unknown:
+            raise CampaignConfigError(
+                f"vtk_variables {', '.join(unknown)} unavailable on FlightStream "
+                f"{script.version.canonical}; select variables supported by this build"
+            )
+    if wants_wake(case):
+        # FR-455 R3 (0.40.0): Trefftz B reads <name>_wakes.vtk, which the
+        # wake switch in the variable selection writes.
+        helpers.export_results(script, vtk=name, vtk_variables=variables or "all", vtk_wake=True)
+        return
     helpers.export_results(script, vtk=name, vtk_variables=variables or "all")
 
 
@@ -393,11 +414,23 @@ def _export_block(
     # command the profile exists to remove reached the one machine that aborts
     # at it, after the queue wait.
     exports_its_log = _exports_its_log(case)
+    # EVERY POSITION THIS LOOP WRITES TO is claimed against LOG_OUTPUT, not the
+    # loads table's alone: a log pointed at the VTK was written over it.
+    claimed: list[int] = [names.index(kinds["loads"]) + 1]
     for kind, _, verb, only_unsteady in EXPORT_KINDS:
-        if kind not in kinds or (only_unsteady and not unsteady):
+        # FR-460 R2: the surface trace is written where its command sits
+        # (`_pproc_streamlines`). FR-461 R6: the trajectory is written HERE, after
+        # the march, never with the motion in the setup phase.
+        if kind not in kinds or (only_unsteady and not unsteady) or kind in _WRITTEN_ELSEWHERE:
+            continue
+        if kind == "trajectory_6dof":
+            if script.sixdof_motion is not None:
+                claimed.append(names.index(kinds[kind]) + 1)
+                script.emit(verb, script.sixdof_motion, kinds[kind])
             continue
         if kind == "log" and (declared_log or not exports_its_log):
             continue
+        claimed.append(names.index(kinds[kind]) + 1)
         if not _surface_export(script, case, kind, kinds[kind], kinds=kinds):
             script.emit(verb, kinds[kind])
     if "tecplot" in kinds:
@@ -428,7 +461,7 @@ def _export_block(
             }
         )
     if declared_log:
-        _export_log(conventions, case, script, claimed=(names.index(kinds["loads"]) + 1,))
+        _export_log(conventions, case, script, claimed=tuple(claimed))
 
 
 #: The kinds whose export reads the surface sections, the sectional loads or
@@ -436,6 +469,10 @@ def _export_block(
 #: declared. The section Cp plot is one: it plots the sections, and a point
 #: whose pproc switched every other section export off still updates them.
 _UPDATED_KINDS: tuple[str, ...] = ("sections", "sectional_loads", "probes", "plot_sections_cp")
+
+#: The declared kinds the export block never emits: each is written by the
+#: command that makes it, in its own phase (FR-460 R2).
+_WRITTEN_ELSEWHERE: frozenset[str] = frozenset({"streamlines_surface"})
 
 
 def _exports_its_log(case: SimCase) -> bool:

@@ -41,9 +41,13 @@ from __future__ import annotations
 import datetime
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.versions import resolve
+from pyflightstream.workspace.naming import is_portable_name
 
 __all__ = ["refuse_existing_report", "report_paths", "resolve_report_date"]
 
@@ -243,7 +247,9 @@ def report_paths(
     Raises
     ------
     QaEvidenceError
-        If ``versions`` is empty, or is a bare string. Both produce a
+        If ``label`` is not a portable file-name token, which the write
+        could not create after the run. If ``versions`` is empty, or is
+        a bare string. Both produce a
         stem no later reader can trace back to a solver: the empty
         sequence gives ``CMP-_2026-08-18`` and a string gives one
         character per version. The word BUILD is kept only for the
@@ -343,6 +349,17 @@ def report_paths(
     key = "-".join(_canonical(version) for version in versions)
     stem = f"{series}-{key}_{_validated_date(date)}"
     if label:
+        # PFS-2102.015. Checked here, where the pre-flight asks, for the
+        # reason the date is: a label carrying a separator or a character
+        # Windows forbids passed the collision check against a path that
+        # cannot exist, and the write failed after the licensed run.
+        if not is_portable_name(label) or any(ord(character) < 32 for character in label):
+            raise QaEvidenceError(
+                f"the label {label!r} is not a plain file-name token (no separators, no "
+                'whitespace or control characters, none of <>:"/\\|?*), and it becomes '
+                "part of the report stem; "
+                "choose a label such as pilot-2"
+            )
         stem += f"_{label}"
     directory = Path(out_dir)
     return directory / f"{stem}.yaml", directory / f"{stem}.md"
@@ -389,3 +406,40 @@ def refuse_existing_report(*paths: Path) -> None:
                 "directory. Removing a committed report is deliberate and is not "
                 "the way past this."
             )
+
+
+def load_yaml(path: str | Path, *, consequence: str = "") -> Any:
+    """Read and parse one YAML evidence file, refusing in the catalogued type.
+
+    PFS-2102.010. The compat path fixed this as a class and the physics
+    path kept the bare read, so a mistyped report path or an unparsable
+    reference reached ``pyfs-qa update-reference`` as a traceback: a
+    ``FileNotFoundError``, or a ``yaml.YAMLError``, which is not a
+    ``ValueError``. Every evidence reader of ``pyflightstream.qa`` reads
+    through here.
+
+    Parameters
+    ----------
+    path : str or Path
+        The file to read.
+    consequence : str, optional
+        What the refusal means for the caller, appended to the message
+        (``"nothing was written"``).
+
+    Returns
+    -------
+    Any
+        The parsed document.
+
+    Raises
+    ------
+    QaEvidenceError
+        If the file cannot be read or is not parsable YAML.
+    """
+    suffix = f"; {consequence}" if consequence else ""
+    try:
+        return yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    except OSError as error:
+        raise QaEvidenceError(f"{path} cannot be read ({error}){suffix}") from None
+    except yaml.YAMLError as error:
+        raise QaEvidenceError(f"{path} is not parsable YAML ({error}){suffix}") from None

@@ -421,9 +421,10 @@ class RotorReference(BaseModel):
     THE FOUR ROTOR FACTS LEFT THIS BLOCK AT 0.11.0 (PFS-2029.08):
     ``rotation``, ``blade_travel``, ``rpm_sign_installed`` and
     ``rpm_sign_isolated`` were recorded here from 0.8.0 to 0.10.1 and read
-    by no builder, while the row states what a script needs: the sign of
-    the rotor speed is the sign of ``RPM`` (or ``RPM_SIGN`` beside
-    ``ADVANCE_RATIO``) and the axis is ``ROTOR_AXIS``. A file still
+    by no builder, while what a script needs is stated elsewhere: the hand
+    is ``rpm_sign`` on a rotor block of the reference (or ``RPM_SIGN`` on a
+    row whose reference declares no rotor), ``RPM`` is a magnitude, and the
+    axis is ``ROTOR_AXIS``. A file still
     carrying them is refused naming those row keys, and ``pyfs-matrix
     upgrade --inputs`` strips them; the measured argument that related
     the datasheet's sense of rotation to the sign about the rotor axis is
@@ -451,9 +452,10 @@ class RotorReference(BaseModel):
             return data
         raise ValueError(
             f"the rotor block states {', '.join(found)}, which the reference artifact "
-            "carried until 0.11.0 and no builder read. The row states what a script "
-            "needs: the sign of the rotor speed is the sign of RPM (or RPM_SIGN beside "
-            "ADVANCE_RATIO) and the axis is ROTOR_AXIS (PFS-2029.08). Drop the key(s), or "
+            "carried until 0.11.0 and no builder read. What a script needs is stated "
+            "elsewhere: the hand is rpm_sign on a rotor block of the reference (or RPM_SIGN "
+            "on a row whose reference declares no rotor); RPM is a magnitude; and the axis "
+            "is ROTOR_AXIS (PFS-2029.08). Drop the key(s), or "
             "call pyflightstream.workspace.strip_rotor_facts on the inputs directory, which "
             "strips them from every reference artifact (`pyfs-matrix upgrade` does the same "
             "with in_place (CLI: --in-place) and inputs (CLI: --inputs)); the measured "
@@ -2026,15 +2028,18 @@ def rotor_integration_groups(
             resolved[name] = [str(member) for member in getattr(block, "members", [])]
     for alias, block in rotors.items():
         members = [str(name) for name in getattr(block, "members", [])]
-        if alias not in resolved:
+        # Aliases compare case-folded, as everywhere in this file: a group
+        # `pusher` IS rotor PUSHER's, checked against it, never a second group.
+        group = next((k for k in resolved if k.casefold() == str(alias).casefold()), None)
+        if group is None:
             resolved[alias] = list(members)
             continue
-        stated = {str(name).casefold() for name in resolved[alias]}
+        stated = {str(name).casefold() for name in resolved[group]}
         owned = {name.casefold() for name in members}
         if stated != owned:
             raise CampaignConfigError(
-                f"the pproc declares a group named {alias!r}, which is a rotor's alias, "
-                f"and its members are {sorted(resolved[alias])}; that rotor's own families "
+                f"the pproc declares a group named {group!r}, which is a rotor's alias, "
+                f"and its members are {sorted(resolved[group])}; that rotor's own families "
                 f"are {sorted(members)}. The two disagree about what {alias!r} means, and a "
                 "rotor coefficient integrated over the wrong families is a number that looks "
                 "right and is wrong. Rename the group, or give it the rotor's families"

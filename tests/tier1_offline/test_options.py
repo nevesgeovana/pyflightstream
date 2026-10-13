@@ -58,14 +58,14 @@ def test_rejected_value_names_option_value_and_accepted_form():
     with pytest.raises(
         OptionError,
         match=r"option 'qa\.probe_timeout_s' rejects value -3\.0: a strictly "
-        r"positive number of seconds is required",
+        r"positive, finite number of seconds is required",
     ):
         set_option("qa.probe_timeout_s", -3.0)
 
 
 def test_bool_is_not_a_number_of_seconds():
     with pytest.raises(OptionError, match="rejects value True"):
-        set_option("qa.case_timeout_s", True)
+        set_option("qa.probe_timeout_s", True)
 
 
 def test_scratch_root_requires_non_empty_path_text():
@@ -150,7 +150,7 @@ def test_describe_option_shows_value_default_and_doc():
     assert "qa.probe_timeout_s: 45.0 (default 120.0)" in text
     assert "wall-clock limit" in text
     everything = describe_option()
-    assert "qa.scratch_root" in everything and "qa.case_timeout_s" in everything
+    assert "qa.scratch_root" in everything and "qa.probe_timeout_s" in everything
 
 
 # --- the first consumer: pyfs-qa defaults -----------------------------------
@@ -159,9 +159,7 @@ def test_describe_option_shows_value_default_and_doc():
 def test_qa_cli_defaults_follow_the_options():
     from pyflightstream.qa import cli
 
-    with option_context(
-        "qa.scratch_root", "scratch", "qa.probe_timeout_s", 7.0, "qa.case_timeout_s", 11.0
-    ):
+    with option_context("qa.scratch_root", "scratch", "qa.probe_timeout_s", 7.0):
         parser = cli._build_parser()
     probe = parser._subparsers._group_actions[0].choices["probe"]
     physics = parser._subparsers._group_actions[0].choices["physics"]

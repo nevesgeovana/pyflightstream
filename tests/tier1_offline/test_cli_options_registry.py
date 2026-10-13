@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.options import option_context
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -87,8 +88,14 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-qa", "case"): SUBJECT,
     ("pyfs-qa", "from_report"): SUBJECT,
     ("pyfs-qa", "reason"): RECORD,
+    # 0.40.0: update-reference writes the tree it is pointed at (PFS-2102.011/.012),
+    # apply-compat promotes into the repository's own database (PFS-2102.032).
+    ("pyfs-qa", "references_dir"): OUTPUT,
+    ("pyfs-qa", "drop"): RECORD,
+    ("pyfs-qa", "commands_dir"): OUTPUT,
     ("pyfs-fsi", "node_count"): CASE,
     ("pyfs-fsi", "dir"): SUBJECT,
+    ("pyfs-fsi", "legacy_dir"): SUBJECT,
     ("pyfs-workspace", "root"): SUBJECT,
     ("pyfs-workspace", "sim_id"): SUBJECT,
     # 0.31.0 (G3), `pyfs-workspace field mirror|move|subtract|time-mean`. The
@@ -149,6 +156,47 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "ct"): FIELD_OPERATION,
     ("pyfs-workspace", "rho"): FIELD_OPERATION,
     ("pyfs-workspace", "rpm"): FIELD_OPERATION,
+    # 0.40.0 (FR-471 to FR-477): `pyfs-workspace geometry`. `build TARGET` names the
+    # instruction it builds (FR-471), `--only` the variants of its sweep (FR-472 R2),
+    # `--rows POL --matrix FILE` the row it prints and nothing is written (FR-472 R5),
+    # `accept NAMES` the bodies inspected (FR-473), `from-sidecar GEOMETRY` the file
+    # converted (FR-476 R2); `--build` and `--fs-exe` identify the solver the build.json
+    # records (FR-471 R7); `--png` draws one more file of this call (FR-471). `refine`,
+    # `audit`, `inventory` and `degenerate` are the `pyfs-matrix` parsers copied as
+    # parents (FR-477), so each destination keeps the reason of its `pyfs-matrix` row;
+    # `--apply`, `--overwrite`, `--out` and `--workspace` keep their rows above.
+    ("pyfs-workspace", "target"): SUBJECT,
+    ("pyfs-workspace", "only"): SUBJECT,
+    ("pyfs-workspace", "rows"): SUBJECT,
+    ("pyfs-workspace", "matrix"): SUBJECT,
+    ("pyfs-workspace", "names"): SUBJECT,
+    ("pyfs-workspace", "build"): SOLVER,
+    ("pyfs-workspace", "fs_exe"): SOLVER,
+    ("pyfs-workspace", "png"): SWITCH,
+    ("pyfs-workspace", "parallel"): (
+        "how many variants of one sweep this call builds at once, 1 or 2 (FR-472 R6); a "
+        "variant refused a seat beside another is built again alone, so it changes the "
+        "wall time of one call and never a geometry"
+    ),
+    ("pyfs-workspace", "geometry"): SUBJECT,
+    ("pyfs-workspace", "mesh"): SUBJECT,
+    ("pyfs-workspace", "against"): SUBJECT,
+    ("pyfs-workspace", "kind"): SUBJECT,
+    ("pyfs-workspace", "boundary"): SUBJECT,
+    ("pyfs-workspace", "config"): SUBJECT,
+    ("pyfs-workspace", "factor"): FIELD_OPERATION,
+    ("pyfs-workspace", "families"): FIELD_OPERATION,
+    ("pyfs-workspace", "chordwise"): FIELD_OPERATION,
+    ("pyfs-workspace", "spanwise"): FIELD_OPERATION,
+    ("pyfs-workspace", "keep_first_row"): FIELD_OPERATION,
+    ("pyfs-workspace", "csv_file"): OUTPUT,
+    ("pyfs-workspace", "out_dir"): OUTPUT,
+    ("pyfs-workspace", "clean"): SWITCH,
+    ("pyfs-workspace", "root_offset"): (
+        "a parameter of one derivation, written into the output's sidecar, as on "
+        "pyfs-matrix degenerate (FR-477); it defines the geometry written, so it is "
+        "stated per call and never a machine default"
+    ),
     ("pyfs-matrix", "matrix"): SUBJECT,
     ("pyfs-matrix", "inputs"): SUBJECT,
     ("pyfs-matrix", "geometry"): SUBJECT,
@@ -468,7 +516,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "since"): frozenset({"log"}),
     ("pyfs-matrix", "problems"): frozenset({"log"}),
     ("pyfs-matrix", "open_only"): frozenset({"log"}),
-    ("pyfs-fsi", "dir"): frozenset({"init-dummy", "step"}),
+    ("pyfs-fsi", "dir"): frozenset({"external", "init-dummy", "step"}),
+    ("pyfs-fsi", "legacy_dir"): frozenset({"external", "init-dummy", "step"}),
     ("pyfs-fsi", "node_count"): frozenset({"init-dummy"}),
     ("pyfs-manual", "build"): frozenset({"register"}),
     ("pyfs-manual", "by_section"): frozenset({"sweep"}),
@@ -558,7 +607,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "status",
         }
     ),
-    ("pyfs-matrix", "points"): frozenset({"inspect-setups", "mark-converged", "plan", "run"}),
+    ("pyfs-matrix", "points"): frozenset(
+        {"inspect-setups", "mark-converged", "mark-failed", "plan", "run"}
+    ),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "cost_file"): frozenset({"inspect-setups", "plan"}),
@@ -637,7 +688,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "csv_file"): frozenset({"audit-mesh"}),
     ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
-    ("pyfs-matrix", "out"): frozenset({"audit-mesh", "rebuild", "refine"}),
+    ("pyfs-matrix", "out"): frozenset({"audit-mesh", "convert", "rebuild", "refine"}),
     ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
     ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
     ("pyfs-matrix", "inputs_from"): frozenset({"rebuild"}),
@@ -663,16 +714,21 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "report"): frozenset({"apply-compat"}),
     ("pyfs-qa", "report_dir"): frozenset({"drift", "physics", "probe"}),
     ("pyfs-qa", "resume"): frozenset({"physics"}),
-    ("pyfs-qa", "root"): frozenset({"apply-compat"}),
+    ("pyfs-qa", "root"): frozenset({"apply-compat", "update-reference"}),
+    ("pyfs-qa", "references_dir"): frozenset({"update-reference"}),
+    ("pyfs-qa", "drop"): frozenset({"update-reference"}),
+    ("pyfs-qa", "commands_dir"): frozenset({"apply-compat"}),
     ("pyfs-qa", "timeout"): frozenset({"probe"}),
     ("pyfs-qa", "workroot"): frozenset({"drift", "probe"}),
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
     ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate-geometries"}),
     ("pyfs-workspace", "workspace"): frozenset(
         {
+            "accept",
+            "fill-interior",
+            "from-sidecar",
             "init",
             "migrate-geometries",
-            "fill-interior",
             "mirror",
             "move",
             "profile",
@@ -692,13 +748,33 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "last"): frozenset({"profile", "time-mean"}),
     ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
     ("pyfs-workspace", "out"): frozenset(
-        {"fill-interior", "mirror", "move", "profile", "subtract", "time-mean"}
+        {"audit", "fill-interior", "mirror", "move", "profile", "refine", "subtract", "time-mean"}
     ),
     ("pyfs-workspace", "apply"): frozenset(
-        {"fill-interior", "mirror", "move", "profile", "subtract", "time-mean"}
+        {
+            "build",
+            "fill-interior",
+            "from-sidecar",
+            "mirror",
+            "move",
+            "profile",
+            "subtract",
+            "time-mean",
+        }
     ),
     ("pyfs-workspace", "overwrite"): frozenset(
-        {"fill-interior", "mirror", "move", "profile", "subtract", "time-mean"}
+        {
+            "build",
+            "degenerate",
+            "fill-interior",
+            "inventory",
+            "mirror",
+            "move",
+            "profile",
+            "refine",
+            "subtract",
+            "time-mean",
+        }
     ),
     ("pyfs-workspace", "fluctuation"): frozenset({"time-mean"}),
     ("pyfs-workspace", "fluctuation_only"): frozenset({"time-mean"}),
@@ -722,6 +798,31 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "ct"): frozenset({"profile"}),
     ("pyfs-workspace", "rho"): frozenset({"profile"}),
     ("pyfs-workspace", "rpm"): frozenset({"profile"}),
+    # 0.40.0 (FR-471 to FR-477): the options of `pyfs-workspace geometry`.
+    ("pyfs-workspace", "target"): frozenset({"build"}),
+    ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar"}),
+    ("pyfs-workspace", "fs_exe"): frozenset({"build"}),
+    ("pyfs-workspace", "png"): frozenset({"build"}),
+    ("pyfs-workspace", "only"): frozenset({"build"}),
+    ("pyfs-workspace", "parallel"): frozenset({"build"}),
+    ("pyfs-workspace", "rows"): frozenset({"build"}),
+    ("pyfs-workspace", "matrix"): frozenset({"build"}),
+    ("pyfs-workspace", "names"): frozenset({"accept"}),
+    ("pyfs-workspace", "geometry"): frozenset({"degenerate", "from-sidecar", "inventory"}),
+    ("pyfs-workspace", "mesh"): frozenset({"audit", "refine"}),
+    ("pyfs-workspace", "factor"): frozenset({"refine"}),
+    ("pyfs-workspace", "families"): frozenset({"refine"}),
+    ("pyfs-workspace", "chordwise"): frozenset({"refine"}),
+    ("pyfs-workspace", "spanwise"): frozenset({"refine"}),
+    ("pyfs-workspace", "keep_first_row"): frozenset({"refine"}),
+    ("pyfs-workspace", "config"): frozenset({"refine"}),
+    ("pyfs-workspace", "out_dir"): frozenset({"refine"}),
+    ("pyfs-workspace", "against"): frozenset({"audit"}),
+    ("pyfs-workspace", "csv_file"): frozenset({"audit"}),
+    ("pyfs-workspace", "clean"): frozenset({"inventory"}),
+    ("pyfs-workspace", "kind"): frozenset({"degenerate"}),
+    ("pyfs-workspace", "root_offset"): frozenset({"degenerate"}),
+    ("pyfs-workspace", "boundary"): frozenset({"degenerate"}),
 }
 
 
@@ -777,7 +878,7 @@ def test_the_allowlist_names_only_options_that_exist():
 
 def test_the_registry_requirement_says_command_line_option():
     """The SRS sentence this test holds the scripts to (design/68, PFS-2022.06)."""
-    text = (REPO / "docs" / "srs" / "functional-requirements.md").read_text(encoding="utf-8")
+    text = (REPO / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
     start = text.index('requirement "FR-40')
     statement = text[start : text.index("!!! requirement", start + 1)]
     assert "every command-line option" in statement.lower(), (

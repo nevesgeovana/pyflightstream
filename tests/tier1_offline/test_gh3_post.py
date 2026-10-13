@@ -81,7 +81,10 @@ def test_ac_unassignable_failed_frame_keeps_healthy_polar(tmp_path, monkeypatch)
     assert manifest["products"][key]["runs"] == [healthy.run_id]
     out = workspace.products_dir(None)
     assert len(read_csv_table(out / key)[1]) == 1
-    reason = manifest["skipped"].get("runs/bad-frame-first", "")
+    # PFS-2088.012: the failing point is a miss of this group's polar, keyed
+    # `polars/<file>#<point>`; `runs/<id>` is kept for whole-run refusals.
+    assert "runs/bad-frame-first" not in manifest["skipped"], manifest["skipped"]
+    reason = manifest["skipped"].get(f"{key}#AL-999", "")
     assert all(word in reason for word in ("AL-999", "ROTOR_RMRP", "frame")), reason
     assert reason in (out / "post.log").read_text()
 

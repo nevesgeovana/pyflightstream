@@ -20,7 +20,7 @@ never used as a destination for these generated files.
 This configuration uses the existing solid homogeneous Euler beam. It adds no
 shell, spar, hollow-section, shear-center or second structural model.
 
-## Which workflows accept FSI in 0.30.0
+## Which workflows accept FSI
 
 | Workflow | FSI in this release |
 | --- | --- |

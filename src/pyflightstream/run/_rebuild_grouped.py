@@ -20,7 +20,6 @@ needs the job entry to move it, and is refused without one.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -110,12 +109,9 @@ def rendered_at_home(rendered: str, shadow: Path, sim: str, label: str | None) -
 
 def _receipt(base: Path, stem: str) -> GroupingReceipt | None:
     """Read the grouping receipt of ``post/<stem>/plan.json``; None when there is none."""
-    try:
-        plan = json.loads((base / "post" / stem / "plan.json").read_text(encoding="utf-8"))
-        block = plan.get("grouping") if isinstance(plan, Mapping) else None
-        return GroupingReceipt.from_json(block) if isinstance(block, Mapping) else None
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
+    from pyflightstream.workspace._batches import read_grouping
+
+    return read_grouping(base / "post" / stem / "plan.json")[0]
 
 
 def _entry(

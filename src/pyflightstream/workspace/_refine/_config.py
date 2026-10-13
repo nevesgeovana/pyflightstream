@@ -57,6 +57,7 @@ FAMILY_KEYS = (
     "origin",
     "elements",
     "keep_first_row",
+    "trailing_edge_direction",
 )
 #: The keys of ``[refine]``.
 REFINE_KEYS = ("tag", "elements")
@@ -84,6 +85,7 @@ class FamilySpec:
     axis: tuple[float, float, float] | None = None
     origin: tuple[float, float, float] | None = None
     keep_first_row: bool = False
+    trailing_edge_direction: tuple[float, float, float] | None = None
 
     @property
     def directions(self) -> tuple[float, float]:
@@ -209,7 +211,11 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
             f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
         )
     kept_rows = "keep_first_row" in table
-    table = {k: v for k, v in table.items() if k not in ("elements", "keep_first_row")}
+    table = {
+        k: v
+        for k, v in table.items()
+        if k not in ("elements", "keep_first_row", "trailing_edge_direction")
+    }
     if any(k in table for k in ("axial", "circumferential")):
         return _body_spec(where, table, method)
     if not any(k in table for k in ("factor", "chordwise", "spanwise")):
@@ -384,6 +390,15 @@ def _family_tables(
             keep.append(name)
         if set(table) != {"elements"}:
             specs[name] = _family_spec(where, table)
+            if "trailing_edge_direction" in table:
+                specs[name] = dataclasses.replace(
+                    specs[name],
+                    trailing_edge_direction=_vector(
+                        f"{where} trailing_edge_direction",
+                        table["trailing_edge_direction"],
+                        nonzero=True,
+                    ),
+                )
     return specs, elements, keep
 
 
@@ -674,8 +689,8 @@ def tag_selection(request: RefineRequest, names: Sequence[str]) -> list[str] | N
     """Return the selected families when the level's tag is the summary and hash, else None."""
     if request.tag:
         return None
-    tag, picked, uniform = _built_tag(request, names)
-    return picked if not uniform and len(tag) > TAG_MAX else None
+    tag, picked, _ = _built_tag(request, names)
+    return picked if len(tag) > TAG_MAX else None
 
 
 def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the mesh") -> str:
@@ -695,13 +710,13 @@ def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the me
         raise _refuse(where, "no family is selected, so the level would change nothing")
     if request.tag:
         return str(request.tag)
-    if uniform:
-        return tag
     if len(tag) > TAG_MAX:
         digest = hashlib.sha256(canonical_selection(request, picked).encode("utf-8")).hexdigest()[
             :8
         ]
         return f"R-{len(picked)}fam-{digest}"
+    if uniform:
+        return tag
     tags = {n: spec_tag(s) for n, s in request.specs.items()}
     for name in picked:
         problem = folder_name_problem(f"R-{name}{tags[name]}")

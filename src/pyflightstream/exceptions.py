@@ -134,9 +134,11 @@ from pyflightstream.script.entities import ScriptDeclarationTypeError
 from pyflightstream.utils.errors import ManualCallError, ManualDraftError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError
 from pyflightstream.workspace import (
+    FsiExternalSetupError,
     InputArtifactError,
     MissingOutputsError,
     NamingTemplateError,
+    SixDofSetupError,
     WorkspaceError,
 )
 from pyflightstream.workspace.excel_sync import ExcelSyncError
@@ -164,6 +166,7 @@ __all__ = [
     "FarfieldInputError",
     "FieldNotInExportError",
     "FlightConditionError",
+    "FsiExternalSetupError",
     "FsiInputError",
     "FsiSetupError",
     "GeometryEngineMissingError",
@@ -200,6 +203,7 @@ __all__ = [
     "ScriptLineBreakError",
     "ScriptOrderError",
     "ScriptReferenceError",
+    "SixDofSetupError",
     "StaleLoadsError",
     "StorageError",
     "SurfaceMeshExportError",

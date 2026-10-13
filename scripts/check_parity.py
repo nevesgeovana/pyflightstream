@@ -89,9 +89,12 @@ import types
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _requirements_paths import REQUIREMENTS_DIR  # noqa: E402
+
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = "scripts/check_parity.py"
-EXPORTED = ("src", "tests", "docs/srs", "pyproject.toml")
+EXPORTED = ("src", "tests", "docs/srs", REQUIREMENTS_DIR.as_posix(), "pyproject.toml")
 PACKAGE = "pyflightstream"
 MATRIX_CONSOLE = "pyfs-matrix"
 
@@ -202,6 +205,11 @@ _S11_WHY = (
 #: match whole (an empty string inserts none), and ``filled_columns`` the regex of the
 #: columns whose cells may change, only from ``NA`` to a cell matching ``cells``; every
 #: other column keeps its name, its order and its cells (:func:`inserts_and_fills`).
+#: ``since`` is the release that introduced the difference: an entry names a
+#: difference only against a base OLDER than it. Against a base at or past it the
+#: difference is already in the base, so the same lines differing again are a
+#: revert or a new change and must be named anew; without the scope a release
+#: that reverted a fix passed as named.
 NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "left_out",
@@ -215,10 +223,31 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "old_text": LEFT_OUT_BEFORE,
         "new_text": LEFT_OUT_AFTER,
         "requirement": "FR-421",
+        "since": "0.37.0",
         "why": (
             "the plan's left-out line of a coupled steady or quasi-steady row names the "
             "remedy (run those rows point by point) and no longer cites a report id; the "
             "exclusion itself is FR-410's, unchanged"
+        ),
+    },
+    {
+        "kind": "scripts",
+        "pattern": "*_rotor__*__26.100*",
+        # A rotor render on 26.100 is a refusal and nothing else: the whole
+        # release text is the refusal of the rotor rows on that build, whose
+        # angular-velocity unit is unmeasured (FR-101 as amended in 0.40.0,
+        # PFS-2088.010); any other text on either side stays unnamed.
+        "release_has": (
+            r"\AREFUSED CommandArgumentError\ncase '\d+': FlightStream 26\.100: rotary_motion, "
+            r"unsteady_rotor and rotor-speed rows are refused until the angular-velocity unit "
+            r"is measured\.[^\n]*\n?\Z"
+        ),
+        "requirement": "FR-101",
+        "since": "0.40.0",
+        "why": (
+            "a rotor row on 26.100 is refused by name until a rotation null probe measures "
+            "the unit of that build's angular velocity; 0.39.0 wrote the speed in rev/min as "
+            "a maintainer decision (RPT-051) where the manual tutorial gives rad/s"
         ),
     },
     {
@@ -236,6 +265,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             r"(?:\n|$))+"
         ),
         "requirement": "FR-331",
+        "since": "0.34.0",
         "why": (
             "an actuator disc swirls its wake the way a rotor of the same rpm_sign "
             "turns: the disc speed handed to the solver is minus the block's hand "
@@ -264,6 +294,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         ),
         "base_lacks": r"(?m)^SET_WAKE_TERMINATION_TIME_STEPS\b",
         "requirement": "FR-321",
+        "since": "0.34.0",
         "why": (
             "a rotor row that states no wake termination keeps a wake of 4 rotor radii, "
             "converted into the steps SET_WAKE_TERMINATION_TIME_STEPS takes, where 0.33.0 "
@@ -284,6 +315,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         ),
         "release_lacks": r"(?m)^(NEW_SURFACE_SECTION_DISTRIBUTION|SET_PLOT_TYPE SECTIONS_CP)\b",
         "requirement": "FR-51",
+        "since": "0.33.1",
         "why": (
             "P0331-SECTIONS-ABSENT-FAMILY: a row whose geometry carries no family a "
             "section distribution of its artifact cuts declares and exports no section "
@@ -320,6 +352,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "release_lacks": r"(?m)^(NEW_SURFACE_SECTION_DISTRIBUTION|SET_PLOT_TYPE SECTIONS_CP)\b",
         "base_lacks": r"(?m)^SET_WAKE_TERMINATION_TIME_STEPS\b",
         "requirement": "FR-321",
+        "since": "0.34.0",
         # The section part is FR-51's: the composite names the pair only when
         # the release SRS defines both, as the two single entries together would.
         "also_requires": "FR-51",
@@ -349,6 +382,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             r'"[^"\n]+" "actions/pfs_unsteady_actions\.py")'
         ),
         "requirement": "FR-314",
+        "since": "0.33.0",
         "why": (
             "every unsteady row registers the step counter; a row asking no per-step "
             "export gains the count-only counter's registration, on a build that "
@@ -365,6 +399,8 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "lines": rf"^{_TOGGLE_LINE}$",
         "block": rf"(?:{_TOGGLE_LINE}(?:\n|$))+",
         "requirement": "FR-349",
+        "directed_toggles": "true",
+        "since": "0.34.0",
         "why": (
             "P0340-TOGGLES: a row that asks DISABLE for valarezo_criterion, wake_relaxation, "
             "wake_streamwise_agglomeration, adverse_gradient_boundary_layer or "
@@ -382,6 +418,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             rf"{_DRIFT_MESSAGE}$"
         ),
         "requirement": "FR-180",
+        "since": "0.33.0",
         "why": (
             "a force or moment column's per-revolution drift is judged against the "
             "scale of its group, so the warning records are worded and counted anew; "
@@ -402,6 +439,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             r'|   "remedy": null,|   "category": "postprocessing",|   "severity": "warning")$'
         ),
         "requirement": "FR-180",
+        "since": "0.33.0",
         "why": (
             "the machine-readable form of the same per-revolution drift warning "
             "records, which FR-180 words and counts anew"
@@ -417,6 +455,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "appended_column": "MESH_FACES",
         "cells": r"NA|\d+",
         "requirement": "FR-348",
+        "since": "0.34.0",
         "why": (
             "the super file carries the face count of each row's geometry as its boundary "
             "inventory states it, NA where it states none, in a new last column"
@@ -431,6 +470,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "appended_column": "MESH_FACES",
         "cells": r"NA|\d+",
         "requirement": "FR-348",
+        "since": "0.34.0",
         "why": (
             "the unsteady polar carries the face count of each row's geometry as its boundary "
             "inventory states it, NA where it states none, in a new last column"
@@ -452,6 +492,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "release_lacks": r"(?m)^START_SOLVER\nSET_VORTICITY_DRAG_BOUNDARIES\b",
         "base_lacks": rf"(?m)^START_SOLVER\n(?!{_VORTICITY_LIST})",
         "requirement": "FR-318",
+        "since": "0.35.0",
         "why": (
             "P0350-VORTICITY-BEFORE-SOLVE: a row turning a rotor in time that states "
             "vorticity_drag_families emits SET_VORTICITY_DRAG_BOUNDARIES right before "
@@ -475,6 +516,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "release_has": r"(?m)^LOAD_SOLVER_INITIALIZATION ENABLE$",
         "release_lacks": r"(?m)^(?:INITIALIZE_SOLVER|SET_NEW_UNSTEADY_SOLVER_ACTION)\b",
         "requirement": "FR-396",
+        "since": "0.35.0",
         "why": (
             "P0350-CONTINUATION-NO-REINIT, P0350-CONTINUATION-ACTIONS-ONCE: a continuation that "
             "reopens a saved state emits no INITIALIZE_SOLVER, which cleared the reopened "
@@ -488,6 +530,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         # Only the warning on a continuation that adds no time step, whole.
         "lines": rf"^WARNING point=\S+ product=plots: {_NO_STEP_MESSAGE}$",
         "requirement": "FR-396",
+        "since": "0.35.0",
         "why": (
             "P0350-CONTINUATION-WARN: the post warns on a continuation whose plots export adds "
             "no time step to the march it continues, naming both runs (FR-396 R3)"
@@ -501,6 +544,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         # false` now gets (the owner's decision of 2026-10-05).
         "added": "true",
         "requirement": "FR-419",
+        "since": "0.37.0",
         "why": (
             "the settings table and its codebook are written by default, one pair per "
             "matrix under settings/, unless the pproc states settings_codebook = false"
@@ -513,6 +557,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "lines": rf"^{_SETTINGS_MANIFEST_LINE}$",
         "block": rf"(?:{_SETTINGS_MANIFEST_LINE}(?:\n|$))+",
         "requirement": "FR-419",
+        "since": "0.37.0",
         "why": (
             "the manifest lists the settings table and its codebook with kind settings_codebook"
         ),
@@ -523,6 +568,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         # Only the INFO line of a point without a snapshot, or of a matrix without any, whole.
         "lines": rf"^INFO point=.+? product=settings/\S+\.csv: {_NO_SNAPSHOT_MESSAGE}$",
         "requirement": "FR-419",
+        "since": "0.37.0",
         "why": (
             "a point whose record holds no solver-setup snapshot is named in post.log by an "
             "INFO line as having no row in the settings table (FR-419 R1)"
@@ -540,6 +586,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             r'|   "remedy": null,|   "category": "[a-z_]+",|   "severity": "info")$'
         ),
         "requirement": "FR-419",
+        "since": "0.37.0",
         "why": "the machine-readable form of the same no-snapshot INFO records (FR-419 R1)",
     },
     {
@@ -554,6 +601,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             r'|   "remedy": null,|   "category": "[a-z_]+",|   "severity": "warning")$'
         ),
         "requirement": "FR-396",
+        "since": "0.35.0",
         "why": (
             "the machine-readable form of the same warning on a continuation that adds no "
             "time step (FR-396 R3)"
@@ -571,6 +619,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "filled_columns": _S11_FILLED,
         "cells": _S11_NUMBER,
         "requirement": "FR-89",
+        "since": "0.37.0",
         "why": _S11_WHY,
     },
     {
@@ -581,6 +630,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "filled_columns": _S11_FILLED,
         "cells": _S11_NUMBER,
         "requirement": "FR-89",
+        "since": "0.37.0",
         "why": _S11_WHY,
     },
     {
@@ -592,6 +642,7 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
         "filled_columns": _S11_FILLED,
         "cells": _S11_NUMBER,
         "requirement": "FR-89",
+        "since": "0.37.0",
         "why": (
             "P0370-S11-SUPER-DIAMETER: a quasi-steady point's clock, J_CLOCK and RPM_CLOCK, "
             "is taken from the speed its quasi-steady record states where its plan states "
@@ -649,10 +700,11 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
     ),
     (
         "*/products.json",
-        r'"(superfile|sections)_report": "reports/(superfile|sections)-\d{4}\.json"',
+        r'"(superfile|sections)_report": "reports/(superfile|sections)-\d+\.json"',
         r'"\1_report": "reports/\2-<VERSION>.json"',
-        "the package version the run was posted with, as the four-digit release tag in the "
-        "report names (post/superfile.py release_tag), which differs between any two "
+        "the package version the run was posted with, as the release tag in the report "
+        "names (post/superfile.py release_tag: the version numbers with no separator, so of "
+        "any length, 0.8.0 is 080 and 0.39.0 is 0390), which differs between any two "
         "releases by construction (measured 2026-10-11, 0.38.0 against 0.39.0: the only "
         "post difference)",
     ),
@@ -1120,7 +1172,17 @@ def export(sha: str, tree: Path) -> None:
     if tree.exists():
         shutil.rmtree(tree)
     tree.mkdir(parents=True)
-    data = git("archive", "--format=tar", sha, "--", *EXPORTED, binary=True)
+    # Requirements moved between releases. Git archive refuses an absent
+    # pathspec, so select each revision's actual paths before exporting it.
+    present = git("ls-tree", "-r", "--name-only", sha).splitlines()
+    exported = [
+        path
+        for path in EXPORTED
+        if any(name == path or name.startswith(path + "/") for name in present)
+    ]
+    if not exported:
+        raise ValueError(f"no parity source paths exist at {sha}")
+    data = git("archive", "--format=tar", sha, "--", *exported, binary=True)
     with tarfile.open(fileobj=io.BytesIO(data)) as archive:
         archive.extractall(tree, filter="data")
 
@@ -1211,6 +1273,21 @@ def count_cr_files(files: dict[str, bytes]) -> int:
     return sum(
         1 for n, d in files.items() if Path(n).suffix.lower() in TEXT_SUFFIXES and b"\r" in d
     )
+
+
+def release_version(text: str) -> tuple[int, ...]:
+    """Return the numeric version a tag or a version string names: ``v0.39.0`` is (0, 39, 0)."""
+    found = re.search(r"(\d+)\.(\d+)\.(\d+)", text)
+    if found is None:
+        raise ValueError(f"{text!r} names no release version")
+    return tuple(int(part) for part in found.groups())
+
+
+def in_scope(named: dict[str, str], base_version: str | None) -> bool:
+    """Whether a named entry may name a difference against ``base_version`` (``since``)."""
+    if base_version is None:
+        return True
+    return release_version(base_version) < release_version(named["since"])
 
 
 def changed_lines(old: str, new: str) -> list[str]:
@@ -1305,10 +1382,37 @@ def _legacy_cell(line: str) -> tuple[str, str | None]:
     return head, field.lstrip(" ") if len(field) == LEGACY_FIELD else None
 
 
+def _toggle_correction(old: str, new: str) -> bool:
+    """Accept only ENABLE to DISABLE replacements of the same toggle commands."""
+    removed, added = [], []
+    for line in difflib.ndiff(old.splitlines(), new.splitlines()):
+        if line.startswith("- "):
+            removed.append(line[2:])
+        elif line.startswith("+ "):
+            added.append(line[2:])
+    return (
+        bool(removed)
+        and len(removed) == len(added)
+        and all(
+            before.endswith(" ENABLE") and after == before.removesuffix("ENABLE") + "DISABLE"
+            for before, after in zip(removed, added, strict=True)
+        )
+    )
+
+
 def name_difference(
-    kind: str, name: str, old: str | None, new: str | None, defined: set[str]
+    kind: str,
+    name: str,
+    old: str | None,
+    new: str | None,
+    defined: set[str],
+    base_version: str | None = None,
 ) -> dict[str, Any]:
-    """Describe one difference and attach the requirement that states it, if any."""
+    """Describe one difference and attach the requirement that states it, if any.
+
+    ``base_version`` is the base tree's version; an entry whose ``since`` is not newer
+    than it names nothing (:func:`in_scope`). None leaves every entry in scope.
+    """
     entry: dict[str, Any] = {"state": "missing" if new is None else "changed"}
     lines = changed_lines(old or "", new or "") if old is not None and new is not None else []
     if lines:
@@ -1317,15 +1421,22 @@ def name_difference(
     for named in NAMED_DIFFERENCES:
         if named["kind"] != kind or not fnmatch.fnmatch(name, named["pattern"]):
             continue
+        if not in_scope(named, base_version):
+            continue
         if new is None or (old is None) != bool(named.get("added")):
             continue
         if "old_text" in named and (old, new) != (named["old_text"], named["new_text"]):
             continue
         pattern = named.get("lines")
-        if pattern and not all(re.search(pattern, line) for line in lines):
+        # A difference with NO changed line (a trailing newline added or
+        # removed) is not one a lines-only entry states: all() over nothing
+        # is True, so it used to be named under any requirement.
+        if pattern and (not lines or not all(re.search(pattern, line) for line in lines)):
             continue
         block = named.get("block")
         if block and not re.fullmatch(block, "\n".join(lines)):
+            continue
+        if named.get("directed_toggles") and not _toggle_correction(old or "", new):
             continue
         lacks = named.get("release_lacks")
         if lacks and re.search(lacks, new):
@@ -1357,7 +1468,12 @@ def name_difference(
 
 
 def compare_texts(
-    kind: str, key: str, base: dict[str, str], release: dict[str, str], defined: set[str]
+    kind: str,
+    key: str,
+    base: dict[str, str],
+    release: dict[str, str],
+    defined: set[str],
+    base_version: str | None = None,
 ) -> dict[str, Any]:
     """Compare every base item with its release counterpart, naming each difference."""
     differing = []
@@ -1369,9 +1485,11 @@ def compare_texts(
             cr_removed.append({key: name, "requirement": LF_REQUIREMENT})
         if new == old:
             continue
-        differing.append({key: name, **name_difference(kind, name, old, new, defined)})
+        differing.append(
+            {key: name, **name_difference(kind, name, old, new, defined, base_version)}
+        )
     added = [
-        {key: name, **name_difference(kind, name, None, release[name], defined)}
+        {key: name, **name_difference(kind, name, None, release[name], defined, base_version)}
         for name in sorted(set(release) - set(base))
     ]
     return {
@@ -1385,7 +1503,12 @@ def compare_texts(
 
 
 def text_control(
-    kind: str, key: str, base: dict[str, str], planted: str, defined: set[str]
+    kind: str,
+    key: str,
+    base: dict[str, str],
+    planted: str,
+    defined: set[str],
+    base_version: str | None = None,
 ) -> str | None:
     """Plant ``planted`` at the end of the first base item; return it if caught alone.
 
@@ -1398,17 +1521,22 @@ def text_control(
     victim = sorted(base)[0]
     compared = {name: lf(text) for name, text in base.items()}
     mutated = {**compared, victim: compared[victim] + planted}
-    probe = compare_texts(kind, key, base, mutated, defined)["differing"]
+    probe = compare_texts(kind, key, base, mutated, defined, base_version)["differing"]
     return victim if [d[key] for d in probe if "requirement" not in d] == [victim] else None
 
 
 def srs_ids(tree: Path) -> set[str]:
-    """Return every requirement id the tree's ``docs/srs`` pages mention."""
+    """Return requirement ids defined by the tree's retained specification pages.
+
+    A box, not a mention: an id cited in passing on any page used to count as
+    defined, so a named entry stayed live for a requirement the release no longer states.
+    """
     text = "\n".join(
         p.read_text(encoding="utf-8", errors="replace")
-        for p in (tree / "docs" / "srs").rglob("*.md")
+        for folder in (tree / "docs" / "srs", tree / REQUIREMENTS_DIR)
+        for p in folder.rglob("*.md")
     )
-    return set(re.findall(r"\b(?:FR|NFR|IR|DR|AD|CR|SR|QR)-\d+[a-z]?\b", text))
+    return set(re.findall(r'!!! requirement "((?:FR|NFR|IR|DR|AD|CR|SR|QR)-\d+[a-z]?)\b', text))
 
 
 def api_pairs(api: dict[str, Any], key: str = "exports") -> list[list[str]]:
@@ -1468,6 +1596,7 @@ def _compare_left_out(
     base: dict[str, Any],
     release: dict[str, Any],
     defined: set[str],
+    base_version: str | None = None,
 ) -> None:
     """Add every changed left-out reason of the grouped plan to differing, named when stated.
 
@@ -1495,7 +1624,7 @@ def _compare_left_out(
         matrix, mode, kind, ident = key
         name = f"workspace/{matrix} ({mode}) left out {kind} {ident}"
         scripts["differing"].append(
-            {"name": name, **name_difference("left_out", name, old, new, defined)}
+            {"name": name, **name_difference("left_out", name, old, new, defined, base_version)}
         )
 
 
@@ -1518,6 +1647,12 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
     """Measure both trees and return the receipt."""
     base_sha = git("rev-parse", f"{args.base}^{{commit}}")
     release_sha = git("rev-parse", f"{args.release}^{{commit}}")
+    # The base tree's OWN version scopes the named differences (``since``),
+    # read from its pyproject so a sha or a branch works as well as a tag.
+    stated = re.search(r'(?m)^version = "([^"]+)"', git("show", f"{base_sha}:pyproject.toml"))
+    if stated is None:
+        raise SystemExit(f"the base {args.base} states no version in its pyproject.toml")
+    base_version = stated.group(1)
     try:
         committed = git("show", f"{release_sha}:{SCRIPT}", binary=True)
     except subprocess.CalledProcessError:
@@ -1628,13 +1763,13 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         "unavailable_at_release": cli_release["unavailable"],
     }
 
-    scripts = compare_texts("scripts", "name", scripts_base, scripts_release, defined)
+    scripts = compare_texts("scripts", "name", scripts_base, scripts_release, defined, base_version)
     workspace_names = set(workspace_base["scripts"]) | set(workspace_release["scripts"])
     scripts["workspace_compared"] = len(workspace_names.intersection(scripts["compared"]))
     _compare_workspace_refusals(
         scripts, workspace_base, workspace_release, {"base": args.base, "release": args.release}
     )
-    _compare_left_out(scripts, workspace_base, workspace_release, defined)
+    _compare_left_out(scripts, workspace_base, workspace_release, defined, base_version)
     scripts["workspace_coverage"] = {
         "rendered": [
             {**row, "version": version}
@@ -1670,7 +1805,7 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
                 failures.append(
                     f"no {mode} grouped scripts were compared; grouped_skipped: {reasons}"
                 )
-    post = compare_texts("post", "file", post_base, post_release, defined)
+    post = compare_texts("post", "file", post_base, post_release, defined, base_version)
     post["workspace"] = str(args.workspace)
     post["cr_normalised"] = True
     post["cr_in_release"] = count_cr_files(post_release_raw)

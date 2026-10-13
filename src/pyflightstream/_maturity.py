@@ -49,10 +49,14 @@ MATURITY = {
     "pyflightstream.cases.selection": "provisional",
     # Module path added after v0.30.0.
     "pyflightstream.cases.settings": "provisional",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.cases.sixdof": "provisional",
     # Module path added after v0.30.0.
     "pyflightstream.cases.setup_surfaces": "provisional",
     # v0.30.0: cases/windows.py
     "pyflightstream.cases.windows": "stable",
+    # 0.40.0 (FR-455): the one resolver of the far-field inputs, plan and post.
+    "pyflightstream.cases.farfield_inputs": "provisional",
     # v0.30.0: cases/workflows.py
     "pyflightstream.cases.workflows": "stable",
     # v0.30.0: commands/__init__.py
@@ -63,6 +67,12 @@ MATURITY = {
     "pyflightstream.extras": "stable",
     # v0.30.0: farfield/__init__.py
     "pyflightstream.farfield": "stable",
+    # 0.40.0 (FR-450, FR-457): the numpy core behind the far-field facade; the
+    # Trefftz integrals are provisional until the literature-wing study closes.
+    "pyflightstream.farfield.balances": "stable",
+    "pyflightstream.farfield.fields": "stable",
+    "pyflightstream.farfield.quadrature": "stable",
+    "pyflightstream.farfield.trefftz": "provisional",
     # v0.30.0: fsi/__init__.py
     "pyflightstream.fsi": "stable",
     # v0.30.0: fsi/beam.py
@@ -79,6 +89,8 @@ MATURITY = {
     "pyflightstream.fsi.driver": "stable",
     # v0.30.0: fsi/errors.py
     "pyflightstream.fsi.errors": "stable",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.fsi.external": "provisional",
     # v0.30.0: fsi/kinematics.py
     "pyflightstream.fsi.kinematics": "stable",
     # v0.30.0: fsi/loads.py
@@ -151,6 +163,8 @@ MATURITY = {
     "pyflightstream.post.series": "stable",
     # v0.30.0: post/settings_table.py
     "pyflightstream.post.settings_table": "stable",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.post.streamlines": "provisional",
     # v0.30.0: post/superfile.py
     "pyflightstream.post.superfile": "stable",
     # v0.30.0: post/surfaces.py
@@ -161,8 +175,14 @@ MATURITY = {
     "pyflightstream.post.unsteady_polar": "provisional",
     # v0.30.0: post/writers.py
     "pyflightstream.post.writers": "stable",
+    # 0.40.0 (FR-456): the far-field product family.
+    "pyflightstream.post.farfield_products": "provisional",
+    "pyflightstream.post.farfield_fields": "provisional",
     # v0.30.0: probes/__init__.py
     "pyflightstream.probes": "stable",
+    # 0.40.0 (FR-459): the one home of probe geometry, split out of the root.
+    "pyflightstream.probes.lattice": "stable",
+    "pyflightstream.probes.layouts": "stable",
     # v0.30.0: probes/errors.py
     "pyflightstream.probes.errors": "stable",
     # v0.30.0: probes/geometry.py
@@ -215,6 +235,8 @@ MATURITY = {
     "pyflightstream.results.surface": "stable",
     # v0.30.0: results/tables.py
     "pyflightstream.results.tables": "stable",
+    # 0.40.0 (FR-452): the reader of the solver's wake export.
+    "pyflightstream.results.wake": "provisional",
     # v0.30.0: run/__init__.py
     "pyflightstream.run": "stable",
     # v0.30.0: run/cli.py
@@ -281,6 +303,8 @@ MATURITY = {
     "pyflightstream.workspace.flight_condition": "stable",
     # v0.30.0: workspace/fsi_setup.py
     "pyflightstream.workspace.fsi_setup": "stable",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.workspace.fsi_external_setup": "provisional",
     # Module path added after v0.30.0.
     "pyflightstream.workspace.hpc": "provisional",
     # v0.30.0: workspace/inputs.py
@@ -303,6 +327,8 @@ MATURITY = {
     "pyflightstream.workspace.setup_standards": "stable",
     # Module path added after v0.30.0.
     "pyflightstream.workspace.sidecars": "provisional",
+    # 0.40.0: the command-gap capabilities (FR-460 to FR-462).
+    "pyflightstream.workspace.sixdof_setup": "provisional",
     # v0.30.0: workspace/storage.py
     "pyflightstream.workspace.storage": "stable",
     # v0.30.0: workspace/trailing_edges.py

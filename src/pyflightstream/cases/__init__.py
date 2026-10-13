@@ -109,6 +109,7 @@ from pydantic import (
     ConfigDict,
     Field,
     PrivateAttr,
+    ValidationError,
     field_validator,
     model_validator,
 )
@@ -119,6 +120,9 @@ from pyflightstream._retired_names import retired_frame
 # The setup keys' command table and the tables FR-319 added; its module imports
 # only pydantic and the command database, so the package may import it while it loads.
 from pyflightstream.cases._setup_keys import SOLVER_SETTING_COMMANDS
+from pyflightstream.cases._setup_keys import (
+    TEMPLATE_SETTINGS_LEFT_OUT as TEMPLATE_SETTINGS_LEFT_OUT,
+)
 from pyflightstream.cases.mesh import (
     EVERY_SURFACE,
     BaseRegionOperation,
@@ -218,8 +222,10 @@ from pyflightstream.cases.settings import (
     SolverToggle,
     point_state_key,
 )
+from pyflightstream.cases.sixdof import SixDofSpec
 from pyflightstream.commands import Phase
 from pyflightstream.fsi.config import FsiConfig
+from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 
@@ -308,6 +314,7 @@ __all__ = [
     "point_tag",
     "sweep_name",
     "resolve_recipe",
+    "TEMPLATE_SETTINGS_LEFT_OUT",
 ]
 
 
@@ -948,6 +955,13 @@ class SimCase(BaseModel):
     solver: SolverSettings = Field(default_factory=SolverSettings)
     fsi: FsiConfig | None = None
     fsi_provenance: dict[str, Any] = Field(default_factory=dict)
+    #: FR-462 (0.40.0): the external structural program an FSI input of mode
+    #: "external" names, resolved and hashed by the plan; None otherwise. A
+    #: row couples a structure when this or ``fsi`` is set, never both.
+    fsi_external: ExternalStructure | None = None
+    #: FR-461 (0.40.0): the body a row's SIXDOF key frees, and its provenance.
+    sixdof: SixDofSpec | None = None
+    sixdof_provenance: dict[str, Any] = Field(default_factory=dict)
     recipe: str
     #: The row's own keys, and TWO THINGS THE RESOLVER WRITES beside them:
     #: a flat `ROTOR_ORIGIN` bound to a named reference point, and the
@@ -1406,8 +1420,8 @@ def load_campaign(path: str | Path) -> Campaign:
     Raises
     ------
     CampaignConfigError
-        No ``[campaign]`` table; or a generated campaign that has been
-        edited, or whose matrix has changed since the conversion.
+        Not TOML, no valid ``[campaign]`` table and ``[[sim]]`` cases; or a generated
+        campaign that has been edited, or whose matrix changed since the conversion.
 
     Examples
     --------
@@ -1418,14 +1432,14 @@ def load_campaign(path: str | Path) -> Campaign:
     'campaign.toml'
     """
     text = Path(path).read_text(encoding="utf-8")
-    with open(path, "rb") as handle:
-        data = tomllib.load(handle)
-    if "campaign" not in data:
+    try:
+        data = tomllib.loads(text)
+        campaign = Campaign(**data.get("campaign", {}), sims=data.get("sim", []))
+    except (tomllib.TOMLDecodeError, TypeError, ValidationError) as error:
         raise CampaignConfigError(
-            f"{path} has no [campaign] table; campaign.toml needs [campaign] with "
-            "name, fs_version, and fs_exe, plus one [[sim]] entry per case"
-        )
-    campaign = Campaign(**data["campaign"], sims=data.get("sim", []))
+            f"{path} does not load ({error}); campaign.toml needs a [campaign] table with "
+            "name, fs_version and fs_exe, then one [[sim]] entry per case and no sims key"
+        ) from error
     campaign._source_path = str(path)
     if campaign.derived_from is not None:
         _refuse_an_edited_derived_campaign(campaign, path, text)

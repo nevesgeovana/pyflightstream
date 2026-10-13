@@ -39,6 +39,7 @@ from pyflightstream.script import (
     Script,
 )
 
+from ._farfield import farfield_outputs, farfield_sections
 from ._frames import (
     _pproc_frame,
 )
@@ -446,6 +447,12 @@ def _plot_each_rotors_own_history(
 
 
 def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
+    """Emit the declared section distributions, then the one the far field adds (FR-455 R3)."""
+    _declared_sections(case, script, frames)
+    farfield_sections(case, script, frames)
+
+
+def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:
     """Emit one NEW_SURFACE_SECTION_DISTRIBUTION per pproc entry and plane.
 
     An entry's families are resolved through the opened inventory in the
@@ -516,7 +523,9 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                         "distribution_families": entry.families,
                         **(
                             {"frame_index": frame}
-                            if pproc.products.boundary_layer_integrals or case.fsi is not None
+                            if pproc.products.boundary_layer_integrals
+                            or case.fsi is not None
+                            or case.fsi_external is not None
                             else {}
                         ),
                         "families": [str(family) for family in families],
@@ -571,14 +580,21 @@ def row_outputs(case: SimCase, workflow: str) -> list[str]:
         The declared output names, their ``{name}`` placeholder unrendered.
     """
     unsteady = workflow.startswith("unsteady")
+    # FR-461 R2: the trajectory a SIXDOF row's input exports joins its outputs.
+    trajectory = (
+        ["{name}_trajectory_6dof.txt"]
+        if unsteady and case.sixdof is not None and case.sixdof.export.trajectory
+        else []
+    )
     pproc = case.pproc
     if pproc is None:
-        return default_outputs(unsteady)
+        return default_outputs(unsteady) + trajectory
     names = pproc.outputs(unsteady)
     plot = classify_outputs(names).get("plot_sections_cp")
     if plot is None or case.inventory is None or _cuts_a_section(case, pproc, case.inventory):
-        return names
-    return [name for name in names if name != plot]
+        # FR-455 R3 (0.40.0): the exports the far field reads; none without [farfield].
+        return farfield_outputs(case, workflow, names + trajectory)
+    return farfield_outputs(case, workflow, [name for name in names if name != plot] + trajectory)
 
 
 def _cuts_a_section(case: SimCase, pproc: PprocSpec, inventory: Sequence[str]) -> bool:

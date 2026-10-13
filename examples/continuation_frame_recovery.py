@@ -14,7 +14,7 @@ import argparse
 import json
 from pathlib import Path
 
-from pyflightstream._cli import cli_entrypoint
+from pyflightstream import cli_entrypoint
 from pyflightstream.cases import SimCase, point_name
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.run import resolve_continuation

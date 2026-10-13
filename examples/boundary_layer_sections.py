@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream._cli import cli_entrypoint
+from pyflightstream import cli_entrypoint
 from pyflightstream.post.boundary_layer import sample_boundary_layer, write_boundary_layer_table
 from pyflightstream.results import SurfaceSection
 from pyflightstream.results.surface import REFERENCE_FRAME, VtkSurface

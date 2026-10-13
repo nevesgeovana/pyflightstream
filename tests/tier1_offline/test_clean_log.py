@@ -13,7 +13,8 @@ L3: the per-point force_rerun warning is one line per simulation with a count.
 L4: nothing is lost: every point's move is in ``logs/activity.log`` in full,
 and ``--verbose`` prints the per-point lines again.
 """
-# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# The evidence line of these requirements cites this module
+# (docs/unpublished/requirements/functional-requirements.md):
 # FR-178.
 
 from __future__ import annotations
@@ -24,7 +25,11 @@ import subprocess
 import sys
 import textwrap
 import warnings
+from datetime import datetime, timedelta
 
+import pytest
+
+import pyflightstream.workspace as workspace_module
 from pyflightstream import _cli
 from pyflightstream._progress import (
     command_terminal,
@@ -211,13 +216,34 @@ def _force_rerun_warnings(workspace, **terminal):
     return [str(w.message) for w in got if "collected outputs" in str(w.message)]
 
 
-def test_l3_force_rerun_says_one_line_per_simulation_and_l4_logs_every_point(tmp_path):
+class _TickingClock(datetime):
+    """A clock whose every reading is one second after the last: archive stamps straddle."""
+
+    ticks = 0
+
+    @classmethod
+    def now(cls, tz=None):
+        cls.ticks += 1
+        return datetime(2026, 10, 11, 12, 0, 0) + timedelta(seconds=cls.ticks)
+
+
+@pytest.mark.parametrize("straddle", [False, True])
+def test_p0400_l3_force_rerun_says_one_line_per_simulation_and_l4_logs_every_point(
+    tmp_path, monkeypatch, straddle
+):
+    """P0400-FORCE-RERUN-STAMP (PFS-2135.032): one line whether or not the stamps share a second.
+
+    Each point is archived with its own clock reading, so the two stamps differ
+    whenever the moves straddle a second and the glob then shows ``<date>-*``.
+    """
     workspace = _ran_once(tmp_path)
+    if straddle:
+        monkeypatch.setattr(workspace_module, "datetime", _TickingClock)
     said = _force_rerun_warnings(workspace, verbose=False)
     assert len(said) == 1, said
     assert re.fullmatch(
         r"force_rerun: the collected outputs of 2 point\(s\) of sim_8001 were archived "
-        r"\(sims/sim_8001/datapoints/DP-\*/archive/\d{8}-\d{6}\)",
+        r"\(sims/sim_8001/datapoints/DP-\*/archive/(?:\d{8}-(?:\d{6}|\*)|\*)\)",
         said[0],
     ), said
     log = (workspace.root / "logs" / "activity.log").read_text(encoding="utf-8")

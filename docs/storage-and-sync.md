@@ -122,7 +122,7 @@ out simply runs no steps of that kind.
 ```toml
 [[prune_step_exports]]
 sims = "all"
-status = ["CONVERGED", "COMPLETED_MAX_ITER"]
+status = ["CONVERGED", "COMPLETED_MAX_ITER", "MAX_ITER_REACHED"]
 ```
 
 By default this table keeps only the last step. Two optional keys change
@@ -202,7 +202,7 @@ the simulations whose per-step history you will not need again.
 ```toml
 [[compact_sims]]
 sims = "all"
-status = ["CONVERGED", "COMPLETED_MAX_ITER"]
+status = ["CONVERGED", "COMPLETED_MAX_ITER", "MAX_ITER_REACHED"]
 older_than_days = 30
 ```
 
@@ -210,7 +210,10 @@ older_than_days = 30
   `["4001", "4002"]`.
 - `status` is optional: only simulations whose every recorded run carries
   one of the named statuses are eligible. Leave it out to consider every
-  simulation regardless of status.
+  simulation regardless of status. `MAX_ITER_REACHED` is a steady point
+  that reached its iteration limit without settling (FR-434): list it with
+  the ended runs as above, or leave it out to keep such unsettled runs
+  untouched until you have looked at them.
 - `older_than_days` is optional: only a folder whose modification time is
   at least this many days in the past is eligible. Leave it out to
   consider every eligible folder regardless of age.
@@ -252,7 +255,7 @@ older_than_days = 14
 ```
 
 - `action` is `"compact"` (zip the archived folder, then remove it) or
-  `"delete"` (remove it outright).
+  `"delete"` (remove it outright); when omitted, it defaults to `"delete"`.
 - `keep_latest` is how many of the newest archived folders, per matrix, are
   left alone regardless of age. The default is 0.
 - `older_than_days` is optional, exactly as above.

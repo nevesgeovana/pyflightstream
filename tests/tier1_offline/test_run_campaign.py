@@ -2938,11 +2938,11 @@ def test_every_line_says_which_of_the_two_produced_its_numbers(tmp_path):
     )
     assert (unsteady["data_origin"], unsteady["reduction"], unsteady["reduction_window"]) == (
         "raw",
-        "time_average",
-        "not_printed",
+        "last_step",
+        "last_time_step",
     ), (
-        "an unsteady line must carry the reduction and say the export printed no "
-        "window; blank would read as 'averaged over nothing'"
+        "an unsteady line must carry the reduction and say the export states its "
+        "last time step; blank would read as 'averaged over nothing'"
     )
     # Vocabulary, not spelling: every cell is a published token, so a
     # future value cannot arrive as free text this file cannot be read by.

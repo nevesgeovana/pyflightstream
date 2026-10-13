@@ -37,6 +37,7 @@ from pyflightstream.cases import select_group_members
 from pyflightstream.post._condition import (
     PointState,
     _mach_of,
+    _on_the_vorticity_list,
     _refuse_a_reference_the_solver_did_not_use,
 )
 from pyflightstream.post._stage import PROBES_DIR, SECTIONS_DIR
@@ -375,7 +376,7 @@ def group_coefficients(
     used: list[str] = []
     selected: list[str] = []
     if families or empty_is_every:
-        selected = select_group_members(families, list(loads.surfaces), aliases)
+        selected = select_group_members(families, list(loads.surfaces), aliases, strict=False)
     # THE SPLIT AS THE TABLE PRINTS IT (FR-423): ``CDi, CDo`` up to 26.124,
     # ``CDp, CDv`` on 26.125, never one read under the other's name.
     induced_key, profile_key = drag_pair(loads.total)
@@ -448,23 +449,12 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     tuple of str
         The names of the declined surfaces, in table order; empty when none.
     """
-    # THE RULE READS CDi ONLY (FR-423). SRC-003 p.202 says a declined surface
-    # prints its CDi as zero; no run has measured what 26.125 prints in its CDp
-    # for such a surface, so a table printing the 26.125 split declines nothing.
+    # THE RULE READS CDi ONLY (FR-423). A table printing the 26.125 split
+    # declines nothing here; its CDp zero is said by declined_profile_drag_125.
     if DRAG_PAIRS[0][0] not in loads.total:
         return ()
     names = list(loads.surfaces)
-    if isinstance(selection, str):
-        listed = set(names) if selection == "all" else set()
-    elif isinstance(selection, Sequence) and selection:
-        placed = [
-            names[item - 1]
-            for item in selection
-            if isinstance(item, int) and not isinstance(item, bool) and 1 <= item <= len(names)
-        ]
-        listed = set(placed) if len(placed) == len(selection) else set(names)
-    else:
-        return ()
+    listed = _on_the_vorticity_list(names, selection)
     return tuple(name for name in names if name in listed and loads.surfaces[name]["CDi"] == 0.0)
 
 

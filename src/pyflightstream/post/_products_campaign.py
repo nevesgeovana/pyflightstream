@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamWarning, warn
@@ -20,10 +20,13 @@ from pyflightstream.post._installed_copies import INSTALLED_KIND as INSTALLED_KI
 from pyflightstream.post._settings_product import SETTINGS_KIND as SETTINGS_KIND
 from pyflightstream.post._settings_product import write_settings_product as write_settings_product
 from pyflightstream.post._stage import _PartialPost, _surface_export_skip
+from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX
+from pyflightstream.post.provenance import refuse_an_existing_product
 from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.results import FrozenSolve, UnjudgeableSolve
-from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix
-from pyflightstream.workspace._missing_log import missing_log_warning
+from pyflightstream.workspace import RunStatus, WorkspaceError, find_matrix, missing_log_warning
+from pyflightstream.workspace.naming import ADDITIONAL_DIR
+from pyflightstream.workspace.storage import STEP_EXPORTS_PRUNED
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -293,3 +296,157 @@ def _warn_unreadable_matrix(
             PyflightstreamWarning,
             stacklevel=3,
         )
+
+
+def products_to_retire(
+    skipped: Mapping[str, str],
+    previous_products: Mapping[str, Mapping[str, object]],
+) -> set[str]:
+    """Return every product of a previous post that this post's refusals retire.
+
+    A refused rebuild MUST retire the product it refuses. The manifest stops
+    naming it, and a file left beside the new ones is read as current: the
+    numbers in it are the ones the refusal says cannot be trusted.
+
+    A skip is named after what was refused
+    and that is not always a file:
+
+    * ``polars/<file>.csv`` -- the file itself, with or without a ``#marker``.
+    * ``sections/<stem>#distributions`` -- a family of files that share a stem.
+    * ``runs/<run_id>`` -- previous entries whose ``runs`` include this point.
+      The caller keeps files regenerated from surviving points or independent exports.
+    * ``polars/<sim>#rotor_tables`` -- the rotor tables of ONE SIMULATION, whose
+      files are ``polars/P<sim>-<alias>_rotor.csv`` and share no prefix with the
+      skip key at all. They were not retired until the independent review of
+      GitHub main found the stale file still current (2026-09-20); the previous
+      manifest records each product's ``sim_id``, so the identity is read rather
+      than parsed out of a name.
+    """
+    refused = {name.split("#", 1)[0] for name in skipped}
+    refused.update(
+        name for name, entry in previous_products.items() if entry.get("sim_id") in skipped
+    )
+    refused_runs = {name.removeprefix("runs/") for name in skipped if name.startswith("runs/")}
+    refused.update(
+        name
+        for name, entry in previous_products.items()
+        if isinstance(runs := entry.get("runs"), list) and any(run in refused_runs for run in runs)
+    )
+    distribution_prefixes = [
+        name.split("#", 1)[0] + "_" for name in skipped if name.endswith("#distributions")
+    ]
+    refused.update(
+        name
+        for name in previous_products
+        if any(name.startswith(prefix) for prefix in distribution_prefixes)
+    )
+    refused.update(
+        name
+        for name, entry in previous_products.items()
+        if name.endswith(ROTOR_TABLE_SUFFIX)
+        and f"{_stage.POLARS_DIR}/{entry.get('sim_id')}#rotor_tables" in skipped
+    )
+    return refused
+
+
+def products_kept_after_pruning(
+    skipped: Mapping[str, str],
+    previous_products: Mapping[str, Mapping[str, object]],
+    out: Path,
+) -> dict[str, dict[str, object]]:
+    """Return the previous products a refusal for a pruned step keeps, with their entries.
+
+    A PRODUCT MADE BEFORE ``free-space`` PRUNED ITS STEPS STAYS (0.30.0). The
+    refusal is about rebuilding it, not about the file already made from
+    every step: that file stays in its folder and its previous entry stays in
+    the manifest, marked ``kept_after_pruning`` with the refusal. A refusal
+    opens with :data:`~pyflightstream.workspace.storage.STEP_EXPORTS_PRUNED`
+    and is keyed by the product's own name; a product sharing that name's
+    stem (the VTK beside an averaged Tecplot) is kept with it. Only a file
+    still on disk is kept.
+    """
+    kept: dict[str, dict[str, object]] = {}
+    for key, reason in skipped.items():
+        if not str(reason).startswith(STEP_EXPORTS_PRUNED):
+            continue
+        base = key.split("#", 1)[0]
+        family = base.rsplit(".", 1)[0]
+        for name, entry in previous_products.items():
+            same = name == base or name.rsplit(".", 1)[0] == family
+            if same and (out / name).is_file():
+                kept[name] = {**entry, "kept_after_pruning": reason}
+    return kept
+
+
+def _retire_campaign_products(
+    out: Path,
+    *,
+    skipped: dict[str, str],
+    previous_products: Mapping[str, dict[str, Any]],
+    products_index: dict[str, dict[str, object]],
+    by_sim: Mapping[str, list[RunRecord]],
+    archive: bool,
+    archive_stamp: datetime,
+) -> None:
+    # 0.30.0: what a previous post made from steps free-space has since
+    # pruned stays, file and entry, and is therefore not retired below.
+    """Retire campaign products."""
+    for name, entry in products_kept_after_pruning(skipped, previous_products, out).items():
+        products_index.setdefault(name, entry)
+    # Retire refused generated tables under both rebuild policies. Native exports
+    # outside this folder remain evidence and are never removed here.
+    for name, entry in previous_products.items():
+        if (
+            name.startswith(f"{_stage.POLARS_DIR}/")
+            and entry.get("sim_id") in by_sim
+            and name not in products_index
+        ):
+            skipped.setdefault(
+                name,
+                f"retired previous table of simulation {entry['sim_id']}: no current "
+                "product uses this name; polar names follow contributing records",
+            )
+    # G12: an additional product no current extraction supplies is retired,
+    # archived like a refused table, rather than left in its folder unnamed.
+    for name in previous_products:
+        if name.startswith(f"{ADDITIONAL_DIR}/") and name not in products_index:
+            skipped.setdefault(
+                name,
+                "retired previous additional product: no current extraction supplies this file",
+            )
+    _retire_optional_products(skipped, previous_products, products_index)
+    refused = products_to_retire(skipped, previous_products)
+    for name in refused - products_index.keys():
+        if name in previous_products:
+            skipped.setdefault(
+                name, "retired previous product; its inputs no longer supply this file"
+            )
+        path = out / name
+        if path.resolve().is_relative_to(out.resolve()) and path.is_file():
+            refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
+            if not archive:
+                path.unlink()
+
+
+def _retire_optional_products(
+    skipped: dict[str, str],
+    previous_products: Mapping[str, dict[str, Any]],
+    products_index: Mapping[str, dict[str, object]],
+) -> None:
+    """Retire a previous optional product that the pproc no longer asks for (FR-419).
+
+    A table the pproc stopped requesting is not rewritten, and a file left beside
+    the new products is read as current; each is named in ``skipped`` so the
+    retirement below archives or removes it, as it does for a refused table.
+    """
+    for name, entry in previous_products.items():
+        if entry.get("kind") in _OPTIONAL_KINDS and name not in products_index:
+            skipped.setdefault(
+                name,
+                "retired previous product; this post no longer writes it "
+                "([products] key, or no snapshot)",
+            )
+
+
+#: The ``kind`` of the products a pproc key switches on and off (FR-419).
+_OPTIONAL_KINDS = (SETTINGS_KIND, INSTALLED_KIND)

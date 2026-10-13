@@ -25,7 +25,9 @@ from tests.tier1_offline._p0340_probe_support import (
 )
 
 EXPORTS = ("EXPORT_FUSELAGE_CCS_FILE", "EXPORT_REVOLVE_CCS_FILE")
-ARITY_WORDS = re.compile(r"arity\D{0,24}?(\d+)", re.IGNORECASE)
+#: ``arity of N`` or ``N arguments``; the bare word followed by any digits also read a report id
+#: (``arity is undetermined (RPT-126 ...)`` stated an arity of 126).
+ARITY_WORDS = re.compile(r"\barity\s+(?:of\s+)?(\d+)\b|\b(\d+)\s+arguments\b", re.IGNORECASE)
 
 
 def database_arity(command: str) -> int:
@@ -42,7 +44,7 @@ def emitted_arity(command: str) -> int:
 def stated_arity(detail: str) -> int | None:
     """Read the arity a report's verdict line states, None when it states none."""
     found = ARITY_WORDS.search(detail or "")
-    return int(found.group(1)) if found else None
+    return int(found.group(1) or found.group(2)) if found else None
 
 
 def arity_mismatch(detail: str, emitted: int) -> bool:
@@ -92,6 +94,11 @@ def test_a_planted_arity_mismatch_is_found_fr_335():
     assert arity_mismatch("the file was written with an arity of 4", 6)
     assert not arity_mismatch("the file was written with an arity of 6", 6)
     assert not arity_mismatch("no arity stated", 6)
+    assert arity_mismatch("the file was written with 4 arguments", 6)
+    # A report id in the sentence is not an arity (PFS-2135.010).
+    undetermined = "the arity is undetermined (RPT-126 states the five forms)"
+    assert stated_arity(undetermined) is None
+    assert not arity_mismatch(undetermined, 6)
 
 
 @pytest.mark.parametrize("command", EXPORTS)

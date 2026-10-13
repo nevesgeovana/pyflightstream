@@ -34,8 +34,7 @@ ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct
 
 `ACTUATOR` names the block; `ACTUATOR_RPM` is the speed in rev/min, a
 magnitude whose hand is the block's `rpm_sign`; and the row states exactly one
-loading: `ACTUATOR_THRUST`, the net thrust in N (the ELLIPTICAL model, thrust
-given in NEWTONS as the manual recommends), or `PROFILE`, the stem of a file of
+loading: `ACTUATOR_THRUST`, the net thrust in the actuator block's `thrust_units` (default `NEWTONS`; the ELLIPTICAL model), or `PROFILE`, the stem of a file of
 the workspace's `inputs/profiles/` (the CUSTOM model). ONE DISC PER ROW. A
 reference declaring a disc changes nothing on a row that names none.
 
@@ -129,9 +128,8 @@ verified on 26.100 and 26.120 to 26.124; `SET_ACTUATOR_AXIS`,
 `SET_ACTUATOR_RADIUS`, `SET_PROP_ACTUATOR_RPM` and `SET_PROP_ACTUATOR_SWIRL`
 are verified on 26.121 to 26.124, each by a probe reading the saved simulation.
 `SET_PROP_ACTUATOR_THRUST` and `ENABLE_ACTUATOR` ran without abort or logged
-error in the probes of 26.120 to 26.124, and their effect has never been
-observed, so they are documented only: a run can converge with the disc's
-thrust not applied and nothing here would say so. `SET_PROP_ACTUATOR_PROFILE`
+error in the probes of 26.120 to 26.124, and their effect is not promoted by a probe report. RPT-137 separately observed
+their wake effect on 26.124 in one case; the database statuses remain unchanged. `SET_PROP_ACTUATOR_PROFILE`
 ran on 26.124 under a licensed probe (RPT-070), which measured the file form
 above by reading the saved simulation, with no solve; it stays documented
 there, since what a profile the solver read does to the loads has not been
@@ -175,7 +173,7 @@ rotation about the block's `axis` by the right-hand rule, as for a rotor block.
 The script hands `SET_PROP_ACTUATOR_RPM` minus the block's sign times the
 row's speed, because a disc handed plus swirled against a rotor of the same
 `rpm_sign` on 26.124 and a disc handed minus swirled with it (RPT-137). The
-[migration record](migrating-to-0.34.0.md#an-actuator-disc-swirls-the-way-its-rotor-turns)
+[migration record](upgrading.md#older-layouts)
 explains how to update a study that used the older sign convention.
 
 **THE SWIRL IS ONE GLOBAL FACTOR.** The block's `swirl` is one global factor,
@@ -236,10 +234,10 @@ manual ties them:
 ```
 
 That file is a field of 30 m/s along x at z = 0, sheared by 2.5 m/s per metre
-of z, over 16 m of span and 8 m of height. THE FILE IS IN METRES AND METRES PER
-SECOND, IN THE GLOBAL FRAME, as the simulation is: nothing is converted, and
-the rows are written to the solver as they are, which is how 26.124 reads them
-(the licensed probe T14, RPT-071, below).
+of z, over 16 m of span and 8 m of height. The unit behavior depends on `FREESTREAM_UNITS`: undeclared files use the legacy
+no-conversion route, whose MILLIMETER coverage is unverified; `SI` scales the
+file once into the simulation unit; `NATIVE` treats it as already in that unit.
+See [custom-field units](custom-field-units.md).
 
 THE FIELD IS THE FLOW'S DIRECTION. On 26.124 `SOLVER_SET_AOA` does not turn a
 custom field (T14), so a row stating one states `ALPHA` and `BETA` as 0, or
@@ -359,3 +357,23 @@ the grid to the digit. A field whose file name is the name of a file the run
 writes for the solver, the trailing-edge node file or the disc's profile copy,
 is refused before the solver starts, because the record keys each input by its
 name.
+
+## Custom-field units
+
+A custom field defines global-frame coordinates and velocity components. It does not rotate with ALPHA, BETA, or a body transform. Nonzero ALPHA/BETA beside a custom field remains refused.
+
+Use `FREESTREAM_UNITS: SI` beside `FREESTREAM: shear` in a matrix row when the source contains metres and metres per second. In Python, set `SimCase.freestream_units="SI"`. The builder prepares a separate solver input, scaling all six XYZ/VXYZ columns once for a measured METER or MILLIMETER simulation. For MILLIMETER the numeric factor is 1000; seconds do not change. The source stays byte-identical, and the physical vector and its orientation stay the same. The run hashes both files and their provenance record.
+
+`FREESTREAM_UNITS: NATIVE` declares that all six columns already use the simulation's length unit, with velocity in that unit per second. Its bytes and path are preserved. Omitting the declaration keeps legacy file behavior; it does not infer SI from a filename or numerical range. Coverage of an undeclared MILLIMETER field is reported as unverified.
+
+Explicit SI conversion currently accepts only METER and MILLIMETER. Unknown and other units are refused. The custom-file measurement applies to FlightStream 26.124 build 8172026. It does not imply that unsteady fluid-plot coordinates use the same units: their VERTEX argument was measured in metres independently of the simulation display unit.
+
+STRUCTURED `.txt` inputs retain their two-count header; UNSTRUCTURED `.dat` inputs contain only six-column rows. Formatting of a prepared SI copy may change, but no interpolation, coordinate rotation, or automatic installation of an exported field occurs. Select a reusable SI field explicitly.
+
+The [SI custom-field example](examples/prepare_custom_field.md) prepares a MILLIMETER input from an SI source without launching a solver.
+
+Migration: existing undeclared files are not rewritten or upgraded. Add the SI declaration only after checking the source's actual unit contract. A field changed after preparation is refused before the solver starts.
+
+After geometry transforms are emitted, the run records a conservative body and full-rotor-sweep envelope. A grid-bounds exceedance warns; partial selections may overestimate the occupied region. The `within-grid-bounds` result only compares external YZ bounds and does not certify interior interpolation support. Raw commands, unknown placements or unavailable units leave the diagnostic explicitly unknown. Continuation preserves the diagnostic only when geometry/motion evidence and the unit declaration remain unchanged.
+
+See [RPT-082](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-082_cad-units-and-custom-inflow-coverage_2026-09-27.md) for the bounded uniform/shear and METER/MM controls, including preserved negative cases.

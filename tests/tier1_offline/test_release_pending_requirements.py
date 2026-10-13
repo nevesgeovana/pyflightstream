@@ -1,6 +1,7 @@
 """Tier 1: a release is refused while a requirement or amendment it owns is pending.
 
-The rule of the SRS (docs/srs/index.md, revision 1.76.0): a release promotes the
+The rule of the SRS (docs/unpublished/requirements/index.md, revision 1.76.0):
+a release promotes the
 requirements it owns in its own docs step, so none stays pending after the release
 that ships it. 0.39.0 shipped with its requirements still pending, and the first
 commit of 0.40.0 had to promote them; this arm makes that impossible to repeat.
@@ -24,6 +25,8 @@ import re
 from pathlib import Path
 
 import pytest
+
+from tests.tier1_offline._docs_site import REQUIREMENTS_DIR
 
 REPO = Path(__file__).resolve().parents[2]
 PAGES = ("functional-requirements.md", "nonfunctional-requirements.md")
@@ -78,7 +81,7 @@ def pending_owned(text: str, version: str) -> list[str]:
 
 
 def _live(page: str) -> str:
-    return (REPO / "docs" / "srs" / page).read_text(encoding="utf-8")
+    return (REPO / REQUIREMENTS_DIR / page).read_text(encoding="utf-8")
 
 
 def test_no_requirement_or_amendment_owned_by_this_release_is_pending():
