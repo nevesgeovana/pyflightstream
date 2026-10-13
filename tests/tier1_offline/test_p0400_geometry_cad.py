@@ -10,16 +10,26 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream._errors import InputArtifactError
+from pyflightstream.commands import CommandRegistry, Status
+from pyflightstream.script import BrokenCommandError
 from pyflightstream.workspace._geometry_build import plan_geometry_build
+from tests.tier1_offline._p0400_gaps_rt_support import registry_with
 from tests.tier1_offline.test_p0400_geometry_build import geometry, workspace
 
 
-def _lines(tmp_path, text: str, files: dict[str, str] | None = None) -> list[str]:
+def _lines(
+    tmp_path,
+    text: str,
+    files: dict[str, str] | None = None,
+    *,
+    build: str = "26.125",
+    registry: CommandRegistry | None = None,
+) -> list[str]:
     root = workspace(tmp_path)
-    folder = geometry(root, "g", 'fs_build = "26.125"\n' + text, source=None)
+    folder = geometry(root, "g", f'fs_build = "{build}"\n' + text, source=None)
     for name, content in (files or {}).items():
         (folder / name).write_text(content, encoding="utf-8")
-    plan = plan_geometry_build(folder)
+    plan = plan_geometry_build(folder, registry=registry)
     return [line for line in plan.variants[0].script.text.splitlines() if line]
 
 
@@ -77,10 +87,39 @@ SECTIONS = (
 )
 
 
+def _curve_import_verified() -> CommandRegistry:
+    """The committed database with the curve import marked verified on both builds.
+
+    The route's behaviour is held on a build-agnostic golden: the import is
+    broken on 26.124 and 26.125 (RPT-166), so a copy of the database stands in
+    for a build on which it works.
+    """
+    base = registry_with(["CAD_CREATE_IMPORT_CURVE_TXT"], "26.125", Status.VERIFIED)
+    return registry_with(["CAD_CREATE_IMPORT_CURVE_TXT"], "26.124", Status.VERIFIED, base=base)
+
+
+@pytest.mark.requirement("FR-475")
+@pytest.mark.parametrize("build", ["26.124", "26.125"])
+def test_p0400_geom_cad_the_loft_route_is_refused_where_the_curve_import_is_broken(tmp_path, build):
+    """P0400-GEOM-CAD (PFS-2081.14): the section loft is refused on 26.124 and 26.125.
+
+    Its sections enter through CAD_CREATE_IMPORT_CURVE_TXT, recorded broken on both
+    builds (RPT-166); the evidence gate names the command and the CCS route is the
+    working one.
+    """
+    with pytest.raises(BrokenCommandError, match="CAD_CREATE_IMPORT_CURVE_TXT is recorded broken"):
+        _lines(tmp_path, SECTIONS, {"naca.txt": "1.0 0.0\n0.0 0.0\n1.0 0.0\n"}, build=build)
+
+
 @pytest.mark.requirement("FR-475")
 def test_p0400_geom_cad_a_wing_is_lofted_from_its_sections(tmp_path):
     """P0400-GEOM-CAD (PFS-2081.14): R2, each section placed, then the CCS loft."""
-    lines = _lines(tmp_path, SECTIONS, {"naca.txt": "1.0 0.0\n0.0 0.0\n1.0 0.0\n"})
+    lines = _lines(
+        tmp_path,
+        SECTIONS,
+        {"naca.txt": "1.0 0.0\n0.0 0.0\n1.0 0.0\n"},
+        registry=_curve_import_verified(),
+    )
     body = [line for line in lines if not line.startswith(("C:", "/")) and "naca.txt" not in line]
     start = body.index("CAD_CREATE_INITIALIZE")
     assert body[start + 1 :][:14] == [
