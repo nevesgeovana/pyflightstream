@@ -100,8 +100,14 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
     dictionary = []
     baseline: dict[str, str] = {}
     cells: dict[tuple[int, int], Cell] = {}
-    for raw in path.read_text(encoding="utf-8-sig").splitlines():
+    for number, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), 1):
         row = [unescape(value) for value in raw.split("\t")]
+        widths = {"META": 3, "HEADER": 2, "DICTIONARY": 4, "CELL": 5, "BASELINE": 3}
+        if row[0] in widths and len(row) != widths[row[0]]:
+            raise ExcelSyncError(
+                f"{path} line {number}: {row[0]} needs {widths[row[0]]} fields; "
+                f"it holds {len(row)}. Recreate the workbook snapshot."
+            )
         if row[0] == "META":
             metadata[row[1]] = row[2]
         elif row[0] == "HEADER":
@@ -109,7 +115,8 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
         elif row[0] == "DICTIONARY":
             dictionary.append(DictionaryEntry(*row[1:4]))
         elif row[0] == "CELL":
-            cells[int(row[1]), int(row[2])] = Cell(row[3], row[4] == "1")
+            position = _bridge_cell_position(path, number, row)
+            cells[position] = Cell(row[3], row[4] == "1")
         elif row[0] == "BASELINE":
             baseline[row[1]] = row[2]
         elif row[0]:
@@ -121,6 +128,17 @@ def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
         [cells.get((row, column), Cell()) for column in range(len(headers))] for row in range(count)
     ]
     return metadata, WorkbookSnapshot(headers, rows, dictionary, baseline)
+
+
+def _bridge_cell_position(path: Path, number: int, row: list[str]) -> tuple[int, int]:
+    """Read a CELL record's indices and flag before using them in the workbook."""
+    try:
+        position = (int(row[1]), int(row[2]))
+    except ValueError as error:
+        raise ExcelSyncError(f"{path} line {number}: CELL needs integer indices") from error
+    if min(position) < 0 or row[4] not in ("0", "1"):
+        raise ExcelSyncError(f"{path} line {number}: CELL indices or formula flag are invalid")
+    return position
 
 
 def _write_response(path: Path, records: list[list[str]]) -> None:

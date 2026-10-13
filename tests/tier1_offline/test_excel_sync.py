@@ -5,9 +5,11 @@ import pytest
 
 from pyflightstream.cases.matrix import _COLUMNS
 from pyflightstream.workspace.excel_sync import (
+    ApplyResult,
     Cell,
     DictionaryEntry,
     ExcelSyncError,
+    SyncPreview,
     WorkbookSnapshot,
     apply_preview,
     dictionary_mapping,
@@ -46,7 +48,7 @@ def blank() -> WorkbookSnapshot:
     )
 
 
-def consume(snapshot: WorkbookSnapshot, result: object) -> WorkbookSnapshot:
+def consume(snapshot: WorkbookSnapshot, result: SyncPreview | ApplyResult) -> WorkbookSnapshot:
     headers = result.headers
     rows = [row + [Cell()] * (len(headers) - len(row)) for row in snapshot.rows]
     for change in result.changes:

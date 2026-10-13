@@ -252,6 +252,10 @@ def _rows(
         if all(not cell.value and not cell.formula for cell in cells):
             continue
         record = {name: cells[column] for name, column in indices.items()}
+        # The identity is read as the matrix reads its own fields, stripped (PFS-2096.025):
+        # a POL cell '1001 ' missed the matrix row '1001' and appended a duplicate of it.
+        for name in ("MATRIX", "POL"):
+            record[name] = Cell(record[name].value.strip(), record[name].formula)
         identity = (record["MATRIX"].value.casefold(), record["POL"].value)
         if not all(identity) or any(record[name].formula for name in ("MATRIX", "POL")):
             raise ExcelSyncError(

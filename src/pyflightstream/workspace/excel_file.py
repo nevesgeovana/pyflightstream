@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 import pyflightstream._textio as _textio
 from pyflightstream.workspace.excel_bridge import preview_from_json
@@ -122,59 +122,69 @@ def read_snapshot(path: str | Path) -> WorkbookSnapshot:
         If the workbook lacks its Runs, Dictionary or _Baseline worksheet, or a header or
         Dictionary mapping is not unique literal text.
     """
-    with ZipFile(path) as archive:
-        parts = _parts(archive)
-        if not {"Runs", "Dictionary", "_Baseline"} <= parts.keys():
-            raise ExcelSyncError("Workbook needs Runs, Dictionary and _Baseline worksheets.")
-        strings = []
-        if "xl/sharedStrings.xml" in archive.namelist():
-            strings = [
-                "".join(n.text or "" for n in item.iter(_NS + "t"))
-                for item in _xml(archive.read("xl/sharedStrings.xml"))
-            ]
-        runs = _table(archive, parts["Runs"], strings)
-        width = max(
-            (column for (row, column), cell in runs.items() if row == 1 and cell.value), default=0
-        )
-        height = max(
-            (row for (row, _), cell in runs.items() if cell.value or cell.formula), default=1
-        )
-        headers = [runs.get((1, column), Cell()).value for column in range(1, width + 1)]
-        if any(
-            column > width and (cell.value or cell.formula) for (_, column), cell in runs.items()
-        ):
-            raise ExcelSyncError("Runs contains data beyond its named headers.")
-        if any(cell.formula for (row, _), cell in runs.items() if row == 1):
-            raise ExcelSyncError("Runs headers require literal text.")
-        rows = [
-            [runs.get((row, column), Cell()) for column in range(1, width + 1)]
-            for row in range(2, height + 1)
+    # A package that is no workbook is refused by name (PFS-2095.060): an encrypted
+    # workbook is an OLE container (BadZipFile), a missing part or relationship id is a
+    # KeyError and a bad shared-string index an IndexError, and each escaped as a traceback.
+    try:
+        with ZipFile(path) as archive:
+            return _snapshot(archive)
+    except ExcelSyncError:
+        raise
+    except (BadZipFile, KeyError, IndexError, ET.ParseError, ValueError, RuntimeError) as error:
+        raise ExcelSyncError(
+            f"{path} is not a readable .xlsx workbook (an encrypted or damaged package): "
+            f"{type(error).__name__}: {error}. Save it again from Excel without a password."
+        ) from error
+
+
+def _snapshot(archive: ZipFile) -> WorkbookSnapshot:
+    """Read the three worksheets of an opened workbook package."""
+    parts = _parts(archive)
+    if not {"Runs", "Dictionary", "_Baseline"} <= parts.keys():
+        raise ExcelSyncError("Workbook needs Runs, Dictionary and _Baseline worksheets.")
+    strings = []
+    if "xl/sharedStrings.xml" in archive.namelist():
+        strings = [
+            "".join(n.text or "" for n in item.iter(_NS + "t"))
+            for item in _xml(archive.read("xl/sharedStrings.xml"))
         ]
-        dictionary = _table(archive, parts["Dictionary"], strings)
-        header_cells = [cell for (row, _), cell in dictionary.items() if row == 1]
-        header_names = [cell.value for cell in header_cells]
-        if any(cell.formula for cell in header_cells) or len(header_names) != len(
-            set(header_names)
-        ):
-            raise ExcelSyncError("Dictionary headers must be unique literal text.")
-        labels = {cell.value: column for (row, column), cell in dictionary.items() if row == 1}
-        required = ("ASCII_NAME", "EXCEL_HEADER", "STATUS")
-        if not set(required) <= labels.keys():
-            raise ExcelSyncError("Dictionary needs ASCII_NAME, EXCEL_HEADER and STATUS headers.")
-        entries = []
-        for row in sorted({row for row, _ in dictionary if row > 1}):
-            cells = [dictionary.get((row, labels[name]), Cell()) for name in required]
-            if any(cell.formula for cell in cells):
-                raise ExcelSyncError("Dictionary mappings require literal text, not formulas.")
-            if any(cell.value for cell in cells):
-                entries.append(DictionaryEntry(*(cell.value for cell in cells)))
-        baseline = _table(archive, parts["_Baseline"], strings)
-        values = {
-            cell.value: baseline.get((row, 2), Cell()).value
-            for (row, column), cell in baseline.items()
-            if row > 1 and column == 1 and cell.value
-        }
-        return WorkbookSnapshot(headers, rows, entries, values)
+    runs = _table(archive, parts["Runs"], strings)
+    width = max(
+        (column for (row, column), cell in runs.items() if row == 1 and cell.value), default=0
+    )
+    height = max((row for (row, _), cell in runs.items() if cell.value or cell.formula), default=1)
+    headers = [runs.get((1, column), Cell()).value for column in range(1, width + 1)]
+    if any(column > width and (cell.value or cell.formula) for (_, column), cell in runs.items()):
+        raise ExcelSyncError("Runs contains data beyond its named headers.")
+    if any(cell.formula for (row, _), cell in runs.items() if row == 1):
+        raise ExcelSyncError("Runs headers require literal text.")
+    rows = [
+        [runs.get((row, column), Cell()) for column in range(1, width + 1)]
+        for row in range(2, height + 1)
+    ]
+    dictionary = _table(archive, parts["Dictionary"], strings)
+    header_cells = [cell for (row, _), cell in dictionary.items() if row == 1]
+    header_names = [cell.value for cell in header_cells]
+    if any(cell.formula for cell in header_cells) or len(header_names) != len(set(header_names)):
+        raise ExcelSyncError("Dictionary headers must be unique literal text.")
+    labels = {cell.value: column for (row, column), cell in dictionary.items() if row == 1}
+    required = ("ASCII_NAME", "EXCEL_HEADER", "STATUS")
+    if not set(required) <= labels.keys():
+        raise ExcelSyncError("Dictionary needs ASCII_NAME, EXCEL_HEADER and STATUS headers.")
+    entries = []
+    for row in sorted({row for row, _ in dictionary if row > 1}):
+        cells = [dictionary.get((row, labels[name]), Cell()) for name in required]
+        if any(cell.formula for cell in cells):
+            raise ExcelSyncError("Dictionary mappings require literal text, not formulas.")
+        if any(cell.value for cell in cells):
+            entries.append(DictionaryEntry(*(cell.value for cell in cells)))
+    baseline = _table(archive, parts["_Baseline"], strings)
+    values = {
+        cell.value: baseline.get((row, 2), Cell()).value
+        for (row, column), cell in baseline.items()
+        if row > 1 and column == 1 and cell.value
+    }
+    return WorkbookSnapshot(headers, rows, entries, values)
 
 
 def check_file(path: Path) -> None:
