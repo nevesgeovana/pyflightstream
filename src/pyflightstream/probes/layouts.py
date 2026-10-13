@@ -19,8 +19,9 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from os import PathLike
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, TextIO
 
 import numpy as np
 
@@ -384,10 +385,11 @@ def write_probe_csv(lattice: ProbeLattice, path: str | Path) -> int:
     return write_points_csv(lattice.dimensional_points(), path)
 
 
-def write_points_csv(points: np.ndarray, path: str | Path) -> int:
+def write_points_csv(points: np.ndarray, path: str | Path | TextIO) -> int:
     """Write any probe positions as a PROBE_POINTS_IMPORT csv.
 
-    Shared by the cylindrical survey lattice and the planar grids: the
+    Shared by the cylindrical survey lattice, the planar grids and the
+    far-field plane and lattice a steady row's plan adds: the
     documented format (SRC-003 pp.362-363) is the point count on the
     first line, then one ``X,Y,Z,TYPE`` row per probe with TYPE 1 for
     volume probes. Rows follow the order of ``points``, which is the
@@ -398,8 +400,10 @@ def write_points_csv(points: np.ndarray, path: str | Path) -> int:
     points : numpy.ndarray
         Positions, shape ``(n, 3)``, reference frame, simulation
         length units.
-    path : str or pathlib.Path
-        Destination csv path.
+    path : str or pathlib.Path or text stream
+        Destination csv path, or an open text stream (for example an
+        :class:`io.StringIO`) the csv text is written to, which is how
+        the workspace plan stages the far-field csv beside its script.
 
     Returns
     -------
@@ -424,7 +428,11 @@ def write_points_csv(points: np.ndarray, path: str | Path) -> int:
         )
     lines = [str(len(points))]
     lines += [f"{x},{y},{z},1" for x, y, z in points]
-    _textio.write_text(Path(path), "\n".join(lines) + "\n")
+    text = "\n".join(lines) + "\n"
+    if isinstance(path, str | PathLike):
+        _textio.write_text(Path(path), text)
+    else:
+        path.write(text)
     return len(points)
 
 

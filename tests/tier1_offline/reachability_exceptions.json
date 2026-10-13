@@ -18,7 +18,6 @@
    "names": [
     "pyflightstream.post.write_tecplot_points",
     "pyflightstream.probes.emit_probe_points",
-    "pyflightstream.probes.write_points_csv",
     "pyflightstream.probes.write_probe_csv"
    ]
   },

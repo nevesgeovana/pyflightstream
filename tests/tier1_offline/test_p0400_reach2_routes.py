@@ -10,16 +10,21 @@ produced, computed beside it).
 
 from __future__ import annotations
 
+import io
+import warnings
+
 import numpy as np
 import pytest
 
 import pyflightstream.cases.workflows._exports as exports_module
+import pyflightstream.cases.workflows._farfield as farfield_module
 import pyflightstream.post.farfield_fields as farfield_fields
 from pyflightstream.cases._farfield_spec import LedgersSpec
 from pyflightstream.farfield import sample_coverage, transverse_flux, transverse_force
-from pyflightstream.probes.layouts import emit_probe_export
+from pyflightstream.probes.layouts import emit_probe_export, write_points_csv
 from pyflightstream.script import helpers
 from tests.tier1_offline.test_p0400_cases_workflows_probes import _rendered, _steady_with
+from tests.tier1_offline.test_p0400_farfield_plan import _case, _script
 
 _REQUIREMENT = "P0400-REACH2"
 
@@ -138,3 +143,39 @@ def test_p0400_reach2_a_steady_row_exports_its_probes_through_the_probes_home(
     assert lines[export + 1] == "point_probes.txt" and lines.count("EXPORT_PROBE_POINTS") == 1
     assert update < export and lines.count("UPDATE_PROBE_POINTS") == 1
     assert script._exported_paths["point_probes.txt"] == "emit_probe_export"
+
+
+@pytest.mark.requirement("FR-455")
+def test_p0400_reach2_the_added_far_field_csv_is_written_by_write_points_csv(tmp_path, monkeypatch):
+    """P0400-REACH2 (PFS-2140.001): the staged csv of an added plane is write_points_csv's.
+
+    The text is the one parked before, byte for byte: the count line, then one
+    ``x,y,z,1`` row per point in the order the plan laid them.
+    """
+    written = _spy(monkeypatch, farfield_module, "write_points_csv", write_points_csv)
+    farfield = {"families": "all", "trefftz": {"variant": "plane", "spacing_bref": 0.25}}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        script = _script(_case(tmp_path, farfield))
+    assert len(written) == 1, (_REQUIREMENT, "the plan writes the csv through the probes home")
+    (name, payload), *_ = [
+        (name, text)
+        for name, text in script.pending_input_files.items()
+        if name.startswith("farfield_probes_")
+    ]
+    points = [point[1:4] for point in script.probe_points]
+    assert payload == f"{len(points)}\n" + "".join(f"{x},{y},{z},1\n" for x, y, z in points)
+    text = script.render()
+    assert text.count("PROBE_POINTS_IMPORT") == 1 and name in text
+
+
+@pytest.mark.requirement("FR-459")
+def test_p0400_reach2_write_points_csv_writes_the_same_text_to_a_stream_and_a_file(tmp_path):
+    """P0400-REACH2: a text stream receives exactly the text the file holds."""
+    points = np.array([[0.1 * 3, -0.0, 1e-05], [12345.6789, 2.0, -3.5]])
+    stream = io.StringIO()
+    assert write_points_csv(points, stream) == 2
+    path = tmp_path / "points.csv"
+    write_points_csv(points, path)
+    assert stream.getvalue() == path.read_bytes().decode("utf-8")
+    assert stream.getvalue() == "2\n0.30000000000000004,-0.0,1e-05,1\n12345.6789,2.0,-3.5,1\n"

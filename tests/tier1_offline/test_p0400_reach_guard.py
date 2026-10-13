@@ -131,8 +131,9 @@ ROOTS: tuple[tuple[str, str], ...] = (
 # 285: the far-field ledgers run transverse_force and sample_coverage (RX-01, RX-02 deleted).
 # 283: a steady row creates its probe lines and points through script.helpers (RX-07).
 # 281: the probe export goes through probes.emit_probe_export (RX-07 deleted, RX-04 shrinks).
-_REGISTER_CEILING = 281
-_REGISTER_DIGEST = "894c4065ed8f4339722e4de06a7657e589df82dbe77251ae7da6d6b312877227"
+# 280: the plan writes the added far-field csv with probes.write_points_csv (RX-04 shrinks).
+_REGISTER_CEILING = 280
+_REGISTER_DIGEST = "3245c8a41ce089d4a94ee600831a927c0e69ae309f5adc622bcd551b87bfee4a"
 
 REASONS = (
     "routed later",

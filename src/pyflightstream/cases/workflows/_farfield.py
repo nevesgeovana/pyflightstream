@@ -20,6 +20,7 @@ record, and post matches the exported positions to it (PFS-2081.56, .58).
 
 from __future__ import annotations
 
+import io
 import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -47,6 +48,7 @@ from pyflightstream.probes.layouts import (
     farfield_plane,
     lattice_points,
     rectangle_points,
+    write_points_csv,
 )
 from pyflightstream.script import Script
 
@@ -1029,8 +1031,11 @@ def farfield_probes(
                     vertex=" ".join(str(value / native_per_m) for value in (x, y, z)),
                 )
     if imported:
-        payload = str(len(imported)) + "\n"
-        payload += "".join(f"{x},{y},{z},1\n" for x, y, z in imported)
+        # THE PROBES HOME WRITES THE CSV (PFS-2140.001): the public writer of the
+        # PROBE_POINTS_IMPORT format is what the plan runs, into the text it parks.
+        staged = io.StringIO()
+        write_points_csv(np.asarray(imported, dtype=float), staged)
+        payload = staged.getvalue()
         path = f"farfield_probes_{sha256(payload.encode()).hexdigest()}.csv"
         script.park_input_file(path, payload)
         emit_probe_import(script, path, units=script.simulation_length_unit or "METER")

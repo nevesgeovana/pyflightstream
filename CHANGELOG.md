@@ -119,6 +119,7 @@ FlightStream versions.
 - `pyflightstream.probes` is the one home of probe geometry: the line, rectangle and circle layouts, the survey lattice and the far-field plane (FR-459).
 - A steady row creates its probe lines and its drawn probe points through `pyflightstream.script.helpers.probe_line` and `probe_points`, the helpers a Python script uses; the emitted script is unchanged (FR-79).
 - A row's probe-points export is emitted through `pyflightstream.probes.emit_probe_export`, after the one `UPDATE_PROBE_POINTS` of the row's updates; the script is unchanged, and a second export to the same probes file is refused naming `emit_probe_export` (FR-81).
+- The csv a steady row's plan stages for the far-field plane and lattice it adds is written by `pyflightstream.probes.write_points_csv`, byte for byte the text it was before, and `write_points_csv` also writes to an open text stream such as `io.StringIO` (FR-455, FR-459).
 - A row naming a CCS, IGES or STL file, or a sidecar whose import operations scale, rename or mirror, is warned at plan with its replacement; it still runs as before, and 0.41.0 refuses it (FR-476).
 - `pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` warn that `pyfs-workspace geometry` is their home; their results are unchanged (FR-477).
 - FR-32: a row of the unsteady polar, `polars/P<sim>_<name>_uns_avg.csv`,
