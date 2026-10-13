@@ -1,5 +1,6 @@
 {
   "provenance": "FR-435 R12, P0390-R02: the SHA-256 of the script the wing-body-tail row (POL 2002, wbt.fsm) of the synthetic study of tests/tier1_offline/test_p0390_r02.py writes when run offline, from the reference without [study], the workspace root replaced by <ROOT> and every backslash folded to a slash. Rendered on the tree before FR-435 (d1082220, which differs from v0.38.0 only in the mesh refinement package and the SRS).",
   "rendered_on": "d1082220",
-  "sha256": "703ea8ea9988c3019216c5d7506ea75e074b63dfdf8d3ba6d9718a5af02760c7"
+  "review_change": "reviews2 (0.40.0): the emitted pressure satisfies p = rho R T, so the PRESSURE line of this script reads 89883.3522514369 where d1082220 wrote 101325.0. Measured: the current script with that one line set back to 101325.0 hashes to the digest rendered on d1082220 (703ea8ea9988c3019216c5d7506ea75e074b63dfdf8d3ba6d9718a5af02760c7), so no other byte differs.",
+  "sha256": "d40626988ddadf80e1d9a0b0e98c0b9b6b2fbd2ec82e0b0b8cf9968309572c85"
 }

@@ -446,6 +446,17 @@ def actuator_disc(
     return index
 
 
+def _listed_selection(
+    argument: str, value: Sequence[int | str] | Literal["all"]
+) -> Sequence[int | str] | Literal["all"]:
+    """Copy a selection of a rotary motion to a list, refusing an empty one."""
+    if value == "all":
+        return value
+    listed = list(value)
+    _refuse_empty("rotary_motion", argument, listed, every="'all'")
+    return listed
+
+
 def rotary_motion(
     script: Script,
     *,
@@ -542,12 +553,9 @@ def rotary_motion(
     """
     _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
     _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
-    if boundaries != "all":
-        boundaries = list(boundaries)
-        _refuse_empty("rotary_motion", "boundaries", boundaries, every="'all'")
-    if moving_frames is not None and moving_frames != "all":
-        moving_frames = list(moving_frames)
-        _refuse_empty("rotary_motion", "moving_frames", moving_frames, every="'all'")
+    boundaries = _listed_selection("boundaries", boundaries)
+    if moving_frames is not None:
+        moving_frames = _listed_selection("moving_frames", moving_frames)
     # Upper-cased before the build's checks and the vector: the rotary
     # builds match the axis case-insensitively, and the Euclidean ones
     # refused 'z' as an axis given by index (PFS-2095.055).

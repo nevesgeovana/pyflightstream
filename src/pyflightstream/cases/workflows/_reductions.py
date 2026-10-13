@@ -873,6 +873,210 @@ def _averaging_window(
     )
 
 
+def _time_average_span(
+    case: SimCase,
+    stepping: TimeStepping,
+    *,
+    last_step: int,
+    per_revolution: float | None,
+    revolution: int | None,
+) -> tuple[bool, tuple[int, int], str]:
+    """Return whether the row states its averaging window, the window, and where it came from."""
+    averaging = _averaging_window(case, last_step=last_step, per_revolution=per_revolution)
+    if averaging is not None:
+        span, window_from = averaging
+    elif revolution is not None:
+        span = (max(last_step - revolution + 1, 1), last_step)
+        window_from = (
+            f"the last revolution of the run, {revolution} steps: the row states its "
+            f"clock as {stepping.stated_form} and no averaging key"
+        )
+    else:
+        span = (1, last_step)
+        window_from = (
+            "the whole run: the row states DELTA_TIME and TIME_ITERATIONS and no "
+            "averaging key, and nothing shorter is stated"
+        )
+    return averaging is not None, span, window_from
+
+
+def _named_rotors_plan(
+    case: SimCase,
+    plan: dict[str, object],
+    turning: list[tuple[str, SimCase, RotorSpeed]],
+    lost: dict[str, str],
+    *,
+    stepping: TimeStepping,
+    span: tuple[int, int],
+    last_step: int,
+) -> dict[str, object]:
+    """Add the per-rotor blocks of a row that names its rotors, and the flat pointers."""
+    rotors: dict[str, object] = {
+        alias: _the_passages_of_one_rotor(
+            case,
+            alias,
+            view,
+            speed,
+            delta_time_s=stepping.delta_time_s,
+            span=span,
+            last_step=last_step,
+            clock=stepping,
+        )
+        for alias, view, speed in turning
+    }
+    # A ROTOR THAT COULD NOT BE RESOLVED IS A SKIP, NOT AN ABSENCE. It
+    # used to be dropped silently, so the rotor appeared in neither the
+    # products nor the skipped list of the manifest and simply vanished
+    # (the architecture lens, 2026-09-10). This shape is the one the
+    # products stage already knows how to record.
+    for named, reason in lost.items():
+        rotors.setdefault(
+            named,
+            {
+                "blades": None,
+                "phase_locked": {"skipped": reason},
+                "per_blade": {"skipped": reason},
+            },
+        )
+    plan[ROTORS_KEY] = rotors
+    # A ROW THAT NAMES ITS ROTORS REDUCES PER ROTOR, AND ONLY PER
+    # ROTOR. The flat passage keys carry the pointer, one rotor or
+    # nine, and that uniformity is the whole of the interface lens's
+    # finding of 2026-09-10: gating the rotor's name on there being
+    # MORE THAN ONE made the rotor count a file-naming input, so the
+    # day a second rotor is added every script pointing at
+    # `<point>_per_blade.csv` stops finding its input and the stale
+    # file from the one-rotor run stays on disk beside a record that
+    # calls it skipped. It is also what FR-68's own sentence says,
+    # unconditionally: "the reduction files name the rotor".
+    #
+    # A ROW STATING NO MOTION IS UNTOUCHED, which is FR-68's other
+    # sentence and what keeps every workspace written before 0.15.0,
+    # and every golden, reducing into exactly the files it always did.
+    named = ", ".join(rotors)
+    try:
+        plan["blades"] = _blade_count(case)
+    except CampaignConfigError:
+        # Each rotor's own block carries its count and its skip; the row's
+        # single count is a convenience no reduction reads.
+        plan["blades"] = None
+    pointer = (
+        f"case {case.sim_id!r} names its rotors, so each reduces over ITS OWN blade "
+        f"passage and there is no single passage of the ROW: the windows are under "
+        f"{ROTORS_KEY!r} ({named}) and the products stage writes one file per rotor, "
+        f"named <point>_<reduction>_<alias>.csv."
+    )
+    plan["phase_locked"] = {"skipped": pointer}
+    plan["per_blade"] = {"skipped": pointer}
+    return plan
+
+
+def _flat_row_passages(
+    case: SimCase,
+    plan: dict[str, object],
+    *,
+    span: tuple[int, int],
+    last_step: int,
+    per_revolution: float | None,
+    revolution: int | None,
+) -> dict[str, object]:
+    """Add the passage reductions of a flat-key rotor row, or their skips."""
+    # THE PASSAGE REDUCTIONS need a revolution and a blade count.
+    try:
+        blades = _blade_count(case)
+    except CampaignConfigError as error:
+        plan["phase_locked"] = {"skipped": str(error)}
+        plan["per_blade"] = {"skipped": str(error)}
+        return plan
+    if blades is None:
+        reason = _no_blade_count(case)
+        plan["phase_locked"] = {"skipped": reason}
+        plan["per_blade"] = {"skipped": reason}
+        return plan
+    plan["blades"] = blades
+    # THE SAME DATUM ON THE ROW-LEVEL PATH. A row that names one rotor block
+    # still has one, and item 8's azimuth columns are measured from it. A row
+    # that declares no rotor block leaves the key absent rather than writing a
+    # zero, because zero IS a real azimuth and the products stage must be able
+    # to tell "the datum is zero" from "nobody said".
+    _flat_rotor = next(iter((case.rotors or {}).values()), None)
+    if _flat_rotor is not None:
+        plan["blade1_azimuth_deg"] = float(_flat_rotor.blade1.azimuth_deg)
+        plan[BLADE_FAMILIES_KEY] = [str(family) for family in _flat_rotor.families_blades]
+    if revolution is None or per_revolution is None or blades < 1:
+        reason = (
+            f"case {case.sim_id!r} declares {blades} blades and "
+            f"{per_revolution} steps per revolution, so a blade passage has no length"
+        )
+        plan["phase_locked"] = {"skipped": reason}
+        plan["per_blade"] = {"skipped": reason}
+        return plan
+    period = int(round(per_revolution / blades))
+    if period < 1:
+        reason = (
+            f"case {case.sim_id!r} works out at {per_revolution:.3f} solver steps per "
+            f"revolution across {blades} blades, so one blade passage is under one time "
+            "step and cannot be resolved at all"
+        )
+        plan["phase_locked"] = {"skipped": reason}
+        plan["per_blade"] = {"skipped": reason}
+        return plan
+
+    plan["phase_locked"] = _windows.phase_locked_plan(
+        getattr(case.pproc, "phase_locked", None),
+        last_step=last_step,
+        per_revolution=per_revolution,
+        who="the rotor",
+        span=span,
+        period=per_revolution / blades,
+    )
+    # One window per blade over the LAST complete revolution, contiguous
+    # and ending at the run's last step: :meth:`ReductionPlan.blade_windows`.
+    # ITEM 8: ONE WINDOW, not one per blade. What this replaces is the list
+    # that stood here -- blade k over `last_step - (blades - k) * period`
+    # onwards -- so blade 1 came from one stretch of the history and blade 4
+    # from another, and any difference between two blades mixed a real
+    # azimuthal difference with a difference in WHEN they were sampled.
+    #
+    # ITEM 16 ON THIS PATH TOO: the window is the ROW'S, the same one the POLAR
+    # and the time average use, and not a second derivation. Deriving the last
+    # complete revolution here agreed with the row only when the row asked for
+    # exactly one, and disagreed the moment it asked for half or for three.
+    # THE ROW'S OWN COUNT OF REVOLUTIONS, in this row's steps; see the note on
+    # the per-rotor path for why the window is read as a COUNT rather than as a
+    # range. A row stating `last_revs_avg` gets exactly that many turns.
+    #
+    # A ROW WRITTEN BEFORE THIS RELEASE KEEPS THE ANSWER IT HAS ALWAYS HAD: its
+    # last complete revolution. That is the whole migration for `per_blade` --
+    # existing matrices produce the same windows they did, and only a row
+    # that states the new key moves.
+    wanted = _stated_blade_steps(case, per_revolution or 0.0)
+    if wanted is not None:
+        blade_span: tuple[int, int] | None = (max(span[1] - wanted + 1, 1), span[1])
+        window_from = f"the averaging window the row states, {wanted} steps, shared by every blade"
+    else:
+        blade_span = per_blade_window(last_step=span[1], blades=blades, period_steps=period)
+        window_from = (
+            f"the last revolution of the run, {blades} blades of {period} steps, "
+            "shared by every blade"
+        )
+    if blade_span is None:
+        plan["per_blade"] = {
+            "skipped": (
+                f"the run is {span[1]} steps and {blades} blades of {period} steps each "
+                f"need {blades * period}, so it holds no complete revolution to split "
+                "by blade"
+            )
+        }
+    else:
+        plan["per_blade"] = {
+            "windows": [list(blade_span)],
+            "period_steps": period,
+            "window_from": window_from,
+        }
+    return plan
+
+
 def reduction_windows(case: SimCase) -> dict[str, object] | None:
     """Resolve the windows of every applicable reduction off one row, for its record.
 
@@ -969,21 +1173,13 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     # clock cannot resolve is a skip with its reason, not an exception out of
     # the point record the run is building.
     try:
-        averaging = _averaging_window(case, last_step=last_step, per_revolution=per_revolution)
-        if averaging is not None:
-            span, window_from = averaging
-        elif revolution is not None:
-            span = (max(last_step - revolution + 1, 1), last_step)
-            window_from = (
-                f"the last revolution of the run, {revolution} steps: the row states its "
-                f"clock as {stepping.stated_form} and no averaging key"
-            )
-        else:
-            span = (1, last_step)
-            window_from = (
-                "the whole run: the row states DELTA_TIME and TIME_ITERATIONS and no "
-                "averaging key, and nothing shorter is stated"
-            )
+        stated, span, window_from = _time_average_span(
+            case,
+            stepping,
+            last_step=last_step,
+            per_revolution=per_revolution,
+            revolution=revolution,
+        )
     except CampaignConfigError as error:
         return _every_reduction_skipped(rotor, str(error))
     plan: dict[str, object] = {
@@ -993,7 +1189,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
         # record carries a `time_average` window, including one that fell through
         # to "the whole run", so a gate on "is there a window" is really a gate
         # on "is this point unsteady at all".
-        "window_stated": averaging is not None,
+        "window_stated": stated,
         "time_iterations": last_step,
         "steps_per_revolution": per_revolution,
         "blades": None,
@@ -1019,156 +1215,14 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     # reduces as it always did.
     turning, lost = _the_rotors_the_row_turns(case)
     if turning or lost:
-        rotors: dict[str, object] = {
-            alias: _the_passages_of_one_rotor(
-                case,
-                alias,
-                view,
-                speed,
-                delta_time_s=stepping.delta_time_s,
-                span=span,
-                last_step=last_step,
-                clock=stepping,
-            )
-            for alias, view, speed in turning
-        }
-        # A ROTOR THAT COULD NOT BE RESOLVED IS A SKIP, NOT AN ABSENCE. It
-        # used to be dropped silently, so the rotor appeared in neither the
-        # products nor the skipped list of the manifest and simply vanished
-        # (the architecture lens, 2026-09-10). This shape is the one the
-        # products stage already knows how to record.
-        for named, reason in lost.items():
-            rotors.setdefault(
-                named,
-                {
-                    "blades": None,
-                    "phase_locked": {"skipped": reason},
-                    "per_blade": {"skipped": reason},
-                },
-            )
-        plan[ROTORS_KEY] = rotors
-        # A ROW THAT NAMES ITS ROTORS REDUCES PER ROTOR, AND ONLY PER
-        # ROTOR. The flat passage keys carry the pointer, one rotor or
-        # nine, and that uniformity is the whole of the interface lens's
-        # finding of 2026-09-10: gating the rotor's name on there being
-        # MORE THAN ONE made the rotor count a file-naming input, so the
-        # day a second rotor is added every script pointing at
-        # `<point>_per_blade.csv` stops finding its input and the stale
-        # file from the one-rotor run stays on disk beside a record that
-        # calls it skipped. It is also what FR-68's own sentence says,
-        # unconditionally: "the reduction files name the rotor".
-        #
-        # A ROW STATING NO MOTION IS UNTOUCHED, which is FR-68's other
-        # sentence and what keeps every workspace written before 0.15.0,
-        # and every golden, reducing into exactly the files it always did.
-        named = ", ".join(rotors)
-        try:
-            plan["blades"] = _blade_count(case)
-        except CampaignConfigError:
-            # Each rotor's own block carries its count and its skip; the row's
-            # single count is a convenience no reduction reads.
-            plan["blades"] = None
-        pointer = (
-            f"case {case.sim_id!r} names its rotors, so each reduces over ITS OWN blade "
-            f"passage and there is no single passage of the ROW: the windows are under "
-            f"{ROTORS_KEY!r} ({named}) and the products stage writes one file per rotor, "
-            f"named <point>_<reduction>_<alias>.csv."
+        return _named_rotors_plan(
+            case, plan, turning, lost, stepping=stepping, span=span, last_step=last_step
         )
-        plan["phase_locked"] = {"skipped": pointer}
-        plan["per_blade"] = {"skipped": pointer}
-        return plan
-
-    # THE PASSAGE REDUCTIONS need a revolution and a blade count.
-    try:
-        blades = _blade_count(case)
-    except CampaignConfigError as error:
-        plan["phase_locked"] = {"skipped": str(error)}
-        plan["per_blade"] = {"skipped": str(error)}
-        return plan
-    if blades is None:
-        reason = _no_blade_count(case)
-        plan["phase_locked"] = {"skipped": reason}
-        plan["per_blade"] = {"skipped": reason}
-        return plan
-    plan["blades"] = blades
-    # THE SAME DATUM ON THE ROW-LEVEL PATH. A row that names one rotor block
-    # still has one, and item 8's azimuth columns are measured from it. A row
-    # that declares no rotor block leaves the key absent rather than writing a
-    # zero, because zero IS a real azimuth and the products stage must be able
-    # to tell "the datum is zero" from "nobody said".
-    _flat_rotor = next(iter((case.rotors or {}).values()), None)
-    if _flat_rotor is not None:
-        plan["blade1_azimuth_deg"] = float(_flat_rotor.blade1.azimuth_deg)
-        plan[BLADE_FAMILIES_KEY] = [str(family) for family in _flat_rotor.families_blades]
-    if revolution is None or per_revolution is None or blades < 1:
-        reason = (
-            f"case {case.sim_id!r} declares {blades} blades and "
-            f"{per_revolution} steps per revolution, so a blade passage has no length"
-        )
-        plan["phase_locked"] = {"skipped": reason}
-        plan["per_blade"] = {"skipped": reason}
-        return plan
-    period = int(round(per_revolution / blades))
-    if period < 1:
-        reason = (
-            f"case {case.sim_id!r} works out at {per_revolution:.3f} solver steps per "
-            f"revolution across {blades} blades, so one blade passage is under one time "
-            "step and cannot be resolved at all"
-        )
-        plan["phase_locked"] = {"skipped": reason}
-        plan["per_blade"] = {"skipped": reason}
-        return plan
-
-    plan["phase_locked"] = _windows.phase_locked_plan(
-        getattr(case.pproc, "phase_locked", None),
+    return _flat_row_passages(
+        case,
+        plan,
+        span=span,
         last_step=last_step,
         per_revolution=per_revolution,
-        who="the rotor",
-        span=span,
-        period=per_revolution / blades,
+        revolution=revolution,
     )
-    # One window per blade over the LAST complete revolution, contiguous
-    # and ending at the run's last step: :meth:`ReductionPlan.blade_windows`.
-    # ITEM 8: ONE WINDOW, not one per blade. What this replaces is the list
-    # that stood here -- blade k over `last_step - (blades - k) * period`
-    # onwards -- so blade 1 came from one stretch of the history and blade 4
-    # from another, and any difference between two blades mixed a real
-    # azimuthal difference with a difference in WHEN they were sampled.
-    #
-    # ITEM 16 ON THIS PATH TOO: the window is the ROW'S, the same one the POLAR
-    # and the time average use, and not a second derivation. Deriving the last
-    # complete revolution here agreed with the row only when the row asked for
-    # exactly one, and disagreed the moment it asked for half or for three.
-    # THE ROW'S OWN COUNT OF REVOLUTIONS, in this row's steps; see the note on
-    # the per-rotor path for why the window is read as a COUNT rather than as a
-    # range. A row stating `last_revs_avg` gets exactly that many turns.
-    #
-    # A ROW WRITTEN BEFORE THIS RELEASE KEEPS THE ANSWER IT HAS ALWAYS HAD: its
-    # last complete revolution. That is the whole migration for `per_blade` --
-    # existing matrices produce the same windows they did, and only a row
-    # that states the new key moves.
-    wanted = _stated_blade_steps(case, per_revolution or 0.0)
-    if wanted is not None:
-        blade_span: tuple[int, int] | None = (max(span[1] - wanted + 1, 1), span[1])
-        window_from = f"the averaging window the row states, {wanted} steps, shared by every blade"
-    else:
-        blade_span = per_blade_window(last_step=span[1], blades=blades, period_steps=period)
-        window_from = (
-            f"the last revolution of the run, {blades} blades of {period} steps, "
-            "shared by every blade"
-        )
-    if blade_span is None:
-        plan["per_blade"] = {
-            "skipped": (
-                f"the run is {span[1]} steps and {blades} blades of {period} steps each "
-                f"need {blades * period}, so it holds no complete revolution to split "
-                "by blade"
-            )
-        }
-    else:
-        plan["per_blade"] = {
-            "windows": [list(blade_span)],
-            "period_steps": period,
-            "window_from": window_from,
-        }
-    return plan

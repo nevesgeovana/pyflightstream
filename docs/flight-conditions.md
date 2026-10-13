@@ -323,7 +323,11 @@ density is neither, it is the ideal-gas density of the pressure and the
 temperature. So the emitted density, pressure and temperature satisfy
 `p = rho R T` unless all three are pinned, and whichever two of them the
 solver reads, it meets the same state. Pins are emitted as written: a
-row that pins all three owns their agreement.
+row that pins all three owns their agreement. When all three are pinned,
+by the row or by its setup, and `|p - rho R T| / p` exceeds 0.5 percent,
+the plan and the post warn (the post in `post.log`), naming the three
+values, the gas constant `R` and the relative mismatch; nothing is refused
+or withheld.
 
 A solved state is still not an altitude, and a consumer that reads it as
 one is misled, which is why the run record carries **which branch**

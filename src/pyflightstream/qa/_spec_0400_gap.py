@@ -951,7 +951,8 @@ def _p2_curves() -> list[GapProbe]:
     return probes
 
 
-def _p3() -> list[GapProbe]:
+def _p3_streamtube() -> list[GapProbe]:
+    """Build the streamtube probes of P3, with the line-only control P3-01c."""
     offbody = "offbody.txt"
     read = _states_read(offbody)
     solved = _solved_wing()
@@ -1039,6 +1040,15 @@ def _p3() -> list[GapProbe]:
             observe=read,
             effect_note="the off-body export holds the three seeds' lines",
         ),
+    ]
+
+
+def _p3() -> list[GapProbe]:
+    offbody = "offbody.txt"
+    read = _states_read(offbody)
+    solved = _solved_wing()
+    return [
+        *_p3_streamtube(),
         _g(
             "P3-02",
             "P3",

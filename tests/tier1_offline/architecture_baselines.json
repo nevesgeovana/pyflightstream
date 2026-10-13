@@ -1323,7 +1323,7 @@
  "one_home_allowlist": [],
  "facade_lines": {
   "__init__.py": 9,
-  "cases/__init__.py": 1128,
+  "cases/__init__.py": 1135,
   "commands/__init__.py": 867,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
@@ -1514,6 +1514,7 @@
     "_clock",
     "_export_first_step",
     "_exports",
+    "_farfield",
     "_reductions",
     "_freestream",
     "_solver_settings",
@@ -1555,6 +1556,7 @@
     "_collect_logs",
     "_record_files",
     "matrix",
+    "_matrix_warnings",
     "_additional",
     "__init__",
     "_grouped",
@@ -1577,6 +1579,9 @@
     "_step_exports",
     "_solver_windows",
     "_wake_edge_verdict"
+   ],
+   "outside": [
+    "_cli_geometry"
    ]
   }
  },

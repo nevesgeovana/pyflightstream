@@ -447,3 +447,74 @@ def check_reference_point_names(names: Sequence[str]) -> None:
             f"{listing} is missing. The numbered rotor points run from 1 without a gap, "
             "because n is the propulsor count; declare the missing point or renumber."
         )
+
+
+# Comment-only template written by init when no registry exists yet;
+# didactic: shows the entry shape without registering a fake build.
+#: PFS-2032.07. Written into `inputs/geometries/` by `init`, because that is
+#: where a user looking for somewhere to put a mesh is already standing.
+_GEOMETRIES_README = """\
+# Where a mesh goes
+
+**One folder per mesh, named for the mesh:**
+
+    inputs/geometries/30_WB/30_WB.fsm
+    inputs/geometries/30_WB/30_WB.boundaries.toml
+
+A matrix row still writes the FILE name in its `GEOMETRY` cell, `30_WB.fsm`,
+and the workspace looks in the folder of that name. The cell does not change
+when a library is laid out this way.
+
+## Why the folder, and not the file on its own
+
+A mesh brings a sidecar with it: `pyfs-matrix inventory` reads the boundary
+order out of the saved simulation and writes `<stem>.boundaries.toml` beside
+it, and a run whose sidecar disagrees with its mesh is refused before the
+solver starts. An `.obj` with no sidecar gets one from the first plan, its
+boundaries read from the file's groups. One folder keeps the pair together.
+
+**And it is how a restricted mesh enters a workspace without being copied.**
+A hard link or a junction into `inputs/geometries/<stem>/` puts the file
+where the row expects it while the bytes stay wherever they are allowed to
+live. A copy of a large mesh per workspace is the cost this layout removes.
+
+## A flat library still works
+
+`inputs/geometries/30_WB.fsm` resolves exactly as it always did; nothing here
+breaks a workspace written before this layout existed. To move one over:
+
+    pyfs-workspace migrate-geometries .
+
+It moves each `inputs/geometries/<stem>.<ext>` into `inputs/geometries/<stem>/`
+and leaves a folder that is already one alone. The `GEOMETRY` cells of every
+matrix keep working, because they name the file and not the path.
+
+## What is not kept here
+
+The mesh itself, usually. A `.fsm` is large and this repository's own
+workspaces keep theirs outside version control; what a shared workspace keeps
+is the boundary sidecar, which is small, readable, and the thing a reviewer
+needs in order to check a row's family names without the mesh.
+"""
+
+_EXECUTABLES_TEMPLATE = """\
+# FlightStream build registry of this workspace (one entry per build).
+#
+# A bare path is the short form, and a build written this way declares no
+# version: its rows are emitted under the campaign's default version.
+#   "26.120" = "C:/path/to/FlightStream.exe"
+#
+# A table declares the version this build's scripts are emitted under, which
+# is what lets ONE run matrix send different rows to different builds. The
+# version is checked against the registry when this file is read, so a
+# typo is refused here rather than at the first emission.
+#   "26.123" = { path = "C:/path/to/FlightStream.exe", version = "26.123" }
+#
+# resolve_executable(build_id) reads the path and resolve_build(build_id)
+# reads both; an explicit override path is the only way to run an
+# unregistered build, and it declares no version either.
+#
+# A workspace kept in version control keeps placeholder paths here and this
+# machine's real ones in executables.local.toml beside this file, which is
+# read over it for the same build ids and belongs in .gitignore.
+"""

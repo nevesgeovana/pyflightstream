@@ -396,7 +396,7 @@ audit of W1_R2.obj against W1.obj
 G1 pass on (whole mesh): edges_of_more_than_two_faces 0, node_pairs_at_one_position 0, faces_of_zero_area 0
 G2 pass on (whole mesh): neighbours_of_opposite_orientation 0
 G3 pass on (whole mesh): open_loops 1, source_open_loops 1, unmatched_loops 0
-G4 pass on (whole mesh): points 16, points_on_edges 16, chains 1, source_chains 1
+G4 pass on (whole mesh): points 16, points_on_edges 16, chains 1, source_chains 1, length 3.2, source_length 3.2, source_ends 2, source_ends_missing 0
 G5 pass on Wing and Tip: shared_nodes 37, source_shared_nodes 19
 G6 not judged on (whole mesh): grid_families_at_factor_1 0
 relative checks: 8 pass, 0 fail, 1 not judged
