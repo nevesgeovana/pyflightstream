@@ -47,7 +47,6 @@ MATURITY = {
     "pyflightstream.cases.reference_blocks": "provisional",
     # Module path added after v0.30.0.
     # Restart wire types were added in the release review fixes.
-    "pyflightstream.cases.restart_records": "provisional",
     "pyflightstream.cases.selection": "provisional",
     # Module path added after v0.30.0.
     "pyflightstream.cases.settings": "provisional",

@@ -2,7 +2,7 @@
 
 A geometry sidecar identifies physical surfaces; a setup chooses their simulation
 role; each MATRIX row supplies operating values. Use the
-[three-artifact example]
+[three-artifact example](setup-standards.md#uniform-inlet-and-outlet-boundaries)
 for a complete geometry, setup and condition declaration.
 
 Keep `[ports]` identity-to-surface mappings beside the mesh. In an
@@ -23,7 +23,7 @@ The geometric `[trailing_edges] none = true` choice warns and creates no wake
 when applied. It does not prove that a port configuration needs no exhaust wake.
 Setup `apply_trailing_edges`, `apply_wake_termination` and
 `apply_base_regions` select application of those declarations; see
-[the application rules].
+[the application rules](setup-standards.md#applying-existing-boundary-declarations).
 A false selector skips redefinition and never clears saved FSM state.
 
 ## A native inlet profile
@@ -120,7 +120,7 @@ growth_rate = 1.2
 
 Creation requires `boundary`, `model` and `cp`, including the ignored Cp argument for EMPIRICAL. A pressure update requires `index` and `model`; CUSTOM also requires `cp`. That report does not establish current-build operation.
 
-The operations `delete`, `mark_trailing_edges` and `select_faces` require `index`. Trailing-edge marking and face selection accept `index = "all"`; deletion does not. Face selection changes application selection state. `mark_outflow_edges` instead requires `boundary`, following the command registry's boundary argument. The manual calls it a base-region boundary, not an outlet perimeter; native association remains to be measured. Its documented command is SET_OUTFLOW_TRAILING_EDGES on 26.122 and SET_OUTLET_TRAILING_EDGES on 26.123/26.124. Build routing follows those records; it does not establish native operation.
+The operations `delete`, `mark_trailing_edges` and `select_faces` require `index`. Trailing-edge marking and face selection accept `index = "all"`; deletion does not. Face selection changes application selection state. `mark_outflow_edges` instead requires `boundary` (mesh name, index or `"all"`), following the command registry's boundary argument. The manual calls it a base-region boundary, not an outlet perimeter; native association remains to be measured. Its documented command is SET_OUTFLOW_TRAILING_EDGES on 26.122 and SET_OUTLET_TRAILING_EDGES on 26.123/26.124. Build routing follows those records; it does not establish native operation.
 
  Later no-solve controls on build 8172026
 measured USER creation, CUSTOM pressure editing, deletion, target-only radial

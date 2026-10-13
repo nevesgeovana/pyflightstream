@@ -261,7 +261,7 @@ older_than_days = 14
 - `older_than_days` is optional, exactly as above.
 
 Run, post, collect and delete-sims regeneration overwrite products in place
-without an archive by default (FR-397). With `post --archive`, `collect --archive`
+without an archive by default. With `post --archive`, `collect --archive`
 or `delete-sims --matrix-products regenerate --archive`, replaced products move
 to `post/<matrix>/archive/<stamp>/`. `post --force-overwrite` explicitly selects
 no archive and asks for confirmation; it cannot be combined with `--archive`.

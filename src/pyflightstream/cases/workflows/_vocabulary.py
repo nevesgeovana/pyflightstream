@@ -36,8 +36,8 @@ from pyflightstream.cases import (
 from pyflightstream.cases._ccs import (
     CCS_SHEDDING_VARIABLE,
 )
-from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE
 from pyflightstream.cases.sixdof import SIXDOF_VARIABLE
+from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 
 #: Case-variable key carrying the matrix ``WORKFLOW`` column.
 #:

@@ -50,7 +50,7 @@ written, so a row may still state a different argument SET.
 What a version row still cannot override is the LAYOUT. Ten readings
 across four commands are withheld for that reason rather than recorded
 in a shape that would emit the newer form under the older edition's
-citation (`PLN-20260810-1200`).
+citation.
 
 ### What an argument declares, and when it must
 
@@ -62,7 +62,7 @@ argument's name. Each was added after that guess was measured wrong.
 **`values` is the accepted vocabulary**: everything the manual page
 says the solver takes for that argument, in every spelling the page
 states or samples. The rule was in force and unwritten until
-2026-09-09 (PFS-2003.03): one entry listed the letters and the digits
+2026-09-09: one entry listed the letters and the digits
 its page accepts for an axis while ten neighbours listed the letters
 alone, so a reader could not tell whether `values` meant what the
 solver accepts or what this library offers. It means the former, for
@@ -75,9 +75,9 @@ data, its field is `offered`, and no entry has needed one. The axis
 family is the measured case: six arguments whose page states or
 samples the index form list `X, Y, Z, "1", "2", "3"`, ten whose page
 names the letters alone list the letters, and
-`tests/tier1_offline/test_command_db_grammar.py` pins every member of
+the verification suite pins every member of
 both halves. An integer passed where the digit is accepted is printed
-as that digit (PFS-2003.04).
+as that digit.
 
 | Field | Declare it when |
 |---|---|
@@ -154,7 +154,7 @@ probe harness had no `removed` outcome to write, so a build that lacked
 a command recorded as `broken`, a claim about a command that is
 present; a measured removal was therefore a run a human wrote down, and
 `probe_ref` said so rather than dressing prose as machine-checked
-evidence. The harness now has the outcome (RPT-026), recognised from
+evidence. The harness now has the outcome, recognised from
 the solver's own refusal of the name, so a removal it measures is
 promoted by `pyfs-qa apply-compat` and cites the compat yaml through
 `report` like every other promoted status. `probe_ref` keeps the
@@ -174,8 +174,7 @@ On a version row it is admissible for `removed` alone, and the loader
 refuses it on any other status, because `verified` and `broken` must
 stay checkable against the compat yaml the harness wrote; a guard whose
 population quietly shrinks reports green either way. The version-row
-field was expected to go away when the harness learned the outcome
-(`PLN-20260809-0300`, closed 2026-08-11). It did not, and the reason first given for that was wrong. The harness
+field was expected to go away when the harness learned the outcome. It did not, and the reason first given for that was wrong. The harness
 covers the measured provenance; the edition-stopped-printing case was
 named as a second reason for retention and the database refutes it,
 since such a row cites pages in its note and no run at all, which is
@@ -187,29 +186,14 @@ The ordered version list in `_meta.yaml` is the only version-ordering
 authority (never string or float comparison). Canonical identifiers
 use the YY.XXX scheme; display aliases record the vendor release name
 of each build and resolve only where that name identifies exactly one
-build (FR-02c).
+build.
 
 ## The run manifest
 
 Every campaign writes `runs.json`, append-only with atomic writes and
 duplicate-id rejection. Per run it records: run id, case point,
 requested and reported FlightStream version and build, package
-version, script and input hashes, the raw-emission flag, status (one
-of the eleven values of `pyflightstream.workspace.RunStatus`: CONVERGED,
-COMPLETED_MAX_ITER, FAILED_EXECUTION, FAILED_SCRIPT,
-FAILED_INCOMPLETE_OUTPUT, FAILED_DIVERGED, WALLTIME_REACHED, the run
-stopped by its wall clock with its outputs written, SUBMITTED, the run
-handed to a scheduler and not yet collected, and
-FAILED_MARKED, a run the person marked failed with `pyfs-matrix
-mark-failed`, whose record keeps under `marked` the status it had, when
-and why; a reader must support `FAILED_MARKED` to read a `runs.json` holding that status; see [the status migration](../upgrading.md#older-layouts); and
-RAN_MISSING_LOG (FR-413), a run whose outputs are all present
-and whose declared solver log is absent, not a failure, whose `residual_note`
-names what the log would have carried; a reader must support it to read a
-`runs.json` holding it; and MAX_ITER_REACHED (FR-434), a steady point that
-stopped at the iteration limit it requested without the residual settling,
-whose record states that limit in `iterations_requested` beside the
-`iterations` reached; a 0.38.0 reader refuses a `runs.json` holding it),
+version, script and input hashes, the raw-emission flag, status,
 iterations, residual,
 wall time, output paths, error text, and (since the v0.3 line) the
 solver-setup provenance snapshot.
@@ -218,7 +202,7 @@ A run whose script imports trailing edges from a file is also held to
 the solver's own count: the log's imported edges must equal the points
 the script wrote, or the run is recorded FAILED_SCRIPT, and with no
 solver log read it is recorded FAILED_INCOMPLETE_OUTPUT. The node file
-the run wrote for the import is among the input hashes (G02).
+the run wrote for the import is among the input hashes.
 
 The manifest is the sole authority on run identity. Folder and file
 names are generated conveniences (templatable for human readability)
@@ -233,14 +217,14 @@ The managed folder tree of a campaign:
 <root>/
   inputs/            the reusable input-artifact library
     geometries/      geometry files, registered by filename stem, flat or one folder per geometry
-      30_WB/         the recommended form (PFS-2032.04): the geometry file,
+      30_WB/         the recommended form: the geometry file,
                      its boundary inventory and its provenance record in one place;
                      GEOMETRY: 30_WB.fsm reads the folder first and the flat file second
     references/      reference-data artifacts (areas, lengths, moment points, rotor data)
     setups/          named solver-setup presets
     pproc/           post-processing artifacts (named boundary groups and the product tables)
     profiles/        input profiles (e.g. actuator loading shapes)
-    freestreams/     custom free-stream fields a row's FREESTREAM names (G15): <stem>.txt or <stem>.dat
+    freestreams/     custom free-stream fields a row's FREESTREAM names: <stem>.txt or <stem>.dat
     calibrations/    quasi-steady wheel calibrations a pproc's [qsteady_correction] names: <id>.toml (0.31.0)
     hpc/             how a cluster is asked to run a job; read on Linux
     fsi/             structural configurations a row's FSI names: f<id>.toml (0.29.0)

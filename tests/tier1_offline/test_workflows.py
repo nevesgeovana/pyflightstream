@@ -1255,11 +1255,14 @@ def test_the_page_carries_the_fixture_byte_for_byte_and_cites_this_module():
     is applied to it here rather than left to a review.
     """
     text = PAGE.read_text(encoding="utf-8").replace("\r\n", "\n")
-    assert "tests/tier1_offline/test_workflows.py" in text, (
-        "the page does not name the module its workflow example is lifted from"
+    provenance = (
+        Path(__file__).resolve().parents[2] / "docs" / "unpublished" / "doc-verification.md"
+    ).read_text(encoding="utf-8")
+    assert "tests/tier1_offline/test_workflows.py" in provenance, (
+        "the unpublished evidence does not name the module owning the workflow example"
     )
-    assert "test_the_committed_matrix_drives_the_workflow_with_no_python_recipe" in text, (
-        "the page does not cite the executed test, which is what makes the example rot-proof"
+    assert "test_the_committed_matrix_drives_the_workflow_with_no_python_recipe" in provenance, (
+        "the unpublished evidence does not cite the executed workflow example test"
     )
     fixture = FIXTURE.read_text(encoding="utf-8").replace("\r\n", "\n").rstrip("\n")
     assert fixture in text, (

@@ -100,8 +100,8 @@ this page rather than lifted from the suite, and shows each row's
 `VAR_NAMES_VALUES` tail with the rest elided:
 
 ```text
-7001 ... | unsteady_rotor | GEOMETRY: blade_sector.fsm / RPM: 1200 / ...
-7002 ... | steady         | GEOMETRY: blade_sector.fsm
+7001... | unsteady_rotor | GEOMETRY: blade_sector.fsm / RPM: 1200 /...
+7002... | steady         | GEOMETRY: blade_sector.fsm
 ```
 
 with `blade_sector.fsm` staged under `inputs/geometries/`. A periodic
@@ -109,24 +109,20 @@ sector adds `SYMMETRY: PERIODIC / PERIODIC_COPIES: <n>`.
 
 ## Where this example comes from
 
-Every artefact on these pages is lifted from the test suite rather than
-written for the page. The first matrix is
-`tests/tier1_offline/fixtures/matrix_registry.fs` byte for byte; the input library,
-the recipe and the call are those of
-the recorded matrix execution in
-the example's evidence map, and the four run identifiers of [the run matrix](workflow-run-matrix.md) are the
-ones that test asserts.
+Every artefact on these pages is lifted from an executed example in the
+test suite. The first matrix matches its fixture byte for byte; the input
+library, recipe and call come from the same recorded matrix execution.
+The four run identifiers of [the run matrix](workflow-run-matrix.md) are
+the ones that execution checks.
 
-The workflow matrix is `tests/tier1_offline/fixtures/workflow_rotor_matrix.fs` byte
-for byte, and the test that runs it is
-`test_the_committed_matrix_drives_the_workflow_with_no_python_recipe` in
-`tests/tier1_offline/test_workflows.py`, which builds every row of it and asserts that
-no `module:function` reference appears anywhere in the call.
+The workflow matrix also matches its fixture byte for byte. Its verification
+builds every row and checks that no `module:function` reference appears
+anywhere in the call.
 
 That is the point of doing it this way. An example written for a page is
 true the day it is written and quietly false afterwards; an example
 lifted from an executed test fails CI when it stops being true.
-`tests/tier1_offline/test_docs_example_currency.py` holds the two together, so this
+The verification suite holds the two together, so this
 page cannot drift from the suite without the suite going red.
 
 The code blocks are not executed by the docs build, and are marked so.
@@ -144,7 +140,7 @@ worse than no page at all.
   windows of a row that names NO rotor by alias, and nothing else: it
   does not configure the rotor and does not interact with `SYMMETRY`.
   A row that names its rotors takes each blade count from
-  that rotor's own block (FR-68). The solver model is the setup preset's
+  that rotor's own block. The solver model is the setup preset's
   `solver_model`, `INCOMPRESSIBLE` when the preset states none; the row's
   `MACH` does not choose it. The reference (`REF`) and the fluid state of
   the flight condition reach the script.
@@ -177,7 +173,7 @@ worse than no page at all.
   refused at plan time naming the key, so rename the key
   to `GEOMETRY` when you move it.
 - **There is no result-array facade.** No interpolation along a named
-  axis, no re-parameterisation, no trim extraction. FR-20 carries that
+  axis, no re-parameterisation, no trim extraction.  carries that
   promise and is `pending`.
 
 Where a capability above matters to you, the roadmap and the SRS

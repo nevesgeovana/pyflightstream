@@ -19,7 +19,7 @@ when the answer is that they no longer do.
 from pyflightstream.workspace import CampaignWorkspace
 
 workspace = CampaignWorkspace("runs/polar")
-record = workspace.read_manifest[0]
+record = workspace.read_manifest()[0]
 ```
 
 The record carries four kinds of thing, and the split is worth knowing
@@ -179,6 +179,6 @@ installation, which is as far as a file-level record can go.
 And a record can only be as honest as the run that wrote it. A point
 that used a command a probe measured broken says so in
 `waived_commands` (the retired key `broken_commands` still reads, with a warning naming its removal release), with the report and the reason; a point built with
-`Script.raw` says so in `raw_flag`. Both are worth reading before
+`Script.raw()` says so in `raw_flag`. Both are worth reading before
 trusting the numbers, and both are there precisely so that trusting
 them is a decision rather than an assumption.

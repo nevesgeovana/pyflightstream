@@ -23,20 +23,22 @@ makes of their surfaces' names and order is unmeasured.
 
 A mesh file carries surfaces and nothing else: no length unit, no name this
 package reads, no trailing edge. So everything a run needs to know about it is
-written in one file beside it, `<stem>.boundaries.toml`, and every row that names the mesh shares it. The row names
+written in one file beside it, `<stem>.boundaries.toml` (`wing.boundaries.toml`
+beside `wing.obj`), and every row that names the mesh shares it. The row names
 the mesh as it names any geometry, `wing.obj` in its `GEOMETRY` column.
 
 The sidecar says, in this order:
 
 1. `boundaries`: the names of the mesh's surfaces, in the order the solver
- numbers them, which the plan writes for an `.obj` from its groups when it
- has no sidecar;
+   numbers them, which the plan writes for an `.obj` from its groups when it
+   has no sidecar;
 2. `[import]`: `units`, the length unit the file is written in;
 3. `[[import.operations]]`: the operations that make the file into the body,
- when it is not the body yet;
-4. `[trailing_edges]`: how the trailing edge is marked, by a points file, by detection, or explicitly absent with `none = true`;
+   when it is not the body yet;
+4. `[trailing_edges]`: how the trailing edge is marked, by a points file (the
+   default), by detection, or explicitly absent with `none = true`;
 5. `[wake_termination]` and `[base_regions]`: two detections, each applied
- only when written.
+   only when written.
 
 The [reference](reference.md) describes each sidecar field, build support and
 measured limits. The next section shows how to write the points file.

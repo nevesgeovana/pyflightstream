@@ -30,6 +30,8 @@ import copy
 import math
 from collections.abc import Mapping
 
+from typing_extensions import TypedDict
+
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.script._surface_averaging import (
@@ -38,6 +40,9 @@ from pyflightstream.script._surface_averaging import (
 )
 
 __all__ = [
+    "ExportThresholdRecord",
+    "RESTART_STEP_OFFSET_VARIABLE",
+    "StoppedStepRecord",
     "LAST_ITERS_AVG",
     "LAST_REVS_AVG",
     "averaging_span",
@@ -809,3 +814,35 @@ def _regate_block(
         period=(clock / blades) if blades is not None and blades > 0 else float(period or 0),
     )
     return True
+
+
+# Restart wire types. The persisted export_window key of a run record keeps its name for
+# compatibility; its value records the per-step export threshold and the march clock, not an
+# averaging window.
+
+RESTART_STEP_OFFSET_VARIABLE = "RESTART_STEP_OFFSET"
+
+
+class ExportThresholdRecord(TypedDict, total=False):
+    """The clock and threshold stored under a run record's export_window key."""
+
+    form: str
+    stated: float
+    stated_form: str
+    stated_value: float
+    first_step: int
+    time_iterations: int
+    delta_time_s: float
+    step_deg: float | None
+    rpm: float | None
+    step_offset: int
+
+
+class StoppedStepRecord(TypedDict, total=False):
+    """The local march step and elapsed time where a march stopped.
+
+    Add export_window.step_offset to recover the whole row's absolute step.
+    """
+
+    step: int
+    elapsed_s: float

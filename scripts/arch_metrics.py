@@ -128,11 +128,12 @@ MONOTONE = (
 # THE TEST-COUPLING FREEZE RE-PINNED AT 0.40.0, and nothing else of the first
 # record: the release decision of 2026-10-12 (capabilities first, rigor in its
 # own release) accepted the coupling the 0.40.0 lanes' tests brought, listed
-# per module in RPT-168, and planned the reduction back to the numbers of the
+# per module in RPT-168, with the final 2026-10-13 lane recount at 330 and 147,
+# and planned the reduction back to the numbers of the
 # first record (242 private names, 83 patch targets) as PFS-2081.47 (0.42.0).
 # The metrics table is compared with these two numbers in place of the first
 # record's; raising either is an edit of this line, visible in review.
-COUPLING_REPIN = {"private_test_names": 323, "monkeypatch_targets": 140}
+COUPLING_REPIN = {"private_test_names": 330, "monkeypatch_targets": 147}
 
 
 def freeze_floor(freeze: Mapping) -> dict:

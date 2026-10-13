@@ -95,7 +95,7 @@ POL  | HIDDEN | RUN | AIRCRAFT | CONFIGURATION | DESCRIPTION                    
 ```
 
 With `inputs/executables.toml` naming your 26.124 installation, as for any
-row, plan it and run
+row ([workspaces and workflows](../workspace-and-workflows.md)), plan it and run
 it from the workspace root:
 
 ```text

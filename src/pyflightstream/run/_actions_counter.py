@@ -36,7 +36,7 @@ from pathlib import Path, PurePosixPath
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases import SimCase
-from pyflightstream.cases.restart_records import ExportThresholdRecord
+from pyflightstream.cases.windows import ExportThresholdRecord
 from pyflightstream.cases.workflows import (
     UNSTEADY_ACTION_COUNT,
     UNSTEADY_ACTION_PROGRAM,

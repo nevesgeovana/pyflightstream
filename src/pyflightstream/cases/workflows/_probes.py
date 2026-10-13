@@ -453,7 +453,7 @@ def _built_from_the_mesh(
         placed is unknown; the message names the entries and the remedy.
     """
     scratch = _ProbePointRecorder(script)
-    from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE
+    from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 
     restart = {
         RESTART_VARIABLE,

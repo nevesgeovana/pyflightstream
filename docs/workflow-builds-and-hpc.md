@@ -8,7 +8,8 @@ Linux is the cluster: a workspace that carries a submission profile submits
 from Linux and runs locally on Windows, and no cell says so. When the Linux
 machine is a workstation, or the point is a smoke test on the machine itself,
 `pyfs-matrix run --local` keeps the run on that machine: the cluster is not
-asked, the executable resolves as on Windows, each point runs and writes its
+asked, the executable resolves as on Windows (the `FS_BUILD` column through
+`inputs/executables.toml`, or `--fs-exe`), each point runs and writes its
 outputs in its own `datapoints/DP-<point>/` as any point does, and every
 record's `executor` entry says
 `forced_local`. The flag changes nothing on a machine that would not have
@@ -60,18 +61,19 @@ What each run type does on each registered build:
 |---|---|---|---|---|---|
 | `steady` | refused | runs | runs | runs | runs |
 | `unsteady` | refused | single march | single march | single march | actions where the row asks for them |
-| `unsteady_rotor` | refused | single march, Euclidean rotor | refused until the rotor speed unit is measured | single march | actions where the row asks for them |
+| `unsteady_rotor` | refused | single march, Euclidean rotor (run on 26.000; 25.100 from its manual) | refused until the rotor speed unit is measured | single march | actions where the row asks for them |
 
 **A single march** is how an unsteady row runs on a build whose manual
-documents no unsteady solver action: the plots are declared before one solver
+documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
+first documented in 26.122): the plots are declared before one solver
 start that runs every time step the row states, and every export is
 taken after it. It is also how a row asking for none of the features
 below runs on every build. Such a row, on a build
 that documents the actions, also registers the step counter alone, which
 counts the time steps and writes nothing else, so the progress bar of a
-local run appears on every unsteady row; its script differs from
+local run  appears on every unsteady row; its script differs from
 the one 0.32.0 wrote by those three lines only, and its `march_strategy`
-stays `single_march`. The per-step history of
+stays `single_march`.  measured no effect from the counter on 26.124, build 8172026. The per-step history of
 the products stage comes from the plots table the solver writes, so the
 reductions and the series are built on every build.
 
@@ -80,12 +82,14 @@ them for one is BLOCKED at plan time, before any solver time is spent,
 with a sentence naming the build, the feature, the builds that document
 the actions and the change to the row that runs where you asked:
 
-- snapshots from a threshold, because the step counter is an action;
-- the wall clock inside the run, because the clock and its
- stop are actions; size `TIME_ITERATIONS` to the queue instead and
- continue a capped run with `RESTART: {ADDITIONAL_ITERS=n}`;
+- snapshots from a threshold (`EXPORT_UNSTEADY_AFTER_ITER`,
+  `EXPORT_UNSTEADY_AFTER_REV`, `EXPORT_UNSTEADY_LAST_ITER`,
+  `EXPORT_UNSTEADY_LAST_REV`), because the step counter is an action;
+- the wall clock inside the run (`WALLTIME`), because the clock and its
+  stop are actions; size `TIME_ITERATIONS` to the queue instead and
+  continue a capped run with `RESTART: {ADDITIONAL_ITERS=n}`;
 - a continuation that reads their records, `RESTART: {FINISH_PENDING}` and
- `RESTART: {ADDITIONAL_REVS=n}`.
+  `RESTART: {ADDITIONAL_REVS=n}`.
 
 Nothing is emulated. The plan's `march_strategy` and the run record's
 `march_strategy` carry `actions` or `single_march` for every unsteady
@@ -131,7 +135,8 @@ plan` with the `FS_BUILD` you mean first.
 
 On a cluster each point of a row is submitted as its own job and runs in its
 own datapoint folder, `sims/sim_<id>/datapoints/DP-<tag>/`, which is where
-its outputs are filed. The scheduler's descriptor, the unsteady action program with its export script,
+its outputs are filed. The scheduler's descriptor (`submit.yaml` or the name
+the profile gives it), the unsteady action program with its export script,
 and the wall clock with its state are written there, so every point of a
 swept row is submitted in one invocation and no queued job shares a file with
 another. The run record names the folder as `working_dir`, and
@@ -143,7 +148,7 @@ than in the folder every point of the row shares; the script is the same
 either way, since its exports are named relative to the working directory and
 its inputs by absolute path. A steady row, which is ONE job over all its
 points and one script, submits from and runs in the simulation folder, and
-collection files each point's outputs in its own folder. states the
+collection files each point's outputs in its own folder.  states the
 requirement.
 
 **A steady job's log on a machine that exports none.** Where the profile

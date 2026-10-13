@@ -29,7 +29,7 @@ boundaries = [
 ```
 
 Add the `[import]` table and the `[trailing_edges]` table beneath the list
-only you can state the unit the file is written in and
+(the sections below): only you can state the unit the file is written in and
 how its trailing edge is marked, so the plan that wrote the list then blocks
 the row on the missing unit, naming the table.
 
@@ -55,7 +55,7 @@ the order the file holds them. They are a statement the run trusts rather
 than verifies: a name in the wrong position cites the wrong surface, and
 nothing refuses it before the solver runs. `pyfs-matrix inventory`, which
 writes a saved simulation's names for you
-refuses an `.stl` by name, since it
+([below](#the-boundary-inventory-sidecar)), refuses an `.stl` by name, since it
 has no mesh block to read the order from.
 
 ### The unit
@@ -90,7 +90,7 @@ SET_SIMULATION_LENGTH_UNITS METER
 ```
 
 Around the length unit come the operations and the trailing-edge marking the
-same sidecar declares, and the script goes on exactly as it does after
+same sidecar declares (below), and the script goes on exactly as it does after
 opening a `.fsm`. The file's unit goes to `IMPORT` and nowhere else. The simulation's length unit defaults to metres; after import, the setup's `simulation_length_unit` replaces that default. See [simulation geometry controls](../simulation-geometry-controls.md).
 the reference area, chord and span, a `TRANSLATE` distance, the frames the
 package places. The run record keeps the table as `mesh_import`, because the
@@ -100,7 +100,7 @@ run in metres.
 **`IMPORT` converts the body from the file's unit into the simulation's
 metres, measured on 26.124**: a wing OBJ written in millimetres, its trailing
 edge detected, solved as the same wing written in metres to the print. The file route in millimetres and every
-other build are not measured, so a mesh written in metres
+other build are not measured, so a mesh written in metres (`units = "METER"`)
 is still the one case whose scale depends on nothing.
 
 A unit is never assumed. A raw mesh whose sidecar states no `[import]` table
@@ -113,7 +113,7 @@ carries its own units and nothing would read it.
 
 ### Explicit CAD conversion is a separate route
 
-For an IGES file, the sidecar explicitly selects CAD
+For an IGES file (`.igs` or `.iges`), the sidecar explicitly selects CAD
 conversion. This compact form uses the existing CAD defaults:
 
 ```toml
@@ -137,7 +137,7 @@ accept CAD options.
 
 ### A CCS file is another route
 
-A CCS file is routed by a third table of
+A CCS file (the solver's cross-section format) is routed by a third table of
 the same `[import]`, `[import.ccs]`, which chooses what the solver builds from
 it. The table's keys, what each kind of geometry reads and what is refused are
 on [CCS geometry](../ccs-geometry.md); this page holds only its place in the
@@ -198,7 +198,7 @@ angle_deg = 2.0
 | `rename` | `surface` and `to`, a name without spaces | `SURFACE_RENAME` | none: it names one surface |
 | `mirror` | `surface` and `plane`: `YZ`, `XZ` or `XY` | `SURFACE_MIRROR` | none: it names one surface |
 | `translate` | `vector = [x, y, z]`, in the `[import]` unit | `TRANSLATE_SURFACE_IN_FRAME` | `0` |
-| `rotate` | `axis` and `angle_deg` | the build's rotation command | `-1` |
+| `rotate` | `axis` (`X`, `Y` or `Z`) and `angle_deg` | the build's rotation command | `-1` |
 
 Each acts in the reference frame, the one frame that exists before the setup
 creates any. `surface` names the surface acted on by the name the file gives
@@ -263,7 +263,7 @@ built, before any seat is spent. The table takes one of two marking routes,
 or an explicit declaration that this geometry has no trailing edges.
 
 **The file route, the default.** `file` names a points file beside the
-sidecar:
+sidecar ([its format below](#the-points-file)):
 
 ```toml
 # inputs/geometries/wing.boundaries.toml, beside wing.stl
@@ -303,9 +303,11 @@ detect = { surfaces = ["Wing"], sweep_angle = 60 }   # or detect = "auto", every
 
 `detect = "auto"` emits `AUTO_DETECT_TRAILING_EDGES`. A table of `surfaces`
 emits `DETECT_TRAILING_EDGES_BY_SURFACE` on them, cited by the sidecar's names
-as the renames left them, exactly and never by position, and `sweep_angle`, in degrees, emits
+as the renames left them, exactly and never by position (`surfaces = "all"`
+is every surface), and `sweep_angle`, in degrees, emits
 `SET_TRAILING_EDGE_SWEEP_ANGLE` before it. Detection marks an edge where the
-surface creases, so the angle decides what a twisted blade gets. It gives every edge the STANDARD type and matches no points, so `type`
+surface creases, so the angle decides what a twisted blade gets (measured
+below). It gives every edge the STANDARD type and matches no points, so `type`
 and `tolerance` beside `detect` are refused. Without `none = true`, a table
 stating both `file` and `detect`, or neither, is refused, and so is a key it
 does not read.
@@ -385,7 +387,8 @@ The wake-edge import matches a mesh edge by its MID-POINT: an edge is marked
 when a point in the file lies within the import's tolerance of the edge's
 mid-point, and a point farther than that from every mid-point marks nothing
 and reports nothing. So a points file names edges by their mid-points, never
-by their end vertices. Its first line names the length unit of its points, and every later
+by their end vertices. Its first line names the length unit of its points (a
+token of `SET_SIMULATION_LENGTH_UNITS`, `OTHER` excepted), and every later
 line is one `x,y,z` mid-point:
 
 ```text
@@ -400,7 +403,8 @@ its points to the simulation's length unit and writes the file the solver
 imports.
 
 **It is checked before any seat is spent.** When the row is bound, the file is
-read and every point is checked against the mesh,
+read and every point is checked against the mesh (`read_trailing_edge_points`
+and `matched_trailing_edge_points`, in `pyflightstream.workspace.wake_edges`),
 compared in the simulation's length unit. The first point farther than
 `tolerance` from every mesh-edge mid-point is refused by its position, its
 file line, its coordinates and its distance, and two points nearest one edge
@@ -424,7 +428,7 @@ outputs: a file-route row declares one, a name ending in `_log.txt`, which a
 run type's default outputs carry, and a row that declares none is refused when
 its script is built, and a row that states `EXPORT_LOG: false`, which leaves
 the script exporting no log, is refused at plan. A machine whose HPC profile
-turns the export off itself runs
+turns the export off itself (`export_log = false` beside a `native_log`) runs
 the row: `collect` copies the log its scheduler writes to the declared name,
 and the count is read from it there. Run there with `--local`, where no
 scheduler writes a log, the count is read from what the solver printed, and a
@@ -487,7 +491,8 @@ digest.
 ### The boundary inventory sidecar
 
 A saved simulation carries its boundary names in the solver's own order, and a
-workflow row cites boundaries by those names. The order is a property of the file, so it is never stated
+workflow row cites boundaries by those names (`MOVING_BOUNDARIES:
+Blade1,Blade2`). The order is a property of the file, so it is never stated
 by hand: a setup artifact that carries `mesh_order_list` is
 refused, and the order is written from the file itself:
 
@@ -500,14 +505,15 @@ file's order, and refuses to overwrite one that exists without `--overwrite`.
 The sidecar sits beside the file, so a geometry kept in its own folder,
 `inputs/geometries/30_WB/30_WB.fsm`, has it inside that folder, and the run reads it
 from there. `pyfs-matrix inventory` reads an `.obj`'s order from its groups
-instead, and refuses any other file without a
-mesh block by name, because it
+instead ([above](#the-surface-names)), and refuses any other file without a
+mesh block (an `.stl`, or a file the solver never saved) by name, because it
 has no block to read the order from.
 
 A row whose `.fsm` has a sidecar is checked when the script opens the file: a
 sidecar that disagrees with the file's own block is refused before any seat is
 spent, naming both lists, and an agreeing one is recorded in the run record as
-the inventory source. The record also carries the names
+the inventory source (`inventory_source: sidecar`; `mesh_block` when the file
+alone declared the names). The record also carries the names
 themselves, `inventory`, in the file's order; the post reads a section
 distribution's selection over them. The sidecar is what lets a name resolve
 for a file whose mesh block a reader cannot open, and it is otherwise a
@@ -535,7 +541,7 @@ the action records, and it puts every other block back to the content a
 freshly imported file holds, where that content is measured for the file's
 build and length unit; everything else comes from the script. The blocks and
 their fresh-import content were measured on the ten tier-3 geometries, fresh
-imports saved by 26.120 in metres, which hold the same
+imports saved by 26.120 (build 7012026) in metres, which hold the same
 `GLOBAL`, `MOTION`, `POST`, `WAKE`, `SOLVER`, `ACOUSTIC`, `STABILITY` and
 `AEROELASTIC` whatever the shape: those are the blocks reset, and each one
 reset is named on standard error. Anything set by hand in them is discarded,
@@ -543,8 +549,10 @@ the reference point and frame of `GLOBAL` and the solver and wake settings of
 `SOLVER` and `WAKE` included, since the script sets them again; the ten
 geometries were all made by one preparation recipe, so the content is the one
 common to those saves. Never reset:
-`MESH`, `PHYSICS`, `WRAPPER` and `GRAPHICS`, and
-`CAD`, `CADCREATE` and `CADMESHING`. A file of
+`MESH` (the meshes, the boundaries, the trailing edges and the wake
+termination marks), `PHYSICS` (the surface lists the boundary conditions are
+set in), `WRAPPER` and `GRAPHICS` (which differ between fresh imports), and
+`CAD`, `CADCREATE` and `CADMESHING` (measured on STL imports only). A file of
 another build or unit, 26.124 included, has no measured fresh import: only its
 saved actions are removed, every other block is kept, and the command says
 so. That the solver opens and runs a cleaned file is owed by the licensed
@@ -566,7 +574,8 @@ for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] 
 **The plan warns too.** `pyfs-matrix plan` reads the geometry of
 every row whose run type is `unsteady` or `unsteady_rotor`, a continuation
 included, with the same reader, and for each file carrying saved actions
-prints a warning naming the rows that open it, the file, each action and the `--clean` command; a file whose action records cannot
+prints a warning naming the rows that open it, the file, each action (name,
+type, command) and the `--clean` command; a file whose action records cannot
 be read is named as unreadable. The plan never refuses on that account: its
 rows, its files and its exit status are those of the same plan without the
 warnings.
@@ -590,26 +599,27 @@ pyfs-matrix audit-mesh OBJ [--against SOURCE] [--out FILE]
 |---|---|---|
 | `MESH` | `refine` | the source OBJ; it and its folder are never modified |
 | `FACTOR` | `refine` | the factor of every selected family, a finite number above zero |
-| `--families A,B` | `refine` | the families to change, comma separated |
+| `--families A,B` | `refine` | the families to change, comma separated (default: every family) |
 | `--chordwise F`, `--spanwise F` | `refine` | the factor of one index direction of every selected grid family; refused for a remeshed family |
-| `--config FILE` | `refine` | the refinement file |
-| `--keep-first-row FAMILY[,FAMILY...]` | `refine` | the grid families that keep the spanwise width of their row at another component, comma separated |
-| `--out DIR` | `refine` | where the level folder goes; the `out_dir` keyword of `refine_mesh` in Python; `--out-dir DIR` is a deprecated alias |
+| `--config FILE` | `refine` | the refinement file (default: `<stem>.refine.toml` beside the mesh) |
+| `--keep-first-row FAMILY[,FAMILY...]` | `refine` | the grid families that keep the spanwise width of their row at another component, comma separated ([The row kept at an interface](#the-row-kept-at-an-interface)) |
+| `--out DIR` | `refine` | where the level folder goes (default: the parent of the folder holding the source); the `out_dir` keyword of `refine_mesh` in Python; `--out-dir DIR` is a deprecated alias |
 | `--overwrite` | `refine` | replace an existing level folder |
 | `OBJ` | `audit-mesh` | the OBJ to audit |
 | `--against SOURCE` | `audit-mesh` | the OBJ it was made from; without it only G1, G2 and G4 are judged |
-| `--out FILE` | `audit-mesh` | write the figures as CSV, one row per family and figure; `--csv FILE` is a deprecated alias. Refused when it names a file the command reads or writes: the OBJ, its boundaries file, its `<stem>.te.txt` or the points file the boundaries file names, the OBJ's `<stem>.refine.json`, the `<stem>.audit.json` the command writes, and every one of these files of the `--against` source |
+| `--out FILE` | `audit-mesh` | write the figures as CSV, one row per family and figure (the audit JSON is always written beside the OBJ, whatever `--out` says); `--csv FILE` is a deprecated alias. Refused when it names a file the command reads or writes: the OBJ, its boundaries file, its `<stem>.te.txt` or the points file the boundaries file names (`MeshAudit.files_read`), the OBJ's `<stem>.refine.json`, the `<stem>.audit.json` the command writes, and every one of these files of the `--against` source |
 
 `refine` exits 0 when the level is written, whatever the audit says, and 2 when
 the request is refused. `audit-mesh` exits 0 when every gate and check passes,
-1 when one fails and 2 when its input is refused.
+1 when one fails (the audit is still written) and 2 when its input is refused.
 A refusal is printed on standard error, names the object, what was refused and
 what to do, and ends with `Nothing was written.`: every refusal of the
 arguments, the refinement file, the family names and the installed extras comes
 before any family is resampled and before any file is written, and so does a
 refusal of the boundaries file or of the points file it names, which the audit
 reads. Both commands read `[trailing_edges] detect` through the reader the
-workflow uses, so a shape the workflow refuses is
+workflow uses, so a shape the workflow refuses (a word other than `"auto"`, a
+key it does not read, an empty surface list, `file` and `detect` together) is
 refused here too, in the same words, before any work. A level is written into `<folder>.partial`, audited there, and renamed
 once complete, so an error leaves no level folder behind; with `--overwrite`
 the existing level is replaced only then, and kept when an error comes first.
@@ -620,22 +630,23 @@ given together with `--out` is refused, naming both.
 
 ### Where the factors come from
 
-1. FACTOR applies to every family `--families` selects.
- `--chordwise` and `--spanwise` replace it in that index direction of each
- selected grid family; given alone, the factor of the other direction is 1.
+1. FACTOR applies to every family `--families` selects (default: every family).
+   `--chordwise` and `--spanwise` replace it in that index direction of each
+   selected grid family; given alone, the factor of the other direction is 1.
 2. When the command gives none of FACTOR, `--chordwise` and `--spanwise`, the
- factors are the `[families.<name>]` tables of the refinement file:
- `--config FILE`, or else `<stem>.refine.toml` beside the mesh. A family the
- file does not name is not changed. `--families` then selects among the
- file's tables: an unselected family is not changed, and a selected name the
- mesh does not hold is refused, as on the FACTOR route.
+   factors are the `[families.<name>]` tables of the refinement file:
+   `--config FILE`, or else `<stem>.refine.toml` beside the mesh. A family the
+   file does not name is not changed. `--families` then selects among the
+   file's tables: an unselected family is not changed, and a selected name the
+   mesh does not hold is refused, as on the FACTOR route.
 3. With no factor on the command and no file, a file that states no family,
- or a selection the file states no factor for, the command is refused.
-4. A `[families.<name>]` table whose factors are not read is a
- warning naming it, and `refine.json` lists it under
- `ignored_families_tables`; an `elements` key in it still applies, and the
- warning names `keep_first_row` among what the table no longer states.
- `--keep-first-row` asks the option on either route.
+   or a selection the file states no factor for, the command is refused.
+4. A `[families.<name>]` table whose factors are not read (every one when the
+   command gives the factors, an unselected one under `--families`) is a
+   warning naming it, and `refine.json` lists it under
+   `ignored_families_tables`; an `elements` key in it still applies, and the
+   warning names `keep_first_row` among what the table no longer states.
+   `--keep-first-row` asks the option on either route.
 
 The `[refine]`, `[components]` and `[periodic]` tables of the refinement file
 are read whenever the file exists, whatever gives the factors.
@@ -680,15 +691,15 @@ copies = 6
 | table | key | value | meaning |
 |---|---|---|---|
 | `[refine]` | `tag` | text | the level's name, `<stem>_<tag>`, in place of the factors |
-| `[refine]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of every remeshed family that does not state its own |
-| `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals, never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored on a family that `"auto"` resolves to a grid |
+| `[refine]` | `elements` | `"triangles"` (default) or `"quad-dominant"` | the elements of every remeshed family that does not state its own |
+| `[families.<name>]` | `elements` | `"triangles"` or `"quad-dominant"` | the elements of a remeshed family: quad-dominant pairs the remeshed triangles into convex quadrilaterals (angles 30 to 150 degrees, warp at most 10 degrees), never across an open boundary, the trailing edge or a ridge; refused with `method = "grid"`, ignored (and said so in `refine.json`) on a family that `"auto"` resolves to a grid |
 | `[families.<name>]` | `factor` | number above zero | multiplies the intervals of each index direction of a grid; divides the target edge length of a remeshed family |
 | `[families.<name>]` | `chordwise`, `spanwise` | number above zero | the factor of one index direction of a grid, replacing `factor` there |
-| `[families.<name>]` | `keep_first_row` | `true` or `false` | a grid with a trailing edge keeps the spanwise width of its row of panels at each end station that meets another component and refines that row chordwise only; the spanwise factor applies to the other rows. `--keep-first-row` on the command and the `keep_first_row` keyword of `refine_mesh` ask the same; when FACTOR, `--chordwise` or `--spanwise` give the factors the table is not read, this key included |
-| `[families.<name>]` | `method` | `"auto"`, `"grid"` or `"remesh"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it |
+| `[families.<name>]` | `keep_first_row` | `true` or `false` (default) | a grid with a trailing edge keeps the spanwise width of its row of panels at each end station that meets another component and refines that row chordwise only; the spanwise factor applies to the other rows. `--keep-first-row` on the command and the `keep_first_row` keyword of `refine_mesh` ask the same; when FACTOR, `--chordwise` or `--spanwise` give the factors the table is not read, this key included ([The row kept at an interface](#the-row-kept-at-an-interface)) |
+| `[families.<name>]` | `method` | `"auto"` (default), `"grid"` or `"remesh"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it |
 | `[families.<name>]` of a body | `axial`, `circumferential` | number above zero | the target edge length divided by `axial` along the axis and by `circumferential` around it; the family is remeshed |
 | `[families.<name>]` of a body | `axis` | three numbers, not all zero | the body's axis; required with `axial` or `circumferential` |
-| `[families.<name>]` of a body | `origin` | three numbers | a point of the axis |
+| `[families.<name>]` of a body | `origin` | three numbers | a point of the axis (default: the family's centroid) |
 | `[components]` | `NAME = [...]` | a non-empty list of family names | the members written as one family `NAME` of the output, their faces in the source's family order |
 | `[periodic]` | `axis` | three numbers, not all zero | the axis of the rotor the sector belongs to |
 | `[periodic]` | `origin` | three numbers, in the OBJ's coordinates | a point of that axis |
@@ -697,7 +708,7 @@ copies = 6
 Each of these is refused naming the file, the table and the key, and listing
 the known keys: a table or key the list above does not hold, a family the mesh
 does not hold, a family table with neither `factor` nor `chordwise` nor
-`spanwise`, `chordwise` or `spanwise` on a
+`spanwise` (nor `axial` nor `circumferential`), `chordwise` or `spanwise` on a
 family whose method is `"remesh"`, `axial` or `circumferential` without `axis`,
 beside `factor`, `chordwise` or `spanwise`, or with `method = "grid"`, and a
 malformed `axis` or `origin`. In `[components]`, a member the mesh does not
@@ -722,11 +733,12 @@ that keeps its first row adds `k` to its part:
 | `Wing` at 2 and `Tip` at 1.5 | `R-Wing2-Tip1p5` |
 | a selection whose built tag is longer than 32 characters | `R-<n>fam-<hash>` |
 
-A factor in a built tag shows at most 6 significant digits; `refine.json` holds
+A factor in a built tag shows at most 6 significant digits (`2.0000001` and
+`2` both read `2`, `0.0000123456` reads `1p23456e-05`); `refine.json` holds
 the exact factor under `specs`. For a short tag without a hash, two otherwise
 identical selections whose factors agree to 6 significant digits build the
 same tag, and the second level is refused as an existing one unless
-`--overwrite` replaces it; give a `[refine] tag` to keep both.
+`--overwrite` (`overwrite=True`) replaces it; give a `[refine] tag` to keep both.
 Summary tags hash the exact factors, so matching rounded spellings do not
 imply matching summary tags.
 
@@ -736,7 +748,8 @@ of selected families and `<hash>` the first 8 hexadecimal characters of the
 SHA-256 of the canonical selection, encoded as UTF-8. The canonical selection
 holds one line per selected family, in the source's family order, joined by a
 newline: the family's name, then every option its table states that changes
-the level as `key=value` pairs sorted by key and
+the level (`factor`, `chordwise`, `spanwise`, `method`, `elements`, `axial`,
+`circumferential`, `keep_first_row`) as `key=value` pairs sorted by key and
 separated by single spaces, for example `Wing factor=2 keep_first_row=true
 spanwise=2`. The same selection gives the same tag on every run and machine,
 and two selections that differ in a family or an option give different
@@ -750,12 +763,12 @@ the tag is the summary and the hash.
 
 ### The files of a level
 
-The level folder is `<out>/<stem>_<tag>/`, and every file in it is written
+The level folder is `<out>/<stem>_<tag>/` (`--out`, or `out_dir` in Python), and every file in it is written
 through the package's one text route, without a carriage return.
 
 | file | written when | content |
 |---|---|---|
-| `<stem>_<tag>.obj` | always | the level, its families in the source's order |
+| `<stem>_<tag>.obj` | always | the level, its families in the source's order (a component in place of its members) |
 | `<stem>_<tag>.te.txt` | the source has a trailing-edge points file | one mid-point per trailing-edge edge of the new mesh, under the source file's unit line |
 | `<stem>_<tag>.boundaries.toml` | the source has a sidecar | the source's sidecar, naming the new points file and each component in place of its members |
 | `<stem>_<tag>.refine.json` | always | what was done to each family |
@@ -764,50 +777,58 @@ through the package's one text route, without a carriage return.
 The source's points file is the one its `<stem>.boundaries.toml` names under
 `[trailing_edges] file`, or else `<stem>.te.txt` beside the mesh. Its points
 are in the unit its first line names; when the boundaries file states the
-mesh's unit and it differs, the points are converted to it
+mesh's unit (`[import] units`) and it differs, the points are converted to it
 before they are matched to the mesh's edges, by `refine` and `audit-mesh`
 alike, and the level's points file is written back in the source file's unit.
-A unit that names no scale is then refused.
+A unit that names no scale (OTHER) is then refused.
 
-`refine.json` states `schema_version`, `source`, `level`, `config`, `specs`,
-`tag_selection`,
-`components`, `ignored_families_tables`, `faces` and, with
-`[periodic]`, `periodic`.
+`refine.json` states `schema_version` (2), `source`, `level`, `config` (the
+refinement file read, or null), `specs` (the factors of each family),
+`tag_selection` (the selected families, for a tag shortened to the summary and
+the hash),
+`components`, `ignored_families_tables` (the families whose file table was not
+read for its factors), `faces` (the face count of each family of the output) and, with
+`[periodic]`, `periodic` (the two cut faces, their angle, their node counts and
+the largest distance between matched nodes in the source and in the level).
 Its `families` entry holds, per family:
 
-- a grid: `method`, `reason`, `layout`,
- `ends`, `split`, `grid`, `intervals`
-`faces`,
- `order`
- and `interfaces`; a grid that keeps its
- first row adds `kept_rows` and
- `trailing_edge`; a detected one adds `trailing_edge_points`, the mid-point
- `[x, y, z]` of each edge of the line detected on the source, in the unit of
- the level's points file and written as that file writes them, which the
- audit of the level reads to count the source's trailing-edge chains;
+- a grid: `method` (`"grid"`), `reason` (the layout recovered), `layout`,
+  `ends`, `split`, `grid` (the node counts before and after), `intervals`
+  (chordwise and spanwise, before and after), `faces` (before and after),
+  `order` (`"sweep"` when the source's sweep was kept, `"nearest"` otherwise)
+  and `interfaces` (the nodes of each curve it shares); a grid that keeps its
+  first row adds `kept_rows` (`"station 0"`, `"far station"` or both) and
+  `trailing_edge` (`"points file"` or `"detected"`, where its trailing edge
+  came from); a detected one adds `trailing_edge_points`, the mid-point
+  `[x, y, z]` of each edge of the line detected on the source, in the unit of
+  the level's points file and written as that file writes them, which the
+  audit of the level reads to count the source's trailing-edge chains;
 - a smooth tube is a grid whose circumferential direction is a periodic cubic
- spline, with the seam at the lowest source node index of its first end
- station and no trailing-edge points; a multiblock family reports `layout`
- `"multiblock"`, `patches`, `blocks`, `arcs` and `order`
-`--chordwise` and `--spanwise` are refused on it, and across a
- patch side the level is continuous, not smooth;
-- a remeshed family: `method`, `reason`,
- `elements`, `quads`, `triangles` and `quad_share`,
- the families remeshed together, the curve edges kept, the median ratio of
- edge length to target, the interfaces rebuilt on a grid's nodes, and the
- face counts before and after; a family remeshed at factor 1 that shares a
- curve with a refined side adds `shared_edge_target_m`, the minimum, mean and
- maximum of its target length at its nodes on that curve, in metres, for
- example `{"min": 0.0021, "mean": 0.0034, "max": 0.0052}`. The mesh's
- `[import] units` supplies the conversion. If no convertible mesh unit is
- stated, the record uses `shared_edge_target_mesh_units` instead, with
- lengths in the source coordinates;
+  spline, with the seam at the lowest source node index of its first end
+  station and no trailing-edge points; a multiblock family reports `layout`
+  `"multiblock"`, `patches` (their number), `blocks` (each patch's `rows` and
+  `columns` before and after), `arcs` (the patch sides) and `order`
+  (`"nearest"`); `--chordwise` and `--spanwise` are refused on it, and across a
+  patch side the level is continuous, not smooth;
+- a remeshed family: `method` (`"remesh"`), `reason` (why no grid was taken),
+  `elements`, `quads`, `triangles` and `quad_share` (the element mode and its
+  counts; `elements` on a grid says the key was ignored),
+  the families remeshed together, the curve edges kept, the median ratio of
+  edge length to target, the interfaces rebuilt on a grid's nodes, and the
+  face counts before and after; a family remeshed at factor 1 that shares a
+  curve with a refined side adds `shared_edge_target_m`, the minimum, mean and
+  maximum of its target length at its nodes on that curve, in metres, for
+  example `{"min": 0.0021, "mean": 0.0034, "max": 0.0052}`. The mesh's
+  `[import] units` supplies the conversion. If no convertible mesh unit is
+  stated, the record uses `shared_edge_target_mesh_units` instead, with
+  lengths in the source coordinates;
 - a neighbour the two-layer band would cover whole: `method`
- `"rebuilt_whole"`, `reason` `"band_covers_family"`, `band` and `faces`, remeshed whole at factor 1 as if its
- table stated `factor = 1` and `method = "remesh"`, with one warning naming it;
+  `"rebuilt_whole"`, `reason` `"band_covers_family"`, `band` and `faces` (both
+  the family's face count in the source), remeshed whole at factor 1 as if its
+  table stated `factor = 1` and `method = "remesh"`, with one warning naming it;
 - a family the refinement does not change: `method` `"copied"`, or
- `"unchanged"` with the face count of its two-layer `band` when a grid's
- nodes on a shared curve changed, and `shared_edge_target_m` as above.
+  `"unchanged"` with the face count of its two-layer `band` when a grid's
+  nodes on a shared curve changed, and `shared_edge_target_m` as above.
 
 A key may be added to `refine.json` or `audit.json` without changing
 `schema_version`; a key is removed or changes type only with a new one.
@@ -825,47 +846,50 @@ is no assumed global aft axis. Listed trailing-edge points take precedence.
 As with `keep_first_row`, this family option is read when the file supplies
 the refinement factors. Use the refinement file for this route.
 
-`keep_first_row` asks a grid family with a trailing
+`keep_first_row` (the file key, `--keep-first-row FAMILY[,FAMILY...]` or the
+`keep_first_row` keyword of `refine_mesh`; the three routes resolve to the
+same family set and write the same level) asks a grid family with a trailing
 edge to keep the spanwise width of its row of panels at another component.
 
-- **Interface.** An end station of the grid is
- an interface when two consecutive nodes of it, an edge of the source, are
- nodes of a family of another component. A family's component is the
- `[components]` entry that lists it, else its name up to the first `_`. Every
- end station that is an interface keeps its row; an end station that meets
- only families of its own component, or no family, is refined as before.
+- **Interface.** An end station of the grid (station 0, or the far station) is
+  an interface when two consecutive nodes of it, an edge of the source, are
+  nodes of a family of another component. A family's component is the
+  `[components]` entry that lists it, else its name up to the first `_`. Every
+  end station that is an interface keeps its row; an end station that meets
+  only families of its own component, or no family, is refined as before.
 - **Kept row.** The inner station of the row is the source's station, so the
- row keeps its source width and its trailing-edge node is the source's. The
- row takes the chordwise factor. The `m` source intervals between the kept
- rows take `max` intervals, bounded by one station
- more, when refining and when coarsening; a kept row is never split and
- never merged with its neighbour. In the level's trailing-edge points file
- the trailing-edge edge of each kept row has its mid-point where the
- source's was.
+  row keeps its source width and its trailing-edge node is the source's. The
+  row takes the chordwise factor. The `m` source intervals between the kept
+  rows take `max(1, round(m * spanwise))` intervals, bounded by one station
+  more, when refining and when coarsening; a kept row is never split and
+  never merged with its neighbour. In the level's trailing-edge points file
+  the trailing-edge edge of each kept row has its mid-point where the
+  source's was.
 - **Neighbours.** The band of an unselected neighbour is planned with the
- kept rows, the level's open boundary loops are the source's, and the level
- passes the audit as the same refinement without the option does.
+  kept rows, the level's open boundary loops are the source's, and the level
+  passes the audit as the same refinement without the option does.
 - **Trailing edge.** The one listed in the trailing-edge points file, else,
- when the boundaries file routes the trailing edge to detection, the edges
- the package detects on the source; `refine.json` states which under
- `trailing_edge`. Detection takes the edges
- sharper than the ridge angle, measured across all families,
- that form a grid line from station 0 to the far station. Two sharp extremes
- require the family's `trailing_edge_direction`; the larger projection is
- the trailing edge. Equal projections are refused. A detected line is
- written to the level's points file, `<level>.te.txt`, and when every
- family the `detect` route selects is one whose line was detected, the
- level's boundaries file states `file = "<level>.te.txt"` in place of
- `detect`, so the run marks the line the refinement kept and the audit
- checked. When the route also covers a family the refinement did not
- detect on, `detect` stays and a
- warning names the points file the run does not read.
+  when the boundaries file routes the trailing edge to detection, the edges
+  the package detects on the source; `refine.json` states which under
+  `trailing_edge` (`"points file"` or `"detected"`). Detection takes the edges
+  sharper than the ridge angle (40 degrees), measured across all families,
+  that form a grid line from station 0 to the far station. Two sharp extremes
+  require the family's `trailing_edge_direction`; the larger projection is
+  the trailing edge. Equal projections are refused. A detected line is
+  written to the level's points file, `<level>.te.txt`, and when every
+  family the `detect` route selects is one whose line was detected, the
+  level's boundaries file states `file = "<level>.te.txt"` in place of
+  `detect`, so the run marks the line the refinement kept and the audit
+  checked. When the route also covers a family the refinement did not
+  detect on, `detect` stays (a boundaries file states one route) and a
+  warning names the points file the run does not read.
 - **Record.** The family's entry of `refine.json` holds `kept_rows`, the kept
- end stations; the key is absent when the option is not asked. The family's
- part of the tag carries `k`.
+  end stations; the key is absent when the option is not asked. The family's
+  part of the tag carries `k`.
 
 Each of these is refused before any work, naming the source, the family and
-`keep_first_row`, and ending with `Nothing was written.`: a value that is not `true` or `false`; a family stated with
+`keep_first_row`, and ending with `Nothing was written.` (exit 2 from the
+command): a value that is not `true` or `false`; a family stated with
 `method = "remesh"` or with `axial` or `circumferential`; a family whose grid
 is not recovered; a multiblock grid; a grid without a trailing edge, neither
 listed in the points file nor detected; a grid with no end station at another
@@ -882,15 +906,15 @@ isolates the discretisation from every other effect of refinement.
 
 The audit reads the mesh, and the source when there is one, with numpy alone.
 A GATE is judged on its own terms, a RELATIVE CHECK compares a 95th percentile
- of the mesh with the source's, and a
+(linear interpolation between ranks) of the mesh with the source's, and a
 FIGURE is reported and never judged.
 
 | gate | fails when |
 |---|---|
-| G1 | an edge is shared by more than two faces, two nodes sit at one position, or a face has zero area |
+| G1 | an edge is shared by more than two faces, two nodes sit at one position (within 1e-9 of the size, the diagonal of the bounding box), or a face has zero area |
 | G2 | two neighbouring faces have opposite orientation, or a closed family does not enclose a positive volume |
-| G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent from the other's polyline |
-| G4 | a trailing-edge point lies on no mesh edge, the trailing-edge chains are not the source's in number, or a chain of the source ends where no chain of the level ends; the lines' total lengths are reported, not judged |
+| G3 | the open boundary loops of the mesh are not the source's in number and in the opening each closes: a level loop matches one source loop, one to one, when every node of each lies within a quarter of the source loop's extent (its bounding-box diagonal) from the other's polyline |
+| G4 | a trailing-edge point lies on no mesh edge, the trailing-edge chains are not the source's in number, or a chain of the source ends where no chain of the level ends (a shortened line); the lines' total lengths are reported, not judged |
 | G5 | two families that shared nodes in the source share none |
 | G6 | a grid family written at factor 1 no longer has the source's faces in coordinates and order |
 
@@ -898,19 +922,24 @@ FIGURE is reported and never judged.
 |---|---|
 | equiangle skewness | the source's plus 0.05 |
 | quadrilateral warp | the larger of the source's and 10 degrees |
-| size growth | the larger of the source's and 2 |
+| size growth (the area ratio of two neighbours, across edges whose dihedral is below 30 degrees) | the larger of the source's and 2 |
 
 Each check is made per family and on the whole mesh. A check is relative
 because the source is the accepted mesh: a source that fails a practice is
 reported, not judged. Reported and never judged, per family and on the whole
-mesh: the face, triangle and quadrilateral counts, the aspect ratio, the faces beyond the pre-processor's quality
-thresholds, a face quality ratio, the faces whose
+mesh: the face, triangle and quadrilateral counts, the aspect ratio (95th
+percentile and largest), the faces beyond the pre-processor's quality
+thresholds (aspect ratio above 8 and above 20, skewness above 0.5, warp above
+10 and above 45 degrees, a quadrilateral angle under 45 degrees, a triangle
+angle under 30 degrees), a face quality ratio (a face's inscribed radius
+against its neighbours', the solver's user's manual calling below 2 good; the
+manual gives no formula, so the package's is its own reading), the faces whose
 aspect ratio exceeds 50, the trailing-edge triangles whose aspect ratio exceeds
 50, and the faces lying on the plane y = 0.
 
 Without `--against` only G1, G2 and G4 are judged and the rest is reported.
 G6 is judged only for a level `refine` wrote, which names its grid families at
-factor 1 in its `refine.json`
+factor 1 (and each component whose every member is one) in its `refine.json`
 under `unchanged_grids`; `audit-mesh` reads them from the level's
 `refine.json` when it names that level and the source given with `--against`,
 so a saved level is re-audited as `refine` audited it. G4 reads the same
@@ -920,8 +949,9 @@ lists under `trailing_edge_points`, together, so a detected line that a listed
 edge continues is one chain.
 
 `audit.json` holds `schema_version`, `mesh`, `source`, `passed`, `gates` and
-`checks` and `figures`. A
-failed gate or check is also a warning: `audit gate G3 failed on:
+`checks` (each with its `name`, `family`, `verdict` (`pass`, `fail` or
+`not judged`) and `values`) and `figures` (per family and `(whole mesh)`). A
+failed gate or check is also a warning: `audit gate G3 failed on (whole mesh):
 open_loops 2, source_open_loops 1, unmatched_loops 1`.
 
 ### The Python API
@@ -930,11 +960,11 @@ Each of these is imported from `pyflightstream.workspace`.
 
 | name | what it is |
 |---|---|
-| `refine_mesh` | writes a level; `keep_first_row` names the families that keep their first row and returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
-| `RefinedMesh` | frozen: `folder`, `obj`, `files`, `report` and `audit` |
-| `audit_mesh` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares |
-| `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks`, `figures`, `path`, `passed`, `failures`, `as_json`, `summary` and `write_csv`; the static method `MeshAudit.files_read` returns the files an audit of `mesh` reads, each with what it is, a file that does not exist included |
-| `derive_thin_blade` | the function behind `pyfs-matrix degenerate`: derives the thin blade of a blade mesh, writes it beside the source and returns a `ThinBlade`; `thin_blade_path` gives the name it writes |
+| `refine_mesh(mesh, factor=None, *, families=None, chordwise=None, spanwise=None, config=None, out_dir=None, overwrite=False, keep_first_row=None)` | writes a level; `keep_first_row` names the families that keep their first row (`None` or an empty sequence asks nothing) and returns a `RefinedMesh`; raises `InputArtifactError` on every refusal and `MissingExtraError` when a family must be remeshed and the geometry extra is missing |
+| `RefinedMesh` | frozen: `folder` (the level folder), `obj` (its OBJ), `files` (every file written, the OBJ first), `report` (the `families` entry of `refine.json`) and `audit` (the `MeshAudit` of the level) |
+| `audit_mesh(mesh, *, against=None, unchanged_grids=())` | audits an OBJ, writes `<stem>.audit.json` beside it and returns a `MeshAudit`; `unchanged_grids` names the grid families G6 compares (default: those the level's `refine.json` lists) |
+| `MeshAudit` | frozen: `mesh`, `source`, `gates` and `checks` (each item with `name`, `family`, `values`, `verdict`, `passed` and `line()`), `figures`, `path`, `passed`, `failures`, `as_json()`, `summary()` and `write_csv(path)`; the static method `MeshAudit.files_read(mesh)` returns the files an audit of `mesh` reads, each with what it is (the OBJ, its boundaries file, its trailing-edge points files), a file that does not exist included |
+| `derive_thin_blade(geometry, *, root_offset, overwrite=False, boundary=None)` | the function behind `pyfs-matrix degenerate`: derives the thin blade of a blade mesh (an `.fsm` or an OBJ), writes it beside the source and returns a `ThinBlade`; `thin_blade_path` gives the name it writes |
 
 ### Limits of the refinement
 

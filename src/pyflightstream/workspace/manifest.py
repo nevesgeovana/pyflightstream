@@ -34,8 +34,12 @@ from pydantic import (
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import BoundaryAliases, RawCommand
-from pyflightstream.cases.restart_records import ExportThresholdRecord, StoppedStepRecord
-from pyflightstream.cases.windows import surface_average_window, surface_averaging_window
+from pyflightstream.cases.windows import (
+    ExportThresholdRecord,
+    StoppedStepRecord,
+    surface_average_window,
+    surface_averaging_window,
+)
 from pyflightstream.script import MarchStrategy
 from pyflightstream.script._surface_averaging import SurfaceAverageWindow, SurfaceAveragingWindow
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, free_root_archive
