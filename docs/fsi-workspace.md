@@ -208,10 +208,14 @@ it, and nothing the package emits changes for it.
 
 The export's moment column of an XZ cut is read as positive about +y, which
 is nose up on either wing, by analogy with the blade's XY cut. On 26.124
- the route converged and mapped 1052 of 1052 vertices, and
+the route converged and mapped 1052 of 1052 vertices, and
 on that symmetric NACA 0012 wing the reading agrees in sign at the integral
- and not in magnitude, which a symmetric
-section cannot decide. The
+(+7.49 against +17.13 N m) and not in magnitude (44 percent), which a symmetric
+section cannot decide. On a cambered NACA 4412 wing the
+magnitude is confirmed: the summed cut moments are 1.00825 of the solver's
+moment about the same line, at least as close to 1 as the summed cut forces
+are to the lift (0.99033), and the coupled point gives the same verdict
+(1.00791 and 0.99045). The
 offline tests hold the emitted script, the weight against the cantilever's closed form
 q L^4 / (8 E I) and the absence of any centrifugal term.
 

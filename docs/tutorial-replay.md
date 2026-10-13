@@ -95,11 +95,11 @@ the executor may have gained a flag, or lost one, since the run.
 <!-- skip: next -->
 ```python
 if rebuilt.faithful:
- print("every artifact still hashes to what the record says")
+    print("every artifact still hashes to what the record says")
 else:
- for name, state in rebuilt.verified.items:
- if state != "match":
- print(f"{name}: {state}")
+    for name, state in rebuilt.verified.items():
+        if state != "match":
+            print(f"{name}: {state}")
 ```
 
 `verified` maps each artifact to one of three states, `"match"`,

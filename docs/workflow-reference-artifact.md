@@ -115,23 +115,25 @@ resolved matrix it closes over:
 from pyflightstream.workspace.matrix import resolve_matrix
 
 resolved = resolve_matrix(
- "matrix_registry.fs",
- workspace,
- name="matrix",
- fs_version="26.120",
- recipes={"003": "steady"},
+    "matrix_registry.fs",
+    workspace,
+    name="matrix",
+    fs_version="26.120",
+    recipes={"003": "steady"},
+)
 
 
 def recipe(case, script):
- # The ROW's code, not a literal: a case carries the codes of the row
- # it came from, so this reads the artifact that row named.
- reference = resolved.references[case.variables["matrix_ref"]]
- rotor = reference.rotor
- if rotor is None:
- raise ValueError(
- f"{case.sim_id}: this recipe places a probe line per blade and the "
- "reference artifact describes no rotor"
- blades = rotor.n_blades # the RESOLVED count, one under a periodic sector
+    # The ROW's code, not a literal: a case carries the codes of the row
+    # it came from, so this reads the artifact that row named.
+    reference = resolved.references[case.variables["matrix_ref"]]
+    rotor = reference.rotor
+    if rotor is None:
+        raise ValueError(
+            f"{case.sim_id}: this recipe places a probe line per blade and the "
+            "reference artifact describes no rotor"
+        )
+    blades = rotor.n_blades   # the RESOLVED count, one under a periodic sector
 ```
 
 The guard on the way to `blades` is the point rather than ceremony:
