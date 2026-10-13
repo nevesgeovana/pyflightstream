@@ -16,6 +16,15 @@ Translate and rotate are not geometry operations: they stay in the run, as the
 row keys `TRANSLATE` and `ROTATE` and as the `translate` and `rotate`
 operations of a mesh's sidecar ([Mesh sidecar reference](mesh/reference.md)).
 
+Unlike post, a build refuses to replace outputs unless asked with `--overwrite`:
+its outputs are inputs of runs. Inspect the body before replacing them.
+For `build --rows POL --matrix FILE`, give both options or neither.
+
+The `pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` aliases
+give the identical result but will be removed in v1.0.0. Their replacements
+are `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate`,
+respectively.
+
 ## The instruction file
 
 Each geometry folder of the workspace, `inputs/geometries/<folder>/`, may hold

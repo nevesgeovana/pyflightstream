@@ -9,6 +9,9 @@ checked.
 
 ## How a call runs
 
+The new command accepts `--out` for the coupling run directory, for example
+`pyfs-fsi external --out point`; it does not accept `--dir`.
+
 The solver's aeroelastic coupling calls the package's step `pyfs-fsi external`
 in the point folder at every coupling iteration, and that step:
 

@@ -840,10 +840,43 @@ INFLOW_STATION_HARMONICS = DeprecatedFunction(
 )
 
 
+MATRIX_REFINE = DeprecatedFunction(
+    function="pyfs-matrix refine",
+    deprecated_since="0.40.0",
+    removal_version="1.0.0",
+    advice="use pyfs-workspace geometry refine",
+)
+MATRIX_AUDIT_MESH = DeprecatedFunction(
+    function="pyfs-matrix audit-mesh",
+    deprecated_since="0.40.0",
+    removal_version="1.0.0",
+    advice="use pyfs-workspace geometry audit",
+)
+MATRIX_INVENTORY = DeprecatedFunction(
+    function="pyfs-matrix inventory",
+    deprecated_since="0.40.0",
+    removal_version="1.0.0",
+    advice="use pyfs-workspace geometry inventory",
+)
+MATRIX_DEGENERATE = DeprecatedFunction(
+    function="pyfs-matrix degenerate",
+    deprecated_since="0.40.0",
+    removal_version="1.0.0",
+    advice="use pyfs-workspace geometry degenerate",
+)
+MATRIX_GEOMETRY_ALIASES = (
+    MATRIX_REFINE,
+    MATRIX_AUDIT_MESH,
+    MATRIX_INVENTORY,
+    MATRIX_DEGENERATE,
+)
+
+
 DEPRECATIONS: tuple[Deprecation, ...] = (
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,
     RUN_MATRIX_FS_VERSION,
     INFLOW_STATION_HARMONICS,
+    *MATRIX_GEOMETRY_ALIASES,
 )

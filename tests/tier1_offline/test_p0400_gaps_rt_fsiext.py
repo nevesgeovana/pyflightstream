@@ -159,7 +159,7 @@ def test_p0400_fsiext_steady_block_and_staged_files(tmp_path):
     for absent in ("SET_MOTION_FSI_EXECUTABLE", "SET_MOTION_FSI_STRUCTURAL_NODES", "START_SOLVER"):
         assert not any(line.startswith(absent) for line in body), absent
     staged = script.pending_input_files
-    assert "main(['external', '--dir', '.'])" in staged[ws.CALLBACK_FILE]
+    assert "main(['external', '--out', '.'])" in staged[ws.CALLBACK_FILE]
     assert ExternalStructure.model_validate_json(staged[EXTERNAL_MANIFEST]) == structure
     assert staged[EXTERNAL_NODES_FILE] == Path(structure.structural_nodes).read_bytes()
     assert "f010.model.dat" in staged
@@ -237,7 +237,7 @@ def _point(tmp_path: Path, mode: str = "ok") -> Path:
 def test_p0400_fsiext_step_archives_and_validates_a_call(tmp_path):
     """P0400-FSIEXT (FR-462 R2, R3): the call archived with its record, through the CLI."""
     folder = _point(tmp_path)
-    assert fsi_main(["external", "--dir", str(folder)]) == 0
+    assert fsi_main(["external", "--out", str(folder)]) == 0
     archive = folder / "fsi_archive" / "call_0001"
     record = json.loads((archive / "call.json").read_text(encoding="utf-8"))
     assert record["verdict"] == "passed" and record["return_code"] == 0

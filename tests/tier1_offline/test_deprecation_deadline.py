@@ -218,6 +218,7 @@ def test_every_promise_defined_in_the_ledger_is_in_the_tuple() -> None:
     from pyflightstream._deprecations import (
         DeprecatedColumn,
         DeprecatedFlag,
+        DeprecatedFunction,
         DeprecatedParameter,
     )
 
@@ -225,6 +226,7 @@ def test_every_promise_defined_in_the_ledger_is_in_the_tuple() -> None:
         DeprecatedModule,
         DeprecatedParameter,
         DeprecatedFlag,
+        DeprecatedFunction,
         DeprecatedManifestKey,
         DeprecatedColumn,
     )

@@ -14,6 +14,20 @@ All workspaces with post products created by an earlier release.
 
 ### What changes in a workspace
 
+By default, rebuilds overwrite products in place without an archive.
+Use `pyfs-matrix post --archive` to preserve replaced products.
+`--force-overwrite` adds a confirmation and `--yes` answers it in a script;
+neither option changes the archive policy.
+
+The `pyfs-matrix refine`, `audit-mesh`, `inventory` and `degenerate` aliases
+will be removed in v1.0.0. Use `pyfs-workspace geometry refine`, `audit`,
+`inventory` and `degenerate`, respectively; see [Geometry](geometry.md).
+
+The new `pyfs-fsi external` takes `--out` for its coupling directory.
+It does not accept `--dir`; existing `init-dummy` and `step` calls retain that alias.
+The new 6DOF input uses case-sensitive freedom keys and force enums, as listed
+in [One row: a body free to move](sixdof-motion.md).
+
 Integrated sectional loads now extend the first and last strip by half their
 adjacent station spacing. Tip values for `Strip_length`, `Fx_int`, `Fz_int`,
 and `My_int` therefore change. Interior strip lengths retain the midpoint
@@ -151,7 +165,9 @@ ring, azimuth, and `ds.coords["psi"]` is `fields.psi`; `ds["u"].sel(station=x)`
 is `fields["u"][fields.station_index(x)]`. A result read by key
 (`mass_closure(...)["mdot"]`, `transverse_force(...)["total"]`) is read by
 attribute (`.mdot`, `.total`). `to_counts` and `spurious_diagnostic` take
-`s_ref` explicitly, with no default. The retired `lattice_dataset` and `dataset_to_points` refuse when
+`s_ref` explicitly, with no safe default: it is the reference area in m2 used
+by the load coefficients. Omitting it raises `TypeError` naming the area and unit.
+The retired `lattice_dataset` and `dataset_to_points` refuse when
 called, naming the replacement in this table.
 
 `farfield.rothalpy` and `farfield.irreversible_deficit` were removed in 0.40.0,

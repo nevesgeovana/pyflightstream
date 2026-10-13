@@ -116,6 +116,6 @@ def test_doc_post_archive_flags_state_the_same_default():
 
     parser = _build_parser()
     help_text = " ".join(parser._subparsers._group_actions[0].choices["post"].format_help().split())
-    assert "writes no archive folder" in help_text
-    assert "--archive keeps a copy" in help_text
-    assert "default still writes no archive" in help_text
+    assert "By default, rebuilds overwrite products in place without an archive." in help_text
+    assert "keep the files a rebuild replaces" in help_text
+    assert "adds a confirmation before rebuilding" in help_text

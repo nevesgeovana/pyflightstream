@@ -283,13 +283,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "external",
         help=(
             "run one coupling call of an external structural program: run it, archive "
-            "and validate the call (FR-462)"
+            "and validate the call"
         ),
     )
-    external_out = p_external.add_mutually_exclusive_group()
-    external_out.add_argument("--out", dest="dir", type=Path, default=Path.cwd())
-    external_out.add_argument(
-        "--dir", dest="legacy_dir", type=Path, help="deprecated alias of --out"
+    p_external.add_argument(
+        "--out", dest="dir", type=Path, default=Path.cwd(), help="the coupling run directory"
     )
     return parser
 
