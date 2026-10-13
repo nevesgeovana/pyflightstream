@@ -40,7 +40,7 @@ USER_GUIDE_BUILD = (
     "powershell -NoProfile -ExecutionPolicy Bypass "
     "-File scripts/build-guide.ps1 -TexFile guide/pyflightstream_user_guide.tex"
 )
-CHEATSHEET_RAW_LOG = REPO / "guide/latex-sources/build/04-cheatsheet/pyfts-guide-04-cheatsheet.log"
+CHEATSHEET_RAW_LOG = "guide/latex-sources/build/04-cheatsheet/pyfts-guide-04-cheatsheet.log"
 
 
 def _git(*args: str) -> str:
@@ -162,7 +162,7 @@ def main() -> int:
             CHEATSHEET_BUILD,
             "pdflatex (three passes, run by build-all.ps1)",
             pdftex,
-            CHEATSHEET_RAW_LOG,
+            REPO / CHEATSHEET_RAW_LOG,
         ),
         (
             "pyflightstream_user_guide",

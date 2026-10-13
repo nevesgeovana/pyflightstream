@@ -271,6 +271,10 @@ message naming the record and missing input key, instead of raising KeyError. (F
 
 ### Fixed
 
+- The PDF release receipt builder reads the cheatsheet build log from the
+  checkout selected by `--repo`, so another checkout's stale log cannot be
+  paired with the rebuilt PDF (NFR-46, REL10-001).
+
 - External FSI refuses aliases of reserved files, including `call.json.` and names ending in spaces, when reading inputs, planning and executing a call. On Windows the archive's call record could overwrite a structural program's output while the call reported success (FR-462 R3, R4, REL8-001).
 - PFS-2089.006: Public action-export renderers require explicit keyword-only version.
 - PFS-2104.031: Walltime rescue respects EXPORT_LOG and LOG_OUTPUT routing.
