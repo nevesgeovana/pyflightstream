@@ -448,9 +448,8 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     tuple of str
         The names of the declined surfaces, in table order; empty when none.
     """
-    # THE RULE READS CDi ONLY (FR-423). SRC-003 p.202 says a declined surface
-    # prints its CDi as zero; no run has measured what 26.125 prints in its CDp
-    # for such a surface, so a table printing the 26.125 split declines nothing.
+    # THE RULE READS CDi ONLY (FR-423). A table printing the 26.125 split
+    # declines nothing here; its CDp zero is said by declined_profile_drag_125.
     if DRAG_PAIRS[0][0] not in loads.total:
         return ()
     names = list(loads.surfaces)
@@ -472,13 +471,17 @@ def _on_the_vorticity_list(names: Sequence[str], selection: object) -> set[str]:
     return set()
 
 
-def _unjudged_vorticity_drag(loads: LoadsReport, selection: object) -> tuple[str, ...]:
-    """Return the listed surfaces the declined-drag rule cannot judge on a 26.125 table.
+def declined_profile_drag_125(loads: LoadsReport, selection: object) -> tuple[str, ...]:
+    """Return the listed surfaces a 26.125 table prints with ``CDp`` exactly zero.
 
-    The rule of :func:`declined_induced_drag` reads ``CDi``, and a table printing
-    the 26.125 split (``CDp``, ``CDv``) has none: no run has measured what 26.125
-    prints for a listed surface with no trailing edge, so its axis drag columns
-    are written as numbers the rule never judged. The caller says so in post.log.
+    PFS-2085.021, P0400-DECLINED125. On 26.125 a surface the solver declined to
+    compute (on the vorticity induced-drag list, without a trailing edge) prints
+    ``CDp`` 0, as earlier builds print ``CDi`` 0 (RPT-166, probes D-01 and D-01c:
+    the same sphere prints CDp 0 on the list and -0.0005 off it). The rule of
+    :func:`declined_induced_drag` reads ``CDi`` and so judges nothing on a table
+    printing the 26.125 split (``CDp``, ``CDv``); this one reads ``CDp`` there.
+    On 26.124 the same surface prints ``CDi`` 0 both on and off the list, so that
+    build cannot discriminate and this rule does not apply to it.
 
     Parameters
     ----------
@@ -490,13 +493,16 @@ def _unjudged_vorticity_drag(loads: LoadsReport, selection: object) -> tuple[str
     Returns
     -------
     tuple of str
-        The listed surfaces, in table order; empty on a table printing ``CDi``.
+        The listed surfaces whose printed ``CDp`` is exactly ``0.0``, in table
+        order; empty on a table printing ``CDi``.
     """
     if DRAG_PAIRS[0][0] in loads.total:
         return ()
     names = list(loads.surfaces)
     listed = _on_the_vorticity_list(names, selection)
-    return tuple(name for name in names if name in listed)
+    return tuple(
+        name for name in names if name in listed and loads.surfaces[name].get("CDp") == 0.0
+    )
 
 
 def polar_row(
