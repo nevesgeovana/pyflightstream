@@ -50,6 +50,24 @@ CHANGELOG = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 _NEWEST = re.search(r"^## \[(\d+\.\d+\.\d+)\]", CHANGELOG, flags=re.MULTILINE)
 RELEASED = _NEWEST.group(1) if (_NEWEST and re.search(r"\.dev\d+$", VERSION)) else VERSION
 MIGRATION = DOCS / f"migrating-to-{RELEASED}.md"
+#: One upgrading page carries the migration text of a release that has no page of
+#: its own (the 0.40.0 rule: a section of docs/upgrading.md, no new migrating-to page).
+UPGRADING = DOCS / "upgrading.md"
+
+
+def _migration_text() -> str:
+    """The migration text of the release: its own page, or its section of the upgrading page."""
+    if MIGRATION.is_file():
+        return MIGRATION.read_text(encoding="utf-8")
+    page = UPGRADING.read_text(encoding="utf-8")
+    match = re.search(
+        rf"^## {re.escape(RELEASED)}\n(?P<body>.*?)(?=^## \d|\Z)",
+        page,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    assert match, f"docs/upgrading.md has no ## {RELEASED} section and {MIGRATION.name} is absent"
+    return match.group("body")
+
 
 #: Suffixes that are never package payload: geometry, saved simulations,
 #: spreadsheets, documents, archives, logs and the retired workbook macro.
@@ -349,10 +367,11 @@ def test_every_documented_page_is_built_and_reachable():
     # Every page the release's own CHANGELOG section and migration page cite
     # is a page of the site.
     cited = set(re.findall(r"\]\(docs/([\w./-]+\.md)", _changelog_section(RELEASED)))
-    cited |= set(
-        re.findall(r"\]\(([\w./-]+\.md)(?:#[\w-]+)?\)", MIGRATION.read_text(encoding="utf-8"))
-    )
-    assert f"migrating-to-{RELEASED}.md" in cited
+    cited |= set(re.findall(r"\]\(([\w./-]+\.md)(?:#[\w-]+)?\)", _migration_text()))
+    if MIGRATION.is_file():
+        assert f"migrating-to-{RELEASED}.md" in cited
+    else:
+        assert "upgrading.md" in site_pages(DOCS, in_nav=True), "the upgrading page left the menu"
     built = set(site_pages(DOCS)) | generated
     absent = sorted(page for page in cited if page not in built)
     assert not absent, f"pages the {RELEASED} notes cite that the site lacks: {absent}"
@@ -652,6 +671,24 @@ _MIGRATION_NAMES_BY_RELEASE = {
     "0.33.1": _MIGRATION_NAMES_0_33_1,
     "0.34.0": _MIGRATION_NAMES_0_34_0,
     "0.35.0": _MIGRATION_NAMES_0_35_0,
+    # 0.40.0 has no migrating-to page: its text is the 0.40.0 section of docs/upgrading.md,
+    # and the ### Changed list names no bold heads, so each key is a requirement id the list
+    # cites, and the words are those the upgrading section must say for a reader to act.
+    "0.40.0": {
+        "FR-397": ("--archive", "--force-overwrite"),
+        "FR-477": ("audit-mesh", "pyfs-workspace geometry"),
+        "FR-476": ("from-sidecar",),
+        "FR-462": ("pyfs-fsi", "--out"),
+        "FR-457": ("LatticeFields", "xarray"),
+        "FR-32": ("last_step", "time_average", "averaging_window"),
+        "FR-176": ("M_adv", "mach_advancing"),
+        "FR-461": ("_trajectory_6dof.txt",),
+        "FR-435": ("Hub1",),
+        "FR-409": ("step_offset",),
+        "FR-102": ("half-even",),
+        "FR-452": ("wake VTK",),
+        "FR-471": ("METER", "--overwrite"),
+    },
 }
 
 #: The inputs each release's summary refuses, each of which its section and
@@ -675,6 +712,7 @@ _REFUSED_BY_RELEASE = {
     "0.33.1": ("unsteady_rotor",),
     "0.34.0": ("unsteady_rotor",),
     "0.35.0": ("unsteady_rotor",),
+    "0.40.0": ("farfield.rothalpy", "--force-overwrite", "from-sidecar"),
 }
 _PAGE_WORDS_BY_RELEASE = {
     "0.39.0": (
@@ -744,6 +782,7 @@ _PAGE_WORDS_BY_RELEASE = {
         "upgrading.md",
     ),
     "0.35.1": ("--batch", "--polar-sweep", "FR-402", "FR-405", "FR-406", "FR-407"),
+    "0.40.0": ("farfield.rothalpy", "pyfs-matrix post", "M_adv"),
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
     "0.29.0": ("[[inlets]]", "refused"),
     "0.30.0": ("PASSAGE_POSITIONS", "prune_step_exports", "--apply"),
@@ -783,12 +822,12 @@ def test_the_migration_page_names_every_reader_facing_change():
 
     GOAL033:delivery:checks:migration
     """
-    assert MIGRATION.is_file(), f"{MIGRATION.name} is absent"
-    page = MIGRATION.read_text(encoding="utf-8")
+    page = _migration_text()
     section = _changelog_section(RELEASED)
-    assert f"docs/migrating-to-{RELEASED}.md" in section, (
-        "the CHANGELOG section does not cite the page"
-    )
+    if MIGRATION.is_file():
+        assert f"docs/migrating-to-{RELEASED}.md" in section, (
+            "the CHANGELOG section does not cite the page"
+        )
     changed = re.search(
         r"^### Changed\n(?P<body>.*?)(?=^### )", section, flags=re.MULTILINE | re.DOTALL
     )
@@ -798,10 +837,15 @@ def test_the_migration_page_names_every_reader_facing_change():
     assert RELEASED in _MIGRATION_NAMES_BY_RELEASE, (
         f"no migration words are recorded for {RELEASED}; add its entry"
     )
-    assert set(heads) == set(_MIGRATION_NAMES), (
-        f"changes with no migration words here: {sorted(set(heads) - set(_MIGRATION_NAMES))}; "
-        f"words kept for no listed change: {sorted(set(_MIGRATION_NAMES) - set(heads))}"
-    )
+    if MIGRATION.is_file():
+        assert set(heads) == set(_MIGRATION_NAMES), (
+            f"changes with no migration words here: {sorted(set(heads) - set(_MIGRATION_NAMES))}; "
+            f"words kept for no listed change: {sorted(set(_MIGRATION_NAMES) - set(heads))}"
+        )
+    else:
+        # The list carries no bold heads: every key is an id the list cites.
+        stale = sorted(key for key in _MIGRATION_NAMES if key not in changed.group("body"))
+        assert not stale, f"migration words kept for ids the ### Changed list lacks: {stale}"
     unnamed = {
         head: [word for word in words if word not in page]
         for head, words in _MIGRATION_NAMES.items()
