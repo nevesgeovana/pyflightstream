@@ -19,6 +19,7 @@ there before.
 
 from __future__ import annotations
 
+import os
 import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from pyflightstream._errors import ProductError
+from pyflightstream.workspace._links import _is_link
 from pyflightstream.workspace.naming import ARCHIVE_STAMP
 
 __all__ = [
@@ -67,8 +69,9 @@ def rename_group_products(
     Parameters
     ----------
     root : str or pathlib.Path
-        The workspace root. Every `.csv` and `.dat` under it whose stem ends in
-        the numbered suffix is considered.
+        The workspace root. Every `.csv` and `.dat` under its `post/` whose stem
+        ends in the numbered suffix is considered; inputs, simulations, archives
+        and links are not products and are never read.
     groups : mapping of int to str
         The group NUMBER each product carries today, mapped to the name it
         takes. A number this mapping does not carry is LEFT ALONE and reported
@@ -108,11 +111,7 @@ def rename_group_products(
     # and a licensed run is what it costs to regenerate what moved.
     planned: list[tuple[Path, Path]] = []
     claimed: set[Path] = set()
-    for path in sorted(base.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in (".csv", ".dat"):
-            continue
-        if "archive" in path.parts:
-            continue
+    for path in _products(base):
         target = _renamed(path, groups)
         if target is None:
             continue
@@ -149,6 +148,30 @@ def rename_group_products(
         path.rename(target)
         moved.append(RenamedProduct(before=path, after=target, archived=copy if archive else None))
     return moved
+
+
+def _products(base: Path) -> list[Path]:
+    """Every ``.csv`` and ``.dat`` product under the workspace's ``post/``, once each.
+
+    PFS-2096.012: the walk took the whole root, so a row's input
+    ``inputs/profiles/<x>_g1.csv`` or a solver file under ``sims/`` was renamed
+    too, and it descended through the staged input links, planning one file
+    twice. Products live under ``post/<matrix>/``; ``archive/`` copies, links
+    and junctions are never entered.
+    """
+    found: dict[Path, Path] = {}
+    if _is_link(base / "post"):
+        return []
+    for folder, dirnames, filenames in os.walk(base / "post"):
+        here = Path(folder)
+        dirnames[:] = sorted(
+            name for name in dirnames if name != "archive" and not _is_link(here / name)
+        )
+        for name in sorted(filenames):
+            path = here / name
+            if path.suffix.lower() in (".csv", ".dat") and not _is_link(path):
+                found.setdefault(path.resolve(), path)
+    return sorted(found.values())
 
 
 def _renamed(path: Path, groups: Mapping[int, str]) -> Path | None:
@@ -188,7 +211,8 @@ def unmapped_group_numbers(root: str | Path, groups: Mapping[int, str]) -> dict[
     Parameters
     ----------
     root : str or Path
-        The folder whose products are read.
+        The workspace root; the products under its `post/` are read, as the
+        migration reads them.
     groups : mapping of int to str
         Group number to name, as the migration takes it.
 
@@ -200,11 +224,7 @@ def unmapped_group_numbers(root: str | Path, groups: Mapping[int, str]) -> dict[
     """
     base = Path(root)
     found: dict[int, list[Path]] = {}
-    for path in sorted(base.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in (".csv", ".dat"):
-            continue
-        if "archive" in path.parts:
-            continue
+    for path in _products(base):
         stem = path.stem
         marker = stem.rfind(_NUMBERED_SUFFIX)
         if marker < 0:
