@@ -140,7 +140,6 @@ import threading as threading
 import time as time
 import tomllib
 import uuid as uuid
-import zipfile
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
@@ -195,11 +194,15 @@ from pyflightstream.workspace._layout import matrix_by_stem as matrix_by_stem
 from pyflightstream.workspace._layout import matrix_files as matrix_files
 from pyflightstream.workspace._layout import point_kind as point_kind
 from pyflightstream.workspace._links import (
+    _copy_inputs_problem,
     _is_link,
     _make_dir_link,
     _remove_link,
     _remove_sim_tree,
-    _sim_files,
+    _write_sim_archive,
+)
+from pyflightstream.workspace._links import (
+    _sim_files as _sim_files,
 )
 from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
 from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
@@ -1166,12 +1169,7 @@ class CampaignWorkspace:
         every new simulation.
         """
         sim = self.sim_dir(sim_id)
-        for name in _SIM_SUBDIRS:
-            # A STAGED LINK IS KEPT AS IT IS, EVEN ONE WHOSE TARGET IS GONE (PFS-2095.056):
-            # mkdir on a dangling junction raised FileExistsError, so staging, writing a
-            # script and collecting all stopped before `_link_inputs` could replace it.
-            if _is_link(sim / name):
-                continue
+        for name in (n for n in _SIM_SUBDIRS if not _is_link(sim / n)):  # PFS-2095.056
             (sim / name).mkdir(parents=True, exist_ok=True)
         return sim
 
@@ -1247,26 +1245,11 @@ class CampaignWorkspace:
                 )
         inputs = sim / "inputs"
         mode, reason = self._link_inputs(inputs, origins)
-        if mode == "copy":
-            # A link that could not be removed still points into the library, and a
-            # copy through it would write the sources there (PFS-2095.062).
-            if origins and (_is_link(inputs) or not inputs.is_dir()):
-                raise WorkspaceError(
-                    f"cannot stage into {inputs}: {reason}. Copying through a link would "
-                    "write the sources into the folder it points at. Remove the inputs "
-                    "link by hand and stage again; no input was copied."
-                )
-            # Check every destination before copying any file: copy2 follows
-            # symbolic links and truncates every name of a hard-linked file.
-            for origin in origins:
-                target = inputs / origin.name
-                if _is_link(target) or (target.exists() and target.stat().st_nlink > 1):
-                    raise WorkspaceError(
-                        f"cannot stage {origin}: the destination {target} is a linked file. "
-                        "Copying over it could overwrite a user's input outside the "
-                        "simulation. Remove the staged link or choose another simulation; "
-                        "no input was copied."
-                    )
+        if (
+            mode == "copy"
+            and (problem := _copy_inputs_problem(inputs, origins, reason)) is not None
+        ):
+            raise WorkspaceError(problem)
         hashes: dict[str, str] = {}
         for origin in origins:
             target = inputs / origin.name
@@ -1325,41 +1308,29 @@ class CampaignWorkspace:
             return "copy", None
         parents = {origin.resolve().parent for origin in origins}
         target = parents.pop() if len(parents) == 1 else None
+        if _is_link(inputs) and Path(os.path.realpath(inputs)) != target:
+            try:  # PFS-2095.062: removal and recreation belong to the copy fallback
+                _remove_link(inputs)
+                inputs.mkdir(exist_ok=True)
+            except OSError as error:
+                return "copy", f"the earlier link {inputs} could not be replaced: {error}"
         if target is None or (target != library and target.parent != library):
-            if _is_link(inputs):
-                # EVERY FILESYSTEM STEP IS UNDER THE FALLBACK (PFS-2095.062), not only
-                # the second of two: a refused removal is a reason, never a traceback.
-                try:
-                    _remove_link(inputs)
-                    inputs.mkdir()
-                except OSError as error:
-                    return "copy", f"the earlier link {inputs} could not be replaced: {error}"
             return "copy", (
                 "the source is not in the workspace geometry library (inputs/geometries, "
                 "directly or in one geometry's folder), and a link would expose a "
                 "directory the workspace does not own"
             )
         if _is_link(inputs):
-            if Path(os.path.realpath(inputs)) == target:
-                return "link", None
-            try:
-                _remove_link(inputs)
-            except OSError as error:
-                return "copy", f"the earlier link {inputs} could not be replaced: {error}"
-        elif any(inputs.iterdir()):
+            return "link", None
+        if any(inputs.iterdir()):
             return "copy", (
                 "the simulation's inputs folder already holds files staged by an "
                 "earlier release, and they are the evidence its records hash"
             )
-        else:
-            # THE REMOVAL IS COVERED BY THE SAME FALLBACK AS THE LINK (0.24.0). A sync
-            # client that has just seen this empty folder appear holds it for a
-            # moment, and the refusal stopped the whole matrix before any solver
-            # started. It costs the link, never the run.
-            try:
-                inputs.rmdir()
-            except OSError as error:
-                return "copy", f"the empty inputs folder could not be replaced by a link: {error}"
+        try:
+            inputs.rmdir()
+        except OSError as error:
+            return "copy", f"the empty inputs folder could not be replaced by a link: {error}"
         try:
             _make_dir_link(target, inputs)
         except OSError as error:
@@ -1805,12 +1776,11 @@ class CampaignWorkspace:
         if produced or not missing:
             (sim / folder).mkdir(parents=True, exist_ok=True)
         for path in produced:
-            origin = Path(path)
-            if str(path) in kept:
-                collected.append(f"{folder}/{origin.name}")
-                continue
-            shutil.move(str(origin), sim / folder / collection_name(path))
-            collected.append(f"{folder}/{collection_name(path)}")
+            # A kept file is already in place under its own name, which is its record.
+            filed = Path(path).name if str(path) in kept else collection_name(path)
+            if str(path) not in kept:
+                shutil.move(str(path), sim / folder / filed)
+            collected.append(f"{folder}/{filed}")
         if missing:
             raise MissingOutputsError(
                 f"declared outputs were not produced: {', '.join(missing)}. A missing "
@@ -2455,27 +2425,16 @@ class CampaignWorkspace:
         # that failed half-way left a fragment at the final name, and the check above
         # then refused every retry as though a whole archive were there.
         temporary = target.with_name(f"{target.name}.{os.getpid()}.tmp")
-        current = sim
         try:
-            with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-                for path in _sim_files(sim):
-                    current = path
-                    bundle.write(path, path.relative_to(sim))
-                # A STAGED LINK IS ARCHIVED AS A LINK (PFS-2029.17): the geometry
-                # it points at is the library's and stays there; the zip records
-                # where the link pointed, and never the bytes behind it.
-                link = sim / "inputs"
-                if _is_link(link):
-                    bundle.writestr("inputs/STAGED_AS_LINK.txt", os.path.realpath(link) + "\n")
-            current = target
+            _write_sim_archive(sim, temporary)
             if target.exists():
                 raise FileExistsError(f"{target} appeared while the archive was written")
             temporary.rename(target)
         except OSError as error:
             temporary.unlink(missing_ok=True)
             raise WorkspaceError(
-                f"archiving sim {sim_id!r} failed at {current}: {error}. No archive was "
-                "written and the simulation folder is kept as it was."
+                f"archiving sim {sim_id!r} failed at {error.filename or target}: {error}. "
+                "No archive was written and the simulation folder is kept as it was."
             ) from error
         _remove_sim_tree(sim)
         return target

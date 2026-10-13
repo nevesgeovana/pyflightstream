@@ -5,6 +5,7 @@ Each test is the regression of one planning node and fails on the code before it
 
 from __future__ import annotations
 
+import os
 import shutil
 import zipfile
 from pathlib import Path
@@ -14,6 +15,8 @@ import pytest
 import pyflightstream.workspace as workspace_module
 from pyflightstream.workspace import CampaignWorkspace, PointName, WorkspaceError, _is_link
 from tests.tier1_offline.test_workspace import make_record
+
+pytestmark = pytest.mark.requirement("P0400-WSINIT")
 
 
 def _geometry(workspace: CampaignWorkspace, folder: str, name: str) -> Path:
@@ -47,11 +50,16 @@ def test_p0400_wsinit_create_sim_keeps_a_dangling_inputs_link(tmp_path):
     assert (workspace.sim_dir("9001") / "scripts" / "point.txt").is_file()
 
 
-def _refuse_removal(monkeypatch) -> None:
-    def held(link: Path) -> None:
-        raise PermissionError(5, "Access is denied", str(link))
+def _refuse_removal(monkeypatch, inputs: Path) -> None:
+    for name in ("rmdir", "unlink"):
+        real = getattr(os, name)
 
-    monkeypatch.setattr(workspace_module, "_remove_link", held)
+        def held(path, *args, _real=real, **kwargs):
+            if Path(path) == inputs:
+                raise PermissionError(5, "Access is denied", str(path))
+            return _real(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, name, held)
 
 
 def test_p0400_wsinit_a_link_that_cannot_be_retargeted_is_a_reason_and_copies_nothing(
@@ -62,8 +70,8 @@ def test_p0400_wsinit_a_link_that_cannot_be_retargeted_is_a_reason_and_copies_no
     wing = _geometry(workspace, "wing", "wing.fsm")
     workspace.stage_inputs("9001", [wing])
     tail = _geometry(workspace, "tail", "tail.fsm")
-    _refuse_removal(monkeypatch)
     inputs = workspace.sim_dir("9001") / "inputs"
+    _refuse_removal(monkeypatch, inputs)
     mode, reason = workspace._link_inputs(inputs, [tail])
     assert mode == "copy" and "Access is denied" in str(reason), (mode, reason)
     with pytest.raises(WorkspaceError, match="no input was copied"):
@@ -78,13 +86,35 @@ def test_p0400_wsinit_a_link_that_cannot_be_removed_for_copies_is_a_reason(tmp_p
     workspace.stage_inputs("9001", [wing])
     outside = tmp_path / "outside.fsm"
     outside.write_bytes(b"outside")
-    _refuse_removal(monkeypatch)
     inputs = workspace.sim_dir("9001") / "inputs"
+    _refuse_removal(monkeypatch, inputs)
     mode, reason = workspace._link_inputs(inputs, [outside])
     assert mode == "copy" and "Access is denied" in str(reason), (mode, reason)
     with pytest.raises(WorkspaceError, match="no input was copied"):
         workspace.stage_inputs("9001", [outside])
     assert not (wing.parent / "outside.fsm").exists()
+
+
+def test_p0400_wsinit_recreating_inputs_after_link_removal_has_a_copy_fallback(
+    tmp_path, monkeypatch
+):
+    """P0400-WSINIT (PFS-2095.062): mkdir after a removed link returns the copy reason."""
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    wing = _geometry(workspace, "wing", "wing.fsm")
+    workspace.stage_inputs("9001", [wing])
+    outside = tmp_path / "outside.fsm"
+    outside.write_bytes(b"outside")
+    inputs = workspace.sim_dir("9001") / "inputs"
+    real = Path.mkdir
+
+    def held(path, *args, **kwargs):
+        if path == inputs:
+            raise PermissionError("cannot recreate inputs")
+        return real(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", held)
+    mode, reason = workspace._link_inputs(inputs, [outside])
+    assert mode == "copy" and "cannot recreate inputs" in reason
 
 
 def test_p0400_wsinit_collect_names_moves_and_records_by_collection_name(tmp_path, monkeypatch):
