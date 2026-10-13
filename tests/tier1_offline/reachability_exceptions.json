@@ -10,16 +10,6 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
-   "id": "RX-04",
-   "capability": "Cylindrical survey lattice of probe points and its emission, and the lattice dataset point writer",
-   "reason": "routed later",
-   "node": "PFS-2140.001",
-   "release": "0.40.0",
-   "names": [
-    "pyflightstream.post.write_tecplot_points"
-   ]
-  },
-  {
    "id": "RX-05",
    "capability": "Planar probe grids on a frame with per-axis distributions and refinement bands",
    "reason": "routed later",

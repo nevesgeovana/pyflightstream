@@ -133,8 +133,9 @@ ROOTS: tuple[tuple[str, str], ...] = (
 # 281: the probe export goes through probes.emit_probe_export (RX-07 deleted, RX-04 shrinks).
 # 280: the plan writes the added far-field csv with probes.write_points_csv (RX-04 shrinks).
 # 278: the plan places and rounds lattices through emit_probe_points and write_probe_csv.
-_REGISTER_CEILING = 278
-_REGISTER_DIGEST = "5ae5ff66476718dd7a1915edb380b9949419aac7d492322618036db4ead6b72f"
+# 277: field_formats "tecplot-points" writes through post.write_tecplot_points (RX-04 deleted).
+_REGISTER_CEILING = 277
+_REGISTER_DIGEST = "e22b03ef34d2fe9bdd2a7c7ecf4976a9f160387fcdef6bc02e6232ca7e6e65f9"
 
 REASONS = (
     "routed later",

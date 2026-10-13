@@ -11,6 +11,11 @@ reusable_inflow = true
 rectangles = [{origin=[0,-1,-2], along_u=[0,1,-2], along_v=[0,-1,2], points_u=2, points_v=2}]
 ```
 
+`"tecplot"` writes `<stem>.dat` with one single-point zone per sample. Since
+0.40.0, `"tecplot-points"` writes `<stem>_points.dat`, every sample in one
+ordered POINT zone (`pyflightstream.post.write_tecplot_points`, FR-153); the
+two can be requested together.
+
 The request includes VX, VY and VZ automatically. General plot generation can be
 turned off while the requested field histories remain enabled. A volume section
 uses the same sampling route; its grid is specified by its own plane, dimensions

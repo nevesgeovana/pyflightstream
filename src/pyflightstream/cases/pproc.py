@@ -1182,7 +1182,9 @@ class ProbesSpec(BaseModel):
     frame: str = ""
     parameters: list[str] = Field(default_factory=list)
     #: Optional sampled velocity products; each retains source units and topology.
-    field_formats: list[Literal["vtk", "tecplot"]] = Field(default_factory=list)
+    #: ``tecplot`` writes one single-point zone per sample, ``tecplot-points`` one
+    #: ordered POINT zone of all samples (FR-153, 0.40.0).
+    field_formats: list[Literal["vtk", "tecplot", "tecplot-points"]] = Field(default_factory=list)
     #: Write a six-column global YZ-plane profile suitable for custom inflow.
     reusable_inflow: bool = False
     points: int = Field(default=25, ge=2)

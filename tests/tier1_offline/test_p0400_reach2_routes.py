@@ -270,3 +270,79 @@ def test_p0400_reach2_the_lattice_emitters_keep_their_unplaced_default(tmp_path)
     write_probe_csv(lattice, stream)
     write_points_csv(lattice.dimensional_points(), direct)
     assert stream.getvalue() == direct.getvalue()
+
+
+@pytest.mark.requirement("FR-153")
+def test_p0400_reach2_tecplot_points_writes_one_ordered_zone_beside_the_tecplot_product(
+    tmp_path, monkeypatch
+):
+    """P0400-REACH2 (FR-153, 0.40.0): ``field_formats = ["tecplot-points"]`` from the pproc.
+
+    The workspace post writes ``<stem>_points.dat`` through write_tecplot_points,
+    one ordered POINT zone of every sample, and the ``tecplot`` product beside it
+    keeps one single-point zone per sample.
+    """
+    from pyflightstream.cases import PprocSpec
+    from pyflightstream.post import probe_fields
+    from pyflightstream.post.products import write_campaign_products
+    from pyflightstream.post.writers import write_tecplot_points
+    from pyflightstream.run._pending import _write_probe_points
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline.test_f01_probe_source import _post_workspace
+    from tests.tier1_offline.test_post_products import PLOTS_HEADER
+
+    written = _spy(monkeypatch, probe_fields, "write_tecplot_points", write_tecplot_points)
+    w = _post_workspace(tmp_path, monkeypatch)
+    pproc = (
+        '[groups]\n"1"="all"\n[products]\nplots=false\n'
+        '[[probes]]\nframe="REFERENCE"\nfield_formats=["tecplot","tecplot-points"]\n'
+        "rectangles=[{origin=[0,-1,-2],along_u=[0,1,-2],along_v=[0,-1,2],points_u=2,points_v=2}]\n"
+    )
+    (w.inputs_dir / "pproc/p001.toml").write_text(pproc, encoding="utf-8")
+    assert PprocSpec.model_validate(
+        {"probes": [{"frame": "REFERENCE", "field_formats": ["tecplot-points"]}]}
+    ).probes[0].field_formats == ["tecplot-points"]
+    positions = [
+        (i, 0, y, z, "REFERENCE")
+        for i, (y, z) in enumerate([(-1, -2), (-1, 2), (1, -2), (1, 2)], 1)
+    ]
+    relative = _write_probe_points(w.sim_dir("7001"), "7001", positions)
+    history = "Time-step," + ",".join(f"{v}{i}" for i in range(1, 5) for v in ("VX", "VY", "VZ"))
+    history += "\n1," + ",".join(str(v) for i in range(1, 5) for v in (10 + i, 3 + i, 5 - i))
+    (w.sim_dir("7001") / "outputs/AL-020_plots.txt").write_text(
+        PLOTS_HEADER + history + "\n" + "-" * 60 + "\n     Force Units: Coefficients\n",
+        encoding="utf-8",
+    )
+    layout = {
+        "entry": 1,
+        "kind": "probe-field",
+        "probe_ids": [1, 2, 3, 4],
+        "frame": "REFERENCE",
+        "native_to_m": 1,
+        "formats": ["tecplot", "tecplot-points"],
+        "reusable_inflow": False,
+    }
+    record = w.read_manifest()[0].model_copy(
+        update={
+            "probe_points_file": relative,
+            "solver_setup": helpers.solver_settings(Script("26.124"), velocity=30).model_dump(
+                mode="json"
+            ),
+            "probe_field_layout": [layout],
+        }
+    )
+    monkeypatch.setattr(CampaignWorkspace, "read_manifest", lambda self: [record])
+    write_campaign_products(w)
+    fields = w.root / "post/products/fields"
+    (points,) = list(fields.glob("*_points.dat"))
+    (per_sample,) = [path for path in fields.glob("*.dat") if path != points]
+    assert len(written) == 1, (_REQUIREMENT, "the post writes the zone by write_tecplot_points")
+    text = points.read_text(encoding="utf-8").splitlines()
+    assert text[0] == 'TITLE = "Reference-frame velocity samples"'
+    assert [line for line in text if line.startswith("ZONE")] == [
+        'ZONE T="samples" I=4 ZONETYPE=ORDERED DATAPACKING=POINT'
+    ]
+    assert len(text) == 3 + 4 and "Velocity_x" in text[1]
+    zones = [line for line in per_sample.read_text(encoding="utf-8").splitlines() if "ZONE" in line]
+    assert len(zones) == 4 and zones[0].startswith('ZONE T="Sample 1", I=1')
+    assert (fields / (points.name + ".provenance.json")).exists()

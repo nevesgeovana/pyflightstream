@@ -16,9 +16,16 @@ from pyflightstream.post.writers import (
     OutputProvenance,
     provenance_path,
     write_output_pair,
+    write_tecplot_points,
     write_vtk_points,
 )
 from pyflightstream.script.motion import resolve_frame_motion
+
+#: The field formats and the suffix each one appends to the field's stem. The
+#: ``tecplot`` product holds one single-point zone per sample; ``tecplot-points``
+#: holds all samples as one ordered POINT zone, written by
+#: :func:`~pyflightstream.post.writers.write_tecplot_points` (FR-153, 0.40.0).
+_FIELD_SUFFIXES = {"vtk": ".vtk", "tecplot": ".dat", "tecplot-points": "_points.dat"}
 
 
 def _refuse_existing(destination: Path, overwrite: bool) -> None:
@@ -43,8 +50,8 @@ def _validate_field(points_m, velocity_m_s, frame, formats, reusable_inflow):
         raise ProductError("probe positions and velocities must both be (N, 3)")
     if not len(points) or not np.isfinite(points).all() or not np.isfinite(velocity).all():
         raise ProductError("probe positions and velocities must be nonempty and finite")
-    if len(set(formats)) != len(formats) or any(f not in ("vtk", "tecplot") for f in formats):
-        raise ProductError("field formats are distinct vtk and/or tecplot names")
+    if len(set(formats)) != len(formats) or any(f not in _FIELD_SUFFIXES for f in formats):
+        raise ProductError("field formats are distinct vtk, tecplot and/or tecplot-points names")
     if not formats and not reusable_inflow:
         raise ProductError("select a field format or reusable inflow")
     if reusable_inflow:
@@ -69,7 +76,7 @@ def _field_destinations(
     stem: str | Path, formats: Sequence[str], reusable_inflow: bool
 ) -> list[Path]:
     """Every file one field writes: each product and its provenance record."""
-    suffixes = [".vtk" if form == "vtk" else ".dat" for form in formats]
+    suffixes = [_FIELD_SUFFIXES.get(form, ".dat") for form in formats]
     if reusable_inflow:
         suffixes.append(".inflow.dat")
     products = [Path(str(stem) + suffix) for suffix in suffixes]
@@ -115,8 +122,8 @@ def write_probe_field(
     Parameters
     ----------
     stem : str or pathlib.Path
-        Output path without extension; ``.vtk``, ``.dat`` and ``.inflow.dat``
-        are appended for the selected products.
+        Output path without extension; ``.vtk``, ``.dat``, ``_points.dat``
+        and ``.inflow.dat`` are appended for the selected products.
     points_m : numpy.ndarray
         Sample positions, finite, shape (N, 3), in metres.
     velocity_m_s : numpy.ndarray
@@ -128,7 +135,10 @@ def write_probe_field(
     frame : str, default "REFERENCE"
         The frame of the samples; only ``"REFERENCE"`` is accepted.
     formats : sequence of str, default ("vtk",)
-        Distinct field formats to write, from ``"vtk"`` and ``"tecplot"``.
+        Distinct field formats to write, from ``"vtk"``, ``"tecplot"`` (one
+        single-point zone per sample) and ``"tecplot-points"`` (every sample
+        in one ordered POINT zone, by
+        :func:`~pyflightstream.post.writers.write_tecplot_points`).
     reusable_inflow : bool, default False
         Also write the unstructured YZ-plane custom inflow profile. It needs
         one constant x, distinct positions and a two-dimensional survey.
@@ -215,6 +225,20 @@ def write_probe_field(
                 Path(str(stem) + ".dat"),
                 "\n".join(lines) + "\n",
                 record,
+                overwrite=overwrite,
+            )
+        )
+    if "tecplot-points" in formats:
+        # FR-153 (0.40.0): every sample in one ordered POINT zone, the public
+        # point writer's layout, beside the one-zone-per-sample product above.
+        written.extend(
+            write_tecplot_points(
+                Path(str(stem) + _FIELD_SUFFIXES["tecplot-points"]),
+                points,
+                {"Velocity": velocity},
+                provenance=record,
+                title="Reference-frame velocity samples",
+                zone="samples",
                 overwrite=overwrite,
             )
         )
