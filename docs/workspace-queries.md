@@ -48,6 +48,8 @@ its coupling records, the files it lacks and its last exchange row (FR-394).
 prints the post log grouped by category, product family and message shape with
 a count and one example each, as `--pproc-warnings` groups it (FR-387).
 `log --storage` lists the storage calls as they were recorded (FR-392).
+Torn or malformed activity lines and non-ISO timestamps are named in a warning
+and skipped; the remaining events are still shown.
 
 `trace PRODUCT` prints, from the post's products index, the
 simulation, post options and runs a product holds, with the identity of each
@@ -70,7 +72,9 @@ suffix when the archive has one. An absent or ambiguous selector is an error.
 The comparison reports changed fields, including versions, digests, solver flags,
 flight condition and outcome. Scripts are compared only when their bytes match
 the recorded digest; missing or replaced scripts are reported as unavailable.
-Changed commands identify line numbers and inputs using rebuild's comparison.
+Each script is normalized against its own execution root. Changed commands
+identify line numbers and the `a` and `b` sides; the diff does not attribute
+historical changes to the inputs currently on disk.
 
 Both verbs accept `--json`, `--csv` and `--runs NAME`. Their JSON documents
 include a schema, workspace, read time, source modification times and rows.
