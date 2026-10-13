@@ -102,7 +102,8 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: and the coefficient-format regressions have no defined requirement to mark.
 #: Raised from 235 to 236 by integC: rfixAPI (49ecc99d) marks the geometry-alias requirement on
 #: the four tests that falsify each geometry alias's replacement and deadline.
-MARKED_FLOOR = 236
+#: Raised from 236 to 237 by the reach2 lane: one more requirement carries a falsifying test.
+MARKED_FLOOR = 237
 
 
 def _marked() -> dict[str, list[str]]:
