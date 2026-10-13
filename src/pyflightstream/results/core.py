@@ -846,6 +846,30 @@ EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
         "a free-surface mesh as VTK (26.125, SRC-753 p.338), read by ParaView and every "
         "VTK reader; no workflow writes it",
     ),
+    "EXPORT_VOLUME_SECTION_2D_VTK": ExportConversion(
+        EXPORT_EXCLUDED, None, "vtk", "read by ParaView and every VTK reader"
+    ),
+    "EXPORT_ALL_SURFACE_STREAMLINES": ExportConversion(
+        EXPORT_OWED,
+        None,
+        None,
+        "its file has no parser here: one is written against a real export of a licensed "
+        "run; none is written yet",
+    ),
+    "EXPORT_6DOF_TRAJECTORY": ExportConversion(
+        EXPORT_OWED,
+        None,
+        None,
+        "the trajectory tables written after the march have no parser here: one is written "
+        "against a real export; none is written yet",
+    ),
+    "STABILITY_TOOLBOX_EXPORT": ExportConversion(
+        EXPORT_OWED,
+        None,
+        None,
+        "its coefficient file has no parser here, and the command has never been run on a "
+        "licensed build: there is no real export to write one against",
+    ),
     "SET_VTK_EXPORT_VARIABLES": ExportConversion(
         EXPORT_NOT_AN_EXPORT, None, None, "chooses the variables a later VTK export writes"
     ),

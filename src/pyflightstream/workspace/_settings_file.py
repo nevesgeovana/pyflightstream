@@ -262,7 +262,8 @@ def _check_default(key: str, value: object, path: Path) -> None:
     if key == "accept_unregistered_build":
         raise InputArtifactError(
             f"{path} [defaults] sets {key!r}; accept a build on its entry in "
-            "inputs/executables.local.toml or type --accept-unregistered-build. Nothing ran."
+            "inputs/executables.local.toml or pass accept_unregistered_build "
+            "(CLI: --accept-unregistered-build). Nothing ran."
         )
     if key in {"fs_exe", "local"} and path.name == SETTINGS_FILE:
         raise InputArtifactError(

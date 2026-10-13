@@ -237,6 +237,9 @@ def minimal_workflow(
     script.emit("NEW_SIMULATION")
     script.emit("IMPORT", "METER", "STL", geometry, clear=True)
     script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    # One STL is one boundary; 26.125 names the boundaries it detects on, so the
+    # inventory is declared (a build that auto-detects ignores it).
+    script.declare_existing(boundaries=1)
     helpers.detect_every_boundary(script, "trailing_edges")
     script.emit("SET_FREESTREAM", "CONSTANT")
     # Explicit properties rather than AIR_ALTITUDE: the altitude command

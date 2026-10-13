@@ -506,5 +506,5 @@ def test_the_definitions_page_and_the_glossary_state_the_column_fr_348():
     for fact in ("`MESH_FACES`", "`mesh_faces`", "`NA`", "last column", "never", "`mesh_sha256`"):
         assert fact in section, (requirement, fact)
     assert "uns_avg" in section and "super file" in section, requirement
-    assert "(the-mesh-face-count-since-0340.md#the-mesh-face-count-since-0340)" in page, requirement
+    assert "(the-mesh-face-count.md#the-mesh-face-count-since-0340)" in page, requirement
     assert {"mesh_faces", "boundary_faces", "mesh_sha256"} <= set(GEOMETRY_SIDECAR_KEYS)

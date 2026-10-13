@@ -16,7 +16,6 @@ metres, the grammar :func:`~pyflightstream.fsi.nodes.write_node_file` writes).
 
 from __future__ import annotations
 
-import csv
 import datetime
 import hashlib
 import json
@@ -179,7 +178,7 @@ def _append_log(directory: Path, row: dict[str, object]) -> None:
     path = directory / EXTERNAL_CALLS_LOG
     new = not path.is_file()
     with _textio.open_text(path, "a") as handle:
-        writer = csv.DictWriter(handle, fieldnames=_LOG_COLUMNS, lineterminator="\n")
+        writer = _textio.csv_dict_writer(handle, _LOG_COLUMNS)
         if new:
             writer.writeheader()
         writer.writerow({key: row.get(key, "") for key in _LOG_COLUMNS})

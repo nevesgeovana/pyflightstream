@@ -677,7 +677,7 @@ def _library_refusals_naming_a_flag() -> list[tuple[str, str, str]]:
             continue
         tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
         for node in ast.walk(tree):
-            if node.__class__.__name__ != "Raise" or node.exc is None:
+            if not isinstance(node, ast.Raise) or node.exc is None:
                 continue
             # ONE PASS, NOT TWO. `ast.walk` already descends into a
             # JoinedStr and visits its Constant children, so expanding
@@ -776,8 +776,11 @@ def _names_the_parameter(flag: str, message: str) -> bool:
     """
     import re
 
-    parameter = flag.lstrip("-").replace("-", "_")
-    if f"{parameter} (CLI: {flag})" in message:
+    parameter = {"--out": "out_dir", "--from": "source"}.get(
+        flag, flag.lstrip("-").replace("-", "_")
+    )
+    parameters = (parameter, "out") if flag == "--out" else (parameter,)
+    if any(f"{name} (CLI: {flag})" in message for name in parameters):
         return True
     # THE KEYWORD ARM MUST BE AN INSTRUCTION, not a mention. The second
     # version accepted any `parameter=` anywhere in the message, and a
@@ -799,6 +802,10 @@ def _names_the_parameter(flag: str, message: str) -> bool:
         ("--cases", "to run a subset, pass --cases", False, "flag alone, single word"),
         ("--smi-root", "pass smi_root (CLI: --smi-root)", True, "hyphenated flag, accepted"),
         ("--smi-root", "pass --smi-root", False, "hyphenated flag, the original defect"),
+        ("--out", "choose out_dir (CLI: --out)", True, "the declared output-directory parameter"),
+        ("--out", "choose out (CLI: --out)", True, "the rebuild manifest-name parameter"),
+        ("--from", "pass source (CLI: --from)", True, "the source parameter, not a reserved word"),
+        ("--out", "pass --out", False, "an aliased flag still needs its parameter"),
         (
             "--cases",
             "--cases ['PHY-01'] (SMI cases need smi_root)",

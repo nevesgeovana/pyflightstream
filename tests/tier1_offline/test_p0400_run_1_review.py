@@ -6,7 +6,6 @@ import json
 
 import pytest
 
-from pyflightstream.cases import CampaignConfigError
 from pyflightstream.run import ExecutorConfigurationError, SubmittingExecutor, cli
 from pyflightstream.run.records import mark_converged
 from pyflightstream.workspace import CampaignWorkspace
@@ -46,8 +45,9 @@ def test_p0400_review_submit_attribute_error_is_a_point_refusal(tmp_path):
     )
     script = tmp_path / "point.txt"
     script.write_text("CLOSE_FLIGHTSTREAM", encoding="utf-8")
-    with pytest.raises(CampaignConfigError, match="submit"):
-        executor.run_script(script, working_dir=tmp_path)
+    result = executor.run_script(script, working_dir=tmp_path)
+    assert result.return_code == 2
+    assert "nothing was submitted" in result.stderr and "submit command" in result.stderr
 
 
 @pytest.mark.parametrize("broken", ["points_shape", "point_shape", "point_status", "row_status"])

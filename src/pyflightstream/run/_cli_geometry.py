@@ -237,7 +237,9 @@ def _print_rows(plan: GeometryBuildPlan, args: argparse.Namespace) -> None:
     if args.rows is None and args.matrix is None:
         return
     if args.rows is None or args.matrix is None:
-        raise InputArtifactError("--rows POL and --matrix FILE are given together")
+        raise InputArtifactError(
+            "rows (CLI: --rows) POL and matrix (CLI: --matrix) FILE are given together"
+        )
     cells = [
         (
             variant.tag,

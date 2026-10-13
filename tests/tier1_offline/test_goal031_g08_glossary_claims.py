@@ -38,6 +38,7 @@ import json
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -365,12 +366,16 @@ def _sixdof(tmp: Path, mass_kg: float) -> SimCase:
 
 
 def _rows(
-    make: Callable[..., SimCase], key: str, first: str, second: str, **context: str
+    make: Callable[..., SimCase], key: str, first: str, second: str, **context: str | None
 ) -> Variation:
     """The common shape: one factory, the key stated at two values beside ``context``."""
     return Variation(
         lambda _: make(**{**context, key: first}), lambda _: make(**{**context, key: second})
     )
+
+
+def _body_rate(_tmp: Path, *, rate: str, value: str) -> SimCase:
+    return steady_case(**{rate: value}).model_copy(update={"reference": REFERENCE})
 
 
 #: TWO VALUES OF EVERY ROW KEY, in a case where the value can matter.
@@ -424,12 +429,8 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     ),
     **{
         rate: Variation(
-            lambda _, rate=rate: steady_case(**{rate: "5"}).model_copy(
-                update={"reference": REFERENCE}
-            ),
-            lambda _, rate=rate: steady_case(**{rate: "10"}).model_copy(
-                update={"reference": REFERENCE}
-            ),
+            partial(_body_rate, rate=rate, value="5"),
+            partial(_body_rate, rate=rate, value="10"),
         )
         for rate in ("roll_rate", "pitch_rate", "yaw_rate")
     },
@@ -488,7 +489,7 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         lambda tmp: _fsi_row(tmp, _SUPPLIED), lambda tmp: _fsi_row(tmp, _SUPPLIED_STIFFER)
     ),
     **{key: _fsi_factor(key) for key in MATRIX_FACTORS},
-    # 0.40.0 (FR-461): the case field stands for the key, as for FSI.
+    # The 6DOF case field stands for the key, as for FSI; this checks glossary claims.
     "SIXDOF": Variation(lambda tmp: _sixdof(tmp, 4.2), lambda tmp: _sixdof(tmp, 5.0)),
     "ADDITIONAL_PPROC": _rows(steady_case, "ADDITIONAL_PPROC", "p002", "p003"),
     "COLD_START": Variation(
@@ -827,8 +828,8 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "bulk_separation": _setting_on(
         _plain,
         "bulk_separation",
+        None,
         {"name": "GEAR", "separation_type": "CYLINDRICAL", "diameter": 0.2},
-        {"name": "GEAR", "separation_type": "FLAT_PLATE", "diameter": 0.2},
     ),
     "airfoil_separation": _setting_on(
         _plain,
@@ -1086,6 +1087,28 @@ REFUSED_IN_THIS_RELEASE = {
     (SETTINGS, "legacy_solver_model"),
     (SETTINGS, "sonic_velocity_m_per_s"),
 }
+
+
+def test_p0400_bulk_model_has_no_supported_workflow_build(tmp_path):
+    """P0400-BULK-GLOSSARY (FR-48): measured broken and removed forms stay refused.
+
+    The 26.101 three-argument command cannot carry BulkSeparation's mandatory
+    separation_type; 26.120 is measured broken and later editions remove it.
+    The glossary variation is therefore absent against stated, not two
+    purportedly working four-argument calls.
+    """
+    variation = SETTING_VARIATIONS["bulk_separation"]
+    first, second = variation.first(tmp_path), variation.second(tmp_path)
+    built = []
+    for build in covered_builds(WORKFLOWS[select_workflow(first)]):
+        keyless, _ = _render(first, build, False)
+        stated, reason = _render(second, build, False)
+        assert stated is None and (
+            "CREATE_BULK_SEPARATION" in reason or "separation_type" in reason
+        )
+        if keyless is not None:
+            built.append(build)
+    assert built
 
 
 @pytest.mark.requirement("FR-164")

@@ -145,9 +145,11 @@ __all__ = [
     "DENSITY_KEY",
     "FlightConditionError",
     "PINNED_KEYS",
+    "PINNED_STATE_TOLERANCE",
     "ResolvedCondition",
     "canonical_condition_defaults",
     "resolve_flight_condition",
+    "pinned_state_mismatch",
 ]
 
 # The keys that fix velocity, VELOCITY_KEYS, of which exactly one is required,
@@ -365,7 +367,7 @@ def _ideal_gas_pressure(density: float, temperature: float) -> float:
 
 #: The relative mismatch ``|p - rho R T| / p`` above which a point that pins
 #: density, temperature and pressure all three is warned about (0.40.0, a
-#: session decision under the owner's physics autonomy). Half a percent is
+#: consistency diagnostic). Half a percent is
 #: above the rounding of a pin written to three or four significant figures
 #: and below any disagreement that moves a coefficient visibly.
 PINNED_STATE_TOLERANCE = 0.005

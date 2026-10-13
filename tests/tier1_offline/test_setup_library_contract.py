@@ -106,7 +106,7 @@ def test_guidelines_cite_sources_and_separate_model_context_from_native_evidence
     ]:
         assert citation in text
     assert "not proof that a native flag operates" in text
-    assert "not operational or numerical validation" in text
+    assert "Native operation and aerodynamic validation require separate evidence." in text
     assert "not a universal recommendation" in text
 
 

@@ -122,6 +122,27 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
     """Return why ``analysis`` does not apply to ``run_type``, or ``""`` (FR-456 R7).
 
     ``rotor`` marks a steady row whose far field is a rotor's.
+
+    Parameters
+    ----------
+    analysis : str
+        Far-field analysis name, such as trefftz:sections or trefftz:wake.
+    run_type : str
+        Resolved workflow name of the row.
+    rotor : bool
+        Whether the row describes a rotor rather than a wing configuration.
+
+    Returns
+    -------
+    str
+        Reason the analysis is inapplicable, or an empty string when applicable.
+
+    Examples
+    --------
+    >>> applies('trefftz:sections', 'steady')
+    ''
+    >>> bool(applies('trefftz:wake', 'unsteady_rotor'))
+    True
     """
     if analysis in ("trefftz:sections", "trefftz:wake"):
         if rotor or run_type in ROTOR_RUN_TYPES:

@@ -3,7 +3,7 @@
 #
 # A raw mesh reaches a workflow row with one file beside it, its sidecar
 # `<stem>.boundaries.toml`: the names of the mesh's surfaces, the unit it is
-# written in, the operations that make it the body, and how its trailing edge
+# written in, and how its trailing edge
 # is marked (the route is described on the "Mesh inputs" page). This example
 # takes that route end to end without a solver:
 #
@@ -47,7 +47,7 @@ print(f"workspace: {workspace.root}")
 # A stand-in for a CAD export: the synthetic NACA 0012 wing of
 # `pyflightstream.qa.geometry`, chord 1 m and span 4 m in eight spanwise
 # panels, written as an OBJ in MILLIMETRES with its one surface named
-# `wing_skin`, as a CAD tool might name it. Generated rather than committed,
+# `Wing`, the name the study cites. Generated rather than committed,
 # so no geometry file enters the repository.
 
 # %%
@@ -57,7 +57,7 @@ vertices, index = np.unique(corners.round(6), axis=0, return_inverse=True)
 faces = index.reshape(-1, 3)
 mesh = geometries / "wing.obj"
 with mesh.open("w", encoding="utf-8") as obj:
-    obj.write("o wing_skin\n")
+    obj.write("o Wing\n")
     obj.writelines(f"v {x:.4f} {y:.4f} {z:.4f}\n" for x, y, z in vertices)
     obj.writelines(f"f {a + 1} {b + 1} {c + 1}\n" for a, b, c in faces)
 print(f"{mesh.name}: {len(vertices)} vertices, {len(faces)} triangles, in millimetres")
@@ -66,11 +66,11 @@ print(f"{mesh.name}: {len(vertices)} vertices, {len(faces)} triangles, in millim
 # ## 2. The sidecar and the points file
 #
 # The sidecar says, in order: the surface names as the file holds them, the
-# unit the file is written in, a rename to the name the study cites, and the
-# trailing edge by a points file, the default route. The rename is the one
-# operation the file route accepts, because the points name edges of the mesh
-# as the FILE holds it and a scale or a move would carry the body away from
-# them.
+# unit the file is written in, and the
+# trailing edge by a points file, the default route. Geometry operations
+# belong to the geometry stage before a run; this mesh already carries the
+# final surface name. A scale or move would carry the body away from its
+# edge points.
 #
 # The points file names each trailing-edge mesh edge by its MID-POINT, which
 # is what the solver's import matches, under a first line naming their unit.
@@ -79,15 +79,10 @@ print(f"{mesh.name}: {len(vertices)} vertices, {len(faces)} triangles, in millim
 
 # %%
 (geometries / "wing.boundaries.toml").write_text(
-    'boundaries = ["wing_skin"]\n'
+    'boundaries = ["Wing"]\n'
     "\n"
     "[import]\n"
     'units = "MILLIMETER"\n'
-    "\n"
-    "[[import.operations]]\n"
-    'op = "rename"\n'
-    'surface = "wing_skin"\n'
-    'to = "Wing"\n'
     "\n"
     "[trailing_edges]\n"
     'file = "wing.te.txt"\n',
@@ -105,7 +100,7 @@ print((geometries / "wing.te.txt").read_text(encoding="utf-8"))
 # The row cites a reference, a setup and a post-processing artifact as every
 # row does; these are the smallest that serve this wing. Every length they
 # state is in metres, the simulation's unit, whatever unit the mesh is in.
-# The post-processing group cites the surface by the name the rename gave it.
+# The post-processing group cites the surface by its final mesh name.
 #
 # `inputs/executables.toml` maps the build to its installation. The path is
 # machine configuration, so a placeholder stands here: the plan binds the
@@ -143,7 +138,7 @@ matrix.write_text("\n".join([HEADER, "-" * len(HEADER), ROW]) + "\n", encoding="
 # every point against the mesh (a point farther than the tolerance from every
 # mesh-edge mid-point is refused by its line), and builds each point's script
 # in dry run. The render below is the same build, printed: the import in the
-# sidecar's unit, the rename, the simulation's metres, and the trailing-edge
+# sidecar's unit, the simulation's metres, and the trailing-edge
 # import naming the node file the run writes beside the staged mesh, which
 # holds the points converted to metres.
 
@@ -167,8 +162,8 @@ for alpha in case.sweep.values:
     node_file = script.pending_input_files[lines[at + 1]]
     # An example whose claim is a line of the script goes quiet the day the
     # line changes, so it says so instead.
-    if "UNITS MILLIMETER" not in lines or "SURFACE_RENAME 1 Wing" not in lines:
-        raise AssertionError("the import lost the sidecar's unit or its rename")
+    if "UNITS MILLIMETER" not in lines:
+        raise AssertionError("the import lost the sidecar's unit")
     if int(node_file.splitlines()[0]) != len(midpoints):
         raise AssertionError(f"the node file holds {node_file.splitlines()[0]} points")
 print("--- the node file, in metres: the count, a line the solver consumes, the points ---")

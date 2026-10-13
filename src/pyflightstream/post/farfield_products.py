@@ -56,7 +56,7 @@ from pyflightstream.post.farfield_fields import (
     steady_samples,
     unsteady_samples,
 )
-from pyflightstream.post.section_distributions import _distributions
+from pyflightstream.post.section_distributions import distributions_of
 from pyflightstream.results.loads import parse_unsteady_plots
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
@@ -133,6 +133,18 @@ def farfield_axes(alpha_deg: float, beta_deg: float) -> np.ndarray:
     turned half a turn about their y axis: x along the free stream downstream,
     y to the right, z up, so at zero incidence and sideslip they are the export
     frame's own (x aft, y right, z up).
+
+    Parameters
+    ----------
+    alpha_deg : float
+        Incidence angle in degrees.
+    beta_deg : float
+        Sideslip angle in degrees.
+
+    Returns
+    -------
+    np.ndarray
+        Orthonormal free-stream axes for transforming reference-frame samples.
     """
     return EXPORT_TO_BODY @ body_to_wind(alpha_deg, beta_deg) @ EXPORT_TO_BODY
 
@@ -371,7 +383,7 @@ def _a_blocks(ctx: SimContext, point: PolarPoint, key: str) -> dict[str, np.ndar
         )
         return None
     try:
-        layout, _ = _distributions(ctx.record_of[point.name], ctx.pproc)
+        layout, _ = distributions_of(ctx.record_of[point.name], ctx.pproc)
         report = parse_sectional_loads(Path(sloads).read_text(encoding="utf-8"))
     except (PyflightstreamError, OSError) as error:
         _skip(ctx, key, point.name, f"the sectional loads cannot be read: {error}")
@@ -919,7 +931,13 @@ def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, di
 
 
 def farfield_products(ctx: SimContext) -> None:
-    """Write the far-field tables of one simulation (FR-456), or nothing without ``[farfield]``."""
+    """Write the far-field tables of one simulation (FR-456), or nothing without ``[farfield]``.
+
+    Parameters
+    ----------
+    ctx : SimContext
+        Product context carrying the resolved case, exports and output destinations.
+    """
     spec = getattr(ctx.pproc, "farfield", None)
     if spec is None:
         return

@@ -46,6 +46,7 @@ from pyflightstream.cases._geometry_instruction import (
     variant_tag,
 )
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.extras import missing_extra
 from pyflightstream.versions import resolve
 from pyflightstream.workspace._geometry_instruction import (
     checked_trailing_edge_points,
@@ -298,7 +299,7 @@ def plan_geometry_build(
     build_id = build or instruction.fs_build
     if not build_id:
         raise _refuse(
-            f"{path} states no fs_build and the command no --build; name the build id to run"
+            f"{path} states no fs_build and no build (CLI: --build); name the build id to run"
         )
     root = path.parents[3]
     version = _version_of(root, build_id)
@@ -307,7 +308,9 @@ def plan_geometry_build(
     variants: list[GeometryVariant] = []
     if instruction.sweep is None:
         if only:
-            raise _refuse("--only chooses variants of a [sweep], and the instruction states none")
+            raise _refuse(
+                "only (CLI: --only) chooses variants of a [sweep], and the instruction states none"
+            )
         script = render_geometry_script(
             instruction,
             folder=folder,
@@ -321,7 +324,7 @@ def plan_geometry_build(
         if not from_above:
             raise _refuse(
                 f"{path.name} varies {instruction.sweep.control_surface} over a [sweep], whose "
-                "variants are sibling geometries; run the build from the level above: "
+                "variants are sibling geometries; set apply (CLI: --apply) from the level above: "
                 f"cd .. then `pyfs-workspace geometry build {folder.name} --apply`"
             )
         tags = {
@@ -331,7 +334,8 @@ def plan_geometry_build(
         unknown = sorted(set(only) - set(tags))
         if unknown:
             raise _refuse(
-                f"--only names {', '.join(unknown)}, and the sweep builds {', '.join(tags)}"
+                f"only (CLI: --only) names {', '.join(unknown)}, "
+                f"and the sweep builds {', '.join(tags)}"
             )
         for tag, angle in tags.items():
             if only and tag not in only:
@@ -388,7 +392,9 @@ def _refuse_existing(plan: GeometryBuildPlan, overwrite: bool) -> None:
                 )
         existing = [str(path) for path in _outputs_of(variant) if path.exists()]
         if existing and not overwrite:
-            raise _refuse(f"{', '.join(existing)} exist; rebuild with --overwrite to replace them")
+            raise _refuse(
+                f"{', '.join(existing)} exist; set overwrite (CLI: --overwrite) to replace them"
+            )
 
 
 def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool, png: bool) -> None:
@@ -445,7 +451,10 @@ def apply_geometry_build(
         the ones stated; nothing of that geometry is promoted.
     """
     if not 1 <= parallel <= MAX_PARALLEL:
-        raise _refuse(f"--parallel {parallel}: write 1 or {MAX_PARALLEL}, the native-run limit")
+        raise _refuse(
+            f"parallel (CLI: --parallel) {parallel}: write 1 or {MAX_PARALLEL}, "
+            "the native-run limit"
+        )
     refuse_before_running(plan, overwrite=overwrite, png=png)
 
     def build(variant: GeometryVariant) -> GeometryBuilt:
@@ -515,9 +524,7 @@ def _require_the_plot_extra() -> None:
     try:
         import matplotlib  # noqa: F401
     except ImportError as error:
-        raise _refuse(
-            "--png draws with the plot extra; install it with pip install pyflightstream[plot]"
-        ) from error
+        raise missing_extra("plot", package="matplotlib", purpose="png (CLI: --png)") from error
 
 
 def _build_one(
@@ -682,10 +689,13 @@ def _audit(
 
 def _write_png(target: Path, obj: Path) -> None:
     """Draw three orthographic views and an isometric of the exported mesh, coloured by family."""
-    import matplotlib
+    try:
+        import matplotlib
 
-    matplotlib.use("Agg")
-    from matplotlib import pyplot
+        matplotlib.use("Agg")
+        from matplotlib import pyplot
+    except ImportError as error:
+        raise missing_extra("plot", package="matplotlib", purpose="png (CLI: --png)") from error
 
     from pyflightstream.workspace._refine._obj import read_obj
 

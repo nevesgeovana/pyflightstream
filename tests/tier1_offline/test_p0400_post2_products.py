@@ -82,7 +82,7 @@ def test_p0400_primary_a_partial_manifest_write_keeps_the_error(tmp_path, monkey
         raise original
 
     def partial_write(path, *args, **kwargs):
-        if str(path).endswith("products.json") and stopped:
+        if str(path).endswith("products.json.tmp") and stopped:
             real(path, "{")
             raise OSError("manifest write ran out of space")
         return real(path, *args, **kwargs)
@@ -93,7 +93,9 @@ def test_p0400_primary_a_partial_manifest_write_keeps_the_error(tmp_path, monkey
         products.write_campaign_products(workspace)
     assert caught.value is original
     assert any("interrupted manifest" in note for note in caught.value.__notes__)
-    assert any("post log" in note for note in caught.value.__notes__)
+    # The manifest is staged and replaced whole (PFS-2096.019), so the half-written file never
+    # stands at its name: the post log reader finds no truncated JSON and adds no note.
+    assert not any("post log" in note for note in caught.value.__notes__)
 
 
 @pytest.mark.parametrize("failure", [CampaignConfigError, KeyboardInterrupt])

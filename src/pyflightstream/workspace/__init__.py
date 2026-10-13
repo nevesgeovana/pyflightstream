@@ -2368,13 +2368,13 @@ class CampaignWorkspace:
         try:
             _write_sim_archive(sim, temporary)
             if target.exists():
-                raise FileExistsError(f"{target} appeared while the archive was written")
+                raise WorkspaceError(f"{target} appeared while the archive was written")
             temporary.rename(target)
-        except OSError as error:
+        except (OSError, WorkspaceError) as error:
             temporary.unlink(missing_ok=True)
             raise WorkspaceError(
-                f"archiving sim {sim_id!r} failed at {error.filename or target}: {error}. "
-                "No archive was written and the simulation folder is kept as it was."
+                f"archiving sim {sim_id!r} failed at {getattr(error, 'filename', None) or target}: "
+                f"{error}. No archive was written and the simulation folder is kept as it was."
             ) from error
         _remove_sim_tree(sim)
         return target

@@ -203,13 +203,15 @@ VERIFIED = {
     # +44 on 2026-10-12 (RPT-166): 43 registered command-gap probes
     # (CMP-26124_2026-10-12_gap-probes) and SET_MOTION_START_TIME
     # (CMP-26124_2026-10-12_pfs2135-items): 162.
-    "26.124": 162,
+    # +1 the same day: EXPORT_6DOF_TRAJECTORY, verified after the march (RPT-167): 163.
+    "26.124": 163,
     # 2026-10-05 (item S10): the probe campaign of 0.37.0 on 26.125, far field 5
     # (CMP-26125_2026-10-05_probe-campaign, five lines re-probed the same day): 141.
     # +44 on 2026-10-12, the same runs on this build (CMP-26125_2026-10-12_*): 185.
     # -1 the same day: EXPORT_SURFACE_SECTIONS back to documented, its earlier
     # probe having read the END sentinel as the filename (RPT-036b finding 1): 184.
-    "26.125": 184,
+    # +1 the same day: EXPORT_6DOF_TRAJECTORY, verified after the march (RPT-167): 185.
+    "26.125": 185,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

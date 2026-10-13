@@ -17,7 +17,9 @@ def _recorded_matrix(workspace, monkeypatch) -> None:
     An unknown matrix is refused before the log exists (PFS-2096.020); the stage is
     stubbed, so one record naming the matrix is all the post reads of the manifest.
     """
-    record = SimpleNamespace(matrix_stem="matrix", run_id="run/one", warnings=[])
+    record = SimpleNamespace(
+        matrix_stem="matrix", run_id="run/one", sim_id="one", warnings=[], outputs=[]
+    )
     monkeypatch.setattr(workspace, "read_manifest", lambda: [record])
 
 

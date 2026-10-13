@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: P0400-G67-command-coverage-tests
-# last_modified_at: 2026-10-12T00:00:00-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [scripts/build_command_coverage.py; commands/*.yaml; RPT-165]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Guard the coverage partition and prove missing commands fail on copied data.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """P0400-G67: setup and boundary commands have a named route or an explicit reason."""
 
 from __future__ import annotations

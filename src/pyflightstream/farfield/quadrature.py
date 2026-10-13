@@ -31,17 +31,52 @@ __all__ = [
 ]
 
 
-def _delta_psi(psi: np.ndarray) -> float:
+# THE AZIMUTH HELPERS, shared with the balances (FR-450 R1: one home each). They
+# carry public names so that a sibling module imports them without reaching into
+# an underscore-private name; they are outside __all__ and not part of the API.
+
+
+def delta_psi(psi: np.ndarray) -> float:
     """Return the uniform azimuth step, refusing a grid that is not uniform."""
     psi = np.asarray(psi)
     steps = np.diff(np.concatenate([psi, [psi[0] + 2.0 * np.pi]]))
     if not np.allclose(steps, steps[0], rtol=1e-10, atol=1e-12):
-        raise ValueError(
+        raise FarfieldInputError(
             "the azimuth grid is not uniform; uniform periodic sampling is what "
             "makes the rectangle rule spectrally accurate and the FFT direct "
             "(DLV-006 Sec. 2.2), so nonuniform azimuths are refused, never averaged"
         )
     return float(steps[0])
+
+
+def half_spectrum(values: np.ndarray, half: int) -> np.ndarray:
+    """Azimuthal orders ``0..half`` with no anti-aliasing cap.
+
+    The Parseval sum of the transverse flux needs every order the grid
+    carries, including Nyquist. :func:`azimuthal_harmonics` cannot supply that
+    and should not: its cap exists so that STORED harmonics are unaliased,
+    which is a different question from reconstructing a product the grid
+    already determines (PYFS-011).
+    """
+    data = np.asarray(values)
+    n = data.shape[-1]
+    spectrum = np.fft.fft(data, axis=-1) / n
+    return np.take(spectrum, np.arange(half + 1), axis=-1)
+
+
+def parseval_weights(n: int, half: int) -> np.ndarray:
+    """Multiplicity of each order ``0..half`` in the real-field Parseval sum.
+
+    Order 0 appears once. Orders with a distinct conjugate partner appear
+    twice. For EVEN ``n`` the Nyquist order ``n/2`` is its own conjugate and
+    appears once; giving it 2 double counts it, which is the error opposite
+    to the one PYFS-011 records and just as silent.
+    """
+    weights = np.full(half + 1, 2.0)
+    weights[0] = 1.0
+    if n % 2 == 0:
+        weights[half] = 1.0
+    return weights
 
 
 def ring_sample_weights(fields: LatticeFields) -> np.ndarray:
@@ -54,9 +89,14 @@ def ring_sample_weights(fields: LatticeFields) -> np.ndarray:
         units of the tip radius squared; multiplying an integrand sample and
         summing over rings and azimuths is the whole plane quadrature of
         DLV-006 Sec. 3.1.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
     """
     edges = np.asarray(fields.ring_edges)
-    return 0.5 * (edges[1:] ** 2 - edges[:-1] ** 2) * _delta_psi(fields.psi)
+    return 0.5 * (edges[1:] ** 2 - edges[:-1] ** 2) * delta_psi(fields.psi)
 
 
 def plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray:
@@ -139,12 +179,37 @@ def grid_integral(y: np.ndarray, z: np.ndarray, integrand: np.ndarray) -> float:
     """Integrate a sampled field over a uniform rectangular grid by the trapezoid rule.
 
     A missing or non-finite sample makes the integral NaN (PYFS-010).
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Ordered spanwise grid coordinates in m.
+    z : np.ndarray
+        Ordered vertical grid coordinates in m.
+    integrand : np.ndarray
+        Sampled scalar integrand, with shape (len(y), len(z)) for a grid.
+
+    Returns
+    -------
+    float
+        Trapezoidal integral over the rectangular grid.
     """
     return float((np.asarray(integrand) * grid_weights(y, z)).sum())
 
 
 def grid_coverage(integrand: np.ndarray) -> float:
-    """Fraction of the plane's samples that are finite."""
+    """Fraction of the plane's samples that are finite.
+
+    Parameters
+    ----------
+    integrand : np.ndarray
+        Sampled scalar integrand, with shape (len(y), len(z)) for a grid.
+
+    Returns
+    -------
+    float
+        Fraction of grid samples carrying finite integrand values.
+    """
     array = np.asarray(integrand)
     return float(np.isfinite(array).sum() / array.size)
 
@@ -175,6 +240,11 @@ def strip_edges(
     -------
     numpy.ndarray
         The ``n + 1`` strip edges, in the order of ``positions``.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the centers are not finite, strictly increasing coordinates.
     """
     p = np.asarray(positions, dtype=float)
     if p.ndim != 1 or p.size < 2:
@@ -212,8 +282,13 @@ def azimuthal_harmonics(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) 
         Complex coefficients, the last axis replaced by the orders
         ``0..m_max``. Order 0 carries forces, order 1 the in-plane moments,
         orders 2 and above the distortion a downstream surface sees.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the azimuth grid or requested harmonic order is invalid.
     """
-    _delta_psi(psi)
+    delta_psi(psi)
     data = np.asarray(values)
     n = data.shape[-1]
     if isinstance(m_max, bool) or not isinstance(m_max, numbers.Integral) or m_max < 0:
@@ -236,36 +311,6 @@ def azimuthal_harmonics(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) 
     return kept * np.exp(-1j * np.arange(m_max + 1) * psi_0)
 
 
-def _half_spectrum(values: np.ndarray, half: int) -> np.ndarray:
-    """Azimuthal orders ``0..half`` with no anti-aliasing cap.
-
-    The Parseval sum of the transverse flux needs every order the grid
-    carries, including Nyquist. :func:`azimuthal_harmonics` cannot supply that
-    and should not: its cap exists so that STORED harmonics are unaliased,
-    which is a different question from reconstructing a product the grid
-    already determines (PYFS-011).
-    """
-    data = np.asarray(values)
-    n = data.shape[-1]
-    spectrum = np.fft.fft(data, axis=-1) / n
-    return np.take(spectrum, np.arange(half + 1), axis=-1)
-
-
-def _parseval_weights(n: int, half: int) -> np.ndarray:
-    """Multiplicity of each order ``0..half`` in the real-field Parseval sum.
-
-    Order 0 appears once. Orders with a distinct conjugate partner appear
-    twice. For EVEN ``n`` the Nyquist order ``n/2`` is its own conjugate and
-    appears once; giving it 2 double counts it, which is the error opposite
-    to the one PYFS-011 records and just as silent.
-    """
-    weights = np.full(half + 1, 2.0)
-    weights[0] = 1.0
-    if n % 2 == 0:
-        weights[half] = 1.0
-    return weights
-
-
 def symmetry_floor(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) -> float:
     """Largest azimuthal harmonic magnitude above order zero (gate G3).
 
@@ -278,6 +323,15 @@ def symmetry_floor(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) -> fl
     float
         ``max_{m>=1} |c_m|`` over every other index, in field units; NaN where
         any sample is missing.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Sampled values with azimuth along the last dimension.
+    psi : np.ndarray
+        Uniform full-turn azimuth coordinates in radians.
+    m_max : int
+        Highest azimuthal harmonic order to retain.
     """
     harmonics = azimuthal_harmonics(values, psi, m_max=m_max)
     return float(np.abs(harmonics[..., 1:]).max())

@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases import CampaignConfigError, SolverSettings
+from pyflightstream.cases.setup_surfaces import emit_wake_stabilization
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.script import Script
 from pyflightstream.workspace.inputs import SetupArtifact
@@ -40,6 +41,27 @@ def _built(case, build: str = "26.124") -> Script:
 
 def _with(case, **settings):
     return case.model_copy(update={"solver": SolverSettings(**settings)})
+
+
+def _no_block(**overrides):
+    """A rotor row whose reference declares no rotor block: the row alone states its count.
+
+    Since 0.40.0 the sole rotor's block is the blade count (FR-68), so a row
+    that states none has to come without a block to be a row with no count.
+    """
+    return rotor_case(**overrides).model_copy(update={"rotors": {}})
+
+
+def _emitted(case, build: str) -> list[str]:
+    """Emit the stabilization for motion 1 alone, the way the rotor builder calls it.
+
+    The 26.100 build refuses a rotor row until its angular-velocity unit is
+    measured (RPT-051), so its two-argument form is read from the emitter.
+    """
+    script = Script(build)
+    script.emit("CREATE_NEW_MOTION", "EUCLIDEAN")
+    emit_wake_stabilization(script, case, 1, None)
+    return script.render().splitlines()
 
 
 @pytest.mark.requirement("FR-275")
@@ -138,7 +160,7 @@ def test_the_wake_stabilization_disable_is_emitted_for_the_rotor_motion():
 
 def test_the_wake_stabilization_disable_without_a_blade_count_states_one():
     """P0320-G4-WAKE-DISABLE: the round-1 form, the count is unread by a DISABLE."""
-    row = rotor_case(BLADES=None, PERIODIC_COPIES=None, LAST_REVS_AVG="0.25")
+    row = _no_block(BLADES=None, PERIODIC_COPIES=None, LAST_REVS_AVG="0.25")
     case = _with(row, slipstream_wake_stabilization=False)
     lines = rendered(case, build="26.124").splitlines()
     assert f"{STABILIZATION} 1 DISABLE 1" in lines
@@ -154,7 +176,7 @@ def test_the_wake_stabilization_enable_is_emitted_with_the_count():
 def test_the_february_edition_takes_two_arguments():
     """P0320-G4-WAKE-DISABLE: 26.100 documents no NUM_BLADES, so none is written."""
     case = _with(rotor_case(), slipstream_wake_stabilization=False)
-    lines = rendered(case, build="26.100").splitlines()
+    lines = _emitted(case, "26.100")
     assert f"{STABILIZATION} 1 DISABLE" in lines
 
 
@@ -172,7 +194,7 @@ def test_the_wake_stabilization_on_a_row_with_no_rotor_is_refused(tmp_path):
 
 def test_the_wake_stabilization_enable_without_a_blade_count_is_refused():
     """P0320-G4-WAKE-DISABLE refusal: an ENABLE needs the per-propeller blade count."""
-    row = rotor_case(BLADES=None, PERIODIC_COPIES=None)
+    row = _no_block(BLADES=None, PERIODIC_COPIES=None)
     case = _with(row, slipstream_wake_stabilization=True)
     with pytest.raises(CampaignConfigError, match="blade count"):
         rendered(case, build="26.124")
@@ -180,7 +202,7 @@ def test_the_wake_stabilization_enable_without_a_blade_count_is_refused():
 
 def test_the_february_edition_enable_needs_no_blade_count_because_it_takes_none():
     """P0320-G4-WAKE-DISABLE: 26.100 reads no count, so none is required."""
-    row = rotor_case(BLADES=None, PERIODIC_COPIES=None)
+    row = _no_block(BLADES=None, PERIODIC_COPIES=None)
     case = _with(row, slipstream_wake_stabilization=True)
-    lines = rendered(case, build="26.100").splitlines()
+    lines = _emitted(case, "26.100")
     assert f"{STABILIZATION} 1 ENABLE" in lines

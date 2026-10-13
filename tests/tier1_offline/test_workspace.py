@@ -564,6 +564,15 @@ def test_no_module_outside_the_model_reads_the_recorded_rotor_block():
         # written by post._sim and post._reduction_stage since WP5 of 0.33.0.
         package / "post" / "_sim.py": {"rotor"},
         package / "post" / "_reduction_stage.py": {"rotor"},
+        # 0.40.0 (FR-459): a far-field lattice names the rotor it lies on in its OWN
+        # `rotor` key (a `LatticeShape` and its `ledgers` block of the reference), a
+        # lookup key into the reference's declared rotors and not the recorded block.
+        # Only the far-field modules, and only that word, are admitted.
+        package / "cases" / "farfield_inputs.py": {"rotor"},
+        package / "cases" / "_farfield_spec.py": {"rotor"},
+        package / "cases" / "workflows" / "_farfield.py": {"rotor"},
+        package / "post" / "farfield_fields.py": {"rotor"},
+        package / "post" / "farfield_products.py": {"rotor"},
     }
     scanned = 0
     offenders: list[str] = []

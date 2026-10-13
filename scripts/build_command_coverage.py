@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: GOAL-033:G67-command-coverage-builder
-# last_modified_at: 2026-10-12T00:00:00-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [commands/*.yaml; cases; workspace; run; script; RPT-106]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Generate the 26.125 setup and boundary command coverage partition.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Rebuild the GOAL-033:G67 command partition from database and emitter sources.
 
 The existing GOAL-033 setup/BC chapter register defines the scope. Free
@@ -56,32 +44,6 @@ CHAPTERS = (
     "aeroelastic_coupling",
     "free_surfaces",
 )
-HEADER = {
-    "file_version": "1.0.0",
-    "artifact_id": "RPT-165",
-    "last_modified_at": "2026-10-12T00:00:00-03:00",
-    "last_modified_by": {
-        "provider": "OpenAI",
-        "product": "Codex",
-        "model": "GPT-6",
-        "role": "primary-agent",
-    },
-    "dependencies": [
-        "scripts/build_command_coverage.py",
-        "src/pyflightstream/commands/*.yaml",
-        "src/pyflightstream/cases",
-        "src/pyflightstream/workspace",
-        "src/pyflightstream/run",
-        "src/pyflightstream/script",
-        "reports/RPT-106_setup-key-audit_2026-09-30.md",
-        "tests/tier1_offline/reachability_exceptions.json",
-    ],
-    "authority": "pyflightstream",
-    "status": "active",
-    "confidentiality": "public",
-    "change_summary": "Record the 26.125 setup and boundary command coverage partition.",
-    "revision_source": "git",
-}
 
 # These routes complement the database-backed SOLVER_SETTING_COMMANDS register.
 # WORKFLOW is the matrix entry to the builders, including commands that are
@@ -478,7 +440,6 @@ def build_coverage(root: Path = ROOT, database: Path | None = None) -> dict[str,
             raise ValueError(f"{name}: command in neither reachable nor not_offered column")
         rows.append(row)
     return {
-        "_geoverse_header": HEADER,
         "build": BUILD,
         "chapters": list(CHAPTERS),
         "counts": {
@@ -500,12 +461,10 @@ def render_markdown(report: dict[str, Any]) -> str:
     Returns
     -------
     str
-        Markdown including its provenance header, method, table and limits.
+        Markdown including its method, table and limits.
     """
-    header = "GEOVERSE_HEADER\n" + yaml.safe_dump(report["_geoverse_header"], sort_keys=False)
     counts = report["counts"]
     lines = [
-        f"<!--\n{header}-->\n",
         "# RPT-165: setup and boundary command coverage on 26.125 (2026-10-12)\n",
         "## Purpose\n",
         "Successor of RPT-106 for GOAL-033:G67 (P0400-G67). Each database command has "

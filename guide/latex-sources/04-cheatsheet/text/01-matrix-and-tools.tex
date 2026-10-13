@@ -255,8 +255,11 @@
 
 \tool{pyfs-workspace}{the campaign tree, the custom free-stream fields of \texttt{inputs/freestreams/} and the disc profiles}
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
+\fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
+\fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{migrate-geometries [root]}{move a flat \texttt{inputs/geometries/} library into one folder per geometry}
+\texttt{init}, \texttt{archive} and \texttt{migrate-geometries}: \fl{--workspace DIR} names the campaign root; the positional root remains a deprecated alias.
 \sub{geometry}{build a body outside the run matrix, accept it, and the mesh tools of page 1 under their home. The commands below preview until \fl{--apply} where they say so}
 \sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
 \begin{flags}

@@ -33,6 +33,7 @@ from pyflightstream.cases import TEMPLATE_SETTINGS_LEFT_OUT as _SETTINGS_LEFT_OU
 from pyflightstream.cases.corrections import CALIBRATIONS_DIR
 from pyflightstream.cases.matrix import COLUMN_MEANINGS
 from pyflightstream.cases.workflows import FREESTREAM_DIR, FREESTREAM_FORMS
+from pyflightstream.post._field_inputs import field_example, field_left_out
 from pyflightstream.post.glossary import (
     ARTIFACT_HEADINGS,
     GENERATED_BANNER,
@@ -1139,6 +1140,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
         examples=(
             TemplateExample("inputs/pproc/p001.toml", "toml", _PPROC_EXAMPLE),
             TemplateExample("inputs/pproc/p002.toml", "toml", _SURFACE_PROBE_EXAMPLE),
+            TemplateExample("inputs/pproc/p003.toml", "toml", field_example()),
         ),
         after=(
             "Some tables belong to one kind of run. The unsteady force plots, the "
@@ -1180,15 +1182,13 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                 ),
                 "`[time_averaging]`": MappingProxyType(
                     {
-                        "the table is left out, for the reason above": (
-                            "last_revs",
-                            "last_iters",
-                        ),
+                        "the table is left out, for the reason above": ("last_revs", "last_iters"),
                     }
                 ),
                 "`[volume_section]`": MappingProxyType(
                     {"a circle's keys, " + _IN_THE_COMMENT: ("radii_m", "points")}
                 ),
+                **field_left_out(),
             }
         ),
         pages=(

@@ -2,7 +2,7 @@
 
 P0400-GEOM-CAD (PFS-2081.14). Offline goldens of the emitted lines: the
 commands are documented and unprobed, and the build refuses to run them until
-a licensed probe verifies them on the build (FR-471 R9).
+a licensed probe verifies them on the build; the build tests guard that gate.
 """
 
 from __future__ import annotations

@@ -16,6 +16,7 @@ from dataclasses import (
 from pyflightstream.cases import (
     CampaignConfigError,
     PhaseLockedSpec,
+    RotorBlock,
     SimCase,
 )
 from pyflightstream.cases import (
@@ -390,6 +391,33 @@ class ReductionPlan:
         ]
 
 
+def _the_count_the_block_declares(case: SimCase, block: RotorBlock, stated: int | None) -> int:
+    """Return the blade count a rotor block declares, refusing a ``BLADES`` that contradicts it.
+
+    A block that lists the families the MESH carries, with the row's
+    ``PERIODIC_COPIES`` supplying the rest of the wheel (a one-blade sector
+    stated as six copies), is not contradicted by ``BLADES: 6``: the families
+    times the copies is that count, and the row is valid as it was before
+    the block became the count. Any other disagreement is refused, naming both.
+    """
+    declared = len(block.families_blades)
+    if stated is None or stated == declared:
+        return declared
+    copies = (
+        _required_int(case, PERIODIC_COPIES_VARIABLE, quantity="periodic copy count", unit="copies")
+        if _variable(case, PERIODIC_COPIES_VARIABLE) is not None
+        else None
+    )
+    if copies is not None and declared * copies == stated:
+        return stated
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} states {BLADES_VARIABLE}: {stated} and its reference "
+        f"declares rotor {block.alias!r} with {declared} blade(s) "
+        f"({', '.join(block.families_blades)}). The block is the count (FR-68); "
+        f"remove {BLADES_VARIABLE} from the row, or correct the block."
+    )
+
+
 def _blade_count(case: SimCase) -> int | None:
     """Return the blade count: the sole rotor's block, ``BLADES``, ``PERIODIC_COPIES``, else None.
 
@@ -420,15 +448,7 @@ def _blade_count(case: SimCase) -> int | None:
         else None
     )
     if block is not None and block.families_blades:
-        declared = len(block.families_blades)
-        if stated is not None and stated != declared:
-            raise CampaignConfigError(
-                f"case {case.sim_id!r} states {BLADES_VARIABLE}: {stated} and its reference "
-                f"declares rotor {block.alias!r} with {declared} blade(s) "
-                f"({', '.join(block.families_blades)}). The block is the count (FR-68); "
-                f"remove {BLADES_VARIABLE} from the row, or correct the block."
-            )
-        return declared
+        return _the_count_the_block_declares(case, block, stated)
     if stated is not None:
         return stated
     if _variable(case, PERIODIC_COPIES_VARIABLE) is not None:

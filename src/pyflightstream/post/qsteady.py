@@ -89,6 +89,7 @@ from pyflightstream.post.axes import (
 from pyflightstream.results import parse_loads
 
 __all__ = [
+    "radius_from_the_hub",
     "AVERAGE_SPINE",
     "AVERAGE_SUFFIX",
     "CLOCKING_COLUMN",
@@ -575,7 +576,7 @@ GEOMETRY_SECTION_FRAMES = frozenset({"MRP"})
 _CLOCKING_FRAME = re.compile(rf"^(?P<frame>.+){POSITION_SUFFIX.upper()}\d{{2}}$")
 
 
-def _radius_from_the_hub(
+def radius_from_the_hub(
     frame: str | None,
     plane: str,
     offset: float,
@@ -592,6 +593,24 @@ def _radius_from_the_hub(
     of an XY cut) is ``Offset - hub . e_n`` from the hub along the blade, and
     only while the hub sits on the plane's radial line, ``hub . (a x e_n)``
     zero; off it, Offset does not place the station and the radius is None.
+
+    Parameters
+    ----------
+    frame : str or None
+        Section coordinate-system name, including a clocking suffix where present.
+    plane : str
+        Cut plane, XY or XZ for a geometry-frame radial cut.
+    offset : float
+        Native section offset in m.
+    hub_m : sequence of float or None
+        Rotor hub coordinates in the geometry frame, in m.
+    axis_vector : sequence of float or None
+        Rotor shaft direction in the geometry frame.
+
+    Returns
+    -------
+    float or None
+        Station radius from the hub in m, or None when the geometry cannot place it.
     """
     name = str(frame or "").strip().upper()
     clocked = _CLOCKING_FRAME.match(name)
@@ -785,7 +804,7 @@ def add_reduced_frequency_to_sections(
         radius = (
             None
             if offset is None
-            else _radius_from_the_hub(
+            else radius_from_the_hub(
                 frame, plane, offset, hub_m=record.hub_m, axis_vector=record.axis_vector
             )
         )

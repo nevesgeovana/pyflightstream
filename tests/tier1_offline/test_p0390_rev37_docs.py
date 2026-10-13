@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
 S6_TEST = ROOT / "tests/tier1_offline/test_p0370_s6_direct_morphing.py"
 OLD_SENTENCE = "take one comma-separated value"
-CONTRACT = "take comma-separated, bracketed or blank-separated ids, quoted or not"
+CONTRACT = "takes the ids as a positional argument"
 #: What the one ``git show`` below needs to start and find its config, and nothing else.
 _GIT_ENV_KEYS = ("PATH", "SYSTEMROOT", "SystemRoot", "HOME", "USERPROFILE")
 FROZEN = "migrating-to-*.md"  # a frozen record of its release is never edited after the tag
@@ -49,10 +49,16 @@ def test_the_sims_contract_lives_once_wrapped_in_restore_and_rebuild():
     assert homes == ["restore-and-rebuild.md"]
     assert not [p.name for p in live if OLD_SENTENCE in _flat(_read(p))]
     page = _read(DOCS / "restore-and-rebuild.md")
-    opening = "All four commands (`mark-converged`, `mark-failed`, `rebuild`, `delete-sims`) take"
+    opening = "`mark-failed` and `rebuild` take simulation ids with `--sims IDS` as one token."
     assert opening in page
     paragraph = (opening + page.split(opening)[1].split("\n\n")[0]).splitlines()
     assert len(paragraph) >= 2 and all(len(ln) <= 100 for ln in paragraph)
+    assert "Its list may be comma-separated, bracketed or blank-separated, quoted or not." in _flat(
+        page
+    )
+    assert "`--sims` takes whole simulations, as words, comma separated or in brackets" in _flat(
+        page
+    )
     assert "(restore-and-rebuild.md)" in _read(DOCS / "migrating-to-0.37.0.md")
 
 

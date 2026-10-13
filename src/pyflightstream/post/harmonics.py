@@ -51,7 +51,7 @@ from pyflightstream.post.qsteady import (
     CLOCKING_COLUMN,
     STATION_COLUMN,
     VALIDITY_COLUMNS,
-    _radius_from_the_hub,
+    radius_from_the_hub,
 )
 
 __all__ = [
@@ -543,7 +543,7 @@ def _station_radius(rotor: HarmonicRotor, row: Mapping[str, str]) -> float | Non
     frame = rotor.section_frames.get((row.get("FAMILY", ""), plane))
     if frame is None:
         return None
-    radius = _radius_from_the_hub(
+    radius = radius_from_the_hub(
         frame, plane, offset, hub_m=rotor.hub_m, axis_vector=rotor.axis_vector
     )
     return None if radius is None else abs(radius)

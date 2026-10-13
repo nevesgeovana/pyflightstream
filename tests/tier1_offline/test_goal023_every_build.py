@@ -247,9 +247,10 @@ def test_goal023_told_not_hidden_the_label_is_what_the_script_registers(build, l
 def test_goal023_told_not_hidden_a_label_that_disagrees_with_the_script_is_refused(monkeypatch):
     """Architect lens F1: build_script holds the label and the script together."""
     from pyflightstream.cases import workflows
-    from pyflightstream.cases.workflows import _registry
+    from pyflightstream.cases.workflows import _steady as _registry
 
-    # build_script looks the strategy up in its own module of the package (AD-12).
+    # build_script looks the strategy up in the module that holds the steps it runs around the
+    # builder (AD-12); the cases lane moved those steps from `_registry` to `_steady`.
     monkeypatch.setattr(_registry, "march_strategy", lambda case, **_: MARCH_ACTIONS)
     with pytest.raises(workflows.WorkflowCoverageError, match="internal defect"):
         build_script(unsteady_case(), Script("26.123"))

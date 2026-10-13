@@ -61,7 +61,8 @@ _ROTOR = RotorBlock(
     rpm_sign=1,
     diameter_m=3.6576,
     families_general=[],
-    families_blades=["Blade1"],
+    # The block is the blade count (PFS-2104.011): the row states BLADES: 4.
+    families_blades=["Blade1", "Blade2", "Blade3", "Blade4"],
     blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
 )
 

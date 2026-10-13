@@ -507,7 +507,7 @@ def test_the_rotor_facts_argument_lives_on_the_mesh_inputs_page():
     section = page.split(heading, 1)[1]
     for phrase in ("inboard", "clockwise", "rpm_sign", "axis", "rpm_sign_installed"):
         assert phrase in section, f"the argument on the page no longer names {phrase}"
-    assert "migrating-to-0.22.0.md" in section
+    assert "../upgrading.md#older-layouts" in section
     history = (REPO / "docs/migrating-to-0.11.0.md").read_text(encoding="utf-8")
     assert "RPM_SIGN" in history and "ROTOR_AXIS" in history
     from pyflightstream.workspace.inputs import ROTOR_FACT_KEYS

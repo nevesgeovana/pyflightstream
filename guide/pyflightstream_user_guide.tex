@@ -449,7 +449,7 @@ CommandNotInVersionError: CAD_CREATE_BOX has no recorded evidence
 for FlightStream 25.000. Recorded evidence: 26.100 (documented),
 26.101 (documented), 26.120 (documented), 26.121 (documented),
 26.122 (documented, inherited), 26.123 (documented),
-26.124 (documented), 26.125 (documented).
+26.124 (verified), 26.125 (verified).
 \end{lstlisting}
   \begin{itemize}
     \item The refusal lists exactly what is known, per version, so you can decide: switch versions, or contribute the missing evidence.
@@ -1206,7 +1206,7 @@ rename_group_products(root, {1: "PUSHER"})
     \item A hotfix build inherits the evidence record of its base release until probe evidence overrides it, WHEN the registry says it does. The last canonical digit does not decide that: \code{26.101} sits at a hotfix index behind \code{26.100} and is an independent vendor release, so it inherits nothing. Each build states \code{inherits\_base} in the registry and one that states nothing is refused.
     \item \code{26.121} is no longer the hypothetical example: it started from every \code{26.120} record, and the licensed probe on that build then contradicted one of them. AIR\_ALTITUDE is {\color{statusred}broken} on 26.120 and {\color{statusblue}verified} on 26.121. The 2026-08-08 run then probed the two earlier builds for the first time and found the defect there as well, and the 2026-08-11 run on 26.122 found the altitude form working there too (\code{CMP-26122\_2026-08-11\_full}), and the 2026-08-17 run on 26.123 found it working there too, so the hotfixes it has been probed on are the builds it is measured to work on and the three base releases it has been probed on are the builds it is measured to fail on. The matrix carries the list; a tally written here has gone stale on every registration.
       \item Read an inherited cell for what it is. The matrix marks every one with a \texttt{base} superscript and counts them in its \emph{Of which inherited} column, so a marked cell means the base release's evidence, with no probe on this build having run that command.
-    \item Inheritance is switched OFF in both directions at once, and only the first is obvious. A build inheriting nothing loses the base's \emph{verified} records, which is the cost everyone counts; it also loses the base's {\color{statusred}broken} ones. \code{SET\_MOTION\_START\_TIME} is broken on 26.101, 26.120 and 26.121 on those builds' own evidence, and on 26.123 it carries a \emph{documented} row from a reading with no probe, so the emitter allows it there. A command refused on four builds and emitted on the fifth is not a statement that the fifth fixed it.
+    \item Inheritance is switched OFF in both directions at once: a build inheriting nothing loses both the base release's verified records and its broken ones. SET\_MOTION\_START\_TIME is verified on 26.120, 26.124 and 26.125 by the corrected 6DOF probe (RPT-166), still broken on the older 26.101 and 26.121 probe records, and documented on 26.122 and 26.123. A build with no run inherits no claim that the command works or fails.
   \end{itemize}
   \begin{block}{Why the identifiers carry the hotfix digit}
     Vendor hotfix builds can change solver behavior, and here the change was a silent numerical one: the same command and the same assertion, a density 43\% apart. NOT the same script, which is why this page names no cause: the probe harness moved between the two runs, so they are not a controlled comparison (RPT-014). What the hotfix digit buys is that the two builds keep separate records, so the disagreement is visible at all instead of one answer quietly standing for both.
@@ -1224,7 +1224,7 @@ rename_group_products(root, {1: "PUSHER"})
     Finding & Builds & Practical rule \\
     \midrule
     AIR\_ALTITUDE does not produce the altitude asked for & 26.100, 26.101, 26.120 & set the fluid state through FLUID\_PROPERTIES, or move to a hotfix build where the same probe passes; the compatibility matrix names which \\
-    SET\_MOTION\_START\_TIME aborts the script & 26.101, 26.120, 26.121, 26.122* & READ THE THIRD NOTE BELOW BEFORE ACTING ON THIS ROW \\
+    SET\_MOTION\_START\_TIME retains the earlier probe-prelude failure & 26.101, 26.121 & READ THE THIRD NOTE BELOW BEFORE ACTING ON THIS ROW \\
     NEW\_OFF\_BODY\_STREAMLINE aborts the script & 26.120, 26.121, 26.122, 26.123, 26.124, 26.125 & use probe lattices for off-body data \\
     \bottomrule
   \end{tabular}
@@ -1264,6 +1264,10 @@ rename_group_products(root, {1: "PUSHER"})
     \midrule
     EXPORT\_FUSELAGE\_CCS\_FILE writes no file that was observed & 26.124 & the command ran but the file it names was not observed; do not rely on the export, and the builder refuses it meanwhile (RPT-126) \\
     EXPORT\_WING\_CCS\_FILE writes no file that was observed & 26.124 & the command ran but the file it names was not observed; do not rely on the export, and the builder refuses it meanwhile (RPT-126) \\
+    CAD\_CREATE\_IMPORT\_CURVE\_TXT aborts the script & 26.124, 26.125 & prepare the curve through another route; the builder refuses this command (RPT-166) \\
+    CREATE\_BULK\_SEPARATION stops at its deprecated form & 26.120 & use the documented successor on a supported build (RPT-166) \\
+    CREATE\_NEW\_6DOF\_EXTERNAL\_FORCE aborts the script & 26.124, 26.125 & leave external force entries out until new evidence clears the command (RPT-166) \\
+    NEW\_OFF\_BODY\_STREAMTUBE aborts the script & 26.124, 26.125 & use probe lattices for off-body data (RPT-166) \\
     CREATE\_FREE\_SURFACE\_TFI\_MESH aborts the script & 26.125 & the documented call raised a modal error naming a perimeter curve with no virtual curves assigned; what the free surface needs first is not measured, so leave it out of a script, and the builder refuses it meanwhile \\
     \bottomrule
   \end{tabular}

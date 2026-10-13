@@ -259,7 +259,7 @@ def _items(entries):
 
 @pytest.mark.requirement("FR-456")
 def test_p0400_ffout_the_polar_keeps_its_bytes(posted):
-    """P0400-FFOUT (FR-456 R8): the polar is byte-identical with and without [farfield].
+    """P0400-FFOUT (FR-456 R8, FR-450): the polar is byte-identical with and without [farfield].
 
     The super file beside it gains its far-field block (R9), so it is the one
     file of the folder left out here.

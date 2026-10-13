@@ -622,6 +622,18 @@ def test_p0390_r03_pyfs_workspace_takes_the_console_level_only(tmp_path, capsys)
 SETTINGS_TABLE_SUFFIX = "_settings.csv"
 
 
+def without_flag_kind_columns(text: str) -> str:
+    """Return a settings table without its ``f<id>_kind`` columns, whose header names them."""
+    lines = text.split("\n")
+    header = lines[0].split(",")
+    drop = {i for i, name in enumerate(header) if re.fullmatch(r"f\d+_kind", name)}
+    assert drop, "the settings table carries no f<id>_kind column to take out"
+    return "\n".join(
+        ",".join(cell for i, cell in enumerate(line.split(",")) if i not in drop) if line else line
+        for line in lines
+    )
+
+
 def settings_spelling_admitted(new: str, captured: str) -> bool:
     """Whether a settings table differs from its 0.38.0 capture by the PFS-2105.020 spelling only.
 
@@ -693,10 +705,43 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b'  "planned_order": {\n    "7002": [\n      "V0300RE120AL+000"\n    ]\n  },\n'
         b'  "matrix_sha256":',
     )
+    # PFS-2104.050: a Reynolds-stated row's PRESSURE is the ideal-gas value of its density and
+    # temperature, no longer the standard 101325.0 beside a density that is not standard.
+    for script_name in captured:
+        if "/scripts/" in script_name and script_name.endswith(".txt"):
+            captured[script_name] = (
+                captured[script_name]
+                .replace(
+                    b"DENSITY 0.47714603360935287\r\nPRESSURE 101325.0\r\n",
+                    b"DENSITY 0.47714603360935287\r\nPRESSURE 39466.79276747769\r\n",
+                )
+                .replace(
+                    b"DENSITY 0.47714603360935287\nPRESSURE 101325.0\n",
+                    b"DENSITY 0.47714603360935287\nPRESSURE 39466.79276747769\n",
+                )
+            )
+    # The probe round of 2026-10-12 recorded CREATE_BULK_SEPARATION as broken on 26.120
+    # (CMP-26120_2026-10-12_pfs2135-items); the evidence line states the status and the report.
+    captured[plan_name] = captured[plan_name].replace(
+        b"CREATE_BULK_SEPARATION; build 26.120: documented; documented default: unknown "
+        b"(no default citation). Source: SRC-003 p.342. ",
+        b"CREATE_BULK_SEPARATION; build 26.120: broken; documented default: unknown "
+        b"(no default citation). Source: SRC-003 p.342. "
+        b"reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml",
+    )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
-        if name.endswith(SETTINGS_TABLE_SUFFIX):
-            # The one admitted difference, named: PFS-2105.020's full-precision cells.
+        if name.endswith(SETTINGS_TABLE_SUFFIX) or (
+            name.startswith("tree/post/") and name.endswith(".csv")
+        ):
+            # The one admitted difference, named: PFS-2105.020's full-precision cells of the
+            # settings tables, and PFS-2105.041's six significant digits for the dimensional
+            # columns of every post table (RHO 0.47715 became 0.477146); a cell is admitted
+            # only where its five-decimal spelling is the captured cell.
+            if name.endswith(SETTINGS_TABLE_SUFFIX):
+                # The post-1 review (087ffceb) added one ``f<id>_kind`` column per flag; the
+                # captured table has none, so those columns are taken out of the new one.
+                text = without_flag_kind_columns(text)
             assert settings_spelling_admitted(text, captured[name].decode("utf-8")), name
             continue
         assert text.encode("utf-8") == captured[name], (

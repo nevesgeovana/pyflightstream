@@ -270,7 +270,13 @@ _spec(
 
 
 def _detect_trailing_edges(script: Script, workdir: Path) -> None:
-    """Detect every trailing edge in the build's form (AUTO on 26.124, -1 on 26.125)."""
+    """Detect every trailing edge in the build's form (AUTO on 26.124, the counted list on 26.125).
+
+    The probe's prelude always imports the one constructed wing boundary, which 26.125 is told
+    by index (PFS-2104.051): the solver marked zero edges with ``SURFACES -1``.
+    """
+    if not script.num_boundaries:
+        script.declare_existing(boundaries=1)
     detect_every_boundary(script, "trailing_edges")
 
 

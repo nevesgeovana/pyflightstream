@@ -20,10 +20,10 @@ import numpy as np
 
 from pyflightstream.farfield.fields import FarfieldInputError, LatticeFields
 from pyflightstream.farfield.quadrature import (
-    _delta_psi,
-    _half_spectrum,
-    _parseval_weights,
     azimuthal_harmonics,
+    delta_psi,
+    half_spectrum,
+    parseval_weights,
     plane_integral,
     ring_sample_weights,
 )
@@ -94,7 +94,20 @@ class CrossflowEnergy:
 
 
 def mass_flux(fields: LatticeFields, rho: float) -> np.ndarray:
-    """Mass flow through each annular plane, ``integral(rho u dA)`` in kg/s."""
+    """Mass flow through each annular plane, ``integral(rho u dA)`` in kg/s.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    rho : float
+        Density in kg/m3.
+
+    Returns
+    -------
+    np.ndarray
+        Mass flow in kg/s for each station.
+    """
     return plane_integral(fields, rho * fields["u"])
 
 
@@ -107,6 +120,13 @@ def mass_closure(fields: LatticeFields, rho: float) -> MassClosure:
         ``mdot`` per station (kg/s) and the scalar ``relative_spread``
         (max deviation from the station mean over the mean); reported per
         run, judged against the case tolerance elsewhere.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    rho : float
+        Density in kg/m3.
     """
     mdot = mass_flux(fields, rho)
     mean = mdot.mean()
@@ -119,6 +139,20 @@ def axial_flux(fields: LatticeFields, rho: float, v_inf: float) -> np.ndarray:
 
     ``integral(rho u (u - v_inf) + p_prime) dA`` with the axial perturbation
     ``u' = u - v_inf`` (DLV-006 Sec. 3.3).
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    rho : float
+        Density in kg/m3.
+    v_inf : float
+        Free-stream speed in m/s.
+
+    Returns
+    -------
+    np.ndarray
+        Axial momentum-plus-pressure flux in N for each station.
     """
     u = fields["u"]
     return plane_integral(fields, rho * u * (u - v_inf) + fields["p_prime"])
@@ -175,6 +209,16 @@ def transverse_flux(
         evaluates the same number from the azimuthal spectra of ``u`` and the
         component (Parseval), the second, independent code path DLV-006
         Sec. 3.3 demands.
+
+    Returns
+    -------
+    np.ndarray
+        Transverse momentum flux in N for each station.
+
+    Raises
+    ------
+    FarfieldInputError
+        If the integration method is unsupported.
     """
     if method == "quadrature":
         return plane_integral(fields, rho * fields["u"] * fields[component])
@@ -186,12 +230,12 @@ def transverse_flux(
     # verifications disagree silently (quadrature pi, harmonic 0.0 at 16
     # azimuths). Orders 1..(n-1)/2 count twice, order 0 once, and for EVEN n
     # the Nyquist order n/2 is its own conjugate and counts ONCE.
-    _delta_psi(fields.psi)
+    delta_psi(fields.psi)
     n_psi = len(fields.psi)
     half = n_psi // 2
-    u_hat = _half_spectrum(fields["u"], half)
-    c_hat = _half_spectrum(fields[component], half)
-    weights = _parseval_weights(n_psi, half)
+    u_hat = half_spectrum(fields["u"], half)
+    c_hat = half_spectrum(fields[component], half)
+    weights = parseval_weights(n_psi, half)
     product_mean = (np.real(u_hat * np.conj(c_hat)) * weights).sum(axis=-1)
     ring_area = ring_sample_weights(fields) * n_psi
     scale = float(fields.tip_radius) ** 2
@@ -221,6 +265,24 @@ def lateral_flux(
         If the lattice has no lateral cylinder, its samples carry no ``v_r``,
         ``p_prime`` or component, or ``inlet`` or ``outlet`` is not a lateral
         station.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    rho : float
+        Density in kg/m3.
+    inlet : float
+        Inlet station coordinate x/R.
+    outlet : float
+        Outlet station coordinate x/R.
+    component : str
+        Transverse velocity field name: v for +y or w for +z.
+
+    Returns
+    -------
+    float
+        Lateral-cylinder momentum-plus-pressure flux in N.
     """
     if fields.lateral_radius is None or len(fields.lateral_stations) == 0:
         raise FarfieldInputError("the lattice has no lateral cylinder to integrate over")
@@ -242,7 +304,7 @@ def lateral_flux(
     normal = np.cos(fields.psi) if component == "w" else np.sin(fields.psi)
     integrand = rho * lateral["v_r"] * lateral[component] + lateral["p_prime"] * normal
     tip = float(fields.tip_radius)
-    ring = integrand.sum(axis=-1) * _delta_psi(fields.psi) * float(fields.lateral_radius) * tip
+    ring = integrand.sum(axis=-1) * delta_psi(fields.psi) * float(fields.lateral_radius) * tip
     x = stations[i0 : i1 + 1] * tip
     segment = ring[i0 : i1 + 1]
     return float((0.5 * (segment[1:] + segment[:-1]) * np.diff(x)).sum())
@@ -278,6 +340,11 @@ def transverse_force(
         Lateral-surface momentum-plus-pressure flux (N), from
         :func:`lateral_flux`; the default 0.0 is legitimate only at zero
         incidence, where symmetry nulls it.
+
+    Returns
+    -------
+    TransverseForce
+        Plane, lateral and total force terms in N.
     """
     flux = transverse_flux(fields, rho, component=component)
     plane_term = float(flux[fields.station_index(outlet)] - flux[fields.station_index(inlet)])
@@ -294,6 +361,18 @@ def shaft_torque(fields: LatticeFields, rho: float) -> np.ndarray:
     The order-0 ``v_theta`` content weighted by the dimensional moment arm
     ``r`` (DLV-006 Sec. 3.4); the sign follows the ``v_theta`` convention of
     :func:`~pyflightstream.farfield.fields.cylindrical_components`.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    rho : float
+        Density in kg/m3.
+
+    Returns
+    -------
+    np.ndarray
+        Shaft torque flux in N m for each station.
     """
     arm = fields.ring_centers * float(fields.tip_radius)
     return plane_integral(fields, rho * arm[:, None] * fields["v_theta"] * fields["u"])
@@ -335,6 +414,16 @@ def in_plane_moment(
         ``"quadrature"`` weights the axial flux by the sampled lever arm
         directly; ``"harmonic"`` rebuilds the loading term from the order-1
         azimuthal coefficient. Two independent code paths.
+
+    Returns
+    -------
+    InPlaneMoment
+        Loading, moment-arm and total moment terms in N m.
+
+    Raises
+    ------
+    FarfieldInputError
+        If axis or integration method is unsupported.
     """
     r = fields.ring_centers
     if axis == "y":
@@ -385,6 +474,22 @@ def crossflow_integrand(
     ``v``, ``w`` and the free-stream speed ``V`` (FR-450 R1, FR-453 R1). The
     integrand is transverse components only: it contains no axial-deficit term
     by construction, a hard rule of the design note.
+
+    Parameters
+    ----------
+    rho : float
+        Density in kg/m3.
+    first : np.ndarray
+        First transverse velocity component, in m/s.
+    second : np.ndarray
+        Second transverse velocity component, in m/s.
+    advecting : np.ndarray | float
+        Advecting velocity in m/s, scalar or sampled with the components.
+
+    Returns
+    -------
+    np.ndarray
+        Crossflow kinetic-energy flux density at each sample.
     """
     return 0.5 * rho * (first**2 + second**2) * advecting
 
@@ -396,6 +501,18 @@ def crossflow_kinetic_energy(fields: LatticeFields, rho: float) -> CrossflowEner
     axisymmetric (order-0) ``v_theta`` part reported as the stator-recoverable
     swirl channel and the remainder as the non-axisymmetric induced channel
     (DLV-006 Sec. 3.5).
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    rho : float
+        Density in kg/m3.
+
+    Returns
+    -------
+    CrossflowEnergy
+        Total, swirl and induced energy flux in W for each station.
     """
     v_theta_0 = fields["v_theta"].mean(axis=-1)
     u = fields["u"]
@@ -424,6 +541,11 @@ def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> fl
     FarfieldInputError
         If density, speed or area is not finite and strictly positive.
         Dynamic-pressure counts are undefined in hover; retain dimensional loads there.
+
+    Returns
+    -------
+    float
+        Force delta expressed in drag counts.
     """
     for name, value in (("rho_inf", rho_inf), ("v_inf", v_inf), ("s_ref", s_ref)):
         if not np.isfinite(value) or value <= 0:
@@ -447,5 +569,23 @@ def spurious_diagnostic(
     The residual between the integrated near-field load and the far-field
     balance is numerical, not physical; reported in counts so runs are
     comparable across cases and solvers (DLV-006 Sec. 3.5).
+
+    Parameters
+    ----------
+    near_field : float
+        Integrated near-field force in N.
+    far_field : float
+        Far-field force balance in N.
+    rho_inf : float
+        Free-stream density in kg/m3.
+    v_inf : float
+        Free-stream speed in m/s.
+    s_ref : float
+        Reference area in m2 used by the load coefficients.
+
+    Returns
+    -------
+    float
+        Near-field minus far-field force expressed in drag counts.
     """
     return to_counts(near_field - far_field, rho_inf=rho_inf, v_inf=v_inf, s_ref=s_ref)

@@ -547,7 +547,8 @@
  },
  "EXPORT_SURFACE_SECTIONS": {
   "build": [
-   "EXPORT_SURFACE_SECTIONS 1"
+   "EXPORT_SURFACE_SECTIONS 1",
+   "<WORKDIR>/section_1.txt"
   ],
   "requires": "SOLUTION",
   "version": "26.120"

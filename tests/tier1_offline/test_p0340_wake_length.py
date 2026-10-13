@@ -33,8 +33,14 @@ from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import InputArtifactError
 from tests.tier1_offline.test_goal021_inputs_absolute import _rotor_row, _workspace
-from tests.tier1_offline.test_goal024_rpm import ROTOR_BLOCK
+from tests.tier1_offline.test_goal024_rpm import ROTOR_BLOCK as _TWO_BLADE_BLOCK
 from tests.tier1_offline.test_workflows import rotor_case, steady_case, unsteady_case
+
+# The rows of `_rotor_row` state BLADES: 4 and the block is the count (PFS-2104.011):
+# a block of another count is refused, so the block here names four blades.
+ROTOR_BLOCK = _TWO_BLADE_BLOCK.replace(
+    '["Blade_1", "Blade_2"]', '["Blade_1", "Blade_2", "Blade_3", "Blade_4"]'
+)
 
 TERMINATION = "SET_WAKE_TERMINATION_TIME_STEPS"
 

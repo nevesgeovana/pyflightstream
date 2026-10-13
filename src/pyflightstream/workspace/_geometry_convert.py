@@ -26,6 +26,7 @@ from pyflightstream.cases._geometry_instruction import GEOMETRY_PAGE, INSTRUCTIO
 from pyflightstream.cases.matrix import read_matrix
 from pyflightstream.workspace._geometry_sidecar import toml_table as _table
 from pyflightstream.workspace._geometry_sidecar import toml_value as _value
+from pyflightstream.workspace._layout import matrix_files
 from pyflightstream.workspace.sidecars import inventory_sidecar, load_toml
 
 __all__ = ["GeometryConversion", "instruction_from_sidecar", "rows_for_built_geometries"]
@@ -50,7 +51,7 @@ class GeometryConversion:
 
 def _rows_naming(root: Path, name: str) -> list[Any]:
     found = []
-    for matrix in sorted({*root.glob("*.fs"), *(root / "inputs" / "matrices").glob("*.fs")}):
+    for matrix in matrix_files(root):
         try:
             rows = read_matrix(matrix)
         except (OSError, ValueError, InputArtifactError):
@@ -281,7 +282,8 @@ def rows_for_built_geometries(
     missing = [column for column in ("CONFIGURATION", "GEOMETRY") if column not in header]
     if missing:
         raise InputArtifactError(
-            f"{path} has no {' or '.join(missing)} column; --rows copies a row of a matrix "
+            f"{path} has no {' or '.join(missing)} column; "
+            "rows (CLI: --rows) copies a row of a matrix "
             f"at the current layout (`pyfs-matrix upgrade` converts one) ({GEOMETRY_PAGE})."
         )
     template = next((row for row in rows if row[0] == str(pol).strip()), None)

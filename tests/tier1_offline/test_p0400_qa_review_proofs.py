@@ -41,7 +41,7 @@ def test_p0400_review_proofs_campaign_filter_reaches_the_reducer(tmp_path, monke
         return (), {}
 
     monkeypatch.setattr(matrix_module, "_reduce_case", reduce_case)
-    monkeypatch.setattr(matrix_module, "load_reference", lambda *args: None)
+    monkeypatch.setattr(matrix_module, "load_reference", lambda *args, **kwargs: None)
     matrix_module.reduce_physics(_fake_workspace(root, records), root / "matriz_physics.fs")
     assert observed
     assert set(observed) == {"ws/sim_5002/AL+004"}

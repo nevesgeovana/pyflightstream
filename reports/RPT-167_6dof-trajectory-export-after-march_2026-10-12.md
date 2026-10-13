@@ -1,25 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.3
-artifact_id: RPT-167
-last_modified_at: 2026-10-13T00:54:27.041902+00:00
-last_modified_by:
-  provider: OpenAI
-  product: Codex
-  model: GPT-6
-  role: primary-agent
-dependencies:
-- C:\WORK\r040\gapprobes-run\logs\p404m2.out
-- C:\WORK\r040\gapprobes-run\out-p404m
-- src/pyflightstream/qa/compat.py
-- C:/WORK/r040/gapprobes-run/logs/p404m-followup-tier1-final.out
-authority: pyflightstream
-status: active
-confidentiality: internal
-change_summary: Record orchestrator verification, scoped database promotions, and fresh gated test counts.
-revision_source: git
--->
-
 # RPT-167 - 6DOF trajectory export after the march (2026-10-12)
 
 ## Scope and verdicts
@@ -35,7 +13,7 @@ The first attempt failed at licence checkout (Error Code 9) in a sandbox without
 
 ## Runner evidence
 
-Exact verdict lines from C:/WORK/r040/gapprobes-run/logs/p404m2.out:
+Exact verdict lines from gapprobes-run/logs/p404m2.out:
 
 ```text
 21:45:57 26.124 P4-04: P4-04 unprobed
@@ -48,7 +26,7 @@ The batch finished with lowest free memory 1.54 GB and zero floor kills. The per
 
 ## Trajectory evidence
 
-Paths below are under C:/WORK/r040/gapprobes-run/out-p404m. Row numbers refer to the original trajectory.txt lines. Columns are x, y, z, u, v, w, p, q, r, phi, theta, psi, Fx, Fy, Fz, Mx, My, Mz. Column units remain unsettled; no conversion is claimed.
+Paths below are under gapprobes-run/out-p404m. Row numbers refer to the original trajectory.txt lines. Columns are x, y, z, u, v, w, p, q, r, phi, theta, psi, Fx, Fy, Fz, Mx, My, Mz. Column units remain unsettled; no conversion is claimed.
 
 | Build | Probe | Bytes | Numeric rows | Width |
 |---|---|---|---|---|
@@ -84,13 +62,13 @@ Each report contains only the judged P4-04m command and cites this report. The C
 
 Final result: 137 passed, 7 failed, 13502 deselected in 105.36 seconds; exit code 1.
 
-Run from C:/WORK/r040/p404m with the requested system Python gate:
+Run from the lane worktree with the requested system Python gate:
 
 ```text
-C:/python/python.exe C:/WORK/release-0400/memgate.py -- C:/WORK/pfs0400-venv/Scripts/python.exe -m pytest tests/tier1_offline -q -p no:cacheprovider -k "sixdof or 6dof or command_database or compat or g67"
+python memgate.py -- python -m pytest tests/tier1_offline -q -p no:cacheprovider -k "sixdof or 6dof or command_database or compat or g67"
 ```
 
-PYTHONPATH=C:/WORK/r040/p404m/src;C:/WORK/pfs0400-venv/Lib/site-packages selected this worktree and allowed system Python to use the already installed psutil dependency. The gate and dependencies were not edited or installed.
+PYTHONPATH (the lane worktree source, then the venv site-packages) selected this worktree and allowed system Python to use the already installed psutil dependency. The gate and dependencies were not edited or installed.
 
 Remaining findings, unchanged by this task:
 
@@ -107,18 +85,18 @@ SHA-256 uses exact-file-bytes; raw solver outputs remain unchanged.
 
 | File | SHA-256 |
 |---|---|
-| C:/WORK/r040/gapprobes-run/logs/p404m2.out | 0fa1ff7c03bd93e2795761e5cfe54ad72f994e04a0db67be4b386dcdc31e43fd |
-| C:/WORK/r040/gapprobes-run/out-p404m/26.124/P4-04m/EXPORT_6DOF_TRAJECTORY/trajectory.txt | 546de0aba887d6eb424de277d9bd802c676c89ce3c22f06085d1e6cd18797fd3 |
-| C:/WORK/r040/gapprobes-run/out-p404m/26.124/summaries/P4-04m.json | 57a6fa7170d5f12ca29e1616196c57318db33fda0451df0afd9729b4b9e71c37 |
-| C:/WORK/r040/gapprobes-run/out-p404m/26.124/P4-04/EXPORT_6DOF_TRAJECTORY/trajectory.txt | fd1f9b2d8dbe0c8b844072eb1bf95903e84563ff57c94c0e24eee28ca7f2b4a1 |
-| C:/WORK/r040/gapprobes-run/out-p404m/26.124/summaries/P4-04.json | ee84230e3de4b3e4c4daeb12e5c54761b5cdd29ef45f27df3eba4f2695ed0789 |
-| C:/WORK/r040/gapprobes-run/out-p404m/26.125/P4-04m/EXPORT_6DOF_TRAJECTORY/trajectory.txt | 9f3763de760650f189909aed502097c5068dfb6dc77e90bddfefaebeff749621 |
-| C:/WORK/r040/gapprobes-run/out-p404m/26.125/summaries/P4-04m.json | 273ab6e98ff528632df0ee97d72f0dcfff9cffa502185f14081938eb4ec1a5b9 |
-| C:/WORK/r040/gapprobes-run/out-p404m/26.125/P4-04/EXPORT_6DOF_TRAJECTORY/trajectory.txt | fd1f9b2d8dbe0c8b844072eb1bf95903e84563ff57c94c0e24eee28ca7f2b4a1 |
-| C:/WORK/r040/gapprobes-run/out-p404m/26.125/summaries/P4-04.json | 941fc5458aee9d193df4f2cfd6038f1473619d68749c83e6727a9f31d76e663a |
+| gapprobes-run/logs/p404m2.out | 0fa1ff7c03bd93e2795761e5cfe54ad72f994e04a0db67be4b386dcdc31e43fd |
+| gapprobes-run/out-p404m/26.124/P4-04m/EXPORT_6DOF_TRAJECTORY/trajectory.txt | 546de0aba887d6eb424de277d9bd802c676c89ce3c22f06085d1e6cd18797fd3 |
+| gapprobes-run/out-p404m/26.124/summaries/P4-04m.json | 57a6fa7170d5f12ca29e1616196c57318db33fda0451df0afd9729b4b9e71c37 |
+| gapprobes-run/out-p404m/26.124/P4-04/EXPORT_6DOF_TRAJECTORY/trajectory.txt | fd1f9b2d8dbe0c8b844072eb1bf95903e84563ff57c94c0e24eee28ca7f2b4a1 |
+| gapprobes-run/out-p404m/26.124/summaries/P4-04.json | ee84230e3de4b3e4c4daeb12e5c54761b5cdd29ef45f27df3eba4f2695ed0789 |
+| gapprobes-run/out-p404m/26.125/P4-04m/EXPORT_6DOF_TRAJECTORY/trajectory.txt | 9f3763de760650f189909aed502097c5068dfb6dc77e90bddfefaebeff749621 |
+| gapprobes-run/out-p404m/26.125/summaries/P4-04m.json | 273ab6e98ff528632df0ee97d72f0dcfff9cffa502185f14081938eb4ec1a5b9 |
+| gapprobes-run/out-p404m/26.125/P4-04/EXPORT_6DOF_TRAJECTORY/trajectory.txt | fd1f9b2d8dbe0c8b844072eb1bf95903e84563ff57c94c0e24eee28ca7f2b4a1 |
+| gapprobes-run/out-p404m/26.125/summaries/P4-04.json | 941fc5458aee9d193df4f2cfd6038f1473619d68749c83e6727a9f31d76e663a |
 
-| C:/WORK/r040/gapprobes-run/logs/p404m-followup-tier1.out | 8b0db8433a7738845ef710a4eab6727939a860ead96b965f72dc88d531950a8b |
+| gapprobes-run/logs/p404m-followup-tier1.out | 8b0db8433a7738845ef710a4eab6727939a860ead96b965f72dc88d531950a8b |
 
-| C:/WORK/r040/gapprobes-run/logs/p404m-followup-tier1-final.out | 1b1f5308e7e226b5fc021915850e509000164e6783c6405e62103153fbf7e24c |
+| gapprobes-run/logs/p404m-followup-tier1-final.out | 1b1f5308e7e226b5fc021915850e509000164e6783c6405e62103153fbf7e24c |
 
 No commit was made.

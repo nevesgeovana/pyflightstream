@@ -75,8 +75,8 @@ FlightStream versions.
 
 ### Changed
 
-- mypy recount 2026-10-12: 165 errors in 13 of 342 modules, on the 0.40.0 tree; the shipped
-  configuration is green over all 342. Three exempted modules are clean and their overrides are
+- mypy recount 2026-10-13: 165 errors in 13 of 343 modules, on the 0.40.0 tree; the shipped
+  configuration is green over all 343. Three exempted modules are clean and their overrides are
   deleted (`pyflightstream.farfield`, `pyflightstream.fsi.driver` and `pyflightstream.script.entities`),
   the exempted set falls from sixteen modules to thirteen, and the error total inside it moves from 159
   to 165 (`qa.probes` 79 to 92, `script.helpers` 2 to 4, `script` 17 to 13, `post.writers` 2 to 1). The

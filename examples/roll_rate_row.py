@@ -29,7 +29,7 @@ from pathlib import Path
 
 from pyflightstream.cases import case_at_point
 from pyflightstream.cases.workflows import build_script, workflow_registry
-from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
+from pyflightstream.qa.geometry import WingSpec, wing_triangles
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
@@ -47,18 +47,20 @@ print(f"workspace: {workspace.root}")
 # ## 1. The wing and its reference
 #
 # The synthetic NACA 0012 wing of `pyflightstream.qa.geometry`, chord 1 m and
-# span 8 m, written as an STL in metres with its surface named `Wing`, and a
+# span 8 m, written as an OBJ in metres with its surface named `Wing`, and a
 # sidecar stating that unit and marking the trailing edge by the solver's
 # detection (written, so applied). The reference places the moment point at
 # the quarter chord and declares the body axes: the wing flies along x, so the
 # roll rate turns about X.
 
 # %%
-generate_wing_stl(
-    WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=12, n_span=16),
-    inputs / "geometries" / "wing.stl",
-    name="Wing",
-)
+vertices = wing_triangles(
+    WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=12, n_span=16)
+).reshape(-1, 3)
+with (inputs / "geometries" / "wing.obj").open("w", encoding="utf-8") as obj:
+    obj.write("o Wing\n")
+    obj.writelines(f"v {x:.8f} {y:.8f} {z:.8f}\n" for x, y, z in vertices)
+    obj.writelines(f"f {i + 1} {i + 2} {i + 3}\n" for i in range(0, len(vertices), 3))
 (inputs / "geometries" / "wing.boundaries.toml").write_text(
     'boundaries = ["Wing"]\n\n[import]\nunits = "METER"\n\n[trailing_edges]\ndetect = "auto"\n',
     encoding="utf-8",
@@ -92,7 +94,7 @@ HEADER = (
 ROW = (
     "2001 | 0 | 1 | Wing | - | roll_damping "
     "| MACH:0.1, REmi:2.3, ALPHA:4.0, roll_rate:sweep "
-    f"| {','.join(str(rate) for rate in ROLL_RATES_DEG_S)} | wing.stl | r001 | s001 | p001 "
+    f"| {','.join(str(rate) for rate in ROLL_RATES_DEG_S)} | wing.obj | r001 | s001 | p001 "
     f"| NONE | - | - | - | {BUILD} | steady |"
 )
 matrix = workspace.root / "roll.fs"

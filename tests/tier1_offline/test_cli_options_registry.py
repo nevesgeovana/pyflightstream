@@ -156,14 +156,14 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "ct"): FIELD_OPERATION,
     ("pyfs-workspace", "rho"): FIELD_OPERATION,
     ("pyfs-workspace", "rpm"): FIELD_OPERATION,
-    # 0.40.0 (FR-471 to FR-477): `pyfs-workspace geometry`. `build TARGET` names the
-    # instruction it builds (FR-471), `--only` the variants of its sweep (FR-472 R2),
-    # `--rows POL --matrix FILE` the row it prints and nothing is written (FR-472 R5),
-    # `accept NAMES` the bodies inspected (FR-473), `from-sidecar GEOMETRY` the file
-    # converted (FR-476 R2); `--build` and `--fs-exe` identify the solver the build.json
-    # records (FR-471 R7); `--png` draws one more file of this call (FR-471). `refine`,
+    # `pyfs-workspace geometry`: `build TARGET` names the
+    # instruction it builds, `--only` the variants of its sweep,
+    # `--rows POL --matrix FILE` the row it prints and nothing is written,
+    # `accept NAMES` the bodies inspected, `from-sidecar GEOMETRY` the file
+    # converted; `--build` and `--fs-exe` identify the solver the build.json
+    # records; `--png` draws one more file of this call. `refine`,
     # `audit`, `inventory` and `degenerate` are the `pyfs-matrix` parsers copied as
-    # parents (FR-477), so each destination keeps the reason of its `pyfs-matrix` row;
+    # parents, so each destination keeps the reason of its `pyfs-matrix` row;
     # `--apply`, `--overwrite`, `--out` and `--workspace` keep their rows above.
     ("pyfs-workspace", "target"): SUBJECT,
     ("pyfs-workspace", "only"): SUBJECT,
@@ -799,7 +799,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "ct"): frozenset({"profile"}),
     ("pyfs-workspace", "rho"): frozenset({"profile"}),
     ("pyfs-workspace", "rpm"): frozenset({"profile"}),
-    # 0.40.0 (FR-471 to FR-477): the options of `pyfs-workspace geometry`.
+    # The options of `pyfs-workspace geometry`; the feature tests prove their behavior.
     ("pyfs-workspace", "target"): frozenset({"build"}),
     ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar"}),
     ("pyfs-workspace", "fs_exe"): frozenset({"build"}),

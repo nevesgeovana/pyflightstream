@@ -161,7 +161,9 @@ def test_a_steady_job_records_its_sections_layout(tmp_path):
         ("Blade", ["Blade1", "Blade2"], "MRP", "MRP", ["Wing", "Blade1", "Blade2"], True),
         ("Blade", ["Blade1", "Blade2"], "MRP", "MRP", ["Wing", "Blade", "Blade1", "Blade2"], False),
         ("Blade", ["Blade1", "Blade2"], "MRP", "MRP", ["Blade1", "Blade2", "Blade3"], False),
-        ("Blade1", ["Blade11", "Blade12"], "MRP", "MRP", ["Blade11", "Blade12"], True),
+        # PFS-2029.25 (FR-320, FR-435): a numbered name the KNOWN inventory lacks
+        # selects nothing, whatever its siblings, so no block is its emission.
+        ("Blade1", ["Blade11", "Blade12"], "MRP", "MRP", ["Blade11", "Blade12"], False),
         ("Blade1", ["Blade11", "Blade12"], "MRP", "MRP", ["Blade1", "Blade11", "Blade12"], False),
         ("all", [], "MRP", "MRP", ["Wing", "Tail"], True),
         ("all", [], "MRP", "MRP", None, False),
@@ -175,7 +177,7 @@ def test_a_steady_job_records_its_sections_layout(tmp_path):
         "stem-settled",
         "stem-is-a-boundary",
         "third-blade",
-        "numbered-over-wider-settled",
+        "numbered-absent-from-the-inventory",
         "numbered-is-a-boundary",
         "all-settled",
         "all-no-inventory",

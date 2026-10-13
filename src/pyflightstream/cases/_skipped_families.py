@@ -154,7 +154,7 @@ def names_no_boundary_answers(
         # (PFS-2029.25), so it selects nothing on a sector, and it is still not
         # refused here: the plan's warning names it. Asked first, it also keeps
         # the cited-alone refusal of the selector out of this reader.
-        if names_of(token, inventory):
+        if names_of(token, inventory, refuse_indexed=False):
             continue
         if not select_families(token, inventory, is_blade, aliases=aliases):
             if (None, token) not in missing:

@@ -27,6 +27,11 @@ geometry is involved.
 
 row 5001 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMETRY NONE
 
+Minimum Cp clip for sim_5001/V0300RHO12250AL+000: -100.
+Minimum Cp clip for sim_5001/V0300RHO12250AL+020: -100.
+Minimum Cp clip for sim_5001/V0300RHO12250AL+040: -100.
+Minimum Cp clip for sim_5001/V0300RHO12250AL+060: -100.
+
 | point | alpha (deg) | CL | CDi | iterations | converged |
 |---|---|---|---|---|---|
 | sim_5001/V0300RHO12250AL+000 | +0.0 | 0.00000 | 0.00000 | 312 | yes |
@@ -47,6 +52,9 @@ row 5001 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMET
 
 row 5002 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMETRY NONE; row 5003 of matriz_physics.fs, steady workflow over 13_HALFWING_PHY.fsm under SYMMETRY MIRROR
 
+Minimum Cp clip for sim_5002/V0300RHO12250AL+040: -100.
+Minimum Cp clip for sim_5003/V0300RHO12250AL+040: -100.
+
 | point | alpha (deg) | CL | CDi | iterations | converged |
 |---|---|---|---|---|---|
 | sim_5002/V0300RHO12250AL+040 | +4.0 | 0.33700 | 0.00490 | 312 | yes |
@@ -63,6 +71,8 @@ row 5002 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMET
 
 row 5005 of matriz_physics.fs, unsteady_rotor workflow over 31_BLADE_PHY.fsm under SYMMETRY PERIODIC
 
+Minimum Cp clip for sim_5005/V0490RHO12250AL+000BE+000: -100.0.
+
 | point | alpha (deg) | CL | CDi | iterations | converged |
 |---|---|---|---|---|---|
 | sim_5005/V0490RHO12250AL+000BE+000 | +0.0 | -0.00010 | -0.04517 | 500 | no |
@@ -77,6 +87,15 @@ row 5005 of matriz_physics.fs, unsteady_rotor workflow over 31_BLADE_PHY.fsm und
 ## PHY-06: Steady versus unsteady polar equivalence (NACA 0012, AR 8)
 
 row 5006 of matriz_physics.fs, unsteady workflow over 12_WING_PHY.fsm under SYMMETRY NONE; row 5001 of matriz_physics.fs, steady workflow over 12_WING_PHY.fsm under SYMMETRY NONE
+
+Minimum Cp clip for sim_5001/V0300RHO12250AL+000: -100.
+Minimum Cp clip for sim_5001/V0300RHO12250AL+020: -100.
+Minimum Cp clip for sim_5001/V0300RHO12250AL+040: -100.
+Minimum Cp clip for sim_5001/V0300RHO12250AL+060: -100.
+Minimum Cp clip for sim_5006/V0300RHO12250AL+000: -100.
+Minimum Cp clip for sim_5006/V0300RHO12250AL+020: -100.
+Minimum Cp clip for sim_5006/V0300RHO12250AL+040: -100.
+Minimum Cp clip for sim_5006/V0300RHO12250AL+060: -100.
 
 | point | alpha (deg) | CL | CDi | iterations | converged |
 |---|---|---|---|---|---|

@@ -6,10 +6,10 @@ actuator-disk jump, a solid-body swirl patch, and an imposed pure 1P
 cosine loading. No solver, fast, deterministic.
 
 Since 0.40.0 the ledgers take the numpy ``LatticeFields`` of
-``lattice_fields`` (FR-457); the assertions are those of the xarray
+``lattice_fields``; the assertions are those of the xarray
 implementation, and the bit parity of every result is held separately by
 ``test_p0400_farfield_numpy.py``. The rothalpy guards left with the two
-functions (FR-458).
+functions. This checks retained numerical behavior, not the removal contract.
 """
 
 import dataclasses

@@ -682,7 +682,20 @@ def free_stream_direction(case: SimCase) -> tuple[float, float, float]:
 
 
 def free_stream_direction_at(alpha_deg: float, beta_deg: float) -> tuple[float, float, float]:
-    """Return the unit free-stream vector for an incidence and sideslip in degrees."""
+    """Return the unit free-stream vector for an incidence and sideslip in degrees.
+
+    Parameters
+    ----------
+    alpha_deg : float
+        Incidence angle in degrees.
+    beta_deg : float
+        Sideslip angle in degrees.
+
+    Returns
+    -------
+    tuple[float, float, float]
+        Unit free-stream vector in reference axes.
+    """
     alpha = math.radians(alpha_deg)
     beta = math.radians(beta_deg)
     return (

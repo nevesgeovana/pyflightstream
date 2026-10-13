@@ -894,7 +894,7 @@
     modules more (`pyflightstream._textio` and
     `pyflightstream.workspace.actuator_profiles`) each clean; the 0.39.0
     tree read 159 errors in 16 of 296 modules on 2026-10-11, and the 0.40.0
-    tree read 165 errors in 13 of 342 modules on 2026-10-12, when
+    tree read 165 errors in 13 of 343 modules on 2026-10-13, when
     `pyflightstream.farfield`, `pyflightstream.fsi.driver` and
     `pyflightstream.script.entities` were measured clean and their overrides
     deleted (RPT-029).

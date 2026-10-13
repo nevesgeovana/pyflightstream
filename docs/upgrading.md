@@ -38,8 +38,9 @@ average over the window its `FIRST_STEP`, `LAST_STEP` and `STEPS` state:
 `time_average` over the new `averaging_window` (code 4), where 0.39.0 wrote
 `not_printed`, or `none` over `not_applicable` when the native export printed
 a steady mode. Select an unsteady polar row by `reduction == "time_average"`
-and a native-export row by `"last_step"`. Post again to rebuild the products;
-no re-run is needed.
+and a native-export row by `"last_step"`; the reductions are defined in
+[the post-processing definitions](post-processing-definitions.md). Post again to
+rebuild the products; no re-run is needed.
 
 The settings table (`settings/*_settings.csv`) writes each value at its
 shortest exact spelling (`30.0` where it wrote `30.00000`, `1e-05` where it

@@ -52,14 +52,12 @@ DOCS = REPO / "docs"
 #: of such a root, docstring lines included, and its entries only shrink, so
 #: their docstrings are completed when each root becomes a facade and its
 #: definitions move to a module (the cuts of 0.33.0), not by growing the root.
-#: What ``probes`` holds back is the Raises section of ``write_points_csv``,
-#: so it is pinned on ``NUMPYDOC_PENDING`` too. This table says WHY a root is
+#: The far-field lane made ``farfield`` and ``probes`` facades and their exported
+#: functions are documented, so both roots have left these pins. This table says why a root is
 #: pending and is tied to the facade baselines; ``NUMPYDOC_PENDING`` is the
 #: ratchet, and a held root that is complete leaves it like any other module.
 FACADE_HELD = {
     "cases/__init__.py",
-    "farfield/__init__.py",
-    "probes/__init__.py",
     "script/__init__.py",
     "workspace/__init__.py",
 }
@@ -78,8 +76,8 @@ FACADE_HELD = {
 #: (AD-14) moved the pending functions of the `run` root into `run._campaign`,
 #: `run._executors`, `run._identity` and `run._plan`, pinned in its stead; the
 #: root, a facade now, leaves the list.
-#: DOC-B part 2 group g1: `cases.windows` left the list; the roots `cases`, `farfield` and
-#: `probes` stay pinned, held by the facade ratchet (FACADE_HELD).
+#: DOC-B part 2 group g1: `cases.windows` left the list; the `cases` root stays
+#: pinned, held by the facade ratchet (FACADE_HELD).
 #: DOC-B part 2 g3 documented `results.sectional_loads`, `results.core`, `results.log` and the four
 #: `post` family modules, which left.
 #: `results.loads`, `results.native_surface`, `results.surface` and `results.tables` are
@@ -88,8 +86,6 @@ FACADE_HELD = {
 #: leave the list. The `workspace` root stays pinned: it is a held facade root (FACADE_HELD).
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
-    "farfield/__init__.py",
-    "probes/__init__.py",
     "workspace/__init__.py",
     # WP5 (AD-13) moved the pending functions of `post.products` into the four
     # family modules, which are pinned in their stead.
@@ -274,8 +270,8 @@ def escaping_catalogued_errors(
                     types.append(_resolve(handler.type, namespace))
             for statement in current.body:
                 visit(statement, handlers + types)
-            for statement in (*current.handlers, *current.orelse, *current.finalbody):
-                visit(statement, handlers)
+            for item in (*current.handlers, *current.orelse, *current.finalbody):
+                visit(item, handlers)
             return
         for child in ast.iter_child_nodes(current):
             visit(child, handlers)
@@ -349,7 +345,9 @@ def numpydoc_gaps(node: ast.FunctionDef | ast.AsyncFunctionDef, doc: str) -> lis
 
 def _definition(function) -> tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]:
     """The function's module path under the imported package and its ``def`` node."""
-    path = Path(inspect.getsourcefile(function)).resolve()
+    filename = inspect.getsourcefile(function)
+    assert filename is not None
+    path = Path(filename).resolve()
     first = function.__code__.co_firstlineno
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if (
@@ -599,11 +597,14 @@ def _documented_entry_points() -> list[tuple[str, object, str]]:
                 obj = getattr(module, name, None)
                 target = inspect.unwrap(obj) if inspect.isfunction(obj) else obj
                 used.add(id(target))
-    found = []
+    found: list[tuple[str, object, str]] = []
     for dotted, obj in _exported():
         if id(obj) not in used or (inspect.isclass(obj) and issubclass(obj, BaseException)):
             continue
-        path = Path(inspect.getsourcefile(obj)).resolve()
+        assert inspect.isfunction(obj) or inspect.isclass(obj)
+        filename = inspect.getsourcefile(obj)
+        assert filename is not None
+        path = Path(filename).resolve()
         found.append((dotted, obj, path.relative_to(PKG).as_posix()))
     return found
 
@@ -689,7 +690,7 @@ def test_the_examples_check_refuses_planted_defects():
 REDUCTIONS_HOME = "post-processing-definitions.md"
 REDUCTIONS_ANCHOR = "the-reductions-of-an-unsteady-point"
 REDUCTIONS = ("time_average", "per_blade", "phase_locked", "per_revolution")
-#: ``azimuthal_harmonics`` is the far-field function (P0400-FFPROOF, the FR-457 R5 signature
+#: ``azimuthal_harmonics`` is the far-field function (P0400-FFPROOF, the published signature
 #: table of ``upgrading.md``), not the ``<point>_harmonics`` reduction file.
 _REDUCTION_FILE = re.compile(
     r"(?<!azimuthal)_(time_average|phase_locked|per_blade|per_revolution|harmonics)\b"

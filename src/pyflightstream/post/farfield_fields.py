@@ -121,7 +121,22 @@ class ProbeSamples:
 
 
 def native_per_m(sim_dir: Path, outputs: Sequence[str], version: str | None) -> float | None:
-    """Return the simulation length units per metre of a point, from its saved simulation."""
+    """Return the simulation length units per metre of a point, from its saved simulation.
+
+    Parameters
+    ----------
+    sim_dir : Path
+        Folder containing the point exports and saved simulation.
+    outputs : Sequence[str]
+        Recorded output filenames relative to the simulation folder.
+    version : str | None
+        Package version that wrote the output names, or None for current names.
+
+    Returns
+    -------
+    float | None
+        Native length units per metre, or None when the saved unit is unavailable.
+    """
     names = [Path(name).name for name in outputs]
     saved = classify_outputs(names, package_version=version).get("simulation")
     if saved is None:
@@ -141,7 +156,23 @@ def _column(columns: Sequence[str], name: str) -> int:
 
 
 def steady_samples(text: str) -> ProbeSamples:
-    """Read a steady probe export into its positions, velocities and ``Cp``."""
+    """Read a steady probe export into its positions, velocities and ``Cp``.
+
+    Parameters
+    ----------
+    text : str
+        Native steady probe-export text.
+
+    Returns
+    -------
+    ProbeSamples
+        Probe positions, velocities and pressure coefficients in export order.
+
+    Raises
+    ------
+    PyflightstreamError
+        If required position, velocity or pressure columns are absent.
+    """
     report = parse_probe_points(text)
     values = np.asarray(report.values, dtype=float).reshape(-1, len(report.columns))
     try:
@@ -164,6 +195,20 @@ def unsteady_samples(
 
     ``series`` is the plots export keyed by column; a vertex whose plots are
     absent is NaN, so the integrals that need it are ``NA``.
+
+    Parameters
+    ----------
+    series : Mapping[str, np.ndarray]
+        Fluid-plot history columns keyed by their native names.
+    positions : Mapping[int, Sequence[object]]
+        Probe vertex ids mapped to their recorded positions.
+    row : int
+        Zero-based time-step row to read from each history column.
+
+    Returns
+    -------
+    ProbeSamples
+        One step of probe samples in vertex order, with missing histories as NaN.
     """
     vertices = sorted(positions)
 
@@ -192,12 +237,41 @@ def _block(positions: np.ndarray, expected: np.ndarray) -> int | None:
 
 
 def frame_lattice(shape: LatticeShape) -> tuple[ProbeLattice, None, str]:
-    """Return a frame's lattice, laid along the frame's x axis on the reference axes."""
+    """Return a frame's lattice, laid along the frame's x axis on the reference axes.
+
+    Parameters
+    ----------
+    shape : LatticeShape
+        Declared annular probe-lattice geometry.
+
+    Returns
+    -------
+    tuple[ProbeLattice, None, str]
+        Probe lattice, None for unavailable reference positions, and axis X.
+    """
     return shape.build(float(shape.tip_radius_m or 0.0)), None, "X"
 
 
 def rotor_lattice(shape: LatticeShape, rotor: Any) -> tuple[ProbeLattice, np.ndarray, str]:
-    """Return a rotor's lattice, its points in metres (reference frame) and its axis letter."""
+    """Return a rotor's lattice, its points in metres (reference frame) and its axis letter.
+
+    Parameters
+    ----------
+    shape : LatticeShape
+        Declared annular probe-lattice geometry.
+    rotor : Any
+        Resolved rotor with diameter, hub origin and axis.
+
+    Returns
+    -------
+    tuple[ProbeLattice, np.ndarray, str]
+        Lattice, reference-frame point coordinates in m and rotor axis letter.
+
+    Raises
+    ------
+    PyflightstreamError
+        If the rotor axis is not an axis letter.
+    """
     axis = str(getattr(rotor, "axis", "")).strip().upper()
     if axis not in _CYCLIC:
         raise PyflightstreamError(
@@ -224,6 +298,24 @@ def far_samples(
     plane as the ``plane_count`` points the plan laid just before an added
     lattice, or as the last points otherwise.
     Returns the lattice slice, the plane slice and why one is missing.
+
+    Parameters
+    ----------
+    samples : ProbeSamples
+        Probe positions, velocity components and pressure coefficients.
+    lattice_m : np.ndarray | None
+        Expected lattice point coordinates in m, or None for a frame lattice.
+    plane_count : int
+        Number of points in the plane preceding the lattice.
+    per_m : float
+        Number of native simulation length units per metre.
+    lattice_tail : int
+        Number of frame-lattice points appended after other probes.
+
+    Returns
+    -------
+    tuple[slice | None, slice | None, str]
+        Lattice slice, plane slice and the reason a requested slice is missing.
     """
     total = len(samples.positions)
     lattice = plane = None
@@ -259,6 +351,29 @@ def plane_values(
 
     ``flow`` is the density, the free-stream speed, alpha and beta (deg);
     ``grid`` is the plane's half width, half height and spacing in m.
+
+    Parameters
+    ----------
+    samples : ProbeSamples
+        Probe positions, velocity components and pressure coefficients.
+    block : slice
+        Slice selecting the plane points from the probe samples.
+    flow : tuple[float, float, float, float]
+        Density in kg/m3, speed in m/s, incidence and sideslip in degrees.
+    grid : tuple[float, float, float]
+        Plane half width, half height and spacing, all in m.
+    per_m : float
+        Number of native simulation length units per metre.
+
+    Returns
+    -------
+    dict[str, float]
+        Trefftz-plane product columns with forces in N and distances in m.
+
+    Raises
+    ------
+    PyflightstreamError
+        If the selected probes do not form the declared free-stream-normal plane.
     """
     rho, speed, alpha, beta = flow
     a, b = math.radians(alpha), math.radians(beta)
@@ -351,7 +466,24 @@ def lattice_samples(
 
 
 def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: float) -> dict:
-    """Return the rotor channels of FR-453 R3 at one station, in W."""
+    """Return the rotor channels of FR-453 R3 at one station, in W.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    rho : float
+        Density in kg/m3.
+    speed : float
+        Free-stream speed in m/s.
+    station : float
+        Outlet station coordinate x/R.
+
+    Returns
+    -------
+    dict
+        Rotor far-field product columns in the units named by their keys.
+    """
     channels = rotor_channels(fields, rho, speed, station=station)
     return {
         "P_AXIAL_W": channels.p_axial,
@@ -398,6 +530,24 @@ def ledger_values(
     reference area (m^2) the spurious counts are stated against. A balance the
     table does not select stays out (``NA``); the control-volume columns are
     ``NA`` on the inlet row.
+
+    Parameters
+    ----------
+    fields : LatticeFields
+        Survey lattice samples in the coordinate system documented above.
+    spec : LedgersSpec
+        Selected balance channels and harmonic order of the ledger.
+    rho : float
+        Density in kg/m3.
+    speed : float
+        Free-stream speed in m/s.
+    near : tuple[float, float]
+        Near-field axial force in N and its reference area in m2.
+
+    Returns
+    -------
+    list[dict[str, float]]
+        One ledger column mapping per lattice station.
     """
     chosen = set(spec.balances)
     stations = [float(x) for x in fields.stations]
@@ -464,6 +614,18 @@ def average_rows(
     never computed on an averaged field. A step's NaN makes the average NaN,
     never a smaller number; a text cell keeps the first step's; ``STEP`` (the
     second cell) reads ``AVERAGE``.
+
+    Parameters
+    ----------
+    rows : Sequence[Sequence[tuple[object, ...]]]
+        One ordered sequence of product rows per time step.
+    first : int
+        First column whose numeric cells are averaged.
+
+    Returns
+    -------
+    list[tuple[object, ...]]
+        Rows with AVERAGE step labels and averaged numeric cells.
     """
     out = []
     for cells in zip(*rows, strict=True):
