@@ -2850,6 +2850,19 @@ def test_a_row_carrying_both_spellings_is_refused():
 # --- PFS-2012.04: the executor and the window are read off the run ---------
 
 
+#: The window a row stating EXPORT_UNSTEADY_AFTER_REV: 3 records, in the declared
+#: wire type (ExportThresholdRecord, PFS-2084.005): 36 steps per revolution, 108 steps.
+WINDOW = {
+    "stated_form": "revolutions",
+    "stated_value": 3.0,
+    "first_step": 108,
+    "time_iterations": 144,
+    "delta_time_s": 0.001,
+    "step_offset": 0,
+    "step_deg": 10.0,
+}
+
+
 def test_the_run_record_carries_the_executor_and_the_window():
     """Both fields exist, both default to None, and a row without them reads."""
     for name in ("executor", "export_window"):
@@ -2861,14 +2874,14 @@ def test_the_run_record_carries_the_executor_and_the_window():
     assert plain.executor is None and plain.export_window is None
     record = make_record(
         executor={"class_name": "LocalExecutor", "argv": ["fs.exe", "-hidden", "-script", "p"]},
-        export_window={"EXPORT_UNSTEADY_AFTER_REV": 3},
+        export_window=WINDOW,
     )
     row = json.loads(record.model_dump_json())
     assert row["executor"] == {
         "class_name": "LocalExecutor",
         "argv": ["fs.exe", "-hidden", "-script", "p"],
     }
-    assert row["export_window"] == {"EXPORT_UNSTEADY_AFTER_REV": 3}
+    assert row["export_window"] == WINDOW
     assert RunRecord.model_validate(row) == record
 
 

@@ -425,9 +425,9 @@ class RunRecord(BaseModel):
         (``revolutions`` or ``iterations``, the key the row wrote),
         ``stated_value``, ``first_step`` (the first time step whose
         export runs) and the local ``time_iterations``. ``step_offset`` is
-        the absolute step where this march begins. A count-only march carries
-        the clock and offset without threshold fields. None when no counter
-        is staged, or for older records. This is distinct from the public
+        the absolute step where this march begins. None for a row that states
+        no threshold (a count-only march or no counter staged), and for older
+        records. This is distinct from the public
         averaging ExportWindow; the persisted key remains compatible.
     solver_setup : dict, optional
         Serialized solver-setup snapshot

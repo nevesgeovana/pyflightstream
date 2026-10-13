@@ -36,7 +36,7 @@ from pathlib import Path, PurePosixPath
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases import SimCase
-from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE, ExportThresholdRecord
+from pyflightstream.cases.restart_records import ExportThresholdRecord
 from pyflightstream.cases.workflows import (
     UNSTEADY_ACTION_COUNT,
     UNSTEADY_ACTION_PROGRAM,
@@ -294,10 +294,9 @@ def stage_counter(
     hashes = {**inputs_sha256, UNSTEADY_ACTION_PROGRAM: file_sha256(program)}
     fields: dict[str, object] = {"inputs_sha256": hashes, "action_program": UNSTEADY_ACTION_PROGRAM}
     if threshold is None:
-        fields["export_window"] = ExportThresholdRecord(
-            time_iterations=unsteady_counter_steps(point_case),
-            step_offset=int(point_case.variables.get(RESTART_STEP_OFFSET_VARIABLE, 0)),
-        )
+        # A count-only program records no export_window (FR-415 R7 and the
+        # unsteady-rotor page): every reader of the key reads first_step, and a
+        # continuation of this run sums its recorded count through the chain.
         return fields
     hashes[UNSTEADY_ACTION_SCRIPT] = file_sha256(work_dir / UNSTEADY_ACTION_SCRIPT)
     fields["action_script"] = UNSTEADY_ACTION_SCRIPT
