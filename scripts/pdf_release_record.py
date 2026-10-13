@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -43,7 +44,9 @@ CHEATSHEET_RAW_LOG = REPO / "guide/latex-sources/build/04-cheatsheet/pyfts-guide
 
 
 def _git(*args: str) -> str:
-    done = subprocess.run(["git", *args], cwd=REPO, capture_output=True, text=True, check=True)
+    done = subprocess.run(
+        ["git", *args], cwd=REPO, capture_output=True, text=True, check=True, env=os.environ.copy()
+    )
     return done.stdout
 
 
@@ -112,12 +115,12 @@ def _pages(log: str) -> int:
 
 
 def _first_line(*cmd: str) -> str:
-    done = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    done = subprocess.run(cmd, capture_output=True, text=True, check=True, env=os.environ.copy())
     return done.stdout.splitlines()[0].strip()
 
 
 def _run(command: str) -> None:
-    done = subprocess.run(command, cwd=REPO, shell=True)
+    done = subprocess.run(command, cwd=REPO, shell=True, env=os.environ.copy())
     if done.returncode != 0:
         raise SystemExit(f"build failed with exit {done.returncode}: {command}")
 
