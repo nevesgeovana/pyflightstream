@@ -8,16 +8,16 @@ the script one solver execution runs to make the body, with no solve::
     <the source: the CCS route of the run, IMPORT_CAD and its body operations,
      the CAD Create recipe, or IMPORT of a raw mesh>
     <the [[operations]], in the order written>
-    EXPORT_SURFACE_MESH OBJ -1 <work>/<name>.obj
     SET_SIMULATION_LENGTH_UNITS METER
     <the trailing edges>
     SAVEAS <work>/<name>.fsm
+    EXPORT_SURFACE_MESH OBJ -1 <work>/<name>.obj
     CLOSE_FLIGHTSTREAM
 
-THE EXPORT COMES BEFORE THE LENGTH UNIT, because it is a geometry command and
-the script cannot return to the geometry phase once the length unit (a setup
-command) is written; an OBJ carries no trailing-edge mark, so nothing marked
-after it is lost to it. The CCS source is emitted by the run's own emitter
+The OBJ is written in the simulation length unit in force at export, so the
+unit is set explicitly before marking, saving and exporting (FR-471 R2).
+An OBJ carries no trailing-edge marks; they are saved in the simulation.
+The CCS source is emitted by the run's own emitter
 (:func:`pyflightstream.cases.ccs_wing.emit_ccs_geometry`), so the stage adds no
 second CCS emitter.
 
@@ -192,13 +192,13 @@ def render_geometry_script(
     _emit_operations(script, instruction, folder, names)
     obj = str(work / f"{instruction.name}.obj")
     fsm = str(work / f"{instruction.name}.fsm")
-    script.emit("EXPORT_SURFACE_MESH", "OBJ", -1, obj)
     script.emit("SET_SIMULATION_LENGTH_UNITS", SIMULATION_UNIT)
     script.declare_existing(
         boundaries={name: index for index, name in enumerate(instruction.boundaries, start=1)}
     )
     _emit_trailing_edges(script, instruction, work, trailing_edge_points_m)
     script.emit("SAVEAS", fsm)
+    script.emit("EXPORT_SURFACE_MESH", "OBJ", -1, obj)
     script.emit("CLOSE_FLIGHTSTREAM")
     commands = _commands(script)
     return GeometryScript(

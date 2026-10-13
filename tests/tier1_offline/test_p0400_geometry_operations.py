@@ -32,7 +32,7 @@ def _script(tmp_path, boundaries: str, operations: str) -> list[str]:
 
 def _between(lines: list[str]) -> list[str]:
     start = lines.index("CLEAR") + 1
-    end = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_SURFACE_MESH"))
+    end = next(i for i, line in enumerate(lines) if line.startswith("SET_SIMULATION_LENGTH_UNITS"))
     return lines[start:end]
 
 

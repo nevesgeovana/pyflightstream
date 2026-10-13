@@ -131,7 +131,7 @@ def test_p0400_geom_build_preview_runs_nothing_and_writes_nothing(tmp_path, caps
 
 
 @pytest.mark.requirement("FR-471")
-def test_p0400_geom_build_script_saves_after_the_export_and_the_marking(tmp_path):
+def test_p0400_geom_build_script_sets_units_marks_saves_then_exports(tmp_path):
     """P0400-GEOM-BUILD (PFS-2081.41): R2, the order of one build's script."""
     root = workspace(tmp_path)
     geometry(root, "wing", MESH_INSTRUCTION)
@@ -140,14 +140,21 @@ def test_p0400_geom_build_script_saves_after_the_export_and_the_marking(tmp_path
     order = [
         "NEW_SIMULATION",
         "IMPORT",
-        "EXPORT_SURFACE_MESH OBJ -1",
         "SET_SIMULATION_LENGTH_UNITS METER",
+        "DETECT_TRAILING_EDGES_BY_SURFACE",
         "SAVEAS",
+        "EXPORT_SURFACE_MESH OBJ -1",
         "CLOSE_FLIGHTSTREAM",
     ]
     positions = [next(i for i, line in enumerate(lines) if line.startswith(word)) for word in order]
     assert positions == sorted(positions), lines
     assert "NEW_SIMULATION" == lines[0]
+    tail = plan.variants[0].script.text.split("SET_SIMULATION_LENGTH_UNITS", 1)[1]
+    work = str(Path(plan.variants[0].script.fsm).parent)
+    tail = ("SET_SIMULATION_LENGTH_UNITS" + tail).replace(work, "{work}")
+    tail = tail.replace(chr(92), "/")
+    golden = Path(__file__).parent / "goldens" / "p0400_geometry_build_tail.txt"
+    assert tail == golden.read_text(encoding="utf-8")
 
 
 @pytest.mark.requirement("FR-471")

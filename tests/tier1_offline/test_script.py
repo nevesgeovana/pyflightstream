@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from typing import TypedDict
 
 import pytest
 from pydantic import ValidationError
@@ -153,7 +154,15 @@ def test_phase_order_is_enforced_with_a_didactic_message():
 
 # --- G02: one setup command on an initialised solver, which initialises again ---
 
-_INITIALIZATION = {
+
+class _Initialization(TypedDict):
+    solver_model: str
+    surfaces: int
+    wake_termination_x: str
+    symmetry: str
+
+
+_INITIALIZATION: _Initialization = {
     "solver_model": "INCOMPRESSIBLE",
     "surfaces": -1,
     "wake_termination_x": "DEFAULT",
@@ -1375,8 +1384,7 @@ def test_exporting_curves_does_not_close_the_geometry_phase():
     because its name says EXPORT would let a script emit it once and
     then refuse every remaining CAD Create command, which is backwards
     for curves: export a set, build more, export another. The precedent
-    is EXPORT_SURFACE_MESH, which writes a file at geometry time and is
-    filed the same way.
+    is that writing a file does not necessarily end geometry construction.
     """
     script = Script(version="26.120")
     script.emit("CAD_CREATE_CURVE_SELECT", -1)
@@ -1386,7 +1394,8 @@ def test_exporting_curves_does_not_close_the_geometry_phase():
     text = script.render()
     assert text.index("first.csv") < text.index("CAD_CREATE_CURVE_LINE") < text.index("second.csv")
     entries = CommandRegistry.load().commands
-    assert entries["CAD_CREATE_CURVE_EXPORT_CCS"].phase == entries["EXPORT_SURFACE_MESH"].phase
+    assert entries["CAD_CREATE_CURVE_EXPORT_CCS"].phase == Phase.GEOMETRY
+    assert entries["EXPORT_SURFACE_MESH"].phase == Phase.CONTROL
 
 
 def test_the_two_projections_disagree_about_where_their_curves_come_from():
