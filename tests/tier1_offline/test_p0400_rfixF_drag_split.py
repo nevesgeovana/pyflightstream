@@ -31,7 +31,7 @@ def _header(text: str) -> str:
 @pytest.mark.requirement("FR-456")
 @pytest.mark.parametrize("build", ["26.124", "26.125"])
 def test_p0400_rfixf_the_near_field_induced_drag_is_read_on_both_builds(tmp_path, build):
-    """P0400-RFIXF-DRAGSPLIT (FR-456 R2): ``CDI_NEAR_PRESSURE`` is the split's first column.
+    """P0400-RFIXF-DRAGSPLIT (FR-456 R2, FR-423): ``CDI_NEAR_PRESSURE`` is the split's first column.
 
     The same loads table with the 26.124 header and with the recorded 26.125
     header (``CDp, CDv`` in the same places): both rows state 0.0012418, the

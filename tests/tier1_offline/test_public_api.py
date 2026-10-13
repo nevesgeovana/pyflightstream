@@ -56,6 +56,8 @@ PUBLIC_MODULES = [
     # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
     "pyflightstream.cases.reference_blocks",
     # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
+    # Restart wire types are a public import surface, separate from averaging windows.
+    "pyflightstream.cases.restart_records",
     "pyflightstream.cases.selection",
     # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
     "pyflightstream.cases.settings",
@@ -71,6 +73,7 @@ PUBLIC_MODULES = [
     "pyflightstream.commands",
     "pyflightstream.exceptions",
     "pyflightstream.extras",
+    # plane_lift is affirmed through the facade and trefftz __all__.
     "pyflightstream.farfield",
     "pyflightstream.farfield.balances",
     "pyflightstream.farfield.fields",
@@ -121,6 +124,7 @@ PUBLIC_MODULES = [
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.post.disc_maps",
     "pyflightstream.post.equations",
+    # FarLayout, recorded_layout and derived_layout are public layout readers.
     "pyflightstream.post.farfield_fields",
     "pyflightstream.post.farfield_products",
     # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a

@@ -135,6 +135,7 @@ def prose_population(root: Path) -> list[str]:
 
 #: The shipped prose surfaces that describe the database to a reader.
 PAGES = (
+    "generated-docs/cli/pyfs-manual.md",
     "README.md",
     "CONTRIBUTING.md",
     "docs/index.md",

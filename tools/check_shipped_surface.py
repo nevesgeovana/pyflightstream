@@ -109,8 +109,9 @@ occurrence that started this had no dot in its domain, so the usual pattern
 would have missed the very case it was written for.
 
 A file that no text codec decodes cleanly is UNDECODABLE and is counted rather
-than scanned. A zipped data format carries a user identity by design, so a
-committed archive fixture is invisible to this rule. The earlier form of this
+than scanned. XZ-compressed text is decompressed completely and scanned; a corrupt XZ
+payload stays undecodable. Other zipped data formats remain opaque to this rule.
+The earlier form of this
 limit was a NUL byte in the first 8192 bytes, and it was worse in two directions
 that a review measured: it discarded a whole UTF-16 text file, which is what
 this platform's shell writes by default, and it discarded a twenty-kilobyte text
@@ -135,6 +136,7 @@ stated, not to drop the citation.
 
 from __future__ import annotations
 
+import lzma
 import re
 import sys
 import tarfile
@@ -412,6 +414,13 @@ def as_text(content: bytes) -> str | None:
     told apart by the RATIO. Real UTF-16 of mostly-ASCII content is about half
     NUL bytes; a stray NUL is one byte in thousands.
     """
+    # XZ fixtures carry text too. Scan their complete decompressed payload,
+    # rather than exempting an extension or reporting opaque compressed bytes.
+    if content.startswith(b"\xfd7zXZ\x00"):
+        try:
+            content = lzma.decompress(content)
+        except lzma.LZMAError:
+            return None
     if content[:2] in (b"\xff\xfe", b"\xfe\xff"):
         try:
             return content.decode("utf-16")

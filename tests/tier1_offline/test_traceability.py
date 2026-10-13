@@ -93,7 +93,14 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: family's tests mark its requirements (P0400 markers). Raised from 211 to 226 on
 #: 2026-10-12 on the integrated 0.40.0 tree: the geometry stage,
 #: the command-gap capabilities and the far-field proofs mark their requirements.
-MARKED_FLOOR = 226
+#: Raised from 226 to 235 on 2026-10-13 in integration lane integD. The review
+#: fixes add actual decorated proofs for FR-46 (terminal status), FR-433 to
+#: FR-435 (refinement tag and remesh contracts), and FR-460 to FR-462 (command
+#: gap capabilities). The collect and naming regression cases additionally
+#: mark FR-92 and FR-102. Compared with 6ee5e247, no live marked id left the set.
+#: Four work-item labels were corrected or removed: none was a requirement,
+#: and the coefficient-format regressions have no defined requirement to mark.
+MARKED_FLOOR = 235
 
 
 def _marked() -> dict[str, list[str]]:
@@ -151,6 +158,13 @@ def test_the_marked_set_only_grows():
     would be worse than leaving it unmarked, so the set grows by hand,
     one verified pair at a time, and this stops it shrinking by accident
     when a test is renamed or deleted.
+
+    Integration recount of 2026-10-13: nine additions since 6ee5e247,
+    FR-46, FR-433, FR-434, FR-435, FR-460, FR-461, FR-462, FR-92 and
+    FR-102. These are decorated behavioural tests, not work-item labels.
+    Their assertions cover terminal statuses, refinement contracts, the three
+    command-gap capabilities, output collection and stable point naming.
+    No live marked requirement left the set.
     """
     marked = _marked()
     assert len(marked) == MARKED_FLOOR, (
@@ -227,7 +241,7 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-10-13: 165 errors in 13 of 343 modules, the 0.40.0 tree (forty-seven
+#: mypy recount 2026-10-13: 165 errors in 13 of 344 modules, the 0.40.0 tree (forty-eight
 #: modules more than 0.39.0, each clean, and pyflightstream.farfield, pyflightstream.fsi.driver
 #: and pyflightstream.script.entities clean, so they left the set); 2026-10-11 read 159 in 16 of
 #: 296, the 0.39.0 tree (three modules more, workspace/_settings_file.py and two

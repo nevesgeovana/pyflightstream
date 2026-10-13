@@ -153,6 +153,7 @@ def run_case(build: str, case: str, out: Path, stl_mm: Path, nodes: Path) -> dic
         check=False,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         timeout=150,
+        env=os.environ.copy(),
     )
     result: dict[str, object] = {"case": case, "build": build}
     obj, fsm, log = work / "wing.obj", work / "wing.fsm", work / "log.txt"

@@ -434,7 +434,7 @@ reused or added, are stated in `plan.json` and carried by the run record
 position to them, each set exactly once, before it integrates, with the grid and
 the areas they were laid with. A set it cannot match, or matches twice, is a named
 skip, never the points that happen to be last or to number as many. A record
-without `farfield_layout` (written before 0.40.0 recorded it) is matched to the
+without `farfield_layout` (written before far-field layouts were recorded) is matched to the
 table as it stands: a rotor's lattice where its hub places it, the plane and a
 frame's lattice by their shape.
 
@@ -463,3 +463,19 @@ step (one fluid plot per point and parameter); the plan states that count.
 
 A "no" is a named skip: the point appears in `products.json` `skipped` with the
 reason, and in `post.log`.
+
+
+### Python entry points
+
+`pyflightstream.farfield.plane_lift` integrates the streamwise vorticity
+on a Trefftz C plane to obtain its Kutta-Joukowski lift. The same function is
+available from `pyflightstream.farfield.trefftz`.
+
+`pyflightstream.post.farfield_fields.FarLayout` describes the plane and lattice
+positions and grid used to match the exported samples. `recorded_layout`
+rebuilds it from a run record's `farfield_layout` shapes; `derived_layout`
+constructs the layout from the pproc table for a historical record that has no
+layout. These names are public and appear in the generated API reference.
+They keep the maturity of their modules: Trefftz is provisional, and the post
+layout reader is provisional. A public name does not establish licensed
+validation on an unmeasured solver build.
