@@ -933,7 +933,8 @@ def _add_post_parsers(subparsers: Any) -> None:
             "--additional-pproc, which first reopens the final saved simulation of every "
             "recorded point whose row states ADDITIONAL_PPROC, one solver launch per point "
             "and no solve, extracts that pproc into datapoints/DP-<point>/additional/<pid>/ "
-            "and records it in additional.json; runs.json is never written."
+            "and records it in additional.json; runs.json is never written. "
+            "By default, rebuilds overwrite products in place without an archive."
         ),
     )
     post.add_argument(
@@ -998,23 +999,19 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         "--archive",
         action="store_true",
         help="keep the files a rebuild replaces: MOVE them into "
-        "post/<matrix>/archive/<day and hour>/ before writing, as 0.34.0 always did. "
-        "Without it (0.35.0, FR-397) a rebuild overwrites the products in place and "
-        "writes no archive folder",
+        "post/<matrix>/archive/<day and hour>/ before writing",
     )
     keeping.add_argument(
         "--force-overwrite",
         dest="force_overwrite",
         action="store_true",
-        help="Explicitly overwrite products without an archive, the opposite of --archive. "
-        "This is also the default. This deprecated option adds a confirmation before rebuilding. "
+        help="Overwrite without an archive; this option adds a confirmation before rebuilding. "
         "Pass --yes to confirm in a script.",
     )
     post.add_argument(
         "--yes",
         action="store_true",
-        help="Deprecated confirmation control for --force-overwrite. It confirms a "
-        "rebuild, whose default still writes no archive; --archive keeps a copy.",
+        help="Answer the --force-overwrite confirmation in a script; requires --force-overwrite.",
     )
     post.add_argument(
         "--strict",
@@ -1046,9 +1043,8 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         default=None,
         metavar="IDS",
         help="rebuild only these simulations' products of the matrix, comma separated as "
-        "delete-sims takes them (2006,2007 or [2006,2007]), in place: their files are "
-        "overwritten in place by default (archived only with --archive), every other "
-        "simulation's files and "
+        "delete-sims takes them (2006,2007 or [2006,2007]), using the archive policy above; "
+        "every other simulation's files and "
         "products.json entries "
         "stay as they were, and the super files, whose columns are the union over every "
         "simulation, are left as the last whole post wrote them and named under "

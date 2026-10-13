@@ -14,7 +14,9 @@ any cross-solver delta in a reversible channel is numerics, never physics.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import wraps
 
 import numpy as np
 
@@ -521,6 +523,24 @@ def crossflow_kinetic_energy(fields: LatticeFields, rho: float) -> CrossflowEner
     return CrossflowEnergy(total=total, swirl=swirl, induced=total - swirl)
 
 
+def _requires_reference_area[**CountParameters](
+    function: Callable[CountParameters, float],
+) -> Callable[CountParameters, float]:
+    """Explain an omitted keyword without supplying a physical reference area."""
+
+    @wraps(function)
+    def checked(*args: CountParameters.args, **kwargs: CountParameters.kwargs) -> float:
+        if "s_ref" not in kwargs:
+            raise TypeError(
+                "s_ref is required: supply the reference area in m2 used by the load "
+                "coefficients; there is no safe default"
+            )
+        return function(*args, **kwargs)
+
+    return checked
+
+
+@_requires_reference_area
 def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float:
     """Express a force delta in drag counts.
 
@@ -538,6 +558,8 @@ def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> fl
 
     Raises
     ------
+    TypeError
+        If s_ref is omitted: the reference area in m2 has no safe default.
     FarfieldInputError
         If density, speed or area is not finite and strictly positive.
         Dynamic-pressure counts are undefined in hover; retain dimensional loads there.
@@ -556,6 +578,7 @@ def to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> fl
     return 2.0 * delta / (rho_inf * v_inf**2 * s_ref) * 1.0e4
 
 
+@_requires_reference_area
 def spurious_diagnostic(
     near_field: float,
     far_field: float,
@@ -582,6 +605,11 @@ def spurious_diagnostic(
         Free-stream speed in m/s.
     s_ref : float
         Reference area in m2 used by the load coefficients.
+
+    Raises
+    ------
+    TypeError
+        If s_ref is omitted: the reference area in m2 has no safe default.
 
     Returns
     -------

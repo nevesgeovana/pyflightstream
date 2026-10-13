@@ -213,7 +213,7 @@ def wire_external_fsi(
         POST_FILE: post.render(),
         CALLBACK_FILE: (
             "from pyflightstream.fsi.cli import main\n"
-            "raise SystemExit(main(['external', '--dir', '.']))\n"
+            "raise SystemExit(main(['external', '--out', '.']))\n"
         ),
         "fsi-provenance.json": json.dumps(structure.provenance(), indent=2) + "\n",
         # FR-462 R6: the input itself, under the digest the record states for it

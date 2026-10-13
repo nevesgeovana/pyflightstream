@@ -50,6 +50,12 @@ trajectory = true
 The pivot frame is declared in the reference's or the setup's `[[frames]]`
 table, like any named frame.
 
+Freedom keys and force enum values are case-sensitive. The six `[free]` keys
+are `u`, `v`, `w`, `p`, `q`, `r`; these map to the solver's U V W P Q R.
+Force `kind` is one of `external`, `spring`, `custom`; a custom force's
+`type` is `FORCE_VS_TIME` or `FORCE_VS_DISTANCE`. A `frame` value is the name
+declared in `[[frames]]`, not an enum required to be uppercase; use that name.
+
 Two more force kinds:
 
 ```toml

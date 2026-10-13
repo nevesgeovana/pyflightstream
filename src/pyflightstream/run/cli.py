@@ -202,11 +202,11 @@ def _listed_sims(text: str) -> list[str]:
 
 
 def _confirmed_destruction(yes: bool) -> bool:
-    """Ask before the deprecated explicit-confirmation rebuild path.
+    """Ask before the explicit-confirmation rebuild path.
 
     Rebuilds overwrite in place by default without an archive; ``--archive``
     opts into keeping a copy. ``--force-overwrite`` and ``--yes`` are retained
-    as deprecated confirmation controls and do not change that archive policy.
+    as confirmation controls and do not change that archive policy.
 
     A NON-INTERACTIVE SESSION IS A NO. If there is nobody to ask, the
     answer is not "assume yes": that is how a flag in a saved command line
@@ -217,7 +217,7 @@ def _confirmed_destruction(yes: bool) -> bool:
     if not sys.stdin or not sys.stdin.isatty():
         return False
     answer = input(
-        "--force-overwrite is deprecated and confirms a rebuild. The default "
+        "--force-overwrite confirms a rebuild. The default "
         "writes no archive; --archive keeps a copy. Type 'rebuild' to go on: "
     )
     return answer.strip().lower() == "rebuild"

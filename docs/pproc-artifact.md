@@ -556,7 +556,7 @@ pyfs-matrix post --workspace. --strict # exit 3 if any product was skipped
 pyfs-matrix post --workspace. --archive # keeps a copy before overwriting
 ```
 
-**A rebuild overwrites products in place by default.** Add `--archive` to keep a copy of replaced products. The deprecated `--force-overwrite` and `--yes` flags add an explicit confirmation path; they do not change the archive policy.
+**A rebuild overwrites products in place by default.** Add `--archive` to keep a copy of replaced products. The `--force-overwrite` and `--yes` flags add an explicit confirmation path; they do not change the archive policy.
 
 A skip is a success by default, since everything producible was produced;
 `--strict` is for a wrapper that must tell a partial rebuild from a whole

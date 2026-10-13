@@ -22,6 +22,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from pyflightstream._deprecations import MATRIX_GEOMETRY_ALIASES
 from pyflightstream._errors import InputArtifactError, PyflightstreamError
 from pyflightstream.run._cli_mesh import (
     add_degenerate_parser,
@@ -121,7 +122,10 @@ def add_geometry_commands(subparsers: Any) -> None:
         "--png", action="store_true", help="also draw <name>.preview.png (the plot extra)"
     )
     build.add_argument(
-        "--overwrite", action="store_true", help="replace the outputs of an earlier build"
+        "--overwrite",
+        action="store_true",
+        help="replace the outputs of an earlier build. Unlike post, a build refuses to replace "
+        "outputs unless asked: its outputs are inputs of runs",
     )
     build.add_argument(
         "--only",
@@ -243,7 +247,7 @@ def _print_rows(plan: GeometryBuildPlan, args: argparse.Namespace) -> None:
         return
     if args.rows is None or args.matrix is None:
         raise InputArtifactError(
-            "rows (CLI: --rows) POL and matrix (CLI: --matrix) FILE are given together"
+            "--rows needs --matrix FILE, and --matrix needs --rows POL; give both or neither."
         )
     cells = [
         (
@@ -358,10 +362,13 @@ def run_geometry(args: argparse.Namespace) -> int:
 def alias_warning(verb: str) -> str:
     """Return the warning a ``pyfs-matrix`` geometry verb prints once per invocation (FR-477 R1)."""
     group = next(name for name, matrix in PYFS_MATRIX_ALIASES.items() if matrix == verb)
+    promise = next(
+        entry for entry in MATRIX_GEOMETRY_ALIASES if entry.subject == f"pyfs-matrix {verb}"
+    )
     return (
         f"pyfs-matrix {verb} is an alias of `pyfs-workspace geometry {group}`, the home of "
-        "every geometry command since 0.40.0; the alias gives the identical result and is "
-        "removed with the in-row geometry routes (docs/geometry.md)."
+        "every geometry command since 0.40.0; the alias gives the identical result. "
+        f"{promise.message()} See docs/geometry.md."
     )
 
 
