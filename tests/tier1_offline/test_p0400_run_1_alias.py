@@ -32,6 +32,7 @@ def _rows(root, rows):
 
 
 def test_p0400_a_known_simulation_id_with_an_underscore_is_not_an_alias(tmp_path):
+    # Verifies FR-395.
     """P0400-ALIAS-SIM-UNDERSCORE (PFS-2094.028): ``2006_1`` beside ``2006`` names the simulation.
 
     Simulation ids may hold an underscore; a destroying verb read ``2006_1`` as point 1 of

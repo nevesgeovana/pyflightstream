@@ -13,5 +13,5 @@ def test_p0400_observer_file_with_a_byte_order_mark_is_read(tmp_path):
 
 def test_p0400_ccs_component_count_reads_past_a_byte_order_mark():
     """P0400-BOM (PFS-2095.039): the first Component line counts, BOM or not."""
-    text = "﻿Component;WING\nsection data\nComponent;TAIL\n"
+    text = "\ufeffComponent;WING\nsection data\nComponent;TAIL\n"
     assert ccs_component_names(text) == ("WING", "TAIL")

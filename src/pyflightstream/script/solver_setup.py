@@ -774,25 +774,50 @@ def _family_record(
         # a reader from thinking the keyword was simply not passed.
         return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
     else:
-        value = passed.get(spec.param)
-        if value is not None:
-            return FlagRecord(**base, provenance=_EXPLICIT, value=_normalize(value), emitted=True)
-        if entry.name == "SOLVER_MINIMUM_CP" and minimum_cp_default_emitted:
-            return FlagRecord(
-                **base,
-                provenance=_DEFAULT,
-                value=LIBRARY_MINIMUM_CP,
-                emitted=True,
-                evidence=_minimum_cp_evidence(entry),
-            )
-        if entry.default is not None and available:
-            return FlagRecord(
-                **base,
-                provenance=_DEFAULT,
-                value=entry.default,
-                emitted=False,
-                evidence=entry.default_ref,
-            )
+        return _generic_family_record(
+            spec,
+            entry,
+            passed,
+            available=available,
+            minimum_cp_default_emitted=minimum_cp_default_emitted,
+        )
+    return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
+
+
+def _generic_family_record(
+    spec: FlagSpec,
+    entry: CommandEntry,
+    passed: Mapping[str, object],
+    *,
+    available: bool,
+    minimum_cp_default_emitted: bool,
+) -> FlagRecord:
+    """Build the record of a settings-family command with one plain keyword.
+
+    Explicit when the keyword was passed, the library minimum-Cp default when
+    that one was emitted, the solver's documented default when the build has
+    the command, and unknown otherwise.
+    """
+    base = {"command": entry.name, "family": entry.chapter}
+    value = passed.get(spec.param)
+    if value is not None:
+        return FlagRecord(**base, provenance=_EXPLICIT, value=_normalize(value), emitted=True)
+    if entry.name == "SOLVER_MINIMUM_CP" and minimum_cp_default_emitted:
+        return FlagRecord(
+            **base,
+            provenance=_DEFAULT,
+            value=LIBRARY_MINIMUM_CP,
+            emitted=True,
+            evidence=_minimum_cp_evidence(entry),
+        )
+    if entry.default is not None and available:
+        return FlagRecord(
+            **base,
+            provenance=_DEFAULT,
+            value=entry.default,
+            emitted=False,
+            evidence=entry.default_ref,
+        )
     return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)
 
 

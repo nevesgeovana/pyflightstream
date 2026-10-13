@@ -205,6 +205,7 @@ from pyflightstream.workspace._missing_log import missing_log_warning as missing
 from pyflightstream.workspace._refine._audit import MeshAudit as MeshAudit
 from pyflightstream.workspace._refine._audit import audit_mesh as audit_mesh
 from pyflightstream.workspace._refine._level import RefinedMesh, refine_mesh
+from pyflightstream.workspace.fsi_external_setup import FsiExternalSetupError  # noqa: F401
 from pyflightstream.workspace.inputs import EXECUTABLES_FILE as EXECUTABLES_FILE
 from pyflightstream.workspace.inputs import GEOMETRIES_README as GEOMETRIES_README
 from pyflightstream.workspace.inputs import INPUT_KINDS as INPUT_KINDS
@@ -268,6 +269,7 @@ from pyflightstream.workspace.naming import datapoint_name_of as datapoint_name_
 from pyflightstream.workspace.rename_groups import RenamedProduct as RenamedProduct
 from pyflightstream.workspace.rename_groups import rename_group_products as rename_group_products
 from pyflightstream.workspace.rename_groups import unmapped_group_numbers as unmapped_group_numbers
+from pyflightstream.workspace.sixdof_setup import SixDofSetupError  # noqa: F401
 from pyflightstream.workspace.trailing_edges import TrailingEdge as TrailingEdge
 from pyflightstream.workspace.trailing_edges import extract_trailing_edge as extract_trailing_edge
 from pyflightstream.workspace.trailing_edges import (

@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._fsm import (
     MeshReadError,
     boundary_names,

@@ -151,10 +151,10 @@ def test_explicit_no_trailing_edge_is_preserved_and_emits_no_detection(tmp_path)
     from pyflightstream.cases import RawMeshConditions
     from pyflightstream.cases.workflows._geometry import _raw_mesh_boundary_conditions
     from pyflightstream.workspace.inputs import InputArtifactError
-    from pyflightstream.workspace.sidecars import _read_trailing_edges
+    from pyflightstream.workspace.sidecars import read_trailing_edges
 
     try:
-        marking = _read_trailing_edges(tmp_path / "body.boundaries.toml", {"none": True})
+        marking = read_trailing_edges(tmp_path / "body.boundaries.toml", {"none": True})
     except InputArtifactError:
         marking = None
     assert marking is not None, "a blunt body can explicitly declare no trailing edge"

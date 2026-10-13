@@ -104,12 +104,11 @@ def test_fr311_a_profile_without_the_key_waits_as_before_the_control(tmp_path):
     "cell",
     ['job_end_files = "FTS{sim}.o*"', 'job_end_files = ["FTS{case}.o*"]', "job_end_files = [3]"],
 )
+@pytest.mark.requirement("FR-311")
 def test_fr311_a_malformed_job_end_files_is_refused_naming_the_key(tmp_path, cell):
-    requirement = "FR-311"
     workspace, _work = _workspace(tmp_path, LOG_TABLE + cell + "\n")
     with pytest.raises(InputArtifactError, match="job_end_files"):
         read_hpc_profile(workspace.inputs_dir / "hpc" / "h001.toml")
-    assert requirement
 
 
 def test_fr311_the_key_is_read_into_the_profile(tmp_path):

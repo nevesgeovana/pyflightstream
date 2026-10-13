@@ -183,7 +183,7 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
 
 def test_show_uses_current_chain_and_names_archived_outputs(workspace, capsys):
     """P0350-QUERY-SHOW FR-386: continuation card never merges archived manifests."""
-    old = json.loads((workspace / "runs.json").read_text())[0]
+    old = json.loads((workspace / "runs.json").read_text(encoding="utf-8"))[0]
     new = {
         **old,
         "run_id": "synthetic/sim_9101/r20260101/A0",

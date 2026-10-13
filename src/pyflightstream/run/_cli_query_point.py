@@ -18,6 +18,9 @@ import pyflightstream._textio as _textio
 from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._alias import alias_lines, planned_in_workspace
+
+# Kept importable from here as in 0.39.0 (release parity, api).
+from pyflightstream.run._alias import planned_from_plan_files as planned_from_plan_files
 from pyflightstream.workspace.ledger import (
     Ledger,
     listed_sims,
@@ -164,7 +167,13 @@ def _show(ledger: Ledger, args: argparse.Namespace) -> list[dict[str, Any]]:
             if str(row["status"]).startswith("FAILED")
         ]
         return [{"points": points, "failed": cards}]
-    card = _card(ledger, _resolve(ledger, target, label))
+    try:
+        run_id = _resolve(ledger, target, label)
+    except LookupError:
+        if args.point:
+            raise _no_such_point(ledger, args.target, args.point) from None
+        raise
+    card = _card(ledger, run_id)
     return [card] if card else []
 
 

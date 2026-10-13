@@ -110,7 +110,9 @@ from pyflightstream.run import qsteady_validity_line as qsteady_validity_line
 from pyflightstream.run import records as run_records
 from pyflightstream.run._alias import failure_alias_lines, split_typed_ids
 from pyflightstream.run._cli_parsers import (
+    GEOMETRY_COMMANDS,
     _build_parser,
+    cmd_geometry,
     cmd_mark_converged,
     collect_interval_error,
     parsed,
@@ -137,6 +139,9 @@ from pyflightstream.workspace import (
     WorkspaceError,
     post_diagnostics,
     selected_sims,
+)
+from pyflightstream.workspace import (
+    derive_thin_blade as derive_thin_blade,
 )
 from pyflightstream.workspace._matrix_homes import resolve_matrix_arguments
 from pyflightstream.workspace.ledger import listed_sims
@@ -265,12 +270,12 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_post(args)
         if args.subcommand == "collect":
             return _cmd_collect(args)
-        if args.subcommand in _GEOMETRY_COMMANDS:
+        if args.subcommand in GEOMETRY_COMMANDS:
             # FR-477 R1: the identical result, and one warning naming the home.
             from pyflightstream.run._cli_geometry import alias_warning
 
             warnings.warn(alias_warning(args.subcommand), PyflightstreamWarning, stacklevel=2)
-            return _cmd_geometry(args)
+            return cmd_geometry(args)
         if args.subcommand == "upgrade":
             return _cmd_upgrade(args)
         if args.subcommand == "rename":
@@ -1022,18 +1027,6 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
             )
         skipped += len(entries)
     return skipped
-
-
-#: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330),
-#: and `audit-mesh` (0.38.0, FR-426), whose parser names its handler in ``mesh_command``.
-_GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
-
-
-def _cmd_geometry(args: argparse.Namespace) -> int:
-    """Run the geometry command ``args`` names."""
-    # Every geometry verb's parser names its handler (run/_cli_mesh.py), shared
-    # with `pyfs-workspace geometry` (FR-477).
-    return int(args.mesh_command(args))
 
 
 def _notices_for(before: str) -> list[str]:

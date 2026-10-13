@@ -942,7 +942,16 @@ def _render(case: SimCase, build: str, sweep: bool) -> tuple[str | None, str]:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             if sweep:
-                points = [case_at_point(case, {"alpha": alpha}) for alpha in (-2.0, 0.0, 2.0)]
+                # Each point exports to names of its own, as the run layer names
+                # them: a script refuses a second export to one file (PFS-2093.004).
+                points = [
+                    case_at_point(
+                        case,
+                        {"alpha": alpha},
+                        outputs=[f"point{alpha:g}_{name}" for name in case.outputs],
+                    )
+                    for alpha in (-2.0, 0.0, 2.0)
+                ]
                 build_steady_sweep(points, script, cold=_is_cold_start(case))
             else:
                 build_script(case, script)

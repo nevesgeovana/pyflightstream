@@ -1449,6 +1449,68 @@ _MANIFEST_KEYS = {
 _MANIFEST_REQUIRED = ("label", "manual", "chapter")
 
 
+def _manifest_range(row: dict, key: str, where: str) -> tuple[int, int]:
+    """Return the FIRST-LAST page range ``row[key]`` states; refuse a malformed one."""
+    spec = str(row[key])
+    first, _, last = spec.partition("-")
+    if not last or not first.isdigit() or not last.isdigit():
+        raise ManualDraftError(f"{where}: {key} must read FIRST-LAST in page numbers, got {spec!r}")
+    if int(first) > int(last):
+        raise ManualDraftError(f"{where}: {key} ends before it starts, {spec!r}")
+    return int(first), int(last)
+
+
+def _edition_from_row(row: dict, where: str, known: str) -> Edition:
+    """Check one manifest row and return its :class:`Edition`; refuse the first fault."""
+    for key in _MANIFEST_REQUIRED:
+        if key not in row:
+            raise ManualDraftError(f"{where}: missing {key!r}. An edition row holds {known}")
+    unknown = sorted(set(row) - set(_MANIFEST_KEYS))
+    if unknown:
+        # Refused rather than ignored, because the shape of the
+        # degradation is misleading: a misspelled 'index' key leaves
+        # every command unlabelled, and the report then says the
+        # index does not name them, which is a statement about the
+        # manual rather than about the typo that caused it.
+        raise ManualDraftError(f"{where}: unknown key(s) {unknown}. An edition row holds {known}")
+    # TEXT, OR REFUSED, the hazard the command loader refuses for its
+    # version keys. YAML reads an unquoted 26.120 as the number 26.12
+    # and a blank `source:` as null, and str() of either is a
+    # different build or the four letters "None" as a citation.
+    label = row["label"]
+    if not isinstance(label, str) or not label.strip():
+        raise ManualDraftError(
+            f"{where}: label {label!r} parsed as {type(label).__name__}, not as the "
+            'name of a build; quote it in the YAML (label: "26.120"), because an '
+            "unquoted 26.120 is read as the number 26.12"
+        )
+    source = row.get("source")
+    if "source" in row and (not isinstance(source, str) or not source.strip()):
+        raise ManualDraftError(
+            f"{where}: source {source!r} parsed as {type(source).__name__}, not as a "
+            'citation id; write it (source: "SRC-751") or leave the key out'
+        )
+    # Ranges before existence: both are checked before any manual is
+    # opened, which is the point, and within a row a malformed page
+    # range is the more specific complaint of the two.
+    chapter = _manifest_range(row, "chapter", where)
+    index = _manifest_range(row, "index", where) if "index" in row else None
+    manual = Path(str(row["manual"]))
+    if not manual.is_file():
+        raise ManualDraftError(
+            f"{where}: manual {str(manual)!r} is not a readable file. Manual paths are "
+            "relative to the working directory and name licensed material this "
+            "repository never carries, so a fresh clone has to point them at its own copy"
+        )
+    return Edition(
+        label=label,
+        manual=manual,
+        chapter=chapter,
+        index=index,
+        source=source,
+    )
+
+
 def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
     """Read an edition manifest, the file that makes a sweep repeatable.
 
@@ -1508,72 +1570,11 @@ def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
             f"{path} must hold a list of edition mappings, not {type(rows).__name__}"
         )
 
-    def _range(row: dict, key: str, where: str) -> tuple[int, int]:
-        spec = str(row[key])
-        first, _, last = spec.partition("-")
-        if not last or not first.isdigit() or not last.isdigit():
-            raise ManualDraftError(
-                f"{where}: {key} must read FIRST-LAST in page numbers, got {spec!r}"
-            )
-        if int(first) > int(last):
-            raise ManualDraftError(f"{where}: {key} ends before it starts, {spec!r}")
-        return int(first), int(last)
-
     known = ", ".join(f"{key} ({why})" for key, why in _MANIFEST_KEYS.items())
     editions = []
     for position, row in enumerate(rows, start=1):
         where = f"{path} entry {position}"
-        for key in _MANIFEST_REQUIRED:
-            if key not in row:
-                raise ManualDraftError(f"{where}: missing {key!r}. An edition row holds {known}")
-        unknown = sorted(set(row) - set(_MANIFEST_KEYS))
-        if unknown:
-            # Refused rather than ignored, because the shape of the
-            # degradation is misleading: a misspelled 'index' key leaves
-            # every command unlabelled, and the report then says the
-            # index does not name them, which is a statement about the
-            # manual rather than about the typo that caused it.
-            raise ManualDraftError(
-                f"{where}: unknown key(s) {unknown}. An edition row holds {known}"
-            )
-        # TEXT, OR REFUSED, the hazard the command loader refuses for its
-        # version keys. YAML reads an unquoted 26.120 as the number 26.12
-        # and a blank `source:` as null, and str() of either is a
-        # different build or the four letters "None" as a citation.
-        label = row["label"]
-        if not isinstance(label, str) or not label.strip():
-            raise ManualDraftError(
-                f"{where}: label {label!r} parsed as {type(label).__name__}, not as the "
-                'name of a build; quote it in the YAML (label: "26.120"), because an '
-                "unquoted 26.120 is read as the number 26.12"
-            )
-        source = row.get("source")
-        if "source" in row and (not isinstance(source, str) or not source.strip()):
-            raise ManualDraftError(
-                f"{where}: source {source!r} parsed as {type(source).__name__}, not as a "
-                'citation id; write it (source: "SRC-751") or leave the key out'
-            )
-        # Ranges before existence: both are checked before any manual is
-        # opened, which is the point, and within a row a malformed page
-        # range is the more specific complaint of the two.
-        chapter = _range(row, "chapter", where)
-        index = _range(row, "index", where) if "index" in row else None
-        manual = Path(str(row["manual"]))
-        if not manual.is_file():
-            raise ManualDraftError(
-                f"{where}: manual {str(manual)!r} is not a readable file. Manual paths are "
-                "relative to the working directory and name licensed material this "
-                "repository never carries, so a fresh clone has to point them at its own copy"
-            )
-        editions.append(
-            Edition(
-                label=label,
-                manual=manual,
-                chapter=chapter,
-                index=index,
-                source=source,
-            )
-        )
+        editions.append(_edition_from_row(row, where, known))
     return tuple(editions)
 
 

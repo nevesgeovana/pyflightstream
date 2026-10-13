@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import CampaignConfigError
 from pyflightstream.exceptions import InputArtifactError
 from pyflightstream.run import SubmittingExecutor
 from pyflightstream.run._executors import _unmapped_build_refusal
@@ -73,10 +72,15 @@ def test_goal021_build_alias_a_mapped_build_renders_the_schedulers_word(tmp_path
 
 
 def test_goal021_build_alias_an_unmapped_build_is_refused_by_name(tmp_path):
+    # The refusal is this point's failed result, not an exception (PFS-2094.037).
     profile = _profile(tmp_path)
-    with pytest.raises(CampaignConfigError) as raised:
-        _render(tmp_path, profile, build="26.120")
-    message = str(raised.value)
+    executor = SubmittingExecutor(profile, values={"fs_build": "26.120"}, submit=False)
+    script = tmp_path / "point.txt"
+    script.write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
+    result = executor.run_script(script, working_dir=tmp_path / "work")
+    assert result.return_code == 2 and executor.descriptor_path is None
+    message = result.stderr
+    assert message.startswith("nothing was submitted: "), message
     assert message.count("maps no alias for build(s) 26.120") == 1, message
     assert message.count("[builds]") == 2, message
     assert "26.123 -> 26.1" in message, "the refusal does not say what the table DOES map"

@@ -54,12 +54,12 @@ import json
 import math
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Any
 
 import pyflightstream._textio as _textio
-from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
+from pyflightstream._digest import text_sha256
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases.corrections import (
     CALIBRATIONS_DIR,
@@ -76,6 +76,7 @@ from pyflightstream.cases.corrections import (
 )
 from pyflightstream.post._stage import PRODUCTS_MANIFEST
 from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, read_csv_table, write_csv_table
+from pyflightstream.post._transfer_functions import bessel_j, bessel_y, sears, theodorsen
 from pyflightstream.post.harmonics import HARMONICS_SUFFIX
 from pyflightstream.post.qsteady import AVERAGE_SUFFIX, STATION_COLUMN, STATION_TOLERANCE
 
@@ -200,203 +201,6 @@ def corrected_name(relative: str) -> str:
     """
     stem, dot, suffix = relative.rpartition(".")
     return f"{stem}{CORRECTED_SUFFIX}.{suffix}" if dot else f"{relative}{CORRECTED_SUFFIX}"
-
-
-# ------------------------------------------------------------ Bessel functions
-
-
-#: pi and Euler's constant to 100 digits, for the decimal series.
-_PI = Decimal(
-    "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068"
-)
-_GAMMA = Decimal(
-    "0.5772156649015328606065120900824024310421593359399235988057672348848677267776646709369470632917467495"
-)
-#: Above this argument the functions are Hankel's asymptotic expansions.
-_ASYMPTOTIC_FROM = 30.0
-
-
-def _series(order: int, x: float) -> tuple[float, float]:
-    """``(J_n(x), Y_n(x))`` for n in (0, 1) and x > 0, by the power series.
-
-    Abramowitz and Stegun 9.1.10 and 9.1.11, summed in decimal arithmetic
-    with the precision raised by the digits the alternating terms cancel
-    (about ``0.4343 x``), so the float returned is correct to its last bit
-    or so.
-    """
-    digits = 40 + int(0.4343 * x) + 5
-    with localcontext() as context:
-        context.prec = digits
-        big = Decimal(x)
-        half = big / 2
-        quarter = half * half
-        tiny = Decimal(10) ** (-(digits - 8))
-        # The k = 0 term of the sum, 1 / (0! n!), which is 1 for n in (0, 1).
-        term = Decimal(1)
-        harmonic_k = Decimal(0)
-        harmonic_kn = Decimal(0) if order == 0 else Decimal(1)
-        sum_j = Decimal(0)
-        sum_y = Decimal(0)
-        k = 0
-        while True:
-            sum_j += term
-            sum_y += (2 * -_GAMMA + harmonic_k + harmonic_kn) * term
-            k += 1
-            term = term * (-quarter) / (k * (k + order))
-            harmonic_k += Decimal(1) / k
-            harmonic_kn += Decimal(1) / (k + order)
-            if k > x and abs(term) * (1 + abs(harmonic_kn) + abs(harmonic_k)) < tiny:
-                break
-        power = half if order == 1 else Decimal(1)
-        bessel_first = power * sum_j
-        logarithm = half.ln()
-        second = 2 / _PI * logarithm * bessel_first - power / _PI * sum_y
-        if order == 1:
-            second -= 1 / (_PI * half)
-        return float(bessel_first), float(second)
-
-
-def _asymptotic(order: int, x: float) -> tuple[float, float]:
-    """``(J_n(x), Y_n(x))`` by Hankel's asymptotic expansion (A and S 9.2.5 to 9.2.10)."""
-    mu = 4.0 * order * order
-    p = q = 0.0
-    term = 1.0
-    k = 0
-    while True:
-        if k % 2 == 0:
-            p += term if (k // 2) % 2 == 0 else -term
-        else:
-            q += term if ((k - 1) // 2) % 2 == 0 else -term
-        following = term * (mu - (2 * k + 1) ** 2) / ((k + 1) * 8.0 * x)
-        k += 1
-        if abs(following) < 1e-18 or abs(following) >= abs(term):
-            break
-        term = following
-    chi = x - (order / 2.0 + 0.25) * math.pi
-    scale = math.sqrt(2.0 / (math.pi * x))
-    return (
-        scale * (p * math.cos(chi) - q * math.sin(chi)),
-        scale * (p * math.sin(chi) + q * math.cos(chi)),
-    )
-
-
-def _bessel(order: int, x: float) -> tuple[float, float]:
-    if order not in (0, 1):
-        raise ProductError(f"only the orders 0 and 1 are implemented; asked {order}")
-    if not math.isfinite(x) or x <= 0.0:
-        raise ProductError(f"the argument must be a positive finite number; it is {x!r}")
-    return _series(order, x) if x <= _ASYMPTOTIC_FROM else _asymptotic(order, x)
-
-
-def bessel_j(order: int, x: float) -> float:
-    """Return the Bessel function of the first kind ``J_n(x)``, n in (0, 1), x > 0.
-
-    Parameters
-    ----------
-    order : int
-        The order n, 0 or 1.
-    x : float
-        The argument, positive.
-
-    Returns
-    -------
-    float
-        ``J_n(x)``.
-
-    Examples
-    --------
-    >>> round(bessel_j(0, 1.0), 12), round(bessel_j(1, 1.0), 12)
-    (0.765197686558, 0.440050585745)
-    """
-    return _bessel(order, x)[0]
-
-
-def bessel_y(order: int, x: float) -> float:
-    """Return the Bessel function of the second kind ``Y_n(x)``, n in (0, 1), x > 0.
-
-    Parameters
-    ----------
-    order : int
-        The order n, 0 or 1.
-    x : float
-        The argument, positive.
-
-    Returns
-    -------
-    float
-        ``Y_n(x)``.
-
-    Examples
-    --------
-    >>> round(bessel_y(0, 1.0), 12), round(bessel_y(1, 1.0), 12)
-    (0.088256964216, -0.7812128213)
-    """
-    return _bessel(order, x)[1]
-
-
-def theodorsen(k: float) -> complex:
-    """Theodorsen's lift deficiency function ``C(k)`` at the reduced frequency ``k``.
-
-    ``C(k) = H1(k) / (H1(k) + i H0(k))``, with ``Hn = Jn - i Yn`` the Hankel
-    function of the second kind; ``C(0) = 1``. Its phase is a lag (negative).
-
-    Parameters
-    ----------
-    k : float
-        The reduced frequency, a finite number >= 0.
-
-    Returns
-    -------
-    complex
-        ``C(k)``.
-
-    Raises
-    ------
-    ProductError
-        If ``k`` is not a finite number >= 0.
-
-    Examples
-    --------
-    >>> value = theodorsen(1.0)
-    >>> round(value.real, 4), round(value.imag, 4)
-    (0.5394, -0.1003)
-    """
-    if not math.isfinite(k) or k < 0.0:
-        raise ProductError(f"a reduced frequency is a finite number >= 0; it is {k!r}")
-    if k == 0.0:
-        return complex(1.0, 0.0)
-    j0, y0 = _bessel(0, k)
-    j1, y1 = _bessel(1, k)
-    h0 = complex(j0, -y0)
-    h1 = complex(j1, -y1)
-    return h1 / (h1 + 1j * h0)
-
-
-def sears(k: float) -> complex:
-    """Sears's function ``S(k)`` at the reduced frequency ``k``, the gust referred to mid-chord.
-
-    ``S(k) = (J0(k) - i J1(k)) C(k) + i J1(k)``; ``S(0) = 1``.
-
-    Parameters
-    ----------
-    k : float
-        The reduced frequency, a finite number >= 0.
-
-    Returns
-    -------
-    complex
-        ``S(k)``.
-
-    Examples
-    --------
-    >>> round(abs(sears(0.0)), 12)
-    1.0
-    """
-    if k == 0.0:
-        return complex(1.0, 0.0)
-    j0 = bessel_j(0, k)
-    j1 = bessel_j(1, k)
-    return complex(j0, -j1) * theodorsen(k) + 1j * j1
 
 
 # ------------------------------------------------------------------ helpers
@@ -1260,6 +1064,36 @@ def _loads_of(row: Mapping[str, str], alias: str, where: str) -> dict[str, float
     return known
 
 
+def _whole_rotor_gap(space: Any, record: Any) -> str | None:
+    """Why a sector run's record does not prove whole-rotor loads; None where it does.
+
+    Read from the run's own script, hashed as recorded: a solve under a
+    ``SYMMETRY`` other than ``NONE`` (a periodic sector, a mirrored half)
+    exports the whole rotor only where every ``SET_ANALYSIS_SYMMETRY_LOADS`` of
+    the script is ``ENABLE``; a solve with no symmetry has no copies to omit.
+    """
+    script, digest = getattr(record, "script_path", None), getattr(record, "script_sha256", None)
+    if not script or not digest:
+        return "its record names no hashed script"
+    try:
+        text = (space.sim_dir(record.sim_id) / script).read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return f"its script cannot be read ({error})"
+    if text_sha256(text) != digest:
+        return f"its script {script} no longer hashes as recorded"
+    words = [line.split() for line in text.splitlines()]
+    modes = [" ".join(w[1:]) for w in words if len(w) > 1 and w[0] == "SYMMETRY"]
+    partial = [mode for mode in modes if mode.upper() != "NONE"]
+    loads = [w[1].upper() for w in words if len(w) > 1 and w[0] == "SET_ANALYSIS_SYMMETRY_LOADS"]
+    if not partial or (loads and set(loads) == {"ENABLE"}):
+        return None
+    stated = ", ".join(loads) if loads else "not stated"
+    return (
+        f"its script solves SYMMETRY {partial[-1]} with SET_ANALYSIS_SYMMETRY_LOADS {stated}, "
+        "so its loads export carries the modelled part alone"
+    )
+
+
 def sector_offset_calibration(
     workspace: Any,
     *,
@@ -1289,9 +1123,12 @@ def sector_offset_calibration(
     is one node, constant on every axis, so it applies at every ``J``,
     ``ALPHA`` and ``K_1P``: the offset measured in axial flow, applied at
     incidence, is what route 2 is. Refused with :class:`CalibrationError`
-    when a run is not in ``runs.json``, not a row of one rotor table, not
-    axial, at another ``J``, or when the file exists and ``overwrite`` is
-    False. The route is NOT VALIDATED. Returns the file written.
+    when a run is not in ``runs.json``, when the sector's record does not
+    prove whole-rotor loads (its script, hashed as recorded, solves a
+    symmetry other than ``NONE`` without ``SET_ANALYSIS_SYMMETRY_LOADS
+    ENABLE``, or cannot be read), not a row of one rotor table, not axial, at
+    another ``J``, or when the file exists and ``overwrite`` is False. The
+    route is NOT VALIDATED. Returns the file written.
 
     Parameters
     ----------
@@ -1320,17 +1157,29 @@ def sector_offset_calibration(
     Raises
     ------
     CalibrationError
-        If a run is not in ``runs.json``, is not a row of exactly one rotor table, is not axial,
+        If a run is not in ``runs.json``, the sector's record does not prove whole-rotor loads,
+        a run is not a row of exactly one rotor table, is not axial,
         the two points are at different advance ratios, or the file exists and ``overwrite`` is
         False.
     """
     from pyflightstream.workspace import CampaignWorkspace
 
     space = workspace if isinstance(workspace, CampaignWorkspace) else CampaignWorkspace(workspace)
-    known = {record.run_id for record in space.read_manifest()}
+    known = {record.run_id: record for record in space.read_manifest()}
     for run in (wheel_run_id, sector_run_id):
         if run not in known:
             raise CalibrationError(f"run {run!r} is not in {space.root / 'runs.json'}")
+    # REFUSED, NEVER SCALED ON A GUESS (PFS-2093.002). A sector's rotor row is its
+    # one solve's export as it stands: the whole rotor where symmetry loads are
+    # on, the modelled part alone where they are off, and an offset against a
+    # whole wheel is only an offset in the first case.
+    gap = _whole_rotor_gap(space, known[sector_run_id])
+    if gap is not None:
+        raise CalibrationError(
+            f"the sector point {sector_run_id!r} does not prove whole-rotor loads: {gap}. "
+            "Solve the sector with SET_ANALYSIS_SYMMETRY_LOADS ENABLE (the row's "
+            "SYMMETRY_LOADS), so its export carries the whole rotor, or model every blade"
+        )
     out = space.products_dir(matrix_stem)
     manifest_path = out / PRODUCTS_MANIFEST
     try:

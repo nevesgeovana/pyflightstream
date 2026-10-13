@@ -36,7 +36,7 @@ from pyflightstream.script import (
     CommandArgumentError,
     Script,
 )
-from pyflightstream.script.rotor_vocabulary import _unmarked_unit_refusal
+from pyflightstream.script._build_forms import _unmarked_unit_refusal
 
 from ._actuator import (
     _actuator_disc,

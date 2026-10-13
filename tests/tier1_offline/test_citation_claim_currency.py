@@ -57,6 +57,12 @@ from pathlib import Path
 
 import pytest
 
+from tests.tier1_offline._docs_site import (
+    FUNCTIONAL_REQUIREMENTS,
+    REQUIREMENTS_DIR,
+    REQUIREMENTS_INDEX,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: Where an untracked prose file is admitted into the population below.
@@ -137,12 +143,14 @@ PAGES = (
     "docs/srs/philosophy.md",
     "docs/srs/roadmap.md",
     "docs/srs/scope.md",
-    "docs/unpublished/requirements/functional-requirements.md",
+    FUNCTIONAL_REQUIREMENTS.as_posix(),
     "docs/srs/introduction.md",
     "docs/tutorial-replay.md",
     "guide/pyflightstream_user_guide.tex",
     "src/pyflightstream/__init__.py",
     "src/pyflightstream/commands/__init__.py",
+    "src/pyflightstream/commands/_schema.py",
+    "src/pyflightstream/script/_arg_checks.py",
     "src/pyflightstream/reference.py",
     # Joined 2026-08-10 with the `citations` subcommand, whose whole
     # subject is the citation fields and whose module docstring
@@ -256,7 +264,7 @@ SENTENCES_THAT_WENT_STALE = (
         "  page number; manual text is never reproduced.",
     ),
     (
-        "docs/unpublished/requirements/functional-requirements.md",
+        FUNCTIONAL_REQUIREMENTS.as_posix(),
         "    script commands. Each entry records name, layout grammar, typed\n"
         "    arguments, the version span in which it exists, per-version\n"
         "    argument differences, and a manual page citation.",
@@ -366,9 +374,11 @@ def test_every_stale_sentence_really_shipped(origin, sentence):
     have been exempt.
     """
     needle = " ".join(sentence.split())
+    # Those commits predate the move of the registers off the site.
+    history = origin.replace(REQUIREMENTS_DIR.as_posix(), "docs/srs")
     for commit in COMMITS_BEFORE_THE_SWEEPS:
         blob = subprocess.run(
-            ["git", "show", f"{commit}:{origin}"],
+            ["git", "show", f"{commit}:{history}"],
             capture_output=True,
             text=True,
             cwd=REPO_ROOT,
@@ -460,7 +470,7 @@ DELIBERATELY_UNLISTED = {
     # HISTORY: these record what the pages used to say, so a stale
     # sentence quoted inside them is the subject rather than a claim.
     "CHANGELOG.md",
-    "docs/unpublished/requirements/index.md",
+    REQUIREMENTS_INDEX.as_posix(),
     # The field named AS A FIELD, in error messages, schema prose and
     # drafting output, which says nothing about what every entry carries.
     "src/pyflightstream/utils/manual.py",

@@ -137,8 +137,20 @@ def test_a_script_refuses_to_export_probes_to_one_path_twice():
     # recorded), and the message says "from <that>". "export_probes" alone would be in the
     # message whatever the register held, since the text tells the reader to give
     # export_probes a path of its own (PFS-2135.071).
-    assert "from export_probes." in message, message
+    assert "from export_probes (called at test_silent_overwrites.py:" in message, message
     assert script.render().count("EXPORT_PROBE_POINTS") == 1
+
+
+def test_the_refusal_names_the_line_the_earlier_export_was_called_from():
+    """The register records the earlier call site (file:line), and the message carries it."""
+    import inspect
+
+    script = Script(version="26.120")
+    first_line = inspect.currentframe().f_lineno + 1
+    helpers.export_probes(script, "probes.csv")
+    with pytest.raises(CommandArgumentError) as refused:
+        helpers.export_probes(script, "probes.csv")
+    assert f"called at test_silent_overwrites.py:{first_line})" in str(refused.value)
 
 
 def test_the_refusal_carries_what_the_register_recorded_of_the_earlier_export():

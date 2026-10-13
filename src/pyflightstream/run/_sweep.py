@@ -70,6 +70,7 @@ from pyflightstream.run._ids import (
 from pyflightstream.run._pending import (
     _declared_logs,
     _descriptor_of,
+    _local_logs,
     _run_log_text,
     _write_probe_points,
 )
@@ -640,11 +641,11 @@ def _collect_sweep_outputs(job: _SweepJob) -> RunRecord | None:
             job.sim_dir,
             job.base["surface_translations"],  # type: ignore[arg-type]
         )
-    # The declared logs by the one finder, not the `_log.txt` suffix (PFS-2103.030).
+    # The declared logs by the finder and the `_log.txt` suffix (PFS-2103.030).
     job.excused = {
         name
         for _, _, point_case in job.point_cases
-        for name in (_declared_logs(point_case, job.rendered) if job.cannot_log else ())
+        for name in (_local_logs(point_case, job.rendered) if job.cannot_log else ())
         if not (job.sim_dir / name).is_file()
     }
     for point, _stem, point_case in job.point_cases:

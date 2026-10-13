@@ -13,6 +13,7 @@ import yaml
 from pyflightstream.qa.physics import write_physics_report
 from pyflightstream.run._cli_parsers import _build_parser
 from pyflightstream.script import Script
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
 from tests.tier1_offline.test_p0400_qa_physics import _points, _run
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -198,7 +199,7 @@ def test_p0400_short_factor_collision_control(tmp_path):
 )
 def test_p0400_doc_contracts(text_needed):
     """P0400-SWEEP-DOC-CONTRACTS: requirements state tag, cost and placeholder rules."""
-    text = (ROOT / "docs/srs/functional-requirements.md").read_text(encoding="utf-8")
+    text = FUNCTIONAL_REQUIREMENTS.read_text(encoding="utf-8")
     assert text_needed in text
     if text_needed == "6 significant digits":
         assert "Distinct exact factors can round to the same short tag" in text

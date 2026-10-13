@@ -104,14 +104,13 @@ def test_fr314_a_build_without_actions_registers_nothing_the_control(row, build)
 
 
 @pytest.mark.parametrize("build", ["26.120", "26.121"])
+@pytest.mark.requirement("FR-314")
 def test_fr314_a_per_step_export_on_a_build_without_actions_is_refused(build):
     """As before 0.33.0: the threshold asks an action the build cannot run."""
     from pyflightstream.cases.workflows import BuildCapabilityError
 
-    requirement = "FR-314"
     with pytest.raises(BuildCapabilityError, match=ACTION_HEAD):
         build_script(rotor_case(EXPORT_UNSTEADY_AFTER_REV="1"), Script(build))
-    assert requirement
 
 
 #: The sha256 of the goldens as v0.32.0 committed them, recorded from the tag.
@@ -217,15 +216,39 @@ def _admitted(name: str, text: str, digest: str) -> str | None:
     return "FR-51" if restored is not None and _sha(restored) == digest else None
 
 
-def _golden_classes(record: dict) -> tuple[set, set, set, set]:
+#: The goldens PFS-2088.010 (0.40.0) replaces by a refusal: a 26.100 rotor row is refused
+#: until a rotation null test measures that build's angular-velocity unit (RPT-051).
+REFUSED_26100_GOLDENS = {
+    f"tests/tier1_offline/goldens/workflows/unsteady_rotor__{form}__26.100.txt"
+    for form in ("bare", "full", "resolved")
+}
+
+
+def _is_26100_rotor_refusal(text: str) -> bool:
+    """Whether a golden is the PFS-2088.010 refusal of a 26.100 rotor row, and nothing else."""
+    lines = text.splitlines()
+    return (
+        len(lines) == 2
+        and lines[0] == "REFUSED CommandArgumentError"
+        and "FlightStream 26.100" in lines[1]
+        and "angular-velocity unit is measured" in lines[1]
+    )
+
+
+def _golden_classes(record: dict) -> tuple[set, set, set, set, set]:
     """The goldens that differ from v0.32.0 by the counter, the FR-51 removal or the FR-331 sign,
-    and those that also carry the FR-321 termination line (0.34.0)."""
+    those that also carry the FR-321 termination line (0.34.0), and the 26.100 rotor rows
+    PFS-2088.010 (0.40.0) refuses."""
     requirement = "FR-314"
     classes: dict[str, set] = {"FR-314": set(), "FR-51": set(), "FR-331": set(), "": set()}
     fr321 = set()
+    refused = set()
     for name, digest in sorted(record["digests"].items()):
         text = "\n".join((REPO / name).read_text(encoding="utf-8").splitlines())
         if _sha(text) == digest:
+            continue
+        if name in REFUSED_26100_GOLDENS and _is_26100_rotor_refusal(text):
+            refused.add(name)
             continue
         kind = _admitted(name, text, digest)
         if kind is None:
@@ -236,7 +259,7 @@ def _golden_classes(record: dict) -> tuple[set, set, set, set]:
             fr321.add(name)
         classes[kind].add(name)
     assert not classes[""] - fr321, (requirement, classes[""] - fr321)
-    return classes["FR-314"], classes["FR-51"], classes["FR-331"], fr321
+    return classes["FR-314"], classes["FR-51"], classes["FR-331"], fr321, refused
 
 
 #: The goldens FR-51 (0.33.1) changes: a row whose script cuts no section no longer plots them.
@@ -249,7 +272,8 @@ FR331_GOLDENS = {
 }
 
 #: The goldens FR-321 (0.34.0) changes: every rotor row that states no wake termination keeps
-#: the 4R default, one SET_WAKE_TERMINATION_TIME_STEPS line more (R6).
+#: the 4R default, one SET_WAKE_TERMINATION_TIME_STEPS line more (R6). The 26.100 rows are
+#: refused since 0.40.0 (REFUSED_26100_GOLDENS).
 FR321_GOLDENS = {
     *(
         f"tests/tier1_offline/goldens/workflows/unsteady_rotor__{form}__{build}.txt"
@@ -257,7 +281,6 @@ FR321_GOLDENS = {
         for build in (
             "25.100",
             "26.000",
-            "26.100",
             "26.101",
             "26.120",
             "26.121",
@@ -307,7 +330,8 @@ def test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration()
     requirement = "FR-314"
     record = json.loads(GOLDENS_0320.read_text(encoding="utf-8"))
     assert record["tag"] == "v0.32.0" and len(record["digests"]) == 134, record.keys()
-    changed, fr51, fr331, fr321 = _golden_classes(record)
+    changed, fr51, fr331, fr321, refused = _golden_classes(record)
+    assert refused == REFUSED_26100_GOLDENS, (requirement, refused ^ REFUSED_26100_GOLDENS)
     assert changed == CHANGED_GOLDENS, (requirement, changed ^ CHANGED_GOLDENS)
     assert fr51 == FR51_GOLDENS, (requirement, fr51 ^ FR51_GOLDENS)
     assert fr331 == FR331_GOLDENS, (requirement, fr331 ^ FR331_GOLDENS)

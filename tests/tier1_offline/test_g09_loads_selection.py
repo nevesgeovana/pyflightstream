@@ -80,7 +80,14 @@ def test_g09_every_point_of_a_steady_sweep_restates_them(tmp_path):
     base = _with_geometry(
         setup_case(tmp_path, 'load_units = "NEWTONS"\ninviscid_loads = true\n'), tmp_path
     )
-    cases = [case_at_point(base, {"alpha": alpha}) for alpha in (0.0, 2.0, 4.0)]
+    # Each point exports to names of its own, as the run layer names them: a
+    # script refuses a second export to one file (PFS-2093.004).
+    cases = [
+        case_at_point(
+            base, {"alpha": alpha}, outputs=[f"point{alpha:g}_{name}" for name in base.outputs]
+        )
+        for alpha in (0.0, 2.0, 4.0)
+    ]
     script = Script("26.124")
     build_steady_sweep(cases, script)
     lines = script.render().splitlines()

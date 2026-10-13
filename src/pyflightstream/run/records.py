@@ -193,29 +193,44 @@ def _point_units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
     return [(str(entry.get("tag")), f"{prefix}/{entry.get('tag')}", entry) for entry in entries]
 
 
-def _mark_row_failed(row, marking, *, whole: bool, at: str, reason: str | None) -> None:
-    """Apply a person's verdict to the selected units, then fold the job's status."""
+def _plan_marking(
+    rows: list[dict[str, Any]],
+    manifest: Path,
+    ids: list[str],
+    only: Mapping[str, Sequence[str]],
+) -> tuple[list[_Marking], list[str]]:
+    """Choose the records to mark, refusing an unknown simulation or point by name."""
     from pyflightstream.workspace import RunStatus
 
-    if whole and marking[0][1] is not row:
-        row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
-    for _run_id, unit in marking:
-        unit["marked"] = {"from": unit.get("status"), "at": at, "reason": reason}
-        unit["status"] = str(RunStatus.FAILED_MARKED)
-        unit.pop("iterations_requested", None)
-    worst = RunStatus.FAILED_MARKED
-    for entry in row.get("points_ran") or []:
-        if entry.get("status"):
-            worst = worse_of(worst, RunStatus(entry["status"]))
-    row["status"] = str(worst)
-    if worst is not RunStatus.MAX_ITER_REACHED:
-        row.pop("iterations_requested", None)
-
-
-def _marking_units(chosen, ids, only) -> tuple[list[_Marking], list[str]]:
-    """Partition selected points into new marks and existing marks, including steady jobs."""
-    from pyflightstream.workspace import RunStatus
-
+    known = {str(row.get("sim_id")) for row in rows if row.get("deleted_sim") is None}
+    unknown = [sim for sim in [*ids, *only] if sim not in known]
+    if unknown:
+        raise RunsManifestError(
+            f"no record in {manifest.name} for simulation(s) {', '.join(unknown)}; "
+            "nothing was marked"
+        )
+    chosen = [
+        row
+        for row in rows
+        if row.get("deleted_sim") is None
+        and (
+            str(row.get("sim_id")) in ids or row_selected(row, only.get(str(row.get("sim_id")), ()))
+        )
+    ]
+    # A NAMED POINT NO RECORD HOLDS IS REFUSED BY NAME (PFS-2094.019), as
+    # an unknown simulation is: an alias the plan resolves for a point
+    # not yet run marked nothing and exited 0 in silence.
+    found = {(str(row.get("sim_id")), tag) for row in chosen for tag in _row_tags(row)}
+    missing = [(sim, tag) for sim, tags in only.items() for tag in tags if (sim, tag) not in found]
+    if missing:
+        raise RunsManifestError(
+            "; ".join(f"no record of point {tag} in simulation {sim}" for sim, tag in missing)
+            + "; nothing was marked"
+        )
+    # A STEADY JOB IS MARKED PER POINT (PFS-2103.010, PFS-2103.009): the
+    # post reads each point's status from its points_ran entry, so a job
+    # marked at its top level alone kept every point CONVERGED; and an
+    # alias of one point marks that entry alone, not the whole job.
     todo: list[_Marking] = []
     already: list[str] = []
     for row in chosen:
@@ -239,7 +254,7 @@ def _marking_units(chosen, ids, only) -> tuple[list[_Marking], list[str]]:
     return todo, already
 
 
-def _marked_points(todo, *, applied: bool = False) -> list[dict[str, Any]]:
+def _marked_points(todo: list[_Marking], *, applied: bool = False) -> list[dict[str, Any]]:
     """Describe the selected points with the status each had before marking."""
     return [
         {
@@ -252,12 +267,39 @@ def _marked_points(todo, *, applied: bool = False) -> list[dict[str, Any]]:
     ]
 
 
-def _mark_failed_rows(manifest: Path) -> list[dict[str, Any]]:
-    """Read the row list before a preview or while holding the applying lease."""
+def _read_manifest_rows(manifest: Path) -> list[dict[str, Any]]:
+    """Read ``runs.json`` as a list of run records, refusing anything else."""
     rows = json.loads(manifest.read_text(encoding="utf-8"))
     if not isinstance(rows, list):
         raise RunsManifestError(f"{manifest} is not a list of run records")
     return rows
+
+
+def _apply_marking(
+    row: dict[str, Any],
+    marking: list[tuple[str, dict[str, Any]]],
+    whole: bool,
+    at: str,
+    reason: str | None,
+) -> None:
+    """Write FAILED_MARKED on the marked units of one record and recompute its status."""
+    from pyflightstream.workspace import RunStatus
+
+    if whole and marking[0][1] is not row:
+        # A job marked whole keeps the person's verdict at its top too.
+        row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
+    for _run_id, unit in marking:
+        unit["marked"] = {"from": unit.get("status"), "at": at, "reason": reason}
+        unit["status"] = str(RunStatus.FAILED_MARKED)
+        unit.pop("iterations_requested", None)  # FR-434 R1: for MAX_ITER_REACHED alone.
+    # A job's status is its worst point's, by the one order (worse_of).
+    worst = RunStatus.FAILED_MARKED
+    for entry in row.get("points_ran") or []:
+        if entry.get("status"):
+            worst = worse_of(worst, RunStatus(entry["status"]))
+    row["status"] = str(worst)
+    if worst is not RunStatus.MAX_ITER_REACHED:
+        row.pop("iterations_requested", None)
 
 
 def mark_failed(
@@ -316,54 +358,20 @@ def mark_failed(
     # character by character was refused as simulations 2, 0, 6.
     if isinstance(sims, str):
         raise RunsManifestError(
-            f'sims takes a list of ids, e.g. ["2006", "2007"] (CLI: --sims 2006,2007), '
-            f"not the string {sims!r}"
+            f'sims takes a list of ids, e.g. ["2006", "2007"], not the string {sims!r}: '
+            'pass sims=["2006", "2007"], or --sims 2006,2007 on the command line'
         )
     ids = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
     only = {sim: tags for sim, tags in (points or {}).items() if sim not in ids}
     if not ids and not only:
         raise RunsManifestError(
-            'name the simulations to mark in sims, e.g. ["2006", "2007"] (CLI: --sims 2006,2007)'
+            'name the simulations to mark: pass sims=["2006", "2007"], or --sims 2006,2007 '
+            "on the command line"
         )
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
 
-    def plan(rows: list[dict[str, Any]]) -> tuple[list[_Marking], list[str]]:
-        known = {str(row.get("sim_id")) for row in rows if row.get("deleted_sim") is None}
-        unknown = [sim for sim in [*ids, *only] if sim not in known]
-        if unknown:
-            raise RunsManifestError(
-                f"no record in {manifest.name} for simulation(s) {', '.join(unknown)}; "
-                "nothing was marked"
-            )
-        chosen = [
-            row
-            for row in rows
-            if row.get("deleted_sim") is None
-            and (
-                str(row.get("sim_id")) in ids
-                or row_selected(row, only.get(str(row.get("sim_id")), ()))
-            )
-        ]
-        # A NAMED POINT NO RECORD HOLDS IS REFUSED BY NAME (PFS-2094.019), as
-        # an unknown simulation is: an alias the plan resolves for a point
-        # not yet run marked nothing and exited 0 in silence.
-        found = {(str(row.get("sim_id")), tag) for row in chosen for tag in _row_tags(row)}
-        missing = [
-            (sim, tag) for sim, tags in only.items() for tag in tags if (sim, tag) not in found
-        ]
-        if missing:
-            raise RunsManifestError(
-                "; ".join(f"no record of point {tag} in simulation {sim}" for sim, tag in missing)
-                + "; nothing was marked"
-            )
-        # A STEADY JOB IS MARKED PER POINT (PFS-2103.010, PFS-2103.009): the
-        # post reads each point's status from its points_ran entry, so a job
-        # marked at its top level alone kept every point CONVERGED; and an
-        # alias of one point marks that entry alone, not the whole job.
-        return _marking_units(chosen, ids, only)
-
-    todo, already = plan(_mark_failed_rows(manifest))
+    todo, already = _plan_marking(_read_manifest_rows(manifest), manifest, ids, only)
     result: dict[str, Any] = {
         "applied": False,
         "marked": _marked_points(todo),
@@ -375,17 +383,15 @@ def mark_failed(
     workspace = CampaignWorkspace(base)
     at = dt.datetime.now(dt.UTC).isoformat()
     with manifest_lock(base):
-        rows = _mark_failed_rows(manifest)
-        todo, already = plan(rows)
+        rows = _read_manifest_rows(manifest)
+        todo, already = _plan_marking(rows, manifest, ids, only)
         (base / ARCHIVE_DIR).mkdir(exist_ok=True)
         # THROUGH THE ONE HOME OF THE SPELLING (PFS-2096.006): a hand-built
         # name overwrote an archive written within the same second.
         archived = free_root_archive(base, DEFAULT_MANIFEST, _now_stamp())
         shutil.copy2(manifest, archived)
         for row, marking in todo:
-            _mark_row_failed(
-                row, marking, whole=str(row.get("sim_id")) in ids, at=at, reason=reason
-            )
+            _apply_marking(row, marking, str(row.get("sim_id")) in ids, at, reason)
         workspace._replace_manifest(rows)
     result.update(
         applied=True,

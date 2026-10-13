@@ -449,12 +449,13 @@ def test_the_home_page_offers_the_two_routes_near_its_top():
     # P0330-DOC-HOME
     text = (DOCS / "index.md").read_text(encoding="utf-8")
     headings = re.findall(r"^## (.+?)\s*$", text, re.MULTILINE)
-    assert headings and headings[0] == "Two ways in", headings[:3]
-    section = text.split("## Two ways in", 1)[1].split("\n## ", 1)[0]
-    assert text.index("## Two ways in") < 1000, "the routes are not near the top"
-    for target in ("getting-started.md", "cli/index.md", "tutorial-python-api.md", "api/index.md"):
-        assert f"]({target})" in section, f"the routes do not link {target}"
-    assert "`pyfs-matrix`" in section and "Python API" in section
+    # The 0.40.0 home page opens with "Where to start" and a reading-track table.
+    assert headings and headings[0] == "Where to start", headings[:3]
+    top = text[: text.index("\n## ", text.index("## Choose a reading track") + 1)]
+    assert len(top) < 1800, "the routes are not near the top"
+    for target in ("getting-started.md", "python-api/index.md"):
+        assert f"]({target})" in top, f"the routes do not link {target}"
+    assert "Python API" in top
 
 
 # ------------------------------------------------------------ the exceptions

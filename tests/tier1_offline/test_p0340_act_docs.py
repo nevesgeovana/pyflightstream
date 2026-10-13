@@ -124,11 +124,14 @@ def test_p0340_act_docs_the_actuator_page_states_the_hand():
         "THE HAND.",
         "swirls its wake the way a rotor of `rpm_sign = 1` turns",
         "minus the block's sign times the row's speed",
-        "migrating-to-0.34.0.md#an-actuator-disc-swirls-the-way-its-rotor-turns",
+        # The per-version page is gone (the docs restructure): the page itself states
+        # the change from 0.33.0 and cites the one upgrading page.
+        "a disc handed plus swirled against a rotor of the same `rpm_sign`",
+        "upgrading.md",
     )
-    migration = " ".join((DOCS / "migrating-to-0.34.0.md").read_text("utf-8").split())
-    assert "where 0.33.0 handed plus" in migration
-    assert "sets `rpm_sign = 1` from 0.34.0" in migration
+    upgrading = " ".join((DOCS / "upgrading.md").read_text("utf-8").split())
+    section = upgrading.split("## 0.34.0", 1)[1].split("## 0.33.1", 1)[0]
+    assert "Actuator-disc swirl follows the rotor direction" in section
 
 
 RELAXED = 'wake_type = "RELAXED"\n'

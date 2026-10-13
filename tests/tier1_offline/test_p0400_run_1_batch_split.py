@@ -10,6 +10,7 @@ from tests.tier1_offline.test_p0350_batch_split import HOUR, _unit
 
 
 def test_p0400_a_row_with_no_cell_and_no_best_is_not_budgeted_at_zero() -> None:
+    # Verifies FR-364.
     """P0400-JOB-WALLTIME-UNSTATED (PFS-2094.006): one row states 2h, the other nothing.
 
     The sum covered the stated row alone, so the job's 2h bounded the other row's point

@@ -659,6 +659,83 @@ def _say_the_na_rows(
         )
 
 
+def _row_number(row: Mapping[str, object], key: str, default: float = 0.0) -> float:
+    """Return the row's number under ``key``; ``default`` where it states none."""
+    stated = row.get(key)
+    return float(stated) if isinstance(stated, int | float) else default
+
+
+def _row_refusal(
+    row: Mapping[str, object],
+    alias: str,
+    *,
+    diameter: float,
+    rate: float,
+    density_kg_m3: float,
+) -> str | None:
+    """Why the table refuses this row, or None where it takes it."""
+    if rate <= 0.0:
+        return (
+            f"{alias}: the row states no rotor speed, so every "
+            "coefficient here would divide by zero"
+        )
+    if diameter <= 0.0:
+        return f"{alias}: the reference states no diameter for this rotor"
+    if density_kg_m3 <= 0.0:
+        return f"{alias}: the row states no air density"
+    stated_frame = row.get("frame")
+    if isinstance(stated_frame, str) and (
+        stated_frame.strip().casefold() not in GEOMETRY_ANALYSIS_FRAMES
+    ):
+        return (
+            f"{alias}: its loads export states analysis frame {stated_frame!r}; the "
+            "rotor's thrust, torque and wind-axis force need forces in the geometry's "
+            "axes, and this frame's rotation is unknown"
+        )
+    return None
+
+
+def _mach_cells(
+    air: object,
+    rpm: float,
+    diameter: float,
+    angles: tuple[float | None, float | None],
+    shaft: tuple[float, float, float],
+) -> tuple[tuple[float | None, float | None], float | None]:
+    """Return the tip, helical and advancing-tip Mach of a row; NA where the air is unresolved."""
+    if not (
+        isinstance(air, tuple)
+        and len(air) == 2
+        and all(isinstance(value, int | float) for value in air)
+    ):
+        return (None, None), None
+    try:
+        machs = rotor_mach_numbers(
+            rpm=rpm,
+            diameter_m=diameter,
+            velocity_m_per_s=float(air[0]),
+            sonic_velocity_m_per_s=float(air[1]),
+        )
+        # FR-176 R1: the advancing tip, on the rotor's own axis and the
+        # row's attitude (an unstated angle is zero, as in the loads above).
+        madv = advancing_tip_mach_number(
+            rpm=rpm,
+            diameter_m=diameter,
+            velocity_m_per_s=float(air[0]),
+            sonic_velocity_m_per_s=float(air[1]),
+            flow_direction=free_stream_direction_at(
+                angles[0] if angles[0] is not None else 0.0,
+                angles[1] if angles[1] is not None else 0.0,
+            ),
+            axis=shaft,
+        )[0]
+    except ValueError:
+        # A speed of sound or a velocity that is not a positive
+        # finite number costs these cells and never the row.
+        return (None, None), None
+    return machs, madv
+
+
 def write_rotor_table(
     path: str | Path,
     *,
@@ -778,8 +855,7 @@ def write_rotor_table(
         # and a `float(...)` on one is a claim the type checker is right
         # to refuse. A row stating a speed that is not a number states no
         # speed, and there is no table to write for it.
-        stated = row.get("rpm")
-        rpm = float(stated) if isinstance(stated, int | float) else 0.0
+        rpm = _row_number(row, "rpm")
         # A NEGATIVE RPM IS A DIRECTION, NOT A STOPPED ROTOR, and this read
         # `rpm <= 0.0` until the independent review of 2026-09-18. The plan
         # records the speed SIGNED -- `rpm=_rpm_sign(case) * stated` in
@@ -795,36 +871,18 @@ def write_rotor_table(
         # forwards. The SIGN stays on the torque, which is where it is physical
         # and where the export already put it.
         rate = abs(rpm)
-        if rate <= 0.0:
-            refused.append(
-                (
-                    run_id,
-                    f"{alias}: the row states no rotor speed, so every "
-                    "coefficient here would divide by zero",
-                )
-            )
-            continue
-        if diameter <= 0.0:
-            refused.append((run_id, f"{alias}: the reference states no diameter for this rotor"))
-            continue
         # THIS ROW'S OWN AIR AND ITS OWN VELOCITY. These were one pair of
         # arguments for the WHOLE table until 2026-09-18, read off the first
         # point of the sweep, so every row but the first was normalised by
         # another point's state -- see `_rotor_tables`.
-        stated = row.get("density")
-        density_kg_m3 = float(stated) if isinstance(stated, int | float) else 0.0
-        stated = row.get("speed")
-        speed_m_s = float(stated) if isinstance(stated, int | float) else 0.0
+        density_kg_m3 = _row_number(row, "density")
+        speed_m_s = _row_number(row, "speed")
         # THE ADVANCE RATIO IS THE FREE STREAM'S (0.24.0). `speed` is the export's
         # REFERENCE velocity, which is right for taking a coefficient back to
         # Newtons and wrong for `J = V / (n D)`, a ratio of the flight speed. The
         # two are equal in every campaign recorded so far; a row that states no
         # free stream keeps the speed it has.
-        stated = row.get("free_stream")
-        flight_m_s = float(stated) if isinstance(stated, int | float) else speed_m_s
-        if density_kg_m3 <= 0.0:
-            refused.append((run_id, f"{alias}: the row states no air density"))
-            continue
+        flight_m_s = _row_number(row, "free_stream", speed_m_s)
         # THE ROW'S OWN ATTITUDE REACHES THE ANGLE. Left to default, every
         # point reports the level-flight shaft angle and `ETAW` carries the
         # aircraft's pitch as an omission -- the defect one level up from the
@@ -834,18 +892,9 @@ def write_rotor_table(
         # ONE PREMISE, ONE VERDICT, AND THE ROW SAYS IT (PFS-2105.040): a loads
         # export in another frame gave a row of NA listed as written, with no
         # reason anywhere; the frame check refuses the whole row, named.
-        stated_frame = row.get("frame")
-        if isinstance(stated_frame, str) and (
-            stated_frame.strip().casefold() not in GEOMETRY_ANALYSIS_FRAMES
-        ):
-            refused.append(
-                (
-                    run_id,
-                    f"{alias}: its loads export states analysis frame {stated_frame!r}; the "
-                    "rotor's thrust, torque and wind-axis force need forces in the geometry's "
-                    "axes, and this frame's rotation is unknown",
-                )
-            )
+        reason = _row_refusal(row, alias, diameter=diameter, rate=rate, density_kg_m3=density_kg_m3)
+        if reason is not None:
+            refused.append((run_id, reason))
             continue
         angles = (_angle_of(attitude, "ALPHA"), _angle_of(attitude, "BETA"))
         loads = rotor_shaft_loads(
@@ -940,39 +989,7 @@ def write_rotor_table(
         stated_condition = row.get("condition")
         condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}
         # 0.30.0 (M1): `NA` where the point's air did not resolve, never a guess.
-        machs: tuple[float | None, float | None] = (None, None)
-        madv: float | None = None
-        air = row.get("air")
-        if (
-            isinstance(air, tuple)
-            and len(air) == 2
-            and all(isinstance(value, int | float) for value in air)
-        ):
-            try:
-                machs = rotor_mach_numbers(
-                    rpm=rpm,
-                    diameter_m=diameter,
-                    velocity_m_per_s=float(air[0]),
-                    sonic_velocity_m_per_s=float(air[1]),
-                )
-                # FR-176 R1: the advancing tip, on the rotor's own axis and the
-                # row's attitude (an unstated angle is zero, as in the loads above).
-                madv = advancing_tip_mach_number(
-                    rpm=rpm,
-                    diameter_m=diameter,
-                    velocity_m_per_s=float(air[0]),
-                    sonic_velocity_m_per_s=float(air[1]),
-                    flow_direction=free_stream_direction_at(
-                        angles[0] if angles[0] is not None else 0.0,
-                        angles[1] if angles[1] is not None else 0.0,
-                    ),
-                    axis=shaft,
-                )[0]
-            except ValueError:
-                # A speed of sound or a velocity that is not a positive
-                # finite number costs these cells and never the row.
-                machs = (None, None)
-                madv = None
+        machs, madv = _mach_cells(row.get("air"), rpm, diameter, angles, shaft)
         written.append(
             (
                 pol,

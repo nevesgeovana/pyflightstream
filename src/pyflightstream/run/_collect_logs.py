@@ -54,7 +54,7 @@ def _profile_glob(key: str, pattern: str, values: Mapping[str, object]) -> tuple
         return pattern.format(**values), ""
     except KeyError as error:
         lacking = f"{{{error.args[0]}}}"
-    except (IndexError, ValueError) as error:
+    except (IndexError, ValueError, AttributeError, TypeError) as error:
         lacking = f"a placeholder it cannot read ({error})"
     return None, (
         f"the HPC profile's {key} ({pattern!r}) names {lacking}, which this point does not "

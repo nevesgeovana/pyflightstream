@@ -429,6 +429,11 @@ def resolve_row_fsi(
     external = _resolve_external_row(path, code, factor_cells)
     if external is not None:
         return external
+    return resolve_fsi_setup(path, matrix_calibration=_stated_factors(factor_cells))
+
+
+def _stated_factors(factor_cells: Mapping[str, Any]) -> dict[str, float]:
+    """Return the factor cells that state a value, as numbers keyed by calibration name."""
     factors = {}
     for key, value in factor_cells.items():
         if str(value).strip() in ("", "-"):
@@ -439,7 +444,7 @@ def resolve_row_fsi(
             raise FsiSetupError(
                 f"{key}={value!r}; use a finite positive dimensionless factor."
             ) from exc
-    return resolve_fsi_setup(path, matrix_calibration=factors)
+    return factors
 
 
 def stage_fsi_setup(resolved: ResolvedFsiSetup, run_dir: str | Path) -> tuple[Path, Path]:

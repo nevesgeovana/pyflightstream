@@ -1022,11 +1022,18 @@ class RunRecord(BaseModel):
         out: list[RunRecord] = []
         for entry in self.points_ran:
             tag = str(entry.get("tag") or "")
-            # A JOB marked failed (mark-failed marks the row, not its entries)
-            # fails every point that carries no verdict of its own; the
-            # entry's own CONVERGED would otherwise hand a failed point to the
-            # post, status and re-run as converged.
-            failed_job = self.status == RunStatus.FAILED_MARKED and not entry.get("marked")
+            # A JOB marked failed WHOLE (the mark on the row, as a record marked
+            # before mark-failed marked each entry carries it) fails every point
+            # that carries no verdict of its own; the entry's own CONVERGED would
+            # otherwise hand a failed point to the post, status and re-run as
+            # converged. A job FAILED_MARKED because ONE of its points was
+            # marked (PFS-2103.009) has no mark on the row, and its other
+            # points keep their own status.
+            failed_job = (
+                self.status == RunStatus.FAILED_MARKED
+                and self.marked is not None
+                and not entry.get("marked")
+            )
             out.append(
                 self.model_copy(
                     update={

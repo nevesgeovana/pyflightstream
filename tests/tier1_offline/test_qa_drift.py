@@ -25,6 +25,27 @@ def physics_run(version, metrics, error=None, case_id="PHY-01"):
     )
 
 
+FROZEN_TODAY = "2031-02-03"
+
+
+@pytest.fixture
+def frozen_today(monkeypatch):
+    """The date source of the report helpers, fixed, so a test that crosses local midnight
+    between the writer's call and its own cannot disagree with it (PFS-2135.013)."""
+    import datetime
+    import types
+
+    from pyflightstream.qa import reports
+
+    class _Date(datetime.date):
+        @classmethod
+        def today(cls):
+            return cls.fromisoformat(FROZEN_TODAY)
+
+    monkeypatch.setattr(reports, "datetime", types.SimpleNamespace(date=_Date))
+    return FROZEN_TODAY
+
+
 def test_identical_runs_pass_with_zero_deltas():
     metrics = {"CL_a4": 0.337, "CL_a0": -0.0004}
     drift = diff_runs(physics_run("26.100", metrics), physics_run("26.120", metrics))
@@ -103,16 +124,14 @@ def test_the_writer_lands_exactly_where_the_pre_flight_looked(tmp_path):
     )
 
 
-def test_the_drift_helper_and_writer_default_their_date_the_same_way(tmp_path):
+def test_the_drift_helper_and_writer_default_their_date_the_same_way(tmp_path, frozen_today):
     """The two-arm guard compat has, which drift did not.
 
     Same reasoning as the physics arm beside it: the mirror-image
     mutation corrupts the pre-flight rather than the file, so a guard
     that passes an explicit date to both sides cannot see it.
     """
-    import datetime
-
-    today = datetime.date.today().isoformat()
+    today = frozen_today  # the report date source is fixed (PFS-2135.013)
 
     yaml_path, md_path = drift_report_paths(
         tmp_path, version_a="26.100", version_b="26.120", label="probe"
