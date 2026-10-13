@@ -282,9 +282,9 @@ class LedgersSpec(LatticeShape):
 
 
 def _family_selection(value: object) -> object:
-    from pyflightstream.cases.pproc import check_family_selection
+    from pyflightstream.cases.pproc import validated_family_selection
 
-    return check_family_selection(value)
+    return validated_family_selection(value)
 
 
 class FarfieldSpec(BaseModel):

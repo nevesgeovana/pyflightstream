@@ -152,6 +152,8 @@ module, which is stated rather than left to be discovered:
   :mod:`pyflightstream.post._additional` (the products of the additional post),
   :mod:`pyflightstream.post._transfer_functions` (the Bessel functions and the
   Theodorsen and Sears transfer functions the quasi-steady corrections apply),
+  :mod:`pyflightstream.post._field_inputs` (the input template's far-field,
+  streamline and probe-lattice example and its left-out reasons),
   :mod:`pyflightstream.post._products_campaign` (the campaign products'
   context, admission and native surface indexing, AD-23),
   :mod:`pyflightstream.post._settings_product` (the settings table and its
