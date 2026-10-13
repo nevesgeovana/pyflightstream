@@ -649,7 +649,7 @@ def _protected(workspace: CampaignWorkspace, sim_id: str, rows: list[dict[str, A
         if (
             path.suffix.lower() in _PROTECTED_SUFFIXES
             or "scripts" in path.relative_to(folder).parts
-            or lowered.endswith(("_log.txt", ".log"))
+            # A log by the one log-name rule, or a job script (PFS-2087.002).
             or batch_life.is_kept_name(lowered)
         ):
             keep.add(path.resolve())
@@ -661,9 +661,8 @@ def _select_sims(
 ) -> list[str]:
     wanted = spec.get("sims", "all")
     candidates = sorted(present)
+    # The shapes of sims and status, and the status names, are read_recipe's (PFS-2096.028).
     if wanted != "all":
-        if not isinstance(wanted, list):
-            raise StorageError("'sims' is \"all\" or a list of simulation ids")
         named = {str(item) for item in wanted}
         missing = named.difference(candidates)
         if missing:
@@ -672,9 +671,6 @@ def _select_sims(
     statuses = spec.get("status")
     if statuses is not None:
         allowed = {str(item).upper() for item in statuses}
-        unknown = allowed.difference(status.value for status in RunStatus)
-        if unknown:
-            raise StorageError(f"unknown run status {sorted(unknown)}")
         candidates = [
             sim
             for sim in candidates
@@ -728,6 +724,10 @@ def read_recipe(root: Path, recipe: str) -> tuple[Path, dict[str, Any]]:
         if not isinstance(entries, list) or not all(isinstance(e, dict) for e in entries):
             raise StorageError(f"{path}: {table} is written [[{table}]], one table per step")
     step_prune.check_prune_tables(path, document.get(PRUNE_MODE, []), StorageError)
+    for table in _RECIPE_TABLES:
+        for spec in document.get(table, []):
+            if (problem := step_prune.table_problem(table, spec, _PROTECTED_SUFFIXES)) is not None:
+                raise StorageError(f"{path}: [[{table}]] {problem}")
     return path, document
 
 
@@ -978,6 +978,18 @@ def free_space(
         for p in (sims_root.iterdir() if sims_root.is_dir() else [])
         if p.is_dir() and p.name.startswith("sim_") and not is_reparse(p)
     ]
+    # EVERY SELECTION IS JUDGED BEFORE THE FIRST STEP (PFS-2096.028), against the folders
+    # present when the call began: a sims name with no folder used to be refused only when
+    # its step was reached, after the earlier steps had deleted. A step then takes the
+    # selection's folders that still exist, so one compacted earlier is passed over.
+    initial = list(present)
+    for table in _RECIPE_TABLES:
+        for spec in document.get(table, []):
+            _select_sims(spec, records, initial)
+
+    def selection(spec: dict[str, Any]) -> list[str]:
+        return [sim for sim in _select_sims(spec, records, initial) if sim in present]
+
     steps: list[dict[str, Any]] = []
     freed = 0
     # PRUNE FIRST (0.30.0), so a recipe that prunes and then compacts prunes
@@ -990,7 +1002,7 @@ def free_space(
             **step_prune.selection_record(spec),
         }
         deleted: set[Path] = set()
-        selected = _select_sims(spec, records, present)
+        selected = selection(spec)
         for sim in tracked(f"free-space: {PRUNE_MODE}", selected, label=_sim_folder):
             rows = records.get(sim, [])
             if any(row.get("status") == RunStatus.SUBMITTED.value for row in rows):
@@ -1005,7 +1017,7 @@ def free_space(
         steps.append(step)
     for spec in document.get("compact_sims", []):
         step = {"mode": "compact_sims", "sims": [], "refused": {}}
-        selected = _select_sims(spec, records, present)
+        selected = selection(spec)
         for sim in tracked("free-space: compact_sims", selected, label=_sim_folder):
             rows = records.get(sim, [])
             if any(row.get("status") == RunStatus.SUBMITTED.value for row in rows):
@@ -1025,17 +1037,10 @@ def free_space(
         present = [sim for sim in present if workspace.sim_dir(sim).is_dir()]
         steps.append(step)
     for spec in document.get("delete_extensions", []):
-        extensions = [str(e).lower() for e in spec.get("extensions", [])]
-        if not extensions or not all(e.startswith(".") for e in extensions):
-            raise StorageError(f'{path}: delete_extensions needs extensions = [".vtk", ...]')
-        refused_ext = sorted(set(extensions).intersection(_PROTECTED_SUFFIXES))
-        if refused_ext:
-            raise StorageError(
-                f"{path}: {refused_ext} is never deleted by a recipe: the saved simulation "
-                "is what a later post or continuation reopens"
-            )
+        # Checked whole by read_recipe before any step (PFS-2096.028).
+        extensions = [str(e).lower() for e in spec["extensions"]]
         step = {"mode": "delete_extensions", "extensions": extensions, "files": [], "kept": []}
-        selected = _select_sims(spec, records, present)
+        selected = selection(spec)
         for sim in tracked("free-space: delete_extensions", selected, label=_sim_folder):
             rows = records.get(sim, [])
             if any(row.get("status") == RunStatus.SUBMITTED.value for row in rows):
@@ -1055,9 +1060,8 @@ def free_space(
                     freed += size
         steps.append(step)
     for spec in document.get("post_archives", []):
+        # Checked whole by read_recipe before any step (PFS-2096.028).
         action = spec.get("action", "delete")
-        if action not in ("compact", "delete"):
-            raise StorageError(f'{path}: post_archives action is "compact" or "delete"')
         keep_latest = int(spec.get("keep_latest", 0))
         step = {"mode": "post_archives", "action": action, "archives": []}
         post_root = workspace.root / "post"
@@ -1566,18 +1570,8 @@ def _sync_files(
             if rank >= 3 and sim.name.endswith(COMPACTED_SUFFIX):
                 out.add(sim)
             continue
-        out.update(_walk_files(sim / "scripts"))
-        for file in _walk_files(sim / "datapoints"):
-            if file.name == "FS_runtime_output.txt" or file.name.endswith("_log.txt"):
-                out.add(file)
-            elif rank >= 2 and file.suffix.lower() == ".fsm":
-                out.add(file)
-        if rank >= 3:
-            for file in _walk_files(sim):
-                parts = file.relative_to(sim).parts
-                if parts and parts[0] == "inputs":
-                    continue
-                out.add(file)
+        # The one per-simulation rule, which a batch's sim_<id> follows too (PFS-2087.002).
+        out |= batch_life.sim_sync_files(sim, rank)
     out |= batch_life.batch_files(ws, rank, skip_sims)
     if rank >= 1:
         out.update(_walk_files(ws / "post"))
@@ -2033,10 +2027,10 @@ def sync_workspaces(
     for name in names:
         if name not in spaces:
             raise StorageError(
-                f"from (CLI: --from) {name!r} is not in {SYNC_CONFIG} ({sorted(spaces)})"
+                f"source (CLI: --from) {name!r} is not in {SYNC_CONFIG} ({sorted(spaces)})"
             )
         if name == main_name:
-            raise StorageError(f"from (CLI: --from) {name!r} is the main workspace itself")
+            raise StorageError(f"source (CLI: --from) {name!r} is the main workspace itself")
     owners = read_matrix_owners(main.root)
     unknown = sorted(set(owners.values()).difference(spaces))
     if unknown:

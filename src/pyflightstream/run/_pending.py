@@ -45,6 +45,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import (
     SIM_DATAPOINTS_DIR,
 )
+from pyflightstream.workspace._batch_life import walltime_stop
 
 
 def _write_probe_points(
@@ -489,28 +490,4 @@ def _walltime_stop(state_path: Path) -> dict | None:
     program never got to write. A run that ended for its own reasons is
     not a run the clock stopped, and saying so is the whole value.
     """
-    if not state_path.is_file():
-        return None
-    try:
-        state = json.loads(state_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not state.get("fired"):
-        return None
-    stopped = state.get("stopped_at")
-    if not isinstance(stopped, dict):
-        return None
-    observed = state.get("steps")
-    claimed = stopped.get("step")
-    # A callback may abort its own script while the solver keeps marching.
-    # Only a matching final callback count can support the stop marker.
-    if (
-        not isinstance(observed, int)
-        or isinstance(observed, bool)
-        or not isinstance(claimed, int)
-        or isinstance(claimed, bool)
-        or claimed < 1
-        or observed != claimed
-    ):
-        return None
-    return dict(stopped)
+    return walltime_stop(state_path)
