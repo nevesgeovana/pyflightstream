@@ -294,7 +294,17 @@ def test_p0400_geom_build_a_failed_audit_gate_keeps_the_files_and_says_so(tmp_pa
     plan = plan_geometry_build(folder, registry=verified)
     (built,) = apply_geometry_build(plan, runner=runner(sliver=True))
     assert built.passed is False
-    record = json.loads((folder / "wing.build.json").read_text(encoding="utf-8"))
+    partial = folder.with_name("wing.partial")
+    assert built.folder == partial and built.record == partial / "wing.build.json"
+    record = json.loads(built.record.read_text(encoding="utf-8"))
     assert record["audit"]["passed"] is False
     assert any(gate.startswith("G1") for gate in record["audit"]["failed"]), record["audit"]
-    assert (folder / "wing.fsm").is_file()
+    assert not (folder / "wing.fsm").exists()
+    assert not (folder / "wing.build.json").exists()
+    assert not folder.with_name("wing_obj").exists()
+    assert (partial / "wing.fsm").is_file()
+    assert (partial / "wing.preview.vtk").is_file()
+    assert (partial / "wing.build.txt").is_file()
+    assert (partial / "wing.build.log").is_file()
+    assert (partial / "mesh/wing_obj.obj").is_file()
+    assert (partial / "mesh/wing_obj.audit.json").is_file()

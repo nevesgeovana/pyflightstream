@@ -624,6 +624,7 @@ def _build_one(
     )
     if png:
         _write_png(work / f"{name}.preview.png", mesh_dir / f"{mesh_name}.obj")
+    failed = tuple(audited["failed"])
     record = _record(
         plan,
         variant,
@@ -634,11 +635,24 @@ def _build_one(
         package_version=package_version,
         fsm=fsm,
         obj=mesh_dir / f"{mesh_name}.obj",
+        retained=bool(failed),
     )
+    if failed:
+        audit_file = mesh_dir / f"{mesh_name}.audit.json"
+        if audit_file.is_file():
+            shutil.copyfile(audit_file, work / f"{name}.audit.json")
+        _textio.write_json(work / f"{name}{BUILD_RECORD_SUFFIX}", record)
+        return GeometryBuilt(
+            folder=work,
+            record=work / f"{name}{BUILD_RECORD_SUFFIX}",
+            passed=False,
+            failed_gates=failed,
+            files=tuple(sorted(path for path in work.rglob("*") if path.is_file())),
+            notes=tuple(record["notes"]),
+        )
     _textio.write_json(work / f"{name}{BUILD_RECORD_SUFFIX}", record)
     files = _promote(variant, work, mesh_dir, mesh_name, overwrite)
     shutil.rmtree(work, ignore_errors=True)
-    failed = tuple(record["audit"]["failed"])
     return GeometryBuilt(
         folder=variant.folder,
         record=variant.folder / f"{name}{BUILD_RECORD_SUFFIX}",
@@ -774,16 +788,19 @@ def _record(
     package_version: str,
     fsm: Path,
     obj: Path,
+    retained: bool = False,
 ) -> dict[str, Any]:
     """Return ``<name>.build.json`` (FR-471 R7)."""
-    folder = variant.folder
+    folder = fsm.parent if retained else variant.folder
     rel = lambda path: Path(_relative(path, folder)).as_posix()  # noqa: E731
     outputs = []
     for path, kind in ((fsm, "fsm"), (obj, "obj")):
         if kind in variant.instruction.outputs:
             outputs.append(
                 {
-                    "file": path.name
+                    "file": rel(path)
+                    if retained
+                    else path.name
                     if kind == "fsm" or variant.instruction.outputs == ("obj",)
                     else f"../{obj.stem}/{obj.name}",
                     "sha256": file_sha256(path),
