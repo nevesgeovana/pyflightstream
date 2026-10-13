@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-last_modified_at: 2026-10-13T14:35:00-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-dependencies: [tests/tier1_offline/test_additional_post.py]
-authority: pyflightstream
-status: active
-confidentiality: internal
-change_summary: Restore public additional-post skip reasons removed with internal citations.
-revision_source: git
--->
-
 # Extracting more from a finished point: the additional post
 
 A row may name a second post-processing artifact, `ADDITIONAL_PPROC: p<id>` in

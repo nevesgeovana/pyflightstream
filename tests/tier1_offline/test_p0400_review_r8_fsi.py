@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# last_modified_at: 2026-10-13T15:30:59-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / reviewer
-# dependencies: [pytest, pyflightstream.fsi.external]
-# authority: pyflightstream
-# status: active
-# confidentiality: internal
-# change_summary: Reuse the measured failing REL8-001 guards for its missing integration, REL9-001.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """REL8-001: outputs=['call.json.'] must never replace the call's archive record.
 
 REL9-001: the integration retained these tests but omitted the source fix.

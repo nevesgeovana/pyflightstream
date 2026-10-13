@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-10-13T14:55:46-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [git, CHANGELOG.md]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Account for folded fragments deleted from the working tree.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: no shipped page promises a manual page on every database entry.
 
 Since 2026-08-06 an entry rests on ONE of two citations: the manual page

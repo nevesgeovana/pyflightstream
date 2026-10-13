@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-last_modified_at: 2026-10-13T14:55:46.035268-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-dependencies: [pyproject.toml, tests/tier1_offline/test_p0400_farfield_numpy.py]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Record the NFR-06 amendment promotion in SRS revision 1.84.1.
-revision_source: git
--->
-
 # Software Requirements Specification
 
 The SRS of pyflightstream: the authoritative public reference for what

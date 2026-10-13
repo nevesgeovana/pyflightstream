@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: RPT-173
-last_modified_at: 2026-10-13T14:25:00-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-dependencies: [scripts/arch_metrics.py, tests/tier1_offline/architecture_baselines.json, RPT-172]
-authority: pyflightstream
-status: active
-confidentiality: internal
-change_summary: Record architecture growth through rfixAPI, rfixR5 and rfixR6 on integC.
-revision_source: git
--->
-
 # RPT-173: architecture metrics (2026-10-13)
 
 ## Integration growth and its origin

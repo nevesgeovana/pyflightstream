@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-last_modified_at: 2026-10-13T14:55:46.035268-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-dependencies: [pyproject.toml, tests/tier1_offline/test_p0400_farfield_numpy.py]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Promote the implemented xarray removal amendment with test evidence.
-revision_source: git
--->
-
 # Non-functional requirements
 
 !!! requirement "NFR-01 Didactic policy <span class='srs-implemented'>implemented</span>"

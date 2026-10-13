@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-last_modified_at: 2026-10-13T15:29:43-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / reviewer
-dependencies: [FR-462]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Restore documentation of reserved Windows aliases (REL9-001).
-revision_source: git
--->
-
 # FSI with a structural program of your own
 
 An FSI input with `mode = "external"` couples a fixed wing to a structural
