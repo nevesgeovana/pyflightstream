@@ -11,8 +11,8 @@ outputs into place.
 
 Exit codes of the command (FR-471 R8): 0 built and audited, 1 built with a
 failed audit gate, 2 refused with nothing written (:class:`InputArtifactError`),
-3 the solver or the read-back failed with nothing promoted
-(:class:`GeometryBuildError`).
+3 the solver, read-back or sweep overlay failed (:class:`GeometryBuildError`).
+An overlay failure retains built variant outputs and temporary work for diagnosis.
 """
 
 from __future__ import annotations
@@ -90,7 +90,8 @@ _PAGE = GEOMETRY_PAGE
 class GeometryBuildError(PyflightstreamError, RuntimeError):
     """The solver failed, or the saved body is not the one the instruction states (exit 3).
 
-    Nothing is promoted; the partial folder is kept with the script and the log.
+    A solver or read-back failure promotes nothing. A sweep overlay failure keeps
+    already built outputs. Partial folders are retained for diagnosis.
     """
 
 
@@ -118,6 +119,7 @@ class GeometryVariant:
     folder: Path
     script: GeometryScript
     trailing_edge_points: tuple[tuple[float, float, float], ...] = ()
+    ordinal: int | None = None
 
 
 @dataclass(frozen=True)
@@ -337,7 +339,7 @@ def plan_geometry_build(
                 f"only (CLI: --only) names {', '.join(unknown)}, "
                 f"and the sweep builds {', '.join(tags)}"
             )
-        for tag, angle in tags.items():
+        for ordinal, (tag, angle) in enumerate(tags.items(), start=1):
             if only and tag not in only:
                 continue
             variant = _variant_instruction(instruction, angle)
@@ -349,7 +351,7 @@ def plan_geometry_build(
                 version=version,
                 registry=registry,
             )
-            variants.append(GeometryVariant(tag, angle, variant, out, script))
+            variants.append(GeometryVariant(tag, angle, variant, out, script, ordinal=ordinal))
     return GeometryBuildPlan(
         path=path,
         instruction=instruction,
@@ -487,7 +489,8 @@ def apply_geometry_build(
         ``overwrite``, or ``parallel`` outside 1 to 2: nothing is run or written.
     GeometryBuildError
         The solver failed, or the saved boundaries or trailing edges are not
-        the ones stated; nothing of that geometry is promoted.
+        the ones stated; nothing of that geometry is promoted. An overlay failure
+        retains already built variants and temporary work, without a current overlay.
     """
     if not 1 <= parallel <= MAX_PARALLEL:
         raise _refuse(
@@ -495,6 +498,9 @@ def apply_geometry_build(
             "the native-run limit"
         )
     refuse_before_running(plan, overwrite=overwrite, png=png)
+    if plan.instruction.sweep is not None:
+        # A previous overlay must not represent this invocation if any build fails.
+        (plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}").unlink(missing_ok=True)
 
     def build(variant: GeometryVariant) -> GeometryBuilt:
         return _build_one(
@@ -511,6 +517,10 @@ def apply_geometry_build(
     else:
         built = _built_two_at_a_time(plan.variants, build, parallel)
     _overlay_the_sweep(plan, built)
+    if plan.instruction.sweep is not None:
+        for variant, item in zip(plan.variants, built, strict=True):
+            if item.passed:
+                shutil.rmtree(Path(variant.script.fsm).parent, ignore_errors=True)
     return built
 
 
@@ -550,13 +560,27 @@ def _overlay_the_sweep(plan: GeometryBuildPlan, built: Sequence[GeometryBuilt]) 
     sweep = plan.instruction.sweep
     if sweep is None:
         return
-    pairs = [
-        (variant.tag or "", item.folder / f"{variant.instruction.name}.fsm")
-        for variant, item in zip(plan.variants, built, strict=True)
-    ]
-    write_sweep_vtk(
-        plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}", pairs, sweep.control_surface
-    )
+    pairs = []
+    for variant, item in zip(plan.variants, built, strict=True):
+        assert variant.ordinal is not None
+        # OBJ-only promotion leaves the solver mesh in its temporary folder until overlay.
+        fsm = (
+            item.folder / f"{variant.instruction.name}.fsm"
+            if "fsm" in variant.instruction.outputs
+            else Path(variant.script.fsm)
+        )
+        pairs.append((variant.ordinal, variant.tag or "", fsm))
+    target = plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}"
+    try:
+        result = write_sweep_vtk(target, pairs, sweep.control_surface)
+        if result is None:
+            raise MeshReadError("no readable variants")
+    except (MeshReadError, OSError) as error:
+        target.unlink(missing_ok=True)
+        raise GeometryBuildError(
+            f"the sweep overlay {target.name} could not be produced: {error}; "
+            "built variant outputs and temporary work are kept, and no current overlay exists."
+        ) from error
 
 
 def _require_the_plot_extra() -> None:
@@ -652,7 +676,8 @@ def _build_one(
         )
     _textio.write_json(work / f"{name}{BUILD_RECORD_SUFFIX}", record)
     files = _promote(variant, work, mesh_dir, mesh_name, overwrite)
-    shutil.rmtree(work, ignore_errors=True)
+    if plan.instruction.sweep is None:
+        shutil.rmtree(work, ignore_errors=True)
     return GeometryBuilt(
         folder=variant.folder,
         record=variant.folder / f"{name}{BUILD_RECORD_SUFFIX}",
