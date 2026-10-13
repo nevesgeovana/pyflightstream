@@ -129,6 +129,7 @@ class RefineRequest:
     elements: dict[str, str] = field(default_factory=dict)
     default_elements: str = TRIANGLES
     ignored: tuple[str, ...] = ()
+    missing: tuple[str, ...] = ()
 
     def elements_of(self, family: str) -> str:
         """Return the element mode of a family: its own, else the file's default."""
@@ -207,11 +208,23 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
         raise _refuse(
             f"{where} elements", "elements applies to a remeshed family; a grid keeps its cells"
         )
+    kept_rows = "keep_first_row" in table
     table = {k: v for k, v in table.items() if k not in ("elements", "keep_first_row")}
     if any(k in table for k in ("axial", "circumferential")):
         return _body_spec(where, table, method)
     if not any(k in table for k in ("factor", "chordwise", "spanwise")):
-        raise _refuse(where, "the table states no factor, chordwise or spanwise")
+        # The refusal names the fix (PFS-2093.013); a table stating keep_first_row alone
+        # was refused with no way out.
+        raise _refuse(
+            where,
+            "the table states no factor, chordwise or spanwise; add one of them to it"
+            + (
+                ", or take the key out of the table and ask it of the call as "
+                "keep_first_row (CLI: --keep-first-row)"
+                if kept_rows
+                else ""
+            ),
+        )
     if method == "remesh" and any(k in table for k in ("chordwise", "spanwise")):
         raise _refuse(
             where, "chordwise and spanwise apply to a grid; a remeshed family takes factor"
@@ -385,7 +398,8 @@ def read_refine_file(
     source = Path(path)
     try:
         data = tomllib.loads(source.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError) as error:
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        # Not UTF-8 text is a refusal like any unreadable file (PFS-2099.004).
         raise _refuse(str(source), f"the refinement file cannot be read ({error})") from error
     unknown = sorted(set(data) - set(TABLES))
     if unknown:
@@ -478,12 +492,21 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         }
     )
     chosen = list(names) if families is None else list(families)
+    # AN EMPTY SELECTION SELECTS NOTHING TO CHANGE (PFS-2099.005): on the factor route it
+    # wrote an unchanged copy of the source as a level tagged R-.
+    if not chosen:
+        raise _refuse(
+            str(mesh),
+            "no family is selected; name at least one in families (CLI: --families), "
+            "or omit it to refine every family",
+        )
     missing = [n for n in chosen if n not in names]
     if missing:
         raise _refuse(
             str(mesh), f"the mesh holds no family {missing[0]!r}; it holds {', '.join(names)}"
         )
     stated_specs: dict[str, FamilySpec] = stated["specs"]
+    missing_tables: tuple[str, ...] = ()
     if factor is None and chordwise is None and spanwise is None:
         if not stated_specs:
             raise _refuse(
@@ -500,6 +523,14 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
                 "or give FACTOR",
             )
         reason = f"--families selects {', '.join(chosen)}"
+        missing_tables = tuple(n for n in chosen if n not in stated_specs)
+        for name in missing_tables:
+            warnings.warn(
+                f"{file}: selected family {name!r} has no refinement table and is copied "
+                f"unchanged; add [families.{name}] to {file}, or give FACTOR.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
         ignored = tuple(n for n in stated_specs if n not in specs)
         asked = [n for n in stated["keep"] if n in specs]
     else:
@@ -533,6 +564,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
         elements=stated["elements"],
         default_elements=stated["default_elements"],
         ignored=ignored,
+        missing=missing_tables,
     )
 
 
@@ -658,9 +690,11 @@ def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the me
     ``R<factors>`` and the summary form hold no family name and are not
     refused (FR-433 R5), as on 0.38.0.
     """
+    tag, picked, uniform = _built_tag(request, names)
+    if not picked:
+        raise _refuse(where, "no family is selected, so the level would change nothing")
     if request.tag:
         return str(request.tag)
-    tag, picked, uniform = _built_tag(request, names)
     if uniform:
         return tag
     if len(tag) > TAG_MAX:

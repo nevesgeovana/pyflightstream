@@ -389,7 +389,10 @@ def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:
     point.
     """
     source = Path(path)
-    lines = source.read_text(encoding="utf-8").splitlines()
+    try:
+        lines = source.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as error:
+        raise _refuse(source, f"not readable UTF-8 text ({error})") from error
     rows = [(n, r.strip()) for n, r in enumerate(lines, start=1) if r.strip()]
     if not rows:
         raise _refuse(source, "the trailing-edge points file is empty")
