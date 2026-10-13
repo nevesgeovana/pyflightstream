@@ -1357,6 +1357,7 @@ def _bind_build(
         # not; the list it builds is replaced below with the preset's lines
         # and the row's fully resolved ones (FR-67).
         defer_raw_files=True,
+        rows=rows,
     )
     return _Binding(
         workspace=workspace,

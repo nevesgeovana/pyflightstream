@@ -260,8 +260,11 @@ older_than_days = 14
  left alone regardless of age. The default is 0.
 - `older_than_days` is optional, exactly as above.
 
-When a matrix's post writes a new copy of a product over an old one, the
-old copy moves to `post/<matrix>/archive/<stamp>/` rather than being lost.
+Run, post, collect and delete-sims regeneration overwrite products in place
+without an archive by default (FR-397). With `post --archive`, `collect --archive`
+or `delete-sims --matrix-products regenerate --archive`, replaced products move
+to `post/<matrix>/archive/<stamp>/`. `post --force-overwrite` explicitly selects
+no archive and asks for confirmation; it cannot be combined with `--archive`.
 This table is how you reclaim the space those superseded copies hold once
 you no longer need them.
 

@@ -103,6 +103,11 @@ def add_storage_parsers(subparsers: Any) -> None:
         "simulation with a run still SUBMITTED is refused",
     )
     delete.add_argument("--apply", action="store_true", help=apply_help)
+    delete.add_argument(
+        "--archive",
+        action="store_true",
+        help="keep replaced matrix products when regenerating; default: overwrite in place",
+    )
     sync = subparsers.add_parser(
         "sync",
         help="bring runs and results from the workspaces in inputs/sync-workspaces.toml",

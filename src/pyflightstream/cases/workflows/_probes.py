@@ -417,39 +417,28 @@ _PROBE_POINT_COMMANDS = frozenset(
 RecordedCommand = tuple[str, tuple[object, ...], dict[str, object]]
 
 
-class _ProbePointRecorder(Script):
-    """A scratch script keeping the probe-point commands its build emits after the march.
-
-    Each is kept as a call (:attr:`recorded`) and as the text it rendered
-    (:attr:`recorded_text`). A raw line of the setup is emitted by the
-    continuation itself, so a probe command reaching :meth:`emit` through
-    :meth:`emit_line` is not kept.
-    """
+class _ProbePointRecorder:
+    """Keep accepted post-march probe commands through Script's observation hook."""
 
     def __init__(self, script: Script) -> None:
-        super().__init__(script.version, registry=script.registry)
+        self.script = Script(script.version, registry=script.registry)
         self.recorded: list[RecordedCommand] = []
         self.recorded_text = ""
         self._marched = False
-        self._in_a_raw_line = False
 
-    def emit(self, name: str, /, *args: object, label: str | None = None, **kwargs: object) -> None:
-        """Emit as :class:`Script` does, keeping each probe-point command after the march."""
-        kept = self._marched and not self._in_a_raw_line and name in _PROBE_POINT_COMMANDS
-        before = len(self.render()) if kept else 0
-        super().emit(name, *args, label=label, **kwargs)
+    def observe(
+        self,
+        name: str,
+        args: tuple[object, ...],
+        kwargs: dict[str, object],
+        text: str,
+        from_line: bool,
+    ) -> None:
+        """Keep probe creation after START_SOLVER, excluding row setup lines."""
+        if self._marched and not from_line and name in _PROBE_POINT_COMMANDS:
+            self.recorded.append((name, args, kwargs))
+            self.recorded_text += text
         self._marched = self._marched or name == "START_SOLVER"
-        if kept:
-            self.recorded.append((name, args, {**kwargs, **({"label": label} if label else {})}))
-            self.recorded_text += self.render()[before:]
-
-    def emit_line(self, line: str, /) -> None:
-        """Emit a raw line as :class:`Script` does, without keeping it."""
-        self._in_a_raw_line = True
-        try:
-            super().emit_line(line)
-        finally:
-            self._in_a_raw_line = False
 
 
 def _built_from_the_mesh(
@@ -464,12 +453,19 @@ def _built_from_the_mesh(
         placed is unknown; the message names the entries and the remedy.
     """
     scratch = _ProbePointRecorder(script)
-    restart = {RESTART_VARIABLE, RESTART_FROM_VARIABLE, RESTART_ITERATIONS_VARIABLE}
+    from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE
+
+    restart = {
+        RESTART_VARIABLE,
+        RESTART_FROM_VARIABLE,
+        RESTART_ITERATIONS_VARIABLE,
+        RESTART_STEP_OFFSET_VARIABLE,
+    }
     variables = {key: value for key, value in case.variables.items() if key not in restart}
     try:
-        with warnings.catch_warnings():
+        with warnings.catch_warnings(), scratch.script.observe_commands(scratch.observe):
             warnings.simplefilter("ignore")
-            build(case.model_copy(update={"variables": variables}), scratch)
+            build(case.model_copy(update={"variables": variables}), scratch.script)
     except PyflightstreamError as error:
         count = len(case.pproc.probes) if case.pproc is not None else 0
         entries = ", ".join(str(number) for number in range(1, count + 1))
@@ -502,8 +498,8 @@ def _normal_probes_of_a_continuation(
     if case.pproc is None or not _normal_probes_of(case):
         return []
     scratch = _built_from_the_mesh(case, script, build)
-    script.probe_points[:] = scratch.probe_points
-    script.probe_field_layout[:] = scratch.probe_field_layout
+    script.probe_points[:] = scratch.script.probe_points
+    script.probe_field_layout[:] = scratch.script.probe_field_layout
     return scratch.recorded
 
 

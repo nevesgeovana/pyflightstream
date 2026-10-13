@@ -36,6 +36,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases._ccs import (
     CCS_SHEDDING_VARIABLE,
 )
+from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE
 from pyflightstream.cases.sixdof import SIXDOF_VARIABLE
 
 #: Case-variable key carrying the matrix ``WORKFLOW`` column.
@@ -875,7 +876,11 @@ RESTART_ITERATIONS_VARIABLE = "RESTART_ITERATIONS"
 #: key would find it ignored rather than refused, and the shape of this
 #: mistake is somebody copying a name out of a manifest or a generated script
 #: and reasonably expecting it to work.
-RESERVED_CONTINUATION_VARIABLES = (RESTART_FROM_VARIABLE, RESTART_ITERATIONS_VARIABLE)
+RESERVED_CONTINUATION_VARIABLES = (
+    RESTART_FROM_VARIABLE,
+    RESTART_ITERATIONS_VARIABLE,
+    RESTART_STEP_OFFSET_VARIABLE,
+)
 
 
 #: The registered run types. A TABLE, deliberately: a workflow is looked

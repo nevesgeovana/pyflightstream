@@ -37,12 +37,13 @@ from pyflightstream.cases.workflows import (
     read_a_choice,
 )
 from pyflightstream.run._continuation_frame import (
-    recover_frame as _recover_continuation_frame,
-)
-from pyflightstream.run._continuation_frame import (
+    _marched_steps,
     refuse_what_cannot_continue,
     request_record,
     restart_steps,
+)
+from pyflightstream.run._continuation_frame import (
+    recover_frame as _recover_continuation_frame,
 )
 from pyflightstream.run._executors import (
     _machine_exports_log,
@@ -155,6 +156,7 @@ def resolve_continuation(
     # or ADDITIONAL_ITERS, once per request; everything else as before.
     previous = refuse_what_cannot_continue(workspace, case.sim_id, tag, request)
     iterations = restart_steps(request, previous)
+    step_offset = _continued_step_offset(workspace, previous)
     saved = next(
         (name for name in previous.outputs if str(name).lower().endswith(SIMULATION_SUFFIX)),
         None,
@@ -199,11 +201,64 @@ def resolve_continuation(
     return {
         "continues": previous.run_id,
         "iterations": iterations,
+        "step_offset": step_offset,
         "saved": str(saved),
         "form": request.form,
         "restart": request_record(request),
         **recovery,
     }
+
+
+def _continued_step_offset(workspace: CampaignWorkspace, previous: RunRecord) -> int:
+    """Read the whole-row step from recorded local counts and continuation ancestry.
+
+    New records carry the absolute start offset. Legacy continuation records
+    are summed through their predecessors; a missing count or ancestor refuses
+    instead of treating the continued march as step zero.
+    """
+    records = {record.run_id: record for record in workspace.read_manifest()}
+    total = 0
+    seen: set[str] = set()
+    current = previous
+    while current.run_id not in seen:
+        seen.add(current.run_id)
+        window = current.export_window or {}
+        stopped = current.stopped_at or {}
+        steps = stopped.get("step")
+        if steps is None:
+            steps = current.action_count
+        completed = current.status in {RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER}
+        if steps is None and completed:
+            steps = _marched_steps(workspace.sim_dir(current.sim_id), current)
+        if steps is None and completed and (current.continues is None or "step_offset" in window):
+            steps = window.get("time_iterations")
+        if steps is None and completed and current.continues is None:
+            value = (current.reductions or {}).get("time_iterations")
+            if isinstance(value, int):
+                steps = value
+        if steps is None or steps < 0:
+            raise CampaignConfigError(
+                f"run {current.run_id!r} does not prove how many steps already ran; "
+                "restore its counter or march script before continuing"
+            )
+        total += steps
+        if "step_offset" in window:
+            offset = window["step_offset"]
+            if offset < 0:
+                raise CampaignConfigError(
+                    "the recorded continuation step offset must not be negative"
+                )
+            return total + offset
+        if current.continues is None:
+            return total
+        ancestor = records.get(current.continues)
+        if ancestor is None:
+            raise CampaignConfigError(
+                f"run {current.run_id!r} names missing predecessor {current.continues!r}; "
+                "restore that record before continuing"
+            )
+        current = ancestor
+    raise CampaignConfigError("the continuation records contain a cycle; repair their ancestry")
 
 
 def _refuse_a_field_the_stopped_run_did_not_read(

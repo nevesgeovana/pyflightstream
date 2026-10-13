@@ -49,6 +49,7 @@ from pyflightstream.cases import (
     point_name,
     resolve_recipe,
 )
+from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE
 from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
@@ -196,7 +197,7 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
             # NO --overwrite. This named that flag until 2026-09-14, and `post`
             # had not accepted it since 0.17.0, when the archive replaced the refusal, so
             # the one command the warning offered was refused by argparse.
-            "`pyfs-matrix post --workspace <root>`, which archives what is there first."
+            "`pyfs-matrix post --workspace <root> --archive`, which keeps replaced products."
         )
     return None
 
@@ -1177,6 +1178,7 @@ def _resolve_campaign_continuation(state: _CampaignState) -> bool:
         state.point_extra = {
             RESTART_FROM_VARIABLE: str(source.resolve()),
             RESTART_ITERATIONS_VARIABLE: str(state.continuation["iterations"]),
+            RESTART_STEP_OFFSET_VARIABLE: str(state.continuation["step_offset"]),
         }
         state.run_id = _unused_continuation_run_id(state.run_id, stamp, state.recorded)
         state.continues = str(state.continuation["continues"])

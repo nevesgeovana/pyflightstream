@@ -28,6 +28,7 @@ from pyflightstream.cases._unsteady_actions import (
     WALLTIME_STOP_SCRIPT,
 )
 from pyflightstream.cases.pproc import TABLE_DECLARED_KINDS
+from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE, ExportThresholdRecord
 from pyflightstream.script import (
     Script,
 )
@@ -164,6 +165,7 @@ class UnsteadyExportThreshold:
     step_deg: float | None
     rpm: float | None
     exports: str
+    step_offset: int = 0
 
     @property
     def program_form(self) -> str:
@@ -175,16 +177,20 @@ class UnsteadyExportThreshold:
         that of ``EXPORT_UNSTEADY_AFTER_ITER`` with the same first step
         (FR-415 R1).
         """
-        return "iterations" if self.stated_form.startswith("last_") else self.stated_form
+        return (
+            "iterations"
+            if self.step_offset or self.stated_form.startswith("last_")
+            else self.stated_form
+        )
 
     @property
     def program_value(self) -> float:
         """Return the threshold the counter program compares against, in its own form."""
-        if self.stated_form.startswith("last_"):
+        if self.step_offset or self.stated_form.startswith("last_"):
             return float(self.first_step)
         return self.stated_value
 
-    def record(self) -> dict[str, object]:
+    def record(self) -> ExportThresholdRecord:
         """Return the stated form and the derived step, for a reader of the run."""
         return {
             "form": self.stated_form,
@@ -193,6 +199,7 @@ class UnsteadyExportThreshold:
             "time_iterations": self.time_iterations,
             "step_deg": self.step_deg,
             "rpm": self.rpm,
+            "step_offset": self.step_offset,
         }
 
 
@@ -407,14 +414,40 @@ def unsteady_export_threshold(
     else:
         stepping = unsteady_time_stepping(case)
     per_revolution = stepping.steps_per_revolution
+    resumed = continuation_of(case)
+    offset = 0
+    if resumed is not None:
+        from dataclasses import replace
+
+        text = case.variables.get(RESTART_STEP_OFFSET_VARIABLE)
+        if text is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the continuation's export threshold needs the "
+                "recorded number of steps already run; plan and run must resolve its predecessor"
+            )
+        try:
+            offset = int(text)
+        except (TypeError, ValueError) as error:
+            raise CampaignConfigError("the continuation step offset must be an integer") from error
+        if offset < 0:
+            raise CampaignConfigError("the continuation step offset must not be negative")
+        stepping = replace(stepping, time_iterations=offset + resumed[1])
     form, number, first_step = resolve_first_step(case, key, stepping, workflow)
+    if resumed is not None:
+        if first_step <= offset:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {key} begins at step {first_step}, which is already "
+                f"run (through step {offset}); choose a threshold in the continued march"
+            )
+        first_step -= offset
     if averaged:
         refuse_a_threshold_after_the_averaging_start(case, key, number, first_step)
     return UnsteadyExportThreshold(
         stated_form=form,
         stated_value=float(number),
         first_step=first_step,
-        time_iterations=stepping.time_iterations,
+        time_iterations=resumed[1] if resumed is not None else stepping.time_iterations,
+        step_offset=offset,
         delta_time_s=stepping.delta_time_s,
         # Nine decimals: below what any cell states, so a step of 1200
         # rev/min at 0.0001 s reads 0.72 in the program and not the

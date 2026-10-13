@@ -894,10 +894,8 @@ def _stage_and_emit(
         ),
         **(extra or {}),
     }
-    existing = {name.casefold(): content for name, content in script.pending_input_files.items()}
     for name, content in payloads.items():
-        if name.casefold() in existing and existing[name.casefold()] != content:
-            raise CampaignConfigError(f"FSI pending input collision: {name}")
+        script.park_input_file(name, content)
     # All identity/ordering checks precede either staging or coupling emission.
     emit_aeroelastic_rbf_type(case, script)
     script.emit("DELETE_AEROELASTIC_STRUCTURAL_NODES")
@@ -918,7 +916,6 @@ def _stage_and_emit(
     else:
         script.emit("SET_AEROELASTIC_ITERATIONS", 1)
         script.emit("SET_AEROELASTIC_COUPLING_IN_UNSTEADY", "ENABLE")
-    script._pending_input_files.update(payloads)
 
 
 def quasi_steady_fsi_config(case: SimCase, *, rpm: float, quiet: bool = False) -> FsiConfig:

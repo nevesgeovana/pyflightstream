@@ -184,10 +184,8 @@ def wire_external_fsi(
     }
     for name, source in structure.inputs.items():
         payloads[name] = Path(source).read_bytes()
-    existing = {name.casefold(): content for name, content in script.pending_input_files.items()}
     for name, content in payloads.items():
-        if name.casefold() in existing and existing[name.casefold()] != content:
-            raise CampaignConfigError(f"case {case.sim_id!r}: FSI pending input collision: {name}")
+        script.park_input_file(name, content)
     emit_aeroelastic_rbf_type(case, script)
     script.emit("DELETE_AEROELASTIC_STRUCTURAL_NODES")
     script.emit("ASSIGN_AEROELASTIC_SURFACES", len(boundaries), list(boundaries))
@@ -215,5 +213,4 @@ def wire_external_fsi(
                 f"{script.version.canonical} does not carry ({error}); remove the key on this "
                 "build."
             ) from error
-    script._pending_input_files.update(payloads)
     return [dict(translation) for translation in post.surface_translations]

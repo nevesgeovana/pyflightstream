@@ -903,6 +903,11 @@ def _add_collect_parsers(subparsers: Any) -> None:
         "untouched and is not counted as outstanding, and the post that follows is limited "
         "to the same simulations. An id no record carries is refused before anything is swept",
     )
+    collect.add_argument(
+        "--archive",
+        action="store_true",
+        help="keep replaced post products in archive/; without it overwrite in place (FR-397)",
+    )
 
 
 #: The help of ``--check-frozen``, which ``collect`` and ``post`` share.
@@ -1001,9 +1006,8 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         "--force-overwrite",
         dest="force_overwrite",
         action="store_true",
-        help="Deprecated confirmation control. Rebuilds overwrite in place without an "
-        "archive by default; use --archive to keep a copy. This option adds an "
-        "explicit confirmation before rebuilding and does not change the archive policy. "
+        help="Explicitly overwrite products without an archive, the opposite of --archive. "
+        "This is also the default. This deprecated option adds a confirmation before rebuilding. "
         "Pass --yes to confirm in a script.",
     )
     post.add_argument(
@@ -1043,7 +1047,8 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         metavar="IDS",
         help="rebuild only these simulations' products of the matrix, comma separated as "
         "delete-sims takes them (2006,2007 or [2006,2007]), in place: their files are "
-        "rewritten (archived only with --archive), every other simulation's files and "
+        "overwritten in place by default (archived only with --archive), every other "
+        "simulation's files and "
         "products.json entries "
         "stay as they were, and the super files, whose columns are the union over every "
         "simulation, are left as the last whole post wrote them and named under "

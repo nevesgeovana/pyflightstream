@@ -68,6 +68,26 @@ assert "SET_SIMULATION_LENGTH_UNITS METER" in text
 
 ## 3. Let the builder refuse a mistake
 
+Recipes can park generated inputs beside the script and observe accepted
+commands without overriding the builder. Parking uses the same case-insensitive
+path rule as action scripts; conflicting content is refused. `entry(name)`
+returns the command specification on this script's build for argument inspection.
+
+```python
+inputs = Script("26.124")
+inputs.park_input_file("Field.dat", b"profile bytes")
+inputs.park_input_file("field.dat", b"profile bytes")
+assert inputs.pending_input_files == {"Field.dat": b"profile bytes"}
+commands = []
+with inputs.observe_commands(lambda *command: commands.append(command)):
+    inputs.emit("SOLVER_SET_AOA", 2)
+assert commands[0][0] == "SOLVER_SET_AOA"
+```
+
+The observer receives the command name, positional arguments, keyword
+arguments, rendered text and an `emit_line` source flag. Refused commands and
+unvalidated `raw` text are excluded. The observer scope ends at the `with` block.
+
 A wrong value fails here, when you build the script, and not hours later
 inside the solver. The message names the values the build accepts and the
 manual page the rule comes from:

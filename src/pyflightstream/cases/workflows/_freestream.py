@@ -582,16 +582,13 @@ def _free_stream(
                 if not _how_the_row_moves_the_body(case):
                     _warn_when_the_field_misses_the_body(case, "custom free stream", grid)
         if field.payload is not None:
-            existing = script.pending_input_files.get(field.path)
-            if existing is not None and existing != field.payload:
-                raise CampaignConfigError("The prepared custom field conflicts with another input.")
-            script._pending_input_files[field.path] = field.payload
+            script.park_input_file(field.path, field.payload)
             # The provenance a user's run folder receives is the field's own:
             # what was read, how it was converted and the two digests. No
             # authoring metadata of this repository belongs in a generated
             # input (GOAL-034 Q0-src-cases-1).
-            script._pending_input_files[field.path + ".provenance.json"] = (
-                json.dumps(dict(field.provenance), indent=2) + "\n"
+            script.park_input_file(
+                field.path + ".provenance.json", json.dumps(dict(field.provenance), indent=2) + "\n"
             )
         helpers.free_stream(script, "CUSTOM", filetype=custom.form, profile=field.path)
         return

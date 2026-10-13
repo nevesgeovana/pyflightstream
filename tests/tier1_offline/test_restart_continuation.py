@@ -279,6 +279,7 @@ def _matrix_with(tmp_path, extra: str):
         " / RESTART_FROM: stolen.fsm / RESTART_ITERATIONS: 3",
         " / RESTART_FROM: stolen.fsm",
         " / RESTART_ITERATIONS: 3",
+        " / RESTART_STEP_OFFSET: 250",
     ],
 )
 def test_goal020_restart_a_row_may_not_state_the_packages_continuation_keys(tmp_path, cell):

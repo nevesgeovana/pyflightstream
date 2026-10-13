@@ -383,7 +383,11 @@ def _before_the_build(
     # THE SEAM (ARCH-0200): how this case is marched on this build, decided
     # once and before the first emission, so a refusal leaves nothing written.
     script.march_strategy = march_strategy(
-        case, capabilities=BuildCapabilities.of(script._view), registry=registry
+        case,
+        capabilities=BuildCapabilities.for_build(
+            script.version.canonical, registry=script.registry
+        ),
+        registry=registry,
     )
     return workflow
 

@@ -1041,6 +1041,7 @@ def delete_sims(
     caller: str | None = None,
     runs: str | None = None,
     force: bool = False,
+    archive: bool = False,
 ) -> dict[str, Any]:
     """Delete simulations, their post products and their records.
 
@@ -1071,6 +1072,8 @@ def delete_sims(
     matrix_products : str, optional
         What happens to a product shared with other simulations, ``points-only`` or ``regenerate``;
         required with ``apply`` when one is.
+    archive : bool, optional
+        Keep replaced matrix products during regeneration. False overwrites in place (FR-397).
     apply : bool, optional
         Write the files; without it nothing is written and the same refusals fire.
     caller : str, optional
@@ -1132,7 +1135,7 @@ def delete_sims(
                     entry.setdefault("not_regenerated", []).append(folder_rel)
                     continue
                 for stage in post_stages():
-                    stage(workspace, overwrite=True, archive=True, matrix_stem=matching[0])
+                    stage(workspace, overwrite=True, archive=archive, matrix_stem=matching[0])
                 regenerated.append(matching[0])
     record_storage_call(workspace.root, entry)
     return entry

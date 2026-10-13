@@ -501,7 +501,7 @@ def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:
             # none when the pproc asks for none, and is refused by name when it
             # asks to include the copy; a build with the argument is unchanged.
             takes_symmetry = _SECTION_SYMMETRY_ARG in {
-                arg.name for arg in script._view[SECTION_DISTRIBUTION_COMMAND].args
+                arg.name for arg in script.entry(SECTION_DISTRIBUTION_COMMAND).args
             }
             if sections.include_symmetry and not takes_symmetry:
                 raise CampaignConfigError(

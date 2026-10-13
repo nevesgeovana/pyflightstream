@@ -419,9 +419,10 @@ numbers, and are read wrongly more often than any real failure.\end{takeaway}
 \end{tabular}}
 \vspace{1mm}
 
-\small All three \textbf{archive} what they replace, into
-\code{archive/<day and hour>/}. Only \code{--force-overwrite} keeps no copy, and it
-asks first. It is not part of a routine. \code{series/} is archived too.
+\small All three overwrite products in place without an archive by default
+(FR-397). Use \code{post --archive} or \code{collect --archive} to keep replaced
+products, including \code{series/}, under \code{archive/<day and hour>/}.
+\code{--force-overwrite} explicitly selects no archive and asks for confirmation.
 \end{frame}
 
 \begin{frame}{The five product folders}

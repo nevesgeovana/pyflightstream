@@ -1464,8 +1464,8 @@ def collect_and_post(
     that stops a test or a mistake becoming an endless loop.
 
     THE POST RUNS ONLY WHERE SOMETHING CHANGED. A sweep that found
-    nothing new must not rewrite the products: rebuilding archives the
-    previous ones by design, so a watch that posted every minute would fill
+    nothing new must not rewrite the products: rebuilding can archive the
+    previous ones, so a watch that posted every minute would fill
     the archive with copies of an unchanged answer.
 
     ``post`` is called once per sweep that collected or discarded something, with the

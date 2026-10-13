@@ -549,6 +549,7 @@ They read running batch folders and compacted simulations in place, write nothin
 \opt{--rounds N}{stop a watch after N sweeps.}
 \opt{--sims IDS}{only the SUBMITTED records of these simulations (\texttt{2006,2007}), and their post.}
 \opt{--no-post}{collect only, do not rebuild the products.}
+\opt{--archive}{keep replaced post products; default: overwrite in place.}
 \opt{--check-frozen}{REFUSE, not warn, averages touched by a frozen solve or an unread log block.}
 \opt{--workspace DIR}{\fl{--runs NAME} another manifest; \fl{--pproc-warnings}; \fl{--verbose}.}
 \end{cmdblock}
@@ -631,7 +632,8 @@ Positions are in REFERENCE coordinates and meters, velocity absolute in REFERENC
 \opt{--diagnostics}{print the recorded post diagnostics as Markdown, change nothing.}
 \opt{--strict}{exit 3 when a product was skipped by design, after writing everything.}
 \opt{--check-frozen}{refuse instead of warn (stage 6).}
-\opt{--force-overwrite}{DESTROY products instead of archiving; asks first, and \fl{--yes} answers.}
+\opt{--archive}{keep replaced products under \file{archive/<stamp>/}; default: overwrite in place.}
+\opt{--force-overwrite}{explicitly select no archive; asks first, and \fl{--yes} answers. Cannot be combined with \fl{--archive}.}
 \opt{--pproc-warnings}{grouped post-processing warnings; \fl{--verbose} every one in full.}
 \end{cmdblock}
 
@@ -644,7 +646,7 @@ Every table opens with \texttt{POL}. A polar table has one row per point: the re
 \rd{sims/sim_<POL>/datapoints/DP-<point>/}{each point's collected exports.}
 \rd{sims/sim_<POL>/profiles/<POL>_probe_points.csv}{where each probe was, recorded at emission.}
 \wf{post/<matrix>/}{the products, \file{products.json}, \file{post.log}, \file{post.log.json}.}
-\wf{post/<matrix>/archive/<stamp>/}{what the rebuild replaced, one folder per rebuild.}
+\wf{post/<matrix>/archive/<stamp>/}{with \fl{--archive}: what the rebuild replaced.}
 \wf{additional.json}{the record of the additional post; its files go to \file{datapoints/DP-<point>/additional/<pid>/}.}
 
 \hd{Common errors}

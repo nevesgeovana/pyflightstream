@@ -573,6 +573,7 @@ def resolve_matrix(
     recipes: Mapping[str, str],
     fs_exe: str | Path | None = None,
     ignore_missing_families: bool = True,
+    rows: list[MatrixRow] | None = None,
 ) -> ResolvedMatrix:
     """Bind a run matrix to the workspace input library.
 
@@ -637,6 +638,9 @@ def resolve_matrix(
     recipes : mapping of str to str
         FS_SCRIPT code to recipe reference, as in
         :func:`pyflightstream.cases.matrix.to_campaign`.
+    rows : list of MatrixRow, optional
+        Selected active rows, passed through conversion and artifact binding.
+        When omitted, read every active row from path.
     fs_exe : str or Path, optional
         Explicit executable override; it always wins over the build
         registry and is the only way to run the MANUAL mode.
@@ -709,7 +713,7 @@ def resolve_matrix(
     >>> resolved.fs_exe                     # doctest: +SKIP
     WindowsPath('C:/FlightStream/FlightStream.exe')
     """
-    rows = read_matrix(path)
+    rows = read_matrix(path) if rows is None else rows
     if not rows:
         raise MatrixError(f"{path} has no active rows (RUN = 1); nothing to resolve or run")
     _refuse_a_repeated_pol(path, workspace)

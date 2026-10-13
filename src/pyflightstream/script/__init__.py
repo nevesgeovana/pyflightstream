@@ -73,7 +73,8 @@ exports remain the route for per-step surface sequences.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -456,6 +457,41 @@ class Script:
         # are: the script layer is text-only, and the file lands through the
         # run layer's writer before the solver starts.
         self._pending_input_files: dict[str, str | bytes] = {}
+        self._command_observers: list[
+            Callable[[str, tuple[object, ...], dict[str, object], str, bool], None]
+        ] = []
+        self._emitting_line = False
+
+    def park_input_file(self, path: str, payload: str | bytes) -> None:
+        """Park an input beside the script, using the shared case-insensitive path rule.
+
+        An identical input may be parked again. Different content or an action
+        script at that path raises CommandArgumentError without replacing it.
+        """
+        parked = self._parked_file(path)
+        if parked is not None:
+            kind, held = parked
+            if kind == "input file" and self._pending_input_files[held] == payload:
+                return
+            raise CommandArgumentError(f"input file {path!r} collides with {kind} {held!r}")
+        self._pending_input_files[path] = payload
+
+    @contextmanager
+    def observe_commands(
+        self,
+        observer: Callable[[str, tuple[object, ...], dict[str, object], str, bool], None],
+    ) -> Iterator[None]:
+        """Observe accepted commands for this scope, without replacing validation.
+
+        The callback receives name, positional arguments, keyword arguments
+        (including a stated label), rendered text, and whether emit_line was
+        the source. Refused commands and raw text are never observed.
+        """
+        self._command_observers.append(observer)
+        try:
+            yield
+        finally:
+            self._command_observers.remove(observer)
 
     def _init_probe_and_surface_records(self) -> None:
         """Create the empty probe and surface records the workflows fill."""
@@ -790,6 +826,15 @@ class Script:
             self._exported_paths[path] = entry.name
         self._follow_emitted(entry, bound, block, multiline)
         self._follow_entities(entry, bound, label)
+        text = "\n".join(block + ([""] if multiline else [])) + "\n"
+        for observer in tuple(self._command_observers):
+            observer(
+                name,
+                args,
+                {**kwargs, **({"label": label} if label else {})},
+                text,
+                self._emitting_line,
+            )
 
     def _check_not_a_model_replacement(self, entry: CommandEntry) -> None:
         """Refuse a command that discards a model this script already tracks."""
@@ -1233,7 +1278,12 @@ class Script:
                 "keys or the row's, or drop the entry"
             )
         bound = _bind_line_tokens(name, spec.args, arguments)
-        self.emit(name, **bound)
+        previous = self._emitting_line
+        self._emitting_line = True
+        try:
+            self.emit(name, **bound)
+        finally:
+            self._emitting_line = previous
 
     def raw(self, text: str) -> None:
         """Append unvalidated script text and flag the script (FR-07).

@@ -36,6 +36,7 @@ from pathlib import Path, PurePosixPath
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases import SimCase
+from pyflightstream.cases.restart_records import RESTART_STEP_OFFSET_VARIABLE, ExportThresholdRecord
 from pyflightstream.cases.workflows import (
     UNSTEADY_ACTION_COUNT,
     UNSTEADY_ACTION_PROGRAM,
@@ -293,6 +294,10 @@ def stage_counter(
     hashes = {**inputs_sha256, UNSTEADY_ACTION_PROGRAM: file_sha256(program)}
     fields: dict[str, object] = {"inputs_sha256": hashes, "action_program": UNSTEADY_ACTION_PROGRAM}
     if threshold is None:
+        fields["export_window"] = ExportThresholdRecord(
+            time_iterations=unsteady_counter_steps(point_case),
+            step_offset=int(point_case.variables.get(RESTART_STEP_OFFSET_VARIABLE, 0)),
+        )
         return fields
     hashes[UNSTEADY_ACTION_SCRIPT] = file_sha256(work_dir / UNSTEADY_ACTION_SCRIPT)
     fields["action_script"] = UNSTEADY_ACTION_SCRIPT
@@ -301,12 +306,13 @@ def stage_counter(
     # (the release review of 2026-09-09), and the clock the program ran with, so
     # the series tables compute each step's time and azimuth by the same
     # arithmetic (PFS-2031.18.01); a rotorless row has no azimuth step.
-    window: dict[str, object] = {
+    window: ExportThresholdRecord = {
         "stated_form": threshold.stated_form,
         "stated_value": threshold.stated_value,
         "first_step": threshold.first_step,
         "time_iterations": threshold.time_iterations,
         "delta_time_s": threshold.delta_time_s,
+        "step_offset": threshold.step_offset,
     }
     if threshold.step_deg is not None:
         window["step_deg"] = threshold.step_deg

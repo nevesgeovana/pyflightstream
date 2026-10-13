@@ -657,10 +657,7 @@ def _setup_ports(case: SimCase, script: Script) -> None:
             if not payload:
                 raise CampaignConfigError(f"inlet profile is empty: {profile}")
             profile_name = f"pfs_inlet_{port_index}_{digest[:16]}.txt"
-            parked = script.pending_input_files.get(profile_name)
-            if parked is not None and parked != payload:
-                raise CampaignConfigError(f"inlet profile staging collision: {profile_name}")
-            script._pending_input_files[profile_name] = payload
+            script.park_input_file(profile_name, payload)
         indices = _sidecar_surfaces(case, script, "setup", "[[ports]]", (port.boundary,))
         script.emit(command, indices[0], port.velocity)
         if port.remesh is not None:
