@@ -3275,81 +3275,81 @@
    "id": "FR-450",
    "text": "Plan: PFS-2139.007 (0.40.0). Marker: P0400-FFAMILY.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the far-field family restructure approved for 0.40.0 and the rule that everything is accessible and functional through the workspace. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the far-field family restructure approved for 0.40.0 and the rule that everything is accessible and functional through the workspace. Verification: test, tests/tier1_offline/test_p0400_farfield_core.py, tests/tier1_offline/test_p0400_farfield_plane.py, tests/tier1_offline/test_p0400_farfield_products.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-451",
    "text": "Plan: PFS-2139.002 (0.40.0). Marker: P0400-TREFFTZA.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the Trefftz-plane request and the three-variant decision of 2026-10-12; on a panel mesh refinement study the far-field induced drag from the section loads moved by under 1 percent per mesh level while the surface-pressure value moved by 2.5 to 10 percent. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the Trefftz-plane request and the three-variant decision of 2026-10-12; on a panel mesh refinement study the far-field induced drag from the section loads moved by under 1 percent per mesh level while the surface-pressure value moved by 2.5 to 10 percent. Verification: test, tests/tier1_offline/test_p0400_farfield_trefftz.py, tests/tier1_offline/test_p0400_ffproof_plan.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-452",
    "text": "Plan: PFS-2139.003 (0.40.0). Marker: P0400-TREFFTZB.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the three-variant decision of 2026-10-12. Evidence on the export: a recorded wake export of a wing alone (<name>_wakes.vtk, written when SET_VTK_EXPORT_VARIABLES states ENABLE) holds POINTS, two-point LINES and one cell scalar Normalized_Vorticity; the lines chain into one wake line per trailing-edge node, the scalar is constant along each line to round-off, of one sign across the span and zero at the tips (measured 2026-10-12, 160 lines). Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the three-variant decision of 2026-10-12. Evidence on the export: a recorded wake export of a wing alone (<name>_wakes.vtk, written when SET_VTK_EXPORT_VARIABLES states ENABLE) holds POINTS, two-point LINES and one cell scalar Normalized_Vorticity; the lines chain into one wake line per trailing-edge node, the scalar is constant along each line to round-off, of one sign across the span and zero at the tips (measured 2026-10-12, 160 lines). Verification: test, tests/tier1_offline/test_p0400_farfield_wake.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-453",
    "text": "Plan: PFS-2139.004 (0.40.0). Marker: P0400-TREFFTZC.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the three-variant decision of 2026-10-12 and the decision that variant C and FR-38 share one far-field home. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the three-variant decision of 2026-10-12 and the decision that variant C and FR-38 share one far-field home. Verification: test, tests/tier1_offline/test_p0400_farfield_ledgers.py, tests/tier1_offline/test_p0400_farfield_plan.py, tests/tier1_offline/test_p0400_farfield_plane.py, tests/tier1_offline/test_p0400_farfield_probes.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-454",
    "text": "Plan: PFS-2139.005 (0.40.0). Marker: P0400-FFTABLE.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the decision of 2026-10-12 that the three variants are selectable in the pproc artifact, the input-synergy rule of the same day, and the keys and defaults accepted then. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the decision of 2026-10-12 that the three variants are selectable in the pproc artifact, the input-synergy rule of the same day, and the keys and defaults accepted then. Verification: test, tests/tier1_offline/test_p0400_farfield_plan.py, tests/tier1_offline/test_p0400_farfield_spec.py, tests/tier1_offline/test_p0400_ffproof_inputs.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-455",
    "text": "Plan: PFS-2139.005 (0.40.0). Marker: P0400-FFPLAN.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the input-synergy rule of 2026-10-12 (the far-field inputs reuse what the pproc artifact declares, a declared section distribution is reused and a missing one is added), the FSI rule of the same day, and the plan rule accepted then. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the input-synergy rule of 2026-10-12 (the far-field inputs reuse what the pproc artifact declares, a declared section distribution is reused and a missing one is added), the FSI rule of the same day, and the plan rule accepted then. Verification: test, tests/tier1_offline/test_p0400_farfield_ledgers.py, tests/tier1_offline/test_p0400_farfield_plan.py, tests/tier1_offline/test_p0400_ffproof_plan.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-456",
    "text": "Plan: PFS-2139.006 (0.40.0). Marker: P0400-FFOUT.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: PFS-2139.006 and the outputs accepted on 2026-10-12. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: PFS-2139.006 and the outputs accepted on 2026-10-12. Verification: test, tests/tier1_offline/test_p0400_farfield_products.py, tests/tier1_offline/test_p0400_farfield_trefftz.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-457",
    "text": "Plan: PFS-2139.007, PFS-2023.03 (0.40.0). Marker: P0400-NUMPY.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the decision of 2026-10-12 to avoid xarray and use numpy wherever possible, the far field moving to numpy in the release of Trefftz C, and the direct break accepted the same day. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the decision of 2026-10-12 to avoid xarray and use numpy wherever possible, the far field moving to numpy in the release of Trefftz C, and the direct break accepted the same day. Verification: test, tests/tier1_offline/test_p0400_farfield_numpy.py, tests/tier1_offline/test_p0400_ffproof_upgrading.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-458",
    "text": "Plan: PFS-2139.009 (0.40.0). Marker: P0400-ROTHALPY.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the decision of 2026-10-12 to remove both functions from the package and hand them to ITACA for evaluation, with no deprecation release: both apply to an Euler CFD field, where total enthalpy and entropy exist, and no FlightStream product can feed them. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the decision of 2026-10-12 to remove both functions from the package and hand them to ITACA for evaluation, with no deprecation release: both apply to an Euler CFD field, where total enthalpy and entropy exist, and no FlightStream product can feed them. Verification: test, tests/tier1_offline/test_p0400_farfield_numpy.py, tests/tier1_offline/test_p0400_ffproof_upgrading.py; R2 by inspection: ITACA inbox item ROTHALPY_2026-10-12 (estate commit 4dbc73b).*",
+   "verification": "test"
   },
   {
    "id": "FR-459",
    "text": "Plan: PFS-2140.001 (0.40.0). Marker: P0400-PROBEHOME.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the reachability audit of 2026-10-12 (probes as the single home of probe geometry, with a lattice) and the probes home accepted the same day. Verification: test.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the reachability audit of 2026-10-12 (probes as the single home of probe geometry, with a lattice) and the probes home accepted the same day. Verification: test, tests/tier1_offline/test_p0400_farfield_core.py, tests/tier1_offline/test_p0400_farfield_probes.py, tests/tier1_offline/test_p0400_farfield_spec.py, tests/tier1_offline/test_p0400_ffproof_plan.py.*",
+   "verification": "test"
   },
   {
    "id": "FR-460",
