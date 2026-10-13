@@ -110,7 +110,7 @@ def test_p0400_group_polars_honor_the_exports_solver_mode(monkeypatch):
         sim_id="1",
         live=None,
     )
-    monkeypatch.setattr(_sim, "_unjudged_vorticity_drag", lambda *_: ())
+    monkeypatch.setattr(_sim, "declined_profile_drag_125", lambda *_: ())
     captured = []
     monkeypatch.setattr(_sim, "_group_polar", lambda *_a, **kw: captured.append(kw["instant"]))
     with warnings.catch_warnings(record=True) as caught:

@@ -77,6 +77,11 @@ differ from the list, promoting nothing.
   `units`, `chord_m`, `twist_deg`, `leading_edge_m`, `plane`) lofted by
   `[create.loft]` (the wing loft keys of `[import.ccs]`, and `export_ccs` to
   keep the cross-section file the solver writes).
+  **The section loft is refused on 26.124 and 26.125.** It imports each
+  section with `CAD_CREATE_IMPORT_CURVE_TXT`, which the probes of 2026-10-12
+  recorded broken on both builds (the script aborts at the command), so the
+  evidence gate refuses the route there, naming the command, until the curve
+  import works. The CCS route (`[ccs]`) is the working one on those builds.
 - `[mesh]`: a raw mesh (`.obj` or `.stl`) and the unit it is written in.
 
 A source file lies in the instruction's folder and is named by its file name.

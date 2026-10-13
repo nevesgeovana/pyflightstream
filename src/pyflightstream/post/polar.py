@@ -449,9 +449,8 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     tuple of str
         The names of the declined surfaces, in table order; empty when none.
     """
-    # THE RULE READS CDi ONLY (FR-423). SRC-003 p.202 says a declined surface
-    # prints its CDi as zero; no run has measured what 26.125 prints in its CDp
-    # for such a surface, so a table printing the 26.125 split declines nothing.
+    # THE RULE READS CDi ONLY (FR-423). A table printing the 26.125 split
+    # declines nothing here; its CDp zero is said by declined_profile_drag_125.
     if DRAG_PAIRS[0][0] not in loads.total:
         return ()
     names = list(loads.surfaces)

@@ -60,8 +60,8 @@ from pyflightstream.post._condition import (
     _section_rotors,
     _simulation_metadata,
     _stated_window,
-    _unjudged_vorticity_drag,
     clock_rotor_facts,
+    declined_profile_drag_125,
     point_condition,
     row_rotor_speeds,
 )
@@ -499,17 +499,17 @@ def _group_polars(ctx: SimContext) -> None:
     if not ctx.pproc.products.polars:
         return
     for point in ctx.points:
-        # THE DECLINED-DRAG RULE IS UNMEASURED ON 26.125 (FR-423): said once per
-        # point whose record lists vorticity-drag surfaces, never left silent.
-        unjudged = _unjudged_vorticity_drag(point.loads, point.vorticity_selection)
-        if unjudged:
+        # A DECLINED SURFACE ON 26.125 PRINTS CDp 0 (RPT-166, P0400-DECLINED125):
+        # said once per point, naming the surfaces and the build.
+        declined_125 = declined_profile_drag_125(point.loads, point.vorticity_selection)
+        if declined_125:
             warn(
-                f"point={point.name} product=polars: {', '.join(unjudged)} "
-                f"{'is' if len(unjudged) == 1 else 'are'} on the vorticity induced-drag list "
-                "(SET_VORTICITY_DRAG_BOUNDARIES) and the export prints the 26.125 split "
-                "(CDp, CDv), for which no run has measured what a listed surface without a "
-                "trailing edge prints; the declined-drag rule is not applied, so their axis "
-                "drag columns are written as numbers nothing judged.",
+                f"point={point.name} product=polars: the solver (build 26.125) printed CDp "
+                f"exactly 0 for {', '.join(declined_125)}, on the vorticity induced-drag list "
+                "(SET_VORTICITY_DRAG_BOUNDARIES); a boundary there without a defined "
+                "trailing edge is not computed. The axis drag columns that sum it are "
+                "written as the export printed them, short by the drag not computed. "
+                "Give the surface a trailing edge or leave it off the list.",
                 PyflightstreamWarning,
                 stacklevel=2,
             )

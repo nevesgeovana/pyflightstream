@@ -966,7 +966,7 @@ SET_6DOF_MOTION_SYMMETRY_LOADS:
 
 EXPORT_6DOF_TRAJECTORY:
   layout: inline
-  phase: setup
+  phase: export
   args:
     - name: motion_id
       type: int
@@ -990,13 +990,13 @@ EXPORT_6DOF_TRAJECTORY:
     Writes a motion's trajectory tables to a file, the path on the
     following line.
 
-    Its phase is SETUP rather than export, and the reason is the
-    opposite of the one that put CAD_CREATE_CURVE_EXPORT_CCS in
-    geometry: the phase is where the command may legally sit, and this
-    one belongs with the motion definition it names. There is no
-    evidence about when the trajectory becomes available to write, so
-    the entry does not imply that a script may call it before the solver
-    has produced one.
+    Its phase is EXPORT: the trajectory exists only once the march has
+    run. Exported in the setup phase, before the march, the file holds its
+    header and no row on 26.124 and 26.125 (470 bytes after a 20-step
+    march); exported after the march it holds the rows (probes P4-04 and
+    P4-04m, reports/RPT-166_command-gap-probes-second-round_2026-10-12.md
+    section 3 and section 5). The unit of the columns is not settled by the
+    probes (RPT-166 P4), and the package does not convert them.
 
 CREATE_NEW_MOTION_EUCLIDEAN:
   layout: bare
