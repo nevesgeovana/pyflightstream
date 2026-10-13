@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import pyflightstream._textio as _textio
+from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import (
     MeshReadError,
     boundary_names,
@@ -125,24 +126,41 @@ def write_preview_vtk(
     return target
 
 
-def _surface_of(fsm: Path, surface: str) -> tuple[list[Point], list[tuple[int, ...]]]:
+def _surface_of(
+    fsm: Path, surface: str, obj: Path | None = None
+) -> tuple[list[Point], list[tuple[int, ...]]]:
     """Return the faces of the boundaries named after one control surface, and their vertices."""
-    vertices, triangles = surface_mesh(fsm)
-    names = boundary_names(fsm) or ()
-    owners = boundary_owners(fsm)
-    wanted = {
-        position
-        for position, name in enumerate(names, start=1)
-        if name == surface or name.startswith(surface + "_")
-    }
-    faces = [tuple(t) for t, owner in zip(triangles, owners, strict=False) if owner in wanted]
+    try:
+        vertices, triangles = surface_mesh(fsm)
+        names = boundary_names(fsm) or ()
+        owners = boundary_owners(fsm)
+        wanted = {
+            position
+            for position, name in enumerate(names, start=1)
+            if name == surface or name.startswith(surface + "_")
+        }
+        faces = [tuple(t) for t, owner in zip(triangles, owners, strict=False) if owner in wanted]
+    except MeshReadError:
+        if obj is None:
+            raise
+        try:
+            mesh = read_obj(obj)
+        except InputArtifactError as error:
+            raise MeshReadError(str(error)) from error
+        vertices = tuple((float(x), float(y), float(z)) for x, y, z in mesh.verts.tolist())
+        faces = [
+            tuple(int(index) for index in face)
+            for family, family_faces in mesh.families.items()
+            if family == surface or family.startswith(surface + "_")
+            for face in family_faces
+        ]
     used = sorted({index for face in faces for index in face})
     number = {index: new for new, index in enumerate(used)}
     return [vertices[i] for i in used], [tuple(number[i] for i in face) for face in faces]
 
 
 def write_sweep_vtk(
-    target: Path, variants: Sequence[tuple[int, str, Path]], surface: str
+    target: Path, variants: Sequence[tuple[int, str, Path, Path]], surface: str
 ) -> Path | None:
     """Overlay the control surface of every built variant in one file (FR-472 R7).
 
@@ -150,9 +168,10 @@ def write_sweep_vtk(
     ----------
     target : Path
         The ``<name>.sweep.vtk`` to write.
-    variants : sequence of (ordinal, tag, saved simulation)
+    variants : sequence of (ordinal, tag, saved simulation, exported OBJ)
         The variants built, in the order of ``angle_deg``, carrying their original
-        one-based positions even when only a subset is built.
+        one-based positions even when only a subset is built. The exported OBJ
+        supplies polygons when the saved mesh block is unreadable.
     surface : str
         The swept control surface; its boundaries are those named after it.
 
@@ -170,9 +189,9 @@ def write_sweep_vtk(
     faces: list[tuple[int, ...]] = []
     owners: list[int] = []
     tags: list[str] = []
-    for ordinal, tag, fsm in variants:
+    for ordinal, tag, fsm, obj in variants:
         try:
-            vertices, local = _surface_of(fsm, surface)
+            vertices, local = _surface_of(fsm, surface, obj)
         except MeshReadError as error:
             raise MeshReadError(f"variant {tag}: {error}") from error
         if not local:

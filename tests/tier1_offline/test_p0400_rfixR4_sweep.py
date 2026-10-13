@@ -44,7 +44,7 @@ def test_p0400_rfixr4_obj_sweep_overlay(tmp_path, monkeypatch):
     (folder / "wing.sweep.vtk").write_text("stale overlay", encoding="utf-8")
     monkeypatch.chdir(folder.parent)
     monkeypatch.setattr(_cli_geometry, "_runner", lambda executable: _body_runner())
-    assert main(["geometry", "build", "wing", "--apply"]) == 0
+    assert main(["geometry", "build", "wing", "--apply", "--overwrite"]) == 0
     labels, tags = _overlay(folder)
     assert set(labels) == {"1", "2", "3"}
     assert tags == ["Base-100", "Base+000", "Base+100"]
@@ -83,14 +83,15 @@ def test_p0400_rfixr4_overlay_failure_clears_stale(tmp_path, monkeypatch, capsys
     monkeypatch.setattr(_cli_geometry, "_runner", lambda executable: _body_runner())
     original = _geometry_vtk._surface_of
 
-    def surface(fsm, name):
+    def surface(fsm, name, obj=None):
         if "Base+000" in fsm.name:
             if failure == "unreadable":
                 raise MeshReadError("unreadable test mesh")
             return [], []
-        return original(fsm, name)
+        return original(fsm, name, obj)
 
     monkeypatch.setattr(_geometry_vtk, "_surface_of", surface)
-    assert main(["geometry", "build", "wing", "--apply"]) == 3
+    assert main(["geometry", "build", "wing", "--apply", "--overwrite"]) == 3
     assert not target.exists()
+    assert target.with_name(target.name + ".previous").read_text() == "stale overlay"
     assert "sweep overlay" in capsys.readouterr().err

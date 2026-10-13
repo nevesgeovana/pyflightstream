@@ -12,7 +12,7 @@ outputs into place.
 Exit codes of the command (FR-471 R8): 0 built and audited, 1 built with a
 failed audit gate, 2 refused with nothing written (:class:`InputArtifactError`),
 3 the solver, read-back or sweep overlay failed (:class:`GeometryBuildError`).
-An overlay failure retains built variant outputs and temporary work for diagnosis.
+An overlay failure retains temporary work for diagnosis and preserves prior variant outputs.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ import getpass
 import json
 import os
 import shutil
+import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -90,8 +91,8 @@ _PAGE = GEOMETRY_PAGE
 class GeometryBuildError(PyflightstreamError, RuntimeError):
     """The solver failed, or the saved body is not the one the instruction states (exit 3).
 
-    A solver or read-back failure promotes nothing. A sweep overlay failure keeps
-    already built outputs. Partial folders are retained for diagnosis.
+    A solver, read-back or sweep overlay failure promotes nothing from that sweep.
+    Partial folders are retained for diagnosis.
     """
 
 
@@ -367,12 +368,22 @@ def _outputs_of(variant: GeometryVariant) -> list[Path]:
     """Return the paths a variant promotes, for the refusal of an existing one."""
     name = variant.instruction.name
     folder = variant.folder
-    paths = [folder / f"{name}{BUILD_RECORD_SUFFIX}", folder / f"{name}{PREVIEW_SUFFIX}"]
+    paths = [
+        folder / f"{name}{suffix}"
+        for suffix in (
+            BUILD_RECORD_SUFFIX,
+            PREVIEW_SUFFIX,
+            ".build.txt",
+            ".build.log",
+            ".audit.json",
+            ".preview.png",
+        )
+    ]
     outputs = variant.instruction.outputs
     if "fsm" in outputs:
-        paths.append(folder / f"{name}.fsm")
+        paths += [folder / f"{name}.fsm", folder / f"{name}.boundaries.toml"]
     if outputs == ("obj",):
-        paths.append(folder / f"{name}.obj")
+        paths += [folder / f"{name}{suffix}" for suffix in (".obj", ".boundaries.toml", ".te.txt")]
     elif "obj" in outputs:
         paths.append(folder.with_name(f"{name}_obj"))
     return paths
@@ -380,6 +391,9 @@ def _outputs_of(variant: GeometryVariant) -> list[Path]:
 
 def _refuse_existing(plan: GeometryBuildPlan, overwrite: bool) -> None:
     """Refuse an existing output without --overwrite, and a foreign variant folder always."""
+    overlay = plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}"
+    if plan.instruction.sweep is not None and overlay.exists() and not overwrite:
+        raise _refuse(f"{overlay} exists; set overwrite (CLI: --overwrite) to replace it")
     for variant in plan.variants:
         work = Path(variant.script.fsm).parent
         if work.exists():
@@ -489,8 +503,8 @@ def apply_geometry_build(
         ``overwrite``, or ``parallel`` outside 1 to 2: nothing is run or written.
     GeometryBuildError
         The solver failed, or the saved boundaries or trailing edges are not
-        the ones stated; nothing of that geometry is promoted. An overlay failure
-        retains already built variants and temporary work, without a current overlay.
+        the ones stated; nothing of that geometry is promoted. A failed sweep
+        retains temporary work and prior variant outputs, without a current overlay.
     """
     if not 1 <= parallel <= MAX_PARALLEL:
         raise _refuse(
@@ -499,8 +513,15 @@ def apply_geometry_build(
         )
     refuse_before_running(plan, overwrite=overwrite, png=png)
     if plan.instruction.sweep is not None:
-        # A previous overlay must not represent this invocation if any build fails.
-        (plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}").unlink(missing_ok=True)
+        # Keep the old bytes as noncurrent evidence, including after a failed run.
+        target = plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}"
+        if target.exists():
+            archive = target.with_name(target.name + ".previous")
+            number = 1
+            while archive.exists():
+                archive = target.with_name(f"{target.name}.previous.{number}")
+                number += 1
+            target.rename(archive)
 
     def build(variant: GeometryVariant) -> GeometryBuilt:
         return _build_one(
@@ -516,11 +537,28 @@ def apply_geometry_build(
         built = tuple(build(variant) for variant in plan.variants)
     else:
         built = _built_two_at_a_time(plan.variants, build, parallel)
+    if plan.instruction.sweep is not None and any(not item.passed for item in built):
+        # A failed audit retains the entire sweep for diagnosis, including passing siblings.
+        return built
     _overlay_the_sweep(plan, built)
     if plan.instruction.sweep is not None:
+        promoted = []
         for variant, item in zip(plan.variants, built, strict=True):
             if item.passed:
-                shutil.rmtree(Path(variant.script.fsm).parent, ignore_errors=True)
+                work = Path(variant.script.fsm).parent
+                name = variant.instruction.name
+                mesh_name = name if variant.instruction.outputs == ("obj",) else f"{name}_obj"
+                files = _promote(variant, work, work / "mesh", mesh_name, overwrite)
+                item = GeometryBuilt(
+                    folder=variant.folder,
+                    record=variant.folder / f"{name}{BUILD_RECORD_SUFFIX}",
+                    passed=True,
+                    files=files,
+                    notes=item.notes,
+                )
+                shutil.rmtree(work, ignore_errors=True)
+            promoted.append(item)
+        built = tuple(promoted)
     return built
 
 
@@ -561,26 +599,32 @@ def _overlay_the_sweep(plan: GeometryBuildPlan, built: Sequence[GeometryBuilt]) 
     if sweep is None:
         return
     pairs = []
-    for variant, item in zip(plan.variants, built, strict=True):
+    for variant, _item in zip(plan.variants, built, strict=True):
         assert variant.ordinal is not None
-        # OBJ-only promotion leaves the solver mesh in its temporary folder until overlay.
-        fsm = (
-            item.folder / f"{variant.instruction.name}.fsm"
-            if "fsm" in variant.instruction.outputs
-            else Path(variant.script.fsm)
-        )
-        pairs.append((variant.ordinal, variant.tag or "", fsm))
+        # All variants stay in temporary work until the sweep and its overlay succeed.
+        fsm = Path(variant.script.fsm)
+        name = variant.instruction.name
+        mesh_name = name if variant.instruction.outputs == ("obj",) else f"{name}_obj"
+        obj = Path(variant.script.fsm).parent / "mesh" / f"{mesh_name}.obj"
+        pairs.append((variant.ordinal, variant.tag or "", fsm, obj))
     target = plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}"
+    pending: Path | None = None
     try:
-        result = write_sweep_vtk(target, pairs, sweep.control_surface)
+        descriptor, filename = tempfile.mkstemp(prefix=target.name + ".pending", dir=target.parent)
+        os.close(descriptor)
+        pending = Path(filename)
+        result = write_sweep_vtk(pending, pairs, sweep.control_surface)
         if result is None:
             raise MeshReadError("no readable variants")
+        os.replace(pending, target)
     except (MeshReadError, OSError) as error:
-        target.unlink(missing_ok=True)
         raise GeometryBuildError(
             f"the sweep overlay {target.name} could not be produced: {error}; "
-            "built variant outputs and temporary work are kept, and no current overlay exists."
+            "prior variant outputs and temporary work are kept, and no current overlay exists."
         ) from error
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
 
 
 def _require_the_plot_extra() -> None:
@@ -675,6 +719,15 @@ def _build_one(
             notes=tuple(record["notes"]),
         )
     _textio.write_json(work / f"{name}{BUILD_RECORD_SUFFIX}", record)
+    if plan.instruction.sweep is not None:
+        # The whole sweep and its overlay must build before any variant replaces old outputs.
+        return GeometryBuilt(
+            folder=work,
+            record=work / f"{name}{BUILD_RECORD_SUFFIX}",
+            passed=True,
+            files=tuple(sorted(path for path in work.rglob("*") if path.is_file())),
+            notes=tuple(record["notes"]),
+        )
     files = _promote(variant, work, mesh_dir, mesh_name, overwrite)
     if plan.instruction.sweep is None:
         shutil.rmtree(work, ignore_errors=True)

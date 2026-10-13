@@ -232,7 +232,9 @@ def strip_edges(
     positions : numpy.ndarray
         Station positions (one coordinate) in the order of the trace, shape
         ``(n,)``, ``n >= 2``; the edges of a trace in ``(y, z)`` are this rule
-        applied to each coordinate.
+        applied to each coordinate. A coordinate may be constant or descending;
+        no coordinate monotonicity is required. Nonfinite coordinates propagate
+        through the midpoint and endpoint arithmetic without validation.
     ends : {"extended", "station"}
         The rule beyond the end stations.
 
@@ -244,7 +246,8 @@ def strip_edges(
     Raises
     ------
     FarfieldInputError
-        If the centers are not finite, strictly increasing coordinates.
+        If positions is not one-dimensional with at least two stations, or
+        ends is neither ``"extended"`` nor ``"station"``.
     """
     p = np.asarray(positions, dtype=float)
     if p.ndim != 1 or p.size < 2:

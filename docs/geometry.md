@@ -227,6 +227,16 @@ the swept control surface of every variant built by that command: open it in
 ParaView and colour by `variant` (the position of the angle in `angle_deg`,
 counted from 1; the field `tags` lists the variants in that order).
 
+The shared overlay counts as an existing output even when `--only` selects a
+different subset. Use `--overwrite` to replace it. The old overlay is retained
+as `wing.sweep.vtk.previous` (with a numeric suffix when needed), so a failed
+replacement has no current overlay but keeps the earlier evidence. The new
+overlay is published only after its complete contents have been written.
+Variant outputs stay in their partial folders until all solver runs, audits and the
+overlay succeed, preserving earlier variant outputs on those failures.
+Quadrilateral saved meshes use the exported OBJ for the overlay, with only
+the selected control surface's families included.
+
 ## Looking at the body, and what the plan reads
 
 Open the preview, then record the check:
