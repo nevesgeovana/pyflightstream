@@ -170,6 +170,11 @@ CANONICAL_FORMS = {
         "structural-nodes file and of each staged input file, each read whole and "
         "never decoded. File paths are recorded beside the digests, not hashed."
     ),
+    "cases/_fsi_external.py": (
+        "the raw bytes of the structural-nodes file, read whole and never decoded, "
+        "compared with the digest the plan recorded; those same bytes are the ones "
+        "staged for the program. No path or clock enters it."
+    ),
     "fsi/external.py": (
         "the raw bytes of a file read whole and never decoded: the structural "
         "program, a staged input, the loads file of a call and each file the "
