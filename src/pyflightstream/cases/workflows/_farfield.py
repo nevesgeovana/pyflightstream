@@ -496,7 +496,7 @@ def _lattice_choice(
             )
             if _same_points(declared.points_m, own.points_m, native_per_m):
                 identical.append(declared)
-            if wanted.m_max < shape.build(1.0).n_psi // 2:
+            if 2 * wanted.m_max < shape.build(1.0).n_psi:
                 qualifying.append(declared)
     if not wanted.states_geometry and len(qualifying) == 1:
         return qualifying[0]
