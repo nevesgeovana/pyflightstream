@@ -745,7 +745,15 @@ def _find_assessment_log(job: _LoadsJudgment) -> Assessment | None:
         ]
         if len(candidates) == 1:
             job.log_path = candidates[0]
-        elif not candidates and (refusal := _miscounted_log(job, solves, record_warning)):
+        elif (
+            not candidates
+            # A WHEEL ONLY (PFS-2103.021): the solve count is the wheel's clockings, or its
+            # record could not be read. A steady point of a sweep solved in one script
+            # collects the sweep's shared log, which holds every point solved so far; it
+            # is judged by its iteration count, as it always was.
+            and (job.clockings is not None or record_warning is not None)
+            and (refusal := _miscounted_log(job, solves, record_warning))
+        ):
             return refusal
         elif len(candidates) > 1:
             # SEVERAL IS A REFUSAL, exactly as it is for the loads
@@ -1329,11 +1337,6 @@ def _judge_the_clockings(
                     f"export {exported.name} was written at iteration "
                     f"{own.current_iteration}, so the residual is not that export's"
                 )
-        note = judged.note
-        if status is RunStatus.COMPLETED_MAX_ITER and _at_the_limit(job, history[-1].iteration):
-            # FR-434, per clocking as for a point's one solve.
-            status = RunStatus.MAX_ITER_REACHED
-            note = _limit_note(note, report.requested_iterations, history[-1].iteration)
         verdict: dict[str, object] = {
             "index": index,
             "clocking_deg": clocking.clocking_deg,

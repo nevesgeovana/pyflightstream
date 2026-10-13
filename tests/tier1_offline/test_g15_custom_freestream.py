@@ -197,7 +197,16 @@ def test_g15_a_steady_sweep_writes_its_field_once_with_the_setup(tmp_path):
     base = with_field(steady_case(), path).model_copy(
         update={"sweep": SweepAxis(type="advance_ratio", values=[0.2, 0.4, 0.6])}
     )
-    points = [case_at_point(base, {"alpha": 0.0, "advance_ratio": j}) for j in (0.2, 0.4, 0.6)]
+    # Each point exports to names of its own, as the run layer names them: a
+    # script refuses a second export to one file (PFS-2093.004).
+    points = [
+        case_at_point(
+            base,
+            {"alpha": 0.0, "advance_ratio": j},
+            outputs=[f"j{j:g}_{name}" for name in base.outputs],
+        )
+        for j in (0.2, 0.4, 0.6)
+    ]
     script = Script("26.124")
     build_steady_sweep(points, script)
     lines = script.render().splitlines()

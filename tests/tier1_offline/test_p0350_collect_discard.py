@@ -53,14 +53,17 @@ def record(run_id, sim="2006", status=RunStatus.WALLTIME_REACHED):
 
 
 def collect_cli(workspace, *options):
-    """Collect without post or real-time waits through the public CLI."""
+    """Collect without post or real-time waits through the public CLI.
+
+    The interval is the smallest the CLI takes: 0 is refused (PFS-2081.28).
+    """
     return main(
         [
             "collect",
             "--workspace",
             str(workspace.root),
             "--interval",
-            "0",
+            "0.001",
             "--no-post",
             *options,
         ]

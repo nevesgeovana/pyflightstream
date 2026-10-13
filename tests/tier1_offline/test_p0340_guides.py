@@ -21,6 +21,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS, REQUIREMENTS_INDEX
 from tests.tier1_offline.test_house_style import PDF_ALLOWED
 from tests.tier1_offline.test_p0330_cheatsheet import (
     CHEATSHEET,
@@ -80,7 +81,7 @@ HISTORICAL = (
     "CHANGELOG.md",
     "changelog.d/",
     *(f"docs/migrating-to-0.{minor}." for minor in range(21, 34)),
-    "docs/unpublished/requirements/functional-requirements.md",
+    FUNCTIONAL_REQUIREMENTS.as_posix(),
     "reports/",
     "tests/tier1_offline/test_goal033_delivery.py",
 )
@@ -262,14 +263,14 @@ def test_no_tracked_file_names_pyfts_guide_00_outside_the_historical_records():
         ("CHANGELOG.md", OLD_OVERVIEW),
         ("docs/migrating-to-0.31.0.md", OLD_OVERVIEW),
         ("docs/migrating-to-0.34.0.md", OLD_OVERVIEW),
-        ("docs/unpublished/requirements/index.md", OLD_OVERVIEW),
+        (REQUIREMENTS_INDEX.as_posix(), OLD_OVERVIEW),
     ]
     assert _naming_old_overview(planted) == sorted(
         [
             "guide/x.md",
             f"guide/{OLD_OVERVIEW}-x.pdf",
             "docs/migrating-to-0.34.0.md",
-            "docs/unpublished/requirements/index.md",
+            REQUIREMENTS_INDEX.as_posix(),
         ]
     )
 

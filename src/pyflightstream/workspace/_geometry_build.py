@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import InputArtifactError, PyflightstreamError
 from pyflightstream._fsm import (

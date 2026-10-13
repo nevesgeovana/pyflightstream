@@ -61,6 +61,7 @@ from pyflightstream.post._condition import (
     _simulation_metadata,
     _stated_window,
     clock_rotor_facts,
+    declined_profile_drag_125,
     point_condition,
     row_rotor_speeds,
 )
@@ -104,7 +105,6 @@ from pyflightstream.post.point_tables import (
 from pyflightstream.post.polar import POLAR_COLUMNS as POLAR_COLUMNS
 from pyflightstream.post.polar import (
     PolarPoint,
-    declined_profile_drag_125,
     drag_columned_rows,
     drag_columns_of,
     group_polar_rows,
@@ -590,7 +590,12 @@ def _group_rows(
                 [point], list(families), mach=ctx.mach, reference=ctx.reference, aliases=ctx.aliases
             )
         except ProductError as error:
-            ctx.skipped[f"runs/{ctx.record_of[point.name].run_id}"] = (
+            # Keyed under THIS group's polar, `#<point>`, as a point the group
+            # misses: `runs/<run id>` means no product holds the run, and the
+            # point stays a row of every other group's polar. A point that
+            # fails every group is a skip of each group's polar, never a
+            # whole-run refusal.
+            absent[point.name] = (
                 f"point {point.name}: {error}. Recollect this point's loads in the "
                 "geometry analysis frame with its Reynolds number to settle it."
             )
@@ -1170,10 +1175,14 @@ def _rotor_table_source(
     # (RI-01), as the unsteady polar's entry does. A row that states a
     # window never holds an instant, so one entry describes every row.
     if plan.get("read_from") and ctx.window is not None:
+        # `window` is the row's, on its clock rotor; `windows` each point's span
+        # of THIS rotor, counted in its own turns (PFS-2088.013).
+        own = plan.get("windows")
+        spans = own if isinstance(own, Mapping) and own else ctx.point_windows
         return {
             "source": f"the unsteady plots, time-averaged, of plot group {plan['read_from']}",
             "window": list(ctx.window),
-            "windows": {name: list(span) for name, span in sorted(ctx.point_windows.items())},
+            "windows": {name: list(span) for name, span in sorted(spans.items())},
         }
     # AN UNSTEADY RUN READ FROM ITS LOADS EXPORT HOLDS AN INSTANT, and
     # says so: that export states the LAST TIME STEP. A record that

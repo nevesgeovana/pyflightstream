@@ -66,6 +66,8 @@ __all__ = [
 #: the velocity and the pressure coefficient on the reference velocity, which a
 #: rotor at rest still has (FR-455 R9).
 FARFIELD_PLOT_PARAMETERS: tuple[str, ...] = ("VX", "VY", "VZ", "CP_REF")
+#: The reference frame of the far-field fluid plots (frame 1, the global frame).
+_PLOT_FRAME = 1
 _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _MESH_SUFFIXES = (".obj", ".stl")
 
@@ -604,7 +606,7 @@ def farfield_probes(
             for parameter in FARFIELD_PLOT_PARAMETERS:
                 script.emit(
                     "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
-                    frame=1,
+                    frame=_PLOT_FRAME,
                     parameter=parameter,
                     name=f"{parameter}{vertex}",
                     vertex=" ".join(str(value / native_per_m) for value in (x, y, z)),

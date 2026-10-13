@@ -64,6 +64,7 @@ from ._vocabulary import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     RESTART_VARIABLE,
+    SIMULATION_LENGTH_UNIT,
     Frames,
 )
 
@@ -571,8 +572,13 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             and probes.scale == "m"
             and probes.frame.strip().upper() == "REFERENCE"
         ):
+            # A script that has established no unit (a saved geometry whose header
+            # states none, no explicit setup key) is in the solver's default, the
+            # metre, which the import used to assume (P0400-INTEGFIX-PROBE-UNITS).
             emit_probe_import(
-                script, probes.resolved_points_file, units=script.simulation_length_unit
+                script,
+                probes.resolved_points_file,
+                units=script.simulation_length_unit or SIMULATION_LENGTH_UNIT,
             )
             return vertex
     if not (

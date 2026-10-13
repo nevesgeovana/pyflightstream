@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
+
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
 S6_TEST = ROOT / "tests/tier1_offline/test_p0370_s6_direct_morphing.py"
@@ -88,7 +90,7 @@ def test_the_s6_hash_is_documented_as_separator_folded_and_the_file_line_is_nati
     native = 'assert f"FILE TMP{os.sep}blade.obj" in masked.splitlines()'
     body = docstring
     assert native in body and body.index(native) < body.index("fold_separators(masked)")
-    srs = _flat(_read(ROOT / "docs/unpublished/requirements/functional-requirements.md"))
+    srs = _flat(_read(ROOT / FUNCTIONAL_REQUIREMENTS))
     assert "The comparison of the rendered script is separator-folded" in srs
 
 

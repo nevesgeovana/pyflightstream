@@ -33,6 +33,7 @@ from pathlib import Path
 import griffe
 
 import pyflightstream
+from tests.tier1_offline._docs_site import site_pages
 
 REPO = Path(__file__).resolve().parents[2]
 #: The source tree, for what is read as files of the checkout: the CLI text and
@@ -552,14 +553,16 @@ def test_the_numpydoc_check_refuses_planted_defects():
     assert raised(handled) == []
 
     # And on a real exported function with its Raises entry cut out.
-    from pyflightstream.fsi.driver import coupling_step
+    from pyflightstream.fsi.driver import revolutions_per_step
 
-    _, step = _definition(coupling_step)
-    step_doc = inspect.getdoc(coupling_step) or ""
-    assert raises_gaps(step, step_doc, coupling_step.__globals__) == []
+    _, step = _definition(revolutions_per_step)
+    step_doc = inspect.getdoc(revolutions_per_step) or ""
+    assert raises_gaps(step, step_doc, revolutions_per_step.__globals__) == []
     assert raises_gaps(
-        step, step_doc.replace("StaleLoadsError\n", "StaleLoads\n"), coupling_step.__globals__
-    ) == ["Raises does not name ['StaleLoadsError']"]
+        step,
+        step_doc.replace("FsiInputError\n", "FsiInput\n"),
+        revolutions_per_step.__globals__,
+    ) == ["Raises does not name ['FsiInputError']"]
 
     # And on a real exported function with its Parameters section cut out.
     from pyflightstream.versions import resolve
@@ -697,10 +700,13 @@ _STALE_CLAIMS = ("What does NOT ship yet is the step that runs those four",)
 
 def _user_pages() -> dict[str, str]:
     """Every hand-written user page but the home: the release records are history."""
+    # The published pages outside the definitions folder: the 0.40.0 restructure moved
+    # some of them into start/, concepts/ and python-api/.
     return {
         path.name: path.read_text(encoding="utf-8")
-        for path in sorted(DOCS.glob("*.md"))
-        if path.name != REDUCTIONS_HOME
+        for rel, path in sorted(site_pages(DOCS).items())
+        if not rel.startswith("definitions/")
+        and path.name != REDUCTIONS_HOME
         and not path.name.startswith(("migrating-to-", "release-notes"))
     }
 
@@ -745,7 +751,9 @@ def test_the_unsteady_reductions_have_one_home():
 
     pages = _user_pages()
     naming = [name for name, text in pages.items() if _REDUCTION_NAMED.search(text)]
-    assert len(naming) >= 4, f"only {naming} name a reduction; the walk has lost its pages"
+    # Three on 0.40.0: the home page gave up its list of the reductions in the restructure
+    # (docs-structure.md, the `index.md` row), which was the fourth page that named them.
+    assert len(naming) >= 3, f"only {naming} name a reduction; the walk has lost its pages"
     for linked in ("workflow-unsteady.md", "workflow-unsteady-rotor.md"):
         assert f"{REDUCTIONS_HOME}#{REDUCTIONS_ANCHOR}" in pages[linked], linked
     restated = [line for name, text in pages.items() for line in reductions_restated(name, text)]

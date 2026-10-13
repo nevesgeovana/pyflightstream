@@ -28,6 +28,7 @@ from tests.tier1_offline.test_post_superfile import _MATRIX, _PLOTS, _post, _wor
 @pytest.mark.parametrize((), [pytest.param(id="P0400-OBJREMEDY")])
 @pytest.mark.parametrize(("name", "overwrite"), [("wing.obj", False), ("wing.fsm", True)])
 def test_p0400_objremedy_names_a_remedy_that_runs(tmp_path, monkeypatch, name, overwrite):
+    # Verifies FR-348.
     """P0400-OBJREMEDY: an OBJ is never told --overwrite; a saved simulation still is."""
     faces = SimpleNamespace(
         same_bytes=False,

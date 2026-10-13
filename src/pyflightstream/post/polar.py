@@ -37,6 +37,7 @@ from pyflightstream.cases import select_group_members
 from pyflightstream.post._condition import (
     PointState,
     _mach_of,
+    _on_the_vorticity_list,
     _refuse_a_reference_the_solver_did_not_use,
 )
 from pyflightstream.post._stage import PROBES_DIR, SECTIONS_DIR
@@ -455,54 +456,6 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     names = list(loads.surfaces)
     listed = _on_the_vorticity_list(names, selection)
     return tuple(name for name in names if name in listed and loads.surfaces[name]["CDi"] == 0.0)
-
-
-def _on_the_vorticity_list(names: Sequence[str], selection: object) -> set[str]:
-    """Return the surfaces ``selection`` puts on the vorticity induced-drag list."""
-    if isinstance(selection, str):
-        return set(names) if selection == "all" else set()
-    if isinstance(selection, Sequence) and selection:
-        placed = [
-            names[item - 1]
-            for item in selection
-            if isinstance(item, int) and not isinstance(item, bool) and 1 <= item <= len(names)
-        ]
-        return set(placed) if len(placed) == len(selection) else set(names)
-    return set()
-
-
-def declined_profile_drag_125(loads: LoadsReport, selection: object) -> tuple[str, ...]:
-    """Return the listed surfaces a 26.125 table prints with ``CDp`` exactly zero.
-
-    PFS-2085.021, P0400-DECLINED125. On 26.125 a surface the solver declined to
-    compute (on the vorticity induced-drag list, without a trailing edge) prints
-    ``CDp`` 0, as earlier builds print ``CDi`` 0 (RPT-166, probes D-01 and D-01c:
-    the same sphere prints CDp 0 on the list and -0.0005 off it). The rule of
-    :func:`declined_induced_drag` reads ``CDi`` and so judges nothing on a table
-    printing the 26.125 split (``CDp``, ``CDv``); this one reads ``CDp`` there.
-    On 26.124 the same surface prints ``CDi`` 0 both on and off the list, so that
-    build cannot discriminate and this rule does not apply to it.
-
-    Parameters
-    ----------
-    loads : LoadsReport
-        The parsed loads table.
-    selection : object
-        The recorded value of ``SET_VORTICITY_DRAG_BOUNDARIES``.
-
-    Returns
-    -------
-    tuple of str
-        The listed surfaces whose printed ``CDp`` is exactly ``0.0``, in table
-        order; empty on a table printing ``CDi``.
-    """
-    if DRAG_PAIRS[0][0] in loads.total:
-        return ()
-    names = list(loads.surfaces)
-    listed = _on_the_vorticity_list(names, selection)
-    return tuple(
-        name for name in names if name in listed and loads.surfaces[name].get("CDp") == 0.0
-    )
 
 
 def polar_row(

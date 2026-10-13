@@ -153,21 +153,8 @@ def _variable_names(header: str) -> list[str]:
     return re.findall(r'"([^"]+)"', var_text)
 
 
-def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSurface:
-    """Read and validate one zone's payload, whose header line is ``zone``."""
-    if not re.search(r"\bDATAPACKING\s*=\s*BLOCK\b", zone, re.I) or not re.search(
-        r"\bZONETYPE\s*=\s*FEPOLYGON\b", zone, re.I
-    ):
-        raise MalformedOutputError("Native Tecplot requires FEPolygon BLOCK layout")
-    if _count(zone, "NumConnectedBoundaryFaces", allow_zero=True) or _count(
-        zone, "TotalNumBoundaryConnections", allow_zero=True
-    ):
-        raise MalformedOutputError("Native Tecplot connected boundary faces are unsupported")
-    nodes, elements, faces = (_count(zone, key) for key in ("NODES", "ELEMENTS", "FACES"))
-    if nodes * len(names) + 4 * faces > size:
-        raise IncompleteOutputError(
-            "Native Tecplot ends before the payload required by its declared counts"
-        )
+def _cell_centered_variables(zone: str, variable_count: int) -> set[int]:
+    """Return the 1-based indices of the variables a zone's VARLOCATION declares cell centered."""
     cell_variables: set[int] = set()
     var_location = re.search(r"VARLOCATION\s*=\s*\(([^)]*)\)", zone, re.I)
     if var_location:
@@ -184,9 +171,28 @@ def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSu
                         f"Native Tecplot variable location has invalid index {token!r}; "
                         "use a whole index or an inclusive range"
                     ) from None
-                if not 1 <= lo <= hi <= len(names):
+                if not 1 <= lo <= hi <= variable_count:
                     raise MalformedOutputError("Native Tecplot variable location index is invalid")
                 cell_variables.update(range(lo, hi + 1))
+    return cell_variables
+
+
+def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSurface:
+    """Read and validate one zone's payload, whose header line is ``zone``."""
+    if not re.search(r"\bDATAPACKING\s*=\s*BLOCK\b", zone, re.I) or not re.search(
+        r"\bZONETYPE\s*=\s*FEPOLYGON\b", zone, re.I
+    ):
+        raise MalformedOutputError("Native Tecplot requires FEPolygon BLOCK layout")
+    if _count(zone, "NumConnectedBoundaryFaces", allow_zero=True) or _count(
+        zone, "TotalNumBoundaryConnections", allow_zero=True
+    ):
+        raise MalformedOutputError("Native Tecplot connected boundary faces are unsupported")
+    nodes, elements, faces = (_count(zone, key) for key in ("NODES", "ELEMENTS", "FACES"))
+    if nodes * len(names) + 4 * faces > size:
+        raise IncompleteOutputError(
+            "Native Tecplot ends before the payload required by its declared counts"
+        )
+    cell_variables = _cell_centered_variables(zone, len(names))
     for key in ("X", "Y", "Z", _STRENGTH):
         if names.index(key) + 1 in cell_variables:
             raise MalformedOutputError(f"Native Tecplot {key} must be nodal")

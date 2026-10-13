@@ -6,14 +6,25 @@ pytest, so nothing offline ever ran them as they are run (PFS-2135.004, .047, .0
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 REPO = Path(__file__).resolve().parents[2]
 TIER3 = REPO / "tests" / "tier3_licensed"
+
+
+def _program(name: str) -> ModuleType:
+    """Load one tier-3 program by its file, so tier 1 holds no import of the licensed tier."""
+    spec = importlib.util.spec_from_file_location(f"tier3_program_{name}", TIER3 / f"{name}.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _clean_environment() -> dict[str, str]:
@@ -61,7 +72,7 @@ def test_p0400_the_duct_generator_runs_as_the_script_the_docs_name(tmp_path):
 
 def test_p0400_a_gap_of_exactly_one_printed_unit_is_inside_the_band_for_the_unit_answer():
     """P0400-TIER3-MESH-BAND: ``unit_answer`` shares the slack ``outside`` applies."""
-    from tests.tier3_licensed import mesh_routes
+    mesh_routes = _program("mesh_routes")
 
     band = 1.0e-4
     one_unit = 1.0000000000000085e-4  # the binary quotient of a one-unit gap over the floor
@@ -79,7 +90,7 @@ def test_p0400_a_gap_of_exactly_one_printed_unit_is_inside_the_band_for_the_unit
 
 def test_p0400_the_rotation_null_reads_the_simulation_id_a_point_name_leads_with():
     """P0400-TIER3-ROTATION-NULL-SIM: both turned points resolve to a row of the sweep table."""
-    from tests.tier3_licensed import rotation_null
+    rotation_null = _program("rotation_null")
 
     assert [rotation_null.sim_id_of(point) for point in rotation_null.TURNED] == ["9002", "9003"]
     assert rotation_null.sim_id_of(rotation_null.CONTROL) == "9001"

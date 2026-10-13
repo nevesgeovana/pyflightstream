@@ -190,7 +190,9 @@ def test_the_custom_twin_and_the_physics_metrics_name_the_26125_split(tmp_path):
     )
     assert path.read_text(encoding="ascii").splitlines()[8].split()[-2:] == ["CDV", "CDP"]
     point = PointResult(4.0, {"CL": 0.35, "CDp": 0.0074, "CDv": 0.002, "CMy": 0.0}, 9, True)
-    assert phy01_metrics([point])["CDp_a4"] == pytest.approx(0.0074)
+    # PHY-01 fits its slope over two angles at least (PFS-2102.009): a 0 deg point beside it.
+    level = PointResult(0.0, {"CL": 0.0, "CDp": 0.0, "CDv": 0.002, "CMy": 0.0}, 9, True)
+    assert phy01_metrics([level, point])["CDp_a4"] == pytest.approx(0.0074)
     assert set(phy05_metrics(point)) == {"CL", "CDp", "CDv", "CMy"}
 
 

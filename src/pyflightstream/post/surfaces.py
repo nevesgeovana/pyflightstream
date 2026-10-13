@@ -101,6 +101,25 @@ class SurfaceAverage:
     native_matching: dict[int, dict[str, object]] | None = None
 
 
+def _require_same_shape(
+    reference: VtkSurface, surface: VtkSurface, *, step: int, name: str, first: int
+) -> None:
+    """Refuse a step whose topology or cell variables differ from the window's first."""
+    differs = reference.topology_differs(surface)
+    if differs is not None:
+        raise ProductError(
+            f"step {step}'s export {name} has {differs} of step {first}: the "
+            "steps of the window do not share one topology, so a panel cannot be "
+            "followed across them and the average is refused"
+        )
+    if list(surface.cell_data) != list(reference.cell_data):
+        raise ProductError(
+            f"step {step}'s export {name} carries the variables "
+            f"{list(surface.cell_data)} and step {first}'s carries "
+            f"{list(reference.cell_data)}, so the average is refused"
+        )
+
+
 def average_surface_exports(
     exports: Mapping[int, str | Path],
     *,
@@ -178,19 +197,7 @@ def average_surface_exports(
         if first_surface is None:
             first_surface = surface
         else:
-            differs = first_surface.topology_differs(surface)
-            if differs is not None:
-                raise ProductError(
-                    f"step {step}'s export {path.name} has {differs} of step {first}: the "
-                    "steps of the window do not share one topology, so a panel cannot be "
-                    "followed across them and the average is refused"
-                )
-            if list(surface.cell_data) != list(first_surface.cell_data):
-                raise ProductError(
-                    f"step {step}'s export {path.name} carries the variables "
-                    f"{list(surface.cell_data)} and step {first}'s carries "
-                    f"{list(first_surface.cell_data)}, so the average is refused"
-                )
+            _require_same_shape(first_surface, surface, step=step, name=path.name, first=first)
         surface = surface_in_reference(surface, frame)
         if native_exports is not None:
             native_path = Path(native_exports[step])

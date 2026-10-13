@@ -34,6 +34,7 @@ def _numbers(node: object) -> list[float]:
 
 
 def test_p0400_refine_tag_close_factors_collide_and_refine_json_keeps_the_exact_one(tmp_path):
+    # Verifies FR-433.
     """P0400-REFINE-TAG: 2.0000001 and 2.0000002 share R2; the second is refused, then replaced."""
     src = _source(tmp_path)
     first = refine_mesh(src, 2.0000001)

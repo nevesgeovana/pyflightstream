@@ -99,6 +99,17 @@ from pyflightstream.run._collect_logs import (
     native_log,
     observed_paths,
 )
+from pyflightstream.run._collect_notes import (
+    _datapoint_of,
+    _declared_outputs,
+    _RecordAsCase,
+    is_a_sweep_job,
+    job_log_note,
+    limit_for_its_word,
+    no_time_without_the_log,
+    note_untranslated,
+    refused_entry,
+)
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace._batches import job_of
 from pyflightstream.workspace._missing_log import (
@@ -125,7 +136,6 @@ from ..workspace import (
     selected_sims,
 )
 from ..workspace.inputs import resolve_hpc_profile
-from ..workspace.naming import datapoint_name_of
 
 if TYPE_CHECKING:  # the return type of the whole judgement, without a runtime cycle
     from pyflightstream.run import Assessment
@@ -309,110 +319,6 @@ class CollectReport:
 def _outcome_line(outcome: CollectOutcome) -> str:
     """Return the human line of one point's outcome: its state, its run, what happened."""
     return f"  {outcome.state:9} {outcome.run_id}: {outcome.detail}"
-
-
-def _declared_outputs(record: RunRecord) -> list[str]:
-    """Return the output names the submitted point was built to write.
-
-    THEY COME OFF THE RECORD AND NOT OFF THE MATRIX, deliberately. A
-    collector that re-read the matrix would read whatever the matrix says
-    NOW, and a matrix edited between the submission and the collection is
-    exactly the shape that made a recorded REmi of 11.7716754 read back as
-    99.0 in a regenerated product (GEO-039-F02). The submission block
-    carries what was declared at the moment the job was handed over.
-    """
-    submission = record.submission or {}
-    declared = submission.get("declared_outputs")
-    if isinstance(declared, (list, tuple)):
-        return [str(name) for name in declared]
-    return []
-
-
-def _datapoint_of(record: RunRecord) -> str | None:
-    """Return the datapoint folder's NAME for this record's outputs, or None.
-
-    The name the run RECORDED when it has one. When it does not -- every record
-    written before 0.21.0 -- the folder the record's own submission block says
-    the job ran in, which is read rather than recomputed: a name recomputed now
-    would file the outputs where no record of them points, and that is the thing
-    to avoid. None when the record names neither, which is a point submitted
-    before 0.18.1, whose job ran in the simulation folder.
-
-    ONE HOME, because the two callers must not disagree. `_recorded_name`
-    refuses when this is None and the assessor's shim carries the None through,
-    and when they disagreed the shim fell into the branch written for a real
-    case and asked it for a field only a case has.
-    """
-    if record.point_name:
-        return record.point_name
-    # THE FOLDER NAME IS READ BY THE MODULE THAT WRITES IT, which answers None
-    # for anything that is not a point's folder rather than raising an error
-    # this sweep's handler does not catch (the architect lens, FIX-0211).
-    #
-    # WHAT THIS DOES NOT CHECK, stated because the same field is read twice in
-    # this module with two different trust models: `_working_dir` resolves
-    # `working_dir` and REFUSES one that is not a direct child of this record's
-    # own `datapoints/`, and it runs before this on the collecting path. This
-    # reads the name only and is not itself that check.
-    ran_in = datapoint_name_of(Path(str((record.submission or {}).get("working_dir") or "")).name)
-    if ran_in is None:
-        return None
-    # AND IT IS THIS RECORD'S FOLDER, not merely a datapoint folder of this
-    # simulation. `_working_dir` checks the second and not the first, so an
-    # edited `working_dir` naming ANOTHER point's folder was refused for a
-    # record that carries a point name and accepted for one that does not --
-    # this release's own records (the qa lens, FIX-0211). A 0.20.x record ends
-    # its `run_id` in the tag, which is what `pyfs-matrix rename` reads it by,
-    # so the record carries its own cross-check and only had to be asked.
-    tail = str(record.run_id).rsplit("/", 1)[-1]
-    return str(ran_in) if tail in ("", str(ran_in)) else None
-
-
-class _RecordAsCase:
-    """The two fields the standard assessor reads, taken off the run record.
-
-    NOT A SimCase AND NOT PRETENDING TO BE ONE. :class:`LoadsAssessor` reads
-    exactly three things from its first argument: ``point``, ``outputs``, and
-    the flight condition it binds the export against, and both of the first
-    two are recorded on the row at submission from the case that produced it.
-    So the values here are the RUN'S OWN, carried across, and nothing is
-    invented.
-
-    The assessor accepts ``None`` in this position and documents what happens
-    then: the condition binding is recorded as EMPTY rather than as agreement.
-    Passing the record's real point instead is what makes the binding a
-    comparison rather than a blank, which is the whole reason this exists
-    rather than a bare ``None``.
-    """
-
-    __slots__ = ("point", "outputs", "velocity", "datapoint_name", "recipe")
-
-    def __init__(self, record: RunRecord, *, velocity_is_the_point_s: bool = True) -> None:
-        self.point = dict(record.point or {})
-        # 0.21.0: the folder the assessor judges is named by the name the run
-        # RECORDED, never recomputed from a record that is not a case. 0.21.1:
-        # a record written before 0.21.0 recorded no name and names its folder
-        # in its submission block instead, and reading it here is what keeps
-        # the assessor out of the branch that would ask this shim for a field
-        # only a real case has.
-        self.datapoint_name = _datapoint_of(record)
-        self.outputs = list(record.outputs or _declared_outputs(record))
-        # THE VELOCITY THE RUN REQUESTED, which the record has carried since
-        # OPS-2009.01.13 and which this read as None until 0.24.0, calling None
-        # the honest answer. It was not: a local point whose export printed
-        # 30 m/s against a requested 80 is FAILED_INCOMPLETE_OUTPUT, and the
-        # same files collected from a cluster were CONVERGED, because nothing
-        # here asked. The two paths claim one judgement and now make it.
-        #
-        # None still, in the one place the record cannot answer: a POINT OF A
-        # JOB that sweeps a flow variable. The job's record carries the row's
-        # velocity and not that point's, and holding a point to another
-        # point's speed would refuse a correct export. Unasked is recorded as
-        # unasked there, which rule 3 of `_bind_case_conditions` exists for.
-        self.velocity = record.velocity_requested_m_s if velocity_is_the_point_s else None
-        # 0.31.0: the run type the record states, which the assessor reads to
-        # know a quasi-steady point (its record is judged per clocking).
-        self.recipe = record.recipe
 
 
 def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str | None]:
@@ -639,8 +545,8 @@ def _refuse_a_string(sims: object) -> None:
     """
     if isinstance(sims, str):
         raise WorkspaceError(
-            f'sims takes a list of ids, e.g. ["2006", "2007"] (CLI: --sims 2006,2007), '
-            f"not the string {sims!r}"
+            f'sims takes a list of ids, e.g. ["2006", "2007"], not the string {sims!r}: '
+            'pass sims=["2006", "2007"], or --sims 2006,2007 on the command line'
         )
 
 
@@ -893,7 +799,7 @@ def _job_log_name(
     exports its logs, a job whose points declare none, and a record that is one
     point, whose scheduler log is its own and is copied to its declared name.
     """
-    if not _is_a_sweep_job(record) or not record.script_path:
+    if not is_a_sweep_job(record) or not record.script_path:
         return None
     if not any(name.endswith(LOG_SUFFIX) for name in names):
         return None
@@ -992,7 +898,7 @@ def _complete(
     files belongs to which point. The local sweep pays two passes to honour
     it and carries a comment about the defect that taught it.
     """
-    if _is_a_sweep_job(record):
+    if is_a_sweep_job(record):
         return _complete_sweep(
             workspace, record, sim_dir, assessor, job_log=job_log, missing_logs=missing_logs
         )
@@ -1042,8 +948,8 @@ def _complete(
         **_wall_time_update(record, _working_dir(workspace, record), stamped),
     }
     if missing_logs:
-        _no_time_without_the_log(update)
-    _limit_for_its_word(update)
+        no_time_without_the_log(update)
+    limit_for_its_word(update)
     counter = _action_counter(workspace, record)
     update["action_count"] = counter
     raw_steps = stamped.get("time_steps", record.time_steps)
@@ -1073,17 +979,6 @@ def _complete(
     )
 
 
-def _limit_for_its_word(update: dict[str, object]) -> None:
-    """Keep ``iterations_requested`` only where the FINAL status is MAX_ITER_REACHED (FR-434 R1).
-
-    The assessor stamps the limit with its own verdict; the log verdicts and the
-    walltime stop that may replace that verdict come after it, so the field is
-    settled on the status the record is written with.
-    """
-    if update.get("status") != RunStatus.MAX_ITER_REACHED:
-        update["iterations_requested"] = None
-
-
 #: The axes a point of a job can carry that say nothing about its speed. A
 #: point carrying any other axis sweeps a flow variable, and the job's one
 #: recorded velocity is then not that point's.
@@ -1100,23 +995,6 @@ def _action_counter(workspace: CampaignWorkspace, record: RunRecord) -> int | No
     except (OSError, ValueError, KeyError, TypeError):
         counter = None
     return record.action_count if counter is None else counter
-
-
-def _no_time_without_the_log(update: dict[str, object]) -> None:
-    """Null a point's wall time where its solver log is absent, and say why (FR-413 R2).
-
-    The solver clock is the log's, and a time is never estimated. The basis
-    says so too (PFS-2103.007): it still named the clock file the nulled time
-    had been measured from.
-    """
-    update["wall_time_s"] = None
-    submission = update.get("submission")
-    job = submission.get("job") if isinstance(submission, dict) else None
-    if isinstance(job, dict):
-        job["wall_time_basis"] = (
-            "not recorded: the solver log is absent (FR-413 R2), and the solver "
-            "clock is the log's; a time is never estimated"
-        )
 
 
 def _wall_time_update(
@@ -1169,24 +1047,6 @@ def _wall_time_update(
         }
         update["submission"] = submission
     return update
-
-
-def _refused_entry(tag: str, point: dict, outputs: list[str] | None) -> dict[str, object]:
-    """Return the ``points_ran`` entry of a point of a job whose outputs were refused."""
-    entry: dict[str, object] = {
-        "tag": tag,
-        "point": point,
-        "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
-    }
-    if outputs:
-        entry["outputs"] = list(outputs)
-    return entry
-
-
-def _is_a_sweep_job(record: RunRecord) -> bool:
-    """Whether the record carries a job's per-point mapping, even for one point."""
-    by_point = (record.submission or {}).get("declared_by_point")
-    return isinstance(by_point, Mapping) and bool(by_point)
 
 
 def _sweep_point_entry(
@@ -1251,20 +1111,6 @@ def _sweep_point_entry(
     return entry, status, verdict, identity
 
 
-def _sweep_log_context(job_log: Path | None, sim_dir: Path) -> tuple[str | None, str | None]:
-    """Read the shared scheduler log and the provenance note for a steady job."""
-    if job_log is None:
-        return None, None
-    where = job_log.relative_to(sim_dir).as_posix() if job_log.is_relative_to(sim_dir) else job_log
-    note = (
-        "no solver log of its own: this machine's HPC profile states export_log = false, so "
-        f"the job's one log is the scheduler's, filed as {where} in the simulation folder, "
-        "where the job ran; each point is judged from its loads export"
-    )
-    text = job_log.read_text(encoding="utf-8", errors="replace") if job_log.is_file() else None
-    return note, text
-
-
 def _complete_sweep(
     workspace: CampaignWorkspace,
     record: RunRecord,
@@ -1307,7 +1153,7 @@ def _complete_sweep(
     # (`_job_log_name`). No point is held to a log of its own, each is judged
     # from its loads export, and the job's log is read for the one import count
     # the job's script states. Every point, and the job, says where it is.
-    job_note, job_log_text = _sweep_log_context(job_log, sim_dir)
+    job_note, job_log_text = job_log_note(job_log, sim_dir)
     for tag, owned in by_point.items():
         if job_log is not None:
             owned = [name for name in owned if not str(name).endswith(LOG_SUFFIX)]
@@ -1331,23 +1177,7 @@ def _complete_sweep(
             # Filed and listed, and the point still fails (0.27.0), unless all
             # it misses is the package's own translation (0.30.0).
             collected_by_tag[tag] = list(error.collected)
-            owned_names = {str(name) for name in owned}
-            untranslated = untranslated_surfaces(
-                [
-                    entry
-                    for entry in record.surface_translations or []
-                    if isinstance(entry, Mapping) and str(entry.get("dat")) in owned_names
-                ],
-                error.missing,
-                error.collected,
-            )
-            if untranslated is None:
-                refused[tag] = str(error)
-            else:
-                for line in untranslated:
-                    if f"{tag}: {line}" not in job_warnings:
-                        job_warnings.append(f"{tag}: {line}")
-                    warnings.warn(f"{tag}: {line}", PyflightstreamWarning, stacklevel=2)
+            note_untranslated(tag, error, owned, record, job_warnings=job_warnings, refused=refused)
         except (WorkspaceError, CampaignConfigError) as error:
             refused[tag] = str(error)
 
@@ -1359,7 +1189,7 @@ def _complete_sweep(
     for tag in by_point:
         point = dict(points.get(tag) or {})
         if tag in refused:
-            ran.append(_refused_entry(tag, point, collected_by_tag.get(tag)))
+            ran.append(refused_entry(tag, point, collected_by_tag.get(tag)))
             collected_all.extend(collected_by_tag.get(tag) or [])
             worst = worse_of(worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
             error_lines.append(f"{tag}: {refused[tag]}")

@@ -81,6 +81,11 @@ SHIPPED = ("phase_locked", "equations", "glossary")
 DEFERRED: tuple[str, ...] = ()
 
 
+def _declared_early(deferred: tuple[str, ...], fields: set[str]) -> list[str]:
+    """The deferred tables the spec already declares."""
+    return [name for name in deferred if name in fields]
+
+
 def test_the_pproc_spec_carries_this_release_and_not_the_next_one():
     """The atomicity itself, asserted rather than remembered.
 
@@ -97,7 +102,10 @@ def test_the_pproc_spec_carries_this_release_and_not_the_next_one():
     fields = set(PprocSpec.model_fields)
     missing = [name for name in SHIPPED if name not in fields]
     assert not missing, f"the pproc spec is missing {missing}, which this release ships"
-    early = [name for name in DEFERRED if name in fields]
+    early = _declared_early(DEFERRED, fields)
+    # DEFERRED is empty, so the line above cannot fail on its own (PFS-2135.039): the
+    # control hands the same reader a table the spec does carry and it must name it.
+    assert _declared_early(("phase_locked",), fields) == ["phase_locked"]
     assert not early, (
         f"the pproc spec carries {early}, which a later release ships. Declaring a table the "
         "release does not IMPLEMENT lets a user write it and get nothing back"
