@@ -162,9 +162,9 @@ rebuild, else from the sidecar of the `[mesh]` source. With a carried
 operation that moves the body; `<name>.te.txt` stays beside the mesh. The
 build prints what it carried over.
 
-FR-471 requires an audit failure to retain the partial folder without
-promotion. The current implementation promotes these outputs before checking
-the failed gates; that implementation gap remains open.
+An audit failure retains the built outputs and their record in the partial
+folder, including the exported mesh in its `mesh/` subfolder. Nothing is
+promoted, and a previously built body is preserved even with `--overwrite`.
 
 The exit status is 0 when the body is built and audited, 1 when it is built
 and an audit gate failed (nothing is promoted; built outputs stay in the
@@ -236,6 +236,10 @@ angle, naming the surface and the angle: a mirrored half deflects both sides
 alike, so a one-sided deflection runs with `SYMMETRY` `NONE`. A body with no
 record, saved from the
 solver's window or from another tool, is planned as before.
+
+A legacy or incomplete build record that lacks an instruction's `file` or
+`sha256` is refused at plan, naming the record and missing key. Rebuild the
+body from a geometry instruction to create the current record format.
 
 ## From a geometry the row builds
 

@@ -53,9 +53,12 @@ def build_record_of(geometry: Path) -> tuple[Path, dict[str, Any]] | None:
     if not record.is_file():
         return None
     try:
-        return record, json.loads(record.read_text(encoding="utf-8"))
+        data = json.loads(record.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         raise InputArtifactError(f"{record} cannot be read as a build record: {error}") from error
+    if not isinstance(data, dict):
+        raise InputArtifactError(f"{record} cannot be read as a build record: expected an object")
+    return record, data
 
 
 def _rebuild_command(record: Path, data: Mapping[str, Any]) -> str:
@@ -65,8 +68,27 @@ def _rebuild_command(record: Path, data: Mapping[str, Any]) -> str:
 
 def _changed_inputs(record: Path, data: Mapping[str, Any]) -> list[str]:
     changed = []
-    stated = [data.get("instruction", {}), *data.get("inputs", [])]
-    for item in stated:
+    inputs = data.get("inputs", [])
+    if not isinstance(inputs, list):
+        raise InputArtifactError(
+            f"{record} cannot be read as a build record: inputs must be a list"
+        )
+    stated = [("instruction", data.get("instruction", {}))] + [
+        (f"inputs[{index}]", item) for index, item in enumerate(inputs)
+    ]
+    for label, item in stated:
+        for key in ("file", "sha256"):
+            if not isinstance(item, dict) or key not in item:
+                raise InputArtifactError(
+                    f"{record} cannot be read as a build record: missing key {label}.{key}. "
+                    "Rebuild it with pyfs-workspace geometry build from an instruction "
+                    f"({_PAGE})."
+                )
+            if not isinstance(item[key], str) or not item[key]:
+                raise InputArtifactError(
+                    f"{record} cannot be read as a build record: {label}.{key} "
+                    "must be a nonempty string."
+                )
         path = (record.parent / str(item["file"])).resolve()
         if not path.is_file() or file_sha256(path) != item["sha256"]:
             changed.append(path.name)
