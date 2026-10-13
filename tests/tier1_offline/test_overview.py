@@ -169,6 +169,8 @@ def test_overview_is_exported_next_to_help():
         "support_level",
         "support_table",
         "version_support",
+        # the public wrapper the shipped examples decorate with (PFS-2098.001)
+        "cli_entrypoint",
     }
     assert callable(pyflightstream.overview)
 

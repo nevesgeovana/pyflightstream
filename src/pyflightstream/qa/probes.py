@@ -1256,37 +1256,15 @@ def probe_version(
 
     results: list[ProbeResult] = []
     for name in available:
-        spec = active_specs.get(name)
-        if requested is not None and name not in requested:
-            results.append(ProbeResult(name, ProbeOutcome.UNPROBED, "not probed in this run"))
-        elif spec is None:
-            results.append(
-                ProbeResult(
-                    name, ProbeOutcome.UNPROBED, "no probe specification for this command yet"
-                )
-            )
-        elif spec.requires is not Requires.NONE and fsm_path is None:
-            results.append(
-                ProbeResult(
-                    name,
-                    ProbeOutcome.UNPROBED,
-                    f"needs the {spec.requires} prelude tier; supply a local simulation "
-                    "file (--fsm) to probe it",
-                )
-            )
-        elif spec.requires in tier_failures:
-            results.append(
-                ProbeResult(
-                    name,
-                    ProbeOutcome.UNPROBED,
-                    f"the {spec.requires} prelude tier failed its baseline, so the "
-                    f"command was not judged: {tier_failures[spec.requires]}",
-                )
-            )
+        decided = _unprobed_or_spec(
+            name, active_specs.get(name), requested, fsm_path=fsm_path, tier_failures=tier_failures
+        )
+        if isinstance(decided, ProbeResult):
+            results.append(decided)
         else:
             results.append(
                 _run_probe(
-                    spec,
+                    decided,
                     resolved,
                     executor,
                     workroot,
@@ -1305,6 +1283,38 @@ def probe_version(
         fs_exe_sha256=fs_exe_sha256,
         executor=invocation,
     )
+
+
+def _unprobed_or_spec(
+    name: str,
+    spec: ProbeSpec | None,
+    requested: set[str] | None,
+    *,
+    fsm_path: Path | None,
+    tier_failures: Mapping[Requires, str],
+) -> ProbeResult | ProbeSpec:
+    """Return the unprobed result a command earns without a run, else the spec to run."""
+    if requested is not None and name not in requested:
+        return ProbeResult(name, ProbeOutcome.UNPROBED, "not probed in this run")
+    if spec is None:
+        return ProbeResult(
+            name, ProbeOutcome.UNPROBED, "no probe specification for this command yet"
+        )
+    if spec.requires is not Requires.NONE and fsm_path is None:
+        return ProbeResult(
+            name,
+            ProbeOutcome.UNPROBED,
+            f"needs the {spec.requires} prelude tier; supply a local simulation "
+            "file (--fsm) to probe it",
+        )
+    if spec.requires in tier_failures:
+        return ProbeResult(
+            name,
+            ProbeOutcome.UNPROBED,
+            f"the {spec.requires} prelude tier failed its baseline, so the "
+            f"command was not judged: {tier_failures[spec.requires]}",
+        )
+    return spec
 
 
 def _validate_tiers(

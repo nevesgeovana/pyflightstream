@@ -23,7 +23,7 @@ once:
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -38,13 +38,17 @@ from pyflightstream.post._tables import ProductError, ReferenceValues, rotor_adv
 from pyflightstream.results import DRAG_PAIRS, LoadsReport, MalformedOutputError, labeled_value
 from pyflightstream.script.solver_setup import VORTICITY_COMMAND
 from pyflightstream.workspace import RunStatus
-from pyflightstream.workspace.flight_condition import resolve_flight_condition
+from pyflightstream.workspace.flight_condition import (
+    pinned_state_mismatch,
+    resolve_flight_condition,
+)
 from pyflightstream.workspace.inputs import resolve_reference
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
     from pyflightstream.post.polar import PolarPoint
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
+    from pyflightstream.workspace.flight_condition import ResolvedCondition
 
 
 def _stated_iteration(export_text: str) -> int | None:
@@ -413,13 +417,26 @@ def _free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
     None where the record states no condition, or one this release cannot
     resolve.
     """
+    resolved = _resolved_point(record)
+    if resolved is None:
+        return None
+    return resolved.velocity_m_per_s, resolved.sonic_velocity_m_per_s
+
+
+def _resolved_point(record: RunRecord) -> ResolvedCondition | None:
+    """Return the record's own point resolved, the swept value in place, else None.
+
+    None where the record states no condition, or one this release cannot
+    resolve: a cell this release cannot resolve costs the check, never the
+    product.
+    """
     stated = dict(record.flight_condition or {})
     swept = {key: value for key, value in (record.point or {}).items() if key in _FLOW_KEYS}
     cell = {**stated, **swept}
     if not cell:
         return None
     try:
-        resolved = resolve_flight_condition(
+        return resolve_flight_condition(
             cell,
             pol=str(record.sim_id),
             reference_length_m=record.reference_length_m,
@@ -428,7 +445,26 @@ def _free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
         )
     except PyflightstreamError:
         return None
-    return resolved.velocity_m_per_s, resolved.sonic_velocity_m_per_s
+
+
+def warn_pinned_states(points: Iterable[RunRecord]) -> None:
+    """Warn in ``post.log`` for each point whose pinned state disagrees with p = rho R T.
+
+    0.40.0, a session decision under the owner's physics autonomy: a point
+    pinning density, temperature and pressure all three is checked by
+    :func:`~pyflightstream.workspace.flight_condition.pinned_state_mismatch`,
+    the check the plan calls, and each distinct mismatch is warned once
+    through the post's warning sink. Nothing is refused or withheld.
+    """
+    mismatches = (_pinned_mismatch_of(point) for point in points)
+    for message in dict.fromkeys(message for message in mismatches if message):
+        warn(message, PyflightstreamWarning, stacklevel=2)
+
+
+def _pinned_mismatch_of(record: RunRecord) -> str | None:
+    """Return the pinned-state warning one recorded point earns, else None."""
+    resolved = _resolved_point(record)
+    return None if resolved is None else pinned_state_mismatch(resolved, pol=str(record.sim_id))
 
 
 def _mach_of(point: object, fallback: float) -> float:
