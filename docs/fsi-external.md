@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+last_modified_at: 2026-10-13T15:29:43-03:00
+last_modified_by: OpenAI / Codex / GPT-6 / reviewer
+dependencies: [FR-462]
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Restore documentation of reserved Windows aliases (REL9-001).
+revision_source: git
+-->
+
 # FSI with a structural program of your own
 
 An FSI input with `mode = "external"` couples a fixed wing to a structural
@@ -80,7 +93,8 @@ node file and every declared input, and the route taken.
   archived anyway). The step's record and your program's file would overwrite
   each other, so the input is refused when it is read, the plan refuses it
   with the files it stages, and the step refuses such a manifest before your
-  program runs.
+  program runs. Names ending in a dot or space are compared as Windows reads
+  them: `call.json.` and `call.json` identify the same file and are both refused.
 - A run type other than `steady` or `unsteady`; more than one coupled family;
   symmetry copies; a continuation; a geometry that is not a fresh OBJ or STL
   import; a simulation not in metres.
