@@ -76,9 +76,10 @@ value in the setup. The inspection record includes this choice.
 
 Mach mode requires the resolved velocity, Mach and sound speed to agree. On
 builds whose fluid command takes the heat-capacity ratio, the sound speed must
-also agree with `sqrt` and the emitted temperature
+also agree with `sqrt(gamma * pressure / density)` and the emitted temperature
 using the package's canonical dry-air gas constant. The native manual states that
-modern sonic velocity follows temperature and specific-heat ratio. Missing fluid data, an
+modern sonic velocity follows temperature and specific-heat ratio (26.120 User
+Guide, p.328). Missing fluid data, an
 inconsistent independent sound-speed pin, or a conflicting sonic override is
 refused before settings emission. Use velocity mode to preserve such independently
 specified states; switching the native setter must not change the physics.
@@ -105,7 +106,7 @@ in the existing free-variable cell:
 ACTUATOR: {ACTUATOR: Left / ACTUATOR_RPM: 2000 / ACTUATOR_THRUST: 100}, {ACTUATOR: Right / ADVANCE_RATIO: 0.5 / ACTUATOR_THRUST: 200}
 ```
 
-Each referenced actuator block may state `thrust_units` and `wake_type`; `ACTUATOR_THRUST` uses that block's `thrust_units`.
+Each referenced actuator block may state `thrust_units` and `wake_type`; `ACTUATOR_THRUST` uses that block's `thrust_units` (default `NEWTONS`).
 
 Each name selects its own reference actuator block. An advance ratio uses that
 block's diameter and the point velocity; RPM and loading belong to that record.
@@ -118,10 +119,10 @@ emission are checked offline; native multi-disc operation requires its own test.
 
 The reference block may additionally choose `wake_type = "RIGID"` or
 `"RELAXED"`. Omission preserves the native default. `thrust_units` selects
-`NEWTONS`, `POUNDS`, or `COEFFICIENT` for that block's
+`NEWTONS` (the existing default), `POUNDS`, or `COEFFICIENT` for that block's
 `ACTUATOR_THRUST` value; profile-file force units remain `profile_units`.
 The coefficient convention is native and must match the intended formulation;
-dimensional thrust avoids that ambiguity.
+dimensional thrust avoids that ambiguity (FlightStream User Guide, p.187).
 These newly exposed variants require the separate native controls recorded by
 this release; their typed acceptance alone is not proof of a wake or load effect.
 

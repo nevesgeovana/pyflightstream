@@ -49,7 +49,6 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     # future file of that name, which is what the guard's own refusal says
     # to avoid.
     "CONTRIBUTING.md": 4,
-    "docs/srs/data-model.md": 1,
     "docs/unpublished/requirements/functional-requirements.md": 39,
     "docs/unpublished/requirements/index.md": 4,
     "docs/srs/introduction.md": 20,

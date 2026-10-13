@@ -34,12 +34,13 @@ ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct
 
 `ACTUATOR` names the block; `ACTUATOR_RPM` is the speed in rev/min, a
 magnitude whose hand is the block's `rpm_sign`; and the row states exactly one
-loading: `ACTUATOR_THRUST`, the net thrust in the actuator block's `thrust_units`, or `PROFILE`, the stem of a file of
-the workspace's `inputs/profiles/`. ONE DISC PER ROW. A
+loading: `ACTUATOR_THRUST`, the net thrust in the actuator block's `thrust_units` (default `NEWTONS`; the ELLIPTICAL model), or `PROFILE`, the stem of a file of
+the workspace's `inputs/profiles/` (the CUSTOM model). ONE DISC PER ROW. A
 reference declaring a disc changes nothing on a row that names none.
 
 **THE PROFILE FILE** holds the radial distribution, one station per line: two
-numbers separated by one comma, `r,F`, the radial station and the force
+numbers separated by one comma, `r,F`, the radial station (normalised or
+dimensional, as you write it; the package does not convert it) and the force
 there, per blade, in the block's `profile_units`. No header line and no count
 line:
 
@@ -56,18 +57,19 @@ see [actuator-disc profiles](actuator-profiles.md).
 
 Save it as any editor saves it. The solver is never handed your file: the run
 writes its own copy, `<stem>.actuator_profile.txt`, in the folder the point
-runs in, and the
+runs in (a steady row of several points: its simulation folder), and the
 script names the copy. The copy holds your rows with the blank lines and the
 spaces around the numbers removed, joined by a newline, and NO final newline,
 because 26.124 reads every line of the file as a point: measured on 26.124
-eleven rows ending in a newline were read as twelve points, logged
+, eleven rows ending in a newline were read as twelve points, logged
 as unreadable and refused in a dialog that holds the solver until a person
 closes it, while the same eleven rows without the final newline were read,
 radii and forces. The copy's sha256 joins the record's `inputs_sha256`, and
 your file is never written. A `PROFILE` is resolved when the row is planned,
 and a stem the folder does not hold is refused naming what it does hold. A
 file the solver would misread is refused then too, naming the file and the
-line: a header or a count first, a row that is not two numbers separated by one comma, a number
+line: a header or a count first (each read as one point more, which set every
+value to zero), a row that is not two numbers separated by one comma, a number
 that is not finite, or fewer than two rows. A case written in Python sets
 `SimCase.actuator_profile` to the file's absolute path and is held to the same
 form when its script is built.
@@ -75,9 +77,11 @@ form when its script is built.
 The script creates the disc after every frame exists and before the solver is
 initialised: `CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL|CUSTOM <name>`,
 `SET_ACTUATOR_AXIS`, `SET_ACTUATOR_RADIUS`, `SET_PROP_ACTUATOR_RPM`, then
-`SET_PROP_ACTUATOR_THRUST` or `SET_PROP_ACTUATOR_PROFILE`, `SET_PROP_ACTUATOR_SWIRL` when the block states a swirl, and
+`SET_PROP_ACTUATOR_THRUST` or `SET_PROP_ACTUATOR_PROFILE` (the run's copy of the
+profile on the next line), `SET_PROP_ACTUATOR_SWIRL` when the block states a swirl, and
 `ENABLE_ACTUATOR`. Each way to get the row wrong is refused before a line is
-written, naming the key: a block the reference does not declare, a speed missing or not above zero, both loadings or neither, a
+written, naming the key: a block the reference does not declare (listing the
+ones it does), a speed missing or not above zero, both loadings or neither, a
 `PROFILE` on a block stating no `blades`, a loading key without `ACTUATOR`, and
 a frame the run did not create. The block itself is refused when its name is
 not one word, when it shares its name with a rotor, an alias or a frame, and
@@ -91,7 +95,8 @@ saved actuator; numbering the new disc after it would leave two discs where the
 row states one. Open a simulation saved without an actuator, or name no
 `ACTUATOR` on the row and the saved one stays as it was saved. The package
 reads the file's actuators from its physics block, walked by the block's own
-counts on the shape every save read so far holds, and a block out of
+counts on the shape every save read so far holds (the two carrying a disc are
+the 26.124 saves of the tier-3 disc rows, one actuator each), and a block out of
 that shape is refused as unreadable rather than taken to hold none. A point's
 final save carries the disc its row created, so it is not a geometry for
 another disc row. A raw mesh is imported into a new simulation and carries
@@ -100,7 +105,7 @@ none.
 **THE METRES ARE WRITTEN IN THE SIMULATION'S LENGTH UNIT.** `SET_ACTUATOR_AXIS`
 and `SET_ACTUATOR_RADIUS` carry no unit, and the solver reads their lengths in
 the simulation's unit, so the script converts `offset_m`, `tip_radius_m` and
-`hub_radius_m` into:
+`hub_radius_m` (and a volume section's lengths the same way) into:
 
 * the unit the script set itself after the open: the metres a raw mesh is set
  to after its import, or a unit a setup line states, as the row's
@@ -143,13 +148,14 @@ whose outputs name no log is not held to it.
 
 NOT MEASURED: the disc on an unsteady row; the disc on a rotor row, where a
 flat row with no blade frames turns every frame with its motion
-the disc's frame included; the disc under
+(`SET_MOTION_MOVING_FRAMES 1 -1`), the disc's frame included; the disc under
 mirror symmetry; the loads of a disc whose profile the solver read; and the
 profile file on any build but 26.124. A continuation reopens the saved
 simulation, which carries the disc, and emits it again nowhere; a disc added
 to a row after its run stopped does not reach the continuation and is not yet
-refused there. A row may state `ADVANCE_RATIO` instead of
-`ACTUATOR_RPM`, and the disc turns at n = V / with its own diameter; a steady row that sweeps the advance ratio runs one job per
+refused there. A row may state `ADVANCE_RATIO`  instead of
+`ACTUATOR_RPM`, and the disc turns at n = V / (J D) with its own diameter (twice
+its `tip_radius_m`); a steady row that sweeps the advance ratio runs one job per
 point, so each point sets its own speed. A row stating neither is refused
 naming both.
 
@@ -175,7 +181,7 @@ number and no command imposes a swirl profile, so a disc cannot be given the
 radial swirl of a bladed rotor.
 
 **ELLIPTICAL PLACED 0.62 OF THE THRUST ASKED IN THE WAKE.** On the one case
-measured on 26.124, a disc loaded by `ACTUATOR_THRUST` (the ELLIPTICAL
+ summarises (26.124), a disc loaded by `ACTUATOR_THRUST` (the ELLIPTICAL
 model) carried 0.62 of the thrust asked as axial momentum flux four radii
 downstream, at the thrust asked and at twice it alike, where the CUSTOM
 profiles carried 0.95 to 1.04 of it. This is a measured value, not a
@@ -232,10 +238,11 @@ file once into the simulation unit; `NATIVE` treats it as already in that unit.
 See [custom-field units](custom-field-units.md).
 
 THE FIELD IS THE FLOW'S DIRECTION. On 26.124 `SOLVER_SET_AOA` does not turn a
-custom field, so a row stating one states `ALPHA` and `BETA` as 0, or
+custom field (T14), so a row stating one states `ALPHA` and `BETA` as 0, or
 neither, and writes the incidence it wants into the field's `vy` and `vz`
 components. A non-zero angle of attack or sideslip beside the key, fixed or
 swept, is refused at plan, a sweep at every point, the one at zero too
+:
 run, such a row would solve near zero incidence and report the angle it names.
 The sideslip was not measured; it is the same mechanism and is refused for the
 same reason.
@@ -256,20 +263,21 @@ The file is read against its form when each point is built, which the plan
 does, so a file not in it is refused before any seat, naming the file, the
 line and what the form asks: a header that is not two positive integers, a row
 count other than Npts x Mpts, a row that is not six finite numbers, rows whose
-x differ and rows stating a single y or a single z
-A blank line is
+x differ (the field lies in one YZ plane, so every row states the x of that
+plane) and rows stating a single y or a single z
+. A blank line is
 read past. Refused at plan as well: a stem the folder does not hold, naming
 what it holds, and a stem written with its extension; a stem the folder holds
 as both a `.txt` and a `.dat`; the key on a `LEGACY` row, whose recipe writes
 its own free stream; and the key beside a non-zero or swept body rate, since a
 rate writes `SET_FREESTREAM ROTATION` and a run has one `SET_FREESTREAM`
-A rate written as 0 is
+. A rate written as 0 is
 straight flight and sits beside it.
 
 WHAT HAS RUN WHERE. `SET_FREESTREAM` is documented on every build, and its
 CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14,
 steady rows of `tests/tier3_licensed/matriz_gui.fs` on the 12_WING_PHY wing at
-30 m/s, five far-field layers:
+30 m/s, five far-field layers (the loads table prints four decimals):
 
 | row | free stream | angle of attack | CL | CDi | CDo |
 |---|---|---|---|---|---|
@@ -281,10 +289,11 @@ steady rows of `tests/tier3_licensed/matriz_gui.fs` on the 12_WING_PHY wing at
 
 The uniform field loads as the constant free stream it equals, to the digits
 printed, with both divided by the same stated reference velocity, so the field's
-speed is read in m/s; the sheared field moves the lift; and at
+speed is read in m/s (the grid's coordinates, which a uniform field cannot
+show, were not probed on their own); the sheared field moves the lift; and at
 4 deg, the one angle run, the field loads near its own 0 deg self and far from
 the constant free stream at 4 deg, although the angle still moves the result a
-little. That is the
+little (CL 0.0021 against 0.0023, CDi 0.0002 against 0.0000). That is the
 refusal above.
 Row 5011 is retired from the matrix, since the plan refuses it now; its run is
 the report's evidence. `tests/tier3_licensed/.py` holds 5012 to

@@ -13,19 +13,21 @@ frame, one after another with no marker between them. Each row leads with:
 | `ROTOR` | the rotor whose blades those families are; `NA` for a surface no rotor owns |
 | `AZIMUTH` | where the block's blade is at `STEP`, in degrees, wrapped to one turn: the block's OWN blade when it cuts the families of one blade of its rotor, else where BLADE ONE OF THAT ROTOR is; `NA` without a rotor |
 
-`AZIMUTH = mod 360`,
-with the datum, the sense of rotation and the
+`AZIMUTH = (blade1.azimuth_deg + sense * STEP * 360 / steps_per_revolution) mod 360`,
+with the datum, the sense of rotation (the sign of the rotor's speed) and the
 steps per revolution all taken from THAT rotor. Two rotors at two speeds have
 two azimuths at one step, and a wing has none. A block that cuts the
-families of ONE blade of its rotor states THAT blade's azimuth, `AZIMUTH`
-above placed ` 360 / B` ahead, whatever
+families of ONE blade of its rotor (the rotor's `families_blades`, blade `n`
+from 1, expanded through the aliases) states THAT blade's azimuth, `AZIMUTH`
+above placed `(n - 1) 360 / B` ahead (0.31.0,
+`pyflightstream.post.axes.placed_blade_azimuth_deg`, the one home), whatever
 the sense of rotation: the sense turns the clock, not the blades' places on
 the disc. So the four blade blocks of a four-blade rotor read four azimuths a
 quarter turn apart, in the sections table and in the sections series alike.
 A block over several blades, over the rotor's general families, or of a rotor
 whose record states no blade grouping keeps blade one's azimuth. The sections of a quasi-steady
 WHEEL point hold every clocking, and there a block of one blade states where
-THAT blade is at its clocking.
+THAT blade is at its clocking ([The quasi-steady rotor](the-quasi-steady-rotor.md#the-quasi-steady-rotor)).
 
 The run records which distribution is which, because the script states
 surfaces by index and nothing at post can name them. A historical record with no section layout states `NA` in all four, and so does a record whose blocks do not add
@@ -38,7 +40,7 @@ than a row given none.
 which carries the same identity on every row.
 
 The sections table of an additional post holds the run's rows first and the
-additional pproc's after them; [The additional post] says
+additional pproc's after them; [The additional post](the-additional-post.md#the-additional-post) says
 how each is named.
 
 <a id="per-distribution-sectional-loads-and-cp-0250"></a>
@@ -51,7 +53,8 @@ entry for each export:
 - `sections/<point>_sloads_<name>.csv`, from the sectional loads export;
 - `sections/<point>_cp_<name>.csv`, from `EXPORT_ALL_SURFACE_SECTIONS`.
 
-`<name>` preserves the entry's `families` word; a list joins its words with `-`, for example `Blade1-Blade2`.
+`<name>` preserves the entry's `families` word (including an alias such as
+`blades`); a list joins its words with `-`, for example `Blade1-Blade2`.
 Filename-invalid characters become `_`, and trailing spaces and dots are
 removed. Names that collide after sanitization, including differences only in
 case, receive `_<k>`, the entry's 1-based pproc position. If that creates another
@@ -60,6 +63,7 @@ All planes and expanded blade/rotor blocks of one entry share its one file.
 On a quasi-steady WHEEL point each file holds every clocking, with a
 `CLOCKING` column after the export's own columns and the azimuth of each
 block's blade at that clocking, as the sections table does
+([The quasi-steady rotor](the-quasi-steady-rotor.md#the-quasi-steady-rotor)).
 
 With `EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_AFTER_ITER`, each file holds
 **every available stamped step**, in ascending order. Without per-step exports,
@@ -81,7 +85,8 @@ retain each block's pproc entry position and original `families` selection;
 editing the pproc cannot reassign those recorded blocks. For a 0.24.0 layout,
 the recorded pproc must match each block unambiguously by families, plane,
 frame and count. That match reads the geometry's boundary names
-where they are known, for a block recorded in a common frame: a block whose only
+where they are known, for a block recorded in a common frame (see *The
+geometry's names* under the integrated loads below): a block whose only
 possible emitter is an entry citing a word nothing resolves, such as a rotor's
 name with no rotor definition in hand, is that entry's, and the split file is
 named after it. In a frame spelt like a rotor's, where the names settle
@@ -116,7 +121,8 @@ run. A record
 whose script creates a section or no longer hashes as recorded, and a continuation whose record has no layout, are not given it, and their split stays
 refused.
 
-Each manifest entry states `distribution`, `families`, and `steps_tabled`. A pproc entry with no recorded blocks
+Each manifest entry states `distribution` (1-based), `families` (the original
+alias/selection), and `steps_tabled`. A pproc entry with no recorded blocks
 gets a named skip rather than a guessed share of another entry's rows.
 Missing exports and missing stamped steps
 are named skips. A section without chordwise stations contributes no Cp rows;
@@ -160,14 +166,15 @@ and after the read, never remembered: a geometry changed or deleted since the
 run recovers nothing, nor does one changed while its names are read, and the
 `<stem>.boundaries.toml` sidecar is not read for it, because nothing hashed
 it. The names settle a selection ONLY for a block recorded in a common frame,
-or where the live reference's rotor definitions are in hand. A block recorded in a frame spelt like a rotor's
-
+or where the live reference's rotor definitions are in hand (integration
+alone ever has them). A block recorded in a frame spelt like a rotor's
+(`<alias>_RMRP`, `<alias>_RMRP<n>`, `<alias>_SMRP`, `<alias>_SMRP_ORIGINAL`)
 may be an expanding entry's emission, and the builder resolved that entry
 against the reference's rotor families, never over the names alone:
 `Blade1` on `RMRP` asks for the rotor owning Blade1, and `Blade` for every
 rotor with a Blade family. With no rotor definition in hand such a block is
 matched as without the names, below, as in 0.26.0. No block records which
-entry emitted it, so a user's own frame spelt like a rotor's is
+entry emitted it, so a user's own frame spelt like a rotor's (`X_RMRP`) is
 read that way too, and two entries on it stay refused by name. A run that
 turned a rotor is matched as without the names in any frame unless the
 rotor definitions are in hand, because the builder reads a word naming a
@@ -176,7 +183,7 @@ boundaries Prop1 and Prop2 is not the stem `Prop`. Where the
 names are read, a selection is read by the export builder's own expansion
 over them, for integration and for the ownership of a legacy layout alike:
 a family stem, a numbered name, `all` and the aliases resolve as they
-did at export, and an `all` block is the
+did at export, and an `all` block (recorded as an empty family list) is the
 whole inventory. So `families = "Blade"` integrates a recorded Blade1 and
 Blade2 block where the geometry carries no third blade and no boundary named
 `Blade`, and is refused, by name, where it carries either. Names that give
@@ -184,7 +191,7 @@ one name to two boundaries settle nothing: the builder leaves that name out
 of its labels, so the rest no longer say what `all` or a stem selected, and
 the record is read as one without the names. A word that
 resolves to nothing over the names and that no alias or rotor definition in
-hand names leaves its entry a
+hand names (a rotor's name with no rotor definition) leaves its entry a
 possible owner of every block of its frame kind, plane and count, so the
 integration match is refused by name; for the ownership of a legacy layout
 that same entry owns a block by elimination, when every other entry either
@@ -193,37 +200,44 @@ a frame whose `_ORIGINAL` twin the run holds emits into both frames, so over
 the names it stays a possible owner of a block on the twin beside the entry
 citing the twin, and the integration match there is refused by name.
 
-**Without the names**, ownership of a legacy layout
- resolves the recorded
+**Without the names** (a run that opened no geometry declaring them, an
+older record whose geometry is gone or changed, or names that give one name
+to two boundaries), ownership of a legacy layout
+(a name and a grouping for raw files, no number added) resolves the recorded
 pproc's selectors over the recorded cuts, the only evidence there is, a
 family stem and a numbered name included. Integration is never matched that
 way, whoever asks, because the post cannot tell a recorded specification
-from a current one: a selector is knowable
+from a current one (two resolutions of one artifact id compare equal after an
+edit, and a recorded entry may have emitted nothing): a selector is knowable
 only by exact recorded boundary names, by aliases and by the live reference's
 rotor definitions, whose members count even when they have no sectional
 block; without the geometry's names layout silence never proves a family
-absent, and any other word leaves membership uncertain, establishes no
+absent, and any other word (a family stem, an unrecorded name, a
+whole-geometry selector) leaves membership uncertain, establishes no
 integration match and keeps the raw columns with a named skip. `each` and
 `each_blade` still identify one known family per block without claiming a
 complete inventory.
 In a common frame, `["Wing", "Tail"]` describes one combined block,
 so it cannot integrate separate recorded Wing and Tail blocks; both keep their
 raw columns with a named warning. Where no rotor definition reaches the match
-the recorded frame names
+(a legacy layout, or a reference without rotors), the recorded frame names
 carry the builder's grouping, because they name the rotor: `<alias>_RMRP`,
-`<alias>_SMRP` with its `_ORIGINAL` twin, and
+`<alias>_SMRP` with its `_ORIGINAL` twin (one emission turned, one group), and
 `<alias>_RMRP<n>` for one blade; a frame either specification in hand cites
-literally names no rotor whatever it is called, unless
+literally (a user's own `X_RMRP`) names no rotor whatever it is called, unless
 a recorded frame no specification cites literally establishes the same rotor
-even then a literally cited frame can hold
+(the rotor's `ROTOR_RMRP` cited by an entry over its hub stays the rotor's
+while `ROTOR_RMRP1` is recorded); even then a literally cited frame can hold
 any family, so it never supplies a sibling's missing family and a block
 recorded in it is that literal entry's, never an expanding entry's; uncertain
 membership keeps the raw columns. A block of any other kind than the entry's
 frame expands per, a common frame included, is not that entry's emission and
-cannot stand as a sibling of one. On an expanding frame a recorded block is an entry's emission when it is exactly the selected
+cannot stand as a sibling of one. On an expanding frame (`LOCAL_AXIS`, `RMRP`,
+`SMRP`) a recorded block is an entry's emission when it is exactly the selected
 families recorded in its group, every other selected family is recorded in a
-sibling group of the same kind or, for a
-`LOCAL_AXIS` entry, in its own rotor's frame, and a per-blade block is one blade; two blocks recorded in
+sibling group of the same kind (another rotor, another blade) or, for a
+`LOCAL_AXIS` entry, in its own rotor's frame (the hub and spinner the builder
+leaves out of a cut), and a per-blade block is one blade; two blocks recorded in
 one group came from two entries and a combined entry owns neither, and a
 selected family recorded only in a common frame leaves the block unmatched. If the effective pproc cannot be
 resolved, complete recorded layouts and available stamped exports still supply
@@ -250,28 +264,28 @@ immediately after `Moment`:
 | `My_int` | `MY_INT` | N m | `Moment * Strip_length`, about this station's quarter chord |
 
 **Strip rule.** For strictly monotonic exported offsets `s[0]... s[n-1]`,
-the interior boundaries are ` / 2`. The outer boundaries extend
+the interior boundaries are `(s[i-1] + s[i]) / 2`. The outer boundaries extend
 half an adjacent spacing beyond `s[0]` and `s[n-1]`, because the exported end
 stations are strip centers. Endpoint lengths are their one adjacent interval;
 each interior length is half the distance between its two neighboring stations.
 Thus the strips cover the span including the half strip beyond each end station,
 with no gap or overlap. Decreasing offsets retain
 their order and use positive lengths. The nominal `count` spacing is never
-used. Each recorded block is integrated
+used. Each recorded block (one plane, frame and family selection) is integrated
 independently at each exported STEP, including blocks sharing a distribution
 file. Original rows, axes, STEP and AZIMUTH are preserved. These are instants,
 with no temporal average or revolution envelope.
 
 **Moment-point decision, 2026-09-23.** `My_int` reports the integral of the
-export's `Moment` about the local quarter chord ``. SRC-751,
-the registered 26.123 manual, p.253, explicitly
+export's `Moment` about the local quarter chord `(X_QC, Z_QC)`. SRC-751,
+the registered 26.123 manual, p.253 (Sectional Load Distributions), explicitly
 identifies Xqc and Zqc as the 25% chord coordinates used for the CM reference.
 Its pp.370-371 document computing and exporting the same sectional loads.
 The recorded export
 `tests/tier1_offline/fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt` carries
 `Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment`; its Newtons/Newton-Meter footer
 states the computation units. The line-density interpretation is supported
- Multiplying the moment density
+by the recorded force-integral comparison. Multiplying the moment density
 by the strip length preserves that moment point and the export's sign and
 section-plane axes. For an XZ cut in a blade's own frame this is its My.
 For another cut plane it retains the export's plane-normal moment component

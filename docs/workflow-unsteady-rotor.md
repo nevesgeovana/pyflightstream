@@ -23,6 +23,11 @@ developing; refine the step and run more revolutions before the window when
 the absolute level matters, and compare points at the same step and the same
 revolution count when the difference between them is what matters.
 
+The licensed measurements of workflow-built rotor scripts cover the first
+round (26.120), the following two rounds (26.124), and a further round
+(26.124). Blade counts come from `families_blades`; `BLADES` applies only
+to a row that names no rotor.
+
 ## A rotor row states the decisions, and the arithmetic is derived
 
 A rotor study is designed in an advance ratio and an azimuthal step.
@@ -73,17 +78,17 @@ the decisions and the package derives the rest.
  where the fact lives.
 
 * `DELTA_THETA: <deg>` and `REVOLUTIONS: <turns>` set the clock:
- `DELTA_TIME = theta / `, emitted as derived, and
- `TIME_ITERATIONS = REVOLUTIONS * 360 / DELTA_THETA`. `DELTA_TIME` and
- `TIME_ITERATIONS` state the same thing directly and still work; a row
- states one pair, and half a pair is refused naming the key that is
- missing, because neither half implies the other.
+  `DELTA_TIME = theta / (6 rpm)`, emitted as derived, and
+  `TIME_ITERATIONS = REVOLUTIONS * 360 / DELTA_THETA`. `DELTA_TIME` and
+  `TIME_ITERATIONS` state the same thing directly and still work; a row
+  states one pair, and half a pair is refused naming the key that is
+  missing, because neither half implies the other.
 
  An unsteady run that meshes nothing turning takes this pair too, when
- the row states the speed whose azimuth the step measures
-A wing-body in a propeller's slipstream is
- the case it exists for. Stating the pair with no speed is refused
- naming both keys.
+    the row states the speed whose azimuth the step measures
+    (`ADVANCE_RATIO` or `RPM`). A wing-body in a propeller's slipstream is
+    the case it exists for. Stating the pair with no speed is refused
+    naming both keys.
 
  Revolutions that do not work out to a WHOLE number of steps are
  refused naming both numbers. Rounding silently would end the run
@@ -91,70 +96,73 @@ A wing-body in a propeller's slipstream is
  converges and exports like any other.
 
 * `RUN_WAKE_LENGTH_R: <L>` states the run length as the wake length the
- run should reach, in rotor radii, in place of `REVOLUTIONS` or
- `TIME_ITERATIONS`. The row states it with exactly one of
- `DELTA_THETA` or `DELTA_TIME`, and the step count is
- `TIME_ITERATIONS = ceil(L R Omega / (V_ax dtheta))`: R the tip radius of the
- largest rotor the row turns, Omega its speed, dtheta the step in radians and
- V_ax the axial velocity. It is the conversion and the axial velocity rule of
- the wake termination's `wake_termination_length`: V_ax is the free stream,
- or the induced velocity `sqrt(T / (2 rho A))` of the setup's
- `wake_termination_thrust_n` where that is larger. A positive target always
- marches at least one step, even below the conversion's roundoff tolerance.
- On a row turning 1200
- rev/min at 30 m/s, whose rotor block states `diameter_m = 3.6576`, at `DELTA_THETA: 10`,
+  run should reach, in rotor radii, in place of `REVOLUTIONS` or
+  `TIME_ITERATIONS`. The row states it with exactly one of
+  `DELTA_THETA` or `DELTA_TIME`, and the step count is
+  `TIME_ITERATIONS = ceil(L R Omega / (V_ax dtheta))`: R the tip radius of the
+  largest rotor the row turns, Omega its speed, dtheta the step in radians and
+  V_ax the axial velocity. It is the conversion and the axial velocity rule of
+  the wake termination's `wake_termination_length`: V_ax is the free stream,
+  or the induced velocity `sqrt(T / (2 rho A))` of the setup's
+  `wake_termination_thrust_n` where that is larger. A positive target always
+  marches at least one step, even below the conversion's roundoff tolerance.
+  On a row turning 1200
+  rev/min at 30 m/s, whose rotor block states `diameter_m = 3.6576` (R =
+  1.8288 m), at `DELTA_THETA: 10` (Omega / dtheta = 720 per second),
 
  ```text
  RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 10 / RUN_WAKE_LENGTH_R: 4 / LAST_REVS_AVG: 0.25
  ```
 
- marches `ceil = 176` steps, 4.89 revolutions of 36
- steps. The script, the averaging window and every export threshold read
- that count, so `EXPORT_UNSTEADY_LAST_REV: 1` on this row exports steps 141
- to 176. `pyfs-matrix plan` prints the count per point, with the
- revolutions and V_ax:
+ marches `ceil(4 x 1.8288 x 720 / 30) = 176` steps, 4.89 revolutions of 36
+    steps. The script, the averaging window and every export threshold read
+    that count, so `EXPORT_UNSTEADY_LAST_REV: 1` on this row exports steps 141
+    to 176. `pyfs-matrix plan` prints the count per point, with the
+    revolutions and V_ax:
 
  ```text
- <run id>: run length RUN_WAKE_LENGTH_R = 4 R: 176 steps, 4.889 revolution, V_ax 30 m/s
+    <run id>: run length RUN_WAKE_LENGTH_R = 4 R: 176 steps, 4.889 revolution(s), V_ax 30 m/s (free_stream)
  ```
 
  and the run record's solver-flag snapshot carries `run_wake_length`,
  `run_wake_rule`, `run_wake_v_ax_m_s` and `run_wake_time_iterations`.
 
  **The length is nominal**: the helical travel of the wake at V_ax, not
- a measured wake. Near hover the free stream goes to zero and the count
- grows without bound, and the wake termination's revolution cap does not
- bound the run length; read the printed revolutions before running.
- Refused at plan, each naming the remedy: the key beside `TIME_ITERATIONS`
- or `REVOLUTIONS`; both or neither of `DELTA_THETA` and
- `DELTA_TIME`; a length that is not positive; a rotor with no known
- diameter; and an axial velocity that is not positive.
+    a measured wake. Near hover the free stream goes to zero and the count
+    grows without bound, and the wake termination's revolution cap does not
+    bound the run length; read the printed revolutions before running.
+    Refused at plan, each naming the remedy: the key beside `TIME_ITERATIONS`
+    or `REVOLUTIONS` (both named); both or neither of `DELTA_THETA` and
+    `DELTA_TIME`; a length that is not positive; a rotor with no known
+    diameter; and an axial velocity that is not positive (state
+    `wake_termination_thrust_n` in the setup, or state `REVOLUTIONS`).
 
 The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` applies only to cases written in Python. A row declaring it is refused; use `pyfs-matrix upgrade <matrix> --in-place` to migrate the matrix.
 
 The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. Use `pyfs-matrix upgrade <matrix> --in-place` to migrate an older matrix.
 
 * `EXPORT_UNSTEADY_AFTER_REV: <turns>` or `EXPORT_UNSTEADY_AFTER_ITER:
- <steps>`, at most one per row, is the step the PER-STEP exports begin
- on. From that step to the end of the run the solver exports every
- per-step kind of the row's output set after each time step, and stamps
- each file with the iteration: a row whose stem is `P7001-...`
- leaves `P7001-..._iteration=72.txt`, `_iteration=73.txt` and so
- on beside the end-of-run export of the same name. Revolutions are
- counted on the rotor the run turns, so that form belongs to
- `unsteady_rotor`; `unsteady` takes the iterations form only, and a
- steady row is refused either, having no time loop for an action to
- run in. `EXPORT_UNSTEADY_LAST_REV: <turns>` and `EXPORT_UNSTEADY_LAST_ITER:
- <steps>` state the same exports from the END of the run instead: the last
- turns or the last steps, and the row still states at most one of the
- four. See [exports that begin after a threshold](#exports-that-begin-after-a-threshold)
- for the worked example and what the run leaves.
+  <steps>`, at most one per row, is the step the PER-STEP exports begin
+  on. From that step to the end of the run the solver exports every
+  per-step kind of the row's output set after each time step, and stamps
+  each file with the iteration: a row whose stem is `P7001-...`
+  leaves `P7001-..._iteration=72.txt`, `_iteration=73.txt` and so
+  on beside the end-of-run export of the same name. Revolutions are
+  counted on the rotor the run turns, so that form belongs to
+  `unsteady_rotor`; `unsteady` takes the iterations form only, and a
+  steady row is refused either, having no time loop for an action to
+  run in. `EXPORT_UNSTEADY_LAST_REV: <turns>` and `EXPORT_UNSTEADY_LAST_ITER:
+  <steps>` state the same exports from the END of the run instead: the last
+  turns or the last steps (the first form belongs to `unsteady_rotor`, the
+  second to both unsteady types), and the row still states at most one of the
+  four. See [exports that begin after a threshold](#exports-that-begin-after-a-threshold)
+  for the worked example and what the run leaves.
 
-**The plan states how fast each rotor's tip moves.** For every
+**The plan states how fast each rotor's tip moves (0.30.0).** For every
 point of an `unsteady_rotor` row, a `steady` row that states `RPM` and a
 row that names an actuator disc, `pyfs-matrix plan` prints the tip and
 helical Mach numbers of each rotor and disc, from the speed the run turns,
-the rotor's diameter and the point's own free
+the rotor's diameter (a disc's `tip_radius_m`) and the point's own free
 stream and speed of sound, one row per rotor per point under the title
 `Rotor Mach numbers`:
 
@@ -166,23 +174,25 @@ Rotor Mach numbers
 ```
 
 and warns, naming each point, when the advancing-tip Mach number is 1 or more
+(`M_adv >= 1`, the advancing tip sonic or supersonic):
 
 ```text
 advancing-tip Mach M_adv >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
-rotor PORT, M_adv 1.117 (M_hel 1.117). ...
+rotor PORT, M_adv 1.117 (M_hel 1.117)....
 ```
 
 `M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a`, with `V_ax` the free-stream
 component along the rotor axis and `V_ip` the component in the rotor plane.
 `M_hel = sqrt(V^2 + (Omega R)^2) / a` bounds the tip only in axial flow, where
-`M_adv = M_hel`; in edgewise flow `M_adv = / a`
+`M_adv = M_hel` (the example above); in edgewise flow `M_adv = (Omega R + V) / a`
 is larger. Where a row's rotor axis cannot be resolved, `M_adv` is that
 edgewise bound and the plan line says so.
 
 A disc's row reads `actuator PROP` in the rotor column. The plan refuses nothing for
 the warning. A rotor whose reference states no diameter for it has no known
 radius: the plan says so naming the row instead of a number. The
-definitions, and where else the two numbers appear, are in
+definitions, and where else the two numbers appear (the run record, the
+rotor table), are in
 [the definition of record](post-processing-definitions.md#tip-and-helical-mach-numbers).
 
 `VAR_NAMES_VALUES` is your namespace except for the keys the package
@@ -200,9 +210,12 @@ says nothing. A row naming the body therefore solves with no
 base region and no error; name the base boundary. A pproc's `base_regions`
 list follows the same rule. A raw mesh's sidecar can ask for the whole-mesh
 detection instead, `[base_regions] detect = "auto"`
+([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
-registers the keys it reads, and a row naming a run type is refused at `pyfs-matrix plan`
+registers the keys it reads (`Workflow.keys` in
+`pyflightstream.cases.workflows`, the wider types extending the
+narrower), and a row naming a run type is refused at `pyfs-matrix plan`
 for any key outside that vocabulary. Measured on 2026-09-08: a copy of
 the suite's own tour with `FOO_BAR: 1` appended to a row planned READY on
 every point, and the run would have spent a seat on a row stating
@@ -212,8 +225,8 @@ something the script does not carry. The row
 7007 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1
 ```
 
-is marked BLOCKED with the reason naming the row, the run
-type, the key and what reads it, and
+is marked BLOCKED with the reason naming the row (`case '7007'`), the run
+type, the key and what reads it (`FOO_BAR (a key of no run type)`), and
 the keys `steady` registers. A key ANOTHER run type reads is refused the
 same way and named with that type: `LAST_REVS_AVG: 0.25` on a `steady` row
 is `a key of unsteady, unsteady_rotor`. The refusals a builder already
@@ -273,7 +286,7 @@ tables resolve them, a member the file does not carry being left out.
 The letter is what tells a group from a position, since `4` alone is
 still the fourth boundary. A group that names nothing the file holds is
 refused naming the group, its members, the artifact, the file and its
-inventory; on the pusher, `g2`
+inventory; on the pusher, `g2` (group 2 of `p001`, which is `Wing`)
 is refused that way.
 
 **And the pproc artifact itself is judged against the geometry at plan
@@ -285,7 +298,7 @@ before the save, is blocked instead of producing an empty polar sum. What is ref
 artifact and the geometry sharing NO name, not a member missing from one
 group: an artifact is written once for a study and shared by rows
 opening different geometries, so a family a file lacks is left out by
-design, and `p002`'s group 3 sums to zero on the wing
+design, and `p002`'s group 3 (`Body`, `Base`) sums to zero on the wing
 rows exactly as the reference products carry it.
 
 `angle_sweep_deg` IS RESERVED TOO, and it is the one whose
@@ -309,8 +322,8 @@ rotor. A row may state several: `MOTIONS: {...},
 {...}`, each pair of braces one rotor holding those same keys, the pairs
 inside separated by `/` as in the flat cell and the records by commas. The
 builder then creates, per record, a fixed frame at the record's hub
-a moving frame turned by the motion
- and one `CREATE_NEW_MOTION` block citing its own frame,
+(`<ALIAS>_SMRP`, one per record), a moving frame turned by the motion
+(`RotorAxis1`,...) and one `CREATE_NEW_MOTION` block citing its own frame,
 axis, speed and boundaries; each rotor's `<ALIAS>_SMRP` is the frame the pproc
 entries cite, the time step follows the rotor `CLOCK_MOTION` names, and the run record
 lists every record as bound. A record's `ROTOR_ORIGIN` may name a point of
@@ -319,7 +332,8 @@ be a rotor point, `ERP` or `ERP1` through `ERPn` by the naming convention,
 and a motion on a point declared `kind = "airframe"` is refused naming the
 point and its kind. A name outside the convention is refused when the file is
 read, whatever kind it declares, because the names are what say how many
-propulsors the campaign describes. The flat rotor row's
+propulsors the campaign describes (measured 2026-09-08 on the tier-3
+workspace, which had named a hub `HUB`). The flat rotor row's
 own `ROTOR_ORIGIN` may name a point the same way; until then
 only a `MOTIONS` record could, and the one-rotor row demanded three numbers. A flat row renders
 exactly as before; a row with a `MOTIONS` list and a flat motion key beside
@@ -355,7 +369,8 @@ pyfs-matrix upgrade matriz.fs --in-place --inputs inputs
 ```
 
 which renames the column, drops `FS_SCRIPT`, moves `inputs/groups/e001.toml`
-to `inputs/pproc/p001.toml` under a `[groups]` header, and gives the cells that named it their `p`.
+to `inputs/pproc/p001.toml` under a `[groups]` header (the file's own lines,
+comments and all), and gives the cells that named it their `p`.
 
 **A workspace with a `SWEEP_TYPE` column moves with the same command**, which
 also folds `SWEEP_TYPE` into the flight condition: `AL` becomes
@@ -367,8 +382,10 @@ names this command.
 Two things about that conversion are worth knowing before you run it:
 
 * **It does not rename a run.** A held angle is carried at every point, so
- the point names that end every `run_id` in `runs.json` are the ones the
- converted file plans under, and a `--resume` finds the records it has.
+  the point names that end every `run_id` in `runs.json` are the ones the
+  converted file plans under, and a `--resume` finds the records it has.
+  (The 0.21.0 point NAME is a separate move, made once by `pyfs-matrix
+  rename`; see [migrating to 0.21.0](upgrading.md#older-layouts).)
 
 * **It stops on a row that varies BOTH angles**, naming every such row.
  That row is one run per sideslip and each new row needs a POL of its
@@ -381,6 +398,7 @@ A `[[probes]]` entry of a rotor row is a fluid plot per point and parameter,
 written at every time step, unless it states `kind = "normal"`: then it is a
 probe point created after the march and exported once, at the last time step,
 as on the `unsteady` run type
+([Probes: unsteady or normal](workflow-unsteady.md#probes-unsteady-or-normal)).
 With `EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_LAST_REV` they are also
 exported at every step of that window, `<point>_probes_iteration=<step>.txt`.
 
@@ -430,6 +448,13 @@ of the point: the run record names them as `action_program` and
 `action_script`, hashes them in `inputs_sha256`, and keeps in
 `action_count` the count the program reached, which is the number of time
 steps the solver completed.
+
+What is exported per step is read from the row's outputs and nowhere
+else: the loads table, the surface (the VTK, from which the run writes each
+step's Tecplot file), the sections, the sectional
+loads and the probes, whichever the pproc artifact's export set kept.
+The saved simulation, the plots file and the log describe the whole run
+and stay at the end.
 
 **A row that states neither key registers the counter alone**, on a build that documents the actions: only the first of
 the two registrations above, whose program counts the time steps and

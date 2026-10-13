@@ -1,8 +1,8 @@
 ## Native surface flow exports
 
-VTK and FEM CSV are native solver surface exports; the
-Tecplot is written by the package from the VTK. New Tecplot requests also retain the native nodal-strength source described in
-[the 0.29 amendment]. VTK and CSV
+VTK (`.vtk`) and FEM CSV (`.csv`) are native solver surface exports; the
+Tecplot (`.dat`) is written by the package from the VTK ([below](#the-tecplot-surface-is-written-from-the-vtk-since-0280)). New Tecplot requests also retain the native nodal-strength source described in
+[the 0.29 amendment](#native-nodal-strength-in-0290). VTK and CSV
 are **off by default**. The pproc can request them and select VTK variables by
 their command-database names:
 
@@ -22,14 +22,14 @@ last_revs = 1.5 # OR last_iters = 54; exactly one, positive
 `<point>_force_distributions.txt` on every run type: the pressure and viscous
 force coefficients of every surface panel, by boundary, which
 `pyflightstream.results.parse_force_distributions` reads. It is exported once,
-at the end of the run, with every surface: an unsteady row does
+at the end of the run, with every surface (`SURFACES -1`): an unsteady row does
 not add it to its per-step exports, and its wall-clock rescue does write it.
 The file grows with the mesh, which is why it is asked for rather than given.
 An export taken before the solver has iterated can hold no panel.
 
 Without `vtk_variables`, VTK uses the command's all-variables form. Both forms
 exclude the wake. CSV exports `CP-FREESTREAM`, `PASCALS`, all surfaces, in the
-solver reference frame. Unknown
+solver reference frame (frame 1 on builds whose grammar includes it). Unknown
 VTK variables and commands unavailable on the selected build are refused at
 plan. Both formats also join the per-step `EXPORT_UNSTEADY_AFTER_REV` or
 `EXPORT_UNSTEADY_AFTER_ITER` exports.
@@ -40,12 +40,12 @@ plan. Both formats also join the per-step `EXPORT_UNSTEADY_AFTER_REV` or
 
 **Historical 0.28.x contract.** The following description applies to records
 without the native-source declaration. New 0.29.0 records follow
-[the amendment below]; historical outputs keep
+[the amendment below](#native-nodal-strength-in-0290); historical outputs keep
 the meaning their recorded release gave them.
 
 **A 0.28.x campaign point does not request native Tecplot.** Where `[exports]`
-keeps `tecplot`, the script exports the surface as VTK
- and the package writes the `.dat`
+keeps `tecplot` (the default), the script exports the surface as VTK
+(`EXPORT_SOLVER_ANALYSIS_VTK`, every surface) and the package writes the `.dat`
 from it, at the name the solver's own Tecplot had, in the point's
 `datapoints/DP-<point>/`, before the point's outputs are collected. The run
 hashes it with them, so every reader downstream finds it where it was. **One VTK
@@ -59,70 +59,82 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
 | | the solver's own Tecplot, to 0.27.x | the package's 0.28.x contract |
 |---|---|---|
 | zone | one FEPolygon zone, BLOCK packing | the same |
-| nodes | `X`, `Y`, `Z`, in the reference frame | the same nodes, in the reference frame; under mirror or periodic symmetry, followed by the images of the surface |
+| nodes | `X`, `Y`, `Z`, in the reference frame | the same nodes, in the reference frame; under mirror or periodic symmetry, followed by the images of the surface (below) |
 | values | per NODE, by a cell-to-node rule of the solver's | per CELL, `VARLOCATION` cell-centred: exactly the value the solver computed on each panel, nothing interpolated |
 | variables | sixteen, `Singularity_strength` among them | every variable the VTK carries, under the VTK's names: nineteen in the all-variables form |
 | faces | each polygon's edges, the polygon on the left, none on the right | the same |
 
 - **The frame.** The solver writes the VTK in the ANALYSIS LOADS FRAME, the frame
- `SET_SOLVER_ANALYSIS_LOADS_FRAME` names: a point `p` is written
- `p' = R `, `R`'s rows the frame's axes in the reference frame and `o`
- its origin. The package undoes it with the loads frame the script
- itself set, as the script placed it: it emitted the frames and the
- loads-frame command, so it knows `R` and `o`. A loads frame the script did not
- place is refused at plan, naming the frame.
+  `SET_SOLVER_ANALYSIS_LOADS_FRAME` names: a point `p` is written
+  `p' = R (p - o)`, `R`'s rows the frame's axes in the reference frame and `o`
+  its origin. The package undoes it with the loads frame the script
+  itself set, as the script placed it: it emitted the frames and the
+  loads-frame command, so it knows `R` and `o`. A loads frame the script did not
+  place (one an opened project carries, or one a command moved in a way the
+  package does not follow) is refused at plan, naming the frame.
 - **The velocity components are written back the way the solver wrote them, as
- So the
- components are undone exactly as the nodes are. Every other value is a scalar
- and is written as the VTK holds it. A `vtk_variables` naming some of `VX`,
- `VY`, `VZ` and not all three is refused at plan where the loads frame is not
- the reference frame, since each component was written from all three.
+  a point is, origin included.** On the measured recorded files the norm of `Vx`,
+  `Vy`, `Vz` equals the panel's own `Velocity` to 7e-15 at the median only once
+  the frame's origin is put back, `v = R^T v' + o`, on 6867 of 7167 panels of
+  both the plain and the turned frame; turned back as a vector alone it misses
+  by 9.0 m/s at the median, the origin's 9.152 m read as a speed. So the
+  components are undone exactly as the nodes are. Every other value is a scalar
+  and is written as the VTK holds it. A `vtk_variables` naming some of `VX`,
+  `VY`, `VZ` and not all three is refused at plan where the loads frame is not
+  the reference frame, since each component was written from all three.
 - **A row under symmetry carries its images.** Under mirror symmetry the VTK,
- and so the `.dat`, holds the modelled surface followed by its mirror image in
- `y`; under periodic symmetry, the modelled blade followed by its copies turned
- about the rotor's axis, one per other blade. The solver's own Tecplot held the
- modelled surface alone. The first block of nodes and polygons is that surface,
- node for node: the 99 Tecplot files of the tier-3 points on 26.124 against the
- solver's own of the same solves are equal on 86, and on the 13 mirrored or
- periodic ones the first block is equal to 3e-17 m and the rest are the images
-A reader that sums over every panel of such a `.dat` sums the whole
- body, not the half or the one blade the solver's file held.
+  and so the `.dat`, holds the modelled surface followed by its mirror image in
+  `y`; under periodic symmetry, the modelled blade followed by its copies turned
+  about the rotor's axis, one per other blade. The solver's own Tecplot held the
+  modelled surface alone. The first block of nodes and polygons is that surface,
+  node for node: the 99 Tecplot files of the tier-3 points on 26.124 against the
+  solver's own of the same solves are equal on 86, and on the 13 mirrored or
+  periodic ones the first block is equal to 3e-17 m and the rest are the images
+. A reader that sums over every panel of such a `.dat` sums the whole
+  body, not the half or the one blade the solver's file held.
 - **`Singularity_strength` is not carried.** It is the panel strength the
- solver's Tecplot prints, and the VTK does not hold it. The VTK adds seven the
- solver's Tecplot did not carry: `Normalized_Vorticity`, `Cp_freestream`, the
- momentum and displacement thicknesses and the shape factor of the boundary
- layer, `Static_pressure_ratio` and `Boundary_Index`.
+  solver's Tecplot prints, and the VTK does not hold it. The VTK adds seven the
+  solver's Tecplot did not carry: `Normalized_Vorticity`, `Cp_freestream`, the
+  momentum and displacement thicknesses and the shape factor of the boundary
+  layer, `Static_pressure_ratio` and `Boundary_Index`.
 - **The names are the VTK's.** Where the solver's Tecplot printed `CF`, `Cp`,
- `Mach Number`, `BL Thickness`, the `.dat` carries `skin_friction_coeff.`,
- `Cp_reference` (and `Cp_freestream` beside it), `Mach_Number`, `BL_Thickness`,
- and so on; nothing is renamed, because which of the two pressure coefficients
- With `vtk_variables` a
- subset, the `.dat` carries that subset.
+  `Mach Number`, `BL Thickness`, the `.dat` carries `skin_friction_coeff.`,
+  `Cp_reference` (and `Cp_freestream` beside it), `Mach_Number`, `BL_Thickness`,
+  and so on; nothing is renamed, because which of the two pressure coefficients
+  the solver's `Cp` was is not identified. With `vtk_variables` a
+  subset, the `.dat` carries that subset.
 - **Cell values against nodal ones.** A translated file is not the solver's
- Tecplot to the digit: that one holds nodal values, this one the cell values
- they were averaged from. Its `products.json` entry states the same as
- `translated_from`, `source_sha256`, `location` (`cell-centred`), `frame`
- (`reference`) and `not_carried`; the PROV document attributes it to the
- package and derives it from the VTK. The run record's `surface_translations`
- states each translation, its frame and the files written, and why one could
- not be; a Tecplot the run could not write is a named skip,
- `tecplot/<run id>`.
+  Tecplot to the digit: that one holds nodal values, this one the cell values
+  they were averaged from. On the measured solve, each cell value against the mean
+  of the solver's nodal values at that polygon's nodes differs by a median of
+  0.0025 in `Cp` (1.66 at most) and 3.3e-6 in `CF`.
+- **What the file states about itself.** Its `DATASETAUXDATA` records name its
+  VTK (`SOURCE_VTK`) and that file's sha256 (`SOURCE_VTK_SHA256`), say it is a
+  translation, cell-centred, in the reference frame (`TRANSLATION`), name the
+  frame undone (`SOURCE_FRAME`) and say `Singularity_strength` is not carried
+  (`NOT_CARRIED`). Its `products.json` entry states the same as
+  `translated_from`, `source_sha256`, `location` (`cell-centred`), `frame`
+  (`reference`) and `not_carried`; the PROV document attributes it to the
+  package and derives it from the VTK. The run record's `surface_translations`
+  states each translation, its frame and the files written, and why one could
+  not be; a Tecplot the run could not write is a named skip,
+  `tecplot/<run id>`.
 - **Per step, the same route.** `EXPORT_UNSTEADY_AFTER_ITER` and
- `EXPORT_UNSTEADY_AFTER_REV` export the step's VTK, and the run writes each
- `<name>_iteration=<step>.dat` from the `<name>_iteration=<step>.vtk` beside it.
- The wall clock's rescue exports the VTK too, and its `.dat` is written the same
- way.
+  `EXPORT_UNSTEADY_AFTER_REV` export the step's VTK, and the run writes each
+  `<name>_iteration=<step>.dat` from the `<name>_iteration=<step>.vtk` beside it.
+  The wall clock's rescue exports the VTK too, and its `.dat` is written the same
+  way.
 - **The additional post** writes its Tecplot the same way, in the run's loads
- frame as the run's own script placed it. **A continuation's** loads frame is
- the saved simulation's, and the run takes its placement from the run it
- continues; a record stating no placement requires recovery, and an unrecoverable continuation is
- refused at plan, before anything is archived, unless its pproc sets
- `tecplot = false`.
+  frame as the run's own script placed it. **A continuation's** loads frame is
+  the saved simulation's, and the run takes its placement from the run it
+  continues; a record stating no placement requires recovery, and an unrecoverable continuation is
+  refused at plan, before anything is archived, unless its pproc sets
+  `tecplot = false`.
 - **What keeps its own route.** The volume section's Tecplot
- (`[volume_section] format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), the
- probe files of `pyflightstream.post.writers` and a hand-written script's
- `helpers.export_results(tecplot=...)` are what they were. Only the campaign's
- surface export, `[exports] tecplot`, is written from the VTK.
+  (`[volume_section] format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), the
+  probe files of `pyflightstream.post.writers` and a hand-written script's
+  `helpers.export_results(tecplot=...)` are what they were. Only the campaign's
+  surface export, `[exports] tecplot`, is written from the VTK.
 - **A record carrying native Tecplot** keeps that file and its recorded meaning: nothing reads it again.
 
 ### Native nodal strength in 0.29.0

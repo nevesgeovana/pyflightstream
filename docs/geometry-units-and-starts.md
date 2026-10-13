@@ -3,7 +3,7 @@
 A steady attitude sweep starts every point cold, including the
 first point. The script clears the solution before each solve. To retain the
 previous warm behavior, set `COLD_START: false` in the matrix row. The Python
-builder uses `build_steady_sweep` for the same opt-in.
+builder uses `build_steady_sweep(..., cold=False)` for the same opt-in.
 
 Warm results can depend on the order of the points. The run continues to record
 that order. Geometry and setup are emitted once in either mode. This change
@@ -29,8 +29,10 @@ Imported raw meshes retain their existing import-unit conversion. No field of
 custom inflow velocities or coordinates is automatically rotated.
 
 Saved FSM units are decoded only for measured paired global-block headers:
-`` is metres and `` is millimetres. The latter reuses the
- Paired static controls on build
+`(1.0, 5)` is metres and `(0.001, 2)` is millimetres. The latter reuses the
+26.124 measurement in, rather than claiming a new licensed test.
+These are the selected command/display units, not a declaration that every
+saved coordinate array uses that unit. Paired static controls on build
 8172026 imported the same meter-valued square, used frame origins differing
 by a factor of 1,000, and saved identical meter-valued mesh/frame coordinates
 after a positive 90-degree X rotation (maximum discrepancy below 1e-10).

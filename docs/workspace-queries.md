@@ -96,8 +96,8 @@ import json
 from tempfile import TemporaryDirectory
 from pyflightstream.workspace.ledger import status_rows
 
-with TemporaryDirectory as root:
- assert json.dumps(status_rows(root)) == "[]"
+with TemporaryDirectory() as root:
+    assert json.dumps(status_rows(root)) == "[]"
 ```
 
 History returns exit code 1 when its target has no recorded run. Invalid

@@ -68,7 +68,7 @@ where it lives and a complete example to copy to the path its block's title
 names. The run matrix, the setup, the pproc, the reference, the named
 reference points, the geometry sidecar of a saved simulation and of a raw
 mesh, the trailing-edge points file, the provenance record, the two files of
-`inputs/profiles/`,
+`inputs/profiles/` (an actuator's radial thrust profile and a probe survey),
 the custom free stream, the HPC profile, and the build registry with its
 local overlay. The examples cite each other, so the matrix plans against the
 rest as written. Each section names the keys its example leaves out, with the
@@ -114,7 +114,9 @@ The package looks in `geometries/<stem>/` first and at
 change a matrix that names the file. A library can hold both layouts while it moves. What the folder
 buys is a home: the inventory sidecar and the provenance record stop
 being loose files among forty others, and a point staged from a folder
-shows that geometry's files only, never the whole library. A flat library moves in one command:
+shows that geometry's files only, never the whole library (the link
+under `sims/<sim>/inputs` points at the folder; see "A point opens its
+geometry through a link" below). A flat library moves in one command:
 
 ```text
 pyfs-workspace migrate-geometries .    # geometries/30_WB.fsm and its sidecars
@@ -123,13 +125,14 @@ pyfs-workspace migrate-geometries .    # geometries/30_WB.fsm and its sidecars
 
 It moves every `geometries/<stem>.<ext>` with its `<stem>.boundaries.toml`
 and `<stem>.provenance.toml` into `geometries/<stem>/`, prints each move
-and each folder it left alone, and a second run moves nothing. A root with
+and each folder it left alone (a folder that already exists is not
+touched, whatever it holds), and a second run moves nothing. A root with
 no `inputs/geometries` is refused, exit 2, with nothing created. The run
 records of the workspace keep reading: a record names its inputs by file
 name and hashes their bytes, and neither moved. The suite runs the line
 above over a library holding a saved simulation with both sidecars, a
-raw mesh with none and a folder already made, then runs it again
-and runs a matrix row against the folder layout on the campaign path
+raw mesh with none and a folder already made, then runs it again,
+and runs a matrix row against the folder layout on the campaign path.
 The flat layout is not deprecated: nothing migrates by itself, and the
 cycle that retires it is for the owning seat to open once the folders have run a
 campaign.
@@ -152,25 +155,28 @@ Three things can happen to a key, and the third is the one worth
 knowing.
 
 1. **It names a setting this package emits**, directly or by alias, and
- it reaches the script.
+   it reaches the script.
 2. **It is declared recorded-only.** It stays in the artifact, emits
- nothing, and a warning names it AND the reason. The seven this
- package declares today are `solver`, `motion`, `symmetry_type`,
- `unsteady_delta_theta_deg`, `unsteady_N_revolutions`,
- `set_base_region_trailing_edges` and `wake_layers`.
- `symmetry_type` belongs to the geometry a row opens
- and is stated in the row's `SYMMETRY`; `solver` and `motion` are what
- the `WORKFLOW` column decides; `unsteady_delta_theta_deg` and
- `unsteady_N_revolutions` are superseded by the row's `DELTA_THETA`
- and `REVOLUTIONS`; `set_base_region_trailing_edges` is a
- separation model that selects boundaries, and a preset carries no
- selection, so it is a recipe's job; and `wake_layers` has no
- emitter in this package at all. `slipstream_wake_stabilization`
- LEFT this list at v0.32.0, when it became a setup toggle. See [The slipstream wake stabilization](removing-surfaces.md#the-slipstream-wake-stabilization). Two keys LEFT it at v0.11.0:
- `symmetry_loads`, on the design decision of 2026-09-02 with the
- measurement in hand, and
- `significant_digits`, which gained its emitter; `mesh_order_list` is
- refused outright, since the boundary order belongs to the file
+   nothing, and a warning names it AND the reason. The seven this
+   package declares today are `solver`, `motion`, `symmetry_type`,
+   `unsteady_delta_theta_deg`, `unsteady_N_revolutions`,
+   `set_base_region_trailing_edges` and `wake_layers`.
+   `symmetry_type` belongs to the geometry a row opens
+   and is stated in the row's `SYMMETRY`; `solver` and `motion` are what
+   the `WORKFLOW` column decides; `unsteady_delta_theta_deg` and
+   `unsteady_N_revolutions` are superseded by the row's `DELTA_THETA`
+   and `REVOLUTIONS`; `set_base_region_trailing_edges` is a
+   separation model that selects boundaries, and a preset carries no
+   selection, so it is a recipe's job; and `wake_layers` has no
+   emitter in this package at all. `slipstream_wake_stabilization`
+   LEFT this list at v0.32.0, when it became a setup toggle (see
+   [The slipstream wake stabilization](removing-surfaces.md#the-slipstream-wake-stabilization)). Two keys LEFT it at v0.11.0:
+   `symmetry_loads`, on the design decision of 2026-09-02 with the
+   measurement in hand (a stated key reaches
+   `SET_ANALYSIS_SYMMETRY_LOADS`; an absent one still emits nothing), and
+   `significant_digits`, which gained its emitter; `mesh_order_list` is
+   refused outright, since the boundary order belongs to the file
+   (`pyfs-matrix inventory`).
 
  That list is maintained by hand and this page is not generated, so
  **read the warning your own preset prints** rather than this
@@ -203,7 +209,7 @@ mesh being rebuilt, while a family name is a fact about the aircraft.
 |---|---|---|
 | `vorticity_drag_families` | families whose induced drag comes from vorticity integration | `SET_VORTICITY_DRAG_BOUNDARIES` |
 | `axial_separation_families` | families on the axial flow separation list | `SET_AXIAL_SEPARATION_BOUNDARIES` |
-| `analysis_families` | families that enter the loads; every other boundary leaves the analysis | `SET_SOLVER_ANALYSIS_BOUNDARIES` |
+| `analysis_families` (steady rows) | families that enter the loads; every other boundary leaves the analysis | `SET_SOLVER_ANALYSIS_BOUNDARIES` |
 
 ```toml
 vorticity_drag_families   = ["Wing", "HTP", "VTP"]
@@ -234,7 +240,8 @@ analysis commands: the script states them after `START_SOLVER` and before
 the point's exports, on every point of a steady sweep, and each is checked
 against the command database for the row's build. A unit the command does
 not take is refused when the preset is read, naming the five it does
-What each means for the products:
+(`load_units = 'FOO' is not one of COEFFICIENTS, NEWTONS, KILO-NEWTONS,
+POUND-FORCE, KILOGRAM-FORCE`). What each means for the products:
 
 - **`load_units`**: every product reads the loads table as coefficients, so
  a point whose table's footer names another unit writes no product row; the
@@ -293,7 +300,7 @@ The command database records that answer, so a row on 26.124
  judgement rather than a measurement: the solver's deprecation notice leaves
  its replacement field empty.
 
-`vorticity_drag_boundaries` is an
+`vorticity_drag_boundaries` (also spelled `set_vorticity_drag_boundaries`) is an
 accepted spelling of the first, and `set_solver_analysis_boundaries` of
 `analysis_families`. Stating any of them, or `vorticity_drag_families` or
 `analysis_families`, as an EMPTY list is refused when the file is read, at
@@ -329,9 +336,8 @@ wrote before the key existed, so a preset naming none keeps its bytes. A word
 the command does not take is refused when the preset is read, naming the two
 it does.
 
-**On a row turning a rotor, the moments model follows the vorticity drag**
-A propeller whose induced drag, and so its thrust, comes from the
-vorticity integration while its moments, and so
+**On a row turning a rotor, the moments model follows the vorticity drag**. A propeller whose induced drag, and so its thrust, comes from the
+vorticity integration (`vorticity_drag_families`) while its moments, and so
 its torque, come from the pressure integration mixes two integrations in one
 load, which a prior measurement outside this package showed. So on an
 `unsteady_rotor` or `qsteady_rotor` row, or a row stating a rotor speed:
@@ -366,10 +372,11 @@ time step. The file is named as written; nothing checks or writes it.
 
 Every choosable command of the Solver Settings, Advanced Settings, Runtime
 Settings, Unsteady Solver and Solver Analysis chapters has a key, or is listed
-with the measured reason it has none, in
- A preset that states `[[frames]]` is refused at plan, directing the table to the reference artifact.
+with the measured reason it has none, in the setup catalogue.
 
-**Boundary aliases belong in the reference artifact**. A preset that states `[aliases]` is refused at plan, directing the table to the reference artifact.
+**Boundary aliases belong in the reference artifact** ([reference aliases](workflow-reference-artifact.md#the-reference-declares-the-studys-vocabulary)). A preset that states `[aliases]` is refused at plan, directing the table to the reference artifact.
+
+**Coordinate frames belong in the reference artifact** ([reference frames](workflow-reference-artifact.md#the-reference-declares-the-studys-vocabulary)). A preset that states `[[frames]]` is refused at plan, directing the table to the reference artifact.
 
 ### A row may state setup keys over its preset
 
@@ -405,9 +412,13 @@ lists, under `from_row`, the keys the row stated and their cell text.
 A cell carries a number, a word, `true` or `false`, or a list of names
 separated by commas. It cannot carry a table, whose own pairs would need the
 cell's slash and whose records its comma, so the table-valued keys
- are a preset's only, and a row naming one is refused
+(`airfoil_separation`, `axial_vortex_separation`, `bulk_separation`,
+`cylindrical_bulk_separation`, `stratford_bulk_separation`, `ports`,
+`trailing_edge_types`, `actuator_operations`, `base_region_operations` and
+`unsteady_solver_actions`) are a preset's only, and a row naming one is refused
 with that list. A key named by a run type and by the setup at once, or one
-setting written in both vocabularies on one row, is refused as ambiguous. A key that is neither a run-type
+setting written in both vocabularies on one row (`SYMMETRY_LOADS` beside
+`symmetry_loads`), is refused as ambiguous. A key that is neither a run-type
 key nor a setup key is refused by the run type, as before.
 
 ### When a name you used no longer exists
