@@ -112,10 +112,10 @@ def _blade(
             a, b = k * n + j, k * n + (j + 1) % n
             faces += [[a, b, b + n], [a, b + n, a + n]]
     if closed:
-        for k, z in ((0, ROOT), (RINGS - 1, TIP)):
+        for k, cap_z in ((0, ROOT), (RINGS - 1, TIP)):
             centre = len(vertices)
             middle = numpy.delete(section, te + 1, axis=0) if unwelded else section
-            vertices.append([*(middle.mean(axis=0) - [0.25, 0.0]) * _chord(z, taper), z])
+            vertices.append([*(middle.mean(axis=0) - [0.25, 0.0]) * _chord(cap_z, taper), cap_z])
             faces += [
                 [centre, k * n + (j + 1) % n, k * n + j]
                 for j in range(n)
