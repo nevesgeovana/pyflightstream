@@ -14,7 +14,7 @@
 \textbf{Typical flow:} \cmd{inventory} (new mesh) $\rightarrow$ \cmd{plan} (mandatory, no solver) $\rightarrow$ \cmd{run} (\fl{--resume} to add points) $\rightarrow$ \cmd{collect} (cluster jobs) $\rightarrow$ \cmd{post} \quad\textbar\quad
 \textbf{Safe by default:} storage, sync, restore, rebuild and mark-failed only PREVIEW until \fl{--apply}. \fl{--workspace} defaults to the current folder; \fl{--runs NAME} picks another manifest than \texttt{runs.json}; a matrix name is found in the workspace root or \texttt{inputs/matrices/}.
 \end{tcolorbox}
-\vspace{-2pt}
+\vspace{-3pt}
 % Page 1 holds every subcommand and option of pyfs-matrix: four columns at a
 % smaller size keep it to one page (FR-328: the guide is ten pages).
 \fontsize{5.7}{6.35}\selectfont
@@ -247,7 +247,7 @@
 \end{multicols}
 
 \newpage
-\fontsize{7.1}{8.1}\selectfont
+\fontsize{5.9}{6.7}\selectfont
 \begin{tcolorbox}[colback=tool!8,colframe=tool,boxrule=0.4pt,left=2pt,right=2pt,top=1pt,bottom=1pt]
 {\large\bfseries\color{tool} Every other command-line tool} \hfill {\small \pkgname{} \textbf{\pkgversion} \quad every subcommand and option \quad \texttt{<tool> <cmd> -h} (\texttt{--help}) gives the full text}\\[1pt]
 \textbf{The tools:} \texttt{pyfs-workspace} builds the campaign tree and custom free-stream fields; \texttt{pyfs-qa} is the evidence tooling of the command database (probes and physics runs need a licensed machine); \texttt{pyfs-fsi} is the coupling executable the solver calls; \texttt{pyfs-manual} is a maintainer tool (the \texttt{[manual]} extra); the two \texttt{python -m} entries keep an optional workbook (the \texttt{[excel]} extra). \textbf{Safe by default:} the field operations preview until \fl{--apply}; \texttt{pyfs-manual} writes only with \fl{--write}.
@@ -344,7 +344,6 @@
 \item \fl{--out DIR} run folder (default: current); \fl{--dir} is its deprecated alias
 \end{flags}
 
-\columnbreak
 \tool{pyfs-qa}{evidence tooling of the command database: probes run the solver locally on a licensed machine}
 \sub{probe}{run command-validity probes and write the compat report pair}
 \begin{flags}
