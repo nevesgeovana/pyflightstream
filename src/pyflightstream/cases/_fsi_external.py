@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T15:29:43-03:00
+# last_modified_by: OpenAI / Codex / GPT-6 / reviewer
+# dependencies: [pyflightstream._digest.one_file_key]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Restore REL8-001 filename identity checks omitted at integration (REL9-001).
+# revision_source: git
+# GEOVERSE_HEADER_END
 """The coupling block of an external structural program (FR-462, 0.40.0).
 
 Route B of the use case, the one the evidence supports on 26.124 and 26.125:
@@ -21,6 +32,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path, PurePath
 
+from pyflightstream._digest import one_file_key
 from pyflightstream.cases import CampaignConfigError, SimCase
 from pyflightstream.cases.fsi_workspace import (
     CALLBACK_FILE,
@@ -152,12 +164,11 @@ def wire_external_fsi(
     # files the plan stages beside them.
     reserved = set(STEP_NAMES) | {POST_FILE, CALLBACK_FILE, "fsi-provenance.json"}
     source_name = Path(structure.source).name
-    inputs = {name.casefold() for name in structure.inputs}
-    collisions = inputs & {name.casefold() for name in reserved | {source_name}}
-    collisions |= {name.casefold() for name in structure.outputs} & {
-        name.casefold() for name in reserved | {source_name} | set(structure.inputs)
-    }
-    if source_name.casefold() in {name.casefold() for name in reserved}:
+    held = {one_file_key(name) for name in reserved | {source_name}}
+    collisions = {name for name in structure.inputs if one_file_key(name) in held}
+    held.update(one_file_key(name) for name in structure.inputs)
+    collisions |= {name for name in structure.outputs if one_file_key(name) in held}
+    if one_file_key(source_name) in {one_file_key(name) for name in reserved}:
         collisions.add(source_name)
     if collisions:
         raise CampaignConfigError(
