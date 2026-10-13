@@ -9,10 +9,23 @@ imports it), in ``<folder>.partial/``, then reads the saved file back, audits
 the exported mesh, writes the preview and the record, and only then moves the
 outputs into place.
 
-Exit codes of the command (FR-471 R8): 0 built and audited, 1 built with a
-failed audit gate, 2 refused with nothing written (:class:`InputArtifactError`),
-3 the solver, read-back or sweep overlay failed (:class:`GeometryBuildError`).
-An overlay failure retains temporary work for diagnosis and preserves prior variant outputs.
+THE BUILD IS ONE TRANSACTION (FR-471 R3, R8; FR-472). Every geometry of the
+plan is built and judged in its partial folder first, where it holds a record
+whose every path resolves in that folder. Only when every geometry passed its
+audit and the sweep overlay is written in full does anything move: each
+geometry's records are withdrawn, its files moved, its record written last and
+its partial folder removed after that; the overlay is published after every
+geometry. So whatever stops the build, a solver, an audit, the overlay or an
+interruption, no record names a file that is not beside it, no overlay claims
+a geometry that was not promoted, and no built byte is lost: each file is in
+its partial folder or in its geometry folder. The partial folder's ownership
+record lists the destinations of a promotion under way, so a rebuild with
+overwrite completes an interrupted one.
+
+Exit codes of the command (FR-471 R8): 0 built, audited and promoted, 1 built
+and kept in the partial folders because an audit gate failed, 2 refused with
+nothing written (:class:`InputArtifactError`), 3 the solver, read-back or sweep
+overlay failed (:class:`GeometryBuildError`), nothing promoted either.
 """
 
 from __future__ import annotations
@@ -20,6 +33,7 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import re
 import shutil
 import tempfile
 from collections.abc import Callable, Sequence
@@ -84,6 +98,9 @@ __all__ = [
 BUILD_SCHEMA_VERSION = 1
 #: The folder a build works in, beside the folder it builds into.
 PARTIAL_SUFFIX = ".partial"
+#: The ownership record of a partial folder: the instruction that made it, and
+#: the destinations of a promotion under way.
+_MARKER = ".pyfs-build.json"
 
 _PAGE = GEOMETRY_PAGE
 
@@ -91,8 +108,8 @@ _PAGE = GEOMETRY_PAGE
 class GeometryBuildError(PyflightstreamError, RuntimeError):
     """The solver failed, or the saved body is not the one the instruction states (exit 3).
 
-    A solver, read-back or sweep overlay failure promotes nothing from that sweep.
-    Partial folders are retained for diagnosis.
+    A solver, read-back or sweep overlay failure promotes nothing of the build.
+    Partial folders are retained for diagnosis, each record true to its folder.
     """
 
 
@@ -146,7 +163,13 @@ class GeometryBuildPlan:
 
 @dataclass(frozen=True)
 class GeometryBuilt:
-    """One built geometry: where it went, its record and its audit verdict."""
+    """One built geometry: where it is, its record, its audit verdict and whether it was promoted.
+
+    ``passed`` is the audit's verdict and ``promoted`` whether the geometry is in
+    its geometry folder: a geometry that passed is kept in its partial folder,
+    not promoted, when another geometry of the build failed its audit. Only a
+    promoted geometry is accepted (FR-473 R1).
+    """
 
     folder: Path
     record: Path
@@ -154,6 +177,21 @@ class GeometryBuilt:
     failed_gates: tuple[str, ...] = ()
     files: tuple[Path, ...] = field(default_factory=tuple)
     notes: tuple[str, ...] = ()
+    promoted: bool = False
+
+
+@dataclass(frozen=True)
+class _Staged:
+    """One geometry built and judged in its partial folder, not yet promoted."""
+
+    variant: GeometryVariant
+    work: Path
+    mesh_dir: Path
+    mesh_name: str
+    #: The record of the promoted layout, written last when the geometry is promoted.
+    record: dict[str, Any]
+    #: What the build reports while the geometry stays in its partial folder.
+    kept: GeometryBuilt
 
 
 def _refuse(text: str) -> InputArtifactError:
@@ -397,36 +435,45 @@ def _refuse_existing(plan: GeometryBuildPlan, overwrite: bool) -> None:
     for variant in plan.variants:
         work = Path(variant.script.fsm).parent
         if work.exists():
-            marker = work / ".pyfs-build.json"
+            marker = work / _MARKER
             if not _owned_instruction(marker, plan.path):
                 raise _refuse(
                     f"{work} exists without this build's ownership record; "
                     "preserve it elsewhere before building"
                 )
+        # The destinations an interrupted promotion of this build was moving into.
+        promoting = _promoting(work, plan.path)
         if "obj" in variant.instruction.outputs and variant.instruction.outputs != ("obj",):
             target = variant.folder.with_name(f"{variant.instruction.name}_obj")
-            if target.exists() and not _owned_instruction(
-                target / f"{target.name}{BUILD_RECORD_SUFFIX}", plan.path
+            target_record = target / f"{target.name}{BUILD_RECORD_SUFFIX}"
+            if (
+                target.exists()
+                and not promoting
+                and not _owned_instruction(target_record, plan.path)
             ):
                 raise _refuse(
                     f"{target} exists without this build's ownership record; "
                     "rename it before building"
                 )
             if target.exists():
-                old = json.loads(
-                    (target / f"{target.name}{BUILD_RECORD_SUFFIX}").read_text(encoding="utf-8")
-                )
-                owned = set(old.get("owned_files", []))
-                owned.update(Path(item["file"]).name for item in old.get("outputs", []))
+                owned: set[str] = set()
+                if target_record.is_file():
+                    old = json.loads(target_record.read_text(encoding="utf-8"))
+                    owned = set(old.get("owned_files", []))
+                    owned.update(Path(item["file"]).name for item in old.get("outputs", []))
                 for suffix in (".obj", ".boundaries.toml", ".te.txt", ".audit.json"):
                     destination = target / f"{target.name}{suffix}"
-                    if destination.exists() and destination.name not in owned:
+                    if (
+                        destination.exists()
+                        and destination.name not in owned
+                        and destination.resolve() not in promoting
+                    ):
                         raise _refuse(
                             f"{destination} is not a recorded owned output; nothing was removed"
                         )
         if variant.tag is not None and variant.folder.exists():
             record = variant.folder / f"{variant.instruction.name}{BUILD_RECORD_SUFFIX}"
-            ours = _owned_instruction(record, plan.path)
+            ours = bool(promoting) or _owned_instruction(record, plan.path)
             if not ours:
                 raise _refuse(
                     f"the variant {variant.tag} would be built into {variant.folder}, which exists "
@@ -450,6 +497,15 @@ def _owned_instruction(record: Path, instruction: Path) -> bool:
         )
     except (OSError, ValueError, KeyError, TypeError):
         return False
+
+
+def _promoting(work: Path, instruction: Path) -> frozenset[Path]:
+    """Return the destinations a promotion of this instruction was moving into when it stopped."""
+    marker = work / _MARKER
+    if not _owned_instruction(marker, instruction):
+        return frozenset()
+    stated = json.loads(marker.read_text(encoding="utf-8")).get("promoting", [])
+    return frozenset((work / item).resolve() for item in stated if isinstance(item, str))
 
 
 def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool, png: bool) -> None:
@@ -502,9 +558,12 @@ def apply_geometry_build(
         A command awaiting evidence on the build, an existing output without
         ``overwrite``, or ``parallel`` outside 1 to 2: nothing is run or written.
     GeometryBuildError
-        The solver failed, or the saved boundaries or trailing edges are not
-        the ones stated; nothing of that geometry is promoted. A failed sweep
-        retains temporary work and prior variant outputs, without a current overlay.
+        The solver failed, the saved boundaries or trailing edges are not the
+        ones stated, the sweep overlay could not be written, or a destination
+        appeared while the build ran: nothing of the build is promoted, and
+        each geometry built so far is kept in its partial folder with a record
+        true to that folder. A failed audit gate is not raised: every geometry
+        is returned kept, not promoted, its own verdict in ``passed``.
     """
     if not 1 <= parallel <= MAX_PARALLEL:
         raise _refuse(
@@ -514,7 +573,7 @@ def apply_geometry_build(
     refuse_before_running(plan, overwrite=overwrite, png=png)
     if plan.instruction.sweep is not None:
         # Keep the old bytes as noncurrent evidence, including after a failed run.
-        target = plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}"
+        target = _overlay_path(plan)
         if target.exists():
             archive = target.with_name(target.name + ".previous")
             number = 1
@@ -523,42 +582,32 @@ def apply_geometry_build(
                 number += 1
             target.rename(archive)
 
-    def build(variant: GeometryVariant) -> GeometryBuilt:
+    def build(variant: GeometryVariant) -> _Staged:
         return _build_one(
             plan,
             variant,
             runner=runner,
-            overwrite=overwrite,
             png=png,
             package_version=package_version,
         )
 
     if parallel == 1 or len(plan.variants) < 2 or not _room_for_a_second_run():
-        built = tuple(build(variant) for variant in plan.variants)
+        staged = tuple(build(variant) for variant in plan.variants)
     else:
-        built = _built_two_at_a_time(plan.variants, build, parallel)
-    if plan.instruction.sweep is not None and any(not item.passed for item in built):
-        # A failed audit retains the entire sweep for diagnosis, including passing siblings.
-        return built
-    _overlay_the_sweep(plan, built)
-    if plan.instruction.sweep is not None:
-        promoted = []
-        for variant, item in zip(plan.variants, built, strict=True):
-            if item.passed:
-                work = Path(variant.script.fsm).parent
-                name = variant.instruction.name
-                mesh_name = name if variant.instruction.outputs == ("obj",) else f"{name}_obj"
-                files = _promote(variant, work, work / "mesh", mesh_name, overwrite)
-                item = GeometryBuilt(
-                    folder=variant.folder,
-                    record=variant.folder / f"{name}{BUILD_RECORD_SUFFIX}",
-                    passed=True,
-                    files=files,
-                    notes=item.notes,
-                )
-                shutil.rmtree(work, ignore_errors=True)
-            promoted.append(item)
-        built = tuple(promoted)
+        staged = _built_two_at_a_time(plan.variants, build, parallel)
+    if any(not item.kept.passed for item in staged):
+        # FR-471 R8: one failed gate promotes nothing of the build.
+        return tuple(item.kept for item in staged)
+    _verify_destinations(staged, overwrite)
+    pending = _stage_the_overlay(plan, staged)
+    try:
+        built = tuple(_promote(plan, item, overwrite) for item in staged)
+        if pending is not None:
+            # Published last: the overlay exists only over a sweep promoted whole.
+            os.replace(pending, _overlay_path(plan))
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
     return built
 
 
@@ -573,13 +622,13 @@ def _room_for_a_second_run() -> bool:
 
 def _built_two_at_a_time(
     variants: Sequence[GeometryVariant],
-    build: Callable[[GeometryVariant], GeometryBuilt],
+    build: Callable[[GeometryVariant], _Staged],
     parallel: int,
-) -> tuple[GeometryBuilt, ...]:
+) -> tuple[_Staged, ...]:
     """Build the variants ``parallel`` at a time, and each failed one again alone (FR-472 R6)."""
     from concurrent.futures import ThreadPoolExecutor
 
-    done: dict[int, GeometryBuilt] = {}
+    done: dict[int, _Staged] = {}
     again: list[int] = []
     with ThreadPoolExecutor(max_workers=parallel) as pool:
         futures = {position: pool.submit(build, v) for position, v in enumerate(variants)}
@@ -593,21 +642,26 @@ def _built_two_at_a_time(
     return tuple(done[position] for position in sorted(done))
 
 
-def _overlay_the_sweep(plan: GeometryBuildPlan, built: Sequence[GeometryBuilt]) -> None:
-    """Write ``<name>.sweep.vtk`` in the base folder after a sweep (FR-472 R7)."""
+def _overlay_path(plan: GeometryBuildPlan) -> Path:
+    return plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}"
+
+
+def _stage_the_overlay(plan: GeometryBuildPlan, staged: Sequence[_Staged]) -> Path | None:
+    """Write the sweep overlay to a pending file beside its target, before any promotion (R7).
+
+    Returns the pending file, published by the caller after every variant is
+    promoted, or None for a build without a sweep.
+    """
     sweep = plan.instruction.sweep
     if sweep is None:
-        return
+        return None
     pairs = []
-    for variant, _item in zip(plan.variants, built, strict=True):
-        assert variant.ordinal is not None
-        # All variants stay in temporary work until the sweep and its overlay succeed.
-        fsm = Path(variant.script.fsm)
-        name = variant.instruction.name
-        mesh_name = name if variant.instruction.outputs == ("obj",) else f"{name}_obj"
-        obj = Path(variant.script.fsm).parent / "mesh" / f"{mesh_name}.obj"
-        pairs.append((variant.ordinal, variant.tag or "", fsm, obj))
-    target = plan.path.parent / f"{plan.instruction.name}{SWEEP_SUFFIX}"
+    for item in staged:
+        assert item.variant.ordinal is not None
+        fsm = Path(item.variant.script.fsm)
+        obj = item.mesh_dir / f"{item.mesh_name}.obj"
+        pairs.append((item.variant.ordinal, item.variant.tag or "", fsm, obj))
+    target = _overlay_path(plan)
     pending: Path | None = None
     try:
         descriptor, filename = tempfile.mkstemp(prefix=target.name + ".pending", dir=target.parent)
@@ -616,15 +670,15 @@ def _overlay_the_sweep(plan: GeometryBuildPlan, built: Sequence[GeometryBuilt]) 
         result = write_sweep_vtk(pending, pairs, sweep.control_surface)
         if result is None:
             raise MeshReadError("no readable variants")
-        os.replace(pending, target)
     except (MeshReadError, OSError) as error:
-        raise GeometryBuildError(
-            f"the sweep overlay {target.name} could not be produced: {error}; "
-            "prior variant outputs and temporary work are kept, and no current overlay exists."
-        ) from error
-    finally:
         if pending is not None:
             pending.unlink(missing_ok=True)
+        raise GeometryBuildError(
+            f"the sweep overlay {target.name} could not be produced: {error}; nothing was "
+            "promoted, prior variant outputs are kept, every built variant stays in its "
+            "partial folder, and no current overlay exists."
+        ) from error
+    return pending
 
 
 def _require_the_plot_extra() -> None:
@@ -639,15 +693,15 @@ def _build_one(
     variant: GeometryVariant,
     *,
     runner: Runner,
-    overwrite: bool,
     png: bool,
     package_version: str,
-) -> GeometryBuilt:
+) -> _Staged:
+    """Build and judge one geometry in its partial folder; promote nothing (FR-471 R3)."""
     instruction = variant.instruction
     name = instruction.name
     work = Path(variant.script.fsm).parent
     if work.exists():
-        if not _owned_instruction(work / ".pyfs-build.json", plan.path):
+        if not _owned_instruction(work / _MARKER, plan.path):
             raise _refuse(f"{work} is not owned by this build; nothing was removed")
         archive = work.with_name(work.name + ".previous")
         number = 1
@@ -656,9 +710,7 @@ def _build_one(
             number += 1
         work.rename(archive)
     work.mkdir(parents=True)
-    _textio.write_json(
-        work / ".pyfs-build.json", {"instruction": {"file": _relative(plan.path, work)}}
-    )
+    _textio.write_json(work / _MARKER, {"instruction": {"file": _relative(plan.path, work)}})
     for pending, data in variant.script.pending_files.items():
         Path(pending).write_bytes(data)
     script_path = work / f"{name}.build.txt"
@@ -693,51 +745,40 @@ def _build_one(
     if png:
         _write_png(work / f"{name}.preview.png", mesh_dir / f"{mesh_name}.obj")
     failed = tuple(audited["failed"])
-    record = _record(
-        plan,
-        variant,
-        outcome=outcome,
-        saved=saved,
-        audit=audited,
-        script_path=script_path,
-        package_version=package_version,
-        fsm=fsm,
-        obj=mesh_dir / f"{mesh_name}.obj",
-        retained=bool(failed),
-    )
-    if failed:
-        audit_file = mesh_dir / f"{mesh_name}.audit.json"
-        if audit_file.is_file():
-            shutil.copyfile(audit_file, work / f"{name}.audit.json")
-        _textio.write_json(work / f"{name}{BUILD_RECORD_SUFFIX}", record)
-        return GeometryBuilt(
+    # The audit and the saved body's sidecar sit beside the record in both layouts.
+    audit_file = mesh_dir / f"{mesh_name}.audit.json"
+    if audit_file.is_file():
+        shutil.copyfile(audit_file, work / f"{name}.audit.json")
+    if "fsm" in instruction.outputs:
+        _textio.write_text(
+            work / f"{name}.boundaries.toml", sidecar_text(instruction.boundaries, None, None)[0]
+        )
+    facts: dict[str, Any] = {
+        "outcome": outcome,
+        "saved": saved,
+        "audit": audited,
+        "script_path": script_path,
+        "package_version": package_version,
+        "fsm": fsm,
+        "obj": mesh_dir / f"{mesh_name}.obj",
+    }
+    kept = _record(plan, variant, **facts, retained=True)
+    record_path = work / f"{name}{BUILD_RECORD_SUFFIX}"
+    _textio.write_json(record_path, kept)
+    return _Staged(
+        variant=variant,
+        work=work,
+        mesh_dir=mesh_dir,
+        mesh_name=mesh_name,
+        record=_record(plan, variant, **facts, retained=False),
+        kept=GeometryBuilt(
             folder=work,
-            record=work / f"{name}{BUILD_RECORD_SUFFIX}",
-            passed=False,
+            record=record_path,
+            passed=not failed,
             failed_gates=failed,
             files=tuple(sorted(path for path in work.rglob("*") if path.is_file())),
-            notes=tuple(record["notes"]),
-        )
-    _textio.write_json(work / f"{name}{BUILD_RECORD_SUFFIX}", record)
-    if plan.instruction.sweep is not None:
-        # The whole sweep and its overlay must build before any variant replaces old outputs.
-        return GeometryBuilt(
-            folder=work,
-            record=work / f"{name}{BUILD_RECORD_SUFFIX}",
-            passed=True,
-            files=tuple(sorted(path for path in work.rglob("*") if path.is_file())),
-            notes=tuple(record["notes"]),
-        )
-    files = _promote(variant, work, mesh_dir, mesh_name, overwrite)
-    if plan.instruction.sweep is None:
-        shutil.rmtree(work, ignore_errors=True)
-    return GeometryBuilt(
-        folder=variant.folder,
-        record=variant.folder / f"{name}{BUILD_RECORD_SUFFIX}",
-        passed=not failed,
-        failed_gates=failed,
-        files=files,
-        notes=tuple(record["notes"]),
+            notes=tuple(kept["notes"]),
+        ),
     )
 
 
@@ -967,59 +1008,102 @@ def _move_into(sources: list[Path], folder: Path, overwrite: bool) -> list[Path]
     return moved
 
 
-def _promote(
-    variant: GeometryVariant, work: Path, mesh_dir: Path, mesh_name: str, overwrite: bool
-) -> tuple[Path, ...]:
-    """Move the built files into place, and a mesh beside an FSM into its own folder."""
+def _mesh_target(item: _Staged) -> Path | None:
+    """Return the mesh's own geometry folder when the build has both outputs, else None."""
+    outputs = item.variant.instruction.outputs
+    if "obj" in outputs and outputs != ("obj",):
+        return item.variant.folder.with_name(item.mesh_name)
+    return None
+
+
+def _moves(item: _Staged) -> list[tuple[Path, Path]]:
+    """Return each staged file with where promotion moves it, the records apart (FR-471 R4)."""
+    variant, work, mesh_dir = item.variant, item.work, item.mesh_dir
     name = variant.instruction.name
     folder = variant.folder
-    folder.mkdir(parents=True, exist_ok=True)
-    suffixes = [".build.txt", ".build.log", PREVIEW_SUFFIX, BUILD_RECORD_SUFFIX, ".preview.png"]
-    audit = mesh_dir / f"{mesh_name}.audit.json"
-    if audit.is_file():
-        shutil.copyfile(audit, work / f"{name}.audit.json")
-        suffixes.append(".audit.json")
+    suffixes = [".build.txt", ".build.log", PREVIEW_SUFFIX, ".preview.png", ".audit.json"]
     if "fsm" in variant.instruction.outputs:
-        _textio.write_text(
-            work / f"{name}.boundaries.toml",
-            sidecar_text(variant.instruction.boundaries, None, None)[0],
-        )
         suffixes += [".fsm", ".boundaries.toml"]
-    moved = _move_into([work / f"{name}{suffix}" for suffix in suffixes], folder, overwrite)
-    return tuple(moved + _promote_mesh(variant, mesh_dir, mesh_name, overwrite))
-
-
-def _promote_mesh(
-    variant: GeometryVariant, mesh_dir: Path, mesh_name: str, overwrite: bool
-) -> list[Path]:
-    """Move the built mesh: into the folder when it is the one output, else into ``<name>_obj/``."""
-    folder = variant.folder
+    moves = [(work / f"{name}{suffix}", folder / f"{name}{suffix}") for suffix in suffixes]
+    moves = [(source, destination) for source, destination in moves if source.is_file()]
+    meshes = sorted(path for path in mesh_dir.iterdir() if path.is_file())
+    target = _mesh_target(item)
     if variant.instruction.outputs == ("obj",):
-        sources = [s for s in sorted(mesh_dir.iterdir()) if not s.name.endswith(".audit.json")]
-        return _move_into(sources, folder, overwrite)
-    if "obj" not in variant.instruction.outputs:
-        return []
-    target = folder.with_name(mesh_name)
-    target.mkdir(exist_ok=True)
-    old_record = target / f"{mesh_name}{BUILD_RECORD_SUFFIX}"
-    owned: set[str] = set()
-    if old_record.is_file():
-        old = json.loads(old_record.read_text(encoding="utf-8"))
-        owned = set(old.get("owned_files", []))
-        owned.update(Path(item["file"]).name for item in old.get("outputs", []))
-    sources = sorted(mesh_dir.iterdir())
-    for source in sources:
-        destination = target / source.name
-        if destination.exists() and (not overwrite or source.name not in owned):
-            raise _refuse(f"{destination} is not a recorded owned output; nothing was removed")
-    _move_into(sources, target, overwrite)
-    name = variant.instruction.name
-    record = json.loads((folder / f"{name}{BUILD_RECORD_SUFFIX}").read_text(encoding="utf-8"))
+        moves += [(s, folder / s.name) for s in meshes if not s.name.endswith(".audit.json")]
+    elif target is not None:
+        moves += [(source, target / source.name) for source in meshes]
+    return moves
+
+
+def _records_of(item: _Staged) -> list[Path]:
+    """Return the records promotion writes: the geometry's, then its mesh folder's."""
+    records = [item.variant.folder / f"{item.variant.instruction.name}{BUILD_RECORD_SUFFIX}"]
+    target = _mesh_target(item)
+    if target is not None:
+        records.append(target / f"{item.mesh_name}{BUILD_RECORD_SUFFIX}")
+    return records
+
+
+def _verify_destinations(staged: Sequence[_Staged], overwrite: bool) -> None:
+    """Refuse, before any geometry moves, a destination that appeared while the build ran."""
+    if overwrite:
+        return
+    for item in staged:
+        for destination in [*(d for _, d in _moves(item)), *_records_of(item)]:
+            if destination.exists():
+                raise GeometryBuildError(
+                    f"{destination} appeared while the build ran; nothing was promoted and "
+                    "every built geometry is kept in its partial folder. Move it away, or set "
+                    "overwrite (CLI: --overwrite), and build again."
+                )
+
+
+def _promote(plan: GeometryBuildPlan, item: _Staged, overwrite: bool) -> GeometryBuilt:
+    """Move one staged geometry into place, its records withdrawn first and written last.
+
+    The partial folder's ownership record names every destination first, so a
+    rebuild recognises a promotion an interruption stopped; the partial folder
+    is removed only after the records are in place.
+    """
+    work = item.work
+    moves = _moves(item)
+    records = _records_of(item)
     _textio.write_json(
-        target / f"{mesh_name}{BUILD_RECORD_SUFFIX}",
-        {**_rebased(record, folder, target), "owned_files": [s.name for s in sources]},
+        work / _MARKER,
+        {
+            "instruction": {"file": _relative(plan.path, work)},
+            "promoting": [
+                Path(_relative(path, work)).as_posix()
+                for path in [*(d for _, d in moves), *records]
+            ],
+        },
     )
-    return [target]
+    for record in [*records, item.kept.record]:
+        record.unlink(missing_ok=True)
+    by_folder: dict[Path, list[Path]] = {}
+    for source, destination in moves:
+        by_folder.setdefault(destination.parent, []).append(source)
+    files: list[Path] = []
+    for folder, sources in by_folder.items():
+        folder.mkdir(parents=True, exist_ok=True)
+        files += _move_into(sources, folder, overwrite)
+    target = _mesh_target(item)
+    if target is not None:
+        owned = [destination.name for _, destination in moves if destination.parent == target]
+        _textio.write_json(
+            records[1],
+            {**_rebased(item.record, item.variant.folder, target), "owned_files": owned},
+        )
+    _textio.write_json(records[0], item.record)
+    shutil.rmtree(work, ignore_errors=True)
+    return GeometryBuilt(
+        folder=item.variant.folder,
+        record=records[0],
+        passed=True,
+        files=tuple([*files, *records]),
+        notes=item.kept.notes,
+        promoted=True,
+    )
 
 
 def accept_geometries(
@@ -1039,10 +1123,17 @@ def accept_geometries(
     Raises
     ------
     InputArtifactError
-        A name with no build record; nothing is written.
+        A name with no build record, or a partial folder (a build kept for
+        diagnosis, never promoted); nothing is written.
     """
     records = []
     for name in names:
+        if re.search(rf"{re.escape(PARTIAL_SUFFIX)}(\.previous(\.\d+)?)?$", name):
+            raise _refuse(
+                f"{name} is a partial folder: a build kept for diagnosis and never promoted, "
+                "so it is not a geometry a row can name. Correct what failed and build "
+                "again; only a promoted geometry is accepted. Nothing was written"
+            )
         record = geometries / name / f"{name}{BUILD_RECORD_SUFFIX}"
         if not record.is_file():
             found = (

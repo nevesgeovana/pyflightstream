@@ -19,7 +19,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.errors import FsiInputError
-from pyflightstream.fsi.external import ExternalStructure, count_structural_nodes
+from pyflightstream.fsi.external import (
+    STEP_NAMES,
+    ExternalStructure,
+    count_structural_nodes,
+    step_name_collisions,
+)
 
 __all__ = [
     "ExternalFsiInput",
@@ -124,7 +129,9 @@ def resolve_external_fsi(path: str | Path) -> ExternalStructure:
     FsiExternalSetupError
         ``show_console`` or ``morphing`` stated, a key the input does not define, a
         program, node file or declared input outside ``inputs/fsi/`` or absent, a
-        node file with no node, or more than one coupled family.
+        node file with no node, more than one coupled family, or a declared input
+        or output named, without case, as a file the archiving step owns
+        (:data:`~pyflightstream.fsi.external.STEP_NAMES`, ``call.json`` among them).
     """
     source = Path(path).resolve()
     root = source.parent
@@ -165,6 +172,15 @@ def resolve_external_fsi(path: str | Path) -> ExternalStructure:
         if Path(name).name != name:
             raise FsiExternalSetupError(
                 f"{source}: declared output {name!r} is not a bare file name of the point folder."
+            )
+    for kind, names in (("input", list(inputs)), ("output", spec.external.outputs)):
+        taken = step_name_collisions(names)
+        if taken:
+            raise FsiExternalSetupError(
+                f"{source}: declared {kind} {', '.join(repr(name) for name in taken)}: a name "
+                "the archiving step owns in the point folder or in each call's archive "
+                f"({', '.join(sorted(STEP_NAMES))}); the step's file and the program's would "
+                "overwrite each other. Rename it."
             )
     return ExternalStructure(
         source=str(source),
