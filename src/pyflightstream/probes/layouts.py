@@ -332,7 +332,32 @@ def farfield_plane(
     return FarfieldPlane(points=points, y=y, z=z, axes=np.vstack([x_axis, y_axis, z_axis]))
 
 
-def emit_probe_points(script: Script, lattice: ProbeLattice) -> int:
+def _placed(
+    lattice: ProbeLattice, axis: str | None, origin: Sequence[float] | None, scale: float
+) -> np.ndarray:
+    """Return a lattice's positions laid along ``axis``, moved to ``origin``, then scaled.
+
+    With no placement the positions are :meth:`ProbeLattice.dimensional_points`
+    exactly; each step applies only when stated, so an unplaced lattice keeps
+    every bit, a signed zero included.
+    """
+    points = lattice.dimensional_points() if axis is None else lattice_points(lattice, axis=axis)
+    if origin is not None:
+        points = points + np.asarray(origin, dtype=float)
+    if scale != 1.0:
+        points = points * scale
+    return points
+
+
+def emit_probe_points(
+    script: Script,
+    lattice: ProbeLattice,
+    *,
+    axis: str | None = None,
+    origin: Sequence[float] | None = None,
+    scale: float = 1.0,
+    decimals: int | None = None,
+) -> int:
     """Emit one NEW_PROBE_POINT line per lattice probe (SRC-003 p.362).
 
     Every probe is a VOLUME probe: the lattice samples the flow field,
@@ -341,6 +366,13 @@ def emit_probe_points(script: Script, lattice: ProbeLattice) -> int:
     26.12, and a version without recorded evidence (for example
     26.000) refuses with a citation.
 
+    The placement is the one the workspace plan applies to a lattice it
+    lays: along a shaft ``axis`` (:func:`lattice_points`), moved to the hub
+    or frame ``origin``, scaled to the simulation's length unit, then each
+    coordinate rounded with ``round(value, decimals)``, as the script's
+    other probe layouts are. Without them the points are
+    :meth:`ProbeLattice.dimensional_points`, unrounded.
+
     Parameters
     ----------
     script : Script
@@ -348,18 +380,43 @@ def emit_probe_points(script: Script, lattice: ProbeLattice) -> int:
     lattice : ProbeLattice
         Lattice to instantiate; points are emitted in the documented
         loading order of :meth:`ProbeLattice.dimensional_points`.
+    axis : {"X", "Y", "Z"}, optional
+        The frame axis along the shaft; None keeps the lattice's own axes.
+    origin : sequence of float, optional
+        Where the lattice's origin stands, in the lattice's length unit.
+    scale : float
+        Factor from the lattice's length unit to the script's, applied
+        after the origin.
+    decimals : int, optional
+        Decimals each emitted coordinate is rounded to; None leaves them
+        unrounded.
 
     Returns
     -------
     int
         Number of probe points emitted.
     """
-    points = lattice.dimensional_points()
-    helpers.probe_points(script, [(float(x), float(y), float(z)) for x, y, z in points])
+    points = _placed(lattice, axis, origin, scale)
+    if decimals is None:
+        rows = [(float(x), float(y), float(z)) for x, y, z in points]
+    else:
+        rows = [
+            (round(float(x), decimals), round(float(y), decimals), round(float(z), decimals))
+            for x, y, z in points
+        ]
+    helpers.probe_points(script, rows)
     return len(points)
 
 
-def write_probe_csv(lattice: ProbeLattice, path: str | Path) -> int:
+def write_probe_csv(
+    lattice: ProbeLattice,
+    path: str | Path | TextIO,
+    *,
+    axis: str | None = None,
+    origin: Sequence[float] | None = None,
+    scale: float = 1.0,
+    decimals: int | None = None,
+) -> int:
     """Write the PROBE_POINTS_IMPORT csv for the whole lattice.
 
     The documented format (SRC-003 pp.362-363) is the point count on
@@ -370,19 +427,37 @@ def write_probe_csv(lattice: ProbeLattice, path: str | Path) -> int:
     ``tip_radius``), so the import must cite that unit's token in
     :func:`emit_probe_import`.
 
+    The placement is the one the workspace plan applies to a far-field
+    lattice it adds, as in :func:`emit_probe_points`, except that the
+    coordinates are rounded as an array, with :func:`numpy.round`, as the
+    plan's staged csv is.
+
     Parameters
     ----------
     lattice : ProbeLattice
         Lattice to write, in the documented loading order.
-    path : str or pathlib.Path
-        Destination csv path.
+    path : str or pathlib.Path or text stream
+        Destination csv path, or an open text stream
+        (:func:`write_points_csv`).
+    axis : {"X", "Y", "Z"}, optional
+        The frame axis along the shaft; None keeps the lattice's own axes.
+    origin : sequence of float, optional
+        Where the lattice's origin stands, in the lattice's length unit.
+    scale : float
+        Factor from the lattice's length unit to the csv's, applied after
+        the origin.
+    decimals : int, optional
+        Decimals the coordinates are rounded to; None leaves them unrounded.
 
     Returns
     -------
     int
         Number of probe rows written.
     """
-    return write_points_csv(lattice.dimensional_points(), path)
+    points = _placed(lattice, axis, origin, scale)
+    if decimals is not None:
+        points = np.round(points, decimals)
+    return write_points_csv(points, path)
 
 
 def write_points_csv(points: np.ndarray, path: str | Path | TextIO) -> int:

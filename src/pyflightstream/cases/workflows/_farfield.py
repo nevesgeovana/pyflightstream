@@ -23,7 +23,7 @@ from __future__ import annotations
 import io
 import math
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -45,10 +45,12 @@ from pyflightstream.commands import CommandRegistry
 from pyflightstream.probes.layouts import (
     FarfieldPlane,
     emit_probe_import,
+    emit_probe_points,
     farfield_plane,
     lattice_points,
     rectangle_points,
     write_points_csv,
+    write_probe_csv,
 )
 from pyflightstream.script import Script
 
@@ -279,6 +281,9 @@ class FarfieldShape:
         :class:`~pyflightstream.probes.lattice.ProbeLattice` in metres, the
         shaft axis letter, the origin (m) and the frame its recorded probe
         positions are stated in.
+    lattice : ProbeLattice or None
+        The lattice ``points_m`` is laid from, in metres; None for a plane.
+        It is not part of the record, whose ``geometry`` carries it as data.
     """
 
     kind: str
@@ -286,6 +291,7 @@ class FarfieldShape:
     entry: int | None
     points_m: np.ndarray
     geometry: dict[str, Any]
+    lattice: Any = field(default=None, compare=False, repr=False)
 
     def record(self) -> dict[str, Any]:
         """Return the shape as the run record and ``plan.json`` carry it (FR-455 R4)."""
@@ -450,7 +456,7 @@ def _lattice_shape(
         "origin_m": [float(v) for v in origin],
         "positions_frame": str(recorded_in),
     }
-    return FarfieldShape("lattice", source, entry, points, geometry)
+    return FarfieldShape("lattice", source, entry, points, geometry, lattice)
 
 
 def _placed_alike(wanted: LatticeShape, shape: LatticeShape, entry_frame: str) -> bool:
@@ -793,6 +799,28 @@ def declared_lattices(
     return out
 
 
+def emit_declared_lattices(case: SimCase, script: Script, probes: Any, native_per_m: float) -> int:
+    """Emit a steady reference-frame entry's lattices through the probes home (FR-459 R2).
+
+    Each lattice is placed as :func:`declared_lattice_points` places it (on its
+    rotor's hub along the rotor's axis, or along the reference x axis), scaled
+    to the simulation's unit and rounded to five decimals, as
+    :func:`declared_lattices` records the same points; one ``NEW_PROBE_POINT``
+    per point, in the recorded order. Returns the count emitted.
+    """
+    count = 0
+    for shape in probes.lattices:
+        if shape.rotor is not None:
+            lattice, axis, origin = _rotor_placement(case, shape)
+            placed: Any = origin
+        else:
+            lattice, axis, placed = shape.build(float(shape.tip_radius_m or 0.0)), "X", None
+        count += emit_probe_points(
+            script, lattice, axis=axis, origin=placed, scale=native_per_m, decimals=5
+        )
+    return count
+
+
 def _mesh(case: SimCase) -> str | None:
     geometry = getattr(case, "geometry", None)
     if geometry and Path(str(geometry)).suffix.lower() in _MESH_SUFFIXES:
@@ -1033,8 +1061,21 @@ def farfield_probes(
     if imported:
         # THE PROBES HOME WRITES THE CSV (PFS-2140.001): the public writer of the
         # PROBE_POINTS_IMPORT format is what the plan runs, into the text it parks.
+        # A lattice added alone is written from the lattice, placed and rounded as
+        # recorded above; a plane, alone or before the lattice, from the points.
         staged = io.StringIO()
-        write_points_csv(np.asarray(imported, dtype=float), staged)
+        added = [shape for shape in shapes if shape.source == "added"]
+        if len(added) == 1 and added[0].kind == "lattice":
+            write_probe_csv(
+                added[0].lattice,
+                staged,
+                axis=added[0].geometry["axis"],
+                origin=added[0].geometry["origin_m"],
+                scale=native_per_m,
+                decimals=5,
+            )
+        else:
+            write_points_csv(np.asarray(imported, dtype=float), staged)
         payload = staged.getvalue()
         path = f"farfield_probes_{sha256(payload.encode()).hexdigest()}.csv"
         script.park_input_file(path, payload)

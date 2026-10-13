@@ -44,6 +44,7 @@ from ._clock import (
 )
 from ._farfield import (
     declared_lattices,
+    emit_declared_lattices,
     farfield_probes,
     needs_fresh_probes,
     warn_declared_inside,
@@ -760,9 +761,14 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         lattice += rectangle_points(rectangle, scale)
     for circle in probes.circles:
         lattice += circle_points(circle, scale)
-    # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`.
+    # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`. A steady entry
+    # in the reference frame has the probes home emit them too
+    # (`emit_declared_lattices`), placed and rounded as recorded here; in
+    # another frame each point is carried into the reference one below.
+    drawn = len(lattice)
     lattice += declared_lattices(case, probes, native_per_m, unsteady=unsteady)
-    for point in lattice:
+    emitted_by_probes = not unsteady and frame == 1 and bool(probes.lattices)
+    for index, point in enumerate(lattice):
         vertex += 1
         # FR-91, and the lattice reaches here for BOTH run types, so one
         # append covers a rectangle and a circle on either path.
@@ -778,6 +784,8 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                     name=f"{parameter}{vertex}",
                     vertex=" ".join(str(value / native_per_m) for value in point),
                 )
+        elif emitted_by_probes and index >= drawn:
+            continue
         else:
             # A VOLUME PROBE, the point in the flow a fluid probe is. The
             # command's `type` is required on every build, and this line was
@@ -789,6 +797,8 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             # the way a steady line's ends do (reading B30).
             x, y, z = _in_the_reference_frame(case, script, frame, probes.frame, list(point))
             helpers.probe_points(script, [(x, y, z)], kind="VOLUME")
+    if emitted_by_probes:
+        emit_declared_lattices(case, script, probes, native_per_m)
     return vertex
 
 

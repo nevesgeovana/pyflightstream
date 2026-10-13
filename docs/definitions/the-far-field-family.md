@@ -401,10 +401,14 @@ declares a lattice under `lattices`, beside `lines`, `rectangles` and
 `circles`; a declared one is reused by the far field, and one the far field
 needs and the artifact does not declare is added by the plan. They are fixed in
 space, also on a coupled row: they sample the flow, not the structure.
+A steady entry in the reference frame emits its declared lattices with
+`pyflightstream.probes.emit_probe_points`, placed on the rotor's hub or the
+reference axes, in the simulation length unit and rounded to five decimals.
 
 On a steady row the added plane and lattice are written to one staged
 `X,Y,Z,TYPE` CSV in the simulation length unit (by
-`pyflightstream.probes.write_points_csv`) and appended by one
+`pyflightstream.probes.write_points_csv`, or `write_probe_csv` with the same
+placement for a lattice added alone) and appended by one
 `PROBE_POINTS_IMPORT`. The file starts with its point count, uses volume
 type 1 and preserves the recorded order, plane before lattice. Distinct
 point sets have distinct content-derived filenames. Unsteady rows keep

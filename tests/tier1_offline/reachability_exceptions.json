@@ -16,9 +16,7 @@
    "node": "PFS-2140.001",
    "release": "0.40.0",
    "names": [
-    "pyflightstream.post.write_tecplot_points",
-    "pyflightstream.probes.emit_probe_points",
-    "pyflightstream.probes.write_probe_csv"
+    "pyflightstream.post.write_tecplot_points"
    ]
   },
   {

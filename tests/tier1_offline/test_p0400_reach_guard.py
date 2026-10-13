@@ -132,8 +132,9 @@ ROOTS: tuple[tuple[str, str], ...] = (
 # 283: a steady row creates its probe lines and points through script.helpers (RX-07).
 # 281: the probe export goes through probes.emit_probe_export (RX-07 deleted, RX-04 shrinks).
 # 280: the plan writes the added far-field csv with probes.write_points_csv (RX-04 shrinks).
-_REGISTER_CEILING = 280
-_REGISTER_DIGEST = "3245c8a41ce089d4a94ee600831a927c0e69ae309f5adc622bcd551b87bfee4a"
+# 278: the plan places and rounds lattices through emit_probe_points and write_probe_csv.
+_REGISTER_CEILING = 278
+_REGISTER_DIGEST = "5ae5ff66476718dd7a1915edb380b9949419aac7d492322618036db4ead6b72f"
 
 REASONS = (
     "routed later",
