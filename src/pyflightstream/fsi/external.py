@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-10-13T15:29:43-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / reviewer
-# dependencies: [pyflightstream._digest.one_file_key]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore REL8-001 filename identity checks omitted at integration (REL9-001).
-# revision_source: git
-# GEOVERSE_HEADER_END
 """The external structural program and the archiving step that calls it (FR-462, 0.40.0).
 
 An FSI input with ``mode = "external"`` names a structural program of the

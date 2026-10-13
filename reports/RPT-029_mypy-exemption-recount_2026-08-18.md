@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-last_modified_at: 2026-10-13T14:20:00-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-dependencies: [release/0.40.0, integC integration evidence]
-authority: pyflightstream
-status: active
-confidentiality: internal
-change_summary: Align guards and measurements with release intent.
-revision_source: git
--->
-
 # RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20, 2026-08-24, 2026-09-02, 2026-09-09 and 2026-09-29)
 
 > **Amended before this file was ever committed, and the amendment is the

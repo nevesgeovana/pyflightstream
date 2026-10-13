@@ -32,8 +32,6 @@ from pyflightstream.workspace.cli import main
 from tests.tier1_offline.test_p0400_geometry_build import verified_registry
 from tests.tier1_offline.test_p0400_geometry_complete import _body_runner, _sweep
 
-pytestmark = pytest.mark.requirement("FR-471", "FR-472")
-
 TAGS = ("Base-100", "Base+000", "Base+100")
 
 
@@ -82,6 +80,7 @@ def _records_under(geometries: Path) -> list[Path]:
     )
 
 
+@pytest.mark.requirement("FR-471", "FR-472")
 @pytest.mark.parametrize("outputs", ['["fsm"]', '["obj"]', '["fsm", "obj"]'])
 @pytest.mark.parametrize("failure", ["solver", "audit", "overlay"])
 def test_p0400_rfixr6_a_failed_sweep_keeps_every_record_true_to_its_partial_folder(
@@ -122,6 +121,7 @@ def test_p0400_rfixr6_a_failed_sweep_keeps_every_record_true_to_its_partial_fold
         ]
 
 
+@pytest.mark.requirement("FR-471", "FR-472")
 @pytest.mark.parametrize("failure", ["audit", "solver"])
 def test_p0400_rfixr6_the_command_never_offers_to_accept_an_unpromoted_geometry(
     tmp_path, monkeypatch, capsys, failure
@@ -153,6 +153,7 @@ def test_p0400_rfixr6_the_command_never_offers_to_accept_an_unpromoted_geometry(
     assert json.loads(record.read_text(encoding="utf-8"))["inspected"] is None
 
 
+@pytest.mark.requirement("FR-471", "FR-472")
 @pytest.mark.parametrize("outputs", ['["fsm"]', '["obj"]', '["fsm", "obj"]'])
 def test_p0400_rfixr6_a_built_sweep_promotes_every_record_true_to_its_folder(
     tmp_path, monkeypatch, capsys, outputs
@@ -187,6 +188,7 @@ def test_p0400_rfixr6_a_built_sweep_promotes_every_record_true_to_its_folder(
         _resolving(record_path)
 
 
+@pytest.mark.requirement("FR-471", "FR-472")
 def test_p0400_rfixr6_an_interrupted_promotion_leaves_no_false_record_and_recovers(
     tmp_path, monkeypatch
 ):

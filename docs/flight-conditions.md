@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-last_modified_at: 2026-10-13T14:20:00-03:00
-last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-dependencies: [release/0.40.0, integC integration evidence]
-authority: pyflightstream
-status: active
-confidentiality: internal
-change_summary: Align guards and measurements with release intent.
-revision_source: git
--->
-
 # Flight conditions
 
 A run states the flow condition it wants, and the package resolves the

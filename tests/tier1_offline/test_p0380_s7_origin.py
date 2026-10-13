@@ -437,7 +437,8 @@ BASE_DIGESTS: dict[str, str] = {
     "NFR-03": "ad9f302a7260b92ac77afb6eed42a508e395e7a4f3cea79ccd8f1e34a44d59b3",
     "NFR-04": "aab5369189a115d86d4c73dfb22e805fd228a6effbdb4973d85a38a2653d22cd",
     "NFR-05": "ac6594eda020a38d7003865cf52db7569f58d3454bd29f0434465f9c33142d69",
-    "NFR-06": "92ba1080e63f26f8a87d787a22e169018aaf3cad31782d8da587a90df3030d6d",
+    # amended in 0.40.0 (xarray removal implemented with its evidence, PFS-2139.007), SRS 1.84.1
+    "NFR-06": "dba499632ab1d0f5d4ce26d33b1a8cb328c5dff332484ffaa76280ff9ea84653",
     "NFR-07": "ed0c115e256463ea150a82f404e762c44c7fae001f697706f65ce35700573da6",
     "NFR-08": "9682005199206d4fde62060bbdeefabedf308d5752f71cce05d55e902c7f36dc",
     "NFR-09": "4c593de3a4be4aa1cdfd49a9934ae40632868b673ee97c26237faea140ba4dc9",
@@ -629,7 +630,8 @@ def test_p0380_origin_a_box_outside_its_origin_line_is_unchanged_from_the_base()
     The release review fixes move three more: FR-38 (its verification by PFS-2081.72, the
     definitions link by PFS-2081.88 and R8 by PFS-2081.94), FR-46 (the six statuses read as
     the historical set, PFS-2081.82) and FR-79 (the probe-home amendment implemented,
-    PFS-2081.86).
+    PFS-2081.86). NFR-06 moves once more with the promotion of its numpy-runtime amendment
+    to implemented and the evidence it cites (PFS-2139.007).
     """
     changed = []
     for page in PAGES:

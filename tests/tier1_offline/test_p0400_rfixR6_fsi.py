@@ -28,9 +28,8 @@ from pyflightstream.workspace.fsi_external_setup import (
 from tests.tier1_offline.test_g06_actuator_disc import _lines
 from tests.tier1_offline.test_p0400_gaps_rt_fsiext import INPUT, _external_case, _inputs, _point
 
-pytestmark = pytest.mark.requirement("FR-462")
 
-
+@pytest.mark.requirement("FR-462")
 def test_p0400_rfixr6_the_step_names_its_archive_record_and_point_files():
     """P0400-RFIXR6-FSI: one home names every file the step owns, the record among them."""
     assert external.ARCHIVE_RECORD == "call.json"
@@ -48,6 +47,7 @@ def test_p0400_rfixr6_the_step_names_its_archive_record_and_point_files():
         assert name in external.STEP_NAMES, name
 
 
+@pytest.mark.requirement("FR-462")
 @pytest.mark.parametrize("name", ["call.json", "Call.JSON", "fsi_external_stdout.txt"])
 def test_p0400_rfixr6_a_step_name_as_output_is_refused_at_reading(tmp_path, name):
     """P0400-RFIXR6-FSI: resolve refuses the output, naming it, before any plan."""
@@ -57,6 +57,7 @@ def test_p0400_rfixr6_a_step_name_as_output_is_refused_at_reading(tmp_path, name
     assert repr(name) in str(raised.value)
 
 
+@pytest.mark.requirement("FR-462")
 def test_p0400_rfixr6_a_step_name_as_input_is_refused_at_reading(tmp_path):
     """P0400-RFIXR6-FSI: an input staged as call.json is refused the same way."""
     path = _inputs(tmp_path, INPUT.replace('inputs = ["f010.model.dat"]', 'inputs = ["call.json"]'))
@@ -65,6 +66,7 @@ def test_p0400_rfixr6_a_step_name_as_input_is_refused_at_reading(tmp_path):
         resolve_external_fsi(path)
 
 
+@pytest.mark.requirement("FR-462")
 def test_p0400_rfixr6_the_archive_record_name_is_refused_at_plan(tmp_path):
     """P0400-RFIXR6-FSI: a structure carrying call.json as output never reaches a script."""
     case, structure = _external_case(tmp_path)
@@ -74,6 +76,7 @@ def test_p0400_rfixr6_the_archive_record_name_is_refused_at_plan(tmp_path):
     assert "call.json" in str(raised.value).casefold()
 
 
+@pytest.mark.requirement("FR-462")
 def test_p0400_rfixr6_the_step_refuses_a_manifest_that_would_overwrite_its_record(tmp_path):
     """P0400-RFIXR6-FSI: the program is not run, nothing is archived, the user's file stays."""
     folder = _point(tmp_path)
@@ -91,6 +94,7 @@ def test_p0400_rfixr6_the_step_refuses_a_manifest_that_would_overwrite_its_recor
     assert users.read_bytes() == b"the structural program's own call.json\n"
 
 
+@pytest.mark.requirement("FR-462")
 def test_p0400_rfixr6_every_archived_byte_matches_its_recorded_digest(tmp_path):
     """P0400-RFIXR6-FSI: across two calls, each archive holds what its record says it holds."""
     folder = _point(tmp_path)

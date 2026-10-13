@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-10-13T14:20:00-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [release/0.40.0, integC integration evidence]
-# authority: pyflightstream
-# status: active
-# confidentiality: internal
-# change_summary: Align guards and measurements with release intent.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: requirement markers resolve, and the covered set only grows.
 
 REV-002 finding PYFS-020, which is NFR-13 itself. The published
@@ -111,7 +100,7 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: mark FR-92 and FR-102. Compared with 6ee5e247, no live marked id left the set.
 #: Four work-item labels were corrected or removed: none was a requirement,
 #: and the coefficient-format regressions have no defined requirement to mark.
-#: Raised from 235 to 236 by integC: rfixAPI (49ecc99d) marks FR-477 on
+#: Raised from 235 to 236 by integC: rfixAPI (49ecc99d) marks the geometry-alias requirement on
 #: the four tests that falsify each geometry alias's replacement and deadline.
 MARKED_FLOOR = 236
 

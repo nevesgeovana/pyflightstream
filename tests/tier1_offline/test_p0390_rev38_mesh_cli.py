@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-10-13T14:20:00-03:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [release/0.40.0, integC integration evidence]
-# authority: pyflightstream
-# status: active
-# confidentiality: internal
-# change_summary: Align guards and measurements with release intent.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """P0390-REV38 (NFR-45): the mesh command findings of the 0.38.0 review, API-05 and PUSH-IND-ARCH-6.
 
 API-05: the mesh verbs name the file they write ``--out`` as their sibling
