@@ -63,6 +63,12 @@ off-body streamlines. The streamline and 6DOF commands are recorded from the
 manual only until the licensed probes run; on such a build a row reaching them
 is refused at plan, naming the command.
 
+A point that pins `RHOkgm3`, `TK` and `PPA` all three (on the row or in its
+setup) whose values disagree with `p = rho R T` by more than 0.5 percent now
+draws a warning at plan and a WARNING line in `post.log`, naming the three
+values, the gas constant and the mismatch. Nothing is refused and no number
+changes; pin two of the three to silence it.
+
 ### 0.40.0 sweep corrections
 
 Workspace settings refuse `runs` and `accept_unregistered_build`. Use `--runs`

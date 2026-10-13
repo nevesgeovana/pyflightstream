@@ -62,6 +62,9 @@ has the columns writes `NA` in that row.
 density nor the velocity it was divided by, is a number nobody can take back to a
 force or compare with another campaign. `ALT` does not stand in for the density:
 a row may pin the density directly, and then the altitude says nothing about it.
+`RHO` and `TEMP` are the values as pinned when a point pins density, temperature and
+pressure all three, even where they disagree with `p = rho R T`; such a point is named
+by a warning in `post.log` when the mismatch exceeds 0.5 percent.
 
 **Which velocity normalised what.** The solver normalises by `VREF`. The steady
 polar's twenty-four coefficients are the solver's own, so they are by `VREF`. The

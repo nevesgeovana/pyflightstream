@@ -1,4 +1,4 @@
-# Cases and workflows, 0.40.0
+## Fixed
 
 - PFS-2089.006: Public action-export renderers require explicit keyword-only version.
 - PFS-2104.031: Walltime rescue respects EXPORT_LOG and LOG_OUTPUT routing.

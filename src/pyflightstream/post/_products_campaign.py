@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 import pyflightstream.post._stage as _stage
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.cases import classify_outputs
+from pyflightstream.post._condition import warn_pinned_states
 from pyflightstream.post._installed_copies import INSTALLED_KIND as INSTALLED_KIND
 from pyflightstream.post._settings_product import SETTINGS_KIND as SETTINGS_KIND
 from pyflightstream.post._settings_product import write_settings_product as write_settings_product
@@ -165,6 +166,8 @@ def _admit_campaign_records(
                     "withholds this run's products. Collect complete outputs or run the "
                     "point again to settle its status."
                 )
+    # 0.40.0: a fully pinned state at odds with p = rho R T is named in post.log.
+    warn_pinned_states(point for points in by_sim.values() for point in points)
 
 
 def _person_s_verdict(record: RunRecord) -> dict[str, object] | None:

@@ -6,9 +6,9 @@
  "extracted/archive/<STAMP>/post.log.json": "0ad1ef9ea6b0cc924efa40b2b4046ed4f9e7c2a43bda3ae53dae44715511f189",
  "extracted/archive/<STAMP>/products.json": "806c44bbf4f7397515feb7dd4b548002c5b182c98a010561e14f29931cf06c71",
  "extracted/campaign_sweep.csv": "299e933e7fdf7ad470ad2e64e8d70d95de6e57191b7a6479864b1ca46b12ddf2",
- "extracted/polars/P3207-M200RE230AL+sweep_g01.csv": "9a89c66235ef6233375e23627c20b7dd3e2ff3e93bf20ad5d0eaa04a9f536e4b",
+ "extracted/polars/P3207-M200RE230AL+sweep_g01.csv": "ca869875991b6cf3115b22fcfdc2858259fa4674404f43e09de12fba35b45cc2",
  "extracted/polars/SUPER-3207-M200RE230AL+sweep_g01.csv": "46f117797da5943761b765b80503877f6714e217731df1a922716fb7ee968865",
- "extracted/polars/archive/<STAMP>/P3207-M200RE230AL+sweep_g01.csv": "9a89c66235ef6233375e23627c20b7dd3e2ff3e93bf20ad5d0eaa04a9f536e4b",
+ "extracted/polars/archive/<STAMP>/P3207-M200RE230AL+sweep_g01.csv": "ca869875991b6cf3115b22fcfdc2858259fa4674404f43e09de12fba35b45cc2",
  "extracted/polars/archive/<STAMP>/SUPER-3207-M200RE230AL+sweep_g01.csv": "46f117797da5943761b765b80503877f6714e217731df1a922716fb7ee968865",
  "extracted/post.log": "21fe0afd06a2923a18f8e6a63dd10605901d48bce4c411cbd6558a3feb97a074",
  "extracted/post.log.json": "0ad1ef9ea6b0cc924efa40b2b4046ed4f9e7c2a43bda3ae53dae44715511f189",
@@ -18,7 +18,7 @@
  "extracted/sections/archive/<STAMP>/P3207-M200RE230AL+000_sections.csv": "f27bc847b5c80f901604370f040b11b9d0de3e95458c7cfb3146addd9ac2863d",
  "extracted/sections/archive/<STAMP>/P3207-M200RE230AL-020_sections.csv": "f27bc847b5c80f901604370f040b11b9d0de3e95458c7cfb3146addd9ac2863d",
  "extracted/settings/archive/<STAMP>/extracted_settings.codebook.json": "0e5be2cd4530ce6c908c02b4e9ba8c34d9befce0d1cf046e44a33531ef5e4956",
- "extracted/settings/archive/<STAMP>/extracted_settings.csv": "8b8db15f47371707e4a0a6b0c6e90831dd1467844cfcaf4a8b1338d24dd4b934",
+ "extracted/settings/archive/<STAMP>/extracted_settings.csv": "5fc0cf2a1ac16cd2dae54b9b9ab52e842ab24da9a4492b6440e3d835fedcfe69",
  "extracted/settings/extracted_settings.codebook.json": "0e5be2cd4530ce6c908c02b4e9ba8c34d9befce0d1cf046e44a33531ef5e4956",
- "extracted/settings/extracted_settings.csv": "8b8db15f47371707e4a0a6b0c6e90831dd1467844cfcaf4a8b1338d24dd4b934"
+ "extracted/settings/extracted_settings.csv": "5fc0cf2a1ac16cd2dae54b9b9ab52e842ab24da9a4492b6440e3d835fedcfe69"
 }

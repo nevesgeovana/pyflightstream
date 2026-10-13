@@ -238,6 +238,36 @@ def action_export_lines(
     right fix for a real divergence and the switch is what it was missing.
     """
     names = list(conventions.outputs or case.outputs)
+    declared_log = whole_run and _variable(case, LOG_OUTPUT_VARIABLE) is not None
+    kinds = _action_export_kinds(case, names, whole_run=whole_run, declared_log=declared_log)
+    lines: list[str] = []
+    if any(kind in kinds for kind in _UPDATED_KINDS):
+        lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
+        if "probes" in kinds:  # F01: an unsteady row has no probe points to update
+            lines.append("UPDATE_PROBE_POINTS")
+    for kind, _, verb, _ in EXPORT_KINDS:
+        if kind in kinds:
+            payload = Script(version)
+            if _surface_export(payload, case, kind, kinds[kind], kinds=kinds):
+                # A Tecplot whose VTK the outputs name emits nothing of its own
+                # (G45), and an empty payload renders one blank line.
+                rendered = payload.render()
+                lines += rendered.splitlines() if rendered.strip() else []
+            else:
+                lines += [verb, kinds[kind]]
+    if declared_log:
+        payload = Script(version)
+        claimed = tuple(names.index(name) + 1 for name in kinds.values())
+        _export_log(conventions, case, payload, claimed=claimed)
+        rendered = payload.render()
+        lines += rendered.splitlines() if rendered.strip() else []
+    return lines
+
+
+def _action_export_kinds(
+    case: SimCase, names: list[str], *, whole_run: bool, declared_log: bool
+) -> dict[str, str]:
+    """Return the export kinds an action writes, each with the output name that claims it."""
     kinds = {
         kind: name
         for kind, name in classify_outputs(names).items()
@@ -263,31 +293,9 @@ def action_export_lines(
     # machine whose profile turns EXPORT_LOG off gets none, and a row that names
     # its log through LOG_OUTPUT gets it by position below rather than by
     # suffix. The rescue wrote EXPORT_LOG on the machine that aborts at it.
-    declared_log = whole_run and _variable(case, LOG_OUTPUT_VARIABLE) is not None
     if declared_log or not _exports_its_log(case):
         kinds.pop("log", None)
-    lines: list[str] = []
-    if any(kind in kinds for kind in _UPDATED_KINDS):
-        lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
-        if "probes" in kinds:  # F01: an unsteady row has no probe points to update
-            lines.append("UPDATE_PROBE_POINTS")
-    for kind, _, verb, _ in EXPORT_KINDS:
-        if kind in kinds:
-            payload = Script(version)
-            if _surface_export(payload, case, kind, kinds[kind], kinds=kinds):
-                # A Tecplot whose VTK the outputs name emits nothing of its own
-                # (G45), and an empty payload renders one blank line.
-                rendered = payload.render()
-                lines += rendered.splitlines() if rendered.strip() else []
-            else:
-                lines += [verb, kinds[kind]]
-    if declared_log:
-        payload = Script(version)
-        claimed = tuple(names.index(name) + 1 for name in kinds.values())
-        _export_log(conventions, case, payload, claimed=claimed)
-        rendered = payload.render()
-        lines += rendered.splitlines() if rendered.strip() else []
-    return lines
+    return kinds
 
 
 def _per_step_exports(

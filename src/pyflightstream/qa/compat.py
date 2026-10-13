@@ -842,6 +842,29 @@ def _release_order(commands_dir: Path) -> dict[str, int]:
     }
 
 
+def _parsed_flow_entry(line: str, chapter: str, name: str, canonical: str) -> tuple[str, dict]:
+    """Return the indentation and the parsed mapping of one single-line version entry."""
+    match = _VERSION_LINE.match(line)
+    if match is None:  # pragma: no cover - the caller matched it already
+        raise QaEvidenceError(f"{chapter}: {name} entry for {canonical!r} is not a flow mapping")
+    indent = match.group(1)
+    mapping = line[line.index("{") : line.rindex("}") + 1]
+    try:
+        existing = yaml.safe_load(mapping)
+    except yaml.YAMLError as error:
+        raise QaEvidenceError(
+            f"{chapter}: the {canonical!r} entry of {name} does not parse as YAML "
+            f"({error}), so this promotion cannot rewrite it without guessing at its "
+            "shape. Repair the line by hand and re-run"
+        ) from None
+    if not isinstance(existing, dict):
+        raise QaEvidenceError(
+            f"{chapter}: the {canonical!r} entry of {name} is not a mapping, so there "
+            "is nothing to rewrite in place"
+        )
+    return indent, existing
+
+
 def _rewritten_flow_entry(
     line: str,
     chapter: str,
@@ -890,24 +913,7 @@ def _rewritten_flow_entry(
         If the entry cannot be parsed as a flow mapping, or if it carries
         a narrative citation that the new status contradicts.
     """
-    match = _VERSION_LINE.match(line)
-    if match is None:  # pragma: no cover - the caller matched it already
-        raise QaEvidenceError(f"{chapter}: {name} entry for {canonical!r} is not a flow mapping")
-    indent = match.group(1)
-    mapping = line[line.index("{") : line.rindex("}") + 1]
-    try:
-        existing = yaml.safe_load(mapping)
-    except yaml.YAMLError as error:
-        raise QaEvidenceError(
-            f"{chapter}: the {canonical!r} entry of {name} does not parse as YAML "
-            f"({error}), so this promotion cannot rewrite it without guessing at its "
-            "shape. Repair the line by hand and re-run"
-        ) from None
-    if not isinstance(existing, dict):
-        raise QaEvidenceError(
-            f"{chapter}: the {canonical!r} entry of {name} is not a mapping, so there "
-            "is nothing to rewrite in place"
-        )
+    indent, existing = _parsed_flow_entry(line, chapter, name, canonical)
 
     status = body["outcome"]
     # A measured removal cites a narrative report through `probe_ref`,

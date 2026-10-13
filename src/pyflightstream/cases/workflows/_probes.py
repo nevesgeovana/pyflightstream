@@ -30,6 +30,7 @@ from pyflightstream._errors import (
 from pyflightstream.cases import (
     EXPANDING_FRAMES,
     CampaignConfigError,
+    ProbesSpec,
     SimCase,
 )
 from pyflightstream.probes.layouts import circle_points, line_points, rectangle_points
@@ -135,6 +136,101 @@ def _pproc_surface_probes(case: SimCase, script: Script, frames: Frames) -> None
         )
 
 
+def _warn_steady_parameter_list(
+    case: SimCase, probes: ProbesSpec, entry_number: int, *, normal: bool
+) -> None:
+    """Warn that a steady entry lists parameters, which only enable it (B10)."""
+    # B10: on a steady run the list enables the entry and filters nothing.
+    # stacklevel=3 is the caller of `_pproc_probes`, as it was when this sat inline.
+    warn(
+        f"case {case.sim_id!r}: {_artifact_of(case)} [[probes]] entry {entry_number} "
+        f"(frame {probes.frame!r}) lists parameters, but on "
+        + ('a normal probe entry (kind = "normal") ' if normal else "a steady run ")
+        + "this list only enables the entry; it does not filter the probe-points "
+        "export's fixed set of variables. On an unsteady "
+        + ("entry" if normal else "run")
+        + " it selects the fluid-plot variables.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
+def _refuse_unavailable_fluid_plot_parameters(
+    case: SimCase, script: Script, probes: ProbesSpec
+) -> None:
+    """Refuse a fluid-plot parameter the run's build does not document (F05)."""
+    # F05: a fluid plot's parameter must be one the run's build documents,
+    # for a drawn entry and (F01) a cited profile alike.
+    command = "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
+    entry = script.registry.for_version(script.version)[command]
+    allowed = next(arg.values for arg in entry.args if arg.name == "parameter") or ()
+    unsupported = [name for name in probes.parameters if name not in allowed]
+    if unsupported:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: fluid plot parameter(s) {', '.join(unsupported)} "
+            f"are not available for {command} on FlightStream "
+            f"{script.version.canonical} ({entry.citation}). "
+            f"The parameters for this build are: {', '.join(allowed)}."
+        )
+
+
+def _record_probe_field(
+    case: SimCase,
+    script: Script,
+    frames: Frames,
+    probes: ProbesSpec,
+    entry_number: int,
+    *,
+    first_vertex: int,
+    vertex: int,
+    unsteady: bool,
+    normal: bool,
+) -> None:
+    """Record the layout of the sampled probe field an entry declares (FR-418)."""
+    resolved_frame = _the_probe_frame(case, probes.frame)
+    frame_index = (
+        1
+        if resolved_frame == "REFERENCE"
+        else _pproc_frame(case, frames, resolved_frame, "the sampled probe field")
+    )
+    if not unsteady:
+        # THE POINTS THE SOLVER WAS GIVEN, in the reference frame its
+        # steady probe commands take, as the sampled volume records
+        # them: the layout declared reference coordinates and carried
+        # the frame-local ones, and the positions file named the local
+        # frame, which a continued field refuses.
+        for at, point in enumerate(script.probe_points):
+            if first_vertex <= point[0] <= vertex:
+                x, y, z = _in_the_reference_frame(
+                    case, script, frame_index, resolved_frame, list(point[1:4])
+                )
+                script.probe_points[at] = (point[0], x, y, z, "REFERENCE")
+    script.probe_field_layout.append(
+        {
+            "entry": entry_number,
+            "kind": "probe-field",
+            "probe_ids": list(range(first_vertex, vertex + 1)),
+            "frame": resolved_frame if unsteady else "REFERENCE",
+            "frame_index": frame_index if unsteady else 1,
+            "declared_frame": probes.frame,
+            "coordinate_frame_index": frame_index if unsteady else 1,
+            "command_coordinate_units": "m" if unsteady else script.simulation_length_unit,
+            "coordinate_source": "emitted-local" if unsteady else "native-export-reference",
+            "export_kind": "unsteady-fluid-plot" if unsteady else "steady-probe",
+            "points_native": [
+                list(point[1:4])
+                for point in script.probe_points
+                if first_vertex <= point[0] <= vertex
+            ],
+            "native_to_m": 1.0 / _from_metres(case, script, "probe field coordinates"),
+            "formats": list(probes.field_formats),
+            "reusable_inflow": probes.reusable_inflow,
+            # FR-418 R2: the product says which instant it holds.
+            **({"sampled_at": "last-time-step"} if normal else {}),
+        }
+    )
+
+
 def _pproc_probes(
     case: SimCase, script: Script, frames: Frames, *, unsteady: bool, analysis: bool
 ) -> None:
@@ -187,32 +283,9 @@ def _pproc_probes(
     _open_the_probe_points(case, script, sampled=sampled, steady=not unsteady, normal=normal)
     for entry_number, probes in enumerate(pproc.probes, start=1):
         if not unsteady and probes.parameters:
-            # B10: on a steady run the list enables the entry and filters nothing.
-            warn(
-                f"case {case.sim_id!r}: {_artifact_of(case)} [[probes]] entry {entry_number} "
-                f"(frame {probes.frame!r}) lists parameters, but on "
-                + ('a normal probe entry (kind = "normal") ' if normal else "a steady run ")
-                + "this list only enables the entry; it does not filter the probe-points "
-                "export's fixed set of variables. On an unsteady "
-                + ("entry" if normal else "run")
-                + " it selects the fluid-plot variables.",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
+            _warn_steady_parameter_list(case, probes, entry_number, normal=normal)
         if unsteady and probes.parameters:
-            # F05: a fluid plot's parameter must be one the run's build documents,
-            # for a drawn entry and (F01) a cited profile alike.
-            command = "UNSTEADY_SOLVER_NEW_FLUID_PLOT"
-            entry = script.registry.for_version(script.version)[command]
-            allowed = next(arg.values for arg in entry.args if arg.name == "parameter") or ()
-            unsupported = [name for name in probes.parameters if name not in allowed]
-            if unsupported:
-                raise CampaignConfigError(
-                    f"case {case.sim_id!r}: fluid plot parameter(s) {', '.join(unsupported)} "
-                    f"are not available for {command} on FlightStream "
-                    f"{script.version.canonical} ({entry.citation}). "
-                    f"The parameters for this build are: {', '.join(allowed)}."
-                )
+            _refuse_unavailable_fluid_plot_parameters(case, script, probes)
         first_vertex = vertex + 1
         vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
         declared.append(
@@ -226,47 +299,16 @@ def _pproc_probes(
             )
         )
         if (probes.field_formats or probes.reusable_inflow) and vertex >= first_vertex:
-            resolved_frame = _the_probe_frame(case, probes.frame)
-            frame_index = (
-                1
-                if resolved_frame == "REFERENCE"
-                else _pproc_frame(case, frames, resolved_frame, "the sampled probe field")
-            )
-            if not unsteady:
-                # THE POINTS THE SOLVER WAS GIVEN, in the reference frame its
-                # steady probe commands take, as the sampled volume records
-                # them: the layout declared reference coordinates and carried
-                # the frame-local ones, and the positions file named the local
-                # frame, which a continued field refuses.
-                for at, point in enumerate(script.probe_points):
-                    if first_vertex <= point[0] <= vertex:
-                        x, y, z = _in_the_reference_frame(
-                            case, script, frame_index, resolved_frame, list(point[1:4])
-                        )
-                        script.probe_points[at] = (point[0], x, y, z, "REFERENCE")
-            script.probe_field_layout.append(
-                {
-                    "entry": entry_number,
-                    "kind": "probe-field",
-                    "probe_ids": list(range(first_vertex, vertex + 1)),
-                    "frame": resolved_frame if unsteady else "REFERENCE",
-                    "frame_index": frame_index if unsteady else 1,
-                    "declared_frame": probes.frame,
-                    "coordinate_frame_index": frame_index if unsteady else 1,
-                    "command_coordinate_units": "m" if unsteady else script.simulation_length_unit,
-                    "coordinate_source": "emitted-local" if unsteady else "native-export-reference",
-                    "export_kind": "unsteady-fluid-plot" if unsteady else "steady-probe",
-                    "points_native": [
-                        list(point[1:4])
-                        for point in script.probe_points
-                        if first_vertex <= point[0] <= vertex
-                    ],
-                    "native_to_m": 1.0 / _from_metres(case, script, "probe field coordinates"),
-                    "formats": list(probes.field_formats),
-                    "reusable_inflow": probes.reusable_inflow,
-                    # FR-418 R2: the product says which instant it holds.
-                    **({"sampled_at": "last-time-step"} if normal else {}),
-                }
+            _record_probe_field(
+                case,
+                script,
+                frames,
+                probes,
+                entry_number,
+                first_vertex=first_vertex,
+                vertex=vertex,
+                unsteady=unsteady,
+                normal=normal,
             )
 
     _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
