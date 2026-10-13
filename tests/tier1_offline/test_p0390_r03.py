@@ -29,6 +29,7 @@ import pytest
 
 import pyflightstream._cli as _cli
 import pyflightstream.workspace as workspace_package
+import pyflightstream.workspace.hpc as hpc_module
 from pyflightstream.results import VersionMismatchWarning
 from pyflightstream.run.cli import _build_parser
 from pyflightstream.run.cli import main as matrix_main
@@ -59,6 +60,19 @@ def _stub_and_clean_selections(monkeypatch):
     yield
     select_hpc_profile(None)
     select_cost_file(None)
+
+
+def selections(monkeypatch) -> list[str | None]:
+    """The HPC profile each console command holds as it ends; it ends with it (PFS-2094.045)."""
+    seen: list[str | None] = []
+    close = _cli._close_invocation
+
+    def recording(scoped, show):
+        seen.append(hpc_module._SELECTED_HPC.get())
+        close(scoped, show)
+
+    monkeypatch.setattr(_cli, "_close_invocation", recording)
+    return seen
 
 
 def call(capsys, main, argv: list[str]) -> tuple[int, str, str]:
@@ -102,7 +116,7 @@ SIGNATURE = "geoversegoddess sees you"
 # --- the acceptance: the scenario of the requirement's Need -------------------------
 
 
-def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys):
+def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys, monkeypatch):
     """P0390-R03 (FR-436 Requirement, R1, R3, R7): pyfs.toml gives plan --cost and run options.
 
     fs_version, hpc, cost_file and accept_unregistered_build are typed nowhere: the plan
@@ -116,11 +130,15 @@ def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys):
         'cost_file = "c002"\naccept_unregistered_build = true\nlocal = true\n',
         encoding="utf-8",
     )
+    seen = selections(monkeypatch)
     code, out, err = call(
         capsys, matrix_main, ["plan", "polars.fs", "--cost", "--workspace", str(root)]
     )
     assert code == 0, err
+    assert seen == ["h002"]
+    select_hpc_profile(seen[0])
     assert resolve_hpc_profile(root / "inputs").application_id == "app-h002"
+    select_hpc_profile(None)
     written = plan_json(root)
     assert written["accept_unregistered_build"] is True
     assert written["settings_sources"] == {
@@ -176,7 +194,7 @@ def test_p0390_r03_the_current_directory_is_the_workspace(tmp_path, capsys, monk
     ],
 )
 def test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both(
-    tmp_path, capsys, local, typed, selected, source
+    tmp_path, capsys, monkeypatch, local, typed, selected, source
 ):
     """P0390-R03 (FR-436 Requirement, R1, R5): typed > pyfs.local.toml > pyfs.toml > default."""
     root = make_workspace(tmp_path, profiles=True)
@@ -186,8 +204,11 @@ def test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both(
     if local is not None:
         (root / "pyfs.local.toml").write_text(f'[defaults]\nhpc = "{local}"\n', encoding="utf-8")
     argv = ["plan", "polars.fs", "--workspace", str(root)]
+    seen = selections(monkeypatch)
     code, _out, err = call(capsys, matrix_main, argv + (["--hpc", typed] if typed else []))
     assert code == 0, err
+    assert seen == [selected]
+    select_hpc_profile(seen[0])
     assert resolve_hpc_profile(root / "inputs").application_id == f"app-{selected}"
     assert plan_json(root)["settings_sources"].get("hpc") == source
 

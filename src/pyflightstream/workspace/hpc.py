@@ -21,6 +21,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pyflightstream._cli import for_this_invocation
 from pyflightstream._digest import aliased_name_fault
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
@@ -238,7 +239,7 @@ def select_hpc_profile(name: str | None) -> None:
         The selection is held in a context variable, so it belongs to the
         invocation that made it.
     """
-    _SELECTED_HPC.set(name)
+    for_this_invocation(_SELECTED_HPC, name)
 
 
 def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:

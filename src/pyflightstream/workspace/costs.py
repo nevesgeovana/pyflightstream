@@ -31,7 +31,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pyflightstream._cli import for_this_invocation
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
+from pyflightstream.script import CommandArgumentError
+from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.workspace.sidecars import load_toml
 
 __all__ = [
@@ -172,9 +175,11 @@ def select_cost_file(name: str | None) -> None:
     Returns
     -------
     None
-        Held in a context variable, so it belongs to the invocation.
+        Held in a context variable, so it belongs to the invocation: a console
+        command restores it when it ends (PFS-2094.045), and a Python caller
+        sets it plainly.
     """
-    _SELECTED_COST_FILE.set(None if name is None else Path(name).stem)
+    for_this_invocation(_SELECTED_COST_FILE, None if name is None else Path(name).stem)
 
 
 def resolve_cost_file(inputs_dir: str | Path) -> CostFile | None:
@@ -217,11 +222,19 @@ def resolve_cost_file(inputs_dir: str | Path) -> CostFile | None:
     return read_cost_file(found[0]) if found else None
 
 
-def _number(table: Mapping, key: str, where: str, path: Path) -> float:
-    """Return ``table[key]`` as a finite number, refusing it by name otherwise."""
+def _number(table: Mapping, key: str, where: str, path: Path, *, positive: bool = False) -> float:
+    """Return ``table[key]`` as a finite number, refusing it by name otherwise.
+
+    ``positive`` also refuses zero and below: a reference figure the estimate
+    divides by (PFS-2097.019).
+    """
     value = table.get(key)
     if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
         raise InputArtifactError(f"the cost file {path} needs [{where}] {key} to be a number.")
+    if positive and value <= 0:
+        raise InputArtifactError(
+            f"the cost file {path} needs [{where}] {key} to be a positive number; it is {value}."
+        )
     return float(value)
 
 
@@ -249,6 +262,20 @@ def _curve(parallel: Mapping, path: Path) -> tuple[tuple[float, ...], tuple[floa
         raise InputArtifactError(
             f"the cost file {path} needs [parallel] ncpus and speedup to be lists of one length."
         )
+    # Every entry a real, finite, positive number before any arithmetic (PFS-2097.019):
+    # a text entry crashed float() or the comparison, and a nan priced every point nan.
+    for key, values in (("ncpus", ncpus), ("speedup", speedup)):
+        for value in values:
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int | float)
+                or not math.isfinite(value)
+                or value <= 0
+            ):
+                raise InputArtifactError(
+                    f"the cost file {path} needs every [parallel] {key} entry to be a positive "
+                    f"number; it holds {value!r}."
+                )
     xs = tuple(float(x) for x in ncpus)
     if list(xs) != sorted(set(xs)) or any(s <= 0 for s in speedup):
         raise InputArtifactError(
@@ -282,7 +309,9 @@ def read_cost_file(path: str | Path) -> CostFile:
     _refuse_unknown(raw, target)
     reference = dict(raw.get("reference", {}))
     for key in ("wall_time_s", "mesh_faces", "ncpus"):
-        _number(reference, key, "reference", target)
+        _number(reference, key, "reference", target, positive=True)
+    if "steps" in reference:
+        _number(reference, "steps", "reference", target, positive=True)
     xs, ys = _curve(raw.get("parallel", {}), target)
     fit = None
     parallel = raw.get("parallel", {})
@@ -403,15 +432,27 @@ def unmarked_cost_files(root: str | Path, *, skip: Collection[str] = ("tests",))
     return sorted(p for p in found if SYNTHETIC_WORD not in p.read_text(encoding="utf-8").lower())
 
 
+def _enabled(value: object) -> bool:
+    """Whether a row variable sets a flag, read as the solver settings read a toggle.
+
+    PFS-2094.046: the row's values arrive as text, so a truthiness test counted
+    ``DISABLE`` as set. A value that is no toggle at all is not counted.
+    """
+    try:
+        return resolve_toggle(value)
+    except CommandArgumentError:
+        return False
+
+
 def _flags_of(cost: CostFile, case: object) -> list[str]:
-    """List the flags of ``cost`` the case sets (a truthy solver setting or row variable)."""
+    """List the flags of ``cost`` the case sets (a truthy solver setting or an enabled variable)."""
     solver = getattr(case, "solver", None)
     variables = getattr(case, "variables", None) or {}
     upper = {str(k).upper(): v for k, v in variables.items()}
     return [
         name
         for name in cost.flags
-        if getattr(solver, name, None) or upper.get(name.upper()) not in (None, False, 0, "", "0")
+        if getattr(solver, name, None) or _enabled(upper.get(name.upper()))
     ]
 
 
