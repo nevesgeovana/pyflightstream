@@ -503,6 +503,7 @@ def _normal_probes_of_a_continuation(
     scratch = _built_from_the_mesh(case, script, build)
     script.probe_points[:] = scratch.script.probe_points
     script.probe_field_layout[:] = scratch.script.probe_field_layout
+    script.farfield_layout[:] = scratch.script.farfield_layout
     return scratch.recorded
 
 

@@ -15,6 +15,7 @@ import pytest
 from pyflightstream.cases._farfield_spec import LedgersSpec
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
+    FarLayout,
     ProbeSamples,
     average_rows,
     far_samples,
@@ -41,15 +42,21 @@ def _uniform(points: np.ndarray, speed: float) -> ProbeSamples:
 
 @pytest.mark.requirement("FR-38")
 def test_p0400_ledgers_the_lattice_is_found_by_its_positions():
-    """P0400-LEDGERS (FR-455 R2): a lattice behind other probes, in millimetres, and the plane."""
-    lattice, points_m, _axis = rotor_lattice(_SPEC, _Rotor())
+    """P0400-LEDGERS (FR-455 R2): a lattice behind other probes, in millimetres, by its positions.
+
+    Since PFS-2081.58 nothing is found by count: the points before the lattice
+    are no plane unless their positions are one.
+    """
+    lattice, points_m, axis = rotor_lattice(_SPEC, _Rotor())
     other = np.zeros((7, 3)) + 99.0
     positions = np.vstack([other, points_m * 1000.0])
     samples = _uniform(positions, 10.0)
-    at, plane, why = far_samples(samples, lattice_m=points_m, plane_count=4, per_m=1000.0)
+    layout = FarLayout(lattice=lattice, lattice_m=points_m, axis=axis)
+    at, plane, why = far_samples(samples, layout, per_m=1000.0)
     assert not why and at == slice(7, 7 + lattice.point_count)
-    assert plane == slice(3, 7), "the plane is the points just before an added lattice"
-    _, _, why = far_samples(samples, lattice_m=points_m + 0.5, plane_count=0, per_m=1000.0)
+    assert plane is None, "no plane in the layout, none taken by count"
+    moved = FarLayout(lattice=lattice, lattice_m=points_m + 0.5, axis=axis)
+    _, _, why = far_samples(samples, moved, per_m=1000.0)
     assert "no point set" in why
 
 

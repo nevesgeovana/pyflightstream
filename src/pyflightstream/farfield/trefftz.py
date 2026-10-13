@@ -41,6 +41,7 @@ __all__ = [
     "bernoulli_residual",
     "calibration_scale",
     "plane_induced_drag",
+    "plane_lift",
     "plane_vorticity_drag",
     "rotor_channels",
     "trace_coefficients",
@@ -708,6 +709,40 @@ def plane_vorticity_drag(plane: PlaneFields, *, rho: float, chunk: int = 512) ->
         total += source[first:last] * self_term
         psi[first:last] = -total / (2.0 * math.pi)
     return float(0.5 * rho * (psi * xi.ravel() * weights).sum())
+
+
+def plane_lift(plane: PlaneFields, *, rho: float, v_inf: float) -> float:
+    """Lift from the first moment of the streamwise vorticity on a plane (FR-453 R9).
+
+    ``L = rho V sum_P y_P xi_P dS_P`` with ``xi = dw/dy - dv/dz`` by central
+    differences on the grid: the Kutta-Joukowski lift of the trailing vorticity
+    the plane holds, which for a flat sheet of strip circulation ``Gamma`` is
+    ``rho V integral Gamma dy`` and which roll-up does not change. It does not
+    depend on where ``y`` is measured from once the plane holds the whole wake
+    (its vorticity then sums to zero). NaN where any sample is missing.
+
+    Parameters
+    ----------
+    plane : PlaneFields
+        Rectangular probe-plane samples in free-stream axes.
+    rho : float
+        Density in kg/m3.
+    v_inf : float
+        Free-stream speed in m/s.
+
+    Returns
+    -------
+    float
+        Lift in N, positive along the plane's ``z``.
+    """
+    v, w = plane["v"], plane["w"]
+    dy = float(plane.y[1] - plane.y[0])
+    dz = float(plane.z[1] - plane.z[0])
+    xi = np.gradient(w, dy, axis=0) - np.gradient(v, dz, axis=1)
+    if not np.all(np.isfinite(xi)):
+        return float("nan")
+    yy = np.broadcast_to(np.asarray(plane.y, dtype=float)[:, None], xi.shape)
+    return float(rho * v_inf * (yy * xi * grid_weights(plane.y, plane.z)).sum())
 
 
 def bernoulli_residual(plane: PlaneFields, *, rho: float, v_inf: float) -> float:

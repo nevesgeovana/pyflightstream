@@ -21,7 +21,9 @@ The analyses and where they are written:
 | Trefftz C, velocity plane | `variant = "plane"` | the probe-points export on the far-field plane or lattice | `farfield/<group>_trefftz.csv` |
 | Balances | `[farfield.ledgers]` | the probe-points export on the survey lattice | `farfield/<group>_ledgers.csv` |
 
-`<group>` is the stem of the simulation's polar table. On an unsteady row each
+`<group>` is the stem of the simulation's polar table. Every row of these files, and
+of the spanwise files, ends with `STATUS`, the point's solver termination status as
+`campaign_sweep.csv` writes it, so a point that is not converged says so on its rows. On an unsteady row each
 file is written twice, `<group>_<analysis>_instant.csv` (the last time step)
 and `<group>_<analysis>_average.csv` (the average over the row's averaging
 window), and each manifest entry states `reduction` as `instant` or `average`.
@@ -155,6 +157,10 @@ flat wing it is the planar trace. Then [The discrete trace](#the-discrete-trace)
 - On a coupled FSI row the section cut is fixed in space, so the trace is the
   projected span of the deformed surface.
 - Rotors are not traced: a helical wake is not a streamwise sheet.
+- The trace holds the lift of the selected families only. Where it departs from the
+  solver's `CL` by more than 5 percent (a wing selected without its body), post
+  writes a WARNING with both lifts: the drag and the span efficiency are then those
+  of the traced families, not the configuration's.
 
 <a id="trefftz-b"></a>
 
@@ -266,6 +272,18 @@ depart from that relation. In a field that carries total-pressure loss the same
 integral is the profile drag (Betz, Maskell); no column of 0.40.0 names it a
 drag.
 
+**The plane's own lift, a check of the field.** From the same vorticity,
+
+    L_plane = rho V sum_P y_P xi_P dS_P
+
+the Kutta-Joukowski lift of the trailing vorticity the plane holds (for a flat sheet
+of strip circulation `Gamma` it is `rho V integral Gamma dy`, and roll-up does not
+change it), written as `CL_T` of the C row. A plane that holds the wake the loads
+shed carries the solver's lift; where `CL_T` departs from the solver's `CL` by more
+than 10 percent, the probe field does not hold that circulation and its crossflow
+energy is not the loads' induced drag: the row is written and post writes a
+WARNING with both values. `E_T` of the C row is formed with the solver's `CL`.
+
 **Rotor channels** at a lattice station, `u' = u - V`, `v_theta_0` the azimuthal
 mean of the swirl:
 
@@ -286,7 +304,11 @@ the hub frame by adding back the frame velocity of the rotor the lattice names,
     v_hub = v_probe + Omega x (x - x_hub)
 
 with `Omega` along the rotor's axis and the sense of its speed, so the channels
-and the balances are those of the rotor turning in still air.
+and the balances are those of the rotor turning in still air. The speed is the
+one every product of the point reads: the run's plan where it states one, and
+otherwise the row's own speed in the quasi-steady record beside the loads export,
+which a `qsteady_rotor` run always writes. It is signed by the rotor's hand
+(`rpm_sign` times the row's `RPM`), and that sign alone gives the sense of `Omega`.
 
 **Quadrature.** The trapezoid rule on the grid (corners a quarter, edges a half
 of a cell); a missing sample makes the integral `NA` and `COVERAGE` states the
@@ -354,6 +376,13 @@ products use), of the balance of each step: every flux is computed on each
 step's field and then averaged, never computed on an averaged field, because
 the fluxes are not linear in the velocity.
 
+**What the balances measure.** They integrate the probe field the solver exported,
+and close against the near-field thrust and torque only where that field holds the
+circulation of the solver's own wake. A field whose swirl does not follow its own
+wake lines (Stokes' theorem) gives balances that move from station to station while
+the mass flow stays constant; they are then a check of the probe field, not a
+far-field thrust.
+
 **Assumptions and validity.** The lateral cylinder is at free stream unless its
 rings say otherwise; the swirl and induced channels are the transverse components
 only (no axial-deficit term); the density is the free-stream value; a station cut
@@ -385,8 +414,29 @@ their per-step fluid plots.
 |---|---|---|---|
 | A | a section distribution over each family, planes XZ, reference axes; the sectional loads export | reused | added: frame `MRP`, plane XZ, 80 stations per side |
 | B | the VTK export with the wake | reused | the wake switched on in the VTK export, the export added if the row has none |
-| C | the plane (wing) or the lattice (rotor); the probe-points export | reused when identical | added as probe points |
-| balances | the lattice; the probe-points export | reused when identical | added as probe points |
+| C | the plane (wing) or the lattice (rotor); the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+| balances | the lattice; the probe-points export | reused when identical after layout, or when it is the one that qualifies | added as probe points |
+
+**Which declaration is reused.** A declared plane or lattice is the far field's when
+its points after layout are the far field's own (same frame, every coordinate equal
+at the precision a probe position is written in), so a key stated at its default
+is the same geometry as the key left out. Where `[farfield]` states no geometry, the
+one declaration that qualifies is reused: a lattice on the same rotor, or in the
+same frame with the same tip radius, whose azimuths carry `m_max`; a rectangle of
+the reference frame that is a Trefftz C plane of the point (one spacing both ways,
+an odd count each way, its first edge horizontal and its second upward in the plane
+normal to the point's free stream, behind the body). With several that qualify,
+only an identical one is reused.
+
+**Post reads the probes the run laid.** The plane and the lattice each point reads,
+reused or added, are stated in `plan.json` and carried by the run record
+(`farfield_layout`); post lays their points again from it and matches every exported
+position to them, each set exactly once, before it integrates, with the grid and
+the areas they were laid with. A set it cannot match, or matches twice, is a named
+skip, never the points that happen to be last or to number as many. A record
+without `farfield_layout` (written before 0.40.0 recorded it) is matched to the
+table as it stands: a rotor's lattice where its hub places it, the plane and a
+frame's lattice by their shape.
 
 Every addition is stated in `plan.json` (the row's `farfield` object) and on the
 console. An `[exports]` entry set to false that the far field needs is turned on

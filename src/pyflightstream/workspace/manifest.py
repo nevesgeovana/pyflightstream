@@ -807,9 +807,10 @@ class RunRecord(BaseModel):
         """Write none of the keys a reader older than their release may not know, where unstated.
 
         ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``,
-        FR-435's ``skipped_names`` and FR-436's ``settings_sources``.
+        FR-435's ``skipped_names``, FR-436's ``settings_sources`` and FR-455's ``farfield_layout``.
 
-        R03 and G01 of 0.27.0, M1 and the L1 fixes of 0.30.0, and R8 of FR-436 (0.39.0).
+        R03 and G01 of 0.27.0, M1 and the L1 fixes of 0.30.0, R8 of FR-436 (0.39.0)
+        and R4 of FR-455 (0.40.0).
 
         The rule ``forced_local`` follows: a key a reader older than 0.27.0
         does not know is written only where something was recorded, so a
@@ -820,7 +821,7 @@ class RunRecord(BaseModel):
         """
         keys = (
             "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by"
-            " iterations_requested skipped_names settings_sources"
+            " iterations_requested skipped_names settings_sources farfield_layout"
         ).split()
         return {key: v for key, v in handler(self).items() if v is not None or key not in keys}
 
@@ -928,6 +929,16 @@ class RunRecord(BaseModel):
     probe_points_file: str | None = None
     #: Emitted sample IDs and field output contract; absent on older runs.
     probe_field_layout: list[dict] | None = None
+    #: 0.40.0 (FR-455 R4, PFS-2081.58): the far-field plane and lattice this
+    #: point's script laid or reused, ``{"shapes": [...]}``, each shape as
+    #: :meth:`pyflightstream.cases.workflows.FarfieldShape.record` states it
+    #: (kind, added or declared, the entry reused, the point count and the
+    #: geometry that rebuilds its points in metres). A steady JOB record keys it
+    #: one level up, ``{"by_point": {<point name>: {"shapes": [...]}}}``, and
+    #: :meth:`as_points` hands each point its own. Post matches every exported
+    #: position to it before integrating. ABSENT where None, so a record of a
+    #: row without a far field keeps its 0.39.0 content.
+    farfield_layout: dict[str, Any] | None = None
     #: Native surface-property declarations and plot names; absent on historical records.
     surface_probe_layout: list[dict] | None = None
     #: Final frame trajectories and explicit unknowns; absent on legacy records.
@@ -1081,6 +1092,11 @@ class RunRecord(BaseModel):
                         "points_ran": [],
                         # 0.30.0 (M1): a job keys its Mach numbers by point name.
                         "rotor_mach": (self.rotor_mach or {}).get(tag) or None,
+                        # 0.40.0 (FR-455 R4): a job keys its far-field layouts by point name.
+                        "farfield_layout": ((self.farfield_layout or {}).get("by_point") or {}).get(
+                            tag
+                        )
+                        or None,
                         # 0.37.0 (FR-414): a person's verdict on one point of the job.
                         "marked": entry.get("marked") or self.marked,
                     }

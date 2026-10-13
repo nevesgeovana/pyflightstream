@@ -655,6 +655,10 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
 def _retain_point_provenance(job: _PointJob) -> RunRecord | None:
     """Retain point provenance."""
     job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
+    # FR-455 R4 (0.40.0, PFS-2081.58): the far-field probes this script laid or
+    # reused, so post integrates exactly them; one point, so its last layout.
+    if job.script.farfield_layout:
+        job.base["farfield_layout"] = {"shapes": job.script.farfield_layout[-1]["shapes"]}
     job.base["surface_probe_layout"] = list(job.script.surface_probe_layout) or None
     job.base["frame_motions"] = job.script.frame_motions or None
     job.base["custom_field_coverage"] = job.script.custom_field_coverage

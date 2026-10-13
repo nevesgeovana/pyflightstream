@@ -216,7 +216,8 @@ def test_p0400_ffout_the_trefftz_table(posted):
     rows = {row["VARIANT"]: row for row in _table(path)}
     assert set(rows) == {"A", "B", "C"}
     header = path.read_text(encoding="utf-8").splitlines()[0].split(",")
-    assert header[:2] == ["POL", "STEP"] and header[-1] == "ETA_FF"
+    # PFS-2081.97: the point's status closes every far-field row, after ETA_FF.
+    assert header[:2] == ["POL", "STEP"] and header[-2:] == ["ETA_FF", "STATUS"]
     a, b, c = rows["A"], rows["B"], rows["C"]
     assert float(a["CL_T"]) == pytest.approx(CL, rel=2e-3)
     assert 1.0 < float(a["E_T"]) < 1.012, "the elliptic bias of 80 stations per side"
@@ -226,7 +227,9 @@ def test_p0400_ffout_the_trefftz_table(posted):
     assert float(b["X_T_M"]) == pytest.approx(upstream + 0.25 * BREF, abs=1e-5)
     assert a["X_T_M"] == "NA"
     assert float(c["CDI_T"]) == pytest.approx(0.0, abs=1e-9), "a uniform stream has no drag"
-    assert float(c["COVERAGE"]) == 1.0 and c["CL_T"] == "NA"
+    # FR-453 R9 (PFS-2081.95): C states the lift of its own vorticity; this
+    # fixture's plane holds none, so it is zero (and post flags it).
+    assert float(c["COVERAGE"]) == 1.0 and float(c["CL_T"]) == pytest.approx(0.0, abs=1e-9)
     assert a["P_AXIAL_W"] == "NA" and a["CDI_NEAR_PRESSURE"] == "0.0012418"
 
 

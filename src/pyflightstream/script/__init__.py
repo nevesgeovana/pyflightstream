@@ -513,6 +513,9 @@ class Script:
         self.probe_points: list[tuple[int, float, float, float, str]] = []
         #: Exact sample IDs, field requests and native-to-SI conversion per entry.
         self.probe_field_layout: list[dict[str, object]] = []
+        #: The far-field plane and lattice each point reads, reused or added, one
+        #: ``{"point", "shapes"}`` per point the far field laid probes for (FR-455).
+        self.farfield_layout: list[dict[str, Any]] = []
         #: Native surface-property plot identities, separate from off-body velocity samples.
         self.surface_probe_layout: list[dict[str, object]] = []
         #: Surface averaging window emitted by the workflow, for run provenance.

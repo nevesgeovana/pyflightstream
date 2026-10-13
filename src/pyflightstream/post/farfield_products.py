@@ -38,26 +38,29 @@ from pyflightstream.farfield import (
     trace_forces,
     wake_crossings,
 )
-from pyflightstream.post._condition import _section_rotors
+from pyflightstream.post._condition import _recorded_speeds, row_rotor_speeds
 from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
     LEDGER_COLUMNS,
+    FarLayout,
     ProbeSamples,
     average_rows,
+    derived_layout,
     far_samples,
     frame_lattice,
     lattice_samples,
     ledger_values,
     native_per_m,
     plane_values,
+    recorded_layout,
     rotor_lattice,
     rotor_values,
     steady_samples,
     unsteady_samples,
 )
 from pyflightstream.post.section_distributions import distributions_of
-from pyflightstream.results.loads import parse_unsteady_plots
+from pyflightstream.results.loads import drag_pair, parse_unsteady_plots
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
 from pyflightstream.workspace.naming import sweep_file_stem
@@ -103,6 +106,8 @@ TREFFTZ_COLUMNS: tuple[str, ...] = (
     "P_CROSSFLOW_W",
     "P_TOTAL_W",
     "ETA_FF",
+    # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
+    "STATUS",
 )
 #: The columns of a spanwise file ``sections/<point>_trefftz_<family>.csv`` (FR-456 R3).
 SPANWISE_COLUMNS: tuple[str, ...] = (
@@ -117,12 +122,24 @@ SPANWISE_COLUMNS: tuple[str, ...] = (
     "ALPHA_I_DEG",
     "DI_N_M",
     "CDI_LOCAL",
+    "STATUS",
 )
 _NA = float("nan")
 _VARIANT_NAMES = {"sections": "A", "wake": "B", "plane": "C"}
 #: Above this Mach number the C row is written with a WARNING that the
 #: incompressible relations of the definitions page are used (FR-453 R7).
 _INCOMPRESSIBLE_MACH = 0.3
+#: A Trefftz C plane whose own lift (its vorticity's first moment) departs from
+#: the solver's CL by more than this fraction is flagged: its field does not hold
+#: the circulation the loads shed, so its crossflow energy is not their induced
+#: drag (FR-453 R9; RPT-171 measured 0.74 on 26.124 and 1.05 on 26.125, one wing).
+_PLANE_LIFT_TOLERANCE = 0.10
+#: Trefftz A over families whose traced lift departs from the solver's CL by
+#: more than this fraction is warned: another family or a body carries the
+#: rest, so CDI_T and E_T are of the traced families alone (FR-451 R13). A wing
+#: traced alone agreed to 0.15 percent (RPT-171's wing); a wing traced without
+#: its body departed by 6.6 and 7 percent.
+_TRACED_LIFT_TOLERANCE = 0.05
 _AXES = {"X": np.array([1.0, 0.0, 0.0]), "Y": np.array([0.0, 1.0, 0.0]), "Z": np.array([0, 0, 1.0])}
 
 
@@ -235,13 +252,22 @@ def _q_ref(point: PolarPoint, rho: float) -> float:
 def _near_field(point: PolarPoint) -> tuple[float, float, float]:
     """Return the solver's CL and its pressure and vorticity induced drags (FR-456 R2).
 
-    The solver prints one induced drag, ``CDi``: from the vorticity where the
-    run selected boundaries for it (``SET_VORTICITY_DRAG_BOUNDARIES``), from
-    the surface pressures otherwise; the other column is ``NA``.
+    The solver prints one induced drag: from the vorticity where the run
+    selected boundaries for it (``SET_VORTICITY_DRAG_BOUNDARIES``), from the
+    surface pressures otherwise; the other column is ``NA``. It is the first
+    column of the printed drag split (:func:`~pyflightstream.results.loads.drag_pair`):
+    ``CDi`` up to 26.124, ``CDp`` on 26.125, which takes the vorticity value
+    when the run selects it and leaves ``CDv`` unchanged, as ``CDi`` does
+    beside ``CDo`` (PFS-2081.98, RPT-171). A table printing neither split
+    gives ``NA``.
     """
     total = point.loads.total
     cl = float(total.get("CL", _NA))
-    cdi = float(total.get("CDi", _NA))
+    try:
+        induced, _profile = drag_pair(total)
+    except PyflightstreamError:
+        return cl, _NA, _NA
+    cdi = float(total.get(induced, _NA))
     if point.vorticity_selection:
         return cl, _NA, cdi
     return cl, cdi, _NA
@@ -251,9 +277,20 @@ def _context(ctx: SimContext, point: PolarPoint) -> tuple[object, ...]:
     return tuple(context_row(ctx.condition(point), ctx.reference.as_lengths()))
 
 
+def _status(ctx: SimContext, point: PolarPoint) -> str:
+    """Return the point's solver termination status, as the sweep table writes it (FR-456 R10)."""
+    status = getattr(ctx.record_of[point.name], "status", None)
+    return str(getattr(status, "value", status) or "NA")
+
+
 def _row(ctx: SimContext, point: PolarPoint, step: object, values: Mapping[str, object]):
     _cl, pressure, vorticity = _near_field(point)
-    merged = {"CDI_NEAR_PRESSURE": pressure, "CDI_NEAR_VORTICITY": vorticity, **values}
+    merged = {
+        "CDI_NEAR_PRESSURE": pressure,
+        "CDI_NEAR_VORTICITY": vorticity,
+        "STATUS": _status(ctx, point),
+        **values,
+    }
     cells = (merged.get(column, _NA) for column in TREFFTZ_COLUMNS)
     return (ctx.sim_id, step, *_context(ctx, point), *cells)
 
@@ -340,6 +377,7 @@ def _spanwise(
                 math.degrees(math.atan2(float(w[index]), speed)),
                 float(di[index]),
                 float(di[index]) / (q * chord) if chord and math.isfinite(chord) else _NA,
+                _status(ctx, point),
             )
         )
     path = ctx.target(ctx.out / f"sections/{point.name}_trefftz_{name}.csv")
@@ -495,9 +533,39 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
             result=_sheet(result, index),
             chords=chords[index],
         )
+    factor = 0.5 if half else 1.0
+    _warn_traced_lift(ctx, point, result.lift * factor, chosen)
     return _trace_rows(
-        ctx, point, result, variant="sections", names=chosen, factor=0.5 if half else 1.0, extra={}
+        ctx, point, result, variant="sections", names=chosen, factor=factor, extra={}
     )
+
+
+def _warn_traced_lift(
+    ctx: SimContext, point: PolarPoint, lift: float, families: Sequence[str]
+) -> None:
+    """Warn where the families A traced do not carry the solver's lift (FR-451 R13, PFS-2081.96).
+
+    A trace over a subset of the lifting surfaces (a wing without its body)
+    sheds the circulation of those surfaces alone and ends at their root with
+    whatever their loading holds there, so its induced drag and span
+    efficiency are not the configuration's. The row is written; the WARNING
+    names the families, both lifts and their ratio.
+    """
+    rho, speed, _alpha, _beta = _flow(point)
+    cl_traced = lift / (0.5 * rho * speed * speed * float(ctx.reference.sref_m2))
+    cl_near = _near_field(point)[0]
+    if not (math.isfinite(cl_traced) and math.isfinite(cl_near) and cl_near):
+        return
+    ratio = cl_traced / cl_near
+    if abs(ratio - 1.0) > _TRACED_LIFT_TOLERANCE:
+        warn(
+            f"point={point.name} product=farfield: Trefftz A traces {', '.join(families)} with "
+            f"a lift CL_T = {cl_traced:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
+            "the traced families do not carry the configuration's lift, so their CDI_T and "
+            "E_T are of those families alone, not of the configuration (FR-451 R13)",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _output(ctx: SimContext, point: PolarPoint, kind: str) -> Path | None:
@@ -682,37 +750,76 @@ def _plane_grid(ctx: SimContext, spec) -> tuple[float, float, float]:
     return half_width * bref, half_height * bref, spacing * bref
 
 
-def _plane_count(grid: tuple[float, float, float]) -> int:
-    return (2 * int(round(grid[0] / grid[2])) + 1) * (2 * int(round(grid[1] / grid[2])) + 1)
-
-
 @dataclass(frozen=True)
 class _Probe:
     """Where a point's far-field probes are and how to read them."""
 
     per_m: float
-    lattice: tuple[Any, np.ndarray | None, str] | None
-    plane_grid: tuple[float, float, float] | None
+    layout: FarLayout
     hub: tuple[float, np.ndarray, np.ndarray] | None
+    rotor: bool = False
 
 
-def _hub(ctx: SimContext, point: PolarPoint, spec) -> tuple[float, np.ndarray, np.ndarray] | None:
-    """Return the frame speed, axis and origin a quasi-steady rotor's probes are read in."""
+def _layout(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> FarLayout:
+    """Return the far-field probes of a point: as its run recorded them, else from the table.
+
+    PFS-2081.58: the record's layout is what the plan laid or reused, so post
+    integrates exactly those probes with their own grid, whatever the table
+    states today. A record written before the layout was recorded is matched
+    to the table as it stands, the plane and a frame's lattice by shape.
+    """
+    record = ctx.record_of[point.name]
+    shapes = (getattr(record, "farfield_layout", None) or {}).get("shapes")
+    if shapes:
+        return recorded_layout(shapes)
+    plane = spec.trefftz is not None and "plane" in spec.trefftz.variant and not rotor
+    _rho, _speed, alpha, beta = _flow(point)
+    a, b = math.radians(alpha), math.radians(beta)
+    direction = (math.cos(a) * math.cos(b), -math.cos(a) * math.sin(b), math.sin(a))
+    return derived_layout(
+        plane_grid=_plane_grid(ctx, spec) if plane else None,
+        direction=direction,
+        lattice=_lattice_of(ctx, spec),
+    )
+
+
+def _hub(
+    ctx: SimContext, point: PolarPoint, spec, layout: FarLayout
+) -> tuple[float, np.ndarray, np.ndarray] | None:
+    """Return the frame speed (rad/s, signed), axis and origin of a quasi-steady rotor's probes.
+
+    PFS-2081.93: the speed is read as every other product of the point reads
+    it, the record's plan where it states one and otherwise the row's own
+    speed from the quasi-steady record beside the loads export
+    (:func:`~pyflightstream.post._condition.row_rotor_speeds`), which a
+    ``qsteady_rotor`` run always writes and never plans. That speed is SIGNED
+    by the rotor's hand (``rpm_sign`` times the row's magnitude), so the frame
+    turns about the axis by the sign of the speed alone; the hand is not
+    applied a second time. The axis and the hub are the lattice's as the run
+    recorded it, or the reference's rotor block for a record without a layout.
+    """
     record = ctx.record_of[point.name]
     if str(record.recipe or "") != "qsteady_rotor" or spec.ledgers is None:
         return None
     alias = spec.ledgers.rotor
-    rotor = (getattr(ctx.live, "rotors", None) or {}).get(alias)
-    rpm = (_section_rotors(ctx.live, ctx.aliases, record).get(alias) or {}).get("rpm")
-    if rotor is None or rpm is None:
+    own = row_rotor_speeds(record, getattr(point, "loads_path", None))
+    rpm = _recorded_speeds(record.reductions, own).get(str(alias))
+    rotor: Any = (getattr(ctx.live, "rotors", None) or {}).get(alias)
+    if rpm is None:
         raise PyflightstreamError(
-            f"the quasi-steady rotor {alias!r} states no speed in the point's record, so its "
-            "probes cannot be converted to the hub frame"
+            f"the quasi-steady rotor {alias!r} states no speed in the point's record nor in "
+            "its quasi-steady record, so its probes cannot be converted to the hub frame"
         )
-    sense = float(getattr(rotor, "rpm_sign", 1) or 1)
-    axis = _AXES[str(rotor.axis).strip().upper()] * sense
-    origin = np.array([rotor.x_m, rotor.y_m, rotor.z_m], dtype=float)
-    return 2.0 * math.pi * float(str(rpm)) / 60.0, axis, origin
+    if layout.lattice_origin_m is not None:
+        letter, origin = layout.axis, np.asarray(layout.lattice_origin_m, dtype=np.float64)
+    elif rotor is not None:
+        letter = str(rotor.axis)
+        origin = np.asarray([rotor.x_m, rotor.y_m, rotor.z_m], dtype=np.float64)
+    else:
+        raise PyflightstreamError(
+            f"the reference names no rotor {alias!r}, so the hub its probes turn about is unknown"
+        )
+    return 2.0 * math.pi * float(rpm) / 60.0, _AXES[letter.strip().upper()], origin
 
 
 def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
@@ -722,13 +829,8 @@ def _locate(ctx: SimContext, point: PolarPoint, spec, rotor: bool) -> _Probe:
             "the point saved no simulation whose length unit the package reads, so its probe "
             "positions cannot be matched in metres"
         )
-    plane = spec.trefftz is not None and "plane" in spec.trefftz.variant and not rotor
-    return _Probe(
-        per_m=per_m,
-        lattice=_lattice_of(ctx, spec),
-        plane_grid=_plane_grid(ctx, spec) if plane else None,
-        hub=_hub(ctx, point, spec),
-    )
+    layout = _layout(ctx, point, spec, rotor)
+    return _Probe(per_m=per_m, layout=layout, hub=_hub(ctx, point, spec, layout), rotor=rotor)
 
 
 def _instant_values(
@@ -737,31 +839,26 @@ def _instant_values(
     """Return the C values and the ledger rows of one instant, keyed by analysis."""
     rho, speed, alpha, beta = _flow(point)
     q_ref = _q_ref(point, rho)
-    lattice_m = probe.lattice[1] if probe.lattice is not None else None
-    count = _plane_count(probe.plane_grid) if probe.plane_grid else 0
-    tail = probe.lattice[0].point_count if probe.lattice and lattice_m is None else 0
-    lattice_at, plane_at, why = far_samples(
-        instant.samples,
-        lattice_m=lattice_m,
-        plane_count=count,
-        per_m=probe.per_m,
-        lattice_tail=tail,
-    )
-    if why:
-        raise PyflightstreamError(why)
+    layout = probe.layout
+    lattice_at, plane_at, why = far_samples(instant.samples, layout, per_m=probe.per_m)
+    # A wing's Trefftz C reads the plane; a rotor's reads a lattice station.
+    wants_plane = "trefftz:plane" in analyses and not probe.rotor
+    wants_lattice = "ledgers" in analyses or ("trefftz:plane" in analyses and probe.rotor)
+    if (wants_plane and plane_at is None) or (wants_lattice and lattice_at is None):
+        raise PyflightstreamError(why or "the run laid no far-field probes these analyses read")
     out: dict[str, Any] = {}
     if plane_at is not None and "trefftz:plane" in analyses:
         out["plane"] = plane_values(
             instant.samples,
             plane_at,
             flow=(rho, speed, alpha, beta),
-            grid=cast("tuple[float, float, float]", probe.plane_grid),
+            grid=cast("tuple[float, float, float]", layout.plane_grid),
             per_m=probe.per_m,
             q_ref=q_ref,
         )
-    if lattice_at is None or probe.lattice is None:
+    if lattice_at is None or layout.lattice is None:
         return out
-    lattice, _points, axis = probe.lattice
+    lattice, axis = layout.lattice, layout.axis
     hub = None
     if probe.hub is not None:
         hub = (probe.hub[0], probe.hub[1], probe.hub[2])
@@ -792,6 +889,7 @@ def _c_row(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], step: 
         cells = {
             "FAMILY": "TOTAL",
             "VARIANT": "C",
+            "CL_T": plane["L"] / qs,
             "CDI_T": cdi,
             "E_T": e,
             "AR": aspect,
@@ -813,7 +911,7 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
     context = _context(ctx, point)
     rows = []
     for station in values["ledgers"]:
-        cells = {"LATTICE": name, **station}
+        cells = {"LATTICE": name, "STATUS": _status(ctx, point), **station}
         rows.append((ctx.sim_id, step, *context, *(cells.get(c, _NA) for c in LEDGER_COLUMNS)))
     return rows
 
@@ -849,6 +947,8 @@ def _probe_point(ctx: SimContext, point: PolarPoint, analyses: Sequence[str], ta
         return
     if "plane" in sets[0][1] or "rotor" in sets[0][1]:
         _warn_compressible(ctx, point)
+    if "plane" in sets[0][1]:
+        _flag_a_plane_short_of_the_lift(ctx, point, sets[0][1]["plane"])
     runs = ctx.sources[point.name]
     for suffix, group in _suffixes(unsteady, sets, averaged, ctx, point, normal=normal):
         c_rows = [
@@ -886,6 +986,35 @@ def _last_step(record: object) -> object:
     plan = getattr(record, "reductions", None) or {}
     last = plan.get("time_iterations") if isinstance(plan, Mapping) else None
     return int(last) if isinstance(last, int | float) and not isinstance(last, bool) else _NA
+
+
+def _flag_a_plane_short_of_the_lift(
+    ctx: SimContext, point: PolarPoint, plane: Mapping[str, float]
+) -> None:
+    """Warn where the C plane's own lift is not the solver's CL (FR-453 R9, PFS-2081.95).
+
+    The plane's lift is the Kutta-Joukowski lift of the vorticity it holds,
+    which roll-up does not change; a plane holding the wake the loads shed
+    carries the solver's lift. Where it departs by more than
+    :data:`_PLANE_LIFT_TOLERANCE`, the probe field does not hold that
+    circulation (RPT-171) and the row's crossflow energy is not the loads'
+    induced drag: the row is written, and flagged here.
+    """
+    rho, speed, _alpha, _beta = _flow(point)
+    qs = 0.5 * rho * speed * speed * float(ctx.reference.sref_m2)
+    cl_plane, cl_near = plane["L"] / qs, _near_field(point)[0]
+    if not (math.isfinite(cl_plane) and math.isfinite(cl_near) and cl_near):
+        return
+    ratio = cl_plane / cl_near
+    if abs(ratio - 1.0) > _PLANE_LIFT_TOLERANCE:
+        warn(
+            f"point={point.name} product=farfield: the Trefftz C plane carries a lift of its own "
+            f"vorticity CL_T = {cl_plane:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
+            "the probe field does not hold the circulation the loads shed, so its crossflow "
+            "energy is not their induced drag (FR-453 R9, RPT-171)",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _warn_compressible(ctx: SimContext, point: PolarPoint) -> None:
