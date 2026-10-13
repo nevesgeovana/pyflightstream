@@ -25,7 +25,12 @@ import numpy as np
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import classify_outputs
-from pyflightstream.cases.farfield_inputs import ROTOR_RUN_TYPES, UNSTEADY_RUN_TYPES, applies
+from pyflightstream.cases.farfield_inputs import (
+    ROTOR_RUN_TYPES,
+    UNSTEADY_RUN_TYPES,
+    applies,
+    few_stations_warning,
+)
 from pyflightstream.farfield import (
     TraceResult,
     calibration_scale,
@@ -55,6 +60,7 @@ from pyflightstream.post.section_distributions import _distributions
 from pyflightstream.results.loads import parse_unsteady_plots
 from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.results.wake import parse_wake_export
+from pyflightstream.workspace.naming import sweep_file_stem
 
 if TYPE_CHECKING:
     from pyflightstream.cases._farfield_spec import FarfieldSpec, LedgersSpec, TrefftzSpec
@@ -114,9 +120,9 @@ SPANWISE_COLUMNS: tuple[str, ...] = (
 )
 _NA = float("nan")
 _VARIANT_NAMES = {"sections": "A", "wake": "B", "plane": "C"}
-#: The measured strip bias of the discrete trace on an elliptic loading, in
-#: percent of E_T, at the station counts per side the definitions page states.
-_BIAS_PCT = {40: 1.05, 80: 0.52, 160: 0.26}
+#: Above this Mach number the C row is written with a WARNING that the
+#: incompressible relations of the definitions page are used (FR-453 R7).
+_INCOMPRESSIBLE_MACH = 0.3
 _AXES = {"X": np.array([1.0, 0.0, 0.0]), "Y": np.array([0.0, 1.0, 0.0]), "Z": np.array([0, 0, 1.0])}
 
 
@@ -407,16 +413,9 @@ def _a_sheets(
         gammas.append(lift / (rho * speed))
         sheets.append(np.full(len(rows), index))
         chords.append(rows[:, 1])
-        per_side = len(rows) if mirror else len(rows) // 2
-        if per_side < stations:
-            nearest = min(_BIAS_PCT, key=lambda n: abs(n - per_side))
-            warn(
-                f"point={point.name} product=farfield: family {name} has {per_side} stations per "
-                f"side, fewer than the {stations} of [farfield.trefftz]; the strip bias of E_T is "
-                f"about {_BIAS_PCT[nearest]} percent at {nearest} (the definitions page)",
-                PyflightstreamWarning,
-                stacklevel=2,
-            )
+        few = few_stations_warning(name, len(rows) if mirror else len(rows) // 2, stations)
+        if few:
+            warn(f"point={point.name} product=farfield: {few}", PyflightstreamWarning, stacklevel=2)
     return ys, zs, gammas, sheets, chords
 
 
@@ -545,8 +544,18 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
     x_t = max(float(line[0, 0]) for line in lines) + spec.distance_bref * ctx.reference.bref_m
     trace = wake_crossings(lines, wake.values, x_t=x_t)
     if trace.problem is not None:
-        _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}")
-        return []
+        # FR-452 R3, R4: the point's B row is written NA, never dropped, and
+        # the WARNING says why; a short wake states the length the run had.
+        reach = min(float(line[-1, 0] - line[0, 0]) for line in lines) if lines else _NA
+        length = (
+            f"; the recorded wake is {reach:.4g} m long on its shortest line, and the plane "
+            f"stands {spec.distance_bref * ctx.reference.bref_m:.4g} m behind the trailing edge"
+            if trace.short
+            else ""
+        )
+        _skip(ctx, key, point.name, f"no trace at x = {x_t:.4g} m: {trace.problem}{length}")
+        values = {"FAMILY": "TOTAL", "VARIANT": "B", "X_T_M": x_t}
+        return [_row(ctx, point, _NA, values)]
     mirror, half = _symmetry(ctx)
     try:
         raw = trace_forces(trace.y, trace.z, trace.values, rho=rho, v_inf=speed, mirror=mirror)
@@ -775,24 +784,31 @@ def _probe_point(ctx: SimContext, point: PolarPoint, analyses: Sequence[str], ta
     unsteady = run_type in UNSTEADY_RUN_TYPES
     key = f"{FARFIELD_DIR}/probes#point={point.name}"
     rotor = run_type in ROTOR_RUN_TYPES
+    # FR-455 R9: an unsteady row whose [[probes]] entries are of kind normal
+    # holds its probes at the last time step only, in the probe export.
+    normal = unsteady and _normal_probes(ctx)
     try:
         probe = _locate(ctx, point, spec, rotor)
-        instants, why = _instants(ctx, point, unsteady)
+        instants, why = _instants(ctx, point, unsteady and not normal)
         if why:
             raise PyflightstreamError(why)
-        if unsteady:
+        if unsteady and not normal:
             window = ctx.point_windows.get(point.name)
             last = instants[-1]
             chosen = [i for i in instants if window and window[0] <= _step(i) <= window[1]]
         else:
             last, chosen = instants[0], []
+            if normal:
+                last = replace(last, step=_last_step(record))
         sets = [(last, _instant_values(ctx, point, last, probe, analyses))]
         averaged = [(i, _instant_values(ctx, point, i, probe, analyses)) for i in chosen]
     except PyflightstreamError as error:
         _skip(ctx, key, point.name, f"the far-field probes cannot be read: {error}")
         return
+    if "plane" in sets[0][1] or "rotor" in sets[0][1]:
+        _warn_compressible(ctx, point)
     runs = ctx.sources[point.name]
-    for suffix, group in _suffixes(unsteady, sets, averaged, ctx, point):
+    for suffix, group in _suffixes(unsteady, sets, averaged, ctx, point, normal=normal):
         c_rows = [
             _c_row(ctx, point, values, inst.step)
             for inst, values in group
@@ -815,12 +831,57 @@ def _step(instant: _Instant) -> float:
     return float(step) if isinstance(step, int | float) else math.nan
 
 
-def _suffixes(unsteady: bool, sets: list, averaged: list, ctx: SimContext, point: PolarPoint):
+def _normal_probes(ctx: SimContext) -> bool:
+    """Whether the row's ``[[probes]]`` entries are all of kind normal (FR-417, FR-455 R9)."""
+    try:
+        return bool(ctx.pproc.samples_normal_probes())
+    except PyflightstreamError:
+        return False
+
+
+def _last_step(record: object) -> object:
+    """Return the run's last time step, the instant a normal probe holds, or NA."""
+    plan = getattr(record, "reductions", None) or {}
+    last = plan.get("time_iterations") if isinstance(plan, Mapping) else None
+    return int(last) if isinstance(last, int | float) and not isinstance(last, bool) else _NA
+
+
+def _warn_compressible(ctx: SimContext, point: PolarPoint) -> None:
+    """Warn once per point that a C row above Mach 0.3 uses incompressible relations (R7)."""
+    mach = ctx.condition(point).get("MACH")
+    if isinstance(mach, int | float) and float(mach) > _INCOMPRESSIBLE_MACH:
+        warn(
+            f"point={point.name} product=farfield: the point flies at Mach {float(mach):.4g}, "
+            f"above {_INCOMPRESSIBLE_MACH}; its Trefftz C row is written with the "
+            "incompressible relations of the definitions page (FR-453 R7)",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def _suffixes(
+    unsteady: bool,
+    sets: list,
+    averaged: list,
+    ctx: SimContext,
+    point: PolarPoint,
+    *,
+    normal: bool = False,
+):
     if not unsteady:
         return [("", sets)]
     out = [("_instant", sets)]
     if averaged:
         out.append(("_average", averaged))
+    elif normal:
+        _skip(
+            ctx,
+            f"{FARFIELD_DIR}/average#point={point.name}",
+            point.name,
+            'the far-field probes of this unsteady row are [[probes]] of kind = "normal", '
+            "which hold the last time step only: the instant is written and the average "
+            "is not (FR-455 R9)",
+        )
     else:
         _skip(
             ctx,
@@ -900,7 +961,10 @@ def _write(ctx: SimContext, spec, tables: _Tables) -> None:
     for suffix, rows in tables.rows.items():
         analysis = suffix.split("_")[0]
         columns = TREFFTZ_COLUMNS if analysis == "trefftz" else LEDGER_COLUMNS
-        path = ctx.target(ctx.out / FARFIELD_DIR / f"{ctx.sim_id}_{ctx.table_name}_{suffix}.csv")
+        # FR-456 R1: <group> is the stem of the simulation's polar tables, so
+        # the far-field file sits beside its polars by name.
+        group = sweep_file_stem(ctx.sim_id, ctx.table_name)
+        path = ctx.target(ctx.out / FARFIELD_DIR / f"{group}_{suffix}.csv")
         path.parent.mkdir(parents=True, exist_ok=True)
         write_csv_table(path, ("POL", "STEP", *CONTEXT_COLUMNS, *columns), rows)
         entry: dict[str, object] = {
