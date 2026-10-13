@@ -4,32 +4,32 @@
     {
       "name": "pyfts-guide-04-cheatsheet.pdf",
       "path": "guide/pyfts-guide-04-cheatsheet.pdf",
-      "source_revision": "2662a1b2931a738d8a157321fa466953a73a2cbd",
+      "source_revision": "63a1e3e07d4ae40dbfca7d02192f96c1db03f4f8",
       "source_tree_clean": false,
-      "build_command": "powershell -NoProfile -ExecutionPolicy Bypass -File guide/latex-sources/build-all.ps1 04",
+      "build_command": "powershell -NoProfile -ExecutionPolicy Bypass -File guide/latex-sources/build-all.ps1 -Only 04",
       "typesetter": "pdflatex (three passes, run by build-all.ps1)",
       "typesetter_version": "MiKTeX-pdfTeX 4.16 (MiKTeX 23.10)",
       "exit_status": 0,
       "build_log": "guide/pyfts-guide-04-cheatsheet.log",
-      "build_log_sha256": "574cb4787453fd83edf609a37bcc203f7d6e8b3bfa3a2b1611db94cf53230fd4",
-      "raw_build_log_sha256": "39d1820d312481407e87d7a33f40fc344f7d5b99c348207aac824a31534e70cd",
-      "pdf_sha256": "cf54d7d060cd3b523b5c3d23a7aa44eccef1b4895df2ef97d182d4d06042518c",
+      "build_log_sha256": "979b3b561ee2821c87d2672da9b66de76a137b7b41f6b5b0c83cc2ddb3c22e29",
+      "raw_build_log_sha256": "6ac1a43c8ea736a48b300158f08e7e78d55dc64b860cc34045e14c64dc4a5ec2",
+      "pdf_sha256": "11607ba37c847eea0f0adc3ae7e758073b90c75dccb28a20d01b6afe6bfc268c",
       "page_count": 10
     },
     {
       "name": "pyflightstream_user_guide.pdf",
       "path": "guide/pyflightstream_user_guide.pdf",
-      "source_revision": "2662a1b2931a738d8a157321fa466953a73a2cbd",
+      "source_revision": "63a1e3e07d4ae40dbfca7d02192f96c1db03f4f8",
       "source_tree_clean": false,
-      "build_command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-guide.ps1",
+      "build_command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-guide.ps1 -TexFile guide/pyflightstream_user_guide.tex",
       "typesetter": "pdflatex, run by latexmk -pdf (build-guide.ps1 takes latexmk when it is on the PATH)",
       "typesetter_version": "MiKTeX-pdfTeX 4.16 (MiKTeX 23.10); Latexmk, John Collins, 4 Apr. 2023. Version 4.80",
       "exit_status": 0,
       "build_log": "guide/pyflightstream_user_guide.log",
-      "build_log_sha256": "19671ec7dba26f4c2bf9063395ebf6c2266b6bfb1c2f6150c35cc776e61c7213",
-      "raw_build_log_sha256": "a3fccd394f5082fd78130f52c86390caefe55ea8c5b892dd65dda8c34853f94d",
-      "pdf_sha256": "d8aa7053f5bbfe8728427cd7eee1084fd1fcd07c8a27d96754e4c6519c0cdf57",
-      "page_count": 96
+      "build_log_sha256": "7f86344508d6e4944f72483e8c6ccf3bacd6cca196b8f4d836f3e7c492e612d8",
+      "raw_build_log_sha256": "7aac32eaf84ffff6fcbe377933dcb29f7280c590e44ab8d56d5b950fbcfa071d",
+      "pdf_sha256": "077703a40d7afed7075682950df60a91d211e64b91247beb22fab59d5b2008ca",
+      "page_count": 95
     }
   ]
 }
