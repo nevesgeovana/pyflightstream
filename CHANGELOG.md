@@ -346,6 +346,7 @@ message naming the record and missing input key, instead of raising KeyError. (F
 
 ### Fixed
 
+- External FSI refuses aliases of reserved files, including `call.json.` and names ending in spaces, when reading inputs, planning and executing a call. On Windows the archive's call record could overwrite a structural program's output while the call reported success (FR-462 R3, R4, REL8-001).
 - PFS-2089.006: Public action-export renderers require explicit keyword-only version.
 - PFS-2104.031: Walltime rescue respects EXPORT_LOG and LOG_OUTPUT routing.
 - PFS-2104.039: Walltime rescue respects disabled log export.
