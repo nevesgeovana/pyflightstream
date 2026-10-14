@@ -145,7 +145,7 @@ def test_p0400_refinewing_a_sheet_trailing_edge_is_detected_across_its_families(
 @pytest.mark.requirement("FR-430")
 def test_p0400_bgtests2_detected_trailing_edges_require_mesh_units(tmp_path):
     """PFS-2099.006: detection cannot label unknown mesh coordinates as metres."""
-    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace import InputArtifactError
 
     mesh = wing()
     mesh = Composite(mesh.verts, mesh.families, numpy.zeros((0, 3)), {})
@@ -199,23 +199,17 @@ def test_p0400_bgtests2_remesh_preserves_only_listed_trailing_edges(tmp_path):
 @pytest.mark.requirement("FR-426")
 def test_p0400_bgtests2_assembled_grid_and_copied_family_share_one_trailing_edge(tmp_path):
     """PFS-2099.016 and PFS-2099.024: assembly deduplicates a grid part and its copied neighbour."""
-    from types import SimpleNamespace
-
-    from pyflightstream.workspace._refine._level import _assemble
-
     mesh = wing(root=False)
-    selected = {"U": object()}
-    work = SimpleNamespace(
-        names=["U", "L"],
-        parts={"U": (mesh.verts, {"U": mesh.families["U"]}, mesh.te)},
-        specs=selected,
-        request=SimpleNamespace(specs=selected),
-        te_points=mesh.te,
-        fam_v={name: {v for face in faces for v in face} for name, faces in mesh.families.items()},
-        mesh=SimpleNamespace(verts=mesh.verts, families=mesh.families),
-        scale=float(numpy.linalg.norm(numpy.ptp(mesh.verts, axis=0))),
-        bands={},
+    # Uniform chord spacing keeps both source and refined corner nodes away
+    # from the neighboring spanwise edge on older refinement implementations.
+    vertices = mesh.verts.copy()
+    vertices[:, 0] = numpy.interp(vertices[:, 0], X[::-1], numpy.linspace(0, 1, len(X)))
+    mesh = Composite(vertices, mesh.families, mesh.te, {})
+    level = refine_mesh(
+        _source(tmp_path, mesh), chordwise=2, families=["U"], out_dir=tmp_path / "out"
     )
-    _, _, midpoints = _assemble(work)
+    assert level.report["U"]["method"] == "grid"
+    assert level.report["L"]["method"] == "copied"
+    midpoints = _te_rows(level)
     assert len(midpoints) == len(mesh.te)
-    assert sorted(map(tuple, midpoints.tolist())) == sorted(map(tuple, mesh.te.tolist()))
+    assert sorted(midpoints) == sorted(map(tuple, mesh.te.tolist()))

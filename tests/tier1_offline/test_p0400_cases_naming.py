@@ -41,9 +41,20 @@ def test_p0400_sweep_values_with_distinct_historical_names_are_not_refused(tmp_p
     assert read.sweep.values == [0.0, 0.1, 0.2, 0.3]
 
 
-def test_p0400_bgtests2_distinct_sweep_values_report_a_rounded_name_collision():
+def test_p0400_bgtests2_distinct_sweep_values_report_a_rounded_name_collision(tmp_path):
     """PFS-2095.038: distinct values that collide are described as rounding to one name."""
-    from pyflightstream.cases._sweep_names import refuse_repeated_names
-
+    row = dict.fromkeys(MATRIX_COLUMNS, "NA")
+    row.update(
+        POL="9001",
+        HIDDEN="0",
+        RUN="1",
+        FLIGHT_CONDITION="MACH:0.1, ALPHA:sweep, BETA:0",
+        SWEEP_VALUES="0.11,0.12",
+        FS_BUILD="MANUAL",
+        WORKFLOW="unsteady",
+        VAR_NAMES_VALUES="",
+    )
+    path = tmp_path / "matrix.fs"
+    path.write_text(" | ".join(row) + "\n" + " | ".join(row.values()) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="0.11.*0.12.*round to the same name"):
-        refuse_repeated_names("9001", "0.11,0.12", "alpha", {}, error=ValueError)
+        read_matrix(path)
