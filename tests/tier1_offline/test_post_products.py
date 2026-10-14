@@ -1251,7 +1251,9 @@ def test_her_plot_format_sample_against_the_stage_product(tmp_path):
     specification = write_custom_polar_format.__doc__ or ""
     for line in range(1, 10):
         assert f"line {line}" in specification, f"the docstring names no line {line}"
-    assert "%10.5f" in specification
+    assert "len(columns)" in specification
+    assert "up to five decimals" in specification
+    assert "leading" in specification and "blank" in specification
 
 
 def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(tmp_path):
