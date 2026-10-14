@@ -7,6 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Maintainers: CI runs on push or manual dispatch, skips docs-only and dry-run branch pushes, and cancels superseded runs.
+
 ### Owed
 
 - **The licensed confirmations of 0.34.0 are owed after the release.** By

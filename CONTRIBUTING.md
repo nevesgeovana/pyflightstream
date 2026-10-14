@@ -16,6 +16,11 @@ The `fsi` and `geom` extras are part of the full Tier 1 suite (the FSI
 and geometry-gate tests import them); the four platform legs of CI
 install exactly this set.
 
+CI runs on pushes and manual dispatch, skipping pushes that change only
+`docs/**`, Markdown files or `guide/**`, and branches named `dry-run/**`.
+A newer run on the same ref cancels its predecessor. Pull requests do not
+start a second CI run.
+
 **Budget roughly ten minutes for `pytest`**. A large part of that is the
 mutation batteries beside the repository checkers under `tools/`: each
 one restores the original defect and requires the checker to deny it,

@@ -5,7 +5,13 @@ name: ci
 
 on:
   push:
-  pull_request:
+    paths-ignore: ["docs/**", "**/*.md", "guide/**"]
+    branches-ignore: ["dry-run/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 # Declared explicitly rather than left absent: an absent block
 # is not "grants nothing", it falls back to the repository default token,
