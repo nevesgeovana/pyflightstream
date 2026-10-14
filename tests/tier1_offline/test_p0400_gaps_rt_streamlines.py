@@ -24,15 +24,7 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream.cases import CampaignConfigError, PprocSpec
-from pyflightstream.cases.workflows import (
-    _gap_evidence,
-    build_script,
-    streamline_commands,
-    streamline_count,
-)
 from pyflightstream.commands import CommandRegistry, Status
-from pyflightstream.post.streamlines import render_streamlines_vtk, write_streamline_products
-from pyflightstream.results import parse_off_body_streamlines
 from pyflightstream.script import Script
 from tests.tier1_offline._p0400_gaps_rt_support import registry_with
 from tests.tier1_offline.test_workflows import (
@@ -72,6 +64,8 @@ def _spec(**table: object) -> PprocSpec:
 
 def _verified(spec: PprocSpec) -> CommandRegistry:
     """The committed database with every command of ``spec`` recorded verified on BUILD."""
+    from pyflightstream.cases.workflows import streamline_commands
+
     assert spec.streamlines is not None
     commands = streamline_commands(spec.streamlines, reopened=True)
     return registry_with(commands, BUILD, Status.VERIFIED)
@@ -81,6 +75,8 @@ def _script(
     tmp_path: Path, run_type: str, spec: PprocSpec, registry: CommandRegistry | None = None
 ) -> Script:
     """Build one row of ``run_type`` naming ``spec``, its outputs as the pproc declares them."""
+    from pyflightstream.cases.workflows import build_script
+
     base = steady_case() if run_type == "steady" else _case_for(run_type)
     tmp_path.mkdir(parents=True, exist_ok=True)
     case = _with_pproc(base, _wb_geometry(tmp_path), pproc=spec)
@@ -170,6 +166,8 @@ def test_p0400_streamlines_gate_refuses_an_unprobed_build(tmp_path):
 
 def test_p0400_streamlines_gate_reads_the_database(tmp_path):
     """P0400-STREAMLINES (FR-460 R-GATE): the predicate reads the build's recorded status."""
+    from pyflightstream.cases.workflows import _gap_evidence
+
     script = Script(BUILD)
     assert _gap_evidence.command_verified(script, "NEW_STREAMLINE_DISTRIBUTION")
     assert not _gap_evidence.command_verified(script, "NEW_OFF_BODY_STREAMLINE")
@@ -178,6 +176,8 @@ def test_p0400_streamlines_gate_reads_the_database(tmp_path):
 
 def test_p0400_streamlines_plan_count(tmp_path):
     """P0400-STREAMLINES (FR-460 R3): the plan's count is the pproc's off-body count."""
+    from pyflightstream.cases.workflows import streamline_count
+
     case = _with_pproc(steady_case(), _wb_geometry(tmp_path), pproc=_spec())
     assert streamline_count(case) == 68
     assert streamline_count(steady_case()) == 0
@@ -215,6 +215,8 @@ def test_p0400_streamlines_frame_the_run_does_not_create(tmp_path):
 
 def test_p0400_streamlines_reopened_deletes_first():
     """P0400-STREAMLINES (FR-460 R6): an extraction deletes what the saved simulation carries."""
+    from pyflightstream.cases.workflows import streamline_commands
+
     spec = _spec()
     assert spec.streamlines is not None
     commands = streamline_commands(spec.streamlines, reopened=True)
@@ -240,6 +242,9 @@ def test_p0400_streamlines_additional_outputs():
 
 def test_p0400_streamlines_vtk_of_the_observed_export(tmp_path):
     """P0400-STREAMLINES (FR-460 R7): three polylines of thirty points, with the variables."""
+    from pyflightstream.post.streamlines import render_streamlines_vtk, write_streamline_products
+    from pyflightstream.results import parse_off_body_streamlines
+
     source = tmp_path / "P_slo.txt"
     source.write_bytes((FIXTURES / "off_body_streamlines_26.123.txt").read_bytes())
     outcomes = write_streamline_products(
@@ -270,4 +275,6 @@ def test_p0400_streamlines_vtk_of_the_observed_export(tmp_path):
 
 def test_p0400_streamlines_vtk_off_writes_nothing(tmp_path):
     """P0400-STREAMLINES (FR-460 R7): vtk = false writes no product."""
+    from pyflightstream.post.streamlines import write_streamline_products
+
     assert write_streamline_products({}, tmp_path, "P", vtk=False) == {}
