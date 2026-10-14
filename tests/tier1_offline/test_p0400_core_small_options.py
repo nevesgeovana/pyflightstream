@@ -28,3 +28,7 @@ def test_p0400_secondsfinite_a_finite_positive_value_is_kept() -> None:
     with option_context("qa.probe_timeout_s", get_option("qa.probe_timeout_s")):
         set_option("qa.probe_timeout_s", 30.5)
         assert get_option("qa.probe_timeout_s") == 30.5
+        for value in (math.nan, math.inf, -math.inf):
+            with pytest.raises(OptionError, match="finite"):
+                set_option("qa.probe_timeout_s", value)
+            assert get_option("qa.probe_timeout_s") == 30.5
