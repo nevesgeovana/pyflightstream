@@ -283,7 +283,7 @@ def test_standard_install_paths_are_absent_from_tool_and_fixtures():
         ROOT / "scripts" / "chm_to_pdf.py",
         ROOT / "src" / "pyflightstream" / "commands" / "_meta.yaml",
         ROOT / "tests" / "tier1_offline" / "test_fsm_saved_actions.py",
-        ROOT / "tests" / "tier1_offline" / "test_fr312_inventory_clean.py",
+        ROOT / "tests" / "tier1_offline" / "test_inventory_cli.py",
         *(path for path in fixtures.rglob("*") if path.is_file()),
     ]
     assert fixtures.is_dir()
