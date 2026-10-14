@@ -24,13 +24,28 @@ and one of a pusher are different numbers of solver steps, so the same
 the polar and the time average use, is counted on the row's clock rotor.
 """
 
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T23:48:13-03:00
+# last_modified_by: OpenAI / Codex / gpt-6-astra / architect-reviewer
+# dependencies:
+#   - python>=3.12
+#   - pyflightstream._tokens
+#   - pyflightstream.cases.reference_blocks
+#   - pyflightstream.script._surface_averaging
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Use standard-library restart wire types without an undeclared backport.
+# revision_source: git
+# GEOVERSE_HEADER_END
+
 from __future__ import annotations
 
 import copy
 import math
 from collections.abc import Mapping
-
-from typing_extensions import TypedDict
+from typing import TypedDict
 
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases.reference_blocks import CampaignConfigError
