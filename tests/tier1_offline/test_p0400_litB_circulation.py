@@ -27,7 +27,7 @@ def test_p0400_litb_signed_full_sheet_reconstructs_the_strip_loading():
     shed = -np.diff(np.r_[0.0, gamma, 0.0])
     trace = WakeTrace(edges, np.zeros(5), shed, 0, None)
     b = trace.forces(rho=1.2, v_inf=30.0)
-    a = trace_forces(edges[:-1] + 0.5, np.zeros(4), gamma, rho=1.2, v_inf=30.0)
+    a = trace_forces(edges[:-1] + 0.5, z=np.zeros(4), gamma=gamma, rho=1.2, v_inf=30.0)
     assert b.gamma.tolist() == gamma.tolist()
     assert b.lift == pytest.approx(a.lift)
     assert b.induced_drag == pytest.approx(a.induced_drag)

@@ -48,7 +48,7 @@ def _elliptic_plane(half_y: float, half_z: float, h: float):
     v, w = conjugate.real, -conjugate.imag
     u = np.full_like(v, V)
     p_prime = -0.5 * RHO * (u * u + v * v + w * w - V * V)
-    return plane_fields(y, z, {"u": u, "v": v, "w": w, "p_prime": p_prime})
+    return plane_fields(y, z=z, fields={"u": u, "v": v, "w": w, "p_prime": p_prime})
 
 
 @pytest.mark.requirement("FR-453")
@@ -86,10 +86,18 @@ def test_p0400_trefftzc_one_integrand_for_the_plane_and_the_balance():
     """P0400-TREFFTZC (FR-450 R1, FR-453 R1): advected by V, the balance's integrand is C's."""
     plane = _elliptic_plane(2.0, 2.0, 0.1)
     drag = plane_induced_drag(plane, rho=RHO, v_inf=V).induced_drag
-    energy = grid_integral(plane.y, plane.z, crossflow_integrand(RHO, plane["v"], plane["w"], V))
+    energy = grid_integral(
+        plane.y,
+        z=plane.z,
+        integrand=crossflow_integrand(RHO, first=plane["v"], second=plane["w"], advecting=V),
+    )
     assert drag * V == pytest.approx(energy, rel=1e-13)
     advected_by_u = grid_integral(
-        plane.y, plane.z, crossflow_integrand(RHO, plane["v"], plane["w"], plane["u"] + 1.0)
+        plane.y,
+        z=plane.z,
+        integrand=crossflow_integrand(
+            RHO, first=plane["v"], second=plane["w"], advecting=plane["u"] + 1.0
+        ),
     )
     assert drag * V != pytest.approx(advected_by_u, rel=1e-6)
 
@@ -101,7 +109,7 @@ def test_p0400_trefftzc_a_uniform_stream_has_no_drag_and_full_coverage():
     z = np.linspace(-0.5, 0.5, 11)
     ones = np.ones((21, 11))
     plane = plane_fields(
-        y, z, {"u": V * ones, "v": 0.0 * ones, "w": 0.0 * ones, "p_prime": 0.0 * ones}
+        y, z=z, fields={"u": V * ones, "v": 0.0 * ones, "w": 0.0 * ones, "p_prime": 0.0 * ones}
     )
     drag = plane_induced_drag(plane, rho=RHO, v_inf=V)
     assert drag.induced_drag == 0.0 and drag.coverage == 1.0
@@ -126,7 +134,9 @@ def test_p0400_trefftzc_a_total_pressure_wake_gives_its_momentum_deficit():
     amplitude, sigma = 3.0, 0.4
     deficit = amplitude * np.exp(-r2 / sigma**2)
     zeros = np.zeros_like(r2)
-    plane = plane_fields(y, z, {"u": V - deficit, "v": zeros, "w": zeros, "p_prime": zeros})
+    plane = plane_fields(
+        y, z=z, fields={"u": V - deficit, "v": zeros, "w": zeros, "p_prime": zeros}
+    )
     expected = RHO * (V * amplitude * math.pi * sigma**2 - amplitude**2 * math.pi * sigma**2 / 2.0)
     assert bernoulli_residual(plane, rho=RHO, v_inf=V) == pytest.approx(expected, rel=1e-6)
 
@@ -138,7 +148,7 @@ def test_p0400_trefftzc_one_missing_sample_makes_the_plane_na():
     holed = dict(plane.values)
     holed["w"] = holed["w"].copy()
     holed["w"][3, 4] = np.nan
-    broken = plane_fields(plane.y, plane.z, holed)
+    broken = plane_fields(plane.y, z=plane.z, fields=holed)
     drag = plane_induced_drag(broken, rho=RHO, v_inf=V)
     assert math.isnan(drag.induced_drag)
     assert drag.coverage == pytest.approx(1.0 - 1.0 / holed["w"].size)
@@ -169,7 +179,7 @@ def _slipstream(v_inf: float, *, omega: float, jump: float, stations=(-2.0, 1.0,
         "w": -v_theta * np.sin(psi),
         "p_prime": np.zeros(shape),
     }
-    return lattice, cylindrical_components(lattice_fields(lattice, fields))
+    return lattice, cylindrical_components(lattice_fields(lattice, fields=fields))
 
 
 @pytest.mark.requirement("FR-453")
@@ -177,7 +187,7 @@ def test_p0400_trefftzc_the_rotor_channels_of_a_swirling_slipstream():
     """P0400-TREFFTZC (FR-453 R3): axial and swirl powers analytic, the efficiency defined."""
     jump, omega = 4.0, 6.0
     _, fields = _slipstream(V, omega=omega, jump=jump)
-    channels = rotor_channels(fields, RHO, V, station=2.0)
+    channels = rotor_channels(fields, rho=RHO, v_inf=V, station=2.0)
     area = math.pi * (0.9**2 - 0.1**2)
     assert channels.p_axial == pytest.approx(0.5 * RHO * jump**2 * (V + jump) * area, rel=1e-12)
     rings = fields.ring_centers[fields.ring_centers < 0.9]
@@ -198,7 +208,7 @@ def test_p0400_trefftzc_the_rotor_channels_of_a_swirling_slipstream():
 def test_p0400_trefftzc_a_static_rotor_writes_its_channels_and_no_efficiency():
     """P0400-TREFFTZC (FR-453 R3): ETA_FF is NA at V = 0, the powers are written."""
     _, fields = _slipstream(0.0, omega=6.0, jump=4.0)
-    channels = rotor_channels(fields, RHO, 0.0, station=2.0)
+    channels = rotor_channels(fields, rho=RHO, v_inf=0.0, station=2.0)
     assert math.isnan(channels.eta_ff)
     assert channels.p_axial > 0.0 and channels.p_swirl > 0.0
 
@@ -222,7 +232,9 @@ def test_p0400_trefftzc_the_quasi_steady_field_is_converted_to_the_hub_frame(sen
         [np.full(len(points), V), np.zeros(len(points)), np.zeros(len(points))]
     )
     rotating = rotating - frame_velocity
-    hub = hub_frame_velocities(points, rotating, omega=omega, axis=axis, origin=np.zeros(3))
+    hub = hub_frame_velocities(
+        points, velocities=rotating, omega=omega, axis=axis, origin=np.zeros(3)
+    )
     assert np.allclose(hub, [V, 0.0, 0.0], atol=1e-12)
     shape = (len(lattice.stations), lattice.n_r, lattice.n_psi)
 
@@ -230,7 +242,7 @@ def test_p0400_trefftzc_the_quasi_steady_field_is_converted_to_the_hub_frame(sen
         fields = cylindrical_components(
             lattice_fields(
                 lattice,
-                {
+                fields={
                     "u": velocities[:, 0].reshape(shape),
                     "v": velocities[:, 1].reshape(shape),
                     "w": velocities[:, 2].reshape(shape),
@@ -238,8 +250,10 @@ def test_p0400_trefftzc_the_quasi_steady_field_is_converted_to_the_hub_frame(sen
                 },
             )
         )
-        return rotor_channels(fields, RHO, V, station=2.0)
+        return rotor_channels(fields, rho=RHO, v_inf=V, station=2.0)
 
     assert channels_of(hub).p_swirl == pytest.approx(0.0, abs=1e-12)
-    wrong = hub_frame_velocities(points, rotating, omega=-omega, axis=axis, origin=np.zeros(3))
+    wrong = hub_frame_velocities(
+        points, velocities=rotating, omega=-omega, axis=axis, origin=np.zeros(3)
+    )
     assert channels_of(wrong).p_swirl > 1.0

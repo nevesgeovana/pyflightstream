@@ -39,7 +39,7 @@ def _field(p_prime_outlet=None, stations: tuple[float, ...] = (0.0, 0.3)) -> Lat
         p_prime[1] = p_prime_outlet
     return lattice_fields(
         lattice,
-        {"u": np.ones(shape), "v": np.ones(shape), "w": np.ones(shape), "p_prime": p_prime},
+        fields={"u": np.ones(shape), "v": np.ones(shape), "w": np.ones(shape), "p_prime": p_prime},
     )
 
 

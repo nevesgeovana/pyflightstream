@@ -78,7 +78,12 @@ def _skipped(root: Path) -> dict[str, str]:
 _DIRECTION = (math.cos(math.radians(_ALPHA)), 0.0, math.sin(math.radians(_ALPHA)))
 #: The plane the run laid: 3 by 3 points 1 m apart, 4 m^2 by the trapezoid rule.
 _LAID = farfield_plane(
-    (30.0, 0.0, 1.0), _DIRECTION, distance=0.0, half_width=1.0, half_height=1.0, spacing=1.0
+    (30.0, 0.0, 1.0),
+    direction=_DIRECTION,
+    distance=0.0,
+    half_width=1.0,
+    half_height=1.0,
+    spacing=1.0,
 )
 #: The table as it stands at post states another 3 by 3 grid, 2 m apart (16 m^2).
 _TABLE_2M = (

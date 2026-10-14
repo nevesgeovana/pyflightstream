@@ -115,8 +115,8 @@ def test_p0400_reach2_the_ledger_runs_transverse_force_and_sample_coverage(monke
             np.testing.assert_array_equal(
                 [row["FY_LATERAL_N"], row["FZ_LATERAL_N"]],
                 [
-                    lateral_flux(fields, 1.2, inlet=inlet, outlet=station, component="v"),
-                    lateral_flux(fields, 1.2, inlet=inlet, outlet=station, component="w"),
+                    lateral_flux(fields, rho=1.2, inlet=inlet, outlet=station, component="v"),
+                    lateral_flux(fields, rho=1.2, inlet=inlet, outlet=station, component="w"),
                 ],
             )
     assert all("lateral_flux" in kwargs for _, kwargs in forces)

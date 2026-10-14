@@ -669,7 +669,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     # simulation. Keep the recorded local points in native units, then
     # convert only this command boundary back to SI. Steady probes differ.
     for line in probes.lines:
-        for point in line_points(line.start, line.end, probes.points, scale):
+        for point in line_points(line.start, end=line.end, points=probes.points, scale=scale):
             vertex += 1
             # FR-91. RECORDED BY THE LOOP THAT PLACES IT, so the position a
             # reader is given is the position the solver was given. It is
@@ -758,9 +758,9 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             for point in _read_probe_profile(probes.resolved_points_file, volume_only=not unsteady)
         ]
     for rectangle in probes.rectangles:
-        lattice += rectangle_points(rectangle, scale)
+        lattice += rectangle_points(rectangle, scale=scale)
     for circle in probes.circles:
-        lattice += circle_points(circle, scale)
+        lattice += circle_points(circle, scale=scale)
     # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`. A steady entry
     # in the reference frame has the probes home emit them too
     # (`emit_declared_lattices`), placed and rounded as recorded here; in

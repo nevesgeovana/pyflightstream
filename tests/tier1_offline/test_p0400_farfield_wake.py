@@ -107,7 +107,7 @@ def test_p0400_trefftzb_each_line_is_cut_at_its_first_crossing():
     """P0400-TREFFTZB (FR-452 R3): linear interpolation on the straddling segment."""
     line = np.array([[0.0, 1.0, 0.0], [2.0, 1.0, 0.2], [4.0, 1.0, 0.6], [1.0, 1.0, 1.0]])
     other = np.array([[0.0, 2.0, 0.0], [4.0, 2.0, 0.4]])
-    trace = wake_crossings([line, other], np.array([1.0, 2.0]), x_t=3.0)
+    trace = wake_crossings([line, other], values=np.array([1.0, 2.0]), x_t=3.0)
     assert trace.problem is None
     assert trace.z[0] == pytest.approx(0.4)
     assert trace.z[1] == pytest.approx(0.3)
@@ -118,7 +118,7 @@ def test_p0400_trefftzb_a_line_ending_before_the_plane_makes_the_row_na():
     """P0400-TREFFTZB (FR-452 R3): never a trace of the lines that did reach."""
     short = np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 0.0]])
     long = np.array([[0.0, 2.0, 0.0], [5.0, 2.0, 0.0]])
-    trace = wake_crossings([short, long], np.array([1.0, 1.0]), x_t=3.0)
+    trace = wake_crossings([short, long], values=np.array([1.0, 1.0]), x_t=3.0)
     assert trace.short == 1 and "end before the plane" in trace.problem
     assert trace.y.size == 0
 
@@ -136,7 +136,7 @@ def test_p0400_trefftzb_a_rolled_up_sheet_keeps_the_order_of_its_starts():
         end_z = y * math.sin(6.0 * twist)
         lines.append(np.array([[0.0, y, 0.0], [4.0, end_y, end_z]]))
     values = np.arange(9.0)
-    trace = wake_crossings(lines, values, x_t=4.0)
+    trace = wake_crossings(lines, values=values, x_t=4.0)
     assert trace.problem is None
     assert trace.values.tolist() == values.tolist()
     assert np.any(np.diff(trace.y) < 0.0), "the fixture does not roll up, so it proves nothing"
@@ -147,7 +147,7 @@ def test_p0400_trefftzb_two_sheets_are_not_one_run():
     """P0400-TREFFTZB (FR-452 R4, R5): starts that interleave two sheets make the row NA."""
     wing = [np.array([[0.0, y, 0.0], [5.0, y, 0.0]]) for y in np.linspace(-5, 5, 21)]
     tail = [np.array([[4.0, y + 0.05, 1.0], [5.0, y + 0.05, 1.0]]) for y in np.linspace(-1, 1, 5)]
-    trace = wake_crossings(wing + tail, np.ones(26), x_t=4.5)
+    trace = wake_crossings(wing + tail, values=np.ones(26), x_t=4.5)
     assert trace.problem is not None and "more than one wake sheet" in trace.problem
 
 
@@ -159,9 +159,9 @@ def test_p0400_trefftzb_on_a_planar_trace_b_returns_a():
     edges = np.linspace(-SPAN / 2, SPAN / 2, len(y) + 1)
     shed = -np.diff(np.r_[0.0, gamma, 0.0])
     wake = parse_wake_export(_vtk(_straight_wake(edges, shed), list(shed)))
-    trace = wake_crossings(list(wake.lines), wake.values, x_t=12.5)
+    trace = wake_crossings(list(wake.lines), values=wake.values, x_t=12.5)
     b = trace.forces(rho=RHO, v_inf=V)
-    a = trace_forces(y, np.zeros_like(y), gamma, rho=RHO, v_inf=V)
+    a = trace_forces(y, z=np.zeros_like(y), gamma=gamma, rho=RHO, v_inf=V)
     assert b.lift == pytest.approx(a.lift, rel=1e-8)
     assert b.induced_drag == pytest.approx(a.induced_drag, rel=1e-8)
 
@@ -172,8 +172,8 @@ def test_p0400_trefftzb_the_scale_is_calibrated_from_the_near_field_lift():
     y = _stations(20)
     raw = np.sqrt(1.0 - (2.0 * y / SPAN) ** 2)
     s_ref, cl_near = 8.0, 0.65
-    base = trace_forces(y, np.zeros_like(y), raw, rho=RHO, v_inf=V)
-    doubled = trace_forces(y, np.zeros_like(y), 2.0 * raw, rho=RHO, v_inf=V)
+    base = trace_forces(y, z=np.zeros_like(y), gamma=raw, rho=RHO, v_inf=V)
+    doubled = trace_forces(y, z=np.zeros_like(y), gamma=2.0 * raw, rho=RHO, v_inf=V)
     results = []
     for trace in (base, doubled):
         k = calibration_scale(trace.lift, cl_near=cl_near, q=Q, s_ref=s_ref)
@@ -183,8 +183,8 @@ def test_p0400_trefftzb_the_scale_is_calibrated_from_the_near_field_lift():
                 k,
                 trace_coefficients(
                     scaled.lift,
-                    scaled.side_force,
-                    scaled.induced_drag,
+                    side_force=scaled.side_force,
+                    induced_drag=scaled.induced_drag,
                     q=Q,
                     s_ref=s_ref,
                     b_ref=SPAN,
@@ -196,7 +196,12 @@ def test_p0400_trefftzb_the_scale_is_calibrated_from_the_near_field_lift():
     assert k2 == pytest.approx(k1 / 2.0, rel=1e-12)
     assert c2["CDI_T"] == pytest.approx(c1["CDI_T"], rel=1e-12)
     raw_c = trace_coefficients(
-        base.lift, base.side_force, base.induced_drag, q=Q, s_ref=s_ref, b_ref=SPAN
+        base.lift,
+        side_force=base.side_force,
+        induced_drag=base.induced_drag,
+        q=Q,
+        s_ref=s_ref,
+        b_ref=SPAN,
     )
     assert c1["E_T"] == pytest.approx(raw_c["E_T"], rel=1e-12)
     assert doubled.induced_drag == pytest.approx(4.0 * base.induced_drag, rel=1e-12)

@@ -62,7 +62,7 @@ def uniform_fields():
 
 
 def make_dataset(fields):
-    return cylindrical_components(lattice_fields(LATTICE, fields))
+    return cylindrical_components(lattice_fields(LATTICE, fields=fields))
 
 
 def test_g0_uniform_flow_closes_every_ledger():
@@ -79,7 +79,7 @@ def test_g0_uniform_flow_closes_every_ledger():
     assert float(my.total) == pytest.approx(0.0, abs=1e-9)
     ke = crossflow_kinetic_energy(ds, RHO)
     assert float(np.abs(ke.total).max()) == 0.0
-    assert symmetry_floor(ds["u"], ds.psi) < 1e-11 * V_INF
+    assert symmetry_floor(ds["u"], psi=ds.psi) < 1e-11 * V_INF
 
 
 def test_g0_actuator_disk_jump_recovers_the_analytic_thrust():
@@ -136,9 +136,9 @@ def test_g0_pure_1p_cosine_loading_puts_the_moment_in_the_harmonic_term():
     assert float(harmonic.total) == pytest.approx(float(my.total), rel=1e-10)
     # The order-1 coefficient of u is a(r)/2 on the loaded plane.
     loaded_u = ds["u"][ds.station_index(0.5)]
-    c1 = azimuthal_harmonics(loaded_u, ds.psi, m_max=2)[..., 1]
+    c1 = azimuthal_harmonics(loaded_u, psi=ds.psi, m_max=2)[..., 1]
     assert np.allclose(np.real(c1), amplitude * LATTICE.ring_centers / 2.0, rtol=1e-10)
-    c3 = azimuthal_harmonics(loaded_u, ds.psi, m_max=3)[..., 3]
+    c3 = azimuthal_harmonics(loaded_u, psi=ds.psi, m_max=3)[..., 3]
     assert float(np.abs(c3).max()) < 1e-12
 
 
@@ -154,7 +154,7 @@ def test_transverse_flux_harmonic_path_matches_the_direct_quadrature():
 
 def test_g3_symmetry_floor_is_recorded_at_machine_precision():
     ds = make_dataset(uniform_fields())
-    floor = symmetry_floor(ds["u"], ds.psi)
+    floor = symmetry_floor(ds["u"], psi=ds.psi)
     assert floor < 1e-11 * V_INF
 
 
@@ -162,7 +162,7 @@ def test_nonuniform_azimuths_are_refused_with_the_physical_cause():
     ds = make_dataset(uniform_fields())
     warped = np.sort(np.random.default_rng(0).uniform(0, 2 * np.pi, LATTICE.n_psi))
     with pytest.raises(ValueError, match="uniform"):
-        azimuthal_harmonics(ds["u"], warped)
+        azimuthal_harmonics(ds["u"], psi=warped)
     with pytest.raises(ValueError, match="uniform"):
         plane_integral(dataclasses.replace(ds, psi=warped), ds["u"])
 
@@ -190,12 +190,12 @@ def test_a_missing_sample_no_longer_shrinks_the_integral():
     lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
     shape = (1, lattice.n_r, lattice.n_psi)
     field = np.full(shape, np.pi)
-    ds = lattice_fields(lattice, {"u": field})
+    ds = lattice_fields(lattice, fields={"u": field})
     complete = float(plane_integral(ds, ds["u"])[0])
 
     holed = field.copy()
     holed[0, 0, 0] = np.nan
-    ds_holed = lattice_fields(lattice, {"u": holed})
+    ds_holed = lattice_fields(lattice, fields={"u": holed})
     result = float(plane_integral(ds_holed, ds_holed["u"])[0])
 
     assert np.isfinite(complete)
@@ -213,12 +213,12 @@ def test_sample_coverage_says_how_much_is_missing():
     lattice = build_lattice(tip_radius=1.0, stations=(0.0,), lateral_radius=None)
     shape = (1, lattice.n_r, lattice.n_psi)
     field = np.full(shape, np.pi)
-    ds = lattice_fields(lattice, {"u": field})
+    ds = lattice_fields(lattice, fields={"u": field})
     assert float(sample_coverage(ds["u"])[0]) == 1.0
 
     holed = field.copy()
     holed[0, 0, 0] = np.nan
-    ds_holed = lattice_fields(lattice, {"u": holed})
+    ds_holed = lattice_fields(lattice, fields={"u": holed})
     total = lattice.n_r * lattice.n_psi
     assert float(sample_coverage(ds_holed["u"])[0]) == pytest.approx((total - 1) / total)
 
@@ -234,7 +234,7 @@ def _nyquist_dataset(n_psi_target):
     shape = (1, lattice.n_r, n_psi)
     sign = np.cos(np.arange(n_psi) * np.pi)  # +1, -1, +1, ... exactly
     signal = np.broadcast_to(sign, shape).copy()
-    ds = lattice_fields(lattice, {"u": signal, "v": np.zeros(shape), "w": signal})
+    ds = lattice_fields(lattice, fields={"u": signal, "v": np.zeros(shape), "w": signal})
     return cylindrical_components(ds), n_psi
 
 
@@ -275,7 +275,7 @@ def test_the_two_paths_still_agree_on_an_ordinary_mode():
     ds = cylindrical_components(
         lattice_fields(
             lattice,
-            {"u": 1.0 + signal, "v": np.zeros(shape), "w": signal},
+            fields={"u": 1.0 + signal, "v": np.zeros(shape), "w": signal},
         )
     )
     quadrature = float(transverse_flux(ds, RHO, component="w", method="quadrature")[0])
@@ -329,7 +329,7 @@ def _holed(*, holes=("u", "v", "w", "p_prime"), stations=(-1.0, 0.0, 1.0), stati
     for name in holes:
         fields[name] = fields[name].copy()
         fields[name][station, 0, 0] = np.nan
-    return cylindrical_components(lattice_fields(lattice, fields))
+    return cylindrical_components(lattice_fields(lattice, fields=fields))
 
 
 @pytest.mark.parametrize(
@@ -347,7 +347,7 @@ def _holed(*, holes=("u", "v", "w", "p_prime"), stations=(-1.0, 0.0, 1.0), stati
         ),
         ("shaft_torque", lambda ds: shaft_torque(ds, RHO)),
         ("crossflow_kinetic_energy", lambda ds: crossflow_kinetic_energy(ds, RHO).total),
-        ("symmetry_floor", lambda ds: symmetry_floor(ds["u"], ds.psi)),
+        ("symmetry_floor", lambda ds: symmetry_floor(ds["u"], psi=ds.psi)),
         ("mass_closure", lambda ds: mass_closure(ds, RHO).relative_spread),
         # The public entry points a user actually calls, absent from the first
         # version of this list and added when the re-run passes named them.
@@ -390,7 +390,7 @@ def test_the_same_ledgers_are_finite_on_a_complete_plane():
     ds = cylindrical_components(
         lattice_fields(
             lattice,
-            {
+            fields={
                 "u": np.full(shape, V_INF),
                 "v": np.zeros(shape),
                 "w": np.full(shape, 1.0),
@@ -399,7 +399,7 @@ def test_the_same_ledgers_are_finite_on_a_complete_plane():
         )
     )
     assert np.isfinite(np.asarray(mass_flux(ds, RHO))).all()
-    assert np.isfinite(np.asarray(symmetry_floor(ds["u"], ds.psi)))
+    assert np.isfinite(np.asarray(symmetry_floor(ds["u"], psi=ds.psi)))
     assert np.isfinite(np.asarray(mass_closure(ds, RHO).relative_spread))
     assert np.isfinite(np.asarray(transverse_flux(ds, RHO, component="w", method="harmonic"))).all()
 
@@ -435,7 +435,7 @@ def test_the_two_paths_agree_at_an_odd_azimuth_count():
     ds = cylindrical_components(
         lattice_fields(
             lattice,
-            {"u": 1.0 + signal, "v": np.zeros(shape), "w": signal},
+            fields={"u": 1.0 + signal, "v": np.zeros(shape), "w": signal},
         )
     )
     quadrature = float(transverse_flux(ds, RHO, component="w", method="quadrature")[0])

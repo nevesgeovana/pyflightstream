@@ -14,7 +14,7 @@ def test_p0400_numpy_point_mapping_preserves_coordinates_and_named_fields():
     """
     lattice = ProbeLattice(tip_radius=2.0, stations=(0.5, 1.5), ring_edges=(0.5, 1.0), n_psi=8)
     u = np.arange(16.0).reshape(2, 1, 8)
-    survey = lattice_fields(lattice, {"u": u, "p_prime": u + 10.0})
+    survey = lattice_fields(lattice, fields={"u": u, "p_prime": u + 10.0})
     assert isinstance(survey, LatticeFields)
     assert isinstance(survey.stations, np.ndarray)
     np.testing.assert_array_equal(survey.stations, [0.5, 1.5])

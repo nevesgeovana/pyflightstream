@@ -426,7 +426,7 @@ def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
                 )
                 laid = farfield_plane(
                     tuple(float(v) for v in shape["center_m"]),
-                    tuple(float(v) for v in shape["direction"]),
+                    direction=tuple(float(v) for v in shape["direction"]),
                     distance=0.0,
                     half_width=grid[0],
                     half_height=grid[1],
@@ -495,7 +495,7 @@ def derived_layout(
     if plane_grid is not None and direction is not None:
         laid = farfield_plane(
             (0.0, 0.0, 0.0),
-            tuple(direction),
+            direction=tuple(direction),
             distance=0.0,
             half_width=plane_grid[0],
             half_height=plane_grid[1],
@@ -713,7 +713,7 @@ def plane_values(
     direction = (math.cos(a) * math.cos(b), -math.cos(a) * math.sin(b), math.sin(a))
     laid = farfield_plane(
         (0.0, 0.0, 0.0),
-        direction,
+        direction=direction,
         distance=0.0,
         half_width=grid[0],
         half_height=grid[1],
@@ -734,7 +734,7 @@ def plane_values(
         "w": turned[:, 2].reshape(shape),
         "p_prime": (samples.cp[block] * q_ref).reshape(shape),
     }
-    plane = plane_fields(laid.y, laid.z, fields)
+    plane = plane_fields(laid.y, z=laid.z, fields=fields)
     drag = plane_induced_drag(plane, rho=rho, v_inf=speed)
     return {
         "D": drag.induced_drag,
@@ -768,7 +768,7 @@ def lattice_samples(
         omega, shaft, origin = hub
         velocity = hub_frame_velocities(
             lattice_points(lattice, axis=axis) + origin,
-            velocity,
+            velocities=velocity,
             omega=omega,
             axis=shaft,
             origin=origin,
@@ -795,7 +795,7 @@ def lattice_samples(
             "w": local[planes:, 2].reshape(side),
             "p_prime": p_prime[planes:].reshape(side),
         }
-    return cylindrical_components(lattice_fields(lattice, fields, lateral=lateral))
+    return cylindrical_components(lattice_fields(lattice, fields=fields, lateral=lateral))
 
 
 def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: float) -> dict:
@@ -817,7 +817,7 @@ def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: fl
     dict
         Rotor far-field product columns in the units named by their keys.
     """
-    channels = rotor_channels(fields, rho, speed, station=station)
+    channels = rotor_channels(fields, rho=rho, v_inf=speed, station=station)
     return {
         "P_AXIAL_W": channels.p_axial,
         "P_SWIRL_W": channels.p_swirl,
@@ -836,7 +836,7 @@ def _lateral(fields: LatticeFields, rho: float, inlet: float, outlet: float, c: 
         return _NA
     if inlet == outlet:
         return _NA
-    return lateral_flux(fields, rho, inlet=inlet, outlet=outlet, component=c)
+    return lateral_flux(fields, rho=rho, inlet=inlet, outlet=outlet, component=c)
 
 
 def _moments(fields: LatticeFields, rho: float, speed: float, outlet: float) -> dict:
@@ -896,7 +896,7 @@ def ledger_values(
     energy = crossflow_kinetic_energy(fields, rho)
     torque = shaft_torque(fields, rho)
     closure = mass_closure(fields, rho)
-    floor = symmetry_floor(fields["u"], fields.psi, m_max=spec.m_max)
+    floor = symmetry_floor(fields["u"], psi=fields.psi, m_max=spec.m_max)
     # sample_coverage is the finite fraction of each station's samples (PFS-2139.008).
     coverage = sample_coverage(fields["u"])
     far = float(flux[-1] - flux[0])

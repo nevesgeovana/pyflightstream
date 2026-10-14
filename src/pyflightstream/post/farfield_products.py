@@ -331,7 +331,12 @@ def _trace_rows(
     rows = []
     for name, lift, side, drag, alone, count in entries:
         c = trace_coefficients(
-            lift * factor, side * factor, drag * factor, q=q, s_ref=sref, b_ref=bref
+            lift * factor,
+            side_force=side * factor,
+            induced_drag=drag * factor,
+            q=q,
+            s_ref=sref,
+            b_ref=bref,
         )
         values: dict[str, object] = {
             "FAMILY": name,
@@ -518,8 +523,8 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
     try:
         result = trace_forces(
             y,
-            np.concatenate(zs),
-            np.concatenate(gammas),
+            z=np.concatenate(zs),
+            gamma=np.concatenate(gammas),
             rho=rho,
             v_inf=speed,
             sheets=np.concatenate(sheets),
@@ -627,7 +632,7 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
     x_t += spec.distance_bref * ctx.reference.bref_m
     mirror, half = _symmetry(ctx)
     lines, shed_values = _wake_sheet(ctx, point, lines, wake.values, mirror=mirror)
-    trace = wake_crossings(lines, shed_values, x_t=x_t)
+    trace = wake_crossings(lines, values=shed_values, x_t=x_t)
     if trace.problem is not None:
         # FR-452 R3, R4: the point's B row is written NA, never dropped, and
         # the WARNING says why; a short wake states the length the run had.

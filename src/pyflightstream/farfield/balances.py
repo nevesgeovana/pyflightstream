@@ -246,8 +246,8 @@ def transverse_flux(
 
 def lateral_flux(
     fields: LatticeFields,
-    rho: float,
     *,
+    rho: float,
     inlet: float,
     outlet: float,
     component: str = "w",
@@ -444,7 +444,7 @@ def in_plane_moment(
         loading = plane_integral(fields, lever * tip * g)
     elif method == "harmonic":
         # sum_k cos(psi_k) g = N Re[g_hat_1]; sum_k sin(psi_k) g = -N Im[g_hat_1]
-        g_hat_1 = azimuthal_harmonics(g, fields.psi, m_max=1)[..., 1]
+        g_hat_1 = azimuthal_harmonics(g, psi=fields.psi, m_max=1)[..., 1]
         projected = np.real(g_hat_1) if axis == "y" else np.imag(g_hat_1)
         ring_area = ring_sample_weights(fields) * len(fields.psi)
         loading = (projected * r * ring_area).sum(axis=-1) * tip**3
@@ -467,7 +467,7 @@ def in_plane_moment(
 
 
 def crossflow_integrand(
-    rho: float, first: np.ndarray, second: np.ndarray, advecting: np.ndarray | float
+    rho: float, *, first: np.ndarray, second: np.ndarray, advecting: np.ndarray | float
 ) -> np.ndarray:
     """Return the one crossflow kinetic-energy integrand, ``(rho / 2) (a^2 + b^2) u_adv``.
 
@@ -518,7 +518,9 @@ def crossflow_kinetic_energy(fields: LatticeFields, rho: float) -> CrossflowEner
     """
     v_theta_0 = fields["v_theta"].mean(axis=-1)
     u = fields["u"]
-    total = plane_integral(fields, crossflow_integrand(rho, fields["v_r"], fields["v_theta"], u))
+    total = plane_integral(
+        fields, crossflow_integrand(rho, first=fields["v_r"], second=fields["v_theta"], advecting=u)
+    )
     swirl = plane_integral(fields, 0.5 * rho * v_theta_0[..., None] ** 2 * u)
     return CrossflowEnergy(total=total, swirl=swirl, induced=total - swirl)
 

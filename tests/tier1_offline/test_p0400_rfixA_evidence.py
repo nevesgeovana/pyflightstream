@@ -48,7 +48,7 @@ def test_p0400_rfixa_signed_shed_reconstructs_strips_and_agrees_through_post(tmp
     shed = np.array([-1.0, -1.0, 0.0, 1.0, 1.0])
     bound = np.array([1.0, 2.0, 2.0, 1.0])
     b = WakeTrace(edges, np.zeros(5), shed, 0, None).forces(rho=1.0, v_inf=10.0)
-    a = trace_forces(edges[:-1] + 0.5, np.zeros(4), bound, rho=1.0, v_inf=10.0)
+    a = trace_forces(edges[:-1] + 0.5, z=np.zeros(4), gamma=bound, rho=1.0, v_inf=10.0)
     workspace = wing._workspace(tmp_path, farfield=True)
     raw = workspace.sim_dir("3207") / "outputs"
     loads = next(raw.glob(f"{post._STEM}.txt"))

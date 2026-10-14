@@ -104,7 +104,7 @@ def _results(name: str) -> dict[str, object]:
         tip_radius=TIP, stations=STATIONS, ring_edges=RING_EDGES, n_psi=spec["n_psi"]
     )
     f = ff.cylindrical_components(
-        ff.lattice_fields(lattice, _fields(spec["n_psi"], spec["seed"], spec["holes"]))
+        ff.lattice_fields(lattice, fields=_fields(spec["n_psi"], spec["seed"], spec["holes"]))
     )
     psi = f.psi
     r: dict[str, object] = {
@@ -117,10 +117,10 @@ def _results(name: str) -> dict[str, object]:
         "plane_integral.p_prime": _record(ff.plane_integral(f, f["p_prime"])),
         "sample_coverage.u": _record(ff.sample_coverage(f["u"])),
         "sample_coverage.w": _record(ff.sample_coverage(f["w"])),
-        "azimuthal_harmonics.u.6": _record(ff.azimuthal_harmonics(f["u"], psi, m_max=6)),
-        "azimuthal_harmonics.w.3": _record(ff.azimuthal_harmonics(f["w"], psi, m_max=3)),
-        "symmetry_floor.u": _record(ff.symmetry_floor(f["u"], psi)),
-        "symmetry_floor.v_theta.4": _record(ff.symmetry_floor(f["v_theta"], psi, m_max=4)),
+        "azimuthal_harmonics.u.6": _record(ff.azimuthal_harmonics(f["u"], psi=psi, m_max=6)),
+        "azimuthal_harmonics.w.3": _record(ff.azimuthal_harmonics(f["w"], psi=psi, m_max=3)),
+        "symmetry_floor.u": _record(ff.symmetry_floor(f["u"], psi=psi)),
+        "symmetry_floor.v_theta.4": _record(ff.symmetry_floor(f["v_theta"], psi=psi, m_max=4)),
         "mass_flux": _record(ff.mass_flux(f, RHO)),
         "axial_flux": _record(ff.axial_flux(f, RHO, V_INF)),
         "axial_force": _record(ff.axial_force(f, RHO, V_INF, inlet=-2.0, outlet=1.0)),

@@ -47,7 +47,7 @@ def _survey(stations: tuple[float, ...], fill: Any) -> Any:
     }
     fill(fields, lattice)
     assemble = getattr(farfield, "lattice_fields", None) or farfield.lattice_dataset
-    return cylindrical_components(assemble(lattice, fields)), lattice
+    return cylindrical_components(assemble(lattice, fields=fields)), lattice
 
 
 def test_p0400_bg_drag_counts_need_a_stated_area_and_a_moving_stream():

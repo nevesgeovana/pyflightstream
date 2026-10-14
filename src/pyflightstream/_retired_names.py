@@ -318,7 +318,7 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
         owner="pyflightstream.farfield",
         old="lattice_dataset",
         new=(
-            "pyflightstream.farfield.lattice_fields(lattice, fields), which returns the "
+            "pyflightstream.farfield.lattice_fields(lattice, fields=fields), which returns the "
             "numpy LatticeFields every far-field function takes"
         ),
         retired_in="0.40.0",

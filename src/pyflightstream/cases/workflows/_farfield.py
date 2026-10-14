@@ -329,7 +329,7 @@ def _plane_shape(
     half_width, half_height, spacing = (float(value) for value in grid)
     laid = farfield_plane(
         tuple(center),
-        tuple(direction),
+        direction=tuple(direction),
         distance=0.0,
         half_width=half_width,
         half_height=half_height,
@@ -395,7 +395,7 @@ def _plane_choice(case: SimCase, native_per_m: float) -> FarfieldShape:
             continue
         for rectangle in entry.rectangles:
             # Laid as `[[probes]]` lays it, in the simulation's unit, then in metres.
-            native = rectangle_points(rectangle, native_per_m)
+            native = rectangle_points(rectangle, scale=native_per_m)
             points = np.array(native, dtype=float) / native_per_m
             if _same_points(points, own.points_m, native_per_m):
                 identical.append(replace(own, source="declared", entry=number))
@@ -728,7 +728,7 @@ def farfield_plane_of(case: SimCase, *, extent_m: float | None) -> FarfieldPlane
     half_width, half_height, spacing = spec.trefftz.plane_bref()
     return farfield_plane(
         tuple(mrp + (reach - along) * direction),
-        tuple(direction),
+        direction=tuple(direction),
         distance=spec.trefftz.distance_bref * bref,
         half_width=half_width * bref,
         half_height=half_height * bref,

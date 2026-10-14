@@ -108,7 +108,7 @@ def test_farfield_dataset_flattens_into_the_writers(tmp_path):
     shape = (1, 1, 8)
     # Since 0.40.0 the far field is numpy (FR-457): LatticeFields.points() is
     # what post.dataset_to_points was, the same pair in the same order.
-    points, fields = lattice_fields(lattice, {"u": np.full(shape, 30.0)}).points()
+    points, fields = lattice_fields(lattice, fields={"u": np.full(shape, 30.0)}).points()
     assert points.shape == (8, 3)
     # First sample: station 0.5, ring center 0.75, psi 0, tip radius 2:
     # x = 1.0, y = 0.0, z = 1.5 (z up at psi = 0).

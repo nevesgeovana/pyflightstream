@@ -146,12 +146,12 @@ that replaces it; all are in `pyflightstream.farfield` except
 |---|---|
 | `axial_flux(ds: xr.Dataset, rho: float, v_inf: float) -> xr.DataArray` | `axial_flux(fields: LatticeFields, rho: float, v_inf: float) -> np.ndarray` |
 | `axial_force(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outlet: float) -> float` | `axial_force(fields: LatticeFields, rho: float, v_inf: float, *, inlet: float, outlet: float) -> float` |
-| `azimuthal_harmonics(da: xr.DataArray, *, m_max: int=6) -> xr.DataArray` | `azimuthal_harmonics(values: np.ndarray, psi: np.ndarray, *, m_max: int=6) -> np.ndarray` |
+| `azimuthal_harmonics(da: xr.DataArray, *, m_max: int=6) -> xr.DataArray` | `azimuthal_harmonics(values: np.ndarray, *, psi: np.ndarray, m_max: int=6) -> np.ndarray` |
 | `crossflow_kinetic_energy(ds: xr.Dataset, rho: float) -> xr.Dataset` | `crossflow_kinetic_energy(fields: LatticeFields, rho: float) -> CrossflowEnergy` |
 | `cylindrical_components(ds: xr.Dataset) -> xr.Dataset` | `cylindrical_components(fields: LatticeFields) -> LatticeFields` |
 | `in_plane_moment(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outlet: float, axis: str='y', method: str='quadrature') -> xr.Dataset` | `in_plane_moment(fields: LatticeFields, rho: float, v_inf: float, *, inlet: float, outlet: float, axis: str='y', method: str='quadrature') -> InPlaneMoment` |
 | `irreversible_deficit(w_rel: xr.DataArray, delta_rothalpy: xr.DataArray, entropy_enthalpy_rise: xr.DataArray) -> xr.Dataset` | removed, handed to ITACA for evaluation (below) |
-| `lattice_dataset(lattice: ProbeLattice, fields: Mapping[str, np.ndarray]) -> xr.Dataset` | `lattice_fields(lattice: ProbeLattice, fields: Mapping[str, np.ndarray], *, lateral: Mapping[str, np.ndarray] \| None=None) -> LatticeFields` |
+| `lattice_dataset(lattice: ProbeLattice, fields: Mapping[str, np.ndarray]) -> xr.Dataset` | `lattice_fields(lattice: ProbeLattice, *, fields: Mapping[str, np.ndarray], lateral: Mapping[str, np.ndarray] \| None=None) -> LatticeFields` |
 | `mass_closure(ds: xr.Dataset, rho: float) -> xr.Dataset` | `mass_closure(fields: LatticeFields, rho: float) -> MassClosure` |
 | `mass_flux(ds: xr.Dataset, rho: float) -> xr.DataArray` | `mass_flux(fields: LatticeFields, rho: float) -> np.ndarray` |
 | `plane_integral(ds: xr.Dataset, integrand: xr.DataArray) -> xr.DataArray` | `plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray` |
@@ -160,11 +160,18 @@ that replaces it; all are in `pyflightstream.farfield` except
 | `sample_coverage(integrand: xr.DataArray) -> xr.DataArray` | `sample_coverage(integrand: np.ndarray) -> np.ndarray` |
 | `shaft_torque(ds: xr.Dataset, rho: float) -> xr.DataArray` | `shaft_torque(fields: LatticeFields, rho: float) -> np.ndarray` |
 | `spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float` | `spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float` |
-| `symmetry_floor(da: xr.DataArray, *, m_max: int=6) -> float` | `symmetry_floor(values: np.ndarray, psi: np.ndarray, *, m_max: int=6) -> float` |
+| `symmetry_floor(da: xr.DataArray, *, m_max: int=6) -> float` | `symmetry_floor(values: np.ndarray, *, psi: np.ndarray, m_max: int=6) -> float` |
 | `to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float` | `to_counts(delta: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float` |
 | `transverse_flux(ds: xr.Dataset, rho: float, *, component: str='w', method: str='quadrature') -> xr.DataArray` | `transverse_flux(fields: LatticeFields, rho: float, *, component: str='w', method: str='quadrature') -> np.ndarray` |
 | `transverse_force(ds: xr.Dataset, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> xr.Dataset` | `transverse_force(fields: LatticeFields, rho: float, *, inlet: float, outlet: float, component: str='w', lateral_flux: float=0.0) -> TransverseForce` |
 | `dataset_to_points(ds: xr.Dataset) -> tuple[np.ndarray, dict[str, np.ndarray]]` | `LatticeFields.points(self) -> tuple[np.ndarray, dict[str, np.ndarray]]` |
+
+The new far-field and probe-layout functions take keyword-only inputs after
+their first argument. Name the coordinates, samples and force components,
+for example `trace_forces(y, z=z, gamma=gamma, rho=1.2, v_inf=30.0)` and
+`farfield_plane(origin, direction=direction, distance=1.0, half_width=2.0,
+half_height=1.0, spacing=0.1)`. The explicit azimuth array is likewise
+`azimuthal_harmonics(values, psi=psi)` or `symmetry_floor(values, psi=psi)`.
 
 A field read as `ds["u"]` is now `fields["u"]`, a numpy array shaped station,
 ring, azimuth, and `ds.coords["psi"]` is `fields.psi`; `ds["u"].sel(station=x)`

@@ -27,7 +27,12 @@ _CL = 0.1882829  # the loads fixture's total CL
 _ALPHA = math.radians(-2.0)
 _DIRECTION = (math.cos(_ALPHA), 0.0, math.sin(_ALPHA))
 _PLANE = farfield_plane(
-    (30.0, 0.0, 0.0), _DIRECTION, distance=0.0, half_width=10.0, half_height=5.0, spacing=0.25
+    (30.0, 0.0, 0.0),
+    direction=_DIRECTION,
+    distance=0.0,
+    half_width=10.0,
+    half_height=5.0,
+    spacing=0.25,
 )
 _LAYOUT = {
     "shapes": [

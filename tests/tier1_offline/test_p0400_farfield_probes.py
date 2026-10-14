@@ -45,7 +45,7 @@ def test_p0400_probehome_a_rectangle_runs_v_fastest_with_its_corners():
         points_u=3,
         points_v=4,
     )
-    points = rectangle_points(rectangle, 2.0)
+    points = rectangle_points(rectangle, scale=2.0)
     assert len(points) == 12
     assert points[0] == [0.0, -2.0, 0.0]
     assert points[3] == [0.0, -2.0, 2.0]
@@ -64,7 +64,7 @@ def test_p0400_probehome_a_circle_has_its_centre_once_and_math_trig():
         points_radial=3,
         points_azimuth=7,
     )
-    points = circle_points(circle, 3.0)
+    points = circle_points(circle, scale=3.0)
     assert len(points) == 1 + 2 * 7
     assert points[0] == [3.0, 0.0, 0.0]
     # The least aligned world axis of +x is y: first = y x n = -z, second = n x first = y.
@@ -80,7 +80,7 @@ def test_p0400_probehome_a_circle_has_its_centre_once_and_math_trig():
 @pytest.mark.requirement("FR-459")
 def test_p0400_probehome_a_line_includes_both_ends():
     """P0400-PROBEHOME (FR-459 R1): the line sampling of FR-77, rounded as the script is."""
-    points = line_points((0.0, 0.0, 0.0), (1.0, 2.0, 3.0), 4, 1.5)
+    points = line_points((0.0, 0.0, 0.0), end=(1.0, 2.0, 3.0), points=4, scale=1.5)
     assert points[0] == [0.0, 0.0, 0.0] and points[-1] == [1.5, 3.0, 4.5]
     assert points[1] == [0.5, 1.0, 1.5]
 
@@ -106,7 +106,12 @@ def test_p0400_probehome_the_farfield_plane_is_normal_to_the_free_stream():
     alpha = math.radians(8.0)
     direction = (math.cos(alpha), 0.0, math.sin(alpha))
     plane = farfield_plane(
-        (2.0, 0.0, 0.0), direction, distance=2.5, half_width=7.5, half_height=5.0, spacing=0.1
+        (2.0, 0.0, 0.0),
+        direction=direction,
+        distance=2.5,
+        half_width=7.5,
+        half_height=5.0,
+        spacing=0.1,
     )
     assert len(plane.y) == 151 and len(plane.z) == 101
     assert plane.points.shape == (151 * 101, 3)
@@ -118,7 +123,7 @@ def test_p0400_probehome_the_farfield_plane_is_normal_to_the_free_stream():
         plane.points.mean(axis=0), np.array([2.0, 0.0, 0.0]) + 2.5 * np.array(direction)
     )
     level = farfield_plane(
-        (0, 0, 0), (1, 0, 0), distance=1, half_width=1, half_height=1, spacing=0.5
+        (0, 0, 0), direction=(1, 0, 0), distance=1, half_width=1, half_height=1, spacing=0.5
     )
     assert np.allclose(level.axes, np.eye(3))
 

@@ -33,7 +33,7 @@ def test_collapsed_plane_is_refused_while_building(tmp_path, spacing):
 def test_smallest_valid_plane_still_reaches_the_integrator():
     plane = farfield_plane(
         (0.0, 0.0, 0.0),
-        (1.0, 0.0, 0.0),
+        direction=(1.0, 0.0, 0.0),
         distance=1.0,
         half_width=1.0,
         half_height=1.0,
@@ -41,5 +41,5 @@ def test_smallest_valid_plane_still_reaches_the_integrator():
     )
     assert np.array_equal(plane.y, [-1.0, 0.0, 1.0])
     assert np.array_equal(plane.z, [-1.0, 0.0, 1.0])
-    samples = plane_fields(plane.y, plane.z, {"u": np.ones((3, 3))})
+    samples = plane_fields(plane.y, z=plane.z, fields={"u": np.ones((3, 3))})
     assert samples["u"].shape == (3, 3)

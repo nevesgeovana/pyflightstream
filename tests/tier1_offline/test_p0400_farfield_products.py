@@ -85,7 +85,7 @@ def _probes() -> str:
     direction = (math.cos(a), 0.0, math.sin(a))
     laid = farfield_plane(
         (20.0, 0.0, 0.0),
-        direction,
+        direction=direction,
         distance=5.0,
         half_width=0.75 * BREF,
         half_height=0.5 * BREF,

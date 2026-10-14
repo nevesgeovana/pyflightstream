@@ -992,13 +992,13 @@ def test_a_missing_sample_poisons_the_harmonic_in_plane_moment_product():
         "p_prime": np.zeros(shape),
     }
     fields["u"][1] += 2.0 * np.cos(lattice.psi)[None, :]
-    complete = cylindrical_components(lattice_fields(lattice, fields))
+    complete = cylindrical_components(lattice_fields(lattice, fields=fields))
     whole = in_plane_moment(complete, 1.2, 30.0, inlet=-2.0, outlet=2.0, method="harmonic")
     assert np.isfinite(float(whole.loading_term)) and float(whole.loading_term) != 0.0
 
     holed = {name: value.copy() for name, value in fields.items()}
     holed["u"][1, 0, 0] = np.nan
-    poisoned = cylindrical_components(lattice_fields(lattice, holed))
+    poisoned = cylindrical_components(lattice_fields(lattice, fields=holed))
     product = in_plane_moment(poisoned, 1.2, 30.0, inlet=-2.0, outlet=2.0, method="harmonic")
     loading = float(product.loading_term)
     assert np.isnan(loading), (

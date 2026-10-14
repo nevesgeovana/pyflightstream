@@ -177,9 +177,9 @@ def _induced(
 
 def trace_forces(
     y: np.ndarray,
+    *,
     z: np.ndarray,
     gamma: np.ndarray,
-    *,
     rho: float,
     v_inf: float,
     sheets: Sequence[int] | np.ndarray | None = None,
@@ -348,9 +348,9 @@ def calibration_scale(raw_lift: float, *, cl_near: float, q: float, s_ref: float
 
 def trace_coefficients(
     lift: float,
+    *,
     side_force: float,
     induced_drag: float,
-    *,
     q: float,
     s_ref: float,
     b_ref: float,
@@ -509,7 +509,7 @@ def _edge_trace(
     )
 
 
-def wake_crossings(lines: Sequence[np.ndarray], values: np.ndarray, *, x_t: float) -> WakeTrace:
+def wake_crossings(lines: Sequence[np.ndarray], *, values: np.ndarray, x_t: float) -> WakeTrace:
     """Cut each wake line at its first crossing of the plane ``x = x_t`` (FR-452).
 
     Each line is an ordered chain of nodes ``(n_k, 3)`` in wind axes (m), from
@@ -641,15 +641,15 @@ def plane_induced_drag(plane: PlaneFields, *, rho: float, v_inf: float) -> Plane
         Fine and coarse induced drag in N, their difference and sample coverage.
     """
     v, w = plane["v"], plane["w"]
-    integrand = crossflow_integrand(rho, v, w, v_inf)
+    integrand = crossflow_integrand(rho, first=v, second=w, advecting=v_inf)
     coverage = grid_coverage(integrand)
     if v_inf == 0.0:
         nan = float("nan")
         return PlaneDrag(nan, nan, nan, coverage)
-    fine = grid_integral(plane.y, plane.z, integrand) / v_inf
+    fine = grid_integral(plane.y, z=plane.z, integrand=integrand) / v_inf
     coarse = float("nan")
     if (len(plane.y) - 1) % 2 == 0 and (len(plane.z) - 1) % 2 == 0:
-        coarse = grid_integral(plane.y[::2], plane.z[::2], integrand[::2, ::2]) / v_inf
+        coarse = grid_integral(plane.y[::2], z=plane.z[::2], integrand=integrand[::2, ::2]) / v_inf
     return PlaneDrag(fine, coarse, fine - coarse, coverage)
 
 
@@ -691,7 +691,7 @@ def plane_vorticity_drag(plane: PlaneFields, *, rho: float, chunk: int = 512) ->
     xi = np.gradient(w, dy, axis=0) - np.gradient(v, dz, axis=1)
     if not np.all(np.isfinite(xi)):
         return float("nan")
-    weights = grid_weights(plane.y, plane.z).ravel()
+    weights = grid_weights(plane.y, z=plane.z).ravel()
     yy, zz = np.meshgrid(plane.y, plane.z, indexing="ij")
     py, pz, source = yy.ravel(), zz.ravel(), (xi.ravel() * weights)
     self_term = _cell_log_integral(dy, dz) / (dy * dz)
@@ -742,7 +742,7 @@ def plane_lift(plane: PlaneFields, *, rho: float, v_inf: float) -> float:
     if not np.all(np.isfinite(xi)):
         return float("nan")
     yy = np.broadcast_to(np.asarray(plane.y, dtype=float)[:, None], xi.shape)
-    return float(rho * v_inf * (yy * xi * grid_weights(plane.y, plane.z)).sum())
+    return float(rho * v_inf * (yy * xi * grid_weights(plane.y, z=plane.z)).sum())
 
 
 def bernoulli_residual(plane: PlaneFields, *, rho: float, v_inf: float) -> float:
@@ -777,7 +777,7 @@ def bernoulli_residual(plane: PlaneFields, *, rho: float, v_inf: float) -> float
         lossy, deficit + 0.5 * rho * (u_star - u) * (u_star + u - 2.0 * v_inf), 0.0
     )
     integrand = np.where(np.isfinite(deficit), integrand, np.nan)
-    return grid_integral(plane.y, plane.z, integrand)
+    return grid_integral(plane.y, z=plane.z, integrand=integrand)
 
 
 @dataclass(frozen=True)
@@ -799,7 +799,7 @@ class RotorChannels:
 
 
 def rotor_channels(
-    fields: LatticeFields, rho: float, v_inf: float, *, station: float
+    fields: LatticeFields, *, rho: float, v_inf: float, station: float
 ) -> RotorChannels:
     """Axial, swirl and crossflow loss powers of a rotor at a station (FR-453 R3).
 

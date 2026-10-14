@@ -151,7 +151,7 @@ def sample_coverage(integrand: np.ndarray) -> np.ndarray:
     return np.isfinite(array).sum(axis=(-2, -1)) / total
 
 
-def grid_weights(y: np.ndarray, z: np.ndarray) -> np.ndarray:
+def grid_weights(y: np.ndarray, *, z: np.ndarray) -> np.ndarray:
     """Trapezoid weights of a uniform rectangular grid, in m^2.
 
     Corners carry a quarter of a cell, edges a half, the inside a whole cell.
@@ -175,7 +175,7 @@ def grid_weights(y: np.ndarray, z: np.ndarray) -> np.ndarray:
     return wy[:, None] * wz[None, :]
 
 
-def grid_integral(y: np.ndarray, z: np.ndarray, integrand: np.ndarray) -> float:
+def grid_integral(y: np.ndarray, *, z: np.ndarray, integrand: np.ndarray) -> float:
     """Integrate a sampled field over a uniform rectangular grid by the trapezoid rule.
 
     A missing or non-finite sample makes the integral NaN (PYFS-010).
@@ -194,7 +194,7 @@ def grid_integral(y: np.ndarray, z: np.ndarray, integrand: np.ndarray) -> float:
     float
         Trapezoidal integral over the rectangular grid.
     """
-    return float((np.asarray(integrand) * grid_weights(y, z)).sum())
+    return float((np.asarray(integrand) * grid_weights(y, z=z)).sum())
 
 
 def grid_coverage(integrand: np.ndarray) -> float:
@@ -263,7 +263,7 @@ def strip_edges(
     return np.concatenate([[first], middle, [last]])
 
 
-def azimuthal_harmonics(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) -> np.ndarray:
+def azimuthal_harmonics(values: np.ndarray, *, psi: np.ndarray, m_max: int = 6) -> np.ndarray:
     """Azimuthal Fourier coefficients of a sampled field, the ledger spine.
 
     Coefficients follow ``f(psi) = sum_m c_m exp(i m psi)`` with
@@ -314,7 +314,7 @@ def azimuthal_harmonics(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) 
     return kept * np.exp(-1j * np.arange(m_max + 1) * psi_0)
 
 
-def symmetry_floor(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) -> float:
+def symmetry_floor(values: np.ndarray, *, psi: np.ndarray, m_max: int = 6) -> float:
     """Largest azimuthal harmonic magnitude above order zero (gate G3).
 
     At zero incidence every ``m >= 1`` harmonic must vanish to the numerical
@@ -336,5 +336,5 @@ def symmetry_floor(values: np.ndarray, psi: np.ndarray, *, m_max: int = 6) -> fl
     m_max : int
         Highest azimuthal harmonic order to retain.
     """
-    harmonics = azimuthal_harmonics(values, psi, m_max=m_max)
+    harmonics = azimuthal_harmonics(values, psi=psi, m_max=m_max)
     return float(np.abs(harmonics[..., 1:]).max())

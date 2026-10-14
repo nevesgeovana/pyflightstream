@@ -34,7 +34,7 @@ def test_p0400_rfixb_moment_is_the_integral_of_r_cross_momentum(axis, component,
     pressure = np.broadcast_to(3.0 * np.sin(lattice.psi) + 2.0 * np.cos(lattice.psi), shape).copy()
     pressure[0] *= 0.5
     u, v, w = np.full(shape, 12.0), np.full(shape, 0.7), np.full(shape, -0.4)
-    fields = ff.lattice_fields(lattice, {"u": u, "v": v, "w": w, "p_prime": pressure})
+    fields = ff.lattice_fields(lattice, fields={"u": u, "v": v, "w": w, "p_prime": pressure})
     xyz = np.zeros((*shape, 3))
     xyz[..., 0] = np.asarray((-2.0, 2.0))[:, None, None]
     radius = np.asarray((0.3125, 0.75))[:, None] * 2.0

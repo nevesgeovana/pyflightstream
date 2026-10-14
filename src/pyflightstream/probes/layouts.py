@@ -63,7 +63,7 @@ class _Circle(Protocol):
 
 
 def line_points(
-    start: Sequence[float], end: Sequence[float], points: int, scale: float
+    start: Sequence[float], *, end: Sequence[float], points: int, scale: float
 ) -> list[list[float]]:
     """Lay out the points of a probe line, both ends included (FR-77).
 
@@ -90,7 +90,7 @@ def line_points(
     return out
 
 
-def rectangle_points(rectangle: _Rectangle, scale: float) -> list[list[float]]:
+def rectangle_points(rectangle: _Rectangle, *, scale: float) -> list[list[float]]:
     """Lay out the grid of a rectangular probe plane, row by row (FR-79).
 
     Three corners give two edge vectors from `origin`, and the grid runs along
@@ -131,7 +131,7 @@ def rectangle_points(rectangle: _Rectangle, scale: float) -> list[list[float]]:
     return out
 
 
-def circle_points(circle: _Circle, scale: float) -> list[list[float]]:
+def circle_points(circle: _Circle, *, scale: float) -> list[list[float]]:
     """Lay out the polar grid of a circular probe plane (FR-79).
 
     `points_radial` stations from the centre to the rim INCLUDING both, and
@@ -267,8 +267,8 @@ class FarfieldPlane:
 
 def farfield_plane(
     origin: Sequence[float],
-    direction: Sequence[float],
     *,
+    direction: Sequence[float],
     distance: float,
     half_width: float,
     half_height: float,

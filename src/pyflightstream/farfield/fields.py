@@ -181,8 +181,8 @@ def _checked(name: str, values: object, shape: tuple[int, ...]) -> np.ndarray:
 
 def lattice_fields(
     lattice: ProbeLattice,
-    fields: Mapping[str, np.ndarray],
     *,
+    fields: Mapping[str, np.ndarray],
     lateral: Mapping[str, np.ndarray] | None = None,
 ) -> LatticeFields:
     """Assemble the survey samples of a lattice, the replacement of ``lattice_dataset``.
@@ -303,7 +303,7 @@ def _uniform_axis(name: str, axis: object) -> np.ndarray:
     return array
 
 
-def plane_fields(y: object, z: object, fields: Mapping[str, np.ndarray]) -> PlaneFields:
+def plane_fields(y: object, *, z: object, fields: Mapping[str, np.ndarray]) -> PlaneFields:
     """Assemble the samples of a far-field plane.
 
     Parameters
@@ -339,8 +339,8 @@ def plane_fields(y: object, z: object, fields: Mapping[str, np.ndarray]) -> Plan
 
 def hub_frame_velocities(
     points: np.ndarray,
-    velocities: np.ndarray,
     *,
+    velocities: np.ndarray,
     omega: float,
     axis: np.ndarray,
     origin: np.ndarray,

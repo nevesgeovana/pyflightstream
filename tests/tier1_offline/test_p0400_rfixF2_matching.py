@@ -100,7 +100,12 @@ def test_p0400_rfixf2_a_frame_lattice_found_twice_in_its_frame_is_refused():
 
 def _plane(center: tuple[float, float, float], grid: float) -> np.ndarray:
     return farfield_plane(
-        center, (1.0, 0.0, 0.0), distance=0.0, half_width=grid, half_height=grid, spacing=grid
+        center,
+        direction=(1.0, 0.0, 0.0),
+        distance=0.0,
+        half_width=grid,
+        half_height=grid,
+        spacing=grid,
     ).points
 
 
