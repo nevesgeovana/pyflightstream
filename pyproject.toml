@@ -187,6 +187,16 @@ testpaths = ["tests"]
 # with `-o pythonpath=`.
 pythonpath = ["src"]
 markers = [
+    "pkg_core: tier-1 core package",
+    "pkg_script_results: tier-1 script-results package",
+    "pkg_probes_farfield: tier-1 probes-farfield package",
+    "pkg_fsi: tier-1 fsi package",
+    "pkg_cases: tier-1 cases package",
+    "pkg_workspace: tier-1 workspace package",
+    "pkg_run: tier-1 run package",
+    "pkg_post: tier-1 post package",
+    "pkg_qa: tier-1 qa package",
+    "pkg_guards: tier-1 repository guards package",
     "needs_flightstream: requires a local FlightStream installation and license",
     "validity: tier 2 per-command probe tests",
     "physics: tier 3 physics regression matrix (slow)",

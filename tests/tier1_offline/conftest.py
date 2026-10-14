@@ -15,6 +15,7 @@ compare against.
 """
 
 import contextlib
+import json
 import sys
 from pathlib import Path
 
@@ -73,6 +74,28 @@ def _repo_root() -> Path:
 #: than merely repeated. The other 42 are correct as written; a reader
 #: meeting this constant must not read it as a claim that they are gone.
 REPO = _repo_root()
+
+_PACKAGE_MARKERS = pytest.StashKey[dict[str, str]]()
+
+
+def pytest_itemcollected(item: pytest.Item) -> None:
+    """Mark tier-1 items before pytest applies its ``-m`` selection."""
+    if _PACKAGE_MARKERS not in item.config.stash:
+        manifest = json.loads(
+            (REPO / "tests/tier1_offline/packages.json").read_text(encoding="utf-8")
+        )
+        item.config.stash[_PACKAGE_MARKERS] = {
+            path: "pkg_" + name.replace("-", "_")
+            for name, paths in manifest["packages"].items()
+            for path in paths
+        }
+    path = item.path.relative_to(REPO).as_posix()
+    if not path.startswith("tests/tier1_offline/"):
+        return
+    marker = item.config.stash[_PACKAGE_MARKERS].get(path)
+    if marker is None:
+        raise pytest.UsageError(f"Tier-1 file missing from packages.json: {path}")
+    item.add_marker(marker)
 
 
 @pytest.fixture
