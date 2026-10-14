@@ -612,11 +612,28 @@ def apply_geometry_build(
 
 
 def _room_for_a_second_run() -> bool:
-    """Return whether the machine has the memory floor free; True where it cannot be read."""
+    """Return whether the machine has the memory floor free; False where it cannot be read.
+
+    ``psutil`` is not a dependency of the package (NFR-06), so a second solver run is
+    started only on a measured floor: without it the builds run one at a time, and a
+    warning says why.
+    """
     try:
         import psutil
     except ImportError:
-        return True
+        import warnings
+
+        from pyflightstream._errors import PyflightstreamWarning
+
+        warnings.warn(
+            "--parallel 2 runs the variants one at a time: free memory cannot be measured "
+            "without the psutil package (pip install psutil), and a second solver run starts "
+            "only above the "
+            f"{_MEMORY_FLOOR_GB} GB floor.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return False
     return bool(psutil.virtual_memory().available / 2**30 >= _MEMORY_FLOOR_GB)
 
 
