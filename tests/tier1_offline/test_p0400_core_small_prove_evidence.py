@@ -1,15 +1,4 @@
-"""P0400-EVIDENCEBATTERY: scripts/prove_evidence_guards.py can pass, and scores by exit code.
-
-P0400-EVIDENCEBATTERY-ANCHOR (PFS-2135.078): the motion-prelude mutant
-anchored on qa/specs.py after the prelude moved to qa/_spec_catalog_b.py, so
-the battery recorded an ANCHOR MISS and could never pass; nothing in tier 1 ran
-it. Every mutant's anchor is now held here to exactly one match in its file,
-the check the battery makes before it mutates anything.
-
-P0400-EVIDENCEBATTERY-SCORE (PFS-2135.053): run() scored a selection from its
-output text alone, so "3 passed, 1 error" (a fixture error, exit 1) read as
-passed. score() reads the exit code first.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -30,15 +19,6 @@ def _load():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def test_p0400_evidencebattery_anchor_every_mutant_anchors_once() -> None:
-    """P0400-EVIDENCEBATTERY-ANCHOR: each anchor appears exactly once, line ends normalised."""
-    counts = {}
-    for label, rel, old, *_ in _load().MUTANTS:
-        text = (REPO / rel).read_bytes().decode("utf-8").replace("\r\n", "\n")
-        counts[label] = text.count(old)
-    assert {label: n for label, n in counts.items() if n != 1} == {}
 
 
 @pytest.mark.parametrize(

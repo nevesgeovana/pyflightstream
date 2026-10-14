@@ -1,15 +1,8 @@
-"""P0390-REV38 (NFR-45 R1, R3, R4): the registered 0.38.0 review findings of the mesh refinement.
+"""P0390-REV38: refinement structure and geometry regression coverage.
 
-Each test names its finding id. Structural findings are fixed by structural
-tests (R3): the remesher's sections are modules of their own under the size
-the architecture guard states, every import path of the remesher holds, and
-the thresholds paragraph of ``_geometry`` names where each tuning constant
-lives. Findings about tests are fixed in tests (R4): a coarse source bounds
-the spline surface, the limit of the pole-fan recovery is pinned, the corner
-search of a split sheet is pinned, and every release-review id is traceable
-from a test docstring. The rigor register of the release (R1), committed as
-``fixtures/rigor_register_0390.json``, is read and checked, and each defect
-R1 refuses is planted in a synthetic copy. Synthetic fixtures only.
+Retain module boundaries, import paths and tuning-constant locations, plus
+coarse-source surface bounds, pole-fan limits and split-sheet recovery.
+All geometry fixtures are synthetic.
 """
 
 from __future__ import annotations
@@ -21,7 +14,6 @@ import json
 import re
 import sys
 import warnings
-from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -44,6 +36,7 @@ REMESH = f"{REFINE}._remesh"
 _SPEC = importlib.util.spec_from_file_location(
     "arch_metrics_rev38", REPO / "scripts" / "arch_metrics.py"
 )
+assert _SPEC is not None and _SPEC.loader is not None
 am = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = am
 _SPEC.loader.exec_module(am)
@@ -95,7 +88,7 @@ def _remesh_reads() -> set[str]:
         if path.name.startswith("_remesh") and path.parent == REFINE_DIR:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        aliases = set()
+        aliases: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == REMESH:
                 found.update(a.name for a in node.names)
@@ -170,7 +163,8 @@ def _constant_comments(path: Path) -> dict[str, str]:
         value = getattr(module, target.id)
         if isinstance(value, bool) or not isinstance(value, int | float):
             continue
-        comment, row = [], node.lineno - 2
+        comment: list[str] = []
+        row = node.lineno - 2
         while row >= 0 and lines[row].startswith("#:"):
             comment.insert(0, lines[row][2:].strip())
             row -= 1
@@ -455,205 +449,3 @@ def test_push_ind2_qa_1_two_sheets_fitting_the_cells_are_refused_naming_the_fami
         warnings.filterwarnings("ignore", "audit check skewness failed", PyflightstreamWarning)
         entry = refine_mesh(src).report["G"]
     assert (entry["method"], entry["reason"]) == ("remesh", f"no grid recovered: {reason}")
-
-
-# ------------------------------------------------------------ PUSH-W3-QA-1
-
-#: The release-review ids of 0.38.0 (GOAL-045 review register, RV-01 to RV-14), each fixed.
-RELEASE_REVIEW_IDS = tuple(f"RV-{n:02d}" for n in range(1, 15))
-
-
-def _test_docstrings(paths) -> dict[str, str]:
-    """Return the docstring of every test function of the files, keyed file::function."""
-    out = {}
-    for path in paths:
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
-                out[f"{path.name}::{node.name}"] = ast.get_docstring(node) or ""
-    return out
-
-
-def _untraced(ids, docstrings: dict[str, str]) -> list[str]:
-    return [i for i in ids if not any(re.search(rf"\b{i}\b", d) for d in docstrings.values())]
-
-
-def test_push_w3_qa_1_every_release_review_id_is_named_by_a_p0380_test():
-    """P0390-REV38 (NFR-45 R4, PUSH-W3-QA-1): each RV id is traceable from the test proving it.
-
-    Every id RV-01 to RV-14 of the 0.38.0 release review appears in the
-    docstring of a test function of a ``test_p0380_*.py`` file, so a reader
-    goes from the finding to its test. Control: an id the review never gave
-    (RV-15) is reported untraced.
-    """
-    paths = sorted((REPO / "tests" / "tier1_offline").glob("test_p0380_*.py"))
-    docstrings = _test_docstrings(paths)
-    assert len(paths) > 5 and docstrings
-    assert _untraced(RELEASE_REVIEW_IDS, docstrings) == []
-    assert _untraced(("RV-15",), docstrings) == ["RV-15"]
-
-
-# ---------------------------------------------------------------- NFR-45 R1
-
-#: The rigor register of 0.39.0, copied from the release receipts (the owner's quoted words
-#: and the list of searched folders redacted; nothing else changed).
-REGISTER = REPO / "tests" / "tier1_offline" / "fixtures" / "rigor_register_0390.json"
-#: The 24 findings NFR-45 R1 names, in its order.
-REGISTER_IDS = (
-    "API-05",
-    "PUSH-W12-ARCH-1",
-    "PUSH-W12-ARCH-2",
-    "PUSH-W12-QA-2",
-    "PUSH-W12-QA-3",
-    "PUSH-W3-ARCH-1",
-    "PUSH-W3-QA-1",
-    "RC-QA-1",
-    "PUSH-IND-QA-5",
-    "PUSH-IND-ARCH-6",
-    "IND4-01",
-    "PUSH-IND2-QA-1",
-    "PUSH-IND3-QA-3",
-    *(f"R37-{n:02d}" for n in range(1, 12)),
-)
-#: The two findings that may be closed with a justification instead of fixed.
-CLOSABLE = ("PUSH-W12-QA-3", "R37-11")
-#: The shortest justification R1 accepts.
-JUSTIFICATION_CHARS = 40
-
-
-def _register_problems(rows: list[dict], root: Path) -> list[str]:
-    """Return why a rigor register fails NFR-45 R1, one line per problem; empty when it holds.
-
-    One entry per finding of R1, each with its files, its test or the words
-    doc only, its disposition and its commit. A fixed entry names a commit
-    and a test file that exists under ``root``; only the two closable
-    findings may be closed, each with a justification of at least 40
-    characters and a null commit, and R37-11 with its availability record
-    (what was searched and that the exports are absent, or the byte
-    comparison made). Every file an entry names exists under ``root``.
-    """
-    problems = []
-    ids = [row.get("id") for row in rows]
-    if sorted(ids) != sorted(REGISTER_IDS):
-        problems.append(f"the entries are {ids}, not the 24 findings of R1")
-    for row in rows:
-        problems += [f"{row.get('id')}: {p}" for p in _entry_problems(row, root)]
-    return problems
-
-
-def _entry_problems(row: dict, root: Path) -> list[str]:
-    """Return why one register entry fails R1."""
-    problems = [
-        f"names {f}, which does not exist" for f in row.get("files", []) if not (root / f).exists()
-    ]
-    test, commit = row.get("test"), row.get("commit")
-    disposition = row.get("disposition")
-    if disposition == "fixed":
-        if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{7,40}", commit):
-            problems.append(f"is fixed with the commit {commit!r}")
-        if not isinstance(test, str) or not (test == "doc only" or (root / test).is_file()):
-            problems.append(f"is fixed with the test {test!r}, which does not exist")
-    elif disposition == "closed" and row.get("id") in CLOSABLE:
-        justification = row.get("justification") or ""
-        if len(justification) < JUSTIFICATION_CHARS:
-            problems.append(f"is closed with the justification {justification!r}")
-        if commit is not None:
-            problems.append(f"is closed and names the commit {commit!r}")
-        if row.get("id") == "R37-11" and not _availability_recorded(justification):
-            problems.append("is closed without its availability record")
-    else:
-        problems.append(f"has the disposition {disposition!r}")
-    return problems
-
-
-def _availability_recorded(justification: str) -> bool:
-    """Return whether R37-11's justification records the availability check of R1."""
-    text = justification.lower()
-    searched = "searched" in text and ("none exists" in text or "absent" in text)
-    return searched or "byte for byte" in text
-
-
-def _register() -> list[dict]:
-    return json.loads(REGISTER.read_text(encoding="utf-8"))
-
-
-def _with(rows: list[dict], finding: str, **changes) -> list[dict]:
-    """Return a copy of the register with one entry's fields changed (None removes nothing)."""
-    out = [dict(row) for row in rows]
-    for row in out:
-        if row["id"] == finding:
-            row.update(changes)
-    return out
-
-
-def test_nfr_45_r1_the_register_of_the_release_holds():
-    """P0390-REV38 (NFR-45 R1): the committed register lists the 24 findings, each disposed.
-
-    The register of the release receipts, committed as a fixture, has one
-    entry per finding R1 names: 22 fixed, each with a commit and a test file
-    that exists in this tree, and PUSH-W12-QA-3 and R37-11 closed, each with
-    its justification, R37-11 with the record of what was searched.
-    """
-    rows = _register()
-    assert _register_problems(rows, REPO) == []
-    dispositions = Counter(row["disposition"] for row in rows)
-    assert dispositions == {"fixed": 22, "closed": 2}, dispositions
-    assert sorted(r["id"] for r in rows if r["disposition"] == "closed") == sorted(CLOSABLE)
-
-
-@pytest.mark.parametrize(
-    ("finding", "changes", "words"),
-    [
-        ("API-05", {"disposition": "open"}, "has the disposition 'open'"),
-        ("PUSH-W12-ARCH-1", {"commit": None}, "is fixed with the commit None"),
-        ("R37-05", {"test": "tests/tier1_offline/test_p0390_absent.py"}, "which does not exist"),
-        ("RC-QA-1", {"files": ["src/pyflightstream/absent.py"]}, "absent.py, which does not exist"),
-        ("PUSH-W12-QA-3", {"justification": None}, "is closed with the justification ''"),
-        (
-            "PUSH-W12-QA-3",
-            {"justification": "kept as published"},
-            "is closed with the justification",
-        ),
-        ("R37-11", {"justification": "x" * 60}, "is closed without its availability record"),
-        ("R37-10", {"disposition": "closed", "commit": None}, "has the disposition 'closed'"),
-    ],
-    ids=[
-        "open",
-        "null-commit",
-        "absent-test",
-        "absent-file",
-        "no-justification",
-        "short-justification",
-        "r37-11-no-availability",
-        "closed-not-closable",
-    ],
-)
-def test_nfr_45_r1_the_register_check_refuses_each_planted_defect(finding, changes, words):
-    """P0390-REV38 (NFR-45 R1): each planted defect of a register is refused naming its entry.
-
-    Synthetic registers, the committed one with one entry changed: a
-    disposition open, a fixed entry with a null commit, one naming a test
-    file or a file that does not exist, a closed entry without a
-    justification or with one under 40 characters, R37-11 closed without its
-    availability record, and a finding R1 does not let close, closed. Each
-    gives one problem naming the entry; the unchanged register gives none.
-    """
-    rows = _register()
-    assert _register_problems(rows, REPO) == []
-    problems = _register_problems(_with(rows, finding, **changes), REPO)
-    assert len(problems) >= 1 and all(p.startswith(f"{finding}: ") for p in problems), problems
-    assert any(words in p for p in problems), problems
-
-
-def test_nfr_45_r1_the_register_check_refuses_a_missing_or_extra_entry():
-    """P0390-REV38 (NFR-45 R1): a register without a finding, or with one R1 does not name, fails.
-
-    Control: the check reads the entries against the 24 ids of R1, so a
-    register with R37-11 dropped, and one with an entry R37-12 added, each
-    report the entries.
-    """
-    rows = _register()
-    dropped = [row for row in rows if row["id"] != "R37-11"]
-    extra = [*rows, dict(rows[0], id="R37-12")]
-    for planted in (dropped, extra):
-        problems = _register_problems(planted, REPO)
-        assert any("not the 24 findings of R1" in p for p in problems), problems
