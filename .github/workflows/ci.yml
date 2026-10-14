@@ -87,25 +87,6 @@ jobs:
         # for a reason nobody can fix stops being believed.
         run: pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
-  coverage:
-    # One leg, not four. Coverage is a property of the test suite rather than
-    # of a platform, and four measurements would be four numbers to reconcile
-    # with one floor. The floor lives in pyproject
-    # ([tool.coverage.report] fail_under) so the number has one home and moves
-    # only with a commit that explains it (NFR-16).
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
-        with:
-          fetch-depth: 0  # the clean-room walk, as in the test job
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
-        with:
-          python-version: "3.12"
-      - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom,excel]
-      - name: Tier 1 with the coverage floor
-        run: pytest -n auto --cov --cov-branch --cov-report=term-missing
-
   test-all-extras:
     # Named for the measurement rather than the subject: a red "extras"
     # reads as "installing an extra is broken", when what it means is

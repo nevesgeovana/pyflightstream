@@ -9,7 +9,7 @@ FlightStream versions.
 
 ### Changed
 
-- Maintainers: CI runs on push or manual dispatch, skips docs-only and dry-run branch pushes, and cancels superseded runs.
+- Maintainers: CI skips duplicate, docs-only and dry-run branch runs and cancels superseded runs; branch coverage runs once in the tag's artifact tests.
 
 ### Owed
 

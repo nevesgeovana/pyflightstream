@@ -153,9 +153,15 @@ jobs:
       # test_imports_the_tree_under_test.py into a check that the wheel,
       # not the checkout, is what these tests import.
       - name: Tier 1 tests against the wheel
+        # Coverage runs once on a version tag, in this existing Linux test
+        # invocation. The floor remains in [tool.coverage.report] (NFR-16).
+        shell: bash
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
-        run: pytest -n auto -o pythonpath=
+          COVERAGE_ARGS: ${{ startsWith(github.ref, 'refs/tags/v') && matrix.os == 'ubuntu-latest' && '--cov --cov-branch --cov-report=term-missing' || '' }}
+        run: |
+          read -r -a coverage_args <<< "$COVERAGE_ARGS"
+          pytest -n auto -o pythonpath= "${coverage_args[@]}"
       - name: Executable examples against the wheel
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
@@ -179,8 +185,6 @@ jobs:
         run: ruff format --check .
       - name: Type check
         run: mypy
-      - name: Coverage floor
-        run: pytest -n auto --cov --cov-branch --cov-report=term-missing
       - name: Docs build
         run: properdocs build --strict
 
