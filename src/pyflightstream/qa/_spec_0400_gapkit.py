@@ -1359,8 +1359,8 @@ def _nodes_only(script: Script, workdir: Path) -> None:
 def _aero_frame(script: Script, workdir: Path) -> None:
     """Create frame 2 at the origin, the frame the aeroelastic coupling is assigned.
 
-    The manual refuses the reference frame there (p.388: "Set value to 1
-    (reference) will throw an error"), and the first batch's route B prelude,
+    The reference frame cannot serve as an aeroelastic frame (SRC-753 p.388).
+    The first batch's route B prelude,
     which assigned frame 1 with no frame created, stopped on "No user-defined
     coordinate systems available to assign as aeroelastic frames" (26.124).
     """
