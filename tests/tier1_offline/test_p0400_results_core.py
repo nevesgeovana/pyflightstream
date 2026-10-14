@@ -30,3 +30,9 @@ def test_p0400_results_parse_number_still_reads_the_solver_forms():
     assert parse_number("1.000E-05") == 1e-05
     assert parse_number("0.2964-322") == float("0.2964e-322")
     assert parse_count("312", label="Total iterations") == 312
+    for token in ("nan", "inf", "-Infinity", "NaN"):
+        with pytest.raises(MalformedOutputError, match="Total iterations"):
+            parse_count(token, label="Total iterations")
+    for token in ("1_000", "1_0.5", "+2_5E-3"):
+        with pytest.raises(MalformedOutputError, match="not a solver-printed number"):
+            parse_number(token)
