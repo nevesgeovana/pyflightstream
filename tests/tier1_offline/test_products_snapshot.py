@@ -63,6 +63,8 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
+import sys
 import tempfile
 import warnings
 from collections.abc import Callable, Iterator
@@ -81,6 +83,43 @@ _STAMP = r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:[+-]\d\d:\d\d|Z)?"
 _ARCHIVE = re.compile(r"(?<=archive/)\d{8}-\d{6}(?=/)")
 
 Builder = Callable[[Path, pytest.MonkeyPatch], Path]
+
+
+@pytest.mark.parametrize("worker", [False, True], ids=["P0400-controller", "P0400-worker"])
+def test_p0400_controller_completes_package_before_submodule_loading(worker):
+    """The controller initializes the package; workers keep their normal import order."""
+    repo = Path(__file__).resolve().parents[2]
+    code = """
+import importlib.util
+import runpy
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+repo = Path(sys.argv[1])
+worker = sys.argv[2] == 'True'
+namespace = runpy.run_path(str(repo / 'conftest.py'))
+config = SimpleNamespace(workerinput={}) if worker else SimpleNamespace()
+namespace.get('pytest_configure', lambda config: None)(config)
+if worker:
+    assert 'pyflightstream' not in sys.modules
+elif 'pyflightstream.results' not in sys.modules:
+    spec = importlib.util.spec_from_file_location(
+        'pyflightstream.results', repo / 'src/pyflightstream/results/__init__.py'
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+else:
+    from pyflightstream.results import SurfaceFrame
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(repo), str(worker)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def _post(workspace, **options) -> Path:
