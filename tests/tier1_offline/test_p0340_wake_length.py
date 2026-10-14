@@ -986,3 +986,21 @@ def test_p0340_wake_length_the_lq5_analysis_recovers_a_known_convection_speed(tm
     thrust = 0.1 * kit.RHO * n**2 * (2.0 * kit.R_M) ** 4
     v_i = -kit.V_INF + math.sqrt(kit.V_INF**2 + 2.0 * thrust / (kit.RHO * math.pi * kit.R_M**2))
     assert kit.momentum_ratio(0.1) == pytest.approx(1.0 + v_i / 2.0 / kit.V_INF), requirement
+
+
+@pytest.mark.parametrize("version", ["26.124", "26.125"])
+def test_p0400_bgtests2_jet_decay_default_is_specific_to_the_build(version):
+    """PFS-2103.036: the 26.125 snapshot does not claim the older 100-diameter default."""
+    from pyflightstream.script import Script, helpers
+
+    script = Script(version)
+    record = helpers.solver_settings(script).flags["SET_JET_WAKE_DECAY_NORMALIZED_LENGTH"]
+    if version == "26.124":
+        assert (record.provenance, record.value) == ("default", 100.0)
+    else:
+        assert (record.provenance, record.value, record.evidence) == ("unknown", None, None)
+    assert not record.emitted
+    explicit = helpers.solver_settings(script, jet_wake_decay_normalized_length=17.0).flags[
+        "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH"
+    ]
+    assert (explicit.provenance, explicit.value, explicit.emitted) == ("explicit", 17.0, True)
