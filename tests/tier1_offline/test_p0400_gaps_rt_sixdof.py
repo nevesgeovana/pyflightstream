@@ -13,16 +13,17 @@ from __future__ import annotations
 import json
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.cases.sixdof import SixDofSpec
-from pyflightstream.cases.workflows import build_script, sixdof_commands
-from pyflightstream.cases.workflows._sixdof import SIXDOF_PROVENANCE_FILE
+
+if TYPE_CHECKING:
+    from pyflightstream.cases.sixdof import SixDofSpec
+
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import Script
-from pyflightstream.workspace.sixdof_setup import SixDofSetupError, resolve_row_sixdof
 from tests.tier1_offline._p0400_gaps_rt_support import registry_with
 from tests.tier1_offline.test_workflows import _case_for, _wb_geometry, _with_pproc
 
@@ -82,16 +83,22 @@ def _inputs(tmp_path: Path, text: str = FREE_TO_PITCH, *, code: str = "d001") ->
 
 
 def _resolved(tmp_path: Path, text: str = FREE_TO_PITCH, **variables: str):
+    from pyflightstream.workspace.sixdof_setup import resolve_row_sixdof
+
     cell = {"SIXDOF": "d001", **variables}
     return resolve_row_sixdof(_inputs(tmp_path, text), cell, workflow="unsteady", pol="9401")
 
 
 def _verified(spec: SixDofSpec) -> CommandRegistry:
     """The committed database with every command of ``spec`` recorded verified on BUILD."""
+    from pyflightstream.cases.workflows import sixdof_commands
+
     return registry_with(sixdof_commands(spec), BUILD, Status.VERIFIED)
 
 
 def _script(tmp_path: Path, resolved, registry: CommandRegistry | None = None) -> Script:
+    from pyflightstream.cases.workflows import build_script
+
     case = _with_pproc(_case_for("unsteady"), _wb_geometry(tmp_path), pproc=None)
     case = case.model_copy(
         update={"sixdof": resolved.spec, "sixdof_provenance": resolved.provenance()}
@@ -142,6 +149,8 @@ def test_p0400_6dofexport_the_trajectory_is_exported_after_the_march(tmp_path):
 
 def test_p0400_sixdof_stages_its_provenance_and_force_file(tmp_path):
     """P0400-SIXDOF (FR-461 R5): the provenance and the custom force file go with the script."""
+    from pyflightstream.cases.workflows._sixdof import SIXDOF_PROVENANCE_FILE
+
     resolved = _resolved(tmp_path)
     assert resolved is not None
     staged = _script(tmp_path, resolved).pending_input_files
@@ -185,12 +194,16 @@ def _replace(old: str, new: str) -> str:
 )
 def test_p0400_sixdof_input_refusals(tmp_path, text, words):
     """P0400-SIXDOF (FR-461 R3): each refusal names its key."""
+    from pyflightstream.workspace.sixdof_setup import SixDofSetupError
+
     with pytest.raises(SixDofSetupError, match=words):
         _resolved(tmp_path, text)
 
 
 def test_p0400_sixdof_mirror_refuses_a_lateral_freedom(tmp_path):
     """P0400-SIXDOF (FR-461 R3): a mirrored half model frees no lateral freedom."""
+    from pyflightstream.workspace.sixdof_setup import SixDofSetupError
+
     text = _replace("q = true", "q = true\nv = true")
     with pytest.raises(SixDofSetupError, match="MIRROR"):
         _resolved(tmp_path, text, SYMMETRY="MIRROR")
@@ -200,12 +213,16 @@ def test_p0400_sixdof_mirror_refuses_a_lateral_freedom(tmp_path):
 @pytest.mark.parametrize("workflow", ["steady", "qsteady_rotor", "unsteady_rotor"])
 def test_p0400_sixdof_refused_off_the_unsteady_run_type(tmp_path, workflow):
     """P0400-SIXDOF (FR-461 R4): a free body needs the march, and no rotor turning."""
+    from pyflightstream.workspace.sixdof_setup import SixDofSetupError, resolve_row_sixdof
+
     with pytest.raises(SixDofSetupError, match="time march"):
         resolve_row_sixdof(_inputs(tmp_path), {"SIXDOF": "d001"}, workflow=workflow)
 
 
 def test_p0400_sixdof_refused_with_fsi_and_a_bad_code(tmp_path):
     """P0400-SIXDOF (FR-461 R3, R4): SIXDOF with FSI, and a code that is not d-prefixed."""
+    from pyflightstream.workspace.sixdof_setup import SixDofSetupError, resolve_row_sixdof
+
     with pytest.raises(SixDofSetupError, match="FSI"):
         resolve_row_sixdof(
             _inputs(tmp_path), {"SIXDOF": "d001", "FSI": "f001"}, workflow="unsteady"
@@ -234,6 +251,8 @@ def test_p0400_sixdof_rotor_run_type_does_not_register_the_key():
 
 def test_p0400_sixdof_active_lines_in_solver_order():
     """P0400-SIXDOF (FR-461 R2): six lines, U V W P Q R, each named once."""
+    from pyflightstream.cases.sixdof import SixDofSpec
+
     spec = SixDofSpec.model_validate(
         {
             "families": ["W"],
