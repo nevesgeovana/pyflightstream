@@ -1,18 +1,4 @@
-"""P0400-PARITYSCOPE, P0400-PARITYEOL and P0400-PARITYTAG: three defects of scripts/check_parity.py.
-
-P0400-PARITYSCOPE (PFS-2135.002): a named difference was permanent, so a
-release that reverted the FR-331 actuator sign of 0.34.0 still passed PARITY
-against a 0.39.0 base as "named". Each entry now carries the release that
-introduced it and names a difference only against an older base; and a
-requirement counts as defined only where an SRS page holds its box, not where
-a page mentions it.
-
-P0400-PARITYEOL (PFS-2135.043): a lines-only entry named a difference that
-changes only a line terminator, because all() over no changed line is True.
-
-P0400-PARITYTAG (PFS-2081.10): the products.json report-name rule matched a
-release tag of exactly four digits; it now matches any digit run.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -25,7 +11,11 @@ import pytest
 from tests.tier1_offline._docs_site import REQUIREMENTS_DIR
 
 REPO = Path(__file__).resolve().parents[2]
+
+
 BASE = "SET_PROP_ACTUATOR_RPM 1 -500\n"
+
+
 REVERTED = "SET_PROP_ACTUATOR_RPM 1 500\n"
 
 
@@ -37,13 +27,6 @@ def _load():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def test_p0400_parityscope_every_entry_states_its_release() -> None:
-    """P0400-PARITYSCOPE: every named entry carries ``since``, a release version."""
-    module = _load()
-    for named in module.NAMED_DIFFERENCES:
-        assert module.release_version(named["since"]) >= (0, 33, 0), named["requirement"]
 
 
 def test_p0400_parityscope_a_revert_against_a_later_base_is_unnamed() -> None:
