@@ -1794,6 +1794,11 @@ def convert_matrix(
     name, fs_version, fs_exe, recipes
         Former conversion arguments, retained only to give a didactic refusal.
 
+    Returns
+    -------
+    NoReturn
+        This retired entry point always raises; it produces no campaign file.
+
     Raises
     ------
     MatrixError

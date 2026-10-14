@@ -41,4 +41,4 @@ plan reports its reduced-frequency warning; a ready plan is not an accuracy clai
 
 The matching [Python examples](../using-API/README.md) use these same matrices
 and inputs through the public API. Capability-specific examples live on the
-[documentation site](https://nevesgeovana.github.io/pyflightstream/).
+[documentation](../../docs/index.md).
