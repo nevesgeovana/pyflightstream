@@ -617,22 +617,22 @@ value in it synthetic), is nine header lines and then one line per point:
 ```text
 FlightStream - STEADY_polar_AL_sweep_MACH_REmi_pins_from_the_setup
 100110
-Tue Sep 08 23:41:07 2026
+Tue Sep 08 23:41:07  2026
 007 01
- MNOM SREF CREF BREF XMOM YMOM ZMOM
- 0.1 8.0 1.0 8.0 0.25 0.0 0.0
+      MNOM      SREF      CREF      BREF      XMOM      YMOM      ZMOM
+       0.1       8.0       1.0       8.0      0.25       0.0       0.0
 013
 024
- ALPHA BETA MACH RE CDB CYB CLB...
- -2.00000 0.00000 0.10000 2.30000 0.00398 0.00000 -0.16424...
+     ALPHA      BETA      MACH        RE       CDB       CYB       CLB  ...
+  -2.00000   0.00000   0.10000   2.30000   0.00398   0.00000  -0.16424  ...
 ```
 
 The title carries the row's description; line 2 is the polar and a
 two-digit Mach code (`1001` at Mach 0.10 is `100110`);
 line 3 the write time; `007 01` the number of reference columns and the
 group; then the reference names and values, the row and column counts,
-one polar table per group, per simulation, and the twenty-four column names of the polar table in its order, and every
-number at `%10.5f`. The docstring of
+one polar table per group, per simulation, and the selected column names of the polar table in its order, and every
+number in a width-10 field with up to five decimals and a leading blank. The docstring of
 `pyflightstream.post.write_custom_polar_format` is the specification, line
 by line, and `read_custom_polar_format` reads the file back (the retired prefix and key are refused); the tier-1 test
 feeds the fixture's rows through the writer and requires the fixture's

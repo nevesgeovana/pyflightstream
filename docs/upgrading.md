@@ -204,7 +204,7 @@ Run `pyfs-matrix post` to rebuild products from recorded solver exports.
 - Continued per-step exports record predecessor `step_offset` and local `first_step`; `LAST` and `AFTER` use the continued counter and refuse already-run spans or unprovable predecessor counts.
 - Rounded sweep point names keep binary half-even rounding; adjust sweep values whose rounded names collide, which now refuse before planning.
 - Collection retains an optional wake VTK beside its declared surface export; no companion is required when the solver writes none.
-- CSV dimensional and coefficient columns can use scientific notation; coefficients retain at least six significant figures when five decimals lose precision, while the legacy custom polar format keeps five decimals.
+- CSV dimensional and coefficient columns can use scientific notation; coefficients retain at least six significant figures when five decimals lose precision, while the legacy custom polar format uses up to five decimals within its fixed field width.
 - Rebuild Trefftz B products for shed-circulation reconstruction at actual wake crossings; `GAMMA_SCALE`, induced drag and span efficiency change.
 - Rotor plans and records gain `M_adv` and `mach_advancing`, and rotor tables append `MADV_<alias>`; planning warns at `M_adv >= 1`.
 - Unsteady group polars with no resolvable window use the last time step, labelled `kind: instant`, with a warning in `post.log`.

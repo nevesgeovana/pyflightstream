@@ -239,22 +239,21 @@ def write_custom_polar_format(
     * line 5: the reference column names ``MNOM SREF CREF BREF XMOM YMOM
       ZMOM``, each right-aligned to width 10;
     * line 6: their values, the nominal Mach and the reference block, each
-      written as Python writes a float (the shortest text that reads
-      back to the same number, ``50.0`` and ``2.526``) and right-aligned
-      to width 10;
+      written as Python writes a float (``50.0`` and ``2.526``) when it
+      fits with a leading blank; otherwise significant digits are reduced
+      until it fits. Each field is right-aligned to width 10;
     * line 7: the number of data rows as three digits, ``013``;
-    * line 8: the number of data columns as three digits, ``024``;
-    * line 9: the twenty-four column names, exactly
-      :data:`COEFFICIENT_COLUMNS` in that order, each right-aligned to
-      width 10;
-    * then one line per data row, every number formatted ``%10.5f``
-      (width 10, five decimals, the reference precision), in the column order of
+    * line 8: ``len(columns)`` as three digits, ``024`` for the default schema;
+    * line 9: the names in ``columns``, in the supplied order, each
+      right-aligned to width 10; the default is :data:`COEFFICIENT_COLUMNS`;
+    * then one line per data row, every number right-aligned to width 10
+      with up to five decimals. Decimal places are reduced until a leading
+      blank fits; a value that cannot fit is refused. Values follow the order of
       line 9, the rows in the order given (the stage gives them alpha
       ascending, as the polar table).
 
-    The rows are the same twenty-four values the polar table carries per
-    point (:func:`polar_row`), so the two files are two serializations of
-    one table; :func:`read_custom_polar_format` reads this one back.
+    The rows carry the selected columns of the polar table, so the two
+    files are two serializations of one table; :func:`read_custom_polar_format` reads this one back.
 
     Parameters
     ----------
@@ -271,7 +270,7 @@ def write_custom_polar_format(
     reference : ReferenceValues
         The reference block.
     rows : sequence of sequence of float
-        The coefficient rows, each of :data:`COEFFICIENT_COLUMNS` width.
+        The coefficient rows, each with ``len(columns)`` values in that order.
     date : str, optional
         Line 3 as it should be written; the local clock when None.
     configuration : str, optional
@@ -295,7 +294,7 @@ def write_custom_polar_format(
     Raises
     ------
     ProductError
-        If a row is not twenty-four values wide, or a value does not fit a
+        If a row has a different length from ``columns``, or a value does not fit a
         field with a blank before it even with no decimals.
     """
     # FR-94. THE CONFIGURATION GOES ON LINE 1 AND NOWHERE ELSE, because
