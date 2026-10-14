@@ -86,6 +86,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    ModelWrapValidatorHandler,
     ValidationError,
     field_validator,
     model_validator,
@@ -788,6 +789,9 @@ class PprocArtifact(PprocSpec):
     shape is
     :class:`pyflightstream.cases.PprocSpec`; this class is the file.
 
+    Validation refusals raise :class:`InputArtifactError`, including refusals
+    from nested tables. The artifact loader adds the source file's path.
+
     Examples
     --------
     Use the built-in ``all`` only when no reference alias or boundary has that
@@ -799,6 +803,20 @@ class PprocArtifact(PprocSpec):
     >>> PprocArtifact(groups={"AIRFRAME": "airframe"}).groups
     {'AIRFRAME': ['airframe']}
     """
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _artifact_refusals(
+        cls, data: Any, handler: ModelWrapValidatorHandler[PprocArtifact]
+    ) -> PprocArtifact:
+        """Keep the artifact's public error class across all validation routes."""
+        try:
+            return handler(data)
+        except ValidationError as error:
+            messages = [
+                str(detail.get("ctx", {}).get("error", detail["msg"])) for detail in error.errors()
+            ]
+            raise InputArtifactError("\n".join(messages), kind="pproc") from error
 
 
 def available_ids(directory: Path, suffix: str | None = ".toml") -> list[str]:
@@ -941,7 +959,7 @@ def _validate(model: type[BaseModel], data: dict[str, Any], path: Path, kind: st
     """Validate one artifact table, naming the file on a model error."""
     try:
         return model.model_validate(data)
-    except ValidationError as error:
+    except (ValidationError, InputArtifactError) as error:
         raise InputArtifactError(
             f"the {kind} artifact {path} does not validate: {error}"
         ) from error
