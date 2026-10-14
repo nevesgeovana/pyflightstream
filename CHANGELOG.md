@@ -72,7 +72,6 @@ FlightStream versions.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
-- The Zenodo archive DOI of v0.40.0 is owed after publication; add its CITATION.cff row once Zenodo mints it.
 
 ## [0.40.0] - 2026-10-14
 

@@ -5,6 +5,8 @@ type: software
 authors:
   - family-names: Neves
     given-names: Geovana
+    orcid: "https://orcid.org/0009-0009-3055-5529"
+    affiliation: "Instituto Tecnológico de Aeronáutica"
 license: MIT
 # The version and the release date are set together, always. Between
 # releases this file carries a development version and NO date-released,
@@ -118,6 +120,9 @@ version: 0.40.0
 date-released: 2026-10-14
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23375158
+    description: "Zenodo archive of release v0.40.0"
   - type: doi
     value: 10.5281/zenodo.23294684
     description: "Zenodo archive of release v0.39.0"
