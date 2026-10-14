@@ -1,17 +1,5 @@
 """LARCH-002: restart wire records use declared dependencies and retain their JSON shape."""
 
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-10-13T23:48:13-03:00
-# last_modified_by: OpenAI / Codex / gpt-6-astra / architect-reviewer
-# dependencies: [pytest, pydantic, pyflightstream.cases.windows]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Guard the restart records' direct dependencies and wire compatibility.
-# revision_source: git
-# GEOVERSE_HEADER_END
-
 import ast
 import re
 import sys

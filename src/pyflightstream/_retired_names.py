@@ -30,18 +30,6 @@ general one: a propeller is a rotor, and so is a lift fan or a ducted rotor,
 so nothing has to be renamed again when the aircraft changes.
 """
 
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-10-13T23:52:19-03:00
-# last_modified_by: OpenAI / Codex / gpt-6-astra / architect-reviewer
-# dependencies: [pyflightstream._errors]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Record the retired dataset converter's original public writer path.
-# revision_source: git
-# GEOVERSE_HEADER_END
-
 from __future__ import annotations
 
 from dataclasses import dataclass

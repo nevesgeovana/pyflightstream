@@ -1,17 +1,5 @@
 """LARCH-003: both former public imports explain the dataset-to-points replacement."""
 
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-10-13T23:52:19-03:00
-# last_modified_by: OpenAI / Codex / gpt-6-astra / architect-reviewer
-# dependencies: [pytest, pyflightstream.post, pyflightstream.post.writers]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Check the retirement diagnostic at both former public import paths.
-# revision_source: git
-# GEOVERSE_HEADER_END
-
 import importlib
 
 import pytest
