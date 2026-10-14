@@ -574,6 +574,8 @@
     renders the FlightStream command reference and says nothing about
     result tables.
 
+    Planning: PFS-2023.03 (0.40.0).
+
 !!! requirement "NFR-20 API deprecation and removal policy <span class='srs-pending'>pending</span>"
     *Origin: Phase 4 review theme 5; the window decided by the owning seat
     2026-07-27 and recorded in the [revision history](index.md).
@@ -695,6 +697,8 @@
     NFR-02's license-evidence card for ITACA is committed with that same
     migration commit. A core dependency adopted without one would breach
     a requirement this batch did not touch.
+
+    Planning: PFS-2023.03 (0.40.0).
 
 !!! requirement "NFR-23 Layering guard <span class='srs-pending'>pending</span>"
     *Origin: the ITACA mirror review (item M2), accepted 2026-07-27 as

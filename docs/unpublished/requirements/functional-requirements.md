@@ -36,6 +36,8 @@ Milestones and session records are listed in the
     are removals. Attributing all 381 to the first reason is the swap
     the code comment beside the counter warns about.
 
+    Planning: PFS-2003.10.03 (0.40.0).
+
 !!! requirement "FR-02 Launch version set and ordering <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-07, BRF-19. Evidence: milestone M1; `versions` tests.*
 
@@ -555,6 +557,8 @@ Milestones and session records are listed in the
     machine, asserts real effects, and promotes results into database
     statuses through committed compatibility reports.
 
+    Planning: PFS-2003.10.03 (0.40.0).
+
 !!! requirement "FR-26 Physics regression matrix <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-12, BRF-17. Evidence: milestones M4 onward; the
     banded-reference reports. Expansion (mesh refinement, solver-flag
@@ -579,6 +583,8 @@ Milestones and session records are listed in the
     Read with PFS-2030.07 at 0.11.0: the comparison report of the
     reference campaign uses the same per-coefficient shape, with
     the solver's measured repeatability as its band.
+
+    Planning: PFS-2018.04.02 (0.40.0).
 
 !!! requirement "FR-27 Two geometry classes for drift <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-17. Evidence: milestone M4; the drift suite and its
@@ -1383,6 +1389,8 @@ the base could not offer while it bundled several.
     unchanged; only its packaging boundary is, and the requirement
     states the capability.
 
+    Planning: PFS-2023.03 (0.40.0).
+
 !!! requirement "FR-42 Reference-frame and sign conventions <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 review, accepted 2026-07-27. Evidence:
     `reference.CONVENTIONS`, rendered offline and on the docs site from
@@ -1475,6 +1483,8 @@ The allocation is recorded in the
     does not bind before 1.0, so today a CLI flag can change with only
     a changelog line behind it. An earlier draft of this box wrote that
     weaker form, and that option was declined.
+
+    Planning: OPS-2005.15.02 (0.40.0).
 
 !!! requirement "FR-45 Strict manifest record <span class='srs-implemented'>implemented</span>"
     *Origin: the C5 acceptance, 2026-07-27. Evidence: both halves
@@ -6685,6 +6695,8 @@ Requirements written after the specification was last reconciled with the packag
     **Solution (0.29.0).** The command, the input glossary and the templates
     covering the structured fields it reads. **Trace.** The test files above.
 
+    Planning: GOAL-033:G67 (0.40.0).
+
 !!! requirement "FR-152 Boundaries are edited by type, and each input has one owner <span class='srs-implemented'>implemented</span>"
 
     *Origin: the boundary handling of the 0.29.0 scope (G-series of the
@@ -6707,6 +6719,8 @@ Requirements written after the specification was last reconciled with the packag
 
     **Solution (0.29.0).** The typed boundary tables of the setup and the
     sidecar reader. **Trace.** The test files above.
+
+    Planning: GOAL-033:G67 (0.40.0).
 
 !!! requirement "FR-153 Probes and volume sections write sampled velocity fields <span class='srs-implemented'>implemented</span>"
 
@@ -9835,6 +9849,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 
     Verification: test, the two files above carrying P0370-S10-* (FR-423), each with a mutant run; and R6, the tier-2 campaign above.
 
+    Planning: PFS-2081.12 (0.40.0).
+
 ## 0.38.0 refining, coarsening and auditing a panel mesh
 
 The requirements of 0.38.0 (GOAL-045), one box per item of the scope closed on 2026-10-06: S1 to S6 map to FR-424 to FR-429, S7 to NFR-43, and the development guards command to NFR-44. The markers `P0380-<NAME>` are listed in `docs/srs/markers-0380.json`.
@@ -9883,6 +9899,8 @@ The numerical thresholds of this section (the ridge angle and the edge-length ba
     Verification: test, `tests/tier1_offline/test_p0380_s1_refine.py`, carrying P0380-REFINE (FR-424), each test naming the clauses it proves; `tests/tier1_offline/test_p0380_s1_blocks.py`, carrying P0380-BLOCKS (R15, R16); and `tests/tier1_offline/test_p0380_s1_quaddom.py`, carrying P0380-QUADDOM (R17). Controls: a writer that sweeps in reverse, transposes the index directions or rotates each face's vertices fails R7; each refusal of R1, R2, R3, R9, R10 and R11 is asserted by its message text and by the absence of any level folder; R10 is run with scipy and rtree made unimportable; R12 compares two runs by digest; R13 reads the bytes; the open spline in place of the periodic one fails R15 (nodes off the circle at the seam); patch sides resampled per patch instead of once, or the tracing disabled, fails R16 (unshared nodes on a patch side, or no multiblock layout); the pairing disabled, or allowed across a curve, fails R17 (the quad share bound, or a curve edge missing).
 
     Evidence: in `tests/tier1_offline/test_p0380_s1_refine.py`, `test_r1_a_factor_not_above_zero_is_refused_by_both_routes`, `test_r1_a_factor_that_is_not_a_number_is_refused_by_both_routes`, `test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes` and `test_r1_a_factor_below_one_over_m_is_refused_naming_family_direction_value` (R1, R11); `test_r2_factor_applies_and_chordwise_replaces_one_direction`, `test_r2_the_file_gives_the_factors_only_when_the_call_gives_none`, `test_r2_components_are_read_whatever_gives_the_factors`, `test_r2_no_factor_and_no_file_is_refused_by_both_routes` and `test_r2_a_direction_on_a_remeshed_family_is_refused` (R2); `test_r3_the_refinement_file_is_refused_naming_file_table_and_key` (R3); `test_r4_a_level_holds_its_files_and_refine_json_reports_each_family` and `test_r4_r9_a_source_without_points_file_gets_none_and_auto_remeshes` (R4, R9); `test_r5_the_tag_names_the_level_beside_the_sources_folder`, `test_r5_the_command_writes_the_tagged_level_and_prints_its_files`, `test_r5_an_existing_level_is_refused_unless_overwrite` and `test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder` (R5); `test_r7_factor_one_writes_the_sources_vertex_and_face_lines` (R7); `test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes` (R9); `test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused` (R10, scipy and rtree set to None in `sys.modules`); `test_r12_two_runs_under_different_hash_seeds_write_identical_bytes` (R12, two processes compared by digest); `test_r13_no_written_file_holds_a_carriage_return` (R13, from a source written with CRLF); `test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows` (R14, every import read from the syntax tree, deferred ones included). In `tests/tier1_offline/test_p0380_s1_grid.py`, `test_factor_one_is_the_source_in_coordinates_and_order`, `test_factor_two_is_written_in_the_source_sweep`, `test_the_end_faces_start_on_the_source_role` and `test_a_source_not_in_one_sweep_takes_the_nearest_source_face_order` (R7, with the reversed, transposed and rotated writers as controls); `test_factor_two_doubles_the_intervals_keeps_the_knots_on_the_surface`, `test_each_new_cell_is_split_along_its_source_cells_diagonal`, `test_counts_round_each_direction_and_the_knots_stay`, `test_the_spline_reproduces_a_cubic_and_keeps_its_knots` and `test_the_spline_equals_scipys_not_a_knot_where_scipy_is_installed` (R6); `test_a_factor_below_one_over_m_is_refused` (R1); `test_recovery_reads_the_connectivity_and_names_why_it_fails` (R9); `test_the_grid_runs_with_scipy_and_rtree_unimportable` (R10). In `tests/tier1_offline/test_p0380_s1_remesh.py`, `test_the_median_edge_ratio_lies_in_the_band`, `test_every_node_lies_on_the_source_surface_and_faces_keep_the_orientation`, `test_open_boundary_nodes_stay_on_the_boundary`, `test_a_quadrilateral_family_is_remeshed_into_triangles`, `test_ridge_nodes_stay_on_their_ridges`, `test_trailing_edge_edges_are_a_curve_and_reported`, `test_an_interface_with_an_unchanged_family_keeps_its_nodes` and `test_an_interface_between_two_remeshed_families_is_remeshed_once_and_shared` (R8); `test_a_remesh_without_the_extra_is_refused_before_any_work` and `test_the_remesh_module_imports_no_geometry_library_at_import` (R10, R11); `test_two_remeshes_of_one_source_are_identical` (R12). In `tests/tier1_offline/test_p0380_s1_refine.py`, `test_a_remeshed_family_at_factor_1_is_copied_unchanged` (UNCHANGED FAMILY, R7). In `tests/tier1_offline/test_p0380_s1_blocks.py`, `test_a_smooth_tube_is_recovered_with_its_seam_at_the_lowest_source_index`, `test_a_smooth_tube_at_factor_one_is_the_source_in_coordinates_and_order`, `test_factor_two_puts_the_sections_on_the_circle_and_the_seam_has_no_kink`, `test_the_periodic_spline_keeps_its_knots_and_is_smooth_across_the_seam`, `test_the_periodic_spline_equals_scipys_where_scipy_is_installed` and `test_a_smooth_tube_is_refined_as_a_grid_by_refine_mesh` (R15); `test_the_layout_is_cut_along_the_grid_lines_leaving_the_singular_vertices`, `test_a_multiblock_family_at_factor_one_is_the_source_in_coordinates_and_order`, `test_factor_two_and_half_give_a_conforming_all_quad_family_on_the_surface`, `test_a_shared_patch_side_is_the_same_nodes_from_both_sides`, `test_a_family_with_a_triangle_falls_back_as_before` and `test_refine_mesh_reports_a_multiblock_grid_and_its_audit_passes` (R16). In `tests/tier1_offline/test_p0380_s1_quaddom.py`, `test_a_pair_is_merged_only_into_a_valid_quadrilateral_of_one_family`, `test_a_smoothing_move_that_breaks_a_quadrilateral_is_undone`, `test_a_flat_plate_is_mostly_quadrilaterals_each_convex_within_the_band_and_planar`, `test_a_curved_strip_keeps_every_node_on_the_surface`, `test_no_quadrilateral_spans_an_interior_curve`, `test_no_quadrilateral_crosses_a_family_boundary_or_a_frozen_interface`, `test_a_quad_dominant_level_passes_the_gates_and_reports_its_share`, `test_the_default_stays_triangles_byte_for_byte`, `test_a_family_mode_replaces_the_default_and_a_grid_ignores_it` and `test_an_unknown_mode_is_refused_naming_the_file_table_and_modes` (R17). In `tests/tier1_offline/test_p0380_independent_review.py`, the cases of the independent pre-tag review: `test_ind01_a_source_in_a_reserved_name_is_never_removed`, `test_ind01_unrelated_reserved_folders_are_kept_and_the_run_leaves_none`, `test_ind01_a_failed_publish_removes_only_its_own_folder`, `test_ind01_a_level_holding_the_source_is_refused_before_any_work`, `test_ind01_a_level_inside_the_sources_folder_is_refused` and `test_ind01_a_tag_that_is_not_one_folder_name_is_refused` (R3, R5, R11); `test_ind02_a_fan_triangle_rotated_alone_keeps_its_start_at_factor_one`, `test_ind02_mixed_cap_rotations_interleaved_with_lateral_faces_are_kept_at_factor_one` and `test_ind02_above_factor_one_each_fan_triangle_starts_like_its_nearest_source_triangle` (R7); `test_ind03_a_coarsening_the_caps_cannot_carry_is_refused`, `test_ind03_the_smallest_accepted_coarsening_builds_valid_caps` and `test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes` (R1, R11); `test_ind04_a_malformed_obj_is_refused_naming_file_and_line` and `test_ind05_each_trailing_edge_row_holds_three_numbers` (R11). In the same file, the cases of the second independent review: `test_ind01_a_family_name_that_is_not_one_folder_name_is_refused`, `test_ind01_a_tag_holding_a_reserved_character_is_refused` and `test_ind01_a_level_path_resolving_outside_out_dir_is_refused` (R3, R5, R11); `test_ind2_03_a_level_that_appears_during_the_run_is_not_replaced` (R5); `test_ind08_a_sheet_of_split_quadrilaterals_is_recovered_as_its_grid`, `test_ind08_a_split_sheet_refines_as_a_grid_through_refine_mesh` and `test_ind08_triangles_that_are_not_the_cells_are_no_grid` (GRID FAMILY, R6, R7, R9); `test_ind10_a_tube_closed_by_a_pole_fan_at_each_end_is_a_grid` (GRID FAMILY, R6, R7); `test_ind09_statements_separated_by_tabs_are_read_whole` (R4, R7). What a refined level gives the solver is validation, outside this box: RPT-162 reports the licensed comparison of PFS-2079.07.
+
+    Planning: PFS-2081.06 (0.40.0).
 
 !!! requirement "FR-425 The nodes a grid family shares become the nodes of its neighbours, and dummy families are written as component families <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2079.02 (0.38.0).
@@ -9999,6 +10017,8 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 
     Evidence: in `tests/tier1_offline/test_p0390_firstrow.py`, `test_a_kept_row_keeps_its_width_and_the_rest_take_the_factor`, `test_the_last_wake_filament_keeps_its_distance_from_the_adjacent_component`, `test_the_level_stays_closed_and_passes_every_gate`, `test_every_refusal_names_the_source_family_and_option_and_writes_nothing`, `test_the_command_refuses_with_exit_2_and_writes_nothing`, `test_a_listed_and_a_detected_trailing_edge_each_state_their_provenance`, `test_a_detected_trailing_edge_is_written_to_the_level_points_file`, `test_a_sharp_leading_edge_is_not_taken_for_the_trailing_edge`, `test_a_listed_edge_joining_the_detected_line_is_one_source_chain`, `test_a_level_missing_a_middle_detected_edge_fails_g4`, `test_the_tag_of_a_kept_selection_carries_k`, `test_the_command_the_keyword_and_the_file_write_the_same_level`, `test_factors_from_the_call_warn_that_the_tables_keep_first_row_is_not_read`, `test_two_shared_nodes_that_are_not_an_edge_make_no_interface`.
 
+    Planning: PFS-2081.04, PFS-2081.11 (0.40.0).
+
 
 !!! requirement "FR-431 A neighbour family the band covers whole is rebuilt whole at factor 1, with a warning and a record <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2080.03 (0.39.0).
@@ -10019,6 +10039,8 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 
     Evidence: in `tests/tier1_offline/test_p0390_bandswallow.py`, `test_p0390_bandswallow_two_rows_are_rebuilt_whole_and_warned`, `test_p0390_bandswallow_record_states_the_rebuild`, `test_p0390_bandswallow_equals_the_stated_remesh_at_factor_1`, `test_p0390_bandswallow_level_keeps_the_guarantees_of_fr425`, `test_p0390_bandswallow_control_four_rows_keep_the_band`.
 
+    Planning: PFS-2081.04 (0.40.0).
+
 
 !!! requirement "FR-432 A family rebuilt at factor 1 beside a refined side takes the spacing of the edge it shares with it <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2080.04 (0.39.0).
@@ -10038,6 +10060,8 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
     Verification: test, `tests/tier1_offline/test_p0390_zeroarea.py`, carrying P0390-ZEROAREA (FR-432), on a synthetic mesh: a refined grid beside a curved family rebuilt at factor 1 (a cap), the shared edge nonuniform (the refined side's new nodes unevenly spaced), measured first: the edges of the rebuilt family crossing from the shared curve are at least 1.5 times the new shared edges on the 0.38.0 target size. The target at each curve node equals the mean of its incident new shared edges (R1), the targets at face-layer distances 1 and 2 equal the interpolation of R2, and `refine.json` holds `shared_edge_target_m` with the minimum, mean and maximum of the curve targets (R3), asserted on the family stated `factor = 1`, `method = "remesh"` and on the family rebuilt by FR-431; the band of an unchanged neighbour takes the target of R1 and records it the same way; on all three paths the crossing edges are at most 1.5 times the new shared edges. The audit of the level has `faces_of_zero_area` equal to 0 and G1 passes. Mutants: one that keeps the 0.38.0 target on any path, the band included, and one that omits the record, each fail the test. Controls: the test fails on the 0.38.0 build (the crossing ratio); the zero-area face itself is measured on a private multi-component mesh in RPT-164, where the 0.38.0 level has faces under `ZERO_AREA_FRACTION * size**2` and this level has none; the whole-mesh refine at factor 2 of the same mesh writes none; a rebuilt family sharing no curve with the refined side is identical to its 0.38.0 level.
 
     Evidence: in `tests/tier1_offline/test_p0390_zeroarea.py`, `test_p0390_zeroarea_targets_at_the_curve_and_its_layers_follow_r1_and_r2`, `test_p0390_zeroarea_the_curve_spacing_reads_the_shared_edges_not_proximity`, `test_p0390_zeroarea_no_shared_curve_sets_no_target`, `test_p0390_zeroarea_inserted_curve_nodes_are_recorded_with_their_spacing`, `test_p0390_zeroarea_a_family_at_2_beside_a_kept_curve_takes_its_spacing`, `test_p0390_zeroarea_a_diagonal_between_shared_nodes_is_not_a_kept_edge`, `test_p0390_zeroarea_level_takes_the_spacing_and_records_it`, `test_p0390_zeroarea_control_whole_mesh_at_factor_2`, `test_p0390_zeroarea_family_sharing_no_curve_is_unchanged`.
+
+    Planning: PFS-2081.04 (0.40.0).
 
 
 !!! requirement "FR-433 The automatic level tag is a summary and a short hash when the selection is long <span class='srs-implemented'>implemented</span>"
@@ -10086,6 +10110,8 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 
     Wording regression: `tests/tier1_offline/test_p0400_rfixD_contracts.py`, `test_p0400_rfixd_83_footer_and_residual_cases_are_separate`, carrying P0400-RFIXD-CONTRACTS. This checks the documentation contract, not licensed solver behavior.
 
+    Planning: PFS-2081.04, PFS-2081.05 (0.40.0).
+
 !!! requirement "FR-435 One setup, pproc and reference serve every model of a study: a surface the study declares and a row's model lacks is skipped and said, and a name the study does not declare is refused <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2080.07 (0.39.0).
 
@@ -10113,6 +10139,8 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
 
     Evidence: in `tests/tier1_offline/test_p0390_r02.py`, `test_every_model_of_the_study_plans_ready_from_one_set_of_files`, `test_the_wing_body_script_emits_nothing_of_the_tail`, `test_a_third_model_carrying_the_wing_alone_plans_ready_with_no_edit`, `test_the_plan_says_each_skip_once_naming_the_wing_body_row_alone`, `test_a_row_carrying_every_name_plans_with_no_new_line`, `test_the_wing_body_record_names_its_skips_and_the_full_model_record_has_no_field`, `test_the_full_model_script_is_the_one_v0380_writes_from_the_same_files`, `test_without_a_study_the_two_measured_v0380_refusals_stand`, `test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study`, `test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary`, `test_a_family_list_every_name_of_which_is_absent_keeps_its_v0380_refusal`, `test_a_pproc_whose_only_group_is_the_tail_keeps_the_rpt044_refusal`, `test_a_skipped_base_beside_an_index_addressed_operation_is_refused`, `test_a_skipped_create_entry_is_not_emitted_and_is_said`, `test_the_flag_turns_each_skip_into_a_refusal_of_the_wing_body_row`, `test_the_flag_refuses_an_axial_separation_family_before_the_build_guard`, `test_the_vocabulary_is_the_surfaces_the_aliases_and_their_members`, `test_a_study_table_of_another_shape_is_refused_naming_the_file_and_the_table`, `test_a_study_table_stating_a_kind_is_the_block_it_was`, `test_a_name_the_setup_deleted_is_not_judged_a_name_the_model_lacks`, `test_two_references_holding_one_name_are_listed_in_one_warning`, `test_one_reader_of_the_flag_treats_absent_and_blank_alike`, `test_the_additional_post_judges_the_group_members_the_model_lacks`, `test_a_group_citing_a_surface_the_setup_deleted_is_not_judged`, `test_a_rotor_name_and_its_families_are_in_the_vocabulary`, `test_the_words_that_name_no_set_are_never_judged_by_the_study`, `test_the_flag_refuses_every_key_without_a_study`.
 
+    Planning: PFS-2081.04 (0.40.0).
+
 
 !!! requirement "FR-436 A workspace file states command defaults and console detail; build acceptance has explicit routes <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2080.08 (0.39.0).
@@ -10138,6 +10166,8 @@ The requirements of 0.39.0 (GOAL-049), one box per item of the scope closed on 2
     Verification: test, `tests/tier1_offline/test_p0390_r03.py`, carrying P0390-R03 (FR-436), every case driven through the `pyfs-matrix` and `pyfs-workspace` entry points in a temporary workspace whose installed build differs from the registered one: a `pyfs.toml` setting `fs_version`, `hpc` and `cost_file`, a local overlay setting `local`, and a local executable entry stating acceptance make `plan --cost` and `run` typed without those options select the profile and the cost file, warn, and write `plan.json` and the records with the acceptance and `executables.local.toml` as its source (a mutant that never reads the file gives the 0.38.0 refusal "Nothing ran" and fails it); a `pyfs.local.toml` setting another `hpc` wins over `pyfs.toml` and a typed `--hpc` wins over both (a mutant that reverses either order fails); `--no-accept-unregistered-build` refuses against each route (a mutant that lets a file win over the command line fails); the acceptance on the `inputs/executables.local.toml` entry accepts that build only, another row stays refused, and the key in `inputs/executables.toml` is refused; each refusal of R4 asserted by its message text naming the key and the file, with the workspace tree byte-compared before and after (a mutant that applies an act from the file, or ignores an unknown key, fails); `quiet`, `normal` and `verbose` from the file and from `--log-level` asserted on the console, with the signature present at `quiet` and the activity log equal across the three (a mutant that lets the level trim the activity log fails); the verbose print and the `plan.json` sources asserted (R8); `pyfs-workspace` takes `[log] console` and no `[defaults]` key (R9); and a workspace without the files compared byte for byte with outputs captured on the previous release on fixtures the other 0.39.0 changes do not affect, committed beside the test (a mutant that writes a source when no file supplied a value fails R10). Parameterized cases: every shared settable key of R3 from each file, and machine choices from the local overlay only; every boolean of R5 negated on each command that takes it; a positive option typed with its `--no-` form, and `--verbose` with `--log-level quiet`, each refused by the parser (R5, R6); a `pyfs.local.toml` without a `pyfs.toml` (R1); a `schema_version` of 2 and one that is not an integer, each refused naming the key and the file (R2); `settings_sources` asserted in `plan.json` and in the run record (R8); an import-graph check that no workspace module imports the run layer (R11). The acceptance truth table, asserted end to end (R7, R8): either workspace settings file stating acceptance, true or false, is refused before work naming the local executable entry route; nothing typed and the entry key false or absent is refused as in 0.38.0; nothing typed and the entry key true accepts that entry's build only, source `executables.local.toml`; `--accept-unregistered-build` typed accepts the installed build, source `typed`; `--no-accept-unregistered-build` typed refuses even when the local entry states true.
 
     Evidence: in `tests/tier1_offline/test_p0390_r03.py`, `test_p0390_r03_the_file_gives_plan_and_run_their_defaults`, `test_p0390_r03_without_the_file_the_run_is_refused_as_in_0380`, `test_p0390_r03_the_current_directory_is_the_workspace`, `test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both`, `test_p0390_r03_a_typed_acceptance_is_named_typed_beside_a_file_value`, `test_p0390_r03_the_typed_negation_wins_over_every_route`, `test_p0390_r03_a_negation_beats_a_file_switch_on_its_command`, `test_p0390_r03_a_file_value_post_does_not_use_is_left_unused`, `test_p0390_r03_convert_takes_its_required_option_from_the_current_directory`, `test_p0390_r03_a_required_option_is_relaxed_against_the_named_workspace`, `test_p0390_r03_a_positional_of_a_key_name_takes_nothing_from_a_file`, `test_p0390_r03_the_entry_accepts_its_own_build_only`, `test_p0390_r03_the_key_in_the_committed_registry_is_refused`, `test_p0390_r03_every_refusal_names_the_key_and_the_file_and_writes_nothing`, `test_p0390_r03_pyfs_workspace_refuses_as_pyfs_matrix_does`, `test_p0390_r03_a_key_another_command_takes_is_left_unused`, `test_p0390_r03_three_console_levels_one_activity_log`, `test_p0390_r03_a_quiet_console_still_says_the_error`, `test_p0390_r03_a_quiet_plan_says_its_blocked_points_and_its_count`, `test_p0390_r03_verbose_prints_what_came_from_each_file`, `test_p0390_r03_pyfs_workspace_takes_the_console_level_only`, `test_p0390_r03_without_the_files_every_output_is_that_of_0380`, `test_p0390_r03_the_r10_comparison_takes_out_the_times_and_no_result`, `test_p0390_r03_every_settable_key_is_read_from_each_file`, `test_p0390_r03_a_key_of_each_file_reaches_plan_json`, `test_p0390_r03_every_negation_resolves_its_switch_to_false`, `test_p0390_r03_the_negations_table_is_every_command_taking_a_switch`, `test_p0390_r03_a_switch_with_its_negation_is_refused_by_the_parser`, `test_p0390_r03_the_missing_families_choice_stated_twice_is_refused`, `test_p0390_r03_verbose_with_another_level_is_refused_by_the_parser`, `test_p0390_r03_every_command_with_verbose_takes_the_log_level`, `test_p0390_r03_a_schema_version_that_is_not_an_integer_is_refused`, `test_p0390_r03_every_key_that_acts_on_one_invocation_is_refused`, `test_p0390_r03_the_acceptance_truth_table_end_to_end`, `test_p0390_r03_an_entry_no_selected_row_uses_accepts_nothing`, `test_p0390_r03_a_continuation_that_cannot_start_records_its_sources`, `test_p0390_r03_a_quiet_console_says_each_commands_summary`, `test_p0390_r03_a_quiet_collect_says_each_point_it_failed`, `test_p0390_r03_no_workspace_module_imports_the_run_layer`, `test_p0390_r03_the_settings_module_parses_no_command_line`, `test_p0390_r03_only_the_two_command_families_import_the_settings_module`.
+
+    Planning: PFS-2081.04, PFS-2081.07, PFS-2081.08 (0.40.0).
 
 
 ## 0.40.0 the far-field family and the probes home

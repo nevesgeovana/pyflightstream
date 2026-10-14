@@ -246,9 +246,6 @@ at strip edges, accumulated to bound circulation at strip midpoints. A wake
 line value must not be supplied directly as bound strip circulation. This
 corrects the requirement to the existing reconstruction and native fixtures. (FR-452).
 
-- Geometry builds with a failed audit are required to promote nothing and keep
-their built outputs in the partial folder for inspection. The current build
-implementation still promotes them; that implementation gap remains open. (FR-471).
 - Planning resolves the far-field plane and lattice once, by frame and by the exact laid-out points: a declared `[[probes]]` shape identical after layout is reused (a key stated at its default is the same geometry), and a `[farfield]` table stating no geometry reuses the one declared lattice or rectangle that qualifies (FR-455 R2, PFS-2081.56).
 - Post matches every exported far-field position to the recorded layout, each set exactly once, and integrates with the recorded grid; a set it cannot match is a named skip. A record without a layout is matched to the table as it stands, by shape for the plane and a frame's lattice (FR-455 R4, PFS-2081.58).
 - Trefftz A warns, naming the families and both lifts, where the traced families' lift departs from the solver's CL by more than 5 percent (FR-451 R13, PFS-2081.96).

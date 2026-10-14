@@ -16,7 +16,8 @@ PAGES = ("functional-requirements.md", "nonfunctional-requirements.md")
 # The digest of each box of the two pages at the base commit 0b82ccda, its Origin paragraph
 # removed and CRLF folded to LF first (see ``box_digest``).
 BASE_DIGESTS: dict[str, str] = {
-    "FR-01": "e2b50eee5d9bc04c48e3b26810e468e433ba9d8dbb11b88a2288f05e178532af",
+    # amended in 0.40.0 (planning back-reference, PFS-2003.10.03)
+    "FR-01": "af7f771942d34f1d647e8bccf83b8b8acac41bf193f220954d4eeb4621abc92c",
     "FR-02": "6ba1563a597159ba886623b03ad0f6bc6353a831f046323599c038513639710a",
     "FR-02a": "87227e1be3a099b783178ee2e827963be02ccf07e44f4743857060e45f82cb5d",
     "FR-02c": "d25fe9211485f56d14d81e27e20690b348f1c1139cf3b17fcc8d4f886dfa7c50",
@@ -44,8 +45,10 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-23": "4297e90a82132e98c87c1b235feef42c43c3c48e66080259c1fc8abe5c55eec4",
     "FR-23a": "7ad2b52b3935c33b10835cccb9d415f663ffa324421aaacae38388431c94a82c",
     "FR-24": "0f01102a9a21dc2d98cdc631dbedcbfd2cf7364edd54a825e843fa01d664b9ac",
-    "FR-25": "5cf6b750f468b471b52b14824118293e60f4b80b239711aed51d9de92b1f8797",
-    "FR-26": "ba15c16b0956f4aac02bd5b648a736cf29df569aefd23e44d0841f7dc6403e22",
+    # amended in 0.40.0 (planning back-reference, PFS-2003.10.03)
+    "FR-25": "3cbab3b59b2cd20dcea51401913399fcb3eb4da8db43c2557c1e504a991e2019",
+    # amended in 0.40.0 (planning back-reference, PFS-2018.04.02)
+    "FR-26": "d43b7dc96a5ca2ebf152978dd43f8fa3042aa41db3ff617ee7f63190622a5efe",
     "FR-27": "a54fad0c65abd242c6b5a9837d16fadc3865f7528401dcdec0172f02574d546c",
     "FR-28": "6d33b6ac9599f14037b589710483bedb653b89f99800b77f3a1e01f60fec3d3e",
     "FR-29": "a22132bc6966f9688cf0491a338d89d41b0b3cd8c52ca6afd69b435a6d53a4bf",
@@ -77,10 +80,12 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-38": "428bbfa3e97206a8e45368b04bf676647bdd2c40b83c83a5860f046dba2049b3",
     "FR-39": "3748fbe9678f39d8603d5b63a9b871d6a909db8f0578fd514d90e7c41ef51519",
     "FR-40": "2efdeae31a69872594f1cee1e80c52a254cb52234bdab5c621763e5013169b71",
-    "FR-41": "0534ca6beb9627469b240b07a50b9ad9107107099c4c79f3e355ee1a9156cac7",
+    # amended in 0.40.0 (planning back-reference, PFS-2023.03)
+    "FR-41": "b6e2099670b4daad91ac3a8a1810a7716eef66b84f4e369c000cf15c8b376831",
     "FR-42": "8c06cdfce4bc368a5afce0d442e737b37d16fd82e49e4968d91c97e799968ddf",
     "FR-43": "883cedfbb85f6121d26271efe4d636f7bf4733d8a6b90d9314928216e452d8bc",
-    "FR-44": "7ef2451f1f1215fcb4a31c844aaac6db52098ab82687004cb14c9930a78f6515",
+    # amended in 0.40.0 (planning back-reference, OPS-2005.15.02)
+    "FR-44": "1263a289d9a5ee4d6e02a50f1c0ec8c98826cbb36704eddcc5133e04cfbb11e0",
     "FR-45": "b3c7e4711b585b534344e4d55c03ec1825a2ccd3a9d67b4c92d889f3af780896",
     # amended in 0.39.0 by FR-434 (MAX_ITER_REACHED joins the closed set), SRS 1.76.0
     "FR-46": "70fe82dfe9089ba12a183350320273a939fd85ab93078e97d74b3db67eb8e619",
@@ -242,8 +247,10 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-133": "50ad5ba76dd141f04ffe0b49838647173ba07060cd8c8766e419b0feae077c51",
     "FR-134": "7493edc1377181e806191cea36c69693230c11737e1f40e5d4b8f4f333b0eb7e",
     "FR-150": "1b8d2cfc317b641324ef954d7cb49328922241c091e7b48f88f433aa3beb603f",
-    "FR-151": "a28ec75640e86f1773e09e5ac6cec31d0e657006540570e31f6ddd49b92daced",
-    "FR-152": "34938b2f296f6aedc72b3e0067cbc7b5cf6cb3501355a4ad10387afba599088d",
+    # amended in 0.40.0 (planning back-reference, GOAL-033:G67)
+    "FR-151": "4f4e60ba2334aa70ab3a0f844f17c57ee8f2da0e162587c69e02331bb45a8672",
+    # amended in 0.40.0 (planning back-reference, GOAL-033:G67)
+    "FR-152": "b2f92ccb7809d9489f179f168b1c278804446e899f86d69cb11cf1693e9aa6c3",
     # amended in 0.40.0 (tecplot-points field format revision line, owner decision of 2026-10-13)
     "FR-153": "eac819b274dc91e183069bc7a2f7cf13987e20aa4aa8f5d8dd8ec042390dd674",
     "FR-154": "62abc4265d92de42d65dbbe59117b5f95eb50eefd35d84812b4d47d8a5ea03e8",
@@ -416,10 +423,12 @@ BASE_DIGESTS: dict[str, str] = {
     "FR-420": "d7107812d5e65d99d8b456985238a2f94bf41cbb025546f740804974245d6d09",
     "FR-421": "ba1c4f8e7835b58af12a554183943b4fca994cab38ffb59f4520ee05a634543f",
     "FR-422": "8a953a709a1a4f552d103b8b9e6f752f4c7f3b8b32ed38caa80711ac6ca7ccb2",
-    "FR-423": "79971e8b60224a2be7122b4fcd0f0f8ab6abcdc2e5bdd6296fda6a13bcfac554",
+    # amended in 0.40.0 (planning back-reference, PFS-2081.12)
+    "FR-423": "05085c947339a53f7b60e4d6bda95a9e2a8a8644ef3f43fbe7cb396253b10c8b",
     # Re-pinned on lane/indfix: R1 states the tube section counts (IND-03), the evidence cites
     # the independent review tests.
-    "FR-424": "850f755ade4d29ce09882feb07b629b4577ef205f8332bb63595a00e12bc3c48",
+    # amended in 0.40.0 (planning back-reference, PFS-2081.06)
+    "FR-424": "82975f2b50a367e015ac1d9ab41cb09f899450230c11b68b2dfc4ba4d250dfcf",
     "FR-425": "a3dc2a22dfef87563c2bd10f65fe4ac4920589590f6ae99d84910e9856c25d8c",
     # Re-pinned at 85d92803: R3 of the next box dropped a personal attribution (the W0 CI fix).
     # Re-pinned on lane/indfix: R1 refuses a --csv naming an input or the audit (IND-06).
@@ -453,9 +462,11 @@ BASE_DIGESTS: dict[str, str] = {
     "NFR-17": "e23c1da57212f134578d830377c6e14b01e51653649b7b16af40d6911cbb9565",
     "NFR-18": "f0b3aae8d1859470c08775026c93e8082b1772fcb243dafd72f6830fbed803aa",
     "NFR-21": "1ca6de73b6143b7667ebc9544f8c2048a4d13b55cf4dfa162ce086d848e07ecd",
-    "NFR-19": "702f39723560717c5a66227095e43d505762a4d00fe6d11caee286dbb2ee6b46",
+    # amended in 0.40.0 (planning back-reference, PFS-2023.03)
+    "NFR-19": "e77c33cf0e4dc6b6536677cc3b94cac85d520a075bbf6344920e41dc5cb8fc1a",
     "NFR-20": "80f76d5e9e25b62405e3e4c302e45fe9c8a1a80835350e710adeec3e6a39a009",
-    "NFR-22": "b04f50ac7e8cfe16b70154d9e3d5a72f876c8485e9083df11ff8b0e6061d9e0c",
+    # amended in 0.40.0 (planning back-reference, PFS-2023.03)
+    "NFR-22": "ad722cc118a62024ca89a23ca2ce670072da5c6548cb71c14bf14a45cb4267ba",
     "NFR-23": "8c6a80d3124cf8b48c579918b137f673b334b6b9c1d4e894a92d78f855d421bc",
     "NFR-24": "0d3189681baf8ac224b810d7a4744f1804a1ebe0a21a7b701fd263e01f3fa551",
     "NFR-25": "bd896b531a127f98394fa2c9188f05f6805ff9a365ee26a56919d1d6a71f6788",
