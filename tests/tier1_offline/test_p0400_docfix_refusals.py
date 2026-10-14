@@ -21,8 +21,11 @@ from pyflightstream.workspace.inputs import PprocArtifact, resolve_pproc
             {"vtk_variables": ["NOT_A_VARIABLE"]},
             "vtk_variables: unknown variable(s) NOT_A_VARIABLE",
         ),
-        ({"unexpected": True}, "Extra inputs are not permitted"),
-        ({"probes": [{"points": 1}]}, "Input should be greater than or equal to 2"),
+        ({"unexpected": True}, "unexpected: Extra inputs are not permitted"),
+        (
+            {"probes": [{"points": 1}]},
+            "probes.0.points: Input should be greater than or equal to 2",
+        ),
     ],
     ids=["P0400-MEMBER-LIST", "P0400-VTK", "P0400-EXTRA", "P0400-NESTED"],
 )

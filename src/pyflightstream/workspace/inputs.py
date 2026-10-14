@@ -790,7 +790,8 @@ class PprocArtifact(PprocSpec):
     :class:`pyflightstream.cases.PprocSpec`; this class is the file.
 
     Validation refusals raise :class:`InputArtifactError`, including refusals
-    from nested tables. The artifact loader adds the source file's path.
+    from nested tables. Field constraints retain the invalid field's location;
+    the artifact loader adds the source file's path.
 
     Examples
     --------
@@ -813,9 +814,15 @@ class PprocArtifact(PprocSpec):
         try:
             return handler(data)
         except ValidationError as error:
-            messages = [
-                str(detail.get("ctx", {}).get("error", detail["msg"])) for detail in error.errors()
-            ]
+            messages = []
+            for detail in error.errors():
+                message = str(detail.get("ctx", {}).get("error", detail["msg"]))
+                location = ".".join(str(part) for part in detail["loc"])
+                # Custom validator messages already name their domain input.
+                # Pydantic's field constraints need the separate location.
+                if location and detail["type"] != "value_error":
+                    message = f"{location}: {message}"
+                messages.append(message)
             raise InputArtifactError("\n".join(messages), kind="pproc") from error
 
 
