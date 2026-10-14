@@ -18,11 +18,7 @@ from typing import Any
 
 import pytest
 
-from pyflightstream.cases.farfield_inputs import traced_family
-from pyflightstream.cases.workflows._farfield import _covered, plan_record
 from pyflightstream.workspace import RunRecord
-from tests.tier1_offline import test_p0400_farfield_products as wing
-from tests.tier1_offline.test_p0400_farfield_plan import _case, _script
 
 pytestmark = pytest.mark.requirement("FR-455")
 
@@ -30,6 +26,8 @@ _TREFFTZ_A = {"families": "all", "trefftz": {"variant": "sections", "stations": 
 
 
 def _sections(families: object) -> dict:
+    from tests.tier1_offline import test_p0400_farfield_products as wing
+
     return {
         "sections": {
             "count": wing.STATIONS,
@@ -49,6 +47,10 @@ def _states(record: dict) -> set[str]:
 @pytest.mark.requirement("FR-455")
 def test_p0400_rfixf2_an_all_distribution_of_one_family_is_traced(tmp_path, monkeypatch):
     """P0400-RFIXF2-DISTRIBUTIONS (FR-455 R2, R4): plan reuses it, post traces it (row A)."""
+    from pyflightstream.cases.workflows._farfield import plan_record
+    from tests.tier1_offline import test_p0400_farfield_products as wing
+    from tests.tier1_offline.test_p0400_farfield_plan import _case, _script
+
     (tmp_path / "plan").mkdir()
     case = _case(tmp_path / "plan", _TREFFTZ_A, **_sections("all"))
     script = _script(case)
@@ -78,6 +80,10 @@ def test_p0400_rfixf2_a_multi_family_aggregate_covers_none(tmp_path):
     uncovered, so the plan adds a block of each instead of reusing the
     aggregate.
     """
+    from pyflightstream.cases.farfield_inputs import traced_family
+    from pyflightstream.cases.workflows._farfield import _covered
+    from tests.tier1_offline.test_p0400_farfield_plan import _case
+
     case = _case(tmp_path, _TREFFTZ_A, **_sections(["W", "T"]))
     assert _covered(case, ["W", "T"]) == set()
     assert traced_family(["W", "T"], ["W", "T"]) is None
