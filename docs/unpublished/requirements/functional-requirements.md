@@ -6421,7 +6421,13 @@ Requirements written after the specification was last reconciled with the packag
     *Origin: G16 of the 0.27.0 scope. The need: the polar number goes in every file as a column, and of the rotor
     table's first line: the same, as a column. Evidence:
     `tests/tier1_offline/test_g16_polar_column.py` (every table written is read
-    back, including by `numpy.genfromtxt`).*
+    back, including by `numpy.genfromtxt`).
+    Amendment for 0.40.0: coefficient and small dimensional CSV values retain
+    six significant figures wherever five decimal places lose precision
+    (PFS-2081.53, PFS-2105.041). `scripts/check_parity.py` names the polar and
+    section respelling differences: the row count and header order stay the
+    same, text cells stay identical, and each changed number differs by at
+    most half a unit of the base writer's last printed digit.*
 
     Every table the post writes under `post/<matrix>/`, the additional post's
     included, and `campaign_sweep.csv`, holds its header on the first line and
@@ -6440,13 +6446,6 @@ Requirements written after the specification was last reconciled with the packag
 
     Solution: 0.27.0. It moved every column of these tables one place to the
     right for a reader by position, which is why the migration page carries it.
-
-    Amendment for 0.40.0: coefficient and small dimensional CSV values retain
-    six significant figures wherever five decimal places lose precision
-    (PFS-2081.53, PFS-2105.041). `scripts/check_parity.py` names the polar and
-    section respelling differences: the row count and header order stay the
-    same, text cells stay identical, and each changed number differs by at
-    most half a unit of the base writer's last printed digit.
 
 !!! requirement "FR-125 A row states a custom free stream by an input file, and the plan checks the field against the body <span class='srs-implemented'>implemented</span>"
 
@@ -9760,7 +9759,8 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
 !!! requirement "FR-419 The settings table and its codebook are a campaign product <span class='srs-implemented'>implemented</span>"
     Plan: PFS-2078.07 (0.37.0).
 
-    *Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 (only candidates 1 and 2 taken); scope GOAL-044 item S7. Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`.*
+    *Origin: GEO-070 candidate 1, taken into 0.37 by the owner on 2026-10-05 (only candidates 1 and 2 taken); scope GOAL-044 item S7. Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`.
+    Amendment R4: From 0.40.0, the wide table adds an `f<id>_kind` column for each setting to distinguish enumeration codes from list lengths (PFS-2105.042), and writes finite values at their shortest exact spelling (PFS-2105.020). The settings convergence precision correction in commit `68755be9` is intended: `0.00000` becomes `1e-06`. `scripts/check_parity.py` names these differences: rows and existing column order are preserved, and only `f<id>_kind` columns may be inserted. Two numeric cells are equal for parity when they agree at the coarser printed precision of the two cells (`0.00000` versus `1e-06`: at five decimals both are `0.00000`, equal; `0.00001` versus `2e-05` is not). Literal and non-numeric cells stay exact.*
 
     Need: A user comparing the solver settings of a campaign's runs must get them as one numeric table with its legend from `pyfs-matrix post`, without calling the library.
 
@@ -9769,7 +9769,6 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R1 The workspace product is the WIDE form, one row per point, keyed by POL and run id (owner decision of 2026-10-05: "mantem as duas opções sendo que para o workspace, é gerado a (a)."); the library writer keeps both forms (`wide=True` and the long form, one row per setting per point); a point without a snapshot has no row and is named by one INFO line in `post.log`, never a blank row and never a recorded skip (a default-on product must not turn `--strict` red on a workspace whose records predate the snapshot); if no point has a snapshot the two files are not written and `post.log` says so once.
     - R2 The two files are listed in `products.json` with kind `settings_codebook`; a rebuild replaces them as it replaces the other products.
     - R3 With the key false, the post writes nothing new and its products are byte-identical against 0.36.0. By default the two files and their `products.json` entries are the only difference against 0.36.0: `scripts/check_parity.py` names it, and the products snapshot is regenerated for it in the same commit, the commit message saying the expectation changed by that decision.
-    - R4 From 0.40.0, the wide table adds an `f<id>_kind` column for each setting to distinguish enumeration codes from list lengths (PFS-2105.042), and writes finite values at their shortest exact spelling (PFS-2105.020). The settings convergence precision correction in commit `68755be9` is intended: `0.00000` becomes `1e-06`. `scripts/check_parity.py` names these differences: rows and existing column order are preserved, and only `f<id>_kind` columns may be inserted. Two numeric cells are equal for parity when they agree at the coarser printed precision of the two cells (`0.00000` versus `1e-06`: at five decimals both are `0.00000`, equal; `0.00001` versus `2e-05` is not). Literal and non-numeric cells stay exact.
 
     Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`, carrying P0370-S7-CODEBOOK (FR-419): a recorded campaign posted with the key absent (default on), true, and false; the table's rows against the records; the legend's version; the manifest entries; a point without a snapshot (an INFO line, no skip, `--strict` stays green; a mutant recording it as a skip fails).
 
