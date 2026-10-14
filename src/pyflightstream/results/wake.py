@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass
+from itertools import islice
 
 import numpy as np
 
@@ -70,6 +71,16 @@ def _tokens(rows: Iterator[str], count: int, what: str) -> list[str]:
             f"the wake export's {what} block holds {len(out)} values where it declares {count}"
         )
     return out
+
+
+def _required_line(rows: Iterator[str], what: str) -> str:
+    """Read a required header line, distinguishing EOF from malformed content."""
+    try:
+        return next(rows)
+    except StopIteration:
+        raise IncompleteOutputError(
+            f"the wake export ends before its {what}; it is truncated"
+        ) from None
 
 
 def _numbers(tokens: list[str], what: str, dtype: type) -> np.ndarray:
@@ -131,7 +142,7 @@ def parse_wake_export(text: str) -> WakeExport:
         :data:`WAKE_VALUE` cell scalar, a count or an index contradicts the
         file, a chain branches or closes, or a value changes along one line.
     IncompleteOutputError
-        If the file ends inside a block it declared.
+        If the file is empty or ends before a required header, block or value.
 
     Examples
     --------
@@ -146,9 +157,13 @@ def parse_wake_export(text: str) -> WakeExport:
     (1, (3, 3), [0.5])
     """
     rows = iter(text.splitlines())
-    head = [next(rows, "").strip() for _ in range(4)]
+    head = [line.strip() for line in islice(rows, 4)]
+    if not text.strip():
+        raise IncompleteOutputError("the wake export's VTK header is truncated")
     if not head[0].lower().startswith("# vtk datafile"):
         raise MalformedOutputError("the wake export does not open with a VTK legacy header")
+    if len(head) < 4:
+        raise IncompleteOutputError("the wake export's VTK header is truncated")
     if head[2].upper() != "ASCII" or head[3].upper() != "DATASET POLYDATA":
         raise MalformedOutputError("the wake export is not ASCII POLYDATA")
     points, segments, values = _blocks(rows)
@@ -193,7 +208,7 @@ def _read_values(rows: Iterator[str], words: list[str], segments: np.ndarray | N
             f"the wake export declares CELL_DATA {words[1]} for "
             f"{0 if segments is None else len(segments)} segments"
         )
-    scalar = next(rows, "").split()
+    scalar = _required_line(rows, "CELL_DATA SCALARS block").split()
     if len(scalar) < 3 or scalar[0].upper() != "SCALARS":
         raise MalformedOutputError("the wake export's CELL_DATA holds no SCALARS block")
     if scalar[1] != WAKE_VALUE:
@@ -220,12 +235,17 @@ def _point_data(rows: Iterator[str], words: list[str], points: np.ndarray | None
     if points is None or count != len(points):
         raise MalformedOutputError("the wake export's POINT_DATA count differs from POINTS")
     for name in ("X", "Y", "Z"):
-        scalar = next(rows, "").split()
+        scalar = _required_line(rows, f"POINT_DATA {name} scalar").split()
         if len(scalar) < 3 or scalar[:2] != ["SCALARS", name]:
             raise MalformedOutputError(f"the wake export's POINT_DATA needs the {name} scalar")
         if len(scalar) > 3 and scalar[3] != "1":
             raise MalformedOutputError(f"the wake export's {name} scalar needs one component")
-        if not next(rows, "").strip().upper().startswith("LOOKUP_TABLE"):
+        if (
+            not _required_line(rows, f"{name} scalar LOOKUP_TABLE")
+            .strip()
+            .upper()
+            .startswith("LOOKUP_TABLE")
+        ):
             raise MalformedOutputError(f"the wake export's {name} scalar needs LOOKUP_TABLE")
         _numbers(_tokens(rows, len(points), name), name, float)
 
@@ -278,7 +298,14 @@ def _blocks(rows: Iterator[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
                 f"the wake export carries {words[0]!r}, which no wake export writes"
             )
     if points is None or segments is None or values is None:
-        raise MalformedOutputError("the wake export declares no POINTS, no LINES or no cell values")
+        missing = [
+            name
+            for name, block in (("POINTS", points), ("LINES", segments), ("cell values", values))
+            if block is None
+        ]
+        raise IncompleteOutputError(
+            f"the wake export ends before {', '.join(missing)}; it is truncated"
+        )
     if len(segments) and (segments.min() < 0 or segments.max() >= len(points)):
         raise MalformedOutputError(f"a wake segment names a node outside the {len(points)} points")
     return points, segments, values

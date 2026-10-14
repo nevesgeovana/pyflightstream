@@ -8,11 +8,35 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream.results.core import MalformedOutputError
+from pyflightstream.results.core import IncompleteOutputError, MalformedOutputError
 from pyflightstream.results.wake import parse_wake_export
 from tests.tier1_offline.test_house_style import RECORDED_WAKE_FIXTURES, _geometry_offenses
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.mark.requirement("FR-17")
+@pytest.mark.parametrize(
+    ("cut_before", "message"),
+    [
+        ("# vtk", "header.*truncated"),
+        ("ASCII", "header.*truncated"),
+        ("DATASET", "header.*truncated"),
+        ("POINTS", "POINTS.*truncated"),
+        ("LINES", "LINES.*truncated"),
+        ("SCALARS X", "X scalar.*truncated"),
+        ("SCALARS Y", "Y scalar.*truncated"),
+        ("CELL_DATA", "cell values.*truncated"),
+        ("SCALARS Normalized_Vorticity", "SCALARS.*truncated"),
+    ],
+)
+def test_p0400_litb_real_wake_truncated_at_a_block_boundary_is_incomplete(cut_before, message):
+    """An empty export or a prefix of the real export cannot be a complete wake."""
+    text = (FIXTURES / "p0400_litB_wake_26124.vtk").read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    cut = next(index for index, line in enumerate(lines) if line.startswith(cut_before))
+    with pytest.raises(IncompleteOutputError, match=message):
+        parse_wake_export("".join(lines[:cut]))
 
 
 @pytest.mark.requirement("FR-452")
