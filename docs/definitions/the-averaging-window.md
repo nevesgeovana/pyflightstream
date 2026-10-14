@@ -48,7 +48,7 @@ starts again at step 1 with rows of its own is numbered on from the history's
 last step, its time with it. No step is repeated or missing at a seam, and
 `post.log` says how the history was joined and the step the window ends at. A
 history that cannot be found or joined is said there, naming the file, and the
-table then holds the continuation's own export, as it states its steps. On 26.124,  measured that a continuation export numbered the whole march from step 1 to step 24; its resumed export restated the march. Emitting no reinitialization on continuation remains owed for 0.35.0.
+table then holds the continuation's own export, as it states its steps. On 26.124, a measured continuation export numbered the whole march from step 1 to step 24; its resumed export restated the march. The package keeps the reopened state without reinitialization; the licensed confirmation of that emitted continuation remains owed, as recorded in the changelog.
 A point that continues nothing is averaged exactly as before.
 
 ---
