@@ -13,8 +13,8 @@ from that tree:
    same dotted path at the release, and so does every public name a base module
    WITHOUT ``__all__`` offers (bound at module level, not starting with ``_``,
    not a module, not imported from outside the package; see
-   :func:`offered_names`). ``stamp_derived_campaign`` is the one exemption,
-   deleted by decision 9 of the 0.33 scope.
+   :func:`offered_names`). Modules with a private dotted segment are excluded
+   (AD-15). Only the fully qualified retired bindings in ``API_EXEMPT`` are exempt.
 2. **cli**: every console script of the base ``pyproject.toml``, every
    subcommand, every option string and every ``choices`` value is still in the
    release parser (a parser diff; each parser is captured at the moment its
@@ -106,7 +106,14 @@ PACKAGE = "pyflightstream"
 MATRIX_CONSOLE = "pyfs-matrix"
 
 #: Base names that may be absent at the release, with the decision that removed them.
-API_EXEMPT = {"stamp_derived_campaign": "0.33 scope decision 9 deletes it"}
+API_EXEMPT = {
+    "pyflightstream.cases.stamp_derived_campaign": "0.33 scope decision 9 deletes it",
+    "pyflightstream.farfield.rothalpy": "FR-458 (0.40.0) hands it to ITACA",
+    "pyflightstream.farfield.irreversible_deficit": "FR-458 (0.40.0) hands it to ITACA",
+    "pyflightstream.farfield.lattice_dataset": "FR-457 R3 retires it for farfield.lattice_fields",
+    "pyflightstream.post.dataset_to_points": "FR-457 R3 retires it for LatticeFields.points",
+    "pyflightstream.post.writers.dataset_to_points": "FR-457 R3: use LatticeFields.points",
+}
 
 #: The message of a per-revolution drift warning, old or new wording: the column
 #: drifts by a percentage of itself or, for a force or moment column, of the
@@ -877,6 +884,8 @@ def collect_api(tree: Path) -> dict[str, Any]:
         if rel.name == "__main__":
             continue
         parts = rel.parts[:-1] if rel.name == "__init__" else rel.parts
+        if any(part.startswith("_") for part in parts):
+            continue
         name = ".".join(parts)
         try:
             module = importlib.import_module(name)
@@ -1698,10 +1707,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         (temp / "release").mkdir()
         listed = api_pairs(api_base)
         offered = api_pairs(api_base, "offered")
-        listed_pairs = [p for p in listed if p[1] not in API_EXEMPT]
-        offered_pairs = [p for p in offered if p[1] not in API_EXEMPT]
+        listed_pairs = [p for p in listed if ".".join(p) not in API_EXEMPT]
+        offered_pairs = [p for p in offered if ".".join(p) not in API_EXEMPT]
         pairs = [*listed_pairs, *offered_pairs]
-        exempt = [f"{m}.{n}" for m, n in [*listed, *offered] if n in API_EXEMPT]
+        exempt = [f"{m}.{n}" for m, n in [*listed, *offered] if f"{m}.{n}" in API_EXEMPT]
         # The second planted name sits in the first module without __all__, so
         # the path that reads such modules is itself shown able to fail.
         planted_module = min(api_base["offered"], default=PACKAGE)
@@ -1754,7 +1763,7 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         "modules_without_all": len(api_base["offered"]),
         "missing": missing_api,
         "missing_without_all": [m for m in missing_api if m in offered_keys],
-        "exempt": {name: API_EXEMPT[name.rsplit(".", 1)[1]] for name in exempt},
+        "exempt": {name: API_EXEMPT[name] for name in exempt},
         "unimportable_at_base": api_base["unimportable"],
     }
 

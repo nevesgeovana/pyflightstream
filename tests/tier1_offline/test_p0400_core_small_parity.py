@@ -17,6 +17,7 @@ release tag of exactly four digits; it now matches any digit run.
 from __future__ import annotations
 
 import importlib.util
+import types
 from pathlib import Path
 
 import pytest
@@ -105,3 +106,54 @@ def test_p0410_par_export_includes_the_requirements_loader(tmp_path: Path) -> No
     tree = tmp_path / "export"
     module.export("HEAD", tree)
     assert (tree / "scripts" / "_requirements_paths.py").is_file()
+
+
+def test_p0410_par_retirements_are_scoped_to_the_module() -> None:
+    """P0410-PAR: retiring a binding cannot exempt another module's same name."""
+    exemptions = _load().API_EXEMPT
+    assert set(exemptions) == {
+        "pyflightstream.cases.stamp_derived_campaign",
+        "pyflightstream.farfield.rothalpy",
+        "pyflightstream.farfield.irreversible_deficit",
+        "pyflightstream.farfield.lattice_dataset",
+        "pyflightstream.post.dataset_to_points",
+        "pyflightstream.post.writers.dataset_to_points",
+    }
+
+
+def test_p0410_par_only_public_module_paths_are_collected(tmp_path, monkeypatch) -> None:
+    """P0410-PAR: private segments are excluded, including private parent packages."""
+    module = _load()
+    root = tmp_path / "src" / "pyflightstream"
+    for path in ("__init__.py", "public.py", "_private.py", "_internal/public.py"):
+        target = root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("__all__ = ['kept']\n", encoding="utf-8")
+    imported = []
+
+    def importing(name):
+        imported.append(name)
+        result = types.ModuleType(name)
+        result.__all__ = ["kept"]
+        return result
+
+    monkeypatch.setattr(module.importlib, "import_module", importing)
+    collected = module.collect_api(tmp_path)
+    assert set(collected["exports"]) == {"pyflightstream", "pyflightstream.public"}
+    assert set(imported) == set(collected["exports"])
+
+
+@pytest.mark.parametrize(
+    ("module_name", "name", "home"),
+    [
+        ("run.cli", "resolve_workflow", "cases.workflows"),
+        ("run.cli", "workflow_names", "cases.workflows"),
+        ("script.helpers", "one_file_key", "_digest"),
+        ("script.helpers", "plain_decimal", "_decimal"),
+    ],
+    ids=["P0410-PAR-resolve", "P0410-PAR-workflows", "P0410-PAR-key", "P0410-PAR-decimal"],
+)
+def test_p0410_par_public_binding_keeps_its_object(module_name, name, home) -> None:
+    module = importlib.import_module(f"pyflightstream.{module_name}")
+    defining = importlib.import_module(f"pyflightstream.{home}")
+    assert getattr(module, name, None) is getattr(defining, name)

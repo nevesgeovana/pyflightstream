@@ -626,6 +626,15 @@ one of them keeps.
     0.33.0 section of this chapter; the receipt of the release is
     produced on the release commit.
 
+    Clarified in 0.41.0: API parity covers public module paths, including
+    public names offered without `__all__`. A dotted segment beginning with
+    `_` makes a module private. Its incidental re-imports are not public API:
+    the 0.40.0 workflow cuts (`f6a5626d`, `_clock`, `_probes`, `_registry`),
+    vocabulary cut (`0be1b0d9`, `_rows`), executor imports (`e949dba6`,
+    `run._batch_exec`, `run._campaign`) and comparison cut (`acca6b5f`,
+    `workspace._ledger_history`) intentionally dropped internal bindings.
+    Public paths such as `run.cli` and `script.helpers` retain their bindings.
+
 ### The architecture decisions shipped in 0.34.0
 
 The decisions below are the three cuts of the 0.34.0 scope (scope record
@@ -1680,7 +1689,7 @@ it is the frozen baseline's and may not gain a member.
 `scripts/check_parity.py` is the committed script of AD-15. It exports two
 trees from git, the tag `v0.32.0` and the release commit, never a working
 tree, runs each in an interpreter of its own and compares four things: every
-public name, including those of a module without `__all__`, at the same
+public name of a public module, including those without `__all__`, at the same
 dotted path; every console tool, subcommand, option and choice of the
 argument parsers; the emitted scripts of the golden and tier-3 campaign set,
 byte for byte; and every byte a post over one recorded workspace writes,

@@ -95,6 +95,8 @@ from pyflightstream.cases.workflows import (
 
 # Offered here by 0.32.0, whose parser read it; the parser is _cli_parsers now.
 from pyflightstream.cases.workflows import read_a_choice as read_a_choice
+from pyflightstream.cases.workflows import resolve_workflow as resolve_workflow
+from pyflightstream.cases.workflows import workflow_names as workflow_names
 from pyflightstream.results import MalformedOutputError
 from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write_table
 from pyflightstream.run import (
