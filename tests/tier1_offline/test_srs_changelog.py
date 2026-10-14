@@ -225,3 +225,10 @@ def test_the_checker_refuses_an_empty_reason_a_nested_citation_and_the_phrase_al
     bullets = release_bullets(text)["0.31.0"]
     assert len(bullets) == 3
     assert uncited(bullets, {"FR-95"}) == bullets
+
+
+def test_p0400_bgtests2_release_and_unfolded_fragments_cite_requirements():
+    """PFS-2081.105: check pending fragments as well as already folded release bullets."""
+    bullets = [bullet for rows in [*_RELEASES.values(), *_FRAGMENTS.values()] for bullet in rows]
+    assert bullets, "the traceability check must read release or fragment bullets"
+    assert not uncited(bullets, _DEFINED)
