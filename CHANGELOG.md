@@ -93,7 +93,7 @@ FlightStream versions.
 - Mesh operations in the instruction file: circular and linear copies, a cut by a plane, hole filling, degenerate-face removal, face extraction and deletion by threshold, and node moves pinned to the mesh's sha256 (FR-474).
 - CAD body operations before the conversion of an IGES file, and bodies and section-lofted wings built by the solver's CAD Create commands (FR-475).
 - `pyfs-workspace geometry build --rows POL --matrix FILE` prints one whole matrix row per built variant, copied from the row `POL`; nothing is written into the matrix (FR-472).
-- `pyfs-workspace geometry build --parallel 2` runs two variants of a sweep at once and reruns alone a variant that failed beside another (FR-472).
+- `pyfs-workspace geometry build --parallel 2` runs up to two variants of a sweep at once and reruns alone a variant that failed beside another (FR-472). If the optional `psutil` package is absent, free memory cannot be measured: the command warns and runs one variant at a time. See [geometry sweeps](docs/geometry.md) for the memory condition.
 - A deflection sweep writes `<name>.sweep.vtk` in the base folder, the swept control surface of every variant overlaid (FR-472).
 - `pyfs-matrix plan` warns on a row whose `SYMMETRY` is `MIRROR` and whose built body carries a deflected control surface, naming the surface and the angle (FR-473).
 - A rebuilt mesh's sidecar keeps the `translate` and `rotate` operations, `[wake_termination]` and `[base_regions]` of the sidecar it replaces, or of its `[mesh]` source (FR-471).
@@ -109,6 +109,7 @@ FlightStream versions.
 
 ### Changed
 
+- New far-field and probe-layout functions require keywords after their primary argument, so coordinates, field arrays, forces and sampling scales cannot be exchanged silently by position. The numpy harmonic functions likewise take the new azimuth array as `psi=...`. See [far-field signatures](docs/upgrading.md#far-field-signatures) for migration examples.
 - mypy recount 2026-10-13: 165 errors in 13 of 343 modules, on the 0.40.0 tree; the shipped
   configuration is green over all 343. Three exempted modules are clean and their overrides are
   deleted (`pyflightstream.farfield`, `pyflightstream.fsi.driver` and `pyflightstream.script.entities`),
@@ -268,6 +269,7 @@ message naming the record and missing input key, instead of raising KeyError. (F
 
 ### Fixed
 
+- Trefftz-plane planning refuses a spacing that leaves fewer than three points on either axis, naming the spacing and half extents to adjust, before a solver run produces a plane that post cannot integrate.
 - The PDF release receipt builder reads the cheatsheet build log from the
   checkout selected by `--repo`, so another checkout's stale log cannot be
   paired with the rebuilt PDF (NFR-46, REL10-001).

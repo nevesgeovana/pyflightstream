@@ -227,8 +227,10 @@ matrix, once per variant, with `CONFIGURATION` set to the variant's tag,
 matrix. Nothing is written into the matrix; paste the rows where they
 belong.
 
-`--parallel 2` runs two variants at once, each its own solver execution, when
-the machine has 0.5 GB free; a variant that fails while another runs beside it
+`--parallel 2` runs up to two variants at once, each its own solver execution,
+when the optional `psutil` package measures at least 0.5 GB free. Without
+`psutil`, the command warns and runs one variant at a time; install it with
+`pip install psutil` to enable the memory check. A variant that fails while another runs beside it
 is run again alone, so a licence refused to the second seat costs no variant.
 The default is one at a time, and 2 is the limit.
 
