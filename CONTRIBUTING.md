@@ -24,6 +24,8 @@ start a second CI run.
 Branch coverage runs once per version tag, within Release's Linux
 `test-artifact` invocation against the built wheel. It uses the floor in
 `[tool.coverage.report]`; branch pushes run the suite without coverage.
+CI's docs job keeps its strict build check; the public documentation site
+deploys only on `v*` tags.
 
 **Budget roughly ten minutes for `pytest`**. A large part of that is the
 mutation batteries beside the repository checkers under `tools/`: each

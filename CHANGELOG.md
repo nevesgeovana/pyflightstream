@@ -9,7 +9,7 @@ FlightStream versions.
 
 ### Changed
 
-- Maintainers: CI skips duplicate, docs-only and dry-run branch runs and cancels superseded runs; Release requires green main CI at its SHA and measures coverage once in the tag's artifact tests.
+- Maintainers: CI skips duplicate, docs-only and dry-run branch runs and cancels superseded runs; Release requires green main CI at its SHA, measures coverage once in the tag's artifact tests, and docs deploy only on version tags.
 
 ### Owed
 
