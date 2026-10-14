@@ -1,48 +1,8 @@
-"""Measure the architecture of pyflightstream, and write the architecture metrics record.
+"""Measure live architecture and check its committed structural baselines.
 
-    python scripts/arch_metrics.py summary
-    python scripts/arch_metrics.py report --number 100 --date 2026-09-30 --since v0.32.0
-    python scripts/arch_metrics.py tables
-    python scripts/arch_metrics.py check
-
-WHAT THIS IS. The one reader behind the architecture guards of AD-08 (the
-0.33.0 work package WP0; GEO-072 section 6, guards G1 to G8) and behind the
-architecture metrics record under ``reports/`` (G7). The tier-1 tests in
-``tests/tier1_offline/test_architecture_metrics.py`` load this file by path
-and call the same functions, so a number in the record, a baseline in
-``tests/tier1_offline/architecture_baselines.json`` and a guard verdict are
-always measured by one reader.
-
-This file holds the thresholds, the guard verdicts, the record and the
-command line; the readers (source text in, measures out) are in the sibling
-``_arch_readers.py``, which this file loads once under one module name. Every
-reader takes a mapping of source texts, which is how the tests plant their
-in-memory mutants, and nothing of the package is imported, so a module that
-fails to import is still measured.
-
-THE UNITS.
-
-* Module size is CODE LINES: the lines holding a token other than a comment,
-  minus the lines of every docstring (module, class and function). This is
-  the unit of the review lens (GEO-072 lens, C1), computed exactly as the
-  goal checker ``check_goal_038.py`` computes it (``_docstring_lines``,
-  ``code_lines`` and ``facade_lines`` are copies of its functions), because
-  the checker compares the committed baselines with its own measure.
-* Function length is counted in the same unit, restricted to the lines of
-  the function (its ``def`` line to its last line, decorators excluded), so
-  a docstring completed later does not lengthen a function.
-* The function limits (complexity, branches, statements, positional
-  arguments) follow the definitions of ruff's C901, PLR0912, PLR0915 and
-  pylint's max-positional-arguments, at their defaults 10, 12, 50 and 5.
-* Imports are resolved to modules of the package, relative imports
-  included, and classified as ``module`` (executed at import, a class body
-  included), ``deferred`` (inside a function body) or ``typing`` (under
-  ``if TYPE_CHECKING:``).
-
-WHAT IT DOES NOT DO. It writes nothing but the report it is asked to write,
-and it never edits the baselines: the committed baseline file only moves
-down, by hand, in the commit that earns it. ``tables`` prints today's
-measure of every table so an author can copy the entries a split lowers.
+Use summary, tables or check. Source readers take text mappings, so syntax
+analysis does not import the product. Historical report generation is maintained
+with the internal release tooling. This tool never edits baseline tables.
 """
 
 from __future__ import annotations
@@ -52,12 +12,10 @@ import ast
 import functools
 import importlib.util
 import json
-import os
-import re
-import subprocess
 import sys
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 
 def _sibling(name: str, file: str):
@@ -73,8 +31,11 @@ def _sibling(name: str, file: str):
 
 
 readers = _sibling("pyflightstream_arch_readers", "_arch_readers.py")
-Coupling = readers.Coupling
-Tree = readers.Tree
+if TYPE_CHECKING:
+    from _arch_readers import Coupling, Tree
+else:
+    Coupling = readers.Coupling
+    Tree = readers.Tree
 code_lines = readers.code_lines
 dotted = readers.dotted
 facade_lines = readers.facade_lines
@@ -86,7 +47,6 @@ top_level_defs = readers.top_level_defs
 walk_functions = readers.walk_functions
 
 REPO = readers.REPO
-REPORTS_DIR = REPO / "reports"
 BASELINES = REPO / "tests" / "tier1_offline" / "architecture_baselines.json"
 PKG = readers.PKG
 
@@ -102,7 +62,6 @@ FAN_OUT_CAP = 25  # G4
 LIMITS = {"complexity": 10, "branches": 12, "statements": 50, "positional": 5}  # G2, ruff/pylint
 LENGTH_BANDS = (100, 200, 300)  # G7: functions over these code lines
 TOP_SHARES = (1, 5, 13)  # G7
-RECORD_RE = re.compile(r"^RPT-(\d+)_architecture-metrics_(\d{4}-\d{2}-\d{2})\.md$")
 FACADE_ALLOWED_DEFS = frozenset({"__getattr__"})  # G8: "at most a lazy __getattr__ loader"
 
 # The metrics of the record that may only improve (G7), and the direction.
@@ -557,7 +516,7 @@ def metrics(tree: Tree, coupling: Coupling) -> dict:
     functions = tree.functions
     fan = max(tree.fan_out.items(), key=lambda kv: (kv[1], kv[0]))
     fan_d = max(tree.fan_out_deferred.items(), key=lambda kv: (kv[1], kv[0]))
-    out = {
+    out: dict = {
         "module_count": len(tree.paths),
         "total_lines": tree.total_lines,
         "code_lines": code_total,
@@ -643,215 +602,9 @@ def tables(tree: Tree, coupling: Coupling) -> dict:
     }
 
 
-def records(reports: Path = REPORTS_DIR) -> list[tuple[int, Path]]:
-    """Every architecture metrics record under ``reports/``, oldest number first."""
-    out = []
-    for path in reports.glob("RPT-*_architecture-metrics_*.md"):
-        m = RECORD_RE.match(path.name)
-        if m:
-            out.append((int(m.group(1)), path))
-    return sorted(out)
-
-
-def record_numbers(text: str) -> dict:
-    """Read back the JSON block of a record: the numbers the tool wrote."""
-    m = re.search(
-        r"<!-- arch-metrics:begin -->\s*```json\n(.*?)\n```\s*<!-- arch-metrics:end -->", text, re.S
-    )
-    if not m:
-        raise ValueError("the record has no arch-metrics JSON block")
-    return json.loads(m.group(1))
-
-
-def headline(numbers: Mapping, date: str) -> str:
-    """Rebuild the record's one sentence from its numbers."""
-    return (
-        f"Architecture metrics {date}: {numbers['module_count']} modules, "
-        f"{numbers['total_lines']} lines, {numbers['code_lines']} code lines; "
-        f"the largest 1, 5 and 13 modules hold {numbers['top1_share']}, "
-        f"{numbers['top5_share']} and {numbers['top13_share']} percent of the code lines."
-    )
-
-
-def _modules_added_since(ref: str, sources: Mapping[str, str]) -> list[str] | None:
-    try:
-        out = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(REPO),
-                "ls-tree",
-                "-r",
-                "--name-only",
-                ref,
-                "--",
-                "src/pyflightstream",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-            # Explicit rather than inherited, as the spawn-environment guard
-            # asks of every call under scripts/; the child is unchanged.
-            env=os.environ.copy(),
-        ).stdout
-    except (OSError, subprocess.CalledProcessError):
-        return None
-    before = {f.removeprefix("src/pyflightstream/") for f in out.splitlines() if f.endswith(".py")}
-    return sorted(set(sources) - before)
-
-
 def deep_review_list(tree: Tree, added: Iterable[str]) -> list[str]:
     """Return the modules of ``added`` under DEEP_REVIEW_LINES code lines (AD-08 deep modules)."""
     return [p for p in sorted(added) if tree.module_code_lines.get(p, 0) < DEEP_REVIEW_LINES]
-
-
-def render_report(
-    tree: Tree, coupling: Coupling, number: int, date: str, since: str = "v0.32.0"
-) -> str:
-    """Render the markdown of one architecture metrics record."""
-    numbers = metrics(tree, coupling)
-    t = tables(tree, coupling)
-    sizes = sorted(tree.module_code_lines.items(), key=lambda kv: (-kv[1], kv[0]))
-    lines = [
-        f"# RPT-{number:03d}: architecture metrics ({date})",
-        "",
-        headline(numbers, date),
-        "",
-        "Written by `python scripts/arch_metrics.py report "
-        f"--number {number} --date {date} --since {since}`; every number below is that run's. "
-        "The unit of module and function size is the code line of the review lens: a line "
-        "holding a token other than a comment, docstring lines excluded. The tier-1 test "
-        "`test_architecture_metrics.py::test_the_record_agrees_with_the_tree` "
-        "re-measures the tree and refuses a disagreement with the numbers of the newest "
-        "record, and refuses a record or a baseline table worse than the first record.",
-        "",
-        "## Numbers",
-        "",
-        "| metric | value |",
-        "|---|---:|",
-    ]
-    lines += [f"| {k} | {v} |" for k, v in numbers.items() if k != "thresholds"]
-    lines += [
-        "",
-        "Thresholds the guards read: "
-        + ", ".join(f"{k} {v}" for k, v in thresholds().items() if k != "limits")
-        + "; function limits "
-        + ", ".join(f"{k} {v}" for k, v in LIMITS.items())
-        + ".",
-    ]
-    lines += [
-        "",
-        "## By top-level package",
-        "",
-        "One row per top-level package (a single-file module counts as its own), the unit a "
-        "per-package review or audit is partitioned by.",
-        "",
-        "| package | modules | code lines | share | over 1000 | functions over a G2 limit "
-        "| private names reached by tests |",
-        "|---|---:|---:|---:|---:|---:|---:|",
-    ]
-    for package, r in package_summary(tree, coupling).items():
-        share = round(100.0 * r["code_lines"] / numbers["code_lines"], 1)
-        lines.append(
-            f"| `{package}` | {r['modules']} | {r['code_lines']} | {share} | {r['over_1000']} "
-            f"| {r['over_limits']} | {r['private_names']} |"
-        )
-    lines += [
-        "",
-        f"## Modules over {SOFT_LINES} code lines",
-        "",
-        "The size table of `tests/tier1_offline/architecture_baselines.json` freezes every "
-        f"module over {SOFT_LINES} code lines at the freeze, those under {HARD_LINES} included "
-        "(the goal checker's A0 arm refuses a module over the soft ceiling missing from the "
-        "table), so a listed module needs no `Size exemption:` line while it is listed; an "
-        "entry may not grow, a fall fails until the entry is lowered, and a module that leaves "
-        f"the table above {SOFT_LINES} needs the line. A package root absent from the "
-        "`facade_lines` table holds nothing beyond its docstring, imports, `__all__` and a "
-        "lazy `__getattr__`.",
-        "",
-    ]
-    lines += ["| module | code lines | lines | size exemption |", "|---|---:|---:|---|"]
-    for path, n in sizes:
-        if n > SOFT_LINES:
-            exempt = "yes" if is_exempt(tree.sources[path]) else "no"
-            total = len(tree.sources[path].splitlines())
-            lines.append(f"| `{path}` | {n} | {total} | {exempt} |")
-    lines += ["", "## Functions", ""]
-    lines += [
-        f"Over {band} code lines: {numbers[f'functions_over_{band}']}." for band in LENGTH_BANDS
-    ]
-    limits = ", ".join(f"{k} {v}" for k, v in LIMITS.items())
-    lines += [
-        f"Over a limit of G2 ({limits}): {numbers['functions_over_limits']}.",
-        "",
-        f"| function over {FUNCTION_FLOOR} code lines | code lines |",
-        "|---|---:|",
-    ]
-    longest = sorted(t["function_lines"].items(), key=lambda kv: (-kv[1], kv[0]))
-    lines += [f"| `{k}` | {v} |" for k, v in longest]
-    lines += ["", "## Imports", ""]
-    lines.append(
-        "Same-row cross imports, workspace to run: "
-        f"{numbers['workspace_to_run_imports']} statements."
-    )
-    for imp in tree.cross_imports("workspace", "run"):
-        lines.append(f"- `{tree.path_of[imp.src]}:{imp.line}` ({imp.kind}) -> `{imp.target}`")
-    lines += [
-        "",
-        f"Cross-package components (module-level and deferred): {len(tree.cross_package_sccs)}.",
-        "",
-    ]
-    for component in tree.cross_package_sccs:
-        lines.append("- " + ", ".join(f"`{m}`" for m in component))
-    lines += [
-        "",
-        f"Largest fan-out at module level: `{numbers['largest_fan_out_module']}` "
-        f"{numbers['largest_fan_out']}; deferred: `{numbers['largest_fan_out_deferred_module']}` "
-        f"{numbers['largest_fan_out_deferred']} (cap {FAN_OUT_CAP} each).",
-        "",
-        "## Private-name coupling of the tests",
-        "",
-        f"{numbers['private_test_names']} private names referenced by tests, "
-        f"{numbers['monkeypatch_targets']} patch targets.",
-        "",
-        "| module | private names | patch targets |",
-        "|---|---:|---:|",
-    ]
-    private, patched = coupling.private_counts(), coupling.patch_counts()
-    for module in sorted(set(private) | set(patched)):
-        lines.append(f"| `{module}` | {private.get(module, 0)} | {patched.get(module, 0)} |")
-    lines += [
-        "",
-        "## Package roots",
-        "",
-        "| root | statement lines beyond the facade |",
-        "|---|---:|",
-    ]
-    for path, n in sorted(tree.root_facade_lines.items(), key=lambda kv: (-kv[1], kv[0])):
-        lines.append(f"| `{path}` | {n} |")
-    added = _modules_added_since(since, tree.sources)
-    lines += ["", f"## Modules created since {since} under {DEEP_REVIEW_LINES} code lines", ""]
-    if added is None:
-        lines.append(f"Not measured: git could not list {since}.")
-    else:
-        small = deep_review_list(tree, added)
-        lines.append(
-            f"{len(added)} modules created since {since}; "
-            f"{len(small)} under {DEEP_REVIEW_LINES} code lines."
-        )
-        lines += [f"- `{p}` {tree.module_code_lines[p]}" for p in small]
-    lines += [
-        "",
-        "## The numbers, as the tool wrote them",
-        "",
-        "<!-- arch-metrics:begin -->",
-        "```json",
-        json.dumps(numbers, indent=2, sort_keys=True),
-        "```",
-        "<!-- arch-metrics:end -->",
-        "",
-    ]
-    return "\n".join(lines)
 
 
 def measure_repo(repo: Path = REPO) -> tuple[Tree, Coupling]:
@@ -866,10 +619,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("summary", help="print the numbers of the record")
-    rep = sub.add_parser("report", help="write reports/RPT-<n>_architecture-metrics_<date>.md")
-    rep.add_argument("--number", type=int, required=True)
-    rep.add_argument("--date", required=True)
-    rep.add_argument("--since", default="v0.32.0")
     sub.add_parser("tables", help="print today's measure of every baseline table")
     sub.add_parser("check", help="run guards G1 to G6 and G8 against the committed baselines")
     args = parser.parse_args(argv)
@@ -886,12 +635,6 @@ def main(argv: list[str] | None = None) -> int:
             for item in items:
                 print(f"  {item}")
         return 1 if any(findings.values()) else 0
-    else:
-        path = REPORTS_DIR / f"RPT-{args.number:03d}_architecture-metrics_{args.date}.md"
-        path.write_text(
-            render_report(tree, coupling, args.number, args.date, args.since), encoding="utf-8"
-        )
-        print(path.relative_to(REPO).as_posix())
     return 0
 
 

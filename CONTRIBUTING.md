@@ -222,15 +222,8 @@ that reproducibility, so re-render with a different renderer and expect
 the page numbers to move. It needs the `[manual]` extra and an archive
 extractor; its own docstring carries the two commands.
 
-`scripts/prove_evidence_guards.py` is the mutation battery for the
-evidence guards: it EDITS FILES UNDER `src/` one at a time, runs the
-test written for each, and restores them, so run it from a clean tree
-and check `git status` afterwards. A run killed mid-mutant is undone
-by the next one, which refuses to continue until it has. Its sibling
-`scripts/prove_extras_isolation.py` has the same hazard and parks in
-the same place, so the same next run undoes it; it carries its own
-copy of the harness rather than importing it, which is registered in
-PLN-20260818-0100 rather than fixed here.
+`scripts/prove_extras_isolation.py` tests optional-dependency isolation by
+mutating a clean checkout. Check the tree after running a mutation battery.
 
 `scripts/measure_probe_target_lines.py` derives how many probe
 specifications emit an argument-bearing target line, a figure that
@@ -281,45 +274,13 @@ in the same commit as any row you write for a build that inherits
 nothing, because the file carries counts as well as names and both move.
 26.123 is the first such build; the script takes any registered one.
 
-`scripts/prove_alias_tally_guard.py` is the mutation battery for the
-stale-tally guard. It restores, one at a time, the six committed FILES
-whose nine sentences enumerated the builds sharing a vendor name before
-2026-08-17, and requires the guard to deny each.
-
-`scripts/prove_published_invocation_guards.py`, added 2026-08-18,
-restores the two published reproduction commands that shipped broken, a
-required flag omitted and a flag no parser defines, and requires
-`tests/tier1_offline/test_documented_invocations.py` to deny each.
-
-THE EIGHT BATTERIES AND WHAT EACH ONE DOES, as a table rather than as
-prose. Four booleans restated across five paragraphs is what produced
-four contradictions in one page on 2026-08-18: a count off by one, a
-claim that every battery edits files where one works in memory, a claim
-that one parks where three do, and a sibling count with the wrong
-denominator. Measured, not recalled; re-measure before editing a cell.
-
-| battery | edits files | parks | sha256 either side | uses the harness |
-|---|---|---|---|---|
-| `prove_alias_tally_guard.py` | yes | no | yes | yes |
-| `prove_edition_comparison.py` | no, in memory | no | no | no, needs none |
-| `prove_evidence_guards.py` | yes | yes | no | yes |
-| `prove_extras_isolation.py` | yes | yes | no | no, own copy |
-| `prove_flow_mapping_guard.py` | yes | no | yes | yes |
-| `prove_geometry_guards.py` | yes | no | yes | yes |
-| `prove_published_invocation_guards.py` | yes | yes | yes | yes |
-| `prove_report_date_guards.py` | yes | no | yes | yes |
-
-Every battery that edits files restores them; run one from a clean tree
-and check `git status` afterwards. The five that check a sha256 FAIL
-rather than warn if a restore is not byte-exact. The three that park
-survive being killed mid-mutant, because a `finally` does not; the five
-that do not are registered in `PLN-20260818-0100`.
+The public mutation tools cover edition comparison, optional-dependency
+isolation, flow mapping and geometry. Release and historical evidence checks
+are maintained outside the distribution.
 
 **If you write one of these, call `_mutation_harness.apply_mutant`.**
-It holds the two rules below and raises rather than warning, and four of
-the eight batteries predate it and re-implement them inline
-(PLN-20260818-0100). Read the two rules anyway, because they are why it
-exists.
+It raises if restoration is not byte-exact. Check that each mutation changes
+a unique live anchor and that the associated behavior test detects it.
 
 **Do not anchor a battery on `git show HEAD:<path>`.**
 That battery did, and it broke the day its own fix was committed: the
@@ -333,15 +294,11 @@ commit pin only moves the trap to the next rebase. And translate line
 endings onto the target: two files here are CRLF on disk, and a
 line-feed anchor silently matches nothing in them.
 
-Three more batteries follow that shape.
+The mapping and geometry batteries follow that shape.
 `scripts/prove_flow_mapping_guard.py` covers the rule that a YAML flow
 mapping is rendered in exactly one place in the package, in both
 spellings a Python source can write one, plus the parameter that used to
 let a caller hand in a pre-rendered row.
-`scripts/prove_report_date_guards.py` covers the rule that an evidence
-report's stem and body agree about its date, in all three series since
-2026-08-18, and its cross check shows why that guard has two arms
-rather than one.
 `scripts/prove_geometry_guards.py` covers the mesh face-length
 measurement and the translated STL, both of which had tests that
 survived sabotage before it was written.

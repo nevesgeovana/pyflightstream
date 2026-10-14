@@ -286,7 +286,7 @@ exclude_also = [
 # modules exempted below still reports at least one error (re-counted with the
 # sentence above). The per-module figures, the
 # reproduction command and the dependency versions the count rests on are in
-# reports/RPT-029, and `scripts/mypy_recount.py` re-derives every one of them
+# the internal type-debt record; the release tooling re-derives the counts
 # from a single run.
 #
 # THE PROSE AROUND THE SENTENCE IS NOT GUARDED AND WENT STALE ON 2026-08-20,

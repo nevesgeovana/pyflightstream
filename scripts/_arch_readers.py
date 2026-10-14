@@ -6,7 +6,8 @@ Everything here is read with ``ast`` and ``tokenize``; nothing is imported
 from the package, so a module that fails to import is still measured, and
 every reader takes a mapping of source texts, which is how the tests plant
 their in-memory mutants. No threshold lives here: the limits, the guards
-and the record are in ``arch_metrics.py``.
+and verdicts are in ``arch_metrics.py``. Historical report formatting does
+not belong to these source readers.
 
 The code-line unit (``_docstring_lines``, ``code_lines``, ``module_docstring``,
 ``top_level_defs``, ``facade_lines``) is a copy of the goal checker
@@ -654,6 +655,7 @@ def literal_definitions(tree: ast.Module) -> list[tuple[str, str, int]]:
     out: list[tuple[str, str, int]] = []
     for node in tree.body:
         targets: list[ast.expr]
+        value: ast.expr | None
         if isinstance(node, ast.Assign):
             targets, value = node.targets, node.value
         elif isinstance(node, ast.AnnAssign):

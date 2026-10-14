@@ -1,17 +1,8 @@
-"""Run the cross-cutting guards alone, in one pytest invocation, and say which failed (NFR-44).
+"""Run the retained structural and product-protection guards.
 
-Usage:
-    python scripts/run_guards.py            run every guard, one line per guard file
-    python scripts/run_guards.py --list     print the guard files and exit
-
-The guards are the tier-1 tests that judge the whole tree rather than one
-feature: architecture metrics, private-name coupling, the requirements index,
-the repository and house-style guards, the documented rows and invocations,
-claim currency, the release-ready record and the SRS consistency. A change that
-breaks one of them breaks it whatever file it touched, so they run after every
-fix commit and at every lane close, and the full suite runs once per wave.
-Exit status: 0 when every guard passed, 1 when any failed or ran no test, 2 when
-a guard file is missing. The run needs pytest-xdist, which the dev extra declares.
+Use --list to inspect the selection. Historical release-record and prose
+currency guards belong to internal release tooling. Exit 0 only when every
+selected file ran tests and passed; exit 2 if a selected file is missing.
 """
 
 from __future__ import annotations
@@ -32,21 +23,11 @@ TIER1 = "tests/tier1_offline"
 #: guard test can check that every entry exists.
 GUARDS = (
     f"{TIER1}/test_architecture_metrics.py",
-    f"{TIER1}/test_citation_claim_currency.py",
-    f"{TIER1}/test_claim_currency.py",
-    f"{TIER1}/test_documented_invocations.py",
-    f"{TIER1}/test_documented_rows.py",
-    f"{TIER1}/test_goal028_definitions_page_quotes_no_one.py",
-    f"{TIER1}/test_house_style.py",
-    f"{TIER1}/test_no_estate_headers.py",
-    f"{TIER1}/test_p0320_k1_srs_coverage.py",
-    f"{TIER1}/test_p0340_release_ready.py",
+    f"{TIER1}/test_extras_isolation.py",
+    f"{TIER1}/test_goal028_module_level_layering.py",
+    f"{TIER1}/test_p0400_reach_guard.py",
     f"{TIER1}/test_p0380_guards.py",
     f"{TIER1}/test_repository_guards.py",
-    f"{TIER1}/test_requirements_index.py",
-    f"{TIER1}/test_srs_changelog.py",
-    f"{TIER1}/test_srs_consistency.py",
-    f"{TIER1}/test_traceability.py",
 )
 
 
@@ -73,7 +54,9 @@ def _outcomes(junit: Path, guards: tuple[str, ...]) -> dict[str, list[str] | Non
             continue
         for guard, module in modules.items():
             if classname == module or classname.startswith(module + "."):
-                names = result[guard] if result[guard] is not None else []
+                names = result[guard]
+                if names is None:
+                    names = []
                 if bad:
                     names.append(case.get("name") or "")
                 result[guard] = names
