@@ -237,6 +237,9 @@ def test_every_probe_script_builds_on_both_builds(probes, build, tmp_path):
         marker = f"PYFS_PROBE_BEGIN_{probe.spec.command}"
         assert marker in text, probe.probe_id
         assert probe.spec.command in text.split(marker, 1)[1], probe.probe_id
+        if probe.probe_id in {"P3-03", "P3-04"}:
+            opposite = "DOWNSTREAM" if probe.probe_id == "P3-03" else "UPSTREAM"
+            assert f"SET_ALL_OFF_BODY_STREAMLINES_{opposite}" in text.split(marker, 1)[0]
     registered = [p for p in probes if p.probe_id == "P4-04m"][0]
     assert registered.primary
     assert not [p for p in probes if p.probe_id == "P4-04"][0].primary
@@ -375,6 +378,29 @@ def test_the_trajectory_and_export_judges_read_numeric_rows(tmp_path):
     lines.write_text("1 2 3\n", encoding="utf-8")
     assert kit.emptied("offbody.txt")(artifacts) is False
     assert kit.emptied("absent.txt")(artifacts) is None
+
+
+@pytest.mark.parametrize("direction", ["UPSTREAM", "DOWNSTREAM"])
+def test_streamline_direction_requires_coordinates_on_the_requested_side(tmp_path, direction):
+    """LVV-003: opposite and stationary traces cannot verify a direction setting."""
+    fixture = (Path(__file__).parent / "fixtures" / "off_body_streamlines_26.123.txt").read_text(
+        encoding="utf-8"
+    )
+    judge = PROBE_SPECS[f"SET_ALL_OFF_BODY_STREAMLINES_{direction}"].assert_effect
+    artifacts = SimpleNamespace(workdir=tmp_path)
+    requested = -1 if direction == "UPSTREAM" else 1
+    for sign in (-requested, 0, requested):
+        lines = []
+        for line in fixture.splitlines():
+            cells = line.strip().rstrip(",").split(",")
+            if len(cells) == 10 and "E" in cells[0]:
+                cells[0] = str(-1 + sign * (float(cells[0]) - 2))
+                line = ",".join(cells) + ","
+            lines.append(line)
+        (tmp_path / "offbody.txt").write_text("\n".join(lines), encoding="utf-8")
+        assert judge(artifacts) is (True if sign == requested else None)
+    (tmp_path / "offbody.txt").write_text("3\n31\n", encoding="utf-8")
+    assert judge(artifacts) is None
 
 
 def test_the_reorder_judge_reads_the_exported_spanwise_order(tmp_path):

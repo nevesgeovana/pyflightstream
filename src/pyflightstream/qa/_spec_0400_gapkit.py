@@ -158,6 +158,7 @@ from pyflightstream.qa._spec_ccs_noise import (
 from pyflightstream.qa._spec_kit import _emit, _seq
 from pyflightstream.qa.geometry import WingSpec, generate_wing_stl, write_stl
 from pyflightstream.qa.probes import ProbeArtifacts
+from pyflightstream.results.exports import parse_off_body_streamlines
 from pyflightstream.script import Script
 from pyflightstream.script.helpers import (
     detect_every_boundary,
@@ -214,6 +215,37 @@ def file_rows(name: str, minimum: int = 1) -> Judge:
 
     def check(artifacts: ProbeArtifacts) -> bool | None:
         return True if len(_rows(artifacts.workdir / name)) >= minimum else None
+
+    return check
+
+
+def streamlines_directed(name: str, direction: int) -> Judge:
+    """Judge P3-03/04 traces against their x=-1 seed, excluding export counts.
+
+    The direction question and paired runs are recorded in RPT-166. This judge
+    applies only to their three-seed wing setup, not to arbitrary flow fields.
+    """
+
+    def check(artifacts: ProbeArtifacts) -> bool | None:
+        path = artifacts.workdir / name
+        if not path.is_file():
+            return None
+        try:
+            report = parse_off_body_streamlines(path.read_text(encoding="utf-8"))
+        except ValueError:
+            return None
+        if report.count != 3:
+            return None
+        for line in report.streamlines:
+            distance = direction * (line.positions[:, 0] + 1.0)
+            if (
+                line.points < 2
+                or not np.isfinite(distance).all()
+                or np.any(distance < -1e-6)
+                or not np.any(distance > 1e-6)
+            ):
+                return None
+        return True
 
     return check
 
