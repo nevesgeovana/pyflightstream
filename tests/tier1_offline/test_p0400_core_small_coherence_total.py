@@ -48,3 +48,8 @@ def test_p0400_totalstrict_a_whole_row_reads_by_name(tmp_path: Path) -> None:
     )
     row = _instrument()._loads_total(loads)
     assert (row["Cz"], row["CDo"], row["decimals"]) == (0.1, 0.02, 4.0)
+    loads.write_text(
+        HEAD + "Total, +0.0200, +0.1000, +0.1000, +0.0050, +0.0200\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="Total row prints 5 cells"):
+        _instrument()._loads_total(loads)
