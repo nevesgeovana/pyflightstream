@@ -27,7 +27,10 @@ version and the release tag derived from it, the wall-clock name of an
 archive folder a rebuild moves the replaced products into, and the date line
 of the custom polar format (the wall clock again). One campaign leaves out
 files no normalisation makes stable (:data:`VOLATILE`, with its reason).
-Nothing else may differ.
+Only the unsteady harmonics snapshot's six fit columns admit numerical
+round-off (rtol=1e-12, atol=1e-12); its header, metadata and line ends remain
+exact. The absolute floor covers near-zero least-squares residuals. Nothing
+else may differ.
 
 WHAT IS PINNED, because it is an input of the build rather than a field of a
 product (:func:`pin_environment`): the line end of a text write, whose bytes
@@ -61,6 +64,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -77,12 +81,55 @@ SNAPSHOT_DIR = Path(__file__).parent / "fixtures" / "products_snapshot"
 #: The files stored as text beside the digests.
 TEXT_FILES = ("products.json", "post.log", "post.log.json")
 DIGESTS = "sha256.json"
+# P0400-CIFIX-2: only this campaign's fit cells are numeric, at rtol=1e-12
+# and atol=1e-12. The absolute floor covers residuals at numerical zero.
+# Its retained text is verified against the original digest, not a new golden.
+HARMONICS_PRODUCT = "products/sections/AL-020_harmonics.csv"
+HARMONICS_TEXT = SNAPSHOT_DIR / "unsteady_harmonics" / "AL-020_harmonics.csv"
+_FIT_COLUMNS = ("H0", "H1_AMP", "H1_PHASE_DEG", "H2_AMP", "H2_PHASE_DEG", "RESIDUAL_RMS")
 _STAMP = r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:[+-]\d\d:\d\d|Z)?"
 #: The folder a rebuild archives the products it replaces into, named by the
 #: wall clock (``workspace.naming.ARCHIVE_STAMP``), in a path or in a text.
 _ARCHIVE = re.compile(r"(?<=archive/)\d{8}-\d{6}(?=/)")
 
 Builder = Callable[[Path, pytest.MonkeyPatch], Path]
+
+
+@pytest.mark.parametrize(
+    "change", ["roundoff", "fit", "metadata", "header", "rows", "na", "crlf", "other-path"]
+)
+def test_lclose_harmonics_comparison_admits_only_fit_roundoff(change):
+    """LCLOSE-001: residual round-off passes; physical and structural changes fail."""
+    name = "products/sections/AL-020_harmonics.csv"
+    reference = (SNAPSHOT_DIR / "unsteady_harmonics" / "AL-020_harmonics.csv").read_bytes()
+    index, _ = stored("unsteady_harmonics")
+    assert digests({name: reference})[name] == index[name]
+    lines = reference.decode("utf-8").splitlines()
+    cells = lines[1].split(",")
+    if change == "roundoff":
+        cells[-1] = str(float(cells[-1]) + 3.6e-16)
+    elif change == "fit":
+        cells[-1] = str(float(cells[-1]) + 1e-6)
+    elif change == "metadata":
+        cells[0] = "7002"
+    elif change == "header":
+        lines[0] = lines[0].replace("RESIDUAL_RMS", "RESIDUAL")
+    elif change == "rows":
+        lines.pop()
+    elif change == "na":
+        cells[-1] = "NA"
+    elif change == "other-path":
+        name = "products/sections/another_harmonics.csv"
+        cells[-1] = str(float(cells[-1]) + 3.6e-16)
+    lines[1] = ",".join(cells)
+    separator = "\r\n" if change == "crlf" else "\n"
+    changed = (separator.join(lines) + separator).encode("utf-8")
+    scoped_index = {name: hashlib.sha256(reference).hexdigest()}
+    found = differences(scoped_index, {name: changed})
+    assert bool(found) is (change != "roundoff"), found
+    if change != "other-path":
+        text_found = text_differences({"AL-020_harmonics.csv": reference.decode()}, {name: changed})
+        assert bool(text_found) is (change != "roundoff"), text_found
 
 
 @pytest.mark.parametrize("worker", [False, True], ids=["P0400-controller", "P0400-worker"])
@@ -601,6 +648,46 @@ def fr348_admitted(files: dict[str, bytes]) -> tuple[dict[str, bytes], list[str]
     return admitted, lacking
 
 
+def _harmonics_equal(reference: bytes, data: bytes) -> bool:
+    """Compare fit numbers only; header, row order, metadata, NA and LF stay exact."""
+    try:
+        old_lines = reference.decode("utf-8").splitlines(keepends=True)
+        new_lines = data.decode("utf-8").splitlines(keepends=True)
+    except UnicodeDecodeError:
+        return False
+    if not old_lines or len(old_lines) != len(new_lines) or old_lines[0] != new_lines[0]:
+        return False
+    header = old_lines[0].rstrip("\n").split(",")
+    if tuple(header[-6:]) != _FIT_COLUMNS:
+        return False
+    for old, new in zip(old_lines[1:], new_lines[1:], strict=True):
+        if not new.endswith("\n") or "\r" in new:
+            return False
+        a, b = old[:-1].split(","), new[:-1].split(",")
+        if len(a) != len(header) or len(b) != len(header) or a[:-6] != b[:-6]:
+            return False
+        for expected, actual in zip(a[-6:], b[-6:], strict=True):
+            if expected == actual:
+                continue
+            try:
+                x, y = float(expected), float(actual)
+            except ValueError:
+                return False
+            if not (math.isfinite(x) and math.isfinite(y)):
+                return False
+            if not math.isclose(x, y, rel_tol=1e-12, abs_tol=1e-12):
+                return False
+    return True
+
+
+def _harmonics_admitted(name: str, digest: str, data: bytes) -> bool:
+    """Scope the exception by both path and the original campaign's digest."""
+    if name != HARMONICS_PRODUCT:
+        return False
+    reference = HARMONICS_TEXT.read_bytes()
+    return digests({name: reference})[name] == digest and _harmonics_equal(reference, data)
+
+
 def differences(index: dict[str, str], files: dict[str, bytes]) -> list[str]:
     """Every difference between a stored digest index and regenerated files, named.
 
@@ -617,7 +704,7 @@ def differences(index: dict[str, str], files: dict[str, bytes]) -> list[str]:
     out += [
         f"{name}: bytes differ"
         for name in sorted(set(index) & set(now))
-        if index[name] != now[name]
+        if index[name] != now[name] and not _harmonics_admitted(name, index[name], files[name])
     ]
     return out
 
@@ -631,6 +718,10 @@ def text_differences(texts: dict[str, str], files: dict[str, bytes]) -> list[str
             out.append(f"{base}: {len(match)} regenerated files carry the name")
             continue
         new = files[match[0]].decode("utf-8")
+        if _harmonics_admitted(
+            match[0], digests({match[0]: text.encode("utf-8")})[match[0]], files[match[0]]
+        ):
+            continue
         if new != text:
             first = next(
                 (
@@ -651,7 +742,7 @@ _SHOWN_LINES = 150
 
 
 def _first_difference(stored_text: str, new: str) -> str:
-    old_lines, new_lines = stored_text.splitlines(), new.splitlines()
+    old_lines, new_lines = stored_text.splitlines(keepends=True), new.splitlines(keepends=True)
     for number, (old, now) in enumerate(zip(old_lines, new_lines, strict=False), start=1):
         if old != now:
             return f"line {number}:\n    stored: {old!r}\n    now:    {now!r}"
@@ -699,6 +790,8 @@ def write_snapshot(name: str, files: dict[str, bytes]) -> None:
         match = [n for n in files if n.rsplit("/", 1)[-1] == base]
         if len(match) == 1:
             (folder / base).write_bytes(files[match[0]])
+    if name == "unsteady_harmonics":
+        (folder / HARMONICS_TEXT.name).write_bytes(files[HARMONICS_PRODUCT])
 
 
 def _planted(files: dict[str, bytes]) -> list[tuple[str, dict[str, bytes]]]:
@@ -774,9 +867,8 @@ def snapshot_receipt(write: bool = False) -> dict[str, object]:
             index, texts = stored(name)
             checked += len(files)
             cr_files += sum(1 for data in files.values() if b"\r" in data)
-            differing += [
-                f"{name}/{d}" for d in differences(index, files) + text_differences(texts, files)
-            ]
+            if differences(index, files) or text_differences(texts, files):
+                differing.append(f"{name}/{explain(index, texts, files)}")
             for _label, copy in _planted(files):
                 planted += 1
                 caught += bool(differences(index, copy))
