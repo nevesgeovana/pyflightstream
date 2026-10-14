@@ -113,6 +113,16 @@ def test_extracted_product_modules_preserve_the_public_surface():
     assert products.__all__ == _ORIGINAL_ALL
     assert all(hasattr(products, name) for name in _ORIGINAL_ALL)
 
+    product_tree = ast.parse(Path(products.__file__).read_text(encoding="utf-8"))
+    private_reexports = [
+        alias.name
+        for node in product_tree.body
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+        if alias.name.startswith("_") and alias.asname == alias.name
+    ]
+    assert not private_reexports, private_reexports
+
     for module_name in module_names:
         module = importlib.import_module(module_name)
         tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
