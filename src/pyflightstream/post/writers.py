@@ -36,6 +36,18 @@ record and is an honest one: "no evidence exists for this build" and
 able to tell which one the file means (FR-22c, FR-31).
 """
 
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T23:52:19-03:00
+# last_modified_by: OpenAI / Codex / gpt-6-astra / architect-reviewer
+# dependencies: [numpy, pydantic, pyflightstream._deprecations, pyflightstream.script.solver_setup]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Explain the dataset converter's retirement at its original public writer path.
+# revision_source: git
+# GEOVERSE_HEADER_END
+
 from __future__ import annotations
 
 import json
@@ -46,8 +58,11 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict
 
 import pyflightstream._textio as _textio
+from pyflightstream._deprecations import removed_names_hook as _removed_names_hook
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.script.solver_setup import FLAG_SPECS, FlagRecord, SolverSetup
+
+__getattr__ = _removed_names_hook(__name__)
 
 __all__ = [
     "write_output_pair",

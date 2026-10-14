@@ -30,6 +30,18 @@ general one: a propeller is a rotor, and so is a lift fan or a ducted rotor,
 so nothing has to be renamed again when the aircraft changes.
 """
 
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-10-13T23:52:19-03:00
+# last_modified_by: OpenAI / Codex / gpt-6-astra / architect-reviewer
+# dependencies: [pyflightstream._errors]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Record the retired dataset converter's original public writer path.
+# revision_source: git
+# GEOVERSE_HEADER_END
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -314,6 +326,16 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     ),
     "pyflightstream.post.dataset_to_points": RetiredName(
         owner="pyflightstream.post",
+        old="dataset_to_points",
+        new=(
+            "LatticeFields.points() of pyflightstream.farfield, which returns the same "
+            "(points, fields) pair"
+        ),
+        retired_in="0.40.0",
+        why=_THE_FAR_FIELD_IS_NUMPY,
+    ),
+    "pyflightstream.post.writers.dataset_to_points": RetiredName(
+        owner="pyflightstream.post.writers",
         old="dataset_to_points",
         new=(
             "LatticeFields.points() of pyflightstream.farfield, which returns the same "
