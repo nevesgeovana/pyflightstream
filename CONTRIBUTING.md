@@ -110,7 +110,6 @@ a mechanical half of that rule until 2026-08-11.
 | `docs/` | Documentation source (ProperDocs); reference pages are generated from the database, never committed |
 | `examples/` | Runnable example scripts in percent format |
 | `guide/` | LaTeX, figure sources and attribution for the downloadable guides; compiled files go into build artifacts |
-| `deprecated/` | Discontinued public items, grouped here instead of scattered at the top level |
 | `_private/` | Local only, never committed: FlightStream manuals, executables, research geometry, the design documents and the plan ledger |
 
 ## Environment variables
