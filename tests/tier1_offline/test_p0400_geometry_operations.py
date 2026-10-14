@@ -14,11 +14,12 @@ import hashlib
 import pytest
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.workspace._geometry_build import plan_geometry_build
-from tests.tier1_offline.test_p0400_geometry_build import geometry, workspace
 
 
 def _script(tmp_path, boundaries: str, operations: str) -> list[str]:
+    from pyflightstream.workspace._geometry_build import plan_geometry_build
+    from tests.tier1_offline.test_p0400_geometry_build import geometry, workspace
+
     root = workspace(tmp_path)
     folder = geometry(
         root,
