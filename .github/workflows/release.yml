@@ -207,14 +207,14 @@ jobs:
                   "run gh workflow run ci.yml --ref main and wait for success "
                   "at this exact SHA before retrying."
               )
-          for run in latest.values():
-              if run["status"] != "completed" or run["conclusion"] != "success":
-                  raise SystemExit(
-                      f"Main CI run {run['id']} attempt {run['run_attempt']} at {sha}: "
-                      f"status={run['status']}, conclusion={run['conclusion']}; "
-                      "completed success is required."
-                  )
-          print(f"Main CI succeeded at {sha}: {len(latest)} run(s), latest attempts checked")
+          run = max(latest.values(), key=lambda run: (run["run_number"], run["created_at"]))
+          if run["status"] != "completed" or run["conclusion"] != "success":
+              raise SystemExit(
+                  f"Main CI run {run['id']} attempt {run['run_attempt']} at {sha}: "
+                  f"status={run['status']}, conclusion={run['conclusion']}; "
+                  "completed success is required."
+              )
+          print(f"Main CI succeeded at {sha}: run {run['id']}, attempt {run['run_attempt']}")
           PY
 
   publish:

@@ -89,8 +89,10 @@ pass of that release, all of them reading in an environment that had it
 That incident also produced a rule about WHEN a tag is cut: a version tag
 names a commit whose CI on `main` has already concluded green. Release
 checks that exact SHA through the GitHub API on tags and `dry-run/**`
-pushes, requiring the latest attempt of every matching CI run to have
-completed successfully. A missing run fails; for a docs-only commit, run
+pushes, requiring the latest attempt of the newest matching CI run to have
+completed successfully. The highest `run_number` wins, with `created_at`
+breaking ties; older failed runs do not block a newer success.
+A missing run fails; for a docs-only commit, run
 `gh workflow run ci.yml --ref main` and wait for success at that SHA before
 retrying the release. The v0.7.0 tag was pushed
 fifteen seconds after its branch, with CI still running and then red.
