@@ -359,6 +359,12 @@ probe suite needs to reproduce and classify the break.
 
 ## QA tiers and what each proves
 
+Every new tier-1 `test_*.py` file must be listed in exactly one package in
+`tests/tier1_offline/packages.json`. Choose the highest layer it imports and
+exercises, or `guards` for repository checks, and keep each list sorted.
+Run a package with `pytest -m pkg_post` (replace `post` with its package name,
+using underscores for hyphens).
+
 The suite is three folders under `tests/`, one per tier, and the folder
 says what a test needs before it says what it checks
 (`docs/tiers.md`).
