@@ -153,3 +153,27 @@ def test_control_the_live_pages_fail_when_a_promoted_box_is_put_back_to_pending(
         + text[end:]
     )
     assert pending_owned(reverted, "0.39.0") == ["FR-430: pending, owned by 0.39.0"]
+
+
+def test_p0400_bgtests2_shipped_requirements_are_promoted():
+    """PFS-2081.04: the requirements shipped in 0.39.0 no longer claim to be pending."""
+    boxes = {}
+    for page in PAGES:
+        path = REPO / REQUIREMENTS_DIR / page
+        if not path.is_file():
+            path = REPO / "docs" / "srs" / page
+        text = path.read_text(encoding="utf-8")
+        assert not pending_owned(text, "0.39.0")
+        boxes.update({rid: status for rid, status, _ in _boxes(text)})
+    for rid in (
+        "FR-430",
+        "FR-431",
+        "FR-432",
+        "FR-433",
+        "FR-434",
+        "FR-435",
+        "FR-436",
+        "NFR-45",
+        "NFR-46",
+    ):
+        assert boxes[rid] == "implemented", rid
