@@ -104,9 +104,6 @@ from tests.tier1_offline.test_p0370_s5_probe_kind import _entry as _cases_workfl
 from tests.tier1_offline.test_p0370_s5_probe_kind import _heads as _cases_workflows_probes___heads
 from tests.tier1_offline.test_p0370_s5_probe_kind import _spec as _cases_workflows_probes___spec
 from tests.tier1_offline.test_p0370_s5_probe_kind import _spec as _cases_workflows_steady___spec
-from tests.tier1_offline.test_p0400_farfield_plan import _case as _rfixr3_azimuths___case
-from tests.tier1_offline.test_p0400_farfield_plan import _script as _rfixr3_azimuths___script
-from tests.tier1_offline.test_p0400_rfixF_layout import _states as _rfixr3_azimuths___states
 from tests.tier1_offline.test_raw_mesh_conditions import (
     FILE_ROUTE as _CASES_WORKFLOWS_GEOMETRY__FILE_ROUTE,
 )
@@ -116,6 +113,15 @@ from tests.tier1_offline.test_raw_mesh_conditions import (
 )
 from tests.tier1_offline.test_reduce_by_rotor import (
     transition_case as _cases_workflows_windows__transition_case,
+)
+from tests.tier1_offline.test_regression_farfield_interfaces import (
+    _farfield_plan___case as _rfixr3_azimuths___case,
+)
+from tests.tier1_offline.test_regression_farfield_interfaces import (
+    _farfield_plan___script as _rfixr3_azimuths___script,
+)
+from tests.tier1_offline.test_regression_farfield_products import (
+    _rfixf_layout___states as _rfixr3_azimuths___states,
 )
 from tests.tier1_offline.test_rotor_by_alias import PUSHER as _CASES_WORKFLOWS_MOTION__PUSHER
 from tests.tier1_offline.test_rotor_by_alias import (

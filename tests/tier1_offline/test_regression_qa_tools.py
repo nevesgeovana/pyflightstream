@@ -93,8 +93,12 @@ from pyflightstream.run import ExecutionResult
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import known_versions, resolve
 from pyflightstream.workspace import RunRecord, RunStatus
-from tests.tier1_offline.test_p0400_farfield_plan import _case as _reach2_routes___case
-from tests.tier1_offline.test_p0400_farfield_plan import _script as _reach2_routes___script
+from tests.tier1_offline.test_regression_farfield_interfaces import (
+    _farfield_plan___case as _reach2_routes___case,
+)
+from tests.tier1_offline.test_regression_farfield_interfaces import (
+    _farfield_plan___script as _reach2_routes___script,
+)
 from tests.tier1_offline.test_regression_workflow_emission import (
     _cases_workflows_probes___rendered as _reach2_routes___rendered,
 )
