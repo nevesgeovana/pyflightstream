@@ -2,7 +2,7 @@
 
 **WHAT THIS IS.** The evidence that the products of 0.24.0 are coherent in number
 on real licensed runs, re-measured from the raw exports and the products with the
-standard library alone by `scripts/measure_campaign_coherence.py`. The numbers are
+standard library alone by the internal campaign-coherence measurement tool. The numbers are
 in `pfs0240_coherence.json` beside this page; this page says what was run, what
 each check found, and what is not a property of the package.
 
@@ -56,7 +56,7 @@ What follows from it:
   The alpha-10 row of the table below is row 2415, a run with no frozen step.
 - Row 2413's first attempt at the full wheel is likewise withdrawn, and row 2414 is
   the run that answers the sector-against-the-wheel check.
-- `scripts/measure_campaign_coherence.py` now reads each point's native log: a point
+- the internal campaign-coherence measurement tool now reads each point's native log: a point
   whose window touches a frozen step takes part in NO verdict and is listed under
   `no_frozen_solve_in_a_window`, so a check left without a valid point reads
   could-not-measure rather than coherent.
@@ -137,7 +137,7 @@ axisymmetric body the periodic sector assumes: that file carries a nacelle which
 NOT axisymmetric, and the periodic sector assumes one.
 
 The meshes say the same, read straight from the `.fsm` files by
-`scripts/compare_rotor_meshes.py <sector> <wheel> [<other>]`, which prints per surface
+the internal rotor-mesh comparison tool, which prints per surface
 the face count, the extent, the wetted area and how many vertices it shares with the
 first file:
 
@@ -155,7 +155,7 @@ check's band of 5 per cent, stated before the data, is not widened to pass it.
 
 ## How to re-read it
 
-    python scripts/measure_campaign_coherence.py <workspace> matriz pfs0240_coherence.json
+    # Reproduce with the internal release tooling against the recorded workspace.
 
 over the posted workspace. It reads the raw exports under `sims/` and the products
 under `post/matriz/`, imports nothing from the package, and exits 0 only when every

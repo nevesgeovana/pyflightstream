@@ -1,4 +1,4 @@
-report: reports/RPT-073_every-changed-tier3-row-on-26124-against-its-recorded-run_2026-09-24.md
+report: RPT-073 (internal investigation)
 date: '2026-09-24'
 question: does every tier-3 point whose script changed since 0.26.0 converge on 26.124, or complete its declared
   time steps if it is unsteady, and collect every output it declares; and how far do its coefficients sit from its

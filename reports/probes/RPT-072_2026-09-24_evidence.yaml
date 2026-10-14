@@ -1,4 +1,4 @@
-report: reports/RPT-072_the-additional-post-end-to-end_2026-09-24.md
+report: RPT-072 (internal investigation)
 date: '2026-09-24'
 question: does pyfs-matrix post --additional-pproc extract from each saved simulation without solving, skip what
   it cannot with its reason, leave the run untouched and not repeat itself (T10)
