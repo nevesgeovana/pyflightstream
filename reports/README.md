@@ -67,10 +67,6 @@ acceptance or publication of their findings.
 | [RPT-150](RPT-150_fsi-steady-in-one-instance_2026-10-03.md) | Coupled steady points in one instance on 26.124: the coupling loop starts after the script ends; two spliced jobs exit 0xC0000005 without either point's outputs (FR-410 branch (b)) | Bounded evidence; one case, one build; callback-driven continuation untested |
 | [RPT-152](RPT-152_parity-reproduction-0-36-against-0-35-1-on-26124_2026-10-03.md) | The 0.36.0 licensed parity reproduction against PyPI 0.35.1 on 26.124 build 8172026 (arm LP, NFR-40): three converged points, equal counts, 34 tables identical after rule 9 and identical skipped products | PASS for this campaign; one build, Windows local run; launcher exit codes unrecorded |
 
-## Architecture metrics
-
-- [RPT-149: architecture metrics of the 0.35.1 release candidate](RPT-149_architecture-metrics_2026-10-03.md): measured on 2026-10-03 with the architecture guards' reader, compared with v0.35.0.
-
 ## Dependency evidence
 
 - [RPT-084: optional Excel extra license evidence](RPT-084_excel-extra-license_2026-09-27.md): XlsxWriter 3.2.9 installed metadata and exact license hashes.

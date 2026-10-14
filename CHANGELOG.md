@@ -6075,7 +6075,7 @@ names no key, the window the run recorded still stands.
   `MOVING_BOUNDARIES`, `ROTOR_AXIS`, `ROTOR_ORIGIN`, `RPM_SIGN`, `BLADES`,
   the flat-row `CLOCK_MOTION`, `ROTATE`'s families selector, and the
   `airframe`, `blades` and `each_blade` selectors of a families cell.
-  THE COUNT IS WHY, and it is committed as `reports/RPT-046_the-deprecation-recount_2026-09-13.md`
+  The historical deprecation recount recorded the count
   with the script that takes it, so the person deciding at 0.18.0 whether the
   deadline may move again can re-run it rather than trust this paragraph.
   Measured on 2026-09-13 over every committed matrix,
@@ -10249,8 +10249,7 @@ costs the reader the whole warning window the shim exists to buy.
   No identifier is checked against a ledger: the ledgers live outside this
   repository and CI cannot reach them, so what is checked is the shape.
 
-- **`reports/RPT-029_mypy-exemption-recount_2026-08-18.md`, the
-  type-checker exemption re-count at 0.8.0.dev0** (OPS-2006.11.01). It
+- **The historical type-checker exemption re-count at 0.8.0.dev0** (OPS-2006.11.01). It
   carries the per-module and per-error-code tables with every
   `ignore_errors` override off, the reproduction command, the dependency
   versions the count depends on, the delta against 2026-08-03, and the
