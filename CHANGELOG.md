@@ -13,6 +13,9 @@ FlightStream versions.
 
 ### Fixed
 
+- FR-314: the local-run counter regression test uses deterministic polling
+  instead of elapsed wall time to observe progress.
+
 - FR-124, FR-419: parity checks numeric respelling within the base writer's
   printed rounding while preserving rows, column order and unchanged text.
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import runpy
 import subprocess
 import sys
 from pathlib import Path
@@ -530,17 +531,38 @@ def test_fr314_the_count_only_program_counts_and_writes_nothing_else(tmp_path):
     assert (control / "pfs_unsteady_exports.txt").is_file(), "the control writes the exports"
 
 
-def test_fr314_the_local_run_bar_reads_the_count_only_program(tmp_path, capsys):
-    """FR-129's bar, driven by a stand-in solver advancing the count to 30."""
+def test_fr314_the_local_run_bar_reads_the_count_only_program(tmp_path, capsys, monkeypatch):
+    """P0410-PAR: FR-129's bar reads real counter updates at deterministic polls."""
     requirement = "FR-314"
     work, script = _point_folder(tmp_path, with_program=False)
     (work / "actions" / "pfs_unsteady_actions.py").write_text(
         render_count_program(30, interpreter=sys.executable), encoding="utf-8"
     )
-    result = _Advancing(progress_every=10).run_script(script, work, timeout_s=120)
+
+    class CountingProcess:
+        returncode = 0
+
+        def __init__(self, *args, **kwargs):
+            self.polls = 0
+
+        def communicate(self, timeout=None):
+            if self.polls == 3:
+                return "solver done", ""
+            # The executor reads progress after communicate times out. Advance
+            # the actual count-only program ten times before each such poll,
+            # without relying on OS scheduling or sleeping between updates.
+            for _ in range(10):
+                program = runpy.run_path(str(work / "actions" / "pfs_unsteady_actions.py"))
+                assert program["main"]() == 0
+            self.polls += 1
+            raise subprocess.TimeoutExpired("count-only stand-in", timeout)
+
+    monkeypatch.setattr(subprocess, "Popen", CountingProcess)
+    result = _Advancing(progress_every=10).run_script(script, work, timeout_s=None)
     said = capsys.readouterr().err
     steps = re.findall(r"\[[#.]{20}\] step (\d+)/30 \(\d+%\)", said)
     assert len(steps) >= 2, (requirement, said)
+    assert steps == ["10", "20", "30"]
     assert result.return_code == 0
 
 
