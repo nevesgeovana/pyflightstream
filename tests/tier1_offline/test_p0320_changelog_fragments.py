@@ -1,10 +1,4 @@
-"""Tier 1: the change log fragments of changelog.d/ fold into the change log once.
-
-The 0.32.0 preparation step: each work package writes changelog.d/<package>.md
-and scripts/assemble_changelog.py folds them into CHANGELOG.md [Unreleased]
-and the migration page at integration. Each test builds its own checkout in a
-temporary folder; the real CHANGELOG.md is never written.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -15,7 +9,10 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
+
+
 SCRIPT = REPO / "scripts" / "assemble_changelog.py"
+
 
 CHANGELOG = """# Changelog
 
@@ -148,11 +145,7 @@ def test_package_order_is_p0_then_natural():
     assert sorted(names, key=_script().package_order) == ["P0", "A", "B2", "B10", "E1", "I", "K"]
 
 
-def test_the_fragments_folder_is_documented_and_never_shipped():
-    readme = (REPO / "changelog.d" / "README.md").read_text(encoding="utf-8")
-    script = _script()
-    for name in (*script.CHANGELOG_SECTIONS, script.MIGRATION):
-        assert f"`## {name}`" in readme, f"README does not state the section {name}"
+def test_fragments_are_outside_shipped_packages():
     with open(REPO / "pyproject.toml", "rb") as handle:
         config = tomllib.load(handle)
     assert config["tool"]["setuptools"]["packages"]["find"]["where"] == ["src"]

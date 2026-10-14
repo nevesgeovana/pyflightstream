@@ -746,11 +746,22 @@ def _declared_site() -> str:
     return urls["Documentation"].rstrip("/") + "/"
 
 
-def test_g47_the_page_links_the_glossary_and_real_pages_and_names_no_machine_path():
+def test_g47_the_page_links_the_glossary_and_real_pages_and_names_no_machine_path(monkeypatch):
     """Each section links the glossary and a page of docs/, at the site the project declares."""
+    from email.message import Message
+
+    import pyflightstream.post.glossary as glossary
     import pyflightstream.post.guides as guides
 
-    text = guides.input_template_markdown()
+    # Exercise the installed-metadata branch even in a source-only test environment.
+    metadata = Message()
+    metadata["Project-URL"] = f"Documentation, {_declared_site()}"
+    monkeypatch.setattr(glossary, "distribution_metadata", lambda _name: metadata)
+    glossary._documentation_site.cache_clear()
+    try:
+        text = guides.input_template_markdown()
+    finally:
+        glossary._documentation_site.cache_clear()
     assert text.startswith("# ")
     assert "GENERATED FROM THE CODE" in text
     site = _declared_site()

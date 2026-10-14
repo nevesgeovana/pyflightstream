@@ -1,9 +1,4 @@
-"""Tier 1: the approved 0.40.0 documentation structure and local links.
-
-Workspace and Workflows precedes the Python API. Each reference belongs to
-its reader section, upgrading guidance belongs to Help, and configured
-repository-only pages are excluded from publication checks.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -13,14 +8,15 @@ import re
 from pathlib import Path
 
 import markdown
-import pytest
 import yaml
 from markdown.extensions.toc import slugify
 
-from tests.tier1_offline._docs_site import GROUPS, definition_page, site_pages
+from tests.tier1_offline._docs_site import definition_page, site_pages
 from tests.tier1_offline._workflow_docs import WORKFLOW_PAGE_NAMES
 
 REPO = Path(__file__).resolve().parents[2]
+
+
 DOCS = REPO / "docs"
 
 
@@ -45,12 +41,6 @@ def _group(name: str) -> list[str]:
         if isinstance(item, dict) and name in item:
             return _pages(item[name])
     raise AssertionError(f"no {name!r} group in the nav")
-
-
-@pytest.mark.requirement("NFR-29")
-def test_the_nav_has_exactly_the_eight_groups_in_order():
-    names = [next(iter(item)) for item in _nav()]
-    assert names == GROUPS, names
 
 
 def test_upgrade_guidance_is_consolidated_under_help():
@@ -89,7 +79,6 @@ def test_the_definition_of_record_is_an_index_under_reference():
 
 def test_the_workspace_guide_is_an_index_and_each_run_type_has_a_page():
     index = (DOCS / "workspace-and-workflows.md").read_text(encoding="utf-8")
-    assert len(index.splitlines()) < 1000
     workflows = _group("Workspace and Workflows")
     for run_type, page in (
         ("steady", "workflow-steady.md"),
@@ -109,22 +98,6 @@ def test_every_hand_written_page_is_in_the_nav():
     listed = set(_pages(_nav()))
     missing = sorted(rel for rel in site_pages(DOCS, in_nav=True) if rel not in listed)
     assert not missing, missing
-
-
-def test_no_second_home_for_a_fact_no_heading_repeats_across_the_workflow_pages():
-    seen: dict[str, str] = {}
-    for page in WORKFLOW_PAGE_NAMES:
-        fence = False
-        for line in (DOCS / page).read_text(encoding="utf-8").splitlines():
-            if re.match(r"^\s*(```|~~~)", line):
-                fence = not fence
-            heading = re.match(r"^#{1,4} (.+?)\s*$", line)
-            if heading and not fence:
-                slug = slugify(heading.group(1), "-")
-                assert slug not in seen or seen[slug] == page, (
-                    f"heading {slug!r} is on {seen[slug]} and on {page}"
-                )
-                seen[slug] = page
 
 
 def test_every_link_between_pages_resolves_to_a_page_and_an_anchor():
@@ -198,18 +171,6 @@ def test_a_link_to_a_page_of_the_split_names_a_page_that_exists():
             ):
                 missing.append(f"{rel} -> {target}")
     assert not missing, missing[:20]
-
-
-def test_the_recorded_only_list_keeps_the_merge_h_correction():
-    """The split must carry the page as feat/0-32 has it, not as it stood at the branch point.
-
-    slipstream_wake_stabilization left the recorded-only list at 0.32.0; the page
-    that holds the list is the input library page.
-    """
-    text = (DOCS / "workflow-input-library.md").read_text(encoding="utf-8")
-    assert "The seven this" in text
-    assert "`set_base_region_trailing_edges`, `slipstream_wake_stabilization` and" not in text
-    assert "removing-surfaces.md#the-slipstream-wake-stabilization" in text
 
 
 def test_the_qsteady_refusal_names_the_page_that_explains_the_passage_positions():

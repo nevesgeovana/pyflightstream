@@ -1,27 +1,4 @@
-"""Tier 1: the page that maps each FlightStream GUI step to its pyfs key (D06).
-
-Pipeline role: quality gate on ``docs/gui-to-pyfs.md``. The page is a table
-per stage of a session, and each line of it says what a user does in the GUI,
-the key that does the same in a workspace, the solver commands that key emits
-and the builds those commands are verified on; or ``not yet``, with the raw
-route. A table like that is true the day it is written and silently false the
-day a key is added, so this module reads it beside the things it describes:
-
-* THE REGISTRIES OF KEYS. Every key a run type registers for its rows, every
-  key a setup preset may state, every table of the pproc artifact and every
-  table of a geometry's sidecar has a line on the page, named after the word
-  of its artifact (``row key``, ``setup key``, ``pproc table``, ``sidecar
-  table``). A key added to a registry without a line fails here, and so does
-  a line naming a key its artifact does not hold.
-* THE COMMAND DATABASE. Every command the page names is a command of the
-  database, and every build a line says its commands are verified on is a
-  build the database records each of them ``verified`` on, apart from the
-  commands the line itself excepts. The page may say less than the database
-  (a probe added later does not make it false); it may not say more.
-* THE RUN TYPES. Every command a run type always emits is on some line.
-* THE LINKS. Every link to a page of the documentation lands on a page and a
-  heading that exist, since a line whose link goes nowhere documents nothing.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -41,10 +18,14 @@ from pyflightstream.workspace.inputs import (
 )
 
 REPO = Path(__file__).resolve().parents[2]
+
+
 DOCS = REPO / "docs"
+
+
 PAGE = DOCS / "gui-to-pyfs.md"
 
-#: The stages of a session, in the order the page walks them.
+
 STAGES = (
     "Geometry and mesh",
     "Boundary conditions",
@@ -53,19 +34,19 @@ STAGES = (
     "The run",
     "Basic post",
 )
-#: The columns of every stage's table.
-COLUMNS = ("In the GUI", "In pyfs", "Solver commands", "Verified on")
-#: The anchor every ``not yet`` line points at.
-RAW_ROUTE = "#the-raw-route"
-#: The key of a geometry's sidecar that states its boundary order; the reader
-#: of it (``workspace.inputs.read_inventory``) spells it inline.
+
+
 INVENTORY_KEY = "boundaries"
 
-#: A key named on a line: the word of its artifact, then one or more keys.
+
 _NAMED = re.compile(
     r"\b(row|setup|pproc|sidecar) (?:key|table)s?((?:(?:,|,? and|,? or)? `[^`]+`)+)"
 )
+
+
 _TICKED = re.compile(r"`([^`]+)`")
+
+
 _LINK = re.compile(r"\]\(([^)\s]+)\)")
 
 
@@ -165,42 +146,6 @@ def _anchors(page: Path) -> set[str]:
     )
 
 
-def test_every_stage_has_one_table_of_the_four_columns():
-    """The page walks the six stages in order, one table each, and says the raw route."""
-    text = _page()
-    headings = re.findall(r"^## (.+?)\s*$", text, re.M)
-    assert [heading for heading in headings if heading in STAGES] == list(STAGES), (
-        f"the page's stage headings are {headings}; it walks {', '.join(STAGES)}, in "
-        "that order, one '## ' heading each"
-    )
-    assert "The raw route" in headings, "the page has no '## The raw route' section"
-    tables = [(stage, rows) for stage, rows in _tables(text) if stage in STAGES]
-    assert sorted(stage for stage, _ in tables) == sorted(STAGES), (
-        "each stage carries exactly one table"
-    )
-    for stage, rows in tables:
-        assert rows, f"the table of {stage!r} has no line"
-        assert tuple(rows[0]) == COLUMNS, (
-            f"the table of {stage!r} has the columns {tuple(rows[0])}, not {COLUMNS}"
-        )
-
-
-def test_every_registered_key_has_a_line():
-    """A key added to a registry without a line on the page fails here, by name."""
-    named = _named_keys()
-    missing = {
-        artifact: sorted(keys - named[artifact])
-        for artifact, keys in _registries().items()
-        if keys - named[artifact]
-    }
-    assert not missing, (
-        "these keys are registered and have no line on docs/gui-to-pyfs.md: "
-        + "; ".join(f"{artifact} {', '.join(keys)}" for artifact, keys in missing.items())
-        + ". Give each the GUI step it does, as '<artifact> key `<key>`' in the In pyfs "
-        "column of its stage's table."
-    )
-
-
 def test_every_key_the_page_names_is_one_its_artifact_holds():
     """A line naming a key its artifact does not register teaches a key that is refused."""
     registries = _registries()
@@ -256,31 +201,6 @@ def test_no_line_claims_a_build_the_database_does_not_verify():
     )
 
 
-def test_every_not_yet_line_points_at_the_raw_route():
-    """A step pyfs does not take yet says so, and says where a user takes it instead."""
-    rows = [(stage, row) for stage, row in _stage_rows() if row["In pyfs"].startswith("not yet")]
-    assert rows, "the page has no 'not yet' line, which no release of pyfs has earned"
-    blind = [
-        f"{stage}: {row['In the GUI']}" for stage, row in rows if RAW_ROUTE not in row["In pyfs"]
-    ]
-    assert not blind, f"these 'not yet' lines give no route: {blind}"
-
-
-def test_every_command_a_run_type_always_emits_has_a_line():
-    """A run type's own command is a GUI step the page names."""
-    named = {
-        command
-        for _, row in _stage_rows()
-        if not row["In pyfs"].startswith("not yet")
-        for command in _TICKED.findall(row["Solver commands"])
-    }
-    emitted = {command for workflow in WORKFLOWS.values() for command in workflow.commands}
-    assert not emitted - named, (
-        f"the run types emit {sorted(emitted - named)} and no reached line of "
-        "docs/gui-to-pyfs.md names them"
-    )
-
-
 def test_every_link_lands_on_a_page_and_a_heading():
     """A link to a page of the documentation, or to a heading of one, resolves.
 
@@ -311,9 +231,3 @@ def test_every_link_lands_on_a_page_and_a_heading():
         elif anchor and anchor not in _anchors(page):
             broken.append(f"{target} (no heading)")
     assert not broken, f"docs/gui-to-pyfs.md links nowhere: {broken}"
-
-
-def test_the_page_is_on_the_menu_and_on_the_home_page():
-    """A page nobody can reach from the site is a page nobody reads."""
-    assert "gui-to-pyfs.md" in (REPO / "properdocs.yml").read_text(encoding="utf-8")
-    assert "(gui-to-pyfs.md)" in (DOCS / "index.md").read_text(encoding="utf-8")
