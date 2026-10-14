@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as clock
+import importlib
 from datetime import datetime, timedelta, timezone
 
 from pyflightstream.workspace.rename_groups import rename_group_products, unmapped_group_numbers
@@ -35,11 +37,18 @@ def test_p0400_renamegroups_the_archive_stamp_is_local_time(tmp_path, monkeypatc
         def now(cls, tz=None):
             return local.replace(tzinfo=None) if tz is None else local.astimezone(tz)
 
-    monkeypatch.setattr(rename_groups, "datetime", Clock)
     # A product lives under post/ (PFS-2096.012: nothing else is renamed).
     (tmp_path / "post" / "m").mkdir(parents=True)
     (tmp_path / "post" / "m" / "loads_g1.csv").write_text("x\n", encoding="utf-8")
-    (moved,) = rename_group_products(tmp_path, {1: "WING"})
+    # Load the public operation with the standard-library clock supplied.
+    # Restore both the dependency and the module even if the operation fails.
+    try:
+        with monkeypatch.context() as patched:
+            patched.setattr(clock, "datetime", Clock)
+            importlib.reload(rename_groups)
+            (moved,) = rename_groups.rename_group_products(tmp_path, {1: "WING"})
+    finally:
+        importlib.reload(rename_groups)
     assert moved.archived is not None
     folder = next(p.name for p in moved.archived.parents if p.name.startswith("rename-groups-"))
     assert folder == "rename-groups-20261013-213045"
