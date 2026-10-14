@@ -71,7 +71,9 @@ def test_p0400_plan_reports_a_manifest_refusal_without_a_traceback(tmp_path, cap
     the plan let it through as a traceback, the defect ``run`` already fixed.
     """
     from pyflightstream.workspace import WorkspaceError
-    from tests.tier1_offline.test_fr313_plan_geometry_warning import _planned
+    from tests.tier1_offline.test_workflows import (
+        _fr313_plan_geometry_warning___planned as _planned,
+    )
 
     workspace, matrix, _, _, _ = _planned(tmp_path, "unsteady", "clean")
 

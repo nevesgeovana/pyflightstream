@@ -47,6 +47,7 @@ from tests.tier1_offline.test_workflows import (
     rotor_case,
     unsteady_case,
 )
+from tests.workflow_payloads import workflow_payload
 
 BUILDS = [version.canonical for version in known_versions()]
 #: The builds whose database documents the per-step action command, derived
@@ -578,7 +579,7 @@ def test_goal023_support_matrix_the_cells_that_do_not_render_are_exactly_the_dec
 @pytest.mark.parametrize("name", sorted(WORKFLOWS))
 def test_goal023_unchanged_on_26123_every_golden_of_26123_renders_byte_for_byte(name):
     for label, make in sorted(GOLDEN_CASES[name].items()):
-        golden = GOLDEN_WORKFLOWS / golden_name(name, label, "26.123")
+        golden = workflow_payload(GOLDEN_WORKFLOWS / golden_name(name, label, "26.123"))
         text = portable_interpreter(rendered(make(), "26.123"))
         assert text == golden.read_text(encoding="utf-8"), golden.name
 

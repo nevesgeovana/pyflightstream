@@ -93,14 +93,14 @@ from pyflightstream.run import ExecutionResult
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.versions import known_versions, resolve
 from pyflightstream.workspace import RunRecord, RunStatus
-from tests.tier1_offline.test_p0400_cases_workflows_probes import (
-    _rendered as _reach2_routes___rendered,
-)
-from tests.tier1_offline.test_p0400_cases_workflows_probes import (
-    _steady_with as _reach2_routes___steady_with,
-)
 from tests.tier1_offline.test_p0400_farfield_plan import _case as _reach2_routes___case
 from tests.tier1_offline.test_p0400_farfield_plan import _script as _reach2_routes___script
+from tests.tier1_offline.test_regression_workflow_emission import (
+    _cases_workflows_probes___rendered as _reach2_routes___rendered,
+)
+from tests.tier1_offline.test_regression_workflow_emission import (
+    _cases_workflows_probes___steady_with as _reach2_routes___steady_with,
+)
 
 _GAPPROBES_SPECS__BUILDS = ("26.124", "26.125")
 

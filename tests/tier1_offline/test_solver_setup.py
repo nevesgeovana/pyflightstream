@@ -6,6 +6,21 @@ import warnings
 
 import pytest
 
+from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream.cases import (
+    CampaignConfigError,
+    MeshImport,
+    RawMeshConditions,
+    ReferenceData,
+    SimCase,
+    SolverSettings,
+    SweepAxis,
+    TrailingEdgeMarking,
+)
+from pyflightstream.cases._setup_link import analysis_frame_and_moments, moments_model_of
+from pyflightstream.cases.matrix import MatrixError
+from pyflightstream.cases.workflows import build_script
+from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
 from pyflightstream.script import (
     CommandArgumentError,
@@ -29,7 +44,16 @@ from pyflightstream.script.solver_setup import (
     with_vorticity_selection,
 )
 from pyflightstream.workspace import RunRecord, RunStatus
+from pyflightstream.workspace._row_setup import structured_setup_keys
+from pyflightstream.workspace.matrix import resolve_matrix
 from tests.tier1_offline._no_evidence import registry_without
+from tests.tier1_offline.test_matrix_run import RECIPES as _FR316_ROW_SETUP_KEYS__RECIPES
+from tests.tier1_offline.test_matrix_run import make_library as _fr316_row_setup_keys__make_library
+from tests.tier1_offline.test_matrix_run import write_matrix as _fr316_row_setup_keys__write_matrix
+from tests.tier1_offline.test_workflows import (
+    WORKFLOW_KEY as _FR317_FR318_MOMENTS_MODEL__WORKFLOW_KEY,
+)
+from tests.tier1_offline.test_workflows import rotor_case as _fr317_fr318_moments_model__rotor_case
 
 
 def family_commands() -> set[str]:
@@ -1429,3 +1453,390 @@ def test_the_stabilization_strength_keeps_its_documented_zero():
     setup = helpers.solver_settings(script, solver_stabilization=0.0)
     assert "SOLVER_STABILIZATION 0.0" in script.render()
     assert setup.flags["SOLVER_STABILIZATION"].provenance == "explicit"
+
+
+def _fr316_row_setup_keys___row(pol: str, cell: str) -> str:
+    """One active steady row naming preset s002, with ``cell`` as its VAR_NAMES_VALUES."""
+    return (
+        f"{pol} | TestWing | ROW_SETUP | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
+        f"| 003 |          | 0 | 1 | {cell}"
+    )
+
+
+def _fr316_row_setup_keys___resolve(tmp_path, *rows: str) -> dict[str, SimCase]:
+    workspace = _fr316_row_setup_keys__make_library(tmp_path)
+    path = _fr316_row_setup_keys__write_matrix(tmp_path / "rows.fs", list(rows))
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text.replace("| LEGACY ", "| steady "), encoding="utf-8")
+    resolved = resolve_matrix(
+        path,
+        workspace,
+        name="rows",
+        fs_version="26.124",
+        recipes=_FR316_ROW_SETUP_KEYS__RECIPES,
+        fs_exe="C:/fs/FlightStream.exe",
+    )
+    return {sim.sim_id: sim for sim in resolved.campaign.sims}
+
+
+def _fr316_row_setup_keys___settings_lines(case: SimCase) -> list[str]:
+    script = Script(version="26.124")
+    _settings(case, script)
+    return script.render().splitlines()
+
+
+class TestFr316RowSetupKeys:
+    """Tier 1: a matrix row states native setup keys over its preset (FR-316).
+
+    The evidence line of FR-316 cites this module
+    (docs/unpublished/requirements/functional-requirements.md).
+
+    The rule under test: ``plan`` warns for every row that writes setup keys,
+    naming the row and the keys; a key the preset does not state is added for that
+    row only; an equal value is accepted; a different value for a key the preset
+    states is refused, naming the row, the key and both values. The preset here is
+    ``s002`` of the synthetic library: ``iterations = 800`` and
+    ``convergence = 1e-6``.
+    """
+
+    @staticmethod
+    def test_a_key_the_preset_lacks_is_added_for_that_row_only_and_warned(tmp_path):
+        """FR-316: warn-only on a key the preset does not state; the next row keeps its preset."""
+        with pytest.warns(PyflightstreamWarning, match=r"POL 9401.*viscous_coupling = ENABLE"):
+            cases = _fr316_row_setup_keys___resolve(
+                tmp_path,
+                _fr316_row_setup_keys___row("9401", "viscous_coupling: ENABLE"),
+                _fr316_row_setup_keys___row("9402", ""),
+            )
+        stated, control = cases["9401"], cases["9402"]
+        assert stated.solver.viscous_coupling is True
+        assert stated.setup_from_row == {"viscous_coupling": "ENABLE"}
+        assert "viscous_coupling" not in stated.variables
+        # THE CONTROL: the override does not leak into the next row of the same preset.
+        assert control.solver.viscous_coupling is None
+        assert control.setup_from_row == {}
+        assert "SET_SOLVER_VISCOUS_COUPLING ENABLE" in _fr316_row_setup_keys___settings_lines(
+            stated
+        )
+        assert not any(
+            "VISCOUS_COUPLING" in line for line in _fr316_row_setup_keys___settings_lines(control)
+        )
+
+    @staticmethod
+    def test_an_equal_value_is_accepted_with_the_warning(tmp_path):
+        """FR-316: warn-only on an equal value, judged by the loader (1e-6 equals 0.000001)."""
+        with pytest.warns(PyflightstreamWarning, match=r"POL 9403.*iterations = 800"):
+            cases = _fr316_row_setup_keys___resolve(
+                tmp_path,
+                _fr316_row_setup_keys___row("9403", "iterations: 800 / convergence: 0.000001"),
+            )
+        case = cases["9403"]
+        assert case.solver.iterations == 800
+        assert case.solver.convergence == pytest.approx(1e-6)
+        assert case.setup_from_row == {"iterations": "800", "convergence": "0.000001"}
+
+    @staticmethod
+    def test_a_differing_value_for_a_key_the_preset_states_is_refused(tmp_path):
+        """FR-316: refused at plan, naming the row, the key and both values."""
+        with pytest.raises(MatrixError) as refused:
+            _fr316_row_setup_keys___resolve(
+                tmp_path, _fr316_row_setup_keys___row("9404", "iterations: 500")
+            )
+        said = str(refused.value)
+        assert "9404" in said, said
+        assert "iterations = 500" in said, said
+        assert "iterations = 800" in said, said
+        assert "does not overwrite" in said, said
+
+    @staticmethod
+    def test_a_solver_alias_is_a_setup_key_and_follows_the_same_rule(tmp_path):
+        """FR-316: NITER, the solver's spelling of iterations, differing from 800, is refused."""
+        with pytest.raises(MatrixError, match=r"NITER = 500.*iterations = 800"):
+            _fr316_row_setup_keys___resolve(
+                tmp_path, _fr316_row_setup_keys___row("9405", "NITER: 500")
+            )
+
+    @staticmethod
+    def test_an_unstated_row_resolves_its_preset_unchanged(tmp_path):
+        """FR-316 control: a row stating no setup key carries the preset's own settings object."""
+        cases = _fr316_row_setup_keys___resolve(tmp_path, _fr316_row_setup_keys___row("9406", ""))
+        case = cases["9406"]
+        assert case.setup_from_row == {}
+        assert case.solver.iterations == 800
+        assert case.solver.viscous_coupling is None
+
+    @staticmethod
+    def test_an_unknown_key_is_still_refused(tmp_path):
+        """FR-316 control: a key that is neither a run-type key nor a setup field stays refused."""
+        from pyflightstream.cases import CampaignConfigError
+        from pyflightstream.cases.workflows import build_script
+
+        cases = _fr316_row_setup_keys___resolve(
+            tmp_path, _fr316_row_setup_keys___row("9407", "viscous_couplingg: ENABLE")
+        )
+        with pytest.raises(CampaignConfigError, match="viscous_couplingg"):
+            build_script(cases["9407"], Script(version="26.124"))
+
+    @staticmethod
+    def test_a_table_valued_key_is_refused_naming_what_a_row_can_carry(tmp_path):
+        """FR-316: a cell cannot carry a table, so the key is a preset's only."""
+        assert "airfoil_separation" in structured_setup_keys()
+        assert "vorticity_drag_families" not in structured_setup_keys()
+        with pytest.raises(MatrixError, match=r"airfoil_separation.*cannot carry a table"):
+            _fr316_row_setup_keys___resolve(
+                tmp_path, _fr316_row_setup_keys___row("9408", "airfoil_separation: wing")
+            )
+
+    @staticmethod
+    def test_a_list_of_names_is_carried_comma_separated(tmp_path):
+        """FR-316: a list-valued key is written in the cell as comma-separated names."""
+        with pytest.warns(PyflightstreamWarning):
+            cases = _fr316_row_setup_keys___resolve(
+                tmp_path, _fr316_row_setup_keys___row("9409", "vorticity_drag_families: wing, tail")
+            )
+        assert cases["9409"].solver.vorticity_drag_families == ["wing", "tail"]
+
+    @staticmethod
+    def test_one_setting_in_both_vocabularies_is_refused_as_ambiguous(tmp_path):
+        """FR-316: SYMMETRY_LOADS (run type) beside symmetry_loads (setup) names one setting twice."""  # noqa: E501
+        with pytest.raises(MatrixError, match=r"ambiguous"):
+            _fr316_row_setup_keys___resolve(
+                tmp_path,
+                _fr316_row_setup_keys___row(
+                    "9410", "SYMMETRY_LOADS: DISABLE / symmetry_loads: ENABLE"
+                ),
+            )
+
+    @staticmethod
+    def test_an_invalid_value_is_refused_by_the_presets_own_loader(tmp_path):
+        """FR-316: the value is validated by the loader the preset went through, naming the row."""
+        with pytest.raises(MatrixError, match=r"(?s)POL 9411.*farfield_layers"):
+            _fr316_row_setup_keys___resolve(
+                tmp_path, _fr316_row_setup_keys___row("9411", "farfield_layers: 9")
+            )
+
+    @staticmethod
+    def test_the_row_keys_reach_the_setup_snapshot_of_the_run_record(tmp_path):
+        """FR-316: the snapshot the record carries says which effective values came from the row."""
+        with pytest.warns(PyflightstreamWarning):
+            cases = _fr316_row_setup_keys___resolve(
+                tmp_path, _fr316_row_setup_keys___row("9412", "viscous_coupling: ENABLE")
+            )
+        script = Script(version="26.124")
+        _settings(cases["9412"], script)
+        assert script.solver_setup is not None
+        dumped = script.solver_setup.model_dump(mode="json")
+        assert dumped["from_row"] == {"viscous_coupling": "ENABLE"}
+        assert dumped["flags"]["SET_SOLVER_VISCOUS_COUPLING"]["value"] in (True, "ENABLE")
+        # THE CONTROL: a snapshot with nothing from the row serializes without the key.
+        bare = Script(version="26.124")
+        _settings(
+            _fr316_row_setup_keys___resolve(
+                tmp_path / "b", _fr316_row_setup_keys___row("9413", "")
+            )["9413"],
+            bare,
+        )
+        assert bare.solver_setup is not None
+        assert "from_row" not in bare.solver_setup.model_dump(mode="json")
+
+    @staticmethod
+    def test_one_setting_in_two_spellings_of_a_row_is_refused_as_stated_twice(tmp_path):
+        # Verifies FR-316.
+        with pytest.raises(MatrixError, match="twice"):
+            _fr316_row_setup_keys___resolve(
+                tmp_path, _fr316_row_setup_keys___row("9414", "iterations: 800 / NITER: 800")
+            )
+
+
+_FR317_FR318_MOMENTS_MODEL__BUILD = "26.124"
+
+
+def _fr317_fr318_moments_model___wing(tmp_path, **solver: object) -> SimCase:
+    """A steady wing-body row over a saved geometry whose boundaries are W and B."""
+    return SimCase(
+        sim_id="6201",
+        aircraft="WB",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        variables={"WORKFLOW": "steady", "VELOCITY": "30.0"},
+        geometry=str(tmp_path / "wb.obj"),
+        inventory=("W", "B"),
+        inventory_source="sidecar",
+        mesh_import=MeshImport(units="METER"),
+        raw_mesh_conditions=RawMeshConditions(trailing_edges=TrailingEdgeMarking(route="detect")),
+        solver=SolverSettings(**solver),
+        reference=ReferenceData(area=50.0, length=2.5, span_m=20.0, moment_point_m=(0.6, 0.0, 0.0)),
+        point={"alpha": 2.0, "beta": 0.0},
+        outputs=["AL+020.txt"],
+    )
+
+
+def _fr317_fr318_moments_model___lines(case: SimCase) -> list[str]:
+    script = Script(_FR317_FR318_MOMENTS_MODEL__BUILD)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        build_script(case, script)
+    return script.render().splitlines()
+
+
+def _fr317_fr318_moments_model___families(moments_model: str | None = None) -> SimCase:
+    solver = SolverSettings(vorticity_drag_families=["Blade"], moments_model=moments_model)
+    return _fr317_fr318_moments_model__rotor_case().model_copy(update={"solver": solver})
+
+
+class TestFr317Fr318MomentsModel:
+    """Tier 1: the moments model is a setup key, linked to the vorticity drag on a rotor.
+
+    The evidence lines of FR-317 and FR-318 cite this module
+    (docs/unpublished/requirements/functional-requirements.md).
+
+    FR-317: ``moments_model`` states SET_ANALYSIS_MOMENTS_MODEL; unstated, the
+    script is byte-identical to the one the package wrote before the key existed.
+    FR-318: on a row turning a rotor, ``vorticity_drag_families`` with no
+    ``moments_model`` implies VORTICITY (warned, recorded in the snapshot), and
+    ``moments_model = PRESSURE`` beside it is refused at plan naming both keys.
+    """
+
+    @staticmethod
+    def test_an_unstated_moments_model_leaves_the_script_byte_identical(tmp_path):
+        """FR-317 control: unstated and PRESSURE write the same bytes, as before the key."""
+        unstated = _fr317_fr318_moments_model___lines(_fr317_fr318_moments_model___wing(tmp_path))
+        pressure = _fr317_fr318_moments_model___lines(
+            _fr317_fr318_moments_model___wing(tmp_path, moments_model="PRESSURE")
+        )
+        assert unstated == pressure
+        assert "SET_ANALYSIS_MOMENTS_MODEL PRESSURE" in unstated
+
+    @staticmethod
+    def test_a_stated_moments_model_changes_that_line_and_no_other(tmp_path):
+        """FR-317: VORTICITY reaches SET_ANALYSIS_MOMENTS_MODEL, before START_SOLVER."""
+        control = _fr317_fr318_moments_model___lines(_fr317_fr318_moments_model___wing(tmp_path))
+        stated = _fr317_fr318_moments_model___lines(
+            _fr317_fr318_moments_model___wing(tmp_path, moments_model="vorticity")
+        )
+        changed = [(a, b) for a, b in zip(control, stated, strict=True) if a != b]
+        assert changed == [
+            ("SET_ANALYSIS_MOMENTS_MODEL PRESSURE", "SET_ANALYSIS_MOMENTS_MODEL VORTICITY")
+        ]
+        assert stated.index("SET_ANALYSIS_MOMENTS_MODEL VORTICITY") < stated.index("START_SOLVER")
+
+    @staticmethod
+    def test_a_moments_model_the_command_does_not_take_is_refused():
+        """FR-317: the tokens are the command database's, PRESSURE and VORTICITY."""
+        with pytest.raises(ValueError, match=r"PRESSURE, VORTICITY"):
+            SolverSettings(moments_model="CIRCULATION")
+
+    @staticmethod
+    def test_a_stated_moments_model_is_emitted_where_no_frame_is_placed():
+        """FR-317: without a moment point the model is still stated; unstated, nothing is emitted."""  # noqa: E501
+        stated = SimCase(
+            sim_id="1",
+            aircraft="A",
+            recipe="steady",
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            solver=SolverSettings(moments_model="VORTICITY"),
+        )
+        script = Script(_FR317_FR318_MOMENTS_MODEL__BUILD)
+        analysis_frame_and_moments(stated, script, None, rotor=False)
+        assert script.render().splitlines() == ["SET_ANALYSIS_MOMENTS_MODEL VORTICITY"]
+        bare = Script(_FR317_FR318_MOMENTS_MODEL__BUILD)
+        analysis_frame_and_moments(
+            stated.model_copy(update={"solver": SolverSettings()}), bare, None, rotor=False
+        )
+        assert bare.render().strip() == ""
+
+    @staticmethod
+    def test_on_a_rotor_vorticity_drag_implies_vorticity_moments_warned_and_recorded():
+        """FR-318: an unstated model follows the drag list on a rotor, warned and recorded."""
+        case = _fr317_fr318_moments_model___families()
+        script = Script(_FR317_FR318_MOMENTS_MODEL__BUILD)
+        helpers.solver_settings(script, iterations=10)
+        with pytest.warns(PyflightstreamWarning, match=r"vorticity_drag_families.*moments_model"):
+            analysis_frame_and_moments(case, script, None, rotor=True)
+        assert "SET_ANALYSIS_MOMENTS_MODEL VORTICITY" in script.render().splitlines()
+        assert script.solver_setup is not None
+        derived = script.solver_setup.model_dump(mode="json")["derived"]
+        assert derived["moments_model"].startswith("VORTICITY"), derived
+        assert "FR-318" in derived["moments_model"]
+
+    @staticmethod
+    def test_on_a_rotor_pressure_moments_beside_vorticity_drag_are_refused():
+        """FR-318: an explicit PRESSURE beside the drag list is refused, naming both keys."""
+        with pytest.raises(CampaignConfigError) as refused:
+            moments_model_of(_fr317_fr318_moments_model___families("PRESSURE"), rotor=True)
+        said = str(refused.value)
+        assert "vorticity_drag_families" in said and "moments_model = PRESSURE" in said, said
+        assert "7001" in said, said
+
+    @staticmethod
+    def test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list():
+        """FR-318 controls: no rotor, or no drag list, leaves the model as stated."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", PyflightstreamWarning)
+            assert moments_model_of(_fr317_fr318_moments_model___families(), rotor=False) == (
+                None,
+                False,
+            )
+            bare = _fr317_fr318_moments_model__rotor_case()
+            assert moments_model_of(bare, rotor=True) == (None, False)
+            assert moments_model_of(
+                _fr317_fr318_moments_model___families("VORTICITY"), rotor=True
+            ) == ("VORTICITY", False)
+            assert moments_model_of(
+                _fr317_fr318_moments_model___families("PRESSURE"), rotor=False
+            ) == ("PRESSURE", False)
+
+    @staticmethod
+    def test_a_rotor_row_is_recognised_by_the_builder(tmp_path):
+        """FR-318 through the builder: the unsteady_rotor row with a drag list states VORTICITY.
+
+        It also pins the order: the moments model, then the vorticity drag list,
+        then START_SOLVER (R6 of 0.35.0, RPT-133; 0.34.0 emitted the list after
+        START_SOLVER, the limit R5 stated).
+        """
+        case = _fr317_fr318_moments_model__rotor_case().model_copy(
+            update={
+                "geometry": str(tmp_path / "rotor.obj"),
+                "inventory": ("Blade", "Hub"),
+                "inventory_source": "sidecar",
+                "mesh_import": MeshImport(units="METER"),
+                "raw_mesh_conditions": RawMeshConditions(
+                    trailing_edges=TrailingEdgeMarking(route="detect")
+                ),
+                "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),
+                "solver": SolverSettings(vorticity_drag_families=["Blade"]),
+            }
+        )
+        script = Script(_FR317_FR318_MOMENTS_MODEL__BUILD)
+        with pytest.warns(PyflightstreamWarning, match="FR-318"):
+            build_script(case, script)
+        lines = script.render().splitlines()
+        start = lines.index("START_SOLVER")
+        drag = next(
+            i for i, line in enumerate(lines) if line.startswith("SET_VORTICITY_DRAG_BOUNDARIES")
+        )
+        assert lines.index("SET_ANALYSIS_MOMENTS_MODEL VORTICITY") < drag < start
+
+    @staticmethod
+    def test_a_steady_row_stating_a_rotor_speed_follows_the_vorticity_link(tmp_path):
+        # Verifies FR-318.
+        case = _fr317_fr318_moments_model__rotor_case(
+            **{_FR317_FR318_MOMENTS_MODEL__WORKFLOW_KEY: None}
+        ).model_copy(
+            update={
+                "recipe": "steady",
+                "geometry": str(tmp_path / "rotor.obj"),
+                "inventory": ("Blade", "Hub"),
+                "inventory_source": "sidecar",
+                "mesh_import": MeshImport(units="METER"),
+                "raw_mesh_conditions": RawMeshConditions(
+                    trailing_edges=TrailingEdgeMarking(route="detect")
+                ),
+                "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),
+                "solver": SolverSettings(vorticity_drag_families=["Blade"]),
+            }
+        )
+        script = Script(_FR317_FR318_MOMENTS_MODEL__BUILD)
+        with pytest.warns(PyflightstreamWarning, match="FR-318"):
+            build_script(case, script)
+        assert "SET_ANALYSIS_MOMENTS_MODEL VORTICITY" in script.render().splitlines()

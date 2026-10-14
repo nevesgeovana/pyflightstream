@@ -30,6 +30,7 @@ from tests.tier1_offline._p0340_probe_support import (
     verdict_mismatches,
     verdicts_of,
 )
+from tests.workflow_payloads import WORKFLOW_PAYLOADS
 
 GOLDENS = Path(__file__).resolve().parent / "goldens" / "workflows"
 #: The three commands the census found and covered, each with the builds that hold it
@@ -50,8 +51,9 @@ def emitted_by_the_goldens() -> dict[str, set[str]]:
     registry = CommandRegistry.load()
     views = {v.canonical: registry.for_version(v) for v in known_versions()}
     found: dict[str, set[str]] = {}
-    for path in sorted(GOLDENS.glob("*__*__*.txt")):
-        build = path.stem.rsplit("__", 1)[-1]
+    for name, payload in sorted(WORKFLOW_PAYLOADS.items()):
+        path = GOLDENS / payload
+        build = Path(name).stem.rsplit("__", 1)[-1]
         if build not in views:
             continue
         for line in path.read_text(encoding="utf-8").splitlines():

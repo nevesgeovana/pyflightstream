@@ -48,6 +48,7 @@ from tests.tier1_offline.test_workflows import (
     render_or_refusal,
     steady_case,
 )
+from tests.workflow_payloads import workflow_payload
 
 UNSTEADY_TYPES = ("unsteady", "unsteady_rotor")
 
@@ -148,7 +149,7 @@ def test_p0370_s5_unsteady_kind_and_no_kind_render_as_0_36_0(tmp_path, run_type)
     assert "{name}_probes.txt" not in _spec(_entry()).outputs(True)
     for name, label, build in GOLDEN_RENDERS:
         if name == run_type:
-            golden = GOLDEN_WORKFLOWS / golden_name(name, label, build)
+            golden = workflow_payload(GOLDEN_WORKFLOWS / golden_name(name, label, build))
             assert render_or_refusal(name, label, build) == golden.read_text(encoding="utf-8")
 
 
