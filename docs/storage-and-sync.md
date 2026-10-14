@@ -14,7 +14,7 @@ pass `--apply`. Run the preview first, read it, then apply.
 ### space-in-use
 
 ```bash
-pyfs-matrix space-in-use --workspace.
+pyfs-matrix space-in-use --workspace .
 ```
 
 Prints the sizes on disk in three groupings, in this order: by top level
@@ -26,13 +26,13 @@ default is 15.
 You can also write it as a flag on the main command line:
 
 ```bash
-pyfs-matrix --workspace. --space-in-use
+pyfs-matrix --workspace . --space-in-use
 ```
 
 ### free-space
 
 ```bash
-pyfs-matrix free-space m001 --workspace. --apply
+pyfs-matrix free-space m001 --workspace . --apply
 ```
 
 Runs a recipe named `m<id>`, read from
@@ -46,13 +46,13 @@ format of each.
 The top-level flag form works here too:
 
 ```bash
-pyfs-matrix --workspace. --free-space m001
+pyfs-matrix --workspace . --free-space m001
 ```
 
 Add `--list` to see the detail:
 
 ```bash
-pyfs-matrix free-space m001 --workspace. --list
+pyfs-matrix free-space m001 --workspace . --list
 ```
 
 Without it the preview of `post_archives` (and of the other tables) shows only
@@ -68,7 +68,7 @@ lines are read from the entry the call records in `storage_management.json`;
 ### delete-sims
 
 ```bash
-pyfs-matrix delete-sims 4001,2009 --workspace. --apply
+pyfs-matrix delete-sims 4001,2009 --workspace . --apply
 ```
 
 Deletes the named simulations outright: the `sims/sim_<id>` folder (or its
@@ -102,7 +102,7 @@ row in `runs.json` and whether its id can be used again.
 ### sync
 
 ```bash
-pyfs-matrix sync post --workspace. --apply
+pyfs-matrix sync post --workspace . --apply
 ```
 
 Brings runs and results from the other workspaces named in

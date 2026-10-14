@@ -550,10 +550,10 @@ described with [the export threshold](workflow-unsteady-rotor.md#exports-that-be
 configured:
 
 ```text
-pyfs-matrix post matriz.fs --workspace. # overwrites products in place
-pyfs-matrix post --workspace. # every matrix the manifest names
-pyfs-matrix post --workspace. --strict # exit 3 if any product was skipped
-pyfs-matrix post --workspace. --archive # keeps a copy before overwriting
+pyfs-matrix post matriz.fs --workspace . # overwrites products in place
+pyfs-matrix post --workspace . # every matrix the manifest names
+pyfs-matrix post --workspace . --strict # exit 3 if any product was skipped
+pyfs-matrix post --workspace . --archive # keeps a copy before overwriting
 ```
 
 **A rebuild overwrites products in place by default.** Add `--archive` to keep a copy of replaced products. The `--force-overwrite` and `--yes` flags add an explicit confirmation path; they do not change the archive policy.
@@ -696,7 +696,7 @@ Those refusals say to archive the simulation, and this is the command they
 mean:
 
 ```text
-pyfs-workspace archive. 8001 # sims/sim_8001/ becomes archive/sim_8001.zip
+pyfs-workspace archive 8001 --workspace . # sims/sim_8001/ becomes archive/sim_8001.zip
 ```
 
 It zips the simulation's staged inputs, scripts and raw outputs into

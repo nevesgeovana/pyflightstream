@@ -13,7 +13,7 @@ point's final saved simulation, with no solve:
     VAR_NAMES_VALUES
     ADDITIONAL_PPROC: p002
 
-    pyfs-matrix post extracted.fs --workspace. --additional-pproc
+    pyfs-matrix post extracted.fs --workspace . --additional-pproc
 
 **What a reopened saved simulation gives back was measured, and the additional
 post extracts exactly that.** The licensed probe T09 reopened two saved points

@@ -3,7 +3,7 @@
 Generate the guide and standard setup library while planning:
 
 ```console
-pyfs-matrix plan matrix.fs --workspace. --fs-version 26.123 --setup-guidelines --setup-standards
+pyfs-matrix plan matrix.fs --workspace . --fs-version 26.123 --setup-guidelines --setup-standards
 ```
 
 Both flags work independently. Generation requires an explicit `--fs-version` so

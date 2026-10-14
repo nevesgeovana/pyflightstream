@@ -273,8 +273,8 @@ reference did the rest.
 ### 6. Run it
 
 ```
-pyfs-matrix plan matriz_vocab.fs --workspace. --fs-version 26.123
-pyfs-matrix run matriz_vocab.fs --workspace. --fs-version 26.123
+pyfs-matrix plan matriz_vocab.fs --workspace . --fs-version 26.123
+pyfs-matrix run matriz_vocab.fs --workspace . --fs-version 26.123
 ```
 
 `plan` spends no solver time: it binds every code, builds every script in

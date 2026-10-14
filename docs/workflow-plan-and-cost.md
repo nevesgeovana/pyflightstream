@@ -85,7 +85,7 @@ running it will cost, and the cost is a licence seat and an afternoon. Add
 `--cost` and it tables one row per point under the title `Solver cost per point`:
 
 ```text
-pyfs-matrix plan matriz.fs --workspace. --fs-version 26.123 --cost
+pyfs-matrix plan matriz.fs --workspace . --fs-version 26.123 --cost
 ```
 
 ```text

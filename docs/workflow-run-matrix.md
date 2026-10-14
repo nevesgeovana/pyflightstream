@@ -233,7 +233,7 @@ evidence of a study whose matrix has been removed. Only the POL cells change,
 each change is printed, and the plan then runs on the rewritten file:
 
 ```text
-pyfs-matrix plan matriz.fs --update-ids...
+pyfs-matrix plan matriz.fs --update-ids
 --update-ids: matriz.fs row 6: POL 1004 -> 2013
 ```
 
@@ -426,7 +426,7 @@ From the terminal, a matrix's whole study is one command:
 
 ```text
 pyfs-matrix run workflow_rotor_matrix.fs \
-    --name rotor --workspace. \
+    --name rotor --workspace . \
     --sweep-csv sweep.csv
 ```
 
@@ -451,8 +451,8 @@ point's name -- a pproc, a geometry, a solver variable, a wall clock -- the
 corrected point has the same identity, and `--force-rerun` is how it is redone:
 
 ```text
-pyfs-matrix plan <matrix> --workspace.
-pyfs-matrix run  <matrix> --workspace. \
+pyfs-matrix plan <matrix> --workspace .
+pyfs-matrix run  <matrix> --workspace . \
     --force-rerun 'camp/sim_3207/M144RE438AL+000BE+000J+080'
 ```
 
@@ -472,8 +472,8 @@ the run says which points run again.
 name none of them:
 
 ```text
-pyfs-matrix run <matrix> --workspace. --force-rerun-all
-pyfs-matrix run <matrix> --workspace. --force-rerun-all --sims 2031 2032 2033
+pyfs-matrix run <matrix> --workspace . --force-rerun-all
+pyfs-matrix run <matrix> --workspace . --force-rerun-all --sims 2031 2032 2033
 ```
 
 Each recorded point is archived as `--force-rerun` archives it and runs again, a
@@ -488,8 +488,8 @@ matrix does not carry, and when nothing of the selection is recorded.
 matrix**, select them on both commands:
 
 ```text
-pyfs-matrix plan <matrix> --workspace. --sims 2031 --points M144RE438AL+040BE+000
-pyfs-matrix run  <matrix> --workspace. --sims 2031 --points M144RE438AL+040BE+000
+pyfs-matrix plan <matrix> --workspace . --sims 2031 --points M144RE438AL+040BE+000
+pyfs-matrix run  <matrix> --workspace . --sims 2031 --points M144RE438AL+040BE+000
 ```
 
 `--sims` takes simulation ids as the matrix spells them, and `--points` takes

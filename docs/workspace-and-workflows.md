@@ -185,7 +185,7 @@ is where it will be announced.
 
 | Stage | Workspace route |
 |---|---|
-| Geometry and mesh | `pyfs-matrix mesh` and geometry input files |
+| Geometry and mesh | `pyfs-workspace geometry` and [geometry input files](geometry.md) |
 | Set up the study | Run matrix, input library, reference and setup files |
 | Choose the run type | Run type in each matrix row |
 | Plan and run | `pyfs-matrix plan` and `pyfs-matrix run` |
