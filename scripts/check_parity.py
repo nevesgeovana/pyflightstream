@@ -69,6 +69,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import csv
 import datetime as dt
 import difflib
 import fnmatch
@@ -86,6 +87,7 @@ import tarfile
 import tempfile
 import tomllib
 import types
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -1416,6 +1418,48 @@ def _toggle_correction(old: str, new: str) -> bool:
     )
 
 
+def _within_printed_rounding(old: str, new: str, *, exact: bool) -> bool:
+    """Keep text identical; admit finite numbers only within the writer's precision."""
+    if old == new:
+        return True
+    try:
+        before, after = Decimal(old), Decimal(new)
+        if not before.is_finite() or not after.is_finite():
+            return False
+        tolerance = Decimal(0) if exact else Decimal(5).scaleb(int(before.as_tuple().exponent) - 1)
+        return abs(before - after) <= tolerance
+    except (InvalidOperation, ValueError):
+        return False
+
+
+def _csv_rounding(old: str, new: str, inserted: str = "", *, exact: bool = False) -> bool:
+    """Compare rows in order, allowing only named columns and printed rounding."""
+    before, after = list(csv.reader(io.StringIO(old))), list(csv.reader(io.StringIO(new)))
+    if not before or len(before) != len(after):
+        return False
+    old_header, new_header = before[0], after[0]
+    if len(set(old_header)) != len(old_header) or len(set(new_header)) != len(new_header):
+        return False
+    if [column for column in new_header if column in old_header] != old_header:
+        return False
+    if any(
+        not inserted or not re.fullmatch(inserted, column)
+        for column in new_header
+        if column not in old_header
+    ):
+        return False
+    indexes = [new_header.index(column) for column in old_header]
+    for old_row, new_row in zip(before[1:], after[1:], strict=True):
+        if len(old_row) != len(old_header) or len(new_row) != len(new_header):
+            return False
+        if not all(
+            _within_printed_rounding(cell, new_row[index], exact=exact)
+            for cell, index in zip(old_row, indexes, strict=True)
+        ):
+            return False
+    return True
+
+
 def name_difference(
     kind: str,
     name: str,
@@ -1453,6 +1497,13 @@ def name_difference(
         if block and not re.fullmatch(block, "\n".join(lines)):
             continue
         if named.get("directed_toggles") and not _toggle_correction(old or "", new):
+            continue
+        if named.get("csv_rounding") and not _csv_rounding(
+            old or "",
+            new,
+            named.get("csv_inserted_columns", ""),
+            exact=named["csv_rounding"] == "exact",
+        ):
             continue
         lacks = named.get("release_lacks")
         if lacks and re.search(lacks, new):

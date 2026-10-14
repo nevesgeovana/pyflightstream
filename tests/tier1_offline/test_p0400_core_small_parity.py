@@ -157,3 +157,57 @@ def test_p0410_par_public_binding_keeps_its_object(module_name, name, home) -> N
     module = importlib.import_module(f"pyflightstream.{module_name}")
     defining = importlib.import_module(f"pyflightstream.{home}")
     assert getattr(module, name, None) is getattr(defining, name)
+
+
+@pytest.mark.parametrize(
+    ("new", "accepted"),
+    [
+        ("POL,CL\n1,0.12345\n2,-0.00680\n", True),
+        ("POL,CL\n1,0.123454\n2,-0.0068027\n", True),
+        ("POL,CL\n1,0.12346\n2,-0.00680\n", False),
+        ("POL,CL\n1,0.12345\n", False),
+        ("POL,CL\n1,0.12345\n2,-0.00680\n3,0.5\n", False),
+        ("CL,POL\n0.12345,1\n-0.00680,2\n", False),
+        ("POL,CL,unknown\n1,0.12345,0\n2,-0.00680,0\n", False),
+        ("POL,CL\n1,nan\n2,-0.00680\n", False),
+        ("POL,CL\n1,inf\n2,-0.00680\n", False),
+        ("POL,CL\n1,word\n2,-0.00680\n", False),
+        ("POL,CL\n1,0.12345,0\n2,-0.00680\n", False),
+        ("POL,f12_kind,CL\n1,0,0.12345\n2,1,-0.00680\n", True),
+    ],
+    ids=[
+        "P0410-PAR-exact",
+        "P0410-PAR-rounding",
+        "P0410-PAR-regression",
+        "P0410-PAR-dropped-row",
+        "P0410-PAR-added-row",
+        "P0410-PAR-reordered",
+        "P0410-PAR-unknown-column",
+        "P0410-PAR-nan",
+        "P0410-PAR-inf",
+        "P0410-PAR-text",
+        "P0410-PAR-width",
+        "P0410-PAR-named-column",
+    ],
+)
+def test_p0410_par_csv_rounding_is_bounded(new, accepted, monkeypatch) -> None:
+    """FR-124: naming a respelling cannot hide a changed value, row or column."""
+    module = _load()
+    monkeypatch.setattr(
+        module,
+        "NAMED_DIFFERENCES",
+        [
+            {
+                "kind": "post",
+                "pattern": "*.csv",
+                "since": "0.40.0",
+                "requirement": "FR-124",
+                "why": "writer precision",
+                "csv_rounding": "base",
+                "csv_inserted_columns": r"f\d+_kind",
+            }
+        ],
+    )
+    old = "POL,CL\n1,0.12345\n2,-0.00680\n"
+    found = module.name_difference("post", "table.csv", old, new, {"FR-124"}, "0.39.0")
+    assert ("requirement" in found) is accepted

@@ -13,6 +13,9 @@ FlightStream versions.
 
 ### Fixed
 
+- FR-124, FR-419: parity checks numeric respelling within the base writer's
+  printed rounding while preserving rows, column order and unchanged text.
+
 - AD-15: restore four public import bindings in `run.cli` and `script.helpers`;
   parity excludes private module paths and scopes documented retirements to
   their fully qualified names (FR-457, FR-458).
