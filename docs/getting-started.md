@@ -381,7 +381,8 @@ case = SimCase(
     recipe="mypackage.recipes:steady",
     outputs=["loads_{point}.txt"],
 )
-campaign = Campaign
+campaign = Campaign(name="polar", fs_version="26.120",
+                    fs_exe="C:/path/to/FlightStream.exe", sims=[case])
 ```
 
 `outputs` carries `{point}` for a reason: every point of a case runs in
