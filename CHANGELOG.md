@@ -357,9 +357,9 @@ message naming the record and missing input key, instead of raising KeyError. (F
 - read_csv_table now reports the file's own line number in errors when lines are skipped before the header.
 - Acoustic tables are written at round-trip float precision instead of five decimals. Rebuild acoustic tables to recover small amplitudes and exact time samples.
 - A calibration correction now also invalidates derived columns that depend on the corrected components: ETAW now includes CN and CS, and THRUST, TORQUE and the rotor-state columns read NA unless their source forces are stated.
-- read_custom_polar_format now raises ProductError naming the line for non-numeric values, a bad reference count, or non-ASCII bytes, instead of a bare ValueError or UnicodeDecodeError.
+- read_custom_polar_format raises ProductError naming the line for non-numeric values or a bad reference count. It accepts non-ASCII input and transliterates its title, matching the writer.
 - The generated input glossary page keeps the line endings the page already has, so a CRLF checkout is no longer rewritten with mixed endings on every plan or post.
-- Mirroring an installed-frame table now also flips YMOM and every *_PHASE_DEG column. Rebuild installed-frame copies from their source tables.
+- Mirroring an installed-frame table now also flips YMOM and maps azimuthal *_PHASE_DEG columns to their mirrored angles. C_PHASE_DEG and S_PHASE_DEG retain their transfer-function phases. Rebuild installed-frame copies from their source tables.
 - Blade-view harmonics refuse a negative X rotor axis; specify positive X and signed omega.
 - Probe fields, reductions and the probe table now read the Time-step clock through one reader; native fields are refused unless their steps are finite, whole and strictly increasing.
 - At nonpositive free-stream velocity, plots coefficient columns read NA and post warns; physical forces remain exported values.
@@ -435,7 +435,6 @@ message naming the record and missing input key, instead of raising KeyError. (F
 - A refinement or trailing-edge points file that is not UTF-8 is refused (PFS-2099.004).
 - An empty family selection is refused before anything is written (PFS-2099.005).
 - cases.TEMPLATE_SETTINGS_LEFT_OUT and workspace.missing_log_warning are now public contracts for the post layer. (no requirement: PFS-2098.004 fix)
-- On 26.125 exports, post.log now warns, once per point, that surfaces on the vorticity drag list were not judged by the declined-drag rule, so their axis drag columns are unjudged numbers. (no requirement: PFS-2085.021 fix)
 - Settings table adds an f<id>_kind column to distinguish enumeration codes from list lengths. Codebook version 1 retains its existing code meanings. (no requirement: PFS-2105.042 fix)
 - `pyfs-workspace init` and `migrate-geometries` accept `--workspace PATH`, as every other subcommand but `archive` does; their positional root still works, and two different folders are refused (no requirement: PFS-2089.004 fix).
 - A refinement file that selects a family with no `[families.<name>]` table warns, naming the family and the remedy, and `refine.json` records it under `missing_families_tables` (no requirement: PFS-2089.003 fix).
@@ -461,7 +460,7 @@ message naming the record and missing input key, instead of raising KeyError. (F
 decimals lose precision, including small induced-drag values. Readers must
 accept scientific notation. Settings retain their stated form and drift
 percentages keep five decimals. The optional legacy custom polar format keeps
-its external fixed-width, five-decimal contract. (no requirement: preserve small coefficient values when writing CSV).
+its external fixed-width contract, with up to five decimals and fewer when needed to retain a leading blank. (no requirement: preserve small coefficient values when writing CSV).
 - Forced reruns support Windows archive paths longer than the ordinary path limit
 and tolerate an output that disappears during archiving. An archive
 failure retains the old manifest records, and a later failure restores any
@@ -475,8 +474,8 @@ archives remain available for recovery. (no requirement: preserve records during
 - Small dimensional CSV values retain significant digits where five decimal
   places would lose precision. This covers viscosity, time (including the
   native plots clock), positions, sectional loads, velocities, boundary-layer
-  lengths, and dimensional rotor and group columns. Coefficients keep five
-  decimal places. Readers must accept scientific notation in physical columns. (no requirement: PFS-2105.041 fix)
+  lengths, and dimensional rotor and group columns. Coefficient precision
+  follows the significant-digit rule above. Readers must accept scientific notation in physical columns. (no requirement: PFS-2105.041 fix)
 - A probe history containing `NA` or blank cells keeps its other values and
   produces a probes table. Previously one such cell could skip the whole table. (no requirement: PFS-2105.016 fix)
 - Malformed recorded reduction windows are listed under that reduction's
