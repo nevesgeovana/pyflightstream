@@ -13,10 +13,10 @@ license: MIT
 # because a development tree has no release date; it once stated the
 # v0.3.0 date beside version 0.4.0.dev0, so a citation generated from
 # that tree asserted a release date for an artifact that was never
-# released (REV010-015). This is a RELEASE tree: the version carries no
-# development suffix and states date-released, which is the pair the
+# released (REV010-015). This is a DEVELOPMENT tree: the version carries a
+# development suffix and no date-released, which is the pair the
 # guard in tests/tier1_offline/test_metadata_currency.py enforces in both directions.
-# The next commit to move the pair is the post-tag one that opens the next
+# The next commit to move the pair is the release cut that closes this
 # development cycle, and it sets them the other way with this sentence; it is written as a statement about the
 # tree rather than as a rule so that it cannot quietly stop describing
 # the file it heads. It has now stopped TWICE, once in each direction:
@@ -75,8 +75,9 @@ license: MIT
 # move, the v0.37.0 release the SIXTIETH; 0.38.0.dev1 OPENED 0.38.0
 # DEVELOPMENT, the SIXTY-FIRST move, the v0.38.0 release the SIXTY-SECOND;
 # 0.39.0.dev1 OPENED 0.39.0 DEVELOPMENT, the SIXTY-THIRD move; the v0.39.0
-# release was the SIXTY-FOURTH move. This release cut sets v0.40.0 directly
-# from the previous release tree, the SIXTY-FIFTH move, and the paragraph is re-stated with it
+# release was the SIXTY-FOURTH move. The v0.40.0 release cut was the
+# SIXTY-FIFTH move. This 0.41.0.dev0 bump opens DEVELOPMENT, the SIXTY-SIXTH
+# move, and the paragraph is re-stated with it
 # because a tally naming a bump three releases old as "this" one is the
 # same staleness from the other side (the independent review of GitHub
 # main, 2026-09-22). A FOURTH
@@ -116,8 +117,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.40.0
-date-released: 2026-10-14
+version: 0.41.0.dev0
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi
