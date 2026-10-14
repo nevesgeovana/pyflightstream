@@ -61,7 +61,7 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.22
     hooks:
-      - id: ruff
+      - id: ruff-check
       - id: ruff-format
       # A THIRD RUFF ENTRY STOOD HERE and is gone with the reason for it.
       # The clean-room commit-msg hook used to live inside a directory

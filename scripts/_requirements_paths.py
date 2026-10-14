@@ -16,7 +16,7 @@ FUNCTIONAL_REQUIREMENTS = REQUIREMENTS_DIR / "functional-requirements.md"
 NONFUNCTIONAL_REQUIREMENTS = REQUIREMENTS_DIR / "nonfunctional-requirements.md"
 #: The requirements index page, relative to the repository root.
 REQUIREMENTS_INDEX = REQUIREMENTS_DIR / "index.md"
-#: Fragments that ``scripts/assemble_srs.py`` folds into the functional register.
+#: Legacy fragment location; current requirements are edited in the register.
 REQUIREMENTS_FRAGMENTS_DIR = REQUIREMENTS_DIR / "fr.d"
 
 
