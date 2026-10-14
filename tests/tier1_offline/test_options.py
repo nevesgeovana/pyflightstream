@@ -174,3 +174,24 @@ def test_qa_cli_defaults_follow_the_options():
     # drift runs the matrix through the run layer, whose timeout is the
     # campaign's and not a qa option any more (PFS-2031.17).
     assert drift.get_default("timeout") is None
+
+
+@pytest.mark.parametrize("explicit,expected", [(None, 7.0), (11.0, 11.0)])
+def test_p0400_bgtests2_probe_execution_uses_the_timeout_option(tmp_path, explicit, expected):
+    """PFS-2102.029: the configured timeout reaches the executor; an explicit value wins."""
+    from pyflightstream.qa import probe_version
+    from tests.tier1_offline.test_qa_probes import FakeFlightStream
+
+    seen = []
+
+    class TimedSolver(FakeFlightStream):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            seen.append(timeout_s)
+            return super().run_script(script_path, working_dir, timeout_s)
+
+    with option_context("qa.probe_timeout_s", 7.0):
+        kwargs = {} if explicit is None else {"timeout_s": explicit}
+        probe_version("26.120", workroot=tmp_path, executor=TimedSolver(), commands=[], **kwargs)
+    assert seen == [expected]
+    with pytest.raises(OptionError, match="no option is registered"):
+        get_option("qa.case_timeout_s")
