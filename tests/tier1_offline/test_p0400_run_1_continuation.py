@@ -10,10 +10,10 @@ from types import SimpleNamespace
 
 import pytest
 
+import tests.tier1_offline.test_restart_continuation as fr96
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.run._continuation import _refuse_a_field_the_stopped_run_did_not_read
 from pyflightstream.workspace import RunStatus
-from tests.tier1_offline import test_fr96_converged_continuation as fr96
 from tests.tier1_offline.test_g15_custom_freestream import field, with_field
 from tests.tier1_offline.test_workflows import steady_case
 
@@ -47,11 +47,16 @@ def test_p0400_a_ran_missing_log_march_is_not_continued_as_converged():
     the continuable set excludes it. It is now refused naming its status; the control, a
     CONVERGED march, is continued with the words it had.
     """
-    verdict = fr96._verdict("ADDITIONAL_REVS=1", fr96._record(RunStatus.RAN_MISSING_LOG))
+    verdict = fr96._fr96_converged_continuation___verdict(
+        "ADDITIONAL_REVS=1", fr96._fr96_converged_continuation___record(RunStatus.RAN_MISSING_LOG)
+    )
     assert not verdict.pending
     assert "RAN_MISSING_LOG" in str(verdict.said) and "CONVERGED" not in str(verdict.said)
-    control = fr96._verdict("ADDITIONAL_REVS=1", fr96._record(RunStatus.CONVERGED))
+    control = fr96._fr96_converged_continuation___verdict(
+        "ADDITIONAL_REVS=1", fr96._fr96_converged_continuation___record(RunStatus.CONVERGED)
+    )
     assert control.pending
     assert (
-        control.said == f"continuing a CONVERGED unsteady run, {fr96.POINT!r}, by 1 revolution(s)"
+        control.said
+        == f"continuing a CONVERGED unsteady run, {fr96._FR96_CONVERGED_CONTINUATION__POINT!r}, by 1 revolution(s)"  # noqa: E501
     )

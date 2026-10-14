@@ -229,7 +229,9 @@ def test_p0400_rotor_efficiency_warns(tmp_path):
 
     from pyflightstream.post.products import write_rotor_table
     from tests.tier1_offline.test_goal026_item06_rotor_loads import _reference, _rotor, _surfaces
-    from tests.tier1_offline.test_p0400_post_1_rotor_table import _row
+    from tests.tier1_offline.test_regression_post_rotor_acoustics import (
+        _post_1_rotor_table___row as _row,
+    )
 
     row = _row("camp/sim_1/P1", surfaces=_surfaces(Blade1={"Cz": 100.0, "CMz": 0.001}))
     with warnings.catch_warnings(record=True) as caught:

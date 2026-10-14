@@ -423,7 +423,9 @@ def _steady_probes(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
 
 
 def _continuation(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
-    from tests.tier1_offline.test_fr96_converged_continuation import _continued_workspace
+    from tests.tier1_offline.test_restart_continuation import (
+        _fr96_converged_continuation___continued_workspace as _continued_workspace,
+    )
 
     return _post(_continued_workspace(tmp, "whole march"), overwrite=True)
 
