@@ -93,7 +93,9 @@ def ring_sample_weights(fields: LatticeFields) -> np.ndarray:
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     """
     edges = np.asarray(fields.ring_edges)
     return 0.5 * (edges[1:] ** 2 - edges[:-1] ** 2) * delta_psi(fields.psi)

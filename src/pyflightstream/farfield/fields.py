@@ -2,9 +2,10 @@
 
 Pipeline role: the frozen numpy containers that replaced the xarray dataset of
 0.39.0 (FR-457). :class:`LatticeFields` carries the samples of a cylindrical
-survey lattice, shaped ``(station, ring, azimuth)``, with the lattice's own
-coordinates; :class:`PlaneFields` carries the samples of a rectangular
-far-field plane, shaped ``(y, z)``. Neither reads or writes a file (FR-450 R2).
+survey lattice, shaped ``(station, ring, azimuth)``, in the shaft-aligned
+coordinates defined by :mod:`pyflightstream.probes.lattice`; :class:`PlaneFields`
+carries the samples of a rectangular far-field plane, shaped ``(y, z)``. Neither
+reads or writes a file (FR-450 R2).
 
 Field names: axial velocity ``u`` (m/s, +x downstream), transverse Cartesian
 ``v`` (+y) and ``w`` (+z), cylindrical ``v_r`` and ``v_theta`` (derived, see
@@ -66,7 +67,8 @@ class LatticeFields:
     psi : numpy.ndarray
         Uniform azimuths in radians, shape ``(n_psi,)``.
     tip_radius : float
-        Reference radius R in simulation length units (m).
+        Reference radius R in metres for the SI balances. No unit conversion
+        is performed by this container or by :func:`lattice_fields`.
     values : mapping of str to numpy.ndarray
         Sampled fields, each shaped ``(n_stations, n_r, n_psi)``.
     lateral_radius : float or None
@@ -191,7 +193,9 @@ def lattice_fields(
     ----------
     lattice : ProbeLattice
         Lattice that placed the probes; supplies stations, ring centers, ring
-        edges, azimuths, the tip radius and the lateral cylinder.
+        edges, azimuths, the tip radius and the lateral cylinder. Supply the
+        tip radius in metres for SI balances; this function copies it
+        without converting simulation length units.
     fields : mapping of str to numpy.ndarray
         Sampled fields of the annular planes, each shaped
         ``(n_stations, n_r, n_psi)`` in the lattice sampling order.

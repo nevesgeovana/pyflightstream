@@ -101,7 +101,9 @@ def mass_flux(fields: LatticeFields, rho: float) -> np.ndarray:
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     rho : float
         Density in kg/m3.
 
@@ -126,7 +128,9 @@ def mass_closure(fields: LatticeFields, rho: float) -> MassClosure:
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     rho : float
         Density in kg/m3.
     """
@@ -145,7 +149,9 @@ def axial_flux(fields: LatticeFields, rho: float, v_inf: float) -> np.ndarray:
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     rho : float
         Density in kg/m3.
     v_inf : float
@@ -271,7 +277,9 @@ def lateral_flux(
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     rho : float
         Density in kg/m3.
     inlet : float
@@ -367,7 +375,9 @@ def shaft_torque(fields: LatticeFields, rho: float) -> np.ndarray:
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     rho : float
         Density in kg/m3.
 
@@ -507,7 +517,9 @@ def crossflow_kinetic_energy(fields: LatticeFields, rho: float) -> CrossflowEner
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     rho : float
         Density in kg/m3.
 

@@ -812,7 +812,9 @@ def rotor_channels(
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     rho : float
         Density in kg/m3.
     v_inf : float

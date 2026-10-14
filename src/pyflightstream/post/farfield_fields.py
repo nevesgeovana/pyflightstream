@@ -804,7 +804,9 @@ def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: fl
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     rho : float
         Density in kg/m3.
     speed : float
@@ -867,7 +869,9 @@ def ledger_values(
     Parameters
     ----------
     fields : LatticeFields
-        Survey lattice samples in the coordinate system documented above.
+        Survey samples in the shaft-aligned axes of
+        :mod:`pyflightstream.probes.lattice`, with the units of
+        :class:`~pyflightstream.farfield.fields.LatticeFields`.
     spec : LedgersSpec
         Selected balance channels and harmonic order of the ledger.
     rho : float
