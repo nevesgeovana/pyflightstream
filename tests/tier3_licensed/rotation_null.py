@@ -58,17 +58,18 @@ import math
 import sys
 from pathlib import Path
 
+from tests.support_program_checks import (
+    CONTROL as CONTROL,
+)
+from tests.support_program_checks import (
+    TURNED as TURNED,
+)
+from tests.support_program_checks import (
+    sim_id_of as sim_id_of,
+)
+
 HERE = Path(__file__).resolve().parent
 PRODUCTS = HERE / "post" / "matriz_rotate"
-
-#: The row that turns nothing: the propeller square to a uniform axial flow.
-CONTROL = "P9001-M100RE230AL+000"
-#: The rows that turn the mesh by +6 degrees about the hub's Y axis. One of
-#: them turns the flow the other way and is the null pair; the other turns it
-#: the same way and is the derangement. WHICH IS WHICH IS NOT WRITTEN HERE:
-#: it is what the measurement reports, because it is the solver's convention
-#: and not this module's opinion.
-TURNED = ("P9002-M100RE230AL+060", "P9003-M100RE230AL-060")
 
 #: How far the mesh turned, degrees, about the hub frame's Y axis. It is the
 #: ANGLE cell of rows 9002 and 9003 of matriz_rotate.fs.
@@ -160,16 +161,6 @@ class Verdict:
 
     def failures(self) -> list[tuple[str, float, float, float, bool]]:
         return [row for row in self.rows if not row[4]]
-
-
-def sim_id_of(point: str) -> str:
-    """The simulation id a point name leads with: ``P9002-M100RE230AL+060`` is ``9002``.
-
-    The sweep table is keyed by the row's ``sim_id``. Splitting the name on the dash and
-    taking the second part read ``M100RE230AL+060`` (or ``M100RE230AL`` for the minus row), a
-    key no row has, and the run died with a KeyError before scoring anything (PFS-2135.080).
-    """
-    return point.split("-", 1)[0].removeprefix("P")
 
 
 def sweep_rows() -> dict[str, dict[str, str]]:

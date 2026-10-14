@@ -6,25 +6,47 @@ pytest, so nothing offline ever ran them as they are run (PFS-2135.004, .047, .0
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
-from types import ModuleType
+
+from tests import support_program_checks
 
 REPO = Path(__file__).resolve().parents[2]
 TIER3 = REPO / "tests" / "tier3_licensed"
 
 
-def _program(name: str) -> ModuleType:
-    """Load one tier-3 program by its file, so tier 1 holds no import of the licensed tier."""
-    spec = importlib.util.spec_from_file_location(f"tier3_program_{name}", TIER3 / f"{name}.py")
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def test_p0400_offline_program_checks_import_no_licensed_modules(monkeypatch):
+    """The pure checks must work when the licensed tier cannot be imported."""
+    import builtins
+    import importlib
+
+    original = builtins.__import__
+
+    def offline_import(name, *args, **kwargs):
+        licensed = name == "tests.tier3_licensed" or name.startswith("tests.tier3_licensed.")
+        assert not licensed, name
+        return original(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", offline_import)
+    importlib.reload(support_program_checks)
+    test_p0400_a_gap_of_exactly_one_printed_unit_is_inside_the_band_for_the_unit_answer()
+    test_p0400_the_rotation_null_reads_the_simulation_id_a_point_name_leads_with()
+
+
+def _isolated_program(tmp_path: Path, name: str) -> Path:
+    """Copy the real entrypoint and its support into a tree holding no run artifacts."""
+    tests = tmp_path / "program-tree" / "tests"
+    scripts = tests / "tier3_licensed"
+    scripts.mkdir(parents=True)
+    for filename in ("__init__.py", "support_tier3.py"):
+        shutil.copyfile(REPO / "tests" / filename, tests / filename)
+    target = scripts / f"{name}.py"
+    shutil.copyfile(TIER3 / target.name, target)
+    return target
 
 
 def _clean_environment() -> dict[str, str]:
@@ -38,8 +60,9 @@ def test_p0400_the_actions_probe_starts_as_the_solvers_command_line_action(tmp_p
     The action's ``.cmd`` runs the file as a script, so ``sys.path[0]`` is its own folder and
     the repository root is absent; the program must find ``tests`` from its own location.
     """
+    program = _isolated_program(tmp_path, "actions_probe")
     done = subprocess.run(
-        [sys.executable, str(TIER3 / "actions_probe.py"), "--verdict"],
+        [sys.executable, str(program), "--verdict"],
         cwd=tmp_path,
         env=_clean_environment(),
         capture_output=True,
@@ -48,7 +71,8 @@ def test_p0400_the_actions_probe_starts_as_the_solvers_command_line_action(tmp_p
         check=False,
     )
     assert done.returncode == 0, done.stderr[-600:]
-    assert json.loads(done.stdout)["verdict"] in {"NOT_RUN", "YES", "NO", "NONE"}, done.stdout
+    assert json.loads(done.stdout)["verdict"] == "NOT_RUN", done.stdout
+    assert not (program.parent / "sims").exists()
 
 
 def test_p0400_the_duct_generator_runs_as_the_script_the_docs_name(tmp_path):
@@ -56,8 +80,9 @@ def test_p0400_the_duct_generator_runs_as_the_script_the_docs_name(tmp_path):
     from tests.support_tier3 import write_duct_obj
 
     target = tmp_path / "duct.obj"
+    program = _isolated_program(tmp_path, "duct")
     done = subprocess.run(
-        [sys.executable, str(TIER3 / "duct.py"), str(target)],
+        [sys.executable, str(program), str(target)],
         cwd=tmp_path,
         env=_clean_environment(),
         capture_output=True,
@@ -72,7 +97,7 @@ def test_p0400_the_duct_generator_runs_as_the_script_the_docs_name(tmp_path):
 
 def test_p0400_a_gap_of_exactly_one_printed_unit_is_inside_the_band_for_the_unit_answer():
     """P0400-TIER3-MESH-BAND: ``unit_answer`` shares the slack ``outside`` applies."""
-    mesh_routes = _program("mesh_routes")
+    mesh_routes = support_program_checks
 
     band = 1.0e-4
     one_unit = 1.0000000000000085e-4  # the binary quotient of a one-unit gap over the floor
@@ -90,7 +115,7 @@ def test_p0400_a_gap_of_exactly_one_printed_unit_is_inside_the_band_for_the_unit
 
 def test_p0400_the_rotation_null_reads_the_simulation_id_a_point_name_leads_with():
     """P0400-TIER3-ROTATION-NULL-SIM: both turned points resolve to a row of the sweep table."""
-    rotation_null = _program("rotation_null")
+    rotation_null = support_program_checks
 
     assert [rotation_null.sim_id_of(point) for point in rotation_null.TURNED] == ["9002", "9003"]
     assert rotation_null.sim_id_of(rotation_null.CONTROL) == "9001"
