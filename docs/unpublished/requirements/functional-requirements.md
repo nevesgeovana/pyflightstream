@@ -6441,6 +6441,13 @@ Requirements written after the specification was last reconciled with the packag
     Solution: 0.27.0. It moved every column of these tables one place to the
     right for a reader by position, which is why the migration page carries it.
 
+    Amendment for 0.40.0: coefficient and small dimensional CSV values retain
+    six significant figures wherever five decimal places lose precision
+    (PFS-2081.53, PFS-2105.041). `scripts/check_parity.py` names the polar and
+    section respelling differences: the row count and header order stay the
+    same, text cells stay identical, and each changed number differs by at
+    most half a unit of the base writer's last printed digit.
+
 !!! requirement "FR-125 A row states a custom free stream by an input file, and the plan checks the field against the body <span class='srs-implemented'>implemented</span>"
 
     *Origin: G15 of the 0.27.0 scope and G18 of the 0.28.0 scope. The need: to include it already in 0.27 and a custom freestream (G18) from an input file. Evidence:
@@ -9762,6 +9769,7 @@ The requirements of 0.37.0 (GOAL-044), one box per item of the scope closed on 2
     - R1 The workspace product is the WIDE form, one row per point, keyed by POL and run id (owner decision of 2026-10-05: "mantem as duas opções sendo que para o workspace, é gerado a (a)."); the library writer keeps both forms (`wide=True` and the long form, one row per setting per point); a point without a snapshot has no row and is named by one INFO line in `post.log`, never a blank row and never a recorded skip (a default-on product must not turn `--strict` red on a workspace whose records predate the snapshot); if no point has a snapshot the two files are not written and `post.log` says so once.
     - R2 The two files are listed in `products.json` with kind `settings_codebook`; a rebuild replaces them as it replaces the other products.
     - R3 With the key false, the post writes nothing new and its products are byte-identical against 0.36.0. By default the two files and their `products.json` entries are the only difference against 0.36.0: `scripts/check_parity.py` names it, and the products snapshot is regenerated for it in the same commit, the commit message saying the expectation changed by that decision.
+    - R4 From 0.40.0, the wide table adds an `f<id>_kind` column for each setting to distinguish enumeration codes from list lengths (PFS-2105.042), and writes finite values at their shortest exact spelling (PFS-2105.020). `scripts/check_parity.py` names these differences: rows and existing column order are preserved, only `f<id>_kind` columns may be inserted, and common numeric cells retain exactly the same value.
 
     Verification: test, `tests/tier1_offline/test_p0370_s7_codebook.py`, carrying P0370-S7-CODEBOOK (FR-419): a recorded campaign posted with the key absent (default on), true, and false; the table's rows against the records; the legend's version; the manifest entries; a point without a snapshot (an INFO line, no skip, `--strict` stays green; a mutant recording it as a skip fails).
 

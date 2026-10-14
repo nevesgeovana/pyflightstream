@@ -211,3 +211,38 @@ def test_p0410_par_csv_rounding_is_bounded(new, accepted, monkeypatch) -> None:
     old = "POL,CL\n1,0.12345\n2,-0.00680\n"
     found = module.name_difference("post", "table.csv", old, new, {"FR-124"}, "0.39.0")
     assert ("requirement" in found) is accepted
+
+
+@pytest.mark.parametrize(
+    ("path", "old", "new", "requirement"),
+    [
+        ("m/polars/p.csv", "POL,CL\n1,0.12345\n", "POL,CL\n1,0.123454\n", "FR-124"),
+        ("m/sections/p.csv", "POL,CP\n1,0.00380\n", "POL,CP\n1,0.003802\n", "FR-124"),
+        ("m/settings/m_settings.csv", "POL,f1\n1,4.00000\n", "POL,f1,f1_kind\n1,4.0,0\n", "FR-419"),
+    ],
+    ids=["P0410-PAR-polars", "P0410-PAR-sections", "P0410-PAR-settings"],
+)
+def test_p0410_par_products_name_only_the_documented_release_change(path, old, new, requirement):
+    module = _load()
+    assert (
+        module.name_difference("post", path, old, new, {requirement}, "0.39.0").get("requirement")
+        == requirement
+    )
+    assert "requirement" not in module.name_difference("post", path, old, new, set(), "0.39.0")
+    assert "requirement" not in module.name_difference(
+        "post", path, old, new, {requirement}, "0.40.0"
+    )
+    if requirement == "FR-419":
+        assert "requirement" not in module.name_difference(
+            "post", path, old, new.replace("4.0", "4.000001"), {requirement}, "0.39.0"
+        )
+
+
+def test_p0410_par_grouped_render_compares_one_complete_batch(tmp_path):
+    """P0410-PAR: script parity is independent of cost-fit batch boundaries."""
+    from tests.support_helpers import grouped_plan_fixture
+
+    workspace, matrix = grouped_plan_fixture(tmp_path, walltimes=("1h", "1h"))
+    result = _load()._workspace_render(matrix, workspace.root, ["--batch"])
+    assert len(result["scripts"]) == 1
+    assert next(iter(result["scripts"])).startswith("BATCH-")

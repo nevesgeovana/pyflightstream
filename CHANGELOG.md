@@ -13,6 +13,12 @@ FlightStream versions.
 
 ### Fixed
 
+- FR-124, FR-419: name the 0.40.0 polar, section and settings CSV format
+  changes in the parity checker with bounded numeric comparisons.
+- FR-362: batch script parity compares one complete batch. The 0.40.0 cost
+  fit excludes failed and incomplete runs (PFS-2094.014, PFS-2094.015), so
+  estimates and batch membership can change for workspaces with those records.
+
 - FR-314: the local-run counter regression test uses deterministic polling
   instead of elapsed wall time to observe progress.
 

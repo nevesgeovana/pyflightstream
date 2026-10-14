@@ -228,6 +228,37 @@ _S11_WHY = (
 #: that reverted a fix passed as named.
 NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
+        "kind": "post",
+        "pattern": "*/polars/*.csv",
+        "csv_rounding": "base",
+        "requirement": "FR-124",
+        "since": "0.40.0",
+        "why": "c61eb487 (PFS-2081.53): coefficients retain six significant figures",
+    },
+    {
+        "kind": "post",
+        "pattern": "*/sections/*.csv",
+        "csv_rounding": "base",
+        "requirement": "FR-124",
+        "since": "0.40.0",
+        "why": (
+            "505c8dc0, extended by a9d674f1 (PFS-2105.041): "
+            "small dimensional values retain significant digits"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/settings/*_settings.csv",
+        "csv_rounding": "exact",
+        "csv_inserted_columns": r"f\d+_kind",
+        "requirement": "FR-419",
+        "since": "0.40.0",
+        "why": (
+            "6a9ee69f (PFS-2105.042): setting kinds distinguish codes from list lengths; "
+            "68755be9 (PFS-2105.020): values use their shortest exact spelling"
+        ),
+    },
+    {
         "kind": "left_out",
         "pattern": "*",
         # The reason the grouped plan prints for a coupled row on steady or qsteady_rotor,
@@ -1017,9 +1048,10 @@ def _workspace_render(matrix: Path, ws: Path, flags: list[str]) -> dict[str, Any
     from pyflightstream.workspace import CampaignWorkspace
     from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 
-    # This namespace mirrors the CLI's plan arguments for grouped dispatch.
+    # Compare whole scripts, independent of cost-fit changes to batch boundaries
+    # (5469cef0, PFS-2094.014; 496b8720, PFS-2094.015). FR-362 tests the split.
     args = argparse.Namespace(
-        batch=2 if "--batch" in flags else None, polar_sweep="--polar-sweep" in flags
+        batch=1 if "--batch" in flags else None, polar_sweep="--polar-sweep" in flags
     )
     # The CLI catches config refusals and returns 2. Use its library dispatcher
     # so expected exception types and their complete messages survive collection.
