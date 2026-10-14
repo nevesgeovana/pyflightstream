@@ -198,7 +198,7 @@ def test_the_release_wheel_is_built_from_the_tree_with_the_release_identity(buil
     build_steps = " ".join(str(step.get("run", "")) for step in release["jobs"]["build"]["steps"])
     assert "python -m build" in build_steps
     assert "does not match pyproject.toml version" in build_steps
-    assert set(release["jobs"]["publish"]["needs"]) >= {"build", "test-artifact", "gates"}
+    assert set(release["jobs"]["publish"]["needs"]) >= {"build", "test-artifact", "ci-at-sha"}
 
     shipped = set(built["files"])
     modules = {

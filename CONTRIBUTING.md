@@ -84,9 +84,13 @@ an unguarded `import pypdf` reached the v0.7.0 tag past every reviewer
 pass of that release, all of them reading in an environment that had it
 (INC-20260810-2140-shared).
 
-That incident also produced a rule about WHEN a tag is cut, which is not
-a test and is stated rather than enforced here: a version tag names a
-commit whose CI has already concluded green. The v0.7.0 tag was pushed
+That incident also produced a rule about WHEN a tag is cut: a version tag
+names a commit whose CI on `main` has already concluded green. Release
+checks that exact SHA through the GitHub API on tags and `dry-run/**`
+pushes, requiring the latest attempt of every matching CI run to have
+completed successfully. A missing run fails; for a docs-only commit, run
+`gh workflow run ci.yml --ref main` and wait for success at that SHA before
+retrying the release. The v0.7.0 tag was pushed
 fifteen seconds after its branch, with CI still running and then red.
 The battery above was named `prove_extras_and_ci_guards.py` and carried
 a mechanical half of that rule until 2026-08-11.

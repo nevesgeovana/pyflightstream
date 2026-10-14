@@ -111,7 +111,7 @@ def test_the_publish_job_waits_for_the_jobs_that_test_the_artifact() -> None:
         "publish does not wait for the job that installs and tests the built wheel, "
         f"it waits for {needs}. Building an artifact is not evidence that it works."
     )
-    assert "gates" in needs, f"publish does not wait for the release gates, it waits for {needs}"
+    assert "ci-at-sha" in needs, f"publish does not wait for main CI at its SHA: {needs}"
 
 
 def test_the_artifact_job_installs_the_wheel_rather_than_the_source() -> None:

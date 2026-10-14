@@ -7,8 +7,8 @@
 # the tag is cut once the gates below are green.
 #
 # A push to a branch named dry-run/** runs build, test-artifact (both
-# runners) and gates exactly as a tag does, and skips the tag-only steps
-# (the tag-to-version check and the publish job), so a release is rehearsed
+# runners) and the main-CI check, and skips the tag-only work
+# (coverage, the tag-to-version check and publishing), so a release is rehearsed
 # on the real runners before any tag exists (FR-345, P0340-RELEASE-TITLE).
 #
 # A 2026-08 review changed the SHAPE of this workflow. It used to build, run
@@ -167,31 +167,60 @@ jobs:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
         run: pytest -o pythonpath= README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
-  gates:
+  ci-at-sha:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
-        with:
-          python-version: "3.12"
-      - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom,excel]
-      - name: Lint
-        run: ruff check .
-      - name: Format check
-        run: ruff format --check .
-      - name: Type check
-        run: mypy
-      - name: Docs build
-        run: properdocs build --strict
+      - name: Require successful main CI at this exact SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+
+          sha = os.environ["GITHUB_SHA"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          endpoint = f"repos/{repository}/actions/runs?head_sha={sha}&branch=main&per_page=100"
+          pages = json.loads(subprocess.check_output(
+              ["gh", "api", "--paginate", "--slurp", endpoint], text=True
+          ))
+          # The API lists the current attempt. Also deduplicate by run ID,
+          # keeping the highest attempt if pages contain repeated records.
+          latest = {}
+          for page in pages:
+              for run in page["workflow_runs"]:
+                  if (run["path"] != ".github/workflows/ci.yml"
+                          or run["name"] != "ci"
+                          or run["head_branch"] != "main"
+                          or run["head_sha"] != sha):
+                      continue
+                  previous = latest.get(run["id"])
+                  if previous is None or run["run_attempt"] > previous["run_attempt"]:
+                      latest[run["id"]] = run
+          if not latest:
+              raise SystemExit(
+                  f"No main CI run at {sha}. A docs-only push may have skipped CI; "
+                  "run gh workflow run ci.yml --ref main and wait for success "
+                  "at this exact SHA before retrying."
+              )
+          for run in latest.values():
+              if run["status"] != "completed" or run["conclusion"] != "success":
+                  raise SystemExit(
+                      f"Main CI run {run['id']} attempt {run['run_attempt']} at {sha}: "
+                      f"status={run['status']}, conclusion={run['conclusion']}; "
+                      "completed success is required."
+                  )
+          print(f"Main CI succeeded at {sha}: {len(latest)} run(s), latest attempts checked")
+          PY
 
   publish:
     # Every gate, not just the build. A tag used to publish while ci.yml
     # was red because nothing here waited for it.
-    needs: [build, test-artifact, gates]
+    needs: [build, test-artifact, ci-at-sha]
     # Only a v* tag publishes; a dry-run/** branch stops after the gates.
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
