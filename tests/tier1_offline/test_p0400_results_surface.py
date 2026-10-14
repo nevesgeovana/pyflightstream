@@ -34,17 +34,53 @@ TRANSLATIONS = [
 
 
 @pytest.mark.parametrize(
-    ("text", "error"),
+    ("text", "error", "message"),
     [
-        (VTK.split("POINTS")[0] + "POINTS\n", IncompleteOutputError),
-        (VTK.split("POLYGONS")[0] + "POLYGONS 2\n", IncompleteOutputError),
-        (VTK.split("CELL_DATA")[0] + "CELL_DATA\n", IncompleteOutputError),
-        (VTK.replace("POINTS 4 float", "POINTS four float"), MalformedOutputError),
-        (VTK.replace("POINTS 4 float", "POINTS -4 float"), MalformedOutputError),
-        (VTK.replace("POLYGONS 2 8", "POLYGONS 2"), MalformedOutputError),
-        (VTK.replace("POLYGONS 2 8", "POLYGONS 2 8.5"), MalformedOutputError),
-        (VTK.replace("CELL_DATA 2", "CELL_DATA two"), MalformedOutputError),
-        (VTK.replace("Cp_reference FLOAT", "Cp_reference FLOAT one"), MalformedOutputError),
+        (
+            VTK.split("POINTS")[0] + "POINTS\n",
+            IncompleteOutputError,
+            "POINTS.*states no count.*truncated",
+        ),
+        (
+            VTK.split("POLYGONS")[0] + "POLYGONS 2\n",
+            IncompleteOutputError,
+            "POLYGONS.*states no count.*truncated",
+        ),
+        (
+            VTK.split("CELL_DATA")[0] + "CELL_DATA\n",
+            IncompleteOutputError,
+            "CELL_DATA.*states no count.*truncated",
+        ),
+        (
+            VTK.replace("POINTS 4 float", "POINTS four float"),
+            MalformedOutputError,
+            "POINTS.*'four'.*whole count",
+        ),
+        (
+            VTK.replace("POINTS 4 float", "POINTS -4 float"),
+            MalformedOutputError,
+            "POINTS.*negative count -4.*nonnegative",
+        ),
+        (
+            VTK.replace("POLYGONS 2 8", "POLYGONS 2"),
+            MalformedOutputError,
+            "POLYGONS.*states no count",
+        ),
+        (
+            VTK.replace("POLYGONS 2 8", "POLYGONS 2 8.5"),
+            MalformedOutputError,
+            "POLYGONS.*'8.5'.*whole count",
+        ),
+        (
+            VTK.replace("CELL_DATA 2", "CELL_DATA two"),
+            MalformedOutputError,
+            "CELL_DATA.*'two'.*whole count",
+        ),
+        (
+            VTK.replace("Cp_reference FLOAT", "Cp_reference FLOAT one"),
+            MalformedOutputError,
+            "SCALARS.*Cp_reference.*'one'.*component count",
+        ),
     ],
     ids=[
         "cut-after-POINTS",
@@ -58,11 +94,13 @@ TRANSLATIONS = [
         "mangled-SCALARS-components",
     ],
 )
-def test_p0400_results_a_cut_or_mangled_vtk_header_is_a_catalogued_refusal(tmp_path, text, error):
+def test_p0400_results_a_cut_or_mangled_vtk_header_is_a_catalogued_refusal(
+    tmp_path, text, error, message
+):
     """P0400-RESULTS (PFS-2095.023): no bare IndexError or ValueError escapes the reader."""
     path = tmp_path / "surface.vtk"
     path.write_text(text, encoding="utf-8")
-    with pytest.raises(error):
+    with pytest.raises(error, match=message):
         read_vtk_surface(path)
 
 
@@ -74,8 +112,16 @@ def test_p0400_results_the_vtk_fixture_reads(tmp_path):
     assert (surface.n_points, surface.n_cells) == (4, 2)
 
 
-@pytest.mark.parametrize("change", ["variables", "location", "encoding", "count"])
-def test_p0400_results_malformed_native_headers_raise_catalogued_errors(tmp_path, change):
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ("variables", "VARIABLES needs an equals sign.*quoted variable names"),
+        ("location", "variable location.*invalid index.*whole index"),
+        ("encoding", "Singularity_strength contains invalid values"),
+        ("count", "NODES count cannot be read as a whole number"),
+    ],
+)
+def test_p0400_results_malformed_native_headers_raise_catalogued_errors(tmp_path, change, message):
     """P0400-RESULTS-SURFACE (PFS-2095.023): native text cannot raise a raw parser error."""
     path = _native(tmp_path / "native.dat")
     content = path.read_bytes()
@@ -88,5 +134,5 @@ def test_p0400_results_malformed_native_headers_raise_catalogued_errors(tmp_path
     else:
         content = content.replace(b"30 10 40 20", b"30 10 40 " + bytes([255]))
     path.write_bytes(content)
-    with pytest.raises(MalformedOutputError):
+    with pytest.raises(MalformedOutputError, match=message):
         read_native_tecplot_surface(path)
