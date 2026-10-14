@@ -87,7 +87,7 @@ import tarfile
 import tempfile
 import tomllib
 import types
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -249,13 +249,14 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "post",
         "pattern": "*/settings/*_settings.csv",
-        "csv_rounding": "exact",
+        "csv_rounding": "coarser",
         "csv_inserted_columns": r"f\d+_kind",
         "requirement": "FR-419",
         "since": "0.40.0",
         "why": (
             "6a9ee69f (PFS-2105.042): setting kinds distinguish codes from list lengths; "
-            "68755be9 (PFS-2105.020): values use their shortest exact spelling"
+            "68755be9 (PFS-2105.020): settings convergence precision correction replaces "
+            "five-decimal rounding with the shortest exact spelling"
         ),
     },
     {
@@ -1450,7 +1451,7 @@ def _toggle_correction(old: str, new: str) -> bool:
     )
 
 
-def _within_printed_rounding(old: str, new: str, *, exact: bool) -> bool:
+def _within_printed_rounding(old: str, new: str, *, coarser: bool) -> bool:
     """Keep text identical; admit finite numbers only within the writer's precision."""
     if old == new:
         return True
@@ -1458,17 +1459,26 @@ def _within_printed_rounding(old: str, new: str, *, exact: bool) -> bool:
     # and text were written literally, so their spelling implies no lost digits.
     if not re.fullmatch(r"-?\d+\.\d{5}", old):
         return False
+    if not re.fullmatch(r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", new):
+        return False
     try:
         before, after = Decimal(old), Decimal(new)
         if not before.is_finite() or not after.is_finite():
             return False
-        tolerance = Decimal(0) if exact else Decimal("0.000005")
-        return abs(before - after) <= tolerance
+        if coarser:
+            quantum = max(
+                Decimal(1).scaleb(int(before.as_tuple().exponent)),
+                Decimal(1).scaleb(int(after.as_tuple().exponent)),
+            )
+            return before.quantize(quantum, rounding=ROUND_HALF_EVEN) == after.quantize(
+                quantum, rounding=ROUND_HALF_EVEN
+            )
+        return abs(before - after) <= Decimal("0.000005")
     except (InvalidOperation, ValueError):
         return False
 
 
-def _csv_rounding(old: str, new: str, inserted: str = "", *, exact: bool = False) -> bool:
+def _csv_rounding(old: str, new: str, inserted: str = "", *, coarser: bool = False) -> bool:
     """Compare rows in order, allowing only named columns and printed rounding."""
     before, after = list(csv.reader(io.StringIO(old))), list(csv.reader(io.StringIO(new)))
     if not before or len(before) != len(after):
@@ -1508,7 +1518,7 @@ def _csv_rounding(old: str, new: str, inserted: str = "", *, exact: bool = False
         ):
             return False
         if not all(
-            _within_printed_rounding(cell, new_row[index], exact=exact)
+            _within_printed_rounding(cell, new_row[index], coarser=coarser)
             for cell, index in zip(old_row, indexes, strict=True)
         ):
             return False
@@ -1557,7 +1567,7 @@ def name_difference(
             old or "",
             new,
             named.get("csv_inserted_columns", ""),
-            exact=named["csv_rounding"] == "exact",
+            coarser=named["csv_rounding"] == "coarser",
         ):
             continue
         lacks = named.get("release_lacks")

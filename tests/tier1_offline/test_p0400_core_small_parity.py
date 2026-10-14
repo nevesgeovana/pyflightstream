@@ -239,7 +239,7 @@ def test_p0410_par_products_name_only_the_documented_release_change(path, old, n
     )
     if requirement == "FR-419":
         assert "requirement" not in module.name_difference(
-            "post", path, old, new.replace("4.0", "4.000001"), {requirement}, "0.39.0"
+            "post", path, old, new.replace("4.0", "4.00001"), {requirement}, "0.39.0"
         )
 
 
@@ -297,3 +297,60 @@ def test_p0410_par_settings_accepts_the_frozen_kind_codes(kind):
         .get("requirement")
         == "FR-419"
     )
+
+
+def test_p0410_rv1_the_documented_settings_precision_change_is_named(tmp_path):
+    """RV1-003: convergence 1e-6 was printed as zero before 68755be9."""
+    import csv
+
+    from pyflightstream.post.settings_table import write_settings_table
+    from pyflightstream.script import Script, helpers
+
+    setup = helpers.solver_settings(Script(version="26.120"), convergence=1e-6)
+    table, _ = write_settings_table(tmp_path / "settings.csv", [setup], wide=True)
+    with table.open(encoding="utf-8", newline="") as stream:
+        row = next(csv.DictReader(stream))
+    assert row["f12_value"] == "1e-06"
+    assert row["f12_kind"] == "3"
+    old = "POL,f12_value,f12_prov\n1,0.00000,1\n"
+    new = "POL,f12_value,f12_prov,f12_kind\n1,1e-06,1,3\n"
+    found = _load().name_difference(
+        "post", "m/settings/m_settings.csv", old, new, {"FR-419"}, "0.39.0"
+    )
+    assert found.get("requirement") == "FR-419", found
+    assert "68755be9" in found["why"]
+    assert "convergence" in found["why"]
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "accepted"),
+    [
+        ("0.00000", "1e-06", True),
+        ("0.00001", "2e-05", False),
+        ("0.12346", "0.1235", True),
+        ("0.12344", "0.1235", False),
+        ("0.00001", "0.000015", False),
+        ("0.00002", "0.000015", True),
+        ("-0.00000", "-1e-06", True),
+        ("1", "1.4", False),
+        ("100", "100.4", False),
+        ("0", "0.1", False),
+        ("1e3", "1100", False),
+        ("NA", "0.0", False),
+        ("word", "other", False),
+        ("0.00000", "NaN", False),
+        ("0.00000", "Infinity", False),
+        ("0.00000", "0_0", False),
+    ],
+)
+def test_p0410_rv1_settings_compare_at_the_coarser_printed_precision(old, new, accepted):
+    """RV1-003: both cells round alike; RV1-001 literals remain exact."""
+    found = _load().name_difference(
+        "post",
+        "m/settings/m_settings.csv",
+        f"POL,f12_value,f12_prov\n1,{old},1\n",
+        f"POL,f12_value,f12_prov,f12_kind\n1,{new},1,3\n",
+        {"FR-419"},
+        "0.39.0",
+    )
+    assert ("requirement" in found) is accepted, found
