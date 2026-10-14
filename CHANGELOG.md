@@ -109,7 +109,7 @@ FlightStream versions.
 
 ### Changed
 
-- New far-field and probe-layout functions require keywords after their primary argument, so coordinates, field arrays, forces and sampling scales cannot be exchanged silently by position. The numpy harmonic functions likewise take the new azimuth array as `psi=...`. See [far-field signatures](docs/upgrading.md#far-field-signatures) for migration examples.
+- NFR-20, FR-457: New far-field and probe-layout functions require keywords after their primary argument, so coordinates, field arrays, forces and sampling scales cannot be exchanged silently by position. The numpy harmonic functions likewise take the new azimuth array as `psi=...`. See [far-field signatures](docs/upgrading.md#far-field-signatures) for migration examples.
 - mypy recount 2026-10-13: 165 errors in 13 of 343 modules, on the 0.40.0 tree; the shipped
   configuration is green over all 343. Three exempted modules are clean and their overrides are
   deleted (`pyflightstream.farfield`, `pyflightstream.fsi.driver` and `pyflightstream.script.entities`),
