@@ -15,45 +15,46 @@ Every fixture is synthetic: a uniform stream, a uniform crossflow.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pytest
 
-from pyflightstream.cases._farfield_spec import LatticeShape
+if TYPE_CHECKING:
+    from pyflightstream.post.farfield_fields import ProbeSamples
+
 from pyflightstream.farfield import mass_closure
-from pyflightstream.post.farfield_fields import (
-    FarLayout,
-    ProbeSamples,
-    far_samples,
-    lattice_samples,
-    plane_values,
-    recorded_layout,
-    steady_samples,
-    unsteady_samples,
-)
-from pyflightstream.probes.layouts import farfield_plane, lattice_points
-from tests.tier1_offline.test_p0400_rfixF_layout import _export
 
 pytestmark = pytest.mark.requirement("FR-455")
 
-_LATTICE = LatticeShape.model_validate(
-    {"frame": "MRP", "tip_radius_m": 0.5, "stations": [2.0], "n_r": 2, "n_psi": 8}
-).build(1.0)
 _ORIGIN = np.array([0.25, 0.0, 0.0])
-_LOCAL = lattice_points(_LATTICE, axis="X")
-_SHAPE = {
-    "kind": "lattice",
-    "source": "declared",
-    "entry": 1,
-    "count": len(_LOCAL),
-    "lattice": _LATTICE.model_dump(mode="json"),
-    "axis": "X",
-    "origin_m": [float(v) for v in _ORIGIN],
-    "positions_frame": "MRP",
-}
+
+
+def _lattice_case():
+    from pyflightstream.cases._farfield_spec import LatticeShape
+    from pyflightstream.probes.layouts import lattice_points
+
+    lattice = LatticeShape.model_validate(
+        {"frame": "MRP", "tip_radius_m": 0.5, "stations": [2.0], "n_r": 2, "n_psi": 8}
+    ).build(1.0)
+    local = lattice_points(lattice, axis="X")
+    shape = {
+        "kind": "lattice",
+        "source": "declared",
+        "entry": 1,
+        "count": len(local),
+        "lattice": lattice.model_dump(mode="json"),
+        "axis": "X",
+        "origin_m": [float(v) for v in _ORIGIN],
+        "positions_frame": "MRP",
+    }
+    return lattice, local, shape
 
 
 def _unsteady(entries: list[tuple[np.ndarray, str, float]]) -> ProbeSamples:
     """One step of fluid plots: each entry's points (native = m), frame label and axial speed."""
+    from pyflightstream.post.farfield_fields import unsteady_samples
+
     positions: dict[int, tuple[float, float, float, str]] = {}
     series: dict[str, np.ndarray] = {}
     vertex = 0
@@ -69,6 +70,9 @@ def _unsteady(entries: list[tuple[np.ndarray, str, float]]) -> ProbeSamples:
 
 
 def _mdot(samples: ProbeSamples, block: slice | np.ndarray) -> float:
+    from pyflightstream.post.farfield_fields import lattice_samples
+
+    _LATTICE, _, _ = _lattice_case()
     fields = lattice_samples(samples, block, _LATTICE, "X", q=0.5 * 1.225 * 20.0**2)
     return float(mass_closure(fields, 1.225).mdot[0])
 
@@ -82,6 +86,9 @@ def test_p0400_rfixf2_a_translated_frame_lattice_reads_its_own_samples():
     positions (local plus the frame origin) with 50 m/s. Post must read the
     20 m/s, and the balance must be the lattice's own mass flow.
     """
+    from pyflightstream.post.farfield_fields import far_samples, recorded_layout
+
+    _, _LOCAL, _SHAPE = _lattice_case()
     samples = _unsteady([(_LOCAL, "MRP", 20.0), (_LOCAL + _ORIGIN, "REFERENCE", 50.0)])
     lattice, plane, why = far_samples(samples, recorded_layout([_SHAPE]), per_m=1.0)
     assert why == "" and plane is None
@@ -93,12 +100,17 @@ def test_p0400_rfixf2_a_translated_frame_lattice_reads_its_own_samples():
 @pytest.mark.requirement("FR-455")
 def test_p0400_rfixf2_a_frame_lattice_found_twice_in_its_frame_is_refused():
     """P0400-RFIXF2-MATCHING (FR-455 R2): two MRP entries at the same points are refused."""
+    from pyflightstream.post.farfield_fields import far_samples, recorded_layout
+
+    _, _LOCAL, _SHAPE = _lattice_case()
     samples = _unsteady([(_LOCAL, "MRP", 20.0), (_LOCAL, "MRP", 50.0)])
     lattice, _, why = far_samples(samples, recorded_layout([_SHAPE]), per_m=1.0)
     assert lattice is None and "2 times" in why
 
 
 def _plane(center: tuple[float, float, float], grid: float) -> np.ndarray:
+    from pyflightstream.probes.layouts import farfield_plane
+
     return farfield_plane(
         center,
         direction=(1.0, 0.0, 0.0),
@@ -125,6 +137,9 @@ def _plane_shape(center: tuple[float, float, float], grid: float) -> dict:
 
 def _crossflow(points: np.ndarray) -> ProbeSamples:
     """A steady export of ``points`` in a 10 m/s stream with a 1 m/s crossflow."""
+    from pyflightstream.post.farfield_fields import steady_samples
+    from tests.tier1_offline.test_p0400_rfixF_layout import _export
+
     velocity = np.tile([10.0, 1.0, 0.0], (len(points), 1))
     return steady_samples(_export(points, velocity))
 
@@ -136,6 +151,8 @@ def test_p0400_rfixf2_a_distant_plane_of_another_grid_is_refused():
     The control is the recorded 4 m2 plane at the same place: matched, and its
     induced drag is the crossflow's 0.5 rho v^2 S = 2 N.
     """
+    from pyflightstream.post.farfield_fields import far_samples, plane_values, recorded_layout
+
     center = (30000.0, 0.0, 0.0)
     samples = _crossflow(_plane(center, 1.0))
     _, plane, why = far_samples(samples, recorded_layout([_plane_shape(center, 2.0)]), per_m=1.0)
@@ -154,6 +171,8 @@ def test_p0400_rfixf2_a_legacy_export_with_a_distant_point_keeps_a_tight_toleran
     A record without a layout matches the plane by shape. A distant unrelated
     point before a 1 m grid must not make a 2 m grid's shape match it.
     """
+    from pyflightstream.post.farfield_fields import FarLayout, far_samples
+
     points = np.vstack([[[1.0e6, 0.0, 0.0]], _plane((5.0, 0.0, 0.0), 1.0)])
     samples = _crossflow(points)
     wider = FarLayout(
@@ -171,7 +190,23 @@ def test_p0400_rfixf2_a_legacy_export_with_a_distant_point_keeps_a_tight_toleran
 @pytest.mark.requirement("FR-455")
 def test_p0400_rfixf2_a_layout_finer_than_the_printed_digits_is_refused():
     """P0400-RFIXF2-MATCHING (FR-455 R2, PFS-2081.103): seven digits cannot place 1 m at 3e7 m."""
+    from pyflightstream.post.farfield_fields import far_samples, recorded_layout
+
     center = (3.0e7, 0.0, 0.0)
     samples = _crossflow(_plane(center, 1.0))
     _, plane, why = far_samples(samples, recorded_layout([_plane_shape(center, 1.0)]), per_m=1.0)
     assert plane is None and "printed precision" in why
+
+
+@pytest.mark.parametrize("tag", ["080", "0390", "01000", "123456"])
+def test_p0400_bgtests2_parity_normalizes_any_report_tag_length(tag):
+    """PFS-2081.10: the report tag is a digit run, not a four-digit field."""
+    from tests.tier1_offline.test_p0400_core_small_parity import _load
+
+    normalize = _load().normalize
+    report = f'{{"superfile_report": "reports/superfile-{tag}.json"}}'.encode()
+    assert normalize("m/products.json", report) == (
+        b'{"superfile_report": "reports/superfile-<VERSION>.json"}'
+    )
+    unrelated = b'{"path": "elsewhere/superfile-080.json", "x": "reports/superfile-a1.json"}'
+    assert normalize("m/products.json", unrelated) == unrelated
