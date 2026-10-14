@@ -9,6 +9,7 @@ runs.
 from __future__ import annotations
 
 import ast
+import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -359,10 +360,14 @@ def test_p0400_bg_the_detection_route_check_counts_every_marked_line(monkeypatch
     """PFS-2135.031: a surface marked twice, or 16 then 0, fails the detection-route check.
 
     The licensed check built a dict from the log's marked lines, keeping only
-    the last count per surface; it is run here on synthetic logs.
+    the last count per surface; it is run here on synthetic logs. The module is
+    loaded by its file, so tier 1 holds no import of the licensed tier.
     """
-    from tests.tier3_licensed import test_mesh
-
+    path = Path(__file__).resolve().parents[1] / "tier3_licensed" / "test_mesh.py"
+    spec = importlib.util.spec_from_file_location("tier3_check_test_mesh", path)
+    assert spec is not None and spec.loader is not None
+    test_mesh = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(test_mesh)
     check = test_mesh.test_the_detection_route_marked_the_edges_the_saved_file_carries
     runs = SimpleNamespace(one=lambda *args, **kwargs: object())
     once = "16 trailing edges marked on surface Wing\n"
