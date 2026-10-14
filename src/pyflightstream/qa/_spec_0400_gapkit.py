@@ -242,7 +242,9 @@ def _moved_vertices(before: Path, after: Path) -> list[tuple[tuple[float, ...], 
     old = {key(v) for v in first[0]}
     new = {key(v) for v in second[0]}
     gone, came = sorted(old - new), sorted(new - old)
-    return list(zip(gone, came, strict=False))
+    if len(gone) != len(came):
+        return []
+    return list(zip(gone, came, strict=True))
 
 
 def one_vertex_moved(by: tuple[float, float, float] | None) -> Judge:

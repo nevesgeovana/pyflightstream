@@ -349,6 +349,14 @@ def test_the_node_judge_needs_exactly_the_one_vertex_moved_by_the_stated_step(tm
     assert judge(artifacts) is None
     _obj(tmp_path / "after.obj", [(0.0, 0.0, 0.25), (1.0, 0.0, 0.25), base[2]])
     assert judge(artifacts) is None
+    # LVV-002: pairing must not silently discard an extra deletion or insertion.
+    for extra_change in (
+        [(0.0, 0.0, 0.25), base[2]],
+        [(0.0, 0.0, 0.25), *base[1:], (2.0, 0.0, 0.0)],
+    ):
+        _obj(tmp_path / "after.obj", extra_change)
+        assert judge(artifacts) is None
+        assert kit.one_vertex_moved(None)(artifacts) is None
 
 
 def test_the_trajectory_and_export_judges_read_numeric_rows(tmp_path):
