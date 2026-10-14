@@ -65,6 +65,7 @@ import fnmatch
 import hashlib
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -165,6 +166,7 @@ else:
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
