@@ -97,3 +97,11 @@ def test_p0400_paritytag_an_unrelated_path_is_left_alone() -> None:
         b'{"superfile_report": "elsewhere/superfile-0390.json", "x": "reports/superfile-a1.json"}'
     )
     assert norm("m/products.json", other) == other
+
+
+def test_p0410_par_export_includes_the_requirements_loader(tmp_path: Path) -> None:
+    """P0410-PAR: exported tests can load their repository requirements helper."""
+    module = _load()
+    tree = tmp_path / "export"
+    module.export("HEAD", tree)
+    assert (tree / "scripts" / "_requirements_paths.py").is_file()

@@ -94,7 +94,14 @@ from _requirements_paths import REQUIREMENTS_DIR  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = "scripts/check_parity.py"
-EXPORTED = ("src", "tests", "docs/srs", REQUIREMENTS_DIR.as_posix(), "pyproject.toml")
+EXPORTED = (
+    "src",
+    "tests",
+    "docs/srs",
+    REQUIREMENTS_DIR.as_posix(),
+    "pyproject.toml",
+    "scripts/_requirements_paths.py",
+)
 PACKAGE = "pyflightstream"
 MATRIX_CONSOLE = "pyfs-matrix"
 
