@@ -2380,7 +2380,9 @@ def mark_wake_edges(
     node file's path on the next line. The manual prints a two-value line,
     which that build refuses as a syntax error, and the path is read only
     when the line carries a third token. The third token is required and
-    had no measured effect; the simulation's length unit is written there.
+    had no measured effect on 26.124; that build receives the simulation's
+    length unit. On 26.125 the third token is EDGE_TYPE 1 for mid-points
+    (SRC-753 p.329). :mod:`pyflightstream.script._build_forms` selects the form.
     The node file's text is parked on the script
     (:attr:`~pyflightstream.script.Script.pending_input_files`) and the
     run writes it before the solver starts, and the number of points is
@@ -2405,9 +2407,9 @@ def mark_wake_edges(
         file in the simulation's unit and reads no unit from it, so where
         the script knows that unit
         (:attr:`~pyflightstream.script.Script.simulation_length_unit`) and
-        it differs, the points are converted into it and it is the unit
-        written as the third token (PFS-2104.027); where the script does
-        not know it, ``units`` is taken to be it and written.
+        it differs, the points are converted into it (PFS-2104.027); where
+        the script does not know it, ``units`` is taken to be the simulation's
+        unit. The third token follows the build-specific form described above.
     node_file : str or path-like
         Where the node file is written and read, the path the command's
         next line names.
@@ -2496,11 +2498,11 @@ def mark_wake_edges(
     known = _simulation_length_units(script)
     if units not in known:
         raise CommandArgumentError(
-            f"mark_wake_edges: units is {units!r}, and the third token is the "
-            f"simulation's length unit, one of the {LENGTH_UNIT_COMMAND} tokens with a "
+            f"mark_wake_edges: units is {units!r}; declare the midpoints' length unit "
+            f"using one of the {LENGTH_UNIT_COMMAND} tokens with a "
             f"scale: {', '.join(known)}. The solver reads the node file in the "
-            "simulation's unit and reads no unit from the file, so the points must "
-            "already be in it"
+            "simulation's unit and reads no unit from the file; the helper converts "
+            "the points when the script records a different simulation unit"
         )
     text = render_wake_edge_node_file(midpoints)
     simulation = script.simulation_length_unit
