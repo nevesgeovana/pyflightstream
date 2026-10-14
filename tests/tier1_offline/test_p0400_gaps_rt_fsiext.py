@@ -19,19 +19,8 @@ import pytest
 
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases import fsi_workspace as ws
-from pyflightstream.cases._fsi_external import EXTERNAL_NODES_FILE
 from pyflightstream.fsi.cli import main as fsi_main
-from pyflightstream.fsi.external import (
-    EXTERNAL_CALLS_LOG,
-    EXTERNAL_MANIFEST,
-    ExternalStructure,
-    external_step,
-)
 from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
-from pyflightstream.workspace.fsi_external_setup import (
-    FsiExternalSetupError,
-    resolve_external_fsi,
-)
 from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_row_fsi
 from tests.tier1_offline.test_fsig_fixed_wing import _wing_update
 from tests.tier1_offline.test_g06_actuator_disc import _lines
@@ -69,6 +58,8 @@ def _inputs(tmp_path: Path, text: str = INPUT) -> Path:
 
 def test_p0400_fsiext_resolves_and_hashes(tmp_path):
     """P0400-FSIEXT (FR-462 R1, R6): the program, nodes and inputs, hashed; three nodes."""
+    from pyflightstream.fsi.external import ExternalStructure
+
     path = _inputs(tmp_path)
     structure = resolve_row_fsi(tmp_path / "inputs", {"FSI": "f010"})
     assert isinstance(structure, ExternalStructure)
@@ -93,6 +84,11 @@ def test_p0400_fsiext_resolves_and_hashes(tmp_path):
 )
 def test_p0400_fsiext_refusals_at_reading(tmp_path, old, new, words):
     """P0400-FSIEXT (FR-462 R4): each refusal names its key."""
+    from pyflightstream.workspace.fsi_external_setup import (
+        FsiExternalSetupError,
+        resolve_external_fsi,
+    )
+
     assert old in INPUT
     path = _inputs(tmp_path, INPUT.replace(old, new))
     with pytest.raises(FsiExternalSetupError, match=words):
@@ -101,6 +97,11 @@ def test_p0400_fsiext_refusals_at_reading(tmp_path, old, new, words):
 
 def test_p0400_fsiext_empty_node_file_is_refused(tmp_path):
     """P0400-FSIEXT (FR-462 R4): a node file with no node."""
+    from pyflightstream.workspace.fsi_external_setup import (
+        FsiExternalSetupError,
+        resolve_external_fsi,
+    )
+
     path = _inputs(tmp_path)
     (path.parent / "f010.nodes.txt").write_text("\n", encoding="utf-8")
     with pytest.raises(FsiExternalSetupError, match="no node"):
@@ -120,6 +121,8 @@ def test_p0400_fsiext_factor_keys_are_refused(tmp_path):
 
 
 def _external_case(tmp_path: Path, make=steady_case):
+    from pyflightstream.fsi.external import ExternalStructure
+
     structure = resolve_row_fsi(_inputs(tmp_path).parent.parent, {"FSI": "f010"})
     assert isinstance(structure, ExternalStructure)
     update = _wing_update(tmp_path, None)
@@ -129,25 +132,32 @@ def _external_case(tmp_path: Path, make=steady_case):
     return make().model_copy(update=update), structure
 
 
-STEADY_EXTERNAL = [
-    "AEROELASTIC_RBF_TYPE MULTI_QUADRATIC",
-    "DELETE_AEROELASTIC_STRUCTURAL_NODES",
-    "ASSIGN_AEROELASTIC_SURFACES 1",
-    "2",
-    "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS 1",
-    "2",
-    "IMPORT_AEROELASTIC_STRUCTURAL_NODES 2 DISABLE",
-    EXTERNAL_NODES_FILE,
-    "SET_AEROELASTIC_WORKING_DIRECTORY",
-    ".",
-    "SET_AEROELASTIC_POST_PROCESSING_SCRIPT",
-    "fsi_post.txt",
-    "SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND",
-]
+def _steady_external():
+    from pyflightstream.cases._fsi_external import EXTERNAL_NODES_FILE
+
+    return [
+        "AEROELASTIC_RBF_TYPE MULTI_QUADRATIC",
+        "DELETE_AEROELASTIC_STRUCTURAL_NODES",
+        "ASSIGN_AEROELASTIC_SURFACES 1",
+        "2",
+        "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS 1",
+        "2",
+        "IMPORT_AEROELASTIC_STRUCTURAL_NODES 2 DISABLE",
+        EXTERNAL_NODES_FILE,
+        "SET_AEROELASTIC_WORKING_DIRECTORY",
+        ".",
+        "SET_AEROELASTIC_POST_PROCESSING_SCRIPT",
+        "fsi_post.txt",
+        "SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND",
+    ]
 
 
 def test_p0400_fsiext_steady_block_and_staged_files(tmp_path):
     """P0400-FSIEXT (FR-462 R5, R6): the beam route's block, the step as the command."""
+    from pyflightstream.cases._fsi_external import EXTERNAL_NODES_FILE
+    from pyflightstream.fsi.external import EXTERNAL_MANIFEST, ExternalStructure
+
+    STEADY_EXTERNAL = _steady_external()
     case, structure = _external_case(tmp_path)
     lines, script = _lines(case)
     body = [line for line in lines if line.strip()]
@@ -206,6 +216,9 @@ with open("FSIDisp.txt", "w") as out:
 
 
 def _point(tmp_path: Path, mode: str = "ok") -> Path:
+    from pyflightstream.cases._fsi_external import EXTERNAL_NODES_FILE
+    from pyflightstream.fsi.external import EXTERNAL_MANIFEST, ExternalStructure
+
     folder = tmp_path / "point"
     folder.mkdir(parents=True, exist_ok=True)
     (folder / "stand_in.py").write_text(STAND_IN, encoding="utf-8")
@@ -236,6 +249,8 @@ def _point(tmp_path: Path, mode: str = "ok") -> Path:
 
 def test_p0400_fsiext_step_archives_and_validates_a_call(tmp_path):
     """P0400-FSIEXT (FR-462 R2, R3): the call archived with its record, through the CLI."""
+    from pyflightstream.fsi.external import EXTERNAL_CALLS_LOG, external_step
+
     folder = _point(tmp_path)
     assert fsi_main(["external", "--out", str(folder)]) == 0
     archive = folder / "fsi_archive" / "call_0001"
@@ -262,6 +277,8 @@ def test_p0400_fsiext_step_archives_and_validates_a_call(tmp_path):
 )
 def test_p0400_fsiext_step_fails_each_defect(tmp_path, mode, words):
     """P0400-FSIEXT (FR-462 R3): a nonzero code, no file, a wrong count, a non-finite value."""
+    from pyflightstream.fsi.external import external_step
+
     folder = _point(tmp_path, mode)
     assert external_step(folder) == 1
     error = (folder / "pyfs_fsi_error.log").read_text(encoding="utf-8")
@@ -274,6 +291,8 @@ def test_p0400_fsiext_step_fails_each_defect(tmp_path, mode, words):
 
 def test_p0400_fsiext_step_refuses_a_changed_input(tmp_path):
     """P0400-FSIEXT (FR-462 R3): a declared input changed after the plan hashed it."""
+    from pyflightstream.fsi.external import external_step
+
     folder = _point(tmp_path)
     (folder / "stand_in.py").write_text(STAND_IN + "\n# edited\n", encoding="utf-8")
     assert external_step(folder) == 1
@@ -283,6 +302,8 @@ def test_p0400_fsiext_step_refuses_a_changed_input(tmp_path):
 
 def test_p0400_fsiext_a_previous_answer_is_not_passed_on(tmp_path):
     """P0400-FSIEXT (FR-462 R3): the last call's FSIDisp.txt does not survive a silent call."""
+    from pyflightstream.fsi.external import EXTERNAL_MANIFEST, external_step
+
     folder = _point(tmp_path)
     assert external_step(folder) == 0
     manifest = json.loads((folder / EXTERNAL_MANIFEST).read_text(encoding="utf-8"))
