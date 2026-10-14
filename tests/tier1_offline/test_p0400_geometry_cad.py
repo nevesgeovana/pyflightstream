@@ -12,9 +12,6 @@ import pytest
 from pyflightstream._errors import InputArtifactError
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import BrokenCommandError
-from pyflightstream.workspace._geometry_build import plan_geometry_build
-from tests.tier1_offline._p0400_gaps_rt_support import registry_with
-from tests.tier1_offline.test_p0400_geometry_build import geometry, workspace
 
 
 def _lines(
@@ -25,6 +22,9 @@ def _lines(
     build: str = "26.125",
     registry: CommandRegistry | None = None,
 ) -> list[str]:
+    from pyflightstream.workspace._geometry_build import plan_geometry_build
+    from tests.tier1_offline.test_p0400_geometry_build import geometry, workspace
+
     root = workspace(tmp_path)
     folder = geometry(root, "g", f'fs_build = "{build}"\n' + text, source=None)
     for name, content in (files or {}).items():
@@ -94,6 +94,8 @@ def _curve_import_verified() -> CommandRegistry:
     broken on 26.124 and 26.125 (RPT-166), so a copy of the database stands in
     for a build on which it works.
     """
+    from tests.tier1_offline._p0400_gaps_rt_support import registry_with
+
     base = registry_with(["CAD_CREATE_IMPORT_CURVE_TXT"], "26.125", Status.VERIFIED)
     return registry_with(["CAD_CREATE_IMPORT_CURVE_TXT"], "26.124", Status.VERIFIED, base=base)
 
