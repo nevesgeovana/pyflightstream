@@ -137,8 +137,10 @@ the exported coordinates incorrectly or fail the trailing-edge audit.
 `pyflightstream.farfield` takes and returns numpy arrays and small frozen
 containers: `LatticeFields` for the survey samples and their coordinates, and
 a result dataclass where a function returned an `xarray.Dataset`. `xarray` is
-no longer a required dependency, and the numbers are unchanged to the last
-bit. Every far-field signature that changed, the 0.39.0 one beside the one
+no longer a required dependency. Baseline results retain bit parity except
+for the corrected sign of the right-handed z-axis in-plane moment. That parity
+is verified on Windows AMD64 with CPython 3.12 and numpy 2.5.4; other platforms
+remain unverified. Every far-field signature that changed, the 0.39.0 one beside the one
 that replaces it; all are in `pyflightstream.farfield` except
 `dataset_to_points`, which was `pyflightstream.post.dataset_to_points`:
 

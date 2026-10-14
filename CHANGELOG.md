@@ -115,7 +115,7 @@ FlightStream versions.
   the exempted set falls from sixteen modules to thirteen, and the error total inside it moves from 159
   to 165 (`qa.probes` 79 to 92, `script.helpers` 2 to 4, `script` 17 to 13, `post.writers` 2 to 1). The
   forty-six modules the package gained since 0.39.0 are all clean and none is exempted (NFR-27, RPT-029).
-- `pyflightstream.farfield` takes and returns numpy arrays and small frozen containers; `xarray` is no longer a required dependency (FR-457). The numbers are unchanged to the last bit.
+- `pyflightstream.farfield` takes and returns numpy arrays and small frozen containers; `xarray` is no longer a required dependency (FR-457). Baseline bit parity has the z-axis moment exception and platform limits stated below.
 - `farfield/<group>_ledgers.csv` takes `FY_LATERAL_N` and `FZ_LATERAL_N` from the transverse-force record of `pyflightstream.farfield.transverse_force` and computes `COVERAGE` with `pyflightstream.farfield.sample_coverage`, so the public balance functions are what the workspace runs; every value is unchanged to the last bit (FR-38).
 - `pyflightstream.probes` is the one home of probe geometry: the line, rectangle and circle layouts, the survey lattice and the far-field plane (FR-459).
 - A steady row creates its probe lines and its drawn probe points through `pyflightstream.script.helpers.probe_line` and `probe_points`, the helpers a Python script uses; the emitted script is unchanged (FR-79).
