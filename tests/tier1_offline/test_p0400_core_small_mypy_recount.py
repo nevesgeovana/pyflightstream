@@ -9,10 +9,10 @@ now exit 1 with no headline. mypy itself is replaced by canned final lines.
 from __future__ import annotations
 
 import importlib.util
-import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -29,18 +29,6 @@ def _load():
     return module
 
 
-def _tracked() -> int:
-    listed = subprocess.run(
-        ["git", "ls-tree", "-r", "HEAD", "--name-only", "src/pyflightstream"],
-        capture_output=True,
-        text=True,
-        cwd=REPO,
-        check=True,
-        env=os.environ.copy(),
-    ).stdout
-    return sum(1 for name in listed.splitlines() if name.endswith(".py"))
-
-
 @pytest.mark.parametrize(
     ("shipped", "extra", "code"),
     [
@@ -55,7 +43,17 @@ def test_p0400_recountgreen_a_refusal_states_no_headline(
 ) -> None:
     """P0400-RECOUNTGREEN: red shipped run or mismatched count exits 1 without the headline."""
     module = _load()
-    n = _tracked()
+    n = 2
+
+    def git_result(argv, **kwargs):
+        if argv == ["git", "ls-tree", "-r", "HEAD", "--name-only", "src/pyflightstream"]:
+            return subprocess.CompletedProcess(
+                argv, 0, "src/pyflightstream/x.py\nsrc/pyflightstream/y.py\n"
+            )
+        assert argv == ["git", "status", "--short"]
+        return subprocess.CompletedProcess(argv, 0, "")
+
+    monkeypatch.setattr(module, "subprocess", SimpleNamespace(run=git_result))
     bare = f"Found 1 error in 1 file (checked {n + extra} source files)"
     finding = "src/pyflightstream/x.py:1: error: wrong [arg-type]"
 
