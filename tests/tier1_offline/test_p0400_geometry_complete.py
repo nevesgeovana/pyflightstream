@@ -18,25 +18,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
-from pyflightstream.workspace._geometry_build import (
-    SolverOutcome,
-    apply_geometry_build,
-    plan_geometry_build,
-)
-from pyflightstream.workspace._geometry_record import judge_the_row_geometry
 from pyflightstream.workspace.cli import main
-from tests.tier1_offline.test_p0400_geometry_build import (
-    MESH_INSTRUCTION,
-    WING_FSM,
-    geometry,
-    runner,
-    verified_registry,
-    wing_obj,
-    workspace,
-)
-from tests.tier1_offline.test_p0400_geometry_instruction import ccs_text
-
-BODY_FSM = WING_FSM.with_name("20_BODY.fsm")
 
 SWEEP = (
     'fs_build = "26.125"\nboundaries = ["Body", "Base"]\n'
@@ -60,6 +42,9 @@ ROW = (
 
 
 def _sweep(tmp_path):
+    from tests.tier1_offline.test_p0400_geometry_build import geometry, workspace
+    from tests.tier1_offline.test_p0400_geometry_instruction import ccs_text
+
     root = workspace(tmp_path)
     folder = geometry(root, "wing", SWEEP, source=None)
     (folder / "wing_sections.csv").write_text(ccs_text(), encoding="utf-8")
@@ -68,6 +53,9 @@ def _sweep(tmp_path):
 
 def _body_runner(fail_once: str | None = None):
     """A runner saving the two-boundary body; ``fail_once`` fails that variant's first run."""
+    from pyflightstream.workspace._geometry_build import SolverOutcome
+    from tests.tier1_offline.test_p0400_geometry_build import WING_FSM, wing_obj
+
     failed: set[str] = set()
     lock = threading.Lock()
 
@@ -78,7 +66,7 @@ def _body_runner(fail_once: str | None = None):
             failed.add(name)
         if fail:
             return SolverOutcome(True, 1, 1.0, "licence refused", "exited 1")
-        shutil.copyfile(BODY_FSM, work / f"{name}.fsm")
+        shutil.copyfile(WING_FSM.with_name("20_BODY.fsm"), work / f"{name}.fsm")
         wing_obj(work / f"{name}.obj", group="Body")
         return SolverOutcome(False, 0, 1.0, "log", "")
 
@@ -128,6 +116,8 @@ def test_p0400_geom_parallel_builds_every_variant_and_reruns_a_failed_one_alone(
     tmp_path, monkeypatch
 ):
     """P0400-GEOM-PARALLEL (PFS-2081.41): R6, two at once; the refused variant runs again alone."""
+    from pyflightstream.workspace._geometry_build import apply_geometry_build, plan_geometry_build
+    from tests.tier1_offline.test_p0400_geometry_build import verified_registry
     from tests.tier1_offline.test_p0400_rfixB_geometry import (
         test_p0400_rfixb_parallel_calls_overlap_and_retry_runs_alone as overlap_proof,
     )
@@ -143,6 +133,9 @@ def test_p0400_geom_parallel_builds_every_variant_and_reruns_a_failed_one_alone(
 @pytest.mark.requirement("FR-472")
 def test_p0400_geom_overlay_holds_the_control_surface_of_every_variant(tmp_path):
     """P0400-GEOM-OVERLAY (PFS-2081.41): R7, one file in the base folder, tagged per variant."""
+    from pyflightstream.workspace._geometry_build import apply_geometry_build, plan_geometry_build
+    from tests.tier1_offline.test_p0400_geometry_build import verified_registry
+
     _, folder = _sweep(tmp_path)
     plan = plan_geometry_build("wing", cwd=folder.parent, registry=verified_registry())
     apply_geometry_build(plan, runner=_body_runner())
@@ -157,6 +150,10 @@ def test_p0400_geom_overlay_holds_the_control_surface_of_every_variant(tmp_path)
 @pytest.mark.requirement("FR-473")
 def test_p0400_geom_mirror_of_a_deflected_body_is_warned(tmp_path):
     """P0400-GEOM-MIRROR (PFS-2081.41): R5, MIRROR over a nonzero angle; NONE and 0 silent."""
+    from pyflightstream.workspace._geometry_build import apply_geometry_build, plan_geometry_build
+    from pyflightstream.workspace._geometry_record import judge_the_row_geometry
+    from tests.tier1_offline.test_p0400_geometry_build import verified_registry
+
     _, folder = _sweep(tmp_path)
     plan = plan_geometry_build("wing", cwd=folder.parent, registry=verified_registry())
     apply_geometry_build(plan, runner=_body_runner())
@@ -188,6 +185,15 @@ def test_p0400_geom_mirror_of_a_deflected_body_is_warned(tmp_path):
 @pytest.mark.requirement("FR-471")
 def test_p0400_geom_carry_the_runs_operations_into_the_built_mesh_sidecar(tmp_path):
     """P0400-GEOM-CARRY (PFS-2081.41): R10, from the source's sidecar, then kept by a rebuild."""
+    from pyflightstream.workspace._geometry_build import apply_geometry_build, plan_geometry_build
+    from tests.tier1_offline.test_p0400_geometry_build import (
+        MESH_INSTRUCTION,
+        geometry,
+        runner,
+        verified_registry,
+        workspace,
+    )
+
     root = workspace(tmp_path)
     folder = geometry(root, "wing", MESH_INSTRUCTION)
     (folder / "src.boundaries.toml").write_text(
