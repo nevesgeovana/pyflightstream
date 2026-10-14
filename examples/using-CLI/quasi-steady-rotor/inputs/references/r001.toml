@@ -1,0 +1,24 @@
+area_m2 = 3.141592653589793
+chord_m = 0.1
+span_m = 2.0
+rotor_diameter_m = 2.0
+
+[moment_point]
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+
+[PROP]
+kind = "rotor"
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+axis = "X"
+rpm_sign = 1
+diameter_m = 2.0
+families_general = []
+families_blades = ["Blade1", "Blade2"]
+
+[PROP.blade1]
+azimuth_deg = 0.0
+zero = "Z"

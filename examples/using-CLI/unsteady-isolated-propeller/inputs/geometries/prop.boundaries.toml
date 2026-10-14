@@ -1,0 +1,7 @@
+boundaries = ["Blade1", "Blade2"]
+
+[import]
+units = "METER"
+
+[trailing_edges]
+detect = "auto"

@@ -1,0 +1,8 @@
+area_m2 = 4.0
+chord_m = 1.0
+span_m = 4.0
+
+[moment_point]
+x_m = 0.25
+y_m = 0.0
+z_m = 0.0

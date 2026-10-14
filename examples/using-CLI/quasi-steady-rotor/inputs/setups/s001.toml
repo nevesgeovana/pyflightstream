@@ -1,0 +1,2 @@
+NITER = 300
+farfield_layers = 5

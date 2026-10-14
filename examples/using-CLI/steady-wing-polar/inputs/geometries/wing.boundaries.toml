@@ -1,0 +1,7 @@
+boundaries = ["Wing"]
+
+[import]
+units = "METER"
+
+[trailing_edges]
+detect = "auto"
