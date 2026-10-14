@@ -503,3 +503,8 @@ record of who made it: nothing can prove the absolute negative "the
 predecessor was never read", and a mechanism that claimed to would be
 worse than none. If you cannot make this declaration about a change, do
 not make the commit.
+
+## Release notes
+
+Write user-visible changes directly in the Unreleased section of CHANGELOG.md.
+Include migration instructions in docs/upgrading.md when existing usage changes.

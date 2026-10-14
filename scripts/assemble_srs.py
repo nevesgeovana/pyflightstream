@@ -10,7 +10,7 @@ never stated, and the ones 0.32.0 adds, were written by parallel work packages
 ``docs/unpublished/requirements/fr.d/<package>.md``, numbered inside its own range, so two packages
 merged one after the other never touch the same lines of
 ``docs/unpublished/requirements/functional-requirements.md``. This script folds them once, at
-integration, the way ``scripts/assemble_changelog.py`` folds the change log.
+integration, the way the release notes are collected in ``CHANGELOG.md``.
 
 WHAT IT DOES. Every ``docs/unpublished/requirements/fr.d/*.md`` except ``README.md`` is a fragment:
 requirement boxes in the form of ``functional-requirements.md``

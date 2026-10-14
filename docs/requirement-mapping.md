@@ -90,7 +90,7 @@ does not have to work out whether it was forgotten.
 
 The register above records one gate. After it, a capability reaches the SRS
 through the change log itself: every top-level bullet of the Added and Changed
-sections of a release, and of every `changelog.d` fragment, ends on the
+sections of a release, ends on the
 identifier of the requirement that states it, or on `(no requirement: <reason>)`
 when it is not a capability of the package (a measurement, a refactor that
 changes no behavior, a documentation layout). The tier-1 test
