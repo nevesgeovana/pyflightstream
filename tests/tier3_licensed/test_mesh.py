@@ -18,11 +18,10 @@ defined.
 
 from __future__ import annotations
 
-import re
-
 import pytest
 
 from pyflightstream.results import imported_trailing_edges
+from tests.support_tier3 import assert_detected_edges
 from tests.tier3_licensed import mesh_routes
 from tests.tier3_licensed.conftest import TERMINAL_OK
 
@@ -33,7 +32,6 @@ ROWS = ("4101", "4102", "4103", "4104", "4105", "4111", "4112", "4113")
 #: The rows whose edge the solver detects, the surface and the edges it marks:
 #: RPT-065 measured detection marking the saved files' own sets on 26.124.
 DETECTED = {"4103": ("Wing", 16), "4104": ("Wing", 16), "4113": ("Blade1", 12)}
-_MARKED = re.compile(r"^\s*(\d+) trailing edges? marked on surface (.+?)\s*$", re.M)
 
 
 def _point(pol: str) -> dict[str, float]:
@@ -68,16 +66,14 @@ def test_the_file_route_imported_one_edge_per_point_of_its_file(runs, pol, bound
 @pytest.mark.parametrize(("pol", "boundary", "count"), [(p, *v) for p, v in DETECTED.items()])
 def test_the_detection_route_marked_the_edges_the_saved_file_carries(runs, pol, boundary, count):
     record = runs.one(MATRIX, pol, **_point(pol))
-    # A list of (surface, count) pairs: a dict keeps only the last count per surface, so a log
-    # that marks a surface twice, or marks it 16 and then 0, would have compared equal.
-    marked = [(name, int(n)) for n, name in _MARKED.findall(_log(runs, record))]
-    assert marked == [(boundary, count)], marked
+    assert_detected_edges(_log(runs, record), [(boundary, count)])
 
 
 @pytest.mark.parametrize("pol", ("4101", "4111"))
 def test_the_saved_simulation_marks_nothing_again(runs, pol):
     log = _log(runs, runs.one(MATRIX, pol, **_point(pol)))
-    assert not imported_trailing_edges(log) and not _MARKED.search(log)
+    assert not imported_trailing_edges(log)
+    assert_detected_edges(log, [])
 
 
 def test_the_file_route_gives_its_bodys_coefficients_within_the_committed_band(runs):

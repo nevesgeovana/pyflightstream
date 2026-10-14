@@ -9,7 +9,6 @@ runs.
 from __future__ import annotations
 
 import ast
-import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -356,29 +355,43 @@ def test_p0400_bg_a_section_export_carries_its_file_name_and_is_not_verified(tmp
     assert results["PRINT"].outcome is not ProbeOutcome.VERIFIED
 
 
-def test_p0400_bg_the_detection_route_check_counts_every_marked_line(monkeypatch):
+def test_p0400_bg_the_detection_route_check_counts_every_marked_line():
     """PFS-2135.031: a surface marked twice, or 16 then 0, fails the detection-route check.
 
     The licensed check built a dict from the log's marked lines, keeping only
-    the last count per surface; it is run here on synthetic logs. The module is
-    loaded by its file, so tier 1 holds no import of the licensed tier.
+    the last count per surface. Both tiers call the same assertion in the
+    tier-neutral support module; this test supplies synthetic logs only.
     """
-    path = Path(__file__).resolve().parents[1] / "tier3_licensed" / "test_mesh.py"
-    spec = importlib.util.spec_from_file_location("tier3_check_test_mesh", path)
-    assert spec is not None and spec.loader is not None
-    test_mesh = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(test_mesh)
-    check = test_mesh.test_the_detection_route_marked_the_edges_the_saved_file_carries
-    runs = SimpleNamespace(one=lambda *args, **kwargs: object())
+    from tests.support_tier3 import assert_detected_edges
+
     once = "16 trailing edges marked on surface Wing\n"
     for log, passes in (
         (once, True),
         (once + once, False),
         (once + "0 trailing edges marked on surface Wing\n", False),
     ):
-        monkeypatch.setattr(test_mesh, "_log", lambda _runs, _record, text=log: text)
         if passes:
-            check(runs, "4103", "Wing", 16)
+            assert_detected_edges(log, [("Wing", 16)])
         else:
             with pytest.raises(AssertionError):
-                check(runs, "4103", "Wing", 16)
+                assert_detected_edges(log, [("Wing", 16)])
+    assert_detected_edges("no new edges\n", [])
+    with pytest.raises(AssertionError):
+        assert_detected_edges(once, [])
+
+
+def test_p0400_bg_detection_regression_imports_no_licensed_modules(monkeypatch):
+    """REL14-001: executing the offline check must respect NFR-41 at runtime."""
+    import builtins
+
+    original_import = builtins.__import__
+    licensed_imports = []
+
+    def observed_import(name, *args, **kwargs):
+        if name == "tests.tier3_licensed" or name.startswith("tests.tier3_licensed."):
+            licensed_imports.append(name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", observed_import)
+    test_p0400_bg_the_detection_route_check_counts_every_marked_line()
+    assert licensed_imports == [], licensed_imports

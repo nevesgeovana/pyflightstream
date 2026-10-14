@@ -25,6 +25,13 @@ from pyflightstream._fsm import surface_mesh, trailing_edge_midpoints
 HERE = Path(__file__).resolve().parent / "tier3_licensed"
 
 
+def assert_detected_edges(log: str, expected: list[tuple[str, int]]) -> None:
+    """Compare every detection line in order, retaining repeated surfaces."""
+    matches = re.findall(r"^\s*(\d+) trailing edges? marked on surface (.+?)\s*$", log, re.M)
+    marked = [(name, int(count)) for count, name in matches]
+    assert marked == expected, marked
+
+
 def _one_file(folder: Path, name: str) -> Path | None:
     """The point's own copy of ``name``, when exactly one exists.
 
