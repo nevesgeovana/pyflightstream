@@ -474,6 +474,7 @@
       "tests/tier1_offline/test_p0400_workspace_2_cli.py",
       "tests/tier1_offline/test_p0400_workspace_2_review.py",
       "tests/tier1_offline/test_p0400_workspace_3_storage.py",
+      "tests/tier1_offline/test_p0410_cl_ex_examples.py",
       "tests/tier1_offline/test_plan_cost.py",
       "tests/tier1_offline/test_rel0250_pproc_validation.py",
       "tests/tier1_offline/test_rel0250_s04.py",
