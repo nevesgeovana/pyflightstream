@@ -205,8 +205,7 @@ refused here: correct the table as the message says.
 
 ## The guides are built from the release sources (NFR-46)
 
-The user guide is published as `guide/pyflightstream_user_guide.pdf` beside its
-source, and the cheatsheet (guide 04) beside its own; each PDF names the release
+The user guide and cheatsheet are available from [PDF guides](guides.md); each PDF names the release
 it was built from and has its build log beside it. Nothing changes for a
 workflow; take the guides of the release you installed.
 

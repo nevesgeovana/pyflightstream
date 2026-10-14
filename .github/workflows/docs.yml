@@ -33,9 +33,25 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom]
+        run: pip install -e .[dev,fsi,geom,plot]
+      - name: Install guide typesetter
+        run: sudo apt-get update && sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended texlive-science
+      - name: Build downloadable guides
+        run: python scripts/build_guides.py
       - name: Build the docs (strict)
         run: properdocs build --strict
+      - name: Add guide downloads to the site
+        run: |
+          mkdir -p site/downloads
+          cp build/guides/*.pdf build/guides/build-record.json build/guides/LICENSE-AND-AUTHORSHIP.md site/downloads/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: guides
+          path: |
+            build/guides/*.pdf
+            build/guides/*.log
+            build/guides/build-record.json
+            build/guides/LICENSE-AND-AUTHORSHIP.md
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3
         with:
           path: site

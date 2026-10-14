@@ -1,9 +1,7 @@
-# Builds the beamer user guide pdf, guide/pyflightstream_user_guide.pdf,
-# beside its source. The release publishes that pdf with its build log
-# (NFR-46); the repository guards admit it and no other pdf outside the
-# guide decks.
+# Builds the user guide PDF and log into the build artifact directory.
 param(
-    [string]$TexFile = "guide\pyflightstream_user_guide.tex"
+    [string]$TexFile = "guide\pyflightstream_user_guide.tex",
+    [string]$OutputDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) "build\guides")
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,13 +15,15 @@ $texPath = Resolve-Path $TexFile
 $workDir = Split-Path $texPath
 $fileName = Split-Path $texPath -Leaf
 $baseName = [System.IO.Path]::GetFileNameWithoutExtension($fileName)
+New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
+$OutputDirectory = (Resolve-Path $OutputDirectory).Path
 
 Push-Location $workDir
 try {
     $latexmk = Get-Command "latexmk" -ErrorAction SilentlyContinue
     if ($null -ne $latexmk) {
         Write-Host "Building with latexmk..." -ForegroundColor Cyan
-        latexmk -pdf -interaction=nonstopmode -halt-on-error $fileName
+        latexmk -pdf -interaction=nonstopmode -halt-on-error "-outdir=$OutputDirectory" $fileName
         if ($LASTEXITCODE -ne 0) {
             throw "latexmk failed with exit code $LASTEXITCODE"
         }
@@ -33,9 +33,9 @@ try {
             throw "Neither latexmk nor pdflatex is available. Install MiKTeX or TeX Live."
         }
         Write-Host "Building with pdflatex (two passes)..." -ForegroundColor Cyan
-        pdflatex -interaction=nonstopmode -halt-on-error $fileName
+        pdflatex -interaction=nonstopmode -halt-on-error "-output-directory=$OutputDirectory" $fileName
         if ($LASTEXITCODE -ne 0) { throw "pdflatex pass 1 failed" }
-        pdflatex -interaction=nonstopmode -halt-on-error $fileName
+        pdflatex -interaction=nonstopmode -halt-on-error "-output-directory=$OutputDirectory" $fileName
         if ($LASTEXITCODE -ne 0) { throw "pdflatex pass 2 failed" }
     }
     Write-Host "Built $baseName.pdf" -ForegroundColor Green

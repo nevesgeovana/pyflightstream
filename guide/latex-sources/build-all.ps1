@@ -3,8 +3,7 @@
 # build-all.ps1
 #
 # Builds the nine guides, 01 to 09, from this folder and copies each final PDF,
-# named pyfts-guide-<folder>.pdf, one level up (guide/ in the repository, docs/
-# in a kit), overwriting. Auxiliary files stay in build/ here, which is never
+# named pyfts-guide-<folder>.pdf, into build/guides/ in the repository. Auxiliary files stay in build/ here, which is never
 # versioned. Guide 04 is the cheatsheet, one document of ten pages (04-cheatsheet),
 # built and copied like the decks.
 #
@@ -24,8 +23,13 @@ param([string]$Only = "")
 $ErrorActionPreference = "Stop"
 
 $here   = $PSScriptRoot
-$docs   = Split-Path $here -Parent
+$docs   = Join-Path (Split-Path (Split-Path $here -Parent) -Parent) "build\guides"
+New-Item -ItemType Directory -Force -Path $docs | Out-Null
 $shared = Join-Path $here "shared"
+if (-not $Only -or "02-workspaces".StartsWith($Only)) {
+    & python (Join-Path $here "02-workspaces/figures/qsteady_reduced_frequency.py")
+    if ($LASTEXITCODE -ne 0) { throw "Guide figure generation failed" }
+}
 
 # No em dashes and no en dashes in any source.
 $dash = Get-ChildItem $here -Recurse -Include *.tex |

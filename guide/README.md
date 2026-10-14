@@ -18,6 +18,8 @@ title page says which), and the guide to the Python library itself.
 | 8 | `pyfts-guide-08-fsi.pdf` | fluid-structure interaction: the loop, the structural input, calibration, refusals, examples and limits |
 | 9 | `pyfts-guide-09-python-environment-offline.pdf` | Python, a virtual environment and the package on a machine with no internet, Windows and Linux |
 
+Download the PDFs from the [documentation site](https://nevesgeovana.github.io/pyflightstream/guides/).
+
 Each deck ends with its numbered references: the package's documentation
 pages (https://nevesgeovana.github.io/pyflightstream/) and the textbooks and
 papers behind every physical explanation it gives.
@@ -26,19 +28,19 @@ papers behind every physical explanation it gives.
 and the evidence-backed command database, the script builder and its helpers,
 recipes in Python, reading results, and the command-line tools. It is built
 with `scripts/build-guide.ps1`, and its PDF, `pyflightstream_user_guide.pdf`,
-is published here beside its source.
+is published as a site download.
 
 ## Building the guides
 
-`latex-sources/build-all.ps1` (Windows) or `latex-sources/build-all.sh`
-(Linux) compiles the nine guides and copies each PDF here, overwriting it; a
-two-digit argument builds one guide. It needs `pdflatex` (MiKTeX or TeX Live)
+`python scripts/build_guides.py` from the repository root compiles all ten PDFs
+into `build/guides/`, regenerating the figures in a temporary source copy.
+Install the package with its plot extra before building.
+The platform-specific builders remain available for individual guides. It needs `pdflatex` (MiKTeX or TeX Live)
 with beamer, tcolorbox, listings, tikz, adjustbox, microtype and underscore.
 The build refuses a source with an em or en dash, and prints the number of
 overfull boxes per guide, which must be zero.
 
-The cheatsheet and the user guide are published with their build logs beside
-them, `pyfts-guide-04-cheatsheet.log` and `pyflightstream_user_guide.log`:
+The build artifacts include the cheatsheet and user-guide logs, `pyfts-guide-04-cheatsheet.log` and `pyflightstream_user_guide.log`:
 each is the log of the build that made the PDF, with the building machine's
 folders written as `<texmf>`, `<texmf-data>` and `<repo>` and trailing blanks
 removed. Neither holds an error line or an overfull box, and each PDF names
@@ -64,8 +66,7 @@ Tier-1 tests (`tests/tier1_offline/test_p0330_cheatsheet.py`,
 `test_p0340_cheatsheet_by_stage.py` and `test_p0340_guides.py`) walk every
 parser of every console script and refuse the sheet when a command or an
 option is missing, when it names one no parser has, and when the compiled PDF
-is not ten pages. Its PDF is `pyfts-guide-04-cheatsheet.pdf`, tracked here
-beside the others; the build must report no overfull box, so each page keeps
+is not ten pages. Its PDF is `pyfts-guide-04-cheatsheet.pdf`, built from these sources; the build must report no overfull box, so each page keeps
 its sheet.
 
 The authorship and license of this folder are in `LICENSE-AND-AUTHORSHIP.md`.

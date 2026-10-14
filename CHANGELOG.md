@@ -637,7 +637,7 @@ archives remain available for recovery. (no requirement: preserve records during
 - **The user guide and the cheatsheet are built from the release sources** (NFR-46). The
   user guide compiles to its end, guide 04 compiles to the page count its source states
   with no overfull box, and each PDF names the release it was built from. The user guide
-  PDF is published beside its source, `guide/pyflightstream_user_guide.pdf`, and each of
+  PDF is available from the documentation downloads, and each of
   the two PDFs has its build log beside it.
 - The mesh how-to and reference pages, the status pages, the reference artifact page and a
   new page on the workspace settings files describe the changes above (FR-430 to FR-436,

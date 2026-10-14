@@ -1390,20 +1390,14 @@
 
 
 !!! requirement "NFR-46 The published guides build from the release sources <span class='srs-implemented'>implemented</span>"
-    Plan: PFS-2080.11 (0.39.0).
+    Plan: PFS-2080.11; distribution updated by CL-04 in 0.41.0.
 
-    *Origin: scope GOAL-049 item S11; the owed guide builds recorded at the 0.37.0 release review. Verification: test, `tests/tier1_offline/test_p0390_pdfs.py`.*
+    Need: Readers can download guides and contributors can reproduce them from the release sources.
 
-    Need: A user who downloads the guides of 0.39.0 reads the user guide and the cheatsheet that describe 0.39.0, and a maintainer can rebuild both from the release sources with one command and no overfull page.
+    Requirement: The user guide and nine numbered guides compile from the retained LaTeX and figure sources. PDFs, logs and build receipts are build artifacts, not tracked source files.
 
-    Requirement: The user guide and guide 04 (the cheatsheet) build without error from the sources of the release commit, and the published PDFs are those builds.
+    - R1 `python scripts/build_guides.py` builds all guides in `build/guides/` without writing tracked sources. The plot extra and a TeX distribution are build dependencies.
+    - R2 Each build succeeds without TeX errors or overfull boxes. Guide 04 retains the commands and options described by the public options registry.
+    - R3 The docs workflow publishes the generated PDFs as site downloads, with source hashes, PDF hashes and the typesetter version in the build record. The guide sources and license remain in the repository.
 
-    - R1 The user guide source compiles to the end: the coefficient list that holds the expression with powers in a text line is written so the typesetter accepts it, and no other line of the source stops the build.
-    - R2 Guide 04 compiles to the number of pages its source states, with no overfull box, after a content cut that is approved before publication; the cut leaves every command and option of the cheatsheet that the options registry lists. The rebuild command is the one the guides already ship: `guide/latex-sources/build-all.ps1 04` on Windows, `sh guide/latex-sources/build-all.sh 04` elsewhere; the user guide is built by `scripts/build-guide.ps1`.
-    - R3 Each published PDF names the version of the release it was built from, and the build leaves no log with an error line.
-    - R4 No PDF is published before the approval of the guide 04 cut is recorded in the release record, as a dated line naming the cut.
-    - R5 The release record holds a build receipt per PDF: the source revision, the build command, the typesetter and its version, the exit status, the digest of the build log and the sha256 of the PDF.
-
-    Verification: test, `tests/tier1_offline/test_p0390_pdfs.py` carrying P0390-PDFS (NFR-46). No typesetter runs in the offline suite: the test reads the two PDFs committed under `guide/` and the build logs committed beside them, and asserts that each PDF names the release version in its metadata, that the page count of guide 04 is the one its source states, that each build log holds no error line and no overfull box, and that the user-guide source writes the coefficient expression in a form the typesetter accepts (R1). It also asserts that every command and option of the options registry appears in the cheatsheet source (the existing option guard, R2), that the release record holds the dated approval line of the guide 04 cut (R4), and that each committed PDF's sha256 equals its receipt's and the receipt's source revision is an ancestor of the release commit (R5). Controls: the v0.38.0 user-guide source fails the R1 assertion; a planted overfull-box line in a copy of the log fails R2; a PDF whose metadata names another version fails R3; a release record without the approval line fails R4; a substituted PDF and a receipt naming a revision that is not an ancestor each fail R5.
-
-    Evidence: in `tests/tier1_offline/test_p0390_pdfs.py`, `test_the_user_guide_source_writes_no_superscript_outside_math`, `test_the_v0380_line_fails_the_superscript_check`, `test_the_v0380_user_guide_source_fails_the_superscript_check`, `test_guide_04_is_the_page_count_its_source_states`, `test_each_build_log_holds_no_error_line_and_no_overfull_box`, `test_a_planted_overfull_box_or_error_line_fails_the_log_check`, `test_every_option_of_the_registry_is_in_the_cheatsheet_source`, `test_each_pdf_names_the_release_version_in_its_metadata`, `test_a_pdf_naming_another_version_fails`, `test_the_approval_check_refuses_a_record_without_the_line`, `test_the_receipt_check_refuses_a_substituted_pdf_and_a_foreign_revision`, `test_the_release_record_approves_the_cut`, `test_the_release_record_holds_a_receipt_per_published_pdf`, `test_the_release_record_checks_fail_without_the_line_or_on_another_pdf`.
+    Verification: compile the sources, inspect the build logs and compare the output hashes with the build record. Retain the offline source and option-coverage checks; artifact checks read the build output directory.

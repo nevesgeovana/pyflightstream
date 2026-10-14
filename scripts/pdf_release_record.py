@@ -1,4 +1,4 @@
-"""Rebuild the two published PDFs and write guide/pdf-release-record.json (NFR-46).
+"""Rebuild two downloadable PDFs and write their build-artifact receipt (NFR-46).
 
 The record is measured, not typed. The script:
 
@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-RECORD = REPO / "guide" / "pdf-release-record.json"
+RECORD = REPO / "build" / "guides" / "pdf-release-record.json"
 CHEATSHEET_DIR = "guide/latex-sources/04-cheatsheet"
 SHARED_DIR = "guide/latex-sources/shared"
 USER_GUIDE_TEX = "guide/pyflightstream_user_guide.tex"
@@ -141,13 +141,12 @@ def main() -> int:
     )
     parser.add_argument("--repo", type=Path, default=REPO, help="the clean checkout to build in")
     REPO = parser.parse_args().repo.resolve()
-    RECORD = REPO / "guide" / "pdf-release-record.json"
+    RECORD = REPO / "build" / "guides" / "pdf-release-record.json"
     status = _git("status", "--porcelain")
     if status.strip():
         print("refusing: the tree is not clean before the build:\n" + status, file=sys.stderr)
         return 2
     revision = _git("rev-parse", "HEAD").strip()
-    approved = json.loads(RECORD.read_text(encoding="utf-8"))["cheatsheet_cut_approved"]
     inputs = source_inputs(revision)
     pdftex = _first_line("pdflatex", "--version")
     latexmk = _first_line("latexmk", "-v")
@@ -169,7 +168,7 @@ def main() -> int:
             USER_GUIDE_BUILD,
             "pdflatex, run by latexmk -pdf (build-guide.ps1 takes latexmk when it is on the PATH)",
             f"{pdftex}; {latexmk}",
-            REPO / "guide/pyflightstream_user_guide.log",
+            REPO / "build/guides/pyflightstream_user_guide.log",
         ),
     ]
     receipts = []
@@ -177,9 +176,9 @@ def main() -> int:
         raw_bytes = raw_path.read_bytes()
         raw = raw_bytes.decode("utf-8", errors="replace")
         clean = sanitize(raw)
-        log_rel = f"guide/{stem}.log"
+        log_rel = f"build/guides/{stem}.log"
         (REPO / log_rel).write_bytes(clean.encode("utf-8"))
-        pdf_rel = f"guide/{stem}.pdf"
+        pdf_rel = f"build/guides/{stem}.pdf"
         receipts.append(
             {
                 "name": f"{stem}.pdf",
@@ -199,7 +198,7 @@ def main() -> int:
                 "source_inputs": inputs,
             }
         )
-    record = {"cheatsheet_cut_approved": approved, "receipts": receipts}
+    record = {"receipts": receipts}
     RECORD.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     print(f"record written at {revision}; pre-build status empty")
     return 0

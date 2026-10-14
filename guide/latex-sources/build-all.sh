@@ -4,8 +4,7 @@
 # build-all.sh
 #
 # Builds the nine guides, 01 to 09, from this folder and copies each final PDF,
-# named pyfts-guide-<folder>.pdf, one level up (guide/ in the repository, docs/
-# in a kit), overwriting. Auxiliary files stay in build/ here, which is never
+# named pyfts-guide-<folder>.pdf, into build/guides/ in the repository. Auxiliary files stay in build/ here, which is never
 # versioned. Guide 04 is the cheatsheet, one document of ten pages (04-cheatsheet),
 # built and copied like the decks.
 #
@@ -20,9 +19,13 @@
 # include directory. Nothing outside this folder is read.
 
 here=$(cd "$(dirname "$0")" && pwd)
-docs=$(dirname "$here")
+docs="$(dirname "$(dirname "$here")")/build/guides"
+mkdir -p "$docs"
 only=$1
 status=0
+case "02-workspaces" in "$only"*)
+    python "$here/02-workspaces/figures/qsteady_reduced_frequency.py" || exit 1 ;;
+esac
 
 # No em dashes and no en dashes in any source.
 if grep -rl "$(printf '\342\200\224')\|$(printf '\342\200\223')" --include='*.tex' "$here" >/dev/null 2>&1; then
