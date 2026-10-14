@@ -326,6 +326,17 @@ def _obj(path: Path, vertices: list[tuple[float, float, float]]) -> None:
     path.write_text(body, encoding="utf-8")
 
 
+def test_cad_translation_requires_the_combined_body_to_move(tmp_path):
+    """LVV-001: the two-sheet body must leave its measured z range (RPT-166)."""
+    artifacts = SimpleNamespace(workdir=tmp_path)
+    judge = PROBE_SPECS["CAD_BODY_TRANSLATE"].assert_effect
+    base = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 2.0)]
+    _obj(tmp_path / "surface_1.obj", base)
+    assert judge(artifacts) is None
+    _obj(tmp_path / "surface_1.obj", [(x, y, z + 0.25) for x, y, z in base])
+    assert judge(artifacts) is True
+
+
 def test_the_node_judge_needs_exactly_the_one_vertex_moved_by_the_stated_step(tmp_path):
     """P0400-GAPPROBES-NODE: one vertex moved by 0.25 in z is True; none or two is unprobed."""
     base = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)]
