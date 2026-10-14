@@ -17,44 +17,24 @@ read, before a workspace is opened and before a solver is started, and
 the refusal names the row, both sweeps and the count of runs they would
 have produced.
 
-The rule is the same in a hand-written `campaign.toml`: a `[[sim]]`
-declaring a multi-angle `angle_sweep_deg` beside a multi-point `sweep`
-is refused when the file loads, which is the moment the case is
-declared. Neither door lets in what the other refuses.
+The same restriction applies to ordinary Python `SimCase` construction.
 
-## What a row's sweep looks like in `campaign.toml`
+## A matrix sweep
 
-`pyfs-matrix convert` writes the row's sweep as one inline table, and a
-hand-written file may write the same thing:
+State `ALPHA:sweep, BETA:0.0` in `FLIGHT_CONDITION` and
+`-4.0,0.0,4.0` in `SWEEP_VALUES`. The matrix declares three points with a
+fixed sideslip; the Python case represents this with
+`SweepAxis(type="alpha", values=[-4.0, 0.0, 4.0], held={"beta": 0.0})`.
+The held angle is part of each point and its identity.
 
-```toml
-[[sim]]
-sim_id = "9001"
-sweep = {type = "alpha", values = [-4.0, 0.0, 4.0], held = {beta = 0.0}}
-```
-
-`type` is the ONE variable that varies, `values` are its values in
-degrees, and **`held` is what the row keeps constant at every point of
-the sweep**, in degrees, under the same axis names. `held` is what makes
-`ALPHA:sweep, BETA:0.0` in a matrix row and the paired `AL/BE` cell it
-replaced plan the same three runs under the same three names: the point's
-NAME ends the `run_id`, so a held angle has to reach the point or the
-upgrade would rename every run that has one. The tag is `AL-040BE+000` in a cell that declares those two variables; the held value is part of the point and not only of the row.
-
-It holds the two ANGLES and nothing else. A key that is not a point axis
-is refused naming the axes, and so is a `held` entry for the variable the
-sweep already varies. An advance ratio the case holds goes in its
-variables, where it went before this release.
-
-`held` is omitted when the row holds nothing, so a file with no held values loads unchanged. The paired `type = "alpha_beta"` still loads and
-is deprecated: write `type = "alpha"` with the sideslip in `held`, which
-plans the identical runs.
+See the [steady wing polar](https://github.com/nevesgeovana/pyflightstream/tree/main/examples/using-CLI/steady-wing-polar)
+for runnable workspace inputs and the matching
+[Python script](https://github.com/nevesgeovana/pyflightstream/blob/main/examples/using-API/steady_wing_polar.py).
 
 Write it one of two ways.
 
 - **One rotation, held fixed across the aerodynamic sweep.** Put
-  `angle_deg: 5.0` in `VAR_NAMES_VALUES` (or `angle_deg = 5.0` under
-  `[sim.variables]`). One value. The row keeps its alpha sweep and stays
+  `angle_deg: 5.0` in `VAR_NAMES_VALUES`. One value. The row keeps its alpha sweep and stays
   one row.
 - **A sweep of the geometry.** One row per angle, each with its own
   `POL` and a single-valued `angle_deg`. Three angles across an eleven

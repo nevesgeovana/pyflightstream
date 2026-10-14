@@ -4,9 +4,8 @@ Pipeline role: keeps the established run-matrix workflow working
 unchanged, forever (BRF-08), and promotes the matrix to a first-class
 interface of the file-managed modality (v0.3 decision): reading a
 matrix and running it is one call,
-:func:`pyflightstream.run.matrix.run_matrix`, with the native
-``campaign.toml`` model staying the canonical internal form, so
-nothing changes for campaign.toml users. The verified layout is read as
+:func:`pyflightstream.run.matrix.run_matrix`. Cases are represented
+in memory by Campaign and SimCase; campaign files are refused. The layout is read as
 is: POL, AIRCRAFT, DESCRIPTION, FLIGHT_CONDITION, SWEEP_VALUES, REF,
 SET, PPROC, FS_BUILD, HIDDEN, RUN, WORKFLOW, VAR_NAMES_VALUES. Rows
 with RUN = 1 are active. THE SWEPT VARIABLE IS A KEY OF
@@ -23,7 +22,7 @@ resolved to files by number at run time; that import-by-number system
 is replaced (PP-7, FR-12): :func:`to_campaign` maps the FS_SCRIPT
 code to a registered recipe name through an explicit mapping and
 preserves all four codes in the case variables, so the conversion is
-lossless. :func:`convert_matrix` (FR-11) emits the native
+lossless. The retired :func:`convert_matrix` refuses the native
 ``campaign.toml`` equivalent; ``REmi`` is stated in millions in the
 flight condition and converts to an absolute Reynolds number.
 
@@ -74,7 +73,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
-from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 from pyflightstream.cases import (
     ROTATION_OFFSET_KEY,
@@ -1653,8 +1651,8 @@ def to_campaign(
         name registered with the campaign loop); replaces the
         import-by-number system (PP-7, FR-12).
     require_outputs : bool, optional
-        Refuse a row that declares no outputs (the default); :func:`convert_matrix`, the migration
-        tool, passes False.
+        Refuse a row that declares no outputs (the default). False permits
+        inspection of an incomplete in-memory campaign without executing it.
     defer_raw_files : bool, optional
         Leave out a raw-command record that names a file instead of refusing it; only the caller
         that resolves those files against a workspace passes True.
@@ -1754,8 +1752,7 @@ def to_campaign(
                 #
                 # THE FILE RECORD IS REFUSED RATHER THAN DROPPED. The first
                 # writing dropped the whole cell in silence, so a matrix read
-                # WITHOUT a workspace, which `to_campaign` and `convert_matrix`
-                # both are and both public, lost every raw command a row
+                # WITHOUT a workspace through `to_campaign` lost every raw command a row
                 # stated: no error, no warning, and the row had parsed
                 # cleanly, so the user had every reason to think it took
                 # (the architecture lens, 2026-09-10).
@@ -1780,17 +1777,6 @@ def to_campaign(
     )
 
 
-def _toml_value(value: object) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, float)):
-        return repr(value)
-    if isinstance(value, list):
-        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
-    escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
-
-
 def convert_matrix(
     path: str | Path,
     *,
@@ -1799,181 +1785,22 @@ def convert_matrix(
     fs_exe: str,
     recipes: Mapping[str, str],
 ) -> str:
-    """Emit the native ``campaign.toml`` text of a run matrix (FR-11).
-
-    Parameters are those of :func:`to_campaign`. The returned text
-    loads back through :func:`pyflightstream.cases.load_campaign`, so
-    migration is one call and reversible only in the sense that the
-    matrix file itself stays untouched and readable forever (FR-10).
+    """Refuse serialization to the retired campaign-file form.
 
     Parameters
     ----------
     path : str or Path
-        Matrix location; only RUN = 1 rows convert.
-    name : str
-        Campaign name, as :func:`to_campaign` takes it.
-    fs_version : str
-        FlightStream version, as :func:`to_campaign` takes it.
-    fs_exe : str
-        Explicit executable path.
-    recipes : mapping of str to str
-        RECIPE code to recipe reference, as :func:`to_campaign` takes it.
+        The matrix to plan directly.
+    name, fs_version, fs_exe, recipes
+        Former conversion arguments, retained only to give a didactic refusal.
 
-    Returns
-    -------
-    str
-        The ``campaign.toml`` text, ending in a newline. A row that declares no outputs converts to
-        a case that declares none, with a warning naming it.
-
-    Examples
-    --------
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from pyflightstream.cases.matrix import MATRIX_COLUMNS
-    >>> cells = dict.fromkeys(MATRIX_COLUMNS, "NA")
-    >>> cells.update(
-    ...     POL="9001", HIDDEN="0", RUN="1", AIRCRAFT="Wing", DESCRIPTION="POLAR",
-    ...     FLIGHT_CONDITION="MACH:0.1, ALPHA:sweep", SWEEP_VALUES="0.0,2.0",
-    ...     FS_BUILD="MANUAL", WORKFLOW="LEGACY",
-    ...     VAR_NAMES_VALUES="OUTPUTS: loads_{point}.txt / RECIPE: 003",
-    ... )
-    >>> path = Path(tempfile.mkdtemp()) / "matrix.fs"
-    >>> with path.open("w", encoding="utf-8") as stream:
-    ...     print(" | ".join(cells), file=stream)
-    ...     print(" | ".join(cells.values()), file=stream)
-    >>> text = convert_matrix(path, name="polar", fs_version="26.124",
-    ...                       fs_exe="FlightStream.exe", recipes={"003": "recipes:build"})
-    >>> text.splitlines()[:3]
-    ['[campaign]', 'name = "polar"', 'fs_version = "26.124"']
+    Raises
+    ------
+    MatrixError
+        Campaign-file conversion is removed. Use the workspace matrix directly.
     """
-    # require_outputs=False: this is the migration tool. A row that
-    # declares none converts to a sim that declares none, and the
-    # warning below names the rows, so the existing matrices
-    # keep converting (FR-10, FR-11) and learn what to add.
-    campaign = to_campaign(
-        path,
-        name=name,
-        fs_version=fs_version,
-        fs_exe=fs_exe,
-        recipes=recipes,
-        require_outputs=False,
+    raise MatrixError(
+        f"Cannot convert {str(path)!r} to a campaign file; the matrix is the sole "
+        "campaign declaration. Use pyfs-matrix plan or "
+        "pyflightstream.run.matrix.plan_matrix. See docs/upgrading.md."
     )
-    undeclared = [sim.sim_id for sim in campaign.sims if not sim.outputs]
-    if undeclared:
-        warn(
-            f"{len(undeclared)} converted sim(s) declare no outputs "
-            f"({', '.join(undeclared)}). The conversion is complete and lossless: the "
-            f"matrix rows carry no {OUTPUTS_VARIABLE} variable, so the campaign carries "
-            "no outputs either. Add them before running, either in the matrix as "
-            f"'{OUTPUTS_VARIABLE}: loads_{{point}}.txt' or in the campaign file as "
-            "outputs = [...], naming the files the recipe exports. Running a case that "
-            "declares none collects nothing and records the point "
-            "FAILED_INCOMPLETE_OUTPUT after the solver has already spent its time.",
-            PyflightstreamWarning,
-            stacklevel=2,
-        )
-    lines = [
-        "[campaign]",
-        f"name = {_toml_value(campaign.name)}",
-        f"fs_version = {_toml_value(campaign.fs_version)}",
-        f"fs_exe = {_toml_value(campaign.fs_exe)}",
-        # The matrix identity travels with the conversion (PFS-2031.04), so
-        # a converted campaign keeps its products where the matrix would,
-        # and the round trip through load_campaign stays lossless (FR-11).
-        f"matrix_stem = {_toml_value(campaign.matrix_stem)}",
-    ]
-    _refuse_unbound_conversion_builds(campaign, fs_version)
-    for sim in campaign.sims:
-        lines += [
-            "",
-            "[[sim]]",
-            f"sim_id = {_toml_value(sim.sim_id)}",
-            f"aircraft = {_toml_value(sim.aircraft)}",
-        ]
-        if sim.description:
-            lines.append(f"description = {_toml_value(sim.description)}")
-        if sim.reynolds is not None:
-            lines.append(f"reynolds = {_toml_value(sim.reynolds)}")
-        if sim.mach is not None:
-            lines.append(f"mach = {_toml_value(sim.mach)}")
-        if sim.flight_condition:
-            # The condition AS WRITTEN, so the conversion stays lossless
-            # (FR-11) and a campaign.toml round-trips back to the same
-            # case. Without this the constraint set would survive the
-            # matrix reader and die at the converter, which is the half
-            # of a lossless claim nobody tests until it matters.
-            pairs = ", ".join(
-                f"{key} = {_toml_value(value)}" for key, value in sim.flight_condition.items()
-            )
-            lines.append(f"flight_condition = {{{pairs}}}")
-        if sim.condition_order:
-            # 0.21.0: the cell's order, which names every point of the case.
-            lines.append(f"condition_order = {_toml_value(list(sim.condition_order))}")
-        plain_values = [
-            list(value) if isinstance(value, tuple) else value for value in sim.sweep.values
-        ]
-        held = (
-            ", held = {"
-            + ", ".join(f"{key} = {_toml_value(value)}" for key, value in sim.sweep.held.items())
-            + "}"
-            if sim.sweep.held
-            else ""
-        )
-        lines.append(
-            f"sweep = {{type = {_toml_value(sim.sweep.type)}, "
-            f"values = {_toml_value(plain_values)}{held}}}"
-        )
-        lines.append(f"recipe = {_toml_value(sim.recipe)}")
-        # FR-11 says the conversion is lossless, and the outputs are part
-        # of what the row declares now, so they have to survive it. Before
-        # 2026-08-03 there was nothing here to lose: every converted case
-        # carried the empty default.
-        if sim.outputs:
-            lines.append(f"outputs = {_toml_value(list(sim.outputs))}")
-        if sim.variables:
-            lines.append("[sim.variables]")
-            for key, value in sim.variables.items():
-                lines.append(f"{_toml_value(key)} = {_toml_value(value)}")
-        lines += _record_tables(sim)
-    return "\n".join(lines) + "\n"
-
-
-def _refuse_unbound_conversion_builds(campaign: Campaign, fs_version: str) -> None:
-    """Refuse per-row installations that a standalone conversion cannot bind."""
-    if not campaign.sims:
-        return
-    default_build = (
-        fs_version.strip() or str(campaign.sims[0].variables.get("matrix_fs_build", "")).strip()
-    )
-    for sim in campaign.sims:
-        build = str(sim.variables.get("matrix_fs_build", "")).strip()
-        if (
-            build not in (*UNSTATED_CELLS, default_build, campaign.fs_version)
-            and build.upper() != "MANUAL"
-        ):
-            raise MatrixError(
-                f"POL {sim.sim_id}: FS_BUILD {build!r} differs from campaign default "
-                f"{campaign.fs_version!r}; conversion cannot bind a per-row installation. "
-                "Run the matrix through its workspace build registry, or use one default build."
-            )
-
-
-def _record_tables(sim: SimCase) -> list[str]:
-    """Return the arrays of tables of a case's record lists, in campaign.toml text.
-
-    THE RECORD LISTS ARE PART OF THE CASE TOO (FR-11): the reader pops MOTIONS,
-    ROTATE, TRANSLATE and RAW out of the variables, so a writer that stopped at
-    ``[sim.variables]`` dropped them. Conversion refuses a row build that
-    differs from the default because it cannot bind that installation.
-    """
-    records = [("motions", record) for record in sim.motions]
-    records += [("rotations", record) for record in sim.rotations]
-    records += [("translations", record) for record in sim.translations]
-    records += [
-        ("raw_commands", command.model_dump(exclude_none=True)) for command in sim.raw_commands
-    ]
-    lines: list[str] = []
-    for table, record in records:
-        lines.append(f"[[sim.{table}]]")
-        lines += [f"{_toml_value(key)} = {_toml_value(value)}" for key, value in record.items()]
-    return lines

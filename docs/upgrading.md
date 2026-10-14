@@ -6,6 +6,18 @@ Read the section for each release after the version used by the workspace, in
 ascending order. Use `pyfs-matrix upgrade` to convert workspace layouts and
 `pyfs-matrix rename` to update legacy names.
 
+## 0.41.0
+
+The matrix is the sole campaign declaration. Authored campaign files, including
+the former TOML file loaded from Python, are refused immediately; there is no
+deprecation period. Move the cases into a workspace matrix and plan with
+`pyfs-matrix plan <matrix> --workspace <workspace>` or the public Python
+`plan_matrix` API. `load_campaign`, `convert_matrix` and `pyfs-matrix convert`
+now refuse the retired form and name the matrix replacement. Ordinary Python
+`Campaign`, `SimCase`, script builders and execution APIs remain available.
+The four classic example pairs are in `examples/using-CLI/` and
+`examples/using-API/`; use their solver-free plan steps before running.
+
 ## 0.40.0
 
 ### Who is affected

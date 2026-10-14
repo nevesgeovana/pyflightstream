@@ -1,9 +1,8 @@
 """The ``pyfs-matrix`` command line.
 
 Pipeline role: drives the run matrix as a first-class interface
-of the file-managed modality from a terminal. ``pyfs-matrix convert``
-emits the native ``campaign.toml`` equivalent of a matrix (FR-11), the
-canonical internal form; ``pyfs-matrix plan`` binds the matrix codes
+of the file-managed modality from a terminal. The matrix is the campaign
+declaration; campaign-file conversion is refused. ``pyfs-matrix plan`` binds the matrix codes
 to the workspace input library and pre-flights every point without
 executing anything; ``pyfs-matrix run`` takes the same matrix all the
 way to manifest records and a sweep table.
@@ -26,7 +25,7 @@ reversal is the design decision; the reasoning it replaces is kept
 above so the change reads as a decision rather than as drift.
 
 ``--recipe CODE=REFERENCE`` still points at a function of your own on
-``convert`` and ``plan``, and on ``run`` too; what it may not do is
+``plan`` and ``run``; what it may not do is
 name the same code a ``--workflow`` names, which is refused before
 anything is read.
 
@@ -61,7 +60,6 @@ import warnings
 from pathlib import Path
 from typing import NoReturn
 
-import pyflightstream._textio as _textio
 from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
 
 # Each `name as name` import of this block is a name 0.33.1 offered here, where its
@@ -87,7 +85,7 @@ from pyflightstream._progress import (
 )
 from pyflightstream._progress import print_held_warnings as print_held_warnings
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
+from pyflightstream.cases.matrix import MatrixError, upgrade_matrix
 from pyflightstream.cases.workflows import (
     WorkflowCoverageError,
     workflow_registry,
@@ -225,6 +223,20 @@ def _confirmed_destruction(yes: bool) -> bool:
     return answer.strip().lower() == "rebuild"
 
 
+def _refused_campaign_file(argv: list[str] | None) -> bool:
+    """Name the matrix replacement before parsing a retired convert invocation."""
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments or arguments[0] != "convert":
+        return False
+    print(
+        "Campaign-file conversion was removed; the matrix is the sole campaign "
+        "declaration. Use pyfs-matrix plan <matrix> --workspace <workspace>. "
+        "See docs/upgrading.md.",
+        file=sys.stderr,
+    )
+    return True
+
+
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-matrix``; returns the process exit code.
@@ -241,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
         The process exit code: 0 on success, 2 for a refused argument or
         recipe, and the code the chosen subcommand returns otherwise.
     """
+    if _refused_campaign_file(argv):
+        return 2
     parser = _build_parser()
     # FR-436: what the command line does not state, the workspace files may.
     args = parsed(parser, _storage_flag_form(argv))
@@ -294,8 +308,6 @@ def main(argv: list[str] | None = None) -> int:
         except (ValueError, CampaignConfigError) as error:
             print(str(error), file=sys.stderr)
             return 2
-        if args.subcommand == "convert":
-            return _cmd_convert(args, recipes)
         if args.subcommand == "run":
             return _cmd_run(args, recipes)
         return _cmd_plan(args, recipes)
@@ -1109,40 +1121,6 @@ def _cmd_upgrade(args: argparse.Namespace) -> int:
     if args.in_place:
         return 0
     sys.stdout.buffer.write(upgraded)
-    return 0
-
-
-def _cmd_convert(args: argparse.Namespace, recipes: dict[str, str]) -> int:
-    from pyflightstream.run._cli_mesh import _chosen
-
-    output, _, refusal = _chosen(args, ("--out", "out"), ("--output", "output"), since="0.40.0")
-    if refusal is not None:
-        print(refusal, file=sys.stderr)
-        return 2
-    args.output = output
-    if args.name is None:
-        print(
-            "convert has no workspace to name the campaign after; pass name (CLI: --name).",
-            file=sys.stderr,
-        )
-        return 2
-    try:
-        text = convert_matrix(
-            args.matrix,
-            name=args.name,
-            fs_version=args.fs_version,
-            fs_exe=args.fs_exe,
-            recipes=recipes,
-        )
-    except (MatrixError, OSError, ValueError) as error:
-        print(f"matrix not converted: {error}", file=sys.stderr)
-        return 2
-    if args.output:
-        with _textio.open_text(args.output, "w") as handle:
-            handle.write(text)
-        print(f"campaign written: {args.output}")
-    else:
-        print(text, end="")
     return 0
 
 

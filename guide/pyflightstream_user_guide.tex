@@ -913,17 +913,15 @@ def steady_point(case: SimCase, script: Script) -> None:
 
 \begin{frame}[fragile]{Recipe 7: campaigns (3/3), run with provenance}
 \begin{lstlisting}
-from pyflightstream.cases import load_campaign
 from pyflightstream.workspace import CampaignWorkspace
-from pyflightstream.run import (LocalExecutor, run_campaign,
-                               LoadsAssessor)
+from pyflightstream.run.matrix import plan_matrix, run_matrix
 
-campaign = load_campaign("campaign.toml")
-records = run_campaign(campaign,
-    executor=LocalExecutor(campaign.fs_exe),
-    workspace=CampaignWorkspace("C:/cases/campaign_root"),
-    assess=LoadsAssessor())   # judges whichever collected
-                              # output reads as a loads table
+workspace = CampaignWorkspace("study")
+plan = plan_matrix("study/matrix.fs", workspace,
+    name="study", recipes={})
+# After reviewing the plan, on a licensed machine:
+records = run_matrix("study/matrix.fs", workspace,
+    name="study", recipes={})
 \end{lstlisting}
   \begin{center}
   \begin{tikzpicture}[node distance=3mm,
@@ -995,20 +993,15 @@ pyfs-matrix upgrade matrix.fs --in-place
 \end{lstlisting}
   \begin{itemize}
     \item \textbf{The values move across verbatim; the RESULT may not.} Under v0.8.x the \code{RE} column was recorded metadata that reached no emitted line. From v0.9.0 \code{REmi} is a CONSTRAINT that solves for density, so an upgraded row emits an explicit fluid state it never emitted before and the numbers will differ. To keep the previous behaviour, state the condition without \code{REmi} and let the Reynolds number be derived.
-    \item Then the reader converts:
+    \item Then plan the matrix directly:
   \end{itemize}
 \begin{lstlisting}
-from pyflightstream.cases.matrix import convert_matrix
-text = convert_matrix("matrix.fs", name="wing2026",
-    fs_version="26.120", fs_exe="C:/fs/FlightStream.exe",
-    recipes={"003": "recipes.steady_polar:build"})
-# the matrix codes are preserved as matrix_* variables,
-# nothing is dropped; the TOML round-trips through load_campaign
+pyfs-matrix plan matrix.fs --workspace study
 \end{lstlisting}
   \begin{itemize}
-    \item One-command form: the \code{pyfs-matrix convert} CLI takes the same inputs as flags and writes the file via \code{-o campaign.toml}.
-    \item Convert once, review the TOML in a diff, then live natively in the campaign format.
-    \item Conversion carries the output names too: a row declares them in \code{VAR\_NAMES\_VALUES} as \code{OUTPUTS: loads\_\{point\}.txt}, comma-separated because the slash already separates the KEY:VALUE pairs, and \code{convert\_matrix} writes them into the converted \code{[[sim]]}. A row declaring none is refused before the solver starts.
+    \item The matrix is the sole campaign declaration. Edit its rows and plan again.
+    \item The same plan is available through the public Python API, as the four scripts in \code{examples/using-API/} demonstrate.
+    \item Output names remain part of each case; a row declaring none is refused before the solver starts.
   \end{itemize}
 \end{frame}
 
@@ -1378,7 +1371,6 @@ pyfs-workspace init      DIR                          # scaffold a workspace
 pyfs-workspace archive   DIR SIM_ID                   # zip one recorded simulation
 pyfs-workspace migrate-geometries DIR                 # flat library to one folder per geometry
 pyfs-matrix upgrade      matrix.fs --in-place         # older layout to current
-pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
 pyfs-matrix inspect-setups matrix.fs --workspace DIR # resolved setup and provenance
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
@@ -1414,7 +1406,7 @@ pyfs-manual draft     --editions MANIFEST --fs-version 26.123  # propose rows fo
 \end{lstlisting}
   \begin{itemize}
     \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.
-    \item \code{pyfs-workspace}, and \code{pyfs-matrix convert}, \code{plan}, \code{collect} and \code{post}, run anywhere: they scaffold the workspace tree, turn a run matrix into a campaign, pre-flight one without a solver, wait for a submitted job's outputs and rebuild the products. \code{collect} starts no solver and is not a pre-flight: it watches the WORKSPACE rather than the queue, which is why it needs neither a licence nor a scheduler. \code{pyfs-matrix run} STARTS THE SOLVER and needs a licensed machine like the \code{pyfs-qa} tools. There is no separate submit command: on Linux with a cluster profile in \code{inputs/hpc/}, \code{run} hands the job to the scheduler and returns, and the record reads SUBMITTED until \code{collect} completes it.
+    \item \code{pyfs-workspace}, and \code{pyfs-matrix plan}, \code{collect} and \code{post}, run anywhere: they scaffold the workspace tree, pre-flight one without a solver, wait for a submitted job's outputs and rebuild the products. \code{collect} starts no solver and is not a pre-flight: it watches the WORKSPACE rather than the queue, which is why it needs neither a licence nor a scheduler. \code{pyfs-matrix run} STARTS THE SOLVER and needs a licensed machine like the \code{pyfs-qa} tools. There is no separate submit command: on Linux with a cluster profile in \code{inputs/hpc/}, \code{run} hands the job to the scheduler and returns, and the record reads SUBMITTED until \code{collect} completes it.
     \item As a user you consume the licensed results through the matrix; you only run the licensed tools when contributing evidence.
   \end{itemize}
 \end{frame}

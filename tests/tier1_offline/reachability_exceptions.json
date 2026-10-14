@@ -412,17 +412,6 @@
    ]
   },
   {
-   "id": "RX-28",
-   "capability": "Python campaign-file form beside the matrix",
-   "reason": "Python-only by design",
-   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
-   "names": [
-    "pyflightstream.cases.derived_body_sha256",
-    "pyflightstream.cases.load_campaign",
-    "pyflightstream.cases.workflows.rotor_relaxed_trailing_edges"
-   ]
-  },
-  {
    "id": "RX-29",
    "capability": "Moving structural-node frame of the unsteady_rotor FSI route, which is refused",
    "reason": "routed later",

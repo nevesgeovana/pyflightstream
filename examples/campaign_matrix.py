@@ -5,7 +5,7 @@
 # without a FlightStream license:
 #
 # 1. the run matrix as the input format (one row per simulation);
-# 2. converting a matrix to the canonical `campaign.toml`;
+# 2. the matrix as the sole campaign declaration;
 # 3. the managed workspace and a zero-solver pre-flight
 #    (`plan_campaign`) that builds every script and checks every
 #    geometry before any run.
@@ -21,7 +21,7 @@ import tempfile
 from pathlib import Path
 
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
-from pyflightstream.cases.matrix import convert_matrix, read_matrix
+from pyflightstream.cases.matrix import read_matrix
 from pyflightstream.run import plan_campaign
 from pyflightstream.script import helpers
 from pyflightstream.workspace import CampaignWorkspace
@@ -55,7 +55,7 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 # `LEGACY` is the workflow every row written before the column existed
 # asks for. `upgrade_matrix` converts a file written under any older
 # layout and touches no other byte. And the `REF`, `SET` and `PPROC` codes carry a
-# letter naming their kind (`r`, `s`, `e`), so a number mistyped between
+# letter naming their kind (`r`, `s`, `p`), so a number mistyped between
 # the three columns cannot resolve to another artifact's file.
 
 # %%
@@ -85,33 +85,12 @@ rows = read_matrix(matrix_path)  # active_only=True skips the RUN=0 row
 print(f"active matrix rows: {[row.pol for row in rows]}")
 
 # %% [markdown]
-# ## 2. Matrix to canonical campaign.toml
+# ## 2. The matrix declares the campaign
 #
-# `convert_matrix` renders the same rows as a `campaign.toml`, the
-# canonical internal form. The `recipes` mapping binds each
-# `RECIPE` code to a `module:function` recipe that emits the script
-# for that row.
-
-# %%
-campaign_toml = convert_matrix(
-    matrix_path,
-    name="wing_steady",
-    fs_version="26.120",
-    fs_exe="C:/FlightStream/26.12/FlightStream.exe",
-    recipes={"003": "examples.campaign_matrix:steady"},
-)
-print("--- campaign.toml (first lines) ---")
-print("\n".join(campaign_toml.splitlines()[:8]))
-
-# %% [markdown]
-# Conversion carries the output names too. A row declares them in
-# `VAR_NAMES_VALUES` as `OUTPUTS: loads_{point}.txt`, comma-separated
-# because the slash already separates the KEY:VALUE pairs, and
-# `convert_matrix` writes them into the `[[sim]]` table. The loop
-# collects only declared outputs, and every point of a case runs in the
-# same folder, so the name has to carry the point.
-
-# %% [markdown]
+# Plan a workspace matrix through `pyflightstream.run.matrix.plan_matrix`.
+# The four paired CLI and API examples live in `examples/using-CLI/` and
+# `examples/using-API/`. Campaign-file conversion is removed.
+#
 # ## 3. The recipe
 #
 # A recipe turns one swept point into script emissions. It receives
@@ -134,24 +113,8 @@ print("\n".join(campaign_toml.splitlines()[:8]))
 # receives the field exactly as a built-in workflow does, and both
 # `plan_matrix` and `run_matrix` go through there.
 #
-# `convert_matrix`, which section 2 uses, resolves no library artifact at
-# all and leaves the field absent. That is the one route where a recipe
-# still sees nothing, and it is a property of the CONVERTER rather than
-# of the matrix.
-#
-# THIS NOTE SAID THE OPPOSITE until v0.8.1, and the correction is left
-# visible rather than quietly rewritten: it said a matrix row could not
-# set the field and that a recipe should read a key of its own and call
-# `workspace.inputs.resolve_geometry`, and it told the reader to wait for
-# a geometry COLUMN. It was true the day it was written. The release that
-# made it false is the one that shipped the key, and no test READ an
-# example's prose, so nothing but a reader was ever going to catch it.
-# One does now: `tests/tier1_offline/test_docs_example_currency.py` asserts that this
-# note names the key a row fills the field with, and that the two claims
-# which went stale cannot come back.
 
 
-# %%
 def steady(case: SimCase, script) -> None:
     """Emit the steady one-point script for one matrix row.
 

@@ -184,19 +184,12 @@ The point name writes each flight-condition variable as a code and a fixed-width
 \end{tikzpicture}
 
 \vspace{2pt}
-Every command that takes a matrix reads it through this lookup: \cmd{pyfs-matrix upgrade}, \cmd{pyfs-matrix convert}, \cmd{pyfs-matrix plan}, \cmd{pyfs-matrix inspect-setups}, \cmd{pyfs-matrix run}, \cmd{pyfs-matrix post}, \cmd{pyfs-matrix rebuild} and \cmd{pyfs-matrix rename}. \cmd{pyfs-matrix upgrade} and \cmd{pyfs-matrix convert} take no workspace and look in the current folder.
+Every command that takes a matrix reads it through this lookup: \cmd{pyfs-matrix upgrade}, \cmd{pyfs-matrix plan}, \cmd{pyfs-matrix inspect-setups}, \cmd{pyfs-matrix run}, \cmd{pyfs-matrix post}, \cmd{pyfs-matrix rebuild} and \cmd{pyfs-matrix rename}. \cmd{pyfs-matrix upgrade} takes no workspace and looks in the current folder.
 
 \hd{Commands}
 \begin{cmdblock}{pyfs-matrix upgrade}{<matrix>}{Convert a matrix written under an older layout to the current one.}
 \opt{--in-place}{rewrite the file (default: print to standard output).}
 \opt{--inputs DIR}{also move \file{inputs/groups/e001.toml} to \file{inputs/pproc/p001.toml} under \texttt{[groups]}; needs \fl{--in-place}.}
-\end{cmdblock}
-\begin{cmdblock}{pyfs-matrix convert}{<matrix>}{Emit the native \file{campaign.toml} equivalent of a matrix.}
-\opt{--fs-exe PATH}{required: the executable, never guessed.}
-\opt{--name NAME}{the campaign name; required here, as there is no workspace.}
-\opt{--fs-version V}{the build for rows whose FS\_BUILD cell is empty.}
-\opt{--recipe CODE=MODULE:FUNCTION}{a LEGACY recipe code (repeatable).}
-\opt{-o, --output FILE}{write here instead of standard output.}
 \end{cmdblock}
 \begin{cmdblock}{pyfs-matrix rename}{}{Rename a workspace written under 0.20.x to the point names of 0.21.0 (folders, scripts, records, plan).}
 \opt{--workspace DIR}{the campaign root (default: current folder).}
@@ -224,7 +217,6 @@ Save and close the workbook first. A read imports matrices into its Runs sheet, 
 
 \hd{Files}
 \rd{<name>.fs}{in the workspace root or in \file{inputs/matrices/}, the two homes.}
-\wf{campaign.toml}{written by \cmd{pyfs-matrix convert}.}
 \rd{inputs/sync-workspaces.toml}{names the workspace that owns each matrix (stage 6).}
 
 \hd{Common errors}

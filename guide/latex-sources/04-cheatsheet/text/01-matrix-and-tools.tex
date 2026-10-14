@@ -56,15 +56,6 @@
 \begin{flags}
 \item \fl{--workspace DIR} \quad \fl{--dry-run} print what would move, change nothing
 \end{flags}
-\sub{convert <matrix>}{emit the equivalent native \texttt{campaign.toml}}
-\begin{flags}
-\item \fl{--fs-exe PATH} \textbf{required}: FlightStream executable (never guessed)
-\item \fl{--name NAME} campaign name (required here: no workspace)
-\item \fl{--fs-version V} build for rows with empty FS\_BUILD, e.g. \texttt{26.124}
-\item \fl{--recipe CODE=MODULE:FUNCTION} FS\_SCRIPT code to recipe (repeatable)
-\item \fl{--out FILE} write the \texttt{campaign.toml} here instead of standard output; \fl{-o}/\fl{--output} is its deprecated alias
-\item \fl{-o, --output FILE} write here instead of stdout
-\end{flags}
 
 \stage{2. PLAN (MANDATORY BEFORE RUN, NO SOLVER)}
 \sub{plan <matrix>}{bind the matrix to \texttt{inputs/}, pre-flight every point, write the receipt \texttt{run} requires (pinned to the matrix digest; edit the matrix, plan again). Alias: \cmd{inspect-setups}}

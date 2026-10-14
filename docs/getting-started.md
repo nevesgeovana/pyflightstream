@@ -96,7 +96,7 @@ what the growing count means for one you wrote down earlier: a vendor
 name is unambiguous only until the vendor ships the next build under
 it. A campaign never keeps the name: a `Campaign` resolves the version it
 is given and stores the canonical identifier, so a matrix converted with
-`26.0` writes `fs_version = "26.000"` into `campaign.toml` and the file
+`26.0` resolves to `fs_version = "26.000"` in the in-memory campaign, which
 still loads on the day a second build claims `26.0`. This
 page does not say how many are in either family, for exactly
 that reason; run the refusal and read its candidates, which this page

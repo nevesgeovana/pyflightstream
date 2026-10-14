@@ -220,9 +220,8 @@ the names it imports; those still import by name (NFR-29).
 
 **Removed:** `pyflightstream.cases.stamp_derived_campaign`, the writer of the
 `[campaign.derived_from]` marker, which no code of the package called
-(decision 9 of the 0.33.0 scope). `load_campaign` still reads the marker of a
-campaign file an earlier release stamped, and still refuses such a file once
-it is edited.
+(decision 9 of the 0.33.0 scope). Historical campaign-file provenance no longer provides a declaration route.
+See [Upgrading](upgrading.md) for the 0.41.0 matrix-only declaration.
 
 ## Reports no longer publish an executable digest
 

@@ -209,11 +209,8 @@ def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
 def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
     """Declare --ignore-missing-families, the design of 2026-09-10.
 
-    ON `plan` AND `run` ONLY, and deliberately not on `convert`. The
-    choice is a property of THIS INVOCATION and not of an artifact:
-    `convert` writes a campaign file that outlives the command that
-    wrote it, and a per-invocation choice frozen into a file stops being
-    one (PFS-2035.13).
+    The choice is a property of this plan or run invocation, not a stored
+    campaign declaration (PFS-2035.13).
     """
     parser.add_argument(
         "--ignore-missing-families",
@@ -301,7 +298,7 @@ def _add_common_arguments(parser: argparse.ArgumentParser, *, hpc: bool = False)
         "--name",
         default=None,
         help="campaign name; without it the workspace directory's name is the campaign's "
-        "(PFS-2029.03), and `convert`, which has no workspace, still needs it",
+        "(PFS-2029.03)",
     )
     parser.add_argument(
         "--fs-version",
@@ -379,14 +376,13 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="pyfs-matrix",
         description=(
             "Run-matrix tooling: the matrix is a first-class interface of the "
-            "file-managed modality, with campaign.toml as the canonical internal form."
+            "file-managed modality, with the matrix as the sole campaign declaration."
         ),
     )
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
     _add_workspace_parsers(subparsers)
     _add_storage_parsers(subparsers)
     _add_records_parsers(subparsers)
-    _add_convert_parsers(subparsers)
     _add_plan_parsers(subparsers)
     _add_run_parsers(subparsers)
     _add_run_option_parsers(subparsers)
@@ -549,29 +545,6 @@ def _add_workspace_parsers(subparsers: Any) -> None:
 def _add_degenerate_parsers(subparsers: Any) -> None:
     """Add the subcommand that derives a degenerate geometry from a mesh: degenerate (FR-330)."""
     add_degenerate_parser(subparsers)
-
-
-def _add_convert_parsers(subparsers: Any) -> None:
-    """Add the convert subcommand."""
-    convert = subparsers.add_parser(
-        "convert",
-        help="emit the native campaign.toml equivalent of a matrix (FR-11)",
-    )
-    _add_common_arguments(convert)
-    convert.add_argument(
-        "--fs-exe",
-        required=True,
-        help="explicit path of the FlightStream executable (never guessed)",
-    )
-    convert.add_argument(
-        "--out",
-        help="write the campaign.toml here instead of standard output",
-    )
-    convert.add_argument(
-        "-o",
-        "--output",
-        help="deprecated alias of --out, with the identical result",
-    )
 
 
 def _hpc_profile_name(name: str) -> str:

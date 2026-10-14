@@ -585,9 +585,8 @@ def resolve_matrix(
     ``solver``), PPROC to the post-processing artifact (bound onto the case), and
     FS_BUILD to an executable through the build registry. A missing
     artifact fails with a didactic error naming the row, the missing id,
-    and the ``inputs/`` file to create; plain conversion
-    (:func:`pyflightstream.cases.matrix.convert_matrix`) never needs the
-    library.
+    and the ``inputs/`` file to create. The matrix remains the campaign
+    declaration; the resolved campaign is an in-memory API object.
 
     THE ``GEOMETRY`` VARIABLE RESOLVES HERE TOO, and it is the fifth of
     those bindings rather than a sixth kind of thing

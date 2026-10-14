@@ -177,6 +177,7 @@
       "tests/tier1_offline/test_p0400_rfixF_qsteady.py",
       "tests/tier1_offline/test_p0400_rfixr3_azimuths.py",
       "tests/tier1_offline/test_p0400_script_helpers.py",
+      "tests/tier1_offline/test_p0410_cl_ex_refusal.py",
       "tests/tier1_offline/test_periodic_native_zones.py",
       "tests/tier1_offline/test_reduce_by_rotor.py",
       "tests/tier1_offline/test_reference_normalization_setup.py",

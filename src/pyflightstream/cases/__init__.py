@@ -4,10 +4,10 @@ Pipeline role: describes what to run. A :class:`SimCase` (identified
 by ``sim_id``) is one solver configuration with its sweep; a
 :class:`Campaign` groups cases with the FlightStream version and the
 executable path, both required and explicit: nothing is read from
-environment variables or guessed (SAD Section 5). Native persistence
-is ``campaign.toml``; the pipe-delimited ``matrix.fs`` run matrix
-is read unchanged, forever, by the matrix reader
-(:mod:`pyflightstream.cases.matrix`, FR-10).
+environment variables or guessed (SAD Section 5). The pipe-delimited
+``matrix.fs`` run matrix is the campaign declaration, read by
+:mod:`pyflightstream.cases.matrix`. Campaign files are refused; ordinary
+Python model construction remains available.
 
 Script recipes are explicitly imported functions satisfying the
 :class:`ScriptRecipe` protocol: ``build(case, script) -> None``. The
@@ -97,7 +97,6 @@ module.
 from __future__ import annotations
 
 import re
-import tomllib
 from collections.abc import Callable, Iterator, Mapping
 from importlib import import_module
 from inspect import Parameter, signature
@@ -109,12 +108,11 @@ from pydantic import (
     ConfigDict,
     Field,
     PrivateAttr,
-    ValidationError,
     field_validator,
     model_validator,
 )
 
-from pyflightstream._digest import file_sha256, text_sha256
+from pyflightstream._digest import text_sha256
 from pyflightstream._retired_names import retired_frame
 
 # The setup keys' command table and the tables FR-319 added; its module imports
@@ -1242,10 +1240,9 @@ class Campaign(BaseModel):
 
     Notes
     -----
-    :attr:`source_path` is knowledge rather than a field. It is set only
-    by :func:`load_campaign`, so a campaign file cannot declare a source
-    it did not come from, and the ``campaign.toml`` surface is untouched
-    by it.
+    :attr:`source_path` is retained for existing in-memory provenance
+    consumers. New campaigns have no campaign-file source: the retired
+    reader refuses files before reading their contents.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1278,9 +1275,8 @@ class Campaign(BaseModel):
         Returns
         -------
         str or None
-            The path :func:`load_campaign` was given, as given. None
-            means the campaign was built in Python and no file is its
-            source.
+            Historical campaign-file provenance, or None for a newly built
+            campaign. The retired file reader does not populate it.
         """
         return self._source_path
 
@@ -1346,104 +1342,26 @@ class Campaign(BaseModel):
         return self
 
 
-def _refuse_an_edited_derived_campaign(campaign: Campaign, path: str | Path, text: str) -> None:
-    """Refuse a generated campaign whose file no longer matches its digests.
-
-    Nothing is re-derived here, and that is the whole design. Rebuilding
-    the campaign from the matrix would be seeded from the file under
-    test: ``name``, ``fs_version``, ``fs_exe`` and each case's ``recipe``
-    are handed TO the conversion rather than read from the matrix, so a
-    re-derivation would find them equal by construction and an edited
-    ``fs_exe``, which is what a user on a second machine actually edits,
-    would load in silence. Comparing the file against digests taken when
-    it was written covers every field the same way.
-
-    Two comparisons, and the second is deliberately skippable. The
-    content digest always applies. The matrix digest applies only where
-    the recorded matrix is readable, because the marker exists to
-    survive the campaign being copied out of its folder, and a refusal
-    on an absent matrix would make the marker the reason a perfectly
-    good campaign stops loading.
-    """
-    marker = campaign.derived_from
-    if marker is None:  # pragma: no cover - callers check first
-        return
-    remedy = (
-        f"{path} was GENERATED from {marker.matrix} and has been edited since. Edit "
-        f"{marker.matrix} instead and convert it again (pyfs-matrix convert), so the "
-        "matrix and the campaign cannot disagree about what the study is. To take "
-        "ownership of this file instead, delete its [campaign.derived_from] table: "
-        "it then loads as an authored campaign, which is a supported source."
-    )
-    if derived_body_sha256(text) != marker.content_sha256:
-        raise CampaignConfigError(remedy)
-    matrix_path = Path(marker.matrix)
-    if not matrix_path.is_absolute():
-        matrix_path = Path(path).parent / matrix_path
-    if matrix_path.is_file() and file_sha256(matrix_path) != marker.matrix_sha256:
-        raise CampaignConfigError(
-            f"{path} was generated from {marker.matrix}, and that matrix has changed "
-            "since; the campaign no longer describes the study the matrix states. "
-            "Convert the matrix again (pyfs-matrix convert) rather than running a "
-            "campaign whose source has moved on."
-        )
-
-
 def load_campaign(path: str | Path) -> Campaign:
-    """Load and validate a ``campaign.toml`` file.
-
-    The file holds one ``[campaign]`` table (name, fs_version,
-    fs_exe) and one ``[[sim]]`` array entry per case, as in SAD
-    Section 5.
-
-    A file the package GENERATED carries a ``[campaign.derived_from]``
-    table naming its matrix, and is refused here when it has been edited
-    since; a file a user authored carries no such table, loads exactly as
-    it always did, and is recorded as the source of its own study. The
-    refusal fires only on the marker's presence, which is what keeps
-    every hand-written campaign in existence loading.
+    """Refuse the retired campaign-file declaration.
 
     Parameters
     ----------
     path : str or Path
-        Location of the TOML file.
-
-    Returns
-    -------
-    Campaign
-        Validated campaign; version aliases are checked against the
-        registered versions immediately, so a typo fails at load
-        time, not at the first point. Its :attr:`Campaign.source_path`
-        is this file and :attr:`Campaign.is_derived` says which kind it
-        is.
+        The rejected campaign file; its contents are not read or executed.
 
     Raises
     ------
     CampaignConfigError
-        Not TOML, no valid ``[campaign]`` table and ``[[sim]]`` cases; or a generated
-        campaign that has been edited, or whose matrix changed since the conversion.
-
-    Examples
-    --------
-    >>> campaign = load_campaign("campaign.toml")   # doctest: +SKIP
-    >>> campaign.is_derived                         # doctest: +SKIP
-    False
-    >>> campaign.source_path                        # doctest: +SKIP
-    'campaign.toml'
+        The matrix is the sole campaign declaration from 0.41.0.
+        Ordinary Python Campaign and SimCase construction remains available.
     """
-    text = Path(path).read_text(encoding="utf-8")
-    try:
-        data = tomllib.loads(text)
-        campaign = Campaign(**data.get("campaign", {}), sims=data.get("sim", []))
-    except (tomllib.TOMLDecodeError, TypeError, ValidationError) as error:
-        raise CampaignConfigError(
-            f"{path} does not load ({error}); campaign.toml needs a [campaign] table with "
-            "name, fs_version and fs_exe, then one [[sim]] entry per case and no sims key"
-        ) from error
-    campaign._source_path = str(path)
-    if campaign.derived_from is not None:
-        _refuse_an_edited_derived_campaign(campaign, path, text)
-    return campaign
+    raise CampaignConfigError(
+        f"Campaign file {str(path)!r} is no longer accepted; the matrix is the sole "
+        "campaign declaration. Put the cases in a workspace matrix and use "
+        "pyfs-matrix plan, or pyflightstream.run.matrix.plan_matrix in Python. "
+        "See docs/upgrading.md."
+    )
 
 
 def resolve_recipe(reference: str) -> Callable[[SimCase, Script], None]:
