@@ -39,3 +39,11 @@ def test_p0400_sweep_values_with_distinct_historical_names_are_not_refused(tmp_p
     path.write_text(" | ".join(row) + "\n" + " | ".join(row.values()) + "\n", encoding="utf-8")
     (read,) = read_matrix(path)
     assert read.sweep.values == [0.0, 0.1, 0.2, 0.3]
+
+
+def test_p0400_bgtests2_distinct_sweep_values_report_a_rounded_name_collision():
+    """PFS-2095.038: distinct values that collide are described as rounding to one name."""
+    from pyflightstream.cases._sweep_names import refuse_repeated_names
+
+    with pytest.raises(ValueError, match="0.11.*0.12.*round to the same name"):
+        refuse_repeated_names("9001", "0.11,0.12", "alpha", {}, error=ValueError)
