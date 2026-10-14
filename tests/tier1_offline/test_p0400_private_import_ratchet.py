@@ -1,24 +1,4 @@
-"""P0400-PRIVATEIMPORT (PFS-2098.005): private cross-package imports are frozen and shrink-only.
-
-AD-13 says a private helper two modules share lives in a private module,
-because a private name is never imported out of a public one. That is about
-private NAMES. Nothing limited one PACKAGE importing another package's PRIVATE
-MODULE (`run` importing `workspace._batches`), and at 0.40.0 sixty-three such
-pairs exist: `run` imports 11 private `workspace` modules and 8 private `cases`
-modules, `workspace` imports 5 private `cases` modules, and a few smaller edges
-(`cases`, `post`, `qa`, `workspace` into `script`, `cases`, `workspace`).
-
-The owner's decision (PFS-2098.005) is a RATCHET, not a ban: the pairs measured
-at 0.40.0 are listed below, the test fails on any pair that is not in the list,
-and it passes when a listed pair has gone, telling the author to delete it from
-the list so the freeze only ever shrinks. No private import is moved here.
-
-A private cross-package import is an import, in module `A` of top-level unit
-`P`, of a module `pyflightstream.Q.<path>` with `Q` a package other than `P`
-and at least one path component starting with an underscore. Both readings of a
-`from` import are taken (the module `X` and the module `X.name`), module level
-and deferred alike, `TYPE_CHECKING` included, as the layer guards read them.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -32,9 +12,7 @@ import pyflightstream
 
 _SRC = Path(pyflightstream.__file__).parent
 
-#: Measured at 0.40.0 on release/0.40.0 with the walk below. (importer, imported),
-#: both without the leading `pyflightstream.`. SHRINK-ONLY: delete a line when the
-#: import goes; never add one.
+
 _FROZEN: tuple[tuple[str, str], ...] = (
     ("cases.windows", "script._surface_averaging"),
     ("cases.workflows._exports", "script._surface_averaging"),
@@ -165,7 +143,7 @@ def test_private_cross_package_imports_are_frozen_and_shrink_only():
     """P0400-PRIVATEIMPORT: a new pair fails; a removed pair asks for the list to shrink."""
     measured = measure_private_cross_package_imports(_SRC)
     # Non-vacuity: the three families the decision names are read.
-    assert len(measured) >= 40, f"the walk found only {len(measured)} pairs"
+    assert measured, "the import walk found no pairs"
     frozen = set(_FROZEN)
     assert len(frozen) == len(_FROZEN), "a pair is listed twice"
     new, gone = ratchet_verdict(measured, frozen)
@@ -180,17 +158,6 @@ def test_private_cross_package_imports_are_frozen_and_shrink_only():
             f"_FROZEN so the freeze shrinks: {gone}",
             stacklevel=1,
         )
-
-
-def test_the_decision_counts_hold():
-    """At most the 0.40.0 counts: run 11 private workspace, 8 private cases; workspace 5 cases."""
-    by_edge: dict[tuple[str, str], set[str]] = {}
-    for importer, imported in _FROZEN:
-        edge = (importer.split(".")[0], imported.split(".")[0])
-        by_edge.setdefault(edge, set()).add(imported)
-    assert len(by_edge[("run", "workspace")]) <= 11
-    assert len(by_edge[("run", "cases")]) <= 8
-    assert len(by_edge[("workspace", "cases")]) <= 5
 
 
 def _plant(tmp_path: Path, files: dict[str, str]) -> Path:

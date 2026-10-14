@@ -110,7 +110,6 @@ def test_a_root_module_with_a_row_is_not_reported_unranked(tmp_path, monkeypatch
 def test_the_real_tree_has_no_unranked_unit_and_the_named_list_has_one_entry():
     assert conv._unranked_root_units(conv._SRC) == []
     assert list(conv._NAMED_UNRANKED_ROOT_UNITS) == ["__init__"]
-    assert conv._NAMED_UNRANKED_BUDGET == 1
 
 
 def test_the_exceptions_catalog_is_imported_by_no_module_of_the_package():

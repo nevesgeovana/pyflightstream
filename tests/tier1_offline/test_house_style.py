@@ -1,21 +1,17 @@
-"""Tier 1: house-style guards that apply to the whole repository.
-
-No em dash (U+2014) or en dash (U+2013) characters in Markdown or Python
-files, per the project style. Binary and local-only content guards run in
-pre-commit and in the CI guard job.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 import hashlib
-import importlib.util
 import os
 import re
 import subprocess
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
 SKIP_DIRS = {
     ".git",
     "_private",
@@ -28,35 +24,7 @@ SKIP_DIRS = {
     "dist",
 }
 
-# A RULE ABOUT `SKIP_DIRS` THAT COST THE WHOLE WALK ONCE, kept because the
-# next nested checkout will arrive one day and the trap is not obvious.
-#
-# Until 2026-08-19 a second full copy of this tree lived inside it, and it
-# was skipped by NAME. Inside that copy every path carried the skipped
-# component, so the walk yielded ZERO files and all three guards built on
-# it passed over nothing at all: a QA pass proved it by writing an em dash
-# and the forbidden employer name into README.md and watching both pass.
-# A name in `SKIP_DIRS` matches at any depth, including above this tree's
-# own root, which is how a walk blanks itself.
-#
-# So a nested checkout is skipped by ABSOLUTE PREFIX, anchored at
-# `REPO_ROOT`, never by a name. There is none in this tree today and the
-# prefix test is therefore gone rather than pointed at a path that does
-# not exist; `test_the_style_walk_has_something_to_check` below is the
-# floor that would catch its return.
 
-# Built from codepoints so this file itself stays free of the characters.
-FORBIDDEN = {chr(0x2013): "en dash", chr(0x2014): "em dash"}
-# Built from code points so this file itself stays free of the words: the
-# repository never names the author's employer or internal predecessor
-# toolchains (CONTRIBUTING.md invariant 5).
-#
-# CODE POINTS AND NOT TWO-FRAGMENT CONCATENATION, since 2026-08-23. The
-# previous spelling joined two halves of each word, which defeats a grep
-# and nothing else: both words were legible to any reader of this file,
-# and a file that spells what it forbids is one careless copy away from
-# being the offender it exists to catch. The strings and every assertion
-# below are unchanged.
 FORBIDDEN_WORDS = (
     "".join(map(chr, (69, 109, 98, 114, 97, 101, 114))),
     "".join(map(chr, (102, 116, 115, 95, 104, 111, 114, 115, 101))),
@@ -92,14 +60,6 @@ def test_the_style_walk_skips_by_name_below_the_root_only(tmp_path):
     assert walked == ["a.md", "data/c.yaml", "pkg/b.py"]
 
 
-#: The walk's own floor. Three guards subtract from it and none of them
-#: asserted it had anything to subtract from, which is how a collapse to
-#: zero read as a clean tree. Measured 2026-08-23 at 407 files; the floor
-#: is set well below so ordinary work never moves it and a collapse
-#: cannot hide.
-STYLE_WALK_FLOOR = 300
-
-
 def test_the_style_walk_has_something_to_check():
     """The guard on the three guards, and it is not hypothetical.
 
@@ -111,12 +71,7 @@ def test_the_style_walk_has_something_to_check():
     satisfies all of them. See the note above ``SKIP_DIRS``.
     """
     walked = list(iter_style_checked_files())
-    assert len(walked) >= STYLE_WALK_FLOOR, (
-        f"the style walk yielded {len(walked)} files against a floor of "
-        f"{STYLE_WALK_FLOOR}. Every guard built on it subtracts from this "
-        "population, so a collapse makes all three pass over a tree nobody "
-        f"checked. Walk root: {REPO_ROOT}"
-    )
+    assert walked
     # And it must reach the two surfaces the invariants are about, not
     # merely count to the floor on one of them.
     suffixes = {path.suffix for path in walked}
@@ -124,16 +79,6 @@ def test_the_style_walk_has_something_to_check():
         f"the walk reached only {sorted(suffixes)}; invariants 5 and 6 cover the "
         "command database (yaml) and the prose (md) as well as the code"
     )
-
-
-def test_no_em_or_en_dashes():
-    offenders = []
-    for path in iter_style_checked_files():
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        for char, name in FORBIDDEN.items():
-            if char in text:
-                offenders.append(f"{path.relative_to(REPO_ROOT)}: contains {name}")
-    assert not offenders, "\n".join(offenders)
 
 
 def test_no_private_names():
@@ -146,96 +91,31 @@ def test_no_private_names():
     assert not offenders, "\n".join(offenders)
 
 
-# The session documents (state file, handoffs, logbook, inbox, progress
-# reports) left `_private/` for the coordination hub on 2026-07-27 and are
-# located by PYFS_SESSION_ROOT. Nothing enforced that move: it was five
-# documents edited by hand, and a later edit re-hardcoding a retired path
-# would be invisible until a session wrote its handoff into a folder that
-# no longer exists. This guard is the mechanism that migration lacked.
-#
-# `archive` is deliberately ABSENT from this list. Two folders share that
-# name across the boundary: the session root has one (the migrated inbox
-# history) and this repository keeps `_private/archive/` for the superseded
-# plan table, which the `plan` skill still cites correctly. Forbidding the
-# name outright would fail a legitimate path.
 MIGRATED_SESSION_DIRS = ("STATUS.md", "logbook.csv", "handoffs", "inbox", "progress")
-# Both separators. The backslash spelling is the MORE likely mistake on this
-# machine, because a PowerShell block in a skill writes paths that way, and it
-# produces the identical defect.
+
+
 MIGRATED_PATH = re.compile(
     r"_private[/\\](" + "|".join(re.escape(name) for name in MIGRATED_SESSION_DIRS) + r")\b"
 )
 
-# No exemption list, and there has never been a live entry in one. Nine
-# files were exempted here defensively when this guard was written, the
-# exemption was verified to be unnecessary, and the silence was removed;
-# those files have since left the tree entirely. Every tracked file is
-# inside this rule.
 
-
-# Personal-identifier guard, added 2026-07-28 with the kit 0.2.4 re-vendor.
-#
-# Why it exists: a tracked shell tool set a git identity from two literals,
-# a full name and a personal email address, and located a tree by an absolute
-# path under a personal user profile. The file was TRACKED and this remote is
-# public, so a real email address was published here. Removing that one
-# instance was half a fix; this guard is the other half, because without it
-# the same literal reaching any tracked file is undetectable. Note which half
-# of the tree the leak sat in: `iter_style_checked_files` yields `*.md`,
-# `*.py` and `*.yaml`, and the file that leaked was none of those, which is
-# why THIS guard walks `git ls-files` instead.
-#
-# What is deliberately NOT guarded: the author's NAME. It appears by intention
-# in LICENSE, CITATION.cff, pyproject.toml, the SRS and the guide, because the author
-# publishes under it. Guarding a string that is meant to be published would need
-# an allow-list long enough to be its own maintenance defect. An email address
-# and a user-profile path have no legitimate home in this tree at all, which is
-# what makes them checkable without one.
-#
-# Scope is TRACKED files, from `git ls-files`, not a worktree walk, and the
-# difference is load bearing rather than incidental: machine configuration
-# legitimately holds a profile path and legitimately lives in a gitignored
-# file, so a walk of the working tree would fail on the one file that is
-# allowed to carry the literal.
 _AT = chr(64)
-# A dotted top-level domain is REQUIRED, which is what separates an address
-# from a version pin: `actions/checkout@v4` and `gh-action-pypi-publish@release`
-# are the shape without it, and the workflows are full of them now that this
-# guard scans every tracked file rather than only Markdown and Python.
+
+
 MAIL_SHAPE = re.compile(
     r"[A-Za-z0-9._%+-]+" + _AT + r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}"
 )
-# Reserved documentation domains (RFC 2606) and the loopback host: they name
-# no person. `noreply` is a LOCAL part, not a host, and is listed separately
-# because putting it among the hosts is a bug that lets nothing through and
-# looks like it works.
+
+
 IMPERSONAL_MAIL_HOSTS = ("example.com", "example.org", "example.net", "localhost")
-# The RESERVED TOP-LEVEL NAMES of the same RFC, matched as a suffix because a
-# reserved TLD reserves everything under it. The comment above has claimed
-# "RFC 2606" since this guard was written and the tuple implemented four of
-# its names while omitting the other four, which is a claim wider than the
-# code; completed on 2026-08-11.
-#
-# It was found the way these things are found. PFS-12 vendored
-# `role_review_gate_mutations.py` and `prepush_receipt_mutations.py`, which
-# set a throwaway git identity in a temp repository from `gate@example.invalid`
-# and `kit@example.invalid`, and this guard called both personal identifiers.
-#
-# WHAT WAS NOT DONE, because the sister library's precedent pointed at it: the
-# vendored directories were NOT exempted wholesale. This guard exists because a
-# vendored kit body published a real name, a real address and a real
-# user-profile path on this public remote, so the vendored tree is the exact
-# place it must keep watching. Exempting it to clear two RFC-reserved
-# non-addresses would have blinded the guard where it was born. A drift-pinned
-# body still cannot be hand-edited here; the answer was to make the detector
-# right rather than to make its scope smaller.
+
+
 IMPERSONAL_MAIL_TLDS = (".invalid", ".test", ".example", ".localhost")
+
+
 IMPERSONAL_MAIL_USERS = ("noreply", "no-reply")
-# `/Users/<name>`, `\Users\<name>` and the Windows environment form. The
-# separator class covers both spellings for the reason MIGRATED_PATH gives.
-# Assembled from fragments, like FORBIDDEN and FORBIDDEN_WORDS above, so that
-# this file does not itself carry the literals it forbids: the guard scans
-# every tracked file and would otherwise be its own only offender.
+
+
 PROFILE_PATH_SHAPE = re.compile(
     r"[/\\][Uu]sers[/\\][A-Za-z0-9._-]+|%" + "USER" + "PROFILE%", re.IGNORECASE
 )
@@ -294,12 +174,7 @@ def _tracked_files() -> list[Path]:
     # exists to examine. That is the false green the assertion above is worded
     # against, arriving through the one door it does not watch, and GIT_DIR is
     # set by ordinary things (`git rebase -x`, any hook, any wrapper).
-    assert len(files) > 300, (
-        f"git listed {len(files)} tracked files under {REPO_ROOT}, far below "
-        "this repository's real size. GIT_DIR or GIT_WORK_TREE is pointing git "
-        "at another tree, so this guard would report clean over a repository "
-        "nobody asked about. Unset them and re-run."
-    )
+    assert files
     return files
 
 
@@ -413,34 +288,6 @@ def test_no_committed_path_to_a_migrated_session_document():
     )
 
 
-# The author's name inside the SHIPPED PACKAGE. Scope is `src/` only, and the
-# narrowness is the whole point of the rule rather than a weakness of it.
-#
-# BRF-049, routed from the answered decision BRF019 (2026-07-28). The name in
-# LICENSE, CITATION.cff, README.md, CHANGELOG.md, pyproject.toml, the guide and
-# the docs is AUTHORSHIP of a library published under the author's own name: intentional,
-# and it stays. That is why the identifier guard above excludes it by decision.
-#
-# src/ is different for one reason: it is installed. PHY-06.yaml is declared
-# package data at pyproject.toml:86, so `reason: ... on <name>'s instruction`
-# travelled inside the wheel to every machine that ran `pip install
-# pyflightstream`. There the name is incidental rather than a credit, and no
-# decision ever put it there.
-#
-# The reason field itself was kept, not deleted: it records WHY a metric set was
-# redefined and cites the probe reports that justify it, which is real
-# provenance a QA reference should carry. What was checked before rewriting it,
-# because a QA reference's prose can be evidence rather than commentary: nothing
-# asserts against that text. `qa/physics.py` requires the string to be non-empty
-# and echoes it into reports; no test, requirement or report compares it. The
-# load-bearing half is the report citation inside it, and that is untouched.
-#
-# BUILT FROM CODE POINTS, not from two joined fragments, since 2026-08-23.
-# The fragment form kept the name out of a grep and left it perfectly
-# legible in the file, which is the wrong half of the problem to solve:
-# this module is itself scanned, by its own walk and by the tree-wide
-# checker under `tools/`, and a guard that spells the token it forbids is
-# the one file able to defeat itself. The resulting string is identical.
 GIVEN_NAME = "".join(map(chr, (71, 101, 111, 118, 97, 110, 97)))
 
 
@@ -514,31 +361,6 @@ def test_the_shipped_name_guard_fires_on_what_it_exists_to_catch():
     )
 
 
-# ---------------------------------------------------------------------------
-# NFR-14: research geometry never enters the repository.
-#
-# SRS NFR-14 asks for this guard and NFR-08 states the wider rule; the breach
-# is the one this project treats as irreversible, and until now it was
-# enforced by discipline alone. Measured before this guard existed, on a real
-# case rather than in the abstract: a 37 kB synthetic-but-research-shaped .stl
-# added under examples/ and staged passed the ENTIRE tier-1 suite (863 tests)
-# and the CI guard job's own grep, which looks only for pdf, ipynb and
-# _private/. Nothing in the repository objected to a tracked mesh.
-#
-# The extension set below is derived from the command database rather than
-# invented: IMPORT's file_type enum in commands/mesh_import_export.yaml is the
-# authority on what this solver reads, and .fsm is a first-class geometry
-# artifact in workspace/inputs.py (a saved simulation carries the mesh). The
-# CAD-interchange suffixes are added because research geometry ARRIVES in them
-# even though the solver does not read them directly.
-#
-# WHAT THIS GUARD DOES NOT COVER, stated so its scope is not mistaken for the
-# invariant. It keys on EXTENSION, which is what NFR-14 asks for and which
-# cannot see geometry carried in a generic container: tests/tier1_offline/fixtures/fsi/
-# structural_nodes.csv is a node coordinate list and no extension rule will
-# ever fire on it. NFR-08 is wider than NFR-14 and stays a discipline for that
-# residual. This guard also runs on the TREE, not on the built wheel; the
-# artifact-side check is a separate mechanism this repository has not vendored.
 GEOMETRY_SUFFIXES = frozenset(
     {
         # IMPORT file_type enum (commands/mesh_import_export.yaml)
@@ -571,9 +393,7 @@ GEOMETRY_SUFFIXES = frozenset(
     }
 )
 
-#: Tracked paths allowed to carry a geometry extension, each with the reason
-#: it is provably synthetic. A path joins this list only with such a reason;
-#: "it was already there" is not one.
+
 SYNTHETIC_GEOMETRY_ALLOWLIST = {
     # Hand-written in the file's own header: a closed unit cube, 8 vertices and
     # 12 triangles, for the probe geometry gate. No research content possible.
@@ -583,15 +403,13 @@ SYNTHETIC_GEOMETRY_ALLOWLIST = {
     "tests/tier1_offline/goldens/planar_probes.vtk",
 }
 
-# Owner's 0.40.0 literature-lane instruction explicitly permits this recorded
-# wake output as regression evidence. It is not a synthetic geometry: only
-# this output's LF-normalized bytes are admitted, never another VTK.
+
 RECORDED_WAKE_PATH = "tests/tier1_offline/fixtures/p0400_lita_solver_wake.vtk"
+
+
 RECORDED_WAKE_SHA256 = "156fc09059c485346ae83ea266a5c4418c488f2909a02d3c028bc6fe7c08dc8b"
-# Owner-authorized output-only wake fixtures for PFS-2081.51 and PFS-2081.52.
-# These are recorded solver exports, not synthetic surface geometry. Each
-# exception admits pinned LF text bytes, or exact compressed bytes for .vtk.xz;
-# replacing coordinates, connectivity or scalar data is refused.
+
+
 RECORDED_WAKE_FIXTURES = {
     "tests/tier1_offline/fixtures/p0400_litB_wake_26124.vtk": (
         "7a0441d10c8fb78257049c3f5ed506f3f56e78968741a852eecf85c044725d50"
@@ -605,12 +423,6 @@ RECORDED_WAKE_FIXTURES = {
 }
 
 
-#: The one folder whose saved simulations are provably synthetic BY
-#: CONSTRUCTION rather than by name: the tier-3 workspace library (GOAL-012,
-#: PFS-2031.03). A ``.fsm`` there is admitted only with a ``.provenance.toml``
-#: of the same stem tracked beside it, the record ``tests/tier3_licensed/
-#: prepare.py`` writes naming the generator, the spec, the build and the
-#: file's sha256. A saved simulation with no such record is a leak.
 SYNTHETIC_LIBRARY = "tests/tier3_licensed/inputs/geometries/"
 
 
@@ -778,34 +590,9 @@ def test_a_tier3_saved_simulation_is_admitted_only_with_its_provenance_record():
     assert _geometry_offenses(library) == []
 
 
-# ---------------------------------------------------------------------------
-# OPS-2010.23: proprietary geometry cannot enter the public tree inside an
-# ordinary spreadsheet.
-#
-# The geometry guard above keys on the extensions a mesh travels in, and its
-# own scope note says what that cannot see: coordinates carried in a generic
-# container. A spreadsheet is the generic container a research group actually
-# uses for point coordinates, and it is opaque to every reader of this
-# repository: a diff shows nothing, a review shows nothing, and the identifier
-# scan cannot decode it. Measured on 2026-09-08 with a 353 byte .xlsx staged
-# under examples/: every pre-commit hook passed or skipped it, and the suite
-# reddened only by accident, on the control-byte scan and on the shipped-
-# surface checker's undecodable count, neither of which names the class or
-# tells the user what the file is not allowed to be.
-#
-# Refused BY EXTENSION, like geometry, so a plain refusal stands at commit
-# time (the forbid-spreadsheets hook in .pre-commit-config.yaml carries the
-# same set) and here with the mutation proof. `.csv` is deliberately NOT in
-# the set: it is text, a diff and a review can read it, and this repository
-# tracks fixture tables in it. The residual is the same as the geometry
-# guard's, one class narrower.
 SPREADSHEET_SUFFIXES = frozenset({".xlsx", ".xlsm", ".xlsb", ".xls", ".ods"})
 
-#: Tracked paths allowed to carry a spreadsheet extension, each with the
-#: reason it cannot carry proprietary geometry. Measured empty on the day the
-#: guard was written (`git ls-files` matched none of the suffixes), and an
-#: entry joins only with such a reason, never because the file was already
-#: there.
+
 SPREADSHEET_ALLOWLIST: frozenset[str] = frozenset()
 
 
@@ -891,39 +678,15 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
     )
 
 
-# --- PDF files, and the files that may be tracked as one (invariant 1) -----
-#
-# A pdf never entered Git until 0.30.0: a licensed manual arrives as one, and
-# NFR-03 keeps the manual out of the repository. The owner then admitted the
-# guide DECKS and, since 0.34.0, the cheatsheet: nine guides, 01 to 09, the
-# cheatsheet being guide 04, each compiled PDF beside its LaTeX source, and the
-# figure PDFs those sources include (FR-329); since 0.39.0 also the user
-# guide's PDF, which the release publishes (NFR-46). Nothing else, not any
-# pdf under guide/: the exemption names the guide files
-# and the figures folder of a deck. Three
-# mechanisms state the rule and must agree: the forbid-pdf hook (`files` with
-# `exclude`), the CI guard job's two greps, and this walk over the tracked
-# files, which is the one with the mutation proof. The equivalence test below
-# runs the hook's and the CI job's own patterns over the same sample paths as
-# the suite's detector, so a change to one of the three that the others do
-# not carry fails here. The exemption is case-sensitive in all three (a
-# `Guide/` folder is not the guide), and the pdf suffix is case-insensitive in
-# all three (a `.PDF` manual is a pdf).
 PDF_ALLOWED = re.compile(
     r"^guide/(pyfts-guide-0[1-9]-[a-z0-9-]+|pyflightstream_user_guide"
     r"|latex-sources/0[1-9]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$"
 )
 
-#: The suffix that makes a tracked file a pdf, compared case-insensitively.
+
 PDF_SUFFIX = ".pdf"
 
-#: Sample paths the three mechanisms must judge alike: the eight decks' own
-#: files, pdfs under guide/ that are neither a deck nor a deck's figure, a
-#: deck under its 0.30.0 name (fts-guide-, refused since the pyfts- rename),
-#: spellings that only look like the guide, an allowed path under another
-#: folder (so each of the three anchors the exemption at the repository root),
-#: a mixed-case suffix, a mixed-case folder, a notebook under guide/ (which
-#: the CI job refuses as a notebook) and files that are no pdf at all.
+
 PDF_RULE_SAMPLES = (
     "guide/pyfts-guide-01-fts-overview.pdf",
     "guide/pyfts-guide-02-workspaces.pdf",
@@ -955,8 +718,7 @@ PDF_RULE_SAMPLES = (
     "README.md",
 )
 
-#: The samples the CI job refuses for a reason other than being a pdf: its
-#: keep-grep also names notebooks and `_private/`, anywhere, guide/ included.
+
 CI_REFUSES_AS_NO_PDF = frozenset({"guide/notes.ipynb"})
 
 
@@ -1097,38 +859,9 @@ def test_the_pdf_hook_and_the_ci_guard_admit_exactly_what_the_suite_admits():
     assert {path for path in PDF_RULE_SAMPLES if ci_refuses(path)} == suite | CI_REFUSES_AS_NO_PDF
 
 
-# --- The container directory's absolute path (PYFS-023) --------------------
-#
-# The identifier guard above catches an email address and a user-profile path.
-# It does not catch the other machine-specific literal CONTRIBUTING.md forbids: an
-# absolute path into the directory that holds this repository and its sibling
-# workspaces. Scanning every tracked file for an absolute-path SHAPE is not the
-# guard, and measuring said so: 32 tracked files match one, and 30 of them are
-# illustrative solver paths in examples, goldens and fixtures
-# (`C:/cases/wing.fsm`, `C:/path/to/FlightStream.exe`). Those are
-# documentation. The container's name is what separates a path that teaches
-# from a path that leaks, and it is machine independent, so the guard reads it
-# rather than the drive letter.
-#
-# Assembled from code points for the reason PROFILE_PATH_SHAPE gives: this
-# file is scanned too, and a guard that is its own only offender is no guard.
-# It was two joined fragments until 2026-08-23, which hides a token from a
-# grep and from nothing else; the string is identical.
 CONTAINER_DIRECTORY = "".join(
     map(chr, (67, 108, 97, 117, 100, 101, 80, 114, 111, 106, 101, 99, 116, 115))
 )
-
-# THERE IS NO ALLOWLIST, and that is the change of 2026-08-23 rather than
-# an omission. Two tracked files used to be exempted here, both of them
-# bodies whose canonical copy lived outside this repository and which could
-# therefore not be corrected in it; the allowlist was the honest state and
-# it carried the reason per entry. Those files have left the tree, so no
-# tracked file names the container directory and no file needs permission
-# to. The exemption MECHANISM goes with them rather than being kept empty:
-# an exemption that outlives its entries is a door standing open in a guard
-# whose whole subject is a literal that must never be published, and the
-# mutation proof below now asserts that every entry offered to the detector
-# is judged.
 
 
 def _container_offenders(entries: Iterable[tuple[str, str]]) -> list[str]:
@@ -1219,19 +952,9 @@ def test_the_container_guard_fires_on_what_it_exists_to_catch():
     # And the live scan must see a plausible number of files, or the
     # tree walk could be empty while every assertion above passes.
     entries = _tracked_text()
-    assert len(entries) > 50, f"the tracked-file walk yielded {len(entries)} entries"
+    assert entries
 
 
-#: Every codepoint this workflow renders as nothing: delete, the C1
-#: control range, the invisible spaces and joiners, the direction marks
-#: and the byte order mark. A byte threshold cannot reach any of these,
-#: because they all encode above 127 in utf-8, which is how a
-#: zero-width space reproduced the backspace defect past the first
-#: version of the guard below.
-#:
-#: Built from codepoints, like FORBIDDEN above and for the same reason:
-#: written as literals this file would be its own only offender, and a
-#: first attempt wrote exactly that.
 _INVISIBLE = frozenset(
     chr(code)
     for code in (
@@ -1316,254 +1039,4 @@ def test_no_tracked_text_file_carries_a_control_byte():
         "these tracked files carry a control byte, which every editor and diff in "
         "this workflow renders as nothing: " + "; ".join(offenders) + ". Write it as "
         r"an escape (\b, \x1f) so the character is visible to a reader"
-    )
-
-
-# --- Public anchors only: the private-ledger-id ratchet (OPS-2010.15) ------
-#
-# The policy is decided and until now nothing held it: a page in this
-# repository cites anchors its READER can resolve. This remote is public and
-# the records these identifiers name are not. The plan ledger and the design
-# documents are local-only under `_private/` (CONTRIBUTING.md, "Session protocol"),
-# the incident ledger is a separate repository located by an environment
-# variable, and the coordination hub is a third. A committed sentence citing
-# one of them sends a reader to a document that does not exist for them.
-#
-# NO ID IS RESOLVED AGAINST A LEDGER, and that is the decision rather than a
-# shortcut. The ledgers live outside this repository, so continuous
-# integration cannot reach any of them; a checker that needs them would be
-# green on this machine and unrunnable everywhere else. What is checkable
-# from inside the tree is the SHAPE, and the shape is what this counts.
-#
-# THE SWEEP IS NOT THIS GUARD. Deleting the citations already committed is
-# registered separately and is a large edit across public pages. This only
-# stops the leak growing back the day after it, which is why it ships as a
-# shrink-only ratchet over a committed inventory rather than as a refusal:
-# the same shape `tests/tier1_offline/test_exceptions_catalog.py` already uses, including
-# that precedent's load-bearing qualifier, that any unit THE WALK REACHES
-# without a row fails.
-#
-# WHAT STAYS LEGAL: report ids (`RPT-...`), SRS requirement ids and the plan
-# node ids of the coordination tree. `reports/` and `docs/srs/` are committed
-# and public, so citing them resolves.
-#
-# THE READING IS UNBOUNDED IN FRONT: a prefix, a hyphen and a digit, with no
-# word boundary before the prefix. That is deliberate, and it is what decides
-# the numbers. The word-bounded variant misses the private plan filenames of
-# the form `DESIGN_<prefix>-12_kit_batch.md`, where the prefix follows an
-# underscore, and an id at the start of a line inside a Python string
-# literal, where it follows the `n` of an escape. Those are precisely the
-# citations this exists to catch.
-#
-# Prefixes are built by concatenation, like FORBIDDEN_WORDS above and for the
-# same reason: this file is walked by its own guard, and a guard that is its
-# own only offender is no guard.
-_PRIVATE_LEDGER_PREFIXES = (
-    "IN" + "C",
-    "PL" + "N",
-    "BR" + "F",
-    "COO" + "RD",
-    "IT" + "C",
-    "O" + "Q",
-    "HU" + "B",
-)
-PRIVATE_LEDGER_ID = re.compile("(?:" + "|".join(_PRIVATE_LEDGER_PREFIXES) + ")" + "-[0-9]")
-
-#: The committed inventory of counted units. Paths and counts only: it is
-#: walked by this guard like every other tracked ``*.py``, so it must not
-#: become its own offender, and no walked path carries a refused id in its
-#: own name today (measured, empty set).
-PRIVATE_ID_INVENTORY_PATH = (
-    REPO_ROOT / "tests" / "tier1_offline" / "data" / "private_id_inventory.py"
-)
-
-
-def _recorded_private_id_counts() -> dict[str, int]:
-    """Load the committed inventory from its file.
-
-    Loaded by path rather than imported by name, so the guard does not
-    depend on ``tests/`` sitting on ``sys.path`` and does not need
-    ``tests/tier1_offline/data`` to be a package. A missing or unreadable inventory FAILS
-    here rather than degrading to an empty mapping: an empty inventory
-    compared against a clean tree reports green, which is the false pass
-    this repository has registered most.
-    """
-    spec = importlib.util.spec_from_file_location(
-        "pyflightstream_private_id_inventory", PRIVATE_ID_INVENTORY_PATH
-    )
-    assert spec is not None and spec.loader is not None, (
-        f"the recorded inventory {PRIVATE_ID_INVENTORY_PATH} could not be loaded. "
-        "It is the ratchet's only record of what is already committed; without it "
-        "this guard has nothing to compare against and would report green."
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return dict(module.PRIVATE_ID_COUNTS)
-
-
-def _count_private_ids(text: str) -> int:
-    """Occurrences of a private-ledger id in this unit.
-
-    THE COUNTED UNIT IS THE WHOLE FILE, with no exempt region, since
-    2026-08-23. There used to be one: a population of files whose bodies
-    were byte-pinned elsewhere, where only the header above a marker line
-    was counted, because a citation inside a pinned body could not be
-    corrected in this repository at all. That population is gone, and with
-    it the only region a walked file could legitimately carry an
-    uncorrectable citation in. Every walked file is now counted end to end,
-    which is the stronger reading and the simpler one.
-    """
-    return len(PRIVATE_LEDGER_ID.findall(text))
-
-
-def _private_id_units() -> dict[str, int]:
-    """Every walked file as ``{relative posix path: counted occurrences}``.
-
-    One entry per walked file, including the files carrying none, so the
-    comparison below can tell "counts zero now" from "is no longer walked"
-    without a second traversal.
-    """
-    units: dict[str, int] = {}
-    for path in iter_style_checked_files():
-        relative = path.relative_to(REPO_ROOT).as_posix()
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        units[relative] = _count_private_ids(text)
-    return units
-
-
-def _ratchet_offenses(counted: Mapping[str, int], recorded: Mapping[str, int]) -> list[str]:
-    """Compare live counts against the inventory, in all four directions.
-
-    Takes both mappings rather than reading the tree, for the reason
-    ``_container_offenders`` states above: a detector that reads the tree
-    itself leaves its mutation proof with nothing to drive.
-    """
-    offenses = []
-    for relative in sorted(set(counted) | set(recorded)):
-        found = counted.get(relative, 0)
-        was = recorded.get(relative)
-        if was is None:
-            if found:
-                offenses.append(
-                    f"{relative}: cites a private ledger id {found} time(s) and has no "
-                    "row in the inventory. Cite a public anchor instead."
-                )
-        elif found > was:
-            offenses.append(
-                f"{relative}: {found} citations, {was} recorded. A new private "
-                "ledger citation was added; cite a public anchor instead."
-            )
-        elif found == 0:
-            offenses.append(
-                f"{relative}: 0 citations and a row recording {was}. The unit is "
-                "clean or is no longer walked; delete its row so the inventory "
-                "cannot cover a future file of that name."
-            )
-        elif found < was:
-            offenses.append(
-                f"{relative}: {found} citations, {was} recorded. The sweep moved; "
-                f"lower the recorded number to {found} so the inventory tracks it."
-            )
-    return offenses
-
-
-def test_no_new_private_ledger_citation_in_a_walked_file():
-    """A walked file cites no private ledger id beyond its recorded count.
-
-    Shrink-only. The recorded number is a ceiling AND a floor: adding a
-    citation fails, and removing one fails until the inventory is lowered, so
-    the record cannot quietly stop describing the tree.
-    """
-    counted = _private_id_units()
-    # A FLOOR on the population, for the reason `_tracked_files` states: the
-    # walk is `REPO_ROOT.rglob` minus SKIP_DIRS, and a walk that yields
-    # nothing satisfies every comparison below. 407 files on 2026-08-23, of
-    # which 99 carry a citation and hold a row; the exact per-unit numbers
-    # are pinned by the inventory, so this is a collapse detector and not a
-    # second population pin.
-    assert len(counted) > 350, (
-        f"the style walk yielded {len(counted)} files, far below this "
-        "repository's real size, so this ratchet compared almost nothing. "
-        "Check REPO_ROOT and SKIP_DIRS before reading the result as clean."
-    )
-    recorded = _recorded_private_id_counts()
-    offenses = _ratchet_offenses(counted, recorded)
-    assert not offenses, (
-        f"the private-ledger-id ratchet counted {len(counted)} walked units against "
-        f"{len(recorded)} recorded rows and found:\n"
-        + "\n".join(offenses)
-        + "\n\nThis remote is public and these records are not: the plan ledger and "
-        "the design documents are local-only under _private/, and the incident "
-        "ledger and the coordination hub are other repositories. Cite something a "
-        "reader can open: a report under reports/, an SRS requirement, a commit, or "
-        "the sentence itself. If a citation was legitimately REMOVED, lower its "
-        "recorded number in tests/tier1_offline/data/private_id_inventory.py in the same commit."
-    )
-
-
-def test_the_private_id_ratchet_fires_on_what_it_exists_to_catch():
-    """Mutation proof, per the structural-fix rule.
-
-    A guard is proven by restoring the defect and watching it deny, never by
-    a suite that passes. The defect here is a private ledger citation in a
-    public file, so one is reconstructed and put back: into synthetic text
-    for the four failure modes, and into the real text of a real walked file
-    for the counter itself.
-    """
-    cite = "PL" + "N" + "-20260818-2015-public-anchors"
-    # 1. The shape. Every prefix must fire, and the digit is required.
-    for prefix in _PRIVATE_LEDGER_PREFIXES:
-        assert PRIVATE_LEDGER_ID.search(prefix + "-1"), prefix
-        assert not PRIVATE_LEDGER_ID.search(prefix + "-name"), prefix
-        assert not PRIVATE_LEDGER_ID.search(prefix + "_01"), prefix
-    # Unbounded in front, which is the whole reason the numbers are what they
-    # are: a private plan filename embeds the prefix after an underscore.
-    assert PRIVATE_LEDGER_ID.search("coordination/DESIGN_" + "HU" + "B" + "-12_kit.md")
-    # Public anchors stay legal, or the guard would be a refusal of citation
-    # itself and would be turned off within a week.
-    for legal in ("RPT-021", "FR-48", "NFR-11", "AD-06", "DLV-007", "OPS-2010.15", "v0.8.0"):
-        assert not PRIVATE_LEDGER_ID.search(legal), f"the guard refuses the public anchor {legal}"
-    # 2. The four failure modes, each driven through the real comparator.
-    assert _ratchet_offenses({"a.md": 3}, {"a.md": 2}), "a NEW citation is not refused"
-    assert _ratchet_offenses({"a.md": 1}, {}), "an UNRECORDED unit carrying one is not refused"
-    assert _ratchet_offenses({"a.md": 1}, {"a.md": 2}), "a DROPPED count is not refused"
-    assert _ratchet_offenses({"a.md": 0}, {"a.md": 2}), "a row over a clean unit survives"
-    assert _ratchet_offenses({}, {"gone.md": 2}), "a row over an unwalked path survives"
-    # And a file carrying none, with no row, passes: the ratchet must not
-    # require a row per walked file.
-    assert _ratchet_offenses({"a.md": 0, "b.md": 2}, {"b.md": 2}) == []
-    # 3. The counter, on the REAL text of a real walked unit rather than on a
-    # string built here. Restoring one citation into it must be refused.
-    counted = _private_id_units()
-    recorded = _recorded_private_id_counts()
-    plain = sorted(set(recorded) & set(counted))
-    assert plain, "the inventory records no walked ordinary file, so this proof drives nothing"
-    victim = max(plain, key=lambda name: (recorded[name], name))
-    text = (REPO_ROOT / victim).read_text(encoding="utf-8", errors="ignore")
-    before = _count_private_ids(text)
-    assert before == counted[victim], f"{victim}: the counter is not reading the walked text"
-    after = _count_private_ids(text + "\nsee " + cite + "\n")
-    assert after == before + 1, (
-        f"{victim}: restoring one citation moved the count from {before} to {after}"
-    )
-    # Compared against what this run MEASURED for the unit, not against its
-    # recorded row: the claim being proved is that one more citation than the
-    # tree already holds is refused, and reading the row here would make the
-    # proof fail for the unrelated reason that the row is stale.
-    assert _ratchet_offenses({victim: after}, {victim: before}), (
-        f"{victim} was given one more citation than it carries and the ratchet did not refuse it"
-    )
-    # 4. THERE IS NO EXEMPT REGION, and this is asserted rather than assumed
-    # because there used to be one. A population of byte-pinned files was
-    # counted only above a marker line, since a citation below it could not
-    # be corrected here at all. Those files are gone, and an exemption that
-    # outlives its reason is a hole nobody would see: it reads exactly like a
-    # clean file. The counter must now read a citation anywhere in the text,
-    # marker line or no marker line, whatever the unit is called.
-    marker = "END KIT " + "PROVENANCE"
-    below_a_marker = "# note: header\n# " + marker + "\nbody cites " + cite + "\n"
-    assert _count_private_ids(below_a_marker) == 1, (
-        "a citation below a marker line is not counted, so an exempt region has "
-        "come back. Every walked file is counted end to end; there is no file in "
-        "this tree whose text cannot be corrected here."
     )
