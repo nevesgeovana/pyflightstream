@@ -174,7 +174,9 @@ def test_p0400_migration_refuses_shared_points_before_moving(tmp_path, reference
 
 def test_p0400_lane_regressions_carry_release_in_test_names():
     missing = []
-    directory = Path(storage.__file__).resolve().parents[3] / "tests" / "tier1_offline"
+    # The tests tree itself, not a path through the package: the release workflow runs
+    # these tests against the installed wheel, where the package has no tests beside it.
+    directory = Path(__file__).resolve().parent
     paths = list(directory.glob("test_p0400_workspace_3_*.py"))
     assert len(paths) >= 3
     for path in paths:

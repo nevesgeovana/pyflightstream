@@ -74,7 +74,7 @@ FlightStream versions.
   release by the concept DOI, which resolves to the newest archived version.
 - The Zenodo archive DOI of v0.40.0 is owed after publication; add its CITATION.cff row once Zenodo mints it.
 
-## [0.40.0] - 2026-10-13
+## [0.40.0] - 2026-10-14
 
 ### Added
 
