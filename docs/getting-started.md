@@ -451,11 +451,12 @@ from pathlib import Path
 
 export = Path("tests/tier1_offline/fixtures/s10_26125/plots_26.125.txt").read_text(encoding="utf-8")
 report = parse_unsteady_plots(export)
-assert report.steps == 2
-assert report.series("CL")[-1] == 0.0021
+assert report.steps == 4
+assert report.series("CL_G1")[-1] == 0.082
 ```
 
- The parser example below uses a trimmed recorded export so the test exercises the real header.
+The example reads the recorded export above. Its four rows are time steps,
+and `CL_G1` is the lift coefficient column named in its header.
 
 ## Where to go next
 
