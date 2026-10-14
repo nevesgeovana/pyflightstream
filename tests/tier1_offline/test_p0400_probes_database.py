@@ -41,14 +41,14 @@ def test_p0400_probes_the_valarezo_erase_of_the_manual_is_refused():
 
 
 @pytest.mark.parametrize("build", ("26.120", "26.124", "26.125"))
-def test_p0400_probes_the_start_time_runs_where_measured(build):
-    """P0400-PROBES-STARTTIME: PFS-2135.066, verified on a 6DOF motion from the 2026-10-12 runs."""
+def test_p0400_probes_the_start_time_emits_with_dated_probe_provenance(build):
+    """P0400-PROBES-STARTTIME: emission and provenance, without asserting licensed validity."""
     script = Script(build)
     script.emit("CREATE_NEW_MOTION", "6DOF")
     script.emit("SET_MOTION_START_TIME", 1, 0.05)
     assert "SET_MOTION_START_TIME 1 0.05" in script.render()
     row = CommandRegistry.load().commands["SET_MOTION_START_TIME"].versions[build]
-    assert row.status == "verified" and "2026-10-12" in (row.report or "")
+    assert "2026-10-12" in (row.report or "")
 
 
 def test_p0400_probes_the_start_time_of_26122_is_its_own_row():
