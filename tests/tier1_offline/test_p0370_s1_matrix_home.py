@@ -42,7 +42,7 @@ from pyflightstream.workspace._matrix_homes import (
 )
 from tests.support_helpers import no_sleep
 from tests.tier1_offline import test_p0350_batch_run as grouped_run
-from tests.tier1_offline.test_fr310_matrix_homes_all import ARGV
+from tests.tier1_offline.test_matrix_run import _FR310_MATRIX_HOMES_ALL__ARGV as ARGV
 
 FIXTURES = Path(__file__).parent / "fixtures"
 A2 = (FIXTURES / "batch0350" / "logs" / "A2.cumulative.txt").read_text(encoding="utf-8")

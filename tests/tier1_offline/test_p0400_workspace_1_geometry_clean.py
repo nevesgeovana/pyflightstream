@@ -11,7 +11,9 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.workspace.inputs import InputArtifactError, clean_saved_actions
-from tests.tier1_offline.test_fr312_inventory_clean import TIER3, _dirty, _text
+from tests.tier1_offline.test_inventory_cli import _FR312_INVENTORY_CLEAN__TIER3 as TIER3
+from tests.tier1_offline.test_inventory_cli import _fr312_inventory_clean___dirty as _dirty
+from tests.tier1_offline.test_inventory_cli import _fr312_inventory_clean___text as _text
 
 pytestmark = pytest.mark.requirement("P0400-WSCLEAN")
 

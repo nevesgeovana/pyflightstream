@@ -15,7 +15,10 @@ to `pyflightstream.run.matrix` (OPS-2007.01). Only the reader and the
 converter stayed in `pyflightstream.cases.matrix`.
 """
 
+import argparse
 import os
+import re
+import shutil
 import sys
 import tomllib
 import warnings
@@ -39,6 +42,8 @@ from pyflightstream.cases.matrix import (
     upgrade_matrix,
 )
 from pyflightstream.cases.workflows import workflow_registry
+from pyflightstream.qa.matrix import physics_matrix
+from pyflightstream.qa.physics import PhysicsEnvironmentError
 from pyflightstream.run import (
     FS_VERSION_FROM_DEFAULT,
     FS_VERSION_FROM_ROW,
@@ -46,7 +51,9 @@ from pyflightstream.run import (
     LocalExecutor,
     PlanStatus,
 )
+from pyflightstream.run.cli import _build_parser, main
 from pyflightstream.run.matrix import plan_matrix, run_matrix
+from pyflightstream.run.rename import rename_workspace
 from pyflightstream.script import helpers
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
@@ -55,6 +62,13 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
+from pyflightstream.workspace._matrix_homes import (
+    MATRIX_ARGUMENTS,
+    MATRIX_STEM_ARGUMENTS,
+    every_matrix,
+    resolve_matrix_arguments,
+)
+from pyflightstream.workspace.excel_sync import ExcelSyncError, preview_sync
 from pyflightstream.workspace.flight_condition import FlightConditionError
 from pyflightstream.workspace.matrix import GEOMETRY_VARIABLE, resolve_matrix
 from tests.support_helpers import FIXTURE as FIXTURE
@@ -64,6 +78,8 @@ from tests.support_helpers import fixture_codes as fixture_codes
 from tests.support_helpers import make_library as make_library
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation_with
 from tests.support_helpers import stage_geometry as stage_geometry
+from tests.tier1_offline.test_excel_sync import blank as _fr310_matrix_homes_all__blank
+from tests.tier1_offline.test_excel_sync import matrix as _fr310_matrix_homes_all__excel_matrix
 
 # Codes map to registry names; the callables land in recipe_registry.
 RECIPES = {"003": "steady", "004": "steady"}
@@ -5746,3 +5762,445 @@ def test_goal019_hpc_the_queued_point_refusal_is_gone_because_its_cause_is():
         "the queued-point refusal is back; its cause was removed at 0.18.1, and a refusal "
         "of a second submitted point would refuse the swept row the release exists to submit"
     )
+
+
+_FR310_MATRIX_HOMES_ALL__REPO = Path(__file__).resolve().parents[2]
+
+
+_FR310_MATRIX_HOMES_ALL__UPGRADABLE = Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs"
+
+
+_FR310_MATRIX_HOMES_ALL__LAYOUTS = ("root", "inputs", "both-equal", "both-different")
+
+
+_FR310_MATRIX_HOMES_ALL__NAME = "m.fs"
+
+
+#: ``upgrade`` and ``convert`` take no workspace: their homes are the working directory's.
+_FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE = {("upgrade", "matrix"), ("convert", "matrix")}
+
+
+#: The fewest arguments each command's parser accepts beside its matrix.
+_FR310_MATRIX_HOMES_ALL__ARGV = {
+    ("upgrade", "matrix"): ["upgrade", _FR310_MATRIX_HOMES_ALL__NAME],
+    ("convert", "matrix"): ["convert", _FR310_MATRIX_HOMES_ALL__NAME, "--fs-exe", "solver"],
+    ("plan", "matrix"): ["plan", _FR310_MATRIX_HOMES_ALL__NAME],
+    ("inspect-setups", "matrix"): ["inspect-setups", _FR310_MATRIX_HOMES_ALL__NAME],
+    ("run", "matrix"): ["run", _FR310_MATRIX_HOMES_ALL__NAME],
+    ("post", "matrix"): ["post", _FR310_MATRIX_HOMES_ALL__NAME],
+    ("rebuild", "matrix"): ["rebuild", "--matrix", _FR310_MATRIX_HOMES_ALL__NAME],
+    # 0.35.0: the read-only status narrows its rows to the matrix found (FR-380 R2).
+    ("status", "matrix"): ["status", "--matrix", _FR310_MATRIX_HOMES_ALL__NAME],
+}
+
+
+def _fr310_matrix_homes_all___place(
+    root: Path, layout: str, content: bytes, name: str = _FR310_MATRIX_HOMES_ALL__NAME
+) -> dict[str, Path]:
+    """Write the matrix into the layout's homes and return where it went."""
+    homes = {"root": root / name, "inputs": root / "inputs" / "matrices" / name}
+    placed = {
+        "root": ["root"],
+        "inputs": ["inputs"],
+        "both-equal": ["root", "inputs"],
+        "both-different": ["root", "inputs"],
+    }[layout]
+    for home in placed:
+        homes[home].parent.mkdir(parents=True, exist_ok=True)
+        homes[home].write_bytes(content)
+    if layout == "both-different":
+        homes["inputs"].write_bytes(content + b"# edited in the other home\n")
+    return {home: homes[home] for home in placed}
+
+
+def _fr310_matrix_homes_all___names(said: str, path: Path, root: Path) -> bool:
+    """Whether a message names ``path``, as given under ``root`` or relative to it."""
+    return str(path) in said or str(path.relative_to(root)) in said
+
+
+#: Arguments whose destination says matrix and which name no matrix file, and why.
+_FR310_MATRIX_HOMES_ALL__NOT_A_MATRIX = {
+    ("delete-sims", "matrix_products"): "a choice of what happens to the matrix products",
+}
+
+
+def _fr310_matrix_homes_all___matrix_actions(
+    parser: argparse.ArgumentParser,
+) -> set[tuple[str, str]]:
+    """Every (subcommand, destination) of a parser whose destination or option says matrix."""
+    sub = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    found = set()
+    for name, subparser in sub.choices.items():
+        for action in subparser._actions:
+            spelled = [action.dest, *action.option_strings]
+            if any("matri" in text.lower() for text in spelled):
+                found.add((name, action.dest))
+    return found
+
+
+def _fr310_matrix_homes_all___unresolved(parser: argparse.ArgumentParser) -> set[tuple[str, str]]:
+    """The matrix arguments of ``parser`` that neither table nor the stated exemptions hold."""
+    known = MATRIX_ARGUMENTS | MATRIX_STEM_ARGUMENTS | set(_FR310_MATRIX_HOMES_ALL__NOT_A_MATRIX)
+    return _fr310_matrix_homes_all___matrix_actions(parser) - known
+
+
+#: Each command as ``main`` receives it, ``post --additional-pproc`` among them.
+_FR310_MATRIX_HOMES_ALL__THROUGH_MAIN: list[tuple[str, list[str]]] = [
+    (command, []) for command, _ in sorted(MATRIX_ARGUMENTS) if command != "upgrade"
+]
+
+
+_FR310_MATRIX_HOMES_ALL__THROUGH_MAIN.append(("post", ["--additional-pproc"]))
+
+
+#: The commands whose standard error tells a matrix read from a missing one:
+#: the plan names the file it read, the rebuild says "no such file" only when
+#: it found none. The others refuse a matrix this small earlier, for another
+#: reason, and are driven through ``main`` by the refusal above.
+_FR310_MATRIX_HOMES_ALL__NAMES_WHAT_IT_READ = {"plan", "inspect-setups", "rebuild"}
+
+
+#: A matrix too small to plan, which every command reads or refuses quickly.
+_FR310_MATRIX_HOMES_ALL__SMALL = b"POL | RUN\n1 | 1\n"
+
+
+def _fr310_matrix_homes_all___through_main(
+    command: tuple[str, str], extra: list[str], ws: Path
+) -> int:
+    where = (
+        [] if command in _FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE else ["--workspace", str(ws)]
+    )
+    return main([*_FR310_MATRIX_HOMES_ALL__ARGV[command], *extra, *where])
+
+
+class TestFr310MatrixHomesAll:
+    """FR-310: every command that takes or looks up a run matrix finds it in either matrix home.
+
+    A workspace keeps a matrix at its root or under ``inputs/matrices/``. Since
+    0.32.0 some commands found it in both and the others read the path as given
+    or the root alone. Each command below is driven with the matrix in the root
+    only, in ``inputs/matrices/`` only, in both with equal bytes, and in both with
+    different bytes (refused, naming both paths). The list of ``pyfs-matrix``
+    commands is read from the parsers themselves, so a command added later that
+    takes a matrix and does not join the one lookup fails here. The control of
+    each case is the 0.32.0 reading: the path as given, which in the
+    ``inputs/matrices/`` layout names no file.
+    """
+
+    @staticmethod
+    def test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup():
+        """Read from the parsers: a matrix argument outside both tables fails here."""
+        requirement = "FR-310"
+        parser = _build_parser()
+        assert _fr310_matrix_homes_all___matrix_actions(parser), (
+            "the parser read found no matrix argument at all"
+        )
+        assert _fr310_matrix_homes_all___unresolved(parser) == set(), requirement
+        assert set(_FR310_MATRIX_HOMES_ALL__ARGV) == set(MATRIX_ARGUMENTS), requirement
+        # The control: an argument planted in the real parser, under a spelling
+        # other than ``matrix``, is caught by the same reading.
+        sub = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+        sub.choices["collect"].add_argument("--baseline-matrix", dest="baseline")
+        assert _fr310_matrix_homes_all___unresolved(parser) == {("collect", "baseline")}, (
+            requirement
+        )
+
+    @staticmethod
+    @pytest.mark.requirement("FR-310")
+    @pytest.mark.requirement(
+        "FR-380"
+    )  # kept: the module cites it, and the test resolves its commands
+    @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
+    @pytest.mark.parametrize("command", sorted(MATRIX_ARGUMENTS))
+    def test_fr310_each_command_resolves_its_matrix_over_both_homes(
+        command, layout, tmp_path, capsys, monkeypatch
+    ):
+        requirement = "FR-310"
+        monkeypatch.chdir(tmp_path)
+        ws = tmp_path if command in _FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE else tmp_path / "ws"
+        placed = _fr310_matrix_homes_all___place(ws, layout, b"POL | RUN\n1 | 1\n")
+        where = (
+            []
+            if command in _FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE
+            else ["--workspace", str(ws)]
+        )
+        args = _build_parser().parse_args([*_FR310_MATRIX_HOMES_ALL__ARGV[command], *where])
+        refused = resolve_matrix_arguments(args)
+        value = getattr(args, command[1])
+        if layout == "both-different":
+            assert refused == 2, requirement
+            said = capsys.readouterr().err
+            assert _fr310_matrix_homes_all___names(
+                said, placed["root"], ws
+            ) and _fr310_matrix_homes_all___names(said, placed["inputs"], ws), said
+            return
+        assert refused is None, requirement
+        expected = placed["root"] if "root" in placed else placed["inputs"]
+        assert Path(value).resolve() == expected.resolve(), (requirement, value)
+        if layout == "inputs":
+            # The control: the path as given names no file from the working directory.
+            assert not Path(_FR310_MATRIX_HOMES_ALL__NAME).exists(), (
+                "the 0.32.0 reading would have found nothing"
+            )
+
+    @staticmethod
+    def test_fr310_a_path_that_names_its_folder_is_read_as_given(tmp_path):
+        requirement = "FR-310"
+        ws = tmp_path / "ws"
+        _fr310_matrix_homes_all___place(ws, "both-different", b"POL | RUN\n1 | 1\n")
+        given = str(ws / "inputs" / "matrices" / _FR310_MATRIX_HOMES_ALL__NAME)
+        args = _build_parser().parse_args(["plan", given, "--workspace", str(ws)])
+        assert resolve_matrix_arguments(args) is None, requirement
+        assert args.matrix == given
+
+    @staticmethod
+    @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
+    def test_fr310_upgrade_reads_a_bare_name_from_either_home(
+        layout, tmp_path, monkeypatch, capsys
+    ):
+        """End to end: the command reads the file the lookup found."""
+        requirement = "FR-310"
+        monkeypatch.chdir(tmp_path)
+        placed = _fr310_matrix_homes_all___place(
+            tmp_path, layout, _FR310_MATRIX_HOMES_ALL__UPGRADABLE.read_bytes()
+        )
+        code = main(["upgrade", _FR310_MATRIX_HOMES_ALL__NAME])
+        said = capsys.readouterr()
+        if layout == "both-different":
+            assert code == 2, requirement
+            assert _fr310_matrix_homes_all___names(said.err, placed["inputs"], tmp_path), said.err
+            return
+        assert code == 0, (requirement, said.err)
+        assert "FLIGHT_CONDITION" in said.out
+
+    @staticmethod
+    @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
+    def test_fr310_the_physics_matrix_of_qa_is_found_in_either_home(layout, tmp_path):
+        requirement = "FR-310"
+        placed = _fr310_matrix_homes_all___place(
+            tmp_path, layout, b"POL | RUN\n1 | 1\n", "matriz_physics.fs"
+        )
+        if layout == "both-different":
+            with pytest.raises(PhysicsEnvironmentError) as caught:
+                physics_matrix(tmp_path)
+            assert str(placed["inputs"]) in str(caught.value), requirement
+            return
+        found = physics_matrix(tmp_path)
+        assert found == (placed["root"] if "root" in placed else placed["inputs"]), requirement
+
+    @staticmethod
+    def test_fr310_the_physics_matrix_in_neither_home_is_refused_the_control(tmp_path):
+        with pytest.raises(PhysicsEnvironmentError, match="holds no matrix"):
+            physics_matrix(tmp_path)
+
+    @staticmethod
+    @pytest.mark.parametrize("named", [False, True], ids=["read-every-matrix", "--matrix"])
+    @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
+    def test_fr310_the_excel_read_finds_the_matrix_in_either_home(layout, named, tmp_path):
+        """The Excel synchronization with and without --matrix: one lookup, one file per stem."""
+        requirement = "FR-310"
+        source = _fr310_matrix_homes_all__excel_matrix(tmp_path / "source", name="batch.fs")
+        placed = _fr310_matrix_homes_all___place(
+            tmp_path / "ws", layout, source.read_bytes(), "batch.fs"
+        )
+        chosen = ["batch.fs"] if named else None
+        if layout == "both-different":
+            with pytest.raises(ExcelSyncError) as caught:
+                preview_sync(
+                    tmp_path / "ws",
+                    _fr310_matrix_homes_all__blank(),
+                    direction="read",
+                    matrices=chosen,
+                )
+            assert str(placed["inputs"].name) in str(caught.value), requirement
+            return
+        preview = preview_sync(
+            tmp_path / "ws", _fr310_matrix_homes_all__blank(), direction="read", matrices=chosen
+        )
+        assert list(preview.file_digests) == ["batch.fs"], (requirement, preview.file_digests)
+
+    @staticmethod
+    @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
+    def test_fr310_the_rebuild_sweep_reads_one_matrix_per_stem(layout, tmp_path):
+        requirement = "FR-310"
+        placed = _fr310_matrix_homes_all___place(tmp_path, layout, b"POL | RUN\n1 | 1\n")
+        if layout == "both-different":
+            with pytest.raises(WorkspaceError) as caught:
+                every_matrix(tmp_path)
+            assert str(placed["root"]) in str(caught.value), requirement
+            return
+        assert every_matrix(tmp_path) == [placed["root"] if "root" in placed else placed["inputs"]]
+
+    @staticmethod
+    @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
+    def test_fr310_rename_reads_the_matrix_from_either_home(layout, tmp_path):
+        from tests.tier1_offline.test_goal024_rename_command import (
+            _as_0_20 as _fr310_matrix_homes_all___as_0_20,
+        )
+        from tests.tier1_offline.test_goal024_rename_command import (
+            _ran as _fr310_matrix_homes_all___ran,
+        )
+        from tests.tier1_offline.test_goal024_rename_command import (
+            _reopened as _fr310_matrix_homes_all___reopened,
+        )
+
+        requirement = "FR-310"
+        workspace, matrix, _ = _fr310_matrix_homes_all___ran(tmp_path)
+        _fr310_matrix_homes_all___as_0_20(workspace, mach=0.2)
+        content = matrix.read_bytes()
+        matrix.unlink()
+        placed = _fr310_matrix_homes_all___place(workspace.root, layout, content, matrix.name)
+        if layout == "both-different":
+            with pytest.raises(WorkspaceError) as caught:
+                rename_workspace(_fr310_matrix_homes_all___reopened(workspace), apply=False)
+            assert str(placed["inputs"]) in str(caught.value), requirement
+            return
+        report = rename_workspace(_fr310_matrix_homes_all___reopened(workspace), apply=False)
+        assert report.changes, requirement
+
+    @staticmethod
+    def test_fr310_rename_with_the_matrix_in_neither_home_is_refused_the_control(tmp_path):
+        from tests.tier1_offline.test_goal024_rename_command import (
+            _as_0_20 as _fr310_matrix_homes_all___as_0_20,
+        )
+        from tests.tier1_offline.test_goal024_rename_command import (
+            _ran as _fr310_matrix_homes_all___ran,
+        )
+        from tests.tier1_offline.test_goal024_rename_command import (
+            _reopened as _fr310_matrix_homes_all___reopened,
+        )
+
+        workspace, matrix, _ = _fr310_matrix_homes_all___ran(tmp_path)
+        _fr310_matrix_homes_all___as_0_20(workspace, mach=0.2)
+        shutil.move(matrix, tmp_path / "elsewhere.fs")
+        with pytest.raises(WorkspaceError, match="inputs/matrices"):
+            rename_workspace(_fr310_matrix_homes_all___reopened(workspace), apply=False)
+
+    @staticmethod
+    def test_fr310_no_other_routine_lists_the_matrices_of_a_workspace():
+        """R5: the one listing is ``matrix_files``; no other module globs ``*.fs``."""
+        requirement = "FR-310"
+        pattern = re.compile(
+            r"""r?glob\(\s*f?["'][^"']*\.fs["']|\.suffix(\.lower\(\))?\s*==\s*["']\.fs["']""", re.I
+        )
+        hits = [
+            path.relative_to(_FR310_MATRIX_HOMES_ALL__REPO).as_posix()
+            for path in sorted(
+                (_FR310_MATRIX_HOMES_ALL__REPO / "src" / "pyflightstream").rglob("*.py")
+            )
+            if pattern.search(path.read_text(encoding="utf-8"))
+        ]
+        # The control is the one home itself, which the same pattern must find.
+        assert hits == ["src/pyflightstream/workspace/_layout.py"], (requirement, hits)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("command", "extra"),
+        _FR310_MATRIX_HOMES_ALL__THROUGH_MAIN,
+        ids=[" ".join([c, *e]) for c, e in _FR310_MATRIX_HOMES_ALL__THROUGH_MAIN],
+    )
+    def test_fr310_main_refuses_a_differing_pair_for_every_command(
+        command, extra, tmp_path, capsys, monkeypatch
+    ):
+        """Through ``main``: the lookup runs before every command, which never starts.
+
+        Only the lookup names both homes; without it each command would read the
+        bare name from the working directory, find nothing, and say something else.
+        """
+        requirement = "FR-310"
+        monkeypatch.chdir(tmp_path)
+        ws = (
+            tmp_path
+            if (command, "matrix") in _FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE
+            else tmp_path / "ws"
+        )
+        placed = _fr310_matrix_homes_all___place(
+            ws, "both-different", _FR310_MATRIX_HOMES_ALL__SMALL
+        )
+        code = _fr310_matrix_homes_all___through_main((command, "matrix"), extra, ws)
+        said = capsys.readouterr().err
+        assert code == 2, (requirement, said)
+        assert "matrix not read:" in said, (requirement, said)
+        assert _fr310_matrix_homes_all___names(
+            said, placed["root"], ws
+        ) and _fr310_matrix_homes_all___names(said, placed["inputs"], ws), said
+
+    @staticmethod
+    @pytest.mark.parametrize("layout", ["inputs", "absent"])
+    @pytest.mark.parametrize("command", sorted(_FR310_MATRIX_HOMES_ALL__NAMES_WHAT_IT_READ))
+    def test_fr310_main_hands_the_command_the_file_in_inputs_matrices(
+        command, layout, tmp_path, capsys, monkeypatch
+    ):
+        """Through ``main``: the command reads ``inputs/matrices/m.fs`` from a bare name.
+
+        The control is the same call with no matrix in either home: the bare name,
+        the 0.32.0 reading, is then read as given and names no file.
+        """
+        requirement = "FR-310"
+        monkeypatch.chdir(tmp_path)
+        ws = tmp_path / "ws"
+        if layout == "inputs":
+            placed = _fr310_matrix_homes_all___place(ws, "inputs", _FR310_MATRIX_HOMES_ALL__SMALL)[
+                "inputs"
+            ]
+        else:
+            ws.mkdir()
+            placed = ws / "inputs" / "matrices" / _FR310_MATRIX_HOMES_ALL__NAME
+        _fr310_matrix_homes_all___through_main((command, "matrix"), [], ws)
+        said = capsys.readouterr().err
+        missing = "no such file" in said.lower()
+        assert missing is (layout == "absent"), (requirement, layout, said)
+        if command != "rebuild":
+            # The plan's refusal of a matrix this small names the file it read.
+            assert _fr310_matrix_homes_all___names(said, placed, ws) is (layout == "inputs"), (
+                requirement,
+                layout,
+                said,
+            )
+
+    @staticmethod
+    @pytest.mark.parametrize("same", [True, False], ids=["equal-bytes", "different-bytes"])
+    def test_fr310_a_bare_name_in_a_home_and_in_the_working_directory(same, tmp_path, monkeypatch):
+        """0.32.0 read the working directory's file; since 0.37.0 the workspace's is read, warned.
+
+        EXPECTATION CHANGED BY THE OWNER'S REQUIREMENT, FR-411 R1 (her report of
+        2026-10-03 on 0.35.1): until 0.36.0 a different file in the working
+        directory refused the command; it is now a WARNING naming both files, and
+        the workspace's file is the matrix.
+        """
+        requirement = "FR-411"
+        ws = tmp_path / "ws"
+        placed = _fr310_matrix_homes_all___place(ws, "inputs", b"POL | RUN\n1 | 1\n")
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        local = elsewhere / _FR310_MATRIX_HOMES_ALL__NAME
+        local.write_bytes(placed["inputs"].read_bytes() + (b"" if same else b"# local edit\n"))
+        monkeypatch.chdir(elsewhere)
+        args = _build_parser().parse_args(
+            ["plan", _FR310_MATRIX_HOMES_ALL__NAME, "--workspace", str(ws)]
+        )
+        if same:
+            assert resolve_matrix_arguments(args) is None, requirement
+            assert Path(args.matrix).read_bytes() == local.read_bytes()
+            return
+        from pyflightstream._errors import PyflightstreamWarning
+        from pyflightstream.workspace._matrix_homes import matrix_path
+
+        with pytest.warns(PyflightstreamWarning) as caught:
+            assert matrix_path(ws, _FR310_MATRIX_HOMES_ALL__NAME) == placed["inputs"], requirement
+        said = " ".join(str(item.message) for item in caught)
+        assert str(local.resolve()) in said and str(placed["inputs"]) in said, (requirement, said)
+        with pytest.warns(PyflightstreamWarning):
+            assert resolve_matrix_arguments(args) is None, requirement
+        assert Path(args.matrix) == placed["inputs"], requirement
+
+    @staticmethod
+    def test_fr310_a_relative_path_that_names_its_folder_is_read_as_given(tmp_path, monkeypatch):
+        # Verifies FR-310.
+        ws = tmp_path / "ws"
+        _fr310_matrix_homes_all___place(ws, "both-different", b"POL | RUN\n1 | 1\n")
+        monkeypatch.chdir(ws)
+        given = f"inputs/matrices/{_FR310_MATRIX_HOMES_ALL__NAME}"
+        args = _build_parser().parse_args(["plan", given, "--workspace", str(ws)])
+        assert resolve_matrix_arguments(args) is None
+        assert Path(args.matrix) == Path(given)
