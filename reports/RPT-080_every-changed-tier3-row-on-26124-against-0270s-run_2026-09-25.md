@@ -151,4 +151,4 @@ images. The documentation says so since this report.
   comparison, with its per-table verdicts), `compare_control.py` (the
   derangement), `t34_facts.py` (the counts above), `compare_nodes_t12_t34.py`
   and `symmetry_images.py` (the Tecplot nodes and the images).
-- The 0.27.0 regression: `reports/RPT-073_every-changed-tier3-row-on-26124-against-its-recorded-run_2026-09-24.md`.
+- The 0.27.0 regression: `archived RPT-073 investigation`.

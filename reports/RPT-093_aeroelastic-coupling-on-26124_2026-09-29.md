@@ -4,7 +4,7 @@ Amended 2026-10-01: the facts taken from the private campaign's results file are
 
 A synthesis of licensed probes on **FlightStream 26.124, build 8172026**, executable
 SHA-256 withheld from the public tree per NFR-31 (the same
-executable as [RPT-086](RPT-086_gui-launch-windows_2026-09-28.md) and
+executable as RPT-086 (archived investigation) and
 [RPT-087](RPT-087_periodic-native-tecplot-one-zone-per-copy_2026-09-28.md)). It
 records what the Aeroelastic Coupling Toolbox does on a fixed wing, on a fixed
 research propeller blade (OBJ import) with the rotation carried by the free stream, and

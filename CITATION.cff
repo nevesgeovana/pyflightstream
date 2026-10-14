@@ -61,7 +61,7 @@ license: MIT
 # handed to the owner; each later hand-over bumps devN); 0.30.0.dev1 was the
 # FORTY-SECOND and 0.30.0.dev2 the FORTY-THIRD; the v0.30.0 release was the
 # FORTY-FOURTH move, and the 0.31.0.dev0 bump that should have followed its
-# tag was missed (RELEASE-READY.md says so); the v0.31.0 release was the
+# tag was missed (the internal release-readiness record says so); the v0.31.0 release was the
 # FORTY-FIFTH move; 0.32.0.dev0 OPENED 0.32.0 DEVELOPMENT, the FORTY-SIXTH
 # move, the v0.32.0 release was the FORTY-SEVENTH; 0.33.0.dev0 OPENED 0.33.0
 # DEVELOPMENT, the FORTY-EIGHTH move, the v0.33.0 release the FORTY-NINTH, the

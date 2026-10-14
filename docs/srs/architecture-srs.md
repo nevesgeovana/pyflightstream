@@ -1821,7 +1821,7 @@ and `script._relaxed_te`), the review list of the deep-modules rule of AD-08.
 - FR-339, the signed tip deflection as the last column of the FSI
   convergence log: `fsi/driver.py`.
 - FR-337, FR-343, FR-344 and FR-346: records of the repository (RPT-132,
-  RPT-131, the digests out of the tracked tree, `RELEASE-READY.md`); no
+  RPT-131, the digests out of the tracked tree, `the internal release-readiness record`); no
   package module changes. FR-345: the dry-run trigger of the release workflow
   and the report-index test that reads its own release section.
 
