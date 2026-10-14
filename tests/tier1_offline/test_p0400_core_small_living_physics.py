@@ -41,3 +41,6 @@ def test_p0400_livingpick_the_latest_date_wins_over_the_label(tmp_path, monkeypa
     monkeypatch.setattr(module, "PHYSICS", physics)
     found = module.builds_at_or_after(module.OLDEST_BUILD)
     assert found["26.124"].name == "PHY-26124_2026-09-02_full.yaml"
+    _write(physics, "PHY-26124_2026-09-02_targeted.yaml")
+    with pytest.raises(ValueError, match=r"26\.124 has 2 physics reports dated 2026-09-02"):
+        module.builds_at_or_after(module.OLDEST_BUILD)
