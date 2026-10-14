@@ -158,3 +158,239 @@ The probe does not settle the remaining trajectory column units.
     `tests/tier1_offline/test_docs_example_currency.py` holds the two together, so this
       that rotor's own block (FR-68). The solver model is the setup preset's
       axis, no re-parameterisation, no trim extraction. FR-20 carries that
+
+## docs/actuator-profiles.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-070: the volume section and the actuator disc on 26.124, and a profile file the solver would not read (2026-09-24)](../../reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md)
+- [RPT-137 - The actuator disc on FlightStream 26.124: the swirl sense, the swirl factor, the thrust ELLIPTICAL and RELAXED put in the wake, and the quasi-steady probe frame (2026-10-01)](../../reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md)
+
+## docs/boundary-conditions.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-021: four chapter questions asked of the solver](../../reports/RPT-021_chapter-questions-measured_2026-08-08.md)
+- [RPT-066: base regions mark the base boundary, and wake termination is unobserved (2026-09-24)](../../reports/RPT-066_base-regions-mark-the-base-boundary-and-wake-termination-is-unobserved_2026-09-24.md)
+- [RPT-081 - Typed boundary and base-region operations (2026-09-27, editorial amendment 2026-09-28)](../../reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)
+
+## docs/boundary-layer-products.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-027: the boundary layer across a proximity gap, 26.122 against 26.123 (2026-08-17, amended 2026-08-17)](../../reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md)
+- [RPT-075: the boundary-layer profile export still holds an unattended script on 26.124 (2026-09-25)](../../reports/RPT-075_the-boundary-layer-profile-still-holds-the-script-on-26124_2026-09-25.md)
+
+## docs/ccs-geometry.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-097 - pyflightstream 0.32 CCS confirmation, round 2 on FlightStream 26.124 (2026-09-30)](../../reports/RPT-097_ccs-confirmation-round-2-on-26124_2026-09-30.md)
+
+## docs/definitions/a-volume-section.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-070: the volume section and the actuator disc on 26.124, and a profile file the solver would not read (2026-09-24)](../../reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md)
+
+## docs/definitions/native-surface-flow-exports.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-041: a SCRIPT action re-reads its file on every time step, measured on 26.123 (2026-09-08)](../../reports/RPT-041_script-action-reread-on-26123_2026-09-08.md)
+- [RPT-074: the VTK surface export carries more than the Tecplot, per cell, in the loads frame (2026-09-25)](../../reports/RPT-074_the-vtk-export-is-written-in-the-loads-frame-per-cell_2026-09-25.md)
+- [RPT-079: the solver's time averaging counts time steps, on the one build that runs it (2026-09-25)](../../reports/RPT-079_the-solver-averages-the-surface-over-time-steps-on-26122_2026-09-25.md)
+- [RPT-080: every changed tier-3 row on 26.124 against the 0.27.0 run (2026-09-25)](../../reports/RPT-080_every-changed-tier3-row-on-26124-against-0270s-run_2026-09-25.md)
+
+## docs/definitions/the-axes-of-a-steady-polar.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-128: CDo and the XZ moment of a coupled cambered wing on 26.124](../../reports/RPT-128_cdo-and-the-xz-moment-of-a-coupled-cambered-wing-on-26124_2026-10-02.md)
+
+## docs/definitions/the-boundary-layer-profile-is-not-produced.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-027: the boundary layer across a proximity gap, 26.122 against 26.123 (2026-08-17, amended 2026-08-17)](../../reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md)
+- [RPT-067: the plot commands write the plotted series as text (2026-09-24)](../../reports/RPT-067_the-plot-commands-write-the-plotted-series-as-text_2026-09-24.md)
+- [RPT-074: the VTK surface export carries more than the Tecplot, per cell, in the loads frame (2026-09-25)](../../reports/RPT-074_the-vtk-export-is-written-in-the-loads-frame-per-cell_2026-09-25.md)
+- [RPT-075: the boundary-layer profile export still holds an unattended script on 26.124 (2026-09-25)](../../reports/RPT-075_the-boundary-layer-profile-still-holds-the-script-on-26124_2026-09-25.md)
+
+## docs/definitions/the-quasi-steady-rotor.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-005: WP1 FSI dry run on FlightStream 26.120 (2026-07-21)](../../reports/RPT-005_fsi-dry-run_2026-07-21.md)
+- [RPT-006: WP7 near-rigid coupled pilot on FlightStream 26.120 (2026-07-21)](../../reports/RPT-006_wp7-nearrigid-pilot_2026-07-21.md)
+
+## docs/definitions/the-sections-table-and-which-row-is-which.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-006: WP7 near-rigid coupled pilot on FlightStream 26.120 (2026-07-21)](../../reports/RPT-006_wp7-nearrigid-pilot_2026-07-21.md)
+- [RPT-053: what an unsteady export states, and at which step (2026-09-19)](../../reports/RPT-053_what-an-unsteady-export-states-and-when_2026-09-19.md)
+
+## docs/definitions/the-solvers-own-plots.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-067: the plot commands write the plotted series as text (2026-09-24)](../../reports/RPT-067_the-plot-commands-write-the-plotted-series-as-text_2026-09-24.md)
+- [RPT-076: the solver saves its residual and load plots after an unsteady solve too (2026-09-25)](../../reports/RPT-076_the-solver-s-plots-after-an-unsteady-solve_2026-09-25.md)
+
+## docs/definitions/tip-and-helical-mach-numbers.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-051: a rotor on 26.100 without the rotor mark (2026-09-15)](../../reports/RPT-051_a-rotor-on-26100-without-the-rotor-mark_2026-09-15.md)
+
+## docs/definitions/what-the-package-does-not-judge.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-055: a residual block whose `Iteration` anchor is cut carries nothing to refuse](../../reports/RPT-055_partial-residual-anchor_2026-09-22.md)
+- [RPT-058: post log captures warnings process-wide](../../reports/RPT-058_post-log-captures-warnings-process-wide_2026-09-23.md)
+
+## docs/fsi-workspace.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-025: the rotor morphing defect across three builds (2026-08-11)](../../reports/RPT-025_rotor-morphing-across-three-builds_2026-08-11.md)
+- [RPT-092 - Fixed-wing FSI with the wing's own weight, confirmed on 26.124 (2026-09-29)](../../reports/RPT-092_fixed-wing-fsi-on-26124_2026-09-29.md)
+- [RPT-128: CDo and the XZ moment of a coupled cambered wing on 26.124](../../reports/RPT-128_cdo-and-the-xz-moment-of-a-coupled-cambered-wing-on-26124_2026-10-02.md)
+- [RPT-154 - Direct aeroelastic morphing not recognised by build 8172026 (2026-10-05)](../../reports/RPT-154_direct-aeroelastic-morphing-not-recognised-by-build-8172026_2026-10-05.md)
+- [RPT-155 - Direct aeroelastic morphing on build 10052026 (2026-10-05)](../../reports/RPT-155_direct-aeroelastic-morphing-on-26125_2026-10-05.md)
+
+## docs/geometry-units-and-starts.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-070: the volume section and the actuator disc on 26.124, and a profile file the solver would not read (2026-09-24)](../../reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md)
+
+## docs/mesh/how-to.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-078: an OBJ is imported one boundary per group, in the order of the file (2026-09-25)](../../reports/RPT-078_an-obj-is-imported-in-the-order-of-its-groups_2026-09-25.md)
+
+## docs/mesh/reference.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-048: what a per-surface translation does to shared vertices, on 26.123 (2026-09-14)](../../reports/RPT-048_what-a-per-surface-translation-does-to-shared-vertices_2026-09-14.md)
+- [RPT-061: where the wake-edge import reads its nodes (2026-09-23)](../../reports/RPT-061_where-the-wake-edge-import-reads-its-nodes_2026-09-23.md)
+- [RPT-065: what detection and initialisation mark (2026-09-24)](../../reports/RPT-065_what-detection-and-initialisation-mark_2026-09-24.md)
+- [RPT-066: base regions mark the base boundary, and wake termination is unobserved (2026-09-24)](../../reports/RPT-066_base-regions-mark-the-base-boundary-and-wake-termination-is-unobserved_2026-09-24.md)
+- [RPT-069: three routes to one body, and the node the file route lost at the blade's root (2026-09-24)](../../reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md)
+- [RPT-078: an OBJ is imported one boundary per group, in the order of the file (2026-09-25)](../../reports/RPT-078_an-obj-is-imported-in-the-order-of-its-groups_2026-09-25.md)
+- [RPT-162 - Isolated propeller comparison of refined mesh levels on 26.124 (2026-10-06)](../../reports/RPT-162_isolated-propeller-refine-levels-on-26124_2026-10-06.md)
+
+## docs/pproc-artifact.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-066: base regions mark the base boundary, and wake termination is unobserved (2026-09-24)](../../reports/RPT-066_base-regions-mark-the-base-boundary-and-wake-termination-is-unobserved_2026-09-24.md)
+
+## docs/sampled-fields.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-083 - Probe frames and temporal export limits (2026-09-27, editorial amendment 2026-09-28)](../../reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)
+- [RPT-136 - Build 8242026 of FlightStream 26.124 is registered by decision, not by measurement (2026-10-01)](../../reports/RPT-136_fr153-build-8242026_2026-10-01.md)
+- [RPT-137 - The actuator disc on FlightStream 26.124: the swirl sense, the swirl factor, the thrust ELLIPTICAL and RELAXED put in the wake, and the quasi-steady probe frame (2026-10-01)](../../reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md)
+
+## docs/srs/scope.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-008: mesher and flow-visualization integration license research (v0.3 line)](../../reports/RPT-008_integrations-license-research_2026-07-22.md)
+
+## docs/surface-translation.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-074: the VTK surface export carries more than the Tecplot, per cell, in the loads frame (2026-09-25)](../../reports/RPT-074_the-vtk-export-is-written-in-the-loads-frame-per-cell_2026-09-25.md)
+- [RPT-087 - A periodic row's native Tecplot is read one zone per copy (2026-09-28)](../../reports/RPT-087_periodic-native-tecplot-one-zone-per-copy_2026-09-28.md)
+
+## docs/unsteady-postprocessing.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-083 - Probe frames and temporal export limits (2026-09-27, editorial amendment 2026-09-28)](../../reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)
+
+## docs/workflow-builds-and-hpc.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-049: a rotor on the builds before the rotary motion (2026-09-15)](../../reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md)
+- [RPT-051: a rotor on 26.100 without the rotor mark (2026-09-15)](../../reports/RPT-051_a-rotor-on-26100-without-the-rotor-mark_2026-09-15.md)
+
+## docs/workflow-input-library.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-018: the flow-separation family across four builds, and a delete command the February edition documents under a name the solver does not answer to](../../reports/RPT-018_separation-family-across-builds_2026-08-05.md)
+- [RPT-064: a loads frame set before the solve reaches every step export (2026-09-24)](../../reports/RPT-064_a-loads-frame-set-before-the-solve-reaches-every-step_2026-09-24.md)
+- [RPT-068: two documented setup commands are unrecognized on 26.124 (2026-09-24)](../../reports/RPT-068_two-documented-setup-commands-are-unrecognized-on-26124_2026-09-24.md)
+- [RPT-106: setup-key audit of the solver chapters (2026-09-30)](../../reports/RPT-106_setup-key-audit_2026-09-30.md)
+
+## docs/workflow-plan-and-cost.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-148 - Licensed batched versus alone comparisons for 0.35.1 (2026-10-03)](../../reports/RPT-148_licensed-batched-versus-alone-0351_2026-10-03.md)
+
+## docs/workflow-row-flow-inputs.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-052: the sense of a rotating free stream (2026-09-15)](../../reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md)
+- [RPT-069: three routes to one body, and the node the file route lost at the blade's root (2026-09-24)](../../reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md)
+- [RPT-070: the volume section and the actuator disc on 26.124, and a profile file the solver would not read (2026-09-24)](../../reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md)
+- [RPT-071: a custom free stream sets the flow's direction, and the angle of attack does not turn it (2026-09-24)](../../reports/RPT-071_a-custom-free-stream-sets-the-flow-direction_2026-09-24.md)
+- [RPT-077: what RPT-071 left open about the custom free stream (2026-09-25)](../../reports/RPT-077_what-was-left-of-the-custom-free-stream_2026-09-25.md)
+- [RPT-137 - The actuator disc on FlightStream 26.124: the swirl sense, the swirl factor, the thrust ELLIPTICAL and RELAXED put in the wake, and the quasi-steady probe frame (2026-10-01)](../../reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md)
+
+## docs/workflow-row-geometry-motion.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-048: what a per-surface translation does to shared vertices, on 26.123 (2026-09-14)](../../reports/RPT-048_what-a-per-surface-translation-does-to-shared-vertices_2026-09-14.md)
+
+## docs/workflow-unsteady-rotor.md
+
+Report locators carried by this page at v0.39.0, retained here after the
+publication cleanup. Each report retains its own build and measurement limits.
+
+- [RPT-041: a SCRIPT action re-reads its file on every time step, measured on 26.123 (2026-09-08)](../../reports/RPT-041_script-action-reread-on-26123_2026-09-08.md)
+- [RPT-044: a boundary renamed in the solver before the save reaches every export by its new name (2026-09-09)](../../reports/RPT-044_a-renamed-boundary-reaches-the-export-by-its-new-name_2026-09-09.md)
+- [RPT-064: a loads frame set before the solve reaches every step export (2026-09-24)](../../reports/RPT-064_a-loads-frame-set-before-the-solve-reaches-every-step_2026-09-24.md)
+- [RPT-066: base regions mark the base boundary, and wake termination is unobserved (2026-09-24)](../../reports/RPT-066_base-regions-mark-the-base-boundary-and-wake-termination-is-unobserved_2026-09-24.md)
+- [RPT-089 - The quasi-steady rotor against the unsteady rotor, measured (2026-09-29, amended 2026-10-01)](../../reports/RPT-089_qsteady-rotor-vs-unsteady_2026-09-29.md)
