@@ -84,7 +84,9 @@ def test_p0400_api004_external_accepts_only_out(capsys) -> None:
 def test_p0400_api004_callback_invokes_out(tmp_path) -> None:
     from pyflightstream.cases.fsi_workspace import CALLBACK_FILE
     from tests.tier1_offline.test_g06_actuator_disc import _lines
-    from tests.tier1_offline.test_p0400_gaps_rt_fsiext import _external_case
+    from tests.tier1_offline.test_regression_fsi_integration import (
+        _gaps_rt_fsiext___external_case as _external_case,
+    )
 
     case, _ = _external_case(tmp_path)
     _, script = _lines(case)
