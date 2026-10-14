@@ -140,3 +140,82 @@ def test_p0400_refinewing_a_sheet_trailing_edge_is_detected_across_its_families(
     assert entry["trailing_edge"] == "detected" and entry["kept_rows"] == ["station 0"], entry
     rows = _te_rows(level)
     assert rows and all(row[0] == 1.0 for row in rows), rows
+
+
+@pytest.mark.requirement("FR-430")
+def test_p0400_bgtests2_detected_trailing_edges_require_mesh_units(tmp_path):
+    """PFS-2099.006: detection cannot label unknown mesh coordinates as metres."""
+    from pyflightstream._errors import InputArtifactError
+
+    mesh = wing()
+    mesh = Composite(mesh.verts, mesh.families, numpy.zeros((0, 3)), {})
+    src = _source(tmp_path, mesh)
+    src.with_suffix(".boundaries.toml").write_text(
+        '[trailing_edges]\ndetect = { surfaces = ["U"] }\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match=r"\[import\].*units"):
+        refine_mesh(src, spanwise=2, families=["U"], keep_first_row=["U"])
+
+
+@pytest.mark.requirement("FR-432")
+@pytest.mark.parametrize("unit", ["MILLIMETER", None])
+def test_p0400_bgtests2_shared_edge_targets_state_their_units(tmp_path, unit):
+    """PFS-2099.011: native lengths become metres only with a declared conversion."""
+    from tests.p0380_mesh_fixtures import sheet_with_strips
+
+    mesh = sheet_with_strips((("T", "tri", (0.03, 0.04, 0.05, 0.065, 0.08)),))
+    src = _source(tmp_path, mesh)
+    sidecar = src.with_suffix(".boundaries.toml")
+    if unit is not None:
+        sidecar.write_text(
+            sidecar.read_text("utf-8") + f'\n[import]\nunits = "{unit}"\n', encoding="utf-8"
+        )
+    te = src.with_suffix(".te.txt")
+    te.write_text(te.read_text("utf-8").replace("METER", unit or "METER"), encoding="utf-8")
+    level = refine_mesh(src, 2, families=["G"])
+    entry = level.report["T"]
+    if unit is None:
+        assert "shared_edge_target_m" not in entry
+        assert entry["shared_edge_target_mesh_units"]["max"] > 0
+    else:
+        assert 0 < entry["shared_edge_target_m"]["max"] < 0.001
+
+
+@pytest.mark.requirement("FR-426")
+def test_p0400_bgtests2_remesh_preserves_only_listed_trailing_edges(tmp_path):
+    """PFS-2099.021: four TE vertices do not make all four sides trailing edges."""
+    points = numpy.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
+    te = numpy.array([[0.5, 0, 0], [0.5, 1, 0]])
+    src = write_source(
+        tmp_path / "src",
+        "plate",
+        Composite(points, {"A": [[0, 1, 2, 3]]}, te, {}),
+        refine_toml='[families.A]\nfactor = 1\nmethod = "remesh"\n',
+    )
+    level = refine_mesh(src)
+    assert sorted(_te_rows(level)) == sorted(map(tuple, te.tolist()))
+
+
+@pytest.mark.requirement("FR-426")
+def test_p0400_bgtests2_assembled_grid_and_copied_family_share_one_trailing_edge(tmp_path):
+    """PFS-2099.016 and PFS-2099.024: assembly deduplicates a grid part and its copied neighbour."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._refine._level import _assemble
+
+    mesh = wing(root=False)
+    selected = {"U": object()}
+    work = SimpleNamespace(
+        names=["U", "L"],
+        parts={"U": (mesh.verts, {"U": mesh.families["U"]}, mesh.te)},
+        specs=selected,
+        request=SimpleNamespace(specs=selected),
+        te_points=mesh.te,
+        fam_v={name: {v for face in faces for v in face} for name, faces in mesh.families.items()},
+        mesh=SimpleNamespace(verts=mesh.verts, families=mesh.families),
+        scale=float(numpy.linalg.norm(numpy.ptp(mesh.verts, axis=0))),
+        bands={},
+    )
+    _, _, midpoints = _assemble(work)
+    assert len(midpoints) == len(mesh.te)
+    assert sorted(map(tuple, midpoints.tolist())) == sorted(map(tuple, mesh.te.tolist()))
