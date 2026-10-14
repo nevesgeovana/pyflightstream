@@ -40,6 +40,19 @@ checkout without the ``dev`` extra), this module registers no collector
 so the Tier 1 suite still runs anywhere.
 """
 
+
+def pytest_configure(config):
+    """Initialize the package before the controller deserializes worker warnings."""
+    # CI runs 38443617855, 38477505772 and 38496096738: xdist's controller
+    # imports a worker warning's module during unserialize_warning_message.
+    # Complete the package first, before a submodule can enter the cycle:
+    # results/__init__.py:166 -> results/surface.py:58 -> __init__.py:91
+    # -> post -> workspace -> workspace/inputs.py:143 -> cases.matrix
+    # -> cases/workflows/_steady.py:30 -> results.SurfaceFrame (partial).
+    if not hasattr(config, "workerinput"):
+        import pyflightstream  # noqa: F401
+
+
 try:
     from sybil import Sybil
     from sybil.parsers.markdown import PythonCodeBlockParser, SkipParser
