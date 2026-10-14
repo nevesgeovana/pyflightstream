@@ -11,20 +11,9 @@ import warnings
 from types import SimpleNamespace
 
 from pyflightstream._errors import PyflightstreamWarning
-from pyflightstream.run._alias import (
-    failure_alias_lines,
-    planned_in_workspace,
-    read_alias,
-    selection_with_aliases,
-    split_typed_ids,
-)
-from pyflightstream.run._cli_print import _alias_block
-from pyflightstream.run._cli_query_point import _aliases
-from pyflightstream.run._ids import narrow_to_selection, whole_sweeps
 from pyflightstream.run._plan import plan_campaign
 from pyflightstream.workspace.ledger import read_ledger
 from pyflightstream.workspace.matrix import resolve_matrix
-from tests.tier1_offline.test_p0340_run_usability import _names, _two_simulations
 
 
 def _rows(root, rows):
@@ -38,6 +27,8 @@ def test_p0400_a_known_simulation_id_with_an_underscore_is_not_an_alias(tmp_path
     Simulation ids may hold an underscore; a destroying verb read ``2006_1`` as point 1 of
     simulation 2006, so ``mark-failed --sims 2006_1`` marked the wrong simulation's point.
     """
+    from pyflightstream.run._alias import read_alias, split_typed_ids
+
     assert read_alias("2006_1", {"2006", "2006_1"}) is None
     assert read_alias("2006_1", {"2006"}) == ("2006", 1)
     _rows(
@@ -59,6 +50,9 @@ def test_p0400_the_failure_alias_is_the_one_every_reader_resolves(tmp_path):
     the plan read ``2006_3`` as alpha 4. Every reader now builds its planned order with
     one function, and the failure line names ``2006_2``, which resolves back to alpha 2.
     """
+    from pyflightstream.run._alias import failure_alias_lines, planned_in_workspace, split_typed_ids
+    from pyflightstream.run._cli_query_point import _aliases
+
     plan = {
         "points": [
             {"sim_id": "2006", "run_id": f"warm/sim_2006/{tag}"} for tag in ("A0", "A2", "A4")
@@ -85,6 +79,11 @@ def test_p0400_a_plan_of_a_selection_numbers_aliases_against_the_whole_sweep(tmp
     while ``run --points 5002_1`` ran the first. Given the whole sweep, the plan prints
     ``5002_3`` and ``plan.json`` carries the whole sweep for every later reader.
     """
+    from pyflightstream.run._alias import planned_in_workspace, selection_with_aliases
+    from pyflightstream.run._cli_print import _alias_block
+    from pyflightstream.run._ids import narrow_to_selection, whole_sweeps
+    from tests.tier1_offline.test_p0340_run_usability import _names, _two_simulations
+
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     with warnings.catch_warnings():
