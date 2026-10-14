@@ -24,21 +24,25 @@ def _ring(
 
 def test_p0400_ffharmonics_odd_grid_carries_its_highest_order() -> None:
     """P0400-FFHARMONICS: n = 13 with m_max = 6 is accepted; n = 9 with m_max = 4 too."""
-    assert azimuthal_harmonics(*_ring(13), m_max=6).shape[-1] == 7
-    assert azimuthal_harmonics(*_ring(9), m_max=4).shape[-1] == 5
+    values, psi = _ring(13)
+    assert azimuthal_harmonics(values, psi=psi, m_max=6).shape[-1] == 7
+    values, psi = _ring(9)
+    assert azimuthal_harmonics(values, psi=psi, m_max=4).shape[-1] == 5
 
 
 def test_p0400_ffharmonics_even_grid_nyquist_is_still_refused() -> None:
     """P0400-FFHARMONICS: n = 12 with m_max = 6 is the Nyquist order and is refused."""
+    values, psi = _ring(12)
     with pytest.raises(FarfieldInputError, match="needs more than 12 uniform azimuths"):
-        azimuthal_harmonics(*_ring(12), m_max=6)
+        azimuthal_harmonics(values, psi=psi, m_max=6)
 
 
 @pytest.mark.parametrize("m_max", [-1, 2.5, True])
 def test_p0400_ffharmonics_m_max_must_be_a_non_negative_integer(m_max: object) -> None:
     """P0400-FFHARMONICS: m_max = -1 or 2.5 on a 16-azimuth lattice is refused (PFS-2086.003)."""
+    values, psi = _ring(16)
     with pytest.raises(FarfieldInputError, match="is not an azimuthal order"):
-        azimuthal_harmonics(*_ring(16), m_max=m_max)  # type: ignore[arg-type]
+        azimuthal_harmonics(values, psi=psi, m_max=m_max)  # type: ignore[arg-type]
 
 
 def test_p0400_ffharmonics_origin_offset_grid_gives_unrotated_coefficients() -> None:
@@ -50,5 +54,5 @@ def test_p0400_ffharmonics_origin_offset_grid_gives_unrotated_coefficients() -> 
     n, psi_0 = 16, 0.3
     psi = psi_0 + 2.0 * np.pi * np.arange(n) / n
     field = np.cos(psi) + 0.25 * np.sin(2.0 * psi)
-    c = azimuthal_harmonics(*_ring(n, field, psi_0), m_max=3)
+    c = azimuthal_harmonics(field, psi=psi, m_max=3)
     np.testing.assert_allclose(c, [0.0, 0.5, -0.125j, 0.0], atol=1e-12)
