@@ -1454,11 +1454,15 @@ def _within_printed_rounding(old: str, new: str, *, exact: bool) -> bool:
     """Keep text identical; admit finite numbers only within the writer's precision."""
     if old == new:
         return True
+    # The base CSV funnel rounded floats to five decimal places. Integers
+    # and text were written literally, so their spelling implies no lost digits.
+    if not re.fullmatch(r"-?\d+\.\d{5}", old):
+        return False
     try:
         before, after = Decimal(old), Decimal(new)
         if not before.is_finite() or not after.is_finite():
             return False
-        tolerance = Decimal(0) if exact else Decimal(5).scaleb(int(before.as_tuple().exponent) - 1)
+        tolerance = Decimal(0) if exact else Decimal("0.000005")
         return abs(before - after) <= tolerance
     except (InvalidOperation, ValueError):
         return False

@@ -246,3 +246,17 @@ def test_p0410_par_grouped_render_compares_one_complete_batch(tmp_path):
     result = _load()._workspace_render(matrix, workspace.root, ["--batch"])
     assert len(result["scripts"]) == 1
     assert next(iter(result["scripts"])).startswith("BATCH-")
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [("1", "1.4"), ("100", "100.4"), ("0", "0.1"), ("1e3", "1100")],
+    ids=["P0410-RV1-integer", "P0410-RV1-count", "P0410-RV1-zero", "P0410-RV1-text"],
+)
+def test_p0410_par_literal_cells_have_no_rounding_allowance(old, new):
+    """RV1-001: only the old writer's five-decimal floats lost precision."""
+    module = _load()
+    found = module.name_difference(
+        "post", "m/sections/p.csv", f"STEP\n{old}\n", f"STEP\n{new}\n", {"FR-124"}, "0.39.0"
+    )
+    assert "requirement" not in found
