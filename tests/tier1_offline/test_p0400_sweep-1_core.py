@@ -12,14 +12,10 @@ import pytest
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import resolve_alias, select_families, select_group_members
-from pyflightstream.run._alias import planned_in_workspace
-from pyflightstream.run._cli_print import _alias_block
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.workspace._refine import _config
 from pyflightstream.workspace._settings_file import read_workspace_settings
-from tests.tier1_offline.test_p0340_run_usability import _names, _two_simulations
-from tests.tier1_offline.test_p0390_taglen import _request
 
 
 @pytest.mark.parametrize("filename", ["pyfs.toml", "pyfs.local.toml"])
@@ -74,6 +70,8 @@ def test_p0400_overview_relative_path(tmp_path, monkeypatch):
 
 def test_p0400_uniform_tag_limit(tmp_path):
     """P0400-SWEEP-UNIFORM-TAG: every automatic tag obeys the 32 character limit."""
+    from tests.tier1_offline.test_p0390_taglen import _request
+
     spec = _config.FamilySpec(factor=0.0000123456, chordwise=0.0000123456, spanwise=0.0000123456)
     request = _request(tmp_path, ["Wing"], over={"Wing": spec})
     assert len(_config.level_tag(request, ["Wing"])) <= _config.TAG_MAX
@@ -156,6 +154,10 @@ def test_p0400_animation_missing_anchor():
 
 def test_p0400_matrix_selection_preserves_order(tmp_path, monkeypatch):
     """P0400-SWEEP-ALIAS-PLAN: matrix planning retains the full sweep's alias order."""
+    from pyflightstream.run._alias import planned_in_workspace
+    from pyflightstream.run._cli_print import _alias_block
+    from tests.tier1_offline.test_p0340_run_usability import _names, _two_simulations
+
     workspace, matrix, _ = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     with warnings.catch_warnings():
