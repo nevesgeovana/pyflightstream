@@ -1485,8 +1485,27 @@ def _csv_rounding(old: str, new: str, inserted: str = "", *, exact: bool = False
     ):
         return False
     indexes = [new_header.index(column) for column in old_header]
+    kind_columns = [column for column in new_header if column not in old_header]
+    if inserted:
+        # FR-419 adds one kind for each existing value/provenance pair.
+        # The old lossy values cannot identify an ambiguous kind, but the
+        # frozen encoding still bounds its domain (settings_table.VALUE_KINDS).
+        expected = {
+            column.removesuffix("_value") + "_kind"
+            for column in old_header
+            if re.fullmatch(r"f\d+_value", column)
+        }
+        if set(kind_columns) != expected or any(
+            column.removesuffix("_kind") + "_prov" not in old_header for column in kind_columns
+        ):
+            return False
+    kind_indexes = [new_header.index(column) for column in kind_columns]
     for old_row, new_row in zip(before[1:], after[1:], strict=True):
         if len(old_row) != len(old_header) or len(new_row) != len(new_header):
+            return False
+        if any(
+            new_row[index] not in {"1", "2", "3", "4", "5", "6", "NA"} for index in kind_indexes
+        ):
             return False
         if not all(
             _within_printed_rounding(cell, new_row[index], exact=exact)

@@ -173,7 +173,7 @@ def test_p0410_par_public_binding_keeps_its_object(module_name, name, home) -> N
         ("POL,CL\n1,inf\n2,-0.00680\n", False),
         ("POL,CL\n1,word\n2,-0.00680\n", False),
         ("POL,CL\n1,0.12345,0\n2,-0.00680\n", False),
-        ("POL,f12_kind,CL\n1,0,0.12345\n2,1,-0.00680\n", True),
+        ("POL,f12_kind,CL\n1,0,0.12345\n2,1,-0.00680\n", False),
     ],
     ids=[
         "P0410-PAR-exact",
@@ -187,7 +187,7 @@ def test_p0410_par_public_binding_keeps_its_object(module_name, name, home) -> N
         "P0410-PAR-inf",
         "P0410-PAR-text",
         "P0410-PAR-width",
-        "P0410-PAR-named-column",
+        "P0410-PAR-unrelated-kind-column",
     ],
 )
 def test_p0410_par_csv_rounding_is_bounded(new, accepted, monkeypatch) -> None:
@@ -218,7 +218,12 @@ def test_p0410_par_csv_rounding_is_bounded(new, accepted, monkeypatch) -> None:
     [
         ("m/polars/p.csv", "POL,CL\n1,0.12345\n", "POL,CL\n1,0.123454\n", "FR-124"),
         ("m/sections/p.csv", "POL,CP\n1,0.00380\n", "POL,CP\n1,0.003802\n", "FR-124"),
-        ("m/settings/m_settings.csv", "POL,f1\n1,4.00000\n", "POL,f1,f1_kind\n1,4.0,0\n", "FR-419"),
+        (
+            "m/settings/m_settings.csv",
+            "POL,f1_value,f1_prov\n1,4.00000,1\n",
+            "POL,f1_value,f1_prov,f1_kind\n1,4.0,1,3\n",
+            "FR-419",
+        ),
     ],
     ids=["P0410-PAR-polars", "P0410-PAR-sections", "P0410-PAR-settings"],
 )
@@ -260,3 +265,35 @@ def test_p0410_par_literal_cells_have_no_rounding_allowance(old, new):
         "post", "m/sections/p.csv", f"STEP\n{old}\n", f"STEP\n{new}\n", {"FR-124"}, "0.39.0"
     )
     assert "requirement" not in found
+
+
+@pytest.mark.parametrize(
+    "new",
+    [
+        "POL,f1_value,f1_prov,f1_kind\n1,4.0,1,garbage\n",
+        "POL,f1_value,f1_prov,f1_kind\n1,4.0,1,7\n",
+        "POL,f1_value,f1_prov,f999_kind\n1,4.0,1,3\n",
+        "POL,f1_value,f1_prov\n1,4.0,1\n",
+    ],
+    ids=["P0410-RV1-text-kind", "P0410-RV1-kind-code", "P0410-RV1-flag", "P0410-RV1-no-kind"],
+)
+def test_p0410_par_settings_kind_additions_are_validated(new):
+    """RV1-002: naming new kind columns does not excuse a malformed settings table."""
+    old = "POL,f1_value,f1_prov\n1,4.00000,1\n"
+    found = _load().name_difference(
+        "post", "m/settings/m_settings.csv", old, new, {"FR-419"}, "0.39.0"
+    )
+    assert "requirement" not in found
+
+
+@pytest.mark.parametrize("kind", ["1", "2", "3", "4", "5", "6", "NA"])
+def test_p0410_par_settings_accepts_the_frozen_kind_codes(kind):
+    """P0410-RV1: valid kind additions still pass the FR-419 exception."""
+    old = "POL,f1_value,f1_prov\n1,4.00000,1\n"
+    new = f"POL,f1_value,f1_prov,f1_kind\n1,4.0,1,{kind}\n"
+    assert (
+        _load()
+        .name_difference("post", "m/settings/m_settings.csv", old, new, {"FR-419"}, "0.39.0")
+        .get("requirement")
+        == "FR-419"
+    )
