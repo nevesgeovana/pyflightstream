@@ -2326,3 +2326,28 @@ def test_a_rotate_list_on_a_legacy_row_is_refused_naming_the_pol(tmp_path):
     path.write_text("\n".join([header, rule, "|".join(cells)]) + "\n", encoding="utf-8")
     with pytest.raises(MatrixError, match="POL 9001.*LEGACY.*ROTATE"):
         read_matrix(path, active_only=False)
+
+
+@pytest.mark.parametrize("ran_in_datapoint", [False, True], ids=["P0400-WAKE-SIM", "P0400-WAKE-DP"])
+def test_p0400_bgtests2_collect_files_the_wake_sidecar(tmp_path, ran_in_datapoint):
+    """PFS-2081.50: collecting a surface also files and records its optional wake."""
+    from pyflightstream.workspace import CampaignWorkspace
+    from pyflightstream.workspace.naming import PointName
+
+    workspace = CampaignWorkspace(tmp_path / "campaign")
+    sim = workspace.create_sim("9001")
+    source = sim / "datapoints/DP-AL+040" if ran_in_datapoint else sim
+    source.mkdir(parents=True, exist_ok=True)
+    surface = source / "surface.vtk"
+    surface.write_bytes(b"surface export")
+    wake_bytes = (Path(__file__).parent / "fixtures/p0400_lita_solver_wake.vtk").read_bytes()
+    (source / "surface_wakes.vtk").write_bytes(wake_bytes)
+    collected = workspace.collect_outputs(
+        "9001", [surface], datapoint=PointName("AL+040"), ran_in_datapoint=ran_in_datapoint
+    )
+    assert collected == [
+        "datapoints/DP-AL+040/surface.vtk",
+        "datapoints/DP-AL+040/surface_wakes.vtk",
+    ]
+    assert (sim / collected[1]).read_bytes() == wake_bytes
+    assert not (sim / "surface_wakes.vtk").exists()
