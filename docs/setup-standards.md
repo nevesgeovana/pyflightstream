@@ -186,8 +186,7 @@ An omitted `velocity_variable` selects `<PORT>_VELOCITY` with the identity
 uppercased. An omitted `profile_variable` requests no profile. Selecting one
 requires that MATRIX variable to name a file under `inputs/profiles/`.
 No numeric condition or profile filename is copied into the geometry or setup.
-The workspace example and emitted commands are tested in
-`.py`.
+The offline suite checks the workspace example and emitted commands.
 
 The surface names are exact after import renames. Velocity values are passed
 unchanged in simulation velocity units. The current manual is inconsistent:

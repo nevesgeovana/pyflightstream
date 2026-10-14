@@ -296,7 +296,7 @@ the constant free stream at 4 deg, although the angle still moves the result a
 little (CL 0.0021 against 0.0023, CDi 0.0002 against 0.0000). That is the
 refusal above.
 Row 5011 is retired from the matrix, since the plan refuses it now; its run is
-the report's evidence. `tests/tier3_licensed/.py` holds 5012 to
+the report's evidence. The licensed checks hold 5012 to
 5014 to what they measured. Every other build is documented only, and the
  So the part of a body
  outside the grid is not loaded by the field, and THE PLAN WARNS, naming the

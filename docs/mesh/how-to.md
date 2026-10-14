@@ -66,7 +66,7 @@ write_trailing_edge_node_file(
 
 That block is skipped by the executable-examples run, because it names a
 blade mesh and this repository commits no blade. The name it imports is
-checked all the same: `tests/tier1_offline/.py` resolves
+checked all the same: the offline suite resolves
 every name a python block on this page imports, so a rename fails the suite
 rather than leaving the block stale.
 
@@ -438,7 +438,7 @@ print(audit.passed, audit.path.name)  # True W1_R2.audit.json
 
 That block is skipped by the executable-examples run because it names a mesh
 this repository does not commit; the names it imports are resolved by
-`tests/tier1_offline/.py`. The refinement file, every key,
+the offline suite. The refinement file, every key,
 the files of a level and the audit's gates are in the
 [reference](reference.md#the-refinement-file-and-the-audit).
 

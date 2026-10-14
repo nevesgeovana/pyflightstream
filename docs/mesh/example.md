@@ -144,8 +144,7 @@ point `FAILED_SCRIPT` rather than letting a solve of the wrong body pass.
 Written in metres, the mesh and the points file both, the example does not
 depend on the answer.
 
-The suite runs this example as printed: `tests/tier1_offline/.py`
-writes every titled block above into a temporary workspace, runs the python
+The offline suite runs this example as printed: it writes every titled block above into a temporary workspace, runs the python
 block there, plans the matrix with the command above, and renders both points
 without a solver. It fails when the scripts the package builds and the two
 blocks above differ, and when a key a sidecar block on this page writes is not
