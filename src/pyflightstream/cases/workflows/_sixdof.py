@@ -141,9 +141,8 @@ def _sixdof_motion(
     script.emit("SET_MOTION_MASS_PROPERTIES", motion, spec.mass.mass_kg, *spec.mass.inertia_kg_m2)
     script.emit("SET_MOTION_GRAVITY", motion, *spec.gravity.vector_reference_m_per_s2)
     script.emit("SET_MOTION_6DOF_INITIAL_VELOCITY", motion, *spec.initial.velocity_body_m_per_s)
-    # Written in rad/s, the unit RPT-049 measured for the motion family's
-    # angular velocity (SET_MOTION_ANGULAR_VELOCITY); this command's own unit
-    # is unstated and is the probe question P4-2.
+    # RPT-169 (6DOF initial angular velocity, 2026-10-13) measured rad/s for
+    # this command on 26.124 and 26.125; convert the caller's stated deg/s.
     script.emit(
         "SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY",
         motion,

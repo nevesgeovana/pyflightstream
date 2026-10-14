@@ -2,6 +2,14 @@
 
 The published pages state user-facing behavior. This unpublished page keeps the public requirement, report and test locators used to verify those statements. The fixtures and examples are still checked on the published pages.
 
+## docs/sixdof-motion.md
+
+The initial angular-velocity input is in rad/s on 26.124 and 26.125, and the
+trajectory rates p, q, r are in rad/s while phi, theta, psi are in degrees:
+[RPT-169, 6DOF initial angular velocity input unit](../../reports/RPT-169_6dof-initial-rate-unit_2026-10-13.md).
+This replaces the earlier inference from the rotary-motion command's unit.
+The probe does not settle the remaining trajectory column units.
+
 ## docs/definitions/the-additional-post.md
 
     `pyfs-matrix post <matrix> --additional-pproc`, with no solve (`test_g12_the_extraction_lands_in_additional_and_is_hashed`,

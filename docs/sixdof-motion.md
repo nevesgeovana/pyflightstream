@@ -86,8 +86,8 @@ each force in the order written, and the symmetry loads. The trajectory is
 exported to `<point>_trajectory_6dof.txt`, which joins the row's outputs, after
 the march with the row's other exports: exported before the march the file holds
 its header and no row. The initial
-angular velocity is written in radians per second, the unit measured for the
-solver's other angular velocity.
+angular velocity is written in radians per second, measured for this 6DOF
+command on 26.124 and 26.125.
 
 The point folder also receives `sixdof-provenance.json` (the input's path, its
 digest and its parsed content) and any custom force file, hashed.
@@ -111,8 +111,8 @@ digest and its parsed content) and any custom force file, hashed.
 ## What is not here yet
 
 The trajectory file is kept as the solver writes it, and the package does not
-convert it: its columns are in the solver's units, which the probes did not
-settle. Read the columns
-against your own known case before relying on a unit. A package table of the
-trajectory waits for its grammar to be read from a licensed run. A prescribed
+convert it. The unit probe establishes radians per second for the rate columns p, q, r
+and degrees for the attitude columns phi, theta, psi on 26.124 and 26.125.
+The other column units are not settled by that probe. A structured package
+table of the trajectory is not implemented. A prescribed
 motion read from a table (the solver's CUSTOM motion) is a later capability.
