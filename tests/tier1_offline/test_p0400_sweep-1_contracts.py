@@ -14,7 +14,8 @@ from pyflightstream.qa.physics import write_physics_report
 from pyflightstream.run._cli_parsers import _build_parser
 from pyflightstream.script import Script
 from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
-from tests.tier1_offline.test_p0400_qa_physics import _points, _run
+from tests.tier1_offline.test_regression_qa_tools import _qa_physics___points as _points
+from tests.tier1_offline.test_regression_qa_tools import _qa_physics___run as _run
 
 ROOT = Path(__file__).resolve().parents[2]
 

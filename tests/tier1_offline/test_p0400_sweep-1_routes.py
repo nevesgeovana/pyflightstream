@@ -20,7 +20,8 @@ from pyflightstream.run import _executors, _grouped, _rebuild_grouped
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.hpc import read_hpc_profile
-from tests.tier1_offline.test_p0400_qa_physics import _points, _run
+from tests.tier1_offline.test_regression_qa_tools import _qa_physics___points as _points
+from tests.tier1_offline.test_regression_qa_tools import _qa_physics___run as _run
 
 
 @pytest.mark.parametrize("command", ["SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"])

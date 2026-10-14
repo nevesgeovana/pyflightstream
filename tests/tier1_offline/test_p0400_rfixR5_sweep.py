@@ -17,9 +17,9 @@ from pyflightstream.workspace._geometry_build import (
     apply_geometry_build,
     plan_geometry_build,
 )
-from tests.tier1_offline.test_p0400_gapprobes_specs import QUAD_BLOCK
 from tests.tier1_offline.test_p0400_geometry_build import verified_registry
 from tests.tier1_offline.test_p0400_geometry_complete import _body_runner, _sweep
+from tests.tier1_offline.test_regression_qa_tools import _GAPPROBES_SPECS__QUAD_BLOCK as QUAD_BLOCK
 
 
 def _plan(folder, only):
