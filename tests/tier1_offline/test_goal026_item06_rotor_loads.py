@@ -885,3 +885,19 @@ def test_a_refused_row_leaves_nothing_behind_in_the_products_folder(tmp_path):
 
     left = sorted(p.name for p in polars.iterdir())
     assert left == [], f"the refusal left files in the products folder: {left}"
+
+
+@pytest.mark.parametrize("column", ["CDi", "CT_PUSHER", "CQ_PUSHER"])
+def test_p0400_bgtests2_small_coefficients_keep_six_significant_figures(tmp_path, column):
+    """PFS-2081.53: a small coefficient survives the writer without five-decimal truncation."""
+    from pyflightstream.post.products import read_csv_table, write_csv_table
+
+    path = tmp_path / "coefficients.csv"
+    value = 0.000123456
+    write_csv_table(
+        path, [column, column + "_DRIFT_PCT", "SETTING"], [[value, value, "7.123456789"]]
+    )
+    _, rows = read_csv_table(path)
+    assert float(rows[0][column]) == pytest.approx(value, rel=5e-6, abs=0)
+    assert rows[0][column + "_DRIFT_PCT"] == "0.00012"
+    assert rows[0]["SETTING"] == "7.123456789"
