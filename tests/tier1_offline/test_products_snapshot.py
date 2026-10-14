@@ -27,10 +27,12 @@ version and the release tag derived from it, the wall-clock name of an
 archive folder a rebuild moves the replaced products into, and the date line
 of the custom polar format (the wall clock again). One campaign leaves out
 files no normalisation makes stable (:data:`VOLATILE`, with its reason).
-Only the unsteady harmonics snapshot's six fit columns admit numerical
-round-off (rtol=1e-12, atol=1e-12); its header, metadata and line ends remain
-exact. The absolute floor covers near-zero least-squares residuals. Nothing
-else may differ.
+Only the columns of :data:`NUMERIC_PRODUCTS` admit numerical round-off
+(rtol=1e-12, atol=1e-12): the existing unsteady harmonics fit and the FFT
+spectra and blade-passage harmonics of the noise campaign. Their retained
+texts must match the original digests; headers, metadata, NA and line ends
+remain exact. The absolute floor covers near-zero least-squares residuals.
+Nothing else may differ.
 
 WHAT IS PINNED, because it is an input of the build rather than a field of a
 product (:func:`pin_environment`): the line end of a text write, whose bytes
@@ -82,18 +84,107 @@ SNAPSHOT_DIR = Path(__file__).parent / "fixtures" / "products_snapshot"
 #: The files stored as text beside the digests.
 TEXT_FILES = ("products.json", "post.log", "post.log.json")
 DIGESTS = "sha256.json"
-# P0400-CIFIX-2: only this campaign's fit cells are numeric, at rtol=1e-12
-# and atol=1e-12. The absolute floor covers residuals at numerical zero.
-# Its retained text is verified against the original digest, not a new golden.
+# P0400-CIFIX-2 / LCLOSE-001: retain the existing least-squares exception.
 HARMONICS_PRODUCT = "products/sections/AL-020_harmonics.csv"
 HARMONICS_TEXT = SNAPSHOT_DIR / "unsteady_harmonics" / "AL-020_harmonics.csv"
 _FIT_COLUMNS = ("H0", "H1_AMP", "H1_PHASE_DEG", "H2_AMP", "H2_PHASE_DEG", "RESIDUAL_RMS")
+# P0400-NOISEFIX: campaign and full product path -> numeric columns. The text
+# copy lives beside that campaign's digests, under the product's basename.
+# New exceptions are FFT-derived only. acoustics.py writes three spectra and
+# p_acoustics_bpf.csv in noise; the latter currently holds NA for every FFT
+# value because the record states no rotor. Its metadata and NA stay exact.
+# The other reduction products remain byte-exact: noise/p_acoustics_summary.csv
+# (time-step mean and pressure RMS), and wheel_harmonics/DP_harmonics.csv
+# (least squares and residual RMS, harmonics.py). Acoustic directivity uses
+# centroid/circle fits and pressure RMS, but is absent from the snapshots
+# (noise has three observers, below the four-observer minimum).
+NUMERIC_PRODUCTS = {
+    ("unsteady_harmonics", HARMONICS_PRODUCT): _FIT_COLUMNS,
+    ("noise", "products/acoustics/p_01_PYFS_OBS1_spectrum.csv"): (
+        "FREQUENCY_HZ",
+        "AMPLITUDE_PA",
+        "LEVEL_DB",
+    ),
+    ("noise", "products/acoustics/p_02_Observer_2_spectrum.csv"): (
+        "FREQUENCY_HZ",
+        "AMPLITUDE_PA",
+        "LEVEL_DB",
+    ),
+    ("noise", "products/acoustics/p_03_Observer_3_spectrum.csv"): (
+        "FREQUENCY_HZ",
+        "AMPLITUDE_PA",
+        "LEVEL_DB",
+    ),
+    ("noise", "products/acoustics/p_acoustics_bpf.csv"): ("BIN_HZ", "AMPLITUDE_PA", "LEVEL_DB"),
+}
 _STAMP = r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:[+-]\d\d:\d\d|Z)?"
 #: The folder a rebuild archives the products it replaces into, named by the
 #: wall clock (``workspace.naming.ARCHIVE_STAMP``), in a path or in a text.
 _ARCHIVE = re.compile(r"(?<=archive/)\d{8}-\d{6}(?=/)")
 
 Builder = Callable[[Path, pytest.MonkeyPatch], Path]
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "p_01_PYFS_OBS1_spectrum.csv",
+        "p_02_Observer_2_spectrum.csv",
+        "p_03_Observer_3_spectrum.csv",
+    ],
+    ids=lambda base: f"P0400-noisefix-{base}",
+)
+@pytest.mark.parametrize(
+    "change", ["roundoff", "value", "header", "non-numeric", "na", "crlf", "other-path", "digest"]
+)
+def test_p0400_noisefix_admits_only_fft_roundoff(base, change):
+    """P0400-NOISEFIX: FFT round-off passes; structure and other bytes stay exact."""
+    name = f"products/acoustics/{base}"
+    reference = (SNAPSHOT_DIR / "noise" / base).read_bytes()
+    index, _ = stored("noise")
+    assert digests({name: reference})[name] == index[name]
+    lines = reference.decode().splitlines()
+    column = lines[0].split(",").index("AMPLITUDE_PA")
+    row = next(i for i in range(1, len(lines)) if lines[i].split(",")[column] != "NA")
+    cells = lines[row].split(",")
+    cells[column] = repr(float(cells[column]) + (1e-6 if change == "value" else 3.6e-16))
+    if change == "header":
+        lines[0] = lines[0].replace("AMPLITUDE_PA", "AMPLITUDE")
+    elif change == "non-numeric":
+        cells[column] = "changed"
+    elif change == "na":
+        cells[column] = "NA"
+    elif change == "other-path":
+        name = f"products/other/{base}"
+    lines[row] = ",".join(cells)
+    separator = "\r\n" if change == "crlf" else "\n"
+    changed = (separator.join(lines) + separator).encode()
+    digest = "0" * 64 if change == "digest" else hashlib.sha256(reference).hexdigest()
+    found = differences({name: digest}, {name: changed})
+    assert bool(found) is (change != "roundoff"), found
+    if change != "digest":
+        text_found = text_differences({base: reference.decode()}, {name: changed})
+        assert bool(text_found) is (change != "roundoff"), text_found
+
+
+@pytest.mark.parametrize("change", ["header", "observer", "harmonic", "na"])
+def test_p0400_noisefix_bpf_keeps_metadata_and_na_exact(change):
+    """P0400-NOISEFIX: the BPF snapshot has no rotor, so FFT cells remain NA."""
+    base = "p_acoustics_bpf.csv"
+    name = f"products/acoustics/{base}"
+    reference = (SNAPSHOT_DIR / "noise" / base).read_bytes()
+    index, _ = stored("noise")
+    assert digests({name: reference})[name] == index[name]
+    before, after = {
+        "header": (b"AMPLITUDE_PA", b"AMPLITUDE"),
+        "observer": (b"PYFS_OBS1", b"another observer"),
+        "harmonic": (b",1,", b",1.0,"),
+        "na": (b",NA,NA,NA,NA", b",NA,NA,0.0,NA"),
+    }[change]
+    changed = reference.replace(before, after, 1)
+    assert changed != reference
+    assert differences({name: index[name]}, {name: changed})
+    assert text_differences({base: reference.decode()}, {name: changed})
 
 
 @pytest.mark.parametrize(
@@ -650,8 +741,8 @@ def fr348_admitted(files: dict[str, bytes]) -> tuple[dict[str, bytes], list[str]
     return admitted, lacking
 
 
-def _harmonics_equal(reference: bytes, data: bytes) -> bool:
-    """Compare fit numbers only; header, row order, metadata, NA and LF stay exact."""
+def _numeric_equal(reference: bytes, data: bytes, columns: tuple[str, ...]) -> bool:
+    """Compare listed numbers only; header, row order, metadata, NA and LF stay exact."""
     try:
         old_lines = reference.decode("utf-8").splitlines(keepends=True)
         new_lines = data.decode("utf-8").splitlines(keepends=True)
@@ -660,17 +751,19 @@ def _harmonics_equal(reference: bytes, data: bytes) -> bool:
     if not old_lines or len(old_lines) != len(new_lines) or old_lines[0] != new_lines[0]:
         return False
     header = old_lines[0].rstrip("\n").split(",")
-    if tuple(header[-6:]) != _FIT_COLUMNS:
+    if tuple(cell for cell in header if cell in columns) != columns:
         return False
     for old, new in zip(old_lines[1:], new_lines[1:], strict=True):
         if not new.endswith("\n") or "\r" in new:
             return False
         a, b = old[:-1].split(","), new[:-1].split(",")
-        if len(a) != len(header) or len(b) != len(header) or a[:-6] != b[:-6]:
+        if len(a) != len(header) or len(b) != len(header):
             return False
-        for expected, actual in zip(a[-6:], b[-6:], strict=True):
+        for column, expected, actual in zip(header, a, b, strict=True):
             if expected == actual:
                 continue
+            if column not in columns:
+                return False
             try:
                 x, y = float(expected), float(actual)
             except ValueError:
@@ -682,12 +775,15 @@ def _harmonics_equal(reference: bytes, data: bytes) -> bool:
     return True
 
 
-def _harmonics_admitted(name: str, digest: str, data: bytes) -> bool:
+def _numeric_admitted(name: str, digest: str, data: bytes) -> bool:
     """Scope the exception by both path and the original campaign's digest."""
-    if name != HARMONICS_PRODUCT:
-        return False
-    reference = HARMONICS_TEXT.read_bytes()
-    return digests({name: reference})[name] == digest and _harmonics_equal(reference, data)
+    for (campaign, product), columns in NUMERIC_PRODUCTS.items():
+        if name != product:
+            continue
+        reference = (SNAPSHOT_DIR / campaign / Path(product).name).read_bytes()
+        if digests({name: reference})[name] == digest:
+            return _numeric_equal(reference, data, columns)
+    return False
 
 
 def differences(index: dict[str, str], files: dict[str, bytes]) -> list[str]:
@@ -706,7 +802,7 @@ def differences(index: dict[str, str], files: dict[str, bytes]) -> list[str]:
     out += [
         f"{name}: bytes differ"
         for name in sorted(set(index) & set(now))
-        if index[name] != now[name] and not _harmonics_admitted(name, index[name], files[name])
+        if index[name] != now[name] and not _numeric_admitted(name, index[name], files[name])
     ]
     return out
 
@@ -720,7 +816,7 @@ def text_differences(texts: dict[str, str], files: dict[str, bytes]) -> list[str
             out.append(f"{base}: {len(match)} regenerated files carry the name")
             continue
         new = files[match[0]].decode("utf-8")
-        if _harmonics_admitted(
+        if _numeric_admitted(
             match[0], digests({match[0]: text.encode("utf-8")})[match[0]], files[match[0]]
         ):
             continue
@@ -792,8 +888,9 @@ def write_snapshot(name: str, files: dict[str, bytes]) -> None:
         match = [n for n in files if n.rsplit("/", 1)[-1] == base]
         if len(match) == 1:
             (folder / base).write_bytes(files[match[0]])
-    if name == "unsteady_harmonics":
-        (folder / HARMONICS_TEXT.name).write_bytes(files[HARMONICS_PRODUCT])
+    for campaign, product in NUMERIC_PRODUCTS:
+        if name == campaign:
+            (folder / Path(product).name).write_bytes(files[product])
 
 
 def _planted(files: dict[str, bytes]) -> list[tuple[str, dict[str, bytes]]]:
