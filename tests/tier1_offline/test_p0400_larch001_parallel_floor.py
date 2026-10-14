@@ -1,6 +1,6 @@
 """LARCH-001 (0.40.0 architect lens): without psutil the geometry build runs serially, saying why.
 
-psutil is not a dependency of the package (NFR-06). Before the fix the memory check
+psutil is not a dependency of the package. Before the fix the memory check
 answered True when it could not measure, so ``--parallel 2`` started a second solver
 run on an unmeasured machine.
 """
@@ -18,7 +18,7 @@ from pyflightstream.workspace import _geometry_build as build
 def test_larch001_an_unmeasurable_memory_floor_runs_the_builds_serially(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """With psutil absent the check answers False and warns, naming psutil and the floor."""
+    """P0400-LARCH001 (NFR-06): absent psutil refuses parallel work and warns."""
     real_import = builtins.__import__
 
     def no_psutil(name: str, *args: object, **kwargs: object) -> object:
