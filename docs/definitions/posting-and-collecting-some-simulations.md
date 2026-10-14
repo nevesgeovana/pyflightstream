@@ -5,8 +5,8 @@
 `pyfs-matrix post <matrix> --sims 2006,2007` rebuilds only those simulations'
 products of the matrix, in place. The ids are written as `delete-sims` takes
 them: comma separated, or in brackets (`[2006,2007]`). Each named simulation's
-files are archived only when --archive is requested, otherwise overwritten into their folder's `archive/<stamp>/` and rewritten as a
-whole post writes them; every other simulation's files keep their bytes, and
+files are overwritten in place as a whole post writes them. With `--archive`,
+the replaced files first move into their folder's `archive/<stamp>/`;  every other simulation's files keep their bytes, and
 `products.json` keeps their entries, their skips and their provenance as they
 were, while the named simulations' entries and skips are replaced. Without a
 matrix, each matrix holding a named simulation is posted, limited to the ones
