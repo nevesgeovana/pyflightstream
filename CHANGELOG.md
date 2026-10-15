@@ -124,6 +124,7 @@ FlightStream versions.
 
 ### Fixed
 
+- Superfiles retain the recorded structural tip deflection and twist fields in ordinary polar row order, without replacing existing columns.
 - Probe models refuse non-finite float fields with `ProbeGeometryError` naming
   the field, including nested and serialized inputs. Mapping and JSON validation
   preserve explicit `strict=True`, including nested grid axes, and refuse numeric

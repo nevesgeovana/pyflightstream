@@ -270,11 +270,18 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
         [1.0, 0.0, 2.0],
         [1.0, 1.0, 2.0],
     ]
-    from pyflightstream.cases.workflows._farfield import planar_points
+    from tests.tier1_offline.test_regression_geometry_build_sweep import _GEOMETRY_BUILD__WING_FSM
 
-    saved = case.model_copy(update={"geometry": str(tmp_path / "wing.fsm")})
+    (tmp_path / "wing.fsm").write_bytes(_GEOMETRY_BUILD__WING_FSM.read_bytes())
+    saved = case.model_copy(
+        update={
+            "geometry": str(tmp_path / "wing.fsm"),
+            "mesh_import": None,
+            "raw_mesh_conditions": None,
+        }
+    )
     with pytest.raises(ValueError, match="wing.surface.stl") as refusal:
-        planar_points(saved, pproc.probes[0], 1.0)
+        workflow_registry()["steady"](saved, Script("26.124"))
     assert "pyflightstream.run.export_surface_mesh" in str(refusal.value)
     assert "pyfs-workspace geometry export-surface-mesh" in str(refusal.value)
     assert "Planning does not launch the solver." in str(refusal.value)
@@ -364,6 +371,9 @@ def test_p0410_workspace_post_reports_structure(tmp_path, morphing, polar_glob_o
     assert len(super_rows) == 1
     assert super_rows[0]["run_id"] == original.run_id
     assert super_rows[0]["GROUP"] == polar_rows[0]["GROUP"] == "1"
+    for quantity in ("tip_deflection_m_blade_1", "tip_twist_deg_blade_1"):
+        assert quantity in super_rows[0], "FR-89: superfile must carry recorded tip fields"
+        assert super_rows[0][quantity] == polar_rows[0][quantity]
     for quantity in ("CDW", "CYW", "CLW"):
         assert float(super_rows[0][quantity]) == pytest.approx(
             float(polar_rows[0][quantity]), abs=1e-5
