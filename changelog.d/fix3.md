@@ -1,3 +1,4 @@
 - OPS-2003.09: The manual converter prints help successfully for `--help` and `-h`, without requiring conversion inputs or dependencies.
 - PFS-2109.019: Dummy FSI failures append to the error log, retaining earlier call evidence. API documentation no longer promises an unmeasured solver abort on nonzero exit.
 - PFS-2112.017: LoadsAssessor documentation describes the current residual and iteration-limit verdicts without a stale terminal-status count.
+- PFS-2112.028: Default-output documentation now explains unsteady normal probes and the solver residual and load plots correctly.

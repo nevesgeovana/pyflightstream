@@ -242,9 +242,10 @@ def default_outputs(
 
     Every kind hangs off ``{name}``, the point's rendered stem, so the
     naming template decides the stem and this list decides the suffixes
-    (PFS-2029.19); a steady row leaves out the plots file, and an unsteady row
-    leaves out every kind of :data:`STEADY_ONLY_EXPORT_KINDS`: the probe-points
-    instant export and the solver's own plots. ``exports`` is
+    (PFS-2029.19); a steady row leaves out the unsteady plots file. An unsteady
+    row leaves out the probe-points instant export unless ``normal_probes``
+    is true (FR-417). Solver residual and load plots remain available on both
+    paths. ``exports`` is
     the pproc artifact's
     ``[exports]`` table (PFS-2029.14.02): a kind set to false is left
     out. Unstated kinds are kept except those of :data:`OPT_IN_EXPORT_KINDS`,
