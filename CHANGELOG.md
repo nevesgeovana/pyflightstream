@@ -41,6 +41,9 @@ FlightStream versions.
 
 ### Fixed
 
+- Sampled-field warnings name only the velocity or rotation-timing conventions
+  that lack evidence on the run's build.
+
 - Refinement refusals name the selected configuration file when no factor is
   given. WALLTIME surface-average refusals describe the incomplete averaging
   window rather than native solver averaging.
