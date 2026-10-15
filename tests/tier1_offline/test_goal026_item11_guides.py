@@ -131,9 +131,11 @@ def test_the_equation_guide_says_an_equation_points_at_an_alias(tmp_path):
 
 
 def test_the_equation_guide_covers_renaming_and_says_it_archives_first(tmp_path):
-    """She asked for renaming to be covered; the safety property is the part to state."""
+    """P0410-INT1: the retired rename route cannot promise archival safety."""
     _, guide = write_pproc_guides(tmp_path)
     text = guide.read_text(encoding="utf-8")
-    assert "rename_group_products" in text
-    assert "ARCHIVES" in text
-    assert "never deletes" in text
+    assert "## Renaming" in text
+    assert "Existing products retain their recorded group names." in text
+    assert "Upgrading page" in text
+    assert "rename_group_products" not in text
+    assert "ARCHIVES" not in text
