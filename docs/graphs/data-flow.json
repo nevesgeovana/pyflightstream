@@ -77,7 +77,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None",
       "returns": "CollectReport",
-      "source_sha256": "88a2136da5520347242cfbef193b7e7cf26bf6e17c2169dbd7588b75f2f3ddb3"
+      "source_sha256": "a1bd3a73484bd7da5c631b1a229c40ca0dbd60fa7392a652b129511fc281d3d2"
     },
     {
       "id": "post",
@@ -93,7 +93,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None",
       "returns": "list[Path]",
-      "source_sha256": "65306b37b8cfa5cd004abce0bfb904b30e17b59be30f5ee3feb3afc402fccf5e"
+      "source_sha256": "2ed4b32a282653ffa0d30033e5585d82283ed30cf911f871421b363bfd061b21"
     },
     {
       "id": "refine",
