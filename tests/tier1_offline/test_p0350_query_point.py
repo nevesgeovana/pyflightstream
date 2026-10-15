@@ -155,6 +155,7 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
     """P0350-QUERY-SHOW FR-386: card order, alias, evidence and failed polar cards."""
     row = _rows(workspace, capsys, "show", "9101_1")[0]
     assert list(row) == [
+        "record",
         "outcome",
         "evidence",
         "activity",

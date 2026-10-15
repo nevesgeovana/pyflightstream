@@ -12,8 +12,8 @@ FlightStream versions.
 - Run manifests use a versioned document with one status header,
   shared immutable solver/frame/geometry definitions and one ordered artifact
   list. Old record arrays are refused; `pyfs-workspace migrate` previews the
-  0.38.0-format conversion and `--apply` preserves exact backups. Migration
-  leaves scientific products
+  0.38.0-format conversion and `--apply` preserves exact backups. Resolved run
+  display includes all record fields. Migration leaves scientific products
   unchanged. Reposting 0.38.0 data uses 0.40.0's existing coefficient precision;
   the affected polar columns are named in `docs/upgrading.md`.
 

@@ -123,6 +123,7 @@ def _card(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
     matrix = str(record.get("matrix_stem") or "products")
     point = str(record.get("point_name") or record["run_id"].rsplit("/", 1)[-1])
     result = {
+        "record": record,
         "outcome": outcome,
         "evidence": evidence,
         "activity": [row for row in _activity(ledger) if _mentions(row, run_id)],

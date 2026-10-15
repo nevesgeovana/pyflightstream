@@ -15,7 +15,8 @@ provenance, recovery history and the distinct elapsed-time measurements.
 Point outcomes remain distinct from their containing job's outcome.
 
 `CampaignWorkspace.read_manifest()` resolves the definitions into typed records.
-Reading never consults current input settings to fill
+`pyfs-matrix show RUN_ID --workspace . --json` includes the complete resolved
+record under `record`. Reading never consults current input settings to fill
 historical evidence. Invalid definition digests or references are refused.
 See [Upgrading](upgrading.md) for old workspaces.
 
