@@ -65,6 +65,7 @@ from pyflightstream.post._condition import (
     point_condition,
     row_rotor_speeds,
 )
+from pyflightstream.post._export_tables import export_tables
 from pyflightstream.post._installed_copies import (
     INFLOW_SUFFIX,
     write_installed_inflow,
@@ -1464,6 +1465,7 @@ def _superfile_drafts(ctx: SimContext) -> None:
 
 #: The steps of one simulation's post, in the order the manifest has always had.
 _STEPS: tuple[Callable[[SimContext], None], ...] = (
+    export_tables,
     structure_products,
     _group_polars,
     _point_products,

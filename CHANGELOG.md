@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Changed
 
+- Workspace post tables recorded force-distribution and surface CSV exports,
+  preserving force units and explicitly unstated scalar identities.
+
 - Workspace post writes mapped structural deflection, twist and available
   coupling history from admitted coupled points, with input-digest checks.
 

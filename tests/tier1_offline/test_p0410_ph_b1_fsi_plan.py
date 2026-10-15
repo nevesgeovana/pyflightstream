@@ -174,3 +174,43 @@ def test_p0410_workspace_post_reports_structure(tmp_path):
         rows = list(csv.DictReader(handle))
     assert float(rows[-1]["deflection_m"]) == pytest.approx(0.008)
     assert float(rows[-1]["twist_deg"]) == pytest.approx(math.degrees(0.016))
+
+
+@pytest.mark.parametrize(
+    "kind,fixture,suffix,expected",
+    [
+        ("force_distributions", "force_distributions_26.123.txt", "_force_distributions.txt", 96),
+        ("surface_values", "solver_analysis_26.123.csv", ".csv", 86),
+    ],
+    ids=["P0410-FORCE-TABLE", "P0410-SURFACE-TABLE"],
+)
+def test_p0410_workspace_posts_export_tables(tmp_path, kind, fixture, suffix, expected):
+    from pathlib import Path
+
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance
+
+    source = _steady_workspace_with_provenance(tmp_path / "source")
+    record = source.read_manifest()[0]
+    workspace = CampaignWorkspace.init(tmp_path / "target")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1"="all"\n')
+    for relative in record.outputs:
+        target = workspace.sim_dir(record.sim_id) / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((source.sim_dir(record.sim_id) / relative).read_bytes())
+    relative = "outputs/point" + suffix
+    fixture_path = Path(__file__).parent / "fixtures" / fixture
+    (workspace.sim_dir(record.sim_id) / relative).write_bytes(fixture_path.read_bytes())
+    workspace.append_record(
+        record.model_copy(
+            update={
+                "outputs": [*record.outputs, relative],
+                "fs_version_requested": "26.123",
+                "package_version": "0.41.0",
+            }
+        )
+    )
+    write_campaign_products(workspace)
+    tables = list(workspace.root.glob(f"post/**/tables/*_{kind}.csv"))
+    assert len(tables) == 1
+    assert len(tables[0].read_text().splitlines()) == expected + 1

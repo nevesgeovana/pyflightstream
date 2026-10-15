@@ -105,19 +105,6 @@
    ]
   },
   {
-   "id": "RX-15",
-   "capability": "Force-distribution and solver-analysis CSV exports tabled as per-point products",
-   "reason": "routed later",
-   "node": "PFS-2140.005",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.results.ForceDistributionReport",
-    "pyflightstream.results.SolverAnalysisCsvReport",
-    "pyflightstream.results.parse_force_distributions",
-    "pyflightstream.results.parse_solver_analysis_csv"
-   ]
-  },
-  {
    "id": "RX-17",
    "capability": "The Sweeper toolbox and its spreadsheet (a run type, or documented as outside the workspace)",
    "reason": "routed later",
