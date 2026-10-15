@@ -155,7 +155,7 @@ def _the_fields_native_unit(case: SimCase, script: Script | None = None) -> str 
 
 
 def _refuse_fsi_on_a_quasi_steady_rotor(case: SimCase, kind: str) -> None:
-    """Refuse FSI on a quasi-steady WHEEL; a SECTOR couples (0.30.0).
+    """Refuse FSI on a quasi-steady WHEEL; a SECTOR couples.
 
     A sector is one steady solve of one blade in a free stream turning at the
     rotor's speed, which is the route the licensed test 2 of the FSI study
@@ -280,10 +280,9 @@ def _refuse_what_is_not_the_rotor(
     blades_found = []
     exact = {name.casefold() for name in labels}
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
-    # THE ROTOR'S MEMBERS ARE READ AS A LIST, members and not cells (the decision
-    # of 2026-10-12 on PFS-2029.25): a numbered blade the mesh lacks selects
-    # nothing and is not refused by name here, because the wheel and sector
-    # checks below say what a missing blade means for this run type.
+    # Read rotor members as a list (PFS-2029.25). An absent numbered blade
+    # selects nothing; the wheel and sector checks below determine what that
+    # absence means for this run type.
     members = [str(member) for member in rotor.members]
     owned.update(labels[name] for name in select_group_members(members, ordered, case.aliases))
     for member in members:
@@ -413,7 +412,7 @@ def _blade_stations_from_the_mesh(
     """Return blade one's stations and chords read off the mesh, or why they cannot be.
 
     Read from an OBJ, whose groups name its boundaries and whose ``[import]``
-    unit converts it to metres, or (0.32.0) from a saved simulation, whose
+    unit converts it to metres, or from a saved simulation, whose
     boundary row tells each face to its boundary and whose stored coordinate
     unit is measured (:func:`pyflightstream._fsm.boundary_vertices`); and only
     where the row leaves the mesh where the file holds it. An STL names no
@@ -723,7 +722,7 @@ def _park_the_qsteady_record(
         )
     sign = 1.0 if speed.rpm >= 0.0 else -1.0
     wheel_sections = kind == "wheel" and bool(_clocking_section_exports(conventions, case, 0))
-    # ONE TYPE FOR THE WRITER AND THE READERS (0.31.0): the file is the typed
+    # ONE TYPE FOR THE WRITER AND THE READERS: the file is the typed
     # record's own text, so what `read_qsteady_record` reads back is what was
     # written, key for key and in the same order.
     record = _qsteady.QsteadyRecord(
@@ -744,10 +743,9 @@ def _park_the_qsteady_record(
                 clocking_deg=angle,
                 rotated_deg=sign * angle,
                 loads=loads if index == 0 else _qsteady.position_loads_name(loads, index),
-                # 0.31.0: A WHEEL THAT CUTS SECTIONS EXPORTS THEM AT EVERY CLOCKING,
-                # and the record names each clocking's files, so the post reads
-                # the names the script wrote rather than composing them again.
-                # Every other record holds no such key and keeps 0.30.0's bytes.
+                # A wheel cutting sections exports them at every clocking. The record
+                # names each clocking's files so post reads the names the script writes.
+                # Other records carry no such key.
                 section_exports=(
                     {
                         each: name
@@ -766,7 +764,7 @@ def _park_the_qsteady_record(
 
 
 #: The export kinds that read the section distributions, which a clocked wheel
-#: writes at EVERY clocking since 0.31.0: the sections' Cp, their sectional
+#: writes at EVERY clocking: the sections' Cp, their sectional
 #: loads and the section Cp plot, where the row declares them.
 _CLOCKED_SECTION_KINDS: frozenset[str] = frozenset(
     {"sections", "sectional_loads", "plot_sections_cp"}
@@ -814,7 +812,7 @@ def _solve_one_clocking(
     The point's full export set is written once, at clocking 0, which is solved
     LAST so that the solver log and the loads export the run judges the point
     by are of one solve. Every other clocking exports its loads, named
-    ``<loads stem>_qs<i>``, and since 0.31.0 the section exports the row
+    ``<loads stem>_qs<i>``, and the section exports the row
     declares (:func:`_clocking_section_exports`), after the updates they read,
     so a wheel's radial loads exist at every clocking and not at clocking 0
     alone.
@@ -892,7 +890,7 @@ def _placement_of(case: SimCase, script: Script, index: int, name: str) -> Frame
 def _qsteady_blade_frames(
     case: SimCase, script: Script, rotor: RotorBlock, rotor_frame: int
 ) -> dict[str, int]:
-    """Place ``<ALIAS>_RMRP<k>`` for each blade of a wheel the mesh carries, fixed (0.31.0).
+    """Place ``<ALIAS>_RMRP<k>`` for each blade of a wheel the mesh carries, fixed.
 
     Blade k of N at the hub, its axes the hub frame's turned right-handed about
     the shaft by ``blade1.azimuth_deg + (k - 1) * 360 / N``, which is where the
@@ -965,7 +963,7 @@ def _qsteady_section_frames(
     angles: Sequence[float],
     sense: float,
 ) -> list[Frames]:
-    """Place the frames each clocking of a wheel cuts its sections in, and return them (0.31.0).
+    """Place the frames each clocking of a wheel cuts its sections in, and return them.
 
     One mapping per clocking, by index. The solver fixes a distribution's cuts
     at its creation, over the extent of its surfaces along the plane's normal
@@ -1074,7 +1072,7 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     its creation against the pose the surfaces then hold, spread over their
     extent along the plane's normal (L1, RPT-091: created at clocking 1 of a
     six-blade wheel, 30 deg, in a frame that did not turn, the 30 cuts ran from
-    0.347 to 1.586 m on a blade spanning 0.41 to 1.824 m). So since 0.31.0 each
+    0.347 to 1.586 m on a blade spanning 0.41 to 1.824 m). Each
     clocking deletes the previous clocking's distributions, turns the wheel,
     initialises, and creates them again in its own frames, placed in the setup
     turned with the wheel and fixed there (:func:`_qsteady_section_frames`):
@@ -1159,7 +1157,7 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     if len(angles) == 1:
         _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
         return
-    # EACH CLOCKING CUTS ITS OWN SECTIONS (0.31.0): the init phase creates none,
+    # EACH CLOCKING CUTS ITS OWN SECTIONS: the init phase creates none,
     # and every clocking, 1 to k - 1 and then 0, deletes the previous clocking's
     # distributions, turns the wheel, initialises again and creates them in its
     # own frames, so none accumulates and each is cut over the blade's span.

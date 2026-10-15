@@ -530,22 +530,10 @@ class SolverSettings(BaseModel):
     #: no solver command; the run stage's wall-clock program reads it.
     walltime_margin_s: float | None = Field(default=None, gt=0.0)
 
-    # --- the settings a preset carries and nothing used to read ------
-    #
-    # EVERY FIELD BELOW HAS AN EMITTER, and that is the rule this block
-    # is held to rather than a coincidence of the first version. Ten of
-    # them are keyword arguments of
-    # `pyflightstream.script.helpers.solver_settings` and two are
-    # arguments of `initialize_solver`; a setting a preset can state and
-    # no helper can emit does NOT get a field here, because a field
-    # whose value never reaches a script is a promise the file cannot
-    # keep. Those stay declared as recorded-only in the preset resolver,
-    # where the reason is written beside the key.
-    #
-    # They are all optional and all default to None, which is what keeps
-    # every campaign written before this release emitting exactly the
-    # lines it emitted before: a setting nobody states is a setting
-    # nobody emits, and the solver's own default stands.
+    # Every field below has an emitter: solver_settings or initialize_solver.
+    # Keys without an emitter remain recorded-only in the preset resolver
+    # with their reason. These optional fields default to None: an unstated
+    # setting emits nothing and leaves the solver default in force.
     solver_model: str | None = None
     wall_collision_avoidance: SolverToggle | None = None
     convergence_iterations: int | None = Field(default=None, ge=1)
@@ -637,21 +625,11 @@ class SolverSettings(BaseModel):
     #: the families the geometry does not carry, as the reference driver did
     #: (PFS-2030.03.03). An empty result is refused.
     vorticity_drag_families: list[str] | None = None
-    #: SET_AXIAL_SEPARATION_BOUNDARIES written as FAMILY NAMES, resolved by the
-    #: same rule as :attr:`vorticity_drag_families` and through the same
-    #: function.
-    #:
-    #: IT WAS REACHABLE ONLY AS A HELPER KEYWORD NOBODY PASSED. `solver_settings`
-    #: has taken `axial_separation_boundaries` since the helper was written and
-    #: the campaign path never stated it, so no preset could ask for it: the
-    #: API-only shape this release exists to catch, one level below the products.
-    #:
-    #: THE BUILD GUARD DECIDES WHETHER IT MAY RUN. The command is documented to
-    #: 26.100 and no further, and RPT-018 measured it reported deprecated and
-    #: then REFUSED by the 26.101 and 26.121 solvers. A row naming this key on a
-    #: later build is refused where every unavailable command is refused, naming
-    #: the build -- which is better than emitting a line the solver rejects
-    #: mid-run, after the seat is spent.
+    #: SET_AXIAL_SEPARATION_BOUNDARIES as family names, resolved through the
+    #: same rule and function as vorticity_drag_families. The build guard
+    #: controls emission: the command is documented through 26.100, and
+    #: RPT-018 measures deprecation followed by refusal on 26.101 and 26.121.
+    #: Unavailable builds refuse the key before spending a solver seat.
     axial_separation_families: list[str] | None = None
     #: The surfaces the package removes after opening the geometry (FR-275),
     #: named by name, alias or family and never by index; the surface
@@ -745,8 +723,7 @@ class FluidState(BaseModel):
     resolution rather than trust it; that is true of
     ``ResolvedMatrix.conditions``, which carries the condition as
     written, the altitude and the ISA deviation, and it is NOT true of
-    this object, which carries none of the three. A release review found
-    the recompute claim attached to the object that cannot satisfy it.
+    this object, which carries none of the three.
     Concretely: a ``FluidState`` cannot tell sea level at ISA+15 from an
     altitude that happens to give the same temperature. Read the
     resolved condition when the inputs matter; read this when the state
@@ -762,29 +739,16 @@ class FluidState(BaseModel):
     viscosity_pa_s: float
     #: Legacy explicit speed of sound, metres per second, on evidenced builds only.
     sonic_velocity_m_per_s: float
-    #: The ratio of specific heats, dimensionless. Carried BESIDE the
-    #: sonic velocity rather than instead of it, because the solver
-    #: editions state the same physical fact two ways: the three
-    #: pre-26.100 builds take a sonic velocity and the later ones take
-    #: this ratio. A case that travels between builds needs both.
-    #:
-    #: The default is the FLOOR CONSTANT and not a literal 1.4. It read
-    #: ``= 1.4`` until a release review pointed out that
-    #: :class:`~pyflightstream.workspace.flight_condition.ResolvedCondition`
-    #: carries a comment forbidding exactly that, in the same words for
-    #: the same reason: a second literal lets the two drift the moment
-    #: the floor constant moves, and the two builds would then solve
-    #: different gases from one case. The resolver always supplies this
-    #: value, so the default is reached only by an AUTHORED campaign,
-    #: which is precisely the path with no resolver to keep it honest.
+    #: The dimensionless ratio of specific heats, carried beside sonic
+    #: velocity because the three pre-26.100 builds take sonic velocity and
+    #: later builds take this ratio. The shared ISA constant supplies the
+    #: default, also used by workspace.flight_condition.ResolvedCondition,
+    #: so authored cases and resolved cases cannot drift to different gases.
+    #: The resolver explicitly supplies the value; only an authored case
+    #: reaches the default.
     heat_capacity_ratio: float = ISA.heat_capacity_ratio
-    #: WHICH branch produced the density: ``"atmosphere"`` or
-    #: ``"solved-from-reynolds"``. Required, with no default, and that
-    #: is deliberate. It defaulted to ``"atmosphere"`` until a release
-    #: review observed that a provenance marker defaulting to one of its
-    #: two real values makes an unset state ASSERT a branch rather than
-    #: record that nothing established one, on the one field whose whole
-    #: job is to stop an unearned claim about provenance.
+    #: The density's provenance: atmosphere or solved-from-reynolds. Required
+    #: without a default so an unset state cannot assert an unestablished branch.
     source: str
     #: The length a stated Reynolds number was measured against, in
     #: metres. None when no Reynolds number was stated.

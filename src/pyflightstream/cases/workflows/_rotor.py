@@ -176,7 +176,7 @@ def emit_rotor_motion(
         that orders them differently. Names resolve only where the
         geometry was opened by this package, which is what declares
         the inventory. A matrix row stating ``ROTOR_SHEDDING`` is
-        refused in 0.29.0 before this function runs
+        refused before this function runs
         (:func:`_refuse_rotor_shedding`, called by every builder and by
         :func:`build_script`). Called directly on a case that bypassed
         that refusal, this function still reads the key and emits
@@ -259,7 +259,7 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
     1. an exact boundary label of the opened geometry, so a row can
        always name one surface;
     2. otherwise an ALIAS the row's setup defines in its ``[aliases]``
-       table (the design decision of 2026-09-09), whose members resolve as names
+       table, whose members resolve as names
        do, a member the file lacks ignored;
     3. otherwise a FAMILY, which is a label with its trailing index
        removed, so ``Blade`` selects every blade the file carries and one
@@ -278,8 +278,7 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
     label the file actually carries. Exact before family is not
     arbitrary either. ``Blade1`` is both a label and
     a member of family ``blade``, so trying the family first would
-    silently turn a row citing ONE blade into a row citing six, which is
-    the same class of silent wrong answer this release exists to end.
+    silently turn a row citing ONE blade into a row citing six.
 
     Parameters
     ----------
@@ -301,11 +300,9 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
 
     Notes
     -----
-    WITH NO INVENTORY DECLARED THIS IS EXACTLY 0.10.0. A script that
+    A script that
     opened no geometry, or opened one carrying no mesh block, has no
-    labels, and every token then goes through :func:`_boundary` as it
-    always did. That is what keeps a direct builder call, and every
-    committed golden behind one, byte for byte unchanged.
+    labels, and every token then goes through :func:`_boundary`.
     """
     tokens = [token.strip() for token in cell.split(",") if token.strip()]
     labels = script.entities.labels("boundaries")
@@ -638,9 +635,8 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _significant_digits(case, script)
     _free_stream(case, script, frames, custom)
     _fluid(case, script)
-    # RESOLVED ONCE AND THREADED. The ratio was previously converted
-    # twice per case, here and again for the clock, which is the saving
-    # the `speed` parameter was added for and was not collecting.
+    # Use the speed already resolved for this case so the rotor and clock
+    # share one advance-ratio conversion.
     speed = rotor_speed(case)
     # The blade axis frames turn with the blades (PFS-2029.11.03); with
     # none created the motion keeps its every-frame default, as before.
@@ -670,14 +666,9 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
 def _refuse_one_rotor_moved_twice(case: SimCase, rotors: Sequence[RotorBlock | None]) -> None:
     """Refuse a row whose MOTIONS list names one rotor more than once.
 
-    ONE ROTOR HAS ONE SET OF FRAMES. Two records naming one alias built
-    ``<ALIAS>_SMRP`` twice, at two indices, and the name table kept the
-    LAST, so the script carried the name twice and the two motions turned
-    about different coordinate systems. It was masked by a label collision
-    that fires only when the rotor's blade families are in the mesh, and
-    that refusal names neither the alias nor the case; on a sector mesh
-    carrying none of them nothing refused at all (the QA lens of the 0.15.0
-    release review, measured on the emitted script).
+    ONE ROTOR HAS ONE SET OF FRAMES. Refuse two records naming the same
+    alias so they cannot create duplicate hub frames at different indices.
+    The rule also applies to sector meshes lacking the declared blade families.
 
     A ROW THAT MOVES ONE ROTOR TWICE IS ASKING FOR TWO SPEEDS FOR ONE
     THING, which is the shape this package refuses wherever a row states a
@@ -753,17 +744,15 @@ def _rotor_motions(
     own moving frame attached to it by ``SET_MOTION_MOVING_FRAMES``
     (documented on every build, FSM-26.120 p.333, and verified on none).
 
-    THE FRAMES TAKE THE ROTOR'S ALIAS AS THEIR RADICAL (FR-62, the design
-    of 2026-09-10): ``<ALIAS>_SMRP`` at the hub, static; ``<ALIAS>_RMRP``
+    THE FRAMES TAKE THE ROTOR'S ALIAS AS THEIR RADICAL (FR-62):
+    ``<ALIAS>_SMRP`` at the hub, static; ``<ALIAS>_RMRP``
     turning with the motion; and ``<ALIAS>_RMRP<k>`` per blade of the
     block's ``families_blades``, turning with blade k and numbered from
     the ``blade1`` datum. A family of ``families_general`` gets no frame
     of its own: its local frame IS the rotor's, which is what makes the
-    spinner ride the hub. The names a record's frames had at 0.14.0,
-    ``PROP_MRP<k>`` and ``RotorAxis<k>``, do NOT resolve: they were
-    positional, so a pproc entry citing one silently followed the ORDER of
-    the MOTIONS list, and an entry citing one now is refused naming the
-    shape to write.
+    spinner ride the hub. ``PROP_MRP<k>`` and ``RotorAxis<k>`` do NOT resolve:
+    positional names would make pproc citations depend on MOTIONS order.
+    A refusal names the alias-based shape to write.
 
     There is no package-level rotor frame. The time step follows the motion
     ``CLOCK_MOTION`` names, and the fastest rotor when a row names none
@@ -772,11 +761,9 @@ def _rotor_motions(
     views = [_motion_view(case, record) for record in case.motions]
     rotors = [_rotor_of(case, record) for record in case.motions]
     _refuse_one_rotor_moved_twice(case, rotors)
-    # A RECORD NAMING NO ROTOR takes the default radical, `ROTOR<k>`, which
-    # is the alias-shaped name of an unnamed rotor. It does NOT keep the
-    # 0.14.0 names: those were positional and went with the package-level
-    # frame. Only a matrix converted with no workspace produces one, because
-    # a record reaching the builder through a workspace names a rotor.
+    # A record naming no rotor uses the default radical ROTOR<k>. A matrix
+    # converted without a workspace can produce this shape; a record bound
+    # through a workspace names a rotor.
     radicals = [(rotor.alias if rotor is not None else None) for rotor in rotors]
     moving: list[int] = []
     hubs: list[int] = []
@@ -789,14 +776,9 @@ def _rotor_motions(
             if rotor is not None
             else _origin(view)
         )
-        # EVERY FRAME CARRIES ITS ROTOR'S ALIAS. A record naming no rotor
-        # used to fall back to ROTOR_MRP<k> and RotorAxis<k>, positional
-        # names that only mean anything beside the row that made them; the
-        # record that produced them is refused before this point.
-        # EVERY FRAME CARRIES A RADICAL, AND IT IS THE ROTOR'S ALIAS. A
-        # record naming no rotor takes the default radical and its position;
-        # the positional PROP_MRP<k> and RotorAxis<k> are gone with the
-        # one-propulsor assumption that made them readable.
+        # Each frame name uses the rotor alias as its radical, or the default
+        # radical and position for an unnamed rotor. Positional PROP_MRP<k> and
+        # RotorAxis<k> names do not resolve.
         stem = radical or f"{UNNAMED_ROTOR_RADICAL}{number}"
         hub_name = f"{stem}_SMRP"
         moving_name = f"{stem}_RMRP"
@@ -842,33 +824,20 @@ def _rotor_motions(
     for number, (hub, axis, view, radical) in enumerate(
         zip(hubs, moving, views, radicals, strict=True), start=1
     ):
-        # ONE NAME PER FRAME, and it is the rotor's alias. The positional
-        # PROP_MRP<k> and RotorAxis<k> stood beside it until 0.15.0 and are
-        # gone: they read as a name and were an index, so a pproc entry
-        # citing one silently followed the ORDER of the MOTIONS list.
+        # One name per frame, using the rotor alias so a citation does not
+        # depend on the order of the MOTIONS list.
         stem = radical or f"{UNNAMED_ROTOR_RADICAL}{number}"
         named[f"{stem}_SMRP"] = hub
         named[f"{stem}_RMRP"] = axis
         followers[f"{stem}_SMRP"] = [axis]
         spinning[f"{stem}_SMRP"] = _boundaries_a_motion_turns(case, view, labels)
-    # THE BLADE FRAMES JOIN `named` BEFORE THE ROTATIONS, not after them.
-    # They were merged into `frames` on the line below the call, which is
-    # after `_rotations` has run, so a rotation could not cite one and,
-    # once the alias carried its own frames (FR-71), could not TURN one
-    # either: a row turning a rotor left its per-blade frames behind, which
-    # is the same defect the release fixed one layer up for the motion.
-    # ONLY THE FRAME-NAMED HALF. `_rotor_blade_frames` returns two keys per
-    # blade, the frame's own `<ALIAS>_RMRP<k>` and the blade's mesh FAMILY,
-    # because a pproc entry may cite either. Merging both put family names
-    # into the frame namespace, so `AXIS: Blade_1-Y` resolved as a
-    # coordinate system and the refusal listing "the frames this case
-    # defines" taught a vocabulary that does not exist (the architecture
-    # lens, 2026-09-10; measured: it was accepted).
+    # Register blade frame names before rotations so a rotation can cite
+    # and turn them (FR-71). _rotor_blade_frames also returns mesh-family
+    # keys for pproc lookup; keep those out of the coordinate-frame namespace.
     named.update({name: index for name, index in blade_frames.items() if "_RMRP" in name})
     frames.update(_translations(case, script, named, followers=followers))
     frames.update(_rotations(case, script, named, followers=followers, spinning=spinning))
-    # The pproc entries cite a rotor's frames by the same names (the reference p001
-    # of 2026-09-09: PUSHER_X in ROTOR_MRP2 while the lifters spin).
+    # Pproc entries cite rotor frames by these same names.
     frames.update({name: index for name, index in named.items() if index is not None})
     frames.update(blade_frames)
     _actuator_disc(case, script, frames, disc)
@@ -879,12 +848,8 @@ def _rotor_motions(
     _fluid(case, script)
     speeds = [rotor_speed(view) for view in views]
     for number, (view, radical) in enumerate(zip(views, radicals, strict=True), start=1):
-        # THE BLADE FRAMES TURN WITH THE BLADES, and until this line they
-        # were created and then stood still: the payload carried the
-        # rotor's own moving frame alone, so a per-blade product would
-        # have been read in a frame that never moved. The technical
-        # writing lens named the measurement rather than the outcome, and
-        # the measurement said the docstring overstated (2026-09-10).
+        # The motion payload includes the blade frames so per-blade products
+        # are read in frames that turn with their blades.
         turning = _frames_a_motion_turns(moving[number - 1], radical, blade_frames)
         emit_rotor_motion(
             view,

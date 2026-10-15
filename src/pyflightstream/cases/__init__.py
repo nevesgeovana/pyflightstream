@@ -439,7 +439,7 @@ class SweepAxis(BaseModel):
     #:
     #: Only the two ANGLES are carried, because only they were ever
     #: capable of appearing in a tag as a held value. An advance ratio the
-    #: row holds stays on the row, where it was before this release.
+    #: row holds stays on the row.
     held: dict[str, float] = {}
 
     @model_validator(mode="after")
@@ -533,13 +533,10 @@ class SweepAxis(BaseModel):
                 point = {"alpha": alpha, "beta": beta}
             else:
                 point = {self.type: value}
-            # The order is deliberate and it is no longer OBSERVABLE: a
+            # The order is deliberate and does not affect the result: a
             # `held` key equal to the swept axis is REFUSED by the
             # validator above, so nothing can reach this merge and be
-            # shadowed by it. It read "the swept axis wins a key it
-            # shares with a held one" until a QA pass pointed out that a
-            # silent winner was the whole hazard, and that a mutant
-            # reversing the order passed every case (2026-09-10).
+            # shadowed by it. Held and swept keys are disjoint.
             yield {**self.held, **point}
 
 
@@ -568,16 +565,9 @@ RAW_PHASES: tuple[str, ...] = (
     *(phase.value for phase in Phase if phase is not Phase.CONTROL),
 )
 
-#: THE SEAMS A CUSTOM FLAG MAY REACH, three of the seven a raw entry reaches:
-#: the ones before the run begins. A command of a later phase is part of the
-#: RUN rather than of its setting up, and this package emits those itself.
-#:
-#: IT LIVES HERE AND NOT IN THE BUILDER. `before` was validated against
-#: `RAW_PHASES` while the builder honoured this shorter list, so a flag
-#: declared `before = "export"` passed the model, passed the reader, and died
-#: later with a sentence about seams: two vocabularies for one field, and the
-#: earlier, cheaper refusal was the wrong one (the architecture lens of the
-#: release review).
+#: The three pre-run seams a custom flag may reach. Later phases belong
+#: to the run emitted by the package. The model and builder share this
+#: vocabulary so an invalid seam is refused at input validation.
 FLAG_PHASES: tuple[str, ...] = ("control", "geometry", "setup")
 
 
@@ -760,12 +750,9 @@ class FrameSpec(BaseModel):
             raise ValueError("a frame needs a name")
         retired = retired_frame(name)
         if retired is not None:
-            # REFUSED WHERE IT IS WRITTEN, not only where it is cited. The
-            # reserved set lost these spellings with the frames themselves,
-            # so a reference could DECLARE `[[frames]] name = "PROP_MRP"`,
-            # load clean, and have the citation refused later with a message
-            # saying the user's own declared frame was renamed (the interface
-            # lens of the 0.15.0 release review).
+            # REFUSED WHERE IT IS WRITTEN, not only where it is cited. A reference
+            # may not declare a retired frame spelling such as PROP_MRP and then
+            # encounter the retirement only when another artifact cites it.
             raise ValueError(retired.message(wrote=name))
         if name.upper() in RESERVED_FRAME_NAMES or RESERVED_FRAME_PATTERN.match(name.upper()):
             raise ValueError(
@@ -1150,10 +1137,9 @@ def derived_body_sha256(text: str) -> str:
       add or remove on save, is not a reason to refuse a campaign;
     * the surviving lines join on ``\n`` and hash as UTF-8.
 
-    The two middle rules are stated apart because they are different
-    rules with different causes, and a mutation run on 2026-08-19 showed
-    the second doing none of the work the first does: with the strip
-    removed, a CRLF file still matched.
+    The two middle rules address distinct differences: line terminators
+    and trailing whitespace. Splitting alone handles CRLF; stripping also
+    handles spaces and tabs before the terminator.
 
     Parameters
     ----------

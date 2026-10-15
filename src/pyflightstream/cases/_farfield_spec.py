@@ -28,7 +28,7 @@ __all__ = [
     "TrefftzSpec",
 ]
 
-#: The three Trefftz variants, by the words of the decision of 2026-10-12.
+#: The three accepted Trefftz variants.
 TREFFTZ_VARIANTS: tuple[str, ...] = ("sections", "wake", "plane")
 #: The six balances of FR-479, in the order the ledgers table writes them.
 BALANCES: tuple[str, ...] = (
@@ -39,8 +39,8 @@ BALANCES: tuple[str, ...] = (
     "in_plane_moment",
     "crossflow_energy",
 )
-#: The defaults of FR-1039 that a table may leave unstated, accepted on
-#: 2026-10-12: the plan's station count per side, the plane's distance behind the
+#: The defaults of FR-1039 that a table may leave unstated:
+#: the plan's station count per side, the plane's distance behind the
 #: families and, for the wing plane, its half extents and spacing, all in BREF.
 FARFIELD_DEFAULTS: dict[str, float] = {
     "stations": 80,

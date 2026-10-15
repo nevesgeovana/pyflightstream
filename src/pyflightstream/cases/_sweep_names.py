@@ -36,11 +36,8 @@ FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
         "velocity, through the speed of sound at the state's own temperature",
     ),
     "TASmps": ("m/s", "velocity directly"),
-    # The second element is the quantity the key CONSTRAINS, which for
-    # REmi is the density alone. It read "density, velocity and reference
-    # length over viscosity" until a release review pointed out that this
-    # is the DEFINITION of a Reynolds number rather than a constraint, and
-    # that read as a constraint list it says REmi pins three things.
+    # The second element names the quantity constrained by the key. REmi
+    # constrains density alone, not every quantity in the Reynolds formula.
     "REmi": ("millions", "density"),
     "ALTFT": ("feet", "pressure, and temperature through the standard lapse"),
     "dISA": ("Celsius, a DELTA", "temperature, as an offset on the standard value"),
@@ -55,7 +52,7 @@ FLIGHT_CONDITION_KEYS: dict[str, tuple[str, str]] = {
     "PPA": ("pascal", "pressure, stated rather than lapsed"),
 }
 
-#: THE ATTITUDE KEYS (FR-69, the rule of 2026-09-10), which the same cell
+#: THE ATTITUDE KEYS (FR-69), which the same cell
 #: carries and which are NOT part of the flow state: they fix where the
 #: aircraft points, not what the air is doing, so they are parsed here and
 #: never handed to the atmosphere resolver. A row states both on every
@@ -68,10 +65,8 @@ ATTITUDE_KEYS: dict[str, tuple[str, str]] = {
     "ALPHA": ("degrees", "the incidence of the free stream"),
     "BETA": ("degrees", "the sideslip of the free stream"),
     "ADVANCE_RATIO": ("dimensionless", "the speed of every motion that states none"),
-    # RPM JOINS THEM AT 0.21.0, on the cluster feedback of 2026-09-15: a rotor
-    # study varies the SPEED and holds the flow, and the speed had no home in
-    # the cell at all -- it could only be written on a motion record, where it
-    # cannot be swept and where every motion of the row needs its own copy.
+    # RPM lets a rotor study vary speed while holding the flow. A speed stated
+    # only on a motion record cannot be swept and needs one copy per motion.
     # Stated here it reaches every motion that states none, exactly as the
     # advance ratio does, and a MOTIONS record naming a speed still wins.
     "RPM": (
@@ -79,8 +74,7 @@ ATTITUDE_KEYS: dict[str, tuple[str, str]] = {
         "the speed of every motion that states none, a magnitude: the sense is "
         "the reference's rpm_sign",
     ),
-    # THE BODY RATES (0.21.0, the cluster feedback of 2026-09-15). One of
-    # them, non-zero, turns the free stream about the moment reference point
+    # THE BODY RATES. One of them, non-zero, turns the free stream about the moment reference point
     # of the row's REF: it is how a run states a pull-up, a roll or a yaw
     # rather than a straight flight. Flight-mechanics signs, deg/s.
     "roll_rate": ("deg/s", "the roll rate of the aircraft, about the REF's MRP"),
@@ -147,21 +141,17 @@ def _sweep_of_condition(
 ) -> SweepAxis:
     """Build the row's sweep from the key of its condition that carries the word (FR-69).
 
-    PRIVATE for the same reason as ``_split_attitude`` above, and it is
-    the one that mattered: it took three POSITIONAL parameters of which
-    two were adjacent strings with no unit between them, so swapping them
-    was legal and produced a ValueError from ``float`` rather than a
-    matrix refusal. It is a seam, called once, from the loop that builds
-    a row (the interface and architecture lenses, 2026-09-10).
+    A private helper called from the loop that builds a row. Keyword arguments
+    distinguish the condition, values, row identifier and refusal type.
 
-    The rule of 2026-09-10: a sweep is applied to a variable that DEFINES
+    A sweep is applied to a variable that DEFINES
     the flight condition, and to exactly ONE variable. The cell says which
     by carrying ``sweep`` where that key's value would be, and
     ``SWEEP_VALUES`` holds the values.
 
     A row with no swept key, or with two, is refused naming the keys: the
     first would run one point under a column of values nobody reads, and
-    the second is the paired sweep this release retires.
+    the second would require an unsupported paired sweep.
     """
     axes = _condition_sweep_axes()
     swept = [key for key, value in condition.items() if value == SWEEP_WORD]
@@ -176,17 +166,16 @@ def _sweep_of_condition(
         raise error(
             f"POL {pol}: {len(swept)} keys of FLIGHT_CONDITION carry the word "
             f"{SWEEP_WORD!r} ({', '.join(swept)}), and a row sweeps ONE variable. Two "
-            "swept variables were the paired AL/BE sweep, which this release retires: "
+            "swept variables are not supported: "
             "write one row per value of the second."
         )
     key = swept[0]
     axis = axes.get(key)
     if axis is None:
         raise error(
-            f"POL {pol}: FLIGHT_CONDITION sweeps {key}, which this release cannot vary "
-            f"yet. The keys it varies are {', '.join(sorted(axes))}. "
-            "Every other key of the cell may carry the word in a later release; today "
-            "it is refused rather than accepted and ignored."
+            f"POL {pol}: FLIGHT_CONDITION sweeps {key}, which cannot vary. "
+            f"The keys it varies are {', '.join(sorted(axes))}. "
+            "Other keys cannot carry the sweep word."
         )
     values = [
         _sweep_value(pol, token, error=error) for token in sweep_values.split(",") if token.strip()

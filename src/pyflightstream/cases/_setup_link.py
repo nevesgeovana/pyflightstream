@@ -7,12 +7,10 @@ callers, :func:`loads_selections`), the analysis frame and moments model before
 the solve (:func:`analysis_frame_and_moments`), and the end of the solver
 settings (:func:`emit_setup_extras`).
 
-FR-317, THE MOMENTS MODEL IS A SETUP KEY. Until 0.33.0 every builder wrote
-``SET_ANALYSIS_MOMENTS_MODEL PRESSURE`` beside the loads frame, a choosable
-value with no key. The key ``moments_model`` now states it; unstated, the line
-is the one it always was (PRESSURE, the command database's recorded default
-and the package's previous output), so every script of a setup naming none
-keeps its bytes.
+FR-317, THE MOMENTS MODEL IS A SETUP KEY. The key ``moments_model`` selects
+the value of ``SET_ANALYSIS_MOMENTS_MODEL`` beside the loads frame. The
+ordinary default is PRESSURE, as recorded in the command database; the rotor
+link below determines the default when vorticity drag is selected.
 
 FR-318, ON A ROTOR THE TWO VORTICITY SETTINGS ARE LINKED. This is a product
 requirement set from a prior measurement made outside this package, not an
@@ -87,13 +85,9 @@ def family_indices(
     study holds it, refused where it does not, and refused where the run asked
     for the refusal (``--ignore-missing-families false``, FR-988).
 
-    ONE RULE FOR EVERY PER-FAMILY LIST, not one copy per list. This was written
-    for `vorticity_drag_families` alone and generalised when
-    `axial_separation_families` was added under the same rule as the vorticity
-    list. Two copies of this resolution would drift on the day one of them
-    learned something about a mesh the other did not, and every one of them
-    answers the same question: which boundaries of the opened geometry does this
-    family list name?
+    ONE RULE FOR EVERY PER-FAMILY LIST. Both `vorticity_drag_families` and
+    `axial_separation_families` use this resolver to answer the same question:
+    which boundaries of the opened geometry does this family list name?
 
     ``keyword`` is the helper argument this feeds, used as the resolution
     context so a bad label names the key the user wrote. ``dropped`` completes
@@ -194,9 +188,8 @@ def axial_separation_indices(case: SimCase, script: Script) -> list[int] | None:
     """Resolve the axial flow separation list from the preset's families.
 
     `axial_separation_families` is a setup key and follows the same rule as
-    `vorticity_drag_families`. It had been reachable only as a helper keyword
-    that no campaign path passed -- the API-only shape this release exists to
-    catch, one level below the products.
+    `vorticity_drag_families`. The campaign path passes the resolved indices to
+    the corresponding helper keyword.
 
     THE BUILD GUARD STILL DECIDES WHETHER IT MAY RUN, and this does not argue
     with it. `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no
@@ -228,7 +221,7 @@ def analysis_indices(case: SimCase, script: Script) -> list[int] | None:
     )
 
 
-#: The setup keys that select what the loads analysis reads (G09 of 0.27.0), each
+#: The setup keys that select what the loads analysis reads (G09), each
 #: an analysis-phase command emitted after START_SOLVER, which is why a row of an
 #: unsteady run type may not state them.
 LOADS_SELECTION_KEYS: tuple[str, ...] = ("analysis_families", "load_units", "inviscid_loads")

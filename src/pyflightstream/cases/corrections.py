@@ -153,7 +153,7 @@ _ROUTE1_WHY = (
     "the Theodorsen and Sears lift deficiency (route 1) is offered as a DIAGNOSTIC only, "
     'never as a correction: write diagnostic = "theodorsen" in the pproc\'s '
     "[qsteady_correction] table to write it beside the harmonics. It is not validated "
-    "against the unsteady solver, so 0.31.0 offers it as a diagnostic only"
+    "against the unsteady solver, so it is offered as a diagnostic only"
 )
 _ROUTE3_WHY = (
     "a skewed-wake or dynamic-inflow model (route 3) is not offered as a correction "

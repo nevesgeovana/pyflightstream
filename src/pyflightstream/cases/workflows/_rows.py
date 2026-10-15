@@ -114,17 +114,10 @@ from ._vocabulary import (
 # --- reading the row ----------------------------------------------------------
 
 
-# --- the rotor speed, and the clock it sets ----------------------------------
-#
-# TWO DERIVATIONS THAT WERE INPUTS, and the reason they are one section.
-# A rotor study is designed in an advance ratio and an azimuthal step;
-# the rev/min and the seconds are what those work out to at the run's own
-# velocity. Until this release the matrix took the DERIVED numbers, so a
-# row carried three constants (rpm, delta_time, time_iterations) that a
-# reader had to divide back into the two decisions behind them, and a
-# change of flight condition left all three silently meaning something
-# else. Both forms are kept: a matrix written in the derived numbers is
-# still read exactly as it was.
+# Rotor speed and clock. An advance ratio and azimuthal step determine
+# rev/min and seconds at the run's velocity. Both direct and derived
+# forms are accepted; the derived form preserves those design choices
+# when the flight condition changes.
 
 
 @dataclass(frozen=True)
@@ -217,14 +210,9 @@ def _rotor_the_row_names(case: SimCase) -> RotorBlock | None:
     rotor and states no list. Both are supported spellings and the second
     is the one the blade-count refusal recommends in those words.
 
-    ONLY THE FIRST REACHED THE HAND, and that was this release's own defect
-    surviving on the other shape. `_motion_view` fills the block's
-    ``RPM_SIGN`` into the view it builds per RECORD; a row with no records
-    never enters it, so `_rpm_sign` found nothing, returned 1, and the row
-    turned whichever way its number was written while the reference said
-    otherwise -- no refusal and no warning, which is the exact failure the
-    magnitude rule exists to end (the architect lens, FIX-0220, reproduced
-    at 800 rev/min against a block declaring -1).
+    Both motion records and flat rows resolve a declared rotor's hand
+    through its reference block. A speed is a magnitude; its written sign
+    cannot override the block (FIX-0220).
 
     Returns None for a row that states a ``MOTIONS`` list, because a record
     row's alias is the RECORD's and is answered by the view; the matrix
@@ -236,18 +224,9 @@ def _rotor_the_row_names(case: SimCase) -> RotorBlock | None:
     alias = case.variables.get(MOVING_BC_ALIAS_VARIABLE)
     if alias is not None:
         return _rotor_of(case, {MOVING_BC_ALIAS_VARIABLE: str(alias)})
-    # AND THE FLAT SPELLING, WHEN THE REFERENCE DECLARES THE ROTOR IT MOVES.
-    # The rule was written as "a flat row has nowhere else to put the hand", and
-    # that is true only of a row whose reference declares NO rotor. A flat row
-    # binds a reference like any other: when the boundary it turns is one of a
-    # declared block's own families, that block is THIS ROTOR, it states a hand,
-    # and reading the row's number instead was the release's own defect on its
-    # third row shape -- measured emitting +800 against a block declaring -1,
-    # with no refusal and no warning (the qa lens, FIX-0220).
-    #
-    # A ROW WHOSE REFERENCE DECLARES NOTHING IS UNTOUCHED, which is the whole of
-    # the pre-0.15.0 exemption: no block, no hand to take, and the row's own
-    # RPM_SIGN answers as it always has.
+    # A flat row whose moving boundary belongs to a declared rotor block
+    # takes that block's hand, just as a MOTIONS row does. If the reference
+    # declares no matching block, the row's own RPM_SIGN supplies the hand.
     moving = case.variables.get(MOVING_BOUNDARIES_VARIABLE)
     if moving is None:
         return None
@@ -307,7 +286,7 @@ def _rpm_sign(case: SimCase) -> int:
     row says how fast and the block says which way.
 
     A row that declares no rotor block keeps the hand in its own ``RPM_SIGN``,
-    which is the pre-0.15.0 spelling and the only home such a row has.
+    which is the only home such a row has.
     """
     text = _variable(case, RPM_SIGN_VARIABLE)
     block = _rotor_the_row_names(case)
@@ -384,17 +363,12 @@ def _stated_rpm(case: SimCase) -> str | None:
 def _stated_advance_ratio(case: SimCase) -> str | None:
     """Resolve the advance ratio this row states, from `variables` or its POINT.
 
-    ONE FACT WITH TWO HOMES, and until 2026-09-11 only one of them was read.
+    ONE FACT WITH TWO HOMES.
     A row stating `ADVANCE_RATIO:sweep` in its flight condition puts the VALUE
     on the point: the HELD coordinates of a sweep are merged into `variables`
     and the SWEPT one is not, so `variables` carries `ALPHA` and `BETA` and no
-    `ADVANCE_RATIO` at all. The script emitter resolves the point correctly and
-    writes the speed into the script; the reduction planner asked `variables`
-    and concluded the row stated no speed, so every unsteady reduction of every
-    such point was recorded as SKIPPED with a message prescribing the thing the
-    row had already done. Four of four points, three of three reductions each,
-    on the licensed runs of 2026-09-11. Measured on four of four
-    points of two licensed runs on 2026-09-11, three of three reductions each.
+    `ADVANCE_RATIO` at all. Both the script emitter and reduction planner
+    must read the point's swept value when it is absent from `variables`.
 
     THE POINT IS CONSULTED ONLY WHEN `variables` STATE NEITHER FORM. A row that
     states `RPM` keeps `RPM`; a motion record carrying its own speed keeps it;
@@ -501,10 +475,8 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
             sim_id=case.sim_id,
             stated_form="rpm",
             stated_value=stated,
-            # THE SAME SIGN THE DERIVED FORM TAKES. Until 0.21.1 it was applied
-            # to the derived speed alone, so a row stating RPM turned whichever
-            # way the number happened to be written and the reference's hand was
-            # dropped in silence.
+            # Apply the reference's hand to a stated RPM magnitude, just as to
+            # a speed derived from advance ratio.
             rpm=_rpm_sign(case) * stated,
             advance_ratio=None,
             velocity_m_per_s=None,
@@ -544,13 +516,11 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
             f"{RPM_VARIABLE} directly."
         )
     # n in rev/s is V / (J D); rev/min is sixty times that.
-    # FOUR DECIMALS, the reference tooling's precision for the derived speed: the recorded
-    # 9001 script states SET_MOTION_ROTOR_RPM 1 473.1723 0.0 0.0 (quoted in
-    # reports/RPT-040, the reproduction report, from the recorded script)
-    # where the unrounded derivation gives 473.17227304, and the run that
-    # produced the reference tables turned at the four-decimal value. The scripts arm
-    # of GOAL-011 found it as the one difference on that point on 2026-09-03.
-    # A ten-thousandth of a rev/min is below anything the solver resolves.
+    # Use the reference tooling's four-decimal precision: recorded script
+    # 9001 states SET_MOTION_ROTOR_RPM 1 473.1723 0.0 0.0 (RPT-040), whereas
+    # the unrounded derivation is 473.17227304. The reference tables were
+    # computed at the four-decimal speed. A ten-thousandth of a rev/min is
+    # below the solver's resolution.
     rpm = round(60.0 * velocity / (ratio * diameter), _DERIVED_RPM_DECIMALS)
     return RotorSpeed(
         sim_id=case.sim_id,
@@ -585,7 +555,7 @@ def _own_speed(case: SimCase, speed: RotorSpeed | None) -> RotorSpeed:
     return speed
 
 
-# --- the tip and helical Mach numbers of a rotor (0.30.0, M1) ----------------
+# --- the tip and helical Mach numbers of a rotor (M1) ----------------
 
 #: The factor from a rotor speed in rev/min, the unit of every speed this
 #: package resolves (:attr:`RotorSpeed.rpm`), to its angular rate in rad/s.
@@ -797,7 +767,7 @@ class RotorMach:
     rpm : float or None
         The speed in rev/min, signed by the hand, as the run turns it; a
         disc's is its block's ``rpm_sign`` times the speed, the opposite of
-        the speed its script hands the solver since 0.34.0 (FR-331).
+        the speed its script hands the solver (FR-331).
     diameter_m : float or None
         The diameter the numbers were taken at: a rotor block's
         ``diameter_m``, else the reference's ``rotor_diameter_m``; a disc's
@@ -872,19 +842,15 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
 
     The reference 91_LIFTER_SECTOR carries LH and LB_1 of a rotor declared with four
     blade families, so it stands for four copies; the same rotor meshed as
-    a half, carrying two of them, stands for two. The first writing of
-    this default returned the wheel's four in BOTH cases, because it read
-    the reference alone, and that is the SRS and the code saying different
-    things about the same key (the architecture lens, 2026-09-10).
+    a half, carrying two of them, stands for two. The count therefore needs
+    the mesh inventory as well as the reference's full-wheel blade count.
 
     ONE ROTOR ONLY, and deliberately: a sector is a slice of ONE wheel, so
     a row turning several rotors has no single count and is left to state
     one.
 
-    THE SECOND RETURN IS THE REASON, because five different rows reach the
-    same None and the refusal used to tell all of them the same thing,
-    including one that told a row to do what it had already done (the
-    interface lens, 2026-09-10).
+    THE SECOND RETURN IS THE REASON, distinguishing the row shapes that
+    return None so the refusal can explain the missing information.
     """
     aliases = [
         record.get(MOVING_BC_ALIAS_VARIABLE)
@@ -932,12 +898,9 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
         )
     whole, sector = len(block.families_blades), len(carried)
     if whole == sector:
-        # THE FILE IS THE WHOLE WHEEL, so it is not a slice of anything and
-        # the arithmetic would answer one copy, which passes the positive
-        # check above and initializes a full mesh as a sector of itself. A
-        # row that means a half MODEL rather than a blade sector lands here
-        # too, and it is the row 0.14.0 refused for the missing key (the QA
-        # lens, 2026-09-10). Both are questions rather than counts.
+        # A full wheel is not a slice: treating the derived one copy as a sector
+        # would initialise the whole mesh as a sector of itself. A half-model row
+        # also needs an explicit choice rather than an inferred blade-sector count.
         return None, (
             f"The row names {block.alias} and the geometry carries all "
             f"{whole} of its blade families, so the file is the whole wheel "
@@ -963,13 +926,9 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
 def _angle(case: SimCase, axis: str) -> float:
     """Return the incidence or the sideslip the row states, in degrees (FR-69).
 
-    THE POINT FIRST, THEN THE ROW, THEN ZERO. A swept angle is the
-    point's, which is what it has always been. An angle the row states in
-    its FLIGHT_CONDITION and does not sweep is the row's, and until this
-    release there was nowhere to write one: a row sweeping the advance
-    ratio reached the solver at incidence zero, and the only record of the
-    incidence was that nobody had written one (measured 2026-09-09 while
-    reading the reference p001).
+    THE POINT FIRST, THEN THE ROW, THEN ZERO. A swept angle is the point's.
+    An unswept angle comes from the row's FLIGHT_CONDITION; an unstated
+    angle is zero.
 
     THE ROW-STATED ANGLE IS USUALLY IN THE POINT ALREADY, and this
     function is what answers when it is not. The point's coordinates are
@@ -1041,17 +1000,15 @@ def _the_rotor_a_flat_row_turns(case: SimCase) -> RotorBlock | None:
 
 
 def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
-    """Resolve the processor count: the ROW's, since v0.17.0 (FR-93).
+    """Resolve the processor count from the row (FR-93).
 
     ONE NUMBER FOR EVERY PLATFORM. It reaches
     ``SET_MAX_PARALLEL_THREADS`` as the solver's thread count and, on a
     submitting run, the scheduler's ``ncpus``. They cannot disagree
     because there is only one of them.
 
-    ``from_setup`` is what a preset written before this release still
-    carries. A row that states nothing inherits it, so nothing already
-    written stops emitting the command; a row that states a count
-    overrides it. The preset key is on its way out and the upgrade moves
+    ``from_setup`` is the preset's count. A row that states nothing inherits
+    it; a row that states a count overrides it. The upgrade moves
     it into the column, which is why this reads the row FIRST and the
     preset second rather than the other way round.
     """
@@ -1071,12 +1028,11 @@ def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
 def row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
     """Resolve the symmetry-loads flag: the ROW's when it states one (FR-66).
 
-    The design decision of 2026-09-10. Whether the solver reports the loads of the
+    Whether the solver reports the loads of the
     meshed SECTOR or of the whole wheel is a per-row choice, because one
     preset serves a sector row and a full-wheel row. A row stating it
     OVERRIDES the preset and warns naming both files and the value used;
-    a row stating nothing inherits silently, as every row written before
-    this release does.
+    a row stating nothing inherits silently.
 
     The first decision that hour was to refuse both stating it, as the rotor
     speed is refused; it was changed the same hour, and the warning is what
@@ -1189,9 +1145,8 @@ def _the_names_a_rotor_answers_to(case: SimCase) -> dict[str, list[str]]:
     sentence "a rotor name in that set is its own union" written where
     both readers can use it. The reference `lifters = ["LIFT_L1", "LIFT_L2"]` lists
     ROTORS rather than families, which is the natural way to write a group
-    of rotors and the shape the whole per-rotor economy is for, and its
-    members resolved to nothing because a rotor's name was a family name
-    to nobody and sat in no alias table (the QA lens, 2026-09-10).
+    of rotors. Expanding each name to its own families lets those members
+    resolve through the shared alias table.
 
     ONE MAP FOR BOTH PATHS, deliberately. The expanding path and the
     common-frame path read the same words out of the same file, and the
@@ -1283,16 +1238,9 @@ def _from_metres(case: SimCase, script: Script, what: str) -> float:
     return factor
 
 
-#: DELETED 2026-09-14: `RESTART_ARCHIVE_DIR = "archive"` stood here, unused.
-#: It was a THIRD literal spelling of the archive folder name, added in the
-#: same release whose `workspace/naming.py` says the constants were moved down
-#: "rather than being copied into a second home that would drift from the
-#: first" and whose `post/products.py` repeats the claim. The claim was false
-#: while this line existed, and the name was public surface acquired by
-#: accident. It is deleted rather than deduplicated because `cases` sits below
-#: `workspace` and cannot import `ARCHIVE_DIR`: if a future continuation
-#: feature here needs the folder name, it is a run-layer argument and not a
-#: cases-layer constant. Found by the architect lens of the 0.18.0 round.
+#: Archive folder naming belongs to workspace. A continuation feature in
+#: cases must receive the folder name from the run layer rather than define
+#: a second constant or import upward from workspace.
 
 
 @dataclass(frozen=True)
@@ -1383,18 +1331,14 @@ def restart_iterations(request: RestartRequest, record: Mapping[str, object]) ->
     the earlier run reached. A record that cannot say is refused here
     rather than silently re-running the whole thing.
 
-    AN ABSENT ``stopped_at`` IS NOT ZERO, and reading it as zero was a defect
-    that spent a licensed seat in silence. ``stopped_at`` is written by the
+    AN ABSENT ``stopped_at`` IS NOT ZERO. ``stopped_at`` is written by the
     WALL CLOCK, and :data:`~pyflightstream.run.CONTINUABLE` also admits
-    ``COMPLETED_MAX_ITER``, which never carries it: a row that asked for 400
-    steps, reached all 400 and was recorded at its iteration limit came back
-    from this function with 400 MORE steps owed, and the run path printed
-    "continuing for 400 more step(s)" while re-marching the entire history
-    from a saved state that already held it. It is reachable from one cell,
+    ``COMPLETED_MAX_ITER``, which never carries it. Treating absence as zero
+    would repeat all requested steps from an already advanced saved state.
+    This state is reachable from one cell,
     because a row whose post-processing artifact turns the log off has no
     residual history and is therefore recorded COMPLETED_MAX_ITER rather than
-    CONVERGED. Found by the independent lens of the 0.18.0 release round,
-    2026-09-14, which measured it rather than reading it.
+    CONVERGED. FINISH_PENDING therefore requires a recorded stopped step.
     """
     stopped = cast(StoppedStepRecord | None, record.get("stopped_at"))
     reached: int | None = None
@@ -1500,7 +1444,7 @@ def _rotor_of(case: SimCase, record: Mapping[str, str]) -> RotorBlock | None:
     return rotor
 
 
-# --- the quasi-steady rotor (0.30.0) -----------------------------------------
+# --- the quasi-steady rotor -----------------------------------------
 
 
 def qsteady_case_kind(case: SimCase) -> str:
@@ -1612,13 +1556,12 @@ def _qsteady_speed(case: SimCase, rotor: RotorBlock) -> RotorSpeed:
 
 
 def _require_the_averaging_window(case: SimCase, name: str) -> None:
-    """Refuse an unsteady row that states no averaging window (0.24.0).
+    """Refuse an unsteady row that states no averaging window.
 
     The definitions page states it: the window lives on the matrix and is a
-    mandatory input. 0.23.0 did not refuse. A row without the key planned,
-    ran, and then took the STEADY route at post: group polars read off the LAST
-    TIME STEP under the steady names, beside a time average over a window the
-    package had defaulted, with nothing in either file saying which was which.
+    mandatory input. Refuse its absence before a run so post-processing
+    cannot treat the last time step as a steady polar or choose an unstated
+    averaging window.
 
     ONLY A NEW PLAN IS REFUSED. A record already written without a window is never
     refused at post: it is averaged over the window the run defaulted to, and the
@@ -1695,10 +1638,8 @@ def _refuse_rotor_shedding(case: SimCase) -> None:
 def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     """Refuse a row stating a key the run type does not register.
 
-    PFS-2008.02.01, measured on 2026-09-08: a one-row copy of the tier-3
-    tour with ``FOO_BAR: 1`` appended planned READY on every point, and
-    the run would have spent a seat on a row stating something the
-    script does not carry. The refusal names the case (its ``sim_id`` is
+    PFS-2008.02.01: refuse keys the script does not carry before spending
+    a solver seat. The refusal names the case (its ``sim_id`` is
     the matrix POL), the run type, every key outside the vocabulary with
     the run types that DO read it, and the keys this run type registers.
 
@@ -1713,7 +1654,7 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     A row selected through its RECIPE keeps its keys: a LEGACY row whose
     RECIPE code maps to a run type, or a case authored in Python naming
     the type as its recipe, is the recipe path, and the recipe is the
-    reader of its keys (the rule of 2026-09-08, design 68). The
+    reader of its keys (design 68). The
     converter's own ``matrix_`` keys and the workspace's
     ``ROTOR_ORIGIN_POINT`` are not the row's and are left alone.
     """

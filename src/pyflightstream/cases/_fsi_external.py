@@ -1,4 +1,4 @@
-"""The coupling block of an external structural program (FR-462, 0.40.0).
+"""The coupling block of an external structural program (FR-462).
 
 Route B of the use case, the one the evidence supports on 26.124 and 26.125:
 the aeroelastic toolbox the beam routes already drive, with its execution

@@ -1,14 +1,11 @@
 """The unsteady solver actions a march registers: the step counter, its exports, the clock.
 
-Moved out of :mod:`pyflightstream.cases.workflows` in 0.33.0, which still
-exports every name here, so the public path is unchanged.
+:mod:`pyflightstream.cases.workflows` re-exports every name here.
 
-THE STEP COUNTER ON EVERY MARCH (FR-314). Until 0.32.0 the counter was
-registered only on a row asking for per-step exports (PFS-2031.18), and the
-progress bar of a local run (FR-129), which reads the counter's file, showed
-nothing on a long unsteady run without them. Every unsteady row now registers
-it: with the exports script after it where the row asks for per-step exports,
-exactly as before; alone, COUNTING ONLY, where it asks none. The run layer
+THE STEP COUNTER ON EVERY MARCH (FR-314). Every unsteady row registers the
+counter so the local-run progress bar (FR-129) can read its file. A row asking
+for per-step exports (PFS-2031.18) registers the exports script after it;
+otherwise the counter runs alone, COUNTING ONLY. The run layer
 writes a count-only program for such a row (:mod:`pyflightstream.run._actions_counter`),
 which rewrites no exports file and so triggers no exports script. That the
 counter leaves a row's results unchanged is not measured here; the licensed
@@ -63,7 +60,7 @@ UNSTEADY_ACTION_COUNT = "actions/pfs_unsteady_actions.count"
 #: and one is read.
 #:
 #: The counter is (1), the exports script is (2), the clock is (3) and the
-#: stop script is (4). Since 0.33.0 (FR-314) a row that states no export
+#: stop script is (4). Under FR-314 a row that states no export
 #: threshold registers the counter alone, so the clock pair takes (2) and
 #: (3), which is why the positions are conditional and not fixed.
 WALLTIME_CLOCK_ACTION = "pfs_walltime_clock"

@@ -115,8 +115,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     """Build a steady polar point: open, free stream, settings, solve, export.
 
     The open is FIRST and only where the case names a geometry
-    (:func:`_open_geometry`), so a case that names none emits exactly
-    the lines this workflow emitted before 0.8.1.
+    (:func:`_open_geometry`); a case naming none emits no open command.
     """
     _refuse_wake_termination_without_a_clock(case)
     _refuse_a_coupling_step_without_a_clock(case)
@@ -187,9 +186,9 @@ def build_steady_sweep(
     the solver is initialised once, and then for each point the two
     angles are set, the solver is started and the outputs are exported.
 
-    Cold starts are the default from 0.29.0 (R13): every point, including
+    Cold starts are the default (R13): every point, including
     the first point of a reopened simulation, clears the solution before
-    solving. Explicit ``cold=False`` retains the previous warm behavior.
+    solving. Explicit ``cold=False`` selects warm behavior.
 
     THE ORDER MATTERS AND IT IS RECORDED: a warm sweep's result depends
     on the order its points ran in, which nothing recorded before this
@@ -267,31 +266,17 @@ def build_steady_sweep(
             # setup stays behind it.
             script.begin_point()
         if index:
-            # The angles of THIS point, EMITTED DIRECTLY. Only the two:
-            # the rest of the settings block was emitted once and does not
-            # vary over a sweep of the incidence, and the predecessor
-            # toolchain sets exactly these two per point.
-            #
-            # NOT THROUGH `solver_settings`, and that was a silent physics
-            # change. That helper emits its own default for an argument
-            # the caller omits, so a sweep whose setup states any
-            # SOLVER_MINIMUM_CP other than the library default had point
-            # one solved at the stated value and every point after it at
-            # -100, inside ONE script where the solver keeps the last one.
-            # Reproduced on a three-point sweep stating -3.0: -3.0, then
-            # -100, then -100. It also replaced the setup snapshot, losing
-            # the thread count and the iteration cap the first point was
-            # given. Found by the independent Codex review of `main`,
-            # 2026-09-13 (GEO-047-C01), and by nothing in-house.
+            # Emit only this point's two angles directly. The remaining settings
+            # stay fixed across the sweep. Calling solver_settings would emit
+            # defaults for omitted arguments, overwriting the stated minimum Cp,
+            # thread count and iteration cap in the retained solver state.
             _refuse_sideslip_under_mirror(point_case)
             _refuse_a_free_stream_that_moves(first, point_case, custom)
             script.emit("SOLVER_SET_AOA", _angle(point_case, "alpha"))
             script.emit("SOLVER_SET_SIDESLIP", _angle(point_case, "beta"))
-            # THE LOADS FRAME AND THE MOMENTS MODEL ARE RESTATED PER POINT
-            # (B05). Until 0.27.0 each point stated them after its own
-            # START_SOLVER; they now belong before it (RPT-064), and whether a
-            # CLEAR_SOLUTION between points resets them is not measured, so
-            # every point states them again rather than relying on the first.
+            # Restate the loads frame and moments model before each point's
+            # START_SOLVER (B05, RPT-064). Whether CLEAR_SOLUTION resets them is
+            # unmeasured, so do not rely on the first point's settings.
             _analysis(point_case, script, frame)
 
         # EACH POINT EXPORTS ITS OWN NAMES, so each gets its own
@@ -427,7 +412,7 @@ def _after_the_build(case: SimCase, script: Script) -> None:
 
 
 def refuse_an_untranslatable_surface(case: SimCase, script: Script) -> None:
-    """Refuse a script whose Tecplot surface cannot be written from its VTK (G45 of 0.28.0).
+    """Refuse a script whose Tecplot surface cannot be written from its VTK (G45).
 
     The solver writes the VTK in the analysis loads frame (RPT-074), so the
     Tecplot is written from it by undoing that frame, which the package can do

@@ -5,7 +5,7 @@ read. A matrix row names a CCS file (Component Cross-Section, the solver's
 parametric geometry format, which the manual says may carry the ``.ccs`` or the
 ``.csv`` extension) in its ``GEOMETRY`` cell, and the ``[import.ccs]`` table of
 the file's ``<stem>.boundaries.toml`` says how the solver makes a mesh of it
-(0.32.0, FR-240 to FR-244)::
+(FR-240 to FR-244)::
 
     boundaries = ["WING"]
 
@@ -222,7 +222,7 @@ class CcsSubdivisions(BaseModel):
 
 
 class CcsImportOptions(BaseModel):
-    """How a CCS file becomes a mesh: the ``[import.ccs]`` table of its sidecar (0.32.0).
+    """How a CCS file becomes a mesh: the ``[import.ccs]`` table of its sidecar.
 
     Attributes
     ----------

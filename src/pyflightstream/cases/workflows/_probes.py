@@ -239,13 +239,9 @@ def _pproc_probes(
 ) -> None:
     """Emit every `[[probes]]` entry the artifact declares (FR-77, FR-81).
 
-    CALLED BY ALL FOUR BUILDERS, which is the fix. This lived inside
-    `_pproc_plots` until 0.16.0, and `_pproc_plots` is called by the three
-    UNSTEADY builders alone, so a steady row never reached the probes code at
-    all. Meanwhile the export block emitted `EXPORT_PROBE_POINTS` off the row's
-    OUTPUT NAMES, which know nothing about run type. Two halves that never
-    agreed to be in the same place, and the reader got an export of points
-    nobody made.
+    All four builders create the declared probes. The export block selects
+    `EXPORT_PROBE_POINTS` from the row's output names independently of run
+    type, so steady and unsteady rows must both create the points they export.
 
     THE VERTEX COUNTER RUNS ACROSS THE ENTRIES (FR-77), because the plot name
     is `{parameter}{n}` and two entries restarting at 1 would write two plots to
@@ -278,7 +274,7 @@ def _pproc_probes(
     sampled = pproc.volume_section is not None or any(
         entry.field_formats or entry.reusable_inflow for entry in pproc.probes
     )
-    # FR-455 (0.40.0): a steady point whose far field lays probes starts from
+    # FR-455: a steady point whose far field lays probes starts from
     # none, as a sampled field does, so its export holds each point once.
     sampled = sampled or (not unsteady and needs_fresh_probes(case))
     declared: list[tuple[int, str, np.ndarray]] = []
@@ -315,7 +311,7 @@ def _pproc_probes(
             )
 
     _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
-    # FR-455 and FR-1074 (0.40.0): the far field's plane and lattice after
+    # FR-455 and FR-1074: the far field's plane and lattice after
     # every declared point, then the inside-the-body check of the declared ones.
     farfield_probes(
         case,
@@ -528,20 +524,14 @@ def _creation_of_normal_probes(
     return _built_from_the_mesh(case, script, build).recorded_text
 
 
-#: FR-91. The simulation subfolder the package writes a simulation's probe
-#: positions file into. Per SIM and not per point, by the requirement of
-#: 2026-09-11. A survey a USER cites (FR-80) is NOT here: it is imported where
-#: it lives, under the workspace's `inputs/profiles/`, by the absolute path the
-#: row's binding resolved. This comment said the cited file was staged here too,
-#: and nothing ever staged it (GOAL-021 item 2, measured 2026-09-14).
+#: FR-91: the simulation subfolder for generated probe positions, per SIM
+#: and not per point. A user-cited survey (FR-80) stays under workspace
+#: inputs/profiles and is imported by the absolute path resolved by binding
+#: (GOAL-021 item 2).
 PROBE_PROFILE_DIR = "profiles"
 
-#: FR-91. The columns of the probe positions file, in order, and the ONE home
-#: of that vocabulary. The run layer writes the file and the post layer reads
-#: it, and until this existed each end spelled the five names for itself: a
-#: literal header string on one side and a tuple on the other, with nothing
-#: to make them disagree loudly (the architecture lens, 2026-09-11). It lives
-#: here because `cases` is the deepest layer both of them already import.
+#: FR-91: the ordered probe-position columns shared by the run writer and
+#: post reader. cases is the deepest layer both readers import.
 PROBE_POSITION_COLUMNS: tuple[str, ...] = ("PROBE", "X", "Y", "Z", "FRAME")
 
 
@@ -595,11 +585,9 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     if probes.points_file:
         from pyflightstream.probes import emit_probe_import
 
-        # BY ABSOLUTE PATH, resolved when the row bound (GOAL-021 item 2). The
-        # relative `profiles/<file>` this emitted until 0.18.1 named a file
-        # nothing staged, in a folder that is not a submitted point's working
-        # directory, so a builder that meets an unresolved citation refuses
-        # rather than emitting a line that imports nothing.
+        # Import by the absolute path resolved at binding (GOAL-021 item 2).
+        # Refuse an unresolved citation: the file is not staged into the submitted
+        # point's working directory.
         if not probes.resolved_points_file:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: a probe entry cites the survey "
@@ -619,7 +607,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         ):
             # A script that has established no unit (a saved geometry whose header
             # states none, no explicit setup key) is in the solver's default, the
-            # metre, which the import used to assume (P0400-INTEGFIX-PROBE-UNITS).
+            # metre (P0400-INTEGFIX-PROBE-UNITS).
             emit_probe_import(
                 script,
                 probes.resolved_points_file,
@@ -697,35 +685,14 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                     )
 
     if not unsteady:
-        # FR-81. A STEADY ROW CREATES THE POINTS IT EXPORTS. It has no
-        # fluid plots, which is what places a vertex on an unsteady row, so
-        # until 0.16.0 it emitted `EXPORT_PROBE_POINTS` and no creation verb
-        # at all: the script asked the solver to export a thing nobody
-        # made. WHAT THE SOLVER THEN RETURNED IS INFERRED AND NOT MEASURED,
-        # and this comment used to assert it. FR-81's measurement is of the
-        # EMITTED SCRIPT -- creation verbs none, export present -- which is
-        # a fact about this package; what an unpaired export produces at
-        # the machine is a solver behaviour no dated probe in this tree
-        # covers.
-        # That is the same defect as the fifty dummy surface sections, one
-        # family over.
-        #
-        # THIS BLOCK IS OUTSIDE THE LOOP OVER THE LINES (B04). It sat inside it
-        # until 0.27.0, so N declared lines gave N squared commands and the
-        # solver exported every point N times (RPT-062: 99 points for 33).
-        #
-        # ONE `NEW_PROBE_LINE` PER DECLARED LINE, with the point count the
-        # entry states, rather than one command per vertex: the survey line
-        # is what the solver's own vocabulary offers for exactly this, it
-        # takes the count and the two ends, and it is verified on four
-        # builds. The coordinates are scaled the same way the vertices
-        # above are, so a `rotor_radius` entry lands on the same disk in
-        # both run types.
-        #
-        # IN THE REFERENCE FRAME (reading B30): `NEW_PROBE_LINE` takes no frame,
-        # so a line declared in another frame is carried into the reference by
-        # where this script placed that frame; the unsteady route passes the
-        # frame to its command instead.
+        # FR-81: a steady row creates the probe points it exports. Emit one
+        # NEW_PROBE_LINE per declared line outside the per-line setup loop (B04),
+        # using its point count and endpoints. Coordinate scaling matches the
+        # unsteady vertices, so rotor_radius selects the same disk in both types.
+        # NEW_PROBE_LINE takes no frame: transform endpoints into the reference
+        # frame using the frame placed by this script (B30). The unsteady route
+        # passes the frame to its command. The behavior of an unpaired probe
+        # export is unmeasured; the package must emit the creation commands.
         ends = [
             _in_the_reference_frame(
                 case, script, frame, probes.frame, [v * scale for v in line.start]
@@ -745,18 +712,10 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                 end=(last_x, last_y, last_z),
             )
 
-    # FR-79: A RECTANGLE AND A CIRCLE ARE EMITTED POINT BY POINT, by the
-    # decision of 2026-09-10: a rectangular or circular plane is always
-    # defined point by point. The reason is TRANSPARENCY
-    # rather than geometry. On the unsteady path the points reach the solver
-    # one at a time whatever the shape was, so emitting a line per grid row on
-    # one path and points on the other would make one declaration produce two
-    # different exports, which is the thing every requirement of this release
-    # is against.
-    #
-    # BOTH RUN TYPES REACH THIS. An unsteady row places each vertex with its
-    # fluid plots; a steady row places it with `NEW_PROBE_POINT`, which is the
-    # per-vertex verb beside the survey line.
+    # FR-79: rectangles and circles are emitted point by point so one
+    # declaration produces the same sampling on steady and unsteady paths.
+    # Unsteady rows place vertices with fluid plots; steady rows use
+    # NEW_PROBE_POINT, the per-vertex verb beside the survey line.
     lattice: list[list[float]] = []
     if probes.points_file:
         lattice += [
@@ -768,7 +727,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     for circle in probes.circles:
         lattice += circle_points(circle, scale=scale)
     lattice += planar_points(case, probes, native_per_m)
-    # FR-1072 (0.40.0): the survey lattices, laid by `probes`. A steady entry
+    # FR-1072: the survey lattices, laid by `probes`. A steady entry
     # in the reference frame has the probes home emit them too
     # (`emit_declared_lattices`), placed and rounded as recorded here; in
     # another frame each point is carried into the reference one.
@@ -825,14 +784,10 @@ def _lay_points(
                     vertex=" ".join(str(value / native_per_m) for value in point),
                 )
         elif emit:
-            # A VOLUME PROBE, the point in the flow a fluid probe is. The
-            # command's `type` is required on every build, and this line was
-            # emitted without it from FR-79 until 0.28.0, so a steady row
-            # drawing a rectangle or a circle never planned (found by the
-            # input template's test, G47); `helpers.probe_points`, which emits it, and the
-            # survey file (`TYPE` 1) say VOLUME for the same point. The command
-            # takes no frame either, so the point goes into the reference frame
-            # the way a steady line's ends do (reading B30).
+            # A fluid probe is a VOLUME point, matching helpers.probe_points and
+            # survey-file TYPE 1 (G47). The command requires its type on every build.
+            # It takes no frame, so transform the point into the reference frame as
+            # for a steady line's endpoints (B30).
             x, y, z = _in_the_reference_frame(case, script, frame, probes.frame, list(point))
             helpers.probe_points(script, [(x, y, z)], kind="VOLUME")
     return vertex
@@ -892,31 +847,22 @@ def _in_the_reference_frame(
     ]
 
 
-#: THE SHAPE OF A ROTOR'S FRAME NAME, used only to tell a rotor frame this
-#: RUN did not create from a frame no row could create. It is deliberately
-#: NOT used to say WHOSE frame a name is: `_the_rotor_whose_frame_this_is`
-#: answers that by composing the names forward, because a custom frame the
-#: reference declares may share a rotor's prefix and reading the shape
-#: backward once scaled probe lines to the wrong disk.
+#: The rotor-frame name shape distinguishes a frame this run did not
+#: create from an impossible frame name. Ownership is determined by
+#: _the_rotor_whose_frame_this_is composing each rotor's names: a custom
+#: frame may share a rotor prefix without belonging to that rotor.
 _ROTOR_FRAME_SPELLING = re.compile(r"_(SMRP|RMRP\d*)$")
 
 
 def _the_probe_frame(case: SimCase, stated: str) -> str:
     """Resolve an unstated probe frame to a rotor THIS ROW TURNS (FR-65).
 
-    It was the literal ``PROP_MRP`` until 0.15.0, when a reference described
-    one propulsor and one name could stand for it. A name is not enough now,
-    because which hub it is depends on the row, so the default is resolved
-    here and the artifact states nothing.
+    The default hub depends on the rotors this row turns, so it is resolved
+    here when the artifact states no frame.
 
-    WHICH ROTOR, and this is the part the first fix got wrong. It read the
-    rotor a row with no MOTIONS turns, which answers None whenever the
-    reference declares more than one, so the name became ``ROTOR_SMRP``, no
-    builder created it, and the probe lines were DROPPED behind a warning
-    saying the row does not turn that rotor when there is no rotor of that
-    name at all (the interface lens of the 0.15.0 release review, on the
-    round-two fix). The rotors a row TURNS are the ones its motions name, and
-    the clock names which of them the row is about.
+    The rotors a row TURNS are the ones its motions name, and the clock
+    identifies which rotor supplies the default hub. The reference alone
+    cannot choose among several rotors.
 
     Raises
     ------
@@ -970,13 +916,10 @@ def _the_rotor_whose_frame_this_is(case: SimCase, frame: str) -> str | None:
     question is answered by building those names and comparing, which is
     what `_frames_the_alias_owns` does one layer up.
 
-    Splitting the NAME on its last underscore instead was the shape this
-    replaced, and it answered PUSHER for `PUSHER_TIP`: a custom frame the
-    reference declares under any name it likes (FR-72) that merely shares
-    a rotor's prefix was read as that rotor's, so probe lines were scaled
-    to its disk. That is the failure the caller exists to prevent,
-    reintroduced one level down (the architecture lens, 2026-09-10;
-    measured: PUSHER_TIP returned the pusher's 1.8 m).
+    Compose the rotor's frame names rather than splitting the supplied
+    name: a custom frame such as `PUSHER_TIP` may share a rotor prefix
+    without belonging to that rotor (FR-72). Its probes must not inherit
+    that rotor's disk scale.
     """
     wanted = frame.strip().casefold()
     for alias, block in case.rotors.items():
@@ -995,8 +938,7 @@ def _the_radius_the_probe_lines_are_in(case: SimCase, frame: str) -> float:
 
     THE ROTOR THE LINES ARE LAID OUT ON, which is the one whose frame the
     table names: the nine lines cross the disk of the rotor they are
-    measured in, so `frame = "PUSHER_SMRP"` means pusher radii. That
-    matters at 0.15.0 and did not before it, because the reference now
+    measured in, so `frame = "PUSHER_SMRP"` means pusher radii. The reference
     states a diameter PER ROTOR (FR-60): one number for the whole
     configuration cannot be right for a 1.20 m lifter and a 1.80 m pusher
     at once, and reading the configuration's would have laid the reference lifter

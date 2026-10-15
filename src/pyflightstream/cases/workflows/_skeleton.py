@@ -125,8 +125,7 @@ def _initialize(case: SimCase, script: Script) -> None:
         The case; ``SYMMETRY`` in its variables carries the mode
         (:data:`SYMMETRY_VARIABLE`) and ``PERIODIC_COPIES`` the
         dimensionless copy count (:data:`PERIODIC_COPIES_VARIABLE`). A
-        row declaring NEITHER emits ``SYMMETRY NONE`` and no copy count,
-        which is exactly what every workflow emitted before 0.8.1.
+        row declaring NEITHER emits ``SYMMETRY NONE`` and no copy count.
     script : Script
         Script under construction.
 
@@ -166,8 +165,7 @@ def _initialize(case: SimCase, script: Script) -> None:
                 "itself: a four-bladed rotor modelled as one 90 degree sector declares "
                 "4. Fewer than one copy is not a sector."
             )
-    # NONE is the mode of a row that asks for nothing, and it is the mode
-    # every workflow emitted before 0.8.1 because nothing could ask.
+    # NONE is the mode of a row that asks for nothing.
     mode = "NONE" if symmetry is None else symmetry.upper()
     if symmetry is not None:
         accepted = accepted_symmetry(script)
@@ -204,13 +202,9 @@ def _initialize(case: SimCase, script: Script) -> None:
     # rule about where a matrix value is refused. The rule itself is the
     # command's: PERIODIC appends the number of copies (FSM-26.120 p.337).
     if mode == "PERIODIC" and copies is None:
-        # THE PAIR OF FILES ALREADY KNOWS (FR-59, FR-61). The reference
-        # declares the wheel's blades one per entry and the geometry
-        # carries the ones this mesh holds, so the slice's repeat count is
-        # the first divided by the second, and asking the ROW for it again
-        # is the second home this release exists to remove. The count
-        # stays the MESH's, which is FR-61's line, because the divisor is
-        # read from the file the row opens.
+        # Derive the slice's repeat count from declared wheel blades divided
+        # by blades in the opened geometry (FR-59, FR-61). The mesh determines
+        # the divisor; the row need not repeat those facts.
         copies, why = _the_copies_the_sector_stands_for(case, script)
         if copies is None:
             raise CampaignConfigError(
@@ -399,14 +393,11 @@ def _script_init(
 ) -> None:
     """Emit the init phase, which happens ONCE however many points follow.
 
-    Split out of :func:`_script_tail` at 0.17.0 so a warm steady sweep can
-    emit it once and then loop the solve. Nothing moved: a single-point
-    build calls this and :func:`_script_solve_and_export` in the order the
-    one function used, and renders the same bytes.
+    A warm steady sweep emits this once and then loops the solve. A
+    single-point build calls this before :func:`_script_solve_and_export`.
 
-    It ENDS WITH THE LOADS FRAME AND THE MOMENTS MODEL since 0.27.0 (B05,
-    RPT-064), which :func:`_script_solve_and_export` emitted after
-    `START_SOLVER` until then; :func:`_analysis` says why the order
+    It ENDS WITH THE LOADS FRAME AND THE MOMENTS MODEL (B05,
+    RPT-064), before `START_SOLVER`; :func:`_analysis` says why the order
     decides what an unsteady row's step exports state. A steady sweep, warm
     or cold, states them here for its first point and again before each
     later point's `START_SOLVER` (:func:`build_steady_sweep`).
@@ -418,7 +409,7 @@ def _script_init(
 
     ``sections`` False leaves the section distributions to the caller: a
     clocked quasi-steady wheel creates them at each clocking, in the pose that
-    clocking holds (0.31.0, :func:`_build_qsteady_rotor`).
+    clocking holds (:func:`_build_qsteady_rotor`).
     """
     # FR-462: the external structural program, refused before any line.
     _validate_the_external_structure(case, script, continuation=reopens_a_saved_state)
@@ -437,7 +428,7 @@ def _script_init(
         # creating them again. Nothing is emitted here.
         script.frames_by_name = dict(frames)
     _raw_commands(case, script, "init")
-    # G25 of 0.28.0: THE PACKAGE AVERAGES THE SURFACE, and nothing is emitted for
+    # G25: THE PACKAGE AVERAGES THE SURFACE, and nothing is emitted for
     # it here. SOLVER_TIME_AVERAGING hangs 26.124 (C01) and is never emitted; the
     # window's steps are exported one by one (unsteady_export_threshold) and the
     # post averages them.
@@ -458,7 +449,7 @@ def _script_init(
             _pproc_sections(case, script, frames)
     elif reopens_a_saved_state:
         # A CONTINUATION EMITS NO DISTRIBUTION AND IS NOT REFUSED FOR IT
-        # (0.24.0). It builds no frames because the saved simulation it reopens
+        # . It builds no frames because the saved simulation it reopens
         # carries them, and carries the distributions the stopped run created
         # with them; creating them again would add a second set beside the
         # first. The refusal below is for a builder that FORGOT its frames, and
@@ -527,7 +518,7 @@ def _wire_the_fixed_wing(
     frames: Frames | None,
     conventions: WorkflowConventions | None,
 ) -> list[dict[str, object]]:
-    """Wire the fixed wing's coupling (FSI-G of 0.30.0), returning its steady Tecplot surfaces.
+    """Wire the fixed wing's coupling (FSI-G), returning its steady Tecplot surfaces.
 
     Steady: the row's whole export block is the post-processing script's,
     after the loads the structural program reads, because nothing may follow
@@ -661,7 +652,7 @@ def _wire_the_quasi_steady_sector(
     frames: Frames | None,
     conventions: WorkflowConventions | None,
 ) -> list[dict[str, object]]:
-    """Wire a quasi-steady sector's coupling (0.30.0), returning its steady Tecplot surfaces.
+    """Wire a quasi-steady sector's coupling, returning its steady Tecplot surfaces.
 
     The structure is blade one turning at the row's speed
     (:func:`pyflightstream.cases.fsi_workspace.quasi_steady_fsi_config`); the
@@ -700,10 +691,8 @@ def _coupled_export_block(
     program reads (:func:`pyflightstream.cases.fsi_workspace.aeroelastic_post`):
     the updates the row's exports read beyond those two, which it emits
     before its first export, and the row's exports with no update of their
-    own. The whole block in one piece updated the sections a second time
-    after that first export, an analysis command in the export phase, so a
-    coupled row with the default exports did not build (the L1 runs of
-    0.30.0, both coupled routes).
+    own. Keeping these parts separate avoids an analysis command after
+    the first export, which would violate the script's phase order.
     """
 
     def updates(post: Script) -> None:
@@ -742,13 +731,13 @@ def _refuse_what_a_steady_coupled_run_cannot_export(case: SimCase) -> None:
             "ends at EXECUTE_AEROELASTIC_ANALYSIS and exports from the aeroelastic "
             f"post-processing script, and it states {', '.join(stated)}. Those are emitted "
             "after START_SOLVER on a steady row, which this script never reaches, and the "
-            "post-processing script runs once per coupling iteration; this release does not "
+            "post-processing script runs once per coupling iteration; the package does not "
             "wire them on the steady coupled route. Remove them from the row's preset or pproc."
         )
 
 
 def _acoustic_setup(case: SimCase, script: Script) -> None:
-    """Emit the row's acoustic setup before the clock (0.32.0, E2; cases.acoustics)."""
+    """Emit the row's acoustic setup before the clock (E2; cases.acoustics)."""
     _acoustics.emit_acoustic_setup(
         case, script, from_metres=lambda what: _from_metres(case, script, what)
     )
@@ -767,8 +756,7 @@ def _script_solve_and_export(
 
     A warm steady sweep calls this once per point of the sweep, against a
     solver that was initialised once and is never cleared between them.
-    That is the predecessor's steady recipe exactly, and it is why warm
-    start is a sweep model rather than a flag.
+    That retained state makes warm start a sweep model.
     """
     _raw_commands(case, script, "exec")
     if unsteady and _a_march_turning_a_rotor(case):
@@ -789,7 +777,7 @@ def _script_solve_and_export(
     # FR-889: a continuation creates the normal probes its full script would.
     for name, args, kwargs in replayed_probes:
         script.emit(name, *args, **kwargs)  # type: ignore[arg-type]
-    # 0.32.0 (E2): the acoustic signals, computed from the march and exported.
+    # E2: the acoustic signals, computed from the march and exported.
     _acoustics.emit_acoustic_signals(
         case,
         script,

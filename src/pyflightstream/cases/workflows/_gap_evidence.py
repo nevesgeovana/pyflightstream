@@ -1,4 +1,4 @@
-"""The evidence gate of the 0.40.0 command-gap capabilities (FR-460 R-GATE, FR-461 R-GATE).
+"""The evidence gate for command capabilities (FR-460 R-GATE, FR-461 R-GATE).
 
 Every command a workflow emits needs evidence in the command database. The
 streamline and 6DOF commands the command gap reaches were recorded

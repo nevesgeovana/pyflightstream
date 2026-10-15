@@ -530,16 +530,10 @@ _CONDITION_SWEEP_AXES = _condition_sweep_axes()
 #: beside a ``MOTIONS`` list, because two statements of one rotor's speed
 #: or hub cannot both be the one the script obeys.
 MOTION_RECORD_KEYS = (
-    # FR-61, the design of 2026-09-10: the rotor's identity, and since
-    # 0.15.0 the only one a row states. FOUR of the keys below it are what
-    # the reference now says once, REFUSED since 0.15.0 naming the
-    # replacement, and refused a second way in the same record as this
-    # one: MOVING_BOUNDARIES,
-    # ROTOR_AXIS, ROTOR_ORIGIN and RPM_SIGN, with BLADES a fifth further
-    # down the tuple. RPM and ADVANCE_RATIO are NOT among them: a speed is
-    # what the row states and the reference does not. The count said five
-    # over six keys and named none of them (the interface lens of the
-    # 0.15.0 release review).
+    # FR-61: a row states the rotor's identity. The reference owns
+    # MOVING_BOUNDARIES, ROTOR_AXIS, ROTOR_ORIGIN, RPM_SIGN and BLADES, so
+    # those row keys are refused with their replacements named. RPM and
+    # ADVANCE_RATIO belong to the row because they select its speed.
     "MOVING_BC_ALIAS",
     "MOVING_BOUNDARIES",
     "RPM",
@@ -561,7 +555,7 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     separated by commas, the pairs inside a record by ``/`` exactly as the
     flat cell is. An unclosed brace, a record repeating a key, and a flat
     motion key beside the list are each refused naming the cell, and a
-    cell without the key reads exactly as it did before this release; a
+    cell without the key has no motion records; a
     brace on another key is that key's own (``OUTPUTS: loads_{point}.txt``
     is a template) and is left alone.
     """
@@ -627,14 +621,9 @@ def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
                 f"arguments included; {RAW_FILE_KEY} is a path under the workspace's "
                 "inputs, whose lines are emitted in order."
             )
-        # THE SPACING IS THE CAUSE, AND IT IS NAMED. A record written with
-        # tight slashes, `{FILE: raw/x.txt/BEFORE: init}`, is read as ONE
-        # pair whose value swallowed the rest, so the user was told the
-        # record states no BEFORE while the message quoted back, in the
-        # same sentence, the BEFORE they had written. A refusal that argues
-        # with the evidence it prints sends the user to fix the one part
-        # of the cell that was right (the interface and architecture
-        # lenses, independently, 2026-09-10).
+        # Name the spacing error: tight slashes in {FILE: raw/x.txt/BEFORE: init}
+        # make one pair whose value contains the rest of the record. The refusal
+        # explains the separator instead of claiming the visible BEFORE word is absent.
         swallowed = next(
             (
                 key
@@ -659,12 +648,8 @@ def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
                 f"{', '.join(RAW_PHASES[1:])}, or control for a line at the head of the "
                 "script."
             )
-        # THE PHASE IS CHECKED WHERE THE INFORMATION IS. A misspelled phase
-        # passed this reader whole and was refused at `resolve_matrix` by
-        # the model's own validator, as a pydantic error with no POL and no
-        # matrix vocabulary, while the MISSING phase three lines above got
-        # a careful refusal listing the phases. `RAW_PHASES` is already
-        # imported here (the interface lens, 2026-09-10).
+        # Validate the phase here against RAW_PHASES so a misspelling gets
+        # a matrix refusal naming the POL and accepted phases.
         before = record[RAW_BEFORE_KEY].strip()
         if before not in RAW_PHASES:
             raise MatrixError(
@@ -834,7 +819,7 @@ def _refuse_a_rotation_that_names_its_set_twice_or_not_at_all(
         raise MatrixError(
             f"POL {pol}: {ROTATE_VARIABLE} record states {ROTATION_ALIAS_KEY}: {alias} AND "
             f"{ROTATION_FAMILIES_KEY}: {families}; one rotation turns ONE set, so the two "
-            f"cannot both be what it turns. {ROTATION_FAMILIES_KEY} is the 0.14.0 spelling "
+            f"cannot both be what it turns. {ROTATION_FAMILIES_KEY} is the retired spelling "
             f"and {ROTATION_ALIAS_KEY} replaces it: keep the alias, and let the reference "
             "say what it owns."
         )
@@ -982,13 +967,9 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
     header = tuple(cell.strip() for cell in content[0].split("|"))
     _refuse_an_earlier_layout(header, path)
     if header != _COLUMNS:
-        # The fallthrough, and the one an upgrading user is most likely
-        # to reach: legacy recognition above is exact tuple equality, so
-        # a file one character off both older layouts AND the current one
-        # lands here. That is what a half-done hand edit looks like, and
-        # a release review found this was the only refusal in the file
-        # that named no converter, leaving that user in a two-refusal
-        # loop with the one sentence that rescues them said nowhere.
+        # Exact tuple equality recognises legacy layouts above. A partially
+        # edited header can match neither those nor the current layout; name
+        # the converter in the refusal so the user has a supported way forward.
         first_difference = next(
             (
                 f"the first difference is column {index + 1}: expected "
@@ -1051,10 +1032,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         translations = _parse_translations(variables, record["POL"])
         raw = _raw_records(variables, record["POL"])
         if rotations and record["WORKFLOW"] == LEGACY_WORKFLOW:
-            # A LEGACY row is built by its recipe, which is the reader of
-            # its keys (the rule of 2026-09-08, design 68) and reads no
-            # rotation, so the list would be dropped in silence
-            # (PFS-2034.03). Refused here, where the cell is read.
+            # A LEGACY row's recipe reads its keys and emits no row rotation
+            # (PFS-2034.03). Refuse the list here instead of silently dropping it.
             raise MatrixError(
                 f"POL {record['POL']} writes LEGACY and states {ROTATE_VARIABLE}; a LEGACY row "
                 "is built by its own recipe, which reads no rotation, so the list would turn "
@@ -1072,14 +1051,9 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
                 "the key."
             )
         if raw and record["WORKFLOW"] == LEGACY_WORKFLOW:
-            # THE SAME RULE, FOR THE SAME REASON, and it was missing: a
-            # LEGACY row is built by its own recipe, which emits no raw
-            # command, so the case would carry the lines and the RUN
-            # RECORD would claim them while the script never took them.
-            # The preset's `[[raw]]` table is already refused on such a
-            # row, one function away, and the row's own list walked past
-            # that guard through a door opened beside it (the architecture
-            # lens, 2026-09-10).
+            # A LEGACY recipe emits no raw-command list. Refuse both the preset's
+            # raw table and this row-level list so the run record cannot claim
+            # commands that the recipe never emits.
             raise MatrixError(
                 f"POL {record['POL']} writes LEGACY and states {RAW_VARIABLE}; a LEGACY row "
                 "is built by its own recipe, which emits no raw command, so the lines would "
@@ -1087,12 +1061,10 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
                 f"column ({', '.join(workflow_names())}), which emits them at the phase each "
                 "record names, or drop the key."
             )
-        # THE CELL CARRIES TWO SUBJECTS SINCE 0.15.0 (FR-69, FR-70): the
-        # flow state, which is resolved into density and velocity, and the
-        # row's ATTITUDE, which is what the aircraft does in it. They are
-        # separated here, so the flow resolver is never handed an angle,
-        # and the attitude joins the row's own variables where the
-        # builders read it.
+        # THE CELL CARRIES TWO SUBJECTS (FR-69, FR-70): the flow state, resolved
+        # into density and velocity, and the aircraft's attitude in that flow.
+        # Separate them so the flow resolver receives no angles and the attitude
+        # reaches the row variables that the builders read.
         condition = _require_flight_condition(
             record["FLIGHT_CONDITION"], record["POL"], row_number, path
         )
@@ -1238,12 +1210,9 @@ def refuse_silent_rows_without_default(
             "lines and the dashed rule, and they do not change when a row's RUN "
             "flag does."
         )
-    # EVERY ACTIVE ROW NAMES ITS BUILD AND NO DEFAULT WAS GIVEN: legal since
-    # 0.11.0 (PFS-2029.01). Until then this refused too, on the argument that
-    # a row added tomorrow with an empty cell would need the default; but
-    # that row is refused BY NAME the day it is added, by the branch above,
-    # which is the better answer than asking every study to repeat on the
-    # command line a build its rows already state.
+    # Every active row names its build, so no default is needed (PFS-2029.01).
+    # The branch above refuses an individual row whose build cell is empty
+    # when no default is available.
     return
 
 
@@ -1362,11 +1331,10 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
     ``FAILED_INCOMPLETE_OUTPUT`` with "collected: nothing" AFTER the
     solver has run.
 
-    Measured 2026-08-03 on the reference research campaign: a
-    thirty-minute unsteady run completed, the solver wrote all eight
-    expected files into the run folder, and the point was recorded as a
-    failure with the files sitting beside it. The physics was fine and
-    the bookkeeping threw it away.
+    The declared paths must match where the solver writes the files. A
+    completed solve with all expected files still fails collection when
+    those paths disagree; successful physics alone does not establish a
+    complete recorded output set.
 
     It stayed invisible because the one end-to-end matrix test passes a
     stub assessor that returns CONVERGED without reading a file, so
@@ -1406,7 +1374,7 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
         if carried:
             raise MatrixError(
                 f"POL {row.pol} names the run type {row.workflow!r} and carries "
-                f"{' and '.join(carried)} among its variables. Since 0.11.0 the export "
+                f"{' and '.join(carried)} among its variables. The export "
                 "set of a workflow row is decided by the pproc artifact its PPROC cell "
                 "names ([exports], PFS-2029.07), every export is named for the point, "
                 "and the log is always exported; the two keys would be a second home "
@@ -1415,15 +1383,9 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
             )
         return default_outputs(unsteady=row.workflow.startswith("unsteady"))
     if not outputs and not required:
-        # Conversion is a translation and spends no solver time, so it
-        # carries whatever the row declares, including nothing. FR-10
-        # scopes "forever" to the external format, which is the promise
-        # about the existing files, and FR-11 calls conversion
-        # lossless; refusing here broke the one path off the legacy
-        # matrix, since every matrix written before this variable
-        # existed declares none. The refusal lives on the paths that
-        # are about to start a solver (architect and API-designer
-        # passes, 2026-08-03).
+        # Conversion spends no solver time and preserves whatever outputs a row
+        # declares, including none (FR-10, FR-11). Paths that start a solver
+        # enforce the output requirement; conversion remains lossless.
         return []
     if not outputs:
         raise MatrixError(
@@ -1599,17 +1561,10 @@ def to_campaign(
                 motions=[dict(record) for record in row.motions],
                 rotations=[dict(record) for record in row.rotations],
                 translations=[dict(record) for record in row.translations],
-                # A COMMAND RECORD IS ALREADY RESOLVED and rides on the case
-                # here; a FILE record is not, because reading one needs the
-                # workspace's inputs, which this layer does not have, and the
-                # workspace expands those into `raw_commands`.
-                #
-                # THE FILE RECORD IS REFUSED RATHER THAN DROPPED. The first
-                # writing dropped the whole cell in silence, so a matrix read
-                # WITHOUT a workspace through `to_campaign` lost every raw command a row
-                # stated: no error, no warning, and the row had parsed
-                # cleanly, so the user had every reason to think it took
-                # (the architecture lens, 2026-09-10).
+                # A COMMAND record is resolved and rides on the case. A FILE record
+                # requires workspace inputs, so the workspace must expand it into
+                # raw_commands. Without that workspace, refuse the file record rather
+                # than silently dropping commands that the matrix successfully parsed.
                 raw_commands=_raw_without_a_workspace(row, defer_files=defer_raw_files),
                 variables=variables,
             )

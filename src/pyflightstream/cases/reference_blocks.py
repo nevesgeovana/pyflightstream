@@ -104,10 +104,8 @@ class BladeDatum(BaseModel):
         if not isinstance(value, str):
             return value
         token = value.strip().upper()
-        # ONE SIGN AT MOST, and the pattern says so: `lstrip("+-")` strips a
-        # RUN, so "+-X" and "-+X" validated and were then stored verbatim,
-        # a spelling this package never meant to accept (the interface lens
-        # of 2026-09-10).
+        # Accept at most one sign. lstrip("+-") would accept a run of signs,
+        # including +-X and -+X, which are not valid axis spellings.
         if not _AXIS_TOKEN.match(token):
             raise ValueError(
                 f"blade1 states zero = {value!r}, which is not an axis; write X, Y or Z, "
@@ -211,9 +209,8 @@ class RotorBlock(BaseModel):
         """Accept a LETTER or a three-component VECTOR.
 
         The letter keeps its exact meaning: `Z` IS the vector (0, 0, 1), so the
-        old spelling is a special case of the new one and every reference
-        written before this release asks the solver for exactly what it always
-        did. The vector exists because a mesh can arrive with its pitch and toe
+        letter spelling is a special case of a vector. A mesh can arrive
+        with its pitch and toe
         already in it, and a shaft installed at an angle lies on no geometry
         axis at all.
         """
@@ -281,13 +278,9 @@ class RotorBlock(BaseModel):
                 "families_blades is empty, and the blade count is its length, so this "
                 "rotor has no blades; name one mesh family per blade, in order"
             )
-        # BY ANGLE AND NOT BY SPELLING since 0.23.0 item 19. This compared two
-        # STRINGS, so it caught `axis = Z, zero = Z` and was blind to a shaft
-        # at (0, 0.02, 0.9998) with a datum at Z, which is one degree from
-        # parallel: an azimuth measured from it locates nothing and it reported
-        # a number rather than refusing. A string comparison cannot see
-        # "nearly", and once the axis can be any direction, nearly is the
-        # ordinary case rather than the exotic one.
+        # Compare directions by angle, not spelling. An axis (0, 0.02, 0.9998)
+        # is only one degree from a Z datum even though their strings differ.
+        # A nearly parallel datum cannot define a useful azimuth and is refused.
         shaft = self.axis_vector
         datum = AXIS_UNIT_VECTORS[self.blade1.zero.lstrip("+-")]
         alignment = abs(sum(a * b for a, b in zip(shaft, datum, strict=True)))
@@ -429,8 +422,7 @@ def frame_basis_for_shaft(
     makes an azimuth well defined on a tilted rotor: the datum a user names is
     a direction in the geometry, and the angle is measured in the plane the
     blades actually sweep, not in the plane the geometry's axes happen to
-    define. On an untilted rotor the projection changes nothing, which is why
-    a reference written before this release produces the same frame.
+    define. On an untilted rotor the projection changes nothing.
 
     The caller is responsible for the datum not lying along the shaft;
     `RotorBlock` refuses that by ANGLE before anything reaches here.
@@ -455,7 +447,7 @@ def frame_basis_for_shaft(
 class AliasCycleError(PyflightstreamError, ValueError):
     """An alias resolves through itself, and both sides are named (FR-59).
 
-    lets an alias name another alias, resolved to
+    An alias may name another alias, resolved to
     the end. That is what makes a cycle possible, so the reader refuses one
     rather than recursing: the message names the alias that closed the ring
     and the member that closed it, because a reader holding only one of the

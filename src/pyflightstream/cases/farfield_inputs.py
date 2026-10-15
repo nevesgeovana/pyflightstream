@@ -149,7 +149,7 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
         if rotor or run_type in ROTOR_RUN_TYPES:
             return "a rotor's helical wake is not a streamwise sheet"
         if run_type in UNSTEADY_RUN_TYPES:
-            return "variants A and B serve steady rows in 0.40.0"
+            return "variants A and B serve steady rows"
     return ""
 
 

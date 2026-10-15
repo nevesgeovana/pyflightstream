@@ -216,8 +216,7 @@ def action_export_lines(
     a function and not a loop inside one of them. Two actions export from
     inside a run, the per-step counter and the wall clock's rescue, and
     they have to write the same thing or the one that fires rarely is the
-    one that is wrong. It was: the rescue block was written as its own loop
-    and diverged on both halves at once (the V&V lens, 2026-09-13).
+    one whose divergence can otherwise go unnoticed.
 
     THE NAMES ARE CLAIMED BY `classify_outputs` and never by a bare
     ``endswith``. That function exists for this: longest suffix first, so
@@ -233,16 +232,13 @@ def action_export_lines(
     sections nobody updated is an export of the previous state.
 
     ``whole_run`` KEEPS THE KINDS A PER-STEP ACTION MUST DROP: the
-    simulation file, the plots table, the log and, since 0.27.0, the force
+    simulation file, the plots table, the log and the force
     distribution (:data:`END_OF_RUN_EXPORT_KINDS`). A per-step action must
     drop them, because a simulation file written every time step is not a
     per-step export; the wall clock's rescue is the opposite case, the
-    LAST thing a stopped run does, and it needs them MOST. Sharing this
-    function without the switch cost the rescue every one of them, on a
-    row that declares a plots export and a log, which is the rotor row of
-    the release's own example workspace. Found by the independent Codex
-    review of `main`, 2026-09-13 (GEO-047-C08); the sharing itself was the
-    right fix for a real divergence and the switch is what it was missing.
+    LAST thing a stopped run does, and it needs them MOST. The switch
+    preserves those whole-run outputs for the rescue while excluding them
+    from the per-step action.
     """
     names = list(conventions.outputs or case.outputs)
     declared_log = whole_run and _variable(case, LOG_OUTPUT_VARIABLE) is not None
@@ -357,8 +353,8 @@ def unsteady_export_threshold(
     Returns
     -------
     UnsteadyExportThreshold or None
-        None when the row states none of the four keys, which is every row
-        written before 0.13.0. A last form resolves to the first step
+        None when the row states none of the four keys.
+        A last form resolves to the first step
         ``TIME_ITERATIONS - n + 1`` (FR-415).
 
     Raises
@@ -585,15 +581,10 @@ def walltime_stop_text(
         "# these are its outputs as they stand.",
     ]
     # THE SAME LINES THE PER-STEP ACTION WRITES, from the same function.
-    # This was its own loop until 2026-09-13 and it had diverged twice
-    # over: it omitted the three update commands, so a rescued run's
-    # sections, sectional-loads and probe files carried the state BEFORE
-    # the stop rather than at it, silently, under a record saying the
-    # numbers up to that step are real; and it claimed names by a bare
-    # `endswith` in declaration order, so a row declaring a `_cp.txt`
-    # before a `.txt` got its sections file exported as the loads
-    # spreadsheet. These are the ONLY outputs a stopped run leaves, which
-    # is what makes a divergence here cost the whole run's evidence.
+    # The shared implementation updates sections, sectional loads and probes
+    # to the stopped state and resolves each name by its export kind.
+    # These are the ONLY outputs a stopped run leaves, so their state and
+    # kind determine the whole run's evidence.
     lines += action_export_lines(conventions, case, whole_run=True, version=version)
     lines.append(WALLTIME_STOP_VERB)
     return "\n".join(lines) + "\n"

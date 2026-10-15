@@ -20,7 +20,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-# The CCS geometry table (0.32.0), a table of a geometry sidecar's [import]; its
+# The CCS geometry table, a table of a geometry sidecar's [import]; its
 # module imports only pydantic and the script row, so the package may import it
 # while it loads.
 from pyflightstream.cases._ccs import CcsImportOptions

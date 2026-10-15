@@ -132,7 +132,7 @@ def _build_continuation(
     today, which is the shape that made a recorded flight condition read
     back as a different number in a regenerated product.
 
-    NO ``INITIALIZE_SOLVER`` AND NO ACTION REGISTRATION (FR-396, 0.35.0).
+    NO ``INITIALIZE_SOLVER`` AND NO ACTION REGISTRATION (FR-396).
     Measured on 26.124 (RPT-134): an initialization after the ``OPEN`` clears
     the reopened solution and the march restarts at step 1, and the actions
     the saved file carries run beside any registered again, twice a step.
@@ -212,7 +212,7 @@ def _the_actions_the_saved_state_runs(
 
     The saved state is taken to carry the actions this row registers: it is
     the state the package's own run of the same row saved, and every unsteady
-    row has registered its counter since 0.33.0 (FR-314).
+    row registers its counter (FR-314).
     """
     carried = Script(script.version, script.registry)
     register_unsteady_actions(carried, threshold, walltime=walltime)
@@ -221,7 +221,7 @@ def _the_actions_the_saved_state_runs(
 
 
 def _refuse_cold_start_on_a_march(case: SimCase, run_type: str) -> None:
-    """Refuse ``COLD_START`` on an unsteady row, at plan, naming the key (G36 of 0.28.0).
+    """Refuse ``COLD_START`` on an unsteady row, at plan, naming the key (G36).
 
     The clear is a line of the steady sweep's one script, where each point would
     otherwise start from the previous point's converged solution. Every point of

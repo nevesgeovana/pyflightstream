@@ -1,13 +1,12 @@
 """The job script of a grouped run: several points in one instance (FR-B3 to FR-B7b, FR-403).
 
-A grouped job (``--batch`` or ``--polar-sweep``, 0.35.0) runs every point of
-several polars in ONE FlightStream instance. Since 0.35.1 (FR-403) a job holds
+A grouped job (``--batch`` or ``--polar-sweep``) runs every point of
+several polars in ONE FlightStream instance. A job holds (FR-403)
 steady polars (``steady``, ``qsteady_rotor``) or unsteady ones, never both.
 The script layer's phase guard cannot hold two points in one ``Script``, so
 the job script is a TEXT splice of the per-point scripts the builders already
-wrote, exactly as the licensed probes of 2026-10-02 built theirs
-(DESIGN-0350 test report, arms A, AF, C, D and E). Every rule below was
-measured there:
+wrote. The rules below are measured by the licensed probes
+(DESIGN-0350 test report, arms A, AF, C, D and E):
 
 1. the job's first point is its whole text without its final
    ``CLOSE_FLIGHTSTREAM``, its action registrations replaced, at the place of
@@ -26,7 +25,7 @@ measured there:
 6. the registration block is rendered by the one emitter of those lines;
 7. every save and export target of the job is absolute, or the job is refused.
 
-0.35.1 adds two kinds of point (FR-406, FR-407):
+The job supports two kinds of point (FR-406, FR-407):
 
 8. an ACOUSTIC point after the job's first restates its acoustic setup at the
    place a point run alone has it, just before its ``SET_SOLVER_UNSTEADY``,
@@ -47,7 +46,7 @@ measured there:
    the job runs a copy of it with every target absolute in the point's folder,
    ``actions/pfs_fsi_post_<NNN>.txt``; a point without coupling that follows
    a coupled one gets ``SET_AEROELASTIC_COUPLING_IN_UNSTEADY DISABLE``.
-10. a setup's own ``unsteady_solver_actions`` (FR-405, 0.35.1) are registered
+10. a setup's own ``unsteady_solver_actions`` (FR-405) are registered
    once, in the job's registration block and BEFORE the package's actions, as
    a point run alone registers them; their lines are kept as the setup wrote
    them. Every polar of the job must state the same set, because an action
