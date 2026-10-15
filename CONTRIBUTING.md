@@ -1,404 +1,115 @@
 # Contributing to pyflightstream
 
-This project is written for engineers who use FlightStream, not only for
-software developers. Every rule below exists to keep the code readable,
-the evidence traceable, and the license clean.
+Contributions should make the package useful to engineers, keep numerical
+claims traceable to evidence, and preserve the clean-room license boundary.
 
-## Setup
+## Setup and checks
 
-```
-pip install -e .[dev,fsi,geom]
+```text
+pip install -e ".[dev,fsi,geom]"
 pre-commit install
 pytest
 ```
 
-The `fsi` and `geom` extras are part of the full Tier 1 suite (the FSI
-and geometry-gate tests import them); the four platform legs of CI
-install exactly this set.
+The fsi and geom extras are needed for the complete offline suite. Add manual
+when changing manual-reading tools and plot when running plotting examples.
+Guard optional imports at the operation that needs them. [Test tiers](tiers.md)
+explains what offline and licensed tests establish.
 
-CI runs on pushes and manual dispatch, skipping pushes that change only
-`docs/**`, Markdown files or `guide/**`, and branches named `dry-run/**`.
-A newer run on the same ref cancels its predecessor. Pull requests do not
-start a second CI run.
+Run affected subject tests while developing. Each tier-1 file belongs to one
+sorted package in tests/tier1_offline/packages.json. Use `pytest -m pkg_post`
+to select a package, substituting its name. Preserve behavioral cases when
+consolidating tests. A regression must fail on the unfixed behavior.
 
-Branch coverage runs once per version tag, within Release's Linux
-`test-artifact` invocation against the built wheel. It uses the floor in
-`[tool.coverage.report]`; branch pushes run the suite without coverage.
-CI's docs job keeps its strict build check; the public documentation site
-deploys only on `v*` tags.
+```text
+ruff check .
+ruff format --check .
+mypy
+pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
+properdocs build --strict
+```
 
-**Budget roughly ten minutes for `pytest`**. A large part of that is the
-mutation batteries beside the repository checkers under `tools/`: each
-one restores the original defect and requires the checker to deny it,
-against real archives and real modules on disk. The cost is the
-fidelity. Those runs shell out per case, so the number moves with the
-machine.
+The last pytest command executes docstrings and Markdown Python examples;
+plain pytest does not. Public workflows need worked examples. Mark examples
+requiring a solver explicitly. Offline execution does not validate physics.
 
-Tier 1 also runs a tree-wide forbidden-identifier scan
-(`tools/check_shipped_surface.py` against `tools/shipped_surface.conf`,
-run by `tests/tier1_offline/test_repository_guards.py`). It
-reads every tracked file, so a new file carrying an email address or a
-user-profile path reddens CI rather than being noticed at review. If it
-refuses something that is an identifier by design, the fix is an
-exemption in that config with the reason written beside it, never a
-narrowing of the scan.
+CI runs on pushes and manual dispatch, skipping docs-only pushes and dry-run
+branches and cancelling superseded runs. Release requires concluded green main
+CI at its exact SHA; dispatch CI for a docs-only candidate. Branch coverage
+runs on the version tag against the built wheel. Docs deploy on version tags.
 
-Two guards of the same shape refuse a file class by extension, each
-once at commit time (a `forbid-` hook in `.pre-commit-config.yaml`) and
-once in tier 1 (`tests/tier1_offline/test_house_style.py`, which holds
-the mutation proof): geometry and mesh files (NFR-14), and spreadsheets
-(OPS-2010.23), because a spreadsheet is the container point coordinates
-of a proprietary mesh actually travel in and no diff or review can see
-inside one. Commit a table as `.csv`, which is text. A file that must
-carry one of those extensions joins the allowlist beside the guard with
-the reason it cannot hold research geometry, and the hook's suffix list
-and the test's move together.
+## Repository layout
 
-`manual` and `plot` are deliberately NOT in it, and the omission is load
-bearing rather than an oversight: those legs are what proves the package
-works for a reader who installed it plainly. One CI leg,
-`test-all-extras`, installs everything instead, so the assertions gated
-behind those two execute somewhere.
-
-Locally the command above skips exactly one test FOR A MISSING EXTRA,
-the pdf reader's layout check; add `,manual` if you are touching
-`pyflightstream.utils.manual` or that assertion never runs for you.
-Other tests skip for reasons that have nothing to do with extras, so the
-suite's skip count is larger than one and that is expected.
-`plot` gates no assertion today and is in the all-extras leg so that the
-first one added is executed rather than skipped. Adding it changes
-nothing you can measure, because matplotlib is already installed
-transitively: PyNiteFEA requires it, so the `fsi` extra brings it in
-(measured against PyNiteFEA 3.0.0 on 2026-08-10).
-
-Whichever you install, do not reach for an optional distribution without
-a guard. `tests/tier1_offline/test_extras_isolation.py` refuses it, and the refusal
-names the form to use for the tree you are in. Its evidence is
-`python scripts/prove_extras_isolation.py`, which re-runs the mutation
-battery behind it. It EDITS THE WORKING
-TREE and restores it, so run it on a clean checkout and read `git
-status` afterwards; a full pass takes over ten minutes, so it takes a
-label prefix to run one part. The match is a PREFIX and not a token, so
-`M1` selects M1 and M10 through M18, ten of the twenty mutants; `N1`
-or `M2` selects one. Passing a label that matches nothing exits 1 and
-prints every label there is, which is also how to list them. That guard exists because
-an unguarded `import pypdf` reached the v0.7.0 tag past every reviewer
-pass of that release, all of them reading in an environment that had it
-(INC-20260810-2140-shared).
-
-That incident also produced a rule about WHEN a tag is cut: a version tag
-names a commit whose CI on `main` has already concluded green. Release
-checks that exact SHA through the GitHub API on tags and `dry-run/**`
-pushes, requiring the latest attempt of the newest matching CI run to have
-completed successfully. The highest `run_number` wins, with `created_at`
-breaking ties; older failed runs do not block a newer success.
-A missing run fails; for a docs-only commit, run
-`gh workflow run ci.yml --ref main` and wait for success at that SHA before
-retrying the release. The v0.7.0 tag was pushed
-fifteen seconds after its branch, with CI still running and then red.
-The battery above was named `prove_extras_and_ci_guards.py` and carried
-a mechanical half of that rule until 2026-08-11.
-
-## What is each folder?
-
-| Folder | Purpose in plain language |
+| Folder | Purpose |
 |---|---|
-| `src/pyflightstream/` | The package, one subpackage per pipeline stage (versions, commands, script, results, cases, run, workspace, post, qa, plus fsi, probes, farfield) |
-| `src/pyflightstream/commands/` | The command database: what exists in which FlightStream version, with a manual page or probe-report citation per entry |
-| `tests/` | Three tiers in three folders: `tier1_offline` runs anywhere with no FlightStream, `tier2_validity` and `tier3_licensed` need the licensed machine, and `tier3_licensed` IS a campaign workspace (`docs/tiers.md`) |
-| `reports/` | Committed evidence from licensed machines: command validity (compat), physics regression, drift, and research cards |
-| `docs/` | Documentation source (ProperDocs); reference pages are generated from the database, never committed |
-| `examples/` | Runnable example scripts in percent format |
-| `guide/` | LaTeX, figure sources and attribution for the downloadable guides; compiled files go into build artifacts |
-| `_private/` | Local only, never committed: FlightStream manuals, executables, research geometry, the design documents and the plan ledger |
+| src/pyflightstream/ | Package modules and evidence-backed command database |
+| tests/tier1_offline/ | Offline behavior and structural checks |
+| tests/tier2_validity/ | Licensed command-validity tests |
+| tests/tier3_licensed/ | Synthetic campaign workspace and result checks |
+| docs/ | Website sources; API and CLI references are generated |
+| examples/using-CLI/, examples/using-API/ | Matching runnable workflows |
+| guide/ | LaTeX, figures and attribution; PDFs are build artifacts |
 
-## Environment variables
-
-Maintainers: **no tracked file here reads a named environment variable to
-configure this package**, and a fresh clone is owed no list of them. The
-wording is careful and the earlier draft was not: the run layer does hand
-the AMBIENT environment to the solver subprocess, because the solver's own
-licence server address and installation variables live there, and a
-sentence saying this repository reads nothing at all would send a
-maintainer hunting a licence failure that is not a bug. What no tracked
-file does is read a NAMED variable to decide how this package behaves.
-The licensed solver is located by a required argument that is never
-guessed, `--fs-exe` on the quality-assurance command line; a run matrix
-locates it instead through its workspace's own executables table. An earlier version of
-this paragraph said a few machine-specific variables located the solver
-and its manuals for the licensed tiers, and pointed at a file that
-stopped being published. Both halves were wrong, and the paragraph
-shipped inside the package metadata, so it reached every reader of the
-published page.
+Do not commit licensed manuals, local installation paths or research data.
+Select solver executables explicitly or through workspace configuration.
+Solver subprocesses inherit the ambient licensing environment.
 
 ## Hard invariants
 
-These are the non-negotiable rules, and this file is where a fresh clone
-finds them. They are NUMBERED, and the numbers are cited from the code:
-129 places in this repository name an invariant by its number, so the
-numbering is an interface and not a presentation choice.
+These numbers are stable because source and tests cite them.
 
-1. **No proprietary text.** No manual prose is reproduced. A fact taken
-   from a licensed document appears as a paraphrase with a locator.
-2. **No AGPL-derived code.** The emitter is specified from the official
-   manual and probe evidence only. Every commit carries the clean-room
-   trailer that says so.
-3. **Evidence before a claim.** Every command database entry carries a
-   citation, a status is never hand-edited into a promoted entry, and
-   nothing claims knowledge it does not have.
-4. **Versions are only added.** The registered version list is the
-   ordering authority and grows; an entry is never removed or reordered.
-5. **No proprietary content, no research geometry, and no naming of the
-   author's employer or the predecessor toolchain**, anywhere that
-   ships.
-6. **English names everywhere**, in code, in tests and in documentation.
-7. **The layered pipeline holds.** A module imports only from the layers
-   below its own.
-8. **Didactic refusals.** A refusal names what was given, what is
-   accepted, and where to look; it never merely says no.
+1. **No proprietary text.** Paraphrase manual facts and provide a locator.
+2. **No AGPL-derived code.** Specify the emitter from official manuals and
+   probe evidence only. Include the clean-room trailer in every commit.
+3. **Evidence before a claim.** Command rows carry citations. Promote statuses
+   from recorded evidence, never by hand.
+4. **Versions are only added.** Preserve the registered version order.
+5. **No proprietary content, research geometry, employer names or predecessor
+   toolchain names** in shipped content.
+6. **English names everywhere**, including code, tests and documentation.
+7. **Downward dependencies.** Follow the architecture's layer ranks.
+8. **Didactic refusals.** State the given value, accepted input and available
+   remedy, with context a caller can use.
 9. **No notebooks in Git.**
 
-THE NUMBERING IS THE ONE THE CODE ALREADY CITES. It was previously
-stated in a file at the repository root that stopped being published in
-0.9.0. Two populations are involved and they are different sizes, so
-both are named rather than blurred: **129** places cite an invariant by
-NUMBER, and **70** pointers named that retired FILE and were retargeted
-here. Renumbering to suit a shorter prose list was considered and
-refused: 44 of the 129 citations sit in `reports/` and `CHANGELOG.md`,
-which are evidence and history and are not rewritten, so a renumber
-would leave 85 citations under one numbering and 44 under another in one
-tree, with nothing marking which is which.
+Geometry, spreadsheet and identifier guards protect the shipped surface.
+Intentional exceptions need a reason in the applicable allowlist.
 
-## How to add a command
+## Add or update a solver command
 
-Draft the YAML entry with layout, phase, typed args, one
-evidence citation (manual_ref for the page that documents the command, or
-probe_ref naming a committed report where no edition documents it), and
-status `documented`; add emit-validation and golden
-tests; open a pending-probe issue if no licensed machine is available. A
-command becomes `verified` only through a committed Tier 2 probe report.
+Write its YAML layout, phase, typed arguments, status and evidence locator.
+Use manual_ref for documented grammar or probe_ref for measured behavior.
+Add emit-validation and golden tests. Verification needs a licensed result
+for the relevant build.
 
-`pyfs-manual` does the reading half of that first step.
+Use `pyfs-manual sweep` for an editions manifest, coverage for one manual,
+draft for entries requiring review, and citations to check page locators.
+Resolve every draft placeholder before acceptance. The manifest names licensed
+files and remains local. Use each command's --help for required arguments.
 
-`sweep` is the form that matches the chapter rule in
-`docs/srs/data-model.md`, which is that a chapter enters for every
-registered edition at once. Given a `--editions` YAML manifest naming the
-registered builds and their page ranges, it reports the commands no edition
-has an entry for, with the page and the editions each one needs, and
-`--by-section` groups them by chapter and `--fail-if-absent` makes a
-residual fail rather than report. Use it for a coverage push:
-`coverage`, below, answers the same question of ONE manual, and a command
-absent from one edition may be recorded from another.
+`pyfs-manual register` previews unchanged grammar carried to a registered build;
+--write applies it. Rehearse with --commands-dir pointing at a copy. Changed
+grammar needs review. When a build inherits no evidence, regenerate its absent
+command list with scripts/gen_absent_commands.py and run the database tests.
 
-`sweep` reports a SECOND finding beside that one, and the two answer
-different questions. The first asks which commands have no entry; the
-second asks which commands an edition documents that its own build
-cannot emit, which the first is structurally blind to because it
-compares entry names. An entry that exists and carries no row for one
-edition reads as covered, and on 2026-08-10 exactly that hid a command
-three builds could not emit.
+See [versions and evidence](concepts/versions-and-evidence.md) and
+[build support](builds.md) for the two status ladders.
 
-`citations` is the one to run AFTER writing page citations, and the
-step is not optional bookkeeping: it exists because ten citations were
-found pointing at a document whose pagination had moved under them,
-each at a real page of a real manual, so nothing looked wrong. Run it
-over the whole manifest rather than the edition you just touched, since
-a re-conversion of an OLD manual is what produced those ten. It is the
-only subcommand that exits non-zero on a finding.
+## Style and mutation tests
 
-It also reports, per edition, how many rows it could re-read at all.
-Most rows of the flagship build carry no page of their own, resting on
-the entry's `manual_ref` instead, so a low figure or a zero there is the
-shape of the database rather than a defect; the number is printed
-because a count of editions read would hide it.
+Use Ruff, numpydoc docstrings with units and reference frames, and standard
+aerodynamic symbols. Markdown and docstrings use neither em nor en dashes.
 
-`scripts/chm_to_pdf.py` is the reading tool that is not a subcommand.
-One install, 25.000, ships its manual only as a compiled help archive,
-and this converts it to a pdf whose page numbers anyone can land on
-again: the topic order comes from the archive's own table of contents,
-the geometry is pinned, the timestamps the renderer embeds are
-stripped, and the hash is printed. Ten committed citations depend on
-that reproducibility, so re-render with a different renderer and expect
-the page numbers to move. It needs the `[manual]` extra and an archive
-extractor; its own docstring carries the two commands.
+Mutation tools use _mutation_harness.apply_mutant and verify byte-exact
+restoration. Each mutant changes a unique live anchor and must be detected by
+the behavior test. Keep defect text as a literal, preserve line endings and
+run destructive batteries on a clean copy.
 
-`scripts/prove_extras_isolation.py` tests optional-dependency isolation by
-mutating a clean checkout. Check the tree after running a mutation battery.
+## Report a version break
 
-`pyfs-manual register --editions <manifest> --fs-version <canonical>` is
-the sixth subcommand and the only one that writes into the command
-database.
-It carries a build's documentation forward: for every command the new
-edition describes exactly as its predecessor did, it writes a
-`documented` row citing the new edition at the page it was found on. The
-comparison is of what the editions SAY (placeholders, sample, parameter
-table), never of the page number, because a reflow repaginates without
-changing a word. Anything described DIFFERENTLY is reported and never
-written, which is the line between carrying a reading forward and
-inventing one. Dry run by default; `--write` writes, and
-`--commands-dir` points it at a copy to rehearse against first.
-
-The build must be BOTH a row of the manifest and a registered build.
-The manifest deliberately does not resolve its labels, so an
-unregistered build can be swept before it is added; writing is the one
-thing that needs the stricter rule, since a row is keyed by the
-canonical identifier. The transaction itself is
-`pyflightstream.utils.database.register_edition`, not the argument
-parser: it validates every chapter it would produce against the command
-schema before a byte reaches the disk, exactly as `apply_compat` does,
-and it is importable so it can be tested. Re-running it is a no-op that
-says so rather than a refusal.
-
-The QA geometry helpers are the maintainer-facing half of
-`pyflightstream.qa.geometry`: `mean_edge_length` measures a mesh's local
-face size, and the keyword-only `translation_m` on `wing_triangles`
-and `generate_wing_stl`, and `name` on `generate_wing_stl` alone, place
-and label a second copy of a shape. They exist so a gap between two components can be expressed
-as a RATIO of the local face length, which is the form the vendor's
-caveat about proximity-based boundary-layer mapping is stated in. The
-worked example is in `mean_edge_length`'s own docstring and is executed
-by the docs run. Pass `name` whenever you write two copies of one shape:
-the default solid label is derived from the aerofoil alone, so two
-translated copies collide, and that made the loads parser refuse all
-sixteen exports of a licensed run on 2026-08-17.
-
-`scripts/gen_absent_commands.py <build>` writes the list of commands a
-registered build cannot emit, into `tests/tier1_offline/goldens/absent_on_<build>.txt`,
-and a tier 1 test compares every such file against the database. Run it
-in the same commit as any row you write for a build that inherits
-nothing, because the file carries counts as well as names and both move.
-26.123 is the first such build; the script takes any registered one.
-
-The public mutation tools cover edition comparison, optional-dependency
-isolation, flow mapping and geometry. Release and historical evidence checks
-are maintained outside the distribution.
-
-**If you write one of these, call `_mutation_harness.apply_mutant`.**
-It raises if restoration is not byte-exact. Check that each mutation changes
-a unique live anchor and that the associated behavior test detects it.
-
-**Do not anchor a battery on `git show HEAD:<path>`.**
-That battery did, and it broke the day its own fix was committed: the
-HEAD blob is the pre-fix text only while the fix is uncommitted, and
-afterwards five of its six mutants wrote the file back exactly as it
-already was, mutated nothing, and reported SURVIVED. It failed loudly,
-which is the honest direction, but it failed reading as though the guard
-had missed five real defects. Carry the pre-fix text as a LITERAL and
-assert the live anchor is present and unique before replacing it; a
-commit pin only moves the trap to the next rebase. And translate line
-endings onto the target: two files here are CRLF on disk, and a
-line-feed anchor silently matches nothing in them.
-
-The mapping and geometry batteries follow that shape.
-`scripts/prove_flow_mapping_guard.py` covers the rule that a YAML flow
-mapping is rendered in exactly one place in the package, in both
-spellings a Python source can write one, plus the parameter that used to
-let a caller hand in a pre-rendered row.
-`scripts/prove_geometry_guards.py` covers the mesh face-length
-measurement and the translated STL, both of which had tests that
-survived sabotage before it was written.
-
-The manifest names
-paths of licensed manuals and is never committed (invariant 1);
-`pyfs-manual sweep --help` prints an example row.
-
-`surface` reads the same manifest and asks the other question: what each
-build documents, and what changed between two of them. Use it when a
-build arrives and you want to know what the vendor moved before you read
-anything; `reports/RPT-024` is its committed output, and its last two
-sections are regenerated by re-running it.
-
-Then, given a manual pdf and its page ranges: `coverage` lists what that one
-edition documents and the database does not, and `draft` renders entries for
-those commands. It writes
-only with `--write --out`. Read what it produces as a starting point and not
-as evidence. It leaves `???` wherever no rule could read a value, which the
-schema refuses on purpose, so an unreviewed draft turns the suite red rather
-than becoming grammar the emitter validates other people's scripts against.
-Each drafted entry also carries a `drafted:` line naming the tool and the
-page; resolve the `???` values against the manual and delete that line in
-the same edit.
-
-## How to report a version break
-
-Open an issue with: the FlightStream version (YY.XXX), the script excerpt
-that fails, and the relevant log lines. This is exactly the evidence the
-probe suite needs to reproduce and classify the break.
-
-## QA tiers and what each proves
-
-Every new tier-1 `test_*.py` file must be listed in exactly one package in
-`tests/tier1_offline/packages.json`. Choose the highest layer it imports and
-exercises, or `guards` for repository checks, and keep each list sorted.
-Run a package with `pytest -m pkg_post` (replace `post` with its package name,
-using underscores for hyphens).
-
-Release regression tests live in `test_regression_<subject>.py` or the existing
-subject module. Classes keep each former module's fixtures isolated; historical
-test names remain available for selecting individual cases.
-Workflow cases retain independent executions while
-`tests/tier1_offline/goldens/workflows/payloads.json` maps their logical filenames
-to shared canonical payloads.
-
-The suite is three folders under `tests/`, one per tier, and the folder
-says what a test needs before it says what it checks
-(`docs/tiers.md`).
-
-* Tier 1 (`tests/tier1_offline`, `pytest`, runs anywhere): the database is
-  internally consistent, the emitter refuses invalid commands per version,
-  parsers read the committed fixtures, generated scripts match the
-  goldens, and every matrix of the tier-3 workspace plans READY with its
-  scripts equal to their goldens (`test_tier3_offline.py`).
-* Tier 2 (`tests/tier2_validity`, `pyfs-qa probe`, licensed machine): each
-  database command actually works in a given FlightStream version; results
-  are committed under `reports/compat/` and promoted into the database by
-  `pyfs-qa apply-compat`.
-* Tier 3 (`tests/tier3_licensed`, licensed machine): the folder IS a
-  campaign workspace. Seven run matrices over one synthetic library, every
-  capability of the matrix as a row, run by `pyfs-matrix run` on the build
-  each row names through the gitignored `inputs/executables.local.toml`,
-  and one test per row beside them, selected by
-  `pytest -m needs_flightstream tests/tier3_licensed`. The qa physics
-  cases are rows of `matriz_physics.fs`, reduced with the functions of
-  `pyflightstream.qa.physics` and judged against `qa/references/` with the
-  WARN and FAIL bands the author set; `pyfs-qa physics --workspace
-  tests/tier3_licensed` runs that matrix through the run layer, reduces
-  the records the same way and writes the `reports/physics/PHY-*` pair,
-  and `pyfs-qa drift` runs it twice under two registries and diffs the
-  two reductions (PFS-2031.17, the author's decision B of 2026-09-08; the
-  hand-built case builders retired with it).
-
-Every module of the two licensed tiers carries `needs_flightstream` and the
-default `pytest` deselects it. `pyfs-qa cases` prints the physics matrix
-without running anything, and the committed reports live under
-`reports/compat/` and `reports/physics/`.
-
-Executable examples: the docstring doctests and the python code blocks
-in the root README and `docs/` are run in CI so a stale example fails.
-Run them locally the same way CI does. One category is promoted to an
-error, not every warning: `PyflightstreamWarning` and its subclasses,
-which is everything this package raises in its own voice. A dependency's
-`DeprecationWarning` is left alone, because nobody here can fix an
-upstream deprecation and a build that reddens for a reason nobody can fix
-stops being believed.
-
-```
-pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
-```
-
-The plain `pytest` above (Tier 1) does not collect these, so run this
-command after editing a docstring example or a README/docs snippet.
-`pip install -e .[dev,fsi,geom]` already pulls the runner (`sybil`).
-
-## Style
-
-* ruff handles lint and format; run `pre-commit run -a` before pushing.
-* Docstrings: numpydoc convention; every parameter states units and, where
-  it applies, the reference frame.
-* Aerodynamic symbols keep their standard names (CL, CDi, J, alpha_deg);
-  ruff N803/N806 are exempted for this reason.
-* House style: no em or en dash characters in Markdown or docstrings
-  (enforced by tests/tier1_offline/test_house_style.py).
+Include the canonical build, minimal script excerpt and diagnostic. Exclude
+proprietary geometry and manual text. Distinguish planning, stub execution
+and actual solver execution.
 
 ## AI-assisted development disclosure
 
@@ -414,55 +125,22 @@ AI: it never reads the AGPL pyFlightscript package. Contributors are
 welcome to use AI assistance under the same rules; you remain
 responsible for what you submit.
 
-## License note
+## License and clean-room provenance
 
-MIT. Contributions must be original work or MIT-compatible. Contributions
-derived from the AGPL pyFlightscript package are rejected, including
-translations or close adaptations of its code.
+Contributions must be original or MIT-compatible. Code derived from the AGPL
+pyFlightscript package, including translations and close adaptations, is not
+accepted. Every commit ends with this exact final paragraph:
 
-## Clean-room provenance (SRS FR-08)
-
-Every commit carries this trailer, as the last paragraph of its
-message:
-
-```
+```text
 Clean-room: emitter specified from the official manual and probe evidence only; no code, structure or docstrings from the AGPL predecessor
 ```
 
-`tests/tier1_offline/test_clean_room.py` asserts it on every commit since its
-baseline and fails the suite without it.
-
-Amending is banned in this repository, so a commit that missed the
-trailer is corrected by a follow-up commit that declares **on its
-behalf**, naming it:
-
-```
-Clean-room-for: 83db2f2d5194fbd55d48d4be546d7a900ed10ca3
-Clean-room: emitter specified from the official manual and probe evidence only; no code, structure or docstrings from the AGPL predecessor
-```
-
-Both lines go in the same final paragraph. The declaring commit must
-itself declare, must come after the commit it covers, and must name the
-full hash of a commit inside the range under review; a follow-up that
-fails any of those is refused rather than accepted quietly.
-
-**Why the naming is necessary, and not bureaucracy.** The check is a
-WALK over every commit since the baseline, not a check on the change in
-front of you. A plain follow-up commit *adds* a commit to that walk and
-leaves the failing one in it forever, so "a follow-up commit that says
-so" -- which is what this page said until 2026-08-24 -- could never clear
-the guard. It happened twice before the wording was fixed: once on
-2026-08-09, when a release commit could not be tagged until its message
-was rewritten, and once on 2026-08-24, when a thirteen-line `.gitignore`
-change turned CI red on `main`.
-
-What the trailer is, and is not. It is a DECLARATION with an auditable
-record of who made it: nothing can prove the absolute negative "the
-predecessor was never read", and a mechanism that claimed to would be
-worse than none. If you cannot make this declaration about a change, do
-not make the commit.
+Amending is prohibited. Correct a missing declaration in a follow-up commit:
+its final paragraph names `Clean-room-for: <full commit hash>` followed by the
+same Clean-room line. The referenced commit must precede the declaration and
+belong to the checked range. Declare only what you can support.
 
 ## Release notes
 
-Write user-visible changes directly in the Unreleased section of CHANGELOG.md.
-Include migration instructions in docs/upgrading.md when existing usage changes.
+Write user-visible changes in CHANGELOG.md's Unreleased section. Format changes
+and migration instructions have one home, docs/upgrading.md.

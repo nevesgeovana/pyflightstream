@@ -234,7 +234,6 @@ nav:
       - Test tiers: tiers.md
       - House conventions: conventions.md
       - Standards alignment: srs/standards.md
-      - Roadmap: srs/roadmap.md
 
 # Requirement registers and release history remain repository material.
 exclude_docs: |

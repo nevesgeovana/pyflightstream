@@ -1,11 +1,7 @@
 # Standards alignment
 
-The external standards and community practices this project aligns
-with, each verified at its adoption date (initial review 2026-07-22;
-later rows carry their own dates). Adopted means the
-practice is in force; aspirational means it is on the adoption
-backlog; considered means it was evaluated and deliberately not
-adopted, with the reason recorded so the evaluation is not repeated.
+Current standards and community practices used by contributors. The table
+states how each practice applies and what checks it.
 
 ## Adopted
 
@@ -38,33 +34,12 @@ not hold, or when it names a CI command that no workflow runs.
 | Executable documentation examples in CI | [Sybil](https://sybil.readthedocs.io/en/latest/) (chosen 2026-07-23 over plain pytest doctest: docs markdown examples are tested too) | `pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning` runs the docstring doctests and the README/docs code blocks in CI with warnings promoted to errors; `sybil` in the `[dev]` extra (shipped in v0.3.0) | `pytest src/pyflightstream README.md docs -W error::pyflightstream._errors.PyflightstreamWarning` |
 | Single-source versioning (test-guarded) | [PyPA discussion](https://packaging.python.org/en/latest/discussions/single-source-version/) | `__version__` derives from installed metadata; a Tier 1 test asserts the version-bearing files agree; full VCS-derived versioning is on the backlog | `tests/tier1_offline/test_metadata_currency.py` |
 | Docs warnings as errors | [MkDocs strict mode](https://www.mkdocs.org/user-guide/configuration/#strict), inherited by [ProperDocs](https://github.com/properdocs/properdocs) (the maintained MkDocs fork, BSD-2-Clause; license evidence RPT-009) | `properdocs build --strict` in CI (migrated from MkDocs after a green drop-in test, 2026-07-23) | `properdocs build --strict` |
-| Diataxis (as a map) | [diataxis.fr](https://diataxis.fr/) | Each fact has one owning home, and other pages link instead of restating. Under NFR-29, the navigation is grouped by the four quadrants, tutorials, how-to guides, reference and explanation, with this SRS under a Project group, and the Python API and command-line references are generated from the docstrings and the argument parsers | convention |
+| Diataxis (as a map) | [diataxis.fr](https://diataxis.fr/) | Each fact has one owning home, and other pages link instead of restating. The navigation has eight reader sections; the Python API and command-line references are generated from the docstrings and argument parsers | convention |
 | EARS-informed requirement wording | [alistairmavin.com/ears](https://alistairmavin.com/ears/) | New requirements use the EARS sentence shapes with stable IDs, and an implemented requirement names its evidence in its own Origin line, which is what `tests/tier1_offline/test_traceability.py` reads | convention |
 | Checklist design principles | [projectcheck.org](http://www.projectcheck.org/checklist-for-checklists.html) | The maintenance procedures a release follows are structured around explicit pause points, DO-CONFIRM for an audit and READ-DO for a release, with few killer items per block; `CONTRIBUTING.md` is the public statement of them | convention |
 | ISO/IEC/IEEE 29148 (outline only) | [iso.org/standard/72089.html](https://www.iso.org/standard/72089.html) | This SRS borrows the information-item outline and the requirement-quality characteristics (singular, verifiable, unambiguous), not the process weight | convention |
 | Decision records (pattern) | [Nygard ADRs](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions), [MADR](https://adr.github.io/madr/) | Decisions are numbered, dated, evidence-linked and never rewritten. The public store is this SRS, whose requirements carry their Origin and date, together with CHANGELOG.md; the maintainer's working records are kept outside this repository and are not part of the published specification | convention |
 | Role-based review (team-role model, adopted 2026-07-23) | [US-RSE](https://us-rse.org/) for the research-software-engineering standard; [AIAA G-077](https://arc.aiaa.org/doi/book/10.2514/4.472855) and [NASA-STD-7009](https://standards.nasa.gov/standard/NASA/NASA-STD-7009) for the V&V seat; [ISTQB](https://istqb.org/) for the QA seat; [Google SRE](https://sre.google/sre-book/release-engineering/) for release engineering; [JOSS](https://joss.readthedocs.io/en/latest/review_criteria.html) and [pyOpenSci](https://www.pyopensci.org/software-peer-review/) review criteria as the periodic audit layer | Five reviewer seats (architect, QA, V&V, technical writer, API designer) read every work item's diff before it closes, which is part of the definition of done. The owning seat keeps the non-delegable seats: product owner, domain expert, numerical analyst. This row answers `convention` deliberately and the honesty is the point of the column: the review passes are a working practice of this project's maintainer and nothing in this repository refuses a change that skipped one. What IS mechanical is stated in the rows around it, and none of it is a substitute: CI runs the suite, the type check and the two lint legs on every push, and a release is built and published only from a tag whose workflow legs are green | convention |
-
-## Aspirational (adoption backlog, tracked as a plan item)
-
-| Practice | Reference | Gate |
-|---|---|---|
-| VCS-derived version (single authority = the Git tag) | [setuptools-scm](https://setuptools-scm.readthedocs.io/en/latest/) / [hatch-vcs](https://github.com/ofek/hatch-vcs) | Build-backend change; the owning seat decides the vehicle |
-| Normative repo checks | [pyOpenSci packaging guide](https://www.pyopensci.org/python-package-guide/), [Scientific Python Development Guide](https://learn.scientific-python.org/development/), [sp-repo-review](https://github.com/scientific-python/repo-review) | The audit skill runs the checklist manually today; the mechanical runner is backlog |
-| Supply-chain posture | [OpenSSF Best Practices](https://www.bestpractices.dev/en/criteria/0), [Scorecard](https://github.com/ossf/scorecard), [SPEC 8](https://scientific-python.org/specs/spec-0008/), [PyPI Trusted Publishers](https://docs.pypi.org/trusted-publishers/) | PARTLY DELIVERED at v0.4.0, and kept on this table with the residual named rather than moved wholesale. In force: PyPI trusted publishing (OIDC, no stored token, mandatory, never a manual upload); every workflow action pinned by commit digest rather than by tag; least-privilege workflow permissions with the OIDC token requested only by the job that publishes; and a release that builds once, records the wheel SHA-256, tests THAT wheel on both platforms at both Python versions, and refuses to publish anything whose digest moved. Still aspirational: the OpenSSF Best Practices badge and a Scorecard run. Solo-maintainer subset only (code-review and branch-protection checks are accepted misses, documented) |
-| Support-window policy | [SPEC 0](https://scientific-python.org/specs/spec-0000/) | NFR-22 is the requirement (tested range per dependency, pre-1.0 pin form, Python-ceiling propagation) and is pending; what stays aspirational on this row is aligning those windows with SPEC 0's published schedule |
-| pyproject metadata completeness | [PyPA pyproject guide](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/) | Classifiers and well-known URLs landed 2026-07-23 (audit); remaining: the SPDX license expression. THE DEFERRAL'S STATED REASON WAS CORRECTED 2026-08-20: this cell said the expression was deferred WITH the build-backend item, and the two are independent. Adopting PEP 639 needs a `setuptools>=77` floor bump and nothing else; the build-backend row is waiting on a decision that does not touch it. The fictional coupling is what kept a one-line edit deferred past setuptools' own published sunset of 2026-02-18, which has passed with the table form still warning rather than failing. What the migration DOES need is care rather than a gate: emitting `License-Expression` makes PyPI reject the upload while the license classifier is still present, so the classifier is deleted in the same commit, and doing half of it is the one way to turn a warning into a failed upload. Not attempted during a release week |
-| pyOpenSci peer-review self-audit | [EiC checklist](https://www.pyopensci.org/software-peer-review/how-to/editor-in-chief-guide.html) | Run as self-audit; includes the generative-AI-use disclosure item, relevant to this project's AI-assisted sessions |
-
-## Considered, not adopted
-
-| Practice | Reason |
-|---|---|
-| [SPEC 1 lazy loading](https://scientific-python.org/specs/spec-0001/) | Explicitly not recommended at this project's size; import overhead is negligible. Decision recorded so the scan is not repeated |
-| [repolinter](https://github.com/todogroup/repolinter) | Archived upstream (2026); its rule-set idea is subsumed by the pyOpenSci checklist and sp-repo-review |
-| Full ISO 29148 process | Process weight disproportionate to a solo-maintained library; the outline and quality characteristics suffice |
-| ADR file tooling (adr-tools) | Unmaintained; the pattern is adopted, the tooling is not, and the session records already store decisions |
-| Full reproducible-builds | Bit-reproducibility is overkill at this size; clean-checkout CI builds and recorded tool versions cover the intent |
 
 ## Domain conventions
 

@@ -176,9 +176,8 @@ worse than no page at all.
   axis, no re-parameterisation, no trim extraction.  carries that
   promise and is `pending`.
 
-Where a capability above matters to you, the roadmap and the SRS
-requirement statuses are where its state is tracked, and the changelog
-is where it will be announced.
+Consult the task page for current capabilities and limitations. User-visible
+changes are announced in the changelog.
 
 
 ## Workspace routes by study stage
