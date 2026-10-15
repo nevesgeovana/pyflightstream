@@ -115,3 +115,62 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
     saved = case.model_copy(update={"geometry": str(tmp_path / "wing.fsm")})
     with pytest.raises(ValueError, match="wing.surface.stl"):
         planar_points(saved, pproc.probes[0], 1.0)
+
+
+def test_p0410_workspace_post_reports_structure(tmp_path):
+    import shutil
+
+    import numpy as np
+
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.fsi.nodes import (
+        flatten_blade_translations,
+        generate_node_layout,
+        write_fsidisp,
+    )
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance
+
+    recorded = _steady_workspace_with_provenance(tmp_path / "fixture")
+    original = recorded.read_manifest()[0]
+    workspace = CampaignWorkspace.init(tmp_path / "posted")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1"="all"\n')
+    for relative in original.outputs:
+        target = workspace.sim_dir(original.sim_id) / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(recorded.sim_dir(original.sim_id) / relative, target)
+    work = workspace.sim_dir(original.sim_id) / "structural"
+    work.mkdir()
+    case = steady_wing_case(tmp_path)
+    config = case.fsi
+    (work / "config.json").write_text(config.model_dump_json())
+    layout = generate_node_layout(config)
+    local = np.zeros((9, 3, 3))
+    for index in range(9):
+        w, theta = index * 0.001, index * 0.002
+        local[index, :, 1] = [
+            w,
+            w + layout.le_offset_m[index] * theta,
+            w + layout.te_offset_m[index] * theta,
+        ]
+    write_fsidisp(work / "FSIDisp.txt", flatten_blade_translations(layout, [local]))
+    workspace.append_record(
+        original.model_copy(
+            update={
+                "cwd": str(work),
+                "inputs_sha256": {
+                    "config.json": file_sha256(work / "config.json"),
+                    "fsi-provenance.json": "0" * 64,
+                },
+            }
+        )
+    )
+    write_campaign_products(workspace)
+    products = list(workspace.root.glob("post/**/structure/*_deflection.csv"))
+    assert len(products) == 1
+    import csv
+
+    with products[0].open() as handle:
+        rows = list(csv.DictReader(handle))
+    assert float(rows[-1]["deflection_m"]) == pytest.approx(0.008)
+    assert float(rows[-1]["twist_deg"]) == pytest.approx(math.degrees(0.016))

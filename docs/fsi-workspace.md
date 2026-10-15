@@ -1,5 +1,22 @@
 # FSI workspace inputs
 
+## Structural products after a run
+
+Ordinary `pyfs-matrix post` writes `structure/<point>_deflection.csv` for
+admitted coupled points. Rows contain blade number, station radius in metres,
+deflection in metres and elastic twist in degrees. The decoder uses the
+recorded configuration's node ordering and embedding, undoing the wing or
+rotor frame before decoding each station's translations. The configuration
+digest must match the run's recorded input. Missing data and direct-morphing
+vertex files produce a named skip, not a fabricated station solution.
+
+When present, the recorded `fsi_convergence_log.csv` is retained as
+`structure/<point>_history.csv`. Products record source digests. Keep the
+coupled run's working folder available for post; no structural solve is
+repeated to reconstruct missing output. The workspace regression example
+uses a tip deflection of 0.008 m and tip twist of 0.016 radians and checks
+the resulting CSV through the ordinary campaign post stage.
+
 ## Structural quantities before a run
 
 Calculated `[sections]` accepts exactly one contour source: `sections_m`

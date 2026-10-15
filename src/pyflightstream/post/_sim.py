@@ -86,6 +86,7 @@ from pyflightstream.post._stage import (
     SECTIONS_DIR,
     _refuse_aliases_a_file_name_cannot_tell_apart,
 )
+from pyflightstream.post._structure import structure_products
 from pyflightstream.post._tables import (
     ADVANCE_RATIO_COLUMN,
     ProductError,
@@ -1463,6 +1464,7 @@ def _superfile_drafts(ctx: SimContext) -> None:
 
 #: The steps of one simulation's post, in the order the manifest has always had.
 _STEPS: tuple[Callable[[SimContext], None], ...] = (
+    structure_products,
     _group_polars,
     _point_products,
     _rotor_table_products,

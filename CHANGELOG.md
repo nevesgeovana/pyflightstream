@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Changed
 
+- Workspace post writes mapped structural deflection, twist and available
+  coupling history from admitted coupled points, with input-digest checks.
+
 - Planar probe grids are declared in `[[probes]]`, with reference-frame placement,
   axis distributions and near-surface refinement checked during plan. Saved
   simulations require a separate surface mesh export before this route plans.

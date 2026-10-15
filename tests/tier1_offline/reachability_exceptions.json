@@ -40,8 +40,6 @@
    "node": "PFS-2140.003",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.fsi.kinematics.decode_station_translations",
-    "pyflightstream.fsi.kinematics.twist_from_node_translations",
     "pyflightstream.fsi.loads.cross_check_totals"
    ]
   },

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 
-from pyflightstream.fsi.centrifugal import rotating_frequencies
 from pyflightstream.fsi.config import FsiConfig
 
 
@@ -15,6 +14,8 @@ def structural_assessment(config: FsiConfig) -> dict[str, object]:
     centrifugal stiffness. The warning is a quasi-static validity screen,
     not a claim of dynamic stability or licensed coupling validation.
     """
+    from pyflightstream.fsi.centrifugal import rotating_frequencies
+
     modes = rotating_frequencies(config)
     frequencies = modes.frequencies_rad_per_s
     ratios = {
