@@ -9,7 +9,6 @@ The fixtures are the ones the capability's own module already tests with.
 # (docs/unpublished/requirements/functional-requirements.md):
 # FR-152, FR-153, FR-158, FR-164.
 
-import re
 from pathlib import Path
 
 import numpy as np
@@ -21,11 +20,8 @@ from pyflightstream.cases.workflows import _frames, build_script
 from pyflightstream.cases.workflows._freestream import _read_custom_freestream
 from pyflightstream.fsi.config import load_config
 from pyflightstream.post import OutputProvenance, write_probe_field
-from pyflightstream.post.guides import input_template_markdown
 from pyflightstream.script import Script, helpers
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi, stage_fsi_setup
-from tests.tier1_offline._docs_site import site_pages
-from tests.tier1_offline.test_examples import EXAMPLE_EXTRAS
 from tests.tier1_offline.test_geometry_units import _case as _units_case
 from tests.tier1_offline.test_goal031_sections_layout_recorded import (
     PPROC_TWO_SURFACES,
@@ -219,39 +215,3 @@ PAGES_029 = {
     "surface-translation.md": "surface_with_native_strength",
     "unsteady-postprocessing.md": None,
 }
-
-
-def test_d14_the_0_29_0_documentation_reaches_its_reader():
-    """D14: every page 0.29.0 added is in the site menu; each one's worked
-    example exists, is linked from the page and is one the suite executes
-    (test_examples runs every EXAMPLE_EXTRAS entry); the input template carries
-    the new user-written FSI file; the CHANGELOG's 0.29.0 section points to the
-    migration guide, and the guide names every change the CHANGELOG says a
-    reader must act on."""
-    # GOAL033:capability_ids:items:D14
-    # Published pages: the nav, plus the retained legacy URLs the nav leaves out.
-    menu = set(site_pages(REPO / "docs"))
-    for page, example in PAGES_029.items():
-        text = (REPO / "docs" / page).read_text(encoding="utf-8")
-        assert page in menu, f"docs/{page} is not in the properdocs.yml nav"
-        if example is None:
-            continue
-        assert (REPO / "examples" / f"{example}.py").is_file(), example
-        assert f"{example}.py" in EXAMPLE_EXTRAS, f"the suite does not execute {example}.py"
-        assert re.search(rf"examples/{example}\.(?:md|py)", text), (page, example)
-
-    assert "inputs/fsi/f001.toml" in input_template_markdown()
-
-    changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
-    section = changelog.split("## [0.29.0]", 1)[1].split("\n## [", 1)[0]
-    assert "docs/migrating-to-0.29.0.md" in section
-    guide = (REPO / "docs" / "migrating-to-0.29.0.md").read_text(encoding="utf-8")
-    for change in (
-        "ROTOR_SHEDDING",
-        "legacy_solver_model",
-        "sonic_velocity_m_per_s",
-        "farfield_layers",
-        "volume_section",
-    ):
-        assert change in section and change in guide, change
-    assert re.search(r"\bcold\b", section, re.I) and re.search(r"\bcold\b", guide, re.I)

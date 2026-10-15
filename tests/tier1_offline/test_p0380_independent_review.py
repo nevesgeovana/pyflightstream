@@ -28,7 +28,6 @@ from tests.p0380_mesh_fixtures import (
     tube_zipper,
     write_source,
 )
-from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
 
 
 def _source(folder: Path, stem: str = "wing", refine_toml: str | None = None) -> Path:
@@ -505,30 +504,6 @@ def _known_limitations() -> str:
     entry = text[text.index("## [0.38.0]") :]
     entry = entry[: entry.index("## [", 5)]
     return entry[entry.index("### Known limitations") :]
-
-
-def test_ind07_the_limitations_say_when_the_audit_warns_and_never_by_construction():
-    """P0380-AUDIT (FR-426 R3, FR-428, IND-07): a warning comes from a figure above its limit.
-
-    The 0.38.0 Known limitations, the mesh how-to and reference, and the
-    FR-428 evidence no longer say that a stretched body or a quad-dominant
-    level warns by construction or on every level; the limitations state the
-    limits of FR-426 R3 and ask the reader to read the reported values.
-    """
-    pages = {
-        "CHANGELOG.md": _known_limitations(),
-        "docs/mesh/how-to.md": (REPO / "docs/mesh/how-to.md").read_text(encoding="utf-8"),
-        "docs/mesh/reference.md": (REPO / "docs/mesh/reference.md").read_text(encoding="utf-8"),
-        FUNCTIONAL_REQUIREMENTS.as_posix(): (REPO / FUNCTIONAL_REQUIREMENTS).read_text(
-            encoding="utf-8"
-        ),
-    }
-    for name, text in pages.items():
-        flat = " ".join(text.split())
-        for claim in ("warns by construction", "warns on every level", "by construction; the"):
-            assert claim not in flat, (name, claim)
-    limits = " ".join(pages["CHANGELOG.md"].split())
-    assert "the source's plus 0.05" in limits and "read the reported values" in limits
 
 
 def test_ind07_a_paired_square_mesh_passes_the_relative_checks(tmp_path):

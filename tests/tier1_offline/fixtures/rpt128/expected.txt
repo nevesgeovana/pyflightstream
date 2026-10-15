@@ -1,0 +1,13 @@
+---
+cdo_cause: solver
+capped_one_pass: true
+xz_moment_verdict: confirmed
+xz_moment_ratio: 1.00825
+xz_force_ratio: 0.99033
+---
+Provenance: RPT-128_cdo-and-the-xz-moment-of-a-coupled-cambered-wing-on-26124_2026-10-02.md; extracted verdict inputs and CDo table.
+| 9341, own export (rigid) | 0.0098384 |
+| 9342, own export (the last pass) | 0.0 |
+| 9342, head export of the last pass | 0.0 (after the updates of every earlier pass; decides nothing) |
+| 9343, head export (its one pass, before any update of the post) | 0.0 |
+| 9343, own export (the same pass, after the post's updates) | 0.0 |

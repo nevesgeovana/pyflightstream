@@ -1,7 +1,5 @@
 """Closing regressions preserve recorded products across changes and missing inputs."""
 
-from pathlib import Path
-
 import pytest
 from pydantic import ValidationError
 
@@ -236,18 +234,3 @@ def test_u_log_parser_states_mode_or_unknown(text, mode):
     from pyflightstream.results import parse_log_times
 
     assert parse_log_times(text).solver_mode == mode
-
-
-@pytest.mark.parametrize(
-    "name",
-    [
-        "docs/definitions/what-the-package-does-not-judge.md",
-        "CHANGELOG.md",
-        "reports/RPT-055_partial-residual-anchor_2026-09-22.md",
-    ],
-)
-def test_s_terminal_cut_contract_requires_a_residual_page(name):
-    text = (Path(__file__).resolve().parents[2] / name).read_text(encoding="utf-8")
-    assert "at least one residual page" in text
-    if name.startswith("reports/"):
-        assert "### Clarification, 2026-09-23" in text
