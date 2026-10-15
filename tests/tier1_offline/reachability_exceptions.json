@@ -185,12 +185,8 @@
    "node": "PFS-2140.005",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.SupportLevel",
-    "pyflightstream.support.VersionSupport",
     "pyflightstream.support.minimal_workflow",
-    "pyflightstream.support_level",
-    "pyflightstream.support_table",
-    "pyflightstream.version_support"
+    "pyflightstream.support_level"
    ]
   },
   {

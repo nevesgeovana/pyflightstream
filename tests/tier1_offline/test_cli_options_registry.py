@@ -68,6 +68,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "open_only"): SWITCH,
     ("pyfs-matrix", "additional"): SWITCH,
     ("pyfs-qa", "fs_version"): SOLVER,
+    ("pyfs-matrix", "build"): SOLVER,
     ("pyfs-qa", "fs_versions"): SOLVER,
     ("pyfs-qa", "fs_exe"): SOLVER,
     ("pyfs-qa", "commands"): CASE,
@@ -502,6 +503,7 @@ def test_every_console_script_builds_its_parser_in_a_callable_function():
 #: directions: a dest that spreads to a new subcommand, and one that
 #: stops appearing on a subcommand it used to cover.
 COVERS: dict[tuple[str, str], frozenset[str]] = {
+    ("pyfs-matrix", "build"): frozenset({"support"}),
     ("pyfs-matrix", "additional"): frozenset({"status"}),
     ("pyfs-matrix", "target"): frozenset({"show", "history"}),
     ("pyfs-matrix", "point"): frozenset({"show"}),
