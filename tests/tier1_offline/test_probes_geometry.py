@@ -163,10 +163,12 @@ def test_a_missing_spatial_index_names_the_extra_at_the_query(monkeypatch):
     """
     import pyflightstream.probes.geometry as geometry
 
+    # Load the installed reader before simulating missing query dependencies.
+    # Otherwise trimesh caches the simulated import failure for later tests.
+    mesh = load_surface_mesh(CUBE)
     monkeypatch.setitem(sys.modules, "rtree", None)
     monkeypatch.setitem(sys.modules, "scipy", None)
     monkeypatch.setitem(sys.modules, "scipy.spatial", None)
-    mesh = load_surface_mesh(CUBE)
     points = np.array([[0.0, 0.0, 0.0], [5.0, 5.0, 5.0]])
 
     reached = []

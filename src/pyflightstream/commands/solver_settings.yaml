@@ -493,7 +493,7 @@ DELETE_VALAREZO_SEPARATION_BOUNDARIES:
   # nothing about how the command behaves: acceptance is not effect, and
   # the status below stays documented until a harness probe runs
   # (PLN-20260805-1520).
-  probe_ref: "reports/RPT-018_separation-family-across-builds_2026-08-05.md"
+  probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-018_separation-family-across-builds_2026-08-05.md"
   versions:
     "26.100": {status: documented}
   notes: >

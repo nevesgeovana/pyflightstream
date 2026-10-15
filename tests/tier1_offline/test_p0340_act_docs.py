@@ -34,7 +34,6 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import PlanStatus
 from pyflightstream.run.matrix import plan_matrix
-from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
 from tests.tier1_offline.test_g06_actuator_disc import RECIPES, _profile_workspace
 
 REPO = Path(__file__).resolve().parents[2]
@@ -63,16 +62,6 @@ def _says(page: Path, anchor: str, *facts: str) -> None:
         assert fact in paragraph, (
             f"{page.name}: the paragraph saying {anchor!r} no longer says {fact!r}: {paragraph}"
         )
-    requirement = "FR-331" if anchor == "THE HAND." else "FR-332"
-    register = (REPO / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
-    section = register.split(f'!!! requirement "{requirement} ', 1)[1].split(
-        '!!! requirement "', 1
-    )[0]
-    assert REPORT in section
-    if requirement == "FR-332":
-        assert page.relative_to(REPO).as_posix() in section
-    (report,) = (REPO / "reports").glob(f"{REPORT}_*.md")
-    assert REPORT in report.read_text(encoding="utf-8").splitlines()[0]
     assert REPORT not in paragraph
 
 

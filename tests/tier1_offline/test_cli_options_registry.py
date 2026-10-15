@@ -333,7 +333,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # one you can type bare (the interface lens of the 0.15.0 release
     # review). Stating both is refused, so it is one switch with two names.
     ("pyfs-matrix", "refuse_missing_families"): SWITCH,
-    ("pyfs-matrix", "output"): OUTPUT,
     ("pyfs-manual", "manual"): MANUAL,
     ("pyfs-manual", "source"): MANUAL,
     ("pyfs-manual", "chapter_pages"): MANUAL,
@@ -541,15 +540,14 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # 0.39.0 (FR-436 R6): every command that takes --verbose takes --log-level.
     ("pyfs-matrix", "log_level"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
-    ("pyfs-matrix", "fs_exe"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
-    ("pyfs-matrix", "fs_version"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
+    ("pyfs-matrix", "fs_exe"): frozenset({"inspect-setups", "plan", "post", "run"}),
+    ("pyfs-matrix", "fs_version"): frozenset({"inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "geometry"): frozenset({"degenerate", "inventory"}),
     ("pyfs-matrix", "root_offset"): frozenset({"degenerate"}),
     ("pyfs-matrix", "boundary"): frozenset({"degenerate"}),
     ("pyfs-matrix", "ignore_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "matrix"): frozenset(
         {
-            "convert",
             "inspect-setups",
             "plan",
             "post",
@@ -559,8 +557,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "status",
         }
     ),
-    ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "output"): frozenset({"convert"}),
+    ("pyfs-matrix", "name"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "overwrite"): frozenset({"degenerate", "inventory", "refine", "sync"}),
     ("pyfs-matrix", "clean"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
@@ -575,9 +572,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),
     ("pyfs-matrix", "point_name"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "recipe"): frozenset(
-        {"convert", "free-space", "inspect-setups", "plan", "post", "run"}
-    ),
+    ("pyfs-matrix", "recipe"): frozenset({"free-space", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
@@ -680,7 +675,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "csv_file"): frozenset({"audit-mesh"}),
     ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
-    ("pyfs-matrix", "out"): frozenset({"audit-mesh", "convert", "rebuild", "refine"}),
+    ("pyfs-matrix", "out"): frozenset({"audit-mesh", "rebuild", "refine"}),
     ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
     ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
     ("pyfs-matrix", "inputs_from"): frozenset({"rebuild"}),

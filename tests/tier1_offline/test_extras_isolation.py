@@ -84,7 +84,7 @@ REPO = Path(__file__).resolve().parents[2]
 #: named here so the scan follows them. Dropping the two old entries
 #: without adding this one would have been a narrowing, which is the
 #: exact move the twin constant below exists to refuse.
-SCAN_ROOTS = ("src", "tests", "examples", "scripts", "tools")
+SCAN_ROOTS = ("src", "tests", "examples", "docs/examples/_sources", "scripts", "tools")
 
 #: The partition the main assertion runs over. "root" catches the files
 #: that sit at the repository root (the conftest), "markdown" the fenced
@@ -174,7 +174,9 @@ EXPECTED_GUARANTEED = frozenset({"dev"})
 #: `tools/` and are run by `tests/tier1_offline/test_repository_guards.py`. The count
 #: fell from six trees to five and the SCANNED FILES did not, which is
 #: the distinction this constant exists to make visible.
-EXPECTED_SCAN_ROOTS = frozenset({"src", "tests", "examples", "scripts", "tools"})
+EXPECTED_SCAN_ROOTS = frozenset(
+    {"src", "tests", "examples", "docs/examples/_sources", "scripts", "tools"}
+)
 
 
 def _distribution_of(specifier: str) -> str:
@@ -790,6 +792,6 @@ def test_no_unguarded_import_of_a_distribution_ci_may_lack(part):
         "             bare statement it builds one, discards it and continues, which\n"
         "             is the silence pyflightstream.extras was renamed to prevent.\n"
         "  examples/  try/except ModuleNotFoundError with a printed skip line and an\n"
-        "             else: body, as in examples/wing_static_deflection.py, so the\n"
+        "             else: body, as in docs/examples/_sources/wing_static_deflection.py, so the\n"
         "             script degrades instead of aborting."
     )

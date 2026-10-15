@@ -3,12 +3,11 @@
 import dataclasses
 import hashlib
 import json
-import warnings
 from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases.matrix import convert_matrix, read_matrix
+from pyflightstream.cases.matrix import read_matrix
 
 FIXTURES = Path(__file__).parent / "fixtures"
 GOLDENS = json.loads((FIXTURES / "p0360_w9d_goldens.json").read_text(encoding="utf-8"))
@@ -26,17 +25,3 @@ def test_read_matrix_matches_pre_cut_rows(fixture: str, active_only: bool) -> No
         data["sweep"] = row.sweep.model_dump(mode="json")
         actual.append(data)
     assert actual == golden["active_rows" if active_only else "all_rows"]
-
-
-@pytest.mark.parametrize("fixture", GOLDENS["fixtures"])
-def test_convert_matrix_matches_pre_cut_text(fixture: str) -> None:
-    golden = GOLDENS["fixtures"][fixture]
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        # A fixture whose rows name another build than the default states its own
-        # `convert_overrides`: a conversion refuses a per-row build it cannot bind
-        # (PFS-2096.002 family, the cases review), so these convert at the rows' build.
-        arguments = {**GOLDENS["convert_arguments"], **golden.get("convert_overrides", {})}
-        actual = convert_matrix(FIXTURES / fixture, **arguments)
-    assert actual == golden["converted"]
-    assert [str(warning.message) for warning in caught] == golden["warnings"]

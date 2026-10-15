@@ -3,12 +3,12 @@
 # solver actually implements for FSI coupling: the SET_MOTION_FSI pair
 # of the motion chapter (SRC-003 pp.335-336) is rejected as
 # unrecognized by build 7012026 (WP1 dry run evidence,
-# reports/RPT-005_fsi-dry-run_2026-07-21.md). All eleven commands of
+# GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-005_fsi-dry-run_2026-07-21.md). All eleven commands of
 # this family were exercised successfully in that dry run on 26.120;
 # formal Tier 2 promotion follows the next validity sweep (PLN-019).
 #
 # Behavior finding on build 7012026 (WP7 probes,
-# reports/RPT-007_soft-pilot-morphing-investigation_2026-07-21.md):
+# GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-007_soft-pilot-morphing-investigation_2026-07-21.md):
 # the coupling loop runs end to end, and FSIDisp.txt is read every
 # step, but the mesh morphing is silently NOT applied to boundaries
 # attached to a rotary motion definition; a motionless boundary morphs
@@ -41,7 +41,7 @@
 # candidate is SOLVER_SET_CONVERGENCE, and it is NOT the same thing:
 # its own note scopes it to the surface velocity and pressure residual
 # (SRC-003 p.200). THAT SEARCH RAN on 2026-08-19 and found nothing:
-# reports/RPT-031_the-search-for-the-coupling-tolerance-command_2026-08-19.md
+# GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-031_the-search-for-the-coupling-tolerance-command_2026-08-19.md
 # reads the whole scripting reference of the newest edition and its
 # Script Index, rejects nine candidates with a reason each, and records
 # that no command in the scripting reference sets this tolerance.
@@ -317,7 +317,7 @@ SET_DIRECT_AEROELASTIC_MESH_MORPHING:
   versions:
     "26.124":
       status: removed
-      probe_ref: "reports/RPT-154_direct-aeroelastic-morphing-not-recognised-by-build-8172026_2026-10-05.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-154_direct-aeroelastic-morphing-not-recognised-by-build-8172026_2026-10-05.md"
       note: >-
         Probed 2026-10-05 on build 8172026: the solver answered every
         SET_DIRECT_AEROELASTIC_MESH_MORPHING line of four probe arms as an

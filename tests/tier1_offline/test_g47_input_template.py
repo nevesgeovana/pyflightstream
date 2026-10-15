@@ -74,7 +74,6 @@ from pyflightstream.workspace.inputs import (
 )
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.wake_edges import read_trailing_edge_points
-from tests.tier1_offline._workflow_docs import workflow_docs_text
 from tests.tier1_offline.test_goal031_g08_input_glossary import expected_tables
 
 REPO = Path(__file__).resolve().parents[2]
@@ -797,20 +796,6 @@ def test_g47_without_the_metadata_a_page_is_named_by_its_file(monkeypatch):
     assert _declared_site() not in text
     named = set(re.findall(r"\(`docs/([a-z0-9-]+)\.md`\)", text))
     assert named and all((REPO / "docs" / f"{page}.md").is_file() for page in named), named
-
-
-def test_g47_the_docs_and_the_changelog_name_the_page():
-    """Where INPUTS.md is documented, the template is named beside it."""
-    workflows = workflow_docs_text()
-    migrating = (REPO / "docs" / "migrating-to-0.28.0.md").read_text(encoding="utf-8")
-    changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
-    # The section that describes 0.28.0: [Unreleased] until the release commit
-    # dates it, [0.28.0] after.
-    heading = "\n## [0.28.0]" if "\n## [0.28.0]" in changelog else "\n## [Unreleased]"
-    release = changelog.split(heading, 1)[1].split("\n## [", 1)[0]
-    assert "inputs/input_template.md" in workflows
-    assert re.search(r"^## \d+\. A template of every input file \(G47\)$", migrating, re.M)
-    assert "input_template.md" in release.split("### Added", 1)[1].split("\n### ", 1)[0]
 
 
 def test_g47_the_columns_of_the_matrix_example_are_the_layout():

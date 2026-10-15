@@ -1359,8 +1359,8 @@
  "one_home_allowlist": [],
  "facade_lines": {
   "__init__.py": 9,
-  "cases/__init__.py": 1135,
-  "commands/__init__.py": 812,
+  "cases/__init__.py": 1057,
+  "commands/__init__.py": 814,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
   "script/__init__.py": 1652,

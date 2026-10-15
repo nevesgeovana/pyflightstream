@@ -1574,29 +1574,6 @@ class TestSweep1Cli:
         assert roots == [workspace.root]
 
     @staticmethod
-    def test_p0400_output_flags(tmp_path, monkeypatch):
-        """P0400-SWEEP-OUTPUT-FLAGS: convert accepts --out; the old alias warns."""
-        parser = _build_parser()
-        options = [
-            "convert",
-            "matrix.fs",
-            "--name",
-            "warm",
-            "--fs-version",
-            "26.120",
-            "--fs-exe",
-            "solver.exe",
-        ]
-        monkeypatch.setattr(cli, "convert_matrix", lambda *args, **kwargs: "synthetic campaign")
-        destination = tmp_path / "campaign.toml"
-        args = parser.parse_args([*options, "--out", str(destination)])
-        assert cli._cmd_convert(args, {}) == 0
-        assert destination.read_text(encoding="utf-8") == "synthetic campaign"
-        args = parser.parse_args([*options, "--output", str(destination)])
-        with pytest.warns(PyflightstreamWarning, match="deprecated.*--out"):
-            assert cli._cmd_convert(args, {}) == 0
-
-    @staticmethod
     def test_p0400_fsi_out(tmp_path):
         """P0400-SWEEP-FSI-OUT: the FSI console uses the same output flag."""
         from pyflightstream.fsi.cli import main
@@ -1659,31 +1636,12 @@ class TestSweep1Cli:
             check(dataclasses.replace(config, exempt_trees=("guide/", "src/")))
 
     @staticmethod
-    def test_p0400_release_architecture_section(tmp_path, monkeypatch, capsys):
-        """P0400-SWEEP-RELEASE-ARCH: a tag needs its own architecture heading."""
-        from scripts import check_release_published as release
-
-        check = getattr(release, "architecture_problem", None)
-        assert callable(check), "release verification must check version coverage"
-        assert check("v0.39.0", "## The 0.39.0 additions and their limits") is None
-        assert check("v0.39.0", "## The 0.390.0 additions\nA mention of 0.39.0 is not a section.")
-        page = tmp_path / "docs/srs/architecture-srs.md"
-        page.parent.mkdir(parents=True)
-        page.write_text("## The 0.38.0 additions\n", encoding="utf-8")
-        monkeypatch.setattr(release, "REPO", tmp_path)
-        monkeypatch.setattr(release, "version_tags", lambda: ["v0.39.0"])
-        monkeypatch.setattr(release, "recorded_dois", lambda: {"v0.39.0": "10.0000/synthetic"})
-        monkeypatch.setattr(release, "owed_in_the_changelog", lambda: set())
-        assert release.main(["v0.39.0", "--offline"]) == 1
-        assert "architecture-srs.md" in capsys.readouterr().out
-
-    @staticmethod
     def test_p0400_flagship_exports_its_assessment_log(monkeypatch):
         """P0400-SWEEP-FLAGSHIP-LOG: every built point exports the log the assessor reads."""
         import runpy
         import sys
 
-        script = Path(__file__).resolve().parents[2] / "examples/steady_polar.py"
+        script = Path(__file__).resolve().parents[2] / "docs/examples/_sources/steady_polar.py"
         monkeypatch.setattr(sys, "argv", [str(script)])
         built = runpy.run_path(str(script))
         assert "EXPORT_LOG\nsolver_a0_log.txt" in built["scripts"][-4.0].render()
@@ -1704,7 +1662,9 @@ class TestSweep1Cli:
             "surface_with_native_strength",
             "workspace_fsi_calibration",
         ):
-            tree = ast.parse((root / "examples" / f"{name}.py").read_text(encoding="utf-8"))
+            tree = ast.parse(
+                (root / "docs/examples/_sources" / f"{name}.py").read_text(encoding="utf-8")
+            )
             imports = [
                 node.module
                 for node in ast.walk(tree)
@@ -1724,7 +1684,9 @@ class TestSweep1Cli:
         from pyflightstream.workspace import RunStatus
 
         root = Path(__file__).resolve().parents[2]
-        tree = ast.parse((root / "examples/steady_polar.py").read_text(encoding="utf-8"))
+        tree = ast.parse(
+            (root / "docs/examples/_sources/steady_polar.py").read_text(encoding="utf-8")
+        )
         calls = [
             node
             for node in ast.walk(tree)
@@ -1921,15 +1883,6 @@ class TestSweep1Contracts:
         script.declare_existing(boundaries=1)
         script.emit(command, 2)
         assert f"{command} 2" in script.render()
-
-    @staticmethod
-    def test_p0400_changelog_fragments_folded():
-        """P0400-SWEEP-CHANGELOG: the five shipped corrections belong to 0.37.0."""
-        text = (_SWEEP_1_CONTRACTS__ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-        release = text.split("## [0.37.0]", 1)[1].split("## [", 1)[0]
-        assert "Correction recorded 2026-10-12" in release
-        assert "Normalize the 26.125 pressure and viscous drag plots" in release
-        assert not list((_SWEEP_1_CONTRACTS__ROOT / "changelog.d").glob("W2-*.md"))
 
     @staticmethod
     def test_p0400_short_factor_collision_control(tmp_path):

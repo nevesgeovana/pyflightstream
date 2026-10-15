@@ -118,7 +118,7 @@ PROBE_POINTS_IMPORT:
     first line holds the point count. This is the programmatic path
     for probe lattice generation. The 26.120 round trip verified that
     the export preserves the imported row order and count
-    (reports/RPT-004_probe-roundtrip-order_2026-07-21.md), the
+    (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-004_probe-roundtrip-order_2026-07-21.md), the
     loading contract of the probe planner.
 
 EXPORT_PROBE_POINTS:
@@ -143,7 +143,7 @@ EXPORT_PROBE_POINTS:
   notes: >
     Rows follow the probe creation order, preserved from an imported
     lattice (26.120 build 7012026 round trip,
-    reports/RPT-004_probe-roundtrip-order_2026-07-21.md). The
+    GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-004_probe-roundtrip-order_2026-07-21.md). The
     boundary-layer columns are populated for near-surface probes
     regardless of the viscous toggles (REYNOLDS_AVERAGED_DRAG_FORCES,
     SET_SOLVER_VISCOUS_COUPLING, SET_INVISCID_LOADS; design

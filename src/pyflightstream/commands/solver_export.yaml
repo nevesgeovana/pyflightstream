@@ -275,7 +275,7 @@ EXPORT_BL_VELOCITY_PROFILE:
 
     IT IS INTERACTIVE AND CANNOT BE USED IN AN UNATTENDED RUN, measured
     on 26.122 on 2026-08-17 and recorded in
-    reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md.
+    GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-027_boundary-layer-across-a-proximity-gap_2026-08-17.md.
     The command opens a modal window carrying a plot of velocity against
     height above the surface and a Done button, and script processing
     STOPS there until a person dismisses it. Under -hidden, with both

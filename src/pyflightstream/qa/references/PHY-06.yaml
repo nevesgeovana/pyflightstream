@@ -7,7 +7,7 @@ reason: 'metric set redefined to the full polar trend by instruction (evidence: 
   and pitching-moment slopes; measured deltas grow monotonically to +0.0030 in CL at 6 deg, all inside
   the declared bands, and the steady lift slope 4.8266/rad reproduces PHY-01. Attribution rewritten 2026-08-02;
   the metrics were regenerated from the same report and are unchanged.'
-source_report: reports/physics/PHY-26120_2026-07-21_phy06-polar-first.yaml
+source_report: GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/physics/PHY-26120_2026-07-21_phy06-polar-first.yaml
 metrics:
   delta_CL_a0:
     value: 0.0004

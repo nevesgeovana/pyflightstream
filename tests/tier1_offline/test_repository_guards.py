@@ -216,9 +216,6 @@ def _assert_exemption_policy(config) -> None:
             "pyproject.toml",
             ".github/workflows/release.yml",
             "properdocs.yml",
-            "reports/RPT-004_probe-roundtrip-order_2026-07-21.md",
-            "reports/physics/PHY-26120_2026-07-21_phy06-polar-banded.yaml",
-            "reports/physics/PHY-26120_2026-07-23_reseed-cp100-2026-07-23.yaml",
         }
     )
     assert set(config.exempt_trees) == {"guide/", "docs/"}

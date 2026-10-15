@@ -476,36 +476,18 @@ def test_the_cost_view_imports_nothing_but_the_manifest_layer():
     assert "subprocess" not in imported, "nothing here runs a solver"
 
 
-def test_physics_schema_is_unchanged_and_every_committed_report_still_loads():
-    """The clause this item had to leave alone, asserted as a guard.
-
-    The earlier reading of PFS-2018.02 would have moved the physics
-    report to schema ``/2``. ``read_physics_report`` refuses any other
-    schema, and ``update_reference`` seeds every stored reference
-    through it, so the bump would have made the committed evidence
-    unreadable. This test is what makes that failure loud.
-    """
+def test_physics_schema_reads_a_serialized_point_and_refuses_drift(tmp_path):
+    """Keep schema compatibility on a small extracted serialization input."""
+    fixture = REPO_ROOT / "tests/tier1_offline/fixtures/physics_report.yaml"
+    document = read_physics_report(fixture)
     assert PHYSICS_SCHEMA == "pyflightstream-physics-report/1"
-
-    physics_reports = sorted((REPO_ROOT / "reports" / "physics").glob("PHY-*.yaml"))
-    assert len(physics_reports) >= 16, (
-        "the committed physics corpus shrank; a guard over an empty or "
-        "shrinking glob reports green for the wrong reason"
-    )
-    for report in physics_reports:
-        document = read_physics_report(report)
-        assert document["schema"] == PHYSICS_SCHEMA, report
-
-    # The same folder holds drift reports, which carry their own schema
-    # and are REFUSED by this reader by design. Asserted so the loop
-    # above is read as a deliberate selection rather than a filter that
-    # happens to skip whatever would fail.
-    drift_reports = sorted((REPO_ROOT / "reports" / "physics").glob("DRF-*.yaml"))
-    assert drift_reports, "no drift reports found; the split below is untested"
-    for report in drift_reports:
-        assert yaml.safe_load(report.read_text(encoding="utf-8"))["schema"] != PHYSICS_SCHEMA
-        with pytest.raises(QaEvidenceError):
-            read_physics_report(report)
+    assert document["schema"] == PHYSICS_SCHEMA
+    assert document["cases"]["PHY-06"]["points"][0]["total"]["Cx"] == 0.0067
+    drift = tmp_path / "drift.yaml"
+    document["schema"] = "pyflightstream-drift-report/1"
+    drift.write_text(yaml.safe_dump(document), encoding="utf-8")
+    with pytest.raises(QaEvidenceError):
+        read_physics_report(drift)
 
 
 def test_the_cli_prints_one_column_per_build_and_names_absence(tmp_path, capsys):

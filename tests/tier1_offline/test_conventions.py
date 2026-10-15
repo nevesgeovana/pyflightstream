@@ -1004,7 +1004,7 @@ def test_every_collect_outputs_call_names_its_datapoint():
     """FR-92: the one caller outside tests was missed, and green said nothing.
 
     `collect_outputs` gained a required keyword at 0.16.0 and twenty-one call
-    sites in `tests/` were swept. `examples/steady_polar.py` was not, and the
+    sites in `tests/` were swept. `docs/examples/_sources/steady_polar.py` was not, and the
     suite stayed green: the example IS executed as a subprocess and its exit
     code IS asserted, but the call sits inside the branch that needs a solver
     executable and the test passes none, so the whole half of the example that
@@ -1029,7 +1029,7 @@ def test_every_collect_outputs_call_names_its_datapoint():
     # both runs, because CI checks the repo out and runs its tests against the
     # installed distribution.
     repo = Path(__file__).resolve().parents[2]
-    roots = [repo / "src", repo / "examples"]
+    roots = [repo / "src", repo / "examples", repo / "docs/examples/_sources"]
     missing = [str(p) for p in roots if not p.is_dir()]
     assert not missing, (
         f"{', '.join(missing)} is not there, so this check would pass by looking at "

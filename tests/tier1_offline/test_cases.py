@@ -13,7 +13,6 @@ from pyflightstream.cases import (
     SolverSettings,
     SweepAxis,
     geometric_sweep_values,
-    load_campaign,
     multiplied_sweep,
     point_tag,
     resolve_recipe,
@@ -38,28 +37,6 @@ outputs = ["loads_{point}.txt"]
 advance_ratio = 1.7
 symmetry = "PERIODIC 6"
 """
-
-
-def test_load_campaign_reads_the_sad_shape(tmp_path):
-    path = tmp_path / "campaign.toml"
-    path.write_text(CAMPAIGN_TOML, encoding="utf-8")
-    campaign = load_campaign(path)
-    assert campaign.name == "wing_steady_sweep"
-    assert campaign.fs_version == "26.120"
-    case = campaign.sims[0]
-    assert case.sim_id == "9001"
-    assert case.variables["symmetry"] == "PERIODIC 6"
-    assert list(case.sweep.points()) == [
-        {"alpha": 0.0, "beta": 0.0},
-        {"alpha": 2.0, "beta": 0.0},
-    ]
-
-
-def test_load_campaign_without_campaign_table_is_didactic(tmp_path):
-    path = tmp_path / "campaign.toml"
-    path.write_text("[[sim]]\nsim_id = '1'\n", encoding="utf-8")
-    with pytest.raises(ValueError, match=r"needs a \[campaign\] table"):
-        load_campaign(path)
 
 
 def test_unregistered_fs_version_fails_at_load():
@@ -371,17 +348,6 @@ def test_a_geometric_sweep_beside_an_aerodynamic_one_is_refused_at_declaration()
     assert "9 runs" in message, "the refusal does not say how large the grid would be"
     assert ROTATION_OFFSET_KEY in message, "the refusal names no remedy, so it only says no"
     assert "sim_id" in message, "the refusal does not name the one-case-per-geometry form"
-
-
-def test_the_refusal_reaches_a_campaign_file_as_it_loads(tmp_path):
-    """Loading is the declaration moment for a user who writes no Python."""
-    path = tmp_path / "campaign.toml"
-    path.write_text(
-        CAMPAIGN_TOML + f'{ROTATION_SWEEP_KEY} = "0.0,5.0"\n',
-        encoding="utf-8",
-    )
-    with pytest.raises(CampaignConfigError, match="asks for two sweeps at once"):
-        load_campaign(path)
 
 
 def test_a_fixed_offset_beside_a_sweep_is_the_accepted_form():

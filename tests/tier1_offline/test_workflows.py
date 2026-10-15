@@ -1312,30 +1312,6 @@ def test_the_committed_matrix_drives_the_workflow_with_no_python_recipe():
     )
 
 
-def test_the_page_carries_the_fixture_byte_for_byte_and_cites_this_module():
-    """The lift, guarded from this side.
-
-    `tests/tier1_offline/test_docs_example_currency.py` holds the page's FIRST example
-    to its fixture. This module owns the second, so the same mechanism
-    is applied to it here rather than left to a review.
-    """
-    text = PAGE.read_text(encoding="utf-8").replace("\r\n", "\n")
-    provenance = (
-        Path(__file__).resolve().parents[2] / "docs" / "unpublished" / "doc-verification.md"
-    ).read_text(encoding="utf-8")
-    assert "tests/tier1_offline/test_workflows.py" in provenance, (
-        "the unpublished evidence does not name the module owning the workflow example"
-    )
-    assert "test_the_committed_matrix_drives_the_workflow_with_no_python_recipe" in provenance, (
-        "the unpublished evidence does not cite the executed workflow example test"
-    )
-    fixture = FIXTURE.read_text(encoding="utf-8").replace("\r\n", "\n").rstrip("\n")
-    assert fixture in text, (
-        "the matrix on the page is not the fixture this module runs, so a reader "
-        "copying it is copying something nothing executes"
-    )
-
-
 def test_the_page_no_longer_says_there_is_no_workflow_object():
     """NFR-11: the page this work invalidates moves in the same session."""
     text = PAGE.read_text(encoding="utf-8").lower()

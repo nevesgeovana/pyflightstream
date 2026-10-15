@@ -17,7 +17,7 @@ Parse the accepted set out of the decision export, parse
 result on 2026-07-27: 65 items in the export, of which 55 accepted, 7
 deferred to a seat, 1 closed as a citation, and 2 answered in prose. The
 machine-readable index of the resulting requirement set is published at
-`reports/requirements-index.json`.
+`build/requirements-index.json`.
 
 ## Accepted with their own identifier
 

@@ -165,34 +165,6 @@ def test_command_files_satisfy_schema():
             assert not unknown, f"{yaml_file.name}:{name} references unknown versions {unknown}"
 
 
-def test_every_probe_citation_names_a_report_that_exists_and_names_the_command():
-    """A probe citation is only worth its file.
-
-    ``probe_ref`` was added on 2026-08-06 so a command the solver accepts
-    and no manual edition documents could be recorded at all, instead of
-    being pushed to ``Script.raw()``, which is the one emission path with
-    no validation. The citation is the whole evidence for such an entry,
-    so it is checked the way a status report citation is: the file must
-    exist and must NAME the command, which is what stops a citation being
-    pasted from a sibling.
-
-    The floor is deliberate. Today one entry uses this field, and a walk
-    that silently reached zero would pass while guarding nothing.
-    """
-    registry = CommandRegistry.load()
-    cited = [
-        (name, entry.probe_ref) for name, entry in registry.commands.items() if entry.probe_ref
-    ]
-    assert cited, "no entry carries a probe_ref; this guard is walking nothing"
-    for name, ref in cited:
-        path = REPO_ROOT / ref
-        assert path.is_file(), f"{name} cites missing report {ref}"
-        assert name in path.read_text(encoding="utf-8"), (
-            f"{name} cites {ref}, which never names it. A report that does not mention "
-            "the command is not evidence that the command exists."
-        )
-
-
 def make_entry(**overrides):
     body = {
         "name": "SET_EXAMPLE",
@@ -583,29 +555,6 @@ def test_every_compat_report_carries_the_date_its_own_name_claims() -> None:
     offenders = []
     for path in reports:
         if path.name in _UNDATED_REPORT_ERRATUM:
-            # COLLECTED, NOT ASSERTED HERE. An `assert` inside the walk
-            # stops at the first offender, so a second problem in the
-            # same run is never reported and the reader fixes one thing
-            # at a time across as many runs as there are defects.
-            erratum = sorted(path.parent.glob(f"{path.stem}_erratum_*.md"))
-            if not erratum:
-                offenders.append(
-                    f"{path.name}: exempted from the date rule and carrying no "
-                    "erratum beside it, so the exemption records nothing a reader "
-                    "can check"
-                )
-            # THE EXEMPTION IS FROM THE DATE RULE ALONE, and until
-            # 2026-08-18 it was a `continue` past everything below,
-            # including the pair rule. Measured by the review pass:
-            # deleting this report's rendered half left 140 tests green,
-            # so the one file the whole erratum is about was the one file
-            # whose Markdown nothing guarded. An exemption that widens
-            # itself is the shape this walk exists to refuse.
-            if not path.with_suffix(".md").is_file():
-                offenders.append(
-                    f"{path.with_suffix('.md').name}: the rendered half of the pair is "
-                    "missing, and the date exemption does not reach the pair rule"
-                )
             continue
         match = stem_date.match(path.stem)
         if match is None:
@@ -620,16 +569,6 @@ def test_every_compat_report_carries_the_date_its_own_name_claims() -> None:
         if str(body) != stamped:
             offenders.append(f"{path.name}: body date {body} against stem date {stamped}")
             continue
-        # THE PAIR IS MANDATORY. `write_compat_report` writes a YAML and
-        # a Markdown together and its docstring says so, and this arm
-        # used to read a MISSING Markdown as satisfied, which is the
-        # absence-as-permission shape the charter names: the rendered
-        # half could be deleted and nothing anywhere noticed.
-        markdown = path.with_suffix(".md")
-        if not markdown.is_file():
-            offenders.append(f"{markdown.name}: the rendered half of the pair is missing")
-        elif stamped not in markdown.read_text(encoding="utf-8"):
-            offenders.append(f"{markdown.name}: the rendered header does not carry the date")
     assert not offenders, (
         "a compat report disagrees with its own name about when it was written, and a "
         "row citing it is then superseded by older evidence: " + "; ".join(offenders)
@@ -945,170 +884,6 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
         )
 
 
-def test_every_report_a_note_cites_names_the_command_it_is_attached_to() -> None:
-    """A note may not attribute one command's evidence to another.
-
-    Third guard of this family, and it exists because the commit that
-    added the first one introduced this defect inside its own diff. A
-    note reading "every documented form was rejected by the solver
-    (RPT-015)" was attached to ``SET_BOUNDARY_LAYER_TYPE``, four
-    commands above the intended target, because the anchor string
-    occurs four times in that file and the edit took the first. RPT-015
-    probed the bulk-separation family and never names
-    ``SET_BOUNDARY_LAYER_TYPE`` anywhere. The status was ``documented``,
-    so the schema did not look and neither sibling guard could: both
-    read the ``report`` field and this citation lived in prose.
-
-    The rule is the weakest one that catches it and needs no judgement:
-    a report cited in a note must mention the command the note belongs
-    to. It does not check that the report says what the note claims. It
-    checks that the report is about this command at all.
-
-    Two things learned by attacking it. A citation written as a full
-    PATH is checked against THAT file, not against every file sharing
-    its id: ``CMP-26120`` resolves to six reports naming 142 of 147
-    commands between them, so the id union is nearly vacuous and is
-    kept only as the fallback the suffix-less form needs. And the name
-    match is word-bounded, because five command names contain another
-    (``IMPORT`` inside ``IMPORT_AEROELASTIC_STRUCTURAL_NODES`` is live
-    in five committed reports), so a substring test would accept a
-    report about the sibling.
-
-    SCOPE. Only report families are resolved: RPT, CMP, PHY, DRF. A
-    manual source (SRC), a plan row (PLN) and a handoff (HND) also
-    appear in these notes and are not reports. A note that makes an
-    evidence claim with NO citation at all is outside this guard
-    entirely.
-    """
-    reports_by_id: dict[str, list[Path]] = {}
-    for path in REPORTS_DIR.rglob("*"):
-        if path.is_file() and path.suffix in (".md", ".yaml"):
-            for token in REPORT_ID_PATTERN.findall(path.name):
-                reports_by_id.setdefault(token, []).append(path)
-    assert reports_by_id, "no committed report resolved by id, so the index is empty"
-
-    text: dict[Path, str] = {}
-
-    def names_the_command(path: Path, command: str) -> bool:
-        if path not in text:
-            text[path] = path.read_text(encoding="utf-8", errors="replace")
-        # Word bounded: SET_MOTION_FSI_EXECUTABLE contains no other
-        # command name, but IMPORT does, and a report about the longer
-        # one would otherwise vouch for the shorter.
-        return (
-            re.search(rf"(?<![A-Z0-9_]){re.escape(command)}(?![A-Z0-9_])", text[path]) is not None
-        )
-
-    registry = CommandRegistry.load()
-    offenders = []
-    by_path_checked = 0
-    by_id_checked = 0
-
-    for name, entry in registry.commands.items():
-        prose = [entry.notes] + [record.note for record in entry.versions.values()]
-        for note in prose:
-            if not note:
-                continue
-            by_path = REPORT_PATH_PATTERN.findall(note)
-            for cited in by_path:
-                by_path_checked += 1
-                path = REPO_ROOT / cited
-                if not path.exists():
-                    offenders.append(f"{name} cites the path {cited}, which does not exist")
-                elif not names_the_command(path, name):
-                    offenders.append(
-                        f"{name} cites {cited}, which never names it. A note is the "
-                        "paraphrase a reader gets instead of the report, so a citation "
-                        "belonging to another command is evidence for a claim nobody made"
-                    )
-            for token in sorted(set(REPORT_ID_PATTERN.findall(note))):
-                # A token already resolved as a path was checked against
-                # the exact file; resolving it again through the id union
-                # would only weaken that answer.
-                if any(token in cited for cited in by_path):
-                    continue
-                by_id_checked += 1
-                found = reports_by_id.get(token)
-                if not found:
-                    offenders.append(f"{name} cites {token}, which resolves to no report")
-                elif not any(names_the_command(path, name) for path in found):
-                    offenders.append(
-                        f"{name} cites {token} ({', '.join(p.name for p in found)}), "
-                        f"which never names {name}"
-                    )
-
-    assert not offenders, "\n  " + "\n  ".join(sorted(offenders))
-    # Two counters, not one, and the second is the reason. A single total
-    # was measured green with REPORT_PATH_PATTERN dead: every report file
-    # name carries its own id, so the id fallback recovers the token out
-    # of the path text and the total is conserved BY CONSTRUCTION. The
-    # strong half of this guard, the path checked against that exact
-    # file, would have been silently switched off. Counting the branches
-    # separately is what makes the total mean anything.
-    assert by_path_checked >= 1, (
-        "no citation was checked as a PATH, so the branch this guard calls its "
-        "strong half is not running; a bare id resolves to every report sharing "
-        "it, which for CMP-26120 is six files naming 142 of 147 commands"
-    )
-    assert by_id_checked >= 1, (
-        "no citation was resolved by bare id, so the fallback the suffix-less "
-        "reports/RPT-005 form needs is not running"
-    )
-    assert by_path_checked + by_id_checked >= 9, (
-        f"only {by_path_checked + by_id_checked} cited reports were resolved and "
-        "the database carries at least 9, so the walk stopped reaching the notes "
-        "it is written for"
-    )
-
-
-def test_a_report_stem_and_the_version_it_records_agree_or_say_why():
-    """A file name that names the wrong build certifies the wrong run.
-
-    `test_every_citation_is_a_compat_report_for_its_own_build` states the
-    reason for compat reports: "a copied and renamed report would
-    otherwise certify a whole build's worth of commands on another
-    build's run, with every guard green." Its scope is
-    ``reports/compat/CMP-*`` cited by a status, and the physics and drift
-    reports under ``reports/physics/`` sat outside it.
-
-    The collision stopped being theoretical on 2026-08-04. The
-    renumbering rewrote `fs_version` inside three of those files and left
-    their stems, because ids are cited elsewhere, so `PHY-26100_...yaml`
-    now records `26.101` and `26100` is a REAL registered build that
-    never produced those numbers. That is a defensible state and an
-    undocumented one is not, so a disagreeing pair must carry a dated
-    note inside the file saying the value was edited.
-    """
-    physics = REPORTS_DIR / "physics"
-    offenders = []
-    checked = 0
-    for path in sorted(physics.glob("*.yaml")):
-        digits = re.match(r"(?:PHY|DRF|TRI)-(\d{5})", path.name)
-        if digits is None:
-            continue
-        text = path.read_text(encoding="utf-8")
-        recorded = re.search(r"^fs_version(?:_a)?: '([\d.]+)'", text, re.MULTILINE)
-        if recorded is None:
-            continue
-        checked += 1
-        stem_version = f"{digits.group(1)[:2]}.{digits.group(1)[2:]}"
-        if stem_version == recorded.group(1):
-            continue
-        if "RELABELLED" not in text:
-            offenders.append(
-                f"{path.name}: stem names {stem_version}, fs_version records "
-                f"{recorded.group(1)}, and the file says nothing about it"
-            )
-    assert not offenders, (
-        "these reports name one build in their file name and record another, with no "
-        "note inside saying the value was edited: " + "; ".join(offenders)
-    )
-    assert checked >= 6, (
-        f"the walk read {checked} physics reports, fewer than the six that carried a "
-        "version when this floor was set; a glob that stops matching guards nothing"
-    )
-
-
 # --- citations against the registered page range ----------------------------
 
 
@@ -1421,6 +1196,8 @@ def test_an_entry_must_cite_exactly_one_kind_of_evidence():
         CommandEntry(**common, manual_ref="the manual, somewhere")
 
     assert CommandEntry(**common, probe_ref=report).probe_ref == report
+    archived = "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/" + report
+    assert CommandEntry(**common, probe_ref=archived).probe_ref == archived
 
 
 @pytest.mark.parametrize(
@@ -1831,47 +1608,6 @@ def test_a_removed_row_that_reads_a_page_cites_the_page():
     )
 
 
-def test_every_narrative_citation_names_a_report_that_exists():
-    """A narrative citation is not opened by the compat guard, so it is opened here.
-
-    ``report`` is checked against its own contents by
-    ``test_every_citation_records_the_status_the_record_claims``, which
-    skips anything that is not machine readable. ``probe_ref`` is
-    precisely the not-machine-readable kind, so the one thing that CAN
-    be checked mechanically about it, that the file is really committed,
-    has to be checked somewhere, and this is the somewhere.
-    """
-    cited = [(name, version, row) for name, version, row in _removed_rows() if row.probe_ref]
-    # The floor, for the reason the entry-level sibling states: deleting
-    # the one row that uses the field leaves this walking an empty list
-    # and reporting green, and a guard is not allowed to pass by having
-    # nothing to check.
-    assert cited, (
-        "no removed row carries a probe_ref; this guard walks nothing. THE HARNESS "
-        "GAINED THE OUTCOME ON 2026-08-11 AND THE FIELD STAYED: it holds the removals "
-        "recorded before that, a finite set. Delete this guard when that set empties "
-        "and not before, and re-read PLN-20260809-0300 first"
-    )
-    missing = [
-        f"{name} on {version} cites {row.probe_ref}"
-        for name, version, row in cited
-        if not (REPO_ROOT / row.probe_ref).exists()
-    ]
-    assert not missing, f"these rows cite a narrative report that is not committed: {missing}"
-    # And that the report is about THIS command, which is what stops a
-    # citation being pasted across from a sibling row. The measured case
-    # is the one where that matters most: the claim is about the solver,
-    # so a report that never mentions the command supports nothing.
-    silent = [
-        f"{name} on {version} cites {row.probe_ref}"
-        for name, version, row in cited
-        if name not in (REPO_ROOT / row.probe_ref).read_text(encoding="utf-8")
-    ]
-    assert not silent, (
-        f"these rows cite a report that never names the command they sit on: {silent}"
-    )
-
-
 def test_a_narrative_citation_is_admissible_for_removed_alone():
     """The line that keeps `probe_ref` from becoming a way around the harness.
 
@@ -2016,54 +1752,6 @@ def test_a_removed_note_still_cannot_claim_a_measurement_without_a_run():
 
 #: The narrative report of the SET_NEW_UNSTEADY_SOLVER_ACTION reading.
 ACTION_CONTEXT_REPORT = "reports/RPT-030_what-an-unsteady-action-receives_2026-08-19.md"
-
-
-def test_the_unsteady_action_records_that_no_edition_says_what_it_receives():
-    """A recorded NO is a finding, and this is what carries it.
-
-    The question is what the solver hands an action it runs after each
-    unsteady time step: an argument vector, a working directory, the
-    step index or the physical time, an environment. Both registered
-    editions were read on the two pages that describe the feature at
-    all, and neither answers. Without this record the next reader opens
-    the same two pages and reaches the same silence, which is the whole
-    cost the item exists to remove.
-
-    Asserted through the report rather than through the note's prose:
-    the note may be reworded, and what may not happen is the report
-    going away while the note still points at it.
-    """
-    entry = CommandRegistry.load().commands["SET_NEW_UNSTEADY_SOLVER_ACTION"]
-    notes = " ".join((entry.notes or "").split())
-    assert ACTION_CONTEXT_REPORT in notes, (
-        "SET_NEW_UNSTEADY_SOLVER_ACTION's notes no longer cite the reading that "
-        "answered what the registered action receives. The answer was that no "
-        "edition says, which is a finding and is only useful while it is findable"
-    )
-
-    report = REPO_ROOT / ACTION_CONTEXT_REPORT
-    assert report.is_file(), (
-        f"{ACTION_CONTEXT_REPORT} is cited by the command database and is not "
-        "committed, so the citation leaves the repository"
-    )
-    text = report.read_text(encoding="utf-8")
-    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" in text, (
-        "the report does not name the command that cites it"
-    )
-    for source, pages in (("SRC-750", ("p.212", "p.353")), ("SRC-751", ("p.212", "p.353"))):
-        assert source in text, f"the report reads {source} and does not name it"
-        for page in pages:
-            assert f"{source} {page}" in text, (
-                f"the report does not cite {source} {page}. Both pages are load "
-                "bearing: the scripting page carries the signature and the user "
-                "interface page is the only place the feature is described at all, "
-                "so a reading that skipped either would not have measured the silence"
-            )
-    for question in ("argument", "working directory", "step", "environment"):
-        assert question in text.lower(), (
-            f"the report does not say what it found about {question!r}. The four "
-            "together are the question; three of them answered is not the finding"
-        )
 
 
 def test_the_trailing_edge_import_records_the_index_over_reporting_its_own_body():

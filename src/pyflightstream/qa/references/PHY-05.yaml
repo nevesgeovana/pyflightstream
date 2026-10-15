@@ -5,7 +5,7 @@ updated: '2026-07-21'
 reason: 'initial reference: first PHY-05 run on 26.120 build 7012026; values bit-identical to the generic-blade
   case 9002 baseline (same solve without monitors), confirming the promotion is faithful; bands as declared
   (abs for near-zero CL/CDo, rel 1/3 percent for the thrust CDi and CMy)'
-source_report: reports/physics/PHY-26120_2026-07-21_phy05-phy06-first.yaml
+source_report: GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/physics/PHY-26120_2026-07-21_phy05-phy06-first.yaml
 metrics:
   CL:
     value: -0.0001012

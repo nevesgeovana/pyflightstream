@@ -142,7 +142,7 @@ SET_ANALYSIS_SYMMETRY_LOADS:
     six-fold symmetric-copy sums while the export-time loads were
     unaffected; the setting therefore precedes START_SOLVER. The
     post-MIRROR default is also ENABLE (HND-013 calibration;
-    reports/physics/PHY-26120_2026-07-21_phy02-symmetry-phase-reval.yaml).
+    GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/physics/PHY-26120_2026-07-21_phy02-symmetry-phase-reval.yaml).
 
 SET_LOADS_AND_MOMENTS_UNITS:
   layout: inline
@@ -232,7 +232,7 @@ SET_VORTICITY_LIFT_MODEL:
     "26.123": {status: documented, note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
     "26.124":
       status: removed
-      probe_ref: "reports/RPT-068_two-documented-setup-commands-are-unrecognized-on-26124_2026-09-24.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-068_two-documented-setup-commands-are-unrecognized-on-26124_2026-09-24.md"
       note: >-
         Measured 2026-09-24: the 26.124 solver answers
         SET_VORTICITY_LIFT_MODEL ENABLE as an unrecognized command and the

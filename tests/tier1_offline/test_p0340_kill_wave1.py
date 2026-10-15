@@ -149,6 +149,21 @@ def _current() -> dict[str, dict[str, dict]]:
 
 _GOLDEN_KEYS = [(p, k) for p, actions in sorted(_GOLDEN_0331.items()) for k in sorted(actions)]
 
+# RX-28 retires this whole command. Keep an explicit absence check for each
+# historical action; the remaining parser comparisons still apply unchanged.
+_REMOVED = {
+    ("pyfs-matrix", f"convert|{key}")
+    for key in (
+        "fs_exe|--fs-exe",
+        "fs_version|--fs-version",
+        "help|-h,--help",
+        "matrix|",
+        "name|--name",
+        "output|-o,--output",
+        "recipe|--recipe",
+    )
+}
+
 # Deliberate changes a later release made to a 0.33.1 action, each by its planning id:
 # (program, key) -> {field: (0.33.1 value, the value the release decided)}. Any other
 # difference, or a second field changed on an admitted action, still fails.
@@ -191,8 +206,8 @@ def test_a_0331_cli_action_exists_unchanged(program, key):
     current = _current()[program]
     # PFS-2141.031 / N3: only the explicit 0.38.0 workspace migration remains.
     retired = {"pyfs-matrix": {"rename", "upgrade"}, "pyfs-workspace": {"migrate-geometries"}}
-    if key.split("|", 1)[0] in retired.get(program, set()):
-        assert key not in current
+    if (program, key) in _REMOVED or key.split("|", 1)[0] in retired.get(program, set()):
+        assert key not in current, f"{program}: retired action {key!r} returned"
         return
     moved_to, moved_fields = _MOVED.get((program, key), (key, {}))
     assert moved_to in current, f"{program}: the 0.33.1 action {key!r} is gone"

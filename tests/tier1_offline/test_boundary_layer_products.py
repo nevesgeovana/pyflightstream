@@ -197,7 +197,11 @@ def test_documented_bl_example_executes_and_keeps_tiny_values(tmp_path):
     import runpy
     from pathlib import Path
 
-    example = Path(__file__).resolve().parents[2] / "examples" / "boundary_layer_sections.py"
+    example = (
+        Path(__file__).resolve().parents[2]
+        / "docs/examples/_sources"
+        / "boundary_layer_sections.py"
+    )
     target = tmp_path / "example.csv"
     assert runpy.run_path(str(example))["main"]([str(target)]) == 0
     with target.open(newline="") as handle:

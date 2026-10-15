@@ -210,4 +210,4 @@ changes for you is listed below, one section per change.
   `config_sha256` does not move, so a `state.json` of an existing run still
   matches it. A generated configuration carries the provenance, and a release
   before 0.28.0 refuses to read that field. The worked example is
-  `examples/fsi_solid_blade_properties.py`.
+  `docs/examples/_sources/fsi_solid_blade_properties.py`.

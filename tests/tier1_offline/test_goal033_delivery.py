@@ -305,7 +305,7 @@ def _generated_pages() -> set[str]:
     examples = re.search(r"^EXAMPLES = \[(.*?)^\]", source, flags=re.MULTILINE | re.DOTALL)
     assert examples, "gen_docs_pages.py lists no EXAMPLES"
     for script in re.findall(r'"([\w-]+)\.py"', examples.group(1)):
-        assert (ROOT / "examples" / f"{script}.py").is_file(), (
+        assert (ROOT / "docs/examples/_sources" / f"{script}.py").is_file(), (
             f"examples/{script}.py is listed and absent"
         )
         pages.add(f"examples/{script}.md")

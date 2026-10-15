@@ -8,7 +8,6 @@ import math
 import sys
 import types
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -16,7 +15,7 @@ import pytest
 import pyflightstream.utils.manual as manual
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._expressions import evaluate_expression, parse_expression
-from pyflightstream._fsm import MESH_MARKER, MeshReadError, names_of, resolve_family, surface_mesh
+from pyflightstream._fsm import MeshReadError, names_of, resolve_family
 from pyflightstream.commands import (
     _PROBE_REF_PATTERN,
     ArgSpec,
@@ -41,7 +40,6 @@ from pyflightstream.farfield import (
 from pyflightstream.options import OptionError, get_option, option_context, set_option
 from pyflightstream.probes import build_lattice
 from pyflightstream.qa import ProbeOutcome, probe_version
-from pyflightstream.script.entities import ScriptReferenceError
 from pyflightstream.utils import insert_version_row
 from tests.tier1_offline.test_qa_probes import (
     FakeFlightStream as _CoreSmallReviewQaFakeFlightStream,
@@ -275,54 +273,6 @@ class TestCoreSmallOptions:
                 assert get_option("qa.probe_timeout_s") == 30.5
 
 
-_CORE_SMALL_PROBE_TARGET_LINES__REPO = Path(__file__).resolve().parents[2]
-
-
-def _core_small_probe_target_lines___load():
-    spec = importlib.util.spec_from_file_location(
-        "measure_probe_target_lines_p0400",
-        _CORE_SMALL_PROBE_TARGET_LINES__REPO / "scripts" / "measure_probe_target_lines.py",
-    )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _core_small_probe_target_lines___raising(error: Exception) -> SimpleNamespace:
-    def build_target(script, workdir):
-        raise error
-
-    return SimpleNamespace(build_target=build_target)
-
-
-class TestCoreSmallProbeTargetLines:
-    """P0400-PRELUDEBUCKET (PFS-2135.051): only a reference refusal is filed as needing a prelude.
-
-    measure_probe_target_lines caught every Exception under ``needs_prelude``, so a
-    TypeError in a specification read as a missing prelude. A ScriptReferenceError
-    is still ``needs_prelude``; anything else goes to its own bucket, named with its
-    type.
-    """
-
-    @staticmethod
-    def test_p0400_preludebucket_a_spec_defect_is_not_a_missing_prelude(monkeypatch) -> None:
-        """P0400-PRELUDEBUCKET: a TypeError lands in raised_something_else, a reference in prelude."""  # noqa: E501
-        module = _core_small_probe_target_lines___load()
-        specs = {
-            "CITES_A_FRAME": _core_small_probe_target_lines___raising(
-                ScriptReferenceError("frame 2 was never created")
-            ),
-            "BAD_SPEC": _core_small_probe_target_lines___raising(
-                TypeError("build_target() takes 1 argument")
-            ),
-        }
-        monkeypatch.setattr(module, "PROBE_SPECS", specs)
-        groups = module.classify()
-        assert groups["needs_prelude"] == ["CITES_A_FRAME"]
-        assert groups["raised_something_else"] == ["BAD_SPEC (TypeError)"]
-
-
 def _core_small_review___field(
     p_prime_outlet=None, stations: tuple[float, ...] = (0.0, 0.3)
 ) -> LatticeFields:
@@ -467,56 +417,3 @@ class TestCoreSmallReviewQa:
             ("filename", True),
         ]
         assert entry.versions["26.125"].status is Status.DOCUMENTED
-
-
-_CORE_SMALL_ROTOR_MESHES__REPO = Path(__file__).resolve().parents[2]
-
-
-_CORE_SMALL_ROTOR_MESHES__WING = (
-    _CORE_SMALL_ROTOR_MESHES__REPO
-    / "tests"
-    / "tier3_licensed"
-    / "inputs"
-    / "geometries"
-    / "10_WING.fsm"
-)
-
-
-def _core_small_rotor_meshes___load():
-    spec = importlib.util.spec_from_file_location(
-        "compare_rotor_meshes_p0400",
-        _CORE_SMALL_ROTOR_MESHES__REPO / "scripts" / "compare_rotor_meshes.py",
-    )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-class TestCoreSmallRotorMeshes:
-    """P0400-ROTORMESH (PFS-2135.045): compare_rotor_meshes.py reads the mesh block through the package.
-
-    The script carried a second positional reader that trusted the element count
-    the block states first, which the package documents as wrong on a campaign
-    geometry. With that count off, its per-face loop read no array and the load
-    ended in an IndexError. It now reads through ``pyflightstream._fsm``.
-    """  # noqa: E501
-
-    @staticmethod
-    def test_p0400_rotormesh_a_wrong_stated_count_is_not_trusted(tmp_path: Path) -> None:
-        """P0400-ROTORMESH: the stated count off by 64 still reads every face of every surface."""
-        lines = _CORE_SMALL_ROTOR_MESHES__WING.read_bytes().split(b"\n")
-        at = next(i for i, line in enumerate(lines) if line.strip() == MESH_MARKER.encode())
-        stated = lines[at + 1].strip()
-        lines[at + 1] = lines[at + 1].replace(stated, str(int(stated) + 64).encode())
-        wrong = tmp_path / "wing_wrong_count.fsm"
-        wrong.write_bytes(b"\n".join(lines))
-        vertices, faces = surface_mesh(_CORE_SMALL_ROTOR_MESHES__WING)
-
-        names, triangle, of_face, xyz = _core_small_rotor_meshes___load().load(wrong)
-        assert len(of_face) == len(faces) == len(triangle[0])
-        assert len(xyz[0]) == len(vertices)
-        assert set(of_face) <= set(range(1, len(names) + 1))
-        assert [tuple(t - 1 for t in corner) for corner in zip(*triangle, strict=True)] == list(
-            faces
-        )

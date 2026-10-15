@@ -193,7 +193,7 @@ def test_coverage_gap_analysis_is_derived_not_guessed():
 def test_percent_script_markdown_renders_the_committed_example():
     # Anchored to the checkout, not the working directory: the suite also runs
     # against the installed wheel from a folder outside the source tree.
-    example = Path(__file__).resolve().parents[2] / "examples" / "steady_polar.py"
+    example = Path(__file__).resolve().parents[2] / "docs/examples/_sources/steady_polar.py"
     source = example.read_text(encoding="utf-8")
     page = percent_script_markdown(source)
     assert page.startswith("# Steady polar")

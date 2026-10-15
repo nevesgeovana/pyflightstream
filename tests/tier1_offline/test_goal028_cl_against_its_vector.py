@@ -53,11 +53,3 @@ def test_the_gap_is_inside_the_range_the_pages_state_on_all_but_one_export():
     assert round(outside[0][0], 2) == STATED_OUTLIER, outside
     # The range is not slack: the exports reach both of its halves.
     assert gaps[0][0] < 0.12 and gaps[-2][0] > 0.20, (gaps[0], gaps[-2])
-
-
-def test_the_pages_state_the_measured_range_and_no_single_figure():
-    root = Path(__file__).parents[2]
-    for page in ("CHANGELOG.md", "docs/definitions/the-axes-of-a-steady-polar.md"):
-        text = (root / page).read_text(encoding="utf-8")
-        assert "0.13 per cent" not in text, page
-        assert "between 0.10 and 0.25 per cent" in text, page

@@ -33,7 +33,6 @@ from pyflightstream.results import (
     parse_sweep_spreadsheet,
     reject_duplicate_columns,
 )
-from tests.tier1_offline.conftest import REPO
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -328,62 +327,6 @@ def test_the_coarse_fallback_is_silent_when_the_version_string_agrees(monkeypatc
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         parse_loads(text, requested_version="27.900")
-
-
-def test_every_registered_build_comes_from_a_committed_report(recwarn):
-    """A build number is evidence, so it may not be typed in from memory.
-
-    Each registered build must appear in the solver_identity of some
-    committed report for that same version. This is the invariant-3 rule
-    applied to the registry: nothing about solver behaviour is recorded
-    without the evidence that observed it.
-    """
-    import yaml
-
-    from pyflightstream.versions import known_versions
-
-    # From the declared anchor, never from the working directory
-    # (OPS-2009.02.04). This walked `reports/**/*.yaml` relative to
-    # wherever pytest was invoked, so a run from any directory but the
-    # root matched no file and reported EVERY registered build as
-    # unevidenced: the strongest finding this module can make, produced
-    # by a lookup that never read a report at all.
-    reports = REPO / "reports"
-    assert reports.is_dir(), (
-        f"the committed report tree is not at {reports}. Every build number below is "
-        "checked against it, so its absence must be reported as a missing tree and "
-        "never as nine builds recorded from memory."
-    )
-    documents = sorted(reports.rglob("*.yaml"))
-    assert documents, (
-        f"{reports} holds no .yaml report. An empty tree makes every registered build "
-        "unevidenced by construction, which is a fact about the search and not about "
-        "the registry."
-    )
-    observed: dict[str, set[str]] = {}
-    for path in documents:
-        with open(path, encoding="utf-8") as handle:
-            document = yaml.safe_load(handle)
-        if not isinstance(document, dict):
-            continue
-        version = document.get("fs_version")
-        for line in document.get("solver_identity") or ():
-            digits = "".join(ch for ch in str(line).split("build")[-1] if ch.isdigit())
-            if version and digits:
-                observed.setdefault(str(version), set()).add(digits)
-
-    registered = {v.canonical: v.build for v in known_versions() if v.build is not None}
-    assert registered, "no build is registered; this test would prove nothing"
-    unevidenced = {
-        canonical: build
-        for canonical, build in registered.items()
-        if build not in observed.get(canonical, set())
-    }
-    assert not unevidenced, (
-        f"these registered build numbers appear in no committed report for their own "
-        f"version: {unevidenced}. A build number is solver evidence; record it from a "
-        "report's solver_identity, never from memory (CONTRIBUTING.md invariant 3)."
-    )
 
 
 # --- PYFS-009: six ways a malformed export produced a plausible number -----

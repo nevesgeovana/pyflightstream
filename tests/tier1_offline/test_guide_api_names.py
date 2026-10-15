@@ -217,25 +217,21 @@ def test_every_class_the_guide_names_resolves():
     )
 
 
-def test_the_checks_actually_find_the_samples():
-    # A pattern that silently stopped matching would leave both guards
-    # reporting green over an unread file, which is the failure mode
-    # this project has already had once (the self-skipping push-gate
-    # script). Floors, not membership: they survive edits to the guide.
-    #
-    # The counts come from guide_attribute_hits, the same function the
-    # guard above reads, rather than from a second compilation of
-    # ATTRIBUTE here: two readings of one pattern disagree the moment a
-    # filter is added to one of them, which is what happened when the
-    # file-extension filter arrived.
-    assert len(guide_attribute_hits("case")) >= 8
-    assert len(guide_attribute_hits("helpers")) >= 20
-    # 1, not 3: two of the three raw campaign hits are the bare file
-    # name campaign.toml, which the filter drops. A floor of 1 still
-    # fires if the pattern stops matching, because it would go to 0.
-    assert len(guide_attribute_hits("campaign")) >= 1
-    assert len(guide_imports()) >= 10
-    # 13 at HEAD. Deleting the object table alone leaves 3, so this
-    # floor is what makes a silently removed listing a failure rather
-    # than a smaller green run.
-    assert len(guide_class_names()) >= 13
+def test_the_checks_find_attributes_imports_and_classes(tmp_path, monkeypatch):
+    """Exercise the extractors without pinning the guide's sample inventory."""
+    sample = tmp_path / "guide.tex"
+    sample.write_text(
+        "case.geometry helpers.new_simulation campaign.name campaign.toml\n"
+        "from pyflightstream.cases import Campaign, SimCase\n"
+        r"\code{CampaignWorkspace} \code{CP} \code{RunRecord}",
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(globals(), "GUIDE", sample)
+    assert guide_attribute_hits("case") == ["geometry"]
+    assert guide_attribute_hits("helpers") == ["new_simulation"]
+    assert guide_attribute_hits("campaign") == ["name"]
+    assert guide_imports() == [
+        ("pyflightstream.cases", "Campaign"),
+        ("pyflightstream.cases", "SimCase"),
+    ]
+    assert guide_class_names() == {"CampaignWorkspace", "RunRecord"}

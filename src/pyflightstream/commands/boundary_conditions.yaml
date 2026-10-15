@@ -125,14 +125,14 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
       status: documented
       note: >-
         SRC-752 p.325, the SRC-751 file, carried from 26.123. Ran on 26.124
-        (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07): after IMPORT_WAKE_EDGES_FROM_FILE it marks
+        (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07): after IMPORT_WAKE_EDGES_FROM_FILE it marks
         nothing until the solver has initialised, and a repeated
         INITIALIZE_SOLVER clears the first initialisation and initialises
         again with the node it marked
   notes: >
     Finds and marks all wake termination nodes in the geometry.
 
-    RAN ON 26.124 (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07), on a twisted blade whose root
+    RAN ON 26.124 (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07), on a twisted blade whose root
     end is its one wake-termination node. Emitted after
     AUTO_DETECT_TRAILING_EDGES, the saved simulation carries that node.
     Emitted right after IMPORT_WAKE_EDGES_FROM_FILE, which marked the same
@@ -186,7 +186,7 @@ SET_FREESTREAM:
     "26.101": {status: documented, note: "SRC-725 p.321, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.326, unchanged from SRC-750 p.326"}
-    "26.124": {status: documented, note: "SRC-752 p.326, the SRC-751 file, carried from 26.123; the ROTATION form ran on 26.124 in reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md (TWO ROTATION points against one CONSTANT baseline, all three CONVERGED), which measured its SENSE and is not an acceptance of the other two forms; the CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14 (RPT-071): a uniform field of the row's own speed loaded as the CONSTANT free stream at 0 deg, a field sheared in z moved the lift, and SOLVER_SET_AOA did not turn the field at 4 deg; the CUSTOM UNSTRUCTURED form ran on 26.124 under the licensed probe T16 (RPT-077) and read the same rows as the STRUCTURED one, a field did not reach beyond its grid (closest to the free stream there), a field carrying the incidence loaded the body as that incidence with CL and CDi printed in the stated angle's axes, and a saved simulation kept its field until SET_FREESTREAM was given again"}
+    "26.124": {status: documented, note: "SRC-752 p.326, the SRC-751 file, carried from 26.123; the ROTATION form ran on 26.124 in GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md (TWO ROTATION points against one CONSTANT baseline, all three CONVERGED), which measured its SENSE and is not an acceptance of the other two forms; the CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14 (RPT-071): a uniform field of the row's own speed loaded as the CONSTANT free stream at 0 deg, a field sheared in z moved the lift, and SOLVER_SET_AOA did not turn the field at 4 deg; the CUSTOM UNSTRUCTURED form ran on 26.124 under the licensed probe T16 (RPT-077) and read the same rows as the STRUCTURED one, a field did not reach beyond its grid (closest to the free stream there), a field carrying the incidence loaded the body as that incidence with CL and CDi printed in the stated angle's axes, and a saved simulation kept its field until SET_FREESTREAM was given again"}
     "26.125": {status: documented, note: "SRC-753 p.332, unchanged from SRC-752 p.326"}
   notes: >
     CONSTANT needs no further input. CUSTOM appends a FILETYPE token
@@ -408,7 +408,7 @@ TRAILING_EDGES_IMPORT:
     "26.124":
       status: removed
       successor: IMPORT_WAKE_EDGES_FROM_FILE
-      probe_ref: "reports/RPT-061_where-the-wake-edge-import-reads-its-nodes_2026-09-23.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-061_where-the-wake-edge-import-reads-its-nodes_2026-09-23.md"
       note: >-
         Measured 2026-09-23: the 26.124 solver answers the name as an
         unrecognized command, with its file present and with it absent,
@@ -486,7 +486,7 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
       status: documented
       note: >-
         SRC-752 p.325, the SRC-751 file, carried from 26.123. Ran on 26.124
-        once (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07), right after IMPORT_WAKE_EDGES_FROM_FILE
+        once (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07), right after IMPORT_WAKE_EDGES_FROM_FILE
         and before the solver was initialised, where it marked nothing, as
         AUTO_DETECT_WAKE_TERMINATION_NODES marks nothing there
     "26.125":
@@ -724,7 +724,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     builds before.
 
     WHAT IT LEAVES TO THE INITIALISATION, MEASURED ON 26.124
-    (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07). A twisted blade marked by this command, by
+    (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07). A twisted blade marked by this command, by
     AUTO_DETECT_TRAILING_EDGES and from its saved simulation carried the
     same twelve edges, and only this route solved 1.8 % below the other
     two in induced drag: its saved simulation carried no wake-termination
@@ -752,7 +752,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
         third token (RPT-061). After it a wake-termination detection marks
         nothing until the solver has initialised, and a repeated
         INITIALIZE_SOLVER clears the first initialisation and initialises
-        again (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07)
+        again (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07)
       args:
         - name: type
         - name: tolerance

@@ -296,29 +296,6 @@ def test_p0390_r03_a_file_value_post_does_not_use_is_left_unused(tmp_path, capsy
     assert code == 2 and "--diagnostics cannot be combined" in err
 
 
-def test_p0390_r03_convert_takes_its_required_option_from_the_current_directory(
-    tmp_path, capsys, monkeypatch
-):
-    """P0390-R03 (FR-436 R1, R3): convert, which takes no --workspace, reads the cwd's file.
-
-    Its required --fs-exe is supplied by pyfs.local.toml of the current directory; without
-    the file the parser refuses it as in 0.38.0.
-    """
-    root = make_workspace(tmp_path)
-    exe = Path(sys.executable).as_posix()
-    (root / "pyfs.local.toml").write_text(
-        f'[defaults]\nfs_version = "26.120"\nfs_exe = "{exe}"\n', encoding="utf-8"
-    )
-    monkeypatch.chdir(root)
-    argv = ["convert", "polars.fs", "--name", "camp"]
-    code, out, err = call(capsys, matrix_main, argv)
-    assert code == 0, err
-    assert exe in out.replace("\\\\", "/").replace("\\", "/")
-    (root / "pyfs.local.toml").write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
-    code, _out, err = call(capsys, matrix_main, argv)
-    assert code == 2 and "--fs-exe" in err
-
-
 def test_p0390_r03_a_required_option_is_relaxed_against_the_named_workspace(tmp_path, monkeypatch):
     """P0390-R03 (FR-436 R1): a required option is relaxed by the file --workspace names.
 
@@ -689,6 +666,15 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     # PFS-2135.058 corrects this serialized manual claim in 0.40.0.
     # Preserve the historical fixture and apply only the reviewed text change.
     plan_name = "tree/post/polars/plan.json"
+    # CL-03 moves only these evidence locators; preserve every other captured byte.
+    for locator in (
+        b"reports/physics/PHY-26120_2026-07-21_phy02-symmetry-phase-reval.yaml",
+        b"reports/RPT-030_what-an-unsteady-action-receives_2026-08-19.md",
+        b"reports/RPT-041_script-action-reread-on-26123_2026-09-08.md",
+    ):
+        captured[plan_name] = captured[plan_name].replace(
+            locator, b"GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/" + locator
+        )
     captured[plan_name] = (
         captured[plan_name]
         .replace(

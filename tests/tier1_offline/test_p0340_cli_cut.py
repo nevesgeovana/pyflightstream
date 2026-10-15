@@ -28,6 +28,7 @@ from gen_cli_reference import capture_parser  # noqa: E402
 _SPEC = importlib.util.spec_from_file_location(
     "arch_metrics_for_the_cli_cut", REPO / "scripts" / "arch_metrics.py"
 )
+assert _SPEC is not None and _SPEC.loader is not None
 am = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = am
 _SPEC.loader.exec_module(am)
@@ -44,7 +45,6 @@ V0330_SUBCOMMANDS = [
     "restore",
     "rebuild",
     "mark-failed",
-    "convert",
     "plan",
     "inspect-setups",
     "run",

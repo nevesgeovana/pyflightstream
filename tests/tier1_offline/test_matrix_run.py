@@ -37,7 +37,6 @@ from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
     MATRIX_COLUMNS,
     MatrixError,
-    convert_matrix,
     read_matrix,
     to_campaign,
 )
@@ -1244,52 +1243,12 @@ def test_a_matrix_row_declaring_no_outputs_is_refused_before_the_solver():
             to_campaign(path, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES)
 
 
-def test_a_legacy_matrix_still_converts_and_says_what_to_add():
-    """FR-10 and FR-11, which the refusal above closed for a whole day.
-
-    `_declared_outputs` raised from `to_campaign`, and `convert_matrix`
-    calls `to_campaign`, so `pyfs-matrix convert` refused every matrix
-    written before the OUTPUTS variable existed. That is every matrix
-    the author already owns, and conversion is the ONE path off the
-    legacy format: FR-10 scopes "forever" to the external format and
-    FR-11 calls conversion lossless, and neither moved.
-
-    Conversion spends no solver time, so it carries what the row
-    declares, including nothing, and warns naming the rows. The
-    refusal belongs on the paths that are about to start a solver, and
-    the test above still pins it there.
-    """
-    import re
-    import tempfile
-
-    text = REGISTRY_FIXTURE.read_text(encoding="utf-8")
-    stripped = re.sub(r"\s*/\s*OUTPUTS:[^|/\n]*", "", text)
-    assert stripped != text, "the fixture no longer declares OUTPUTS to strip"
-    with tempfile.TemporaryDirectory() as folder:
-        path = Path(folder) / "legacy.fs"
-        path.write_text(stripped, encoding="utf-8")
-        with pytest.warns(UserWarning, match="declare no outputs"):
-            rendered = convert_matrix(
-                path, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
-            )
-    assert "[[sim]]" in rendered, "the legacy matrix did not convert at all"
-    assert "outputs = " not in rendered, (
-        "the conversion invented outputs the matrix never declared, which is the "
-        "opposite failure: FR-11 calls it lossless in both directions"
-    )
-
-
-def test_a_declared_row_reaches_the_case_and_survives_conversion():
-    """The control, and the FR-11 half: what the row declares must arrive
-    on the case AND survive the campaign.toml round trip."""
+def test_a_declared_row_reaches_the_in_memory_case():
+    """Matrix-declared outputs reach the ordinary in-memory API."""
     campaign = to_campaign(
         REGISTRY_FIXTURE, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
     )
     assert campaign.sims[0].outputs == ["loads_{point}.txt"]
-    text = convert_matrix(
-        REGISTRY_FIXTURE, name="m", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
-    )
-    assert "outputs = " in text
 
 
 def test_the_end_to_end_run_actually_collects_the_declared_file(tmp_path):
@@ -5792,13 +5751,12 @@ _FR310_MATRIX_HOMES_ALL__LAYOUTS = ("root", "inputs", "both-equal", "both-differ
 _FR310_MATRIX_HOMES_ALL__NAME = "m.fs"
 
 
-#: ``upgrade`` and ``convert`` take no workspace: their homes are the working directory's.
-_FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE = {("convert", "matrix")}
+#: Every supported matrix command accepts a workspace.
+_FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE: set[tuple[str, str]] = set()
 
 
 #: The fewest arguments each command's parser accepts beside its matrix.
 _FR310_MATRIX_HOMES_ALL__ARGV = {
-    ("convert", "matrix"): ["convert", _FR310_MATRIX_HOMES_ALL__NAME, "--fs-exe", "solver"],
     ("plan", "matrix"): ["plan", _FR310_MATRIX_HOMES_ALL__NAME],
     ("inspect-setups", "matrix"): ["inspect-setups", _FR310_MATRIX_HOMES_ALL__NAME],
     ("run", "matrix"): ["run", _FR310_MATRIX_HOMES_ALL__NAME],

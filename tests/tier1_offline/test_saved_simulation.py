@@ -51,7 +51,6 @@ from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, RunStatus
-from tests.tier1_offline._workflow_docs import workflow_docs_text
 from tests.tier1_offline.test_goal023_every_build import NOT_YET_RENDERED
 from tests.tier1_offline.test_goal024_point_name import _matrix
 from tests.tier1_offline.test_matrix_run import (
@@ -369,20 +368,3 @@ def test_g11_a_legacy_row_declaring_its_fsm_and_a_workflow_row_are_not_warned(tm
 
 
 # ------------------------------------------------------------------ the page --
-
-
-def test_g11_the_workflows_page_states_the_guarantee_and_names_its_tests():
-    """The page states the guarantee; unpublished evidence names its tests on disk."""
-    text = " ".join(workflow_docs_text().split())
-    assert "datapoints/DP-<point>/P<POL>-<point>.fsm" in text
-    assert "`[exports] simulation = false` is refused" in text
-    assert "`pyfs-matrix plan` warns naming every `LEGACY` row" in text
-    provenance = (
-        Path(__file__).resolve().parents[2] / "docs" / "unpublished" / "doc-verification.md"
-    ).read_text(encoding="utf-8")
-    for name in (
-        "test_g11_every_workflow_script_saves_its_final_simulation",
-        "test_g11_the_saved_simulation_is_collected_and_hashed",
-    ):
-        assert f"`{name}`" in provenance, name
-        assert name in globals(), f"the evidence cites {name}, which is not in this module"

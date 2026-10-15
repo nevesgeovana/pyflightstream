@@ -10,146 +10,10 @@ import subprocess
 import sys
 import types
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from tests.tier1_offline._docs_site import REQUIREMENTS_DIR as _CORE_SMALL_PARITY__REQUIREMENTS_DIR
-from tests.tier1_offline.test_p0320_changelog_fragments import (
-    CHANGELOG as _CORE_SMALL_CHANGELOG__CHANGELOG,
-)
-from tests.tier1_offline.test_p0320_changelog_fragments import (
-    _checkout as _core_small_changelog___checkout,
-)
-from tests.tier1_offline.test_p0320_changelog_fragments import (
-    _script as _core_small_changelog___script,
-)
-
-
-class TestCoreSmallChangelog:
-    """P0400-FOLDWHOLE (PFS-2135.040): the change log fold compares whole lines, and names its page.
-
-    A fragment bullet that was only the START of an existing bullet was judged
-    already present by a substring test, skipped, and its fragment deleted; the
-    migration page had the same test. A fold without ``--migration-page`` wrote
-    into the 0.32.0 page whatever the release.
-    """
-
-    @staticmethod
-    def test_p0400_foldwhole_a_bullet_that_prefixes_another_is_still_folded(tmp_path):
-        """P0400-FOLDWHOLE: '- a fix' is folded beside '- a fix of the reader'."""
-        changelog = _CORE_SMALL_CHANGELOG__CHANGELOG.replace(
-            "### Owed\n", "### Fixed\n\n- a fix of the reader.\n\n### Owed\n"
-        )
-        repo = _core_small_changelog___checkout(tmp_path, changelog, A="## Fixed\n\n- a fix\n")
-        report = _core_small_changelog___script().assemble(repo)
-        assert report["changelog_entries"] == 1
-        text = (repo / "CHANGELOG.md").read_text(encoding="utf-8")
-        assert "- a fix of the reader.\n- a fix\n" in text
-
-    @staticmethod
-    def test_p0400_foldwhole_a_migration_block_inside_another_is_still_folded(tmp_path):
-        """P0400-FOLDWHOLE: a migration sentence that is part of a longer one is appended."""
-        repo = _core_small_changelog___checkout(tmp_path, A="## Migration\n\nRename the key\n")
-        page = repo / "docs" / "migrating-to-0.40.0.md"
-        page.parent.mkdir()
-        page.write_text("# Migrating to 0.40.0\n\nRename the key twice.\n", encoding="utf-8")
-        report = _core_small_changelog___script().assemble(repo, "docs/migrating-to-0.40.0.md")
-        assert report["migration_entries"] == 1
-        assert page.read_text(encoding="utf-8").endswith("\n\nRename the key\n")
-
-    @staticmethod
-    def test_p0400_foldwhole_a_migration_without_its_page_is_refused(tmp_path, capsys):
-        """P0400-FOLDWHOLE: the command line refuses a Migration section with no page named."""
-        repo = _core_small_changelog___checkout(
-            tmp_path, A="## Added\n\n- x.\n\n## Migration\n\nWords.\n"
-        )
-        script = _core_small_changelog___script()
-        assert script.main(["--repo", str(repo)]) == 2
-        assert "--migration-page" in capsys.readouterr().err
-        assert (repo / "changelog.d" / "A.md").exists()
-        assert not (repo / "docs").exists()
-        assert script.main(["--repo", str(repo), "--migration-page", "docs/m.md"]) == 0
-
-    @staticmethod
-    def test_p0400_foldwhole_srs_non_box_text_is_refused(tmp_path):
-        """P0400-FOLDWHOLE: an SRS fragment cannot silently discard unindented prose."""
-        spec = importlib.util.spec_from_file_location(
-            "assemble_srs_p0400", Path(__file__).resolve().parents[2] / "scripts/assemble_srs.py"
-        )
-        assert spec and spec.loader
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        path = tmp_path / "fragment.md"
-        path.write_text('Prose that must survive.\n\n!!! requirement "FR-999 A box"\n\n    Body.\n')
-        with pytest.raises(module.FragmentError, match="non-box text"):
-            module.parse_fragment(path)
-
-    @staticmethod
-    def test_p0400_foldwhole_srs_prefix_box_is_not_already_folded(tmp_path):
-        """P0400-FOLDWHOLE: an existing longer requirement does not swallow a shorter box."""
-        spec = importlib.util.spec_from_file_location(
-            "assemble_srs_p0400", Path(__file__).resolve().parents[2] / "scripts/assemble_srs.py"
-        )
-        assert spec and spec.loader
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        box = '!!! requirement "FR-999 A box"\n\n    Body.'
-        with pytest.raises(module.FragmentError, match="another text"):
-            module.fold_page(box + " More text.\n", [(tmp_path / "fragment.md", [("FR-999", box)])])
-
-
-_CORE_SMALL_COUNT_ROWS__REPO = Path(__file__).resolve().parents[2]
-
-
-def _core_small_count_rows___load(name="count_manifest_key_rows"):
-    spec = importlib.util.spec_from_file_location(
-        name + "_p0400", _CORE_SMALL_COUNT_ROWS__REPO / "scripts" / (name + ".py")
-    )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-class TestCoreSmallCountRows:
-    """P0400-COUNTROOT (PFS-2135.046): a root under a skipped folder name is still counted.
-
-    json_files tested the skipped directory names against the ABSOLUTE path, so a
-    root such as ``.../build/workspace`` yielded no file and a total of 0. The parts
-    below the root are what the skip is about.
-    """
-
-    @staticmethod
-    def test_p0400_countroot_a_root_inside_build_is_read(tmp_path: Path) -> None:
-        """P0400-COUNTROOT: files under build/workspace are found; build/ below the root is skipped."""  # noqa: E501
-        root = tmp_path / "build" / "workspace"
-        (root / "post").mkdir(parents=True)
-        (root / "post" / "a.json").write_text("{}", encoding="utf-8")
-        (root / "build").mkdir()
-        (root / "build" / "b.json").write_text("{}", encoding="utf-8")
-        found = [
-            path.relative_to(root).as_posix()
-            for path in _core_small_count_rows___load().json_files(root)
-        ]
-        assert found == ["post/a.json"]
-
-    @staticmethod
-    def test_p0400_countroot_deprecated_spellings_use_only_relative_parts(
-        tmp_path, monkeypatch, capsys
-    ):
-        """P0400-COUNTROOT: ancestor build/setups cannot suppress or reclassify a reference."""
-        module = _core_small_count_rows___load("count_deprecated_spellings")
-        root = tmp_path / "build" / "setups" / "workspace"
-        root.mkdir(parents=True)
-        reference = root / "reference.toml"
-        reference.write_text("[aliases]\n", encoding="utf-8")
-        assert list(module.walk(root)) == [reference]
-        monkeypatch.setattr(module, "REPO", root)
-        assert module.main([]) == 0
-        assert "[aliases]               0 occurrence(s)" in capsys.readouterr().out
-        assert module.main(["--root", str(root / "missing")]) == 1
-
 
 _CORE_SMALL_GEN_GOLDENS__REPO = Path(__file__).resolve().parents[2]
 
@@ -205,11 +69,11 @@ def _core_small_parity___load():
 
 
 class TestCoreSmallParity:
-    """Retained runtime, privacy and link checks, with shared test support."""
+    """Parity regressions, including the RV1 precision and schema cases."""
 
     @staticmethod
     def test_p0400_parityscope_a_revert_against_a_later_base_is_unnamed() -> None:
-        """P0400-PARITYSCOPE: the FR-331 sign flip is named against 0.33.1 and not against 0.39.0."""  # noqa: E501
+        """P0400-PARITYSCOPE: the FR-331 sign flip is named only against an older base."""
         module = _core_small_parity___load()
         defined = {"FR-331"}
         assert (
@@ -268,7 +132,10 @@ class TestCoreSmallParity:
     def test_p0400_paritytag_an_unrelated_path_is_left_alone() -> None:
         """P0400-PARITYTAG: a different folder or a non-digit tag keeps its name."""
         norm = _core_small_parity___load().normalize
-        other = b'{"superfile_report": "elsewhere/superfile-0390.json", "x": "reports/superfile-a1.json"}'  # noqa: E501
+        other = (
+            b'{"superfile_report": "elsewhere/superfile-0390.json", '
+            b'"x": "reports/superfile-a1.json"}'
+        )
         assert norm("m/products.json", other) == other
 
     @staticmethod
@@ -345,7 +212,7 @@ class TestCoreSmallParity:
             ("POL,CL\n1,inf\n2,-0.00680\n", False),
             ("POL,CL\n1,word\n2,-0.00680\n", False),
             ("POL,CL\n1,0.12345,0\n2,-0.00680\n", False),
-            ("POL,f12_kind,CL\n1,0,0.12345\n2,1,-0.00680\n", True),
+            ("POL,f12_kind,CL\n1,0,0.12345\n2,1,-0.00680\n", False),
         ],
         ids=[
             "P0410-PAR-exact",
@@ -359,7 +226,7 @@ class TestCoreSmallParity:
             "P0410-PAR-inf",
             "P0410-PAR-text",
             "P0410-PAR-width",
-            "P0410-PAR-named-column",
+            "P0410-PAR-unrelated-kind-column",
         ],
     )
     def test_p0410_par_csv_rounding_is_bounded(new, accepted, monkeypatch) -> None:
@@ -392,8 +259,8 @@ class TestCoreSmallParity:
             ("m/sections/p.csv", "POL,CP\n1,0.00380\n", "POL,CP\n1,0.003802\n", "FR-124"),
             (
                 "m/settings/m_settings.csv",
-                "POL,f1\n1,4.00000\n",
-                "POL,f1,f1_kind\n1,4.0,0\n",
+                "POL,f1_value,f1_prov\n1,4.00000,1\n",
+                "POL,f1_value,f1_prov,f1_kind\n1,4.0,1,3\n",
                 "FR-419",
             ),
         ],
@@ -415,7 +282,7 @@ class TestCoreSmallParity:
         )
         if requirement == "FR-419":
             assert "requirement" not in module.name_difference(
-                "post", path, old, new.replace("4.0", "4.000001"), {requirement}, "0.39.0"
+                "post", path, old, new.replace("4.0", "4.00001"), {requirement}, "0.39.0"
             )
 
     @staticmethod
@@ -428,48 +295,108 @@ class TestCoreSmallParity:
         assert len(result["scripts"]) == 1
         assert next(iter(result["scripts"])).startswith("BATCH-")
 
-
-_CORE_SMALL_PROVE_EVIDENCE__REPO = Path(__file__).resolve().parents[2]
-
-
-def _core_small_prove_evidence___load():
-    spec = importlib.util.spec_from_file_location(
-        "prove_evidence_guards_p0400",
-        _CORE_SMALL_PROVE_EVIDENCE__REPO / "scripts" / "prove_evidence_guards.py",
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("old", "new"),
+        [("1", "1.4"), ("100", "100.4"), ("0", "0.1"), ("1e3", "1100")],
+        ids=["P0410-RV1-integer", "P0410-RV1-count", "P0410-RV1-zero", "P0410-RV1-text"],
     )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-class TestCoreSmallProveEvidence:
-    """Retained runtime, privacy and link checks, with shared test support."""
+    def test_p0410_par_literal_cells_have_no_rounding_allowance(old, new):
+        """RV1-001: only the old writer's five-decimal floats lost precision."""
+        module = _core_small_parity___load()
+        found = module.name_difference(
+            "post", "m/sections/p.csv", f"STEP\n{old}\n", f"STEP\n{new}\n", {"FR-124"}, "0.39.0"
+        )
+        assert "requirement" not in found
 
     @staticmethod
     @pytest.mark.parametrize(
-        ("returncode", "summary", "expected"),
+        "new",
         [
-            (1, "3 passed, 1 error in 0.5s", "INCONCLUSIVE"),
-            (2, "1 error in 0.5s", "INCONCLUSIVE"),
-            (5, "no tests ran in 0.1s", "INCONCLUSIVE"),
-            (1, "1 failed, 2 passed in 0.5s", "FAILED"),
-            (0, "3 passed in 0.5s", "passed"),
+            "POL,f1_value,f1_prov,f1_kind\n1,4.0,1,garbage\n",
+            "POL,f1_value,f1_prov,f1_kind\n1,4.0,1,7\n",
+            "POL,f1_value,f1_prov,f999_kind\n1,4.0,1,3\n",
+            "POL,f1_value,f1_prov\n1,4.0,1\n",
+        ],
+        ids=["P0410-RV1-text-kind", "P0410-RV1-kind-code", "P0410-RV1-flag", "P0410-RV1-no-kind"],
+    )
+    def test_p0410_par_settings_kind_additions_are_validated(new):
+        """RV1-002: naming new kind columns does not excuse a malformed settings table."""
+        old = "POL,f1_value,f1_prov\n1,4.00000,1\n"
+        found = _core_small_parity___load().name_difference(
+            "post", "m/settings/m_settings.csv", old, new, {"FR-419"}, "0.39.0"
+        )
+        assert "requirement" not in found
+
+    @staticmethod
+    @pytest.mark.parametrize("kind", ["1", "2", "3", "4", "5", "6", "NA"])
+    def test_p0410_par_settings_accepts_the_frozen_kind_codes(kind):
+        """P0410-RV1: valid kind additions still pass the FR-419 exception."""
+        old = "POL,f1_value,f1_prov\n1,4.00000,1\n"
+        new = f"POL,f1_value,f1_prov,f1_kind\n1,4.0,1,{kind}\n"
+        assert (
+            _core_small_parity___load()
+            .name_difference("post", "m/settings/m_settings.csv", old, new, {"FR-419"}, "0.39.0")
+            .get("requirement")
+            == "FR-419"
+        )
+
+    @staticmethod
+    def test_p0410_rv1_the_documented_settings_precision_change_is_named(tmp_path):
+        """RV1-003: convergence 1e-6 was printed as zero before 68755be9."""
+        import csv
+
+        from pyflightstream.post.settings_table import write_settings_table
+        from pyflightstream.script import Script, helpers
+
+        setup = helpers.solver_settings(Script(version="26.120"), convergence=1e-6)
+        table, _ = write_settings_table(tmp_path / "settings.csv", [setup], wide=True)
+        with table.open(encoding="utf-8", newline="") as stream:
+            row = next(csv.DictReader(stream))
+        assert row["f12_value"] == "1e-06"
+        assert row["f12_kind"] == "3"
+        old = "POL,f12_value,f12_prov\n1,0.00000,1\n"
+        new = "POL,f12_value,f12_prov,f12_kind\n1,1e-06,1,3\n"
+        found = _core_small_parity___load().name_difference(
+            "post", "m/settings/m_settings.csv", old, new, {"FR-419"}, "0.39.0"
+        )
+        assert found.get("requirement") == "FR-419", found
+        assert "68755be9" in found["why"]
+        assert "convergence" in found["why"]
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        ("old", "new", "accepted"),
+        [
+            ("0.00000", "1e-06", True),
+            ("0.00001", "2e-05", False),
+            ("0.12346", "0.1235", True),
+            ("0.12344", "0.1235", False),
+            ("0.00001", "0.000015", False),
+            ("0.00002", "0.000015", True),
+            ("-0.00000", "-1e-06", True),
+            ("1", "1.4", False),
+            ("100", "100.4", False),
+            ("0", "0.1", False),
+            ("1e3", "1100", False),
+            ("NA", "0.0", False),
+            ("word", "other", False),
+            ("0.00000", "NaN", False),
+            ("0.00000", "Infinity", False),
+            ("0.00000", "0_0", False),
         ],
     )
-    def test_p0400_evidencebattery_score_reads_the_exit_code(
-        returncode: int, summary: str, expected: str, monkeypatch
-    ) -> None:
-        """P0400-EVIDENCEBATTERY-SCORE: an error beside passes is inconclusive, not passed."""
-        module = _core_small_prove_evidence___load()
-        monkeypatch.setattr(
-            module.subprocess,
-            "run",
-            lambda *args, **kwargs: SimpleNamespace(
-                returncode=returncode, stdout=summary, stderr=""
-            ),
+    def test_p0410_rv1_settings_compare_at_the_coarser_printed_precision(old, new, accepted):
+        """RV1-003: both cells round alike; RV1-001 literals remain exact."""
+        found = _core_small_parity___load().name_difference(
+            "post",
+            "m/settings/m_settings.csv",
+            f"POL,f12_value,f12_prov\n1,{old},1\n",
+            f"POL,f12_value,f12_prov,f12_kind\n1,{new},1,3\n",
+            {"FR-419"},
+            "0.39.0",
         )
-        assert module.run("test_guard.py", "selection")[0] == expected
+        assert ("requirement" in found) is accepted, found
 
 
 _CORE_SMALL_PROVE_EXTRAS__REPO = Path(__file__).resolve().parents[2]
@@ -557,74 +484,6 @@ class TestCoreSmallProveExtras:
         assert not (tmp_path / "tests").exists()
 
 
-_CORE_SMALL_TRAILER_HOOK__HOOK = (
-    Path(__file__).resolve().parents[2] / "scripts" / "check_clean_room_trailer.py"
-)
-
-
-_CORE_SMALL_TRAILER_HOOK__TRAILERS = (
-    "Clean-room: emitter specified from the official manual and probe evidence only; "
-    "no code, structure or docstrings from the AGPL predecessor\n"
-    "Co-Authored-By: Someone <someone@example.com>\n"
-)
-
-
-_CORE_SMALL_TRAILER_HOOK__VERBOSE = (
-    "# Please enter the commit message for your changes.\n"
-    "# ------------------------ >8 ------------------------\n"
-    "# Do not modify or remove the line above.\n"
-    "diff --git a/x.py b/x.py\n"
-    "index 1111111..2222222 100644\n"
-    "--- a/x.py\n"
-    "+++ b/x.py\n"
-    "@@ -1 +1 @@\n"
-    "-a = 1\n"
-    "+a = 2\n"
-)
-
-
-def _core_small_trailer_hook___hook(tmp_path: Path, text: str) -> int:
-    message = tmp_path / "COMMIT_EDITMSG"
-    message.write_text(text, encoding="utf-8")
-    return subprocess.run(
-        [sys.executable, str(_CORE_SMALL_TRAILER_HOOK__HOOK), str(message)],
-        capture_output=True,
-        check=False,
-        env=os.environ.copy(),
-    ).returncode
-
-
-class TestCoreSmallTrailerHook:
-    """P0400-SCISSORS (PFS-2135.042): the trailer hook accepts a valid message under commit -v.
-
-    The hook dropped every ``#`` line, the scissors line included, so the diff
-    ``git commit -v`` writes below it became the message's last paragraph and git
-    interpret-trailers no longer read the Clean-room trailer above it.
-    """
-
-    @staticmethod
-    def test_p0400_scissors_a_valid_message_under_commit_v_passes(tmp_path: Path) -> None:
-        """P0400-SCISSORS: the trailers stay the last paragraph; the diff below the cut is ignored."""  # noqa: E501
-        assert (
-            _core_small_trailer_hook___hook(
-                tmp_path,
-                f"subject\n\nbody.\n\n{_CORE_SMALL_TRAILER_HOOK__TRAILERS}\n{_CORE_SMALL_TRAILER_HOOK__VERBOSE}",
-            )
-            == 0
-        )
-
-    @staticmethod
-    def test_p0400_scissors_a_misplaced_trailer_is_still_refused(tmp_path: Path) -> None:
-        """P0400-SCISSORS: the control: a trailer followed by another paragraph is still refused."""
-        assert (
-            _core_small_trailer_hook___hook(
-                tmp_path,
-                f"subject\n\n{_CORE_SMALL_TRAILER_HOOK__TRAILERS}\nanother paragraph.\n\n{_CORE_SMALL_TRAILER_HOOK__VERBOSE}",  # noqa: E501
-            )
-            == 1
-        )
-
-
 class TestReviewR10PdfRecord:
     """REL10-001: pdf_release_record.py --repo must read that checkout's build logs.
 
@@ -649,7 +508,9 @@ class TestReviewR10PdfRecord:
         selected = tmp_path / "selected" if redirect else original
         guide = selected / "guide"
         guide.mkdir(parents=True)
-        record = guide / "pdf-release-record.json"
+        output = selected / "build" / "guides"
+        output.mkdir(parents=True)
+        record = output / "pdf-release-record.json"
         record.write_text(
             json.dumps({"cheatsheet_cut_approved": "existing approval"}), encoding="utf-8"
         )
@@ -675,13 +536,13 @@ class TestReviewR10PdfRecord:
                 target = selected / log_relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(raw)
-                (guide / "pyfts-guide-04-cheatsheet.pdf").write_bytes(b"fresh cheatsheet")
+                (output / "pyfts-guide-04-cheatsheet.pdf").write_bytes(b"fresh cheatsheet")
             else:
                 assert command == module.USER_GUIDE_BUILD
-                (guide / "pyflightstream_user_guide.log").write_bytes(
+                (output / "pyflightstream_user_guide.log").write_bytes(
                     b"Output written on pyflightstream_user_guide.pdf (95 pages, 3 bytes).\n"
                 )
-                (guide / "pyflightstream_user_guide.pdf").write_bytes(b"fresh user guide")
+                (output / "pyflightstream_user_guide.pdf").write_bytes(b"fresh user guide")
 
         monkeypatch.setattr(module, "_git", git)
         monkeypatch.setattr(module, "_first_line", lambda *args: "offline typesetter stand-in")
@@ -696,7 +557,7 @@ class TestReviewR10PdfRecord:
             "the receipt digests a log from another checkout"
         )
         assert receipt["page_count"] == 10
-        assert (guide / receipt["name"]).read_bytes() == b"fresh cheatsheet"
+        assert (selected / receipt["path"]).read_bytes() == b"fresh cheatsheet"
         assert (selected / receipt["build_log"]).read_bytes() == raw
         if redirect:
             assert b"99 pages" in stale.read_bytes()

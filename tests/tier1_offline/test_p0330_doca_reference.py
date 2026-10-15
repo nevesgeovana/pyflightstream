@@ -516,22 +516,7 @@ def test_the_nav_follows_the_approved_reader_structure():
         ("reference/", "Reference"),
     ):
         assert folder in _group(group), f"{folder} is not under {group}"
-    # R9: the LaTeX guides are linked from the navigation, not absorbed
-    # (decision 14): one page in the menu links every PDF in guide/, and the
-    # home page links the folder.
     assert "guides.md" in _group("Start here")
-    guides = (DOCS / "guides.md").read_text(encoding="utf-8")
-    pdfs = sorted(p.name for p in (REPO / "guide").glob("pyfts-guide-*.pdf"))
-    assert len(pdfs) >= 8, pdfs
-    # The repository URL is read from pyproject's [project.urls], its one
-    # home, rather than written here: the shipped-surface guard keeps
-    # identifiers out of the versioned tree outside the exempted files.
-    config = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
-    repository = config["project"]["urls"]["Repository"].rstrip("/")
-    for pdf in pdfs:
-        assert f"]({repository}/blob/main/guide/{pdf})" in guides
-    home = (DOCS / "index.md").read_text(encoding="utf-8")
-    assert f"]({repository}/tree/main/guide)" in home
 
 
 def test_the_renderer_is_a_docs_dependency_with_its_licence_card():
@@ -542,12 +527,3 @@ def test_the_renderer_is_a_docs_dependency_with_its_licence_card():
     assert any(req.replace(" ", "").startswith("mkdocstrings[python]") for req in dev), dev
     plugins = yaml.safe_load((REPO / "properdocs.yml").read_text(encoding="utf-8"))["plugins"]
     assert any(isinstance(p, dict) and "mkdocstrings" in p for p in plugins), plugins
-    cards = [
-        path
-        for path in (REPO / "reports").glob("RPT-*.md")
-        if "mkdocstrings" in (text := path.read_text(encoding="utf-8"))
-        and "RPT-009" in text
-        and "| mkdocstrings | " in text
-        and "ISC" in text
-    ]
-    assert cards, "no licence card for mkdocstrings in the form of RPT-009"

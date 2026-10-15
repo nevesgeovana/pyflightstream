@@ -541,7 +541,7 @@ def test_the_geometry_guard_fires_on_what_it_exists_to_catch():
         "than leaving an exemption waiting for a future file of that name"
     )
     # And the guard must not be vacuous: a suffix outside the set is untouched.
-    assert _geometry_offenses(["README.md", "examples/steady_polar.py"]) == []
+    assert _geometry_offenses(["README.md", "docs/examples/_sources/steady_polar.py"]) == []
 
 
 def test_a_tier3_saved_simulation_is_admitted_only_with_its_provenance_record():
@@ -678,12 +678,6 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
     )
 
 
-PDF_ALLOWED = re.compile(
-    r"^guide/(pyfts-guide-0[1-9]-[a-z0-9-]+|pyflightstream_user_guide"
-    r"|latex-sources/0[1-9]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$"
-)
-
-
 PDF_SUFFIX = ".pdf"
 
 
@@ -728,101 +722,21 @@ def _pdf_offenses(relative_posix_paths):
     Factored out so the tree scan, the mutation proof and the equivalence
     with the hook and CI run the SAME code.
     """
-    return sorted(
-        path
-        for path in relative_posix_paths
-        if Path(path).suffix.lower() == PDF_SUFFIX and not PDF_ALLOWED.search(path)
-    )
+    return sorted(path for path in relative_posix_paths if Path(path).suffix.lower() == PDF_SUFFIX)
 
 
 @pytest.mark.requirement("FR-177")
 @pytest.mark.requirement("NFR-03")
-def test_no_pdf_is_tracked_outside_the_guide():
-    """A pdf in the public tree is refused unless it is a guide deck or a deck's figure."""
-    offenders = _pdf_offenses(
-        str(path.relative_to(REPO_ROOT).as_posix()) for path in _tracked_files()
-    )
-    assert not offenders, (
-        "these tracked files are pdfs that are not a guide deck or its figure:\n"
-        + "\n".join(offenders)
-        + "\n\nA licensed manual arrives as a pdf and never enters the repository "
-        "(CONTRIBUTING.md invariant 1, SRS NFR-03). Only the nine compiled guides "
-        "(the cheatsheet is guide 04), guide/pyfts-guide-0N-*.pdf, the figures their "
-        "sources include, guide/latex-sources/0N-*/figures/*.pdf, and the user guide, "
-        "guide/pyflightstream_user_guide.pdf, are tracked as pdf."
-    )
+def test_no_pdf_is_tracked():
+    """Generated guides and licensed manuals stay outside the source tree."""
+    assert not _pdf_offenses(p.relative_to(REPO_ROOT).as_posix() for p in _tracked_files())
 
 
 def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
-    """Mutation proof: a pdf outside the decks is refused, a deck's is admitted,
-    and each half comes from its own rule.
-
-    With the exemption withdrawn the decks' own pdfs are refused too, so the
-    admission comes from the exemption; with the suffix replaced by one no
-    file carries, the leak passes, so the refusal comes from the suffix.
-    The user guide's PDF the release publishes is admitted at its one path and
-    refused at its near spellings (NFR-46).
-    """
-    leak = "docs/manual_26.124.pdf"
-    assert _pdf_offenses([leak]) == [leak]
-    assert _pdf_offenses(
-        [
-            "reports/Manual.PDF",
-            "guide.pdf",
-            "docs/guide/deck.pdf",
-            "guides/deck.pdf",
-            "Guide/x.pdf",
-            "guide/pyflightstream_user_guide_old.pdf",
-            "x/guide/pyflightstream_user_guide.pdf",
-            "guide/pyfts-guide-10-extra.pdf",
-            "guide/fts-guide-01-workspaces.pdf",
-            "guide/latex-sources/08-fsi/notes.pdf",
-            "guide/latex-sources/08-fsi/figures/sub/deep.pdf",
-            "x/guide/pyfts-guide-02-workspaces.pdf",
-            "vendor/guide/latex-sources/01-a/figures/manual.pdf",
-            "guide/pyfts-cheatsheet-other.pdf",
-            "guide/latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.pdf",
-        ]
-    ) == [
-        "Guide/x.pdf",
-        "docs/guide/deck.pdf",
-        "guide.pdf",
-        "guide/fts-guide-01-workspaces.pdf",
-        "guide/latex-sources/08-fsi/figures/sub/deep.pdf",
-        "guide/latex-sources/08-fsi/notes.pdf",
-        "guide/latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.pdf",
-        "guide/pyflightstream_user_guide_old.pdf",
-        "guide/pyfts-cheatsheet-other.pdf",
-        "guide/pyfts-guide-10-extra.pdf",
-        "guides/deck.pdf",
-        "reports/Manual.PDF",
-        "vendor/guide/latex-sources/01-a/figures/manual.pdf",
-        "x/guide/pyflightstream_user_guide.pdf",
-        "x/guide/pyfts-guide-02-workspaces.pdf",
-    ]
-    admitted = [
-        "guide/pyfts-guide-01-fts-overview.pdf",
-        "guide/pyfts-guide-02-workspaces.pdf",
-        "guide/latex-sources/02-workspaces/figures/qsteady_k_vs_J.pdf",
-        "guide/pyfts-guide-04-cheatsheet.pdf",
-        "guide/pyflightstream_user_guide.pdf",
-        "README.md",
-    ]
-    assert _pdf_offenses(admitted) == []
-    # Control 1: withdraw the exemption and the decks' pdfs are refused.
-    monkeypatch.setitem(globals(), "PDF_ALLOWED", re.compile(r"(?!)"))
-    assert _pdf_offenses(admitted) == sorted(admitted[:5]), (
-        "with the exemption withdrawn the decks' pdfs still pass, so their "
-        "admission above was not coming from the exemption"
-    )
-    monkeypatch.undo()
-    # Control 2: replace the suffix by one no file carries and the leak passes,
-    # so its refusal above came from the suffix test.
-    monkeypatch.setitem(globals(), "PDF_SUFFIX", "\0")
-    assert _pdf_offenses([leak, "reports/Manual.PDF"]) == [], (
-        "with the suffix test matching nothing the leak is still refused, so its "
-        "refusal above was not coming from the suffix"
-    )
+    pdfs = ["docs/manual.pdf", "guide/deck.pdf", "reports/Manual.PDF"]
+    assert _pdf_offenses([*pdfs, "README.md"]) == sorted(pdfs)
+    monkeypatch.setitem(globals(), "PDF_SUFFIX", "no-such-suffix")
+    assert _pdf_offenses(pdfs) == []
 
 
 @pytest.mark.requirement("NFR-03")
@@ -842,17 +756,11 @@ def test_the_pdf_hook_and_the_ci_guard_admit_exactly_what_the_suite_admits():
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     line = next(text for text in ci.splitlines() if "git ls-files | grep -E" in text)
     patterns = re.findall(r"grep -E(i?)(v?) '([^']+)'", line)
-    # The keep-grep is case-insensitive (a `.PDF` is a pdf); the drop-grep, the
-    # exemption, is case-sensitive (a `Guide/` folder is not the guide).
-    assert [(case, invert) for case, invert, _ in patterns] == [("i", ""), ("", "v")], (
-        f"the CI guard line is not the two-grep shape this test reads: {line.strip()}"
-    )
-    keep, drop = (
-        re.compile(pattern, re.IGNORECASE if case else 0) for case, _, pattern in patterns
-    )
+    assert [(case, invert) for case, invert, _ in patterns] == [("i", "")]
+    keep = re.compile(patterns[0][2], re.IGNORECASE)
 
     def ci_refuses(path: str) -> bool:
-        return bool(keep.search(path)) and not drop.search(path)
+        return bool(keep.search(path))
 
     suite = set(_pdf_offenses(PDF_RULE_SAMPLES))
     assert {path for path in PDF_RULE_SAMPLES if hook_refuses(path)} == suite

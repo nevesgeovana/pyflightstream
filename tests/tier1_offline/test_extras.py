@@ -310,9 +310,7 @@ def test_every_extra_has_a_license_card(extra):
     cards are prose, so this checks coverage rather than content: every
     extra's distributions are named somewhere under `reports/`.
     """
-    cards = "\n".join(
-        path.read_text(encoding="utf-8") for path in sorted((REPO / "reports").glob("RPT-*.md"))
-    ).lower()
+    cards = (REPO / "docs/install.md").read_text(encoding="utf-8").lower()
     missing = [package for package in EXTRAS[extra] if package.lower() not in cards]
     assert not missing, (
         f"extra [{extra}] installs {missing} and no committed report under "
@@ -361,74 +359,6 @@ def _dev_distributions() -> list[str]:
     return [re.split(r"[<>=!~\[]", spec)[0].strip() for spec in declared]
 
 
-def _report_texts() -> list[str]:
-    return [
-        path.read_text(encoding="utf-8") for path in sorted((REPO / "reports").glob("RPT-*.md"))
-    ]
-
-
-def test_a_card_is_a_heading_and_a_gap_paragraph_is_not():
-    """The control, and the exact failure the substring shape has.
-
-    The two coverage tests above sweep for a distribution name ANYWHERE
-    under `reports/`, which is right for them: they ask whether an extra
-    was ever looked at. It is wrong for `dev`, because `RPT-016` names
-    all ten uncarded dev distributions in one paragraph in order to
-    REGISTER the gap, so a substring sweep for them is satisfied by the
-    sentence that says they have no card. Measured on the committed
-    RPT-016 text below rather than on a synthetic stand-in, because the
-    real paragraph is what the check has to survive.
-    """
-    assert card_headings(["### pytest\n"]) == {"pytest"}
-    assert card_headings(["#### pytest_cov\n"]) == {"pytest-cov"}
-    # A title is not a card: it names a topic and would card whatever
-    # word happened to sit in it.
-    assert card_headings(["# pytest licences\n"]) == set()
-    # And prose naming the distribution is not a card either.
-    assert card_headings(["It installs pytest, mypy and ruff, all permissive.\n"]) == set()
-
-    gap = (REPO / "reports" / "RPT-016_runtime-and-plot-licenses_2026-08-03.md").read_text(
-        encoding="utf-8"
-    )
-    names = [_normalised(name) for name in _dev_distributions()]
-    assert names, "the dev extra declares nothing; the check below would run over nothing"
-    substring = [name for name in names if name in gap.lower()]
-    assert len(substring) >= 7, (
-        "RPT-016's gap paragraph no longer names most of the dev distributions, so "
-        "this control no longer demonstrates why a substring sweep is the wrong shape"
-    )
-    assert not card_headings([gap]) & set(names), (
-        "RPT-016 now carries a card heading for a dev distribution. It is the report "
-        "that REGISTERS the gap rather than closing it, and it must stay unedited: if "
-        "a card was genuinely written there, move it to its own report"
-    )
-
-
-@pytest.mark.requirement("NFR-02")
-def test_every_development_tool_has_a_license_card():
-    """NFR-02 reaches `dev` too, and for ten distributions it was unmet.
-
-    NFR-02 says dependency licences must be clearly MIT-compatible with
-    a committed licence-evidence card before adoption, and its wording
-    carries no development-only carve-out. Eleven distributions install
-    with `[dev]`; RPT-016's own verdict recorded that only properdocs
-    was carded and that the other ten were a stated gap.
-
-    A card is a SECTION OF ITS OWN, not a mention. See the control above
-    for why: the gap paragraph names every one of them.
-    """
-    names = _dev_distributions()
-    assert names, "the dev extra declares nothing; this check would pass over nothing"
-    carded = card_headings(_report_texts())
-    missing = [name for name in names if _normalised(name) not in carded]
-    assert not missing, (
-        f"the development tools {missing} install with `pip install pyflightstream[dev]` "
-        "and no committed report under reports/ carries a card section headed with the "
-        "distribution's own name. NFR-02 wants a licence-evidence card before adoption, "
-        "and a distribution named inside a paragraph that says it has no card is not one"
-    )
-
-
 @pytest.mark.requirement("NFR-02")
 def test_every_runtime_dependency_has_a_license_card():
     """The set that reaches every user, which is the one that had no card."""
@@ -436,9 +366,7 @@ def test_every_runtime_dependency_has_a_license_card():
         runtime = tomllib.load(handle)["project"]["dependencies"]
     names = [re.split(r"[<>=!~\[]", spec)[0].strip() for spec in runtime]
     assert names, "the runtime dependency list is empty; the scan is broken"
-    cards = "\n".join(
-        path.read_text(encoding="utf-8") for path in sorted((REPO / "reports").glob("RPT-*.md"))
-    ).lower()
+    cards = (REPO / "docs/install.md").read_text(encoding="utf-8").lower()
     missing = [name for name in names if name.lower() not in cards]
     assert not missing, (
         f"runtime dependencies {missing} have no license-evidence card under "

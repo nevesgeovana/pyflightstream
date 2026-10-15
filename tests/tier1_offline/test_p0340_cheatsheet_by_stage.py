@@ -113,9 +113,10 @@ def by_stage_defects(tools: dict[str, argparse.ArgumentParser], text: str) -> li
     return list(dict.fromkeys(defects))
 
 
-def test_the_stage_cheatsheet_excludes_machine_paths():
-    """The PDF must not disclose the build machine path."""
-    assert b"/PTEX.FileName" not in BY_STAGE_PDF.read_bytes()
+def test_the_stage_cheatsheet_suppresses_machine_paths():
+    """Check the typesetter source used by generated guide artifacts."""
+    main = BY_STAGE.parent.parent / "main.tex"
+    assert r"\pdfsuppressptexinfo=-1" in main.read_text(encoding="utf-8")
 
 
 @pytest.mark.requirement("NFR-29")

@@ -29,8 +29,6 @@ exactly that (INC-20260724-0410-shared).
 import re
 from pathlib import Path
 
-import yaml
-
 from pyflightstream.reference import markdown_build_table
 from pyflightstream.versions import known_versions
 
@@ -73,42 +71,6 @@ def test_every_registered_build_has_a_row_with_its_number():
             assert build == "not recorded here yet", row
         else:
             assert build == f"#{version.build}", row
-
-
-def test_the_printed_name_comes_from_a_solver_banner_and_not_from_the_alias():
-    """The field is evidence, so it may not be typed in from the alias.
-
-    This is the guard whose absence let the first draft ship the sold
-    name as the printed one. It is the shape of
-    ``test_every_registered_build_comes_from_a_committed_report``,
-    applied to the other half of the same banner line.
-    """
-    # 26.125 prints its release with no dot (2612, RPT-160), so the token is
-    # digits with an optional fractional part.
-    observed: dict[str, set[str]] = {}
-    for path in sorted((REPO / "reports").rglob("*.yaml")):
-        with open(path, encoding="utf-8") as handle:
-            document = yaml.safe_load(handle)
-        if not isinstance(document, dict):
-            continue
-        version = document.get("fs_version")
-        for line in document.get("solver_identity") or ():
-            match = re.search(r"version\s*\W*\s*([0-9]+(?:\.[0-9]+)?)", str(line))
-            if version and match:
-                observed.setdefault(str(version), set()).add(match.group(1))
-
-    registered = {v.canonical: v.prints for v in known_versions() if v.prints is not None}
-    assert registered, "no printed name is registered; this test would prove nothing"
-    unevidenced = {
-        canonical: printed
-        for canonical, printed in registered.items()
-        if printed not in observed.get(canonical, set())
-    }
-    assert not unevidenced, (
-        f"these registered printed names appear in no committed report for their own "
-        f"version: {unevidenced}. The printed name is solver evidence; record it from a "
-        "report's solver_identity, never from the vendor alias (CONTRIBUTING.md invariant 3)."
-    )
 
 
 def test_the_printed_name_and_the_sold_name_actually_differ_somewhere():

@@ -93,7 +93,7 @@ with mkdocs_gen_files.open("inputs.md", "w") as page:
     page.write(input_glossary_markdown())
 
 for script_name in EXAMPLES:
-    source = (Path("examples") / script_name).read_text(encoding="utf-8")
+    source = (Path("docs/examples/_sources") / script_name).read_text(encoding="utf-8")
     stem = script_name.removesuffix(".py")
     with mkdocs_gen_files.open(f"examples/{stem}.md", "w") as page:
         page.write(percent_script_markdown(source))

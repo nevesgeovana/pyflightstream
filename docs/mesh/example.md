@@ -149,4 +149,4 @@ block there, plans the matrix with the command above, and renders both points
 without a solver. It fails when the scripts the package builds and the two
 blocks above differ, and when a key a sidecar block on this page writes is not
 one the sidecar's readers read, or the other way round. A runnable script of
-the same route is `examples/obj_wing_trailing_edge_file.py`.
+the same route is `docs/examples/_sources/obj_wing_trailing_edge_file.py`.

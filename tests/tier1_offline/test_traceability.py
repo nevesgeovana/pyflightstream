@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import json
 import re
 from pathlib import Path
 
@@ -43,8 +42,9 @@ def _marked() -> dict[str, list[str]]:
 
 
 def _live_identifiers() -> set[str]:
-    payload = json.loads(INDEX.read_text(encoding="utf-8"))
-    return {entry["id"] for entry in payload["requirements"]}
+    from scripts.gen_requirements_index import SRS, collect
+
+    return {entry["id"] for entry in collect(SRS)}
 
 
 def test_every_marker_resolves_to_a_live_requirement():

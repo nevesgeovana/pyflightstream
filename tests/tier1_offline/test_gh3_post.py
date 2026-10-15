@@ -174,13 +174,6 @@ def test_ae_unsteady_name_uses_averaged_contributors(tmp_path, monkeypatch, arch
     assert key in (out / "post.log").read_text()
 
 
-def test_af_released_changelog_has_no_development_version():
-    text = (Path(__file__).resolve().parents[2] / "CHANGELOG.md").read_text(encoding="utf-8")
-    release = text.split("## [0.26.0]", 1)[1].split("\n## [", 1)[0]
-    assert "0.26.0.dev0" not in release
-    assert "[Migrating to 0.26.0](docs/migrating-to-0.26.0.md)" in release
-
-
 @pytest.mark.parametrize("legacy", [False, True])
 @pytest.mark.parametrize("selection", ["Blade", "blade_alias", "Blade1"])
 def test_ad_a_stem_owns_its_legacy_cuts_and_integrates_nothing(

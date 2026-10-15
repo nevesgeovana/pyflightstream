@@ -222,50 +222,18 @@ def test_every_published_invocation_carries_the_flags_its_parser_requires():
     )
 
 
-#: EVERY FILE THAT PUBLISHES A COMMAND, measured 2026-08-18 and floored
-#: by name rather than by count. Three names were floored at first and
-#: all three survived a filter that silently dropped five OTHERS, so the
-#: shrink was invisible to the guard written to make it visible. A floor
-#: that names three of fourteen is a floor over the three.
-_PUBLISHERS = (
-    "scripts/chm_to_pdf.py",
-    "scripts/gen_absent_commands.py",
-    "scripts/measure_edition_page_delta.py",
-    "scripts/measure_probe_target_lines.py",
-    "scripts/prove_alias_tally_guard.py",
-    "scripts/prove_edition_comparison.py",
-    "scripts/prove_evidence_guards.py",
-    "scripts/prove_extras_isolation.py",
-    "scripts/prove_flow_mapping_guard.py",
-    "scripts/prove_geometry_guards.py",
-    "scripts/prove_published_invocation_guards.py",
-    "scripts/prove_report_date_guards.py",
-    "scripts/restate_26123_notes.py",
-    "src/pyflightstream/commands/_meta.yaml",
-)
-
-
-def test_the_search_actually_finds_every_known_publisher():
-    """A walk that matches less than it should passes every assertion above.
-
-    The degenerate case is the one that matters: if the pattern, the
-    prose filter or the searched roots drift, both tests above go green
-    over a SHORTER list and report that every published command runs.
-
-    That is not hypothetical. The prose filter added on 2026-08-18
-    required a published tail to begin with a flag, which dropped five
-    real publishers whose tails begin with a placeholder, a bracketed
-    optional, a comment, a label or a version. The floor at the time
-    named three files, all three of which survived the filter, so the
-    17-to-11 shrink was invisible to the very guard written to catch it.
-
-    So every publisher is named. A new one raising the count is fine; one
-    disappearing is not.
-    """
-    sources = {source for source, _, _ in _published_invocations()}
-    missing = sorted(set(_PUBLISHERS) - sources)
-    assert not missing, (
-        f"{len(missing)} file(s) publish a command line and the walk no longer finds "
-        "them, so the two guards above are measuring a smaller set than the tree "
-        "holds: " + ", ".join(missing)
-    )
+def test_the_search_finds_each_supported_invocation_shape(tmp_path, monkeypatch):
+    """Exercise the walker and prose filter without pinning retired publishers."""
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    examples = ["<dir>", "[label ...]", "# everything", "M1 M2 N1", "26.123", "--input file"]
+    for index, tail in enumerate(examples):
+        (scripts / f"publisher{index}.py").write_text(
+            f"python scripts/target.py {tail}\n", encoding="utf-8"
+        )
+    (scripts / "prose.py").write_text("scripts/target.py documents a tool\n", encoding="utf-8")
+    monkeypatch.setattr("tests.tier1_offline.test_documented_invocations.REPO", tmp_path)
+    found = _published_invocations()
+    assert {source for source, _, _ in found} == {
+        f"scripts/publisher{index}.py" for index in range(len(examples))
+    }

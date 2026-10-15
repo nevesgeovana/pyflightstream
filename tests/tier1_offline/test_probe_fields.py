@@ -380,7 +380,7 @@ def test_documented_synthetic_field_example_executes(tmp_path):
     import runpy
     from pathlib import Path
 
-    example = Path(__file__).resolve().parents[2] / "examples/sampled_field_export.py"
+    example = Path(__file__).resolve().parents[2] / "docs/examples/_sources/sampled_field_export.py"
     main = runpy.run_path(str(example))["main"]
     assert main(["--output", str(tmp_path / "example")]) == 0
     output = tmp_path / "example"

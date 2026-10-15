@@ -526,7 +526,7 @@ SET_MOTION_IS_ROTOR:
         motion turns it (RPT-049).
     "26.100":
       status: removed
-      probe_ref: "reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md"
       note: >-
         Measured 2026-09-15: the 26.100 manual prints the command and the
         26.100 solver answers it as an unrecognized command in every form
@@ -996,12 +996,12 @@ EXPORT_6DOF_TRAJECTORY:
     run. Exported in the setup phase, before the march, the file holds its
     header and no row on 26.124 and 26.125 (470 bytes after a 20-step
     march); exported after the march it holds the rows (probes P4-04 and
-    P4-04m, reports/RPT-166_command-gap-probes-second-round_2026-10-12.md
+    P4-04m, GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-166_command-gap-probes-second-round_2026-10-12.md
     section 3 and section 5). The unit of the columns is not settled by the
     probes (RPT-166 P4), and the package does not convert them.
 
     The fresh after-march verification on both builds is recorded in
-    reports/RPT-167_6dof-trajectory-export-after-march_2026-10-12.md;
+    GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-167_6dof-trajectory-export-after-march_2026-10-12.md;
     each scoped compat report cites its rows and orchestrator verdicts.
 
 CREATE_NEW_MOTION_EUCLIDEAN:

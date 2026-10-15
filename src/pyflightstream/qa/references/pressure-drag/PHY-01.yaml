@@ -3,8 +3,8 @@ case: PHY-01
 fs_version_basis: '26.125'
 updated: '2026-10-12'
 reason: first 26.125 reference, measured 2026-10-12 by pyfs-qa physics on build 10052026 after the Blade1
-  alias and sweep solve-count fixes (reports/physics/PHY-26125_2026-10-12_all-cases.yaml)
-source_report: reports/physics/PHY-26125_2026-10-12_all-cases.yaml
+  alias and sweep solve-count fixes (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/physics/PHY-26125_2026-10-12_all-cases.yaml)
+source_report: GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/physics/PHY-26125_2026-10-12_all-cases.yaml
 metrics:
   CL_a0:
     value: 0.0023

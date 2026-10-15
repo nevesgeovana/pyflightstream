@@ -16,10 +16,19 @@ FlightStream versions.
   display includes all record fields. Migration leaves scientific products
   unchanged. Reposting 0.38.0 data uses 0.40.0's existing coefficient precision;
   the affected polar columns are named in `docs/upgrading.md`.
+- Add matching steady-wing, unsteady isolated-propeller, quasi-steady rotor and
+  mesh-refinement examples under `examples/using-CLI/` and `examples/using-API/`,
+  with solver-free planning steps. Specialist examples are published as site pages.
 
 - Release notes are written directly here; this changelog covers 0.38.0 onward.
 
 - Maintainers: CI skips duplicate, docs-only and dry-run branch runs and cancels superseded runs; Release requires the newest main CI run at its SHA to be green on its latest attempt, measures coverage once in the tag's artifact tests, and docs deploy only on version tags.
+
+### Removed
+
+- Authored campaign-file loading and matrix-to-campaign-file conversion, including
+  `pyfs-matrix convert`. The matrix is the sole campaign declaration; use
+  `pyfs-matrix plan` or the public `plan_matrix` API.
 
 ### Fixed
 

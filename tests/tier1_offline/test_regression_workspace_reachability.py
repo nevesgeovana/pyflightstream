@@ -52,10 +52,10 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # 280: the plan writes the added far-field csv with probes.write_points_csv (RX-04 shrinks).
 # 278: the plan places and rounds lattices through emit_probe_points and write_probe_csv.
 # 277: field_formats "tecplot-points" writes through post.write_tecplot_points (RX-04 deleted).
-_REACH_GUARD___REGISTER_CEILING = 277
+_REACH_GUARD___REGISTER_CEILING = 278
 
 
-_REACH_GUARD___REGISTER_DIGEST = "e22b03ef34d2fe9bdd2a7c7ecf4976a9f160387fcdef6bc02e6232ca7e6e65f9"
+_REACH_GUARD___REGISTER_DIGEST = "41f92f411f5afe2e9fffaa4c7e12859d014f8beb24aea2286a2f2fde2a24a8b4"
 
 
 _REACH_GUARD__REASONS = (
@@ -644,7 +644,12 @@ def _reach_guard__load_register(path: Path = _REACH_GUARD__REGISTER_PATH) -> dic
 
 
 def _reach_guard___version(text: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in text.split("."))
+    match = re.fullmatch(r"(\d+\.\d+\.\d+)(?:\.dev(\d+))?", text)
+    if match is None:
+        raise ValueError(f"Invalid release version: {text!r}")
+    release = tuple(int(part) for part in match.group(1).split("."))
+    development = match.group(2)
+    return (*release, 1, 0) if development is None else (*release, 0, int(development))
 
 
 def _reach_guard__package_version(repo: Path = _REACH_GUARD__REPO) -> str:

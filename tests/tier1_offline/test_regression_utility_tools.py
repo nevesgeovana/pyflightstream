@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import sys
 import types
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -25,15 +23,6 @@ from pyflightstream.utils import (
 from pyflightstream.utils import database as _core_small_review_scripts__database
 from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import _PHASE_BY_SECTION
-from tests.tier1_offline.test_goal028_coherence_band_per_export import (
-    _instrument as _core_small_coherence_total___instrument,
-)
-from tests.tier1_offline.test_p0320_changelog_fragments import (
-    _checkout as _core_small_review_scripts___checkout,
-)
-from tests.tier1_offline.test_p0320_changelog_fragments import (
-    _script as _core_small_review_scripts___script,
-)
 from tests.tier1_offline.test_regression_maintainer_tools import (
     _core_small_parity___load as _core_small_review_scripts___load,
 )
@@ -42,60 +31,6 @@ from tests.tier1_offline.test_regression_maintainer_tools import (
 )
 from tests.tier1_offline.test_utils_database import _run as _core_small_database___run
 from tests.tier1_offline.test_utils_database import tree as _core_small_database__tree
-
-_CORE_SMALL_COHERENCE_TOTAL__HEAD = (
-    "Solver mode:                                Steady\n"
-    "Angle of attack (Deg)                       2.0000\n"
-    "Side-slip angle (Deg)                       0.0000\n"
-    "Surface, Cx, Cy, Cz, CL, CDi, CDo\n"
-)
-
-
-class TestCoreSmallCoherenceTotal:
-    """P0400-TOTALSTRICT (PFS-2135.050): the coherence instrument refuses a short Total row.
-
-    measure_campaign_coherence dropped empty cells and zipped the header to the
-    values with strict=False, so a Total row missing a middle cell shifted Cx, Cy,
-    Cz, CDi and CDo onto the wrong names in silence. It now reads the row through
-    the strict reader of extract_recorded_total_rows, the one the 0.24.0 review fixed.
-    """
-
-    @staticmethod
-    @pytest.mark.parametrize(
-        ("total", "words"),
-        [
-            ("Total, +0.0200, +0.1000, +0.1000, +0.0050, +0.0200", "Total row prints 5 cells"),
-            ("Total, +0.0200, , +0.1000, +0.1000, +0.0050, +0.0200", "could not convert"),
-        ],
-        ids=["short", "blank"],
-    )
-    def test_p0400_totalstrict_a_missing_middle_cell_is_refused(
-        tmp_path: Path, total: str, words: str
-    ) -> None:
-        """P0400-TOTALSTRICT: six names over five numbers, or a blank cell, is refused."""
-        loads = tmp_path / "loads.txt"
-        loads.write_text(_CORE_SMALL_COHERENCE_TOTAL__HEAD + total + "\n", encoding="utf-8")
-        with pytest.raises(ValueError, match=words):
-            _core_small_coherence_total___instrument()._loads_total(loads)
-
-    @staticmethod
-    def test_p0400_totalstrict_a_whole_row_reads_by_name(tmp_path: Path) -> None:
-        """P0400-TOTALSTRICT: the control: a whole row reads each number under its own name."""
-        loads = tmp_path / "loads.txt"
-        loads.write_text(
-            _CORE_SMALL_COHERENCE_TOTAL__HEAD
-            + "Total, +0.0200, +0.0000, +0.1000, +0.1000, +0.0050, +0.0200\n",
-            encoding="utf-8",
-        )
-        row = _core_small_coherence_total___instrument()._loads_total(loads)
-        assert (row["Cz"], row["CDo"], row["decimals"]) == (0.1, 0.02, 4.0)
-        loads.write_text(
-            _CORE_SMALL_COHERENCE_TOTAL__HEAD
-            + "Total, +0.0200, +0.1000, +0.1000, +0.0050, +0.0200\n",
-            encoding="utf-8",
-        )
-        with pytest.raises(ValueError, match="Total row prints 5 cells"):
-            _core_small_coherence_total___instrument()._loads_total(loads)
 
 
 def _core_small_database___snapshot(chapters):
@@ -321,51 +256,6 @@ class TestCoreSmallManualCli:
         assert "is not a file" in capsys.readouterr().err
 
 
-_CORE_SMALL_RESTATE_NOTES__REPO = Path(__file__).resolve().parents[2]
-
-
-def _core_small_restate_notes___load():
-    spec = importlib.util.spec_from_file_location(
-        "restate_26123_notes_p0400",
-        _CORE_SMALL_RESTATE_NOTES__REPO / "scripts" / "restate_26123_notes.py",
-    )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-class TestCoreSmallRestateNotes:
-    """P0400-RESTATELABEL (PFS-2135.055): restate_26123_notes refuses the two manifest-label defects.
-
-    A manifest without 26.123 raised a bare ValueError from ``labels.index``, and
-    26.123 as the FIRST row made ``editions[position - 1]`` the last row, so the
-    newest edition was compared against the oldest. Both are refused before a
-    manual is read, as prove_edition_comparison already refuses them.
-    """  # noqa: E501
-
-    @staticmethod
-    @pytest.mark.parametrize(
-        ("labels", "words"),
-        [(["26.120", "26.122"], "no row labelled '26.123'"), (["26.123", "26.124"], "first row")],
-        ids=["absent", "first"],
-    )
-    def test_p0400_restatelabel_bad_manifest_is_refused_before_reading(
-        monkeypatch, labels, words
-    ) -> None:
-        """P0400-RESTATELABEL: an absent or first-row 26.123 stops with a SystemExit naming it."""
-        module = _core_small_restate_notes___load()
-        editions = [SimpleNamespace(label=label) for label in labels]
-        monkeypatch.setattr(module, "read_edition_manifest", lambda path: editions)
-
-        def never(edition):
-            raise AssertionError("a manual was read before the manifest was judged")
-
-        monkeypatch.setattr(module, "read_edition", never)
-        with pytest.raises(SystemExit, match=words):
-            module.main(["--editions", "manifest.yaml"])
-
-
 class TestCoreSmallReviewScripts:
     """P0400 review: directed parity changes and safe chapter replacement."""
 
@@ -449,27 +339,3 @@ class TestCoreSmallReviewScripts:
         monkeypatch.setattr(module, "run", run)
         module.Battery("unused").append(target, "import pypdf\r\n", "M99")
         assert seen == [b"x = 1\nimport pypdf\n"]
-
-    @staticmethod
-    def test_p0400_library_fold_requires_migration_destination(tmp_path):
-        repo = _core_small_review_scripts___checkout(
-            tmp_path, A="## Migration\n\nRename the key.\n"
-        )
-        module = _core_small_review_scripts___script()
-        with pytest.raises(module.FragmentError, match="--migration-page"):
-            module.assemble(repo)
-        assert (repo / "changelog.d" / "A.md").is_file()
-
-    @staticmethod
-    def test_p0400_srs_idempotency_compares_only_the_requirement_box(tmp_path):
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location(
-            "review_srs", Path(__file__).resolve().parents[2] / "scripts" / "assemble_srs.py"
-        )
-        assert spec and spec.loader
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        box = '!!! requirement "FR-999 A box"\n\n    Body.'
-        text = box + "\n\n## Next section\n\nUnrelated prose.\n"
-        assert module.fold_page(text, [(tmp_path / "fragment.md", [("FR-999", box)])]) == (text, 0)

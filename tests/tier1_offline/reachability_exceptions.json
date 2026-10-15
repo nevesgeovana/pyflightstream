@@ -540,6 +540,26 @@
     "pyflightstream.workspace.costs.select_cost_file",
     "pyflightstream.workspace.hpc.select_hpc_profile"
    ]
+  },
+  {
+   "id": "RX-28-refusal",
+   "capability": "Campaign-file migration refusal entry points",
+   "reason": "Python-only by design",
+   "decision": "Owner 2026-10-14 cl-fin: retain the retired file entry points solely to refuse with the matrix remedy; no workspace execution route.",
+   "names": [
+    "pyflightstream.cases.load_campaign",
+    "pyflightstream.cases.matrix.convert_matrix"
+   ]
+  },
+  {
+   "id": "RX-28-python",
+   "capability": "In-memory rotor trailing edges and canonical text digest",
+   "reason": "Python-only by design",
+   "decision": "Owner 2026-10-14 cl-fin: retain ordinary Python APIs independently of the retired campaign-file route.",
+   "names": [
+    "pyflightstream.cases.derived_body_sha256",
+    "pyflightstream.cases.workflows.rotor_relaxed_trailing_edges"
+   ]
   }
  ]
 }
