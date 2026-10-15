@@ -68,7 +68,15 @@ def test_p0420_docs_diag_manual_build_and_failure_artifact():
     assert len(failed) == 1
     assert failed[0]["with"]["path"] == "build/guides/*.log"
     assert failed[0]["uses"] == uploads[0]["uses"]
-    assert workflow["jobs"]["deploy"]["if"] == "startsWith(github.ref, 'refs/tags/v')"
+    assert workflow["jobs"]["deploy"]["if"] == DEPLOY_IF
+
+
+# A version tag deploys; a manual dispatch deploys only from main (owner decision of
+# 2026-10-15: the 0.41.0 site is published from main). A branch push never deploys.
+DEPLOY_IF = (
+    "startsWith(github.ref, 'refs/tags/v') || "
+    "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')"
+)
 
 
 def test_p0410_docs_deploy_only_on_version_tags():
@@ -76,7 +84,7 @@ def test_p0410_docs_deploy_only_on_version_tags():
     docs = yaml.safe_load((root / "docs.yml").read_text("utf-8"))
     triggers = docs.get("on", docs.get(True))
     assert triggers == {"workflow_dispatch": None, "push": {"tags": ["v*"]}}
-    assert docs["jobs"]["deploy"]["if"] == "startsWith(github.ref, 'refs/tags/v')"
+    assert docs["jobs"]["deploy"]["if"] == DEPLOY_IF
     ci = yaml.safe_load((root / "ci.yml").read_text("utf-8"))
     assert any(
         step.get("run") == "properdocs build --strict" for step in ci["jobs"]["docs"]["steps"]

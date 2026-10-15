@@ -36,7 +36,7 @@ jobs:
       - name: Install package with dev extras
         run: pip install -e .[dev,fsi,geom,plot]
       - name: Install guide typesetter
-        run: sudo apt-get update && sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended texlive-science
+        run: sudo apt-get update && sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended texlive-science cm-super
       - name: Build downloadable guides
         run: python scripts/build_guides.py
       - name: Build the docs (strict)
@@ -65,7 +65,7 @@ jobs:
 
   deploy:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     environment:
       name: github-pages
