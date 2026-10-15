@@ -446,27 +446,32 @@ def build(srs_dir: Path, tests_dir: Path) -> dict[str, object]:
 
 def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
     """Resolve compact-row links without importing product or test modules."""
-    symbols: dict[Path, set[str]] = {}
+    symbols: dict[tuple[Path, bool], set[str]] = {}
 
-    def names(path: Path) -> set[str]:
-        if path in symbols:
-            return symbols[path]
+    def names(path: Path, *, tests_only: bool = False) -> set[str]:
+        key = (path, tests_only)
+        if key in symbols:
+            return symbols[key]
         found: set[str] = set()
 
         def walk(body: list[ast.stmt], prefix: str = "") -> None:
             for node in body:
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if not tests_only or node.name.startswith("test_"):
+                        found.add(prefix + node.name)
+                elif isinstance(node, ast.ClassDef):
                     name = prefix + node.name
-                    found.add(name)
-                    if isinstance(node, ast.ClassDef):
+                    if not tests_only:
+                        found.add(name)
+                    if not tests_only or node.name.startswith("Test"):
                         walk(node.body, name + ".")
-                elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                elif not tests_only and isinstance(node, (ast.Assign, ast.AnnAssign)):
                     targets = node.targets if isinstance(node, ast.Assign) else [node.target]
                     found.update(prefix + n.id for n in targets if isinstance(n, ast.Name))
 
         if path.is_file():
             walk(ast.parse(path.read_text(encoding="utf-8-sig")).body)
-        symbols[path] = found
+        symbols[key] = found
         return found
 
     problems = []
@@ -485,7 +490,7 @@ def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
         if (
             not path.is_relative_to((repo / "tests").resolve())
             or not test_symbol.split("::")[-1].startswith("test_")
-            or test_symbol.replace("::", ".") not in names(path)
+            or test_symbol.replace("::", ".") not in names(path, tests_only=True)
         ):
             problems.append(f"{row['id']}: missing test anchor {row['test']}")
     if problems:

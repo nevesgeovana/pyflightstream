@@ -275,7 +275,20 @@ def test_p0410_srs_refuses_ambiguous_or_unanchored_rows(tmp_path, bad_row):
         generator.collect(tmp_path)
 
 
-@pytest.mark.parametrize("broken", ["code", "test", "none"])
+@pytest.mark.parametrize(
+    "broken",
+    [
+        "code",
+        "test",
+        "none",
+        "assignment",
+        "annotation",
+        "helper_class",
+        "class_only",
+        "test_class",
+        "code_constant",
+    ],
+)
 def test_p0410_srs_resolves_anchors_before_publishing(tmp_path, monkeypatch, broken):
     """An invented symbol or test must not become a published trace link."""
     srs = tmp_path / "srs"
@@ -288,6 +301,19 @@ def test_p0410_srs_resolves_anchors_before_publishing(tmp_path, monkeypatch, bro
     (tests / "test_sample.py").write_text("def test_refine():\n    assert True\n", encoding="utf-8")
     symbol = "missing" if broken == "code" else "refine"
     test = "test_missing" if broken == "test" else "test_refine"
+    if broken in {"assignment", "annotation", "helper_class", "class_only", "test_class"}:
+        content = {
+            "assignment": "test_refine = None\n",
+            "annotation": "test_refine: object = None\n",
+            "helper_class": "class Helper:\n    def test_refine(self):\n        assert True\n",
+            "class_only": "class test_refine:\n    pass\n",
+            "test_class": "class TestExample:\n    def test_refine(self):\n        assert True\n",
+        }[broken]
+        (tests / "test_sample.py").write_text(content, encoding="utf-8")
+        if broken in {"helper_class", "test_class"}:
+            test = ("Helper" if broken == "helper_class" else "TestExample") + "::test_refine"
+    if broken == "code_constant":
+        (src / "sample.py").write_text("refine = 1\n", encoding="utf-8")
     (srs / "functional-requirements.md").write_text(
         "| UID | Parent | Area | Status | Statement | Code | Test |\n"
         f"| FR-1 | - | MESH | implemented | Refine. | sample:{symbol} "
@@ -296,7 +322,7 @@ def test_p0410_srs_resolves_anchors_before_publishing(tmp_path, monkeypatch, bro
     )
     generator = _generator()
     monkeypatch.setattr(generator, "REPO", tmp_path)
-    if broken == "none":
+    if broken in {"none", "test_class", "code_constant"}:
         assert generator.build(srs, tests)["requirements"][0]["id"] == "FR-1"
     else:
         with pytest.raises(generator.MalformedRequirementPageError, match="FR-1"):
