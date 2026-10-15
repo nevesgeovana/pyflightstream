@@ -690,8 +690,10 @@ def test_route_4_corrects_the_rotor_and_average_tables_beside_them(tmp_path):
         assert {cell["cell"]["ALPHA"][0] for cell in entry["cells"]} == {-4.0}
 
 
+@pytest.mark.parametrize("workspace_cli", [False, True], ids=["api", "P0410-calibrate"])
 def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_applies_them(
     tmp_path,
+    workspace_cli,
 ):
     """OFFSET = sector - wheel at the same J: 0.002 of CT is 0.002 rho n^2 D^4 = 15.68 N.
 
@@ -748,13 +750,35 @@ def test_route_2_helper_builds_the_offsets_from_a_recorded_sector_and_the_post_a
     products["products"]["polars/P6003-PROP_rotor.csv"] = {"runs": [sector_run], "rotor": "PROP"}
     (folder / "products.json").write_text(json.dumps(products), encoding="utf-8")
 
-    path = sector_offset_calibration(
-        workspace,
-        wheel_run_id=wheel_run,
-        sector_run_id=sector_run,
-        calibration_id="c002",
-        matrix_stem="matriz",
-    )
+    if workspace_cli:
+        from pyflightstream.workspace.cli import main
+
+        assert (
+            main(
+                [
+                    "calibrate",
+                    "c002",
+                    "--workspace",
+                    str(workspace.root),
+                    "--wheel-run",
+                    wheel_run,
+                    "--sector-run",
+                    sector_run,
+                    "--matrix",
+                    "matriz",
+                ]
+            )
+            == 0
+        )
+        path = workspace.inputs_dir / "calibrations" / "c002.toml"
+    else:
+        path = sector_offset_calibration(
+            workspace,
+            wheel_run_id=wheel_run,
+            sector_run_id=sector_run,
+            calibration_id="c002",
+            matrix_stem="matriz",
+        )
     assert path == workspace.inputs_dir / "calibrations" / "c002.toml"
     calibration = read_calibration(path)
     assert calibration.route == "sector_offset"

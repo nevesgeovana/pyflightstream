@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- `pyfs-workspace calibrate` derives a sector-offset calibration from two recorded
+  rotor points, preserving the existing evidence checks and unvalidated status.
+
 - FSI workspace inputs can stage a checked frozen displacement file and explicitly
   allow configuration changes through the existing coupling driver controls.
 

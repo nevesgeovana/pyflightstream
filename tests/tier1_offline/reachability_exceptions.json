@@ -90,8 +90,7 @@
    "node": "PFS-2140.004",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.post.corrections.bessel_y",
-    "pyflightstream.post.corrections.sector_offset_calibration"
+    "pyflightstream.post.corrections.bessel_y"
    ]
   },
   {
