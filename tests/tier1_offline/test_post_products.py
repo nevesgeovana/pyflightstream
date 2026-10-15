@@ -598,6 +598,57 @@ def _skipped_besides_the_axes(manifest) -> dict:
     }
 
 
+def test_p0410_rv2_unsteady_polar_keeps_structural_tip(tmp_path):
+    import shutil
+
+    import numpy as np
+
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.fsi import kinematics, nodes
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline.test_fsig_fixed_wing import wing_config
+
+    seed = _unsteady_workspace(tmp_path / "seed", reductions=ROTOR_PLAN, recipe="unsteady")
+    record = seed.read_manifest()[0]
+    workspace = CampaignWorkspace.init(tmp_path / "target")
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1" = "all"\n')
+    for relative in record.outputs:
+        target = workspace.sim_dir(record.sim_id) / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(seed.sim_dir(record.sim_id) / relative, target)
+    folder = workspace.sim_dir(record.sim_id) / "structural"
+    folder.mkdir()
+    config = wing_config(self_weight=False)
+    (folder / "config.json").write_text(config.model_dump_json())
+    layout = nodes.generate_node_layout(config)
+    size = len(config.blade.station_radii_m)
+    local = kinematics.encode_station_translations(
+        np.linspace(0, 0.008, size),
+        np.zeros(size),
+        np.asarray(layout.le_offset_m),
+        np.asarray(layout.te_offset_m),
+    )
+    nodes.write_fsidisp(folder / "FSIDisp.txt", nodes.flatten_blade_translations(layout, [local]))
+    workspace.append_record(
+        record.model_copy(
+            update={
+                "cwd": str(folder),
+                "inputs_sha256": {
+                    "config.json": file_sha256(folder / "config.json"),
+                    "fsi-provenance.json": "0" * 64,
+                },
+            }
+        )
+    )
+    write_campaign_products(workspace)
+    assert list(workspace.root.glob("post/**/structure/*_deflection.csv"))
+    path = next(workspace.root.glob("post/**/polars/*_uns_avg.csv"))
+    columns, rows = read_csv_table(path)
+    assert "tip_deflection_m_blade_1" in columns
+    assert float(rows[0]["tip_deflection_m_blade_1"]) == pytest.approx(0.008)
+    assert float(rows[0]["tip_twist_deg_blade_1"]) == pytest.approx(0.0)
+
+
 def _unsteady_workspace(tmp_path, *, reductions, recipe="unsteady_rotor", rows=8):
     """One converged unsteady record with a loads table and a plots export under outputs/."""
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
