@@ -53,10 +53,10 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # 278: the plan places and rounds lattices through emit_probe_points and write_probe_csv.
 # 277: field_formats "tecplot-points" writes through post.write_tecplot_points (RX-04 deleted).
 # 273: N3 removes five retired RX-19/RX-20 migration names; no new exception.
-_REACH_GUARD___REGISTER_CEILING = 273
+_REACH_GUARD___REGISTER_CEILING = 224
 
 
-_REACH_GUARD___REGISTER_DIGEST = "e28c98289c80e63a1604d5e5df72f863769e569ca8dc91b2553bafb1023eb613"
+_REACH_GUARD___REGISTER_DIGEST = "ebde97f72255f6bfd19aa5cc3b517f11148161b41e56f259015b7d3cd079a22c"
 
 
 _REACH_GUARD__REASONS = (
@@ -959,6 +959,7 @@ class TestReachGuard:
             "pyflightstream.cases._setup_keys.moments_models",
             "pyflightstream.cases.pproc.classify_outputs",
             "pyflightstream.workspace.sidecars.inventory_sidecar",
+            "pyflightstream.post.corrections.sector_offset_calibration",
         )
         graph = _ReachGuardGraph(modules)
         missing = []
@@ -977,10 +978,7 @@ class TestReachGuard:
         """P0400-REACH-NO: names the audit of 2026-10-12 confirmed unreached by grep are unreached."""  # noqa: E501
         # farfield.mass_flux left this list: the far-field lane (FR-450 to FR-459) routed the
         # conservation ledgers through the workspace, so the audit's NO became reached (rule (a)).
-        confirmed = (
-            "pyflightstream.post.corrections.sector_offset_calibration",
-            "pyflightstream.fsi.centrifugal.campbell_sweep",
-        )
+        confirmed = ("pyflightstream.fsi.centrifugal.campbell_sweep",)
         wrong = []
         for path in confirmed:
             capability = verdict.capability_named(path)

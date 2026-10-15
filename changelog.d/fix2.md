@@ -4,3 +4,6 @@
   a recorded rotor and retain numeric tables for both harmonic-fit campaigns.
   Dependency controls check each changed fit or FFT column against its numeric
   snapshot contract. Production numerical behavior is unchanged.
+- GOAL-052: lower the reach-register ceiling to its current 224 names and
+  assert the workspace route for sector-offset calibration. No exception is
+  added for an unreached public name.
