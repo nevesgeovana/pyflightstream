@@ -111,6 +111,93 @@ HEADER_ID = re.compile(r'^!!! requirement "(?P<id>[A-Za-z]+-[0-9]+[a-z]?)\b')
 #: to a refusal rather than to a word it cannot interpret.
 KNOWN_STATUSES = ("implemented", "pending", "deferred", "deprecated")
 
+# Compact authored rows keep identity separate from generated outline placement.
+TABLE_HEADER = "| UID | Parent | Area | Status | Statement | Code | Test |"
+AREAS = (
+    "CMDS",
+    "SCRP",
+    "CAMP",
+    "EXEC",
+    "RECS",
+    "WKSP",
+    "MESH",
+    "ROTR",
+    "POST",
+    "QCLI",
+    "DOCS",
+    "QUAL",
+)
+
+
+def _table_rows(page: Path, text: str) -> list[dict[str, str]]:
+    """Read compact requirement rows, preserving their authored order."""
+    rows = []
+    for number, line in enumerate(text.splitlines(), 1):
+        if not line.startswith("| ") or line == TABLE_HEADER or line.startswith("| ---"):
+            continue
+        cells = [cell.strip().replace("&#124;", "|") for cell in line.strip("|").split("|")]
+        if len(cells) != 7:
+            raise MalformedRequirementPageError(f"{page.name}:{number}: expected seven cells")
+        uid, parent, area, status, statement, code, test = cells
+        if not re.fullmatch(r"(?:N?FR)-[0-9]+[a-z]?", uid):
+            raise MalformedRequirementPageError(f"{page.name}:{number}: invalid UID {uid}")
+        if area not in AREAS or status not in (*KNOWN_STATUSES, "retired") or not statement:
+            raise MalformedRequirementPageError(
+                f"{page.name}:{number}: invalid area/status/statement"
+            )
+        if status != "retired" and (":" not in code or "::" not in test):
+            raise MalformedRequirementPageError(
+                f"{page.name}:{number}: {uid} needs code and test anchors"
+            )
+        rows.append(
+            {
+                "id": uid,
+                "parent": "" if parent == "-" else parent,
+                "area": area,
+                "status": status,
+                "text": statement,
+                "code": "" if code == "-" else code,
+                "test": "" if test == "-" else test,
+                "priority": "D" if status == "deferred" else "M",
+                "verification": "none" if status == "retired" else "test",
+                "evidence": "" if test == "-" else test,
+                "hid": "",
+            }
+        )
+    return rows
+
+
+def _hierarchy(rows: list[dict[str, str]]) -> None:
+    """Assign HIDs without changing UIDs; refuse duplicate or broken trees."""
+    by_id = {row["id"]: row for row in rows}
+    if len(by_id) != len(rows):
+        raise MalformedRequirementPageError("repeated UID in compact requirement rows")
+    counters: dict[tuple[str, str], int] = {}
+    visiting: set[str] = set()
+
+    def assign(row: dict[str, str]) -> str:
+        if row["status"] == "retired" or row["hid"]:
+            return row["hid"]
+        uid, parent, area = row["id"], row["parent"], row["area"]
+        if uid in visiting:
+            raise MalformedRequirementPageError(f"{uid}: parent cycle")
+        visiting.add(uid)
+        prefix = area + "-"
+        if parent:
+            if parent not in by_id or by_id[parent]["status"] == "retired":
+                raise MalformedRequirementPageError(f"{uid}: missing or retired parent {parent}")
+            if by_id[parent]["area"] != area:
+                raise MalformedRequirementPageError(f"{uid}: parent is in another area")
+            prefix = assign(by_id[parent]) + "."
+        key = (area, parent)
+        counters[key] = counters.get(key, 0) + 1
+        row["hid"] = prefix + str(counters[key])
+        visiting.remove(uid)
+        return row["hid"]
+
+    for row in rows:
+        assign(row)
+
 
 class MalformedRequirementPageError(Exception):
     """A requirement page cannot be published as written.
@@ -214,8 +301,12 @@ def collect(srs_dir: Path) -> list[dict[str, str]]:
     entries: list[dict[str, str]] = []
     problems: list[str] = []
     seen: dict[str, str] = {}
+    compact: list[dict[str, str]] = []
     for page in sorted(srs_dir.glob("*.md")):
         text = page.read_text(encoding="utf-8")
+        if TABLE_HEADER in text:
+            compact.extend(_table_rows(page, text))
+            continue
         matches = list(BOX.finditer(text))
         problems += _unreadable_headers(page, text, matches)
         for i, m in enumerate(matches):
@@ -267,6 +358,10 @@ def collect(srs_dir: Path) -> list[dict[str, str]]:
             )
     if problems:
         raise MalformedRequirementPageError("\n".join(problems))
+    _hierarchy(compact)
+    if {row["id"] for row in compact} & set(seen):
+        raise MalformedRequirementPageError("UID declared in both a table and a legacy box")
+    entries.extend(compact)
     entries.sort(key=_sort_key)
     return entries
 
@@ -402,6 +497,48 @@ def build(srs_dir: Path, tests_dir: Path) -> dict[str, object]:
         "traceability": traceability([e["id"] for e in entries], tests_dir),
         "requirements": entries,
     }
+
+
+def requirement_pages(entries: list[dict[str, str]]) -> dict[str, str]:
+    """Render area pages with stable UID anchors and generated display HIDs.
+
+    Parameters
+    ----------
+    entries : list of dict
+        Parsed requirements with generated hierarchy fields.
+
+    Returns
+    -------
+    dict of str to str
+        Relative Markdown filenames and their generated content.
+    """
+    pages = {}
+    index = ["# Requirements", "", "UIDs are permanent; HIDs describe the current hierarchy.", ""]
+    for area in AREAS:
+        rows = [row for row in entries if row.get("area") == area and row["status"] != "retired"]
+        if not rows:
+            continue
+        rows.sort(key=lambda row: tuple(int(n) for n in row["hid"].split("-", 1)[1].split(".")))
+        index.append(f"- [{area}]({area.lower()}.md)")
+        lines = [f"# {area} requirements", ""]
+        for row in rows:
+            lines.extend(
+                [
+                    f'<a id="{row["id"]}"></a>',
+                    f"## {row['id']} / {row['hid']}",
+                    "",
+                    row["text"],
+                    "",
+                    f"Status: {row['status']}. Code: `{row['code']}`. Test: `{row['test']}`.",
+                    "",
+                ]
+            )
+        pages[f"{area.lower()}.md"] = "\n".join(lines)
+    retired = [row["id"] for row in entries if row["status"] == "retired"]
+    if retired:
+        index.extend(["", "## Retired UIDs", "", ", ".join(retired), ""])
+    pages["index.md"] = "\n".join(index) + "\n"
+    return pages
 
 
 def main() -> int:

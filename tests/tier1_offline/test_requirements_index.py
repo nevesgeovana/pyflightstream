@@ -178,3 +178,58 @@ def test_a_well_formed_page_still_publishes(
     published = json.loads(out.read_text(encoding="utf-8"))["requirements"]
     assert [e["id"] for e in published] == ["FR-901"], published
     assert published[0]["status"] == "implemented"
+
+
+def test_p0410_srs_uids_survive_reordering_while_hids_follow_the_tree(tmp_path):
+    """PFS-2081.37: stable identity is independent of generated placement."""
+    page = tmp_path / "functional-requirements.md"
+    header = "| UID | Parent | Area | Status | Statement | Code | Test |\n"
+    rows = [
+        "| FR-1 | - | MESH | implemented | Refine a mesh. | m:refine | t.py::test_refine |\n",
+        "| FR-2 | FR-1 | MESH | implemented | Preserve the interface. "
+        "| m:join | t.py::test_join |\n",
+        "| NFR-1 | - | MESH | implemented | Refuse invalid input. | m:read | t.py::test_read |\n",
+        "| FR-3 | - | MESH | retired | Removed route. | - | - |\n",
+    ]
+    page.write_text(header + "".join(rows), encoding="utf-8")
+    generator = _generator()
+    first = {r["id"]: r for r in generator.collect(tmp_path)}
+    assert set(first) == {"FR-1", "FR-2", "NFR-1", "FR-3"}
+    assert first["FR-1"]["hid"] == "MESH-1"
+    assert first["FR-2"]["hid"] == "MESH-1.1"
+    assert first["NFR-1"]["hid"] == "MESH-2"
+    assert first["FR-3"]["hid"] == ""
+    pages = generator.requirement_pages(list(first.values()))
+    assert '<a id="FR-2"></a>' in pages["mesh.md"]
+    assert "FR-2 / MESH-1.1" in pages["mesh.md"]
+    assert "FR-3" not in pages["mesh.md"]
+    assert "FR-3" in pages["index.md"]
+    page.write_text(header + "".join([rows[2], *rows[:2], rows[3]]), encoding="utf-8")
+    second = {r["id"]: r for r in generator.collect(tmp_path)}
+    assert second["FR-1"]["hid"] == "MESH-2"
+    assert second["FR-2"]["hid"] == "MESH-2.1"
+    assert {uid: r["text"] for uid, r in first.items()} == {
+        uid: r["text"] for uid, r in second.items()
+    }
+
+
+@pytest.mark.parametrize(
+    "bad_row",
+    [
+        "| FR-1 | - | MESH | implemented | Duplicate. | m:f | t.py::test_f |",
+        "| FR-2 | FR-99 | MESH | implemented | Missing parent. | m:f | t.py::test_f |",
+        "| FR-2 | FR-2 | MESH | implemented | Cycle. | m:f | t.py::test_f |",
+        "| FR-2 | - | MESH | implemented | Missing code. | - | t.py::test_f |",
+        "| FR-2 | - | MESH | implemented | Missing test. | m:f | - |",
+    ],
+)
+def test_p0410_srs_refuses_ambiguous_or_unanchored_rows(tmp_path, bad_row):
+    """PFS-2081.37: incomplete trace links cannot publish as verified claims."""
+    (tmp_path / "functional-requirements.md").write_text(
+        "| UID | Parent | Area | Status | Statement | Code | Test |\n"
+        "| FR-1 | - | MESH | implemented | Refine. | m:f | t.py::test_f |\n" + bad_row + "\n",
+        encoding="utf-8",
+    )
+    generator = _generator()
+    with pytest.raises(generator.MalformedRequirementPageError):
+        generator.collect(tmp_path)
