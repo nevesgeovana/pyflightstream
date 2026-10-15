@@ -33,3 +33,17 @@ def test_p0420_contributors_find_the_frozen_suite_coverage_gate():
     assert "--cov" in guide
     assert "[tool.coverage.report]" in guide
     assert "runs on the version tag against the built wheel" not in guide
+
+
+def test_p0420_release_wheel_tests_run_without_duplicate_coverage():
+    release = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text("utf-8"))
+    for token in ("--cov", "COVERAGE_ARGS", "coverage run", "coverage report", "coverage xml"):
+        assert token not in str(release["jobs"])
+    artifact = release["jobs"]["test-artifact"]
+    assert artifact["strategy"]["matrix"]["os"] == ["ubuntu-latest", "windows-latest"]
+    tier1 = next(
+        step for step in artifact["steps"] if step.get("name") == "Tier 1 tests against the wheel"
+    )
+    assert tier1["env"]["PYFLIGHTSTREAM_TEST_INSTALLED"] == "1"
+    assert tier1["run"].strip() == "pytest -n auto -o pythonpath="
+    assert "if" not in tier1

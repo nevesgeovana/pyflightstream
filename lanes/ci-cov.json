@@ -1,0 +1,41 @@
+{
+  "lane": "ci-cov",
+  "base": "7f941b2a0e1d49a87e8a499d05c5f8600e2fbe52",
+  "head": "HEAD (the commit containing this report)",
+  "report_routing": "Worktree-local continuation report; the owner prohibits edits outside this worktree. The earlier estate report is preserved.",
+  "items": [
+    {
+      "id": "ci-cov-release-duplicate",
+      "status": "fixed",
+      "commit": "HEAD (the commit containing this report)",
+      "test": "tests/tier1_offline/test_p0410_ci_coverage.py::test_p0420_release_wheel_tests_run_without_duplicate_coverage",
+      "revert_proof": "Before the workflow fix, the new assertion failed on --cov: 1 failed, 3 passed in 0.32s. After the fix: 4 passed in 0.27s. Both runs used the memory gate in this lane, without stash or another worktree.",
+      "evidence": "release.yml removes COVERAGE_ARGS and its shell array. Linux and Windows retain uninstrumented pytest -n auto -o pythonpath= against the wheel. Comments and changelog assign coverage to make_receipts suite-full at the tag with the pyproject floor. The estate GOAL-052 checker was not edited.",
+      "migration": null
+    }
+  ],
+  "recipe_checklist": [
+    "[x] 1. Prompt read: lane, base, worktree, branch, nodes, owned files, report path.",
+    "[x] 2. Worktree and branch checked; clean at 7f941b2a.",
+    "[x] 3. Requirement and acceptance read; owner continuation governs.",
+    "[x] 4. Tests from the requirement, red measured on the base.",
+    "[x] 5. Fix, sibling sites, pinned lists searched in tests and scripts.",
+    "[x] 6. Revert proof on a clean worktree of the base: adapted to the unfixed workflow in this lane under the contract and owner restriction.",
+    "[x] 7. One commit per behaviour, staged by explicit path.",
+    "[x] 8. Changelog fragment and docs moved with the code; workflow comments corrected.",
+    "[ ] 9. Release branch merged in, full lane suite green: no merge under the owner restriction. The single full guards run had one report-header failure; the header was removed under contract section 5. No second full-package green claimed.",
+    "[x] 10. Own output read back; staged paths and workflow diff inspected before committing.",
+    "[x] 11. Report written locally under the owner's worktree-only restriction."
+  ],
+  "validation": {
+    "ruff": "All checks passed!",
+    "format": "1060 files already formatted",
+    "mypy_touched_test": "Success: no issues found in 1 source file",
+    "suite_command": "python memgate.py -- python -m pytest tests/tier1_offline -m pkg_guards -q",
+    "suite_summary": "1 failed, 3944 passed, 7 skipped, 9431 deselected, 2316 warnings in 1442.97s (0:24:02)",
+    "suite_exit_code": 1,
+    "failure_resolution": "The sole failure was test_no_tracked_file_carries_the_private_provenance_header on this local report. Removed its private header, as the lane contract forbids those headers in product files. No guard was weakened.",
+    "targeted_followup": "Memory-gated test_no_estate_headers.py and test_p0410_ci_coverage.py: 5 passed in 1.23s; exit 0."
+  },
+  "counts": {"fixed": 1, "not-a-bug": 0, "blocked": 0}
+}
