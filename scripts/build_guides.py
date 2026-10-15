@@ -20,6 +20,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def print_failure_log(log_path: Path) -> None:
+    """Show bounded TeX diagnostics without replacing the build failure."""
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as error:
+        print(f"Guide log unavailable: {log_path}: {error}", file=sys.stderr)
+        return
+    print(f"Last 80 lines of {log_path}:", file=sys.stderr)
+    print("\n".join(lines[-80:]), file=sys.stderr)
+    for index, line in enumerate(lines):
+        if line.startswith("!"):
+            print("First TeX error and 10 following lines:", file=sys.stderr)
+            print("\n".join(lines[index : index + 11]), file=sys.stderr)
+            break
+
+
 def build(output: Path) -> None:
     """Compile the nine decks and user guide, preserving logs and source hashes."""
     output = output.resolve()
@@ -74,11 +90,13 @@ def build(output: Path) -> None:
                     command, cwd=working, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
                 )
                 if done.returncode:
+                    print_failure_log(output / (name + ".log"))
                     raise RuntimeError(f"Guide build failed: see {output / (name + '.log')}")
             pdf = output / f"{name}.pdf"
             log_path = output / f"{name}.log"
             log = log_path.read_text(encoding="utf-8", errors="replace")
             if re.search(r"(?m)^Overfull|^!", log):
+                print_failure_log(log_path)
                 raise RuntimeError(f"Guide has a layout or TeX error: {log_path}")
             for local in (str(ROOT), str(Path(temporary)), str(output)):
                 log = log.replace(local, "<build>").replace(local.replace("\\", "/"), "<build>")
