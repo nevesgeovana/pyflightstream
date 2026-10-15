@@ -72,6 +72,7 @@ from tests.tier1_offline.test_workflows import (  # noqa: E402
     golden_name,
     render_or_refusal,
 )
+from tests.workflow_payloads import workflow_payload  # noqa: E402
 
 
 def build() -> dict[Path, bytes]:
@@ -98,7 +99,14 @@ def build() -> dict[Path, bytes]:
                 "expected behaviour. Fix the builder, or add the pair to "
                 "EXPECTED_REFUSALS in tests/tier1_offline/test_workflows.py and say why."
             )
-        rendered[GOLDENS / golden_name(name, label, build_id)] = text.encode("utf-8")
+        target = workflow_payload(GOLDENS / golden_name(name, label, build_id))
+        payload = text.encode("utf-8")
+        if target in rendered and rendered[target] != payload:
+            raise SystemExit(
+                f"{name}/{label}/{build_id} differs from its shared payload {target.name}; "
+                "review the logical-case mapping before writing goldens."
+            )
+        rendered[target] = payload
     return rendered
 
 
