@@ -11,7 +11,7 @@ the declared sampling locations and does not claim to track material stations.
 Surface taps on FSI rows warn that their declared locations do not follow the
 deforming material.
 
-Mapped coupled results also append `tip_deflection_m_blade_1` and
+Mapped and direct coupled results also append `tip_deflection_m_blade_1` and
 `tip_twist_deg_blade_1` (and subsequent blade numbers) to ordinary polar and
 rotor tables. These describe the last recorded displacement, even when the
 aerodynamic coefficients are window averages. A row without structural data
@@ -28,3 +28,4 @@ to follow a material station.
 Direct morphing retains the corresponding relaxed station displacements in
 its coupling state because its solver displacement rows are mesh vertices.
 An older direct state lacking those station rows cannot resume this calculation.
+An incompatible stored node count is refused before station-force projection.

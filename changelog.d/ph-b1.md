@@ -44,6 +44,9 @@
 
 - Calculated FSI sections accept unit-chord airfoils or NACA four-digit contours.
 
+- Station-force projection preserves the explicit changed-node-count refusal
+  before decoding a restored coupling state's displacement rows.
+
 - Exploratory loading-noise post writes a report indexing the generated signals,
   observer positions and source runs from the current product manifest.
 

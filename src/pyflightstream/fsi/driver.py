@@ -806,6 +806,12 @@ def _per_blade_densities(
         raise FsiInputError(
             "Direct coupling state lacks station_displacements_m; start a fresh coupled point."
         )
+    if applied is not None and np.asarray(applied).shape != (layout.total_nodes, 3):
+        raise FsiInputError(
+            "The node list changed between two calls: applied station displacements "
+            f"have shape {np.asarray(applied).shape}, expected {(layout.total_nodes, 3)}; "
+            "restore the matching coupling state before projecting station forces."
+        )
     rotations = (
         None
         if applied is None

@@ -99,6 +99,14 @@ def test_p0410_workspace_coupling_rotates_station_forces(tmp_path):
     assert result.solutions[0].flap_deflection_m[-1] == pytest.approx(
         normal * SPAN_M**4 / (8 * 2e5), rel=1e-6
     )
+    # A restored state with a different node count must retain the actionable
+    # refusal before the force-frame projection attempts to decode its rows.
+    saved = json.loads((run / "state.json").read_text())
+    saved["previous_displacements"] = saved["previous_displacements"][:-3]
+    (run / "state.json").write_text(json.dumps(saved))
+    (run / driver.LOADS_FILE).write_text(_wing_loads_export(80, unsteady=False))
+    with pytest.raises(driver.FsiInputError, match="node list changed between two calls"):
+        driver.coupling_step(run)
 
 
 @pytest.mark.parametrize("attachment", ["space", "body"])
