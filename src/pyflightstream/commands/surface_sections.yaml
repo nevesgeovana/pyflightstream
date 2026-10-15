@@ -290,7 +290,7 @@ EXPORT_SURFACE_SECTIONS:
   notes: >
     Exports one surface section by index (index greater than 0), with a
     filename on the following line. SRC-003 p.365 names the command;
-    reports/RPT-036b_the-owed-export-capture_2026-08-20.md, finding 1,
+    GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-036b_the-owed-export-capture_2026-08-20.md, finding 1,
     records the following line being consumed as its filename. The corrected
     script has not been verified by a new licensed run. Added at 26.12; the
     26.1 manual documents only the all-sections export, so a 26.1

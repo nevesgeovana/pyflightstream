@@ -18,7 +18,6 @@ cases whose answer is known before it is compared with any solver output:
 
 from __future__ import annotations
 
-import json
 import math
 import re
 from pathlib import Path
@@ -429,20 +428,3 @@ RPT099 = "RPT-099_qsteady-noise-route-a-against-round-3_2026-09-30"
 _DIMENSIONAL = re.compile(
     r"\d\s?(?:N m|N|m/s|kg/m3|rev/min|m|mm|Pa)\b|RPM\d|\"rpm\"|_Nm?\"|delta_time_s|velocity_m_s"
 )
-
-
-@pytest.mark.requirement("FR-304")
-def test_rpt099_and_its_sidecar_state_only_nondimensional_values_fr_304():
-    paths = [REPORTS / f"{RPT099}.md", REPORTS / f"{RPT099}.json"]
-    assert all(path.is_file() for path in paths), paths
-    found = [
-        f"{path.name}: {match.group(0)!r}"
-        for path in paths
-        for match in _DIMENSIONAL.finditer(path.read_text(encoding="utf-8"))
-    ]
-    assert not found, found
-    data = json.loads(paths[1].read_text(encoding="utf-8"))
-    assert data["report"] == "RPT-099"
-    assert data["condition"]["blades"] == 1
-    assert data["reference_facts"]["control_3202_all_zero"] is True
-    assert f"[RPT-099]({RPT099}.md)" in (REPORTS / "README.md").read_text(encoding="utf-8")

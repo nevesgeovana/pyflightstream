@@ -1,0 +1,20 @@
+# Provenance: reports/physics/PHY-26120_2026-07-21_phy06-polar-banded.yaml; one serialized point.
+schema: pyflightstream-physics-report/1
+fs_version: '26.120'
+cases:
+  PHY-06:
+    points:
+    - label: steady_a0
+      alpha_deg: 0.0
+      iterations: 52
+      converged: true
+      total:
+        Cx: 0.0067
+        Cy: -0.0
+        Cz: -0.0004
+        CL: -0.0004
+        CDi: 0.0
+        CDo: 0.0067
+        CMx: 0.0009
+        CMy: 0.0001
+        CMz: 0.0

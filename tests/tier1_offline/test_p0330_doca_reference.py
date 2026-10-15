@@ -527,12 +527,3 @@ def test_the_renderer_is_a_docs_dependency_with_its_licence_card():
     assert any(req.replace(" ", "").startswith("mkdocstrings[python]") for req in dev), dev
     plugins = yaml.safe_load((REPO / "properdocs.yml").read_text(encoding="utf-8"))["plugins"]
     assert any(isinstance(p, dict) and "mkdocstrings" in p for p in plugins), plugins
-    cards = [
-        path
-        for path in (REPO / "reports").glob("RPT-*.md")
-        if "mkdocstrings" in (text := path.read_text(encoding="utf-8"))
-        and "RPT-009" in text
-        and "| mkdocstrings | " in text
-        and "ISC" in text
-    ]
-    assert cards, "no licence card for mkdocstrings in the form of RPT-009"

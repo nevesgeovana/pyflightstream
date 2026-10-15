@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -86,4 +85,3 @@ def test_p0360_gf_coupled_steady_stays_out(tmp_path, capsys, options, run_type):
         "rows point by point, without --batch or --polar-sweep"
     )
     assert "RPT-150" not in output
-    assert list((Path(__file__).resolve().parents[2] / "reports").glob("RPT-150_*.md"))

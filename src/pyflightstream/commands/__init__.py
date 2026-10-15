@@ -88,7 +88,9 @@ CommandNotInVersionError.__module__ = "pyflightstream.commands"
 ArgSpec.__module__ = "pyflightstream.commands"
 
 _MANUAL_REF_PATTERN = re.compile(r"^SRC-\d{3} pp?\.\d+")
-_PROBE_REF_PATTERN = re.compile(r"^reports/[\w./-]+\.md$")
+_PROBE_REF_PATTERN = re.compile(
+    r"^(?:GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/)?reports/[\w./-]+\.md$"
+)
 # A note claiming the solver was OBSERVED, in the wordings this database
 # uses for it. Deliberately a small closed list rather than a general
 # reading of the sentence: a pattern that guesses would refuse honest

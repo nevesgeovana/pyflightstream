@@ -257,27 +257,3 @@ def test_under_sideslip_the_wind_axis_side_force_is_declined_too(tmp_path):
     assert math.isnan(declined["CYW"]), "at beta 5 the x force reaches CYW, short by B's drag"
     assert math.isfinite(declined["CYB"]) and math.isfinite(declined["CYS"])
     assert math.isfinite(kept["CYW"]), "off the list, nothing is declined and CYW keeps its number"
-
-
-def test_the_positional_reading_rests_on_committed_evidence():
-    """The rule reads boundary i as the table's i-th row; the evidence for it is committed.
-
-    The read of block 2 found that reading stated with no measurement behind it.
-    The evidence file lists every recorded export measured, its geometry's
-    inventory and its table's rows, and this keeps the docstring pointing at it.
-    """
-    import yaml
-
-    from pyflightstream.post.products import declined_induced_drag
-
-    name = "PFS-2006-03_2026-09-24_row-order.yaml"
-    evidence = yaml.safe_load(
-        (Path(__file__).resolve().parents[2] / "reports" / "probes" / name).read_text(
-            encoding="utf-8"
-        )
-    )
-    exports = evidence["exports"]
-    assert exports and all(e["inventory"] == e["loads_table_rows"] for e in exports)
-    assert evidence["every_export_in_inventory_order"] is True
-    assert len(evidence["geometries_with_more_than_one_boundary"]) >= 3
-    assert name in (declined_induced_drag.__doc__ or "")

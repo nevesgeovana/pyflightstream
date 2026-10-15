@@ -171,7 +171,7 @@ versions:
     prints: "26.1"
   - canonical: "26.101"
     alias: "26.1"
-    # reports/physics/PHY-26100_2026-07-21_smi01-triage-rerun.yaml, whose
+    # GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/physics/PHY-26100_2026-07-21_smi01-triage-rerun.yaml, whose
     # fs_version reads 26.101 since the renumbering. The file name keeps
     # its original id because ids are cited elsewhere, so the stem and
     # the version it records deliberately disagree here; the report's own
@@ -313,7 +313,7 @@ versions:
     # sha256, 417 pages, one creation date), and so are the release notes,
     # the EULA, the three libraries and the sample script. Only the
     # executable differs. The digests of every file of both packages are in
-    # reports/RPT-050_the-26124-package-against-26123_2026-09-15.md. So its
+    # GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-050_the-26124-package-against-26123_2026-09-15.md. So its
     # documented rows are carried forward from
     # 26.123 citing SRC-752, and nothing is inherited from the 26.120 base:
     # a build is answered for by what was read or run on IT, and what was
@@ -327,7 +327,7 @@ versions:
     # build AND prints ARE THE SOLVER'S OWN FOOTER, read from the outputs of
     # the cross-build runs of 2026-10-05, in which 26.125 solved six recorded
     # points of a 26.124 campaign; the identity lines are committed in
-    # reports/probes/RPT-160_2026-10-05_evidence.yaml and the report beside
+    # GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/probes/RPT-160_2026-10-05_evidence.yaml and the report beside
     # it. Three things change form at once against 26.124's footer: the
     # product name (Simcenter Flightstream), the version token (2612 where
     # 26.124 printed 26.1, with no dot) and the build number. The

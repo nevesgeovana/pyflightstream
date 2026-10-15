@@ -441,7 +441,7 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
     "26.120": {status: documented}
     "26.121":
       status: removed
-      probe_ref: "reports/RPT-021_chapter-questions-measured_2026-08-08.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-021_chapter-questions-measured_2026-08-08.md"
       note: >-
         Measured 2026-08-08: the 26.121 solver answers the name with an
         unrecognised-command error. Promoted from the run, not read off
@@ -619,7 +619,7 @@ SET_WAKE_RELAXATION:
         it still answers the name.
     "26.123":
       status: removed
-      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/compat/CMP-2026-09-27-setup-parser.md"
       note: >-
         Probed 2026-09-27 on 26.123, parser only (no mesh, no solve):
         the native parser answered SET_WAKE_RELAXATION ENABLE as an
@@ -627,7 +627,7 @@ SET_WAKE_RELAXATION:
         while the positive control in the same probe was accepted.
     "26.124":
       status: removed
-      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/compat/CMP-2026-09-27-setup-parser.md"
       note: >-
         Probed 2026-09-27 on 26.124, parser only (no mesh, no solve):
         the native parser answered SET_WAKE_RELAXATION ENABLE as an
@@ -695,7 +695,7 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
         it still answers the name.
     "26.123":
       status: removed
-      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/compat/CMP-2026-09-27-setup-parser.md"
       note: >-
         Probed 2026-09-27 on 26.123, parser only (no mesh, no solve):
         the native parser answered SET_WAKE_STREAMWISE_AGGLOMERATION ENABLE as an
@@ -703,7 +703,7 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
         while the positive control in the same probe was accepted.
     "26.124":
       status: removed
-      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/compat/CMP-2026-09-27-setup-parser.md"
       note: >-
         Probed 2026-09-27 on 26.124, parser only (no mesh, no solve):
         the native parser answered SET_WAKE_STREAMWISE_AGGLOMERATION ENABLE as an
@@ -772,7 +772,7 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
         it still answers the name.
     "26.123":
       status: removed
-      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/compat/CMP-2026-09-27-setup-parser.md"
       note: >-
         Probed 2026-09-27 on 26.123, parser only (no mesh, no solve):
         the native parser answered SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER ENABLE as an
@@ -780,7 +780,7 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
         while the positive control in the same probe was accepted.
     "26.124":
       status: removed
-      probe_ref: "reports/compat/CMP-2026-09-27-setup-parser.md"
+      probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/compat/CMP-2026-09-27-setup-parser.md"
       note: >-
         Probed 2026-09-27 on 26.124, parser only (no mesh, no solve):
         the native parser answered SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER ENABLE as an

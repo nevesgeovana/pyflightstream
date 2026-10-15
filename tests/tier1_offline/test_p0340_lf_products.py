@@ -753,15 +753,3 @@ def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_re
     verdict = "PASS" if fields["TREE_CLEAN"] == "yes" else "FAIL"
     assert lines[-1] == f"LF PRODUCTS: {verdict}"
     assert done.returncode == (0 if verdict == "PASS" else 1), done.stderr[-500:]
-
-
-def test_the_census_note_lists_the_writers_that_gave_crlf_on_windows() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R7: the census report names its platform and the writers."""
-    notes = sorted((REPO / "reports").glob("RPT-140_*.md"))
-    assert len(notes) == 1
-    text = notes[0].read_text(encoding="utf-8")
-    assert "win32" in text and "NFR-32" in text
-    listed = [line for line in text.splitlines() if line.startswith("| `")]
-    assert len(listed) >= 20, "the census lists too few writers"
-    for source in ("post/products.py", "run/_pending.py", "workspace/storage.py"):
-        assert source in text, f"the census does not name {source}"

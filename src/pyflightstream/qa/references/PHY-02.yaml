@@ -4,7 +4,7 @@ fs_version_basis: '26.120'
 updated: '2026-07-21'
 reason: 'initial reference: first PHY-02 run on 26.120 build 7012026; equivalence deltas 0.0015 in CL
   and 0.0 in CDi, consistent with the same-session SET_ANALYSIS_SYMMETRY_LOADS calibration'
-source_report: reports/physics/PHY-26120_2026-07-21_phy02.yaml
+source_report: GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/physics/PHY-26120_2026-07-21_phy02.yaml
 metrics:
   CL_full_a4:
     value: 0.337
