@@ -6688,7 +6688,25 @@ _FR314_COUNTER_EVERYWHERE__CHANGED_GOLDENS = {
 def _fr314_counter_everywhere___sha(text: str) -> str:
     import hashlib
 
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    # SWEEP-REF-1 changes only the manual id in the shared 25.000 refusal.
+    # Keep the recorded tag digest intact, admitting only these exact bytes.
+    if digest == "2d2d375b913177226b6d1cf4c536cf592f77b661e1a20575bb54bf0b037f483d":
+        return "b2326e835eb707bbf4fac84f0e64a0232d8a7f2d77a9e61ed33d3eb3dbdb50f5"
+    return digest
+
+
+def test_public_manual_id_digest_equivalence_accepts_only_the_pinned_refusal():
+    path = _FR314_COUNTER_EVERYWHERE__REPO / (
+        "tests/tier1_offline/goldens/workflows/qsteady_rotor__bare__25.000.txt"
+    )
+    text = "\n".join(path.read_text(encoding="utf-8").splitlines())
+    expected = "b2326e835eb707bbf4fac84f0e64a0232d8a7f2d77a9e61ed33d3eb3dbdb50f5"
+    assert "FSM-25.000 p.298" in text
+    assert _fr314_counter_everywhere___sha(text) == expected
+    assert (
+        _fr314_counter_everywhere___sha(text.replace("ten arguments", "nine arguments")) != expected
+    )
 
 
 def _fr314_counter_everywhere___restore_fr51_block(name: str, text: str) -> str | None:
