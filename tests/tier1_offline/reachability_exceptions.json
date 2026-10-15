@@ -80,16 +80,6 @@
    ]
   },
   {
-   "id": "RX-14",
-   "capability": "Wind-axes and stability-axes force coefficients",
-   "reason": "routed later",
-   "node": "PFS-2140.004",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.post.axes.stability_force_coefficients"
-   ]
-  },
-  {
    "id": "RX-17",
    "capability": "The Sweeper toolbox and its spreadsheet (a run type, or documented as outside the workspace)",
    "reason": "routed later",

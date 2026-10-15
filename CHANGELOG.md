@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- `[products].polar_axes` selects wind or stability force coefficients as `CD`,
+  `CY` and `CL`, retaining the explicit frame columns and naming the selection.
+
 - Coupling projects spatial-cut loads using applied station slope and twist
   before elastic-axis moment transfer, including relaxed direct-morphing state.
 

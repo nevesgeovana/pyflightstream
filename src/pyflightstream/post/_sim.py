@@ -71,6 +71,7 @@ from pyflightstream.post._installed_copies import (
     write_installed_inflow,
     write_installed_probes,
 )
+from pyflightstream.post._polar_axes import selected_axes
 from pyflightstream.post._reduction_stage import _drift_limit_pct, _point_reductions
 from pyflightstream.post._rotor_plan import _rotor_tables
 from pyflightstream.post._rotor_products import (
@@ -662,6 +663,7 @@ def _group_polar(
     )
     write_csv_table(target, polar_table_columns(drags), full)
     append_tip_columns(ctx, target, group_runs)
+    selected_axes(target, ctx.pproc.products.polar_axes)
     if ctx.drafts is not None:
         ctx.super_rows[str(group)] = (
             ctx.out
@@ -1341,6 +1343,7 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
             "these points of the sweep are not rows of the unsteady polar: " + "; ".join(left_out)
         )
     if done is not None:
+        selected_axes(done, ctx.pproc.products.polar_axes)
         ctx.add(
             done,
             {

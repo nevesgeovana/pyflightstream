@@ -1386,6 +1386,7 @@ class ProductsSpec(BaseModel):
     #: default; ``false`` turns it off and
     #: writes what 0.36.0 wrote.
     settings_codebook: bool = True
+    polar_axes: Literal["wind", "stability"] | None = None
     #: FR-420: the families whose tables are also written mirrored through y = 0.
     #: The accepted names are :data:`INSTALLED_FRAME_FAMILIES`, refused where the
     #: pproc is read.

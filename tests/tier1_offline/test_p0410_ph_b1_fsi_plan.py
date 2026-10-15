@@ -14,6 +14,27 @@ from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_fsi_setup
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 
 
+@pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])
+def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix):
+    import csv
+
+    from pyflightstream.post.products import write_campaign_products
+    from tests.tier1_offline.test_post_products import _steady_workspace_with_provenance
+
+    workspace = _steady_workspace_with_provenance(tmp_path)
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
+        f'[products]\npolar_axes = "{axes}"\n[groups]\n"1" = "all"\n'
+    )
+    write_campaign_products(workspace)
+    tables = list(workspace.root.glob("post/**/polars/*.csv"))
+    assert tables
+    rows = list(csv.DictReader(tables[0].read_text().splitlines()))
+    assert rows
+    for row in rows:
+        for quantity in ("CD", "CY", "CL"):
+            assert float(row[quantity]) == pytest.approx(float(row[quantity + suffix]), abs=1e-5)
+
+
 def test_p0410_workspace_coupling_rotates_station_forces(tmp_path):
     import numpy as np
 
