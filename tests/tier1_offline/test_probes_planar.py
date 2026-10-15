@@ -2,13 +2,13 @@
 
 import numpy as np
 import pytest
-from pydantic import ValidationError
 
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.probes import (
     AxisSpec,
     FrameDefinition,
     PlanarProbeGrid,
+    ProbeGeometryError,
     emit_probe_import,
     write_points_csv,
 )
@@ -30,9 +30,9 @@ def test_frame_orthonormalizes_its_axes():
 
 
 def test_frame_refuses_degenerate_axes_with_the_physical_cause():
-    with pytest.raises(ValidationError, match="zero vector"):
+    with pytest.raises(ProbeGeometryError, match="zero vector"):
         FrameDefinition(x_axis=(0.0, 0.0, 0.0), y_axis=(0.0, 1.0, 0.0))
-    with pytest.raises(ValidationError, match="parallel"):
+    with pytest.raises(ProbeGeometryError, match="parallel"):
         FrameDefinition(x_axis=(1.0, 0.0, 0.0), y_axis=(2.0, 0.0, 0.0))
 
 
@@ -72,13 +72,13 @@ def test_geometric_axis_grows_by_the_ratio():
 
 
 def test_axis_validation_names_the_didactic_cause():
-    with pytest.raises(ValidationError, match="positive extent"):
+    with pytest.raises(ProbeGeometryError, match="positive extent"):
         AxisSpec(start=1.0, stop=0.0, spacing=0.1)
-    with pytest.raises(ValidationError, match="exactly one of spacing"):
+    with pytest.raises(ProbeGeometryError, match="exactly one of spacing"):
         AxisSpec(start=0.0, stop=1.0)
-    with pytest.raises(ValidationError, match="count, never spacing"):
+    with pytest.raises(ProbeGeometryError, match="count, never spacing"):
         AxisSpec(start=0.0, stop=1.0, spacing=0.1, distribution="cosine")
-    with pytest.raises(ValidationError, match="ratio > 1"):
+    with pytest.raises(ProbeGeometryError, match="ratio > 1"):
         AxisSpec(start=0.0, stop=1.0, count=5, distribution="geometric")
 
 
@@ -161,7 +161,7 @@ def test_goal019_bandd_a_nan_axis_is_refused_and_not_normalized():
     the NaN walked past the degeneracy check and past the parallelism
     check and came out the other side as a frame.
     """
-    with pytest.raises(ValidationError, match="not finite"):
+    with pytest.raises(ProbeGeometryError, match="not finite"):
         FrameDefinition(x_axis=(float("nan"), 0.0, 0.0), y_axis=(0.0, 1.0, 0.0))
 
 
@@ -175,7 +175,7 @@ def test_goal019_bandd_no_non_finite_component_makes_a_frame(where, bad):
         "y_axis": (0.0, 1.0, 0.0),
     }
     kwargs[where] = (bad, 0.0, 0.0) if where != "y_axis" else (0.0, bad, 0.0)
-    with pytest.raises(ValidationError, match="not finite"):
+    with pytest.raises(ProbeGeometryError, match="not finite"):
         FrameDefinition(**kwargs)
 
 

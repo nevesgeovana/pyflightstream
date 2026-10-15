@@ -22,14 +22,15 @@ FFT direct (DLV-006 Sec. 2.2); this is a hard design constraint, not a default.
 from __future__ import annotations
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import ConfigDict, model_validator
 
+from pyflightstream.probes._model import ProbeModel
 from pyflightstream.probes.errors import ProbeGeometryError
 
 __all__ = ["ProbeLattice", "build_lattice"]
 
 
-class ProbeLattice(BaseModel):
+class ProbeLattice(ProbeModel):
     """Serializable cylindrical probe lattice of a far-field survey.
 
     The lattice is a set of transverse annular planes (constant ``x``)

@@ -2,10 +2,10 @@
 
 import numpy as np
 import pytest
-from pydantic import ValidationError
 
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.probes import (
+    ProbeGeometryError,
     ProbeLattice,
     build_lattice,
     emit_probe_export,
@@ -72,11 +72,11 @@ def test_serialization_round_trip_preserves_the_lattice():
 
 
 def test_geometry_validators_carry_the_physical_cause():
-    with pytest.raises(ValidationError, match="singularity"):
+    with pytest.raises(ProbeGeometryError, match="singularity"):
         ProbeLattice(tip_radius=1.0, stations=(0.5,), ring_edges=(0.0, 1.0), n_psi=8)
-    with pytest.raises(ValidationError, match="harmonics"):
+    with pytest.raises(ProbeGeometryError, match="harmonics"):
         ProbeLattice(tip_radius=1.0, stations=(0.5,), ring_edges=(0.5, 1.0), n_psi=6)
-    with pytest.raises(ValidationError, match="lateral"):
+    with pytest.raises(ProbeGeometryError, match="lateral"):
         ProbeLattice(
             tip_radius=1.0,
             stations=(0.5,),
@@ -84,7 +84,7 @@ def test_geometry_validators_carry_the_physical_cause():
             n_psi=8,
             lateral_radius=2.5,
         )
-    with pytest.raises(ValidationError, match="strictly increasing"):
+    with pytest.raises(ProbeGeometryError, match="strictly increasing"):
         ProbeLattice(tip_radius=1.0, stations=(0.5, 0.5), ring_edges=(0.5, 1.0), n_psi=8)
 
 
@@ -145,26 +145,26 @@ _NON_FINITE = (float("nan"), float("inf"), float("-inf"))
 
 @pytest.mark.parametrize("bad", _NON_FINITE)
 def test_a_non_finite_tip_radius_is_refused(bad):
-    with pytest.raises(ValidationError):
+    with pytest.raises(ProbeGeometryError):
         ProbeLattice(tip_radius=bad, stations=(0.5,), ring_edges=(0.1, 1.0), n_psi=8)
 
 
 @pytest.mark.parametrize("bad", _NON_FINITE)
 def test_a_non_finite_station_is_refused(bad):
-    with pytest.raises(ValidationError):
+    with pytest.raises(ProbeGeometryError):
         ProbeLattice(tip_radius=1.0, stations=(0.5, bad), ring_edges=(0.1, 1.0), n_psi=8)
 
 
 @pytest.mark.parametrize("bad", _NON_FINITE)
 def test_a_non_finite_ring_edge_is_refused(bad):
-    with pytest.raises(ValidationError):
+    with pytest.raises(ProbeGeometryError):
         ProbeLattice(tip_radius=1.0, stations=(0.5,), ring_edges=(0.1, bad), n_psi=8)
 
 
 @pytest.mark.parametrize("bad", [*_NON_FINITE, -1.0, 0.0])
 def test_a_non_physical_lateral_radius_is_refused(bad):
     """A negative r/R is a sign error, not a cylinder on the other side."""
-    with pytest.raises(ValidationError):
+    with pytest.raises(ProbeGeometryError):
         ProbeLattice(
             tip_radius=1.0,
             stations=(0.5,),
@@ -176,7 +176,7 @@ def test_a_non_physical_lateral_radius_is_refused(bad):
 
 
 def test_unordered_lateral_stations_are_refused():
-    with pytest.raises(ValidationError, match="strictly increasing"):
+    with pytest.raises(ProbeGeometryError, match="strictly increasing"):
         ProbeLattice(
             tip_radius=1.0,
             stations=(0.5,),

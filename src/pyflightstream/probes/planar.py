@@ -28,8 +28,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import ConfigDict, model_validator
 
+from pyflightstream.probes._model import ProbeModel
 from pyflightstream.probes.errors import ProbeGeometryError
 
 __all__ = [
@@ -76,7 +77,7 @@ def _unit(vector: tuple[float, float, float], name: str) -> np.ndarray:
     return array / norm
 
 
-class FrameDefinition(BaseModel):
+class FrameDefinition(ProbeModel):
     """A local coordinate frame expressed in the reference frame.
 
     Mirrors what EDIT_COORDINATE_SYSTEM sends to the solver (origin
@@ -167,7 +168,7 @@ def _uniform_cells(extent: float, spacing: float) -> int:
     return cells
 
 
-class AxisSpec(BaseModel):
+class AxisSpec(ProbeModel):
     """Point distribution along one in-plane axis of a grid.
 
     The primary path prescribes the element size directly
@@ -281,7 +282,7 @@ class AxisSpec(BaseModel):
         return points
 
 
-class RefinementBand(BaseModel):
+class RefinementBand(ProbeModel):
     """Two-level near-surface refinement of a planar grid.
 
     Base cells whose center lies within ``distance`` of the body
@@ -315,7 +316,7 @@ class RefinementBand(BaseModel):
         return self
 
 
-class PlanarProbeGrid(BaseModel):
+class PlanarProbeGrid(ProbeModel):
     """A planar Cartesian probe grid on an explicit frame.
 
     Attributes
@@ -375,7 +376,7 @@ class PlanarProbeGrid(BaseModel):
         return cls.model_validate_json(text)
 
 
-class GeometryGateReport(BaseModel):
+class GeometryGateReport(ProbeModel):
     """Accounting of what the geometry gate did to a grid.
 
     Every run states how many probes it kept, discarded inside the
