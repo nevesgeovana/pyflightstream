@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -17,9 +18,21 @@ from pyflightstream._errors import InputArtifactError, PyflightstreamError
 from pyflightstream.testing import assert_records_close
 from pyflightstream.workspace.inputs import PprocArtifact, resolve_pproc
 from tests import support_program_checks as _decided_docs_2_tier3__support_program_checks
-from tests.tier1_offline.test_metadata_currency import (
-    _owed_claim_names_the_debt as _decided_docs_2_review___owed_claim_names_the_debt,
-)
+
+
+def _decided_docs_2_review___owed_claim_names_the_debt(claim: str, version: str) -> bool:
+    """Whether one Owed claim says the archive of ``version`` is owed.
+
+    It must name the release, name the archive and say something is owed: a
+    bullet that merely mentions a version and the word archive owes nothing.
+    One definition, read by both guards that accept a debt in place of a row.
+    """
+    lowered = claim.lower()
+    return (
+        re.search(rf"(?<!\w)v{re.escape(version)}(?![\w+-]|\.\w)", claim) is not None
+        and re.search(r"\b(?:archives?|dois?|identifiers?)\b", lowered) is not None
+        and re.search(r"\b(?:owe[ds]?|not\s+exist|missing)\b", lowered) is not None
+    )
 
 
 class TestDecidedDocs1Reference:
