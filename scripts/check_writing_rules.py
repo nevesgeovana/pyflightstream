@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -198,6 +199,7 @@ def git(root, *args):
         check=True,
         capture_output=True,
         encoding="utf-8",
+        env=os.environ.copy(),
     ).stdout.strip()
 
 
