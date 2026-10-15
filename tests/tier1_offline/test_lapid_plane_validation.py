@@ -11,7 +11,7 @@ from pyflightstream.cases.workflows import build_script
 from pyflightstream.farfield import plane_fields
 from pyflightstream.probes import ProbeGeometryError, farfield_plane
 from pyflightstream.script import Script
-from tests.tier1_offline.test_p0400_farfield_plan import _case
+from tests.tier1_offline.test_regression_farfield_interfaces import _farfield_plan___case as _case
 
 pytestmark = pytest.mark.requirement("FR-455")
 

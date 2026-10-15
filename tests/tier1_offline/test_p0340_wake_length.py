@@ -35,6 +35,7 @@ from pyflightstream.workspace import InputArtifactError
 from tests.tier1_offline.test_goal021_inputs_absolute import _rotor_row, _workspace
 from tests.tier1_offline.test_goal024_rpm import ROTOR_BLOCK as _TWO_BLADE_BLOCK
 from tests.tier1_offline.test_workflows import rotor_case, steady_case, unsteady_case
+from tests.workflow_payloads import workflow_payload
 
 # The rows of `_rotor_row` state BLADES: 4 and the block is the count (PFS-2104.011):
 # a block of another count is refused, so the block here names four blades.
@@ -220,7 +221,7 @@ def test_p0340_wake_length_the_parity_entry_names_only_the_added_line_on_a_rotor
             if build == "26.100"
             else goldens / f"unsteady_rotor__bare__{build}.txt"
         )
-        rotor = source.read_text(encoding="utf-8")
+        rotor = workflow_payload(source).read_text(encoding="utf-8")
         (line,) = _terminations(rotor.splitlines())
         base = rotor.replace(line + "\n", "")
         assert base != rotor and not _terminations(base.splitlines()), build
@@ -232,7 +233,7 @@ def test_p0340_wake_length_the_parity_entry_names_only_the_added_line_on_a_rotor
         assert named(base, rotor) == requirement, (requirement, build)
         assert named(rotor, base) is None, ("a removed line", build)
         assert named(rotor, rotor.replace(line, f"{TERMINATION} 7")) is None, build
-    steady = (goldens / "steady__full__26.124.txt").read_text(encoding="utf-8")
+    steady = workflow_payload(goldens / "steady__full__26.124.txt").read_text(encoding="utf-8")
     added = steady.replace("INITIALIZE_SOLVER", f"{TERMINATION} 100\nINITIALIZE_SOLVER", 1)
     assert added != steady
     assert (
@@ -510,7 +511,9 @@ def test_p0340_wake_trefftz_an_unstated_plane_writes_default_as_0330_did():
     assert unstated == default, requirement
     assert "WAKE_TERMINATION_X DEFAULT" in unstated, requirement
     golden = Path(__file__).parent / "goldens" / "workflows" / "steady__full__26.124.txt"
-    assert "WAKE_TERMINATION_X DEFAULT" in golden.read_text(encoding="utf-8"), requirement
+    assert "WAKE_TERMINATION_X DEFAULT" in workflow_payload(golden).read_text(encoding="utf-8"), (
+        requirement
+    )
 
 
 @pytest.mark.parametrize(

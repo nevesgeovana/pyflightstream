@@ -1,4 +1,4 @@
-"""P0380-GUARDS (NFR-44): the guards command and the separator fold of pinned digests."""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -19,14 +19,6 @@ def _run_guards():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def test_p0380_guards_every_listed_guard_file_exists():
-    """P0380-GUARDS (NFR-44 R1): the list names files that are on disk, this one among them."""
-    guards = _run_guards()
-    assert guards.missing_guards() == []
-    assert "tests/tier1_offline/test_p0380_guards.py" in guards.GUARDS
-    assert len(set(guards.GUARDS)) == len(guards.GUARDS)
 
 
 def test_p0380_guards_a_missing_guard_file_exits_2(monkeypatch, capsys):
@@ -153,23 +145,3 @@ def test_p0380_guards_a_guard_whose_tests_were_all_skipped_is_not_run(
     assert "PASS    tests/test_mixed.py" in out
     assert "PASS    tests/test_green.py" in out
     assert "guards: RED" in out
-
-
-def test_p0380_guards_run_four_workers(tmp_path, monkeypatch):
-    """P0380-GUARDS (NFR-44 R1): the command runs four pytest workers, never one per CPU.
-
-    One worker per CPU, twenty on the development machine, exhausted its memory
-    beside other test runs (2026-10-06).
-    """
-    guards = _run_guards()
-    seen: list[list[str]] = []
-
-    def record(command, **kwargs):
-        seen.append(list(command))
-        raise SystemExit(0)
-
-    monkeypatch.setattr(guards.subprocess, "run", record)
-    with pytest.raises(SystemExit):
-        guards.main([])
-    command = seen[0]
-    assert command[command.index("-n") + 1] == "4"

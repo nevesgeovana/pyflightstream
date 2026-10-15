@@ -1,2 +1,0 @@
-REFUSED CommandArgumentError
-case '7001': FlightStream 26.100: rotary_motion, unsteady_rotor and rotor-speed rows are refused until the angular-velocity unit is measured. The earlier emitter used rev/min while the manual tutorial gives rad/s, a possible 9.55 times speed error (RPT-051). A 26.100 rotation null test of the RPT-047 kind must compare the azimuth reached with the azimuth stated before this build can run a rotor. Use a build with a proved rotor unit instead.

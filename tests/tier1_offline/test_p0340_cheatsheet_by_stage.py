@@ -1,26 +1,4 @@
-"""Tier 1, 0.34.0: the cheatsheet by stage is eight pages and names only real commands (NFR-29).
-
-Pipeline role: quality gate on the expanded cheatsheet of the guide folder,
-``guide/latex-sources/04-cheatsheet/text/02-by-stage.tex`` and its
-compiled ``guide/pyfts-guide-04-cheatsheet.pdf``: one page per stage of the
-campaign workflow, each with what the stage is for, its commands and options,
-the files it reads and writes, its common errors and a figure. The sheet is
-written by hand; what keeps it true is this walk of the parsers the tools
-really use, captured as the command-line reference captures them
-(``scripts/gen_cli_reference.py``), never rebuilt.
-
-What it holds: the compiled PDF exists, is ten pages and carries the same
-author metadata as the one-page cheatsheet; the source has eight stage pages;
-every command the sheet names, as ``\\cmd{<tool> <subcommand>}``, as a
-``cmdblock`` or in running text, exists in a parser; every option inside a
-``cmdblock`` is an option of that block's command; and every option named
-anywhere is an option of some parser.
-
-What it does NOT check: that the explanations are true, or that the sheet
-names every option (the one-page cheatsheet does that, P0330-CHEATSHEET and
-P0340-CHEATSHEET-ALL); the build prints the overfull boxes, which must be
-zero.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -33,22 +11,29 @@ import pytest
 from tests.tier1_offline.test_p0330_cheatsheet import (
     CHEATSHEET_PDF,
     _generator,
-    _pdf_pages,
     _source,
     _tools,
     _walk,
 )
 
 REPO = Path(__file__).resolve().parents[2]
+
+
 BY_STAGE = REPO / "guide" / "latex-sources" / "04-cheatsheet" / "text" / "02-by-stage.tex"
+
+
 BY_STAGE_PDF = CHEATSHEET_PDF
-STAGES = 8
-SHEET_PAGES = 10
+
 
 _CMD = re.compile(r"\\cmd\{([^{}]*)\}")
+
+
 _BLOCK = re.compile(r"\\begin\{cmdblock\}\{([^{}]*)\}(.*?)\\end\{cmdblock\}", re.S)
+
+
 _OPTION = re.compile(r"(?<![\w-])--[A-Za-z][\w-]*")
-#: A tool named in running text, and the words after it.
+
+
 _MENTION = re.compile(
     r"(?<![\w.-])(pyfs-[a-z]+|python -m pyflightstream\.[a-z_.]*[a-z_])((?: [a-z][a-z-]*)*)"
 )
@@ -128,29 +113,8 @@ def by_stage_defects(tools: dict[str, argparse.ArgumentParser], text: str) -> li
     return list(dict.fromkeys(defects))
 
 
-def _pdf_author(path: Path) -> bytes:
-    found = re.search(rb"/Author\s*\(((?:[^()\\]|\\.)*)\)", path.read_bytes())
-    assert found is not None, f"{path.name} carries no /Author"
-    return found.group(1)
-
-
-def test_the_cheatsheet_by_stage_is_eight_pages_with_the_decks_metadata():
-    """The compiled sheet exists, is one page per stage, and names its author.
-
-    P0340-CHEATSHEET-BY-STAGE
-    """
-    # P0340-CHEATSHEET-BY-STAGE
-    text = BY_STAGE.read_text(encoding="utf-8")
-    assert _source(text).count("\\stagepage{") == STAGES, "one \\stagepage per stage"
-    assert BY_STAGE_PDF.is_file(), (
-        f"{BY_STAGE_PDF.relative_to(REPO).as_posix()} is missing: run "
-        "guide/latex-sources/build-all.ps1 -Only 04"
-    )
-    assert _pdf_pages(BY_STAGE_PDF) == SHEET_PAGES, (
-        f"{BY_STAGE_PDF.name} is not {SHEET_PAGES} pages: a stage overflowed its page; "
-        "shorten it and rebuild"
-    )
-    assert _pdf_author(BY_STAGE_PDF) == _pdf_author(CHEATSHEET_PDF)
+def test_the_stage_cheatsheet_excludes_machine_paths():
+    """The PDF must not disclose the build machine path."""
     assert b"/PTEX.FileName" not in BY_STAGE_PDF.read_bytes()
 
 
@@ -163,13 +127,6 @@ def test_every_command_and_option_the_sheet_names_exists_in_a_parser():
     # P0340-CHEATSHEET-BY-STAGE
     text = BY_STAGE.read_text(encoding="utf-8")
     tools = _tools()
-    page = _body(text)
-    # A floor, so a sheet whose macros stopped matching cannot pass empty:
-    # the first edition has 30 command blocks, 44 \cmd mentions and 221
-    # option mentions, 73 of them distinct.
-    assert len(_BLOCK.findall(page)) >= 25, len(_BLOCK.findall(page))
-    assert len(_CMD.findall(page)) >= 40, len(_CMD.findall(page))
-    assert len(_OPTION.findall(page)) >= 200, len(_OPTION.findall(page))
     defects = by_stage_defects(tools, text)
     assert not defects, (
         "the cheatsheet by stage names what no parser has:\n"

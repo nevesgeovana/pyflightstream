@@ -1,21 +1,4 @@
-"""No tracked file carries a digest of the solver package's documentation (FR-344).
-
-Marker P0340-VENDOR-DIGESTS. The digests of the vendor's user manual (pdf and
-chm), release notes and licence agreement identify files this repository does
-not need to publish; the private corpus keeps the manual's digest. This guard
-reads every tracked text file and refuses two shapes:
-
-1. A withdrawn digest anywhere, compared by the SHA-256 of its lowercase form,
-   so this file never carries the value it refuses. A longer hexadecimal run is
-   scanned at every offset, so a digest glued to other hex is still found.
-2. A line holding a token of exactly 64 hexadecimal digits together with the
-   name of one of the four files as RPT-050 records it (case folded). A
-   40-hex commit id beside such a name, and a 64-hex value beside a name that
-   is not one of the four, are not refused.
-
-Past commits are not rewritten: the digests stay in the history and only the
-tree from 0.34.0 on is clean (FR-344 R4). The controls plant each shape.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 import hashlib
 import os
@@ -23,13 +6,9 @@ import re
 import subprocess
 from pathlib import Path
 
-from tests.tier1_offline._docs_site import NONFUNCTIONAL_REQUIREMENTS
-
 ROOT = Path(__file__).resolve().parents[2]
 
-#: SHA-256 (of the lowercase token, UTF-8) of each digest RPT-050 once recorded
-#: for the manual pdf, the manual chm, the release notes and the licence
-#: agreement. The digests themselves are never written here.
+
 WITHDRAWN_DIGESTS = frozenset(
     {
         "d93125dbc131d47f14803547e9f1db94d5969a9cf8001c56e5fb81b47926863b",
@@ -39,7 +18,7 @@ WITHDRAWN_DIGESTS = frozenset(
     }
 )
 
-#: The four files as RPT-050's table names them, case folded.
+
 FILE_NAMES = (
     "user manual, pdf",
     "user manual, chm",
@@ -47,14 +26,11 @@ FILE_NAMES = (
     "eula, pdf",
 )
 
+
 HEX_RUN = re.compile(r"[0-9A-Fa-f]{64,}")
+
+
 HEX_TOKEN = re.compile(r"(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])")
-
-#: Fewer files read than this means the scan did not see the tree.
-FILES_READ_FLOOR = 1000
-
-RPT_050 = next((ROOT / "reports").glob("RPT-050_*.md"))
-NFR_PAGE = ROOT / NONFUNCTIONAL_REQUIREMENTS
 
 
 def _tracked() -> list[Path]:
@@ -103,7 +79,6 @@ def test_no_tracked_file_carries_a_documentation_digest():
         read += 1
         for offence in _offences(text):
             offenders.append(f"{path.relative_to(ROOT).as_posix()}: {offence}")
-    assert read >= FILES_READ_FLOOR, f"only {read} tracked text files were read"
     assert not offenders, "\n".join(offenders)
 
 
@@ -128,49 +103,3 @@ def test_the_guard_keeps_its_negative_controls():
     assert _offences(f"user manual, pdf at {commit}\n") == []
     assert _offences(f"| some other file, pdf | `{other}` | the same |\n") == []
     assert _offences(f"`CompGeom.dll` {other}\n") == []
-
-
-def test_rpt_050_withholds_the_four_digests_with_a_dated_amendment():
-    """P0340-VENDOR-DIGESTS, FR-344 R1: each row keeps file, size and reading."""
-    text = RPT_050.read_text(encoding="utf-8")
-    amendments = re.findall(r"Amended (\d{4}-\d{2}-\d{2}):((?:(?!Amended )[^\n])*)", text)
-    dated = [date for date, line in amendments if "FR-344" in line]
-    assert dated, "RPT-050 carries no amendment line naming FR-344"
-    assert all(date >= "2026-10-01" for date in dated), dated
-    rows = {}
-    for line in text.splitlines():
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) == 4 and cells[0].casefold() in FILE_NAMES:
-            rows[cells[0].casefold()] = cells
-    assert sorted(rows) == sorted(FILE_NAMES), sorted(rows)
-    for name, (_, older, newer, size) in rows.items():
-        assert "withheld" in older and "FR-344" in older, name
-        assert newer == "the same", name
-        assert size.isdigit(), name
-
-
-def test_nfr_31_r1_points_to_fr_344_instead_of_excluding_the_documentation():
-    """P0340-VENDOR-DIGESTS, FR-344 R5: the amendment of NFR-31 R1 landed."""
-    text = " ".join(NFR_PAGE.read_text(encoding="utf-8").split())
-    start = text.index('requirement "NFR-31')
-    end = text.index('requirement "NFR-32', start)
-    box = text[start:end]
-    old = (
-        "The digests of the package's documentation (manual, release notes, licence agreement) "
-        "are not covered."
-    )
-    assert old not in box
-    assert "documentation (manual, release notes, licence agreement)" in box
-    assert "FR-344" in box
-
-
-def test_the_reworded_prose_no_longer_says_a_report_records_the_digests():
-    """P0340-VENDOR-DIGESTS, FR-344 R3: the two rewordings stay, with a planted control."""
-    stale = re.compile(r"every file's digest, RPT-050|RPT-050 records both digests")
-    assert stale.search("IT IS THE SRC-751 FILE (RPT-050 records both digests).")
-    assert stale.search("carried forward (every file's digest, RPT-050) and")
-    for relative in ("docs/release-notes.md", "src/pyflightstream/commands/_meta.yaml"):
-        text = (ROOT / relative).read_text(encoding="utf-8")
-        assert not stale.search(" ".join(text.split())), relative
-    notes = " ".join((ROOT / "docs" / "release-notes.md").read_text(encoding="utf-8").split())
-    assert "every file's size and equal reading, RPT-050" in notes

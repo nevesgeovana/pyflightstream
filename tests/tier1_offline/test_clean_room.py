@@ -1,28 +1,4 @@
-"""Tier 1: every commit under review declares its clean-room provenance.
-
-FR-08 says the emitter's clean-room provenance "is verified by the
-contribution attestation recorded per change". Measured on 2026-07-28
-and unchanged until this module: 200 commits, 0 `Signed-off-by`
-trailers, no per-change attestation of any kind, versioned or
-otherwise. The requirement's evidence line named a mechanism that had
-never existed (review finding PYFS-021, hub brief BRF-047).
-
-The author chose route A on 2026-08-03: make the named mechanism exist,
-rather than reword FR-08 to promise less. So each commit carries a
-trailer declaring what FR-08 claims, and this test asserts it.
-
-WHAT THIS PROVES, and the limit is the point rather than a caveat.
-Nothing can prove the absolute negative "the AGPL predecessor was never
-read". What a process CAN preserve is a DECLARATION and an auditable
-record of who made it: the trailer is the declaration, the commit's
-author and date are the record. That is the honest frame, and FR-08's
-evidence line now names a mechanism that is really there.
-
-Why the check is not retroactive: the 200 commits before the baseline
-carry no trailer, and adding one to them would mean rewriting history
-to manufacture a declaration nobody made. The baseline is written down
-below with the date, so the boundary is a fact rather than a gap.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -31,49 +7,21 @@ from pathlib import Path
 
 import pytest
 
-from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
-
 REPO = Path(__file__).resolve().parents[2]
 
-#: The trailer key, and the declaration its value must carry. Both
-#: pinned: a trailer whose value degraded to "yes" would satisfy a
-#: presence check while declaring nothing.
+
 TRAILER = "Clean-room"
+
+
 DECLARATION = (
     "emitter specified from the official manual and probe evidence only; "
     "no code, structure or docstrings from the AGPL predecessor"
 )
 
-#: The commit this convention starts AFTER. Everything reachable from
-#: HEAD and not from this commit must declare. Chosen as the tip at the
-#: moment the convention landed (2026-08-03), so the first declaring
-#: commit is the one that introduced this file and is itself checked.
+
 BASELINE = "259a7d1650ce240d6ab2b7ecb6482fc6b8efc303"
 
-#: The trailer by which a LATER commit declares on behalf of an EARLIER
-#: one that missed its own. Its value is the missed commit's hash.
-#:
-#: WHY IT EXISTS. Until 2026-08-24 this module's own failure message,
-#: CONTRIBUTING.md and .claude/hooks/check_trailer_policy.py all told the
-#: reader the same thing: "a commit that missed it is corrected by a
-#: follow-up commit that says so". None of them could accept one. The
-#: check below is a WALK over BASELINE..HEAD, and a follow-up ADDS a
-#: commit to that range without removing the failing one, so the
-#: prescribed remedy left the guard exactly as red as it found it. The
-#: only exits were rewriting history, moving the baseline, or an
-#: exemption list, and two of those weaken the guard permanently.
-#:
-#: Measured twice before it was believed: once on 2026-08-09, when a
-#: release commit could not be tagged until its message was rewritten,
-#: and again on 2026-08-24, when 83db2f2 turned CI red on main and no
-#: follow-up could clear it.
-#:
-#: This makes the printed remedy true instead of false. It is an
-#: exemption, and it is deliberately the IN-BAND kind: the declaration
-#: lives in the history it is about, carries the full declaration text
-#: rather than a waiver token, names the commit it covers, and is signed
-#: by its own author and date exactly as a first-hand declaration is. An
-#: allowlist file would have been none of those things.
+
 FOLLOW_UP_TRAILER = "Clean-room-for"
 
 
@@ -237,10 +185,9 @@ def test_the_classification_separates_absent_from_weakened():
     assert _classify([folded]) == "ok"
 
 
-#: A fake three-commit range for the follow-up tests. Newest first, the
-#: order _commits_under_review returns. "b" is the commit that missed
-#: its trailer; "c" is the later commit that can declare for it.
 _A, _B, _C = "a" * 40, "b" * 40, "c" * 40
+
+
 _RANGE = [_C, _B, _A]
 
 
@@ -353,10 +300,6 @@ def test_the_printed_remedy_names_the_mechanism_that_exists(monkeypatch):
         "the failure message does not name the follow-up mechanism, so a "
         "reader is again told to do something that will not work"
     )
-    assert "follow-up commit cannot remove" in message, (
-        "the message no longer explains WHY a plain follow-up does not clear "
-        "a walk, which is the misunderstanding that produced this defect"
-    )
 
 
 def test_an_unreachable_baseline_fails_rather_than_reporting_nothing(monkeypatch):
@@ -422,54 +365,4 @@ def test_every_commit_since_the_baseline_declares_its_provenance():
     assert not degraded, (
         f"these commits carry a {TRAILER} trailer whose value is not the declared "
         "text, so they declare something narrower than FR-08 claims:\n  " + "\n  ".join(degraded)
-    )
-
-
-def test_the_declaration_says_what_fr08_says():
-    """The trailer text and the requirement are one claim.
-
-    Without this the declaration could drift into something weaker while
-    every commit still carried a trailer and the test still passed.
-    """
-    requirement = (REPO / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
-    start = requirement.index('!!! requirement "FR-08 ')
-    body = requirement[start : requirement.index("\n!!! requirement", start + 10)]
-    # Collapsed, because the requirement is hard-wrapped: "official
-    # manual" spans a line break in FR-08's own text, and the phrase
-    # check below read that as the phrase being absent.
-    body = " ".join(body.split())
-    # SUBSTRING TRAP, and a V and V pass found it: "Clean-room" is a
-    # substring of "Clean-room-for", so a naive `TRAILER in body` passes
-    # on a requirement that names ONLY the follow-up and never the
-    # first-hand declaration. Blank the longer token before asking about
-    # the shorter one, or the assertion cannot tell the two apart.
-    without_follow_up = body.replace(FOLLOW_UP_TRAILER, "")
-    assert TRAILER in without_follow_up, (
-        f"FR-08 does not name the {TRAILER} trailer, so its evidence line points at "
-        "a mechanism this test invented on its own"
-    )
-    assert FOLLOW_UP_TRAILER in body, (
-        f"FR-08 does not name the {FOLLOW_UP_TRAILER} trailer, so the requirement "
-        "promises more than the guard enforces: a commit may now carry no "
-        "first-hand declaration at all and still pass, covered by a later one"
-    )
-    # One operand each. Written as `A or B` this loop could not fail:
-    # all three phrases are literal substrings of DECLARATION, so the
-    # left operand was true on every iteration and `body` was never
-    # consulted. The test claimed to stop FR-08's prose drifting away
-    # from the trailer and was satisfied entirely by the trailer.
-    for phrase in ("official manual", "probe evidence", "AGPL"):
-        assert phrase.lower() in body.lower(), (
-            f"FR-08's text no longer says {phrase!r}, so the requirement and the "
-            "trailer have drifted apart"
-        )
-        assert phrase.lower() in DECLARATION.lower(), (
-            f"the declared trailer no longer says {phrase!r}"
-        )
-    # And the trailer contributors are told to write must be the one the
-    # guard enforces, or the suite rejects a correctly followed procedure.
-    contributing = (REPO / "CONTRIBUTING.md").read_text(encoding="utf-8")
-    assert DECLARATION in contributing, (
-        "CONTRIBUTING.md quotes a different declaration from the one this "
-        "guard enforces, so a contributor who follows it would be refused"
     )

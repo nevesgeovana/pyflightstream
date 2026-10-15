@@ -354,13 +354,6 @@ def test_goal020_collect_a_watch_is_bounded_by_its_rounds(tmp_path):
 # status, and one of them supplies a point that must not be judged converged.
 
 
-def _loads_table(cl: str) -> str:
-    """A minimal loads export the standard parser accepts, with one CL value."""
-    from tests.tier1_offline.test_matrix_run import LOADS_TABLE  # the shared fixture
-
-    return LOADS_TABLE.replace("0.4210", cl) if "0.4210" in LOADS_TABLE else LOADS_TABLE
-
-
 def test_goal020_collect_records_what_the_outputs_say_and_not_a_constant(tmp_path):
     """A collected point's status comes from its files, not from a literal.
 

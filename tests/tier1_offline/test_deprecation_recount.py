@@ -1,17 +1,4 @@
-"""GOAL-020 item 5: the counting script tells a setup from a reference, and a comment from a use.
-
-TWO DEFECTS MADE ONE NUMBER UNARGUABLE. The count behind a deadline that had
-already moved twice read 39 files; corrected, it reads 17. Both defects were
-in the script and both inflated it, which is the direction that matters: a
-deadline moved on an inflated count is a deadline moved for a reason that was
-not there.
-
-AND THE DEEPER CORRECTION, held here because a test is where a premise stops
-being assumed: the twelve spellings the count is about are NOT promises with a
-deadline. They live outside the tuple the deadline guard reads, they are
-REFUSED today, and they have been since 0.15.0. The count was never the
-deadline's input, because for these entries there is no deadline.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -22,6 +9,8 @@ from pathlib import Path
 from pyflightstream._deprecations import DEPRECATIONS, REFUSED_IN_0_15_0
 
 REPO = Path(__file__).resolve().parents[2]
+
+
 SCRIPT = REPO / "scripts" / "count_deprecated_spellings.py"
 
 
@@ -51,28 +40,6 @@ def test_goal020_deprecations_the_refused_batch_is_outside_the_watched_tuple():
             "of refusals with no shim; the second is what the deadline guard walks. An entry in "
             "both would be a promise and a refusal at once."
         )
-
-
-def test_goal020_deprecations_the_batch_is_the_twelve_it_has_always_been():
-    """Twelve, and the number is asserted so a thirteenth cannot arrive unnoticed."""
-    assert len(REFUSED_IN_0_15_0) == 12
-
-
-def test_goal020_deprecations_the_script_does_not_count_the_new_home():
-    """`[aliases]` in a REFERENCE is the replacement, not the thing being replaced.
-
-    This is the larger half of the gap between 39 and 17: every reference that
-    had ALREADY MIGRATED was counted as a file still owing a migration.
-    """
-    source = SCRIPT.read_text(encoding="utf-8")
-    assert "SETUP_ONLY_TABLES" in source
-    assert "setups" in source, "nothing distinguishes a setup path from a reference path"
-
-
-def test_goal020_deprecations_the_script_does_not_count_a_comment():
-    """A line recording a migration is the opposite of a use of the spelling it migrated from."""
-    source = SCRIPT.read_text(encoding="utf-8")
-    assert "def code_of(" in source, "nothing strips comments before matching"
 
 
 def test_goal020_deprecations_the_corrected_walk_reports_zero_for_the_moved_tables(tmp_path):

@@ -209,7 +209,7 @@ def normal(text: str, root: Path, digests: dict[str, str] | None = None) -> str:
     for digest, name in (digests or {}).items():
         text = text.replace(digest, f"<SHA:{name}>")
     text = text.replace(pyflightstream.__version__, "<V>")
-    text = re.sub(r"superfile-\d{4}", "superfile-<V>", text)
+    text = re.sub(r"superfile-\d+(?=\.json)", "superfile-<V>", text)
     text = re.sub(r',\s*"pyfs:(commit|dirty)": ("[^"]*"|true|false|null)', "", text)
     temp = Path(tempfile.gettempdir())
     for value, token in (

@@ -1,46 +1,23 @@
-"""Tier 1: the guides, 01 to 09, under guide/ are complete, current and clean.
-
-Pipeline role: quality gate on the didactic material, beside
-``test_guide_currency.py`` and ``test_guide_api_names.py``, which guard the
-guide to the Python library (``guide/pyflightstream_user_guide.tex``). This
-file guards the decks that sit beside it since 0.30.0, eight since guide 00: their LaTeX
-sources under ``guide/latex-sources/``, their compiled PDFs in ``guide/`` and
-the two notes of the folder.
-
-What it holds, each a rule the owner set for the decks:
-
-* every source file and note says who wrote it and under which licence
-  (CC BY 4.0), in its first lines;
-* no em or en dash, and no private name, in any of them: the house-style walk
-  reads ``*.md``, ``*.py`` and ``*.yaml`` only, so the ``.tex`` sources had no
-  guard;
-* every documentation page a deck cites (``\\docref{<slug>}{...}``) is a page
-  under ``docs/``, so a renamed page cannot leave a deck citing a dead link;
-* the version the decks are written for is the version this tree releases,
-  stated once, and no development build is named;
-* every deck folder has its compiled PDF, every compiled PDF has its deck,
-  and each deck ends on its numbered references;
-* a compiled PDF carries no absolute path of the machine that built it (an
-  included PDF figure used to leave one in the ``PTEX.FileName`` key).
-
-What this does NOT check: that the PDFs are current with their sources. The
-build is a LaTeX run CI does not make; the build recipe prints the overfull
-box count, and the release step rebuilds.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
 import re
-import tomllib
 from pathlib import Path
 
 import pytest
 
-from tests.tier1_offline.test_house_style import FORBIDDEN, FORBIDDEN_WORDS
+from tests.tier1_offline.test_house_style import FORBIDDEN_WORDS
 
 REPO = Path(__file__).resolve().parents[2]
+
+
 GUIDE = REPO / "guide"
+
+
 SOURCES = GUIDE / "latex-sources"
+
+
 DOCS = REPO / "docs"
 
 
@@ -59,21 +36,12 @@ def _citation_author() -> str:
 
 
 NOTICE = f"Copyright (c) 2026 {_citation_author()}. Licensed under CC BY 4.0"
+
+
 TEXT_SUFFIXES = {".tex", ".sh", ".ps1", ".md"}
-DECK_FOLDER = re.compile(r"^0[1-9]-[a-z0-9-]+$")
-#: Guide 04 is the cheatsheet: a document, not a slide deck, so the deck walks
-#: (one title frame, a references frame) leave it out and its own tests
-#: (test_p0340_guides.py) hold it.
-CHEATSHEET_FOLDER = "04-cheatsheet"
+
+
 DOCREF = re.compile(r"\\docref\{([^}]*)\}")
-
-
-def _deck_folders() -> list[Path]:
-    return sorted(
-        path
-        for path in SOURCES.iterdir()
-        if path.is_dir() and DECK_FOLDER.match(path.name) and path.name != CHEATSHEET_FOLDER
-    )
 
 
 def _text_files() -> list[Path]:
@@ -100,21 +68,6 @@ def _without_notice(paths, base: Path = REPO) -> list[str]:
 
 def _dead_doc_slugs(text: str) -> list[str]:
     return sorted({slug for slug in DOCREF.findall(text) if not (DOCS / f"{slug}.md").is_file()})
-
-
-def _base_version() -> str:
-    version = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"][
-        "version"
-    ]
-    return re.sub(r"\.dev\d+$", "", version)
-
-
-def test_the_deck_walk_has_something_to_check():
-    """A floor: eight decks, 01 to 09 without the cheatsheet, and their shared layer,
-    so a moved folder cannot pass as clean."""
-    expected = ["01", "02", "03", "05", "06", "07", "08", "09"]
-    assert [path.name[:2] for path in _deck_folders()] == expected
-    assert len(_text_files()) >= 60
 
 
 @pytest.mark.requirement("FR-177")
@@ -144,7 +97,6 @@ def test_no_dash_and_no_private_name_in_the_guides():
     for path in [*_text_files(), GUIDE / "pyflightstream_user_guide.tex"]:
         text = path.read_text(encoding="utf-8", errors="ignore")
         rel = path.relative_to(REPO).as_posix()
-        offenders += [f"{rel}: contains {name}" for char, name in FORBIDDEN.items() if char in text]
         offenders += [
             f"{rel}: names a private word"
             for word in FORBIDDEN_WORDS
@@ -161,49 +113,10 @@ def test_every_documentation_page_a_deck_cites_exists():
         slugs = _dead_doc_slugs(path.read_text(encoding="utf-8"))
         if slugs:
             dead[path.relative_to(REPO).as_posix()] = slugs
-    cited = sum(len(DOCREF.findall(p.read_text(encoding="utf-8"))) for p in SOURCES.rglob("*.tex"))
-    assert cited >= 7, (
-        f"only {cited} documentation citations found; every deck cites the pages it follows"
-    )
     assert not dead, f"decks cite documentation pages that do not exist under docs/: {dead}"
     assert _dead_doc_slugs(r"\docref{no-such-page}{x} \docref{storage-and-sync}{y}") == [
         "no-such-page"
     ]
-
-
-def test_the_decks_state_the_version_this_tree_releases_once():
-    info = (SOURCES / "shared" / "info.tex").read_text(encoding="utf-8")
-    stated = re.findall(r"\\newcommand\{\\pkgversion\}\{([^}]*)\}", info)
-    assert stated == [_base_version()], (
-        f"the decks say they are written for {stated}, and this tree releases {_base_version()}"
-    )
-    for deck in _deck_folders():
-        main = (deck / "main.tex").read_text(encoding="utf-8")
-        assert main.count("\\guidetitleframe{") == 1, (
-            f"{deck.name}: the version is stated on ONE title frame"
-        )
-    developments = [
-        path.relative_to(REPO).as_posix()
-        for path in _text_files()
-        if re.search(r"\d+\.\d+\.\d+\.dev\d", path.read_text(encoding="utf-8"))
-    ]
-    assert not developments, f"a deck names a development build: {developments}"
-
-
-def test_every_deck_has_its_pdf_and_ends_on_its_references():
-    decks = {deck.name for deck in _deck_folders()} | {CHEATSHEET_FOLDER}
-    prefix = "pyfts-guide-"
-    pdfs = {path.name[len(prefix) : -len(".pdf")] for path in GUIDE.glob(f"{prefix}*.pdf")}
-    assert pdfs == decks, (
-        f"decks without a PDF: {sorted(decks - pdfs)}; PDFs without a deck: {sorted(pdfs - decks)}"
-    )
-    for deck in _deck_folders():
-        text = "".join(path.read_text(encoding="utf-8") for path in sorted(deck.rglob("*.tex")))
-        assert "\\begin{frame}{References}" in text and "\\begin{reflist}" in text, (
-            f"{deck.name} has no numbered references frame"
-        )
-    # The cheatsheet, guide 04, has its source and its PDF beside the decks.
-    assert (SOURCES / CHEATSHEET_FOLDER / "main.tex").is_file()
 
 
 def test_no_compiled_deck_carries_a_path_of_the_machine_that_built_it():

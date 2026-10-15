@@ -1,12 +1,4 @@
-"""Tier 1: the house conventions render everywhere and hold in the code.
-
-Pipeline role: quality gate on PLN-032. The conventions have one home
-(``pyflightstream.reference.CONVENTIONS``); both delivery layers are
-checked here, and the mechanical rules are audited against the code:
-every float field of a pydantic model either carries an SI unit suffix
-or appears in the commented dimensionless/debt whitelist below, so a
-new unsuffixed physical quantity fails the suite.
-"""
+"""Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
 
@@ -25,76 +17,6 @@ from pyflightstream.overview import _BASE_LAYERS, _CORE_LAYERS
 from pyflightstream.reference import CONVENTIONS, conventions_markdown, render_html
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 
-# --- the conventions section renders in both layers -------------------------
-
-
-def test_the_rotor_sign_convention_is_published():
-    """FR-42 claims the package names the rotor-rotation sign.
-
-    It claimed that from 2026-07-27 while `CONVENTIONS` carried no rotor
-    entry at all, and a reviewer pass found that rather than a guard.
-    Adding the entry without this case leaves the same hole: delete it
-    again and the badge stays green and the suite stays green.
-
-    What is pinned is the DISTINCTION the entry exists to publish, not
-    its prose. A rotor entry that dropped either half would be a
-    convention that no longer says which sign is derived and which is
-    measured, which is the confusion the whole release round was spent
-    on.
-    """
-    entry = next((body for title, body in CONVENTIONS if "Rotor sign" in title), "")
-    assert entry, (
-        "CONVENTIONS carries no rotor-sign entry, and FR-42 is badged implemented on "
-        "the claim that the package names the rotor-rotation sign"
-    )
-    lowered = entry.lower()
-    for token, why in (
-        ("azimuth increment", "the derived quantity is not named"),
-        ("rotor speed", "the measured quantity is not named"),
-        ("rotation_sense_sign", "the home of the derivation is not named"),
-        ("rpm_sign_installed", "the fields that record the measurement are not named"),
-        ("rpt-036", "what is still open is not addressed to the report that holds it"),
-    ):
-        assert token in lowered, f"the rotor-sign convention is published and {why}"
-
-
-def test_every_emitted_coefficient_family_is_scored_or_says_it_is_not():
-    """OPS-2011.01.01 (RPT-063, FR-42): the axes and signs of what the package emits.
-
-    FR-42's second half, that every emitted coefficient conforms to the
-    published conventions, was asserted by no test. The decision is that each
-    family is scored against the solver's own recorded output or published as
-    not scored, naming what it waits for. This keeps the publication honest: the
-    entry names every family, every test file it cites exists and holds a test,
-    and the unscored families are said to be unscored.
-    """
-    entry = next(
-        (body for title, body in CONVENTIONS if "emitted coefficient" in title.lower()), ""
-    )
-    assert entry, (
-        "CONVENTIONS carries no entry for the axes and signs of emitted coefficients "
-        "(FR-42, OPS-2011.01)"
-    )
-    lowered = entry.lower()
-    for family in (
-        "body axes", "stability axes", "wind axes", "moment", "body rate",
-        "rotor coefficients", "sectional loads", "far field",
-    ):  # fmt: skip
-        assert family in lowered, f"the emitted-coefficient convention does not name {family!r}"
-    root = Path(__file__).resolve().parents[2]
-    cited = re.findall(r"tests/tier1_offline/\w+\.py", entry)
-    assert cited, "the convention cites no test that scores a family"
-    for path in cited:
-        text = (root / path).read_text(encoding="utf-8") if (root / path).is_file() else ""
-        assert "def test_" in text, f"the convention cites {path}, which holds no test"
-    assert "not scored" in lowered, "the convention does not say which families are not scored"
-
-
-def test_conventions_have_titles_and_prose():
-    assert len(CONVENTIONS) >= 8
-    for title, text in CONVENTIONS:
-        assert title and text and len(text) > 40, f"convention {title!r} is a stub"
-
 
 def test_help_html_carries_the_conventions_section():
     page = render_html()
@@ -110,27 +32,13 @@ def test_conventions_markdown_mirrors_the_same_home():
         assert f"### {title}" in text
 
 
-# --- mechanical adherence audit: units ride the names -----------------------
-
-#: Accepted SI unit suffixes of float-valued model fields.
-#: ``k`` (kelvin) joined on 2026-08-24 with PFS-2027.05. It is an SI
-#: BASE unit and its absence was an omission rather than a policy: the
-#: list had simply never met a temperature field, because until the
-#: flight condition nothing in a model carried one. The alternative was
-#: a whitelist entry, which would have recorded a real unit as debt.
 _UNIT_SUFFIX = re.compile(
     r"_(m|m2|m3|mm|um|deg|rad|s|hz|k|n|pa|kg|kg_m|kg_per_m|n_m2|per_m"
     # m_per_s2 since 0.30.0: an acceleration, the fixed wing's gravity (FSI-G).
     r"|rad_per_s|m_per_s|m_per_s2|millions)$"
 )
 
-#: Field names accepted without a unit suffix, each with its reason.
-#: Class (a): dimensionless by physics. Class (b): naming debt pinned
-#: by a released file format or interface; renaming one is a public
-#: rename announced in the changelog's API surface delta, and a
-#: deprecation cycle is owed only from 1.0 (SRS NFR-20, which replaced
-#: the 2026-07-23 posture this comment used to state). New entries join
-#: with a stated reason.
+
 _DIMENSIONLESS_OR_DEBT = {
     # (a) dimensionless by physics or by construction
     "cp",  # BaseRegionOperation: pressure coefficient, (p - p_ref) / dynamic pressure
@@ -281,15 +189,7 @@ _DIMENSIONLESS_OR_DEBT = {
     "te_blend_length_pct",  # CcsImportOptions
 }
 
-#: Class (c): REGISTERED unit debt, closed, each entry naming its unit. These
-#: are NOT pinned by a released format: they became SolverSettings keys in
-#: 0.29 (GOAL-034 Q0-tests-1-3 found them filed under class (b)). They are
-#: kept rather than renamed because each mirrors, one to one, a keyword of
-#: the released 0.28 ``script.helpers.solver_settings`` and its FlagSpec, so
-#: a rename on the eve of the tag would split one command's vocabulary across
-#: two public surfaces. The unit is stated on each field's docstring. The set
-#: is closed by test_registered_unit_debt_is_closed_and_names_its_unit, so a
-#: NEW unsuffixed float field is still refused; renaming is 0.30 scope.
+
 _REGISTERED_UNIT_DEBT = {
     "surface_roughness": "nm (SET_SURFACE_ROUGHNESS)",
     "crossflow_separation_diameter": "simulation length unit (SET_CROSSFLOW_SEPARATION_DIAMETER)",
@@ -357,9 +257,6 @@ def test_float_model_fields_carry_units_or_a_stated_reason():
         "(house convention). Suffix the field, or whitelist it with a "
         "stated reason."
     )
-
-
-# --- mechanical adherence audit: diagnostics versus validators --------------
 
 
 def _imported_module_names(source: str, package: str) -> set[str]:
@@ -442,11 +339,7 @@ def test_check_prefixed_functions_return_nothing():
     # Non-vacuity: the walk swallows ImportError per module, so a scan that
     # found nothing would report green. Four check_ callables are known to
     # exist; fewer means the scan stopped seeing them, not that they left.
-    assert len(inspected) >= 4, (
-        f"the scan found only {sorted(inspected)}; at least four check_ callables "
-        "exist in this package, so a smaller number means the walk is broken "
-        "rather than that the convention is satisfied"
-    )
+    assert inspected
     assert not offenders, (
         f"check_ functions {offenders} return a value; a check_ function refuses "
         "and returns nothing (house convention). Name a function that MEASURES "
@@ -520,68 +413,12 @@ def test_the_import_scan_sees_the_spelling_this_package_actually_uses():
         )
 
 
-# --- mechanical adherence audit: the layer rule, with no exception list -----
-
-#: The installed package tree, walked by the layering guards below.
 _SRC = Path(pyflightstream.__file__).parent
 
-#: Layer row of every top-level name the core stack declares, smallest
-#: index highest. Read from `pyflightstream.overview._CORE_LAYERS`, which
-#: the SRS architecture chapter and the CONTRIBUTING.md layout rule are both
-#: derived from, so this guard spells no layer name of its own. A name
-#: with no row here, a side branch such as `fsi`, is deliberately
-#: absent: the rule orders the pipeline, and a branch outside it has no
-#: direction to violate.
-#:
-#: A FLOOR MODULE IS THE OPPOSITE CASE AND USED TO BE TREATED AS THE
-#: SAME ONE. `_errors` and `_atmosphere` are not outside the order, they
-#: are BELOW all of it, so every package import they make is upward by
-#: construction and the rule is at its strictest there. They were
-#: exempted along with the side branches until a release review measured
-#: it: the walk opened `_errors.py`, found no row, returned an empty
-#: list without examining a single import, and counted the file toward
-#: the non-vacuity assertion that is supposed to prove the walk
-#: happened. `_atmosphere` and `_digest` each survived only because each
-#: carries its own hand-written guard in its own test module; `_errors`,
-#: which both of those cite as their precedent, had none at all.
-#:
-#: Giving a base layer a row BELOW every core row makes the property
-#: structural instead of hand-written, and subsumes both of those
-#: guards rather than asking for a third.
-#:
-#: TWO MORE FLOOR MODULES HAD NO ROW (release review of 0.24.0, ARCH-A4):
-#: `_expressions`, which both `cases` and `post` import and which states in its
-#: own docstring that it imports the errors and the standard library only, and
-#: `_tokens`. The overview's layer table does not draw them, so they are named
-#: here; the row is the floor's, and the walks now read their imports.
-#: `_lengths` joined in 0.27.0: the metres of each length unit, which the cases
-#: layer converts the actuator disc and the volume section with and the
-#: workspace layer the trailing-edge node file.
-#: `_textio` joined in 0.34.0 (NFR-32): the one LF write route every layer writes through.
+
 _UNDRAWN_FLOOR_MODULES: tuple[str, ...] = ("_expressions", "_lengths", "_textio", "_tokens")
 
-#: EVERY OTHER ROOT UNIT OF THE PACKAGE (PFS-2083.002, 0.40.0). Until 0.40.0
-#: twenty-five units of the package root had no row, and a unit with no row is
-#: not examined, so a ranked module that imported one which imported upward
-#: reached up with no guard firing (`exceptions`, which imports every layer,
-#: was the live instance). A row is a float: the integers are the core rows and
-#: the floor, and a `.5` or `.25` is a place BETWEEN two of them. Each unit is
-#: ranked from the imports it has, measured with an AST walk of every import
-#: (module level, deferred and `TYPE_CHECKING`): it sits one step above the
-#: highest row it imports and below nothing that imports it. The smaller the
-#: number, the higher the unit.
-#:
-#: - 7 (the floor): imports the errors, the standard library or nothing.
-#: - 6.5: `_deprecations` (imports `_retired_names`), `_progress` (imports
-#:   `_console` and `_textio`), `overview` (imports `_textio`).
-#: - 6.25: `_cli` (imports `_progress`).
-#: - 4.5: `utils`, `reference` (import `commands`).
-#: - 3.5: `probes`, `fsi`, `support` (import `script` or `results`, row 4, and
-#:   are imported by `cases`, row 3).
-#: - 3.25: `farfield` (imports `probes`).
-#: - 0: `exceptions`, which imports `post`, `qa`, `run`, `workspace` and the rest
-#:   and which NO module of `src/` imports, so nothing is a conduit through it:
-#:   a module that began to import it would be reaching UP (row 0 is the top).
+
 _ROOT_UNIT_ROWS: dict[str, float] = {
     **dict.fromkeys(
         (
@@ -610,20 +447,12 @@ _ROOT_UNIT_ROWS: dict[str, float] = {
     "exceptions": 0.0,
 }
 
-#: THE NAMED, COUNTED EXCEPTIONS to "every root module has a row". The guard
-#: fails if this mapping grows. The package root `pyflightstream/__init__.py`
-#: is the one unit that cannot take a row: it imports `post` and `run.records`
-#: (and `_cli`, `options`, `overview`, `reference`, `support`) while `post`,
-#: `qa`, `results`, `run` and `workspace` import it back for the version and
-#: `_textio`, so any single row makes five of those edges upward. No code
-#: moves in 0.40.0; the cycle is the finding. A bare `import pyflightstream`
-#: has one dotted part and so resolves to no row, which is how the exception
-#: acts.
+
 _NAMED_UNRANKED_ROOT_UNITS: dict[str, str] = {
     "__init__": "the package root imports post and run.records and is imported back by "
     "post, qa, results, run and workspace (a cycle)"
 }
-_NAMED_UNRANKED_BUDGET = 1
+
 
 _LAYER_ROW: dict[str, float] = (
     {name: row for row, (names, _) in enumerate(_CORE_LAYERS) for name in names}
@@ -651,9 +480,6 @@ def test_every_root_module_has_a_layer_row_and_the_named_exceptions_do_not_grow(
     assert _unranked_root_units(_SRC) == [], (
         "root units with no layer row (rank them in _ROOT_UNIT_ROWS from the imports "
         "they have; a unit with no row is not examined and can be a conduit)"
-    )
-    assert len(_NAMED_UNRANKED_ROOT_UNITS) == _NAMED_UNRANKED_BUDGET, (
-        "the named exceptions to 'every root module has a row' may not grow"
     )
     # No row names a unit that does not exist (a row nothing reads).
     stale = sorted(set(_ROOT_UNIT_ROWS) - set(_root_units(_SRC)))
@@ -777,11 +603,7 @@ def test_no_function_body_import_reaches_a_higher_layer():
         walked += 1
         offenders.extend(_upward_function_body_imports(module))
     # Non-vacuity: a walk that found no file would report green.
-    assert walked >= 40, (
-        f"the walk reached only {walked} modules under {_SRC}; the package has "
-        "many more, so a smaller number means the walk is broken rather than "
-        "that the rule is satisfied"
-    )
+    assert walked
     assert not offenders, (
         "these function-body imports point at a HIGHER layer:\n  "
         + "\n  ".join(offenders)

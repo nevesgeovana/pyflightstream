@@ -36,10 +36,16 @@ producing all four outputs needs a licensed seat that was not open.
 from __future__ import annotations
 
 import ast
+import json
 import math
+import os
+import re
+import runpy
+import subprocess
 import sys
 import warnings
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -67,19 +73,30 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases import matrix as matrix_module
 from pyflightstream.cases import workflows as workflows_module
-from pyflightstream.cases.matrix import to_campaign
+from pyflightstream.cases._skipped_families import (
+    declared_names_the_geometry_lacks,
+    names_no_boundary_answers,
+    note_the_families_a_row_lacks,
+    noting_the_families_rows_lack,
+)
+from pyflightstream.cases.matrix import MATRIX_COLUMNS, to_campaign
 from pyflightstream.cases.workflows import (
     ADVANCE_RATIO_VARIABLE,
     DELTA_THETA_VARIABLE,
     GEOMETRY_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
     QSTEADY_ROTOR,
+    RESTART_FROM_VARIABLE,
+    RESTART_ITERATIONS_VARIABLE,
     REVOLUTIONS_VARIABLE,
     ROTOR_SHEDDING_VARIABLE,
     RPM_SIGN_VARIABLE,
     SIMULATION_SUFFIX,
     STEADY_RUN_TYPES,
     SYMMETRY_VARIABLE,
+    UNSTEADY_ACTION_PROGRAM,
+    UNSTEADY_ACTION_SCRIPT,
+    UNSTEADY_COUNTER_ACTION,
     WORKFLOW_KEY,
     WORKFLOWS,
     ExportWindow,
@@ -93,6 +110,7 @@ from pyflightstream.cases.workflows import (
     covered_builds,
     emit_rotor_motion,
     export_window,
+    pproc_emissions,
     reduction_plan,
     resolve_workflow,
     rotor_relaxed_trailing_edges,
@@ -100,6 +118,8 @@ from pyflightstream.cases.workflows import (
     rotor_speed,
     rotor_time_stepping,
     select_workflow,
+    unsteady_counter_steps,
+    unsteady_export_threshold,
     workflow_names,
     workflow_registry,
 )
@@ -111,6 +131,10 @@ from pyflightstream.post.unsteady import (
     passage_windows,
     read_timestep_series,
 )
+from pyflightstream.run import PlanStatus
+from pyflightstream.run._actions_counter import render_count_program, render_program
+from pyflightstream.run.cli import main
+from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import (
     CommandArgumentError,
     Script,
@@ -119,9 +143,49 @@ from pyflightstream.script import (
     rotor_vocabulary,
 )
 from pyflightstream.versions import known_versions
-from pyflightstream.workspace import WorkspaceError
+from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
+from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation
 from tests.tier1_offline._workflow_docs import MESH_DOCS, WORKFLOW_DOCS
+from tests.tier1_offline.test_fsm_saved_actions import (
+    ACTIONS as _FR313_PLAN_GEOMETRY_WARNING__ACTIONS,
+)
+from tests.tier1_offline.test_fsm_saved_actions import CLOCK as _FR313_PLAN_GEOMETRY_WARNING__CLOCK
+from tests.tier1_offline.test_fsm_saved_actions import (
+    _saved_simulation as _fr313_plan_geometry_warning___saved_simulation,
+)
+from tests.tier1_offline.test_g43_local_log import _Advancing as _Fr314CounterEverywhereAdvancing
+from tests.tier1_offline.test_g43_local_log import (
+    _point_folder as _fr314_counter_everywhere___point_folder,
+)
+from tests.tier1_offline.test_goal021_inputs_absolute import (
+    _rotor_row as _fr313_plan_geometry_warning___rotor_row,
+)
+from tests.tier1_offline.test_goal021_inputs_absolute import (
+    _workspace as _fr313_plan_geometry_warning___workspace,
+)
+from tests.tier1_offline.test_matrix_run import RECIPES as _FR320_SKIPPED_FAMILIES_WARN__RECIPES
+from tests.tier1_offline.test_matrix_run import (
+    make_library as _fr320_skipped_families_warn__make_library,
+)
+from tests.tier1_offline.test_matrix_run import (
+    stage_geometry as _fr320_skipped_families_warn__stage_geometry,
+)
+from tests.tier1_offline.test_pproc_by_frame import (
+    INVENTORY as _FR320_SKIPPED_FAMILIES_WARN__INVENTORY,
+)
+from tests.tier1_offline.test_pproc_by_frame import (
+    every_rotor_frame_placed as _fr320_skipped_families_warn__every_rotor_frame_placed,
+)
+from tests.tier1_offline.test_pproc_by_frame import (
+    expanding_case as _fr320_skipped_families_warn__expanding_case,
+)
+from tests.tier1_offline.test_restart_continuation import SAVED as _FR314_COUNTER_EVERYWHERE__SAVED
+from tests.tier1_offline.test_restart_continuation import (
+    _continuing_case as _fr314_counter_everywhere___continuing_case,
+)
+from tests.workflow_payloads import WORKFLOW_PAYLOADS, workflow_payload
+from tests.workflow_payloads import workflow_payload as _fr314_counter_everywhere__workflow_payload
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_rotor_matrix.fs"
@@ -1994,7 +2058,7 @@ def test_a_case_naming_none_of_the_three_keys_renders_its_committed_bytes(name, 
     the diff: a change here is a change to every script this package
     builds for every user who has not touched their matrix.
     """
-    golden = GOLDEN_WORKFLOWS / golden_name(name, label, build)
+    golden = workflow_payload(GOLDEN_WORKFLOWS / golden_name(name, label, build))
     assert golden.is_file(), (
         f"no committed render for {name} ({label}) on {build}. A build joins "
         "covered_builds the moment its evidence lands, so this fires on a newly "
@@ -2052,10 +2116,11 @@ def test_the_render_population_is_not_empty_and_covers_both_workflows():
     # against the released tag. It is evidence, not a golden, and no test
     # reads it, so it must not join the population it documents.
     committed = {path.name for path in GOLDEN_WORKFLOWS.glob("*.txt")}
-    assert committed == {golden_name(*row) for row in GOLDEN_RENDERS}, (
+    assert set(WORKFLOW_PAYLOADS) == {golden_name(*row) for row in GOLDEN_RENDERS}, (
         "the committed goldens and the covered population disagree; a stale golden for "
         "a build no longer covered would sit there asserted by nothing"
     )
+    assert committed == set(WORKFLOW_PAYLOADS.values())
     # Every declared refusal names a pair that is actually rendered, so a
     # stale entry cannot sit here excusing a pair that no longer exists.
     assert EXPECTED_REFUSALS <= {(name, build) for name, _, build in GOLDEN_RENDERS}, (
@@ -6347,3 +6412,1319 @@ def test_axial_separation_on_a_build_that_refuses_it_is_refused_at_plan_time(tmp
     # she runs 26.123+, so the one proof a reader would look for was about a
     # build she does not use. The V&V lens of the closing round named it.
     assert build in str(caught.value), caught.value
+
+
+_FR313_PLAN_GEOMETRY_WARNING__GEOMETRIES: dict[str, dict[str, Any]] = {
+    "clean": {"actions": []},
+    "dirty": {"actions": _FR313_PLAN_GEOMETRY_WARNING__ACTIONS},
+    "unreadable": {"actions": _FR313_PLAN_GEOMETRY_WARNING__ACTIONS, "count": 3},
+}
+
+
+_FR313_PLAN_GEOMETRY_WARNING__ROTOR_VARIABLES = (
+    "RPM: 1200 / ROTOR_AXIS: X / BLADES: 4 / DELTA_TIME: 0.0001"
+)
+
+
+_FR313_PLAN_GEOMETRY_WARNING__UNSTEADY_VARIABLES = (
+    "DELTA_TIME: 0.01 / TIME_ITERATIONS: 40 / LAST_ITERS_AVG: 4"
+)
+
+
+def _fr313_plan_geometry_warning___planned(tmp_path: Path, run_type: str, geometry: str):
+    workspace = _fr313_plan_geometry_warning___workspace(tmp_path)
+    matrix = _fr313_plan_geometry_warning___rotor_row(tmp_path, sweep="0.0")
+    if run_type == "unsteady":
+        text = matrix.read_text(encoding="utf-8")
+        start = text.index(_FR313_PLAN_GEOMETRY_WARNING__ROTOR_VARIABLES)
+        text = text[:start] + _FR313_PLAN_GEOMETRY_WARNING__UNSTEADY_VARIABLES + "\n"
+        text = text.replace("| unsteady_rotor |", "| unsteady       |")
+        matrix.write_text(text, encoding="utf-8")
+    (staged,) = (workspace.inputs_dir / "geometries").rglob("wing_clean.fsm")
+    _fr313_plan_geometry_warning___saved_simulation(
+        staged, **_FR313_PLAN_GEOMETRY_WARNING__GEOMETRIES[geometry]
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_matrix(
+            matrix,
+            workspace,
+            name="rotor",
+            recipes={},
+            recipe_registry=workflow_registry(),
+        )
+    said = [str(item.message) for item in caught]
+    return workspace, matrix, plan, said, staged
+
+
+def _fr313_plan_geometry_warning___row(
+    sim_id: str, geometry: Path | None, run_type: str = "unsteady", **variables
+):
+    """A real row of the plan: a continuation when it names what it continues."""
+    from pyflightstream.cases.workflows import WORKFLOW_KEY
+    from tests.tier1_offline.test_restart_continuation import _continuing_case
+
+    case = _continuing_case("{ADDITIONAL_ITERS=120}", **variables)
+    return case.model_copy(
+        update={
+            "sim_id": sim_id,
+            "geometry": None if geometry is None else str(geometry),
+            "variables": {**case.variables, WORKFLOW_KEY: run_type},
+        }
+    )
+
+
+def _fr313_plan_geometry_warning___warned(rows) -> list[str]:
+    from pyflightstream.cases.workflows import WORKFLOW_KEY
+    from pyflightstream.workspace._geometry_clean import warn_saved_actions_of_unsteady_rows
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        warn_saved_actions_of_unsteady_rows(rows, WORKFLOW_KEY)
+    return [str(item.message) for item in caught]
+
+
+class TestFr313PlanGeometryWarning:
+    """FR-313: the plan warns, never refuses, when an unsteady row's geometry carries saved actions.
+
+    Parametrized over the two unsteady run types and over a clean, a dirty and an
+    unreadable geometry: the plan is written and returns the same rows and the
+    same exit status in every case, the warning names the row, the geometry, each
+    saved action and the ``--clean`` command where the file carries actions, says
+    unreadable where it cannot be read, and is absent where it is clean.
+    """
+
+    @staticmethod
+    @pytest.mark.parametrize("geometry", sorted(_FR313_PLAN_GEOMETRY_WARNING__GEOMETRIES))
+    @pytest.mark.parametrize("run_type", ["unsteady", "unsteady_rotor"])
+    def test_fr313_the_plan_warns_and_writes_the_same_plan(run_type, geometry, tmp_path):
+        requirement = "FR-313"
+        _, _, plan, said, staged = _fr313_plan_geometry_warning___planned(
+            tmp_path / geometry, run_type, geometry
+        )
+        _, _, control, _, _ = _fr313_plan_geometry_warning___planned(
+            tmp_path / "control", run_type, "clean"
+        )
+        rows = [(point.sim_id, point.run_id, point.status) for point in plan.points]
+        assert rows == [(p.sim_id, p.run_id, p.status) for p in control.points], requirement
+        assert plan.plan_file is not None and plan.plan_file.is_file(), "the plan is written"
+        about = [text for text in said if staged.name in text and "action" in text]
+        if geometry == "clean":
+            assert about == [], (requirement, said)
+            return
+        assert len(about) == 1, (requirement, said)
+        text = about[0]
+        assert "row(s) 7001" in text, text
+        if geometry == "dirty":
+            assert (
+                "pfs_walltime_clock [COMMAND_LINE]" in text
+                and _FR313_PLAN_GEOMETRY_WARNING__CLOCK in text
+            ), text
+            assert "pfs_walltime_stop [SCRIPT]" in text, text
+            assert f"pyfs-matrix inventory {staged} --clean" in text, text
+        else:
+            assert "cannot be read" in text, text
+
+    @staticmethod
+    @pytest.mark.parametrize("geometry", sorted(_FR313_PLAN_GEOMETRY_WARNING__GEOMETRIES))
+    def test_fr313_the_command_exits_as_the_clean_plan_does(geometry, tmp_path, capsys):
+        """R4: never a refusal on this account; the exit status is the clean geometry's."""
+        requirement = "FR-313"
+        codes = {}
+        for index, case in enumerate(("clean", geometry)):
+            workspace, matrix, _, _, _ = _fr313_plan_geometry_warning___planned(
+                tmp_path / f"{index}-{case}", "unsteady", case
+            )
+            codes[case] = main(["plan", str(matrix), "--workspace", str(workspace.root)])
+        err = capsys.readouterr().err
+        assert codes[geometry] == codes["clean"] != 2, (requirement, codes, err)
+
+    @staticmethod
+    def test_fr313_one_warning_per_geometry_names_every_row_that_opens_it(tmp_path):
+        """R2: two rows on one dirty file give ONE warning naming both; a clean file gives none."""
+        requirement = "FR-313"
+        dirty = _fr313_plan_geometry_warning___saved_simulation(
+            tmp_path / "shared.fsm", _FR313_PLAN_GEOMETRY_WARNING__ACTIONS
+        )
+        clean = _fr313_plan_geometry_warning___saved_simulation(tmp_path / "clean.fsm", [])
+        said = _fr313_plan_geometry_warning___warned(
+            [
+                _fr313_plan_geometry_warning___row("7001", dirty),
+                _fr313_plan_geometry_warning___row("7002", dirty, "unsteady_rotor"),
+                _fr313_plan_geometry_warning___row("7003", clean),
+            ]
+        )
+        assert len(said) == 1, (requirement, said)
+        assert said[0].startswith("row(s) 7001, 7002: shared.fsm carries 2"), said
+        assert "7003" not in said[0]
+
+    @staticmethod
+    def test_fr313_a_continuation_of_an_unsteady_row_is_read(tmp_path):
+        """R1: a row that continues a saved unsteady run opens its geometry too."""
+        from pyflightstream.cases.workflows import (
+            RESTART_FROM_VARIABLE,
+            RESTART_ITERATIONS_VARIABLE,
+        )
+
+        requirement = "FR-313"
+        dirty = _fr313_plan_geometry_warning___saved_simulation(
+            tmp_path / "wing.fsm", _FR313_PLAN_GEOMETRY_WARNING__ACTIONS
+        )
+        row = _fr313_plan_geometry_warning___row(
+            "9001",
+            dirty,
+            **{RESTART_FROM_VARIABLE: "P9001-AL+000", RESTART_ITERATIONS_VARIABLE: "120"},
+        )
+        assert row.variables[RESTART_FROM_VARIABLE], "the row is a continuation"
+        said = _fr313_plan_geometry_warning___warned([row])
+        assert len(said) == 1 and "row(s) 9001" in said[0], (requirement, said)
+
+    @staticmethod
+    @pytest.mark.parametrize("run_type", ["steady", "polar", ""])
+    def test_fr313_a_row_that_is_not_unsteady_is_not_read_the_control(run_type, tmp_path):
+        """R5 and the control of R1: the same dirty file under a row with no time loop warns nothing."""  # noqa: E501
+        requirement = "FR-313"
+        dirty = _fr313_plan_geometry_warning___saved_simulation(
+            tmp_path / "wing.fsm", _FR313_PLAN_GEOMETRY_WARNING__ACTIONS
+        )
+        assert (
+            _fr313_plan_geometry_warning___warned(
+                [_fr313_plan_geometry_warning___row("7001", dirty)]
+            )
+            != []
+        ), "the control: the unsteady row warns"
+        assert (
+            _fr313_plan_geometry_warning___warned(
+                [_fr313_plan_geometry_warning___row("7001", dirty, run_type)]
+            )
+            == []
+        ), (requirement, run_type)
+
+    @staticmethod
+    def test_fr313_a_raw_mesh_or_a_row_with_no_geometry_is_not_read(tmp_path):
+        """R5: only a saved simulation carries actions; a raw mesh is never opened for them."""
+        requirement = "FR-313"
+        mesh = tmp_path / "wing.stl"
+        mesh.write_text("solid wing\nendsolid wing\n", encoding="utf-8")
+        assert (
+            _fr313_plan_geometry_warning___warned(
+                [
+                    _fr313_plan_geometry_warning___row("7001", mesh),
+                    _fr313_plan_geometry_warning___row("7002", None),
+                ]
+            )
+            == []
+        ), requirement
+
+    @staticmethod
+    def test_fr313_a_raw_mesh_is_never_opened_for_saved_actions(tmp_path):
+        # Verifies FR-313.
+        mesh = _fr313_plan_geometry_warning___saved_simulation(
+            tmp_path / "wing.stl", _FR313_PLAN_GEOMETRY_WARNING__ACTIONS
+        )
+        assert (
+            _fr313_plan_geometry_warning___warned(
+                [_fr313_plan_geometry_warning___row("7001", mesh)]
+            )
+            == []
+        )
+
+
+_FR314_COUNTER_EVERYWHERE__ACTION_HEAD = "SET_NEW_UNSTEADY_SOLVER_ACTION"
+
+
+#: The counter program runs as the solver runs it: its own interpreter, no package on the path.
+_FR314_COUNTER_EVERYWHERE__ENV = {
+    key: value for key, value in os.environ.items() if key != "PYTHONPATH"
+}
+
+
+def _fr314_counter_everywhere___continuation() -> SimCase:
+    return _fr314_counter_everywhere___continuing_case(
+        "{ADDITIONAL_ITERS=120}",
+        **{
+            RESTART_FROM_VARIABLE: _FR314_COUNTER_EVERYWHERE__SAVED,
+            RESTART_ITERATIONS_VARIABLE: "120",
+        },
+    )
+
+
+#: Every unsteady run type, a continuation included (R1), with the steps its
+#: script marches.
+_FR314_COUNTER_EVERYWHERE__ROWS = {
+    "unsteady": (unsteady_case, 480),
+    "unsteady_rotor": (rotor_case, 720),
+    "continuation": (_fr314_counter_everywhere___continuation, 120),
+}
+
+
+def _fr314_counter_everywhere___actions(rendered: str) -> list[tuple[str, str]]:
+    lines = rendered.splitlines()
+    return [
+        (line, lines[i + 1])
+        for i, line in enumerate(lines)
+        if line.startswith(_FR314_COUNTER_EVERYWHERE__ACTION_HEAD)
+    ]
+
+
+#: The sha256 of the goldens as v0.32.0 committed them, recorded from the tag.
+_FR314_COUNTER_EVERYWHERE__GOLDENS_0320 = (
+    Path(__file__).parent / "fixtures" / "goldens_v0320_sha256.json"
+)
+
+
+_FR314_COUNTER_EVERYWHERE__REPO = Path(__file__).resolve().parents[2]
+
+
+#: The counter's registration, the only lines FR-314 adds to a script (R4).
+_FR314_COUNTER_EVERYWHERE__COUNTER_REGISTRATION = re.compile(
+    r"^SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter\n"
+    r'"[^"\n]+" "actions/pfs_unsteady_actions\.py"\n\n',
+    re.MULTILINE,
+)
+
+
+#: The goldens FR-314 changes: every unsteady run type on every build that
+#: documents the action, and the tier-3 scripts of rows without per-step export.
+_FR314_COUNTER_EVERYWHERE__CHANGED_GOLDENS = {
+    *(
+        f"tests/tier1_offline/goldens/workflows/{kind}__{form}__{build}.txt"
+        for kind in ("unsteady", "unsteady_rotor")
+        for form in ("bare", "full", "resolved")
+        for build in ("26.122", "26.123", "26.124")
+    ),
+    "tests/tier3_licensed/goldens/matriz_builds/P7002-M144RE438AL+000BE+000.txt",
+    "tests/tier3_licensed/goldens/matriz_mesh/P4105-M100RE230AL+020.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8001-M100RE230AL+000BE+000.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+060.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+080.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8003-M100RE230AL+000BE+000J+060.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8003-M100RE230AL+000BE+000J+080.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8004-M100RE230AL+000BE+000.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8005-M100RE230AL+000BE+000.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8006-M100RE230AL+000BE+000.txt",
+}
+
+
+def _fr314_counter_everywhere___sha(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _fr314_counter_everywhere___restore_fr51_block(name: str, text: str) -> str | None:
+    """The text with the block FR-51 (0.33.1) removes put back, or None when it does not apply.
+
+    FR-51 drops "SET_PLOT_TYPE SECTIONS_CP / SAVE_PLOT_TO_FILE / <stem>_plot_cp_sections.txt /
+    blank line" from a row whose script cuts no section. The block is restored right after the
+    loads plot block, all four lines and nothing else, so a golden that differs from v0.32.0 by
+    anything beside that removal still fails its digest.
+    """
+    if "NEW_SURFACE_SECTION_DISTRIBUTION" in text:
+        return None
+    stem = Path(name).stem
+    anchor = f"SET_PLOT_TYPE LOADS\nSAVE_PLOT_TO_FILE\n{stem}_plot_loads.txt\n\n"
+    if text.count(anchor) != 1 or "SECTIONS_CP" in text:
+        return None
+    block = f"SET_PLOT_TYPE SECTIONS_CP\nSAVE_PLOT_TO_FILE\n{stem}_plot_cp_sections.txt\n\n"
+    return text.replace(anchor, anchor + block)
+
+
+#: A disc speed line of the script, its sign apart from its magnitude.
+_FR314_COUNTER_EVERYWHERE__ACTUATOR_SPEED = re.compile(
+    r"^(SET_PROP_ACTUATOR_RPM \d+ )(-?)(\S+)$", re.MULTILINE
+)
+
+
+def _fr314_counter_everywhere___restore_fr331_sign(text: str) -> str | None:
+    """The text with the disc speed sign FR-331 (0.34.0) flips put back, or None without a disc.
+
+    FR-331 hands the solver minus the block's hand times the speed where v0.32.0 handed plus,
+    so every SET_PROP_ACTUATOR_RPM line changes sign and nothing else changes. The restore
+    flips each one back, so a golden that differs from v0.32.0 by anything beside that sign
+    still fails its digest.
+    """
+    if not _FR314_COUNTER_EVERYWHERE__ACTUATOR_SPEED.search(text):
+        return None
+    return _FR314_COUNTER_EVERYWHERE__ACTUATOR_SPEED.sub(
+        lambda m: m.group(1) + ("" if m.group(2) else "-") + m.group(3), text
+    )
+
+
+#: The wake termination line FR-321 (0.34.0) adds to a rotor row that states no termination.
+_FR314_COUNTER_EVERYWHERE__WAKE_DEFAULT_LINE = re.compile(
+    r"^SET_WAKE_TERMINATION_TIME_STEPS \d+\n", re.MULTILINE
+)
+
+
+def _fr314_counter_everywhere___strip_fr321_wake(text: str) -> str | None:
+    """The text with the one termination line FR-321 (0.34.0) adds removed, or None.
+
+    FR-321 R6: a rotor row stating no wake termination keeps 4 rotor radii, and
+    its script differs from v0.32.0 by one ``SET_WAKE_TERMINATION_TIME_STEPS``
+    line and nothing else. A text carrying no such line, or more than one,
+    never takes the allowance, and what is left must still match its digest.
+    """
+    if len(_FR314_COUNTER_EVERYWHERE__WAKE_DEFAULT_LINE.findall(text)) != 1:
+        return None
+    return _FR314_COUNTER_EVERYWHERE__WAKE_DEFAULT_LINE.sub("", text, count=1)
+
+
+#: The delete a steady row's probe creation after its solve opens with (0.40.0, the
+#: cases-workflows lane, f6a5626d): probe points persist across solves (RPT-148).
+_FR314_COUNTER_EVERYWHERE__STEADY_PROBE_DELETE = "START_SOLVER\nDELETE_PROBE_POINTS\nNEW_PROBE_"
+
+
+def _fr314_counter_everywhere___strip_steady_probe_delete(text: str) -> str | None:
+    """The text with the one 0.40.0 steady probe delete removed, or None.
+
+    A steady row whose pproc creates probes after the solve deletes the points
+    first, so its script differs from v0.32.0 by one ``DELETE_PROBE_POINTS``
+    line between ``START_SOLVER`` and the first probe creation, and nothing else.
+    """
+    if text.count(_FR314_COUNTER_EVERYWHERE__STEADY_PROBE_DELETE) != 1:
+        return None
+    return text.replace(_FR314_COUNTER_EVERYWHERE__STEADY_PROBE_DELETE, "START_SOLVER\nNEW_PROBE_")
+
+
+#: The fluid block of a row stating a non-standard density (0.40.0, reviews2
+#: PFS-2104.050): its PRESSURE is the ideal-gas pressure of that density and
+#: temperature, where v0.32.0 wrote the standard 101325.0 beside it.
+_FR314_COUNTER_EVERYWHERE__FLUID_STATE = re.compile(
+    r"^DENSITY (?P<rho>\S+)\nPRESSURE (?P<p>\S+)\nTEMPERATURE (?P<t>\S+)\n", re.MULTILINE
+)
+
+
+def _fr314_counter_everywhere___restore_standard_pressure(text: str) -> str | None:
+    """The text with the one ideal-gas PRESSURE put back to 101325.0, or None.
+
+    Applies only to a single fluid block whose PRESSURE equals DENSITY times the
+    package's gas constant times TEMPERATURE and is not already 101325.0, so a
+    golden that differs from v0.32.0 by anything beside that line still fails.
+    """
+    from pyflightstream._atmosphere import ISA
+
+    blocks = list(_FR314_COUNTER_EVERYWHERE__FLUID_STATE.finditer(text))
+    if len(blocks) != 1:
+        return None
+    rho, p, temp = (float(blocks[0].group(k)) for k in ("rho", "p", "t"))
+    ideal = rho * ISA.gas_constant_j_per_kg_k * temp
+    if p == 101325.0 or abs(p - ideal) > 1e-9 * ideal:
+        return None
+    start, end = blocks[0].span("p")
+    return text[:start] + "101325.0" + text[end:]
+
+
+def _fr314_counter_everywhere___strip_0400(text: str) -> str | None:
+    """The text with the 0.40.0 differences above undone, or None when neither applies."""
+    restored = _fr314_counter_everywhere___strip_steady_probe_delete(text)
+    pressure = _fr314_counter_everywhere___restore_standard_pressure(
+        restored if restored is not None else text
+    )
+    return pressure if pressure is not None else restored
+
+
+def _fr314_counter_everywhere___admitted(name: str, text: str, digest: str) -> str | None:
+    """The one admitted difference that makes ``text`` the v0.32.0 golden, or None."""
+    if _fr314_counter_everywhere___sha(text) == digest:
+        return ""
+    stripped, found = _FR314_COUNTER_EVERYWHERE__COUNTER_REGISTRATION.subn("", text)
+    if found:
+        return (
+            "FR-314" if found == 1 and _fr314_counter_everywhere___sha(stripped) == digest else None
+        )
+    sign = _fr314_counter_everywhere___restore_fr331_sign(text)
+    if sign is not None and _fr314_counter_everywhere___sha(sign) == digest:
+        return "FR-331"
+    restored = _fr314_counter_everywhere___restore_fr51_block(name, text)
+    return (
+        "FR-51"
+        if restored is not None and _fr314_counter_everywhere___sha(restored) == digest
+        else None
+    )
+
+
+#: The goldens PFS-2088.010 (0.40.0) replaces by a refusal: a 26.100 rotor row is refused
+#: until a rotation null test measures that build's angular-velocity unit (RPT-051).
+_FR314_COUNTER_EVERYWHERE__REFUSED_26100_GOLDENS = {
+    f"tests/tier1_offline/goldens/workflows/unsteady_rotor__{form}__26.100.txt"
+    for form in ("bare", "full", "resolved")
+}
+
+
+def _fr314_counter_everywhere___is_26100_rotor_refusal(text: str) -> bool:
+    """Whether a golden is the PFS-2088.010 refusal of a 26.100 rotor row, and nothing else."""
+    lines = text.splitlines()
+    return (
+        len(lines) == 2
+        and lines[0] == "REFUSED CommandArgumentError"
+        and "FlightStream 26.100" in lines[1]
+        and "angular-velocity unit is measured" in lines[1]
+    )
+
+
+def _fr314_counter_everywhere___golden_classes(record: dict) -> tuple[set, set, set, set, set]:
+    """The goldens that differ from v0.32.0 by the counter, the FR-51 removal or the FR-331 sign,
+    those that also carry the FR-321 termination line (0.34.0), and the 26.100 rotor rows
+    PFS-2088.010 (0.40.0) refuses."""
+    requirement = "FR-314"
+    classes: dict[str, set] = {
+        "FR-314": set(),
+        "FR-51": set(),
+        "FR-331": set(),
+        "steady-probe": set(),
+        "": set(),
+    }
+    fr321 = set()
+    refused = set()
+    for name, digest in sorted(record["digests"].items()):
+        text = "\n".join(
+            _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        if _fr314_counter_everywhere___sha(text) == digest:
+            continue
+        if (
+            name in _FR314_COUNTER_EVERYWHERE__REFUSED_26100_GOLDENS
+            and _fr314_counter_everywhere___is_26100_rotor_refusal(text)
+        ):
+            refused.add(name)
+            continue
+        kind = _fr314_counter_everywhere___admitted(name, text, digest)
+        undone = _fr314_counter_everywhere___strip_0400(text) if kind is None else None
+        if (
+            undone is not None
+            and _fr314_counter_everywhere___admitted(name, undone, digest) is not None
+        ):
+            # The 0.40.0 steady probe delete and ideal-gas pressure, each whole and
+            # alone, then the other admitted differences.
+            kind = _fr314_counter_everywhere___admitted(name, undone, digest) or "steady-probe"
+        if kind is None:
+            # The FR-321 line first, whole and alone, then the other admitted differences.
+            wake = _fr314_counter_everywhere___strip_fr321_wake(text)
+            kind = (
+                None if wake is None else _fr314_counter_everywhere___admitted(name, wake, digest)
+            )
+            assert kind is not None, (requirement, name, "differs beyond the admitted differences")
+            fr321.add(name)
+        classes[kind].add(name)
+    assert not classes[""] - fr321, (requirement, classes[""] - fr321)
+    return classes["FR-314"], classes["FR-51"], classes["FR-331"], fr321, refused
+
+
+#: The goldens FR-51 (0.33.1) changes: a row whose script cuts no section no longer plots them.
+_FR314_COUNTER_EVERYWHERE__FR51_GOLDENS = {
+    "tests/tier3_licensed/goldens/matriz/P1021-M100RE230AL+000.txt"
+}
+
+
+#: The goldens FR-331 (0.34.0) changes: the rows with an actuator disc, whose speed changes sign.
+_FR314_COUNTER_EVERYWHERE__FR331_GOLDENS = {
+    "tests/tier3_licensed/goldens/matriz_gui/P5008-V0300RHO12250AL+040.txt",
+    "tests/tier3_licensed/goldens/matriz_gui/P5009-V0300RHO12250AL+040.txt",
+}
+
+
+#: The goldens FR-321 (0.34.0) changes: every rotor row that states no wake termination keeps
+#: the 4R default, one SET_WAKE_TERMINATION_TIME_STEPS line more (R6). The 26.100 rows are
+#: refused since 0.40.0 (REFUSED_26100_GOLDENS).
+_FR314_COUNTER_EVERYWHERE__FR321_GOLDENS = {
+    *(
+        f"tests/tier1_offline/goldens/workflows/unsteady_rotor__{form}__{build}.txt"
+        for form in ("bare", "full", "resolved")
+        for build in (
+            "25.100",
+            "26.000",
+            "26.101",
+            "26.120",
+            "26.121",
+            "26.122",
+            "26.123",
+            "26.124",
+        )
+    ),
+    *(
+        f"tests/tier3_licensed/goldens/{stem}.txt"
+        for stem in (
+            "matriz/P1020-M144RE438AL+000BE+000",
+            "matriz/P1021-M100RE230AL+000",
+            "matriz/P1022-M100RE230AL+000",
+            "matriz_builds/P7001-M144RE438AL+000BE+000",
+            "matriz_builds/P7002-M144RE438AL+000BE+000",
+            "matriz_physics/P5005-V0490RHO12250AL+000BE+000",
+            "matriz_rotate/P9001-M100RE230AL+000",
+            "matriz_rotate/P9002-M100RE230AL+060",
+            "matriz_rotate/P9003-M100RE230AL-060",
+            *(f"matriz_time/P300{k}-M144RE438AL+000BE+000" for k in range(1, 7)),
+            "matriz_vocab/P8001-M100RE230AL+000BE+000",
+            "matriz_vocab/P8002-M100RE230AL+000BE+000J+060",
+            "matriz_vocab/P8002-M100RE230AL+000BE+000J+080",
+            "matriz_vocab/P8003-M100RE230AL+000BE+000J+060",
+            "matriz_vocab/P8003-M100RE230AL+000BE+000J+080",
+            "matriz_vocab/P8004-M100RE230AL+000BE+000",
+            "matriz_vocab/P8005-M100RE230AL+000BE+000",
+            "matriz_vocab/P8006-M100RE230AL+000BE+000",
+        )
+    ),
+}
+
+
+class TestFr314CounterEverywhere:
+    """FR-314: every unsteady row registers the step counter, count-only without per-step exports.
+
+    Until 0.32.0 the counter was registered only on a row asking for per-step
+    exports, so the progress bar of a local run (FR-129), which reads the count,
+    showed nothing on a long unsteady run without them. These tests build every
+    unsteady run type, a continuation included, on the builds that document the
+    unsteady solver action, run the count-only program with the real interpreter,
+    and read the local-run bar off it. A build that documents no action (26.120)
+    is the control: it registers nothing, as before. What the solver does with a
+    counter on such a row is owed by the licensed round of FR-314 (R5).
+    """
+
+    @staticmethod
+    @pytest.mark.parametrize("build", ["26.123", "26.124"])
+    @pytest.mark.parametrize("row", sorted(_FR314_COUNTER_EVERYWHERE__ROWS))
+    def test_fr314_every_unsteady_row_without_export_registers_the_counter_alone(row, build):
+        requirement = "FR-314"
+        make, steps = _FR314_COUNTER_EVERYWHERE__ROWS[row]
+        case = make()
+        assert unsteady_export_threshold(case, version="26.120") is None, (
+            "the row asks no per-step export"
+        )
+        script = Script(build)
+        build_script(case, script)
+        rendered = script.render()
+        actions = _fr314_counter_everywhere___actions(rendered)
+        if row == "continuation":
+            # FR-396 R2 (0.35.0): the reopened state carries the counter its run
+            # registered and runs it, so the continuation emits no registration and
+            # records the counter for the run to stage its program.
+            assert actions == [], (requirement, rendered)
+            assert [use.name for use in script.unsteady_actions] == [UNSTEADY_COUNTER_ACTION]
+        else:
+            assert [head.split()[1] for head, _ in actions] == ["COMMAND_LINE"], (
+                requirement,
+                rendered,
+            )
+            assert actions[0][1].endswith(f'"{UNSTEADY_ACTION_PROGRAM}"'), actions
+        # R2: no exports action, no parked exports file.
+        assert UNSTEADY_ACTION_SCRIPT not in rendered
+        assert script.pending_action_scripts == {}
+        # The label stays what the row asks: a single march with a counter that counts.
+        assert script.march_strategy == "single_march", requirement
+        assert unsteady_counter_steps(case) == steps
+
+    @staticmethod
+    @pytest.mark.parametrize("build", ["26.120", "26.121"])
+    @pytest.mark.parametrize("row", sorted(_FR314_COUNTER_EVERYWHERE__ROWS))
+    def test_fr314_a_build_without_actions_registers_nothing_the_control(row, build):
+        requirement = "FR-314"
+        script = Script(build)
+        build_script(_FR314_COUNTER_EVERYWHERE__ROWS[row][0](), script)
+        assert _FR314_COUNTER_EVERYWHERE__ACTION_HEAD not in script.render(), requirement
+
+    @staticmethod
+    @pytest.mark.parametrize("build", ["26.120", "26.121"])
+    @pytest.mark.requirement("FR-314")
+    def test_fr314_a_per_step_export_on_a_build_without_actions_is_refused(build):
+        """As before 0.33.0: the threshold asks an action the build cannot run."""
+        from pyflightstream.cases.workflows import BuildCapabilityError
+
+        with pytest.raises(BuildCapabilityError, match=_FR314_COUNTER_EVERYWHERE__ACTION_HEAD):
+            build_script(rotor_case(EXPORT_UNSTEADY_AFTER_REV="1"), Script(build))
+
+    @staticmethod
+    def test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration():
+        """R4, against the goldens of v0.32.0 by their recorded digests.
+
+        Every unsteady tier-1 golden and every tier-3 golden is either the bytes
+        v0.32.0 committed, or those bytes with exactly one counter registration
+        added. The set of the second kind is every unsteady run type on 26.122 to
+        26.124 and the ten tier-3 scripts of rows without per-step export. The
+        other admitted differences are the FR-51 removal of the sections plot
+        block from a script that cuts no section (0.33.1) and the FR-331 sign of
+        an actuator disc's speed (0.34.0). The control: a changed golden, the
+        counter kept, does not match its digest.
+        """
+        requirement = "FR-314"
+        record = json.loads(_FR314_COUNTER_EVERYWHERE__GOLDENS_0320.read_text(encoding="utf-8"))
+        assert record["tag"] == "v0.32.0" and len(record["digests"]) == 134, record.keys()
+        changed, fr51, fr331, fr321, refused = _fr314_counter_everywhere___golden_classes(record)
+        assert refused == _FR314_COUNTER_EVERYWHERE__REFUSED_26100_GOLDENS, (
+            requirement,
+            refused ^ _FR314_COUNTER_EVERYWHERE__REFUSED_26100_GOLDENS,
+        )
+        assert changed == _FR314_COUNTER_EVERYWHERE__CHANGED_GOLDENS, (
+            requirement,
+            changed ^ _FR314_COUNTER_EVERYWHERE__CHANGED_GOLDENS,
+        )
+        assert fr51 == _FR314_COUNTER_EVERYWHERE__FR51_GOLDENS, (
+            requirement,
+            fr51 ^ _FR314_COUNTER_EVERYWHERE__FR51_GOLDENS,
+        )
+        assert fr331 == _FR314_COUNTER_EVERYWHERE__FR331_GOLDENS, (
+            requirement,
+            fr331 ^ _FR314_COUNTER_EVERYWHERE__FR331_GOLDENS,
+        )
+        assert fr321 == _FR314_COUNTER_EVERYWHERE__FR321_GOLDENS, (
+            requirement,
+            fr321 ^ _FR314_COUNTER_EVERYWHERE__FR321_GOLDENS,
+        )
+
+    @staticmethod
+    def test_fr314_the_fr331_sign_is_admitted_whole_and_alone():
+        """Controls: a second change beside the sign, or one disc line left unflipped, fails."""
+        requirement = "FR-331"
+        record = json.loads(_FR314_COUNTER_EVERYWHERE__GOLDENS_0320.read_text(encoding="utf-8"))
+        for name in sorted(_FR314_COUNTER_EVERYWHERE__FR331_GOLDENS):
+            digest = record["digests"][name]
+            text = "\n".join(
+                _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
+                .read_text(encoding="utf-8")
+                .splitlines()
+            )
+            assert _fr314_counter_everywhere___sha(text) != digest, (
+                requirement,
+                name,
+                "the golden no longer differs",
+            )
+            restored = _fr314_counter_everywhere___restore_fr331_sign(text)
+            assert restored is not None and _fr314_counter_everywhere___sha(restored) == digest, (
+                requirement,
+                name,
+            )
+            # A second change beside the sign.
+            planted = text.replace(
+                "ENABLE_ACTUATOR 1\n", "ENABLE_ACTUATOR 1\nENABLE_ACTUATOR 1\n", 1
+            )
+            assert planted != text
+            again = _fr314_counter_everywhere___restore_fr331_sign(planted)
+            assert again is not None and _fr314_counter_everywhere___sha(again) != digest, (
+                requirement,
+                name,
+            )
+            # The 0.32.0 sign kept: the golden as v0.32.0 wrote it is not restored to itself.
+            assert (
+                _fr314_counter_everywhere___sha(
+                    _fr314_counter_everywhere___restore_fr331_sign(restored) or ""
+                )
+                != digest
+            ), (requirement, name)
+        # One disc line left unflipped, on a synthetic two-disc script: v0.32.0 wrote +100 and +200,
+        # 0.34.0 writes both flipped, and a script that flipped only the first is refused.
+        before = "SET_PROP_ACTUATOR_RPM 1 100\nX\nSET_PROP_ACTUATOR_RPM 2 200\n"
+        flipped = "SET_PROP_ACTUATOR_RPM 1 -100\nX\nSET_PROP_ACTUATOR_RPM 2 -200\n"
+        one_left = "SET_PROP_ACTUATOR_RPM 1 -100\nX\nSET_PROP_ACTUATOR_RPM 2 200\n"
+        assert _fr314_counter_everywhere___restore_fr331_sign(flipped) == before, requirement
+        assert _fr314_counter_everywhere___restore_fr331_sign(one_left) != before, requirement
+        # A script without a disc never takes the allowance.
+        assert (
+            _fr314_counter_everywhere___restore_fr331_sign("SET_FREESTREAM CONSTANT\n") is None
+        ), requirement
+
+    @staticmethod
+    def test_fr314_the_fr321_wake_line_is_admitted_whole_and_alone():
+        """Controls: a second change beside the termination line, or a second line, fails.
+
+        P0340-WAKE-LENGTH: the 4R default of FR-321 adds one termination line to a
+        rotor row that states none, and the golden comparison admits that line and
+        nothing more.
+        """
+        requirement = "FR-321"
+        record = json.loads(_FR314_COUNTER_EVERYWHERE__GOLDENS_0320.read_text(encoding="utf-8"))
+        for name in sorted(_FR314_COUNTER_EVERYWHERE__FR321_GOLDENS):
+            digest = record["digests"][name]
+            text = "\n".join(
+                _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
+                .read_text(encoding="utf-8")
+                .splitlines()
+            )
+            stripped = _fr314_counter_everywhere___strip_fr321_wake(text)
+            assert (
+                stripped is not None
+                and _fr314_counter_everywhere___admitted(name, stripped, digest) is not None
+            ), name
+            # A second change beside the line: one more emitted line elsewhere.
+            planted = text.replace("SOLVER_MINIMUM_CP", "SOLVER_MINIMUM_CP 0\nSOLVER_MINIMUM_CP", 1)
+            assert planted != text, name
+            again = _fr314_counter_everywhere___strip_fr321_wake(planted)
+            assert (
+                again is not None
+                and _fr314_counter_everywhere___admitted(name, again, digest) is None
+            ), (requirement, name)
+            # Two termination lines never take the allowance.
+            twice = _FR314_COUNTER_EVERYWHERE__WAKE_DEFAULT_LINE.sub(
+                lambda m: m.group(0) * 2, text, count=1
+            )
+            assert _fr314_counter_everywhere___strip_fr321_wake(twice) is None, (requirement, name)
+        # A script without the line never takes the allowance.
+        assert _fr314_counter_everywhere___strip_fr321_wake("SET_FREESTREAM CONSTANT\n") is None, (
+            requirement
+        )
+
+    @staticmethod
+    def test_fr314_the_fr51_removal_is_admitted_whole_and_alone():
+        """Controls: a second change beside the removal, or part of the block, fails."""
+        requirement = "FR-314"
+        record = json.loads(_FR314_COUNTER_EVERYWHERE__GOLDENS_0320.read_text(encoding="utf-8"))
+        (name,) = sorted(_FR314_COUNTER_EVERYWHERE__FR51_GOLDENS)
+        digest = record["digests"][name]
+        text = "\n".join(
+            _fr314_counter_everywhere__workflow_payload(_FR314_COUNTER_EVERYWHERE__REPO / name)
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+        if name in _FR314_COUNTER_EVERYWHERE__FR321_GOLDENS:
+            # The row also keeps the 4R wake of FR-321 (0.34.0): that line out first, alone.
+            text = _fr314_counter_everywhere___strip_fr321_wake(text) or ""
+        restored = _fr314_counter_everywhere___restore_fr51_block(name, text)
+        assert restored is not None and _fr314_counter_everywhere___sha(restored) == digest, (
+            requirement
+        )
+        # A second extra change beside the removal.
+        planted = text.replace("EXPORT_LOG\n", "EXPORT_LOG\nEXPORT_LOG\n", 1)
+        assert planted != text
+        again = _fr314_counter_everywhere___restore_fr51_block(name, planted)
+        assert again is not None and _fr314_counter_everywhere___sha(again) != digest, requirement
+        # Only part of the block removed: one of its four lines is left in the golden.
+        stem = Path(name).stem
+        loads = f"SAVE_PLOT_TO_FILE\n{stem}_plot_loads.txt\n\n"
+        partial = text.replace(loads, loads + "SET_PLOT_TYPE SECTIONS_CP\n", 1)
+        assert partial != text
+        assert _fr314_counter_everywhere___restore_fr51_block(name, partial) is None, requirement
+        # A script that cuts a section never takes the allowance.
+        cutting = text + "NEW_SURFACE_SECTION_DISTRIBUTION\n"
+        assert _fr314_counter_everywhere___restore_fr51_block(name, cutting) is None, requirement
+
+    @staticmethod
+    def test_fr314_a_row_with_per_step_export_registers_the_pair_as_before():
+        """The counter and its exports script, in that order and nothing more (R4)."""
+        requirement = "FR-314"
+        script = Script("26.123")
+        build_script(rotor_case(EXPORT_UNSTEADY_AFTER_REV="1"), script)
+        rendered = script.render()
+        actions = _fr314_counter_everywhere___actions(rendered)
+        assert [head.split()[1] for head, _ in actions] == ["COMMAND_LINE", "SCRIPT"], requirement
+        assert actions[1][1] == UNSTEADY_ACTION_SCRIPT
+        assert script.pending_action_scripts == {UNSTEADY_ACTION_SCRIPT: ""}
+
+    @staticmethod
+    def test_fr314_the_count_only_program_counts_and_writes_nothing_else(tmp_path):
+        """Run by the real interpreter three times, as the solver would after three steps.
+
+        The control is the threshold program run the same way, which rewrites the
+        exports file the count-only program never writes.
+        """
+        requirement = "FR-314"
+        counting = tmp_path / "counting" / "actions"
+        counting.mkdir(parents=True)
+        (counting / "pfs_unsteady_actions.py").write_text(
+            render_count_program(5, interpreter=sys.executable), encoding="utf-8"
+        )
+        for _ in range(3):
+            subprocess.run(
+                [sys.executable, str(counting / "pfs_unsteady_actions.py")],
+                check=True,
+                env=_FR314_COUNTER_EVERYWHERE__ENV,
+            )
+        state = json.loads((counting / "pfs_unsteady_actions.count").read_text(encoding="utf-8"))
+        assert state == {"count": 3}, requirement
+        assert sorted(p.name for p in counting.iterdir()) == [
+            "pfs_unsteady_actions.count",
+            "pfs_unsteady_actions.py",
+        ], requirement
+        control = tmp_path / "control" / "actions"
+        control.mkdir(parents=True)
+        threshold = unsteady_export_threshold(
+            unsteady_case(EXPORT_UNSTEADY_AFTER_ITER="1"),
+            version="26.120",
+        )
+        assert threshold is not None
+        (control / "pfs_unsteady_actions.py").write_text(
+            render_program(threshold, interpreter=sys.executable), encoding="utf-8"
+        )
+        subprocess.run(
+            [sys.executable, str(control / "pfs_unsteady_actions.py")],
+            check=True,
+            env=_FR314_COUNTER_EVERYWHERE__ENV,
+        )
+        assert (control / "pfs_unsteady_exports.txt").is_file(), "the control writes the exports"
+
+    @staticmethod
+    def test_fr314_the_local_run_bar_reads_the_count_only_program(tmp_path, capsys, monkeypatch):
+        """P0410-PAR: FR-129's bar reads real counter updates at deterministic polls."""
+        requirement = "FR-314"
+        work, script = _fr314_counter_everywhere___point_folder(tmp_path, with_program=False)
+        (work / "actions" / "pfs_unsteady_actions.py").write_text(
+            render_count_program(30, interpreter=sys.executable), encoding="utf-8"
+        )
+
+        class CountingProcess:
+            returncode = 0
+
+            def __init__(self, *args, **kwargs):
+                self.polls = 0
+
+            def communicate(self, timeout=None):
+                if self.polls == 3:
+                    return "solver done", ""
+                # The executor reads progress after communicate times out. Advance
+                # the actual count-only program ten times before each such poll,
+                # without relying on OS scheduling or sleeping between updates.
+                for _ in range(10):
+                    program = runpy.run_path(str(work / "actions" / "pfs_unsteady_actions.py"))
+                    assert program["main"]() == 0
+                self.polls += 1
+                raise subprocess.TimeoutExpired("count-only stand-in", timeout)
+
+        monkeypatch.setattr(subprocess, "Popen", CountingProcess)
+        result = _Fr314CounterEverywhereAdvancing(progress_every=10).run_script(
+            script, work, timeout_s=None
+        )
+        said = capsys.readouterr().err
+        steps = re.findall(r"\[[#.]{20}\] step (\d+)/30 \(\d+%\)", said)
+        assert len(steps) >= 2, (requirement, said)
+        assert steps == ["10", "20", "30"]
+        assert result.return_code == 0
+
+    @staticmethod
+    def test_fr314_a_stopped_run_recorded_without_the_counter_still_recovers_its_frame(tmp_path):
+        """Parity with 0.32.0: a row it recorded without the counter continues under 0.33.0.
+
+        The frame recovery of a stopped run compares the recorded script with the
+        row rebuilt now; the counter this release adds places nothing, so a
+        script without it is the same setup. The control is the same script with a
+        scientific line changed, which is still refused.
+        """
+        import json
+
+        from pyflightstream._digest import file_sha256
+        from tests.tier1_offline.test_g58_frame_recovery import _old_run, _resolve
+
+        requirement = "FR-314"
+        workspace, case, record, shadow = _old_run(tmp_path)
+        script = workspace.sim_dir("9001") / record.script_path
+        lines = script.read_text(encoding="utf-8").split("\n")
+        at = lines.index("SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter")
+        # What is removed is the counter's registration and nothing else: the
+        # three lines the golden record below proves are all 0.33.0 adds.
+        assert re.fullmatch(r'"[^"]+" "actions/pfs_unsteady_actions\.py"', lines[at + 1]), lines
+        assert lines[at + 2] == "" and _FR314_COUNTER_EVERYWHERE__ACTION_HEAD not in "\n".join(
+            lines[at + 3 :]
+        ), lines
+        del lines[at : at + 3]
+        script.write_text("\n".join(lines), encoding="utf-8")
+        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows[0]["script_sha256"] = file_sha256(script)
+        workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+        result = _resolve(workspace, case)
+        assert result["recovered_frame"] == shadow.loads_frame_record(), requirement
+        changed = [
+            line.replace("SOLVER_MINIMUM_CP -100", "SOLVER_MINIMUM_CP -99") for line in lines
+        ]
+        assert changed != lines, "the control changes a scientific line"
+        script.write_text("\n".join(changed), encoding="utf-8")
+        rows[0]["script_sha256"] = file_sha256(script)
+        workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+        with pytest.raises(Exception, match="native setup changed"):
+            _resolve(workspace, case)
+
+
+_FR320_SKIPPED_FAMILIES_WARN__BUILD = "26.124"
+
+
+_FR320_SKIPPED_FAMILIES_WARN__FIVE = ["Blade1", "Blade2", "Blade3", "Blade4", "Blade5"]
+
+
+#: The sector row's mesh: the hub and one blade, which is all a sector carries.
+_FR320_SKIPPED_FAMILIES_WARN__SECTOR = ("3301", "sector.fsm", ["Hub", "Blade1"])
+
+
+#: The wheel row's mesh: the hub and all five blades.
+_FR320_SKIPPED_FAMILIES_WARN__WHEEL = (
+    "3302",
+    "wheel.fsm",
+    ["Hub", *_FR320_SKIPPED_FAMILIES_WARN__FIVE],
+)
+
+
+def _fr320_skipped_families_warn__sections(families: list[str]) -> str:
+    """A pproc of one section distribution over ``families``, in the moment frame."""
+    listed = ", ".join(f'"{name}"' for name in families)
+    return (
+        "[[sections.distributions]]\n"
+        f"families = [{listed}]\n"
+        'frame = "MRP"\n'
+        'planes = ["XZ"]\n'
+        "count = 12\n"
+    )
+
+
+#: The columns that make a row unsteady, which is where force plots are emitted.
+_FR320_SKIPPED_FAMILIES_WARN__UNSTEADY = {
+    "WORKFLOW": "unsteady",
+    "VAR_NAMES_VALUES": "VELOCITY: 30.0 / DELTA_TIME: 0.001 / TIME_ITERATIONS: 3 "
+    "/ LAST_ITERS_AVG: 3",
+}
+
+
+def _fr320_skipped_families_warn__plots(families: list[str]) -> str:
+    """A pproc of one force plot group over ``families``, in the moment frame."""
+    listed = ", ".join(f'"{name}"' for name in families)
+    return f'[plots]\n[[plots.groups]]\nname = "BLADES"\nfamilies = [{listed}]\nframe = "MRP"\n'
+
+
+def _fr320_skipped_families_warn__a_campaign(
+    tmp_path: Path,
+    families: list[str],
+    rows: list[tuple[str, str, list[str]]],
+    pproc=_fr320_skipped_families_warn__sections,
+    columns: dict[str, str] | None = None,
+) -> tuple[CampaignWorkspace, Path]:
+    """A workspace and a matrix of ``rows`` (POL, geometry, its boundaries), one pproc."""
+    workspace = _fr320_skipped_families_warn__make_library(
+        tmp_path, register_build=(_FR320_SKIPPED_FAMILIES_WARN__BUILD, "C:/fs/FS.exe")
+    )
+    inputs = workspace.inputs_dir
+    for _, geometry, boundaries in rows:
+        body = _saved_simulation(tmp_path / geometry, boundaries).read_bytes()
+        _fr320_skipped_families_warn__stage_geometry(workspace, geometry, body=body)
+    (inputs / "references" / "r050.toml").write_text(
+        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n", encoding="utf-8"
+    )
+    (inputs / "pproc" / "p020.toml").write_text(pproc(families), encoding="utf-8")
+    workspace = CampaignWorkspace(
+        workspace.root, naming=NamingTemplate(point_name=MATRIX_POINT_NAME)
+    )
+    lines = [" | ".join(MATRIX_COLUMNS), "-" * 40]
+    for pol, geometry, _ in rows:
+        cells = {
+            "POL": pol,
+            "HIDDEN": "0",
+            "RUN": "1",
+            "AIRCRAFT": "Prop",
+            "DESCRIPTION": "FAMILIES",
+            "FLIGHT_CONDITION": "MACH:0.2, REmi:2.3, ALPHA:sweep",
+            "SWEEP_VALUES": "0.0",
+            "GEOMETRY": geometry,
+            "REF": "r050",
+            "SET": "s002",
+            "PPROC": "p020",
+            "SYMMETRY": "NONE",
+            "FS_BUILD": _FR320_SKIPPED_FAMILIES_WARN__BUILD,
+            "WORKFLOW": "steady",
+            "VAR_NAMES_VALUES": "",
+            **(columns or {}),
+        }
+        lines.append(" | ".join(cells.get(name, "-") for name in MATRIX_COLUMNS))
+    path = workspace.root / "families.fs"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return workspace, path
+
+
+def _fr320_skipped_families_warn__planned(
+    tmp_path: Path,
+    families: list[str],
+    rows,
+    pproc=_fr320_skipped_families_warn__sections,
+    columns=None,
+    **kwargs,
+):
+    """Plan the matrix and return the plan and the FR-320 warnings it raised."""
+    workspace, path = _fr320_skipped_families_warn__a_campaign(
+        tmp_path, families, rows, pproc, columns
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        plan = plan_matrix(
+            path,
+            workspace,
+            name="families",
+            default_fs_version=_FR320_SKIPPED_FAMILIES_WARN__BUILD,
+            recipes=_FR320_SKIPPED_FAMILIES_WARN__RECIPES,
+            recipe_registry=workflow_registry(),
+            write_plan=False,
+            **kwargs,
+        )
+    said = [
+        str(item.message)
+        for item in caught
+        if issubclass(item.category, PyflightstreamWarning) and "FR-320" in str(item.message)
+    ]
+    return plan, said
+
+
+def _fr320_skipped_families_warn__local_axis_over(inventory: list[str]):
+    """Expand a ``LOCAL_AXIS`` entry citing the rotor ``PUSHER`` over ``inventory``."""
+    return pproc_emissions(
+        _fr320_skipped_families_warn__expanding_case(),
+        "LOCAL_AXIS",
+        "PUSHER",
+        inventory,
+        lambda name: "B_" in name,
+        "a plot group",
+        _fr320_skipped_families_warn__every_rotor_frame_placed(),
+    )
+
+
+def _fr320_skipped_families_warn__noting(*rows_and_names: tuple[str, str]) -> None:
+    """Note each (row, name) for one artifact, as the expansion does inside a plan."""
+    for row, name in rows_and_names:
+        note_the_families_a_row_lacks(row, "p020", "section distribution 1", [(None, name)])
+
+
+class TestFr320SkippedFamiliesWarn:
+    """Tier 1: the plan says which family a row's geometry does not carry, and never refuses (FR-320).
+
+    The defect, measured on 0.32.0 with a real plan: one pproc declares a
+    ``[[sections.distributions]]`` entry over the families ``Blade1`` to ``Blade5``,
+    and the same matrix holds sector rows whose mesh carries ``Blade1`` alone and
+    wheel rows carrying all five. Every row planned READY, the sector scripts cut
+    one blade and the wheel scripts five, and the plan named no family, no blade
+    and no skip. A misspelled family in the same list vanished the same way.
+
+    The skip is the default and stays one (FR-73): the plan warns, once per
+    artifact and per missing family, naming the rows, and still plans READY.
+    Everything here is built from the matrix a user writes and planned through
+    ``plan_matrix``, the call the command line makes.
+    """  # noqa: E501
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_a_sector_row_lacking_four_blades_is_named_once_per_blade_fr_320(tmp_path):
+        """The measured case: one warning per blade the sector lacks, the wheel named in none."""
+        plan, said = _fr320_skipped_families_warn__planned(
+            tmp_path,
+            _FR320_SKIPPED_FAMILIES_WARN__FIVE,
+            [_FR320_SKIPPED_FAMILIES_WARN__SECTOR, _FR320_SKIPPED_FAMILIES_WARN__WHEEL],
+        )
+        assert plan.points, "the fixture planned no point at all, so this asserted nothing"
+        assert len(said) == 4, said
+        for blade, message in zip(_FR320_SKIPPED_FAMILIES_WARN__FIVE[1:], said, strict=True):
+            assert f"cites {blade!r}" in message, message
+            assert "section distribution 1" in message
+            assert "'p020'" in message, "the warning names the pproc artifact"
+            assert repr(_FR320_SKIPPED_FAMILIES_WARN__SECTOR[0]) in message, (
+                "the warning names the row that lacks the blade"
+            )
+            assert repr(_FR320_SKIPPED_FAMILIES_WARN__WHEEL[0]) not in message, (
+                "a row carrying the blade is named in none"
+            )
+        assert not any("'Blade1'" in message for message in said), "both rows carry Blade1"
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_a_mistyped_family_warns_naming_the_word_and_the_row_fr_320(tmp_path):
+        """A misspelled member beside a good one used to vanish, the list being non-empty."""
+        plan, said = _fr320_skipped_families_warn__planned(
+            tmp_path, ["Blade1", "Bladee2"], [_FR320_SKIPPED_FAMILIES_WARN__WHEEL]
+        )
+        assert len(said) == 1, said
+        assert "cites 'Bladee2'" in said[0]
+        assert repr(_FR320_SKIPPED_FAMILIES_WARN__WHEEL[0]) in said[0]
+        assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points)
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_a_row_carrying_every_family_gives_no_warning_fr_320(tmp_path):
+        """The control: the same pproc over the wheel alone is silent."""
+        plan, said = _fr320_skipped_families_warn__planned(
+            tmp_path, _FR320_SKIPPED_FAMILIES_WARN__FIVE, [_FR320_SKIPPED_FAMILIES_WARN__WHEEL]
+        )
+        assert plan.points
+        assert said == []
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_the_plan_still_plans_ready_and_refuses_only_when_asked_fr_320(tmp_path):
+        """The warning never refuses; the refusal stays FR-73's and is asked for by the run.
+
+        A name no boundary of either mesh answers (``Spinner``) plans READY with one
+        warning naming both rows, and BLOCKS both when the run asks for the
+        refusal, which is then what the user hears. A numbered blade whose family
+        the sector carries is not refused even then, so it is still said.
+        """
+        plan, said = _fr320_skipped_families_warn__planned(
+            tmp_path / "skip",
+            ["Blade1", "Spinner"],
+            [_FR320_SKIPPED_FAMILIES_WARN__SECTOR, _FR320_SKIPPED_FAMILIES_WARN__WHEEL],
+        )
+        assert plan.points and not plan.blocked
+        assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points)
+        assert len(said) == 1 and "cites 'Spinner'" in said[0], said
+        assert (
+            repr(_FR320_SKIPPED_FAMILIES_WARN__SECTOR[0]) in said[0]
+            and repr(_FR320_SKIPPED_FAMILIES_WARN__WHEEL[0]) in said[0]
+        )
+        refused, said = _fr320_skipped_families_warn__planned(
+            tmp_path / "refuse",
+            ["Blade1", "Spinner"],
+            [_FR320_SKIPPED_FAMILIES_WARN__SECTOR, _FR320_SKIPPED_FAMILIES_WARN__WHEEL],
+            ignore_missing_families=False,
+        )
+        assert {point.status for point in refused.points} == {PlanStatus.BLOCKED}
+        assert said == [], "a refused row is not also warned about"
+        numbered, said = _fr320_skipped_families_warn__planned(
+            tmp_path / "numbered",
+            _FR320_SKIPPED_FAMILIES_WARN__FIVE,
+            [_FR320_SKIPPED_FAMILIES_WARN__SECTOR, _FR320_SKIPPED_FAMILIES_WARN__WHEEL],
+            ignore_missing_families=False,
+        )
+        assert {point.status for point in numbered.points} == {PlanStatus.READY}
+        assert len(said) == 4, said
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_a_numbered_name_is_lacking_where_only_its_family_answers_fr_320():
+        """The warning's reading: Blade2 is not carried by a mesh of Blade1, though its family is.
+
+        Through an alias as a rotor's own name is one (the rotor path of a
+        ``LOCAL_AXIS`` entry), through a list member, and never for a family word
+        with no number, a word that names no set, or a name carried in another case.
+        """
+        inventory = ["Hub", "Blade1"]
+        aliases = {"PROP": ["Hub", *_FR320_SKIPPED_FAMILIES_WARN__FIVE[:3]]}
+        assert declared_names_the_geometry_lacks(
+            ["PROP", "Bladee2", "each", "blade1", "Blade"], inventory, aliases
+        ) == [("PROP", "Blade2"), ("PROP", "Blade3"), (None, "Bladee2")]
+        assert declared_names_the_geometry_lacks("all", inventory, aliases) == []
+        assert declared_names_the_geometry_lacks(["Spinner"], inventory, {}) == [(None, "Spinner")]
+
+    @staticmethod
+    @pytest.mark.requirement("FR-73")
+    def test_the_refusals_reading_is_unchanged_by_the_move_fr_320():
+        """The refusal still asks the selector: Blade2 answers through its family and passes."""
+        inventory = ["Hub", "Blade1"]
+        aliases = {"PROP": ["Hub", *_FR320_SKIPPED_FAMILIES_WARN__FIVE[:3]], "TAIL": ["Fin"]}
+        assert names_no_boundary_answers(
+            ["PROP", "Bladee2", "Blade2", "TAIL", "each"],
+            inventory,
+            aliases,
+            lambda n: "Blade" in n,
+        ) == [(None, "Bladee2"), ("TAIL", "Fin")]
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_a_force_plot_group_is_said_the_same_way_fr_320(tmp_path):
+        """The other entry that names families: a plot group skips a blade the sector lacks too."""
+        plan, said = _fr320_skipped_families_warn__planned(
+            tmp_path,
+            _FR320_SKIPPED_FAMILIES_WARN__FIVE,
+            [_FR320_SKIPPED_FAMILIES_WARN__SECTOR, _FR320_SKIPPED_FAMILIES_WARN__WHEEL],
+            pproc=_fr320_skipped_families_warn__plots,
+            columns=_FR320_SKIPPED_FAMILIES_WARN__UNSTEADY,
+        )
+        assert plan.points
+        assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points)
+        assert len(said) == 4, said
+        for blade, message in zip(_FR320_SKIPPED_FAMILIES_WARN__FIVE[1:], said, strict=True):
+            assert f"plot group 'BLADES' cites {blade!r}" in message, message
+            assert (
+                repr(_FR320_SKIPPED_FAMILIES_WARN__SECTOR[0]) in message
+                and repr(_FR320_SKIPPED_FAMILIES_WARN__WHEEL[0]) not in message
+            )
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_a_local_axis_entry_names_the_blade_through_the_rotor_it_cites_fr_320():
+        """The per-blade rotor path: a rotor's own name is an alias, and the warning says so."""
+        sector = [
+            name for name in _FR320_SKIPPED_FAMILIES_WARN__INVENTORY if name not in {"PB_2", "PB_3"}
+        ]
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with noting_the_families_rows_lack():
+                whole = _fr320_skipped_families_warn__local_axis_over(
+                    _FR320_SKIPPED_FAMILIES_WARN__INVENTORY
+                )
+                cut = _fr320_skipped_families_warn__local_axis_over(sector)
+        assert [label for _, _, label in whole] == ["PB_1", "PB_2", "PB_3", "PUSHER"]
+        assert [label for _, _, label in cut] == ["PB_1", "PUSHER"]
+        said = [str(item.message) for item in caught if "FR-320" in str(item.message)]
+        assert len(said) == 2, said
+        assert "a plot group (through 'PUSHER') cites 'PB_2'" in said[0], said[0]
+        assert "a plot group (through 'PUSHER') cites 'PB_3'" in said[1], said[1]
+        assert all("of row '9201'" in message for message in said), said
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_the_words_that_name_no_set_and_the_guessing_selectors_are_never_said_fr_320():
+        """``all``, ``each``, ``each_blade``, ``airframe`` and ``blades`` name no family to lack."""
+        words = ["all", "each", "each_blade", "airframe", "blades", "ALL", "Blades"]
+        assert declared_names_the_geometry_lacks(words, ["Hub"], {}) == []
+        assert declared_names_the_geometry_lacks([*words, "Fin"], ["Hub"], {}) == [(None, "Fin")]
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_a_plan_that_raises_warns_nothing_and_a_note_outside_a_plan_is_dropped_fr_320():
+        """The refusal is what a failed plan says; a script built on its own notes nowhere."""
+
+        @noting_the_families_rows_lack()
+        def failing_plan():
+            _fr320_skipped_families_warn__noting(("3301", "Blade2"))
+            raise RuntimeError("the plan stopped")
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises(RuntimeError, match="the plan stopped"):
+                failing_plan()
+            _fr320_skipped_families_warn__noting(("3301", "Blade3"))
+            with noting_the_families_rows_lack():
+                pass
+        assert [str(item.message) for item in caught] == []
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_a_nested_plan_keeps_its_own_collection_fr_320():
+        """An inner block warns what IT noted; the outer block warns only its own."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with noting_the_families_rows_lack():
+                _fr320_skipped_families_warn__noting(("3301", "Blade2"))
+                with noting_the_families_rows_lack():
+                    _fr320_skipped_families_warn__noting(("3302", "Blade3"))
+                inner = [str(item.message) for item in caught]
+        outer = [str(item.message) for item in caught][len(inner) :]
+        assert len(inner) == 1 and "'Blade3'" in inner[0] and "'3302'" in inner[0], inner
+        assert len(outer) == 1 and "'Blade2'" in outer[0] and "'3301'" in outer[0], outer
+
+    @staticmethod
+    @pytest.mark.requirement("FR-320")
+    def test_two_families_both_reach_a_user_and_point_at_the_plans_caller_fr_320():
+        """Outside every sink, under the default filter, each family is its own warning.
+
+        The default filter shows a warning once per text and location, so both
+        must reach the user, and the location is the line that called the plan,
+        not a line of contextlib or of the decorator.
+        """
+
+        @noting_the_families_rows_lack()
+        def plan():
+            _fr320_skipped_families_warn__noting(("3301", "Blade2"), ("3301", "Blade3"))
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.resetwarnings()
+            warnings.simplefilter("default")
+            plan()
+        said = [item for item in caught if "FR-320" in str(item.message)]
+        assert [("'Blade2'" in str(i.message), "'Blade3'" in str(i.message)) for i in said] == [
+            (True, False),
+            (False, True),
+        ]
+        assert {Path(item.filename).resolve() for item in said} == {Path(__file__).resolve()}
+
+    @staticmethod
+    def test_fr320_a_row_of_two_points_is_named_once_not_twice(tmp_path):
+        # Verifies FR-320.
+        plan, said = _fr320_skipped_families_warn__planned(
+            tmp_path,
+            _FR320_SKIPPED_FAMILIES_WARN__FIVE,
+            [_FR320_SKIPPED_FAMILIES_WARN__SECTOR],
+            pproc=_fr320_skipped_families_warn__plots,
+            columns={**_FR320_SKIPPED_FAMILIES_WARN__UNSTEADY, "SWEEP_VALUES": "0.0, 2.0"},
+        )
+        assert len(plan.points) == 2, plan.points
+        assert len(said) == 4, said
+        assert all("the geometry of row '3301' does not carry it" in line for line in said), said

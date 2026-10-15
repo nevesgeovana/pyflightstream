@@ -82,7 +82,10 @@ def test_a_translation_problem_refuses_the_extraction_and_keeps_the_copy(tmp_pat
     folder = sim_dir / "work"
     folder.mkdir(parents=True)
     (folder / "surface.dat").write_text("stale", encoding="utf-8")
-    from tests.tier1_offline.test_p0400_results_surface import TRANSLATIONS, VTK
+    from tests.tier1_offline.test_regression_results_readers import (
+        _RESULTS_SURFACE__TRANSLATIONS as TRANSLATIONS,
+    )
+    from tests.tier1_offline.test_regression_results_readers import _RESULTS_SURFACE__VTK as VTK
 
     (folder / "surface.vtk").write_text(VTK, encoding="utf-8")
     copy = folder / "point.reopened.fsm"

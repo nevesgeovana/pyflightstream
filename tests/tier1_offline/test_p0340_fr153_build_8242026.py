@@ -11,12 +11,10 @@ import pytest
 
 from pyflightstream.post.field_frames import VELOCITY_EVIDENCE, native_velocity_proof
 from pyflightstream.script.motion import _ROTARY_PROOFS, resolve_frame_motion
-from tests.tier1_offline.test_fr153_field_build_warning import (
-    DIGEST,
-    MEASURED,
-    _point,
-    _rotating,
-)
+from tests.tier1_offline.test_probe_fields import _FR153_FIELD_BUILD_WARNING__DIGEST as DIGEST
+from tests.tier1_offline.test_probe_fields import _FR153_FIELD_BUILD_WARNING__MEASURED as MEASURED
+from tests.tier1_offline.test_probe_fields import _fr153_field_build_warning___point as _point
+from tests.tier1_offline.test_probe_fields import _fr153_field_build_warning___rotating as _rotating
 
 REGISTERED = "8242026"
 DECISION = "decision of 2026-10-01, not measured"
