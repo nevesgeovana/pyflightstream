@@ -19,7 +19,7 @@ def _add_calibrate(subparsers: Any) -> None:
     parser.add_argument("--workspace", default=".")
     parser.add_argument("--wheel-run", required=True)
     parser.add_argument("--sector-run", required=True)
-    parser.add_argument("--rotor")
+    parser.add_argument("--rotor", dest="rotor_name")
     parser.add_argument("--matrix")
     parser.add_argument("--overwrite", action="store_true")
 
@@ -31,7 +31,7 @@ def _calibrate(args: argparse.Namespace) -> int:
             wheel_run_id=args.wheel_run,
             sector_run_id=args.sector_run,
             calibration_id=args.calibration_id,
-            rotor=args.rotor,
+            rotor=args.rotor_name,
             matrix_stem=args.matrix,
             overwrite=args.overwrite,
         )

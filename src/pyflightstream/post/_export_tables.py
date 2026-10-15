@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import csv
 from typing import TYPE_CHECKING
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import classify_outputs
@@ -46,7 +45,7 @@ def export_tables(ctx: SimContext) -> None:
             target = ctx.target(ctx.out / relative)
             target.parent.mkdir(parents=True, exist_ok=True)
             with _textio.open_text(target, "w") as handle:
-                writer = csv.writer(handle)
+                writer = _textio.csv_writer(handle)
                 writer.writerow(columns)
                 writer.writerows(values)
             ctx.add(

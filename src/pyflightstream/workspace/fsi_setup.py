@@ -176,7 +176,7 @@ def _material(value: str | dict[str, Any] | None) -> Material:
 
 def _solid(spec: FsiSetupSpec, substance: Material) -> BladeProperties:
     # Numerical section construction is loaded only for the calculated branch.
-    from pyflightstream.fsi._airfoil import naca4_contour
+    from pyflightstream.fsi import naca4_contour
     from pyflightstream.fsi.sections import airfoil_section_contour, blade_properties_from_sections
 
     if spec.sections is None:

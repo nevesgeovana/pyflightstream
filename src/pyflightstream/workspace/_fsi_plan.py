@@ -13,6 +13,16 @@ def structural_assessment(config: FsiConfig) -> dict[str, object]:
     The modal calculation uses the existing rotating beam model, including
     centrifugal stiffness. The warning is a quasi-static validity screen,
     not a claim of dynamic stability or licensed coupling validation.
+
+    Parameters
+    ----------
+    config : FsiConfig
+        Resolved structural configuration in SI units.
+
+    Returns
+    -------
+    dict[str, object]
+        Effective properties, frequencies, excitation ratios and warnings.
     """
     from pyflightstream.fsi.centrifugal import rotating_frequencies
 

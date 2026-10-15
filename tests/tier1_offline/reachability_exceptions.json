@@ -87,6 +87,8 @@
    "node": "PFS-2140.005",
    "release": "0.42.0",
    "names": [
+    "pyflightstream.workspace.TrailingEdge",
+    "pyflightstream.workspace.extract_trailing_edge",
     "pyflightstream.workspace.wake_edges.write_node_file"
    ]
   },
@@ -326,7 +328,6 @@
    "reason": "maintainer or developer API",
    "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
-    "pyflightstream.cases.corrections.calibration_text",
     "pyflightstream.cases.matrix.rewrite_codes",
     "pyflightstream.cases.workflows.ExportWindow",
     "pyflightstream.cases.workflows.ReductionPlan",

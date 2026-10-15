@@ -475,7 +475,14 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
     if artifact == "geometry" and heading == "Top-level keys and tables":
         return top
     rotor_blocks = blocks_of(lambda kind: kind == "rotor")
+    grids = [g for f in data for p in f.get("probes", []) for g in p.get("grids", [])]
     tables = {
+        "`[noise]`": [f.get("noise", {}) for f in data],
+        "`[[probes.grids]]`": grids,
+        "`[probes.grids.frame]`": [g.get("frame", {}) for g in grids],
+        "`[probes.grids.u]`": [g.get("u", {}) for g in grids],
+        "`[probes.grids.v]`": [g.get("v", {}) for g in grids],
+        "`[probes.grids.refinement]`": [g.get("refinement", {}) for g in grids],
         "`[[ports]]`": [e for f in data for e in f.get("ports", [])],
         "`[ports.remesh]`": [
             e.get("remesh", {}) for f in data for e in f.get("ports", []) if isinstance(e, dict)

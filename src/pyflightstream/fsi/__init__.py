@@ -28,6 +28,7 @@ localized change.
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from pyflightstream.fsi._airfoil import naca4_contour as naca4_contour
 from pyflightstream.fsi.config import FsiConfig, config_sha256, load_config
 
 __all__ = ["FsiConfig", "StructuralSolver", "config_sha256", "load_config"]

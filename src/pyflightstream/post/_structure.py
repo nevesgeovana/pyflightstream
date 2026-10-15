@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.fsi.config import DIRECT_MORPHING, load_config
 from pyflightstream.fsi.kinematics import decode_station_translations
@@ -61,7 +61,7 @@ def structure_products(ctx: SimContext) -> None:
             ctx.structure_tips[run_id] = tips
         target.parent.mkdir(parents=True, exist_ok=True)
         with _textio.open_text(target, "w") as handle:
-            writer = csv.writer(handle)
+            writer = _textio.csv_writer(handle)
             writer.writerow(("blade", "station_radius_m", "deflection_m", "twist_deg"))
             writer.writerows(rows)
         ctx.add(
@@ -115,4 +115,4 @@ def append_tip_columns(ctx: SimContext, path: Path, runs: Sequence[str]) -> None
             for value in (tips[blade] if blade < len(tips) else ("NA", "NA"))
         )
     with _textio.open_text(path, "w") as handle:
-        csv.writer(handle).writerows([*prefix, *rows])
+        _textio.csv_writer(handle).writerows([*prefix, *rows])

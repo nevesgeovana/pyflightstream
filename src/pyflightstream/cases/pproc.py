@@ -547,7 +547,11 @@ def validated_family_selection(value: object) -> str | list[str]:
 class _LocatedSpec(BaseModel):
     """An output's location is fixed in space unless body attachment is explicit."""
 
-    attach: Literal["space", "body"] = "space"
+    attach: Literal["space", "body"] = Field(
+        default="space",
+        description="Output attachment: fixed in space or following the body. "
+        "Body attachment is refused for FSI pending licensed moving-frame evidence.",
+    )
 
 
 class SectionDistribution(_LocatedSpec):
@@ -1205,7 +1209,11 @@ class ProbesSpec(_LocatedSpec):
     #: FR-459 R2 (0.40.0): a survey lattice is a shape like a rectangle, so it
     #: is a list beside them and not a `kind`, which names the sampling mode.
     lattices: list[LatticeShape] = Field(default_factory=list)
-    grids: list[PlanarProbeGrid] = Field(default_factory=list)
+    grids: list[PlanarProbeGrid] = Field(
+        default_factory=list,
+        description="Planar grids in metres in the REFERENCE frame; "
+        "refinement additions must pass the geometry gate.",
+    )
     #: FR-80: the name of a points file the USER wrote, under
     #: `inputs/profiles/`, cited instead of `lines`. The entry still
     #: states its `frame` and its `scale`, because a file of numbers says
@@ -1386,7 +1394,9 @@ class ProductsSpec(BaseModel):
     #: default; ``false`` turns it off and
     #: writes what 0.36.0 wrote.
     settings_codebook: bool = True
-    polar_axes: Literal["wind", "stability"] | None = None
+    polar_axes: Literal["wind", "stability"] | None = Field(
+        default=None, description="Frame for the additional CD, CY and CL polar columns."
+    )
     #: FR-420: the families whose tables are also written mirrored through y = 0.
     #: The accepted names are :data:`INSTALLED_FRAME_FAMILIES`, refused where the
     #: pproc is read.
@@ -1870,14 +1880,23 @@ class _NoiseSpec(BaseModel):
     """Explicit exploratory loading-noise request in SI coordinates."""
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    #: Required acknowledgement that this compact loading-noise model is unvalidated.
     exploratory: Literal[True]
+    #: Observer positions in the REFERENCE frame, in metres.
     observers_m: list[tuple[float, float, float]] = Field(min_length=1)
+    #: Hub velocity relative to the acoustic medium, in metres per second.
     hub_velocity_m_s: tuple[float, float, float]
+    #: Observer velocity relative to the acoustic medium, in metres per second.
     observer_velocity_m_s: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    #: Sound speed of the acoustic medium, in metres per second.
     sound_speed_m_s: float = Field(gt=0.0)
+    #: Number of time samples per rotor revolution.
     samples_per_revolution: int = Field(default=360, ge=16, le=10000)
+    #: Highest fitted harmonic order; omitted uses the available clockings.
     orders: int | None = Field(default=None, ge=0)
+    #: Explicit axial loading radius in metres; omitted uses the inferred centroid.
     axial_radius_m: float | None = Field(default=None, gt=0.0)
+    #: Explicit in-plane loading radius in metres; omitted uses the inferred centroid.
     inplane_radius_m: float | None = Field(default=None, gt=0.0)
 
 
@@ -2032,6 +2051,7 @@ class PprocSpec(BaseModel):
     #: carries it, exactly as 0.29.0 did. A bool, and nothing a bool is read
     #: from: ``"true"`` or ``1`` is refused.
     singularity_strength: bool = Field(default=False, strict=True)
+    #: Explicit opt-in to exploratory compact loading-noise products.
     noise: _NoiseSpec | None = None
 
     sections: SectionsSpec = Field(default_factory=SectionsSpec)

@@ -47,6 +47,7 @@ from ._farfield import (
     emit_declared_lattices,
     farfield_probes,
     needs_fresh_probes,
+    planar_points,
     warn_declared_inside,
 )
 from ._frames import (
@@ -55,7 +56,6 @@ from ._frames import (
 from ._names import (
     _artifact_of,
 )
-from ._planar_probes import planar_points
 from ._rows import (
     _from_metres,
     _rotor_of,

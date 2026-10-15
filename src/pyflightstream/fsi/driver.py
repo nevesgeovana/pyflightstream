@@ -794,7 +794,7 @@ def _per_blade_densities(
     torsion_per_blade: list[list[float]] = []
     total_normal_force = 0.0
     applied = (
-        state.station_displacements
+        state.station_displacements_m
         if cfg.morphing == DIRECT_MORPHING
         else state.previous_displacements
     )
@@ -804,7 +804,7 @@ def _per_blade_densities(
         and state.previous_displacements is not None
     ):
         raise FsiInputError(
-            "Direct coupling state lacks station_displacements; start a fresh coupled point."
+            "Direct coupling state lacks station_displacements_m; start a fresh coupled point."
         )
     rotations = (
         None
@@ -873,10 +873,10 @@ def _steady_coupling_step(
         station_rows = _mapped_displacements(call.layout, solutions)
         previous = (
             np.zeros_like(station_rows)
-            if state.station_displacements is None
-            else np.asarray(state.station_displacements)
+            if state.station_displacements_m is None
+            else np.asarray(state.station_displacements_m)
         )
-        state.station_displacements = (previous + relaxation * (station_rows - previous)).tolist()
+        state.station_displacements_m = (previous + relaxation * (station_rows - previous)).tolist()
     _write_displacements(run_dir, state, written)
     state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
     _commit_call(

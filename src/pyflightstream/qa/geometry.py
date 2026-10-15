@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 
 import pyflightstream._textio as _textio
-from pyflightstream.fsi._airfoil import naca4_contour
+from pyflightstream.fsi import naca4_contour
 from pyflightstream.qa.errors import QaEvidenceError
 
 __all__ = [

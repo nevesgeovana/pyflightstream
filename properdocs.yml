@@ -122,6 +122,13 @@ nav:
           - Acoustic signals: acoustic-emission.md
           - Fluid-structure interaction:
               - FSI workspace: fsi-workspace.md
+              - Export tables: export-tables.md
+              - Inflow harmonic plan: inflow-harmonic-plan.md
+              - Output attachment: output-attachment.md
+              - Planar probes: planar-workspace-probes.md
+              - Trailing edges: trailing-edge-workspace.md
+              - Polar axes: polar-axes-selection.md
+              - Exploratory loading noise: exploratory-loading-noise.md
               - FSI with your own structural program: fsi-external.md
               - FSI tutorial: fsi-tutorial.md
               - Wing static deflection: examples/wing_static_deflection.md

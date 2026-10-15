@@ -47,15 +47,7 @@
 \item \fl{--out DIR} where the level folder goes (default: the parent of the source's folder); \fl{--out-dir DIR} is its deprecated alias
 \item \fl{--overwrite} replace an existing level folder
 \end{flags}
-\sub{upgrade <matrix>}{convert a matrix written under an older layout}
-\begin{flags}
-\item \fl{--in-place} rewrite the file (default: print to stdout)
-\item \fl{--inputs DIR} also move \texttt{inputs/groups/e*.toml} into pproc \texttt{[groups]}; needs \fl{--in-place}
-\end{flags}
-\sub{rename}{rename a 0.20.x workspace to the 0.21.0 point names (folders, scripts, manifest, plan)}
-\begin{flags}
-\item \fl{--workspace DIR} \quad \fl{--dry-run} print what would move, change nothing
-\end{flags}
+\sub{support [BUILD]}{print registered build support and its evidence; no solver is launched}
 
 \stage{2. PLAN (MANDATORY BEFORE RUN, NO SOLVER)}
 \sub{plan <matrix>}{bind the matrix to \texttt{inputs/}, pre-flight every point, write the receipt \texttt{run} requires (pinned to the matrix digest; edit the matrix, plan again). Alias: \cmd{inspect-setups}}
@@ -251,8 +243,12 @@
 \fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
 \fl{--workspace DIR} names the root; the positional form is deprecated.
-\sub{migrate-geometries [root]}{move a flat \texttt{inputs/geometries/} library into one folder per geometry}
-\texttt{init}, \texttt{archive} and \texttt{migrate-geometries}: \fl{--workspace DIR} names the campaign root; the positional root remains a deprecated alias.
+\sub{migrate [root]}{preview conversion of the workspace format used since 0.38.0; preserve originals before applying}
+\fl{--workspace DIR} names the root; \fl{--apply} writes the previewed conversion.
+\sub{calibrate <id>}{derive an unvalidated sector-offset calibration from recorded wheel and sector points}
+\fl{--workspace DIR}, \fl{--wheel-run ID}, \fl{--sector-run ID}, \fl{--rotor NAME}, \fl{--matrix NAME}, \fl{--overwrite}.
+\sub{geometry trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}
+\fl{--axis X Y Z}, \fl{--hub X Y Z}, \fl{--unit UNIT}, \fl{--sections N}, \fl{--overwrite}.
 \sub{geometry}{build a body outside the run matrix, accept it, and the mesh tools of page 1 under their home. The commands below preview until \fl{--apply} where they say so}
 \sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
 \begin{flags}

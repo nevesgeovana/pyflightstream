@@ -100,9 +100,9 @@ from pyflightstream.workspace import (
     WorkspaceError,
     collection_name,
     datapoint_dir_name,
+    structural_assessment,
 )
 from pyflightstream.workspace._batches import GroupingReceipt
-from pyflightstream.workspace._fsi_plan import structural_assessment
 from pyflightstream.workspace._settings_file import (
     ENTRY_ACCEPTANCE_SOURCE,
     TYPED_ACCEPTANCE_SOURCE,
@@ -1435,6 +1435,9 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
     # FR-455 R4 (0.40.0): the far-field resolution, on a row with [farfield] only.
     if not entry.farfield:
         del record["farfield"]
+    for key in ("fsi", "inflow_harmonics"):
+        if not record[key]:
+            del record[key]
     return record
 
 
@@ -1584,11 +1587,11 @@ def _plan_point(
         _refuse_an_import_count_nothing_logs(point_case, script, None)
         script.render()
         if inflow_fft and write_products:
-            from pyflightstream.workspace._plan_products import write
+            from pyflightstream.workspace import write_plan_products
 
             base["inflow_harmonics"] = [
                 path.relative_to(workspace.root).as_posix()
-                for path in write(
+                for path in write_plan_products(
                     point_case,
                     workspace.plan_dir(campaign.matrix_stem) / "inflow" / case.sim_id / stem,
                 )

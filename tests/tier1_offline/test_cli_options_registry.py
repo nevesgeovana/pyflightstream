@@ -56,6 +56,15 @@ FIELD_OPERATION = (
 
 #: (console script, destination) -> why it is not a registry knob.
 ALLOWLIST: dict[tuple[str, str], str] = {
+    ("pyfs-workspace", "calibration_id"): SUBJECT,
+    ("pyfs-workspace", "wheel_run"): SUBJECT,
+    ("pyfs-workspace", "sector_run"): SUBJECT,
+    ("pyfs-workspace", "rotor_name"): SUBJECT,
+    ("pyfs-workspace", "output"): OUTPUT,
+    ("pyfs-workspace", "axis"): CASE,
+    ("pyfs-workspace", "hub"): CASE,
+    ("pyfs-workspace", "unit"): CASE,
+    ("pyfs-workspace", "sections"): CASE,
     # 0.35.0 QV1: read-only query subjects and per-invocation filters.
     ("pyfs-matrix", "target"): SUBJECT,
     ("pyfs-matrix", "point"): SUBJECT,
@@ -503,6 +512,15 @@ def test_every_console_script_builds_its_parser_in_a_callable_function():
 #: directions: a dest that spreads to a new subcommand, and one that
 #: stops appearing on a subcommand it used to cover.
 COVERS: dict[tuple[str, str], frozenset[str]] = {
+    ("pyfs-workspace", "calibration_id"): frozenset({"calibrate"}),
+    ("pyfs-workspace", "wheel_run"): frozenset({"calibrate"}),
+    ("pyfs-workspace", "sector_run"): frozenset({"calibrate"}),
+    ("pyfs-workspace", "rotor_name"): frozenset({"calibrate"}),
+    ("pyfs-workspace", "output"): frozenset({"trailing-edge"}),
+    ("pyfs-workspace", "axis"): frozenset({"trailing-edge"}),
+    ("pyfs-workspace", "hub"): frozenset({"trailing-edge"}),
+    ("pyfs-workspace", "unit"): frozenset({"trailing-edge"}),
+    ("pyfs-workspace", "sections"): frozenset({"trailing-edge"}),
     ("pyfs-matrix", "build"): frozenset({"support"}),
     ("pyfs-matrix", "additional"): frozenset({"status"}),
     ("pyfs-matrix", "target"): frozenset({"show", "history"}),
@@ -713,6 +731,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate"}),
     ("pyfs-workspace", "workspace"): frozenset(
         {
+            "calibrate",
             "accept",
             "archive",
             "fill-interior",
@@ -755,6 +774,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "overwrite"): frozenset(
         {
+            "calibrate",
+            "trailing-edge",
             "build",
             "degenerate",
             "fill-interior",
@@ -797,10 +818,10 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "only"): frozenset({"build"}),
     ("pyfs-workspace", "parallel"): frozenset({"build"}),
     ("pyfs-workspace", "rows"): frozenset({"build"}),
-    ("pyfs-workspace", "matrix"): frozenset({"build"}),
+    ("pyfs-workspace", "matrix"): frozenset({"build", "calibrate"}),
     ("pyfs-workspace", "names"): frozenset({"accept"}),
     ("pyfs-workspace", "geometry"): frozenset({"degenerate", "from-sidecar", "inventory"}),
-    ("pyfs-workspace", "mesh"): frozenset({"audit", "refine"}),
+    ("pyfs-workspace", "mesh"): frozenset({"audit", "refine", "trailing-edge"}),
     ("pyfs-workspace", "factor"): frozenset({"refine"}),
     ("pyfs-workspace", "families"): frozenset({"refine"}),
     ("pyfs-workspace", "chordwise"): frozenset({"refine"}),

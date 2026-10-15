@@ -4,7 +4,7 @@ import csv
 from pathlib import Path
 from typing import Literal
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 
 
 def selected_axes(path: Path, axes: Literal["wind", "stability"] | None) -> None:
@@ -23,6 +23,8 @@ def selected_axes(path: Path, axes: Literal["wind", "stability"] | None) -> None
         row.update({quantity: row[quantity + suffix] for quantity in ("CD", "CY", "CL")})
         row["polar_axes"] = axes
     with _textio.open_text(path, "w") as handle:
-        writer = csv.DictWriter(handle, fieldnames=[*columns, "CD", "CY", "CL", "polar_axes"])
+        writer = _textio.csv_dict_writer(
+            handle, fieldnames=[*columns, "CD", "CY", "CL", "polar_axes"]
+        )
         writer.writeheader()
         writer.writerows(rows)

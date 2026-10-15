@@ -77,9 +77,11 @@ from pyflightstream.cases.pproc import (
     StreamlineLine,
     StreamlinesSpec,
     StreamlineTube,
+    _NoiseSpec,
 )
 from pyflightstream.cases.workflows import RATE_VARIABLES, RAW_VARIABLE, WORKFLOWS
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.probes.planar import AxisSpec, FrameDefinition, PlanarProbeGrid, RefinementBand
 from pyflightstream.workspace.flight_condition import PINNED_KEYS
 from pyflightstream.workspace.inputs import (
     FLAGS_TABLE,
@@ -183,6 +185,12 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[plots]`"): _fields(PlotsSpec),
         ("pproc", "`[[plots.groups]]`"): _fields(ForcePlotGroup),
         ("pproc", "`[[probes]]`"): _fields(ProbesSpec),
+        ("pproc", "`[noise]`"): _fields(_NoiseSpec),
+        ("pproc", "`[[probes.grids]]`"): _fields(PlanarProbeGrid),
+        ("pproc", "`[probes.grids.frame]`"): _fields(FrameDefinition),
+        ("pproc", "`[probes.grids.u]`"): _fields(AxisSpec),
+        ("pproc", "`[probes.grids.v]`"): _fields(AxisSpec),
+        ("pproc", "`[probes.grids.refinement]`"): _fields(RefinementBand),
         ("pproc", "`[[surface_probes]]`"): _fields(SurfaceProbeSpec),
         ("pproc", "`[[probes.lines]]`"): _fields(ProbeLine),
         ("pproc", "`[[probes.rectangles]]`"): _fields(ProbeRectangle),

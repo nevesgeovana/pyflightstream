@@ -236,7 +236,7 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
         [1.0, 0.0, 2.0],
         [1.0, 1.0, 2.0],
     ]
-    from pyflightstream.cases.workflows._planar_probes import planar_points
+    from pyflightstream.cases.workflows._farfield import planar_points
 
     saved = case.model_copy(update={"geometry": str(tmp_path / "wing.fsm")})
     with pytest.raises(ValueError, match="wing.surface.stl"):
