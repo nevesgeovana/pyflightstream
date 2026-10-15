@@ -13,7 +13,7 @@ pytest
 
 The fsi and geom extras are needed for the complete offline suite. Add manual
 when changing manual-reading tools and plot when running plotting examples.
-Guard optional imports at the operation that needs them. [Test tiers](tiers.md)
+Guard optional imports at the operation that needs them. [Test tiers](https://nevesgeovana.github.io/pyflightstream/tiers/)
 explains what offline and licensed tests establish.
 
 Run affected subject tests while developing. Each tier-1 file belongs to one
@@ -92,8 +92,8 @@ files and remains local. Use each command's --help for required arguments.
 grammar needs review. When a build inherits no evidence, regenerate its absent
 command list with scripts/gen_absent_commands.py and run the database tests.
 
-See [versions and evidence](concepts/versions-and-evidence.md) and
-[build support](builds.md) for the two status ladders.
+See [versions and evidence](https://nevesgeovana.github.io/pyflightstream/concepts/versions-and-evidence/) and
+[build support](https://nevesgeovana.github.io/pyflightstream/builds/) for the two status ladders.
 
 ## Style and mutation tests
 

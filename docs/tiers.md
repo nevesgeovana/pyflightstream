@@ -10,7 +10,7 @@ Choose the tier by the evidence the change needs.
 
 The default pytest selection excludes `needs_flightstream` tests. Offline
 success does not establish solver behavior or physical validity. Use the
-package markers in `tests/packages.json` for focused offline runs; see
+package markers in `tests/tier1_offline/packages.json` for focused offline runs; see
 [Contributing](contributing.md) for setup and checks.
 
 ## Prepare the licensed workspace
