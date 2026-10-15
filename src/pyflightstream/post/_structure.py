@@ -114,6 +114,12 @@ def append_tip_columns(ctx: SimContext, path: Path, runs: Sequence[str]) -> None
         for blade in range(1, count + 1)
         for quantity in ("tip_deflection_m", "tip_twist_deg")
     ]
+    if collisions := set(columns).intersection(rows[0]):
+        ctx.skipped[f"{path.relative_to(ctx.out).as_posix()}#structure"] = (
+            f"tip quantities would replace existing columns {sorted(collisions)}; "
+            "rename those columns in the pproc names or equations before adding structural tips"
+        )
+        return
     rows[0].extend(columns)
     for row, run in zip(rows[1:], runs, strict=True):
         tips = ctx.structure_tips.get(run, [])
