@@ -48,6 +48,7 @@ FlightStream versions.
 ### Fixed
 
 - Probe models refuse non-finite float fields with `ProbeGeometryError` naming the field, including nested and serialized inputs.
+- Setup reading refuses solver settings outside their declared model bounds, including output precision and stabilization strength, naming the setup file, field and bound.
 
 - Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
 

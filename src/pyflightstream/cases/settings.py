@@ -267,7 +267,8 @@ class SolverSettings(BaseModel):
         Switches the Reynolds-averaged (flat plate) boundary layer
         calculations.
     solver_stabilization : float, optional
-        Stabilization strength. A preset that gates it with a separate
+        Stabilization strength from 0 to 1 (SRC-003 p.346, documented range).
+        A preset that gates it with a separate
         ENABLE/DISABLE key resolves the pair before it arrives here:
         disabled means None, not zero.
     laminar_separation : bool, optional
@@ -345,7 +346,7 @@ class SolverSettings(BaseModel):
         Whether the reported loads are the meshed half's or sector's or
         the whole model's; a row's ``SYMMETRY_LOADS`` column wins over it.
     significant_digits : int, optional
-        How many decimals the solver prints in every export.
+        Output precision from 1 to 8 (SRC-003 p.284, documented range).
     reference_velocity_m_per_s : float, optional
         The velocity the coefficients are normalised on, in m/s; unstated,
         the free-stream velocity.
@@ -568,7 +569,7 @@ class SolverSettings(BaseModel):
     wake_on_wake_induction: SolverToggle | None = None
     additional_wake_relaxation: SolverToggle | None = None
     reynolds_averaged_drag: SolverToggle | None = None
-    solver_stabilization: float | None = Field(default=None, ge=0.0)
+    solver_stabilization: float | None = Field(default=None, ge=0.0, le=1.0)
     #: Optional advanced settings, using the existing solver helper keywords.
     #: None emits nothing; the command database validates each stated value
     #: against the run's build before emission.
@@ -617,7 +618,7 @@ class SolverSettings(BaseModel):
     symmetry_loads: SolverToggle | None = None
     #: SET_SIGNIFICANT_DIGITS: how many decimals the solver prints in every
     #: export. The reference scripts state 7; the solver's own default prints 4.
-    significant_digits: int | None = Field(default=None, ge=1)
+    significant_digits: int | None = Field(default=None, ge=1, le=8)
     #: SOLVER_SET_REF_VELOCITY in m/s. None means the builders state the
     #: freestream velocity, which is what the coefficients are normalised
     #: on unless a preset says otherwise (PFS-2030.03.01).
