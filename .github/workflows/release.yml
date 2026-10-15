@@ -8,7 +8,7 @@
 #
 # A push to a branch named dry-run/** runs build, test-artifact (both
 # runners) and the main-CI check, and skips the tag-only work
-# (coverage, the tag-to-version check and publishing), so a release is rehearsed
+# (the tag-to-version check and publishing), so a release is rehearsed
 # on the real runners before any tag exists (FR-345, P0340-RELEASE-TITLE).
 #
 # A 2026-08 review changed the SHAPE of this workflow. It used to build, run
@@ -153,15 +153,14 @@ jobs:
       # test_imports_the_tree_under_test.py into a check that the wheel,
       # not the checkout, is what these tests import.
       - name: Tier 1 tests against the wheel
-        # Coverage runs once on a version tag, in this existing Linux test
-        # invocation. The floor remains in [tool.coverage.report] (NFR-16).
+        # Coverage is measured once at the tag by make_receipts suite-full,
+        # the frozen full suite, with --cov and the pyproject floor.
+        # These wheel tests run without coverage instrumentation.
         shell: bash
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
-          COVERAGE_ARGS: ${{ startsWith(github.ref, 'refs/tags/v') && matrix.os == 'ubuntu-latest' && '--cov --cov-branch --cov-report=term-missing' || '' }}
         run: |
-          read -r -a coverage_args <<< "$COVERAGE_ARGS"
-          pytest -n auto -o pythonpath= "${coverage_args[@]}"
+          pytest -n auto -o pythonpath=
       - name: Executable examples against the wheel
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
