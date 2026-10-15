@@ -124,6 +124,11 @@ EXCLUDED_FROM_EVERY_DIGEST = (
 #: package for every ``hashlib`` call and fails on a module absent here,
 #: so a new digest cannot enter with its canonical form unstated.
 CANONICAL_FORMS = {
+    "workspace/record_document.py": (
+        "the UTF-8 encoding of JSON with sorted keys, compact comma/colon separators "
+        "and ensure_ascii=True for each shared solver, frame or geometry definition. "
+        "The full SHA-256 names the immutable definition in its workspace registry."
+    ),
     "_digest.py": (
         "the raw bytes of a file, read in blocks and never decoded; or the "
         "UTF-8 encoding of a string. Nothing else is read: not the path, not "

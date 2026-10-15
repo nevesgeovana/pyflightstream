@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream.workspace.manifest import (
     MANIFEST_LOCK_POLL_S,
     MANIFEST_LOCK_RENEW_S,
