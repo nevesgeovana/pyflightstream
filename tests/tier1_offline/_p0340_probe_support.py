@@ -8,8 +8,6 @@ call the very function the real check calls.
 
 from __future__ import annotations
 
-import json
-import re
 import tempfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -55,17 +53,6 @@ def status_on(name: str, build: str = BUILD) -> str | None:
 def chapter_commands(*chapters: str) -> list[str]:
     """Return the command names of the named chapter files, in file order."""
     return [name for name, body in chapter_rows().items() if body["chapter"] in chapters]
-
-
-def census_of_reports(*stems: str) -> set[str]:
-    """Return the database commands the named committed round reports name."""
-    database = set(chapter_rows())
-    named: set[str] = set()
-    for stem in stems:
-        for path in sorted((REPO / "reports").glob(f"{stem}_*.json")):
-            text = json.dumps(json.loads(path.read_text(encoding="utf-8")))
-            named |= set(re.findall(r"[A-Z][A-Z0-9_]{5,}", text)) & database
-    return named
 
 
 def run_report(label: str, build: str = BUILD) -> Path | None:

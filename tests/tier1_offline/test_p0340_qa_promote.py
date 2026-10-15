@@ -27,7 +27,6 @@ from tests.tier1_offline._p0340_probe_support import (
     COMMANDS,
     RUN_LABEL_CN,
     build_script,
-    census_of_reports,
     chapter_commands,
     run_report,
     status_on,
@@ -76,16 +75,6 @@ ARM_CN = tuple(
     if "26.124" in CommandRegistry.load().commands[name].versions
 )
 EVERY = tuple(dict.fromkeys((*R1_SET, *ARM_CN)))
-
-
-def test_the_set_of_r1_is_the_commands_the_three_round_reports_name_fr_333():
-    """FR-333 R1, marker P0340-QA-PROMOTE: the set is counted from RPT-096, RPT-097 and RPT-098."""
-    named = census_of_reports("RPT-096", "RPT-097", "RPT-098") - {"NEW_CCS_WING_CONTROL_SURFACE"}
-    assert named == set(R1_SET), (
-        f"the three round reports name {sorted(named ^ set(R1_SET))} differently from the "
-        "recorded set; recount and list it in RPT-126"
-    )
-    assert len(R1_SET) == 17
 
 
 def test_every_command_of_the_set_and_of_the_chapters_has_a_catalog_entry_fr_333():

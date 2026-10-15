@@ -135,7 +135,7 @@ EXCLUSIONS = {
     "UNSTEADY_SOLVER_ANIMATION": (
         "not offered in 0.40.0: owner decision of 2026-09-27; unsteady actions deliver "
         "per-step exports",
-        "reports/RPT-106_setup-key-audit_2026-09-30.md",
+        "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-106_setup-key-audit_2026-09-30.md",
     ),
     "DISABLE_SOLVER_TIME_AVERAGING": (
         "not offered in 0.40.0: solver_time_averaging emits ENABLE over a selected window; "
@@ -147,13 +147,13 @@ EXCLUSIONS = {
         "not offered in 0.40.0: no free-surface pproc export route; a route requires code; "
         "the prerequisite free-surface creation remains broken on 26.125",
         "src/pyflightstream/commands/free_surfaces.yaml; "
-        "reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md",
+        "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md",
     ),
     "DELETE_FREE_SURFACE": (
         "not offered in 0.40.0: no free-surface setup operation; a route requires code; "
         "the prerequisite free-surface creation remains broken on 26.125",
         "src/pyflightstream/commands/free_surfaces.yaml; "
-        "reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md",
+        "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md",
     ),
 }
 
@@ -539,11 +539,12 @@ def main() -> None:
         ".md": render_markdown(report),
     }
     for suffix, text in twins.items():
-        path = args.root / "reports" / (STEM + suffix)
+        path = args.root / "build" / "reports" / (STEM + suffix)
         if args.check:
             if path.read_text("utf-8") != text:
                 raise ValueError(f"coverage twin differs: {path}")
         else:
+            path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text, encoding="utf-8", newline="\n")
     print(json.dumps(report["counts"], sort_keys=True))
 

@@ -210,7 +210,7 @@ def test_a_digest_beside_a_solver_package_file_is_found(tmp_path):
     # of package file, against the unmutated report and against allowed digests.
     token = hashlib.sha256(b"P0330-NO-EXE-HASH package file").hexdigest()
     assert hashlib.sha256(token.encode()).hexdigest() not in WITHHELD_DIGESTS
-    source = next((ROOT / "reports").glob("RPT-050_*.md"))
+    source = ROOT / "tests/tier1_offline/fixtures/withheld_package_row.md"
     text = source.read_text(encoding="utf-8")
     clean = tmp_path / "clean.md"
     clean.write_text(text, encoding="utf-8")

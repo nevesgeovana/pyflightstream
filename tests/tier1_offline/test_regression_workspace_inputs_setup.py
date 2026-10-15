@@ -170,7 +170,9 @@ from tests.tier1_offline.test_trailing_edges import (
 from tests.tier1_offline.test_workflows import steady_case as _workspace_1_degenerate__steady_case
 from tests.tier1_offline.test_workspace import make_record as _workspace_1_init__make_record
 
-_INTEGFIX_SETUP_EVIDENCE__REPORT = "reports/compat/CMP-2026-09-27-setup-parser.md"
+_INTEGFIX_SETUP_EVIDENCE__REPORT = (
+    "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/compat/CMP-2026-09-27-setup-parser.md"
+)
 
 
 _INTEGFIX_SETUP_EVIDENCE__COMMANDS = {

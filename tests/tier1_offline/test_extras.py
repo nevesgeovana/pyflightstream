@@ -359,12 +359,6 @@ def _dev_distributions() -> list[str]:
     return [re.split(r"[<>=!~\[]", spec)[0].strip() for spec in declared]
 
 
-def _report_texts() -> list[str]:
-    return [
-        path.read_text(encoding="utf-8") for path in sorted((REPO / "reports").glob("RPT-*.md"))
-    ]
-
-
 @pytest.mark.requirement("NFR-02")
 def test_every_runtime_dependency_has_a_license_card():
     """The set that reaches every user, which is the one that had no card."""

@@ -6,12 +6,9 @@ the single source; this script renders them into one JSON document that
 an external dashboard can consume without parsing Markdown, plus the
 traceability counts that say how much of the set a test reaches.
 
-Run it with no argument to write ``reports/requirements-index.json``, or
-with ``--check`` to fail when the committed file is stale. The Tier 1
-suite runs the second form, so the index cannot drift from the SRS the
-way a hand-maintained list does: the dashboard it feeds carried 32
-hand-assembled entries against a set that had grown well past that
-before this generator existed.
+Run it with no argument to write ``build/requirements-index.json``, or
+with ``--check`` to check a previously generated output. The generated index
+is a local build artifact; tests validate the generator against the SRS sources.
 
 Field names are fixed by the consumer. This list is the emitted set,
 and it is checked against the generator's output by a Tier 1 test
@@ -79,13 +76,14 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _requirements_paths import REQUIREMENTS_DIR  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 SRS = REPO / REQUIREMENTS_DIR
-OUT = REPO / "reports" / "requirements-index.json"
+OUT = REPO / "build" / "requirements-index.json"
 TESTS = REPO / "tests"
 
 #: Requirement box headers look like: !!! requirement "FR-37 Title <span ...
@@ -324,7 +322,7 @@ def _unreadable_headers(page: Path, text: str, matches: list[re.Match[str]]) -> 
 
 def _sort_key(entry: dict[str, str]) -> tuple[str, int, str]:
     prefix, _, rest = entry["id"].partition("-")
-    number = re.match(r"(\d+)([a-z]?)", rest)
+    number = cast(re.Match[str], re.match(r"(\d+)([a-z]?)", rest))
     return (prefix, int(number.group(1)), number.group(2))
 
 
@@ -434,21 +432,23 @@ def main() -> int:
         )
         return 1
     payload = json.dumps(data, indent=1, ensure_ascii=False) + "\n"
+    requirements = cast(list[dict[str, str]], data["requirements"])
     if args.check:
         current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
         if current != payload:
             print(
-                "reports/requirements-index.json is stale. Regenerate it with:\n"
+                "build/requirements-index.json is stale. Regenerate it with:\n"
                 "    python scripts/gen_requirements_index.py",
                 file=sys.stderr,
             )
             return 1
-        print(f"index current: {len(data['requirements'])} requirements")
+        print(f"index current: {len(requirements)} requirements")
         return 0
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(payload, encoding="utf-8", newline="\n")
-    trace = data["traceability"]
+    trace = cast(dict[str, object], data["traceability"])
     print(
-        f"wrote {OUT.relative_to(REPO)}: {len(data['requirements'])} requirements, "
+        f"wrote {OUT.relative_to(REPO)}: {len(requirements)} requirements, "
         f"{trace['cited_by_a_test']}/{trace['total']} cited by a test"
     )
     return 0

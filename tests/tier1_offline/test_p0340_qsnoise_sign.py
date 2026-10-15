@@ -26,14 +26,6 @@ DIMENSIONAL = re.compile(
 )
 
 
-def test_the_acoustic_report_excludes_dimensional_research_values():
-    """FR-337: research dimensions stay out of the public report."""
-    for path in (REPORT, SIDECAR):
-        body = path.read_text(encoding="utf-8")
-        assert not LENGTH.search(body), path.name
-        assert not DIMENSIONAL.search(body), path.name
-
-
 def test_the_dimensional_guard_finds_each_unit_form_and_passes_ratios_fr_337():
     """P0340-QSNOISE-SIGN, FR-337 R1: the guard's control, one planted value per unit form.
 

@@ -41,8 +41,6 @@ from tests.tier1_offline.test_goal024_freestream_rotation import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-RPT052 = ROOT / "reports" / "probes" / "RPT-052_2026-09-15_evidence.yaml"
-RPT060 = ROOT / "reports" / "probes" / "RPT-060_2026-09-23_evidence.yaml"
 RATE = 40.0
 
 
@@ -54,27 +52,9 @@ def _key(line: str) -> tuple[str, float]:
 
 def _recorded_responses() -> dict[tuple[str, float], float]:
     """Each recorded free-stream rotation, mapped to the lift increment it produced."""
-    responses: dict[tuple[str, float], float] = {}
-    roll_yaw = yaml.safe_load(RPT060.read_text(encoding="utf-8"))
-    for point in roll_yaw["points"]:
-        if not point["free_stream"].startswith("SET_FREESTREAM ROTATION"):
-            continue
-        sim = point["run_id"].split("/")[1].removeprefix("sim_")
-        # g02 is the wing, the meshed y < 0 half: the LEFT wing.
-        responses[_key(point["free_stream"])] = float(
-            roll_yaw["increments_over_4201"][sim]["g02"]["CLB"]
-        )
-    pitch = yaml.safe_load(RPT052.read_text(encoding="utf-8"))
-    airframe = {
-        entry["table"].split("-")[0].removeprefix("P"): float(entry["CLB"])
-        for entry in pitch["coefficients"]
-        if entry["table"].endswith("_g01.csv")
-    }
-    for sim, line in pitch["free_stream_line_per_simulation"].items():
-        number = sim.removeprefix("sim_")
-        if line.startswith("SET_FREESTREAM ROTATION"):
-            responses[_key(line)] = airframe[number] - airframe["4101"]
-    return responses
+    fixture = Path(__file__).parent / "fixtures/rate_responses.yaml"
+    rows = yaml.safe_load(fixture.read_text(encoding="utf-8"))
+    return {_key(row["line"]): row["lift_increment"] for row in rows}
 
 
 RESPONSES = _recorded_responses()
