@@ -3,6 +3,7 @@
 import json
 import math
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,20 @@ from pyflightstream.run import plan_campaign
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_fsi_setup
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
+
+
+@pytest.fixture(params=[False, True], ids=["P0410-GLOB-ASC", "P0410-GLOB-DESC"])
+def polar_glob_order(monkeypatch, request):
+    """Exercise polar selection under both filesystem enumeration orders."""
+    original = Path.glob
+
+    def ordered_glob(path, pattern, **kwargs):
+        matches = original(path, pattern, **kwargs)
+        if pattern == "post/**/polars/*.csv":
+            return iter(sorted(matches, reverse=request.param))
+        return matches
+
+    monkeypatch.setattr(Path, "glob", ordered_glob)
 
 
 def test_p0410_workspace_posts_exploratory_loading_noise(tmp_path):
@@ -48,7 +63,7 @@ inplane_radius_m = 0.7
 
 
 @pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])
-def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix):
+def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix, polar_glob_order):
     import csv
 
     from pyflightstream.post.products import write_campaign_products
@@ -59,13 +74,21 @@ def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix):
         f'[products]\npolar_axes = "{axes}"\n[groups]\n"1" = "all"\n'
     )
     write_campaign_products(workspace)
-    tables = list(workspace.root.glob("post/**/polars/*.csv"))
-    assert tables
-    rows = list(csv.DictReader(tables[0].read_text().splitlines()))
+    tables = {path.name: path for path in workspace.root.glob("post/**/polars/*.csv")}
+    assert set(tables) == {"P3207-AL-020_g01.csv", "SUPER-3207-AL-020_g01.csv"}
+    rows = list(csv.DictReader(tables["P3207-AL-020_g01.csv"].read_text().splitlines()))
+    super_rows = list(csv.DictReader(tables["SUPER-3207-AL-020_g01.csv"].read_text().splitlines()))
     assert rows
-    for row in rows:
+    assert len(super_rows) == len(rows)
+    for row, super_row in zip(rows, super_rows, strict=True):
+        assert row["polar_axes"] == axes
         for quantity in ("CD", "CY", "CL"):
             assert float(row[quantity]) == pytest.approx(float(row[quantity + suffix]), abs=1e-5)
+            # The superfile retains the explicitly labelled base polar columns.
+            for frame in ("B", "S", "W"):
+                assert float(super_row[quantity + frame]) == pytest.approx(
+                    float(row[quantity + frame]), abs=1e-5
+                )
 
 
 def test_p0410_workspace_coupling_rotates_station_forces(tmp_path):
@@ -250,12 +273,15 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
     from pyflightstream.cases.workflows._farfield import planar_points
 
     saved = case.model_copy(update={"geometry": str(tmp_path / "wing.fsm")})
-    with pytest.raises(ValueError, match="wing.surface.stl"):
+    with pytest.raises(ValueError, match="wing.surface.stl") as refusal:
         planar_points(saved, pproc.probes[0], 1.0)
+    assert "pyflightstream.run.export_surface_mesh" in str(refusal.value)
+    assert "pyfs-workspace geometry export-surface-mesh" in str(refusal.value)
+    assert "Planning does not launch the solver." in str(refusal.value)
 
 
 @pytest.mark.parametrize("morphing", ["mapped", "direct"])
-def test_p0410_workspace_post_reports_structure(tmp_path, morphing):
+def test_p0410_workspace_post_reports_structure(tmp_path, morphing, polar_glob_order):
     import shutil
 
     import numpy as np
@@ -316,19 +342,32 @@ def test_p0410_workspace_post_reports_structure(tmp_path, morphing):
         )
     )
     write_campaign_products(workspace)
-    products = list(workspace.root.glob("post/**/structure/*_deflection.csv"))
-    assert len(products) == 1
+    products = {
+        path.name: path for path in workspace.root.glob("post/**/structure/*_deflection.csv")
+    }
+    assert set(products) == {"POLAR-3207_M20AL-020BE+000_deflection.csv"}
     import csv
 
-    with products[0].open() as handle:
+    with products["POLAR-3207_M20AL-020BE+000_deflection.csv"].open() as handle:
         rows = list(csv.DictReader(handle))
     assert float(rows[-1]["deflection_m"]) == pytest.approx(0.008)
     assert float(rows[-1]["twist_deg"]) == pytest.approx(math.degrees(0.016))
-    polars = list(workspace.root.glob("post/**/polars/*.csv"))
-    assert polars
-    with polars[0].open() as handle:
+    polars = {path.name: path for path in workspace.root.glob("post/**/polars/*.csv")}
+    assert set(polars) == {"P3207-AL-020_g01.csv", "SUPER-3207-AL-020_g01.csv"}
+    with polars["P3207-AL-020_g01.csv"].open() as handle:
         polar_rows = list(csv.DictReader(handle))
+    assert len(polar_rows) == 1
     assert float(polar_rows[0]["tip_deflection_m_blade_1"]) == pytest.approx(0.008)
+    assert float(polar_rows[0]["tip_twist_deg_blade_1"]) == pytest.approx(math.degrees(0.016))
+    with polars["SUPER-3207-AL-020_g01.csv"].open() as handle:
+        super_rows = list(csv.DictReader(handle))
+    assert len(super_rows) == 1
+    assert super_rows[0]["run_id"] == original.run_id
+    assert super_rows[0]["GROUP"] == polar_rows[0]["GROUP"] == "1"
+    for quantity in ("CDW", "CYW", "CLW"):
+        assert float(super_rows[0][quantity]) == pytest.approx(
+            float(polar_rows[0][quantity]), abs=1e-5
+        )
 
 
 def test_p0410_rotor_tip_rows_keep_run_order_and_alias(tmp_path):
