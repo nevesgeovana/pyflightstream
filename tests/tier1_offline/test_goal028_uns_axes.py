@@ -133,6 +133,62 @@ def test_two_groups_that_differ_by_a_prefix_never_share_a_column(tmp_path):
     assert len([name for name in columns if name.startswith("CLW_")]) == 2
 
 
+@pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])
+def test_p0410_rv2_selected_axes_preserve_unsteady_plot_groups(tmp_path, axes, suffix):
+    from pyflightstream.post._polar_axes import selected_axes
+
+    groups = ("MRP_TOTAL", "TOTAL")
+    original_columns, original = _written(tmp_path, groups)
+    path = tmp_path / "P0001_x_uns_avg.csv"
+    selected_axes(path, axes)
+    columns, rows = read_csv_table(path)
+    assert len(columns) == len(set(columns))
+    assert {key: rows[0][key] for key in original_columns} == original
+    for group in groups:
+        for quantity, physical in (("CD", "drag"), ("CY", "side_force"), ("CL", "lift")):
+            assert (
+                rows[0][f"selected_{physical}_coefficient_{group}"]
+                == rows[0][f"{quantity}{suffix}_{group}"]
+            )
+    assert rows[0]["polar_axes"] == axes
+
+
+def test_p0410_rv2_selected_axes_keep_existing_solver_plot_coefficients(tmp_path):
+    import csv
+
+    from pyflightstream.post._polar_axes import selected_axes
+
+    columns, row = _written(tmp_path, ("MRP_TOTAL",))
+    row["CL_MRP_TOTAL"] = "7.25"
+    path = tmp_path / "P0001_x_uns_avg.csv"
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=[*columns, "CL_MRP_TOTAL"])
+        writer.writeheader()
+        writer.writerow(row)
+    selected_axes(path, "wind")
+    _, rows = read_csv_table(path)
+    assert rows[0]["CL_MRP_TOTAL"] == "7.25"
+    assert rows[0]["selected_lift_coefficient_MRP_TOTAL"] == row["CLW_MRP_TOTAL"]
+
+
+@pytest.mark.parametrize("damage", ["missing_component", "collision"])
+def test_p0410_rv2_selected_axes_refuse_before_replacing_the_table(tmp_path, damage):
+    from pyflightstream.post._polar_axes import selected_axes
+
+    _written(tmp_path, ("MRP_TOTAL",))
+    path = tmp_path / "P0001_x_uns_avg.csv"
+    content = path.read_text(encoding="utf-8")
+    if damage == "missing_component":
+        content = content.replace("CYW_MRP_TOTAL", "other_side_force")
+    else:
+        content = content.replace("FX_MRP_TOTAL", "selected_lift_coefficient_MRP_TOTAL")
+    path.write_text(content, encoding="utf-8")
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="polar axes"):
+        selected_axes(path, "wind")
+    assert path.read_bytes() == before
+
+
 def test_a_rotors_own_frame_is_never_the_source_and_the_block_says_why_it_is_absent(tmp_path):
     notes: list[str] = []
     # The pproc declares that group in the ROTOR's frame, so the stage does not name it.

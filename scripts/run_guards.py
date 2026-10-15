@@ -25,7 +25,7 @@ GUARDS = (
     f"{TIER1}/test_architecture_metrics.py",
     f"{TIER1}/test_extras_isolation.py",
     f"{TIER1}/test_goal028_module_level_layering.py",
-    f"{TIER1}/test_p0400_reach_guard.py",
+    f"{TIER1}/test_regression_workspace_reachability.py",
     f"{TIER1}/test_p0380_guards.py",
     f"{TIER1}/test_repository_guards.py",
 )

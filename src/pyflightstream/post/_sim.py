@@ -1275,9 +1275,11 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
     name_notes: list[str] = []
     equation_notes: list[str] = []
     unsteady_name = unsteady_polar_file_name(ctx.sim_id, name=ctx.table_name)
+    contributing_runs: list[str] = []
 
     def unsteady_destination(names: Sequence[str]) -> Path:
         nonlocal unsteady_name
+        contributing_runs[:] = [run for name in names for run in ctx.sources[name]]
         contributing = [point for point in ctx.points if point.name in names]
         unsteady_name = unsteady_polar_file_name(
             ctx.sim_id, name=ctx.contributor_name(contributing)
@@ -1344,6 +1346,7 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
             "these points of the sweep are not rows of the unsteady polar: " + "; ".join(left_out)
         )
     if done is not None:
+        append_tip_columns(ctx, done, contributing_runs)
         selected_axes(done, ctx.pproc.products.polar_axes)
         ctx.add(
             done,
