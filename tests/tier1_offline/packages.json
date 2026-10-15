@@ -399,6 +399,7 @@
       "tests/tier1_offline/test_p0370_s5_normal_inflow.py",
       "tests/tier1_offline/test_p0370_s5_probe_kind.py",
       "tests/tier1_offline/test_p0370_s7_codebook.py",
+      "tests/tier1_offline/test_p0410_fx2_fft.py",
       "tests/tier1_offline/test_post_diagnostics.py",
       "tests/tier1_offline/test_post_log.py",
       "tests/tier1_offline/test_post_superfile.py",

@@ -37,6 +37,31 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 
+def noise_snapshot_workspace(tmp, monkeypatch):
+    """Record a two-blade rotor whose 20 Hz BPF the acoustic export resolves."""
+    from tests.tier1_offline.test_p0320_noise_post import _unsteady_rotor_workspace
+
+    workspace = _unsteady_rotor_workspace(tmp, listed=True)
+    records = [
+        record.model_copy(
+            update={
+                "reductions": {
+                    "rotors": {
+                        "PROP": {
+                            "blade_families": ["Blade1", "Blade2"],
+                            "blades": 2,
+                            "rpm": 600.0,
+                        }
+                    }
+                }
+            }
+        )
+        for record in workspace.read_manifest()
+    ]
+    monkeypatch.setattr(type(workspace), "read_manifest", lambda self: records)
+    return workspace
+
+
 def _git(*args: str) -> str:
     return subprocess.run(
         ["git", *args],
@@ -67,8 +92,10 @@ def main(argv: list[str] | None = None) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(receipt, indent=1) + "\n", encoding="utf-8")
     print(json.dumps({k: v for k, v in receipt.items() if k != "differing"}))
-    print(f"differing: {len(receipt['differing'])}")
-    for line in receipt["differing"][:20]:
+    differing = receipt["differing"]
+    assert isinstance(differing, list)
+    print(f"differing: {len(differing)}")
+    for line in differing[:20]:
         print(f"  {line}")
     control = str(receipt["control"]).split()
     ok = not receipt["differing"] and control[1] == control[3] and receipt["files_checked"]

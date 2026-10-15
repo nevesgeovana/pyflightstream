@@ -940,15 +940,11 @@ _AD06_RESIDUALS = {
 #: so `import pyflightstream.post` does not bring it in. Fixing it is one
 #: line in a file this session did not own; the fix is in the handover, and
 #: the entry goes stale and fails the moment it lands.
-_UNREACHABLE_FROM_ITS_PACKAGE_ROOT = {
+_UNREACHABLE_FROM_ITS_PACKAGE_ROOT: dict[str, str] = {
     # 0.37.0: settings_table and inflow_tools left this list when the settings
     # codebook product (item S7) and the installed-frame copies (item S8) made the
     # post stage import them.
-    "pyflightstream.post.qsteady_noise": (
-        "the exploratory noise model, not wired into the post stage and its report "
-        "writer left unfilled (P0320-QS-NOISE, FR-304); the entry closes when the "
-        "report writer is filled and a stage calls it"
-    ),
+    # 0.41.0: qsteady_noise left this list when the post stage gained its report route.
 }
 
 
