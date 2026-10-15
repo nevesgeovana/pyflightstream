@@ -13,6 +13,7 @@ import html
 import json
 import sys
 import textwrap
+import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -108,8 +109,11 @@ def flow_svg(data: dict, case: dict) -> str:
     return "\n".join(parts + ["</g></svg>", ""])
 
 
-def flow_page(data: dict) -> str:
+def flow_page(data: dict, root: Path) -> str:
     """Explain the shared flows and show their source-bound stage diagrams."""
+    repository = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "urls"
+    ]["Repository"]
     lines = [
         "# Matrix to products",
         "",
@@ -140,10 +144,7 @@ def flow_page(data: dict) -> str:
         )
         for route in ("workspace", "api"):
             path = case[route]
-            lines.append(
-                f"- [{route} example](https://github.com/nevesgeovana/pyflightstream/"
-                f"blob/main/{path})"
-            )
+            lines.append(f"- [{route} example]({repository}/blob/main/{path})")
         lines.append("")
     lines.extend(
         [
@@ -293,7 +294,7 @@ def generate(root: Path, family: str) -> dict[str, bytes]:
         page = module_page(data)
     elif family == "data-flow":
         data = flow_data(root)
-        page = flow_page(data)
+        page = flow_page(data, root)
     else:
         raise ValueError(f"unknown graph family: {family}")
     artifacts = {

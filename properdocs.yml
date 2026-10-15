@@ -237,6 +237,10 @@ nav:
       - Sister library: sister-itaca.md
   - Contributing:
       - Contributing guide: contributing.md
+      - Contributor graphs: graphs/index.md
+      - Requirements tree: graphs/requirements.md
+      - Library module graph: graphs/library.md
+      - Matrix to products: graphs/data-flow.md
       - Architecture rules: srs/architecture-srs.md
       - Test tiers: tiers.md
       - House conventions: conventions.md
