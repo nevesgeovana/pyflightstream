@@ -1,0 +1,22 @@
+stages:
+  INST: {stage: Know the instrument, mnemonic: INSTrument}
+  DEXP: {stage: Design the experiment, mnemonic: Design of EXPeriment}
+  SPCM: {stage: Prepare the specimen, mnemonic: SPeCiMen}
+  PHYS: {stage: Configure the physics, mnemonic: PHYSics}
+  PROC: {stage: Translate to the instrument, mnemonic: operating PROCedure}
+  EXEC: {stage: Run the experiment, mnemonic: EXECution}
+  RECS: {stage: Record the experiment, mnemonic: 'RECordS, the laboratory notebook'}
+  DRED: {stage: Reduce the data, mnemonic: Data REDuction}
+  TRST: {stage: Establish trust, mnemonic: TRuST}
+  WKSP: {stage: Keep the laboratory, mnemonic: WorKSPace}
+  OPER: {stage: Operate and learn, mnemonic: OPERation}
+quality:
+  QFSU: {characteristic: Functional suitability, standard: 'ISO/IEC 25010:2023', clause: '3.1'}
+  QPEFF: {characteristic: Performance efficiency, standard: 'ISO/IEC 25010:2023', clause: '3.2'}
+  QCOMP: {characteristic: Compatibility, standard: 'ISO/IEC 25010:2023', clause: '3.3'}
+  QUSA: {characteristic: Interaction capability, standard: 'ISO/IEC 25010:2023', clause: '3.4'}
+  QREL: {characteristic: Reliability, standard: 'ISO/IEC 25010:2023', clause: '3.5'}
+  QSEC: {characteristic: Security, standard: 'ISO/IEC 25010:2023', clause: '3.6'}
+  QMNT: {characteristic: Maintainability, standard: 'ISO/IEC 25010:2023', clause: '3.7'}
+  QFLX: {characteristic: Flexibility, standard: 'ISO/IEC 25010:2023', clause: '3.8'}
+  QSAF: {characteristic: Safety, standard: 'ISO/IEC 25010:2023', clause: '3.9'}

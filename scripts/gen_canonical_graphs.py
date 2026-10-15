@@ -286,7 +286,7 @@ def generate(root: Path, family: str) -> dict[str, bytes]:
     """Return deterministic artifact bytes for one family without writing."""
     if family == "requirements":
         data = requirement_data(root)
-        page = requirement_page(data)
+        page = requirement_page(data) + "\n" + requirements.hid_legend(root)
     elif family == "library":
         data = module_data(
             arch.Tree(arch.load_sources(root / "src/pyflightstream")), layer_rows(root)

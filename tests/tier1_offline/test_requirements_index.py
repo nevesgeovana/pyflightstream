@@ -15,9 +15,73 @@ from types import ModuleType
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
+RADICALS = "INST DEXP SPCM PHYS PROC EXEC RECS DRED TRST WKSP OPER".split()
+WORKSPACE_STATEMENT = (
+    "The laboratory state that governs an experiment (protocol, configuration, records) shall be "
+    "held in plain-text files that a version control system can compare and merge; bulk solver "
+    "outputs are referenced by hash and never edited."
+)
 
 
-GENERATOR = REPO / "scripts" / "gen_requirements_index.py"
+def validate_method(text):
+    rows = [
+        [cell.strip() for cell in line.strip("|").split("|")]
+        for line in text.splitlines()
+        if line.startswith("| NL-")
+    ]
+    for radical in RADICALS:
+        assert any(
+            len(row) == 6
+            and row[0] == "NL-" + radical
+            and row[2:4] == ["L0", radical]
+            and row[4].startswith("A numerical laboratory driver shall ")
+            for row in rows
+        ), radical
+    assert any(row[0] == "NL-WKSP-1" and row[4] == WORKSPACE_STATEMENT for row in rows)
+
+
+def test_p0420_method_stages_and_workspace_version_control():
+    path = REPO / "docs/srs/numerical-laboratory-method.md"
+    validate_method(path.read_text("utf-8") if path.exists() else "")
+
+
+@pytest.mark.parametrize("missing", [*RADICALS, "WKSP-1"], ids=lambda x: "P0420-" + x)
+def test_p0420_method_planted_missing_row(missing):
+    rows = [
+        f"| NL-{r} | pending | L0 | {r} | A numerical laboratory driver shall act. | - |"
+        for r in RADICALS
+    ]
+    rows.append(f"| NL-WKSP-1 | pending | L1 | WKSP | {WORKSPACE_STATEMENT} | - |")
+    text = "\n".join(rows)
+    validate_method(text)
+    mutant = "\n".join(row for row in rows if not row.startswith(f"| NL-{missing} |"))
+    with pytest.raises(AssertionError):
+        validate_method(mutant)
+
+
+def test_p0420_areas_cover_method_and_quality():
+    path = REPO / "docs/srs/areas.yaml"
+    import yaml
+
+    areas = yaml.safe_load(path.read_text("utf-8")) if path.exists() else {}
+    assert set(areas.get("stages", {})) == set(RADICALS)
+    codes = "QFSU QPEFF QCOMP QUSA QREL QSEC QMNT QFLX QSAF".split()
+    assert list(areas["quality"]) == codes
+    for i, value in enumerate(areas["quality"].values(), 1):
+        assert value["clause"] == f"3.{i}"
+        assert value["standard"] == "ISO/IEC 25010:2023"
+
+
+def test_p0420_hid_legend_reads_authored_vocabulary(tmp_path):
+    generator = _generator()
+    srs = tmp_path / "docs/srs"
+    srs.mkdir(parents=True)
+    (srs / "areas.yaml").write_text(
+        "stages:\n  INST: {stage: Changed title, mnemonic: Changed mnemonic}\nquality: {}\n",
+        encoding="utf-8",
+    )
+    legend = generator.hid_legend(tmp_path)
+    assert "| INST | Changed title | Changed mnemonic |" in legend
 
 
 def test_p0420_register_uses_public_manual_identity():
@@ -31,6 +95,26 @@ def test_p0420_register_uses_public_manual_identity():
     assert len(definitions) == 1
     assert "FSM-26.125" in definitions[0]
     assert "SRC-" not in definitions[0]
+
+
+GENERATOR = REPO / "scripts" / "gen_requirements_index.py"
+
+
+def test_p0420_srs_reader_preserves_authored_attributes():
+    from scripts._requirements_paths import requirement_rows
+
+    text = (
+        "| UID | Parent | HID | Level | Status | Verification method | Statement "
+        "| Rationale | Derives from | Code | Test |\n"
+        "| FR-1230 | - | INST-1 | L1 | pending | inspection | The library shall record a&#124;b. "
+        "| reason | NL-INST | - | - |\n"
+    )
+    rows = requirement_rows(text)
+    assert rows[0]["statement"] == "The library shall record a|b."
+    assert rows[0]["verification_method"] == "inspection"
+    assert rows[0]["derives_from"] == "NL-INST"
+    with pytest.raises(ValueError, match="malformed"):
+        requirement_rows(text.replace(" | reason", ""))
 
 
 def test_p0410_pa2_owned_citations_use_stable_uids() -> None:
