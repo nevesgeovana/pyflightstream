@@ -20,7 +20,7 @@ def generator():
     return module
 
 
-@pytest.mark.parametrize("family", ["requirements", "library"])
+@pytest.mark.parametrize("family", ["requirements", "library", "data-flow"])
 def test_p0410_canonical_graph_bytes_and_planted_drift(family, tmp_path):
     gen = generator()
     artifacts = gen.generate(ROOT, family)
@@ -77,3 +77,35 @@ def test_p0410_library_walker_includes_deferred_and_typing_edges():
     assert ("pyflightstream.post.sample", "pyflightstream.commands", "deferred") in edges
     changed = tree.with_changes({"post/sample.py": "import pyflightstream.versions\n"})
     assert gen.module_data(changed, rows) != data
+
+
+def test_p0410_flow_edges_follow_declared_inputs_outputs(tmp_path):
+    import shutil
+
+    gen = generator()
+    declaration = json.loads((ROOT / "scripts/pipeline_graph.json").read_text())
+    (tmp_path / "scripts").mkdir()
+    for stage in declaration["stages"]:
+        relative = "src/pyflightstream/" + stage["source"]
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / relative, target)
+    for case in declaration["cases"]:
+        for route in ("workspace", "api"):
+            target = tmp_path / case[route]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / case[route], target)
+    path = tmp_path / "scripts/pipeline_graph.json"
+    path.write_text(json.dumps(declaration))
+    before = gen.flow_data(tmp_path)
+    assert {"source": "matrix", "target": "resolve", "artifact": "matrix rows"} in before["edges"]
+    declaration["stages"][1]["inputs"].remove("matrix rows")
+    path.write_text(json.dumps(declaration))
+    after = gen.flow_data(tmp_path)
+    assert before != after
+    assert not any(e["source"] == "matrix" for e in after["edges"])
+    source = tmp_path / "src/pyflightstream/cases/matrix.py"
+    source.write_text(
+        source.read_text().replace("active_only: bool = True", "active_only: bool = False")
+    )
+    assert gen.flow_data(tmp_path) != after

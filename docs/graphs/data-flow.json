@@ -1,0 +1,211 @@
+{
+  "stages": [
+    {
+      "id": "matrix",
+      "label": "Read matrix rows",
+      "source": "cases/matrix.py",
+      "symbol": "read_matrix",
+      "inputs": [
+        "matrix file"
+      ],
+      "outputs": [
+        "matrix rows"
+      ],
+      "parameters": "path: str | Path, *, active_only: bool=True",
+      "returns": "list[MatrixRow]",
+      "source_sha256": "366f779c4c2ee0f0898002d6de02c4fa222ff2ef119426c01ae70383263063d6"
+    },
+    {
+      "id": "resolve",
+      "label": "Bind input library",
+      "source": "workspace/matrix.py",
+      "symbol": "resolve_matrix",
+      "inputs": [
+        "matrix rows",
+        "geometry",
+        "reference, setup, pproc and build"
+      ],
+      "outputs": [
+        "resolved campaign"
+      ],
+      "parameters": "path: str | Path, workspace: CampaignWorkspace, *, name: str, fs_version: str | None, recipes: Mapping[str, str], fs_exe: str | Path | None=None, ignore_missing_families: bool=True, rows: list[MatrixRow] | None=None",
+      "returns": "ResolvedMatrix",
+      "source_sha256": "ce6e172d70c117779cf0a1631b91482b309ac59353453c3ed0e6b57c807470e6"
+    },
+    {
+      "id": "plan",
+      "label": "Plan without solver",
+      "source": "run/_plan.py",
+      "symbol": "plan_campaign",
+      "inputs": [
+        "resolved campaign"
+      ],
+      "outputs": [
+        "plan receipt and scripts"
+      ],
+      "parameters": "campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None",
+      "returns": "CampaignPlan",
+      "source_sha256": "4b9c719fdb6709dfb608ab36bdaf2796299aefa38a44118b6ac7c2671f915328"
+    },
+    {
+      "id": "run",
+      "label": "Execute campaign",
+      "source": "run/_campaign.py",
+      "symbol": "run_campaign",
+      "inputs": [
+        "resolved campaign",
+        "plan receipt and scripts",
+        "executor and assessor"
+      ],
+      "outputs": [
+        "run records and solver exports"
+      ],
+      "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: str | Path | None=None, accepted_builds: Collection[str]=()",
+      "returns": "list[RunRecord]",
+      "source_sha256": "419f0291430010c36b370d1c9ce432d4afbb8864c7a960a93512b749e70d28eb"
+    },
+    {
+      "id": "collect",
+      "label": "Collect submitted work",
+      "source": "run/collect.py",
+      "symbol": "collect_once",
+      "inputs": [
+        "run records and solver exports"
+      ],
+      "outputs": [
+        "collected run records"
+      ],
+      "parameters": "workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None",
+      "returns": "CollectReport",
+      "source_sha256": "88a2136da5520347242cfbef193b7e7cf26bf6e17c2169dbd7588b75f2f3ddb3"
+    },
+    {
+      "id": "post",
+      "label": "Build engineering products",
+      "source": "post/products.py",
+      "symbol": "write_campaign_products",
+      "inputs": [
+        "collected run records",
+        "pproc and recorded definitions"
+      ],
+      "outputs": [
+        "product tables, provenance and post log"
+      ],
+      "parameters": "workspace: CampaignWorkspace, *, overwrite: bool=False, archive: bool=False, archive_stamp: datetime | None=None, matrix_stem: str | None=None, check_frozen: bool=False, sims: Collection[str] | None=None",
+      "returns": "list[Path]",
+      "source_sha256": "65306b37b8cfa5cd004abce0bfb904b30e17b59be30f5ee3feb3afc402fccf5e"
+    },
+    {
+      "id": "refine",
+      "label": "Refine source mesh",
+      "source": "workspace/_refine/_level.py",
+      "symbol": "refine_mesh",
+      "inputs": [
+        "source mesh and refinement settings"
+      ],
+      "outputs": [
+        "geometry"
+      ],
+      "parameters": "mesh: str | os.PathLike[str], factor: float | None=None, *, families: Sequence[str] | None=None, chordwise: float | None=None, spanwise: float | None=None, config: str | Path | None=None, out_dir: str | Path | None=None, overwrite: bool=False, keep_first_row: Sequence[str] | None=None",
+      "returns": "RefinedMesh",
+      "source_sha256": "30151bf63bbbd125ebd9fedd4dc02c93754efa314184876e548ca4e527e49127"
+    }
+  ],
+  "cases": [
+    {
+      "id": "steady-polar",
+      "title": "Steady wing polar",
+      "workspace": "examples/using-CLI/steady-wing-polar/matrix.fs",
+      "api": "examples/using-API/steady_wing_polar.py",
+      "stages": [
+        "matrix",
+        "resolve",
+        "plan",
+        "run",
+        "collect",
+        "post"
+      ],
+      "products": "Steady polar coefficients, sections and provenance",
+      "example_sha256": {
+        "workspace": "386ad631127675bbf97a6332906e7b3873ec8944807e51d778b2817fceb1bd7e",
+        "api": "1182f243330f2cadcab0c099d2bfb28319ea3e75c85b70e25306a01297975c3b"
+      }
+    },
+    {
+      "id": "unsteady-rotor",
+      "title": "Unsteady isolated propeller",
+      "workspace": "examples/using-CLI/unsteady-isolated-propeller/matrix.fs",
+      "api": "examples/using-API/unsteady_isolated_propeller.py",
+      "stages": [
+        "matrix",
+        "resolve",
+        "plan",
+        "run",
+        "collect",
+        "post"
+      ],
+      "products": "Windowed rotor coefficients and configured unsteady reductions",
+      "example_sha256": {
+        "workspace": "b76fbe1389d376baaeab02378ebda3ae3e328bd4c54bf34340009dacb3c9abec",
+        "api": "5ca3bb9fa976a829f15c2cf688882b2b0d504f4cea32e6422f292d4f28bbddd9"
+      }
+    },
+    {
+      "id": "mesh-refinement",
+      "title": "Campaign with mesh refinement",
+      "workspace": "examples/using-CLI/mesh-refinement-campaign/matrix.fs",
+      "api": "examples/using-API/mesh_refinement_campaign.py",
+      "stages": [
+        "refine",
+        "matrix",
+        "resolve",
+        "plan",
+        "run",
+        "collect",
+        "post"
+      ],
+      "products": "Comparable polar tables for the original and refined mesh",
+      "example_sha256": {
+        "workspace": "42fde9dff9b66165aa75b9b4852784597521bb5c6ba7f1d9936aebb3e933021b",
+        "api": "adbd421573ea483096c1efad32268a537a79e8060fc356b1a854b551a8b5caf8"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "matrix",
+      "target": "resolve",
+      "artifact": "matrix rows"
+    },
+    {
+      "source": "resolve",
+      "target": "plan",
+      "artifact": "resolved campaign"
+    },
+    {
+      "source": "resolve",
+      "target": "run",
+      "artifact": "resolved campaign"
+    },
+    {
+      "source": "plan",
+      "target": "run",
+      "artifact": "plan receipt and scripts"
+    },
+    {
+      "source": "run",
+      "target": "collect",
+      "artifact": "run records and solver exports"
+    },
+    {
+      "source": "collect",
+      "target": "post",
+      "artifact": "collected run records"
+    },
+    {
+      "source": "refine",
+      "target": "resolve",
+      "artifact": "geometry"
+    }
+  ]
+}

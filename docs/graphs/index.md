@@ -5,6 +5,7 @@ The source registry defines the requirement hierarchy; the graph is its projecti
 
 - [Requirements tree](requirements.md): stable requirement IDs grouped by area and parent.
 - [Library module graph](library.md): modules and outgoing imports grouped by layer row.
+- [Matrix to products](data-flow.md): workspace and Python flows for three example cases.
 
 Regenerate from the repository root:
 

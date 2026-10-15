@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 790" role="img" aria-labelledby="title">
+<title id="title">Unsteady isolated propeller data flow</title>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#52677c"/></marker></defs>
+<rect width="100%" height="100%" fill="white"/>
+<g font-family="sans-serif" font-size="15" fill="#172c40">
+<text x="25" y="28">Workspace CLI and Python API share these services</text>
+<path d="M 360 118 H 400 V 202 H 360" fill="none" stroke="#52677c" marker-end="url(#arrow)"/>
+<path d="M 360 238 H 400 V 322 H 360" fill="none" stroke="#52677c" marker-end="url(#arrow)"/>
+<path d="M 360 238 H 470 V 442 H 360" fill="none" stroke="#52677c" marker-end="url(#arrow)"/>
+<path d="M 360 358 H 400 V 442 H 360" fill="none" stroke="#52677c" marker-end="url(#arrow)"/>
+<path d="M 360 478 H 400 V 562 H 360" fill="none" stroke="#52677c" marker-end="url(#arrow)"/>
+<path d="M 360 598 H 400 V 682 H 360" fill="none" stroke="#52677c" marker-end="url(#arrow)"/>
+<rect x="25" y="70" width="335" height="60" rx="8" fill="#eaf2f8" stroke="#52677c"/>
+<text x="38" y="96">Read matrix rows</text>
+<text x="38" y="117" font-size="12">read_matrix</text>
+<text x="490" y="80" font-size="12">Input: matrix file</text>
+<text x="490" y="96" font-size="12">Output: matrix rows</text>
+<rect x="25" y="190" width="335" height="60" rx="8" fill="#eaf2f8" stroke="#52677c"/>
+<text x="38" y="216">Bind input library</text>
+<text x="38" y="237" font-size="12">resolve_matrix</text>
+<text x="490" y="200" font-size="12">Input: matrix rows; geometry; reference, setup,</text>
+<text x="490" y="216" font-size="12">pproc and build</text>
+<text x="490" y="232" font-size="12">Output: resolved campaign</text>
+<rect x="25" y="310" width="335" height="60" rx="8" fill="#eaf2f8" stroke="#52677c"/>
+<text x="38" y="336">Plan without solver</text>
+<text x="38" y="357" font-size="12">plan_campaign</text>
+<text x="490" y="320" font-size="12">Input: resolved campaign</text>
+<text x="490" y="336" font-size="12">Output: plan receipt and scripts</text>
+<rect x="25" y="430" width="335" height="60" rx="8" fill="#eaf2f8" stroke="#52677c"/>
+<text x="38" y="456">Execute campaign</text>
+<text x="38" y="477" font-size="12">run_campaign</text>
+<text x="490" y="440" font-size="12">Input: resolved campaign; plan receipt and scripts;</text>
+<text x="490" y="456" font-size="12">executor and assessor</text>
+<text x="490" y="472" font-size="12">Output: run records and solver exports</text>
+<rect x="25" y="550" width="335" height="60" rx="8" fill="#eaf2f8" stroke="#52677c"/>
+<text x="38" y="576">Collect submitted work</text>
+<text x="38" y="597" font-size="12">collect_once</text>
+<text x="490" y="560" font-size="12">Input: run records and solver exports</text>
+<text x="490" y="576" font-size="12">Output: collected run records</text>
+<rect x="25" y="670" width="335" height="60" rx="8" fill="#eaf2f8" stroke="#52677c"/>
+<text x="38" y="696">Build engineering products</text>
+<text x="38" y="717" font-size="12">write_campaign_products</text>
+<text x="490" y="680" font-size="12">Input: collected run records; pproc and recorded</text>
+<text x="490" y="696" font-size="12">definitions</text>
+<text x="490" y="712" font-size="12">Output: product tables, provenance and post log</text>
+</g></svg>

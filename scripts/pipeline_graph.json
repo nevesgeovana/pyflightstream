@@ -1,0 +1,16 @@
+{
+  "stages": [
+    {"id": "matrix", "label": "Read matrix rows", "source": "cases/matrix.py", "symbol": "read_matrix", "inputs": ["matrix file"], "outputs": ["matrix rows"]},
+    {"id": "resolve", "label": "Bind input library", "source": "workspace/matrix.py", "symbol": "resolve_matrix", "inputs": ["matrix rows", "geometry", "reference, setup, pproc and build"], "outputs": ["resolved campaign"]},
+    {"id": "plan", "label": "Plan without solver", "source": "run/_plan.py", "symbol": "plan_campaign", "inputs": ["resolved campaign"], "outputs": ["plan receipt and scripts"]},
+    {"id": "run", "label": "Execute campaign", "source": "run/_campaign.py", "symbol": "run_campaign", "inputs": ["resolved campaign", "plan receipt and scripts", "executor and assessor"], "outputs": ["run records and solver exports"]},
+    {"id": "collect", "label": "Collect submitted work", "source": "run/collect.py", "symbol": "collect_once", "inputs": ["run records and solver exports"], "outputs": ["collected run records"]},
+    {"id": "post", "label": "Build engineering products", "source": "post/products.py", "symbol": "write_campaign_products", "inputs": ["collected run records", "pproc and recorded definitions"], "outputs": ["product tables, provenance and post log"]},
+    {"id": "refine", "label": "Refine source mesh", "source": "workspace/_refine/_level.py", "symbol": "refine_mesh", "inputs": ["source mesh and refinement settings"], "outputs": ["geometry"]}
+  ],
+  "cases": [
+    {"id": "steady-polar", "title": "Steady wing polar", "workspace": "examples/using-CLI/steady-wing-polar/matrix.fs", "api": "examples/using-API/steady_wing_polar.py", "stages": ["matrix", "resolve", "plan", "run", "collect", "post"], "products": "Steady polar coefficients, sections and provenance"},
+    {"id": "unsteady-rotor", "title": "Unsteady isolated propeller", "workspace": "examples/using-CLI/unsteady-isolated-propeller/matrix.fs", "api": "examples/using-API/unsteady_isolated_propeller.py", "stages": ["matrix", "resolve", "plan", "run", "collect", "post"], "products": "Windowed rotor coefficients and configured unsteady reductions"},
+    {"id": "mesh-refinement", "title": "Campaign with mesh refinement", "workspace": "examples/using-CLI/mesh-refinement-campaign/matrix.fs", "api": "examples/using-API/mesh_refinement_campaign.py", "stages": ["refine", "matrix", "resolve", "plan", "run", "collect", "post"], "products": "Comparable polar tables for the original and refined mesh"}
+  ]
+}
