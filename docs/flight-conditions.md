@@ -1,5 +1,39 @@
 # Flight conditions
 
+## Compare requested and reported conditions
+
+`bind_conditions` compares the requested point with the conditions printed
+by a loads export. A converged export can belong to a different point.
+The solver-free example below uses synthetic report attributes; pass a parsed
+`LoadsReport` in a real study. Angles are degrees and velocity is metres per second.
+
+```python
+from types import SimpleNamespace
+from pyflightstream.results import bind_conditions
+
+requested = {"alpha": 2.0, "beta": 0.0, "velocity": 30.0}
+reported = SimpleNamespace(
+    angle_of_attack_deg=3.0, sideslip_deg=0.0, freestream_velocity_m_s=30.0
+)
+binding = bind_conditions(requested, reported=reported)
+assert binding.compared
+assert not binding.mismatch_free
+assert [check.axis for check in binding.mismatches] == ["alpha"]
+for check in binding.checks:
+    print(check.describe())
+
+missing = bind_conditions(requested, reported=SimpleNamespace())
+assert not missing.compared
+assert set(missing.unprinted) == set(requested)
+```
+
+The comparison accounts for print precision. `unprinted` identifies known
+axes absent from the report; `unbound` identifies requested axes the helper
+cannot compare. Check these alongside `compared` and `mismatch_free` before
+claiming that all requested conditions were verified.
+
+## Declare the flow state
+
 A run states the flow condition it wants, and the package resolves the
 state. This page is what the `FLIGHT_CONDITION` cell of a run matrix
 means, what you may write in it, and what it refuses.

@@ -6,3 +6,5 @@
   findings, missing dependencies and argument errors.
 - PFS-2122.001: The FSI calibration example checks its template edit and reports
   the factor read from the input file, with the matrix override kept separate.
+- OPS-2005.15.01, OPS-2009.01.02: Setup and flight-condition pages include
+  solver-free examples for separation assignments and requested/report binding.
