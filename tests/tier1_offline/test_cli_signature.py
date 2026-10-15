@@ -305,10 +305,10 @@ def test_success_phrases_vary_without_changing_json_or_status(monkeypatch, capsy
         return 0
 
     monkeypatch.setattr(_cli, "_RNG", random.Random(7))
-    monkeypatch.setattr(cli, "_cmd_upgrade", succeeded)
+    monkeypatch.setattr(cli, "_cmd_records", succeeded)
     seen = set()
     for _ in range(20):
-        assert cli.main(["upgrade", "matrix.fs"]) == 0
+        assert cli.main(["status"]) == 0
         streams = capsys.readouterr()
         assert streams.out == '{"status":"complete"}\n'
         assert streams.err.count(SEES_YOU) == 1

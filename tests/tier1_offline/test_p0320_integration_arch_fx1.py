@@ -47,11 +47,11 @@ def test_acoustic_products_read_the_joined_record_outputs() -> None:
 
 def test_each_record_writer_uses_the_shared_archive_function() -> None:
     assert callable(naming.archive_previous)
+    assert not (PACKAGE / "run" / "rename.py").exists(), "N3 retires the rename writer"
     writers = {
         "storage record": PACKAGE / "workspace" / "storage.py",
         "additional-post record": PACKAGE / "workspace" / "__init__.py",
         "plan receipt": PACKAGE / "run" / "_plan.py",
-        "plan receipt on rename": PACKAGE / "run" / "rename.py",
         "products record": PACKAGE / "post" / "products.py",
     }
     silent = [kind for kind, module in writers.items() if _calls(module, "archive_previous") < 1]

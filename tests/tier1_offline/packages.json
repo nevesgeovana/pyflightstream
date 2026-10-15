@@ -478,7 +478,6 @@
       "tests/tier1_offline/test_regression_qa_tools.py"
     ],
     "guards": [
-      "tests/tier1_offline/test_p0410_int1_migration_remedies.py",
       "tests/tier1_offline/test_approved_capabilities_029.py",
       "tests/tier1_offline/test_architecture_metrics.py",
       "tests/tier1_offline/test_build_table.py",
@@ -588,6 +587,7 @@
       "tests/tier1_offline/test_p0410_ci_triggers.py",
       "tests/tier1_offline/test_p0410_cl_fin_versions.py",
       "tests/tier1_offline/test_p0410_cl_fin_workflow_goldens.py",
+      "tests/tier1_offline/test_p0410_int1_migration_remedies.py",
       "tests/tier1_offline/test_pfs2006_declined_induced_drag.py",
       "tests/tier1_offline/test_post_products.py",
       "tests/tier1_offline/test_products_snapshot.py",

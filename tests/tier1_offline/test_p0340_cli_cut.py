@@ -33,10 +33,8 @@ am = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = am
 _SPEC.loader.exec_module(am)
 
-#: The subcommands in the order v0.33.0 added them; the help text lists them so.
+#: The retained subcommands in their original order; N3 removes upgrade and rename.
 V0330_SUBCOMMANDS = [
-    "upgrade",
-    "rename",
     "inventory",
     "space-in-use",
     "free-space",

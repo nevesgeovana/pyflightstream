@@ -1364,7 +1364,7 @@
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
   "script/__init__.py": 1652,
-  "workspace/__init__.py": 2013
+  "workspace/__init__.py": 2008
  },
  "facade_definitions": {
   "fsi/__init__.py": [
@@ -1578,7 +1578,6 @@
     "_cli_query_history",
     "_cli_mesh",
     "_batch_run",
-    "rename",
     "_batch_plan",
     "records",
     "_rebuild",
