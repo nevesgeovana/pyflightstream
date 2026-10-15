@@ -1,5 +1,9 @@
 # Wksp requirements
 
+Content hashes use sha256. `pyflightstream._digest` defines the canonical
+form for each digest and the exclusions: wall-clock time, elapsed time,
+absolute paths, machine identity and user identity.
+
 | UID | Parent | HID | Level | Status | Verification method | Statement | Rationale | Derives from | Code | Test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | FR-3082 | - | WKSP-1 | L1 | implemented | analysis | The package shall store workspace input artifacts in documented UTF-8 text formats. | - | NL-WKSP | - | - |

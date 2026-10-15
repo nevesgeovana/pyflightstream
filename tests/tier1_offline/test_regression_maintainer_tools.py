@@ -103,6 +103,7 @@ class TestCoreSmallParity:
         srs.mkdir(parents=True)
         (srs / "functional-requirements.md").write_text(
             '!!! requirement "FR-12 A box"\n\n    Text that mentions FR-331 in passing.\n'
+            "| UID | Parent | Area | Status | Statement | Code | Test |\n"
             "| FR-13 | - | CORE | implemented | Shall cite FR-331. | m:f | t::f |\n",
             encoding="utf-8",
         )

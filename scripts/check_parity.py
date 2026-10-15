@@ -92,7 +92,11 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _requirements_paths import REQUIREMENTS_DIR  # noqa: E402
+from _requirements_paths import (  # noqa: E402
+    REQUIREMENTS_DIR,
+    requirement_pages,
+    requirement_rows,
+)
 
 REPO = Path(__file__).resolve().parent.parent
 SCRIPT = "scripts/check_parity.py"
@@ -1663,13 +1667,16 @@ def srs_ids(tree: Path) -> set[str]:
     A box, not a mention: an id cited in passing on any page used to count as
     defined, so a named entry stayed live for a requirement the release no longer states.
     """
-    text = "\n".join(
-        p.read_text(encoding="utf-8", errors="replace")
-        for folder in (tree / "docs" / "srs", tree / REQUIREMENTS_DIR)
-        for p in folder.rglob("*.md")
-    )
+    pages = (*requirement_pages(tree / REQUIREMENTS_DIR), *(tree / "docs/srs").rglob("*.md"))
+    sources = {p: p.read_text(encoding="utf-8", errors="replace") for p in pages}
+    text = "\n".join(sources.values())
     legacy = re.findall(r'!!! requirement "((?:FR|NFR|IR|DR|AD|CR|SR|QR)-\d+[a-z]?)\b', text)
-    compact = re.findall(r"^\|\s*((?:FR|NFR)-\d+[a-z]?)\s*\|", text, re.M)
+    compact = [
+        row["uid"]
+        for path, source in sources.items()
+        if path.parent == tree / REQUIREMENTS_DIR or "| UID | Parent |" in source
+        for row in requirement_rows(source, str(path))
+    ]
     return set(legacy + compact)
 
 

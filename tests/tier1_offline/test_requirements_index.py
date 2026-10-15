@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -38,6 +39,7 @@ def historical_requirements():
                 f"6bad1dac664ef7b0959e683749f4b1f437af6033:docs/unpublished/requirements/{name}.md",
             ],
             encoding="utf-8",
+            env=os.environ.copy(),
         )
         historical.extend(requirement_rows(text))
     return historical
@@ -270,16 +272,28 @@ def test_p0420_hid_legend_reads_authored_vocabulary(tmp_path):
 
 
 def test_p0420_register_uses_public_manual_identity():
-    pages = (REPO / "docs/unpublished/requirements").glob("*.md")
-    definitions = [
-        line
-        for page in pages
-        for line in page.read_text("utf-8").splitlines()
-        if line.startswith("| FR-909 |")
-    ]
+    from scripts._requirements_paths import read_requirements
+
+    definitions = [row["statement"] for row in read_requirements(REPO) if row["uid"] == "FR-909"]
     assert len(definitions) == 1
     assert "FSM-26.125" in definitions[0]
     assert "SRC-" not in definitions[0]
+
+
+@pytest.mark.parametrize("header", [True, False], ids=["P0420-columns", "P0420-no-columns"])
+def test_p0420_parity_uses_the_validated_requirement_reader(tmp_path, header):
+    """P0420: a malformed table must not silently define an exception UID."""
+    from scripts.check_parity import srs_ids
+
+    page = tmp_path / "docs/unpublished/requirements/functional-requirements.md"
+    page.parent.mkdir(parents=True)
+    page.write_text(
+        ("| UID | Parent | Area | Status | Statement | Code | Test |\n" if header else "")
+        + "| FR-900 | truncated |\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="malformed requirement row"):
+        srs_ids(tmp_path)
 
 
 GENERATOR = REPO / "scripts" / "gen_requirements_index.py"
