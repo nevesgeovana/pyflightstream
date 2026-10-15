@@ -121,6 +121,10 @@ with mkdocs_gen_files.open("exceptions.md", "w") as page:
 # guide so the site cannot silently omit required contribution practices.
 with mkdocs_gen_files.open("contributing.md", "w") as page:
     page.write(Path("CONTRIBUTING.md").read_text(encoding="utf-8"))
+    page.write(
+        "\n\n## Canonical graphs\n\n[Contributor graphs](graphs/index.md) "
+        "show the requirements hierarchy and library structure.\n"
+    )
 
 # The public route map is generated from the reachability exception register.
 # This release publishes routes only; exceptions remain an internal register.
