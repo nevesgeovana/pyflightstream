@@ -29,5 +29,8 @@ def test_resolve_matrix_matches_before_the_cut(tmp_path, fixture):
     # moved: `study` of each reference artifact and `study_surfaces` of each case's
     # reference (FR-435, None when the artifact declares no study), and
     # `accept_unregistered_build` of each build (FR-436 R7, False unless a file accepts it).
+    # P0410 adds exactly two optional pproc defaults: noise=None and
+    # products.polar_axes=None. The fixture amendment states those defaults;
+    # it does not recapture the implementation's output.
     expected = json.loads((FIXTURES / "p0360_w9c.json").read_text(encoding="utf-8"))
     assert actual == expected[fixture]

@@ -245,12 +245,14 @@
               "boundary_layer_velocity_profile": false,
               "settings_codebook": true,
               "installed_frame": [],
-              "superfile_format": "csv"
+              "superfile_format": "csv",
+              "polar_axes": null
             },
             "blade_pattern": "^Blade\\d+$",
             "base_regions": [],
             "farfield": null,
-            "streamlines": null
+            "streamlines": null,
+            "noise": null
           },
           "pproc_id": "p001",
           "frames": [],
@@ -504,12 +506,14 @@
               "boundary_layer_velocity_profile": false,
               "settings_codebook": true,
               "installed_frame": [],
-              "superfile_format": "csv"
+              "superfile_format": "csv",
+              "polar_axes": null
             },
             "blade_pattern": "^Blade\\d+$",
             "base_regions": [],
             "farfield": null,
-            "streamlines": null
+            "streamlines": null,
+            "noise": null
           },
           "pproc_id": "p001",
           "frames": [],
@@ -769,12 +773,14 @@
               "boundary_layer_velocity_profile": false,
               "settings_codebook": true,
               "installed_frame": [],
-              "superfile_format": "csv"
+              "superfile_format": "csv",
+              "polar_axes": null
             },
             "blade_pattern": "^Blade\\d+$",
             "base_regions": [],
             "farfield": null,
-            "streamlines": null
+            "streamlines": null,
+            "noise": null
           },
           "pproc_id": "p001",
           "frames": [],
@@ -1030,12 +1036,14 @@
               "boundary_layer_velocity_profile": false,
               "settings_codebook": true,
               "installed_frame": [],
-              "superfile_format": "csv"
+              "superfile_format": "csv",
+              "polar_axes": null
             },
             "blade_pattern": "^Blade\\d+$",
             "base_regions": [],
             "farfield": null,
-            "streamlines": null
+            "streamlines": null,
+            "noise": null
           },
           "pproc_id": "p001",
           "frames": [],
@@ -1294,12 +1302,14 @@
               "boundary_layer_velocity_profile": false,
               "settings_codebook": true,
               "installed_frame": [],
-              "superfile_format": "csv"
+              "superfile_format": "csv",
+              "polar_axes": null
             },
             "blade_pattern": "^Blade\\d+$",
             "base_regions": [],
             "farfield": null,
-            "streamlines": null
+            "streamlines": null,
+            "noise": null
           },
           "pproc_id": "p001",
           "frames": [],
@@ -1557,12 +1567,14 @@
               "boundary_layer_velocity_profile": false,
               "settings_codebook": true,
               "installed_frame": [],
-              "superfile_format": "csv"
+              "superfile_format": "csv",
+              "polar_axes": null
             },
             "blade_pattern": "^Blade\\d+$",
             "base_regions": [],
             "farfield": null,
-            "streamlines": null
+            "streamlines": null,
+            "noise": null
           },
           "pproc_id": "p001",
           "frames": [],
@@ -1841,12 +1853,14 @@
           "boundary_layer_velocity_profile": false,
           "settings_codebook": true,
           "installed_frame": [],
-          "superfile_format": "csv"
+          "superfile_format": "csv",
+          "polar_axes": null
         },
         "blade_pattern": "^Blade\\d+$",
         "base_regions": [],
         "farfield": null,
-        "streamlines": null
+        "streamlines": null,
+        "noise": null
       }
     },
     "fs_exe": "FlightStream.exe",
@@ -2097,12 +2111,14 @@
               "boundary_layer_velocity_profile": false,
               "settings_codebook": true,
               "installed_frame": [],
-              "superfile_format": "csv"
+              "superfile_format": "csv",
+              "polar_axes": null
             },
             "blade_pattern": "^Blade\\d+$",
             "base_regions": [],
             "farfield": null,
-            "streamlines": null
+            "streamlines": null,
+            "noise": null
           },
           "pproc_id": "p001",
           "frames": [],
@@ -2355,12 +2371,14 @@
               "boundary_layer_velocity_profile": false,
               "settings_codebook": true,
               "installed_frame": [],
-              "superfile_format": "csv"
+              "superfile_format": "csv",
+              "polar_axes": null
             },
             "blade_pattern": "^Blade\\d+$",
             "base_regions": [],
             "farfield": null,
-            "streamlines": null
+            "streamlines": null,
+            "noise": null
           },
           "pproc_id": "p001",
           "frames": [],
@@ -2521,12 +2539,14 @@
           "boundary_layer_velocity_profile": false,
           "settings_codebook": true,
           "installed_frame": [],
-          "superfile_format": "csv"
+          "superfile_format": "csv",
+          "polar_axes": null
         },
         "blade_pattern": "^Blade\\d+$",
         "base_regions": [],
         "farfield": null,
-        "streamlines": null
+        "streamlines": null,
+        "noise": null
       }
     },
     "fs_exe": "FlightStream.exe",

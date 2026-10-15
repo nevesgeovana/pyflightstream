@@ -82,7 +82,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from pyflightstream import _textio
+import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError
 from pyflightstream.workspace import CampaignWorkspace
 

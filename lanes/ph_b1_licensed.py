@@ -4,18 +4,6 @@ Preparation uses the existing synthetic LQ1 wing workspace. These experiments
 do not enable moving frames in production or promote any support verdict.
 """
 
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# artifact_id: GEO-105-PYFLIGHTSTREAM-RELEASE-RECORDS
-# last_modified_at: 2026-10-15
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-lane
-# authority: geoverse-goddess-control-plane
-# status: draft
-# confidentiality: internal
-# change_summary: Prepare three isolated frame observations without running the solver.
-# dependencies: PFS-2140.007, tests/tier3_licensed/fsi_lq1.py
-# revision_source: git
-
 from __future__ import annotations
 
 import argparse
