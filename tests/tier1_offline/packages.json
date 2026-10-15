@@ -49,6 +49,7 @@
       "tests/tier1_offline/test_p0370_s6_node_integrity.py",
       "tests/tier1_offline/test_p0410_fx3_fsi_logs.py",
       "tests/tier1_offline/test_p0410_fx6_calibration.py",
+      "tests/tier1_offline/test_p0410_fx6_torsion.py",
       "tests/tier1_offline/test_p0410_ph_b1_frame_probes.py",
       "tests/tier1_offline/test_p0410_ph_b1_fsi_plan.py"
     ],

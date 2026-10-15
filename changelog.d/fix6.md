@@ -17,3 +17,6 @@
   rows, reference and flight velocities, and both vertical shaft directions.
 - PFS-2112.001: The overview guide describes build-specific validity and
   the acoustics toolbox without categorically excluding acoustics.
+- PFS-2125.002: Torsion accuracy is checked numerically against analytic
+  sections. The guide directs readers to grid convergence and the runnable
+  blade-properties example instead of promising a shape-independent error.

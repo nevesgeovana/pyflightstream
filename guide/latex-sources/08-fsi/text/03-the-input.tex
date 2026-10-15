@@ -236,8 +236,8 @@ A 40 by 4 mm titanium strip; example 1 turns these contours into EI.
         A contour that crosses or touches itself, repeats a vertex or folds
         back is refused by name.
   \item \(J\): the Prandtl stress function by finite differences cut exactly at
-        the polygon [6, 7]. 16 cells across are within about 1\,\% of the closed
-        forms, 32 within 0.3\,\%, 64 within 0.08\,\%.
+        the polygon [6, 7]. Check grid convergence for your section; the
+        blade-properties example prints values at each resolution.
   \item The thin-section \(\frac13\!\int t^3\,ds\) is kept as a cross-check,
         never as the value.
 \end{itemize}
