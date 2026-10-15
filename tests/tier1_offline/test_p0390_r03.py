@@ -645,6 +645,25 @@ def settings_spelling_admitted(new: str, captured: str) -> bool:
     return True
 
 
+def _docs_clean_plan_evidence(captured: bytes) -> bytes:
+    """Admit only the owner's three prose replacements in serialized evidence."""
+    replacements = (
+        (
+            b"bounds in this database (design decision of 2026-08-08);",
+            b"bounds in this database ;",
+        ),
+        (
+            b"Both of those are registered here since 2026-08-07, in mesh_operations.yaml,",
+            b"Both are registered in mesh_operations.yaml,",
+        ),
+        (b"PROBE ROUND 1 OF 0.32.0, on 26.124:", b"PROBE ROUND 1 on 26.124:"),
+    )
+    for before, after in replacements:
+        assert captured.count(before) == 1, before
+        captured = captured.replace(before, after)
+    return captured
+
+
 @pytest.mark.skipif(
     sys.platform != "win32",
     reason="the v0.38.0 outputs were captured on Windows, where the stub and the console "
@@ -723,6 +742,10 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b"(no default citation). Source: SRC-003 p.342. "
         b"reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml",
     )
+    # Public command prose is also serialized into plan evidence. Keep the
+    # historical fixture intact and specify the three intended text changes;
+    # command status, grammar, scientific values and every other byte still compare.
+    captured[plan_name] = _docs_clean_plan_evidence(captured[plan_name])
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
         if name == "tree/runs.json":
@@ -766,6 +789,32 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     assert scripts and all("SOLVER_SET_AOA" in outputs[name] for name in scripts)
     assert any(name.startswith("tree/post/polars/polars/") for name in outputs)
     assert "<SHA:sims/sim_7002/scripts/" in outputs["tree/runs.json"]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the output fixture was captured on Windows")
+@pytest.mark.filterwarnings("ignore::Warning")
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ("bounds in this database ;", "bounds in this database (design decision of 2026-08-08);"),
+        ("between 0 and 90 degrees", "between 0 and 91 degrees"),
+        ('"available": true', '"available": false'),
+    ],
+)
+def test_p0420_docs_clean_plan_comparison_rejects_mutants(tmp_path, monkeypatch, before, after):
+    """The exact output check rejects restored history and changed technical evidence."""
+    original = r10_outputs
+
+    def altered(root):
+        outputs = original(root)
+        path = "tree/post/polars/plan.json"
+        assert before in outputs[path]
+        outputs[path] = outputs[path].replace(before, after, 1)
+        return outputs
+
+    monkeypatch.setattr(sys.modules[__name__], "r10_outputs", altered)
+    with pytest.raises(AssertionError, match="tree/post/polars/plan.json"):
+        test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path)
 
 
 def test_p0390_r03_the_r10_comparison_takes_out_the_times_and_no_result():
