@@ -27,7 +27,7 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream import cases as cases_mod
-from pyflightstream.cases import SimCase, point_tag
+from pyflightstream.cases import SimCase
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import (
     MatrixError,
@@ -346,10 +346,10 @@ def test_the_campaign_toml_sweep_on_the_page_is_the_one_the_loader_takes(tmp_pat
     from pyflightstream.cases import SweepAxis
 
     sweep = SweepAxis(type="alpha", values=[-4.0, 0.0, 4.0], held={"beta": 0.0})
-    assert [point_tag(point) for point in sweep.points()] == [
-        "a-04.0_b+00.0",
-        "a+00.0_b+00.0",
-        "a+04.0_b+00.0",
+    assert list(sweep.points()) == [
+        {"alpha": -4.0, "beta": 0.0},
+        {"alpha": 0.0, "beta": 0.0},
+        {"alpha": 4.0, "beta": 0.0},
     ]
     # And the two refusals the page promises beside it.
     # Pydantic wraps a validator's refusal, so the MESSAGE is asserted and

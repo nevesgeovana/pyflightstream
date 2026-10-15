@@ -121,7 +121,6 @@ _ORIGINAL_ALL = [
     "SWEEP_NAME_VALUE",
     "name_field",
     "point_name",
-    "point_tag",
     "sweep_name",
     "resolve_recipe",
 ]
@@ -211,7 +210,6 @@ _MOVED = {
         "name_field",
         "point_name",
         "sweep_name",
-        "point_tag",
         "geometric_sweep_values",
         "multiplied_sweep",
     ],

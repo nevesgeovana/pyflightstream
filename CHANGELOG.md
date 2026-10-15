@@ -32,6 +32,9 @@ FlightStream versions.
 
 ### Removed
 
+- `cases.point_tag` and `cases.naming.point_tag`, the unused pre-0.21 naming
+  helper. Use `point_name(case, point)` for current workspace point names.
+
 - Authored campaign-file loading and matrix-to-campaign-file conversion, including
   `pyfs-matrix convert`. The matrix is the sole campaign declaration; use
   `pyfs-matrix plan` or the public `plan_matrix` API.

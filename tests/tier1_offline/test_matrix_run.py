@@ -968,7 +968,6 @@ def test_goal019_record_a_job_run_id_cannot_end_with_a_point_tag(tmp_path):
     variable written literally as `sweep`, so a reader has met it, and it
     reads correctly because it names a sweep and not a point.
     """
-    from pyflightstream.cases import point_tag
     from pyflightstream.run import JOB_TAG
 
     workspace, matrix = _steady_sweep_matrix(tmp_path)
@@ -986,7 +985,7 @@ def test_goal019_record_a_job_run_id_cannot_end_with_a_point_tag(tmp_path):
     assert record.run_id.endswith(f"/{JOB_TAG}"), (
         f"the job's run id is {record.run_id!r}, which does not end with the sweep token"
     )
-    tags = {point_tag(entry["point"]) for entry in record.points_ran}
+    tags = {entry["tag"] for entry in record.points_ran}
     assert not any(record.run_id.endswith(tag) for tag in tags), (
         "the job's run id ends with one of its points' tags, so a manifest cannot "
         "tell the job from that point"
