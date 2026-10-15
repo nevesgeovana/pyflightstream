@@ -6,6 +6,14 @@
 name: docs
 
 on:
+  # A dispatch builds the site and the guides on Linux (the pre-tag check) and
+  # publishes nothing unless deploy is true, which is only honoured on main.
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish the built site (main only)
+        type: boolean
+        default: false
   push:
     tags: ["v*"]
 
@@ -35,7 +43,7 @@ jobs:
       - name: Install package with dev extras
         run: pip install -e .[dev,fsi,geom,plot]
       - name: Install guide typesetter
-        run: sudo apt-get update && sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended texlive-science
+        run: sudo apt-get update && sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended texlive-science cm-super
       - name: Build downloadable guides
         run: python scripts/build_guides.py
       - name: Build the docs (strict)
@@ -55,10 +63,16 @@ jobs:
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa  # v3
         with:
           path: site
+      - name: Upload failed guide logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: failed-guide-logs
+          path: build/guides/*.log
 
   deploy:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy)
     runs-on: ubuntu-latest
     environment:
       name: github-pages
