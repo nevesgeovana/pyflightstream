@@ -25,11 +25,8 @@ Each command entry records:
 
 ### A per-version grammar states its difference
 
-Amended 2026-08-10. A version row's `args` used to replace the
-entry-level argument list outright, so a row changing one field of one
-argument had to restate every other field of every argument. An
-override now inherits, per argument matched by NAME, every field it does
-not itself write.
+A version row's `args` inherits, per argument matched by NAME, every
+entry-level field it does not itself write.
 
 The reason is measured rather than aesthetic. Restating a whole argument
 to change one flag is how a second flag changes by accident: writing
@@ -61,12 +58,8 @@ argument's name. Each was added after that guess was measured wrong.
 
 **`values` is the accepted vocabulary**: everything the manual page
 says the solver takes for that argument, in every spelling the page
-states or samples. The rule was in force and unwritten until
-2026-09-09: one entry listed the letters and the digits
-its page accepts for an axis while ten neighbours listed the letters
-alone, so a reader could not tell whether `values` meant what the
-solver accepts or what this library offers. It means the former, for
-one reason: the emitter reads `values` to REFUSE, and a refusal of a
+states or samples. The vocabulary describes what the solver accepts:
+the emitter reads `values` to REFUSE, and a refusal of a
 token the solver accepts is a false refusal with a page citation
 beside it. A narrowing this library chooses to offer (a helper that
 exposes three of six spellings, say) belongs to the helper and its
@@ -132,16 +125,10 @@ a probe may MEASURE the solver refusing the name, which is the only one
 of the three that observes the solver at all. The first two cite a
 manual page in the note. The third cites its run.
 
-WHICH FIELD THE THIRD USES CHANGED ON 2026-08-11 and both are live. The
-probe harness had no `removed` outcome to write, so a build that lacked
-a command recorded as `broken`, a claim about a command that is
-present; a measured removal was therefore a run a human wrote down, and
-`probe_ref` said so rather than dressing prose as machine-checked
-evidence. The harness now has the outcome, recognised from
-the solver's own refusal of the name, so a removal it measures is
-promoted by `pyfs-qa apply-compat` and cites the compat yaml through
-`report` like every other promoted status. `probe_ref` keeps the
-earlier rows and the case no run can supply.
+The harness recognizes a removed command from the solver's refusal of
+the name. `pyfs-qa apply-compat` promotes that outcome and cites the
+compat yaml through `report`. Historical measured-removal rows may cite
+a narrative report through `probe_ref`; both citation fields are read.
 
 Both fields are read wherever a measured removal is shown, and that is
 load bearing rather than defensive: the refusal message and the
@@ -157,13 +144,9 @@ On a version row it is admissible for `removed` alone, and the loader
 refuses it on any other status, because `verified` and `broken` must
 stay checkable against the compat yaml the harness wrote; a guard whose
 population quietly shrinks reports green either way. The version-row
-field was expected to go away when the harness learned the outcome. It did not, and the reason first given for that was wrong. The harness
-covers the measured provenance; the edition-stopped-printing case was
-named as a second reason for retention and the database refutes it,
-since such a row cites pages in its note and no run at all, which is
-what the model already requires of a reading. The field survives for
-one population: the removals recorded before the outcome existed. That
-population is finite and closes when those rows are re-probed.
+field serves historical measured-removal reports until those rows are
+re-probed. An edition that stops printing a command cites pages in its
+note, not a solver run.
 
 The ordered version list in `_meta.yaml` is the only version-ordering
 authority (never string or float comparison). Canonical identifiers

@@ -14,13 +14,10 @@ per the engineering policy), which reaches them through a SPATIAL INDEX:
 scipy's kd-tree and rtree's bounds tree. Those two are what
 ``pip install pyflightstream[geom]`` installs and what this module's
 refusal is about (license evidence reports/RPT-003). The reader itself
-is a runtime dependency since 2026-08-19 (design note DD-27), so its
-absence is a broken installation rather than a missing extra, and the
-one accessor for it lives in :mod:`pyflightstream._mesh`. The two are
-worth keeping apart: before the promotion a missing trimesh and a
-missing index were one state, and afterwards a refusal naming the
-reader would send a reader to reinstall a distribution they already
-have. This module never runs the solver: it consumes a mesh file that
+is a runtime dependency, so its absence is a broken installation
+rather than a missing extra. Its accessor lives in
+:mod:`pyflightstream._mesh`. A missing spatial index is remedied by
+installing the geometry extra. This module never runs the solver: it consumes a mesh file that
 already exists.
 """
 
@@ -62,22 +59,13 @@ class GeometryEngineMissingError(MissingExtraError):
     ``[geom]`` extra; the plain installation leaves the grids fully
     usable without culling.
 
-    WHAT THIS CLASS MEANS CHANGED ON 2026-08-19 and the old meaning is
-    written down because a reader will otherwise reconstruct it wrongly.
-    It used to mean "the geometry ENGINE is missing", the engine being
-    trimesh, because before that date trimesh, scipy and rtree arrived
-    together in one extra and no environment could hold one without the
-    others. trimesh is a runtime dependency now (design note DD-27), so
-    an installation carrying the reader and not the index is a state
-    that can exist for the first time, and it is the only state this
-    refusal is about. Naming trimesh here would send a reader to
-    reinstall a distribution they already have.
+    This refusal identifies a missing spatial index, not a missing mesh
+    reader. trimesh is a runtime dependency; scipy and rtree are optional
+    and supplied by the geometry extra.
 
     A subclass of :class:`~pyflightstream.extras.MissingExtraError`
-    rather than a sibling of it, so ``except MissingExtraError`` now
-    catches this one while every existing ``except
-    GeometryEngineMissingError`` keeps working unchanged. It survives
-    as its own name because the geometry gate is the one extra whose
+    so callers can catch either ``MissingExtraError`` or
+    ``GeometryEngineMissingError``. The specific name identifies an extra whose
     absence is RECOVERABLE: the grids stay usable without culling, so a
     caller has a reason to single it out (PYFS-025).
     """
@@ -161,10 +149,8 @@ def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
     -----
     Reading a mesh needs no optional extra: it is the reader alone, and
     the reader is a runtime dependency (:mod:`pyflightstream._mesh`).
-    This function raised :class:`GeometryEngineMissingError` until
-    2026-08-19, when trimesh left the ``[geom]`` extra; the refusal now
-    belongs to the QUERIES, which is where the index is actually
-    reached.
+    :class:`GeometryEngineMissingError` belongs to containment and
+    distance queries, which need the optional spatial index.
     """
     mesh = read_mesh(path)
     if require_watertight:

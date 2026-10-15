@@ -143,8 +143,7 @@ knowing.
    emitter in this package at all. `slipstream_wake_stabilization`
    is a setup toggle (see
    [The slipstream wake stabilization](removing-surfaces.md#the-slipstream-wake-stabilization)). Two other refused keys are
-   `symmetry_loads`, on the design decision of 2026-09-02 with the
-   measurement in hand (a stated key reaches
+   `symmetry_loads`, whose behavior is measured (a stated key reaches
    `SET_ANALYSIS_SYMMETRY_LOADS`; an absent one still emits nothing), and
    `significant_digits`, which gained its emitter; `mesh_order_list` is
    refused outright, since the boundary order belongs to the file

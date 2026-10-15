@@ -75,3 +75,34 @@ def test_p0420_docs_clean_release_guard_controls(monkeypatch):
             test_p0420_docs_clean_release_narration()
     for text in ("Mach 0.3", "radius 0.38 m", "FlightStream 26.124"):
         assert not RELEASE.search(text), text
+
+
+HISTORY = re.compile(
+    r"\b(?:narrowed on|reworded on|decided on|changed on|amended|chosen|adopted|"
+    r"decision of|rule of|dates from|since)\s+20\d{2}-\d{2}-\d{2}\b|"
+    r"\b(?:used to say|renamed in)\s+(?:20\d{2}|v?0\.\d+)|"
+    r"\buntil\s+20\d{2}-\d{2}-\d{2}\b",
+    re.IGNORECASE,
+)
+
+
+def test_p0420_docs_clean_dated_narration():
+    failures = [
+        path.relative_to(ROOT).as_posix()
+        for path, text in published_pages()
+        if HISTORY.search(text)
+    ]
+    assert not failures, failures
+    assert not HISTORY.search(api_docstrings("src/pyflightstream/probes/geometry.py"))
+
+
+def test_p0420_docs_clean_history_guard_controls(monkeypatch):
+    for phrase in ("narrowed on", "reworded on", "decided on", "changed on", "renamed in"):
+        text = f"The rule was {phrase} 2026-08-19."
+        monkeypatch.setattr(
+            sys.modules[__name__], "published_pages", lambda text=text: [(ROOT / "README.md", text)]
+        )
+        with pytest.raises(AssertionError):
+            test_p0420_docs_clean_dated_narration()
+    for text in ('"deleted_at": "2026-09-28T10:15:00+00:00"', "report_2026-09-27.md"):
+        assert not HISTORY.search(text), text

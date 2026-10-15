@@ -57,7 +57,7 @@ produce a named diagnostic instead of a guessed placement.
 Native fluid-plot conventions are verified for FlightStream 26.124 build 8172026
 with the recorded executable digest, independently in METER and MILLIMETER
 simulations. Build 8242026 of 26.124 is registered with the same conventions by
-decision of 2026-10-01, not by measurement:
+an explicit convention registration, not by measurement:
 its fields are written with no warning, and its rows say "not measured". Fluid-plot command vertices use metres in both cases; the saved
 layout retains native coordinates for frame placement. The measured velocity
 components are already absolute REFERENCE components in m/s, even when the sampling

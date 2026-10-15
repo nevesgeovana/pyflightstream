@@ -96,30 +96,16 @@ The command database only ever contains commands the manual documents, or that
 a committed probe report measured the solver accepting (each entry carries one
 citation or the other), so a workflow step with no script command cannot be
 emitted by the script builder, and no amount of library code changes that.
-Geometry preparation and meshing are the common case, and the picture there
-changed on 2026-08-06 through 2026-08-08, when the sweep finished: every
-command the eight editions registered at that date documented entered the
-database, so the CAD, CAD Create and Mesh Operations chapters are emittable in
-full, and the last of those is the subject of the [mesh reference](mesh/reference.md), everything that
-translates, rotates, scales, mirrors, copies, cuts, selects or deletes a
-surface between import and solver initialization. The mesh-wrapper chapter is
-in too, as of 2026-08-08. Five of those commands, scale, rename,
-mirror, translate and rotate, are also declared with a raw mesh's geometry and
-applied by a workflow row ([mesh operations](mesh/reference.md#the-mesh-operations-of-an-import)).
+Geometry preparation and meshing use the registered CAD, CAD Create, Mesh
+Operations and mesh-wrapper commands. The [mesh reference](mesh/reference.md)
+describes operations between import and solver initialization. Scale, rename,
+mirror, translate and rotate can also be declared with a raw mesh's geometry
+and applied by a workflow row.
 
-**Read the scope of that claim.** It is a statement about the eight editions
-swept in August 2026, not a standing promise about every edition the vendor
-publishes. SRS non-requirement NREQ-05 excludes no command family by
-decision, and an edition registered after the sweep may document a command
-the database does not yet carry, which is a dated debt in the SRS evidence
-queue rather than an exclusion. The first was `SET_OUTLET_TRAILING_EDGES`,
-which the 26.123 edition (SRC-751) documented when it was registered on
-2026-08-17 and which the database carries; it belongs to the
-boundary conditions rather than to meshing. What has NOT changed is the reason
-this route exists. A command being in the database means the script builder
-will emit and validate it; it does not mean the GUI-driven parts of geometry
-preparation have a scripted equivalent, and the pattern below is still the
-supported one.
+Coverage is bounded by the registered editions and their cited evidence. A
+command being in the database means the script builder can emit and validate
+it; it does not establish that every GUI operation has a scripted equivalent.
+Use a saved simulation where the required preparation cannot be scripted.
 
 ## Archive and restore
 

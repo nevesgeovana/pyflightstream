@@ -248,7 +248,7 @@ three rows.
  this row rotated is written in BOTH: once in `<ALIAS>_SMRP`, where the
  rotation left it, and once in `<ALIAS>_SMRP_ORIGINAL`, where it
  started. The plot names differ by the same suffix, so the two tables
- sit beside each other. That is the rule of 2026-09-10: an
+ sit beside each other. An
  entry says which ROTOR it is about, and the row's rotation decides how
  many readings of it there are, exactly as the frame decides how many
  emissions an entry stands for. A rotor this row did not turn has no

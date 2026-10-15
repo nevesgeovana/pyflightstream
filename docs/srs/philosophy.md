@@ -78,15 +78,6 @@ not yet cited or drafted, including when the answer is nothing. A
 smaller set of honest claims is always preferred over a larger set of
 assumed ones.
 
-That report listed nothing for the editions swept in
-August 2026. Registering SRC-751 on 2026-08-17 put ONE command back on
-it, `SET_OUTLET_TRAILING_EDGES`, which is the rule working rather than
-failing: the queue names what is owed instead of the page claiming
-closure. What the sweep established is that every command the
-registered editions document is recorded. Read that as the coverage
-question closing rather than as the honesty rule relaxing: the same
-release found four commands whose grammar DIFFERS per edition and one
-the newest build refuses, every one of which a rule-driven backfill
-would have recorded as working. The count lives in the release note
-rather than here, a number restated in two homes being the thing this
-paragraph is about.
+Coverage belongs to the registered editions and their evidence. Registering an
+edition can add commands to the evidence queue or expose changed grammar and
+refusals. A completed sweep does not promote an unmeasured command to verified.

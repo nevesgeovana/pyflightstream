@@ -276,7 +276,7 @@ independently at each exported STEP, including blocks sharing a distribution
 file. Original rows, axes, STEP and AZIMUTH are preserved. These are instants,
 with no temporal average or revolution envelope.
 
-**Moment-point decision, 2026-09-23.** `My_int` reports the integral of the
+**Moment point.** `My_int` reports the integral of the
 export's `Moment` about the local quarter chord `(X_QC, Z_QC)`. SRC-751,
 the registered 26.123 manual, p.253 (Sectional Load Distributions), explicitly
 identifies Xqc and Zqc as the 25% chord coordinates used for the CM reference.

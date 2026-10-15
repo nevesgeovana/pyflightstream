@@ -468,7 +468,7 @@ The GUI step itself is the one part the library cannot replay; the saved
 `.fsm` is its record. The workspace stages inputs with content hashes following
 [`pyflightstream._digest`'s sha256 rule](reference.md#what-that-content-hash-is-and-what-it-leaves-out)
 in the run manifest (`inputs_sha256`), so every run names exactly which saved file it
-consumed. This policy dates from 2026-07-23.
+consumed.
 
 When a mesh exists only inside a `.fsm`, the pre-processing export
 (`run.export_surface_mesh`) produces the OBJ counterpart through a solver run,

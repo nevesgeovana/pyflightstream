@@ -1015,8 +1015,7 @@ neither. Two standing decisions bound any widening:
 
 * More formats never enter through raw third-party APIs. If a
  workflow needs formats beyond OBJ, meshio joins the `[geom]` extra
- as a conversion backend behind a project-owned adapter (decision
- D8, 2026-07-23): the adapter exposes only what the workflow needs,
+ as a conversion backend behind a project-owned adapter (decision D8): the adapter exposes only what the workflow needs,
  a license evidence card is committed at adoption time like every
  dependency, and validity checks stay with trimesh. The dependency assessment
  refused meshio on the committed weight budget, at five new

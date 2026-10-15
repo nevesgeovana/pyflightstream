@@ -66,8 +66,8 @@ intellectual property and migrates freely.
 
 ## Founding decisions (stakeholder brief)
 
-Confirmed decisions recorded at the founding planning session
-(2026-07-21) and during execution. Each functional requirement cites
+The stakeholder brief establishes the package
+boundaries. Each functional requirement cites
 the items it answers.
 
 | Id | Brief item |
@@ -90,13 +90,13 @@ the items it answers.
 | BRF-16 | Simulation-centric naming: SIM replaces POLAR/POL in the native vocabulary |
 | BRF-17 | Version-comparison test cases use simple synthetic geometries plus local-only research cases whose geometry never enters the repository |
 | BRF-18 | The reference prior analysis pipelines are the design reference for the post-processing layer |
-| BRF-19 | FlightStream versions are identified as YY.XXX, the vendor major with a three-digit fractional part; the last digit indexes intermediate hotfix builds (written 26.XXX until 2026-08-09, when registering the 25 series made the major a variable) |
-| BRF-20 | The workspace organizes inputs as well as outputs: a support library of reusable artifacts selected by id, per the research workflow (usage-feedback review, 2026-07-22) |
+| BRF-19 | FlightStream versions are identified as YY.XXX, the vendor major with a three-digit fractional part; the last digit indexes intermediate hotfix builds |
+| BRF-20 | The workspace organizes inputs as well as outputs: a support library of reusable artifacts selected by id, per the research workflow |
 
 ## Pain-point catalog
 
 Defects verified first-hand in the predecessor toolchain's working
-tree (2026-07-21). The requirements exist to eliminate them.
+tree. The requirements exist to eliminate them.
 
 | Id | Pain point |
 |---|---|

@@ -123,16 +123,13 @@ where it reads it, and the attitude rides on the row.
 
 The body rates `roll_rate`, `pitch_rate` and `yaw_rate` are sweepable row keys.
 
-**A ROW STATES THE ANGLE IT IS NOT SWEEPING.** Before this release there
-was nowhere to write one: a row sweeping the advance ratio reached the
-solver at incidence zero, and the only record of the incidence was that
-nobody had written one. An angle the row holds is carried at every point
+**A ROW STATES THE ANGLE IT IS NOT SWEEPING.** An angle the row holds is carried at every point
 of the sweep, so it names the run, which is the subject of
 [its own section below](#one-variable-sweeps-and-it-is-one-that-defines-the-condition).
 
 ### One variable sweeps, and it is one that defines the condition
 
-The rule of 2026-09-10, and it is the whole shape of a row: **a sweep is
+**A sweep is
 applied to a variable that DEFINES the flight condition, and to exactly
 one variable.** The swept key carries the word `sweep` where its value
 would be, and `SWEEP_VALUES` holds its values:
