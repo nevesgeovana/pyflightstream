@@ -275,9 +275,9 @@ from pyflightstream.workspace.trailing_edges import (
     write_trailing_edge_node_file as write_trailing_edge_node_file,
 )
 
-from ._fsi_plan import structural_assessment as structural_assessment
-from ._plan_products import register_plan_product_writer as register_plan_product_writer
-from ._plan_products import write_plan_products as write_plan_products
+from ._layout import register_plan_product_writer as register_plan_product_writer
+from ._layout import write_plan_products as write_plan_products
+from .fsi_setup import structural_assessment as structural_assessment
 
 __all__ = [
     # 0.31.0 (P0310-POL-CENSUS): the one definition of where a workspace's

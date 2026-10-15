@@ -887,24 +887,17 @@ def test_p0410_pc_timing_only_warning_does_not_discredit_proven_velocity(
     tmp_path, monkeypatch
 ) -> None:
     """PFS-2116.048: unproven rotation timing cannot invalidate velocity evidence."""
-    import pyflightstream.post.field_frames as frames
-    import pyflightstream.post.probe_fields as fields
+    from pyflightstream.post.field_frames import VELOCITY_EVIDENCE
 
-    resolve_velocity = native_velocity_proof
-
-    def proven_velocity(motion_record, *, solver_identity, export_kind):
-        proof = resolve_velocity(
-            motion_record,
-            solver_identity={
-                **solver_identity,
-                "fs_build": _FR153_FIELD_BUILD_WARNING__MEASURED,
-            },
-            export_kind=export_kind,
-        )
-        return {**proof, "fs_build": solver_identity["fs_build"], "proven": True}
-
-    monkeypatch.setattr(frames, "native_velocity_proof", proven_velocity)
-    monkeypatch.setattr(fields, "native_velocity_proof", proven_velocity)
+    # Supply velocity evidence for this synthetic build while leaving its
+    # rotation timing unproven. Both consumers read the public evidence table.
+    for key, evidence in list(VELOCITY_EVIDENCE.items()):
+        if key[1] == _FR153_FIELD_BUILD_WARNING__MEASURED:
+            monkeypatch.setitem(
+                VELOCITY_EVIDENCE,
+                (key[0], _FR153_FIELD_BUILD_WARNING__OTHER, *key[2:]),
+                evidence,
+            )
     entries, warned = _fr153_field_build_warning___point(
         tmp_path, build=_FR153_FIELD_BUILD_WARNING__OTHER, rotating=True
     )

@@ -963,23 +963,7 @@ def union_the_workspace_knows(
             if matrix_stem and record.get("matrix_stem") != matrix_stem:
                 continue
             pols.add(str(record.get("sim_id")))
-            for field in ("flight_condition", "flight_condition_defaults"):
-                condition = record.get(field)
-                if isinstance(condition, Mapping):
-                    known |= set(condition)
-            # THE RECORD'S OWN SCALARS, from the same tuple the writer loops.
-            # Without this the union could not see a single one of them, and
-            # a mutant that dropped one from the file passed the superset
-            # check; measured by the push review of 2026-09-11.
-            known |= {field for field in RECORD_SCALARS if record.get(field) is not None}
-            setup = record.get("solver_setup") or {}
-            known |= set((setup.get("flags") if isinstance(setup, Mapping) else None) or {})
-            reductions = record.get("reductions") or {}
-            rotors = reductions.get("rotors") if isinstance(reductions, Mapping) else None
-            for alias in rotors or {}:
-                known.add(f"{RPM_COLUMN}_{alias}")
-                # 0.37.0: each rotor's diameter beside its speed (FR-89).
-                known.add(f"DIAMETER_{alias}")
+            known |= _record_field_names(record)
     if matrix_stem:
         known |= _matrix_names(root / f"{matrix_stem}{_MATRIX_SUFFIX}", pols)
     return known
@@ -1183,3 +1167,26 @@ def _write_legacy_polar(
     path.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(path, "\n".join(lines) + "\n")
     return path
+
+
+def _record_field_names(record: Mapping[str, object]) -> set[str]:
+    """Return the scalar, condition and rotor columns carried by one record."""
+    known: set[str] = set()
+    for field in ("flight_condition", "flight_condition_defaults"):
+        condition = record.get(field)
+        if isinstance(condition, Mapping):
+            known |= set(condition)
+    # THE RECORD'S OWN SCALARS, from the same tuple the writer loops.
+    # Without this the union could not see a single one of them, and
+    # a mutant that dropped one from the file passed the superset
+    # check; measured by the push review of 2026-09-11.
+    known |= {field for field in RECORD_SCALARS if record.get(field) is not None}
+    setup = record.get("solver_setup") or {}
+    known |= set((setup.get("flags") if isinstance(setup, Mapping) else None) or {})
+    reductions = record.get("reductions") or {}
+    rotors = reductions.get("rotors") if isinstance(reductions, Mapping) else None
+    for alias in rotors or {}:
+        known.add(f"{RPM_COLUMN}_{alias}")
+        # 0.37.0: each rotor's diameter beside its speed (FR-89).
+        known.add(f"DIAMETER_{alias}")
+    return known

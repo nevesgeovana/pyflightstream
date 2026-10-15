@@ -8,16 +8,18 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.cases.qsteady import read_qsteady_record
+from pyflightstream.cases.qsteady import QsteadyRecord, read_qsteady_record
 from pyflightstream.post._tables import write_csv_table
 from pyflightstream.post.axes import clocked_blade_azimuth_deg
-from pyflightstream.post.qsteady import clockings_of
+from pyflightstream.post.polar import PolarPoint
+from pyflightstream.post.qsteady import Clocking, clockings_of
 from pyflightstream.post.qsteady_noise import (
     RotorMotion,
     reconstruct_blade_load,
     rotor_loading_noise,
 )
 from pyflightstream.post.rotor_table import rotor_shaft_loads
+from pyflightstream.workspace import RunRecord
 
 if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext
@@ -37,11 +39,7 @@ def noise_products(ctx: SimContext) -> None:
             quasi = read_qsteady_record(point.loads_path)
             if quasi.case != "wheel" or not np.allclose(quasi.axis_vector, (1, 0, 0)):
                 raise ValueError("loading-noise reconstruction currently requires a wheel about +X")
-            density = point.state.density_kg_m3 if point.state is not None else record.density_kg_m3
-            if density is None:
-                density = record.density_kg_m3
-            if density is None:
-                raise ValueError("loading noise needs the recorded density")
+            density = _recorded_density(point, record)
             clockings = clockings_of(
                 quasi,
                 point.loads_path.parent,
@@ -51,29 +49,7 @@ def noise_products(ctx: SimContext) -> None:
             )
             if isinstance(clockings, str):
                 raise ValueError(clockings)
-            azimuths, forces, moments = [], [], []
-            for clocking in clockings:
-                for blade in range(1, quasi.blades + 1):
-                    azimuth = clocked_blade_azimuth_deg(
-                        quasi.blade1_azimuth_deg,
-                        blade=blade,
-                        blades=quasi.blades,
-                        clocking=clocking.index,
-                        positions=len(clockings),
-                        rpm=quasi.rpm,
-                    )
-                    values = clocking.loads[8 * blade : 8 * blade + 6]
-                    if (
-                        azimuth is None
-                        or len(values) != 6
-                        or any(value is None for value in values)
-                    ):
-                        raise ValueError(
-                            "noise reconstruction needs each blade's force and hub moment"
-                        )
-                    azimuths.append(azimuth)
-                    forces.append([float(value) for value in values[:3] if value is not None])
-                    moments.append([float(value) for value in values[3:] if value is not None])
+            azimuths, forces, moments = _blade_load_samples(quasi, clockings)
             load = reconstruct_blade_load(
                 azimuths,
                 forces,
@@ -132,3 +108,35 @@ def noise_products(ctx: SimContext) -> None:
                     "observer_m": spec.observers_m[index - 1],
                 },
             )
+
+
+def _blade_load_samples(quasi: QsteadyRecord, clockings: list[Clocking]):
+    """Collect complete per-blade force and moment samples in clocking order."""
+    azimuths, forces, moments = [], [], []
+    for clocking in clockings:
+        for blade in range(1, quasi.blades + 1):
+            azimuth = clocked_blade_azimuth_deg(
+                quasi.blade1_azimuth_deg,
+                blade=blade,
+                blades=quasi.blades,
+                clocking=clocking.index,
+                positions=len(clockings),
+                rpm=quasi.rpm,
+            )
+            values = clocking.loads[8 * blade : 8 * blade + 6]
+            if azimuth is None or len(values) != 6 or any(value is None for value in values):
+                raise ValueError("noise reconstruction needs each blade's force and hub moment")
+            azimuths.append(azimuth)
+            forces.append([float(value) for value in values[:3] if value is not None])
+            moments.append([float(value) for value in values[3:] if value is not None])
+    return azimuths, forces, moments
+
+
+def _recorded_density(point: PolarPoint, record: RunRecord) -> float:
+    """Resolve the point density with the same recorded fallback as its loads."""
+    density = point.state.density_kg_m3 if point.state is not None else record.density_kg_m3
+    if density is None:
+        density = record.density_kg_m3
+    if density is None:
+        raise ValueError("loading noise needs the recorded density")
+    return density

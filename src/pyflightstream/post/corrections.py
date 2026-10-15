@@ -49,9 +49,11 @@ point and a recorded axial sector point at the same ``J``.
 
 from __future__ import annotations
 
+import argparse
 import cmath
 import json
 import math
+import sys
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -59,7 +61,7 @@ from typing import Any
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import text_sha256
-from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases.corrections import (
     CALIBRATIONS_DIR,
@@ -79,6 +81,7 @@ from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, read_csv_table, writ
 from pyflightstream.post._transfer_functions import bessel_j, bessel_y, sears, theodorsen
 from pyflightstream.post.harmonics import HARMONICS_SUFFIX
 from pyflightstream.post.qsteady import AVERAGE_SUFFIX, STATION_COLUMN, STATION_TOLERANCE
+from pyflightstream.workspace.cli import register_command_group
 
 __all__ = [
     "CALIBRATION_SHA256_COLUMN",
@@ -1236,3 +1239,37 @@ def sector_offset_calibration(
     path.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(path, text)
     return path
+
+
+def _add_calibrate(subparsers: Any) -> None:
+    parser = subparsers.add_parser(
+        "calibrate", help="derive a sector-offset calibration from two recorded rotor points"
+    )
+    parser.add_argument("calibration_id")
+    parser.add_argument("--workspace", default=".")
+    parser.add_argument("--wheel-run", required=True)
+    parser.add_argument("--sector-run", required=True)
+    parser.add_argument("--rotor", dest="rotor_name")
+    parser.add_argument("--matrix")
+    parser.add_argument("--overwrite", action="store_true")
+
+
+def _calibrate(args: argparse.Namespace) -> int:
+    try:
+        path = sector_offset_calibration(
+            args.workspace,
+            wheel_run_id=args.wheel_run,
+            sector_run_id=args.sector_run,
+            calibration_id=args.calibration_id,
+            rotor=args.rotor_name,
+            matrix_stem=args.matrix,
+            overwrite=args.overwrite,
+        )
+    except (OSError, ValueError, PyflightstreamError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(f"{path}: sector-offset route, not validated")
+    return 0
+
+
+register_command_group("calibrate", _add_calibrate, _calibrate)

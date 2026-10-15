@@ -535,17 +535,7 @@ def restore(
     else:
         source = available[-1]
     payload = source.path.read_bytes()
-    try:
-        document = json.loads(payload.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as error:
-        raise RecordsError(
-            f"restore {kind}: the archived copy {_relative(base, source.path)} is not readable "
-            f"JSON ({error}); choose another stamp, nothing was changed"
-        ) from error
-    if kind == "runs":
-        from pyflightstream.workspace.record_document import decode_document
-
-        document = decode_document(document, source=source.path)
+    document = _restore_document(base, source.path, kind, payload)
     same = target.is_file() and target.read_bytes() == payload
     entry: dict[str, Any] = {
         "kind": kind,
@@ -606,3 +596,19 @@ def _rebuild_for_sync(root: Path, sims: list[str]) -> dict[str, Any]:
 
 
 register_records_rebuild(_rebuild_for_sync)
+
+
+def _restore_document(base: Path, source: Path, kind: str, payload: bytes) -> Any:
+    """Decode the selected archived document before any restore mutates the workspace."""
+    try:
+        document = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as error:
+        raise RecordsError(
+            f"restore {kind}: the archived copy {_relative(base, source)} is not readable "
+            f"JSON ({error}); choose another stamp, nothing was changed"
+        ) from error
+    if kind == "runs":
+        from pyflightstream.workspace.record_document import decode_document
+
+        document = decode_document(document, source=source)
+    return document

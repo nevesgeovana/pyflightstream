@@ -65,14 +65,12 @@ from pyflightstream.post._condition import (
     point_condition,
     row_rotor_speeds,
 )
-from pyflightstream.post._export_tables import export_tables
 from pyflightstream.post._installed_copies import (
     INFLOW_SUFFIX,
     write_installed_inflow,
     write_installed_probes,
 )
 from pyflightstream.post._noise_products import noise_products
-from pyflightstream.post._polar_axes import selected_axes
 from pyflightstream.post._reduction_stage import _drift_limit_pct, _point_reductions
 from pyflightstream.post._rotor_plan import _rotor_tables
 from pyflightstream.post._rotor_products import (
@@ -98,9 +96,9 @@ from pyflightstream.post._tables import (
     read_csv_table,
     write_csv_table,
 )
-from pyflightstream.post.custom_polar import write_custom_polar_format
 from pyflightstream.post.farfield_products import farfield_products
 from pyflightstream.post.point_tables import (
+    export_tables,
     write_plots_table,
     write_probes_table,
     write_sections_table,
@@ -114,12 +112,12 @@ from pyflightstream.post.polar import (
     group_polar_rows,
     polar_table_columns,
     polar_table_rows,
+    selected_axes,
     swept_axes,
     swept_polar_file_name,
 )
 from pyflightstream.post.provenance import refuse_an_existing_product as _refuse_an_existing_product
 from pyflightstream.post.rotor_table import write_rotor_table
-from pyflightstream.post.streamlines import write_point_streamlines
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     plots_last_row,
@@ -688,6 +686,8 @@ def _group_polar(
             / swept_polar_file_name(ctx.sim_id, name=group_name, group=group, suffix=".dat")
         )
         coefficient_columns, coefficient_rows = drag_columned_rows(rows, drags)
+        from pyflightstream.post.custom_polar import write_custom_polar_format
+
         write_custom_polar_format(
             target,
             polar=ctx.sim_id,
@@ -726,6 +726,8 @@ def _point_products(ctx: SimContext) -> None:
         _probes_products(ctx, point, probes_path, legacy_profiles)
         _plots_products(ctx, point, plots_path, legacy_profiles)
         # FR-1083: the streamline products of the point, from its exports.
+        from pyflightstream.post.streamlines import write_point_streamlines
+
         write_point_streamlines(ctx, point.name)
 
 

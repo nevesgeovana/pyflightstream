@@ -42,6 +42,7 @@ __all__ = [
     "resolve_fsi_setup",
     "resolve_row_fsi",
     "stage_fsi_setup",
+    "structural_assessment",
 ]
 
 
@@ -308,31 +309,7 @@ def resolve_fsi_setup(
             substance = _material(spec.material)
             material_base = asdict(substance)
             changed = {key: getattr(substance, key) * factors[key] for key in MATERIAL_FACTORS}
-            if substance.shear_modulus_basis != SHEAR_MODULUS_TABULATED:
-                if factors["torsion_stiffness_n_m2"] != 1 and (
-                    factors["youngs_modulus_pa"] != 1 or factors["poisson_ratio"] != 1
-                ):
-                    raise FsiSetupError(
-                        "derived shear modulus changes GJ with E/Poisson ratio; "
-                        "do not calibrate torsion twice."
-                    )
-                if factors["shear_modulus_pa"] != 1 and (
-                    factors["youngs_modulus_pa"] != 1 or factors["poisson_ratio"] != 1
-                ):
-                    raise FsiSetupError(
-                        "derived shear modulus cannot be calibrated with E or Poisson ratio."
-                    )
-                # Re-derived only when E or the Poisson ratio was calibrated:
-                # at unity the stated G stands, or a table's rounded G would
-                # make the effective beam differ from the base with every
-                # origin reading unity.
-                if factors["shear_modulus_pa"] == 1 and (
-                    factors["youngs_modulus_pa"] != 1 or factors["poisson_ratio"] != 1
-                ):
-                    changed["shear_modulus_pa"] = changed["youngs_modulus_pa"] / (
-                        2 * (1 + changed["poisson_ratio"])
-                    )
-                    origins["shear_modulus_pa"] = "derived from youngs_modulus_pa, poisson_ratio"
+            _calibrate_shear(substance, factors, changed, origins)
             calibrated = replace(substance, **changed)
             material_effective = asdict(calibrated)
             base = FsiConfig.model_validate({**spec.config, "blade": _solid(spec, substance)})
@@ -354,21 +331,7 @@ def resolve_fsi_setup(
         # FsiInputError: the FSI package's own refusal, an unknown material or
         # a section contour the section builder refuses.
         raise FsiSetupError(f"{source}: invalid FSI input: {exc}") from exc
-    frozen_path = None
-    frozen_digest = None
-    if spec.frozen_displacements_file is not None:
-        import numpy as np
-
-        from pyflightstream.fsi.nodes import generate_node_layout, read_fsidisp
-
-        frozen = (source.parent / spec.frozen_displacements_file).resolve()
-        if effective.morphing == "direct":
-            raise FsiSetupError("Frozen replay requires mapped structural node rows.")
-        rows = read_fsidisp(frozen, expected_rows=generate_node_layout(effective).total_nodes)
-        if not np.isfinite(rows).all():
-            raise FsiSetupError(f"{frozen}: frozen displacements must be finite.")
-        frozen_path = str(frozen)
-        frozen_digest = hashlib.sha256(frozen.read_bytes()).hexdigest()
+    frozen_path, frozen_digest = _frozen_replay(spec, source, effective)
     return ResolvedFsiSetup(
         source,
         hashlib.sha256(raw).hexdigest(),
@@ -566,3 +529,100 @@ def fsi_input_payloads(config: FsiConfig, provenance: Mapping[str, Any]) -> dict
             raise FsiSetupError(f"Frozen displacements {frozen} changed; resolve the matrix again.")
         payloads["fsi_frozen_displacements.txt"] = raw.decode("utf-8")
     return payloads
+
+
+def structural_assessment(config: FsiConfig) -> dict[str, object]:
+    """Report effective station properties, modes and excitation ratios.
+
+    The modal calculation uses the existing rotating beam model, including
+    centrifugal stiffness. The warning is a quasi-static validity screen,
+    not a claim of dynamic stability or licensed coupling validation.
+
+    Parameters
+    ----------
+    config : FsiConfig
+        Resolved structural configuration in SI units.
+
+    Returns
+    -------
+    dict[str, object]
+        Effective properties, frequencies, excitation ratios and warnings.
+    """
+    from pyflightstream.fsi.centrifugal import rotating_frequencies
+
+    modes = rotating_frequencies(config)
+    frequencies = modes.frequencies_rad_per_s
+    ratios = {
+        str(order): [order * config.omega_rad_per_s / frequency for frequency in frequencies]
+        for order in sorted({1, config.blade_count})
+    }
+    warnings = [
+        f"Excitation order {order}, mode {index + 1}: n Omega / omega_n = {ratio:.6g} "
+        "exceeds 0.3; a quasi-static structural response may be inadequate."
+        for order, values in ratios.items()
+        for index, ratio in enumerate(values)
+        if ratio > 0.3
+    ]
+    return {
+        "station_properties": config.blade.model_dump(mode="json"),
+        "natural_frequencies_hz": [value / (2 * math.pi) for value in frequencies],
+        "mode_kinds": list(modes.kinds),
+        "excitation_frequency_ratios": ratios,
+        "warnings": warnings,
+    }
+
+
+def _calibrate_shear(
+    substance: Material,
+    factors: dict[str, float],
+    changed: dict[str, float],
+    origins: dict[str, str],
+) -> None:
+    """Apply derived shear calibration once, rejecting competing stiffness factors."""
+    if substance.shear_modulus_basis != SHEAR_MODULUS_TABULATED:
+        if factors["torsion_stiffness_n_m2"] != 1 and (
+            factors["youngs_modulus_pa"] != 1 or factors["poisson_ratio"] != 1
+        ):
+            raise FsiSetupError(
+                "derived shear modulus changes GJ with E/Poisson ratio; "
+                "do not calibrate torsion twice."
+            )
+        if factors["shear_modulus_pa"] != 1 and (
+            factors["youngs_modulus_pa"] != 1 or factors["poisson_ratio"] != 1
+        ):
+            raise FsiSetupError(
+                "derived shear modulus cannot be calibrated with E or Poisson ratio."
+            )
+        # Re-derived only when E or the Poisson ratio was calibrated:
+        # at unity the stated G stands, or a table's rounded G would
+        # make the effective beam differ from the base with every
+        # origin reading unity.
+        if factors["shear_modulus_pa"] == 1 and (
+            factors["youngs_modulus_pa"] != 1 or factors["poisson_ratio"] != 1
+        ):
+            changed["shear_modulus_pa"] = changed["youngs_modulus_pa"] / (
+                2 * (1 + changed["poisson_ratio"])
+            )
+            origins["shear_modulus_pa"] = "derived from youngs_modulus_pa, poisson_ratio"
+
+
+def _frozen_replay(
+    spec: FsiSetupSpec, source: Path, effective: FsiConfig
+) -> tuple[str | None, str | None]:
+    """Validate and fingerprint an explicitly requested frozen displacement input."""
+    frozen_path = None
+    frozen_digest = None
+    if spec.frozen_displacements_file is not None:
+        import numpy as np
+
+        from pyflightstream.fsi.nodes import generate_node_layout, read_fsidisp
+
+        frozen = (source.parent / spec.frozen_displacements_file).resolve()
+        if effective.morphing == "direct":
+            raise FsiSetupError("Frozen replay requires mapped structural node rows.")
+        rows = read_fsidisp(frozen, expected_rows=generate_node_layout(effective).total_nodes)
+        if not np.isfinite(rows).all():
+            raise FsiSetupError(f"{frozen}: frozen displacements must be finite.")
+        frozen_path = str(frozen)
+        frozen_digest = hashlib.sha256(frozen.read_bytes()).hexdigest()
+    return frozen_path, frozen_digest

@@ -135,7 +135,7 @@ def test_two_groups_that_differ_by_a_prefix_never_share_a_column(tmp_path):
 
 @pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])
 def test_p0410_rv2_selected_axes_preserve_unsteady_plot_groups(tmp_path, axes, suffix):
-    from pyflightstream.post._polar_axes import selected_axes
+    from pyflightstream.post.polar import selected_axes
 
     groups = ("MRP_TOTAL", "TOTAL")
     original_columns, original = _written(tmp_path, groups)
@@ -156,7 +156,7 @@ def test_p0410_rv2_selected_axes_preserve_unsteady_plot_groups(tmp_path, axes, s
 def test_p0410_rv2_selected_axes_keep_existing_solver_plot_coefficients(tmp_path):
     import csv
 
-    from pyflightstream.post._polar_axes import selected_axes
+    from pyflightstream.post.polar import selected_axes
 
     columns, row = _written(tmp_path, ("MRP_TOTAL",))
     row["CL_MRP_TOTAL"] = "7.25"
@@ -173,7 +173,7 @@ def test_p0410_rv2_selected_axes_keep_existing_solver_plot_coefficients(tmp_path
 
 @pytest.mark.parametrize("damage", ["missing_component", "collision"])
 def test_p0410_rv2_selected_axes_refuse_before_replacing_the_table(tmp_path, damage):
-    from pyflightstream.post._polar_axes import selected_axes
+    from pyflightstream.post.polar import selected_axes
 
     _written(tmp_path, ("MRP_TOTAL",))
     path = tmp_path / "P0001_x_uns_avg.csv"

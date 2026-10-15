@@ -12,9 +12,14 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream.fsi.config import DIRECT_MORPHING, config_sha256, load_config
+from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.kinematics import decode_station_translations
-from pyflightstream.fsi.nodes import generate_node_layout, read_fsidisp, unflatten_translations
+from pyflightstream.fsi.nodes import (
+    NodeOrderingMap,
+    generate_node_layout,
+    read_fsidisp,
+    unflatten_translations,
+)
 from pyflightstream.fsi.state import load_state
 
 if TYPE_CHECKING:
@@ -37,21 +42,7 @@ def structure_products(ctx: SimContext) -> None:
                 raise ValueError("config.json differs from the coupled run's recorded input")
             config = load_config(config_path)
             layout = generate_node_layout(config)
-            if config.morphing == DIRECT_MORPHING:
-                source = folder / "state.json"
-                state = load_state(source)
-                if state.config_sha256 != config_sha256(config):
-                    raise ValueError(
-                        "direct station state does not match the recorded configuration"
-                    )
-                if state.station_displacements_m is None:
-                    raise ValueError("direct state has no recorded applied station displacements")
-                flat = np.asarray(state.station_displacements_m, dtype=float)
-            else:
-                source = folder / "FSIDisp.txt"
-                flat = read_fsidisp(source, expected_rows=layout.total_nodes)
-            if not np.isfinite(flat).all():
-                raise ValueError("structural displacements contain non-finite values")
+            source, flat = _recorded_displacements(folder, config, layout)
             rows = []
             tips = []
             for blade, translations in enumerate(unflatten_translations(layout, flat), start=1):
@@ -130,3 +121,21 @@ def append_tip_columns(ctx: SimContext, path: Path, runs: Sequence[str]) -> None
         )
     with _textio.open_text(path, "w") as handle:
         _textio.csv_writer(handle).writerows([*prefix, *rows])
+
+
+def _recorded_displacements(folder: Path, config: FsiConfig, layout: NodeOrderingMap):
+    """Read the applied displacement source and validate its recorded configuration."""
+    if config.morphing == DIRECT_MORPHING:
+        source = folder / "state.json"
+        state = load_state(source)
+        if state.config_sha256 != config_sha256(config):
+            raise ValueError("direct station state does not match the recorded configuration")
+        if state.station_displacements_m is None:
+            raise ValueError("direct state has no recorded applied station displacements")
+        flat = np.asarray(state.station_displacements_m, dtype=float)
+    else:
+        source = folder / "FSIDisp.txt"
+        flat = read_fsidisp(source, expected_rows=layout.total_nodes)
+    if not np.isfinite(flat).all():
+        raise ValueError("structural displacements contain non-finite values")
+    return source, flat

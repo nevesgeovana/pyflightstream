@@ -486,11 +486,6 @@
       "path": "fsi/__init__.py"
     },
     {
-      "id": "pyflightstream.fsi._airfoil",
-      "layer": 3.5,
-      "path": "fsi/_airfoil.py"
-    },
-    {
       "id": "pyflightstream.fsi._direct_morphing",
       "layer": 3.5,
       "path": "fsi/_direct_morphing.py"
@@ -601,11 +596,6 @@
       "path": "post/_condition.py"
     },
     {
-      "id": "pyflightstream.post._export_tables",
-      "layer": 0,
-      "path": "post/_export_tables.py"
-    },
-    {
       "id": "pyflightstream.post._field_inputs",
       "layer": 0,
       "path": "post/_field_inputs.py"
@@ -616,19 +606,14 @@
       "path": "post/_installed_copies.py"
     },
     {
+      "id": "pyflightstream.post._matrix_template",
+      "layer": 0,
+      "path": "post/_matrix_template.py"
+    },
+    {
       "id": "pyflightstream.post._noise_products",
       "layer": 0,
       "path": "post/_noise_products.py"
-    },
-    {
-      "id": "pyflightstream.post._plan_inflow",
-      "layer": 0,
-      "path": "post/_plan_inflow.py"
-    },
-    {
-      "id": "pyflightstream.post._polar_axes",
-      "layer": 0,
-      "path": "post/_polar_axes.py"
     },
     {
       "id": "pyflightstream.post._products_campaign",
@@ -679,11 +664,6 @@
       "id": "pyflightstream.post._transfer_functions",
       "layer": 0,
       "path": "post/_transfer_functions.py"
-    },
-    {
-      "id": "pyflightstream.post._workspace_commands",
-      "layer": 0,
-      "path": "post/_workspace_commands.py"
     },
     {
       "id": "pyflightstream.post.acoustics",
@@ -1441,11 +1421,6 @@
       "path": "workspace/_free_space.py"
     },
     {
-      "id": "pyflightstream.workspace._fsi_plan",
-      "layer": 2,
-      "path": "workspace/_fsi_plan.py"
-    },
-    {
       "id": "pyflightstream.workspace._geometry_build",
       "layer": 2,
       "path": "workspace/_geometry_build.py"
@@ -1519,11 +1494,6 @@
       "id": "pyflightstream.workspace._missing_log",
       "layer": 2,
       "path": "workspace/_missing_log.py"
-    },
-    {
-      "id": "pyflightstream.workspace._plan_products",
-      "layer": 2,
-      "path": "workspace/_plan_products.py"
     },
     {
       "id": "pyflightstream.workspace._query_files",
@@ -4659,12 +4629,12 @@
     },
     {
       "source": "pyflightstream.fsi",
-      "target": "pyflightstream.fsi._airfoil",
+      "target": "pyflightstream.fsi.config",
       "kind": "module"
     },
     {
       "source": "pyflightstream.fsi",
-      "target": "pyflightstream.fsi.config",
+      "target": "pyflightstream.fsi.sections",
       "kind": "module"
     },
     {
@@ -4989,12 +4959,7 @@
     },
     {
       "source": "pyflightstream.post",
-      "target": "pyflightstream.post._plan_inflow",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post",
-      "target": "pyflightstream.post._workspace_commands",
+      "target": "pyflightstream.post.corrections",
       "kind": "module"
     },
     {
@@ -5005,6 +4970,11 @@
     {
       "source": "pyflightstream.post",
       "target": "pyflightstream.post.guides",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post",
+      "target": "pyflightstream.post.inflow_tools",
       "kind": "module"
     },
     {
@@ -5233,36 +5203,6 @@
       "kind": "module"
     },
     {
-      "source": "pyflightstream.post._export_tables",
-      "target": "pyflightstream._digest",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._export_tables",
-      "target": "pyflightstream._errors",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._export_tables",
-      "target": "pyflightstream._textio",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._export_tables",
-      "target": "pyflightstream.cases",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._export_tables",
-      "target": "pyflightstream.post._sim",
-      "kind": "typing"
-    },
-    {
-      "source": "pyflightstream.post._export_tables",
-      "target": "pyflightstream.results",
-      "kind": "module"
-    },
-    {
       "source": "pyflightstream.post._installed_copies",
       "target": "pyflightstream._decimal",
       "kind": "module"
@@ -5303,6 +5243,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.post._matrix_template",
+      "target": "pyflightstream.cases.matrix",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.post._noise_products",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -5329,6 +5274,11 @@
     },
     {
       "source": "pyflightstream.post._noise_products",
+      "target": "pyflightstream.post.polar",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._noise_products",
       "target": "pyflightstream.post.qsteady",
       "kind": "module"
     },
@@ -5343,28 +5293,8 @@
       "kind": "module"
     },
     {
-      "source": "pyflightstream.post._plan_inflow",
-      "target": "pyflightstream.cases",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._plan_inflow",
-      "target": "pyflightstream.cases.workflows",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._plan_inflow",
-      "target": "pyflightstream.post.inflow_tools",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._plan_inflow",
+      "source": "pyflightstream.post._noise_products",
       "target": "pyflightstream.workspace",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._polar_axes",
-      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {
@@ -5779,22 +5709,12 @@
     },
     {
       "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.post._export_tables",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post._installed_copies",
       "kind": "module"
     },
     {
       "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post._noise_products",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._sim",
-      "target": "pyflightstream.post._polar_axes",
       "kind": "module"
     },
     {
@@ -5830,7 +5750,7 @@
     {
       "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post.custom_polar",
-      "kind": "module"
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._sim",
@@ -5870,7 +5790,7 @@
     {
       "source": "pyflightstream.post._sim",
       "target": "pyflightstream.post.streamlines",
-      "kind": "module"
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.post._sim",
@@ -6048,21 +5968,6 @@
       "kind": "module"
     },
     {
-      "source": "pyflightstream.post._workspace_commands",
-      "target": "pyflightstream._errors",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._workspace_commands",
-      "target": "pyflightstream.post.corrections",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post._workspace_commands",
-      "target": "pyflightstream.workspace.cli",
-      "kind": "module"
-    },
-    {
       "source": "pyflightstream.post.acoustics",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -6181,6 +6086,11 @@
       "source": "pyflightstream.post.corrections",
       "target": "pyflightstream.workspace",
       "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.post.corrections",
+      "target": "pyflightstream.workspace.cli",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.post.custom_polar",
@@ -6534,7 +6444,22 @@
     },
     {
       "source": "pyflightstream.post.inflow_tools",
+      "target": "pyflightstream.cases",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.inflow_tools",
       "target": "pyflightstream.cases.qsteady",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.inflow_tools",
+      "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.inflow_tools",
+      "target": "pyflightstream.workspace",
       "kind": "module"
     },
     {
@@ -6554,17 +6479,17 @@
     },
     {
       "source": "pyflightstream.post.input_template",
-      "target": "pyflightstream.cases.matrix",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.input_template",
       "target": "pyflightstream.cases.workflows",
       "kind": "module"
     },
     {
       "source": "pyflightstream.post.input_template",
       "target": "pyflightstream.post._field_inputs",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.input_template",
+      "target": "pyflightstream.post._matrix_template",
       "kind": "module"
     },
     {
@@ -6599,7 +6524,17 @@
     },
     {
       "source": "pyflightstream.post.point_tables",
+      "target": "pyflightstream._digest",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.point_tables",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.point_tables",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {
@@ -6621,6 +6556,11 @@
       "source": "pyflightstream.post.point_tables",
       "target": "pyflightstream.post._condition",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.point_tables",
+      "target": "pyflightstream.post._sim",
+      "kind": "typing"
     },
     {
       "source": "pyflightstream.post.point_tables",
@@ -6655,6 +6595,11 @@
     {
       "source": "pyflightstream.post.polar",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.polar",
+      "target": "pyflightstream._textio",
       "kind": "module"
     },
     {
@@ -11474,11 +11419,6 @@
     },
     {
       "source": "pyflightstream.workspace",
-      "target": "pyflightstream.workspace._fsi_plan",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace",
       "target": "pyflightstream.workspace._layout",
       "kind": "module"
     },
@@ -11494,11 +11434,6 @@
     },
     {
       "source": "pyflightstream.workspace",
-      "target": "pyflightstream.workspace._plan_products",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace",
       "target": "pyflightstream.workspace._refine._audit",
       "kind": "module"
     },
@@ -11510,6 +11445,11 @@
     {
       "source": "pyflightstream.workspace",
       "target": "pyflightstream.workspace.fsi_external_setup",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace",
+      "target": "pyflightstream.workspace.fsi_setup",
       "kind": "module"
     },
     {
@@ -11685,16 +11625,6 @@
     {
       "source": "pyflightstream.workspace._free_space",
       "target": "pyflightstream.workspace.naming",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._fsi_plan",
-      "target": "pyflightstream.fsi.centrifugal",
-      "kind": "deferred"
-    },
-    {
-      "source": "pyflightstream.workspace._fsi_plan",
-      "target": "pyflightstream.fsi.config",
       "kind": "module"
     },
     {
@@ -11910,6 +11840,11 @@
     {
       "source": "pyflightstream.workspace._geometry_vtk",
       "target": "pyflightstream.workspace._refine._obj",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._layout",
+      "target": "pyflightstream.cases",
       "kind": "module"
     },
     {
@@ -12130,11 +12065,6 @@
     {
       "source": "pyflightstream.workspace._missing_log",
       "target": "pyflightstream.workspace.manifest",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.workspace._plan_products",
-      "target": "pyflightstream.cases",
       "kind": "module"
     },
     {
@@ -12766,6 +12696,11 @@
       "source": "pyflightstream.workspace.fsi_setup",
       "target": "pyflightstream.fsi.calibration",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace.fsi_setup",
+      "target": "pyflightstream.fsi.centrifugal",
+      "kind": "deferred"
     },
     {
       "source": "pyflightstream.workspace.fsi_setup",
