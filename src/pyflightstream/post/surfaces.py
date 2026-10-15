@@ -413,8 +413,8 @@ def write_point_surface_average(
     if getattr(record, "stopped_at", None):
         if skipped is not None:
             skipped[name] = (
-                "WALLTIME surface average refused: native average finalization is unresolved; "
-                "the measured callback rescue retained instantaneous fields and incomplete plots. "
+                "WALLTIME surface average refused: the interrupted run does not establish "
+                "a complete requested averaging window. "
                 "Per-STEP source files remain available for audit."
             )
         return [], {}

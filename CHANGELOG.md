@@ -38,6 +38,10 @@ FlightStream versions.
 
 ### Fixed
 
+- Refinement refusals name the selected configuration file when no factor is
+  given. WALLTIME surface-average refusals describe the incomplete averaging
+  window rather than native solver averaging.
+
 - FR-124, FR-419: name the 0.40.0 polar, section and settings CSV format
   changes in the parity checker with bounded numeric comparisons.
 - FR-362: batch script parity compares one complete batch. The 0.40.0 cost

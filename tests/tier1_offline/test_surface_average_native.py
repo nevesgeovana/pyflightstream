@@ -114,5 +114,38 @@ def test_walltime_average_refuses_unfinalized_native_mean(tmp_path):
     )
     assert files == [] and entries == {}
     assert "WALLTIME" in skipped["surfaces/P_time_average.dat"]
-    assert "native average" in skipped["surfaces/P_time_average.dat"]
+    assert "complete requested averaging window" in skipped["surfaces/P_time_average.dat"]
+    assert not (tmp_path / "out").exists()
+
+
+def test_p0410_pc_walltime_surface_average_explains_incomplete_window(tmp_path) -> None:
+    """PFS-2116.050: a stopped run cannot complete the requested per-step window."""
+    from types import SimpleNamespace
+
+    from pyflightstream.post.surfaces import write_point_surface_average
+
+    record = SimpleNamespace(
+        surface_average_window={"iterations": [2, 8]},
+        surface_translations=[],
+        point_name="P",
+        run_id="run/P",
+        stopped_at={"step": 5},
+    )
+    skipped: dict[str, str] = {}
+
+    files, entries = write_point_surface_average(
+        tmp_path,
+        sim_dir=tmp_path,
+        record=record,
+        out=tmp_path / "out",
+        target=lambda p: p,
+        skipped=skipped,
+    )
+
+    assert files == [] and entries == {}
+    diagnostic = skipped["surfaces/P_time_average.dat"]
+    assert "WALLTIME" in diagnostic
+    assert "window" in diagnostic.lower(), diagnostic
+    assert "native average" not in diagnostic.lower(), diagnostic
+    assert "native averaging" not in diagnostic.lower(), diagnostic
     assert not (tmp_path / "out").exists()
