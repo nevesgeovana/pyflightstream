@@ -1,8 +1,8 @@
 # %% [markdown]
-# # Campbell diagram of a synthetic rotating blade (Gate 1)
+# # Campbell diagram of a synthetic rotating blade
 #
-# This example closes Gate 1 of the FSI work plan on the structural
-# branch alone: no FlightStream involved, only the beam model and the
+# This example computes structural frequencies without FlightStream,
+# using only the beam model and the
 # centrifugal loads of `pyflightstream.fsi`.
 #
 # 1. define a synthetic uniform blade in the `FsiConfig` schema;
@@ -75,7 +75,7 @@ for omega, flap, torsion in zip(OMEGAS_RAD_S, flap_track, torsion_track, strict=
 # %% [markdown]
 # ## 3. Southwell fits
 #
-# The WP4 verification: the tracks must be straight lines in the
+# The Southwell fit measures how nearly the tracks follow straight lines in the
 # (Omega^2, omega_n^2) plane. The slope S is the Southwell
 # coefficient; for the first flap mode of a uniform blade it sits
 # around 1.1 to 1.3, and for the torsion mode of a thin blade the
@@ -92,7 +92,9 @@ for name, track in (("first flap", flap_track), ("first torsion", torsion_track)
 # ## 4. The diagram
 #
 # Natural frequencies versus rotor speed, with the nP excitation rays
-# (n blades excite at integer multiples of Omega). Crossings between a
+# (nP denotes the rotational harmonic n * Omega, not the number of blades).
+# Blade-passing excitation for B equally spaced blades is B * Omega and
+# its harmonics when the loading has that periodicity. Crossings between a
 # frequency track and a ray flag potential resonances; the coupled
 # tool's quasi-steady validity boundary (n Omega / omega_n at or below
 # about 0.3) lives far below the first crossing.
@@ -119,7 +121,7 @@ else:
     ax.set_xlabel("rotor speed Omega [rad/s]")
     ax.set_ylabel("natural frequency omega_n [rad/s]")
     ax.set_ylim(0.0, math.ceil(1.1 * max(torsion_track)))
-    ax.set_title("Campbell diagram, synthetic uniform blade (Gate 1)")
+    ax.set_title("Campbell diagram, synthetic uniform blade")
     ax.legend()
     fig.tight_layout()
     out = "fsi_campbell_diagram.png"

@@ -8,3 +8,5 @@
   the factor read from the input file, with the matrix override kept separate.
 - OPS-2005.15.01, OPS-2009.01.02: Setup and flight-condition pages include
   solver-free examples for separation assignments and requested/report binding.
+- PFS-2111.002: The Campbell example explains rotational harmonics and
+  distinguishes them from blade-passing excitation.
