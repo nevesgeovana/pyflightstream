@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- `pyfs-workspace geometry trailing-edge` extracts a mesh's trailing-edge midpoint
+  file with explicit axis, hub and length unit.
+
 - `pyfs-workspace calibrate` derives a sector-offset calibration from two recorded
   rotor points, preserving the existing evidence checks and unvalidated status.
 

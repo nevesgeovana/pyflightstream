@@ -694,19 +694,48 @@ def test_the_extraction_agrees_with_the_solver_detection_saved_in_30_blade(secti
     assert not any(_matches(reversed_, stored))
 
 
-def test_the_edge_is_written_as_the_points_file_a_geometry_names(tmp_path):
+@pytest.mark.parametrize("workspace_cli", [False, True], ids=["api", "P0410-trailing-edge"])
+def test_the_edge_is_written_as_the_points_file_a_geometry_names(tmp_path, workspace_cli):
     """G02. The route writes the PACKAGE-SIDE points file: its unit on the first
     line, then one x,y,z row per trailing-edge mid-point, in the mesh's own frame
     and unit. The run converts it into the solver's node file."""
     path, _, trailing = _blade_file(tmp_path)
-    written = write_trailing_edge_node_file(
-        path,
-        tmp_path / "blade.te.txt",
-        axis=(0.0, 0.0, 1.0),
-        hub=(0.0, 0.0, 0.0),
-        unit="METER",
-        sections=8,
-    )
+    if workspace_cli:
+        from pyflightstream.workspace.cli import main
+
+        written = tmp_path / "blade.te.txt"
+        assert (
+            main(
+                [
+                    "geometry",
+                    "trailing-edge",
+                    str(path),
+                    str(written),
+                    "--axis",
+                    "0",
+                    "0",
+                    "1",
+                    "--hub",
+                    "0",
+                    "0",
+                    "0",
+                    "--unit",
+                    "METER",
+                    "--sections",
+                    "8",
+                ]
+            )
+            == 0
+        )
+    else:
+        written = write_trailing_edge_node_file(
+            path,
+            tmp_path / "blade.te.txt",
+            axis=(0.0, 0.0, 1.0),
+            hub=(0.0, 0.0, 0.0),
+            unit="METER",
+            sections=8,
+        )
     rows = written.read_text(encoding="utf-8").splitlines()
     assert rows[0] == "METER", "the points file does not name its unit on its first line"
     assert len(rows) == 25

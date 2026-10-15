@@ -122,12 +122,7 @@
    "node": "PFS-2140.005",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.workspace.TrailingEdge",
-    "pyflightstream.workspace.extract_trailing_edge",
-    "pyflightstream.workspace.trailing_edge_midpoints",
-    "pyflightstream.workspace.wake_edges.write_node_file",
-    "pyflightstream.workspace.wake_edges.write_trailing_edge_points",
-    "pyflightstream.workspace.write_trailing_edge_node_file"
+    "pyflightstream.workspace.wake_edges.write_node_file"
    ]
   },
   {
