@@ -8,7 +8,8 @@ Version-aware Python driver for the FlightStream panel-method solver: write a
 run matrix, and pyflightstream plans, runs and post-processes every point,
 from your workstation or a cluster. MIT licensed.
 
-Status: v0.40.0 is the current release; CHANGELOG.md carries the history.
+This source tree prepares 0.41.0; CHANGELOG.md describes its changes and the
+retained release history.
 
 **Documentation: [nevesgeovana.github.io/pyflightstream](https://nevesgeovana.github.io/pyflightstream/)**
 
@@ -42,18 +43,19 @@ pip install "pyflightstream[geom,fsi,plot,excel]"
 Python 3.12 or newer. FlightStream itself is licensed separately and is
 located through your workspace, never guessed.
 
-## Quick start
+## Quick start without a solver
 
 ```
-pyfs-workspace init my-study            # the workspace tree and input folders
-cd my-study                             # add a geometry, a matrix, a reference, a setup
-pyfs-matrix plan matriz.fs              # zero solver time: what will run, what is refused
-pyfs-matrix run matriz.fs               # runs every READY point
-pyfs-matrix post --workspace .          # rebuilds the products from the records
+pyfs-workspace init my-study
 ```
 
 [Getting started](https://nevesgeovana.github.io/pyflightstream/getting-started/)
-walks a first workspace file by file, and
+starts with an executable solver-free example, then walks the geometry,
+matrix, reference, setup and post-processing inputs needed before planning.
+Initialization creates `my-study/inputs/INPUTS.md`; read it next. Planning
+needs those inputs but no solver license. Running requires a separately
+licensed FlightStream installation.
+
 [From the GUI to pyfs](https://nevesgeovana.github.io/pyflightstream/gui-to-pyfs/)
 maps each GUI step to the key that takes it here.
 
@@ -61,7 +63,7 @@ maps each GUI step to the key that takes it here.
 
 | Tool | What it is for |
 |---|---|
-| `pyfs-workspace` | Create a workspace; archive a simulation; reorganise the geometry library |
+| `pyfs-workspace` | Create or migrate a workspace; archive simulations; prepare geometry, custom fields and actuator profiles |
 | `pyfs-matrix` | Plan, run, collect and post a run matrix; storage (`space-in-use`, `free-space`, `delete-sims`) and `sync` between workspaces |
 | `pyfs-qa` | Command-validity probes and physics regression on a licensed machine |
 | `pyfs-fsi` | The structural executable of the aeroelastic coupling loop |
@@ -99,8 +101,9 @@ and the evidence behind it is narrower than for the supported rows.
 | 26.125 | 26.12 | `operational` |
 
 `operational` means the minimal geometry-to-loads workflow builds for that
-version, checked by a test; `documented` means the manual has been read but
-nothing has been measured on the build yet. The details, and how to tell
+version, checked by a test. `documented` describes the database support level;
+it does not imply that no measurements exist for that build. Individual commands
+may carry different evidence. The details, and how to tell
 which build you have, are on
 [Which build do I have](https://nevesgeovana.github.io/pyflightstream/builds/):
 
