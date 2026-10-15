@@ -11,6 +11,55 @@ end.
 pip install pyflightstream
 ```
 
+## First success without a solver
+
+Create an empty workspace from a terminal:
+
+```text
+pyfs-workspace init my-study
+```
+
+This writes the workspace folders and input guidance under `my-study`. It does
+not download geometry, select an executable or use a solver license. Open
+`my-study/inputs/INPUTS.md` to see the input formats. Re-running initialization
+must not be used as a way to replace your study's input files.
+
+The same command entrypoint can be tried in a temporary directory. This complete
+Python example checks the observable result and removes only its temporary study:
+
+```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from pyflightstream.workspace.cli import main
+
+with TemporaryDirectory() as temporary:
+    study = Path(temporary) / "my-study"
+    assert main(["init", str(study)]) == 0
+    assert (study / "inputs" / "INPUTS.md").is_file()
+```
+
+Next, build a script in Python without opening FlightStream:
+
+```python
+from pyflightstream.script import Script
+
+script = Script(version="26.120")
+script.emit("NEW_SIMULATION")
+text = script.render()
+assert "NEW_SIMULATION" in text
+print(text)
+```
+
+You have now created a workspace and rendered a command checked against the
+selected build's database. This is a successful offline preparation step, not
+a solved aerodynamic case. Unknown builds or unsupported commands produce a
+refusal before a solver starts. To prepare your first actual campaign, supply
+the geometry, reference, setup, post-processing file and matrix described below;
+`pyfs-matrix plan` checks those inputs without a license. Only `run` launches
+the licensed solver. [Guide 2](guides.md) gives the longer workspace walkthrough.
+
+## Optional dependencies
+
 Optional extras, each gating one subsystem:
 
 | Extra | What it adds |

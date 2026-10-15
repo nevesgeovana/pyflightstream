@@ -5,9 +5,18 @@ campaigns, and reads recorded results.
 
 ## Where to start
 
-Half an hour, and no solver until the last step.
-The [first campaign](getting-started.md) covers the command-line route; the
-following tracks select the entry page for each task.
+Start with a [solver-free first success](getting-started.md#first-success-without-a-solver):
+create a workspace and render a checked script. No FlightStream installation,
+license or geometry download is needed for those steps.
+
+- **Command line:** [First campaign](getting-started.md) and the
+  [workspace workflow](workspace-and-workflows.md). Planning is solver-free;
+  execution needs a separately licensed FlightStream installation.
+- **Python:** [Choose a task](python-api/index.md), then use the generated API
+  reference for signatures. Script building and reading saved results are
+  solver-free; launching FlightStream needs a license.
+- **Contribute:** [Contributing guide](contributing.md) for installation,
+  offline tests and the clean-room rules. Licensed tests are a separate tier.
 
 ## Choose a reading track
 
@@ -30,8 +39,8 @@ The [workspace and workflow](workspace-and-workflows.md) page describes the
 main campaign route. The website and its examples are the maintained technical
 reference.
 
-The [PDF guide folder](https://github.com/nevesgeovana/pyflightstream/tree/main/guide)
-contains the decks and their sources.
+The [guide source folder](https://github.com/nevesgeovana/pyflightstream/tree/main/guide)
+contains the LaTeX and figure sources; compiled PDFs are site downloads.
 
 ## Evidence discipline
 
