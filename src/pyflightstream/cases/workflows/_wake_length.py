@@ -212,11 +212,13 @@ def run_wake_length(case: SimCase, length: float, *, omega: float, dtheta: float
             f"case {case.sim_id!r} states {RUN_WAKE_LENGTH_R_VARIABLE} = {length:g} and the "
             "rotor it turns has no known radius, so a length in rotor radii has no length "
             "in metres. Declare the rotor block's diameter_m, or rotor_diameter_m, on the "
-            f"reference, or state {REVOLUTIONS_VARIABLE} instead."
+            f"reference, or replace RUN_WAKE_LENGTH_R with {REVOLUTIONS_VARIABLE} "
+            "paired with DELTA_THETA; with DELTA_TIME, use TIME_ITERATIONS instead."
         )
     remedy = (
         "State the row's flight condition, or state "
-        f"{REVOLUTIONS_VARIABLE} instead of {RUN_WAKE_LENGTH_R_VARIABLE}."
+        f"{REVOLUTIONS_VARIABLE} paired with DELTA_THETA instead of "
+        f"{RUN_WAKE_LENGTH_R_VARIABLE}; with DELTA_TIME, use TIME_ITERATIONS instead."
     )
     v_inf = abs(_velocity(case))
     v_ax, rule = _induced(case, radius, v_inf, remedy=remedy)
@@ -226,7 +228,8 @@ def run_wake_length(case: SimCase, length: float, *, omega: float, dtheta: float
             f"axial velocity of {v_ax:g} m/s, and a wake that does not convect never "
             f"reaches a length. State {_THRUST_KEY} (the rotor's thrust in newtons, whose "
             "induced velocity convects the wake) in the setup, or state "
-            f"{REVOLUTIONS_VARIABLE} instead of {RUN_WAKE_LENGTH_R_VARIABLE}."
+            f"{REVOLUTIONS_VARIABLE} paired with DELTA_THETA instead of "
+            f"{RUN_WAKE_LENGTH_R_VARIABLE}; with DELTA_TIME, use TIME_ITERATIONS instead."
         )
     exact = length * radius * omega / (v_ax * dtheta)
     if not math.isfinite(exact):

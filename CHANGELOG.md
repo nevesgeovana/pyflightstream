@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Changed
 
+- `--no-ignore-missing-families` explicitly disables missing-family tolerance.
+  It is mutually exclusive with `--ignore-missing-families`, including an
+  explicit false value; use exactly one form.
 - Migration instructions live in `docs/upgrading.md`. Current help no longer
   recommends retired input-id, geometry-folder or group-product migration tools;
   geometry instructions name the folder they require.
@@ -329,8 +332,6 @@ message naming the record and missing input key, instead of raising KeyError. (F
   audits for both OBJ-only and FSM-plus-OBJ outputs.
 
 ### Fixed
-
-- Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
 
 - Trefftz-plane planning refuses a spacing that leaves fewer than three points on either axis, naming the spacing and half extents to adjust, before a solver run produces a plane that post cannot integrate.
 - The PDF release receipt builder reads the cheatsheet build log from the
@@ -688,8 +689,6 @@ archives remain available for recovery. (no requirement: preserve records during
   both.
 
 ### Fixed
-
-- Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
 
 - **A point submitted without a recorded list of its solver logs is still
   `RAN_MISSING_LOG` when its log is gone** (FR-413 R8). When a record carries no
