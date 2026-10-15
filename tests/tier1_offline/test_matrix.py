@@ -27,15 +27,13 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream import cases as cases_mod
-from pyflightstream.cases import SimCase, load_campaign, point_tag
+from pyflightstream.cases import SimCase, point_tag
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import (
     MatrixError,
-    convert_matrix,
     read_matrix,
     to_campaign,
 )
-from pyflightstream.versions import resolve
 
 FIXTURE = Path(__file__).parent / "fixtures" / "matrix.fs"
 #: The same matrix at the width that preceded ``WORKFLOW``.
@@ -372,48 +370,6 @@ def test_unmapped_script_code_is_refused():
         to_campaign(FIXTURE, name="matrix", fs_version="26.120", fs_exe="C:/fs.exe", recipes={})
 
 
-def test_convert_matrix_round_trips_through_load_campaign(tmp_path):
-    text = convert_matrix(
-        FIXTURE, name="matrix", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
-    )
-    path = tmp_path / "campaign.toml"
-    path.write_text(text, encoding="utf-8")
-    campaign = load_campaign(path)
-    direct = to_campaign(
-        FIXTURE, name="matrix", fs_version="26.120", fs_exe="C:/fs.exe", recipes=RECIPES
-    )
-    # DUMPS, NOT MODELS, since 2026-08-19. `Campaign` gained a private
-    # `_source_path`, which `load_campaign` fills and `to_campaign` leaves
-    # None, and pydantic compares private attributes in `__eq__`. So the
-    # two campaigns are unequal while carrying identical DATA, and it is
-    # the data that FR-11 calls lossless. Comparing the dumps keeps that
-    # promise measured and stops this pin asserting where a campaign was
-    # loaded from, which it never meant to.
-    assert campaign.model_dump() == direct.model_dump()
-    # The escaped newline survives the TOML round trip verbatim.
-    full = next(sim for sim in campaign.sims if sim.sim_id == "9006")
-    assert full.variables["NOTE"] == "first line\\nsecond line"
-
-
-def test_earlier_conversions_with_legacy_keys_stay_loadable(tmp_path):
-    # The changelog promise: campaign.toml files converted before the
-    # matrix_* rename keep their legacy_* variable keys and load
-    # verbatim; variables are free-keyed by design.
-    path = tmp_path / "campaign.toml"
-    path.write_text(
-        '[campaign]\nname = "old"\nfs_version = "26.120"\nfs_exe = "C:/fs.exe"\n\n'
-        '[[sim]]\nsim_id = "9001"\naircraft = "TestWing"\n'
-        'sweep = {type = "alpha", values = [0.0]}\n'
-        'recipe = "recipes.steady_polar:build"\n'
-        "[sim.variables]\n"
-        'legacy_ref = "003"\nlegacy_hidden = false\n',
-        encoding="utf-8",
-    )
-    campaign = load_campaign(path)
-    assert campaign.sims[0].variables["legacy_ref"] == "003"
-    assert campaign.sims[0].variables["legacy_hidden"] is False
-
-
 # --- the removed pyflightstream.cases.matrix_legacy shim --------------------
 
 
@@ -669,14 +625,6 @@ def test_nothing_parses_after_the_fifteen_column_refusal():
     """Every consumer reaches rows through read_matrix, so all inherit it."""
     with pytest.raises(MatrixError, match="upgrade_matrix"):
         to_campaign(
-            LEGACY_FIXTURE,
-            name="matrix",
-            fs_version="26.120",
-            fs_exe="C:/fs.exe",
-            recipes=RECIPES,
-        )
-    with pytest.raises(MatrixError, match="upgrade_matrix"):
-        convert_matrix(
             LEGACY_FIXTURE,
             name="matrix",
             fs_version="26.120",
@@ -2213,40 +2161,6 @@ def test_a_legacy_row_with_a_bare_code_and_no_mapping_is_still_refused(tmp_path)
 
 
 # --- PFS-2009.04: campaign.toml stores the resolved build identifier --------------
-
-
-def test_campaign_toml_carries_the_resolved_build_identifier(tmp_path):
-    """THE DEFECT: the campaign model resolved the version a user wrote and then
-    stored what they wrote, so a matrix converted with the vendor name ``26.1``
-    wrote ``26.1`` into campaign.toml, and the day a second build claimed that
-    name (2026-08-04, when 26.101 was registered) the file was refused on a
-    machine where nothing changed but the installed package. ``26.0`` is the
-    alias that still names exactly one build, 26.000, so it is the one that
-    converts today and would be refused tomorrow; the file holds the canonical
-    identifier and the alias stays in the matrix, where it is read with today's
-    registry every time.
-    """
-    assert resolve("26.0").canonical == "26.000", "this arm needs an alias naming ONE build"
-    path = _silent_matrix(tmp_path, ["26.0", "26.0"])
-    assert [row.fs_build for row in read_matrix(path)] == ["26.0", "26.0"]
-    # No default: the first active row's build is the campaign version.
-    text = convert_matrix(path, name="camp", fs_version="", fs_exe="fs.exe", recipes=RECIPES)
-    assert 'fs_version = "26.000"' in text, text
-    assert 'fs_version = "26.0"' not in text, text
-    # A default typed as the alias resolves the same way.
-    text = convert_matrix(path, name="camp", fs_version="26.0", fs_exe="fs.exe", recipes=RECIPES)
-    assert 'fs_version = "26.000"' in text, text
-    # The cell itself survives as typed: matrix_fs_build is the registry key
-    # the row named, which a workspace resolves through its own build
-    # registry (FR-11), and a registry key is not required to be a version.
-    assert text.count('"matrix_fs_build" = "26.0"') == 2, text
-    # What is written is what loads back, and it loads back canonical.
-    (tmp_path / "campaign.toml").write_text(text, encoding="utf-8")
-    assert load_campaign(tmp_path / "campaign.toml").fs_version == "26.000"
-    # And the model itself is where the answer is kept: a campaign built
-    # in Python from the alias records the build, not the name.
-    campaign = to_campaign(path, name="camp", fs_version="26.0", fs_exe="fs.exe", recipes=RECIPES)
-    assert campaign.fs_version == "26.000"
 
 
 # --- PFS-2034.02: the variables cell reads a ROTATE list of records ---------------------

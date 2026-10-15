@@ -30,7 +30,7 @@ from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.extras import EXTRAS
 
 REPO = Path(__file__).resolve().parents[2]
-EXAMPLES = REPO / "examples"
+EXAMPLES = REPO / "docs/examples/_sources"
 PACKAGE = REPO / "src" / "pyflightstream"
 
 
@@ -324,7 +324,7 @@ def test_the_additional_post_example_leaves_a_continuation_that_binds(tmp_path):
         env=environment,
     )
     assert result.returncode == 0, (
-        f"examples/additional_post.py exited {result.returncode}.\n"
+        f"docs/examples/_sources/additional_post.py exited {result.returncode}.\n"
         f"stdout:\n{result.stdout[-2000:]}\nstderr:\n{result.stderr[-2000:]}"
     )
     (root,) = tmp_path.glob("pyfs_additional_post_*/wing_study")

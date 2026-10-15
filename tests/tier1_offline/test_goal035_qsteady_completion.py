@@ -333,7 +333,7 @@ def _ring_field(tmp_path: Path, axial) -> Path:
     ``axial(theta)`` is the axial velocity at azimuth ``theta``; the in-plane
     velocity is zero, so the field is the TOTAL velocity of an axial inflow.
     """
-    rows = []
+    rows: list[tuple[float, ...]] = []
     for i in range(24):
         r = 0.05 * (i + 1)
         for j in range(72):

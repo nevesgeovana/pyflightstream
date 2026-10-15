@@ -75,7 +75,7 @@ maps each GUI step to the key that takes it here.
 | Parsers, tables, run manifest, reconstruction | supported |
 | Campaigns, run matrices, workspace, pre-flight | supported |
 | Far-field ledgers and probe surveys | **experimental** |
-| FSI structural beam and modal analysis | **experimental** (`examples/wing_static_deflection.py`, `examples/fsi_campbell_diagram.py`) |
+| FSI structural beam and modal analysis | **experimental** (`docs/examples/_sources/wing_static_deflection.py`, `docs/examples/_sources/fsi_campbell_diagram.py`) |
 | FSI coupled driver (the four-phase loop) | **experimental**: offline replay only, never run against a live solver in CI |
 | Rotary two-way coupling | **not validated** |
 

@@ -167,7 +167,7 @@ torsion method and its grid per station, and the thin-section ratio per
 station. It enters `config_sha256` when present and is not serialised
 at all when absent, so every configuration typed by hand keeps the
 digest it had, and every `state.json` keeps matching its run. Run
-`examples/fsi_solid_blade_properties.py` for a worked blade.
+`docs/examples/_sources/fsi_solid_blade_properties.py` for a worked blade.
 
 ## beam: the blade as a PyNite beam (`beam.py`)
 
@@ -221,7 +221,7 @@ conclusions.
 versus rotor speed, straight in the (Omega^2, omega_n^2) plane, with
 Southwell coefficients about 1.1 to 1.3 for the first flap mode and
 near (I1 - I2) / (I1 + I2) for torsion. Run
-`examples/fsi_campbell_diagram.py` for the worked example and the
+`docs/examples/_sources/fsi_campbell_diagram.py` for the worked example and the
 figure.
 
 Every physics formula lives in a small function whose docstring cites

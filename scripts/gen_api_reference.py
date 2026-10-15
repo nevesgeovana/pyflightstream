@@ -461,7 +461,7 @@ def missing_from_inventory(names: set[str]) -> list[str]:
     """
     # A module's own entry renders its docstring with no heading, so the
     # module itself is not an inventory object; its names are.
-    expected = set()
+    expected: set[str] = set()
     for module_name in public_subpackages():
         expected.update(f"{module_name}.{name}" for name in public_surface(module_name))
     return sorted(expected - names)

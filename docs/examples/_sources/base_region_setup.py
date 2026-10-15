@@ -18,7 +18,7 @@ def build_example(geometry: Path | None = None) -> str:
     """Render the public body example against the documented 26.124 command set."""
     if geometry is None:
         geometry = (
-            Path(__file__).resolve().parents[1]
+            Path(__file__).resolve().parents[3]
             / "tests/tier3_licensed/inputs/geometries/20_BODY.fsm"
         )
     case = SimCase(

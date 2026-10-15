@@ -21,7 +21,6 @@ from pyflightstream.cases import (
     SolverSettings,
     SweepAxis,
     acoustics,
-    load_campaign,
     pproc,
 )
 from pyflightstream.cases import PprocSpec as _CasesReviewPprocSpec
@@ -171,46 +170,6 @@ outputs = ["loads_{point}.txt"]
 """
 
 
-class TestCasesLoadCampaign:
-    """Tier 1: load_campaign refuses every malformed file with CampaignConfigError (0.40.0)."""
-
-    @staticmethod
-    def test_p0400_sims_key_in_campaign_table_is_refused_by_name(tmp_path):
-        """P0400-SIMS-KEY (PFS-2095.001): [campaign] sims names the [[sim]] form, not a TypeError."""  # noqa: E501
-        path = tmp_path / "campaign.toml"
-        path.write_text(
-            _CASES_LOAD_CAMPAIGN__CAMPAIGN_TOML.replace('name = "wing', 'sims = []\nname = "wing'),
-            encoding="utf-8",
-        )
-        with pytest.raises(CampaignConfigError, match=r"'sims'.*\[\[sim\]\] entry per case"):
-            load_campaign(path)
-
-    @staticmethod
-    def test_p0400_validator_refusal_arrives_as_campaign_config_error(tmp_path):
-        """P0400-VALIDATION (PFS-2081.31): a model refusal is the documented CampaignConfigError."""
-        path = tmp_path / "campaign.toml"
-        path.write_text(
-            _CASES_LOAD_CAMPAIGN__CAMPAIGN_TOML.replace(
-                "[0.0, 2.0]}", "[0.0, 2.0], held = {mach = 0.2}}"
-            ),
-            encoding="utf-8",
-        )
-        with pytest.raises(
-            CampaignConfigError, match=r"does not load(.|\n)*not a point axis"
-        ) as caught:
-            load_campaign(path)
-        assert str(path) in str(caught.value), "the refusal does not name the file"
-
-    @staticmethod
-    def test_p0400_toml_syntax_error_arrives_as_campaign_config_error(tmp_path):
-        """P0400-TOML-SYNTAX (PFS-2085.001): a TOMLDecodeError is re-raised naming path and line."""
-        path = tmp_path / "campaign.toml"
-        path.write_text(_CASES_LOAD_CAMPAIGN__CAMPAIGN_TOML + "broken = \n", encoding="utf-8")
-        with pytest.raises(CampaignConfigError, match=r"does not load.*line 16") as caught:
-            load_campaign(path)
-        assert str(path) in str(caught.value), "the refusal does not name the file"
-
-
 #: The header of v0.15.0 to v0.16.0, as those releases wrote it.
 _CASES_MATRIX__LAYOUT_0_15_0 = (
     "POL | AIRCRAFT | DESCRIPTION | FLIGHT_CONDITION | SWEEP_VALUES | REF | SET | PPROC "
@@ -293,8 +252,8 @@ class TestCasesMatrix:
             to_campaign(path, **{**_CASES_MATRIX__CAMPAIGN, "fs_version": ""})
 
     @staticmethod
-    def test_p0400_convert_matrix_keeps_every_record_list(tmp_path):
-        """P0400-CONVERT-LOSSLESS (PFS-2096.002): read -> convert -> load gives the same SimCase."""
+    def test_p0400_matrix_keeps_every_in_memory_record_list(tmp_path):
+        """P0400-CONVERT-LOSSLESS: matrix rows preserve the in-memory record lists."""
         path = _cases_matrix___matrix(
             tmp_path,
             VAR_NAMES_VALUES=(
@@ -306,12 +265,6 @@ class TestCasesMatrix:
         )
         case = to_campaign(path, **_CASES_MATRIX__CAMPAIGN).sims[0]
         assert case.motions and case.rotations and case.translations and case.raw_commands
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            text = convert_matrix(path, **_CASES_MATRIX__CAMPAIGN)
-        converted = tmp_path / "campaign.toml"
-        converted.write_text(text, encoding="utf-8")
-        assert load_campaign(converted).sims[0].model_dump() == case.model_dump()
 
 
 _CASES_MATRIX_UPGRADE__FIXTURES = Path(__file__).parent / "fixtures"
@@ -744,7 +697,7 @@ class TestCasesReview:
         path = _cases_matrix___matrix(tmp_path, FS_BUILD="26.125")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            with pytest.raises(MatrixError, match="9001.*FS_BUILD.*26.125.*26.124"):
+            with pytest.raises(MatrixError, match="matrix is the sole campaign declaration"):
                 convert_matrix(path, **_CASES_MATRIX__CAMPAIGN)
 
     @staticmethod

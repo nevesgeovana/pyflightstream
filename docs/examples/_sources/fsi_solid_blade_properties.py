@@ -133,7 +133,9 @@ blade = blade_properties_from_sections(
     chords,
     pitches,
     titanium,
-    geometry_source="synthetic NACA 24xx blade of examples/fsi_solid_blade_properties.py",
+    geometry_source=(
+        "synthetic NACA 24xx blade of docs/examples/_sources/fsi_solid_blade_properties.py"
+    ),
     geometry_file=section_file,
 )
 print(

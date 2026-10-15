@@ -68,7 +68,6 @@ MATRIX_SUFFIX = ".fs"
 MATRIX_ARGUMENTS: frozenset[tuple[str, str]] = frozenset(
     {
         ("upgrade", "matrix"),
-        ("convert", "matrix"),
         ("plan", "matrix"),
         ("inspect-setups", "matrix"),
         ("run", "matrix"),

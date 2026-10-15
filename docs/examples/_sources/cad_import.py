@@ -8,7 +8,7 @@
 # input metadata still controls its physical size. The explicit 90-degree
 # threshold is emitted before edge detection, whose result must be inspected.
 #
-# Run: `python examples/cad_import.py model.igs --boundary Wing`
+# Run: `python docs/examples/_sources/cad_import.py model.igs --boundary Wing`
 
 # %%
 """Emit a CAD-based steady script; this example never starts FlightStream."""

@@ -1572,29 +1572,6 @@ class TestSweep1Cli:
         assert roots == [workspace.root]
 
     @staticmethod
-    def test_p0400_output_flags(tmp_path, monkeypatch):
-        """P0400-SWEEP-OUTPUT-FLAGS: convert accepts --out; the old alias warns."""
-        parser = _build_parser()
-        options = [
-            "convert",
-            "matrix.fs",
-            "--name",
-            "warm",
-            "--fs-version",
-            "26.120",
-            "--fs-exe",
-            "solver.exe",
-        ]
-        monkeypatch.setattr(cli, "convert_matrix", lambda *args, **kwargs: "synthetic campaign")
-        destination = tmp_path / "campaign.toml"
-        args = parser.parse_args([*options, "--out", str(destination)])
-        assert cli._cmd_convert(args, {}) == 0
-        assert destination.read_text(encoding="utf-8") == "synthetic campaign"
-        args = parser.parse_args([*options, "--output", str(destination)])
-        with pytest.warns(PyflightstreamWarning, match="deprecated.*--out"):
-            assert cli._cmd_convert(args, {}) == 0
-
-    @staticmethod
     def test_p0400_fsi_out(tmp_path):
         """P0400-SWEEP-FSI-OUT: the FSI console uses the same output flag."""
         from pyflightstream.fsi.cli import main
@@ -1662,7 +1639,7 @@ class TestSweep1Cli:
         import runpy
         import sys
 
-        script = Path(__file__).resolve().parents[2] / "examples/steady_polar.py"
+        script = Path(__file__).resolve().parents[2] / "docs/examples/_sources/steady_polar.py"
         monkeypatch.setattr(sys, "argv", [str(script)])
         built = runpy.run_path(str(script))
         assert "EXPORT_LOG\nsolver_a0_log.txt" in built["scripts"][-4.0].render()
@@ -1683,7 +1660,9 @@ class TestSweep1Cli:
             "surface_with_native_strength",
             "workspace_fsi_calibration",
         ):
-            tree = ast.parse((root / "examples" / f"{name}.py").read_text(encoding="utf-8"))
+            tree = ast.parse(
+                (root / "docs/examples/_sources" / f"{name}.py").read_text(encoding="utf-8")
+            )
             imports = [
                 node.module
                 for node in ast.walk(tree)
@@ -1703,7 +1682,9 @@ class TestSweep1Cli:
         from pyflightstream.workspace import RunStatus
 
         root = Path(__file__).resolve().parents[2]
-        tree = ast.parse((root / "examples/steady_polar.py").read_text(encoding="utf-8"))
+        tree = ast.parse(
+            (root / "docs/examples/_sources/steady_polar.py").read_text(encoding="utf-8")
+        )
         calls = [
             node
             for node in ast.walk(tree)

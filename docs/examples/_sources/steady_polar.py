@@ -14,7 +14,7 @@
 # the explicit path of your licensed FlightStream executable:
 #
 # ```
-# python examples/steady_polar.py C:/path/to/FlightStream.exe
+# python docs/examples/_sources/steady_polar.py C:/path/to/FlightStream.exe
 # ```
 #
 # The executable path is always explicit input, never read from

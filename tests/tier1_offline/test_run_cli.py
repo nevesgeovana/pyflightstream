@@ -611,7 +611,7 @@ def test_plan_pre_flights_the_matrix_run_would_run(tmp_path, capsys):
     assert not workspace.read_manifest(), "plan executed something; it must execute nothing"
 
 
-def test_convert_and_plan_still_take_recipe_references(tmp_path):
+def test_plan_and_inspect_still_take_recipe_references(tmp_path):
     """The reversal adds a path; it removes none.
 
     `convert` and `plan` are unchanged, so a study built on recipes
@@ -658,7 +658,6 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     assert set(choices) == {
         "audit-mesh",
         "collect",
-        "convert",
         "degenerate",
         "delete-sims",
         "diff",
@@ -687,7 +686,7 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
         "inspect-setups is registered as plan's alias; a separate parser could "
         "drift from plan's options"
     )
-    for name in ("convert", "plan", "inspect-setups"):
+    for name in ("plan", "inspect-setups"):
         flags = {option for action in choices[name]._actions for option in action.option_strings}
         assert "--recipe" in flags, f"{name} lost its --recipe option"
 

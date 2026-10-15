@@ -37,7 +37,7 @@ from tests.tier1_offline.test_house_style import (
     _geometry_offenses as _rfixa_guards___geometry_offenses,
 )
 
-_DECIDED_DOCS_1_EXAMPLES__EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
+_DECIDED_DOCS_1_EXAMPLES__EXAMPLES = Path(__file__).resolve().parents[2] / "docs/examples/_sources"
 
 
 #: Private imports still owed a public home: the entry point decorator has no

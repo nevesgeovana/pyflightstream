@@ -123,7 +123,7 @@ def test_detection_angle_precedes_auto_detection_and_is_not_emitted_twice(tmp_pa
 def test_documented_base_region_example_runs_without_a_solver():
     import runpy
 
-    example = Path(__file__).resolve().parents[2] / "examples/base_region_setup.py"
+    example = Path(__file__).resolve().parents[2] / "docs/examples/_sources/base_region_setup.py"
     module = runpy.run_path(str(example))
     text = module["build_example"]()
     assert "CREATE_NEW_BASE_REGION 2 USER -0.2" in text

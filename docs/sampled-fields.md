@@ -99,7 +99,7 @@ The [worked example](examples/sampled_field_export.md) uses explicitly
 synthetic data and needs no solver:
 
 ```console
-python examples/sampled_field_export.py --output /absolute/path/to/new-output
+python docs/examples/_sources/sampled_field_export.py --output /absolute/path/to/new-output
 ```
 
 It writes one VTK field, one Tecplot field and one reusable inflow with matching

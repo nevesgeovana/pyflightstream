@@ -541,7 +541,7 @@ def test_the_geometry_guard_fires_on_what_it_exists_to_catch():
         "than leaving an exemption waiting for a future file of that name"
     )
     # And the guard must not be vacuous: a suffix outside the set is untouched.
-    assert _geometry_offenses(["README.md", "examples/steady_polar.py"]) == []
+    assert _geometry_offenses(["README.md", "docs/examples/_sources/steady_polar.py"]) == []
 
 
 def test_a_tier3_saved_simulation_is_admitted_only_with_its_provenance_record():

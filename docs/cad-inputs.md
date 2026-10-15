@@ -56,7 +56,7 @@ Loading a saved solver initialization during CAD conversion is refused.
 In the GUI this corresponds to importing CAD, choosing tessellation,
 converting the CAD body to mesh, inspecting dimensions and boundary names,
 then marking trailing edges. Python users can run
-`examples/cad_import.py` to emit a complete script without launching the
+`docs/examples/_sources/cad_import.py` to emit a complete script without launching the
 solver.
 
 The command route was exercised on one IGES wing with FlightStream 26.124,
