@@ -383,6 +383,11 @@ Unsteady rows refuse `COLD_START`. A forced rerun of one point in a steady job r
 
 Post again for corrected induced-drag missing values, moment references, warnings and output names. New runs are needed for solver exports not retained in existing records. A row may declare a raw mesh, custom free stream or additional post-processing artifact. Review roll and yaw rate signs before rerunning affected cases.
 
+Rows written by 0.21.0 through 0.26.0 with `roll_rate` or `yaw_rate` emitted
+the opposite rate; `pitch_rate` was unaffected. Existing coefficients belong
+to those emitted rates. Inspect the recorded free-stream rotation and rerun
+when the intended rate differs; posting cannot correct a solved flow field.
+
 ## 0.26.0
 
 Python section writers use `step=` instead of `iteration=`, and campaign assessment uses `LoadsAssessor`. Replace `WINDOW_STEPS` with `LAST_ITERS_AVG`; replace `WINDOW_REVOLUTIONS` and `WINDOW_DEGREES` with the appropriate `LAST_REVS_AVG` declaration. Each post-processing group names one alias. Existing recorded manifests stay readable.

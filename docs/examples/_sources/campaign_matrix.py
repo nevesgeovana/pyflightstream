@@ -38,18 +38,15 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 # `read_matrix` parses it into typed rows; by default only the rows with
 # `RUN = 1` come back.
 #
-# Three things in the header are newer than the format itself.
 # `FLIGHT_CONDITION` states the whole flow condition of a row in one
-# cell, as comma-separated `KEY:value` pairs from a closed set; it
-# REPLACED the `RE` and
-# `MACH` columns at 0.9.0, and which quantity the resolver solves for
+# cell, as comma-separated `KEY:value` pairs from a closed set.
+# Which quantity the resolver solves for
 # follows from which keys are present rather than from which columns are
 # mandatory. The cell also says WHICH VARIABLE THE ROW SWEEPS, by
 # carrying the word `sweep` where that key's value would be: `ALPHA:sweep`
 # below means the values in `SWEEP_VALUES` are incidences, and `BETA:0.0`
 # beside it is the sideslip held at every one of them. Exactly one key may
-# carry the word, which is why the `SWEEP_TYPE` column that named it a
-# second time went at 0.15.0. `WORKFLOW`
+# carry the word; there is no separate `SWEEP_TYPE` column. `WORKFLOW`
 # names which workflow builds the row's script, in a column of its own
 # so the type never competes with the free `KEY:VALUE` case data;
 # `LEGACY` is the workflow every row written before the column existed
@@ -107,7 +104,7 @@ print(f"active matrix rows: {[row.pol for row in rows]}")
 #
 # A MATRIX ROW SETS IT with `GEOMETRY: <file name>` in `VAR_NAMES_VALUES`,
 # resolved against `inputs/geometries/` the way `REF`, `SET` and `PPROC`
-# are (v0.8.1). `resolve_matrix` is what assigns it, for every active row
+# are. `resolve_matrix` is what assigns it, for every active row
 # THAT NAMES THE KEY; a row naming none leaves the field absent, which is
 # the property the whole release rests on. So a recipe of your own
 # receives the field exactly as a built-in workflow does, and both

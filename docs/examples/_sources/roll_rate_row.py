@@ -15,8 +15,8 @@
 # emitted rotation is the sign of the body axis in the geometry's frame (x
 # aft, y right, z up, against body axes forward, right, down): p = -omega_x,
 # q = +omega_y, r = -omega_z. The solver's sense was measured on FlightStream
-# 26.124, pitch in RPT-052 and roll and yaw in RPT-060. Until 0.27.0 roll and
-# yaw were emitted with the opposite sign.
+# 26.124, pitch in RPT-052 and roll and yaw in RPT-060. See the upgrade
+# guidance for historical roll and yaw sign corrections.
 #
 # This example sweeps the roll rate over one row and prints the free-stream
 # line each point's script carries, without a solver.

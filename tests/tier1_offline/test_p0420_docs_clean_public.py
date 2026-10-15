@@ -18,7 +18,11 @@ ROOT = Path(__file__).resolve().parents[2]
 def published_pages():
     config = yaml.safe_load((ROOT / "properdocs.yml").read_text(encoding="utf-8"))
     excluded = config["exclude_docs"].split()
-    for path in [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]:
+    for path in [
+        ROOT / "README.md",
+        *sorted((ROOT / "docs").rglob("*.md")),
+        *sorted((ROOT / "docs/examples/_sources").glob("*.py")),
+    ]:
         relative = path.relative_to(ROOT).as_posix().removeprefix("docs/")
         if relative != "srs/architecture-srs.md" and any(
             relative == entry.strip("/") or relative.startswith(entry.lstrip("/"))
@@ -38,8 +42,8 @@ def test_p0420_docs_clean_no_deferred_dependency_in_published_pages():
 
 
 RELEASE = re.compile(
-    r"\bv0\.\d+\b|\b0\.\d+\.(?:\d+|x)\b|"
-    r"\b(?:since|added in|release|version|as of)\s+v?0\.\d+\b",
+    r"(?<![\w.])v0\.\d+\b|(?<![\w.])0\.\d+\.(?:\d+|x)\b|"
+    r"\b(?:since|added in|release|version|as of)\s+v?0\.[1-9]\d?\b",
     re.IGNORECASE,
 )
 
@@ -73,7 +77,13 @@ def test_p0420_docs_clean_release_guard_controls(monkeypatch):
         )
         with pytest.raises(AssertionError):
             test_p0420_docs_clean_release_narration()
-    for text in ("Mach 0.3", "radius 0.38 m", "FlightStream 26.124"):
+    for text in (
+        "Mach 0.3",
+        "radius 0.38 m",
+        "FlightStream 26.124",
+        "Chrome 151.0.7922.76",
+        "since 0.05 cannot be a number of steps",
+    ):
         assert not RELEASE.search(text), text
 
 
