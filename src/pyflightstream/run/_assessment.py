@@ -240,11 +240,11 @@ class LoadsAssessor:
     """The standard solver-quality judgment, built on the run outputs.
 
     Reads the collected loads spreadsheet and, when available, the
-    exported solver log. It produces four of the six terminal statuses:
-    CONVERGED, COMPLETED_MAX_ITER and FAILED_DIVERGED when it can judge
-    the run, and FAILED_INCOMPLETE_OUTPUT when it cannot. The Notes
-    below list every case in the last group and say why they share one
-    status.
+    exported solver log. Its judgments are CONVERGED, COMPLETED_MAX_ITER,
+    MAX_ITER_REACHED, FAILED_DIVERGED and FAILED_INCOMPLETE_OUTPUT.
+    Other execution and submission outcomes belong to the run orchestration;
+    :class:`pyflightstream.workspace.manifest.RunStatus` defines the full set.
+    The Notes below explain refusals to judge the collected evidence.
 
     - NaN or infinite Total coefficients: FAILED_DIVERGED.
     - A native log with consecutive frozen time steps: FAILED_DIVERGED.
@@ -253,6 +253,11 @@ class LoadsAssessor:
       residual in EITHER column is a divergence, judged before the two
       are combined: reducing them first cannot preserve the invalidity
       of one of them.
+    - A steady run at its requested iteration limit with a final residual
+      above the convergence limit is MAX_ITER_REACHED. The counter comes
+      from the log or the loads footer; the footer alone cannot supply the
+      residual verdict. Forced iterations and unsteady runs do not receive
+      this status.
     - Without a log, steady mode: an iteration counter below the
       requested limit means the threshold stopped the solver
       (CONVERGED); reaching the limit means COMPLETED_MAX_ITER. Unless
@@ -293,25 +298,15 @@ class LoadsAssessor:
 
     Notes
     -----
-    Every refusal carries ``FAILED_INCOMPLETE_OUTPUT``, and that is a
-    constrained choice rather than the right name for each of them. The
-    terminal set is closed at six values, and it was resolved on
-    2026-08-03 that it stays closed: FR-46 holds and FR-37 closes as
-    covered, so there is no seventh value meaning "the solver ran and
-    this package cannot judge the result".
+    A refusal to judge missing, unusable or mismatched evidence carries
+    ``FAILED_INCOMPLETE_OUTPUT``. It must not look like a judged result.
 
-    The reason this one is chosen is asymmetric rather than aesthetic.
-    Every other available status describes an outcome the solver
-    reached, so any of them would make a point nobody judged
-    indistinguishable from a point that passed. Over-reporting
-    incompleteness costs a re-run; under-reporting it publishes a
-    number.
-
-    Read ``COMPLETED_MAX_ITER`` with the same care. It is not a success
-    value here: it says the solver reached its iteration cap, which is
-    one of the two ways of not converging. The other, a non-finite
-    residual, is ``FAILED_DIVERGED``. ``CONVERGED`` is the only status
-    this assessor gives to a run that met its threshold.
+    ``COMPLETED_MAX_ITER`` records an ended run without evidence of
+    convergence, including an unsteady run reaching its prescribed end.
+    ``MAX_ITER_REACHED`` records the steady limit and residual evidence
+    described above (FR-434). Both are ended runs, not failures and not
+    claims of convergence. ``CONVERGED`` is the threshold verdict;
+    ``FAILED_DIVERGED`` records divergence evidence.
 
     The refusals, in the order they are tested:
 
