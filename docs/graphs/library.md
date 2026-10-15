@@ -3040,6 +3040,10 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream.probes.planar">pyflightstream.probes.planar</a> (module)</li>
 </ul></details>
 
+<details id="pyflightstream.probes._model"><summary><code>pyflightstream.probes._model</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.probes.errors">pyflightstream.probes.errors</a> (module)</li>
+</ul></details>
+
 <details id="pyflightstream.probes.errors"><summary><code>pyflightstream.probes.errors</code></summary><ul>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 </ul></details>
@@ -3053,6 +3057,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.probes.lattice"><summary><code>pyflightstream.probes.lattice</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.probes._model">pyflightstream.probes._model</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.errors">pyflightstream.probes.errors</a> (module)</li>
 </ul></details>
 
@@ -3066,6 +3071,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.probes.planar"><summary><code>pyflightstream.probes.planar</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream.probes._model">pyflightstream.probes._model</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.probes.errors">pyflightstream.probes.errors</a> (module)</li>
 </ul></details>
 

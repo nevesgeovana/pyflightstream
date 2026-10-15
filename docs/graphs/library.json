@@ -861,6 +861,11 @@
       "path": "probes/__init__.py"
     },
     {
+      "id": "pyflightstream.probes._model",
+      "layer": 3.5,
+      "path": "probes/_model.py"
+    },
+    {
       "id": "pyflightstream.probes.errors",
       "layer": 3.5,
       "path": "probes/errors.py"
@@ -7373,6 +7378,11 @@
       "kind": "module"
     },
     {
+      "source": "pyflightstream.probes._model",
+      "target": "pyflightstream.probes.errors",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.probes.errors",
       "target": "pyflightstream._errors",
       "kind": "module"
@@ -7400,6 +7410,11 @@
     {
       "source": "pyflightstream.probes.geometry",
       "target": "pyflightstream.probes.planar",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.probes.lattice",
+      "target": "pyflightstream.probes._model",
       "kind": "module"
     },
     {
@@ -7435,6 +7450,11 @@
     {
       "source": "pyflightstream.probes.layouts",
       "target": "pyflightstream.script.toggles",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.probes.planar",
+      "target": "pyflightstream.probes._model",
       "kind": "module"
     },
     {
