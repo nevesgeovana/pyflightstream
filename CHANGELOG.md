@@ -7,76 +7,124 @@ FlightStream versions.
 
 ## [Unreleased]
 
-### Changed
+## [0.41.0] - 2026-10-15
+
+### Added
 
 - `pyfs-matrix support [build]` reports evidence-derived build support without
   launching the solver; omit the build to list every registered version.
+- Matching steady-wing, unsteady isolated-propeller, quasi-steady rotor and
+  mesh-refinement examples under `examples/using-CLI/` and `examples/using-API/`
+  include solver-free planning steps. Specialist examples are published as site pages.
+- An explicit exploratory `[noise]` request writes compact loading-noise observer
+  signals from recorded quasi-steady wheel loads, labelled as unvalidated.
+  Its report indexes the generated signals, observer positions and source runs.
+- `[products].polar_axes` selects wind or stability force coefficients while
+  retaining explicit frame columns. Steady selections use `CD`, `CY` and `CL`;
+  averaged unsteady selections retain their plot group under
+  `selected_drag_coefficient_<group>`, `selected_side_force_coefficient_<group>`
+  and `selected_lift_coefficient_<group>`.
+- Coupled polar and rotor tables include each blade's last recorded tip deflection
+  and twist; missing structural values remain `NA`. Averaged unsteady polars list
+  these final displacements in contributing-point order, rather than time-averaging them.
+- Located post-processing declarations accept `attach = "space" | "body"`.
+  Coupled rows refuse unmeasured body attachment and warn about surface taps
+  that remain at declared spatial locations.
+- `plan --inflow-fft` writes per-point blade-view harmonic tables at the resolved
+  advance ratio, including variance shares and effective reduced frequency.
+- `pyfs-workspace geometry trailing-edge` extracts a mesh's trailing-edge midpoint
+  file with explicit axis, hub and length unit.
+- `pyfs-workspace calibrate` derives a sector-offset calibration from two recorded
+  rotor points, retaining the evidence checks and unvalidated status.
+- FSI workspace inputs can stage a checked frozen displacement file and explicitly
+  allow configuration changes through the coupling driver controls.
+- Workspace post-processing tables recorded force-distribution and surface CSV
+  exports, preserving force units and explicitly unstated scalar identities.
+- Workspace post-processing writes mapped and direct structural deflection, twist
+  and available coupling history from admitted coupled points, with input-digest checks.
+- Planar probe grids can be declared in `[[probes]]`, with reference-frame placement,
+  axis distributions and near-surface refinement checked during plan. Saved
+  simulations require a separate surface mesh export before this route plans.
+- Calculated FSI sections accept unit-chord airfoils or NACA four-digit contours.
+- Coupled plans report effective station properties, natural frequencies and
+  rotational excitation warnings before a licensed run.
+
+### Changed
 
 - `--no-ignore-missing-families` explicitly disables missing-family tolerance.
   It is mutually exclusive with `--ignore-missing-families`, including an
   explicit false value; use exactly one form.
-- Migration instructions live in `docs/upgrading.md`. Current help no longer
-  recommends retired input-id, geometry-folder or group-product migration tools;
-  geometry instructions name the folder they require.
-- Legacy-layout refusals name the required fields and the upgrading page;
-  workflow pages no longer recommend removed matrix upgrade or rename commands.
-
-- Run manifests use a versioned document with one status header,
-  shared immutable solver/frame/geometry definitions and one ordered artifact
-  list. Old record arrays are refused; `pyfs-workspace migrate` previews the
-  0.38.0-format conversion and `--apply` preserves exact backups. Resolved run
-  display includes all record fields. Migration leaves scientific products
-  unchanged. Reposting 0.38.0 data uses 0.40.0's existing coefficient precision;
-  the affected polar columns are named in `docs/upgrading.md`.
-- Add matching steady-wing, unsteady isolated-propeller, quasi-steady rotor and
-  mesh-refinement examples under `examples/using-CLI/` and `examples/using-API/`,
-  with solver-free planning steps. Specialist examples are published as site pages.
-
-- Release notes are written directly here; this changelog covers 0.38.0 onward.
-
-- Maintainers: CI skips duplicate, docs-only and dry-run branch runs and cancels superseded runs; Release requires the newest main CI run at its SHA to be green on its latest attempt, measures coverage once in the tag's artifact tests, and docs deploy only on version tags.
+- Migration instructions live in `docs/upgrading.md`. Current help names the
+  required input fields, geometry folders and supported migration routes.
+  Upgrading guidance explains `inputs/INPUTS.md`, generated-block refresh and
+  preservation of the legacy pproc copy.
+- Run manifests use a versioned document with one status header, shared immutable
+  solver/frame/geometry definitions and one ordered artifact list. Old record
+  arrays are refused; `pyfs-workspace migrate` previews the 0.38.0-format conversion
+  and `--apply` preserves exact backups. Resolved run display includes all record
+  fields. Migration leaves scientific products unchanged. Reposting 0.38.0 data
+  uses 0.40.0's coefficient precision; affected columns are named in `docs/upgrading.md`.
+- Requirement references in diagnostics use stable child identifiers. Contributor
+  requirement pages link the hierarchy, code anchors and behavioral tests, and
+  reserve retired identifiers. Command names, options and configuration keys are unchanged.
+- Contributor conventions describe current rules and evidence. Release notes are
+  written directly in this changelog, which covers 0.38.0 onward.
+- Maintainer CI skips duplicate, docs-only and dry-run branch runs and cancels
+  superseded runs. Release requires the newest main CI run at its SHA to be green
+  on its latest attempt, measures coverage in the tag's artifact tests, and deploys
+  documentation on version tags.
+- Numerical validation includes recorded acoustic blade-passage harmonics, numeric
+  tables for both harmonic-fit campaigns and dependency checks for changed fit and
+  FFT columns. These checks do not change production numerical behavior.
+- Workspace coverage checks include sector-offset calibration and the quasi-steady
+  noise report, with no additional exemption for an unreachable public name.
 
 ### Removed
 
 - `cases.point_tag` and `cases.naming.point_tag`, the unused pre-0.21 naming
   helper. Use `point_name(case, point)` for current workspace point names.
-
 - Authored campaign-file loading and matrix-to-campaign-file conversion, including
   `pyfs-matrix convert`. The matrix is the sole campaign declaration; use
   `pyfs-matrix plan` or the public `plan_matrix` API.
 
 ### Fixed
 
-- Probe models refuse non-finite float fields with `ProbeGeometryError` naming the field, including nested and serialized inputs.
-- Setup reading refuses solver settings outside their declared model bounds, including output precision and stabilization strength, naming the setup file, field and bound.
-
-- Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
-
-- Sampled-field warnings name only the velocity or rotation-timing conventions
-  that lack evidence on the run's build.
-
-- Refinement refusals name the selected configuration file when no factor is
-  given. WALLTIME surface-average refusals describe the incomplete averaging
-  window rather than native solver averaging.
-
-- FR-124, FR-419: name the 0.40.0 polar, section and settings CSV format
-  changes in the parity checker with bounded numeric comparisons.
-- FR-362: batch script parity compares one complete batch. The 0.40.0 cost
-  fit excludes failed and incomplete runs (PFS-2094.014, PFS-2094.015), so
-  estimates and batch membership can change for workspaces with those records.
-
-- FR-314: the local-run counter regression test uses deterministic polling
-  instead of elapsed wall time to observe progress.
-
-- FR-124, FR-419: parity checks numeric respelling within the base writer's
-  printed rounding while preserving rows, column order and unchanged text.
-
-- AD-15: restore four public import bindings in `run.cli` and `script.helpers`;
-  parity excludes private module paths and scopes documented retirements to
-  their fully qualified names (FR-457, FR-458).
-
-- AD-15: parity exports include the requirements-path helper needed by the
-  exported test collectors.
+- Probe models refuse non-finite float fields with `ProbeGeometryError` naming
+  the field, including nested and serialized inputs. Mapping and JSON validation
+  preserve explicit `strict=True`, including nested grid axes, and refuse numeric
+  strings in strict mode. Default coercion remains available.
+- Setup reading refuses solver settings outside their declared model bounds,
+  including output precision and stabilization strength, naming the setup file,
+  field and bound.
+- Generated setup headers distinguish boundary lists from family-selector keys;
+  legacy native volume-section output refusals point to probe sampling and post fields.
+- Sampled-field warnings name only velocity or rotation-timing conventions that
+  lack evidence on the run's build.
+- Refinement refusals name the selected configuration file when no factor is given.
+  WALLTIME surface-average refusals describe the incomplete averaging window.
+- Direct-morphing structural products use recorded applied station displacements
+  with a matching configuration digest instead of refusing every direct-morphing point.
+- Coupling projects spatial-cut loads using applied station slope and twist before
+  elastic-axis moment transfer, including relaxed direct-morphing state.
+  Station-force projection reports a changed node count before decoding restored displacements.
+- Averaged unsteady polars preserve existing columns whose names match structural
+  tip columns. A collision omits the tip block and records the conflicting names
+  under `#structure` in `products.json`. Rename conflicting pproc names or equations
+  to include the block; separate structural products remain available.
+- The manual converter prints help for `--help` and `-h` without conversion
+  inputs or optional conversion dependencies.
+- Dummy FSI failures append to the error log, retaining earlier call evidence.
+  Its API documentation distinguishes a nonzero exit from a confirmed solver abort.
+- Loads-assessment documentation describes residual and iteration-limit verdicts.
+  Default-output documentation explains unsteady normal probes and solver residual
+  and load plots.
+- Release compatibility checks compare complete batches and bound numeric CSV
+  differences by the base writer's printed rounding while preserving rows, column
+  order and unchanged text. Cost estimates exclude failed and incomplete runs.
+- Public import bindings in `run.cli` and `script.helpers` remain available.
+  Compatibility checks exclude private paths, scope retirements to fully qualified
+  names and include the requirements-path helper needed by exported test collectors.
+- Local-run progress tests use deterministic polling.
 
 ### Owed
 
@@ -904,7 +952,8 @@ archives remain available for recovery. (no requirement: preserve records during
   seven public names of `pyflightstream.workspace`; `pyflightstream.workspace._degenerate`
   stays importable.
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.40.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.41.0...HEAD
+[0.41.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.40.0...v0.41.0
 [0.40.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.39.0...v0.40.0
 [0.39.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.38.0...v0.39.0
 [0.38.0]: https://github.com/nevesgeovana/pyflightstream/compare/v0.37.0...v0.38.0

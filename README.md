@@ -8,7 +8,7 @@ Version-aware Python driver for the FlightStream panel-method solver: write a
 run matrix, and pyflightstream plans, runs and post-processes every point,
 from your workstation or a cluster. MIT licensed.
 
-This source tree prepares 0.41.0; CHANGELOG.md describes its changes and the
+This source tree contains 0.41.0; CHANGELOG.md describes its changes and the
 retained release history.
 
 **Documentation: [nevesgeovana.github.io/pyflightstream](https://nevesgeovana.github.io/pyflightstream/)**
