@@ -355,11 +355,8 @@
    "names": [
     "pyflightstream.fsi.StructuralSolver",
     "pyflightstream.fsi.centrifugal.axial_tension",
-    "pyflightstream.fsi.centrifugal.propeller_moment_twist_stiffness",
     "pyflightstream.fsi.config.dump_config",
-    "pyflightstream.fsi.nodes.unflatten_translations",
     "pyflightstream.fsi.nodes.write_node_file",
-    "pyflightstream.workspace.fsi_setup.fsi_input_payloads",
     "pyflightstream.workspace.fsi_setup.load_fsi_setup",
     "pyflightstream.workspace.fsi_setup.stage_fsi_setup"
    ]

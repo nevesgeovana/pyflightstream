@@ -14,6 +14,31 @@ from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_fsi_setup
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 
 
+def test_p0410_workspace_stages_frozen_configuration(tmp_path):
+    import numpy as np
+
+    from pyflightstream.fsi.nodes import generate_node_layout, write_fsidisp
+    from pyflightstream.workspace.fsi_setup import stage_fsi_setup
+    from tests.tier1_offline.test_workspace_fsi_setup import SUPPLIED
+
+    source = tmp_path / "f001.toml"
+    source.write_text(SUPPLIED)
+    config = resolve_fsi_setup(source).effective
+    layout = generate_node_layout(config)
+    frozen = tmp_path / "frozen.txt"
+    write_fsidisp(frozen, np.zeros((layout.total_nodes, 3)))
+    source.write_text(
+        'frozen_displacements_file = "frozen.txt"\nallow_configuration_change = true\n' + SUPPLIED
+    )
+    resolved = resolve_fsi_setup(source)
+    stage_fsi_setup(resolved, tmp_path / "run")
+    assert (tmp_path / "run/fsi_frozen_displacements.txt").read_bytes() == frozen.read_bytes()
+    assert (tmp_path / "run/fsi_allow_config_change").is_file()
+    frozen.write_text("changed")
+    with pytest.raises(ValueError, match="changed"):
+        stage_fsi_setup(resolved, tmp_path / "changed-run")
+
+
 @pytest.mark.parametrize("stiffness_factor", [1.0, 4.0], ids=["P0410-FSI", "P0410-FSI-STIFF"])
 def test_p0410_plan_reports_station_properties_and_natural_frequencies(tmp_path, stiffness_factor):
     case = steady_wing_case(tmp_path)

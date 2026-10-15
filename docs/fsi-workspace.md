@@ -512,3 +512,11 @@ inputs also retain base/effective material properties and the section algorithm
 provenance. Effective properties are validated again, including the ordering of
 major and minor principal inertia. No solver executes while loading or planning
 these inputs.
+# Frozen displacement inputs
+
+An FSI artifact can set `frozen_displacements_file = "frozen.txt"` at its
+top level. The path is relative to that artifact. Resolution checks the mapped
+node count and finite translations; staging verifies its recorded digest before
+copying it into the point folder. Direct vertex morphing is refused for this route.
+`allow_configuration_change = true` explicitly permits the driver's existing
+configuration-change handling. Both controls are absent or false by default.

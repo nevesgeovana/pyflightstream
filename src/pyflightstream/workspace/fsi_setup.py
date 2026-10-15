@@ -102,6 +102,8 @@ class FsiSetupSpec(BaseModel):
     calibration: dict[str, StrictFloat] = Field(default_factory=dict)
     material: str | dict[str, Any] | None = None
     sections: SolidSections | None = None
+    frozen_displacements_file: str | None = None
+    allow_configuration_change: bool = False
 
 
 @dataclass(frozen=True)
@@ -117,6 +119,9 @@ class ResolvedFsiSetup:
     origins: dict[str, str]
     material_base: dict[str, Any] | None = None
     material_effective: dict[str, Any] | None = None
+    frozen_displacements_file: str | None = None
+    frozen_displacements_sha256: str | None = None
+    allow_configuration_change: bool = False
 
     def provenance(self) -> dict[str, Any]:
         """Return the source, base/effective configurations and factor origins."""
@@ -131,6 +136,9 @@ class ResolvedFsiSetup:
             "material_base": self.material_base,
             "material_effective": self.material_effective,
             "section_model": "existing solid homogeneous Euler beam",
+            "frozen_displacements_file": self.frozen_displacements_file,
+            "frozen_displacements_sha256": self.frozen_displacements_sha256,
+            "allow_configuration_change": self.allow_configuration_change,
         }
 
 
@@ -346,6 +354,21 @@ def resolve_fsi_setup(
         # FsiInputError: the FSI package's own refusal, an unknown material or
         # a section contour the section builder refuses.
         raise FsiSetupError(f"{source}: invalid FSI input: {exc}") from exc
+    frozen_path = None
+    frozen_digest = None
+    if spec.frozen_displacements_file is not None:
+        import numpy as np
+
+        from pyflightstream.fsi.nodes import generate_node_layout, read_fsidisp
+
+        frozen = (source.parent / spec.frozen_displacements_file).resolve()
+        if effective.morphing == "direct":
+            raise FsiSetupError("Frozen replay requires mapped structural node rows.")
+        rows = read_fsidisp(frozen, expected_rows=generate_node_layout(effective).total_nodes)
+        if not np.isfinite(rows).all():
+            raise FsiSetupError(f"{frozen}: frozen displacements must be finite.")
+        frozen_path = str(frozen)
+        frozen_digest = hashlib.sha256(frozen.read_bytes()).hexdigest()
     return ResolvedFsiSetup(
         source,
         hashlib.sha256(raw).hexdigest(),
@@ -356,6 +379,9 @@ def resolve_fsi_setup(
         origins,
         material_base,
         material_effective,
+        frozen_path,
+        frozen_digest,
+        spec.allow_configuration_change,
     )
 
 
@@ -501,8 +527,9 @@ def stage_fsi_setup(resolved: ResolvedFsiSetup, run_dir: str | Path) -> tuple[Pa
     directory.mkdir(parents=True, exist_ok=True)
     config = directory / "config.json"
     receipt = directory / "fsi-provenance.json"
-    _textio.write_text(config, resolved.effective.model_dump_json(indent=2) + "\n")
-    _textio.write_text(receipt, json.dumps(resolved.provenance(), indent=2) + "\n")
+    payloads = fsi_input_payloads(resolved.effective, resolved.provenance())
+    for name, content in payloads.items():
+        _textio.write_text(directory / name, content)
     return config, receipt
 
 
@@ -521,7 +548,16 @@ def fsi_input_payloads(config: FsiConfig, provenance: Mapping[str, Any]) -> dict
     dict of str to str
         File name to text: ``config.json`` and ``fsi-provenance.json``.
     """
-    return {
+    payloads = {
         "config.json": config.model_dump_json(indent=2) + "\n",
         "fsi-provenance.json": json.dumps(dict(provenance), indent=2) + "\n",
     }
+    if provenance.get("allow_configuration_change"):
+        payloads["fsi_allow_config_change"] = ""
+    frozen = provenance.get("frozen_displacements_file")
+    if frozen:
+        raw = Path(str(frozen)).read_bytes()
+        if hashlib.sha256(raw).hexdigest() != provenance.get("frozen_displacements_sha256"):
+            raise FsiSetupError(f"Frozen displacements {frozen} changed; resolve the matrix again.")
+        payloads["fsi_frozen_displacements.txt"] = raw.decode("utf-8")
+    return payloads

@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- FSI workspace inputs can stage a checked frozen displacement file and explicitly
+  allow configuration changes through the existing coupling driver controls.
+
 ### Changed
 
 - Workspace post tables recorded force-distribution and surface CSV exports,
