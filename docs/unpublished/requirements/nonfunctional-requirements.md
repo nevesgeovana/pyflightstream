@@ -151,12 +151,12 @@
 
     Evidence for the 0.40.0 amendment: `pyproject.toml` removes xarray;
     `farfield/fields.py`, `farfield/balances.py` and `farfield/quadrature.py`
-    use numpy arrays. `tests/tier1_offline/test_p0400_farfield_numpy.py` proves
-    the removal with `test_p0400_numpy_xarray_left_the_required_dependencies`,
-    `test_p0400_numpy_no_module_of_the_package_imports_xarray` and
-    `test_p0400_numpy_the_package_imports_with_xarray_blocked`, and checks the
+    use numpy arrays. `tests/tier1_offline/test_regression_farfield_numerics.py` proves
+    the removal with `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldNumpy::test_p0400_numpy_xarray_left_the_required_dependencies`,
+    `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldNumpy::test_p0400_numpy_no_module_of_the_package_imports_xarray` and
+    `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldNumpy::test_p0400_numpy_the_package_imports_with_xarray_blocked`, and checks the
     reductions against the 0.39.0 goldens with
-    `test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_bit`.
+    `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldNumpy::test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_bit`.
     `tests/tier1_offline/test_extras.py::test_the_requirement_that_calls_itself_the_home_of_record_names_the_shipped_set`
     checks this table against the declared runtime set. The ITACA migration
     remains future work.
@@ -1401,3 +1401,23 @@
     - R3 The docs workflow publishes the generated PDFs as site downloads, with source hashes, PDF hashes and the typesetter version in the build record. The guide sources and license remain in the repository.
 
     Verification: compile the sources, inspect the build logs and compare the output hashes with the build record. Retain the offline source and option-coverage checks; artifact checks read the build output directory.
+
+## Input and operation boundaries
+
+!!! requirement "NFR-47 Non-finite inputs identify their field <span class='srs-pending'>pending</span>"
+    Numeric input boundaries refuse NaN and positive or negative infinity with the established public refusal type and a diagnostic naming the offending field, before that value reaches execution or output generation; finite inputs retain their existing numerical tolerances.
+
+    Code anchor: `pyflightstream.cases.settings:SolverSettings` (representative model boundary; the contract also applies to public readers).
+    Verification: focused field-by-field refusal guard pending; coverage must include public models and readers rather than only this representative anchor.
+
+!!! requirement "NFR-48 Console commands contain failures <span class='srs-pending'>pending</span>"
+    A console command reports a failed operation through its documented nonzero exit outcome and a diagnostic naming the cause and available remedy, without an uncaught exception traceback; interruption must not be reported as success.
+
+    Code anchors: `pyflightstream.run.cli:main`, `pyflightstream.workspace.cli:main`, `pyflightstream.qa.cli:main`, `pyflightstream.fsi.cli:main`, `pyflightstream.utils.cli:main` and `pyflightstream.workspace.excel:main`.
+    Verification: console-boundary guard pending; exercise input and I/O refusals, non-ASCII input, repeated calls, older supported builds and interruption where applicable, retaining existing public refusal types and exit contracts.
+
+!!! requirement "NFR-49 Validation precedes destructive writes <span class='srs-pending'>pending</span>"
+    An operation validates its requested inputs and affected destinations before its first destructive write, replacement or deletion, so an invalid request leaves existing data unchanged and reports the refusal through the operation's established public interface.
+
+    Code anchors: `pyflightstream.workspace.migrate:migrate_workspace` and `pyflightstream.workspace.storage:free_space` (representative mutation boundaries).
+    Verification: mutation-boundary guard pending; observe write, replace and delete calls and compare destination bytes for invalid requests, repeated invocations and interruption recovery, without promising an all-files transaction where the operation only guarantees per-file replacement.

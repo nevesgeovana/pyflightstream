@@ -102,35 +102,18 @@ separations, trailing edges) are listed there by name. An argument that
 cites something and is named in a way the heuristic does not recognise
 is exactly what the guard cannot see.
 
-### A chapter enters for every registered version at once
+### Build registration and rowless entries
 
-Read the chapter in every registered edition that carries it, in the
-same pass, and give each entry a row per edition that documents it, with
-that edition's own page. Record which editions do not carry the chapter
-at all, because some do not: the February 2026 edition has no
-Aeroelastic Coupling Toolbox, so for that chapter three editions are the
-whole of it.
+The ordered registry in `commands/_meta.yaml` decides whether a registered
+build inherits its base release's evidence. `CommandEntry.evidence_in` first
+uses a direct version row; only a registry-approved inheriting build may fall
+back to its base row. A rowless entry is therefore not universally available.
+The returned evidence identifies whether it was inherited and its source.
+A build that inherits nothing needs direct rows from its own documentation or
+probes. A caller-created version object cannot grant inheritance to itself.
 
-This is cheaper than it sounds, because the pages are open anyway, and
-it is the only way the per-version grammar differences get found: the
-February 2026 build is the one that renames things (EUCLIDEAN rather
-than ROTARY, two arguments rather than three), so a chapter entered
-from the newest manual alone records a grammar the older builds do not
-accept and refuses commands their manuals document.
-
-The rule was adopted on 2026-08-08 after the reverse was measured. The
-database was built forward from 26.120, the only registered version for
-most of its life, and the two earlier builds were registered later
-without a backward sweep, leaving a residual of entries that are
-documented in an edition they carry no row for. That residual drains as
-the sweep reaches each chapter rather than being attacked on its own, so
-it falls without a separate task, and leaving it to fall is only correct
-for as long as new chapters keep arriving this way.
-
-The count is the database's own fact and its home is the CHANGELOG
-entry, not this page, for the same reason the count of entered commands
-is: a number designed to reach zero is the worst candidate for
-restating.
+Manual registration compares editions before carrying documented rows forward.
+It does not promote them to verified; that requires probe evidence.
 
 Per-version statuses and their evidence rules:
 
@@ -190,13 +173,21 @@ build.
 
 ## The run manifest
 
-Every campaign writes `runs.json`, append-only with atomic writes and
-duplicate-id rejection. Per run it records: run id, case point,
-requested and reported FlightStream version and build, package
-version, script and input hashes, the raw-emission flag, status,
-iterations, residual,
-wall time, output paths, error text, and (since the v0.3 line) the
-solver-setup provenance snapshot.
+The current `runs.json` is a schema-version-4 document owned by
+`workspace.record_document`. Its `runs` entries refer to immutable shared
+`solver_setups`, `frames` and `geometries` definitions. Output paths and hashes
+are paired in artifact entries. `decode_document` resolves the in-memory
+records without consulting current input files, preserving historical facts.
+
+`workspace.manifest` owns record mutation under the manifest lease. New-run
+append rejects duplicate ids; collect, marking, sync and storage operations
+may replace records. One status transition makes one manifest replacement.
+The document is not append-only. Requested and reported solver identity,
+scientific outputs, provenance, recovery history and distinct times remain
+separate even when their values happen to be equal.
+
+Ordinary readers refuse older formats and name the explicit workspace migration
+command. [Upgrading](../upgrading.md) is the home of migration instructions.
 
 A run whose script imports trailing edges from a file is also held to
 the solver's own count: the log's imported edges must equal the points
@@ -204,10 +195,11 @@ the script wrote, or the run is recorded FAILED_SCRIPT, and with no
 solver log read it is recorded FAILED_INCOMPLETE_OUTPUT. The node file
 the run wrote for the import is among the input hashes.
 
-The manifest is the sole authority on run identity. Folder and file
-names are generated conveniences (templatable for human readability)
-and are never parsed back; the absence of any parse-back API is
-enforced by a test.
+The manifest is the authority on recorded run identity. Normal operation
+uses its records rather than deriving provenance from names. Recovery is a
+deliberate exception: rebuild parses `sim_<id>` folder names to find candidate
+simulations, then validates the recovered script and evidence. A folder name
+alone cannot establish a run's inputs or convergence.
 
 ## The workspace
 
@@ -234,6 +226,10 @@ The managed folder tree of a campaign:
     sync-workspaces.toml  the other workspaces `pyfs-matrix sync` brings runs and results from (0.30.0)
     executables.toml the build-id to executable registry, with an
                      optional declared version per build
+  pyfs.toml          shared workspace defaults
+  pyfs.local.toml    machine-local overrides
+  logs/              operation logs
+  sims/batch/        grouped-job scripts and receipts
   sims/sim_<id>/     per-simulation staged inputs, scripts and raw outputs
   post/              post-processing outputs
   archive/           archived simulations (zip)
@@ -241,13 +237,17 @@ The managed folder tree of a campaign:
   storage_management.json  the record of every storage and sync call (0.30.0)
 ```
 
+Optional operation-specific inputs also live under `inputs/costs/` (machine
+cost models) and `inputs/sixdof/` (declared rigid-body motion). These directories
+are read when requested; workspace initialization does not create them.
+
 Input artifacts are declarative TOML validated by pydantic, resolved
 by stable id with didactic misses (the error lists what exists and
 where to put what is missing). The executables registry maps build ids
 to paths; an unregistered build runs only through an explicit override
-path. Campaign definitions (native TOML or the run matrix) compose
-cases by referencing artifacts by id, translating the reference
-research workflow into validated form.
+path. Run matrices compose cases by referencing artifacts by id. The ordinary
+Python case APIs remain available; authored campaign files are not a second
+declaration route.
 
 ## Provenance chain
 
