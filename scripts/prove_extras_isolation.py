@@ -398,7 +398,7 @@ def prove_guard_a() -> list[str]:
     )
     battery.patch(
         guard,
-        'SCAN_ROOTS = ("src", "tests", "examples", "scripts", "tools")',
+        'SCAN_ROOTS = ("src", "tests", "examples", "docs/examples/_sources", "scripts", "tools")',
         'SCAN_ROOTS = ("src",)',
         "M16 the scan narrowed to one tree",
     )
