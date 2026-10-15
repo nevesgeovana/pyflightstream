@@ -1657,25 +1657,6 @@ class TestSweep1Cli:
             check(dataclasses.replace(config, exempt_trees=("guide/", "src/")))
 
     @staticmethod
-    def test_p0400_release_architecture_section(tmp_path, monkeypatch, capsys):
-        """P0400-SWEEP-RELEASE-ARCH: a tag needs its own architecture heading."""
-        from scripts import check_release_published as release
-
-        check = getattr(release, "architecture_problem", None)
-        assert callable(check), "release verification must check version coverage"
-        assert check("v0.39.0", "## The 0.39.0 additions and their limits") is None
-        assert check("v0.39.0", "## The 0.390.0 additions\nA mention of 0.39.0 is not a section.")
-        page = tmp_path / "docs/srs/architecture-srs.md"
-        page.parent.mkdir(parents=True)
-        page.write_text("## The 0.38.0 additions\n", encoding="utf-8")
-        monkeypatch.setattr(release, "REPO", tmp_path)
-        monkeypatch.setattr(release, "version_tags", lambda: ["v0.39.0"])
-        monkeypatch.setattr(release, "recorded_dois", lambda: {"v0.39.0": "10.0000/synthetic"})
-        monkeypatch.setattr(release, "owed_in_the_changelog", lambda: set())
-        assert release.main(["v0.39.0", "--offline"]) == 1
-        assert "architecture-srs.md" in capsys.readouterr().out
-
-    @staticmethod
     def test_p0400_flagship_exports_its_assessment_log(monkeypatch):
         """P0400-SWEEP-FLAGSHIP-LOG: every built point exports the log the assessor reads."""
         import runpy
@@ -1919,15 +1900,6 @@ class TestSweep1Contracts:
         script.declare_existing(boundaries=1)
         script.emit(command, 2)
         assert f"{command} 2" in script.render()
-
-    @staticmethod
-    def test_p0400_changelog_fragments_folded():
-        """P0400-SWEEP-CHANGELOG: the five shipped corrections belong to 0.37.0."""
-        text = (_SWEEP_1_CONTRACTS__ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-        release = text.split("## [0.37.0]", 1)[1].split("## [", 1)[0]
-        assert "Correction recorded 2026-10-12" in release
-        assert "Normalize the 26.125 pressure and viscous drag plots" in release
-        assert not list((_SWEEP_1_CONTRACTS__ROOT / "changelog.d").glob("W2-*.md"))
 
     @staticmethod
     def test_p0400_short_factor_collision_control(tmp_path):

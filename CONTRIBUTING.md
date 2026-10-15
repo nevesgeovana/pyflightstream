@@ -225,11 +225,6 @@ extractor; its own docstring carries the two commands.
 `scripts/prove_extras_isolation.py` tests optional-dependency isolation by
 mutating a clean checkout. Check the tree after running a mutation battery.
 
-`scripts/measure_probe_target_lines.py` derives how many probe
-specifications emit an argument-bearing target line, a figure that
-reached three committed artifacts in three readings before it was
-derived; a tier 1 test pins its output.
-
 `pyfs-manual register --editions <manifest> --fs-version <canonical>` is
 the sixth subcommand and the only one that writes into the command
 database.
