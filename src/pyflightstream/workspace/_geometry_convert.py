@@ -98,7 +98,8 @@ def _locate(geometry: str | Path, root: Path) -> Path:
     if path.parent == geometries:
         raise InputArtifactError(
             f"{path.name} lies flat in {geometries}, and an instruction lives in a geometry "
-            "folder of its own; run `pyfs-workspace migrate-geometries .` first, then this "
+            f"folder of its own at inputs/geometries/{path.stem}/; place the geometry "
+            "and its sidecars there, then run this "
             f"command again ({_PAGE})."
         )
     return path
@@ -201,8 +202,8 @@ def instruction_from_sidecar(
     Raises
     ------
     InputArtifactError
-        A geometry not in a folder of its own (run ``pyfs-workspace
-        migrate-geometries`` first), a sidecar missing, or an existing instruction.
+        A geometry not in its own ``inputs/geometries/<stem>/`` folder,
+        a sidecar missing, or an existing instruction.
     """
     path = _locate(geometry, root)
     sidecar_path = inventory_sidecar(path)

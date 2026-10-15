@@ -53,8 +53,8 @@ workdir = Path(tempfile.mkdtemp(prefix="pyfs_campaign_"))
 # names which workflow builds the row's script, in a column of its own
 # so the type never competes with the free `KEY:VALUE` case data;
 # `LEGACY` is the workflow every row written before the column existed
-# asks for. `upgrade_matrix` converts a file written under any older
-# layout and touches no other byte. And the `REF`, `SET` and `PPROC` codes carry a
+# asks for. See docs/upgrading.md for earlier layouts.
+# The `REF`, `SET` and `PPROC` codes carry a
 # letter naming their kind (`r`, `s`, `p`), so a number mistyped between
 # the three columns cannot resolve to another artifact's file.
 

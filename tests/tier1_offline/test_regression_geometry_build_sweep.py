@@ -2610,12 +2610,12 @@ class TestGeometryMigration:
 
     @staticmethod
     def test_p0400_geom_migrate_the_converter_refuses_a_flat_geometry(tmp_path):
-        """P0400-GEOM-MIGRATE (PFS-2081.41): R2, a flat library is migrated first."""
+        """P0410-GEOM-FOLDER: R2, a geometry instruction requires its own folder."""
         from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
 
         root = _geometry_build__workspace(tmp_path)
         (root / "inputs" / "geometries" / "flat.stl").write_text("solid x\n", encoding="utf-8")
-        with pytest.raises(InputArtifactError, match="migrate-geometries"):
+        with pytest.raises(InputArtifactError, match="inputs/geometries/flat/"):
             instruction_from_sidecar("flat.stl", root=root)
 
 

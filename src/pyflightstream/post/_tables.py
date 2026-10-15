@@ -33,8 +33,7 @@ import pyflightstream._textio as _textio
 
 # RE-EXPORTED, not used here. `post.products` imports both from this module,
 # which is what its own docstring promises a reader, and they are DEFINED in
-# `_errors` since 0.23.0 because two layers name them: the products stage
-# raises them and `workspace.rename_groups` does too.
+# `_errors` so callers can catch them without importing the post layer.
 from pyflightstream._errors import ProductError as ProductError
 from pyflightstream._errors import ProductExistsError as ProductExistsError
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn

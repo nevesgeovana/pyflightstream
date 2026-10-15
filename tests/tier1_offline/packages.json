@@ -478,6 +478,7 @@
       "tests/tier1_offline/test_regression_qa_tools.py"
     ],
     "guards": [
+      "tests/tier1_offline/test_p0410_int1_migration_remedies.py",
       "tests/tier1_offline/test_approved_capabilities_029.py",
       "tests/tier1_offline/test_architecture_metrics.py",
       "tests/tier1_offline/test_build_table.py",

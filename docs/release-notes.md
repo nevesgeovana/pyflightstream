@@ -11,9 +11,7 @@ unchanged, newest first.
 including the ones after v0.17.0, is
 [`CHANGELOG.md`](https://github.com/nevesgeovana/pyflightstream/blob/main/CHANGELOG.md)
 in the repository. The releases that ask you to change a file you already have
-each have a page of their own under *Migrating to newer versions*:
-[0.23.0](migrating-to-0.23.0.md), [0.22.0](migrating-to-0.22.0.md) and
-[0.21.0](migrating-to-0.21.0.md).
+are covered by [Upgrading](upgrading.md).
 
 ## v0.17.0
 

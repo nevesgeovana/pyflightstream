@@ -480,14 +480,10 @@ live. A copy of a large mesh per workspace is the cost this layout removes.
 
 ## A flat library still works
 
-`inputs/geometries/30_WB.fsm` resolves exactly as it always did; nothing here
-breaks a workspace written before this layout existed. To move one over:
-
-    pyfs-workspace migrate-geometries .
-
-It moves each `inputs/geometries/<stem>.<ext>` into `inputs/geometries/<stem>/`
-and leaves a folder that is already one alone. The `GEOMETRY` cells of every
-matrix keep working, because they name the file and not the path.
+`inputs/geometries/30_WB.fsm` still resolves. A geometry instruction requires
+its own `inputs/geometries/<stem>/` folder with the geometry and sidecars.
+The `GEOMETRY` cell names the file, not the path. For older workspace formats,
+see the documentation's Upgrading page.
 
 ## What is not kept here
 

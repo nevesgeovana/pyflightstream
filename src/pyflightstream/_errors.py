@@ -171,15 +171,8 @@ class ProductArgumentError(PyflightstreamError, TypeError):
 class ProductError(PyflightstreamError, ValueError):
     """A product cannot be written from what the run left.
 
-    DEFINED HERE RATHER THAN IN :mod:`pyflightstream.post._tables` since
-    0.23.0, and for the reason `InputArtifactError` is: TWO LAYERS NAME IT.
-    The post layer raises it, and `workspace.rename_groups` -- the migration
-    that moves a user's existing products -- raised it by importing UPWARD into
-    `post`, an edge on the package's own import path that resolved only by the
-    relative order of two lines in a third file. Moving that block, or adding
-    any earlier `workspace` import to `post.products`, stopped the package
-    importing at all. An architecture lens found it; a circular import while
-    wiring item 14 is what made it urgent.
+    Defined in the shared error catalogue so callers can catch a product
+    refusal without importing the post-processing layer.
 
     `post.products` re-exports it, so the public name and the pair of bases are
     unchanged and `except ValueError` catches exactly what it always did.

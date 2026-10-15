@@ -132,8 +132,7 @@ CONVENTIONS: tuple[tuple[str, str], ...] = (
         "KIND with a leading letter (r, s, e), so a number mistyped "
         "between two columns of a run matrix is refused instead of "
         "resolving to another artifact's file; geometries and profiles "
-        "still resolve by bare stem. A library written before that is "
-        "migrated by migrate_input_ids.",
+        "still resolve by bare stem. See docs/upgrading.md for older libraries.",
     ),
     (
         "Rotor signs are stated by the row, not derived",

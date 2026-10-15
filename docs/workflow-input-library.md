@@ -100,42 +100,14 @@ inputs/geometries/
     31_TAIL.provenance.toml
 ```
 
-**`pyfs-workspace init` writes `inputs/geometries/README.md`** and says there what this
-section says here: the per-mesh folder, that a flat library still resolves,
-that the sidecar travels with the mesh, and the one command that moves a
-library over. It is written where somebody about to drop a mesh in is already
-looking, because `migrate-geometries` existed for two releases and the layout
-it exists for was adopted only after a user asked for it by hand. A second
-`init` does NOT overwrite it, so a workspace that has edited the page keeps
-what it wrote.
+**`pyfs-workspace init` writes `inputs/geometries/README.md`** with the
+layout and sidecar conventions. A second `init` preserves an existing page.
 
 The package looks in `geometries/<stem>/` first and at
-`geometries/<file>` second, so moving a geometry into its own folder does not
-change a matrix that names the file. A library can hold both layouts while it moves. What the folder
-buys is a home: the inventory sidecar and the provenance record stop
-being loose files among forty others, and a point staged from a folder
-shows that geometry's files only, never the whole library (the link
-under `sims/<sim>/inputs` points at the folder; see "A point opens its
-geometry through a link" below). A flat library moves in one command:
-
-```text
-pyfs-workspace migrate-geometries .    # geometries/30_WB.fsm and its sidecars
-                                       # become geometries/30_WB/
-```
-
-It moves every `geometries/<stem>.<ext>` with its `<stem>.boundaries.toml`
-and `<stem>.provenance.toml` into `geometries/<stem>/`, prints each move
-and each folder it left alone (a folder that already exists is not
-touched, whatever it holds), and a second run moves nothing. A root with
-no `inputs/geometries` is refused, exit 2, with nothing created. The run
-records of the workspace keep reading: a record names its inputs by file
-name and hashes their bytes, and neither moved. The suite runs the line
-above over a library holding a saved simulation with both sidecars, a
-raw mesh with none and a folder already made, then runs it again,
-and runs a matrix row against the folder layout on the campaign path.
-The flat layout is not deprecated: nothing migrates by itself, and the
-cycle that retires it is for the owning seat to open once the folders have run a
-campaign.
+`geometries/<file>` second. Both layouts resolve the same `GEOMETRY` cell.
+A geometry instruction requires a folder of its own, containing the geometry
+and its sidecars. A point staged from that folder exposes only that geometry's
+files through its input link. See [Upgrading](upgrading.md) for older formats.
 
 ### What a solver preset may say, and what happens to a key that reaches nothing
 

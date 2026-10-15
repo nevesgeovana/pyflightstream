@@ -208,7 +208,7 @@ PAGES_029 = {
     "excel-matrices.md": "excel_matrix_sync",
     "fsi-workspace.md": "workspace_fsi_calibration",
     "geometry-units-and-starts.md": None,
-    "migrating-to-0.29.0.md": None,
+    "upgrading.md": None,
     "sampled-fields.md": "sampled_field_export",
     "setup-standards.md": None,
     "simulation-geometry-controls.md": None,

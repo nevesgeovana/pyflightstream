@@ -391,11 +391,13 @@ Rotor speed on the row is a magnitude; direction belongs to the reference. Corre
 
 ## 0.21.0
 
-Run `pyfs-matrix rename` to convert 0.20.x point names before continuing existing campaigns. Declare the unit on `WALLTIME`, update the HPC profile `[log]` table, and review swept RPM and rotating-free-stream inputs. Unregistered builds require the explicit acceptance option rather than an inferred identity.
+In the 0.21.0 package, `pyfs-matrix rename` converted 0.20.x point names before continuing existing campaigns. This command is absent from 0.41.0. Declare the unit on `WALLTIME`, update the HPC profile `[log]` table, and review swept RPM and rotating-free-stream inputs. Unregistered builds require the explicit acceptance option rather than an inferred identity.
 
 ## Older layouts
 
-Use `pyfs-matrix upgrade` to convert earlier matrix layouts and
-`pyfs-matrix rename` to convert legacy 0.20.x names. Preserve the workspace
-before applying conversions. The repository changelog retains the detailed
-history of releases before 0.21.0.
+The current package accepts workspaces in the 0.38.0 format for explicit
+migration. For older layouts, preserve a copy and use the corresponding older
+package releases to reach 0.38.0 first. The retired input-id, geometry-folder,
+group-product, matrix-upgrade and point-rename helpers are not supplied by
+0.41.0. The migration command does not reorganise geometry folders or rename
+scientific products.

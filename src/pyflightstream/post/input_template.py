@@ -1363,8 +1363,8 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
         intro=(
             "Optional: where a geometry came from, kept beside it as TOML. The "
             "package reads no key of it, so the keys are yours; it keeps the "
-            "record out of what a `GEOMETRY` cell can name and moves it with its "
-            "geometry (`pyfs-workspace migrate-geometries`)."
+            "record out of what a `GEOMETRY` cell can name. Keep it in the same "
+            "folder as its geometry."
         ),
         examples=(
             TemplateExample(
