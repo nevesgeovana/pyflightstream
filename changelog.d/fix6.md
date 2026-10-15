@@ -20,3 +20,5 @@
 - PFS-2125.002: Torsion accuracy is checked numerically against analytic
   sections. The guide directs readers to grid convergence and the runnable
   blade-properties example instead of promising a shape-independent error.
+- OPS-2005.16.01: Versions, builds and evidence distinguishes command
+  statuses from build support levels and links both definitions.
