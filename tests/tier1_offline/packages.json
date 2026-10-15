@@ -33,6 +33,7 @@
       "tests/tier1_offline/test_probes_planar.py"
     ],
     "fsi": [
+      "tests/tier1_offline/test_p0410_ph_b1_fsi_plan.py",
       "tests/tier1_offline/test_fsi1_in_plane_softening.py",
       "tests/tier1_offline/test_fsi_beam.py",
       "tests/tier1_offline/test_fsi_centrifugal.py",

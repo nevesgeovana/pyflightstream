@@ -45,12 +45,8 @@
    "node": "PFS-2140.002",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.fsi.beam.ModalResult",
-    "pyflightstream.fsi.beam.lumped_station_masses",
-    "pyflightstream.fsi.beam.modal_frequencies",
     "pyflightstream.fsi.centrifugal.CampbellData",
     "pyflightstream.fsi.centrifugal.campbell_sweep",
-    "pyflightstream.fsi.centrifugal.rotating_frequencies",
     "pyflightstream.fsi.centrifugal.southwell_fit"
    ]
   },

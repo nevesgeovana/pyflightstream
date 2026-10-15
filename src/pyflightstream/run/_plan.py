@@ -56,6 +56,7 @@ from pyflightstream.cases.workflows import (
     RESTART_ITERATIONS_VARIABLE,
     STEADY_RUN_TYPES,
     actuator_records,
+    effective_fsi_config,
     qsteady_validity,
     rotor_machs,
     streamline_count,
@@ -101,6 +102,7 @@ from pyflightstream.workspace import (
     datapoint_dir_name,
 )
 from pyflightstream.workspace._batches import GroupingReceipt
+from pyflightstream.workspace._fsi_plan import structural_assessment
 from pyflightstream.workspace._settings_file import (
     ENTRY_ACCEPTANCE_SOURCE,
     TYPED_ACCEPTANCE_SOURCE,
@@ -227,6 +229,7 @@ class PointPlan:
     run_wake_length: dict[str, object] = field(default_factory=dict)
     streamlines: int = 0
     farfield: dict[str, object] = field(default_factory=dict)
+    fsi: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -1570,6 +1573,9 @@ def _plan_point(
     script = Script(version=fs_version)
     try:
         recipe(point_case, script)
+        structural_config = effective_fsi_config(point_case)
+        if structural_config is not None:
+            base["fsi"] = structural_assessment(structural_config)
         # G02: the plan knows no machine, so a log export the row turned off
         # is refused here, before any run can spend a seat on it.
         _refuse_an_import_count_nothing_logs(point_case, script, None)

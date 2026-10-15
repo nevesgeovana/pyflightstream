@@ -1,5 +1,24 @@
 # FSI workspace inputs
 
+## Structural quantities before a run
+
+Run `pyfs-matrix plan matrix.fs --workspace . --fs-version 26.124` after
+selecting an FSI input. Each coupled point in `plan.json` has an `fsi` object:
+`station_properties`, `natural_frequencies_hz`, `mode_kinds`,
+`excitation_frequency_ratios`, and `warnings`. The properties are the effective
+calibrated properties; a quasi-steady sector uses the row's rotational speed.
+The existing rotating beam model includes centrifugal stiffness. No licensed
+solver is launched by this calculation.
+
+The frequency ratios cover once-per-revolution and blade-passing excitation.
+A ratio above 0.3 warns that a quasi-static structural response may be
+inadequate. This screen does not establish dynamic stability or native
+coupling accuracy. A fixed wing has zero rotational excitation. A uniform
+four-metre cantilever with bending stiffness 200000 N m2 and mass per length
+3 kg/m has a first bending frequency of approximately 9 Hz; quadrupling
+its bending stiffness doubles that frequency. The workspace regression test
+executes this example through `plan_campaign`.
+
 The [workspace calibration example](examples/workspace_fsi_calibration.md) creates
 complete calculated and supplied inputs for the same synthetic solid blade, then
 checks their equivalence with one explicit matrix factor.

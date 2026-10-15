@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Changed
 
+- Coupled plans report effective station properties, natural frequencies and
+  rotational excitation warnings before a licensed run.
+
 - `pyfs-matrix support [build]` reports evidence-derived build support without
   launching the solver; omit the build to list every registered version.
 
