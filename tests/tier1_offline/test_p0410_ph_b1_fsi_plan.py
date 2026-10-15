@@ -273,8 +273,12 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
     from pyflightstream.cases.workflows._farfield import planar_points
 
     saved = case.model_copy(update={"geometry": str(tmp_path / "wing.fsm")})
-    with pytest.raises(ValueError, match="wing.surface.stl"):
+    with pytest.raises(ValueError, match="wing.surface.stl") as refusal:
         planar_points(saved, pproc.probes[0], 1.0)
+    assert "pyfs-workspace geometry export-surface-mesh FSM --build ID --apply" in str(
+        refusal.value
+    )
+    assert "Planning does not launch the solver." in str(refusal.value)
 
 
 @pytest.mark.parametrize("morphing", ["mapped", "direct"])

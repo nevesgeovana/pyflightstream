@@ -1116,7 +1116,8 @@ def planar_points(case: SimCase, probes: ProbesSpec, native_per_m: float) -> lis
         source = source.with_suffix(".surface.stl")
         if not source.is_file():
             raise CampaignConfigError(
-                f"Planar probes need surface mesh export {source.name}; export the FSM mesh "
+                f"Planar probes need surface mesh export {source.name}; run "
+                "pyfs-workspace geometry export-surface-mesh FSM --build ID --apply "
                 "on the licensed machine before plan. Planning does not launch the solver."
             )
     mesh = None
