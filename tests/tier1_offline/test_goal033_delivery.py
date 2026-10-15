@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 import yaml
@@ -320,12 +321,46 @@ def _config() -> dict:
     return yaml.load((ROOT / "properdocs.yml").read_text(encoding="utf-8"), Loader=_Loader)
 
 
+def _nav_page(target: str, site_url: str) -> str:
+    """Resolve a same-site section link to its Markdown page for existence checks."""
+    link, site = urlsplit(target), urlsplit(site_url)
+    if link.scheme or link.netloc:
+        if (link.scheme, link.netloc) != (site.scheme, site.netloc):
+            return target
+        base = site.path.rstrip("/") + "/"
+        if not link.path.startswith(base):
+            return target
+        path = link.path.removeprefix(base)
+        if not path:
+            return "index.md"
+        return (path.rstrip("/") or "index") + ".md" if path.endswith("/") else path
+    return link.path
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        ("https://example.org/project/architecture/#decisions", "architecture.md"),
+        ("architecture.md#decisions", "architecture.md"),
+        ("https://example.org/project/missing/#decisions", "missing.md"),
+        ("https://example.org/project/", "index.md"),
+        ("https://other.org/project/architecture/#decisions", None),
+        ("https://example.org/project-other/architecture/#decisions", None),
+    ],
+)
+def test_p0420_docs_clean_nav_section_page(target, expected):
+    assert _nav_page(target, "https://example.org/project/") == (
+        target if expected is None else expected
+    )
+
+
 def test_every_documented_page_is_built_and_reachable():
     """The menu names only pages that exist, and names every committed page.
 
     GOAL033:delivery:checks:docs
     """
-    targets = _nav_targets(_config()["nav"])
+    config = _config()
+    targets = [_nav_page(target, config["site_url"]) for target in _nav_targets(config["nav"])]
     generated = _generated_pages()
     committed = set(site_pages(DOCS, in_nav=True))
     unresolved = [
@@ -346,6 +381,10 @@ def test_every_documented_page_is_built_and_reachable():
     built = set(site_pages(DOCS)) | generated
     absent = sorted(page for page in cited if page not in built)
     assert not absent, f"pages the {RELEASED} notes cite that the site lacks: {absent}"
+
+
+def test_p0420_docs_clean_section_link_reaches_existing_page():
+    test_every_documented_page_is_built_and_reachable()
 
 
 _RECORDED_TOTALS = Path(__file__).with_name("fixtures") / "recorded_total_rows.csv"

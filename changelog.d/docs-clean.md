@@ -11,3 +11,5 @@
   package release narration. Evidence dates and executable example data remain intact.
 - Generated reference prose omits dated editing history; command-level notes follow
   the same rule as per-build notes and descriptions.
+- The documentation delivery check resolves same-site section links to their
+  existing pages while retaining missing-page checks.
