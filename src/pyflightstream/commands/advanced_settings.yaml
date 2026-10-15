@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, Advanced Settings (SRC-003 pp.344-346).
+# Chapter: Scripting reference, Advanced Settings (FSM-26.120 pp.344-346).
 #
 # COMPLETE as of 2026-08-08. The chapter was drafted at M1 to the entries
 # the core steady path needed, and the rest awaited the cases that would
@@ -37,19 +37,19 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
   args:
     - name: value
       type: int
-  manual_ref: "SRC-003 p.344"
+  manual_ref: "FSM-26.120 p.344"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.305, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.318, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.349, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.356, unchanged from SRC-752 p.349"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
     Number of iterations the solver must remain below the convergence
     threshold before convergence is declared.
@@ -60,24 +60,24 @@ SOLVER_MINIMUM_CP:
   args:
     - name: cp
       type: float
-  manual_ref: "SRC-003 p.345"
+  manual_ref: "FSM-26.120 p.345"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.315, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.314, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.315, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.314, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.350, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.357, unchanged from SRC-752 p.350"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   default: -20
-  default_ref: "SRC-003 p.221"
+  default_ref: "FSM-26.120 p.221"
   notes: >
     Lower limiter on the pressure coefficient; the solver default is
-    -20 (SRC-003 p.221).
+    -20 (FSM-26.120 p.221).
 
 REYNOLDS_AVERAGED_DRAG_FORCES:
   layout: inline
@@ -86,17 +86,17 @@ REYNOLDS_AVERAGED_DRAG_FORCES:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.344"
+  manual_ref: "FSM-26.120 p.344"
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.318, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.356, unchanged from SRC-752 p.349"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
     Toggles the Reynolds-averaged (flat plate) boundary layer
     calculations.
@@ -108,18 +108,18 @@ SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.344"
+  manual_ref: "FSM-26.120 p.344"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.305, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.318, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.356, unchanged from SRC-752 p.349"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
 
 SOLVER_SET_FARFIELD_LAYERS:
   layout: inline
@@ -127,20 +127,20 @@ SOLVER_SET_FARFIELD_LAYERS:
   args:
     - name: layers
       type: int
-  manual_ref: "SRC-003 p.344"
+  manual_ref: "FSM-26.120 p.344"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.305, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.318, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.356, unchanged from SRC-752 p.349"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   default: 3
-  default_ref: "SRC-003 p.344"
+  default_ref: "FSM-26.120 p.344"
   notes: >
     Far-field agglomeration layer count, integer between 1 and 5;
     the solver default is 3.
@@ -152,18 +152,18 @@ SOLVER_UNSTEADY_PRESSURE_AND_KUTTA:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.344"
+  manual_ref: "FSM-26.120 p.344"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.305, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.305, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.318, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.356, unchanged from SRC-752 p.349"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
     Toggles the unsteady Bernoulli and Kutta terms of the unsteady
     solver.
@@ -174,18 +174,18 @@ SET_WAKE_TERMINATION_TIME_STEPS:
   args:
     - name: time_steps
       type: int
-  manual_ref: "SRC-003 p.344"
+  manual_ref: "FSM-26.120 p.344"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.306, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.319, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.318, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.306, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.319, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.318, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "SRC-752 p.349, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.356, unchanged from SRC-752 p.349"}
+    "26.123": {status: documented, note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
     Number of time steps after which a wake vortex filament edge that
     lost all of its strength is removed from the simulation.
@@ -197,15 +197,15 @@ SET_WAKE_ON_WAKE_INDUCTION:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 pp.344-345"
+  manual_ref: "FSM-26.120 pp.344-345"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.357, unchanged from SRC-752 p.349"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.349"}
   notes: >
     Toggles the wake-on-wake induced velocity computation.
 
@@ -216,15 +216,15 @@ ADDITIONAL_WAKE_RELAXATION_ITERATION:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.345"
+  manual_ref: "FSM-26.120 p.345"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.348, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
-    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.357, unchanged from SRC-752 p.350"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >
     Performs one additional wake relaxation iteration.
 
@@ -235,14 +235,14 @@ AEROELASTIC_RBF_TYPE:
     - name: rbf_type
       type: enum
       values: [WENDLAND_C2, GAUSSIAN, THIN_PLATE_SPLINE, MULTI_QUADRATIC, INV_MULTI_QUADRATIC, "1", "2", "3", "4", "5"]
-  manual_ref: "SRC-003 pp.345-346"
+  manual_ref: "FSM-26.120 pp.345-346"
   versions:
-    "26.101": {status: documented, note: "SRC-725 pp.344-345, same grammar and same five options as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.344-345, same grammar and same five options as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.379, same grammar; the entry moved out of the Advanced Settings chapter into the Aeroelastic Coupling Toolbox, while that edition's script index still files it under Advanced Settings"}
-    "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
-    "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
+    "26.121": {status: documented, note: "FSM-26.121 p.379, same grammar; the entry moved out of the Advanced Settings chapter into the Aeroelastic Coupling Toolbox, while that edition's script index still files it under Advanced Settings"}
+    "26.123": {status: documented, note: "FSM-26.123 p.383, unchanged from FSM-26.122 p.383"}
+    "26.124": {status: documented, note: "FSM-26.124 p.383, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
   notes: >
     RBF mesh morphing algorithm of the aeroelastic coupling. The manual
     gives the options as a NUMBERED list of five and says the input may
@@ -267,15 +267,15 @@ LAMINAR_SEPARATION:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.345"
+  manual_ref: "FSM-26.120 p.345"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
-    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.357, unchanged from SRC-752 p.350"}
+    "26.121": {status: documented, note: "FSM-26.121 p.348, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >
     Laminar boundary layer separation. This is the one member of the
     flow-separation family that survived the 26.101 redesign unchanged
@@ -289,15 +289,15 @@ KUTTA_JOUKOWSKI_LIFT_FORCES:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.344"
+  manual_ref: "FSM-26.120 p.344"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.356, unchanged from SRC-752 p.349"}
+    "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
     Computes the inviscid lift by the Kutta-Joukowski theorem, from the
     bound circulation, instead of by integrating the surface pressure,
@@ -317,15 +317,15 @@ PRINT_ROTOR_INDUCED_VELOCITIES:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.345"
+  manual_ref: "FSM-26.120 p.345"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
-    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.357, unchanged from SRC-752 p.350"}
+    "26.121": {status: documented, note: "FSM-26.121 p.348, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >
     Prints the rotor-induced velocities to the log at every time step of
     an unsteady run, which is what the manual's sample comment states.
@@ -339,15 +339,15 @@ SET_ADAPTIVE_FIELD_GRID_REFINEMENT:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.345"
+  manual_ref: "FSM-26.120 p.345"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
-    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.357, unchanged from SRC-752 p.350"}
+    "26.121": {status: documented, note: "FSM-26.121 p.348, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >
     Refines the field-source grid where the solution needs it. The
     manual's sample comment marks this transonic only; what it does on a
@@ -360,16 +360,16 @@ ROTOR_INDUCED_VELOCITY_BLENDING:
   args:
     - name: value
       type: float
-  manual_ref: "SRC-003 p.345"
+  manual_ref: "FSM-26.120 p.345"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
-    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.357, unchanged from SRC-752 p.350"}
+    "26.121": {status: documented, note: "FSM-26.121 p.348, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   default: 0.25
-  default_ref: "SRC-003 p.345"
+  default_ref: "FSM-26.120 p.345"
   notes: >
     Blending factor for wake stabilization, dimensionless, between 0 and
     1. The bound is not enforced. The solver default is recorded in the
@@ -387,16 +387,16 @@ SET_WAKE_NUMERICAL_RELAXATION:
   args:
     - name: value
       type: float
-  manual_ref: "SRC-003 p.346"
+  manual_ref: "FSM-26.120 p.346"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.345, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.349, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.351, unchanged from SRC-750 p.351"}
-    "26.124": {status: documented, note: "SRC-752 p.351, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.358, unchanged from SRC-752 p.351"}
+    "26.121": {status: documented, note: "FSM-26.121 p.349, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.351, unchanged from FSM-26.122 p.351"}
+    "26.124": {status: documented, note: "FSM-26.124 p.351, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.358, unchanged from FSM-26.124 p.351"}
   default: 0.15
-  default_ref: "SRC-003 p.346"
+  default_ref: "FSM-26.120 p.346"
   notes: >
     Relaxation factor applied to the wake between iterations,
     dimensionless, between 0 and 1. What a lower value buys is
@@ -411,16 +411,16 @@ SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
     - name: value
       type: float
       unit: "jet wake diameters"
-  manual_ref: "SRC-003 p.346"
+  manual_ref: "FSM-26.120 p.346"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.345, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.349, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.351, unchanged from SRC-750 p.351"}
-    "26.124": {status: documented, note: "SRC-752 p.351, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.358, read against SRC-752 p.351: the grammar is unchanged and the documented default decay length moves from 100 to 10 jet diameters (minimum still 1); the entry-level default records the earlier editions' value"}
+    "26.121": {status: documented, note: "FSM-26.121 p.349, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.351, unchanged from FSM-26.122 p.351"}
+    "26.124": {status: documented, note: "FSM-26.124 p.351, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.358, read against FSM-26.124 p.351: the grammar is unchanged and the documented default decay length moves from 100 to 10 jet diameters (minimum still 1); the entry-level default records the earlier editions' value"}
   default: 100.0
-  default_ref: "SRC-003 p.346"
+  default_ref: "FSM-26.120 p.346"
   notes: >
     Distance at which a jet wake decays to a tenth of its initial
     strength, measured in multiples of the jet wake diameter rather
@@ -435,9 +435,9 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.346"
+  manual_ref: "FSM-26.120 p.346"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.345, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121":
       status: removed
@@ -449,7 +449,7 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
     "26.122":
       status: removed
       note: >-
-        SRC-750 pp.283-383, the scripting reference of the 26.122
+        FSM-26.122 pp.283-383, the scripting reference of the 26.122
         edition, does not print this command anywhere, AND THAT
         EDITION'S INDEX DISAGREES WITH ITS OWN BODY: The Script
         Index at pp.384-390 of the same document still names it, and
@@ -482,8 +482,8 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
     Whether the jet wake filaments induce velocity on the mesh.
 
     THE ONLY COMMAND IN THIS SWEEP DOCUMENTED BY AN EDITION AND NOT BY
-    THE HOTFIX THAT FOLLOWS IT. SRC-725 and SRC-003 both print it;
-    SRC-740, which is otherwise SRC-003 plus three pages, does not, and
+    THE HOTFIX THAT FOLLOWS IT. FSM-26.101 and FSM-26.120 both print it;
+    FSM-26.121, which is otherwise FSM-26.120 plus three pages, does not, and
     it is not renamed into anything else on those pages either. The
     February edition does not have it, so its whole documented life is
     two editions.
@@ -515,18 +515,18 @@ SET_WAKE_DECAY_CONSTANT:
     - name: value
       type: float
       unit: "1/m"
-  manual_ref: "SRC-740 p.346"
+  manual_ref: "FSM-26.121 p.346"
   versions:
     "26.121": {status: documented}
-    "26.122": {status: documented, note: "SRC-750 p.348, same grammar as 26.121"}
-    "26.123": {status: documented, note: "SRC-751 p.348, unchanged from SRC-750 p.348"}
-    "26.124": {status: documented, note: "SRC-752 p.348, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.355, unchanged from SRC-752 p.348"}
+    "26.122": {status: documented, note: "FSM-26.122 p.348, same grammar as 26.121"}
+    "26.123": {status: documented, note: "FSM-26.123 p.348, unchanged from FSM-26.122 p.348"}
+    "26.124": {status: documented, note: "FSM-26.124 p.348, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
   notes: >
     Rate at which wake vorticity decays with distance.
 
     NEW IN THE 26.12 HOTFIX AND DOCUMENTED NOWHERE ELSE, so it carries
-    one version row and its manual_ref cites SRC-740 rather than the
+    one version row and its manual_ref cites FSM-26.121 rather than the
     flagship edition, which is the citation form for a command the
     flagship does not document.
 
@@ -565,7 +565,7 @@ SET_WAKE_RELAXATION:
     - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
-  manual_ref: "SRC-747 p.319"
+  manual_ref: "FSM-26.000 p.319"
   notes: >
     Enables relaxation of the wake geometry between solver iterations,
     which damps the wake movement and helps a case that oscillates
@@ -574,17 +574,17 @@ SET_WAKE_RELAXATION:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.306, this edition documents it"
+      note: "FSM-25.000 p.306, this edition documents it"
     "25.100":
       status: documented
-      note: "SRC-748 p.320, this edition documents it"
+      note: "FSM-25.100 p.320, this edition documents it"
     "26.000":
       status: documented
-      note: "SRC-747 p.319, this edition documents it"
+      note: "FSM-26.000 p.319, this edition documents it"
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -593,7 +593,7 @@ SET_WAKE_RELAXATION:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -602,7 +602,7 @@ SET_WAKE_RELAXATION:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -611,7 +611,7 @@ SET_WAKE_RELAXATION:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -641,7 +641,7 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
     - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
-  manual_ref: "SRC-747 p.318"
+  manual_ref: "FSM-26.000 p.318"
   notes: >
     Enables agglomeration of wake filament edges along the streamwise
     direction, which reduces the number of wake elements the solver
@@ -650,17 +650,17 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.305, this edition documents it"
+      note: "FSM-25.000 p.305, this edition documents it"
     "25.100":
       status: documented
-      note: "SRC-748 p.319, this edition documents it"
+      note: "FSM-25.100 p.319, this edition documents it"
     "26.000":
       status: documented
-      note: "SRC-747 p.318, this edition documents it"
+      note: "FSM-26.000 p.318, this edition documents it"
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -669,7 +669,7 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -678,7 +678,7 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -687,7 +687,7 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -717,7 +717,7 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
     - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
-  manual_ref: "SRC-747 p.318"
+  manual_ref: "FSM-26.000 p.318"
   notes: >
     Enables the adverse-pressure-gradient treatment in the
     boundary-layer model, which is what lets the model thicken the layer
@@ -727,17 +727,17 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.305, this edition documents it"
+      note: "FSM-25.000 p.305, this edition documents it"
     "25.100":
       status: documented
-      note: "SRC-748 p.319, this edition documents it"
+      note: "FSM-25.100 p.319, this edition documents it"
     "26.000":
       status: documented
-      note: "SRC-747 p.318, this edition documents it"
+      note: "FSM-26.000 p.318, this edition documents it"
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -746,7 +746,7 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -755,7 +755,7 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -764,7 +764,7 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -794,7 +794,7 @@ SOLVER_VORTEX_RING_NORMALIZATION:
     - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
-  manual_ref: "SRC-747 p.318"
+  manual_ref: "FSM-26.000 p.318"
   notes: >
     Enables normalization of the vortex-ring strengths on the wake
     panels. Documented by the three pre-26.100 editions and by none
@@ -806,17 +806,17 @@ SOLVER_VORTEX_RING_NORMALIZATION:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.305, this edition documents it"
+      note: "FSM-25.000 p.305, this edition documents it"
     "25.100":
       status: documented
-      note: "SRC-748 p.319, this edition documents it"
+      note: "FSM-25.100 p.319, this edition documents it"
     "26.000":
       status: documented
-      note: "SRC-747 p.318, this edition documents it"
+      note: "FSM-26.000 p.318, this edition documents it"
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -825,7 +825,7 @@ SOLVER_VORTEX_RING_NORMALIZATION:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -834,7 +834,7 @@ SOLVER_VORTEX_RING_NORMALIZATION:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -843,7 +843,7 @@ SOLVER_VORTEX_RING_NORMALIZATION:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal

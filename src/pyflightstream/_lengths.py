@@ -12,7 +12,7 @@ volume section, emitted by the cases layer below the workspace, state their
 lengths in metres and hand them to commands that carry no unit of their
 own, which the solver reads in the SIMULATION's unit (the command database
 records ``SET_SIMULATION_LENGTH_UNITS`` as the unit "length-typed command
-arguments are interpreted in", SRC-003 p.284, and the actuator's lengths in
+arguments are interpreted in", FSM-26.120 p.284, and the actuator's lengths in
 "simulation length units"), so they need the same conversion; a second
 table in the cases layer would be a second copy free to disagree with the
 first. The workspace keeps its own validating

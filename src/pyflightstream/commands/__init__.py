@@ -30,7 +30,7 @@ grammar of the latest documented version in ``args`` and overrides it
 per version through ``versions.<v>.args``; the per-version view
 resolves the override, so the script builder binds and renders the
 grammar of its target version (the four-versus-three argument forms of
-CREATE_BULK_SEPARATION, SRC-003 p.342 versus SRC-725 p.341, are the
+CREATE_BULK_SEPARATION, FSM-26.120 p.342 versus FSM-26.101 p.341, are the
 motivating case).
 """
 
@@ -87,7 +87,7 @@ CommandDatabaseError.__module__ = "pyflightstream.commands"
 CommandNotInVersionError.__module__ = "pyflightstream.commands"
 ArgSpec.__module__ = "pyflightstream.commands"
 
-_MANUAL_REF_PATTERN = re.compile(r"^SRC-\d{3} pp?\.\d+")
+_MANUAL_REF_PATTERN = re.compile(r"^FSM-(?:\d{2}\.\d{3}|TEST) pp?\.\d+")
 _PROBE_REF_PATTERN = re.compile(
     r"^(?:GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/)?reports/[\w./-]+\.md$"
 )
@@ -122,7 +122,7 @@ _MEASURED_CLAIM = re.compile(r"\b(measured|probed|observed|the solver (?:answers
 
 #: A source-and-page citation as this database writes one, for pulling
 #: the edition's own page out of a per-version note.
-_NOTE_CITATION = re.compile(r"SRC-\d{3}\s+pp?\.\s*\d+(?:\s*-\s*\d+)?")
+_NOTE_CITATION = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)\s+pp?\.\s*\d+(?:\s*-\s*\d+)?")
 
 
 def _override_citation(entry: CommandEntry, source: str, note: str | None) -> str:
@@ -346,7 +346,7 @@ class CommandEntry(BaseModel):
     manual_ref : str, optional
         Manual page citation of an entry an edition documents, exclusive
         with ``probe_ref`` and required unless that is given; for
-        example ``"SRC-003 p.352"``. Paraphrase evidence only; manual
+        example ``"FSM-26.120 p.352"``. Paraphrase evidence only; manual
         text is never reproduced.
     probe_ref : str, optional
         Repository-relative path of a committed probe report, for the
@@ -354,7 +354,7 @@ class CommandEntry(BaseModel):
         It stands where ``manual_ref`` would, and it exists because that
         command is real: RPT-018 measured
         ``DELETE_VALAREZO_SEPARATION_BOUNDARIES`` accepted on 26.100
-        while the name SRC-741 documents for the same erase is
+        while the name FSM-26.100 documents for the same erase is
         unrecognised, and RPT-015 measured
         ``CREATE_STRATFORD_BULK_SEPARATION`` accepted on 26.120, a build
         whose manual does not mention it.
@@ -385,7 +385,7 @@ class CommandEntry(BaseModel):
         unknown; a flag without this field stays honestly unknown.
     default_ref : str, optional
         Manual page citation of ``default``, for example
-        ``"SRC-003 p.221"``; required whenever ``default`` is set.
+        ``"FSM-26.120 p.221"``; required whenever ``default`` is set.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -502,7 +502,7 @@ class CommandEntry(BaseModel):
     def _manual_ref_cites_a_page(cls, value: str) -> str:
         if value and not _MANUAL_REF_PATTERN.match(value):
             raise ValueError(
-                f"manual_ref {value!r} must cite a source and page, for example 'SRC-003 p.352'"
+                f"manual_ref {value!r} must cite a source and page, for example 'FSM-26.120 p.352'"
             )
         return value
 
@@ -595,7 +595,7 @@ class CommandEntry(BaseModel):
         if self.default_ref is not None and not _MANUAL_REF_PATTERN.match(self.default_ref):
             raise ValueError(
                 f"{self.name}: default_ref {self.default_ref!r} must cite a source and "
-                "page, for example 'SRC-003 p.221'"
+                "page, for example 'FSM-26.120 p.221'"
             )
         if (
             isinstance(self.default, str)
@@ -723,7 +723,7 @@ class VersionView:
         entry = self._registry.commands.get(name)
         if entry is None:
             # "NEARLY every" and not "every", corrected 2026-08-17. The
-            # stronger sentence became false the moment SRC-751 was
+            # stronger sentence became false the moment FSM-26.123 was
             # registered: that edition documents SET_OUTLET_TRAILING_EDGES
             # and the database does not carry it, so a 26.123 user copying
             # the name out of their own manual was told it was "usually a
@@ -743,7 +743,7 @@ class VersionView:
         # citing a record recorded for another. SONIC_VELOCITY is the
         # measured case: removed on 26.100 and 26.120, no 26.121 record,
         # so the message said "removed in FlightStream 26.121" and cited
-        # an SRC-003 page which, on the 26.121 edition, addresses a
+        # an FSM-26.120 page which, on the 26.121 edition, addresses a
         # different page entirely (V&V pass, 2026-08-03).
         evidence = entry.evidence_in(self.version)
         if evidence is None:
@@ -774,7 +774,7 @@ class VersionView:
             # A note is mandatory for `removed`, so this reads the note
             # and nothing else. The trailing full stop comes off because
             # the citation is appended after a comma, and the shipped
-            # message read "...off the hotfix edition's silence., SRC-003
+            # message read "...off the hotfix edition's silence., FSM-26.120
             # p.346" (release review, 2026-08-09).
             reason = " ".join(record.note.split()).rstrip(".")
             successor = (

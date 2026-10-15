@@ -46,14 +46,14 @@ _COUNT_ARG_NAMES = {
     "num_sections",
     "num_variables",
     "numpts",
-    # SURFACE_COMBINE's count of the surfaces it merges (SRC-003 p.312).
+    # SURFACE_COMBINE's count of the surfaces it merges (FSM-26.120 p.312).
     # Added 2026-08-07 with the Mesh Operations chapter; the tier-1 guard
     # over this set is what reported the omission, before the entry could
     # ship a count nothing compares against its own list.
     "surface_count",
     "surfaces",
     # WRAPPER_SET_INPUT's count of the surfaces the wrap is built over
-    # (SRC-003 p.314). Added 2026-08-08 with the Mesh Wrapper chapter,
+    # (FSM-26.120 p.314). Added 2026-08-08 with the Mesh Wrapper chapter,
     # reported by the same guard the same way. This is the FOURTH
     # spelling for a count of surfaces in the database, after
     # 'surface_count', 'surfaces' and 'boundaries', and all four are the
@@ -62,13 +62,13 @@ _COUNT_ARG_NAMES = {
     # The cost of that decision is exactly this set, which is why the
     # set is guarded rather than trusted.
     "num_surfaces",
-    # BOOLEAN_UNITE_MESH's count of the mesh BODIES it unites (SRC-003
+    # BOOLEAN_UNITE_MESH's count of the mesh BODIES it unites (FSM-26.120
     # p.316), added 2026-08-08 with the Mesh Unite chapter. Fifth
     # spelling of a count in this set and the first counting something
     # other than surfaces, bodies being a different inventory again.
     "num_bodies",
     # BOOLEAN_UNITE_GEOMETRY's count of the GEOMETRY bodies it unites
-    # (SRC-749 p.272), added 2026-08-10 with the commands only the
+    # (FSM-25.000 p.272), added 2026-08-10 with the commands only the
     # pre-26.100 editions document. Sixth spelling, and the one that
     # makes the point of this set best: it counts the same kind of thing
     # as num_bodies directly above, for a command printed on the SAME
@@ -81,7 +81,7 @@ _COUNT_ARG_NAMES = {
 # Cross-reference ledger (SAD Section 4.2): commands that create an
 # indexed auxiliary object, commands that delete one, and the argument
 # names that cite one. Frame index 1 is the reference frame and always
-# exists (SRC-003 p.329); created local frames take indices 2 upward.
+# exists (FSM-26.120 p.329); created local frames take indices 2 upward.
 # Mesh boundaries are cited but never created by a command: their
 # inventory comes from declare_existing() and -1 selects all of them.
 _CREATION_COMMANDS = {
@@ -95,7 +95,7 @@ _CREATION_COMMANDS = {
     "CREATE_NEW_ACTUATOR": "actuators",
     "CREATE_NEW_MOTION": "motions",
     # 25.000 creates a motion by one command per type and has no
-    # CREATE_NEW_MOTION (SRC-749); uncounted until 0.40.0 (PFS-2104.018).
+    # CREATE_NEW_MOTION (FSM-25.000); uncounted until 0.40.0 (PFS-2104.018).
     "CREATE_NEW_MOTION_EUCLIDEAN": "motions",
     "CREATE_NEW_MOTION_CUSTOM": "motions",
     "CREATE_NEW_MOTION_6DOF": "motions",
@@ -290,7 +290,7 @@ _FRAME_NEUTRAL_COMMANDS = frozenset(
 def _placed_by_edit(
     placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
 ) -> None:
-    """``EDIT_COORDINATE_SYSTEM`` states origin and axes in the reference (SRC-751 p.334)."""
+    """``EDIT_COORDINATE_SYSTEM`` states origin and axes in the reference (FSM-26.123 p.334)."""
     placements[frame] = FramePlacement(
         origin=_vector(bound, "origin_x", "origin_y", "origin_z"),
         axes=(
@@ -308,7 +308,7 @@ def _placed_by_origin(
     *,
     simulation_unit: str | None = None,
 ) -> None:
-    """``SET_COORDINATE_SYSTEM_ORIGIN`` states the origin in the reference (SRC-751 p.334).
+    """``SET_COORDINATE_SYSTEM_ORIGIN`` states the origin in the reference (FSM-26.123 p.334).
 
     UNKNOWN UNIT, FORGOTTEN (GOAL-034 Q4, GEO-060 A1a, CX-1): the command's
     explicit unit is converted through the one length table into the native

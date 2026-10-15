@@ -1,5 +1,5 @@
 # Free Surfaces: the commands of the section of that name, first printed by
-# the 26.125 edition of the manual (SRC-753 p.338). No earlier edition has
+# the 26.125 edition of the manual (FSM-26.125 p.338). No earlier edition has
 # the section, so every entry here carries a 26.125 row and no other.
 
 CREATE_FREE_SURFACE_TFI_MESH:
@@ -22,7 +22,7 @@ CREATE_FREE_SURFACE_TFI_MESH:
       type: int
     - name: lateral_points
       type: int
-  manual_ref: "SRC-753 p.338"
+  manual_ref: "FSM-26.125 p.338"
   versions:
     "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "script processing aborted at the command: on a session holding the probe blade, the documented call raised a modal error dialog naming a perimeter curve with zero virtual curves assigned, and the solver was terminated; the manual states no precondition, so what the free surface needs before it is not measured"}
   notes: >
@@ -44,9 +44,9 @@ FREE_SURFACE_EXPORT_TYPE:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-753 p.338"
+  manual_ref: "FSM-26.125 p.338"
   versions:
-    "26.125": {status: documented, note: "SRC-753 p.338, the first edition to document it"}
+    "26.125": {status: documented, note: "FSM-26.125 p.338, the first edition to document it"}
   notes: >
     Exports the free surface as a VTK file whose path follows on the next
     line: type 1 writes the two-dimensional surface, type 2 the wave
@@ -56,9 +56,9 @@ DELETE_FREE_SURFACE:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-753 p.338"
+  manual_ref: "FSM-26.125 p.338"
   versions:
-    "26.125": {status: documented, note: "SRC-753 p.338, the first edition to document it"}
+    "26.125": {status: documented, note: "FSM-26.125 p.338, the first edition to document it"}
   notes: >
     Deletes the free surface. The page prints the bare name with no
     parameter table and no sample. First documented by the 26.125

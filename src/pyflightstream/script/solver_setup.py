@@ -70,7 +70,7 @@ VORTICITY_COMMAND = "SET_VORTICITY_DRAG_BOUNDARIES"
 
 #: Minimum pressure coefficient (dimensionless Cp) the library emits
 #: whenever the caller does not pass ``minimum_cp``. The solver's own
-#: default is -20 (SRC-003 p.221), which clips the suction peaks of
+#: default is -20 (FSM-26.120 p.221), which clips the suction peaks of
 #: rotor blades; -100 is the library default of 2026-07-22,
 #: retiring the earlier reference-velocity workaround. The physics
 #: references were re-validated under this default on a licensed
@@ -82,7 +82,7 @@ _EXPLICIT: Literal["explicit"] = "explicit"
 _DEFAULT: Literal["default"] = "default"
 _UNKNOWN: Literal["unknown"] = "unknown"
 
-# The 26.125 evidence row contradicts the entry-level default (SRC-753
+# The 26.125 evidence row contradicts the entry-level default (FSM-26.125
 # p.358). Until version rows can carry structured defaults, suppress that
 # inherited value, including for builds inheriting this evidence row.
 _UNREPRESENTED_DEFAULTS = frozenset({("SET_JET_WAKE_DECAY_NORMALIZED_LENGTH", "26.125")})
@@ -255,7 +255,7 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
         "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
         "separation_boundaries_clear",
     ),
-    # The name SRC-741 p.339 prints and the solver does not answer to. It
+    # The name FSM-26.100 p.339 prints and the solver does not answer to. It
     # is in the database because the page documents it and a reader of
     # that page has to be able to find out here that it fails, and it
     # carries a flag because every command of a settings family does. The
@@ -352,13 +352,13 @@ def explicit_empty_selections(flags: Mapping[str, object]) -> list[tuple[str, st
 
 
 class BulkSeparation(BaseModel):
-    """One bulk (bluff-body) flow-separation assignment (SRC-003 p.342).
+    """One bulk (bluff-body) flow-separation assignment (FSM-26.120 p.342).
 
     Bluff bodies shed their wake from a separation line rather than a
     trailing edge; the bulk model assigns that behavior to the listed
-    mesh boundaries (SRC-003 p.207). This is the 26.12 four-argument
+    mesh boundaries (FSM-26.120 p.207). This is the 26.12 four-argument
     grammar with SEPARATION_TYPE; the three-argument 26.1 form
-    (SRC-725 p.341) is not covered by the helper and needs direct
+    (FSM-26.101 p.341) is not covered by the helper and needs direct
     emission.
 
     Attributes
@@ -367,13 +367,13 @@ class BulkSeparation(BaseModel):
         Display name of the separation assignment in the interface.
     separation_type : str
         Bulk model sub-type, ``CYLINDRICAL`` or ``FLAT_PLATE``
-        (SRC-003 p.207).
+        (FSM-26.120 p.207).
     diameter : float
         Characteristic body diameter, in simulation length units.
     boundaries : list of int or str, or ``"all"``
         Mesh boundaries carrying the model, by 1-based index in
         geometry-tree order or by declared boundary label; ``"all"``
-        selects every boundary (the -1 form of SRC-003 p.342).
+        selects every boundary (the -1 form of FSM-26.120 p.342).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -385,7 +385,7 @@ class BulkSeparation(BaseModel):
 
 
 class AirfoilSeparation(BaseModel):
-    """One airfoil (trailing-edge) separation assignment (SRC-003 p.341).
+    """One airfoil (trailing-edge) separation assignment (FSM-26.120 p.341).
 
     Attributes
     ----------
@@ -396,7 +396,7 @@ class AirfoilSeparation(BaseModel):
     boundaries : list of int or str, or ``"all"``
         Mesh boundaries carrying the model, by 1-based index in
         geometry-tree order or by declared boundary label; ``"all"``
-        selects every boundary (the -1 form of SRC-003 p.341).
+        selects every boundary (the -1 form of FSM-26.120 p.341).
 
     Examples
     --------
@@ -416,7 +416,7 @@ class AirfoilSeparation(BaseModel):
 
 
 class AxialVortexSeparation(BaseModel):
-    """One axial vortex separation assignment (SRC-003 p.342).
+    """One axial vortex separation assignment (FSM-26.120 p.342).
 
     Slender bodies at incidence shed a pair of vortices along the body
     axis; the model assigns that behavior to the listed boundaries.
@@ -429,7 +429,7 @@ class AxialVortexSeparation(BaseModel):
         Maximum body diameter, in simulation length units.
     frame : int or str
         Coordinate system acting as the body axes, by 1-based index (1
-        is the reference frame, SRC-003 p.342) or by the label a recipe
+        is the reference frame, FSM-26.120 p.342) or by the label a recipe
         declared for it, which the emitter resolves like every other
         frame citation in the library.
     body_axis : str
@@ -462,7 +462,7 @@ class AxialVortexSeparation(BaseModel):
 
 
 class CylindricalBulkSeparation(BaseModel):
-    """One cylindrical bulk separation assignment (SRC-740 p.345).
+    """One cylindrical bulk separation assignment (FSM-26.121 p.345).
 
     The 26.121 split of the CYLINDRICAL value that
     :class:`BulkSeparation` carried in its ``separation_type``
@@ -487,7 +487,7 @@ class CylindricalBulkSeparation(BaseModel):
 
 
 class StratfordBulkSeparation(BaseModel):
-    """One Stratford bulk separation assignment (SRC-740 p.345).
+    """One Stratford bulk separation assignment (FSM-26.121 p.345).
 
     Takes no diameter, which is the visible difference from
     :class:`CylindricalBulkSeparation`.
@@ -777,7 +777,7 @@ def _family_record(
     elif spec.kind == "never_emitted":
         # The command is in a settings family, so it needs a flag, and no
         # helper path emits it: DELETE_VALAREZO_CRITERION_BOUNDARIES is
-        # the name SRC-741 documents and the solver does not answer to.
+        # the name FSM-26.100 documents and the solver does not answer to.
         # Falling to unknown is the honest record, and saying so here
         # rather than letting it reach the generic branch is what keeps
         # a reader from thinking the keyword was simply not passed.
@@ -931,7 +931,7 @@ def _vorticity_record(
     an absence of knowledge: the script places no boundary on the
     vorticity CDi list, and boundaries outside that list keep the
     surface pressure integration of the solver, a complete induced-drag
-    calculation (SRC-003 p.202). That case is recorded as a ``default``
+    calculation (FSM-26.120 p.202). That case is recorded as a ``default``
     carrying the empty selection, so a reader of the manifest sees that
     the script selected no boundary instead of an unexplained blank.
     The record describes the script, not the session: a simulation file

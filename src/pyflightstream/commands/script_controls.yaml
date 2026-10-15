@@ -1,4 +1,4 @@
-# Chapter: Scripting, Script Controls (SRC-003 p.281).
+# Chapter: Scripting, Script Controls (FSM-26.120 p.281).
 # Control commands run at any point of a script; the builder exempts
 # the control phase from phase ordering.
 
@@ -6,22 +6,22 @@ STOP:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.252, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.271, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.270, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.252, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.271, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.270, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.285, unchanged from SRC-750 p.285"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.285, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.290, unchanged from SRC-752 p.285"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.285, unchanged from FSM-26.122 p.285"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.285, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.290, unchanged from FSM-26.124 p.285"}
   notes: >
     Halts script processing at this location; the manual suggests it
-    for debugging partial scripts (SRC-003 p.280).
+    for debugging partial scripts (FSM-26.120 p.280).
 
 PRINT:
   layout: inline
@@ -29,19 +29,19 @@ PRINT:
   args:
     - name: message
       type: str
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.252, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.271, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.270, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.252, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.271, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.270, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.285, unchanged from SRC-750 p.285"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.285, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.290, unchanged from SRC-752 p.285"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.285, unchanged from FSM-26.122 p.285"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.285, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.290, unchanged from FSM-26.124 p.285"}
   notes: >
     Writes a user-defined message to the log window; useful as a
     sentinel marker in probe scripts.
@@ -52,17 +52,17 @@ RUN_SCRIPT:
   args:
     - name: script_path
       type: path
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.271, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.270, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.280, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.275, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.271, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.270, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.280, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.275, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.285, unchanged from SRC-750 p.285"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.285, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.290, unchanged from SRC-752 p.285"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.285, unchanged from FSM-26.122 p.285"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.285, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.290, unchanged from FSM-26.124 p.285"}
   notes: >
     Calls another script file from within the running script.

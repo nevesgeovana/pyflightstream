@@ -136,7 +136,7 @@ class ExecutionResult:
     log_text : str or None
         Content of ``FlightStreamLog.txt`` from the execution
         directory when the solver wrote one (hidden-mode abnormal
-        termination, SRC-003 p.280); None otherwise.
+        termination, FSM-26.120 p.280); None otherwise.
     stdout : str
         Captured standard output of the process.
     stderr : str
@@ -308,7 +308,7 @@ class SolverBuild:
 #:
 #: The vendor spells this argument two ways and the difference is not
 #: cosmetic. The 25.0 edition documents ``-script`` on its command-line
-#: inputs topic and the 26.12 edition documents ``--script`` at SRC-003
+#: inputs topic and the 26.12 edition documents ``--script`` at FSM-26.120
 #: pp.279-280. Note the asymmetry in what can be CITED: the 26.12
 #: edition has a source id and a page, and the 25.0 edition has neither,
 #: because that install ships a compiled help archive with topics rather
@@ -413,12 +413,12 @@ def describe_invocation(
         ``executor`` field of a compat, drift, or physics report.
     """
     # The two citations are split because they answer different halves
-    # and one of them does NOT support the spelling beside it: SRC-003
+    # and one of them does NOT support the spelling beside it: FSM-26.120
     # documents the mechanism and the windowless flag, and documents the
     # script argument with TWO dashes. Printing that page beside one
     # dash, as this string did when it was first written, cites a page
     # for a claim it denies. RPT-023 is what carries the spelling.
-    citation = "mechanism SRC-003 pp.279-280; argument spelling RPT-023"
+    citation = "mechanism FSM-26.120 pp.279-280; argument spelling RPT-023"
     if record is None:
         flags = f"-hidden {SCRIPT_ARGUMENT}" if hidden else SCRIPT_ARGUMENT
         if markdown:
@@ -1330,7 +1330,7 @@ def _run_with_progress(
 
 
 class LocalExecutor:
-    """Runs FlightStream as a local subprocess (SRC-003 pp.279-280).
+    """Runs FlightStream as a local subprocess (FSM-26.120 pp.279-280).
 
     Parameters
     ----------
@@ -1340,7 +1340,7 @@ class LocalExecutor:
     hidden : bool
         Pass the ``-hidden`` flag for a windowless run; this is the
         batch mode that writes ``FlightStreamLog.txt`` on abnormal
-        termination (SRC-003 p.280). Disable only for local debugging
+        termination (FSM-26.120 p.280). Disable only for local debugging
         with the interface visible.
     forced_local : bool
         Keyword only. Whether the local switch kept this run on a machine
@@ -1657,7 +1657,7 @@ class SurfaceMeshExportError(PyflightstreamError, RuntimeError):
     Raised by :func:`export_surface_mesh` when the solver run failed
     or finished without writing the requested mesh file; the message
     carries the process outcome and the captured log excerpt, because
-    hidden-mode failures are otherwise silent (SRC-003 p.280).
+    hidden-mode failures are otherwise silent (FSM-26.120 p.280).
     """
 
 
@@ -1688,7 +1688,7 @@ def export_surface_mesh(
     Builds and runs the minimal version-validated script (OPEN the
     simulation, EXPORT_SURFACE_MESH, close), so the probe planner's
     geometry gate can test candidate probes against the real body when
-    no mesh file exists yet (SRC-003 pp.282, 307-308). When a mesh
+    no mesh file exists yet (FSM-26.120 pp.282, 307-308). When a mesh
     file already exists, skip this and hand it to the gate directly.
 
     Parameters
@@ -1708,7 +1708,7 @@ def export_surface_mesh(
         FlightStream executable path (explicit input, never guessed),
         read only when no ``executor`` is given.
     file_type : str
-        Export format token, one of STL, TRI, OBJ (SRC-003 p.307);
+        Export format token, one of STL, TRI, OBJ (FSM-26.120 p.307);
         OBJ is the geometry gate default.
     surface : int
         Surface index to export; -1 exports all geometry surfaces.

@@ -699,7 +699,7 @@ class Script:
         command's own. That is stated here and passed explicitly,
         because the emitter has no per-kind default: a command's
         all-form comes from its own argument, and six surface commands
-        state none at all (SRC-003 pp.309-313). Passing -1 to
+        state none at all (FSM-26.120 pp.309-313). Passing -1 to
         :meth:`emit` for one of those is still refused, and correctly;
         it is this generic entry point that accepts it.
 
@@ -1812,14 +1812,14 @@ class Script:
         for spec, value in provided:
             if spec.on_command_line:
                 # The leading arguments of a keyword block that sit on the
-                # command's own line (WRAPPER_EDIT_LOCAL_CONTROL, SRC-003
+                # command's own line (WRAPPER_EDIT_LOCAL_CONTROL, FSM-26.120
                 # p.314). The schema holds them to the leading positions,
                 # so lines[0] is still the command name here.
                 lines[0] += f" {self._format_scalar(value)}"
             elif spec.is_list:
                 lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
             elif spec.type is ArgType.BOOL:
-                # Presence keyword (SRC-003 p.307): True is the bare keyword
+                # Presence keyword (FSM-26.120 p.307): True is the bare keyword
                 # line, False emits nothing.
                 if value:
                     lines.append(spec.name.upper())

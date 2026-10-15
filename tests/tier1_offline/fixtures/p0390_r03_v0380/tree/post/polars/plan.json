@@ -19,7 +19,7 @@
           "provenance": "unset",
           "command": "SET_SIMULATION_LENGTH_UNITS",
           "available": true,
-          "evidence": "SET_SIMULATION_LENGTH_UNITS; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.284. reports/compat/CMP-26120_2026-08-08_full.yaml Selects the simulation length scale unit; geometry dimensions and length-typed command arguments are interpreted in this unit.",
+          "evidence": "SET_SIMULATION_LENGTH_UNITS; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.284. reports/compat/CMP-26120_2026-08-08_full.yaml Selects the simulation length scale unit; geometry dimensions and length-typed command arguments are interpreted in this unit.",
           "error": null
         },
         "vertex_merge_tolerance_m": {
@@ -27,7 +27,7 @@
           "provenance": "unset",
           "command": "SET_VERTEX_MERGE_TOLERANCE",
           "available": true,
-          "evidence": "SET_VERTEX_MERGE_TOLERANCE; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.284.  Distance below which two mesh vertices are treated as one, which is what closes the gaps of an imported surface. The manual states only that the value is not negative./nIT IS A LENGTH AND THE SIMULATION LENGTH UNIT DECIDES WHAT IT MEANS. The manual's sample passes 1E-5, which is a reasonable tolerance in metres and a very large one in microns, so the same number does different things under SET_SIMULATION_LENGTH_UNITS. No edition mentions the interaction.",
+          "evidence": "SET_VERTEX_MERGE_TOLERANCE; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.284.  Distance below which two mesh vertices are treated as one, which is what closes the gaps of an imported surface. The manual states only that the value is not negative./nIT IS A LENGTH AND THE SIMULATION LENGTH UNIT DECIDES WHAT IT MEANS. The manual's sample passes 1E-5, which is a reasonable tolerance in metres and a very large one in microns, so the same number does different things under SET_SIMULATION_LENGTH_UNITS. No edition mentions the interaction.",
           "error": null
         },
         "geometric_edge_bluntness_angle_deg": {
@@ -35,7 +35,7 @@
           "provenance": "unset",
           "command": "SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE",
           "available": false,
-          "evidence": "SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-750 p.288.  Angle above which a geometric edge counts as blunt, from 45 to 179 degrees. First documented by the 26.122 edition, which is also the first to stop printing SET_TRAILING_EDGE_BLUNTNESS_ANGLE./nThe two take one angle in degrees and stand in the same place on the page, so this one is where a script porting forward moves. The name change is not cosmetic: the older one names the trailing edge and this one names a geometric edge, which is the wider thing, and no edition states whether the criterion changed with the name. The manual's stated range is not enforced here, because the database records grammar and the solver owns the range.",
+          "evidence": "SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.122 p.288.  Angle above which a geometric edge counts as blunt, from 45 to 179 degrees. First documented by the 26.122 edition, which is also the first to stop printing SET_TRAILING_EDGE_BLUNTNESS_ANGLE./nThe two take one angle in degrees and stand in the same place on the page, so this one is where a script porting forward moves. The name change is not cosmetic: the older one names the trailing edge and this one names a geometric edge, which is the wider thing, and no edition states whether the criterion changed with the name. The manual's stated range is not enforced here, because the database records grammar and the solver owns the range.",
           "error": null
         },
         "iterations": {
@@ -43,7 +43,7 @@
           "provenance": "setup",
           "command": "SOLVER_SET_ITERATIONS",
           "available": true,
-          "evidence": "SOLVER_SET_ITERATIONS; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml",
+          "evidence": "SOLVER_SET_ITERATIONS; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml",
           "error": null
         },
         "convergence": {
@@ -51,7 +51,7 @@
           "provenance": "setup",
           "command": "SOLVER_SET_CONVERGENCE",
           "available": true,
-          "evidence": "SOLVER_SET_CONVERGENCE; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml Residual threshold on surface velocity and pressure below which the run is declared converged (SRC-003 p.200).",
+          "evidence": "SOLVER_SET_CONVERGENCE; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml Residual threshold on surface velocity and pressure below which the run is declared converged (FSM-26.120 p.200).",
           "error": null
         },
         "forced_iterations": {
@@ -59,7 +59,7 @@
           "provenance": "unset",
           "command": "SOLVER_SET_FORCED_ITERATIONS",
           "available": true,
-          "evidence": "SOLVER_SET_FORCED_ITERATIONS; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml When enabled the solver runs the full iteration count regardless of the convergence threshold.",
+          "evidence": "SOLVER_SET_FORCED_ITERATIONS; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml When enabled the solver runs the full iteration count regardless of the convergence threshold.",
           "error": null
         },
         "boundary_layer": {
@@ -67,7 +67,7 @@
           "provenance": "unset",
           "command": "SET_BOUNDARY_LAYER_TYPE",
           "available": true,
-          "evidence": "SET_BOUNDARY_LAYER_TYPE; build 26.120: verified; documented default: 'TRANSITIONAL' (SRC-003 p.203). Source: SRC-003 p.341. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml The default transitional-turbulent model is stated valid for chord Reynolds numbers between 500000 and 1500000; outside this range select LAMINAR or TURBULENT explicitly (SRC-003 p.203).",
+          "evidence": "SET_BOUNDARY_LAYER_TYPE; build 26.120: verified; documented default: 'TRANSITIONAL' (FSM-26.120 p.203). Source: FSM-26.120 p.341. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml The default transitional-turbulent model is stated valid for chord Reynolds numbers between 500000 and 1500000; outside this range select LAMINAR or TURBULENT explicitly (FSM-26.120 p.203).",
           "error": null
         },
         "viscous_coupling": {
@@ -75,7 +75,7 @@
           "provenance": "unset",
           "command": "SET_SOLVER_VISCOUS_COUPLING",
           "available": true,
-          "evidence": "SET_SOLVER_VISCOUS_COUPLING; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.341. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Couples the semi-empirical boundary layer model to the potential flow solution. Attached-flow viscosity only; stall capture also needs a flow separation model assignment (SRC-003 pp.207-208).",
+          "evidence": "SET_SOLVER_VISCOUS_COUPLING; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.341. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Couples the semi-empirical boundary layer model to the potential flow solution. Attached-flow viscosity only; stall capture also needs a flow separation model assignment (FSM-26.120 pp.207-208).",
           "error": null
         },
         "viscous_excluded": {
@@ -83,7 +83,7 @@
           "provenance": "unset",
           "command": "SET_VISCOUS_EXCLUDED_BOUNDARIES",
           "available": true,
-          "evidence": "SET_VISCOUS_EXCLUDED_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.341.  Excludes the listed boundaries from viscous coupling; the indices follow on the next line as comma-separated values. Documented unchanged in the four editions read then; the three added on 2026-08-05 were read from their own pages, not inherited.",
+          "evidence": "SET_VISCOUS_EXCLUDED_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.341.  Excludes the listed boundaries from viscous coupling; the indices follow on the next line as comma-separated values. Documented unchanged in the four editions read then; the three added on 2026-08-05 were read from their own pages, not inherited.",
           "error": null
         },
         "surface_roughness": {
@@ -91,7 +91,7 @@
           "provenance": "unset",
           "command": "SET_SURFACE_ROUGHNESS",
           "available": true,
-          "evidence": "SET_SURFACE_ROUGHNESS; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.341.  Surface roughness height for the boundary layer model, in NANOMETRES, which the manual states and which is worth carrying because every other length in this database is a metre, a coordinate-system unit or an explicit UNITS argument. A height read as millimetres instead of nanometres is a roughness a million times the one intended./nZero means a smooth surface, which the manual states, so the argument has no separate toggle and the value carries the choice.",
+          "evidence": "SET_SURFACE_ROUGHNESS; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.341.  Surface roughness height for the boundary layer model, in NANOMETRES, which the manual states and which is worth carrying because every other length in this database is a metre, a coordinate-system unit or an explicit UNITS argument. A height read as millimetres instead of nanometres is a roughness a million times the one intended./nZero means a smooth surface, which the manual states, so the argument has no separate toggle and the value carries the choice.",
           "error": null
         },
         "thin_boundaries": {
@@ -99,7 +99,7 @@
           "provenance": "unset",
           "command": "SET_THIN_BOUNDARIES",
           "available": true,
-          "evidence": "SET_THIN_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.343.  Marks boundaries as thin, so the solver treats both faces of a surface rather than one. The indices follow on the next line, comma separated, and -1 marks every mesh boundary and the index line is IGNORED rather than absent, which the manual says in those terms; the index list is therefore optional here as on its siblings./nAbsent from the February 2026 edition, whose separation family is the per-mechanism one recorded above; thin boundaries arrive with the redesign in May.",
+          "evidence": "SET_THIN_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.343.  Marks boundaries as thin, so the solver treats both faces of a surface rather than one. The indices follow on the next line, comma separated, and -1 marks every mesh boundary and the index line is IGNORED rather than absent, which the manual says in those terms; the index list is therefore optional here as on its siblings./nAbsent from the February 2026 edition, whose separation family is the per-mechanism one recorded above; thin boundaries arrive with the redesign in May.",
           "error": null
         },
         "bulk_separation": {
@@ -107,7 +107,7 @@
           "provenance": "unset",
           "command": "CREATE_BULK_SEPARATION",
           "available": true,
-          "evidence": "CREATE_BULK_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.342.  Assigns the bulk (bluff-body) flow-separation model to the listed boundaries. NUM_BOUNDARIES takes -1 for all mesh boundaries; otherwise the comma-separated indices follow on the next line (SRC-003 p.342). The signature is version-sensitive: 26.12 inserts SEPARATION_TYPE (CYLINDRICAL or FLAT_PLATE, matching the bulk model sub-typing documented at SRC-003 p.207) as the second argument, which the 26.1 grammar does not have (SRC-725 p.341).",
+          "evidence": "CREATE_BULK_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.342.  Assigns the bulk (bluff-body) flow-separation model to the listed boundaries. NUM_BOUNDARIES takes -1 for all mesh boundaries; otherwise the comma-separated indices follow on the next line (FSM-26.120 p.342). The signature is version-sensitive: 26.12 inserts SEPARATION_TYPE (CYLINDRICAL or FLAT_PLATE, matching the bulk model sub-typing documented at FSM-26.120 p.207) as the second argument, which the 26.1 grammar does not have (FSM-26.101 p.341).",
           "error": null
         },
         "airfoil_separation": {
@@ -115,7 +115,7 @@
           "provenance": "unset",
           "command": "CREATE_AIRFOIL_SEPARATION",
           "available": true,
-          "evidence": "CREATE_AIRFOIL_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.341.  Assigns the airfoil (trailing-edge) separation model to the listed boundaries, with the Valarezo maximum-lift criterion enabled or disabled per assignment. NUM_BOUNDARIES takes -1 for all mesh boundaries, in which case no index line follows; otherwise the comma-separated indices are the next line (SRC-003 pp.341-342).",
+          "evidence": "CREATE_AIRFOIL_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.341.  Assigns the airfoil (trailing-edge) separation model to the listed boundaries, with the Valarezo maximum-lift criterion enabled or disabled per assignment. NUM_BOUNDARIES takes -1 for all mesh boundaries, in which case no index line follows; otherwise the comma-separated indices are the next line (FSM-26.120 pp.341-342).",
           "error": null
         },
         "axial_vortex_separation": {
@@ -123,7 +123,7 @@
           "provenance": "unset",
           "command": "CREATE_AXIAL_VORTEX_SEPARATION",
           "available": true,
-          "evidence": "CREATE_AXIAL_VORTEX_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.342.  Assigns the axial vortex separation model to a slender body. FRAME is the 1-based index of the coordinate system acting as the body axes, 1 being the reference frame, and BODY_AXIS names the body axis within it either as a letter or as its 1-based index (SRC-003 p.342). Read the manual's second sample with care: it puts -1 in the FRAME position rather than in NUM_BOUNDARIES, which contradicts the parameter table on the same page and is not a form this database records.",
+          "evidence": "CREATE_AXIAL_VORTEX_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.342.  Assigns the axial vortex separation model to a slender body. FRAME is the 1-based index of the coordinate system acting as the body axes, 1 being the reference frame, and BODY_AXIS names the body axis within it either as a letter or as its 1-based index (FSM-26.120 p.342). Read the manual's second sample with care: it puts -1 in the FRAME position rather than in NUM_BOUNDARIES, which contradicts the parameter table on the same page and is not a form this database records.",
           "error": null
         },
         "cylindrical_bulk_separation": {
@@ -131,7 +131,7 @@
           "provenance": "unset",
           "command": "CREATE_CYLINDRICAL_BULK_SEPARATION",
           "available": false,
-          "evidence": "CREATE_CYLINDRICAL_BULK_SEPARATION; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-740 p.345.  The cylindrical bulk separation model, split out of the SEPARATION_TYPE argument that CREATE_BULK_SEPARATION carried on 26.120. RPT-015 accepted this command on 26.120 as well, where no manual documents it; that is a probe result and not a citation, so only the documented version is recorded here.",
+          "evidence": "CREATE_CYLINDRICAL_BULK_SEPARATION; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.121 p.345.  The cylindrical bulk separation model, split out of the SEPARATION_TYPE argument that CREATE_BULK_SEPARATION carried on 26.120. RPT-015 accepted this command on 26.120 as well, where no manual documents it; that is a probe result and not a citation, so only the documented version is recorded here.",
           "error": null
         },
         "stratford_bulk_separation": {
@@ -139,7 +139,7 @@
           "provenance": "unset",
           "command": "CREATE_STRATFORD_BULK_SEPARATION",
           "available": false,
-          "evidence": "CREATE_STRATFORD_BULK_SEPARATION; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-740 p.345.  The Stratford bulk separation model, which takes no diameter. As with the cylindrical command above, RPT-015 accepted it on 26.120 where no manual documents it. The index-line form was run on 26.121 only; 26.120 saw the -1 form alone.",
+          "evidence": "CREATE_STRATFORD_BULK_SEPARATION; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.121 p.345.  The Stratford bulk separation model, which takes no diameter. As with the cylindrical command above, RPT-015 accepted it on 26.120 where no manual documents it. The index-line form was run on 26.121 only; 26.120 saw the -1 form alone.",
           "error": null
         },
         "delete_separations": {
@@ -147,7 +147,7 @@
           "provenance": "unset",
           "command": "DELETE_SEPARATION",
           "available": true,
-          "evidence": "DELETE_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.342.  Deletes one separation model by its 1-based index in the order the models were created; -1 deletes every one of them (SRC-003 p.342). One command covers all separation types, which is the reason the 26.100 generation needed a DELETE per mechanism and this one does not.",
+          "evidence": "DELETE_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.342.  Deletes one separation model by its 1-based index in the order the models were created; -1 deletes every one of them (FSM-26.120 p.342). One command covers all separation types, which is the reason the 26.100 generation needed a DELETE per mechanism and this one does not.",
           "error": null
         },
         "valarezo_criterion": {
@@ -155,7 +155,7 @@
           "provenance": "unset",
           "command": "VALAREZO_CRITERION",
           "available": false,
-          "evidence": "VALAREZO_CRITERION; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-747 p.316.  Enables the Valarezo pressure-difference criterion for predicting the onset of separation. Documented by the three pre-26.100 editions and by none after them./nThe 26.100 editions document a separate Valarezo family of their own, which is why the absence of this switch is worth stating rather than reading as the capability leaving.",
+          "evidence": "VALAREZO_CRITERION; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-26.000 p.316.  Enables the Valarezo pressure-difference criterion for predicting the onset of separation. Documented by the three pre-26.100 editions and by none after them./nThe 26.100 editions document a separate Valarezo family of their own, which is why the absence of this switch is worth stating rather than reading as the capability leaving.",
           "error": null
         },
         "valarezo_separation_boundaries": {
@@ -163,7 +163,7 @@
           "provenance": "unset",
           "command": "SET_VALAREZO_SEPARATION_BOUNDARIES",
           "available": false,
-          "evidence": "SET_VALAREZO_SEPARATION_BOUNDARIES; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-741 p.339.  Adds boundaries to the Valarezo maximum-lift criterion list, with the -1 form of the axial command above. The manual writes this name in the function header and a different one, VALAREZO_CRITERION, in the sample directly beneath it; RPT-018 probed both and the solver accepts this spelling and does not recognize the other.",
+          "evidence": "SET_VALAREZO_SEPARATION_BOUNDARIES; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.100 p.339.  Adds boundaries to the Valarezo maximum-lift criterion list, with the -1 form of the axial command above. The manual writes this name in the function header and a different one, VALAREZO_CRITERION, in the sample directly beneath it; RPT-018 probed both and the solver accepts this spelling and does not recognize the other.",
           "error": null
         },
         "crossflow_separation_boundaries": {
@@ -171,7 +171,7 @@
           "provenance": "unset",
           "command": "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
           "available": false,
-          "evidence": "SET_CROSSFLOW_SEPARATION_BOUNDARIES; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-741 p.339.  Adds boundaries to the cross-flow separation list, with the -1 form of the axial command above (SRC-741 pp.339-340).",
+          "evidence": "SET_CROSSFLOW_SEPARATION_BOUNDARIES; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.100 p.339.  Adds boundaries to the cross-flow separation list, with the -1 form of the axial command above (FSM-26.100 pp.339-340).",
           "error": null
         },
         "crossflow_separation_diameter": {
@@ -179,7 +179,7 @@
           "provenance": "unset",
           "command": "SET_CROSSFLOW_SEPARATION_DIAMETER",
           "available": false,
-          "evidence": "SET_CROSSFLOW_SEPARATION_DIAMETER; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-741 p.339.  Maximum diameter of the body carrying the cross-flow separation model. One diameter applies to the whole list, which is the difference from the later named models, where the diameter belongs to each assignment.",
+          "evidence": "SET_CROSSFLOW_SEPARATION_DIAMETER; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.100 p.339.  Maximum diameter of the body carrying the cross-flow separation model. One diameter applies to the whole list, which is the difference from the later named models, where the diameter belongs to each assignment.",
           "error": null
         },
         "crossflow_separation_mean_diameter": {
@@ -187,7 +187,7 @@
           "provenance": "unset",
           "command": "SET_CROSSFLOW_SEPARATION_CP",
           "available": false,
-          "evidence": "SET_CROSSFLOW_SEPARATION_CP; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-747 p.316.  Sets the mean diameter of the body the cross-flow separation model is applied to, which the model needs because the critical pressure coefficient it uses depends on the cross-sectional scale. Strictly positive, in the simulation length units./nDocumented by the three pre-26.100 editions. The boundary selection commands beside it on the same page, SET_CROSSFLOW_SEPARATION_BOUNDARIES and its delete, are on every build; this one scalar is what stops being printed.",
+          "evidence": "SET_CROSSFLOW_SEPARATION_CP; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-26.000 p.316.  Sets the mean diameter of the body the cross-flow separation model is applied to, which the model needs because the critical pressure coefficient it uses depends on the cross-sectional scale. Strictly positive, in the simulation length units./nDocumented by the three pre-26.100 editions. The boundary selection commands beside it on the same page, SET_CROSSFLOW_SEPARATION_BOUNDARIES and its delete, are on every build; this one scalar is what stops being printed.",
           "error": null
         },
         "crossflow_separation_axisymmetric": {
@@ -195,7 +195,7 @@
           "provenance": "unset",
           "command": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
           "available": false,
-          "evidence": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-741 p.340.  Axisymmetric vortex shedding for the cross-flow separation model.",
+          "evidence": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.100 p.340.  Axisymmetric vortex shedding for the cross-flow separation model.",
           "error": null
         },
         "legacy_solver_model": {
@@ -203,7 +203,7 @@
           "provenance": "unset",
           "command": "SET_SOLVER_MODEL",
           "available": false,
-          "evidence": "SET_SOLVER_MODEL; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-749 p.302.  Selects the flow model the solver runs. A standalone command on 25.000 alone, and the successor is not a guess: 25.100 stops printing it and, on the same edition, INITIALIZE_SOLVER gains a SOLVER_MODEL argument that its 25.000 form does not have. The setting moved into the initialization block in the edition that dropped the command./nTHE TOKENS CHANGE TOO, and a first draft of this note said they did not. This command takes INCOMPRESSIBLE, SUBSONIC, TRANSONIC and LOW_ORDER_SUPERSONIC. The argument that replaces it takes INCOMPRESSIBLE, SUBSONIC_PRANDTL_GLAUERT, TRANSONIC_FIELD_PANEL, SUPERSONIC_LINEAR_DOUBLET, TANGENT_CONE and MODIFIED_NEWTONIAN. Only INCOMPRESSIBLE is common to both, so a script porting forward changes where the token is written AND which token, and three of the four old names have no identical successor./nNo edition states the mapping between the two vocabularies, so none is recorded here. The names suggest the obvious pairs and suggesting is not evidence: SUBSONIC and SUBSONIC_PRANDTL_GLAUERT may name the same model or a narrowing of it, and LOW_ORDER_SUPERSONIC has two plausible partners among the newer six. Choosing one would put a physics claim in a grammar record.",
+          "evidence": "SET_SOLVER_MODEL; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-25.000 p.302.  Selects the flow model the solver runs. A standalone command on 25.000 alone, and the successor is not a guess: 25.100 stops printing it and, on the same edition, INITIALIZE_SOLVER gains a SOLVER_MODEL argument that its 25.000 form does not have. The setting moved into the initialization block in the edition that dropped the command./nTHE TOKENS CHANGE TOO, and a first draft of this note said they did not. This command takes INCOMPRESSIBLE, SUBSONIC, TRANSONIC and LOW_ORDER_SUPERSONIC. The argument that replaces it takes INCOMPRESSIBLE, SUBSONIC_PRANDTL_GLAUERT, TRANSONIC_FIELD_PANEL, SUPERSONIC_LINEAR_DOUBLET, TANGENT_CONE and MODIFIED_NEWTONIAN. Only INCOMPRESSIBLE is common to both, so a script porting forward changes where the token is written AND which token, and three of the four old names have no identical successor./nNo edition states the mapping between the two vocabularies, so none is recorded here. The names suggest the obvious pairs and suggesting is not evidence: SUBSONIC and SUBSONIC_PRANDTL_GLAUERT may name the same model or a narrowing of it, and LOW_ORDER_SUPERSONIC has two plausible partners among the newer six. Choosing one would put a physics claim in a grammar record.",
           "error": null
         },
         "trailing_edge_types": {
@@ -211,7 +211,7 @@
           "provenance": "unset",
           "command": "SET_TRAILING_EDGE_TYPE",
           "available": true,
-          "evidence": "SET_TRAILING_EDGE_TYPE; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 pp.319-320.  STANDARD sheds the full net circulation (Kutta factor 1.0); RELAXED sheds half, approximating body carryover at non-lifting trailing edges such as wing-fuselage junctions (SRC-003 p.164)./nTHE RELAXED TRAILING EDGE IS ALSO SPECIFIED OUTSIDE THE SCRIPT, AND THE NEWEST EDITION ADDS A FIELD THERE. Paraphrasing SRC-751 p.85: relaxed-Kutta trailing edges can also be declared as a COMPONENT parameter, written where a component is defined rather than in a script, taking semicolon-separated fields; that edition gives it a fifth field where it had four, an integer direction of the relaxed wake shedding parameter line, 0 for the axial direction and the default, 1 for the azimuth direction. The first four fields are unchanged, a chordwise or radial location and two spanwise or axial bounds, so the four-field form stays valid and the change is additive. SRC-750 p.85 prints the four-field form, so this is a 26.123 addition. The azimuth value is new control over the direction the relaxed wake sheds, which is what makes it a rotor fact and not a compatibility footnote./nNO SCRIPTING COMMAND ON ANY REGISTERED BUILD TAKES THAT DIRECTION, and this paragraph exists so a reader does not go looking for a fourth argument here or for a new command elsewhere. This command takes two arguments on every build, an edge index and a type; IMPORT_WAKE_EDGES_FROM_FILE takes the same type vocabulary for a whole imported file; neither carries a direction. The direction is a field of the component specification, and this package writes no component file, so nothing here emits it. A writer for that specification is not implemented (PFS-2026.06)./nTHE CITATION SITS IN THESE FREE-TEXT NOTES ON PURPOSE. Page 85 lies outside the registered scripting-reference range, which is where an evidence citation must point, so a manual_ref or a per-version note carrying it would be wrong twice: wrong about where the fact is, and wrong about what kind of fact it is. No status, no manual_ref and no version row moved for this reading, because nothing in it is a claim about the solver.",
+          "evidence": "SET_TRAILING_EDGE_TYPE; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 pp.319-320.  STANDARD sheds the full net circulation (Kutta factor 1.0); RELAXED sheds half, approximating body carryover at non-lifting trailing edges such as wing-fuselage junctions (FSM-26.120 p.164)./nTHE RELAXED TRAILING EDGE IS ALSO SPECIFIED OUTSIDE THE SCRIPT, AND THE NEWEST EDITION ADDS A FIELD THERE. Paraphrasing FSM-26.123 p.85: relaxed-Kutta trailing edges can also be declared as a COMPONENT parameter, written where a component is defined rather than in a script, taking semicolon-separated fields; that edition gives it a fifth field where it had four, an integer direction of the relaxed wake shedding parameter line, 0 for the axial direction and the default, 1 for the azimuth direction. The first four fields are unchanged, a chordwise or radial location and two spanwise or axial bounds, so the four-field form stays valid and the change is additive. FSM-26.122 p.85 prints the four-field form, so this is a 26.123 addition. The azimuth value is new control over the direction the relaxed wake sheds, which is what makes it a rotor fact and not a compatibility footnote./nNO SCRIPTING COMMAND ON ANY REGISTERED BUILD TAKES THAT DIRECTION, and this paragraph exists so a reader does not go looking for a fourth argument here or for a new command elsewhere. This command takes two arguments on every build, an edge index and a type; IMPORT_WAKE_EDGES_FROM_FILE takes the same type vocabulary for a whole imported file; neither carries a direction. The direction is a field of the component specification, and this package writes no component file, so nothing here emits it. A writer for that specification is not implemented (PFS-2026.06)./nTHE CITATION SITS IN THESE FREE-TEXT NOTES ON PURPOSE. Page 85 lies outside the registered scripting-reference range, which is where an evidence citation must point, so a manual_ref or a per-version note carrying it would be wrong twice: wrong about where the fact is, and wrong about what kind of fact it is. No status, no manual_ref and no version row moved for this reading, because nothing in it is a claim about the solver.",
           "error": null
         },
         "disabled_wake_trailing_edges": {
@@ -219,7 +219,7 @@
           "provenance": "unset",
           "command": "DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
           "available": true,
-          "evidence": "DISABLE_WAKE_NODES_ON_TRAILING_EDGE; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.320.",
+          "evidence": "DISABLE_WAKE_NODES_ON_TRAILING_EDGE; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.320.",
           "error": null
         },
         "leading_edge_wake_boundaries": {
@@ -227,7 +227,7 @@
           "provenance": "unset",
           "command": "DETECT_LEADING_EDGES_WAKES_BY_SURFACE",
           "available": false,
-          "evidence": "DETECT_LEADING_EDGES_WAKES_BY_SURFACE; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-750 p.323.  Runs wake detection on the LEADING edges of the listed surfaces, which is what a vortex-shedding wake needs and what the trailing-edge detection beside it does not do. First documented by the 26.122 edition./nIts page describes the parameter as the count of surfaces checked for TRAILING edge detection, word for word the sentence on the trailing-edge command above it. Read as a copied sentence rather than as a statement about this command, since the function name and the section it sits in both say leading edges; nothing here rests on that sentence.",
+          "evidence": "DETECT_LEADING_EDGES_WAKES_BY_SURFACE; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.122 p.323.  Runs wake detection on the LEADING edges of the listed surfaces, which is what a vortex-shedding wake needs and what the trailing-edge detection beside it does not do. First documented by the 26.122 edition./nIts page describes the parameter as the count of surfaces checked for TRAILING edge detection, word for word the sentence on the trailing-edge command above it. Read as a copied sentence rather than as a statement about this command, since the function name and the section it sits in both say leading edges; nothing here rests on that sentence.",
           "error": null
         },
         "mark_wake_termination_nodes": {
@@ -235,7 +235,7 @@
           "provenance": "unset",
           "command": "MARK_WAKE_TERMINATION_NODES",
           "available": true,
-          "evidence": "MARK_WAKE_TERMINATION_NODES; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.321.  Marks the currently SELECTED mesh nodes as wake termination nodes, which is the manual route where the two detection commands are the automatic ones. It takes nothing, so which nodes are marked comes entirely from the selection state left by SELECT_MESH_NODE./nAbsent from the February 2026 edition, so no 26.100 row.",
+          "evidence": "MARK_WAKE_TERMINATION_NODES; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.321.  Marks the currently SELECTED mesh nodes as wake termination nodes, which is the manual route where the two detection commands are the automatic ones. It takes nothing, so which nodes are marked comes entirely from the selection state left by SELECT_MESH_NODE./nAbsent from the February 2026 edition, so no 26.100 row.",
           "error": null
         },
         "ports": {
@@ -275,7 +275,7 @@
           "provenance": "unset",
           "command": "DELETE_INLET",
           "available": true,
-          "evidence": "DELETE_INLET; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.325.  Unmarks one inlet. No all-form is stated and there is no delete-all command, so removing several takes one call each./nThe signature heading spells the placeholder INDEX and the table row spells it INLET; the table's is used, being the one that says what the index is of.",
+          "evidence": "DELETE_INLET; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.325.  Unmarks one inlet. No all-form is stated and there is no delete-all command, so removing several takes one call each./nThe signature heading spells the placeholder INDEX and the table row spells it INLET; the table's is used, being the one that says what the index is of.",
           "error": null
         },
         "delete_outlets": {
@@ -283,7 +283,7 @@
           "provenance": "unset",
           "command": "DELETE_OUTLET",
           "available": true,
-          "evidence": "DELETE_OUTLET; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.326.  Unmarks one outlet. Its table row is labelled INLET in all four editions, which is the copy that runs through this chapter; the argument is named for what the command deletes.",
+          "evidence": "DELETE_OUTLET; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.326.  Unmarks one outlet. Its table row is labelled INLET in all four editions, which is the copy that runs through this chapter; the argument is named for what the command deletes.",
           "error": null
         },
         "proximal_boundaries": {
@@ -291,7 +291,7 @@
           "provenance": "unset",
           "command": "SOLVER_PROXIMAL_BOUNDARIES",
           "available": true,
-          "evidence": "SOLVER_PROXIMAL_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 pp.337-338.  Enables solver proximity checking for the listed boundaries, one index per line. Must be called before INITIALIZE_SOLVER (SRC-003 p.338).",
+          "evidence": "SOLVER_PROXIMAL_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 pp.337-338.  Enables solver proximity checking for the listed boundaries, one index per line. Must be called before INITIALIZE_SOLVER (FSM-26.120 p.338).",
           "error": null
         },
         "remove_initialization": {
@@ -299,7 +299,7 @@
           "provenance": "unset",
           "command": "REMOVE_INITIALIZATION",
           "available": true,
-          "evidence": "REMOVE_INITIALIZATION; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.338. reports/compat/CMP-26120_2026-08-08_full.yaml Discards the solver initialization. Its empty 25.000 column is not a gap: that edition spells the same capability SOLVER_UNINITIALIZE, and the two are exactly complementary across the seven editions, sharing the bare layout, the init phase and the chapter. The changeover is at 25.100 and the older entry carries the successor.",
+          "evidence": "REMOVE_INITIALIZATION; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.338. reports/compat/CMP-26120_2026-08-08_full.yaml Discards the solver initialization. Its empty 25.000 column is not a gap: that edition spells the same capability SOLVER_UNINITIALIZE, and the two are exactly complementary across the seven editions, sharing the bare layout, the init phase and the chapter. The changeover is at 25.100 and the older entry carries the successor.",
           "error": null
         },
         "actuator_operations": {
@@ -323,7 +323,7 @@
           "provenance": "unset",
           "command": "SET_BASE_REGION_BENDING_ANGLE",
           "available": true,
-          "evidence": "SET_BASE_REGION_BENDING_ANGLE; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.284.  Threshold on how far a surface may bend away from the aft-facing direction and still be detected as part of a base region, which is what AUTO_DETECT_BASE_REGIONS and DETECT_BASE_REGIONS_BY_SURFACE read./nDOCUMENTED ON TWO PAGES, AND ONLY ONE OF THEM SAYS ANYTHING. This chapter prints the signature heading and nothing beneath it, while p.284 gives the command a parameter table, a stated range and a sample passing a value. The p.284 entry is what is recorded. The empty heading is not read as a bare command, because the rule for that shape is that nothing in the manual contradicts it, and here the same manual does./nThe manual bounds the angle between 0 and 90 degrees. The bound is NOT enforced, which is the standing treatment of the manual's stated bounds in this database (design decision of 2026-08-08); the argument's own page is where a reader finds it, and this note is where a reader of the database does.",
+          "evidence": "SET_BASE_REGION_BENDING_ANGLE; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.284.  Threshold on how far a surface may bend away from the aft-facing direction and still be detected as part of a base region, which is what AUTO_DETECT_BASE_REGIONS and DETECT_BASE_REGIONS_BY_SURFACE read./nDOCUMENTED ON TWO PAGES, AND ONLY ONE OF THEM SAYS ANYTHING. This chapter prints the signature heading and nothing beneath it, while p.284 gives the command a parameter table, a stated range and a sample passing a value. The p.284 entry is what is recorded. The empty heading is not read as a bare command, because the rule for that shape is that nothing in the manual contradicts it, and here the same manual does./nThe manual bounds the angle between 0 and 90 degrees. The bound is NOT enforced, which is the standing treatment of the manual's stated bounds in this database (design decision of 2026-08-08); the argument's own page is where a reader finds it, and this note is where a reader of the database does.",
           "error": null
         },
         "delete_transition_trips": {
@@ -331,7 +331,7 @@
           "provenance": "unset",
           "command": "DELETE_TRANSITION_TRIP",
           "available": true,
-          "evidence": "DELETE_TRANSITION_TRIP; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.327.  Deletes one set of boundary-layer transition trip edges by its 1-based index. The manual requires an index greater than zero and states no all-form, so -1 is not accepted here./nTHE INDEX HAS NO SCRIPTED SOURCE. Nothing in any edition creates a transition trip or reports how many exist, so the number can only come from the application's own tree, from a simulation file the script opened, or from counting by hand. That is why it is not declared as an entity citation: there is no inventory for the script builder to resolve it against and nothing it could range check.",
+          "evidence": "DELETE_TRANSITION_TRIP; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.327.  Deletes one set of boundary-layer transition trip edges by its 1-based index. The manual requires an index greater than zero and states no all-form, so -1 is not accepted here./nTHE INDEX HAS NO SCRIPTED SOURCE. Nothing in any edition creates a transition trip or reports how many exist, so the number can only come from the application's own tree, from a simulation file the script opened, or from counting by hand. That is why it is not declared as an entity citation: there is no inventory for the script builder to resolve it against and nothing it could range check.",
           "error": null
         },
         "clear_vorticity_drag_boundaries": {
@@ -339,7 +339,7 @@
           "provenance": "unset",
           "command": "DELETE_VORTICITY_DRAG_BOUNDARIES",
           "available": true,
-          "evidence": "DELETE_VORTICITY_DRAG_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.350.",
+          "evidence": "DELETE_VORTICITY_DRAG_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.350.",
           "error": null
         },
         "sonic_velocity_m_per_s": {
@@ -347,7 +347,7 @@
           "provenance": "unset",
           "command": "SONIC_VELOCITY",
           "available": false,
-          "evidence": "SONIC_VELOCITY; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-003 p.328.",
+          "evidence": "SONIC_VELOCITY; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-26.120 p.328.",
           "error": null
         },
         "physics_auto_trailing_edges": {
@@ -355,7 +355,7 @@
           "provenance": "unset",
           "command": "PHYSICS",
           "available": false,
-          "evidence": "PHYSICS; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-748 p.293.  Opens a block that launches the geometry autodetection tools, trailing edges and wake termination nodes, and closes on END. Both are presence keywords: writing the keyword runs that tool, omitting it runs nothing./nTHE HANDOVER IS EXACT AND IT EXPLAINS A WORKFLOW GAP. This block is on 25.000 and 25.100 and on no later edition, while AUTO_DETECT_TRAILING_EDGES and AUTO_DETECT_WAKE_TERMINATION_NODES are on 26.000 and every edition after it and on neither before. The two 25 builds are therefore not missing the capability, which is what their empty column looked like before this entry: they spell it as one block where the later builds spell it as two commands. A single successor is recorded because the field takes one name, and the wake-node command is the other half.",
+          "evidence": "PHYSICS; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-25.100 p.293.  Opens a block that launches the geometry autodetection tools, trailing edges and wake termination nodes, and closes on END. Both are presence keywords: writing the keyword runs that tool, omitting it runs nothing./nTHE HANDOVER IS EXACT AND IT EXPLAINS A WORKFLOW GAP. This block is on 25.000 and 25.100 and on no later edition, while AUTO_DETECT_TRAILING_EDGES and AUTO_DETECT_WAKE_TERMINATION_NODES are on 26.000 and every edition after it and on neither before. The two 25 builds are therefore not missing the capability, which is what their empty column looked like before this entry: they spell it as one block where the later builds spell it as two commands. A single successor is recorded because the field takes one name, and the wake-node command is the other half.",
           "error": null
         },
         "physics_auto_wake_nodes": {
@@ -363,7 +363,7 @@
           "provenance": "unset",
           "command": "PHYSICS",
           "available": false,
-          "evidence": "PHYSICS; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-748 p.293.  Opens a block that launches the geometry autodetection tools, trailing edges and wake termination nodes, and closes on END. Both are presence keywords: writing the keyword runs that tool, omitting it runs nothing./nTHE HANDOVER IS EXACT AND IT EXPLAINS A WORKFLOW GAP. This block is on 25.000 and 25.100 and on no later edition, while AUTO_DETECT_TRAILING_EDGES and AUTO_DETECT_WAKE_TERMINATION_NODES are on 26.000 and every edition after it and on neither before. The two 25 builds are therefore not missing the capability, which is what their empty column looked like before this entry: they spell it as one block where the later builds spell it as two commands. A single successor is recorded because the field takes one name, and the wake-node command is the other half.",
+          "evidence": "PHYSICS; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-25.100 p.293.  Opens a block that launches the geometry autodetection tools, trailing edges and wake termination nodes, and closes on END. Both are presence keywords: writing the keyword runs that tool, omitting it runs nothing./nTHE HANDOVER IS EXACT AND IT EXPLAINS A WORKFLOW GAP. This block is on 25.000 and 25.100 and on no later edition, while AUTO_DETECT_TRAILING_EDGES and AUTO_DETECT_WAKE_TERMINATION_NODES are on 26.000 and every edition after it and on neither before. The two 25 builds are therefore not missing the capability, which is what their empty column looked like before this entry: they spell it as one block where the later builds spell it as two commands. A single successor is recorded because the field takes one name, and the wake-node command is the other half.",
           "error": null
         },
         "max_threads": {
@@ -371,7 +371,7 @@
           "provenance": "unset",
           "command": "SET_MAX_PARALLEL_THREADS",
           "available": true,
-          "evidence": "SET_MAX_PARALLEL_THREADS; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.340. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml",
+          "evidence": "SET_MAX_PARALLEL_THREADS; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.340. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml",
           "error": null
         },
         "timeout_s": {
@@ -395,7 +395,7 @@
           "provenance": "unset",
           "command": "INITIALIZE_SOLVER",
           "available": true,
-          "evidence": "INITIALIZE_SOLVER; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.337. reports/compat/CMP-26120_2026-08-08_full.yaml SURFACES takes -1 for all boundaries or a count followed by one line per surface with the surface index and the quad mesher toggle (SURFACE_TOGGLES lines of the form index,ENABLE; the count check ties them to SURFACES). WAKE_TERMINATION_X takes an X location in the reference frame or DEFAULT for auto-computation. PERIODIC symmetry appends the number of copies on the SYMMETRY line (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver models 1 to 3. The initialize_solver helper builds both extended forms from typed arguments. Initializing MIRROR symmetry with a full (non-half) model diverges instantly (SRC-003 p.217); case metadata declaring a full model triggers a build-time warning when cases/ lands.",
+          "evidence": "INITIALIZE_SOLVER; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.337. reports/compat/CMP-26120_2026-08-08_full.yaml SURFACES takes -1 for all boundaries or a count followed by one line per surface with the surface index and the quad mesher toggle (SURFACE_TOGGLES lines of the form index,ENABLE; the count check ties them to SURFACES). WAKE_TERMINATION_X takes an X location in the reference frame or DEFAULT for auto-computation. PERIODIC symmetry appends the number of copies on the SYMMETRY line (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver models 1 to 3. The initialize_solver helper builds both extended forms from typed arguments. Initializing MIRROR symmetry with a full (non-half) model diverges instantly (FSM-26.120 p.217); case metadata declaring a full model triggers a build-time warning when cases/ lands.",
           "error": null
         },
         "wall_collision_avoidance": {
@@ -403,7 +403,7 @@
           "provenance": "unset",
           "command": "INITIALIZE_SOLVER",
           "available": true,
-          "evidence": "INITIALIZE_SOLVER; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.337. reports/compat/CMP-26120_2026-08-08_full.yaml SURFACES takes -1 for all boundaries or a count followed by one line per surface with the surface index and the quad mesher toggle (SURFACE_TOGGLES lines of the form index,ENABLE; the count check ties them to SURFACES). WAKE_TERMINATION_X takes an X location in the reference frame or DEFAULT for auto-computation. PERIODIC symmetry appends the number of copies on the SYMMETRY line (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver models 1 to 3. The initialize_solver helper builds both extended forms from typed arguments. Initializing MIRROR symmetry with a full (non-half) model diverges instantly (SRC-003 p.217); case metadata declaring a full model triggers a build-time warning when cases/ lands.",
+          "evidence": "INITIALIZE_SOLVER; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.337. reports/compat/CMP-26120_2026-08-08_full.yaml SURFACES takes -1 for all boundaries or a count followed by one line per surface with the surface index and the quad mesher toggle (SURFACE_TOGGLES lines of the form index,ENABLE; the count check ties them to SURFACES). WAKE_TERMINATION_X takes an X location in the reference frame or DEFAULT for auto-computation. PERIODIC symmetry appends the number of copies on the SYMMETRY line (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver models 1 to 3. The initialize_solver helper builds both extended forms from typed arguments. Initializing MIRROR symmetry with a full (non-half) model diverges instantly (FSM-26.120 p.217); case metadata declaring a full model triggers a build-time warning when cases/ lands.",
           "error": null
         },
         "convergence_iterations": {
@@ -411,7 +411,7 @@
           "provenance": "unset",
           "command": "SET_SOLVER_CONVERGENCE_ITERATIONS",
           "available": true,
-          "evidence": "SET_SOLVER_CONVERGENCE_ITERATIONS; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Number of iterations the solver must remain below the convergence threshold before convergence is declared.",
+          "evidence": "SET_SOLVER_CONVERGENCE_ITERATIONS; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Number of iterations the solver must remain below the convergence threshold before convergence is declared.",
           "error": null
         },
         "minimum_cp": {
@@ -419,7 +419,7 @@
           "provenance": "unset",
           "command": "SOLVER_MINIMUM_CP",
           "available": true,
-          "evidence": "SOLVER_MINIMUM_CP; build 26.120: verified; documented default: -20 (SRC-003 p.221). Source: SRC-003 p.345. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Lower limiter on the pressure coefficient; the solver default is -20 (SRC-003 p.221).",
+          "evidence": "SOLVER_MINIMUM_CP; build 26.120: verified; documented default: -20 (FSM-26.120 p.221). Source: FSM-26.120 p.345. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Lower limiter on the pressure coefficient; the solver default is -20 (FSM-26.120 p.221).",
           "error": null
         },
         "farfield_layers": {
@@ -427,7 +427,7 @@
           "provenance": "unset",
           "command": "SOLVER_SET_FARFIELD_LAYERS",
           "available": true,
-          "evidence": "SOLVER_SET_FARFIELD_LAYERS; build 26.120: verified; documented default: 3 (SRC-003 p.344). Source: SRC-003 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Far-field agglomeration layer count, integer between 1 and 5; the solver default is 3.",
+          "evidence": "SOLVER_SET_FARFIELD_LAYERS; build 26.120: verified; documented default: 3 (FSM-26.120 p.344). Source: FSM-26.120 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Far-field agglomeration layer count, integer between 1 and 5; the solver default is 3.",
           "error": null
         },
         "mesh_induced_wake_velocity": {
@@ -435,7 +435,7 @@
           "provenance": "unset",
           "command": "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY",
           "available": true,
-          "evidence": "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml",
+          "evidence": "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml",
           "error": null
         },
         "unsteady_pressure_and_kutta": {
@@ -443,7 +443,7 @@
           "provenance": "unset",
           "command": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA",
           "available": true,
-          "evidence": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Toggles the unsteady Bernoulli and Kutta terms of the unsteady solver.",
+          "evidence": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Toggles the unsteady Bernoulli and Kutta terms of the unsteady solver.",
           "error": null
         },
         "wake_on_wake_induction": {
@@ -451,7 +451,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_ON_WAKE_INDUCTION",
           "available": true,
-          "evidence": "SET_WAKE_ON_WAKE_INDUCTION; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 pp.344-345. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Toggles the wake-on-wake induced velocity computation.",
+          "evidence": "SET_WAKE_ON_WAKE_INDUCTION; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 pp.344-345. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Toggles the wake-on-wake induced velocity computation.",
           "error": null
         },
         "additional_wake_relaxation": {
@@ -459,7 +459,7 @@
           "provenance": "unset",
           "command": "ADDITIONAL_WAKE_RELAXATION_ITERATION",
           "available": true,
-          "evidence": "ADDITIONAL_WAKE_RELAXATION_ITERATION; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.345. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Performs one additional wake relaxation iteration.",
+          "evidence": "ADDITIONAL_WAKE_RELAXATION_ITERATION; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.345. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Performs one additional wake relaxation iteration.",
           "error": null
         },
         "reynolds_averaged_drag": {
@@ -467,7 +467,7 @@
           "provenance": "unset",
           "command": "REYNOLDS_AVERAGED_DRAG_FORCES",
           "available": true,
-          "evidence": "REYNOLDS_AVERAGED_DRAG_FORCES; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Toggles the Reynolds-averaged (flat plate) boundary layer calculations.",
+          "evidence": "REYNOLDS_AVERAGED_DRAG_FORCES; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.344. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Toggles the Reynolds-averaged (flat plate) boundary layer calculations.",
           "error": null
         },
         "solver_stabilization": {
@@ -475,7 +475,7 @@
           "provenance": "unset",
           "command": "SOLVER_STABILIZATION",
           "available": true,
-          "evidence": "SOLVER_STABILIZATION; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.346. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Maximum level of stabilization applied to the main convergence, dimensionless, from 0 to 1. The manual states that 0 is the same as disabling it, so this is a strength rather than a switch, and it takes intermediate values. No edition states a default./nAbsent from the February 2026 edition, so no 26.100 row./nITS SRC-740 PAGE BREAKS THE +3 RULE AND THE NOTE IS RIGHT ANYWAY. Every SRC-003 page maps to SRC-740 plus three, which commands/_meta states and about forty-five notes obey, so p.346 here should read p.349. It reads p.348 because it was MEASURED: the three commands sharing SRC-003 p.346 split across two pages in the hotfix edition, this one landing on 348 and the other two on 349. A page shift is a rule about a document's average and not about a page boundary, so the reading wins over the arithmetic. A 2026-08-08 review pass reported this as a paste error from the arithmetic alone; it is not one, and this paragraph exists so the next reader measures before correcting it.",
+          "evidence": "SOLVER_STABILIZATION; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.346. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Maximum level of stabilization applied to the main convergence, dimensionless, from 0 to 1. The manual states that 0 is the same as disabling it, so this is a strength rather than a switch, and it takes intermediate values. No edition states a default./nAbsent from the February 2026 edition, so no 26.100 row./nITS FSM-26.121 PAGE BREAKS THE +3 RULE AND THE NOTE IS RIGHT ANYWAY. Every FSM-26.120 page maps to FSM-26.121 plus three, which commands/_meta states and about forty-five notes obey, so p.346 here should read p.349. It reads p.348 because it was MEASURED: the three commands sharing FSM-26.120 p.346 split across two pages in the hotfix edition, this one landing on 348 and the other two on 349. A page shift is a rule about a document's average and not about a page boundary, so the reading wins over the arithmetic. A 2026-08-08 review pass reported this as a paste error from the arithmetic alone; it is not one, and this paragraph exists so the next reader measures before correcting it.",
           "error": null
         },
         "laminar_separation": {
@@ -483,7 +483,7 @@
           "provenance": "unset",
           "command": "LAMINAR_SEPARATION",
           "available": true,
-          "evidence": "LAMINAR_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.345.  Laminar boundary layer separation. This is the one member of the flow-separation family that survived the 26.101 redesign unchanged and is documented in the four editions read then; RPT-018 accepted it on 26.100, 26.101 and 26.121.",
+          "evidence": "LAMINAR_SEPARATION; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.345.  Laminar boundary layer separation. This is the one member of the flow-separation family that survived the 26.101 redesign unchanged and is documented in the four editions read then; RPT-018 accepted it on 26.100, 26.101 and 26.121.",
           "error": null
         },
         "kutta_joukowski_lift": {
@@ -491,7 +491,7 @@
           "provenance": "unset",
           "command": "KUTTA_JOUKOWSKI_LIFT_FORCES",
           "available": true,
-          "evidence": "KUTTA_JOUKOWSKI_LIFT_FORCES; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.344.  Computes the inviscid lift by the Kutta-Joukowski theorem, from the bound circulation, instead of by integrating the surface pressure, which is what the command name and the manual's sample comment state. That the two routes differ on one solution is aerodynamic theory rather than anything this page says, and no edition states which quantities the choice reaches./nNo edition gives this command a parameter table. The signature heading carries the pair of values and the sample passes one of them, which is the shape most of this chapter's toggles have.",
+          "evidence": "KUTTA_JOUKOWSKI_LIFT_FORCES; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.344.  Computes the inviscid lift by the Kutta-Joukowski theorem, from the bound circulation, instead of by integrating the surface pressure, which is what the command name and the manual's sample comment state. That the two routes differ on one solution is aerodynamic theory rather than anything this page says, and no edition states which quantities the choice reaches./nNo edition gives this command a parameter table. The signature heading carries the pair of values and the sample passes one of them, which is the shape most of this chapter's toggles have.",
           "error": null
         },
         "aeroelastic_rbf_type": {
@@ -499,7 +499,7 @@
           "provenance": "unset",
           "command": "AEROELASTIC_RBF_TYPE",
           "available": true,
-          "evidence": "AEROELASTIC_RBF_TYPE; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 pp.345-346.  RBF mesh morphing algorithm of the aeroelastic coupling. The manual gives the options as a NUMBERED list of five and says the input may be passed as the label or as the list number, so 1 is WENDLAND_C2, 2 GAUSSIAN, 3 THIN_PLATE_SPLINE, 4 MULTI_QUADRATIC and 5 INV_MULTI_QUADRATIC. That mapping is written down because the page shows two samples, one labelled as a number and one as a label, and they exercise DIFFERENT options: the numeric one passes 3 and the label one passes INV_MULTI_QUADRATIC. Reading the adjacent pair as one setting spelled two ways gives 3 the wrong meaning. The values above are the vocabulary the emitter writes, deliberately the names only; whether that narrowing is the right house rule is open, since the axis arguments of SET_MOTION_ROTOR_AXIS and ROTATE_COORDINATE_SYSTEM take the opposite choice and carry both spellings (PLN-20260806-1120). Absent from 26.100, which has no aeroelastic scripting family at all.",
+          "evidence": "AEROELASTIC_RBF_TYPE; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 pp.345-346.  RBF mesh morphing algorithm of the aeroelastic coupling. The manual gives the options as a NUMBERED list of five and says the input may be passed as the label or as the list number, so 1 is WENDLAND_C2, 2 GAUSSIAN, 3 THIN_PLATE_SPLINE, 4 MULTI_QUADRATIC and 5 INV_MULTI_QUADRATIC. That mapping is written down because the page shows two samples, one labelled as a number and one as a label, and they exercise DIFFERENT options: the numeric one passes 3 and the label one passes INV_MULTI_QUADRATIC. Reading the adjacent pair as one setting spelled two ways gives 3 the wrong meaning. The values above are the vocabulary the emitter writes, deliberately the names only; whether that narrowing is the right house rule is open, since the axis arguments of SET_MOTION_ROTOR_AXIS and ROTATE_COORDINATE_SYSTEM take the opposite choice and carry both spellings (PLN-20260806-1120). Absent from 26.100, which has no aeroelastic scripting family at all.",
           "error": null
         },
         "print_rotor_induced_velocities": {
@@ -507,7 +507,7 @@
           "provenance": "unset",
           "command": "PRINT_ROTOR_INDUCED_VELOCITIES",
           "available": true,
-          "evidence": "PRINT_ROTOR_INDUCED_VELOCITIES; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.345.  Prints the rotor-induced velocities to the log at every time step of an unsteady run, which is what the manual's sample comment states. Per time step and per rotor, so the log grows with the run; no edition bounds it and nothing here can.",
+          "evidence": "PRINT_ROTOR_INDUCED_VELOCITIES; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.345.  Prints the rotor-induced velocities to the log at every time step of an unsteady run, which is what the manual's sample comment states. Per time step and per rotor, so the log grows with the run; no edition bounds it and nothing here can.",
           "error": null
         },
         "adaptive_field_grid_refinement": {
@@ -515,7 +515,7 @@
           "provenance": "unset",
           "command": "SET_ADAPTIVE_FIELD_GRID_REFINEMENT",
           "available": true,
-          "evidence": "SET_ADAPTIVE_FIELD_GRID_REFINEMENT; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.345.  Refines the field-source grid where the solution needs it. The manual's sample comment marks this transonic only; what it does on a subsonic case is not stated anywhere, so expect nothing from it there rather than reading the comment as a guarantee of no effect.",
+          "evidence": "SET_ADAPTIVE_FIELD_GRID_REFINEMENT; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.345.  Refines the field-source grid where the solution needs it. The manual's sample comment marks this transonic only; what it does on a subsonic case is not stated anywhere, so expect nothing from it there rather than reading the comment as a guarantee of no effect.",
           "error": null
         },
         "rotor_induced_velocity_blending": {
@@ -523,7 +523,7 @@
           "provenance": "unset",
           "command": "ROTOR_INDUCED_VELOCITY_BLENDING",
           "available": true,
-          "evidence": "ROTOR_INDUCED_VELOCITY_BLENDING; build 26.120: documented; documented default: 0.25 (SRC-003 p.345). Source: SRC-003 p.345.  Blending factor for wake stabilization, dimensionless, between 0 and 1. The bound is not enforced. The solver default is recorded in the structured field above rather than in this prose, so a guard and pyfs-manual can both read it./nABSENT FROM THE FEBRUARY 2026 EDITION, which is why there is no 26.100 row: the command is not documented for that build, so the emitter refuses it there rather than assuming the older solver carries it.",
+          "evidence": "ROTOR_INDUCED_VELOCITY_BLENDING; build 26.120: documented; documented default: 0.25 (FSM-26.120 p.345). Source: FSM-26.120 p.345.  Blending factor for wake stabilization, dimensionless, between 0 and 1. The bound is not enforced. The solver default is recorded in the structured field above rather than in this prose, so a guard and pyfs-manual can both read it./nABSENT FROM THE FEBRUARY 2026 EDITION, which is why there is no 26.100 row: the command is not documented for that build, so the emitter refuses it there rather than assuming the older solver carries it.",
           "error": null
         },
         "wake_numerical_relaxation": {
@@ -531,7 +531,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_NUMERICAL_RELAXATION",
           "available": true,
-          "evidence": "SET_WAKE_NUMERICAL_RELAXATION; build 26.120: documented; documented default: 0.15 (SRC-003 p.346). Source: SRC-003 p.346.  Relaxation factor applied to the wake between iterations, dimensionless, between 0 and 1. What a lower value buys is not stated on the page; under-relaxation generally trades iterations for stability, and that is theory rather than a claim about this solver. Absent from the February edition.",
+          "evidence": "SET_WAKE_NUMERICAL_RELAXATION; build 26.120: documented; documented default: 0.15 (FSM-26.120 p.346). Source: FSM-26.120 p.346.  Relaxation factor applied to the wake between iterations, dimensionless, between 0 and 1. What a lower value buys is not stated on the page; under-relaxation generally trades iterations for stability, and that is theory rather than a claim about this solver. Absent from the February edition.",
           "error": null
         },
         "wake_relaxation": {
@@ -539,7 +539,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_RELAXATION",
           "available": false,
-          "evidence": "SET_WAKE_RELAXATION; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-747 p.319.  Enables relaxation of the wake geometry between solver iterations, which damps the wake movement and helps a case that oscillates rather than converging. Documented by the three pre-26.100 editions and by none after.",
+          "evidence": "SET_WAKE_RELAXATION; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-26.000 p.319.  Enables relaxation of the wake geometry between solver iterations, which damps the wake movement and helps a case that oscillates rather than converging. Documented by the three pre-26.100 editions and by none after.",
           "error": null
         },
         "wake_decay_constant_per_m": {
@@ -547,7 +547,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_DECAY_CONSTANT",
           "available": false,
-          "evidence": "SET_WAKE_DECAY_CONSTANT; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-740 p.346.  Rate at which wake vorticity decays with distance./nNEW IN THE 26.12 HOTFIX AND DOCUMENTED NOWHERE ELSE, so it carries one version row and its manual_ref cites SRC-740 rather than the flagship edition, which is the citation form for a command the flagship does not document./nTHE UNIT IS DERIVED AND NOT PRINTED. The manual gives the constant as 19.1 divided by a characteristic length L and states that L is in metres, so the constant is per metre; no edition writes that unit down. It is recorded because a decay constant computed with the length scale in the wrong units gives a wake that decays orders of magnitude too fast or not at all, and nothing in the number itself would reveal which./nThe manual defines L per case type: the semi-span of a wing or the largest fin for steady state, the blade radius for a rotor or propeller, and the larger of the two where both are present./nIt sits in the Solver Settings chapter of that edition while the Script Index files it under Advanced Settings, and it is kept here with the rest of the wake knobs./nWITHDRAWN IN THE NEWEST EDITION: the 26.122 edition ended this page with a sentence setting the constant to zero for marine applications, and the 26.123 edition carries the definition, the characteristic length and the turbulence proportionality on the same page and NOT that sentence. This entry never carried the marine value and states none, so nothing here changes; the withdrawal is recorded because a reader who met the sentence in the older edition would otherwise assume the omission here was ours. It is recorded as an entry note rather than as a version note because a version note would cite a page of the older edition that falls outside the registered scripting range and would be reported as an offender.",
+          "evidence": "SET_WAKE_DECAY_CONSTANT; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.121 p.346.  Rate at which wake vorticity decays with distance./nNEW IN THE 26.12 HOTFIX AND DOCUMENTED NOWHERE ELSE, so it carries one version row and its manual_ref cites FSM-26.121 rather than the flagship edition, which is the citation form for a command the flagship does not document./nTHE UNIT IS DERIVED AND NOT PRINTED. The manual gives the constant as 19.1 divided by a characteristic length L and states that L is in metres, so the constant is per metre; no edition writes that unit down. It is recorded because a decay constant computed with the length scale in the wrong units gives a wake that decays orders of magnitude too fast or not at all, and nothing in the number itself would reveal which./nThe manual defines L per case type: the semi-span of a wing or the largest fin for steady state, the blade radius for a rotor or propeller, and the larger of the two where both are present./nIt sits in the Solver Settings chapter of that edition while the Script Index files it under Advanced Settings, and it is kept here with the rest of the wake knobs./nWITHDRAWN IN THE NEWEST EDITION: the 26.122 edition ended this page with a sentence setting the constant to zero for marine applications, and the 26.123 edition carries the definition, the characteristic length and the turbulence proportionality on the same page and NOT that sentence. This entry never carried the marine value and states none, so nothing here changes; the withdrawal is recorded because a reader who met the sentence in the older edition would otherwise assume the omission here was ours. It is recorded as an entry note rather than as a version note because a version note would cite a page of the older edition that falls outside the registered scripting range and would be reported as an offender.",
           "error": null
         },
         "wake_streamwise_agglomeration": {
@@ -555,7 +555,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_STREAMWISE_AGGLOMERATION",
           "available": false,
-          "evidence": "SET_WAKE_STREAMWISE_AGGLOMERATION; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-747 p.318.  Enables agglomeration of wake filament edges along the streamwise direction, which reduces the number of wake elements the solver carries at some cost in wake resolution. Documented by the three pre-26.100 editions and by none after.",
+          "evidence": "SET_WAKE_STREAMWISE_AGGLOMERATION; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-26.000 p.318.  Enables agglomeration of wake filament edges along the streamwise direction, which reduces the number of wake elements the solver carries at some cost in wake resolution. Documented by the three pre-26.100 editions and by none after.",
           "error": null
         },
         "jet_wake_decay_normalized_length": {
@@ -563,7 +563,7 @@
           "provenance": "unset",
           "command": "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH",
           "available": true,
-          "evidence": "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH; build 26.120: documented; documented default: 100.0 (SRC-003 p.346). Source: SRC-003 p.346.  Distance at which a jet wake decays to a tenth of its initial strength, measured in multiples of the jet wake diameter rather than in length units. The manual also states a minimum of 1.0; neither that nor the default is enforced. Absent from the February edition.",
+          "evidence": "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH; build 26.120: documented; documented default: 100.0 (FSM-26.120 p.346). Source: FSM-26.120 p.346.  Distance at which a jet wake decays to a tenth of its initial strength, measured in multiples of the jet wake diameter rather than in length units. The manual also states a minimum of 1.0; neither that nor the default is enforced. Absent from the February edition.",
           "error": null
         },
         "jet_wake_filaments_grid_induction": {
@@ -571,7 +571,7 @@
           "provenance": "unset",
           "command": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
           "available": true,
-          "evidence": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.346.  Whether the jet wake filaments induce velocity on the mesh./nTHE ONLY COMMAND IN THIS SWEEP DOCUMENTED BY AN EDITION AND NOT BY THE HOTFIX THAT FOLLOWS IT. SRC-725 and SRC-003 both print it; SRC-740, which is otherwise SRC-003 plus three pages, does not, and it is not renamed into anything else on those pages either. The February edition does not have it, so its whole documented life is two editions./nTHAT SILENCE IS NOT WHY THE 26.121 ROW SAYS REMOVED. An edition dropping a page is a fact about a document, and the default this registry applies to one is inheritance: 26.121 carries 26.120's evidence wherever no row overrides it, so before the probe ran this command emitted on 26.121 as an inherited assumption, and the emitter would have gone on writing it./nTHE PROBE SETTLED IT THE OTHER WAY (RPT-021). The 26.121 solver does not recognise the name, so the row records a measurement and cites the run that made it, which is what makes removed sayable here at all. Worth keeping in view: the reading and the measurement agreed in this one case, and the reading still would not have been evidence for it. Two chapter questions the same day went the other way, where a page said less than the solver did./nThe practical consequence for a caller is a refusal rather than a line: solver_settings(jet_wake_filaments_grid_induction=...) on 26.121 raises rather than emitting a command the solver would reject at run time.",
+          "evidence": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.346.  Whether the jet wake filaments induce velocity on the mesh./nTHE ONLY COMMAND IN THIS SWEEP DOCUMENTED BY AN EDITION AND NOT BY THE HOTFIX THAT FOLLOWS IT. FSM-26.101 and FSM-26.120 both print it; FSM-26.121, which is otherwise FSM-26.120 plus three pages, does not, and it is not renamed into anything else on those pages either. The February edition does not have it, so its whole documented life is two editions./nTHAT SILENCE IS NOT WHY THE 26.121 ROW SAYS REMOVED. An edition dropping a page is a fact about a document, and the default this registry applies to one is inheritance: 26.121 carries 26.120's evidence wherever no row overrides it, so before the probe ran this command emitted on 26.121 as an inherited assumption, and the emitter would have gone on writing it./nTHE PROBE SETTLED IT THE OTHER WAY (RPT-021). The 26.121 solver does not recognise the name, so the row records a measurement and cites the run that made it, which is what makes removed sayable here at all. Worth keeping in view: the reading and the measurement agreed in this one case, and the reading still would not have been evidence for it. Two chapter questions the same day went the other way, where a page said less than the solver did./nThe practical consequence for a caller is a refusal rather than a line: solver_settings(jet_wake_filaments_grid_induction=...) on 26.121 raises rather than emitting a command the solver would reject at run time.",
           "error": null
         },
         "adverse_gradient_boundary_layer": {
@@ -579,7 +579,7 @@
           "provenance": "unset",
           "command": "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
           "available": false,
-          "evidence": "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-747 p.318.  Enables the adverse-pressure-gradient treatment in the boundary-layer model, which is what lets the model thicken the layer approaching separation instead of running the flat-plate relation everywhere. Documented by the three pre-26.100 editions and by none after.",
+          "evidence": "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-26.000 p.318.  Enables the adverse-pressure-gradient treatment in the boundary-layer model, which is what lets the model thicken the layer approaching separation instead of running the flat-plate relation everywhere. Documented by the three pre-26.100 editions and by none after.",
           "error": null
         },
         "vortex_ring_normalization": {
@@ -587,7 +587,7 @@
           "provenance": "unset",
           "command": "SOLVER_VORTEX_RING_NORMALIZATION",
           "available": false,
-          "evidence": "SOLVER_VORTEX_RING_NORMALIZATION; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-747 p.318.  Enables normalization of the vortex-ring strengths on the wake panels. Documented by the three pre-26.100 editions and by none after./nThe page gives the switch and no definition of what the normalization does, so nothing further is recorded here: the reading of a name is not a description of a numerical method.",
+          "evidence": "SOLVER_VORTEX_RING_NORMALIZATION; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-26.000 p.318.  Enables normalization of the vortex-ring strengths on the wake panels. Documented by the three pre-26.100 editions and by none after./nThe page gives the switch and no definition of what the normalization does, so nothing further is recorded here: the reading of a name is not a description of a numerical method.",
           "error": null
         },
         "wake_termination_revolutions": {
@@ -595,7 +595,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_TERMINATION_TIME_STEPS",
           "available": true,
-          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
+          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
           "error": null
         },
         "wake_termination_steps": {
@@ -603,7 +603,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_TERMINATION_TIME_STEPS",
           "available": true,
-          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
+          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
           "error": null
         },
         "wake_termination_length": {
@@ -611,7 +611,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_TERMINATION_TIME_STEPS",
           "available": true,
-          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
+          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
           "error": null
         },
         "wake_termination_thrust_n": {
@@ -619,7 +619,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_TERMINATION_TIME_STEPS",
           "available": true,
-          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
+          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
           "error": null
         },
         "wake_termination_revolutions_cap": {
@@ -627,7 +627,7 @@
           "provenance": "unset",
           "command": "SET_WAKE_TERMINATION_TIME_STEPS",
           "available": true,
-          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
+          "evidence": "SET_WAKE_TERMINATION_TIME_STEPS; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.344.  Number of time steps after which a wake vortex filament edge that lost all of its strength is removed from the simulation.",
           "error": null
         },
         "wake_termination_x_m": {
@@ -635,7 +635,7 @@
           "provenance": "unset",
           "command": "INITIALIZE_SOLVER",
           "available": true,
-          "evidence": "INITIALIZE_SOLVER; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.337. reports/compat/CMP-26120_2026-08-08_full.yaml SURFACES takes -1 for all boundaries or a count followed by one line per surface with the surface index and the quad mesher toggle (SURFACE_TOGGLES lines of the form index,ENABLE; the count check ties them to SURFACES). WAKE_TERMINATION_X takes an X location in the reference frame or DEFAULT for auto-computation. PERIODIC symmetry appends the number of copies on the SYMMETRY line (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver models 1 to 3. The initialize_solver helper builds both extended forms from typed arguments. Initializing MIRROR symmetry with a full (non-half) model diverges instantly (SRC-003 p.217); case metadata declaring a full model triggers a build-time warning when cases/ lands.",
+          "evidence": "INITIALIZE_SOLVER; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.337. reports/compat/CMP-26120_2026-08-08_full.yaml SURFACES takes -1 for all boundaries or a count followed by one line per surface with the surface index and the quad mesher toggle (SURFACE_TOGGLES lines of the form index,ENABLE; the count check ties them to SURFACES). WAKE_TERMINATION_X takes an X location in the reference frame or DEFAULT for auto-computation. PERIODIC symmetry appends the number of copies on the SYMMETRY line (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver models 1 to 3. The initialize_solver helper builds both extended forms from typed arguments. Initializing MIRROR symmetry with a full (non-half) model diverges instantly (FSM-26.120 p.217); case metadata declaring a full model triggers a build-time warning when cases/ lands.",
           "error": null
         },
         "symmetry_loads": {
@@ -643,7 +643,7 @@
           "provenance": "unset",
           "command": "SET_ANALYSIS_SYMMETRY_LOADS",
           "available": true,
-          "evidence": "SET_ANALYSIS_SYMMETRY_LOADS; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.350. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Includes the loads of symmetry boundaries in the analysis; relevant to half-model and periodic runs. Phase init on empirical evidence (2026-07-21 case-reproduction run on build 7012026): the unsteady per-step force plots consume this setting during the solve, and leaving it at the post-PERIODIC default ENABLE recorded six-fold symmetric-copy sums while the export-time loads were unaffected; the setting therefore precedes START_SOLVER. The post-MIRROR default is also ENABLE (HND-013 calibration; reports/physics/PHY-26120_2026-07-21_phy02-symmetry-phase-reval.yaml).",
+          "evidence": "SET_ANALYSIS_SYMMETRY_LOADS; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.350. reports/compat/CMP-26120_2026-09-08_rotor-path.yaml Includes the loads of symmetry boundaries in the analysis; relevant to half-model and periodic runs. Phase init on empirical evidence (2026-07-21 case-reproduction run on build 7012026): the unsteady per-step force plots consume this setting during the solve, and leaving it at the post-PERIODIC default ENABLE recorded six-fold symmetric-copy sums while the export-time loads were unaffected; the setting therefore precedes START_SOLVER. The post-MIRROR default is also ENABLE (HND-013 calibration; reports/physics/PHY-26120_2026-07-21_phy02-symmetry-phase-reval.yaml).",
           "error": null
         },
         "significant_digits": {
@@ -651,7 +651,7 @@
           "provenance": "unset",
           "command": "SET_SIGNIFICANT_DIGITS",
           "available": true,
-          "evidence": "SET_SIGNIFICANT_DIGITS; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.284.  Output precision, integer between 1 and 8; applies to the values the solver writes into its exports.",
+          "evidence": "SET_SIGNIFICANT_DIGITS; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.284.  Output precision, integer between 1 and 8; applies to the values the solver writes into its exports.",
           "error": null
         },
         "reference_velocity_m_per_s": {
@@ -659,7 +659,7 @@
           "provenance": "unset",
           "command": "SOLVER_SET_REF_VELOCITY",
           "available": true,
-          "evidence": "SOLVER_SET_REF_VELOCITY; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml Reference velocity for coefficient normalization. For steady runs it should equal the free-stream velocity; for rotary or hover cases the manual instructs using the largest characteristic velocity, such as the rotor tip speed (SRC-003 p.201).",
+          "evidence": "SOLVER_SET_REF_VELOCITY; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml Reference velocity for coefficient normalization. For steady runs it should equal the free-stream velocity; for rotary or hover cases the manual instructs using the largest characteristic velocity, such as the rotor tip speed (FSM-26.120 p.201).",
           "error": null
         },
         "freestream_input": {
@@ -667,7 +667,7 @@
           "provenance": "package default",
           "command": "SOLVER_SET_MACH_NUMBER",
           "available": true,
-          "evidence": "SOLVER_SET_MACH_NUMBER; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml",
+          "evidence": "SOLVER_SET_MACH_NUMBER; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml",
           "error": null
         },
         "reference_mach": {
@@ -675,7 +675,7 @@
           "provenance": "unset",
           "command": "SOLVER_SET_REF_MACH_NUMBER",
           "available": true,
-          "evidence": "SOLVER_SET_REF_MACH_NUMBER; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml",
+          "evidence": "SOLVER_SET_REF_MACH_NUMBER; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.339. reports/compat/CMP-26120_2026-08-08_full.yaml",
           "error": null
         },
         "disable_reference_velocity": {
@@ -683,7 +683,7 @@
           "provenance": "unset",
           "command": "DISABLE_SOLVER_REF_VELOCITY",
           "available": false,
-          "evidence": "DISABLE_SOLVER_REF_VELOCITY; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-740 p.342.  Makes the solver reference velocity equal the free-stream velocity, which is what the manual's sample comment states, rather than holding whatever SOLVER_SET_REF_VELOCITY last set./nDOCUMENTED BY THE 26.12 HOTFIX EDITION ALONE, so one version row, a citation of SRC-740, and no probe. Both of those are worth weighing before relying on it, since it reaches a public keyword of solver_settings./nWhy it exists at all is legible from the contour vocabulary rather than from this page: SET_SCENE_CONTOUR offers pressure_coefficient_reference beside pressure_coefficient_freestream, so the two velocities normalise different reported quantities and a stale reference velocity would change one of them. That is a reading of two pages together and not a measurement of what the solver does.",
+          "evidence": "DISABLE_SOLVER_REF_VELOCITY; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.121 p.342.  Makes the solver reference velocity equal the free-stream velocity, which is what the manual's sample comment states, rather than holding whatever SOLVER_SET_REF_VELOCITY last set./nDOCUMENTED BY THE 26.12 HOTFIX EDITION ALONE, so one version row, a citation of FSM-26.121, and no probe. Both of those are worth weighing before relying on it, since it reaches a public keyword of solver_settings./nWhy it exists at all is legible from the contour vocabulary rather than from this page: SET_SCENE_CONTOUR offers pressure_coefficient_reference beside pressure_coefficient_freestream, so the two velocities normalise different reported quantities and a stale reference velocity would change one of them. That is a reading of two pages together and not a measurement of what the solver does.",
           "error": null
         },
         "vorticity_drag_families": {
@@ -691,7 +691,7 @@
           "provenance": "unset",
           "command": "SET_VORTICITY_DRAG_BOUNDARIES",
           "available": true,
-          "evidence": "SET_VORTICITY_DRAG_BOUNDARIES; build 26.120: documented; documented default: () (SRC-003 p.202). Source: SRC-003 p.350.  Boundaries whose induced drag is computed from surface vorticity circulation integration; -1 selects all boundaries. Boundaries without trailing-edge boundary conditions on this list report zero induced drag (SRC-003 p.202); bluff bodies belong to surface-pressure integration instead. The results layer reports the solver's per-surface and total rows as printed, and every group sum the post makes writes NA for a boundary on this list whose printed induced drag is exactly zero (PFS-2006.03). Boundaries left off the list, including every boundary when the command is never emitted, use that surface-pressure integration, which the manual also prescribes for all components in ground effect (SRC-003 p.202): not emitting this command is a valid drag setup, not a missing one.",
+          "evidence": "SET_VORTICITY_DRAG_BOUNDARIES; build 26.120: documented; documented default: () (FSM-26.120 p.202). Source: FSM-26.120 p.350.  Boundaries whose induced drag is computed from surface vorticity circulation integration; -1 selects all boundaries. Boundaries without trailing-edge boundary conditions on this list report zero induced drag (FSM-26.120 p.202); bluff bodies belong to surface-pressure integration instead. The results layer reports the solver's per-surface and total rows as printed, and every group sum the post makes writes NA for a boundary on this list whose printed induced drag is exactly zero (PFS-2006.03). Boundaries left off the list, including every boundary when the command is never emitted, use that surface-pressure integration, which the manual also prescribes for all components in ground effect (FSM-26.120 p.202): not emitting this command is a valid drag setup, not a missing one.",
           "error": null
         },
         "axial_separation_families": {
@@ -699,7 +699,7 @@
           "provenance": "unset",
           "command": "SET_AXIAL_SEPARATION_BOUNDARIES",
           "available": false,
-          "evidence": "SET_AXIAL_SEPARATION_BOUNDARIES; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-741 p.339.  Adds boundaries to the axial flow separation list. NUM_BOUNDARIES takes -1 for all mesh boundaries, in which case the following line is ignored; otherwise the comma-separated indices are the next line (SRC-741 p.339).",
+          "evidence": "SET_AXIAL_SEPARATION_BOUNDARIES; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.100 p.339.  Adds boundaries to the axial flow separation list. NUM_BOUNDARIES takes -1 for all mesh boundaries, in which case the following line is ignored; otherwise the comma-separated indices are the next line (FSM-26.100 p.339).",
           "error": null
         },
         "delete_surfaces": {
@@ -707,7 +707,7 @@
           "provenance": "unset",
           "command": "DELETE_SURFACES",
           "available": false,
-          "evidence": "DELETE_SURFACES; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-740 pp.315-316.  Deletes a mesh surface by 1-based index. The parameter table states no all-form; the sample passing -1 for every surface is on the FOLLOWING page (SRC-740 p.316), which is why the sentinel cites that page and not the heading's. New in the 26.121 manual edition, where it replaces the SURFACE_DELETE keyword block and SURFACE_CLEARALL of SRC-003 pp.312-313. Both of those are registered here since 2026-08-07, in mesh_operations.yaml, each carrying version rows for the three editions that document it and none after; no removal is recorded against either, because a removal in this database is a manual STATING one and no edition states it. ARITY NOT DETERMINABLE FROM THE PAGE, and deliberately registered narrow: the parameter table declares one INDEX, while one sample passes three bare integers under a multiple-surface heading. Those two readings delete different surfaces, so the single-index form is registered and the multi-index form awaits a probe (RPT-014)./nPROBE ROUND 1 OF 0.32.0, on 26.124: DELETE_SURFACES 3 on a mesh whose inventory was Body, Base, Blade1, Blade2 was accepted and left Body, Base, Blade2, with only the last surface moving, to index 3. So the single-index form runs and the surfaces after the deleted one are renumbered, which the setup key delete_surfaces follows in the script's own inventory. The multi-index form is still unprobed.",
+          "evidence": "DELETE_SURFACES; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.121 pp.315-316.  Deletes a mesh surface by 1-based index. The parameter table states no all-form; the sample passing -1 for every surface is on the FOLLOWING page (FSM-26.121 p.316), which is why the sentinel cites that page and not the heading's. New in the 26.121 manual edition, where it replaces the SURFACE_DELETE keyword block and SURFACE_CLEARALL of FSM-26.120 pp.312-313. Both of those are registered here since 2026-08-07, in mesh_operations.yaml, each carrying version rows for the three editions that document it and none after; no removal is recorded against either, because a removal in this database is a manual STATING one and no edition states it. ARITY NOT DETERMINABLE FROM THE PAGE, and deliberately registered narrow: the parameter table declares one INDEX, while one sample passes three bare integers under a multiple-surface heading. Those two readings delete different surfaces, so the single-index form is registered and the multi-index form awaits a probe (RPT-014)./nPROBE ROUND 1 OF 0.32.0, on 26.124: DELETE_SURFACES 3 on a mesh whose inventory was Body, Base, Blade1, Blade2 was accepted and left Body, Base, Blade2, with only the last surface moving, to index 3. So the single-index form runs and the surfaces after the deleted one are renumbered, which the setup key delete_surfaces follows in the script's own inventory. The multi-index form is still unprobed.",
           "error": null
         },
         "slipstream_wake_stabilization": {
@@ -715,7 +715,7 @@
           "provenance": "unset",
           "command": "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION",
           "available": true,
-          "evidence": "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.333.  Stabilizes the slipstream wake of a rotor motion. NUM_BLADES is per PROPELLER rather than a total across the motion, which the manual states./nThe February 2026 edition takes two arguments and not three, so 26.100 overrides the grammar rather than sharing it. Emitting the blade count onto a February script would pass an argument that build does not read.",
+          "evidence": "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.333.  Stabilizes the slipstream wake of a rotor motion. NUM_BLADES is per PROPELLER rather than a total across the motion, which the manual states./nThe February 2026 edition takes two arguments and not three, so 26.100 overrides the grammar rather than sharing it. Emitting the blade count onto a February script would pass an argument that build does not read.",
           "error": null
         },
         "load_solver_initialization": {
@@ -723,7 +723,7 @@
           "provenance": "unset",
           "command": "OPEN",
           "available": true,
-          "evidence": "OPEN; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.282. reports/compat/CMP-26120_2026-08-08_full.yaml Opens an existing simulation (.fsm) file. The optional LOAD_SOLVER_INITIALIZATION ENABLE line loads the solver initialization stored in the opened file.",
+          "evidence": "OPEN; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.282. reports/compat/CMP-26120_2026-08-08_full.yaml Opens an existing simulation (.fsm) file. The optional LOAD_SOLVER_INITIALIZATION ENABLE line loads the solver initialization stored in the opened file.",
           "error": null
         },
         "analysis_families": {
@@ -731,7 +731,7 @@
           "provenance": "unset",
           "command": "SET_SOLVER_ANALYSIS_BOUNDARIES",
           "available": true,
-          "evidence": "SET_SOLVER_ANALYSIS_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.351.  Enables the listed boundaries in the analysis tab; boundaries not listed are disabled in the analysis (SRC-003 p.351).",
+          "evidence": "SET_SOLVER_ANALYSIS_BOUNDARIES; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.351.  Enables the listed boundaries in the analysis tab; boundaries not listed are disabled in the analysis (FSM-26.120 p.351).",
           "error": null
         },
         "load_units": {
@@ -739,7 +739,7 @@
           "provenance": "unset",
           "command": "SET_LOADS_AND_MOMENTS_UNITS",
           "available": true,
-          "evidence": "SET_LOADS_AND_MOMENTS_UNITS; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 pp.350-351. reports/compat/CMP-26120_2026-08-08_full.yaml",
+          "evidence": "SET_LOADS_AND_MOMENTS_UNITS; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 pp.350-351. reports/compat/CMP-26120_2026-08-08_full.yaml",
           "error": null
         },
         "inviscid_loads": {
@@ -747,7 +747,7 @@
           "provenance": "unset",
           "command": "SET_INVISCID_LOADS",
           "available": true,
-          "evidence": "SET_INVISCID_LOADS; build 26.120: verified; documented default: unknown (no default citation). Source: SRC-003 p.351. reports/compat/CMP-26120_2026-07-21_full.yaml Restricts the analysis to inviscid loads and moments only.",
+          "evidence": "SET_INVISCID_LOADS; build 26.120: verified; documented default: unknown (no default citation). Source: FSM-26.120 p.351. reports/compat/CMP-26120_2026-07-21_full.yaml Restricts the analysis to inviscid loads and moments only.",
           "error": null
         },
         "vorticity_lift_model": {
@@ -755,7 +755,7 @@
           "provenance": "unset",
           "command": "SET_VORTICITY_LIFT_MODEL",
           "available": true,
-          "evidence": "SET_VORTICITY_LIFT_MODEL; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.350.  Computes lift from the vorticity field rather than by integrating surface pressure./nUNRECOGNIZED ON 26.124 (RPT-068, 2026-09-24): the build answers the name as it answers one no edition documents, although its edition prints it. The setup key vorticity_lift_model is refused there at plan, naming the report; on the other builds it emits the command, documented and never run./nIT IS THE LIFT COUNTERPART OF A DECISION THIS PACKAGE ALREADY MODELS FOR DRAG. SET_VORTICITY_DRAG_BOUNDARIES selects the boundaries whose induced drag is computed from vorticity, and solver_settings records that choice in its snapshot. This is the same physical choice applied to lift, and it is NOT in the snapshot: it lives in the solver_analysis chapter, which is not a settings family, so no flag covers it. Recorded here so the asymmetry is visible rather than discovered./nCompare KUTTA_JOUKOWSKI_LIFT_FORCES, which is a third route to the same quantity. No edition says what happens if both are enabled.",
+          "evidence": "SET_VORTICITY_LIFT_MODEL; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.350.  Computes lift from the vorticity field rather than by integrating surface pressure./nUNRECOGNIZED ON 26.124 (RPT-068, 2026-09-24): the build answers the name as it answers one no edition documents, although its edition prints it. The setup key vorticity_lift_model is refused there at plan, naming the report; on the other builds it emits the command, documented and never run./nIT IS THE LIFT COUNTERPART OF A DECISION THIS PACKAGE ALREADY MODELS FOR DRAG. SET_VORTICITY_DRAG_BOUNDARIES selects the boundaries whose induced drag is computed from vorticity, and solver_settings records that choice in its snapshot. This is the same physical choice applied to lift, and it is NOT in the snapshot: it lives in the solver_analysis chapter, which is not a settings family, so no flag covers it. Recorded here so the asymmetry is visible rather than discovered./nCompare KUTTA_JOUKOWSKI_LIFT_FORCES, which is a third route to the same quantity. No edition says what happens if both are enabled.",
           "error": null
         },
         "unsteady_viscous_coupling_iteration": {
@@ -763,7 +763,7 @@
           "provenance": "unset",
           "command": "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION",
           "available": false,
-          "evidence": "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION; build 26.120: removed; documented default: unknown (no default citation). Source: SRC-747 p.321.  Sets the unsteady time-stepping iteration at which the viscous coupling switches on, so the early steps run inviscid and the boundary-layer coupling starts once the wake has developed. Documented by the three pre-26.100 editions and by none after. Measured unrecognized on 26.124 (RPT-068, 2026-09-24); 26.123 carries no record. The setup key unsteady_viscous_coupling_iteration emits it on 25.100 and 26.000, the builds that document it and render an unsteady script, and is refused at plan on every other.",
+          "evidence": "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION; build 26.120: removed; documented default: unknown (no default citation). Source: FSM-26.000 p.321.  Sets the unsteady time-stepping iteration at which the viscous coupling switches on, so the early steps run inviscid and the boundary-layer coupling starts once the wake has developed. Documented by the three pre-26.100 editions and by none after. Measured unrecognized on 26.124 (RPT-068, 2026-09-24); 26.123 carries no record. The setup key unsteady_viscous_coupling_iteration emits it on 25.100 and 26.000, the builds that document it and render an unsteady script, and is refused at plan on every other.",
           "error": null
         },
         "moments_model": {
@@ -771,7 +771,7 @@
           "provenance": "unset",
           "command": "SET_ANALYSIS_MOMENTS_MODEL",
           "available": true,
-          "evidence": "SET_ANALYSIS_MOMENTS_MODEL; build 26.120: documented; documented default: unknown (no default citation). Source: SRC-003 p.350.  PRESSURE is the solver default. Phase init with the loads frame (RPT-064, 26.124, 2026-09-24): the package emits the two together, and that run moved them together before START_SOLVER, so this model's own effect on the step exports was not separated there.",
+          "evidence": "SET_ANALYSIS_MOMENTS_MODEL; build 26.120: documented; documented default: unknown (no default citation). Source: FSM-26.120 p.350.  PRESSURE is the solver default. Phase init with the loads frame (RPT-064, 26.124, 2026-09-24): the package emits the two together, and that run moved them together before START_SOLVER, so this model's own effect on the step exports was not separated there.",
           "error": null
         },
         "unsteady_solver_actions": {
@@ -779,7 +779,7 @@
           "provenance": "unset",
           "command": "SET_NEW_UNSTEADY_SOLVER_ACTION",
           "available": false,
-          "evidence": "SET_NEW_UNSTEADY_SOLVER_ACTION; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-750 p.353.  Registers an action the solver runs after each unsteady time step, either a FlightStream script or a shell command. First documented by the 26.122 edition. The path goes on the line after the command, which is what the printed sample shows./nCOMMAND_LINE RUNS A SHELL COMMAND FROM INSIDE THE SOLVER, once per time step. That is a capability worth naming rather than leaving for a reader to infer from the value list: an unsteady run of a thousand steps runs it a thousand times, and the emitter validates the grammar of the line and nothing about what the line does./nNO EDITION SAYS WHAT THE ACTION RECEIVES, and the silence is recorded so the next reader does not open the same pages again. Four things a step-aware action would need were looked for: any arguments appended to the script or the shell command, the working directory the command is run from, whether the time-step index or the physical time is reachable from inside it, and any environment the solver sets. The scripting pages, SRC-750 p.353 and SRC-751 p.353, describe TYPE, NAME and FILENAME and stop. The user-interface pages, SRC-750 p.212 and SRC-751 p.212, are the only other place the feature is described at all; they say the actions run after each time step, that several may be registered, that they execute in creation order and that the order cannot be changed afterwards, and they say nothing about context either. The two editions are word for word identical on all four pages./nThe consequence is worth stating because it is what a caller hits: an action that has to behave differently on different steps cannot learn which step it is on from anything documented, so it needs state of its own, and the correctness of that route rests on the invocation count being exactly the step count, which is also unstated. Settling it needs one licensed unsteady run rather than another reading; the reading is reports/RPT-030_what-an-unsteady-action-receives_2026-08-19.md and it names the probe that would answer it./nTHAT RUN WAS MADE ON 26.123 ON 2026-09-08 (reports/RPT-041_script-action-reread-on-26123_2026-09-08.md), and it answers the five things, on that build alone. A SCRIPT action's file is re-read on every invocation, so a program run by an earlier COMMAND_LINE action may rewrite it between steps. The invocation count equals the time-step count exactly and nothing fires before the first step. The action receives no arguments and no solver-named environment variable, and runs from the directory the solver was started in, which is the simulation folder. The solver appends _iteration=<time iteration> to the name of an export made from an action script. 26.122 documents the command in the same words and was not run.",
+          "evidence": "SET_NEW_UNSTEADY_SOLVER_ACTION; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.122 p.353.  Registers an action the solver runs after each unsteady time step, either a FlightStream script or a shell command. First documented by the 26.122 edition. The path goes on the line after the command, which is what the printed sample shows./nCOMMAND_LINE RUNS A SHELL COMMAND FROM INSIDE THE SOLVER, once per time step. That is a capability worth naming rather than leaving for a reader to infer from the value list: an unsteady run of a thousand steps runs it a thousand times, and the emitter validates the grammar of the line and nothing about what the line does./nNO EDITION SAYS WHAT THE ACTION RECEIVES, and the silence is recorded so the next reader does not open the same pages again. Four things a step-aware action would need were looked for: any arguments appended to the script or the shell command, the working directory the command is run from, whether the time-step index or the physical time is reachable from inside it, and any environment the solver sets. The scripting pages, FSM-26.122 p.353 and FSM-26.123 p.353, describe TYPE, NAME and FILENAME and stop. The user-interface pages, FSM-26.122 p.212 and FSM-26.123 p.212, are the only other place the feature is described at all; they say the actions run after each time step, that several may be registered, that they execute in creation order and that the order cannot be changed afterwards, and they say nothing about context either. The two editions are word for word identical on all four pages./nThe consequence is worth stating because it is what a caller hits: an action that has to behave differently on different steps cannot learn which step it is on from anything documented, so it needs state of its own, and the correctness of that route rests on the invocation count being exactly the step count, which is also unstated. Settling it needs one licensed unsteady run rather than another reading; the reading is reports/RPT-030_what-an-unsteady-action-receives_2026-08-19.md and it names the probe that would answer it./nTHAT RUN WAS MADE ON 26.123 ON 2026-09-08 (reports/RPT-041_script-action-reread-on-26123_2026-09-08.md), and it answers the five things, on that build alone. A SCRIPT action's file is re-read on every invocation, so a program run by an earlier COMMAND_LINE action may rewrite it between steps. The invocation count equals the time-step count exactly and nothing fires before the first step. The action receives no arguments and no solver-named environment variable, and runs from the directory the solver was started in, which is the simulation folder. The solver appends _iteration=<time iteration> to the name of an export made from an action script. 26.122 documents the command in the same words and was not run.",
           "error": null
         },
         "aeroelastic_convergence_threshold": {
@@ -787,7 +787,7 @@
           "provenance": "unset",
           "command": "SET_AEROELASTIC_CONVERGENCE_THRESHOLD",
           "available": false,
-          "evidence": "SET_AEROELASTIC_CONVERGENCE_THRESHOLD; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-753 p.390.  Sets the convergence threshold of an aeroelastic coupling run. The page gives 1E-3 as the default and prints 1E-05 in its sample. First documented by the 26.125 edition, at the end of the coupling chapter.",
+          "evidence": "SET_AEROELASTIC_CONVERGENCE_THRESHOLD; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.125 p.390.  Sets the convergence threshold of an aeroelastic coupling run. The page gives 1E-3 as the default and prints 1E-05 in its sample. First documented by the 26.125 edition, at the end of the coupling chapter.",
           "error": null
         },
         "solver_time_averaging": {
@@ -795,7 +795,7 @@
           "provenance": "unset",
           "command": "ENABLE_SOLVER_TIME_AVERAGING",
           "available": false,
-          "evidence": "ENABLE_SOLVER_TIME_AVERAGING; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: SRC-753 p.360.  Turns on the time averaging of the surface flow properties over a window of unsteady time iterations, from the first iteration of the window to its last, both counted in the solver's own time steps. First documented by the 26.125 edition, where it stands in the place SOLVER_TIME_AVERAGING held in SRC-752 (p.353): that command took the toggle and the window together, and SRC-753 no longer prints it./nWARNED WHERE NO RUN VERIFIED IT. Its predecessor hung 26.124 (C01, recorded on that command's own 26.124 row). This is another command of another build and nothing has measured it, so the setup key that reaches it (solver_time_averaging) writes the line and warns on a build where it is only documented.",
+          "evidence": "ENABLE_SOLVER_TIME_AVERAGING; build 26.120: no recorded evidence; documented default: unknown (no default citation). Source: FSM-26.125 p.360.  Turns on the time averaging of the surface flow properties over a window of unsteady time iterations, from the first iteration of the window to its last, both counted in the solver's own time steps. First documented by the 26.125 edition, where it stands in the place SOLVER_TIME_AVERAGING held in FSM-26.124 (p.353): that command took the toggle and the window together, and FSM-26.125 no longer prints it./nWARNED WHERE NO RUN VERIFIED IT. Its predecessor hung 26.124 (C01, recorded on that command's own 26.124 row). This is another command of another build and nothing has measured it, so the setup key that reaches it (solver_time_averaging) writes the line and warns on a build where it is only documented.",
           "error": null
         }
       },

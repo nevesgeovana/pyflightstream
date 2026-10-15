@@ -75,7 +75,7 @@ from pyflightstream.qa._spec_kit import (  # noqa: E402
     sheet_matches,
 )
 
-# --- script controls (SRC-003 p.281), the pilot family -----------------
+# --- script controls (FSM-26.120 p.281), the pilot family -----------------
 
 
 def _run_script_target(script: Script, workdir: Path) -> None:
@@ -112,7 +112,7 @@ _spec(
 )
 
 
-# --- file io (SRC-003 pp.282-283) --------------------------------------
+# --- file io (FSM-26.120 pp.282-283) --------------------------------------
 
 
 def _open_reopen_target(script: Script, workdir: Path) -> None:
@@ -175,7 +175,7 @@ _spec(
 )
 
 
-# --- simulation controls (SRC-003 p.328) -------------------------------
+# --- simulation controls (FSM-26.120 p.328) -------------------------------
 
 
 def _units_epilogue(script: Script, workdir: Path) -> None:
@@ -201,7 +201,7 @@ _spec(
 )
 
 
-# --- coordinate systems (SRC-003 pp.329-331) ---------------------------
+# --- coordinate systems (FSM-26.120 pp.329-331) ---------------------------
 
 _spec(
     command="CREATE_NEW_COORDINATE_SYSTEM",
@@ -266,7 +266,7 @@ _spec(
 )
 
 
-# --- boundary conditions (SRC-003 pp.319-328) --------------------------
+# --- boundary conditions (FSM-26.120 pp.319-328) --------------------------
 
 
 def _detect_trailing_edges(script: Script, workdir: Path) -> None:
@@ -478,7 +478,7 @@ _spec(
 )
 
 
-# --- runtime settings (SRC-003 pp.339-343) -----------------------------
+# --- runtime settings (FSM-26.120 pp.339-343) -----------------------------
 
 
 def _sheet_setter(
@@ -578,7 +578,7 @@ _spec(
 )
 
 
-# --- advanced settings (SRC-003 pp.344-345) ----------------------------
+# --- advanced settings (FSM-26.120 pp.344-345) ----------------------------
 
 _spec(
     command="SET_SOLVER_CONVERGENCE_ITERATIONS",
@@ -602,7 +602,7 @@ _spec(
 )
 
 
-# --- solver settings (SRC-003 pp.339-343) ------------------------------
+# --- solver settings (FSM-26.120 pp.339-343) ------------------------------
 
 _spec(
     command="SET_SOLVER_STEADY",
@@ -647,7 +647,7 @@ _spec(
 )
 
 
-# --- solver initialization (SRC-003 p.337) -----------------------------
+# --- solver initialization (FSM-26.120 p.337) -----------------------------
 
 
 def _initialize_target(script: Script, workdir: Path) -> None:
@@ -695,7 +695,7 @@ _spec(
 )
 
 
-# --- solver analysis (SRC-003 pp.350-351) ------------------------------
+# --- solver analysis (FSM-26.120 pp.350-351) ------------------------------
 
 
 def _inviscid_effect(artifacts: ProbeArtifacts) -> bool | None:
@@ -801,7 +801,7 @@ _spec(
 )
 
 
-# --- solver export (SRC-003 pp.352-354) --------------------------------
+# --- solver export (FSM-26.120 pp.352-354) --------------------------------
 
 
 def _export_spec(command: str, filename: str, *extra: object, note: str | None = None) -> None:
@@ -841,7 +841,7 @@ _spec(
 )
 
 
-# --- unsteady plots (SRC-003 pp.347-348), one coupled specification --------
+# --- unsteady plots (FSM-26.120 pp.347-348), one coupled specification --------
 #
 # WRITTEN FROM A MEASUREMENT, NOT FROM THE MANUAL (PFS-2015.02.01). The
 # three commands are coupled: a plot is defined in the setup phase, the

@@ -72,7 +72,7 @@ def _entry(name, chapter):
         chapter=chapter,
         layout="inline",
         phase="init",
-        manual_ref="SRC-750 p.10",
+        manual_ref="FSM-26.122 p.10",
         versions={"26.120": {"status": "documented"}},
     )
 
@@ -99,7 +99,7 @@ def tree(tmp_path):
             body[name] = {
                 "layout": "inline",
                 "phase": "init",
-                "manual_ref": "SRC-750 p.10",
+                "manual_ref": "FSM-26.122 p.10",
                 "versions": {"26.120": {"status": "documented"}},
             }
         # write_bytes, not write_text: on Windows the latter translates
@@ -120,8 +120,8 @@ def tree(tmp_path):
     new = _pages([("KEPT", "A", "the a"), ("EDITED", "B D", "the b"), ("MOVED", "C", "the c")])
     new[13] = new.pop(12)
     editions = [
-        Edition(label="26.120", manual=tmp_path / "old.pdf", chapter=(10, 20), source="SRC-750"),
-        Edition(label="26.123", manual=tmp_path / "new.pdf", chapter=(10, 20), source="SRC-751"),
+        Edition(label="26.120", manual=tmp_path / "old.pdf", chapter=(10, 20), source="FSM-26.122"),
+        Edition(label="26.123", manual=tmp_path / "new.pdf", chapter=(10, 20), source="FSM-26.123"),
     ]
     reader = _reader({str(tmp_path / "old.pdf"): old, str(tmp_path / "new.pdf"): new})
     return chapters, registry, editions, reader
@@ -164,7 +164,7 @@ def test_a_write_adds_a_row_only_where_the_reading_says_it_may(tree):
     beta = yaml.safe_load((chapters / "beta.yaml").read_text(encoding="utf-8"))
     assert alpha["KEPT"]["versions"]["26.123"] == {
         "status": "documented",
-        "note": "SRC-751 p.10, unchanged from SRC-750 p.10",
+        "note": "FSM-26.123 p.10, unchanged from FSM-26.122 p.10",
     }
     assert "26.123" not in alpha["EDITED"]["versions"], (
         "a command the new edition documents DIFFERENTLY must not get a row from a "
@@ -172,7 +172,7 @@ def test_a_write_adds_a_row_only_where_the_reading_says_it_may(tree):
     )
     assert beta["MOVED"]["versions"]["26.123"] == {
         "status": "documented",
-        "note": "SRC-751 p.13, unchanged from SRC-750 p.12",
+        "note": "FSM-26.123 p.13, unchanged from FSM-26.122 p.12",
     }
 
 
@@ -189,7 +189,7 @@ def test_the_note_names_both_editions_by_citation_id_and_both_pages(tree):
     _run(tree, write=True)
     alpha = yaml.safe_load((chapters / "alpha.yaml").read_text(encoding="utf-8"))
     note = alpha["KEPT"]["versions"]["26.123"]["note"]
-    assert "SRC-751" in note and "SRC-750" in note
+    assert "FSM-26.123" in note and "FSM-26.122" in note
     assert "26.122" not in note and "edition" not in note.split(",")[0]
 
 
@@ -227,7 +227,7 @@ def test_a_vendor_alias_is_refused_even_when_it_resolves(tree):
     """
     chapters, registry, editions, reader = tree
     editions[1] = Edition(
-        label="26.0", manual=editions[1].manual, chapter=(10, 20), source="SRC-751"
+        label="26.0", manual=editions[1].manual, chapter=(10, 20), source="FSM-26.123"
     )
     opened = []
 
@@ -258,7 +258,7 @@ def test_an_unregistered_build_is_refused_before_a_manual_is_opened(tree):
     """
     chapters, registry, editions, reader = tree
     editions[1] = Edition(
-        label="26.999", manual=editions[1].manual, chapter=(10, 20), source="SRC-751"
+        label="26.999", manual=editions[1].manual, chapter=(10, 20), source="FSM-26.123"
     )
     opened = []
 
@@ -586,8 +586,12 @@ def test_an_alias_typed_against_a_correctly_labelled_manifest_names_the_canonica
     a manifest that was itself labelled with an alias.
     """
     editions = [
-        Edition(label="26.000", manual=pathlib.Path("a.pdf"), chapter=(10, 20), source="SRC-747"),
-        Edition(label="26.100", manual=pathlib.Path("b.pdf"), chapter=(10, 20), source="SRC-741"),
+        Edition(
+            label="26.000", manual=pathlib.Path("a.pdf"), chapter=(10, 20), source="FSM-26.000"
+        ),
+        Edition(
+            label="26.100", manual=pathlib.Path("b.pdf"), chapter=(10, 20), source="FSM-26.100"
+        ),
     ]
     opened: list[str] = []
 
@@ -616,8 +620,12 @@ def test_a_shared_release_name_names_the_manifest_rows_it_could_mean():
     list in hand.
     """
     editions = [
-        Edition(label="26.120", manual=pathlib.Path("a.pdf"), chapter=(10, 20), source="SRC-750"),
-        Edition(label="26.123", manual=pathlib.Path("b.pdf"), chapter=(10, 20), source="SRC-751"),
+        Edition(
+            label="26.120", manual=pathlib.Path("a.pdf"), chapter=(10, 20), source="FSM-26.122"
+        ),
+        Edition(
+            label="26.123", manual=pathlib.Path("b.pdf"), chapter=(10, 20), source="FSM-26.123"
+        ),
     ]
     opened: list[str] = []
 

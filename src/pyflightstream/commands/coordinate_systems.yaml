@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, Coordinate Systems (SRC-003
+# Chapter: Scripting reference, Coordinate Systems (FSM-26.120
 # pp.329-331). Frame index 1 is the reference frame; local frames use
 # indices greater than 1. Auxiliary frames for actuators and motions
 # must exist before solver initialization.
@@ -7,19 +7,19 @@ CREATE_NEW_COORDINATE_SYSTEM:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-003 p.329"
+  manual_ref: "FSM-26.120 p.329"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.287, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.303, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.302, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.287, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.303, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.302, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.325, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.328, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.334, unchanged from SRC-750 p.334"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.334, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.341, unchanged from SRC-752 p.334"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.334, unchanged from FSM-26.122 p.334"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
   notes: >
     Appends a new local coordinate system; configure it afterwards
     with the SET_COORDINATE_SYSTEM commands or EDIT_COORDINATE_SYSTEM.
@@ -57,19 +57,19 @@ EDIT_COORDINATE_SYSTEM:
       type: float
     - name: vector_z_z
       type: float
-  manual_ref: "SRC-003 p.329"
+  manual_ref: "FSM-26.120 p.329"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.287, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.303, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.302, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.287, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.303, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.302, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.325, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.328, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.334, unchanged from SRC-750 p.334"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.334, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.341, unchanged from SRC-752 p.334"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.334, unchanged from FSM-26.122 p.334"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
   notes: >
     Full edit of a local frame: origin and the three axis vectors,
     all expressed in the reference frame.
@@ -91,19 +91,19 @@ SET_COORDINATE_SYSTEM_ORIGIN:
       type: enum
       values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER,
                MILS, MICRON, CENTIMETER, MICROINCH]
-  manual_ref: "SRC-003 pp.329-330"
+  manual_ref: "FSM-26.120 pp.329-330"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.303, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.302, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.288, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.303, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.302, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.325, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.328, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.334, unchanged from SRC-750 p.334"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.334, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.341, unchanged from SRC-752 p.334"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.334, unchanged from FSM-26.122 p.334"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
   notes: >
     Origin position relative to the reference coordinate system.
 
@@ -126,19 +126,19 @@ SET_COORDINATE_SYSTEM_AXIS:
     - name: normalize_frame
       type: enum
       values: ["TRUE", "FALSE"]
-  manual_ref: "SRC-003 p.330"
+  manual_ref: "FSM-26.120 p.330"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.304, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.303, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.288, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.304, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.303, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.326, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.335, unchanged from SRC-750 p.335"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.335, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.342, unchanged from SRC-752 p.335"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.335, unchanged from FSM-26.122 p.335"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
   notes: >
     Sets one axis direction vector of a local frame; the vector is
     normalized automatically, and NORMALIZE_FRAME TRUE renormalizes
@@ -160,18 +160,18 @@ ROTATE_COORDINATE_SYSTEM:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-003 p.330"
+  manual_ref: "FSM-26.120 p.330"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.289, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.304, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.303, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.289, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.304, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.303, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.326, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.335, unchanged from SRC-750 p.335"}
-    "26.124": {status: documented, note: "SRC-752 p.335, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.342, unchanged from SRC-752 p.335"}
+    "26.121": {status: documented, note: "FSM-26.121 p.333, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.335, unchanged from FSM-26.122 p.335"}
+    "26.124": {status: documented, note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
   notes: >
     Rotates the local coordinate system FRAME about ROTATION_AXIS of
     ROTATION_FRAME by ANGLE degrees.
@@ -185,18 +185,18 @@ SET_COORDINATE_SYSTEM_NAME:
       cites: frames
     - name: name
       type: str
-  manual_ref: "SRC-003 p.329"
+  manual_ref: "FSM-26.120 p.329"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.287, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.303, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.302, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.325, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.328, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.287, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.303, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.302, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.325, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.328, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.332, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.334, unchanged from SRC-750 p.334"}
-    "26.124": {status: documented, note: "SRC-752 p.334, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.341, unchanged from SRC-752 p.334"}
+    "26.121": {status: documented, note: "FSM-26.121 p.332, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.334, unchanged from FSM-26.122 p.334"}
+    "26.124": {status: documented, note: "FSM-26.124 p.334, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.341, unchanged from FSM-26.124 p.334"}
   notes: >
     Renames a local coordinate system. The manual requires the index to
     be greater than 1, the reference frame having a fixed name.
@@ -208,18 +208,18 @@ NORMALIZE_COORDINATE_SYSTEM:
     - name: frame
       type: int
       cites: frames
-  manual_ref: "SRC-003 p.330"
+  manual_ref: "FSM-26.120 p.330"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.288, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.304, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.303, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.326, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.288, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.304, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.303, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.326, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.335, unchanged from SRC-750 p.335"}
-    "26.124": {status: documented, note: "SRC-752 p.335, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.342, unchanged from SRC-752 p.335"}
+    "26.121": {status: documented, note: "FSM-26.121 p.333, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.335, unchanged from FSM-26.122 p.335"}
+    "26.124": {status: documented, note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
   notes: >
     Rescales the axes of a coordinate system to unit length, which
     matters because SET_COORDINATE_SYSTEM_AXIS takes a direction vector
@@ -257,18 +257,18 @@ TRANSLATE_COORDINATE_SYSTEM:
       type: enum
       values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER,
                MILS, MICRON, CENTIMETER, MICROINCH]
-  manual_ref: "SRC-003 pp.330-331"
+  manual_ref: "FSM-26.120 pp.330-331"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.289, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.305, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.304, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.329, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.289, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.305, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.304, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.327, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.329, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.333, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.335, unchanged from SRC-750 p.335"}
-    "26.124": {status: documented, note: "SRC-752 p.335, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.342, unchanged from SRC-752 p.335"}
+    "26.121": {status: documented, note: "FSM-26.121 p.333, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.335, unchanged from FSM-26.122 p.335"}
+    "26.124": {status: documented, note: "FSM-26.124 p.335, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.342, unchanged from FSM-26.124 p.335"}
   notes: >
     Moves a local coordinate system by a vector, where
     SET_COORDINATE_SYSTEM_ORIGIN sets its position absolutely. The two
@@ -288,18 +288,18 @@ DUPLICATE_COORDINATE_SYSTEM:
     - name: frame
       type: int
       cites: frames
-  manual_ref: "SRC-003 p.331"
+  manual_ref: "FSM-26.120 p.331"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.289, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.305, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.304, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.289, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.305, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.304, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.327, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.330, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.336, unchanged from SRC-750 p.336"}
-    "26.124": {status: documented, note: "SRC-752 p.336, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.343, unchanged from SRC-752 p.336"}
+    "26.121": {status: documented, note: "FSM-26.121 p.334, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.336, unchanged from FSM-26.122 p.336"}
+    "26.124": {status: documented, note: "FSM-26.124 p.336, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
   notes: >
     Appends a copy of a local coordinate system. Nothing reports the
     index the copy takes, and no edition states how one is allocated, so
@@ -319,18 +319,18 @@ MIRROR_COORDINATE_SYSTEM:
     - name: plane
       type: enum
       values: [YZ, XZ, XY]
-  manual_ref: "SRC-003 p.331"
+  manual_ref: "FSM-26.120 p.331"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.290, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.305, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.304, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.290, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.305, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.304, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.327, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.330, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.336, unchanged from SRC-750 p.336"}
-    "26.124": {status: documented, note: "SRC-752 p.336, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.343, unchanged from SRC-752 p.336"}
+    "26.121": {status: documented, note: "FSM-26.121 p.334, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.336, unchanged from FSM-26.122 p.336"}
+    "26.124": {status: documented, note: "FSM-26.124 p.336, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
   notes: >
     DUPLICATES AND THEN MIRRORS, which the manual states in the FRAME
     row rather than in the command's own description: the original frame
@@ -352,18 +352,18 @@ DELETE_COORDINATE_SYSTEM:
     - name: frame
       type: int
       cites: frames
-  manual_ref: "SRC-003 p.331"
+  manual_ref: "FSM-26.120 p.331"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.290, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.305, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.304, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.327, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.330, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.290, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.305, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.304, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.327, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.330, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.334, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.336, unchanged from SRC-750 p.336"}
-    "26.124": {status: documented, note: "SRC-752 p.336, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.343, unchanged from SRC-752 p.336"}
+    "26.121": {status: documented, note: "FSM-26.121 p.334, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.336, unchanged from FSM-26.122 p.336"}
+    "26.124": {status: documented, note: "FSM-26.124 p.336, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.343, unchanged from FSM-26.124 p.336"}
   notes: >
     Deletes a local coordinate system; the reference frame cannot be
     deleted and the manual requires an index greater than 1.

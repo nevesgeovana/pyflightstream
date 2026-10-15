@@ -4,7 +4,7 @@ date: '2026-10-05'
 package_version: 0.35.1
 fs_exe: Flightstream_26125.exe
 fs_exe_sha256: withheld; build 10052026
-executor: LocalExecutor, -hidden -script (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023)
+executor: LocalExecutor, -hidden -script (as run; mechanism FSM-26.120 pp.279-280; argument spelling RPT-023)
 solver_identity:
 - 'Simcenter Flightstream 2612, build #10052026'
 summary:

@@ -129,14 +129,14 @@ class TestCoreSmallManual:
     @pytest.mark.parametrize("label", ["26.120", "26.000", "26"])
     def test_p0400_manualdraft_label_unquoted_number_is_refused(tmp_path: Path, label: str) -> None:
         """P0400-MANUALDRAFT-LABEL: a bare number label is refused with the quote hint."""
-        path = _core_small_manual___manifest(tmp_path, f"  label: {label}\n  source: SRC-751\n")
+        path = _core_small_manual___manifest(tmp_path, f"  label: {label}\n  source: FSM-26.123\n")
         with pytest.raises(ManualDraftError, match=r'quote it in the YAML \(label: "26.120"\)'):
             read_edition_manifest(path)
 
     @staticmethod
     def test_p0400_manualdraft_label_quoted_is_read_as_written(tmp_path: Path) -> None:
         """P0400-MANUALDRAFT-LABEL: the quoted label reaches the edition unchanged."""
-        path = _core_small_manual___manifest(tmp_path, '  label: "26.120"\n  source: SRC-751\n')
+        path = _core_small_manual___manifest(tmp_path, '  label: "26.120"\n  source: FSM-26.123\n')
         assert read_edition_manifest(path)[0].label == "26.120"
 
     @staticmethod
@@ -158,7 +158,7 @@ class TestCoreSmallManual:
     def test_p0400_manualdraft_phase_mixed_section_drafts_a_question(section: str) -> None:
         """P0400-MANUALDRAFT-PHASE: a section whose entries span phases drafts ``???``."""
         command = ManualCommand(name="X_COMMAND", page=1, section=section)
-        entry = render_entry(command, source="SRC-741", versions={"26.100": "documented"})
+        entry = render_entry(command, source="FSM-26.100", versions={"26.100": "documented"})
         assert "phase: ???" in entry
 
     @staticmethod
@@ -175,9 +175,9 @@ class TestCoreSmallManual:
             "  layout: inline"
         )
         edited = insert_version_row(
-            text, command="X_CMD", canonical="26.123", status="documented", note="SRC-751 p.1"
+            text, command="X_CMD", canonical="26.123", status="documented", note="FSM-26.123 p.1"
         )
-        row = f'    "26.123": {{status: documented, note: "SRC-751 p.1"}}{newline}'
+        row = f'    "26.123": {{status: documented, note: "FSM-26.123 p.1"}}{newline}'
         marker = f'note: "a\x0cb\x85c"}}{newline}'
         assert edited == text.replace(marker, marker + row)
 
@@ -211,7 +211,7 @@ class TestCoreSmallManual:
             "SET_SWITCH ON\n"
         )
         command = parse_signatures({300: page})["SET_SWITCH"]
-        entry = render_entry(command, source="SRC-741", versions={"26.100": "documented"})
+        entry = render_entry(command, source="FSM-26.100", versions={"26.100": "documented"})
         loaded = yaml.safe_load(entry)
         assert loaded["SET_SWITCH"]["args"][0]["values"] == ["ON", "OFF"]
 
@@ -247,7 +247,15 @@ class TestCoreSmallManualCli:
     ) -> None:
         """P0400-MANUALPATH: exit 2 with the path named, for a missing file and a folder."""
         manual = tmp_path / "absent.pdf" if kind == "missing" else tmp_path
-        argv = [command, "--manual", str(manual), "--source", "SRC-741", "--chapter-pages", "1-2"]
+        argv = [
+            command,
+            "--manual",
+            str(manual),
+            "--source",
+            "FSM-26.100",
+            "--chapter-pages",
+            "1-2",
+        ]
         if command == "draft":
             argv += ["--fs-version", "26.120"]
         with pytest.raises(SystemExit) as stopped:

@@ -243,7 +243,7 @@ def _registry_with(statuses):
             layout="bare",
             phase="control",
             args=[],
-            manual_ref="SRC-003 p.281",
+            manual_ref="FSM-26.120 p.281",
             versions={canonical: record},
         )
     return CommandRegistry(commands=commands)

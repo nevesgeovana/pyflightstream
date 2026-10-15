@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, CCS Fuselage Mesh (SRC-003 pp.301-302).
+# Chapter: Scripting reference, CCS Fuselage Mesh (FSM-26.120 pp.301-302).
 #
 # COMPLETE as of 2026-08-08, entered from all four registered editions in
 # one pass. Every signature in the chapter is identical across the four,
@@ -35,15 +35,15 @@ DEFAULT_CCS_FUSELAGE_MESH_SETTINGS:
     - name: direction
       type: enum
       values: [AXIAL, RADIAL]
-  manual_ref: "SRC-003 p.301"
+  manual_ref: "FSM-26.120 p.301"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
-    "26.124": {status: documented, note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
+    "26.121": {status: documented, note: "FSM-26.121 p.304, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.305, unchanged from FSM-26.122 p.305"}
+    "26.124": {status: documented, note: "FSM-26.124 p.305, the FSM-26.123 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.311, unchanged from FSM-26.124 p.305"}
   notes: >
     Resets every mesh setting of the CCS fuselage in one parametric
     direction: subdivisions, growth scheme, growth rate and periodicity.
@@ -58,15 +58,15 @@ CCS_FUSELAGE_MESH_SUBDIVISIONS:
       values: [AXIAL, RADIAL]
     - name: num_pts
       type: int
-  manual_ref: "SRC-003 p.301"
+  manual_ref: "FSM-26.120 p.301"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
+    "26.121": {status: documented, note: "FSM-26.121 p.304, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.305, unchanged from FSM-26.122 p.305"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.305, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.311, unchanged from FSM-26.124 p.305"}
   notes: >
     Grid node count along the named direction of the lofted fuselage.
 
@@ -80,15 +80,15 @@ CCS_FUSELAGE_MESH_GROWTH_SCHEME:
     - name: scheme
       type: enum
       values: [NONE, DUAL-SIDED, SUCCESSIVE, REVERSE]
-  manual_ref: "SRC-003 p.301"
+  manual_ref: "FSM-26.120 p.301"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: documented, note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
+    "26.121": {status: documented, note: "FSM-26.121 p.304, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.305, unchanged from FSM-26.122 p.305"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.305, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.311, unchanged from FSM-26.124 p.305"}
   notes: >
     How grid nodes cluster along the direction. NONE spaces them evenly;
     SUCCESSIVE and REVERSE cluster toward one end and the other;
@@ -104,15 +104,15 @@ CCS_FUSELAGE_MESH_GROWTH_RATE:
       values: [AXIAL, RADIAL]
     - name: rate
       type: float
-  manual_ref: "SRC-003 p.301"
+  manual_ref: "FSM-26.120 p.301"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
+    "26.121": {status: documented, note: "FSM-26.121 p.304, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.305, unchanged from FSM-26.122 p.305"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.305, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.311, unchanged from FSM-26.124 p.305"}
   notes: >
     Ratio between the sizes of consecutive cells under the clustering
     scheme of the same direction. The manual states the value must be
@@ -129,15 +129,15 @@ CCS_FUSELAGE_MESH_PERIODICITY:
       values: [AXIAL, RADIAL]
     - name: periodicity
       type: int
-  manual_ref: "SRC-003 p.301"
+  manual_ref: "FSM-26.120 p.301"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.311, unchanged from SRC-752 p.305"}
+    "26.121": {status: documented, note: "FSM-26.121 p.304, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.305, unchanged from FSM-26.122 p.305"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.305, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.311, unchanged from FSM-26.124 p.305"}
   notes: >
     Number of times the clustering pattern repeats along the direction,
     so a value of 2 clusters the nodes twice over the same span. The
@@ -155,15 +155,15 @@ NEW_CCS_FUSELAGE_REFINEMENT_ZONE:
       type: float
     - name: num_pts
       type: int
-  manual_ref: "SRC-003 p.301"
+  manual_ref: "FSM-26.120 p.301"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.296, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.300, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.300, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.304, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.305, unchanged from SRC-750 p.305"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.305, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.311, read against SRC-752 p.305: the parameter table differs in layout spacing only"}
+    "26.121": {status: documented, note: "FSM-26.121 p.304, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.305, unchanged from FSM-26.122 p.305"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.305, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.311, read against FSM-26.124 p.305: the parameter table differs in layout spacing only"}
   notes: >
     Inserts extra grid nodes over an axial parametric interval. U0 and
     U1 are parametric positions between 0 and 1 with U1 greater than U0,
@@ -177,15 +177,15 @@ DELETE_CCS_FUSELAGE_REFINEMENT_ZONES:
   args:
     - name: zone_index
       type: int
-  manual_ref: "SRC-003 p.302"
+  manual_ref: "FSM-26.120 p.302"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.297, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
-    "26.124": {status: documented, note: "SRC-752 p.306, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.312, unchanged from SRC-752 p.306"}
+    "26.121": {status: documented, note: "FSM-26.121 p.305, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.306, unchanged from FSM-26.122 p.306"}
+    "26.124": {status: documented, note: "FSM-26.124 p.306, the FSM-26.123 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.312, unchanged from FSM-26.124 p.306"}
   notes: >
     Deletes one axial refinement zone by its 1-based index, or every one
     of them when passed -1. The -1 is recorded here and not declared as
@@ -203,25 +203,25 @@ NEW_CCS_FUSELAGE_RELAXED_TE:
       type: float
     - name: v1
       type: float
-  manual_ref: "SRC-003 p.302"
+  manual_ref: "FSM-26.120 p.302"
   versions:
     "26.100":
       status: documented
       note: >-
-        SRC-741 p.297, same grammar as 26.120. Its sample prints a third
+        FSM-26.100 p.297, same grammar as 26.120. Its sample prints a third
         value of 20 for a parameter the same page bounds between 0 and 1;
         the three later editions print 0.5 there. A sample error rather
         than a grammar difference, and the argument is a float either
         way.
-    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
+    "26.121": {status: documented, note: "FSM-26.121 p.305, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.306, unchanged from FSM-26.122 p.306"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.312 adds a fourth argument to the three of SRC-752 p.306:
+        FSM-26.125 p.312 adds a fourth argument to the three of FSM-26.124 p.306:
         DIRECTION of the relaxed shedding line, 0 axial (the default) or 1
         azimuthal.
         The line without the added arguments aborted the script on 26.125 and
@@ -247,15 +247,15 @@ DELETE_CCS_FUSELAGE_RELAXED_TE:
   args:
     - name: index
       type: int
-  manual_ref: "SRC-003 p.302"
+  manual_ref: "FSM-26.120 p.302"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.297, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
-    "26.124": {status: documented, note: "SRC-752 p.306, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
-    "26.125": {status: documented, note: "SRC-753 p.312, unchanged from SRC-752 p.306"}
+    "26.121": {status: documented, note: "FSM-26.121 p.305, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.306, unchanged from FSM-26.122 p.306"}
+    "26.124": {status: documented, note: "FSM-26.124 p.306, the FSM-26.123 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: documented, note: "FSM-26.125 p.312, unchanged from FSM-26.124 p.306"}
   notes: >
     Deletes one relaxed trailing-edge boundary by its 1-based index, or
     every one of them when passed -1. Not declared as all_sentinel, for
@@ -285,15 +285,15 @@ EXPORT_FUSELAGE_CCS_FILE:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.302"
+  manual_ref: "FSM-26.120 p.302"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.297, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
+    "26.121": {status: documented, note: "FSM-26.121 p.305, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.306, unchanged from FSM-26.122 p.306"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the CCS file the command names [...]"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.312, read against SRC-752 p.306: the parameter table differs in layout spacing only and the sample passes CLOSED for the end closure, a token the entry already lists"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.312, read against FSM-26.124 p.306: the parameter table differs in layout spacing only and the sample passes CLOSED for the end closure, a token the entry already lists"}
   notes: >
     Writes the lofted fuselage to a file instead of into the simulation.
     LOFT_TYPE_U is RADIAL here and LOFT_TYPE_V is AXIAL, which is not
@@ -328,9 +328,9 @@ ASSIGN_SELECTED_CURVES_TO_CCS_FUSELAGE:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-753 p.311"
+  manual_ref: "FSM-26.125 p.311"
   versions:
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.311, the first edition to document it"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.311, the first edition to document it"}
   notes: >
     Assigns the selected curves to the CCS fuselage component. The page
     asks for it before any command that adds a refinement zone or a

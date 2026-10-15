@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, Scenes (SRC-003 p.355).
+# Chapter: Scripting reference, Scenes (FSM-26.120 p.355).
 #
 # COMPLETE as of 2026-08-08, entered from all four registered editions in
 # one pass. The chapter previously held one command, CHANGE_SCENE_TO_PLOTS,
@@ -23,18 +23,18 @@ VIEW_RESIZE:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Refits the view to the contents of the scene. The one command in the
     chapter whose page states outright that it has no parameters, rather
@@ -44,18 +44,18 @@ CHANGE_SCENE_TO_CAD:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Switches the active scene to the CAD view. Scene switching is a
     display action and may appear anywhere in a script; it does not
@@ -65,18 +65,18 @@ CHANGE_SCENE_TO_GEOMETRY:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Switches the active scene to the geometry view.
 
@@ -84,18 +84,18 @@ CHANGE_SCENE_TO_SOLVER:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Switches the active scene to the solver view, which is where the
     surface contours of a converged solution are displayed.
@@ -104,18 +104,18 @@ CHANGE_SCENE_TO_PLOTS:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Switches the active scene to the plots view. Each version row cites the page in its own manual edition.
 
@@ -126,18 +126,18 @@ SAVE_SCENE_AS_IMAGE:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Writes the current scene to an image file, the destination on the
     line after the command and nothing on the command's own line. The
@@ -153,18 +153,18 @@ SET_SCENE_DEFAULTVIEW:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Restores the default isometric viewpoint.
 
@@ -172,18 +172,18 @@ SET_SCENE_XY_POSITIVE:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the XY plane from the positive side of the remaining axis.
     The six plane views are named for the plane in view and the sign of
@@ -195,18 +195,18 @@ SET_SCENE_XY_NEGATIVE:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the XY plane from the negative side of the remaining axis.
 
@@ -214,18 +214,18 @@ SET_SCENE_XZ_POSITIVE:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the XZ plane from the positive side of the remaining axis.
 
@@ -233,18 +233,18 @@ SET_SCENE_XZ_NEGATIVE:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the XZ plane from the negative side of the remaining axis.
 
@@ -252,18 +252,18 @@ SET_SCENE_YZ_POSITIVE:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the YZ plane from the positive side of the remaining axis.
 
@@ -271,17 +271,17 @@ SET_SCENE_YZ_NEGATIVE:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.355"
+  manual_ref: "FSM-26.120 p.355"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.316, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.329, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.328, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.354, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.316, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.329, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.328, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.354, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.358, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.361, unchanged from SRC-750 p.361"}
-    "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
+    "26.121": {status: documented, note: "FSM-26.121 p.358, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.361, unchanged from FSM-26.122 p.361"}
+    "26.124": {status: documented, note: "FSM-26.124 p.361, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.294, unchanged from FSM-26.124 p.361"}
   notes: >
     Views the YZ plane from the negative side of the remaining axis.

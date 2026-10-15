@@ -296,10 +296,10 @@ def test_a_drafted_entry_leaves_the_unanswerable_unanswered():
     command = parse_signatures({316: INLINE_PAGE}, sections={"SET_BASE_REGION_CP": "Base Regions"})[
         "SET_BASE_REGION_CP"
     ]
-    entry = render_entry(command, source="SRC-741", versions={"26.100": "documented"})
+    entry = render_entry(command, source="FSM-26.100", versions={"26.100": "documented"})
     assert "    - name: model\n      type: ???" in entry, "no rule reads that description"
     assert "    - name: base_index\n      type: int" in entry, "the table names an index"
-    assert 'manual_ref: "SRC-741 p.316"' in entry
+    assert 'manual_ref: "FSM-26.100 p.316"' in entry
     assert '"26.100": {status: documented}' in entry
 
 
@@ -309,10 +309,10 @@ def test_a_drafted_entry_says_it_was_drafted_and_by_what():
     from pyflightstream.utils import render_entry
 
     command = parse_signatures({316: INLINE_PAGE})["SET_BASE_REGION_CP"]
-    entry = render_entry(command, source="SRC-741", versions={"26.100": "documented"})
+    entry = render_entry(command, source="FSM-26.100", versions={"26.100": "documented"})
     assert "drafted:" in entry
     assert "pyflightstream.utils.manual" in entry
-    assert "SRC-741 p.316" in entry
+    assert "FSM-26.100 p.316" in entry
 
 
 def test_the_phase_is_left_unanswered_when_the_section_does_not_decide_it():
@@ -322,7 +322,7 @@ def test_the_phase_is_left_unanswered_when_the_section_does_not_decide_it():
 
     command = ManualCommand(name="X_COMMAND", page=1, section="Some Section Nobody Mapped")
     assert "phase: ???" in render_entry(
-        command, source="SRC-741", versions={"26.100": "documented"}
+        command, source="FSM-26.100", versions={"26.100": "documented"}
     )
 
 
@@ -333,7 +333,7 @@ def test_a_manual_cannot_draft_a_probed_status():
 
     command = parse_signatures({316: INLINE_PAGE})["SET_BASE_REGION_CP"]
     with pytest.raises(ValueError, match="invariant 3"):
-        render_entry(command, source="SRC-741", versions={"26.100": "verified"})
+        render_entry(command, source="FSM-26.100", versions={"26.100": "verified"})
 
 
 def test_the_default_writes_nothing(tmp_path):
@@ -342,7 +342,7 @@ def test_the_default_writes_nothing(tmp_path):
     target = tmp_path / "drafts.yaml"
     body = render_chapter(
         parse_signatures({316: INLINE_PAGE}).values(),
-        source="SRC-741",
+        source="FSM-26.100",
         versions={"26.100": "documented"},
     )
     message = write_chapter(body, path=target)
@@ -356,7 +356,7 @@ def test_writing_is_possible_and_says_what_it_left_unanswered(tmp_path):
     target = tmp_path / "nested" / "drafts.yaml"
     body = render_chapter(
         parse_signatures({316: INLINE_PAGE}).values(),
-        source="SRC-741",
+        source="FSM-26.100",
         versions={"26.100": "documented"},
     )
     message = write_chapter(body, path=target, write=True)
@@ -369,7 +369,7 @@ def test_the_chapter_header_says_nothing_was_reviewed():
 
     body = render_chapter(
         parse_signatures({316: INLINE_PAGE, 330: CONTINUATION_PAGE}).values(),
-        source="SRC-741",
+        source="FSM-26.100",
         versions={"26.100": "documented"},
     )
     assert "none reviewed" in body
@@ -535,7 +535,7 @@ def test_a_counting_opening_wins_over_the_toggle_rule():
 
 def test_a_drafted_entry_carries_the_types_it_read_and_marks_the_rest():
     command = typed_command()
-    rendered = render_entry(command, source="SRC-000", versions={"26.120": "documented"})
+    rendered = render_entry(command, source="FSM-TEST", versions={"26.120": "documented"})
     assert '      type: enum\n      values: ["ENABLE", "DISABLE"]' in rendered
     assert "    - name: count\n      type: int" in rendered
     # The one argument no rule reads still refuses to load, which is the
@@ -657,7 +657,7 @@ def test_the_page_range_flag_refuses_a_non_numeric_page_through_the_parser():
                 "--manual",
                 "x.pdf",
                 "--source",
-                "SRC-000",
+                "FSM-TEST",
                 "--chapter-pages",
                 "abc-370",
                 "--index-pages",
@@ -682,7 +682,7 @@ def test_write_without_a_destination_is_refused_before_the_manual_is_opened():
                 "--manual",
                 "nonexistent.pdf",
                 "--source",
-                "SRC-000",
+                "FSM-TEST",
                 "--chapter-pages",
                 "1-2",
                 "--index-pages",
@@ -947,7 +947,7 @@ def test_a_contradicted_type_is_drafted_unanswered_rather_than_written():
     disagreement stop the file rather than ship in it.
     """
     entry = render_entry(
-        _rotate_shaped_command(), source="SRC-000", versions={"26.120": "documented"}
+        _rotate_shaped_command(), source="FSM-TEST", versions={"26.120": "documented"}
     )
     axis = entry.split("- name: axis")[1].split("- name:")[0]
     assert "type: ???" in axis
@@ -968,7 +968,7 @@ def test_an_uncontradicted_type_is_still_drafted_normally():
         sample=("X_SET_MODE DISABLE",),
         parameters={"MODE": "Mode to use. One of the following: ENABLE or DISABLE."},
     )
-    entry = render_entry(command, source="SRC-000", versions={"26.120": "documented"})
+    entry = render_entry(command, source="FSM-TEST", versions={"26.120": "documented"})
     assert "type: enum" in entry
     assert 'values: ["ENABLE", "DISABLE"]' in entry
     assert "would REFUSE" not in entry
@@ -1313,14 +1313,14 @@ def test_the_manifest_round_trips_a_full_edition_row(tmp_path, monkeypatch):
     manifest = _manifest(
         tmp_path,
         '- label: "26.121"\n'
-        "  source: SRC-740\n"
+        "  source: FSM-26.121\n"
         "  manual: x.pdf\n"
         "  chapter: 284-379\n"
         "  index: 380-386\n",
     )
     (edition,) = read_edition_manifest(manifest)
     assert edition.label == "26.121"
-    assert edition.source == "SRC-740"
+    assert edition.source == "FSM-26.121"
     assert edition.chapter == (284, 379)
     assert edition.index == (380, 386)
 
@@ -1694,7 +1694,7 @@ class _Status:
 def test_a_citation_pointing_at_the_wrong_page_is_a_finding(tmp_path):
     pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n", 7: "Function name: A_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
-    registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.7, this edition")})}
+    registry = {"A_COMMAND": _Entry({"ed": _Row(note="FSM-TEST p.7, this edition")})}
     (finding,) = stale_citations(
         [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
     )
@@ -1709,7 +1709,7 @@ def test_a_citation_pointing_at_the_wrong_page_is_a_finding(tmp_path):
 def test_a_citation_on_the_right_page_is_silent(tmp_path):
     pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
-    registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.1, this edition")})}
+    registry = {"A_COMMAND": _Entry({"ed": _Row(note="FSM-TEST p.1, this edition")})}
     assert (
         stale_citations(
             [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
@@ -1728,7 +1728,7 @@ def test_a_command_the_edition_does_not_print_reports_no_page(tmp_path):
     """
     pages = {"ed": {1: {1: "Function name: OTHER_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
-    registry = {"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.1, this edition")})}
+    registry = {"A_COMMAND": _Entry({"ed": _Row(note="FSM-TEST p.1, this edition")})}
     (finding,) = stale_citations(
         [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
     )
@@ -1747,7 +1747,7 @@ def test_a_removed_row_cites_the_edition_that_states_the_withdrawal(tmp_path):
     read, _calls = _recording_reader(pages)
     registry = {
         "A_COMMAND": _Entry(
-            {"ed": _Row(note="SRC-999 p.1, stops printing it", status=_Status("removed"))}
+            {"ed": _Row(note="FSM-TEST p.1, stops printing it", status=_Status("removed"))}
         )
     }
     assert (
@@ -1768,7 +1768,7 @@ def test_an_edition_outside_the_manifest_is_not_checked_and_not_reported(tmp_pat
     """
     pages = {"ed": {1: {1: "Function name: A_COMMAND <A>\n"}}}
     read, _calls = _recording_reader(pages)
-    registry = {"A_COMMAND": _Entry({"unlisted": _Row(note="SRC-999 p.4444, this edition")})}
+    registry = {"A_COMMAND": _Entry({"unlisted": _Row(note="FSM-TEST p.4444, this edition")})}
     assert (
         stale_citations(
             [_edition(tmp_path, "ed", (1, 1))], recorded=_FakeRegistry(registry), reader=read
@@ -1803,11 +1803,11 @@ def test_a_page_span_is_satisfied_by_either_page(tmp_path):
     )
     registry = _FakeRegistry(
         {
-            "ON_SEVEN": _Entry({"ed": _Row(note="SRC-999 pp.7-8, this edition")}),
-            "ON_EIGHT": _Entry({"ed": _Row(note="SRC-999 pp.7-8, this edition")}),
+            "ON_SEVEN": _Entry({"ed": _Row(note="FSM-TEST pp.7-8, this edition")}),
+            "ON_EIGHT": _Entry({"ed": _Row(note="FSM-TEST pp.7-8, this edition")}),
         }
     )
-    edition = _edition(tmp_path, "ed", (7, 8), source="SRC-999")
+    edition = _edition(tmp_path, "ed", (7, 8), source="FSM-TEST")
     assert stale_citations([edition], recorded=registry, reader=read) == ()
     # The recording reader is used rather than a local one so the range
     # asked for is visible: a reader returning the same text for every
@@ -1822,7 +1822,9 @@ def test_a_page_span_is_satisfied_by_either_page(tmp_path):
     }
 
     # And the span must still be able to FAIL, on a page outside it.
-    outside = _FakeRegistry({"ON_SEVEN": _Entry({"ed": _Row(note="SRC-999 pp.4-5, this edition")})})
+    outside = _FakeRegistry(
+        {"ON_SEVEN": _Entry({"ed": _Row(note="FSM-TEST pp.4-5, this edition")})}
+    )
     (finding,) = stale_citations([edition], recorded=outside, reader=read)
     assert (finding.cited, finding.found, finding.reason) == (4, 7, "moved")
 
@@ -1831,7 +1833,7 @@ def test_a_citation_naming_another_edition_is_a_finding(tmp_path):
     """Half a citation checked is worse than none, because it reads clean.
 
     A note carries a source id and a page. Reading the page alone runs a
-    26.121 row against the 26.121 pdf while the note says SRC-003, whose
+    26.121 row against the 26.121 pdf while the note says FSM-26.120, whose
     pages differ from it by a uniform three, so the wrong document is
     checked and a coincidence is cheap.
     """
@@ -1840,8 +1842,8 @@ def test_a_citation_naming_another_edition_is_a_finding(tmp_path):
     def read(manual, *, first, last):
         return {page: pages["ed"][1] for page in range(first, last + 1)}
 
-    registry = _FakeRegistry({"A_COMMAND": _Entry({"ed": _Row(note="SRC-003 p.1, another")})})
-    edition = Edition(label="ed", manual=tmp_path / "ed.pdf", chapter=(1, 1), source="SRC-999")
+    registry = _FakeRegistry({"A_COMMAND": _Entry({"ed": _Row(note="FSM-26.120 p.1, another")})})
+    edition = Edition(label="ed", manual=tmp_path / "ed.pdf", chapter=(1, 1), source="FSM-TEST")
     (tmp_path / "ed.pdf").write_bytes(b"injected reader")
     (finding,) = stale_citations([edition], recorded=registry, reader=read)
     assert finding.command == "A_COMMAND"
@@ -1860,7 +1862,7 @@ def test_the_citation_check_refuses_a_configuration_that_would_read_clean(tmp_pa
     good outcome is the one shape worth refusing outright, which this
     module already says twice about its neighbours.
     """
-    registry = _FakeRegistry({"A": _Entry({"ed": _Row(note="SRC-999 p.1, x")})})
+    registry = _FakeRegistry({"A": _Entry({"ed": _Row(note="FSM-TEST p.1, x")})})
     read, _calls = _recording_reader({"ed": {1: {1: "Function name: A <X>\n"}}})
     with pytest.raises(ManualDraftError, match="at least one edition"):
         stale_citations([], recorded=registry, reader=read)
@@ -1888,7 +1890,7 @@ def test_the_citations_cli_exits_non_zero_on_a_finding(tmp_path, monkeypatch, ca
     """
     monkeypatch.chdir(tmp_path)
     manifest = _manifest(
-        tmp_path, '- label: "26.121"\n  source: SRC-740\n  manual: x.pdf\n  chapter: 10-11\n'
+        tmp_path, '- label: "26.121"\n  source: FSM-26.121\n  manual: x.pdf\n  chapter: 10-11\n'
     )
     # Two pages, neither of them holding the command the row cites.
     monkeypatch.setattr(
@@ -1910,7 +1912,7 @@ def test_the_citations_cli_names_the_builds_the_manifest_left_out(tmp_path, monk
     """A one-build manifest must not read as a clean bill for eight."""
     monkeypatch.chdir(tmp_path)
     manifest = _manifest(
-        tmp_path, '- label: "26.121"\n  source: SRC-740\n  manual: x.pdf\n  chapter: 10-10\n'
+        tmp_path, '- label: "26.121"\n  source: FSM-26.121\n  manual: x.pdf\n  chapter: 10-10\n'
     )
     monkeypatch.setattr(
         "pyflightstream.utils.manual.read_pdf_pages",
@@ -2085,7 +2087,7 @@ def test_the_sweep_fails_on_a_row_level_gap_alone(tmp_path, monkeypatch, capsys)
     """
     monkeypatch.chdir(tmp_path)
     manifest = _manifest(
-        tmp_path, '- label: "25.000"\n  source: SRC-749\n  manual: x.pdf\n  chapter: 10-10\n'
+        tmp_path, '- label: "25.000"\n  source: FSM-25.000\n  manual: x.pdf\n  chapter: 10-10\n'
     )
     # IMPORT_CAD is in the database and deliberately carries no 25.000
     # row, its older editions using a layout a version row cannot
@@ -2114,7 +2116,7 @@ def test_an_edition_read_with_no_rows_is_not_reported_as_missing_from_the_manife
     monkeypatch.chdir(tmp_path)
     manifest = _manifest(
         tmp_path,
-        '- label: "26.130"\n  source: SRC-999\n  manual: x.pdf\n  chapter: 10-10\n',
+        '- label: "26.130"\n  source: FSM-TEST\n  manual: x.pdf\n  chapter: 10-10\n',
     )
     monkeypatch.setattr(
         "pyflightstream.utils.manual.read_pdf_pages",
@@ -2142,7 +2144,7 @@ def test_a_label_the_registry_cannot_resolve_is_reported_by_the_real_sweep(
     monkeypatch.chdir(tmp_path)
     manifest = _manifest(
         tmp_path,
-        f'- label: "{label}"\n  source: SRC-999\n  manual: x.pdf\n  chapter: 10-10\n',
+        f'- label: "{label}"\n  source: FSM-TEST\n  manual: x.pdf\n  chapter: 10-10\n',
     )
     monkeypatch.setattr(
         "pyflightstream.utils.manual.read_pdf_pages",
@@ -2170,8 +2172,8 @@ def test_the_reach_record_is_cleared_before_the_manuals_are_read():
     class _BoomError(Exception):
         pass
 
-    good = _FakeRegistry({"A_COMMAND": _Entry({"ed": _Row(note="SRC-999 p.1, x")})})
-    edition = Edition(label="ed", manual=pathlib.Path("x.pdf"), chapter=(1, 1), source="SRC-999")
+    good = _FakeRegistry({"A_COMMAND": _Entry({"ed": _Row(note="FSM-TEST p.1, x")})})
+    edition = Edition(label="ed", manual=pathlib.Path("x.pdf"), chapter=(1, 1), source="FSM-TEST")
 
     stale_citations(
         [edition],
@@ -2219,11 +2221,13 @@ def test_the_reach_partitions_the_rows_it_saw_into_the_four_outcomes(tmp_path):
             "NO_NOTE": _Entry({"ed": _Row()}),
             "NO_PAGE": _Entry({"ed": _Row(note="verified by probe, no page")}),
             "REMOVED": _Entry(
-                {"ed": _Row(note="SRC-999 p.1, withdrawn here", status=_Status("removed"))}
+                {"ed": _Row(note="FSM-TEST p.1, withdrawn here", status=_Status("removed"))}
             ),
-            "ONE_PAGE": _Entry({"ed": _Row(note="SRC-999 p.1, this edition")}),
-            "A_RANGE": _Entry({"ed": _Row(note="SRC-999 pp.1-2, this edition")}),
-            "UNLISTED": _Entry({"other": _Row(note="SRC-999 p.1, an edition not in the manifest")}),
+            "ONE_PAGE": _Entry({"ed": _Row(note="FSM-TEST p.1, this edition")}),
+            "A_RANGE": _Entry({"ed": _Row(note="FSM-TEST pp.1-2, this edition")}),
+            "UNLISTED": _Entry(
+                {"other": _Row(note="FSM-TEST p.1, an edition not in the manifest")}
+            ),
         }
     )
     read, _calls = _recording_reader(
@@ -2241,7 +2245,7 @@ def test_the_reach_partitions_the_rows_it_saw_into_the_four_outcomes(tmp_path):
             }
         }
     )
-    edition = _edition(tmp_path, "ed", (1, 1), source="SRC-999")
+    edition = _edition(tmp_path, "ed", (1, 1), source="FSM-TEST")
     assert stale_citations([edition], recorded=registry, reader=read) == ()
 
     counts = citation_reach["ed"]
@@ -2286,7 +2290,7 @@ def test_the_citations_cli_prints_four_reasons_that_add_up(tmp_path, monkeypatch
     """
     monkeypatch.chdir(tmp_path)
     manifest = _manifest(
-        tmp_path, '- label: "26.120"\n  source: SRC-003\n  manual: x.pdf\n  chapter: 10-10\n'
+        tmp_path, '- label: "26.120"\n  source: FSM-26.120\n  manual: x.pdf\n  chapter: 10-10\n'
     )
     monkeypatch.setattr(
         "pyflightstream.utils.manual.read_pdf_pages",
@@ -2517,7 +2521,7 @@ SECOND:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.1, the first edition to document it"
+      note: "FSM-26.122 p.1, the first edition to document it"
 """
 
 
@@ -2533,12 +2537,12 @@ def test_insert_version_row_adds_one_line_and_moves_nothing_else():
                 command=command,
                 canonical="26.123",
                 status="documented",
-                note="SRC-751 p.1, unchanged from SRC-750 p.1",
+                note="FSM-26.123 p.1, unchanged from FSM-26.122 p.1",
             )
         )
         assert after[command]["versions"]["26.123"] == {
             "status": "documented",
-            "note": "SRC-751 p.1, unchanged from SRC-750 p.1",
+            "note": "FSM-26.123 p.1, unchanged from FSM-26.122 p.1",
         }
         assert {k: v for k, v in after[command].items() if k != "versions"} == {
             k: v for k, v in before[command].items() if k != "versions"

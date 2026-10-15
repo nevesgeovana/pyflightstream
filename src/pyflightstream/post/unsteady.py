@@ -1,7 +1,7 @@
 """Per-timestep field frames, read back as an ordered series.
 
 Pipeline role: the entry point of unsteady post-processing. An unsteady
-run asked to animate (``UNSTEADY_SOLVER_ANIMATION``, SRC-003 pp.347-348)
+run asked to animate (``UNSTEADY_SOLVER_ANIMATION``, FSM-26.120 pp.347-348)
 writes one file every so many solver time steps into a folder, and this
 module reads that folder back as a series a reduction can be taken over.
 The reduction itself is pure and lives here too

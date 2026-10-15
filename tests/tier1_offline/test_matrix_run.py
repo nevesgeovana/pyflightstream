@@ -4380,7 +4380,7 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     assert "inputs/setups/s002.toml" in message, message
     assert "vorticity_drag_boundaries" in message, message
     assert "SET_VORTICITY_DRAG_BOUNDARIES" in message, f"the command: {message}"
-    assert "SRC-003 p.202" in message, f"the manual's sentence: {message}"
+    assert "FSM-26.120 p.202" in message, f"the manual's sentence: {message}"
 
     # The control, so the check is not satisfied by refusing every list: a
     # group with members and a setup naming families plan READY.

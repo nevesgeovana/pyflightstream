@@ -1821,7 +1821,7 @@ class TestSweep1Contracts:
                     "--manual",
                     "absent.pdf",
                     "--source",
-                    "SRC-753",
+                    "FSM-26.125",
                     "--chapter-pages",
                     "1-2",
                 ]

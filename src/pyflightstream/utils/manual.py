@@ -624,7 +624,7 @@ class Edition:
         one. It supplies the section label only, so an edition without
         one is swept with its commands unlabelled rather than skipped.
     source : str or None
-        Citation id of this edition, for example ``"SRC-741"``, as a
+        Citation id of this edition, for example ``"FSM-26.100"``, as a
         ``manual_ref`` would spell it.
     """
 
@@ -1257,7 +1257,7 @@ def stale_citations(
     sits on the second.
 
     The SOURCE is checked too, where the manifest records one: a note
-    citing SRC-003 on a row keyed to the edition SRC-740 was reading a
+    citing FSM-26.120 on a row keyed to the edition FSM-26.121 was reading a
     different document, and page numbers between those two differ by a
     uniform three, so a coincidence is cheap.
     """
@@ -1363,14 +1363,14 @@ def stale_citations(
 
 
 #: A page citation inside a version-row note, source and page together,
-#: for example "SRC-749 p.286" or "SRC-741 pp.312-313". The source is
+#: for example "FSM-25.000 p.286" or "FSM-26.100 pp.312-313". The source is
 #: captured because a page number alone checks half a citation: a note
 #: naming another edition's source would otherwise be read against this
-#: edition's pdf, and between SRC-003 and SRC-740 the pages differ by a
+#: edition's pdf, and between FSM-26.120 and FSM-26.121 the pages differ by a
 #: uniform three, so a coincidence is cheap. The optional second page is
 #: captured because a span is satisfied by any page in it, and 26
 #: shipped rows cite one.
-_CITED_PAGE = re.compile(r"\b(SRC-\d{3})\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
+_CITED_PAGE = re.compile(r"\b(FSM-(?:\d{2}\.\d{3}|TEST))\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
 
 #: What an edition row may hold, and what each key is for. Kept as data
 #: so the refusals can print it rather than restate it in prose.
@@ -1379,7 +1379,7 @@ _MANIFEST_KEYS = {
     "manual": "path of the manual pdf",
     "chapter": "FIRST-LAST pages of the scripting reference",
     "index": "FIRST-LAST pages of the Script Index, optional",
-    "source": "citation id, for example SRC-740, optional",
+    "source": "citation id, for example FSM-26.121, optional",
 }
 _MANIFEST_REQUIRED = ("label", "manual", "chapter")
 
@@ -1423,7 +1423,7 @@ def _edition_from_row(row: dict, where: str, known: str) -> Edition:
     if "source" in row and (not isinstance(source, str) or not source.strip()):
         raise ManualDraftError(
             f"{where}: source {source!r} parsed as {type(source).__name__}, not as a "
-            'citation id; write it (source: "SRC-751") or leave the key out'
+            'citation id; write it (source: "FSM-26.123") or leave the key out'
         )
     # Ranges before existence: both are checked before any manual is
     # opened, which is the point, and within a row a malformed page
@@ -1493,7 +1493,7 @@ def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
     A manifest with one edition, as it would be written by hand::
 
         - label: "26.121"
-          source: SRC-740
+          source: FSM-26.121
           manual: _private/manual/user-manual-26121.pdf
           chapter: 284-379
           index: 380-386
@@ -2035,7 +2035,7 @@ def render_entry(
     command : ManualCommand
         Parsed entry, from :func:`parse_signatures`.
     source : str
-        Manual source id for the citation, for example ``"SRC-741"``.
+        Manual source id for the citation, for example ``"FSM-26.100"``.
     versions : mapping of str to str
         Canonical version to status. Only ``documented`` is meaningful
         from a manual: ``verified`` and ``broken`` need a committed probe
@@ -2149,7 +2149,7 @@ def render_chapter(
     commands : iterable of ManualCommand
         The entries to render.
     source : str
-        Manual source id for the citation, for example ``SRC-741``.
+        Manual source id for the citation, for example ``FSM-26.100``.
     versions : mapping of str to str
         Canonical version to status, as :func:`render_entry` takes it.
 
@@ -2465,7 +2465,7 @@ def insert_version_row(
         the caller's to obey (CONTRIBUTING.md invariant 3).
     note : str
         Provenance of the row, quoted and escaped on the way in. A
-        citation, for example ``"SRC-751 p.290, unchanged from SRC-750
+        citation, for example ``"FSM-26.123 p.290, unchanged from FSM-26.122
         p.289"``.
 
     Returns

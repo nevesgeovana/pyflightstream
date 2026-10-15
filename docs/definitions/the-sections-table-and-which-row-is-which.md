@@ -277,7 +277,7 @@ file. Original rows, axes, STEP and AZIMUTH are preserved. These are instants,
 with no temporal average or revolution envelope.
 
 **Moment point.** `My_int` reports the integral of the
-export's `Moment` about the local quarter chord `(X_QC, Z_QC)`. SRC-751,
+export's `Moment` about the local quarter chord `(X_QC, Z_QC)`. FSM-26.123,
 the registered 26.123 manual, p.253 (Sectional Load Distributions), explicitly
 identifies Xqc and Zqc as the 25% chord coordinates used for the CM reference.
 Its pp.370-371 document computing and exporting the same sectional loads.

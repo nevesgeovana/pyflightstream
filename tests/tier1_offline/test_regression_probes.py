@@ -74,7 +74,7 @@ class TestProbesDatabase:
     def test_p0400_probes_the_start_time_of_26122_is_its_own_row():
         """P0400-PROBES-STARTTIME-26122: 26.122 answers from its edition, not from 26.120."""
         row = CommandRegistry.load().commands["SET_MOTION_START_TIME"].versions["26.122"]
-        assert row.status == "documented" and "SRC-750" in (row.note or "")
+        assert row.status == "documented" and "FSM-26.122" in (row.note or "")
 
     @staticmethod
     def test_p0400_probes_a_report_applies_again_after_its_removal_was_edited(tmp_path):

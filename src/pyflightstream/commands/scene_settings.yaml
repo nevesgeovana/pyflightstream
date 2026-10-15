@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, Scene Settings (SRC-003 pp.356-357).
+# Chapter: Scripting reference, Scene Settings (FSM-26.120 pp.356-357).
 #
 # COMPLETE as of 2026-08-08, entered from all four registered editions in
 # one pass. Every keyword name and every closed set is identical across
@@ -40,22 +40,22 @@ SET_SCENE_COLORMAP_TYPE:
         - HOTCOOL
         - TURBO
         - BLACK_BLUE_WHITE
-  manual_ref: "SRC-003 p.356"
+  manual_ref: "FSM-26.120 p.356"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.330, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.329, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.317, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.330, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.329, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.352, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.355, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.362, unchanged from SRC-750 p.362"}
-    "26.124": {status: documented, note: "SRC-752 p.362, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.359, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.362, unchanged from FSM-26.122 p.362"}
+    "26.124": {status: documented, note: "FSM-26.124 p.362, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.363 writes the command on one line, the colormap then the
-        ramp name, where SRC-752 p.362 wrote a keyword line for each; the
+        FSM-26.125 p.363 writes the command on one line, the colormap then the
+        ramp name, where FSM-26.124 p.362 wrote a keyword line for each; the
         eleven ramp names are unchanged
       args:
         - name: colormap
@@ -81,22 +81,22 @@ SET_SCENE_COLORMAP_SIZE:
     - name: height
       type: int
       unit: "pixels"
-  manual_ref: "SRC-003 p.356"
+  manual_ref: "FSM-26.120 p.356"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.330, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.329, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.317, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.330, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.329, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.352, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.355, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.362, unchanged from SRC-750 p.362"}
-    "26.124": {status: documented, note: "SRC-752 p.362, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.359, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.362, unchanged from FSM-26.122 p.362"}
+    "26.124": {status: documented, note: "FSM-26.124 p.362, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.363 writes the command on one line, the colormap, the
-        thickness and the height in pixels, where SRC-752 p.362 wrote a
+        FSM-26.125 p.363 writes the command on one line, the colormap, the
+        thickness and the height in pixels, where FSM-26.124 p.362 wrote a
         keyword line for each
       args:
         - name: colormap
@@ -123,22 +123,22 @@ SET_SCENE_COLORMAP_POSITION:
     - name: y
       type: int
       unit: "pixels"
-  manual_ref: "SRC-003 p.356"
+  manual_ref: "FSM-26.120 p.356"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.330, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.329, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.352, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.355, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.317, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.330, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.329, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.352, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.355, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.359, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.362, unchanged from SRC-750 p.362"}
-    "26.124": {status: documented, note: "SRC-752 p.362, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.359, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.362, unchanged from FSM-26.122 p.362"}
+    "26.124": {status: documented, note: "FSM-26.124 p.362, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.363 writes the command on one line, the colormap then X and
-        Y in pixels, where SRC-752 p.362 wrote a keyword line for each
+        FSM-26.125 p.363 writes the command on one line, the colormap then X and
+        Y in pixels, where FSM-26.124 p.362 wrote a keyword line for each
       args:
         - name: colormap
           on_command_line: true
@@ -164,22 +164,22 @@ SET_SCENE_COLORMAP_SHADING:
     - name: smooth
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 pp.356-357"
+  manual_ref: "FSM-26.120 pp.356-357"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.317, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.330, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.329, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 pp.352-353, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.355-356, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.317, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.330, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.329, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 pp.352-353, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.355-356, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 pp.359-360, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.362, unchanged from SRC-750 p.362"}
-    "26.124": {status: documented, note: "SRC-752 p.362, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 pp.359-360, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.362, unchanged from FSM-26.122 p.362"}
+    "26.124": {status: documented, note: "FSM-26.124 p.362, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.363 writes the command on one line, the colormap, the
-        reverse toggle and the smooth toggle, where SRC-752 p.362 wrote a
+        FSM-26.125 p.363 writes the command on one line, the colormap, the
+        reverse toggle and the smooth toggle, where FSM-26.124 p.362 wrote a
         keyword line for each
       args:
         - name: colormap
@@ -204,22 +204,22 @@ SET_SCENE_COLORMAP_CUSTOM_MODE:
     - name: custom_range
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.357"
+  manual_ref: "FSM-26.120 p.357"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.318, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.331, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.330, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.353, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.356, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.318, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.331, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.330, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.353, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.356, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.360, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.363, unchanged from SRC-750 p.363"}
-    "26.124": {status: documented, note: "SRC-752 p.363, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.360, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.363, unchanged from FSM-26.122 p.363"}
+    "26.124": {status: documented, note: "FSM-26.124 p.363, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.363 writes the command on one line, the colormap then the
-        toggle, where SRC-752 p.363 wrote a keyword line for each
+        FSM-26.125 p.363 writes the command on one line, the colormap then the
+        toggle, where FSM-26.124 p.363 wrote a keyword line for each
       args:
         - name: colormap
           on_command_line: true
@@ -249,22 +249,22 @@ SET_SCENE_COLORMAP_CUSTOM_RANGE:
       type: float
     - name: minimum
       type: float
-  manual_ref: "SRC-003 p.357"
+  manual_ref: "FSM-26.120 p.357"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.318, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.331, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.330, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.353, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.356, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.318, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.331, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.330, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.353, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.356, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.360, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.363, unchanged from SRC-750 p.363"}
-    "26.124": {status: documented, note: "SRC-752 p.363, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.360, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.363, unchanged from FSM-26.122 p.363"}
+    "26.124": {status: documented, note: "FSM-26.124 p.363, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.364 writes the command on one line, the colormap, the
-        cut-off mode, the maximum and the minimum, where SRC-752 p.363 wrote
+        FSM-26.125 p.364 writes the command on one line, the colormap, the
+        cut-off mode, the maximum and the minimum, where FSM-26.124 p.363 wrote
         a keyword line for each (its sample names the custom-mode command,
         the signature this one)
       args:

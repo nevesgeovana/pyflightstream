@@ -68,8 +68,8 @@ def flow_mapping(pairs: Mapping[str, object]) -> str:
 
     Examples
     --------
-    >>> flow_mapping({"status": "documented", "note": "SRC-751 p.290"})
-    '{status: documented, note: "SRC-751 p.290"}'
+    >>> flow_mapping({"status": "documented", "note": "FSM-26.123 p.290"})
+    '{status: documented, note: "FSM-26.123 p.290"}'
 
     A note carrying a quote character is escaped rather than emitted
     raw, which is the case that used to produce a file YAML refuses:

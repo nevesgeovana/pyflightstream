@@ -737,9 +737,9 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     # (CMP-26120_2026-10-12_pfs2135-items); the evidence line states the status and the report.
     captured[plan_name] = captured[plan_name].replace(
         b"CREATE_BULK_SEPARATION; build 26.120: documented; documented default: unknown "
-        b"(no default citation). Source: SRC-003 p.342. ",
+        b"(no default citation). Source: FSM-26.120 p.342. ",
         b"CREATE_BULK_SEPARATION; build 26.120: broken; documented default: unknown "
-        b"(no default citation). Source: SRC-003 p.342. "
+        b"(no default citation). Source: FSM-26.120 p.342. "
         b"reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml",
     )
     # Public command prose is also serialized into plan evidence. Keep the

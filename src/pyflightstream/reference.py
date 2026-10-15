@@ -378,10 +378,10 @@ def _chapter_title(chapter: str) -> str:
     return chapter.replace("_", " ").capitalize()
 
 
-# Manual citations as the database writes them: "SRC-003 p.341",
-# "SRC-003 pp.344-346". Page numbers only, never manual text.
-_CITATION_PATTERN = re.compile(r"SRC-(\d{3})\s+pp?\.\s?(\d+)(?:\s*-\s*(\d+))?")
-_EDITION_SOURCE_PATTERN = re.compile(r"SRC-\d{3}")
+# Manual citations as the database writes them: "FSM-26.120 p.341",
+# "FSM-26.120 pp.344-346". Page numbers only, never manual text.
+_CITATION_PATTERN = re.compile(r"(FSM-(?:\d{2}\.\d{3}|TEST))\s+pp?\.\s?(\d+)(?:\s*-\s*(\d+))?")
+_EDITION_SOURCE_PATTERN = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)")
 _EDITION_RANGE_PATTERN = re.compile(r"pp\.?\s*(\d+)\s*-\s*(\d+)")
 
 
@@ -417,7 +417,7 @@ def _citation_pages(text: str) -> dict[str, set[int]]:
     """Return the manual pages cited in ``text``, keyed by source id."""
     pages: dict[str, set[int]] = {}
     for match in _CITATION_PATTERN.finditer(text):
-        source = f"SRC-{match.group(1)}"
+        source = match.group(1)
         start = int(match.group(2))
         end = int(match.group(3) or start)
         pages.setdefault(source, set()).update(range(start, end + 1))
@@ -446,7 +446,7 @@ def _database_cited_pages() -> dict[str, set[int]]:
     -------
     dict of str to set of int
         Cited page numbers keyed by source id (for example
-        ``"SRC-003"``).
+        ``"FSM-26.120"``).
     """
     pages: dict[str, set[int]] = {}
 

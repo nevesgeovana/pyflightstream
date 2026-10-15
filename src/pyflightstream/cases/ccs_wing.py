@@ -31,7 +31,7 @@ THE FILE ROUTE (``kind = "file"``) is ``CCS_IMPORT``, which imported all three
 components of one file on 26.124 with each boundary named after its
 ``Component`` line (probe C0). It is the only route that reads a component's
 ``Relaxed_TE`` line, whose last value is the direction of the relaxed wake's
-parametric shedding line (SRC-752 p.85); the script commands
+parametric shedding line (FSM-26.124 p.85); the script commands
 ``NEW_CCS_FUSELAGE_RELAXED_TE`` and ``NEW_CCS_REVOLVE_RELAXED_TE`` take no
 direction. So a row choosing that direction (``CCS_SHEDDING``, G35) is a row on
 the file route, and the run imports its own copy of the file with every
@@ -246,7 +246,7 @@ def emit_ccs_wing(script: Script, case: SimCase) -> None:
             if count is not None:
                 script.emit("CCS_WING_MESH_SUBDIVISIONS", direction, count)
     # 26.125 asks for the curves to be assigned to the component before its
-    # control surfaces (SRC-753 p.307); no earlier build carries the command.
+    # control surfaces (FSM-26.125 p.307); no earlier build carries the command.
     helpers.assign_selected_ccs_curves(script, "wing")
     for surface in spec.control_surfaces:
         # ALL TEN, SPACE and AXIS included: round 1 on 26.124 refused the
@@ -290,7 +290,7 @@ def _shedding(case: SimCase) -> str | None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {CCS_SHEDDING_VARIABLE} as {value!r}, and the "
             "shedding line of a Relaxed_TE component runs AXIAL (0), the default, or "
-            f"AZIMUTH (1) (SRC-752 p.85). The library says: {error}"
+            f"AZIMUTH (1) (FSM-26.124 p.85). The library says: {error}"
         ) from error
 
 
@@ -426,7 +426,7 @@ def emit_ccs_geometry(script: Script, case: SimCase) -> None:
             f"case {case.sim_id!r} declares {CCS_SHEDDING_VARIABLE} on a {spec.kind} loft, "
             "and the direction of a Relaxed_TE shedding line exists only in the CCS file's "
             "own Relaxed_TE line: the loft route's relaxed trailing-edge commands take no "
-            'direction (SRC-752 pp.306, 309). Use kind = "file" in [import.ccs], which '
+            'direction (FSM-26.124 pp.306, 309). Use kind = "file" in [import.ccs], which '
             "imports the file with its Relaxed_TE lines in the row's direction."
         )
     if spec.kind == "wing":

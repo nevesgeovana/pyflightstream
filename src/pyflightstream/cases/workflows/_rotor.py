@@ -362,7 +362,7 @@ def rotor_shedding_direction(case: SimCase) -> str | None:
     """Return the relaxed-wake shedding direction this rotor row asks for.
 
     The direction is a field of the relaxed trailing-edge COMPONENT
-    specification and not a scripting argument (SRC-751 p.85), so no
+    specification and not a scripting argument (FSM-26.123 p.85), so no
     workflow emits it. This function parses the value for the Python
     helper :func:`rotor_relaxed_trailing_edges`, which applies it to the
     specifications a component definition carries. A matrix row stating
@@ -447,7 +447,7 @@ def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -
         direction; see :func:`rotor_shedding_direction`.
     specifications : sequence of str
         The relaxed trailing-edge specifications as the component
-        definition carries them, three values or four (SRC-752 p.85).
+        definition carries them, three values or four (FSM-26.124 p.85).
 
     Returns
     -------
@@ -751,7 +751,7 @@ def _rotor_motions(
 
     N records, N motions, each with its own fixed frame at its hub and its
     own moving frame attached to it by ``SET_MOTION_MOVING_FRAMES``
-    (documented on every build, SRC-003 p.333, and verified on none).
+    (documented on every build, FSM-26.120 p.333, and verified on none).
 
     THE FRAMES TAKE THE ROTOR'S ALIAS AS THEIR RADICAL (FR-62, the design
     of 2026-09-10): ``<ALIAS>_SMRP`` at the hub, static; ``<ALIAS>_RMRP``

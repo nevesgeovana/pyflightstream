@@ -22,7 +22,7 @@ class Layout(enum.StrEnum):
     ``bare`` has no arguments; ``inline`` takes arguments on the command
     line; ``param_lines`` takes the command name alone and its
     parameters each on a following line, ended by a blank line (the
-    multi-line function grammar of SRC-003 p.279, for example OPEN on
+    multi-line function grammar of FSM-26.120 p.279, for example OPEN on
     p.282); ``payload_lines`` takes a count followed by that many data
     lines; ``keyword_block`` takes KEY VALUE lines until a terminator.
     """
@@ -40,7 +40,7 @@ class Phase(enum.StrEnum):
     The script builder tracks the highest phase reached and rejects a
     command whose phase precedes it (SAD phase-ordering rule).
     ``control`` marks script-control commands (STOP, PRINT, log export;
-    SRC-003 pp.281-283) that may appear anywhere; the builder exempts
+    FSM-26.120 pp.281-283) that may appear anywhere; the builder exempts
     them from phase ordering.
     """
 
@@ -91,16 +91,16 @@ class ArgType(enum.StrEnum):
 
     ``int_list`` is a comma-separated list of integer indices on one
     data line, the grammar FlightStream uses for boundary and surface
-    selections (for example SRC-003 p.319). ``float_list`` is a list of
+    selections (for example FSM-26.120 p.319). ``float_list`` is a list of
     real values, for example the custom sweep values of
-    SWEEPER_SET_AOA_SWEEP (SRC-003 p.406). ``str_list`` is a list of
+    SWEEPER_SET_AOA_SWEEP (FSM-26.120 p.406). ``str_list`` is a list of
     preformatted composite tokens, one per data line, used where a
     single line pairs an index with a toggle, such as the per-surface
-    ``index,ENABLE`` lines of INITIALIZE_SOLVER (SRC-003 p.337); the
+    ``index,ENABLE`` lines of INITIALIZE_SOLVER (FSM-26.120 p.337); the
     typed pair validation lives in the curated helper that emits it.
     ``bool`` is a presence keyword of a keyword_block: True emits the
     bare keyword line and False (or omission) emits nothing, the
-    grammar of the CLEAR keyword of IMPORT (SRC-003 p.307).
+    grammar of the CLEAR keyword of IMPORT (FSM-26.120 p.307).
     """
 
     INT = "int"
@@ -140,7 +140,7 @@ class ListSeparator(enum.StrEnum):
     """How a list-typed argument joins its values in the script.
 
     The manual samples show three grammars: comma-separated on one
-    line (SRC-003 p.332), space-separated on one line (p.364), and one
+    line (FSM-26.120 p.332), space-separated on one line (p.364), and one
     value per line (pp.338, 352).
     """
 
@@ -210,25 +210,25 @@ class ArgSpec(BaseModel):
     required : bool
         Whether the argument must be supplied; optional arguments are
         the ones the manual marks as such (for example
-        LOAD_SOLVER_INITIALIZATION of OPEN, SRC-003 p.282).
+        LOAD_SOLVER_INITIALIZATION of OPEN, FSM-26.120 p.282).
     separator : ListSeparator
         How a list-typed argument joins its values when rendered; the
         manual fixes it per command (see :class:`ListSeparator`).
     own_line : bool
         For inline commands whose file path follows on the line after
         the inline arguments (for example SET_PROP_ACTUATOR_PROFILE,
-        SRC-003 pp.323-324).
+        FSM-26.120 pp.323-324).
     joins_previous : bool
         The value is appended to the script line of the preceding
         argument instead of taking its own KEY VALUE line; the copy
         count that PERIODIC symmetry appends to the SYMMETRY line of
-        INITIALIZE_SOLVER (SRC-003 p.337) is the documented case.
+        INITIALIZE_SOLVER (FSM-26.120 p.337) is the documented case.
     on_command_line : bool
         For a keyword_block command whose LEADING arguments sit on the
         command's own line rather than taking a KEY VALUE line of their
         own. WRAPPER_EDIT_LOCAL_CONTROL is the documented case: the
         control's id follows the command name and the surfaces and
-        target size are keyword lines beneath it (SRC-003 p.314).
+        target size are keyword lines beneath it (FSM-26.120 p.314).
 
         Distinct from ``joins_previous``, which appends to the line the
         PRECEDING ARGUMENT wrote and therefore cannot apply to the first
@@ -242,7 +242,7 @@ class ArgSpec(BaseModel):
         the length is free or a count governs it.
         SET_MOTION_6DOF_ACTIVE_VARIABLES is the documented case: six
         toggle lines, one per degree of freedom, with nothing counting
-        them (SRC-003 p.334). A short payload makes the solver read the
+        them (FSM-26.120 p.334). A short payload makes the solver read the
         next command as data.
     cites : EntityKind, optional
         The auxiliary entity this argument's index refers to, declared
@@ -260,7 +260,7 @@ class ArgSpec(BaseModel):
         Mesh Operations chapter spells a surface reference ``index``,
         and
         three other chapters spell a section or separation index the
-        same way (SRC-003 pp.309-313).
+        same way (FSM-26.120 pp.309-313).
     all_sentinel : int, optional
         The value this argument uses to select every entity of its
         kind, when the command's manual page states one. ABSENT MEANS
@@ -270,7 +270,7 @@ class ArgSpec(BaseModel):
 
         The pages disagree three ways, which is why the fact lives on
         the argument. TRANSLATE_SURFACE_IN_FRAME and
-        TRANSLATE_SURFACE_BY_FRAME state zero (SRC-003 p.309); seven
+        TRANSLATE_SURFACE_BY_FRAME state zero (FSM-26.120 p.309); seven
         boundary indices state -1 (pp.307, 310-312); six state nothing,
         and SURFACE_RENAME renaming every surface to one name is what
         accepting -1 there meant. Requires ``cites``, since a sentinel
@@ -402,7 +402,7 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
     if layout is not Layout.KEYWORD_BLOCK and any(arg.type is ArgType.BOOL for arg in args):
         raise CommandDatabaseError(
             f"{name}: bool arguments are bare presence keywords of a "
-            "keyword_block (SRC-003 p.307); other layouts spell their toggles "
+            "keyword_block (FSM-26.120 p.307); other layouts spell their toggles "
             "as ENABLE/DISABLE enums"
         )
     _check_inline_lists(name, layout, args)

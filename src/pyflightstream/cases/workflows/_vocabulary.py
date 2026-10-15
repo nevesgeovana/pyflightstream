@@ -155,7 +155,7 @@ TRANSLATION_ALIAS_KEY = ROTATION_ALIAS_KEY
 TRANSLATION_OPTIONAL_KEYS = ROTATION_OPTIONAL_KEYS
 #: The direction a rotor case's relaxed trailing edges shed their wake:
 #: AXIAL (0) or AZIMUTH (1), the second being what 26.123 adds and what a
-#: rotor case wants (SRC-751 p.85). Absent means the row asks for nothing
+#: rotor case wants (FSM-26.123 p.85). Absent means the row asks for nothing
 #: and every specification stays exactly as it was written.
 ROTOR_SHEDDING_VARIABLE = "ROTOR_SHEDDING"
 BLADES_VARIABLE = "BLADES"
@@ -323,7 +323,7 @@ EXPORT_THRESHOLD_VARIABLES: tuple[str, ...] = (
 #:
 #: ``MIRROR`` CARRIES A CAUTION THIS KEY CANNOT ENFORCE: initializing a
 #: mirrored solution with the FULL model loaded diverges immediately,
-#: because the model is then its own mirror image (SRC-003 p.217). The
+#: because the model is then its own mirror image (FSM-26.120 p.217). The
 #: mode describes what was MESHED, so a row declaring it must have
 #: staged the half. Nothing here can check that, which is why it is
 #: written where the mode is chosen rather than only in the helper.
@@ -492,7 +492,7 @@ _NOT_EXTRACTED_KINDS: tuple[str, ...] = (
 
 #: How many periodic copies the sector stands for, dimensionless count.
 #: Required with ``SYMMETRY: PERIODIC`` and forbidden otherwise, which is
-#: the command's own rule (SRC-003 p.337) and is enforced by
+#: the command's own rule (FSM-26.120 p.337) and is enforced by
 #: :func:`pyflightstream.script.helpers.initialize_solver`; a
 #: four-bladed rotor modelled as one 90 degree sector declares 4.
 PERIODIC_COPIES_VARIABLE = "PERIODIC_COPIES"
@@ -568,7 +568,7 @@ _IMPORT_COMMANDS: Mapping[str, str] = MappingProxyType(
     }
 )
 
-#: ``SURFACE_MIRROR``'s plane is an INDEX and not letters (SRC-003 p.311).
+#: ``SURFACE_MIRROR``'s plane is an INDEX and not letters (FSM-26.120 p.311).
 _MIRROR_PLANES: Mapping[str, int] = MappingProxyType({"YZ": 1, "XZ": 2, "XY": 3})
 
 #: The frame every import operation acts in: the reference, the one frame

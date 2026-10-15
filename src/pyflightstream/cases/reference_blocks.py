@@ -328,7 +328,7 @@ class ActuatorBlock(BaseModel):
     """One actuator disc, declared as one block of the reference artifact (G06).
 
     The linearized propeller slipstream the solver models with an actuator
-    (SRC-003 pp.185-187). Its GEOMETRY is the configuration's, so it lives in
+    (FSM-26.120 pp.185-187). Its GEOMETRY is the configuration's, so it lives in
     the reference beside the rotors and the frames, as a top-level table with
     ``kind = "actuator"`` whose NAME is the disc's name; its LOADING is the
     condition's, so a row states it (``ACTUATOR``, ``ACTUATOR_RPM`` and one of

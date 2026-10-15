@@ -564,8 +564,8 @@ def phy06_metrics(steady: list[PointResult], unsteady: list[PointResult]) -> dic
         tag = f"a{alpha:g}"
         s, u = by_alpha_steady[alpha].total, by_alpha_unsteady[alpha].total
         metrics[f"delta_CL_{tag}"] = u["CL"] - s["CL"]
-        # THE TOTAL DRAG IS THE SUM OF THE SPLIT ON EITHER BUILD: SRC-752 p.227
-        # states it of CDi and CDo, SRC-753 p.229 of CDp and CDv (FR-423).
+        # THE TOTAL DRAG IS THE SUM OF THE SPLIT ON EITHER BUILD: FSM-26.124 p.227
+        # states it of CDi and CDo, FSM-26.125 p.229 of CDp and CDv (FR-423).
         metrics[f"delta_CD_{tag}"] = sum(u[name] for name in drag_pair(u)) - sum(
             s[name] for name in drag_pair(s)
         )

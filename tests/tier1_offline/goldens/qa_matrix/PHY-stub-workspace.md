@@ -15,7 +15,7 @@ geometry is involved.
 |---|---|
 | Source | matriz_physics.fs in workspace ws |
 | Executable | FlightStream_26120.exe (sha256 not recorded, local, never committed) |
-| Executor | StubSolver, `stub_solver.py P5001-V0300RHO12250AL+sweep.txt` (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023) |
+| Executor | StubSolver, `stub_solver.py P5001-V0300RHO12250AL+sweep.txt` (as run; mechanism FSM-26.120 pp.279-280; argument spelling RPT-023) |
 | Package | pyflightstream {package_version} |
 | Solver identity | Flightstream version 26.1, build 7012026 |
 

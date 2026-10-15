@@ -44,7 +44,7 @@ from pyflightstream.qa._spec_kit import (  # noqa: E402
     sheet_matches,
 )
 
-# --- probe points (SRC-003 pp.362-363) ---------------------------------
+# --- probe points (FSM-26.120 pp.362-363) ---------------------------------
 
 _spec(
     command="NEW_PROBE_POINT",
@@ -65,7 +65,7 @@ _spec(
 
 
 def _probe_import_target(script: Script, workdir: Path) -> None:
-    # Lattice format per the curated helper evidence (SRC-003
+    # Lattice format per the curated helper evidence (FSM-26.120
     # pp.362-363): first line the count, then X,Y,Z,TYPE rows.
     lattice = workdir / "lattice.csv"
     _textio.write_text(lattice, "2\n0.8765,0.1,0.2,1\n0.7654,0.3,0.4,1\n")
@@ -107,7 +107,7 @@ _spec(
 )
 
 
-# --- streamlines (SRC-003 pp.360-361) ----------------------------------
+# --- streamlines (FSM-26.120 pp.360-361) ----------------------------------
 
 
 def _streamline_epilogue(script: Script, workdir: Path) -> None:
@@ -188,7 +188,7 @@ _spec(
 )
 
 
-# --- surface sections (SRC-003 pp.357-359) -----------------------------
+# --- surface sections (FSM-26.120 pp.357-359) -----------------------------
 
 _CREATE_SECTION = _emit("CREATE_NEW_SURFACE_SECTION", 1, "XZ", 0.05, "1", "DISABLE", -1)
 
@@ -275,7 +275,7 @@ _spec(
 )
 
 
-# --- volume sections (SRC-003 pp.355-356) ------------------------------
+# --- volume sections (FSM-26.120 pp.355-356) ------------------------------
 
 _CREATE_RECT_VSECTION = _emit(
     "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
@@ -414,7 +414,7 @@ _spec(
 )
 
 
-# --- actuators (SRC-003 pp.323-324) ------------------------------------
+# --- actuators (FSM-26.120 pp.323-324) ------------------------------------
 
 _ACTUATOR_PRELUDE = _seq(
     _emit("CREATE_NEW_COORDINATE_SYSTEM"),
@@ -511,7 +511,7 @@ _spec(
 )
 
 
-# --- motion definitions (SRC-003 pp.332-336) ---------------------------
+# --- motion definitions (FSM-26.120 pp.332-336) ---------------------------
 
 _MOTION_PRELUDE = _emit("CREATE_NEW_MOTION", "ROTARY")
 
@@ -630,7 +630,7 @@ _motion_setter(
 )
 
 
-# --- sweeper toolbox (SRC-003 p.406) -----------------------------------
+# --- sweeper toolbox (FSM-26.120 p.406) -----------------------------------
 
 _SWEEP_AOA_PRELUDE = _emit("SWEEPER_SET_AOA_SWEEP", "CUSTOM", [2.0])
 
@@ -733,7 +733,7 @@ _spec(
 )
 
 
-# --- separation models (SRC-003 p.342, SRC-741 p.339) -----------------------
+# --- separation models (FSM-26.120 p.342, FSM-26.100 p.339) -----------------------
 #
 # PFS-2135.060 and .061: two entries whose records rest on ad-hoc runs (RPT-015,
 # RPT-018), which promote nothing. The bulk model names itself, so its effect is

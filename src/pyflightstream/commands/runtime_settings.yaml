@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, Runtime Settings (SRC-003
+# Chapter: Scripting reference, Runtime Settings (FSM-26.120
 # pp.339-340). These commands configure the initialized solver and are
 # re-emitted between campaign points.
 
@@ -9,19 +9,19 @@ SOLVER_SET_AOA:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
   notes: >
     Angle of attack; magnitude must stay below 90 degrees.
 
@@ -32,19 +32,19 @@ SOLVER_SET_SIDESLIP:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.338, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
   notes: >
     Side-slip angle; magnitude must stay below 90 degrees. Under SYMMETRY MIRROR the
     solver runs at zero sideslip whatever this command states and says so only in the
@@ -59,19 +59,19 @@ SOLVER_SET_VELOCITY:
     - name: velocity
       type: float
       unit: "m/s"
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
   notes: >
     Free-stream velocity magnitude.
 
@@ -81,19 +81,19 @@ SOLVER_SET_MACH_NUMBER:
   args:
     - name: mach
       type: float
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.338, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
 
 SOLVER_SET_ITERATIONS:
   layout: inline
@@ -101,19 +101,19 @@ SOLVER_SET_ITERATIONS:
   args:
     - name: num_iterations
       type: int
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.336, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
 
 SOLVER_SET_CONVERGENCE:
   layout: inline
@@ -121,22 +121,22 @@ SOLVER_SET_CONVERGENCE:
   args:
     - name: threshold
       type: float
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.336, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
   notes: >
     Residual threshold on surface velocity and pressure below which
-    the run is declared converged (SRC-003 p.200).
+    the run is declared converged (FSM-26.120 p.200).
 
 SOLVER_SET_FORCED_ITERATIONS:
   layout: inline
@@ -145,19 +145,19 @@ SOLVER_SET_FORCED_ITERATIONS:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.300, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.300, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.336, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.338, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
   notes: >
     When enabled the solver runs the full iteration count regardless
     of the convergence threshold.
@@ -169,24 +169,24 @@ SOLVER_SET_REF_VELOCITY:
     - name: velocity
       type: float
       unit: "m/s"
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.336, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
   notes: >
     Reference velocity for coefficient normalization. For steady runs
     it should equal the free-stream velocity; for rotary or hover
     cases the manual instructs using the largest characteristic
-    velocity, such as the rotor tip speed (SRC-003 p.201).
+    velocity, such as the rotor tip speed (FSM-26.120 p.201).
 
 SOLVER_SET_REF_MACH_NUMBER:
   layout: inline
@@ -194,19 +194,19 @@ SOLVER_SET_REF_MACH_NUMBER:
   args:
     - name: mach
       type: float
-  manual_ref: "SRC-003 p.339"
+  manual_ref: "FSM-26.120 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.314, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.313, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.338, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.338, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.336, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.344, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
 
 SOLVER_SET_REF_AREA:
   layout: inline
@@ -215,22 +215,22 @@ SOLVER_SET_REF_AREA:
     - name: area
       type: float
       unit: "simulation length units squared"
-  manual_ref: "SRC-003 pp.339-340"
+  manual_ref: "FSM-26.120 pp.339-340"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.315, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.314, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.315, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.314, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.337, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.345, unchanged from SRC-750 p.345"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.345, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.352, unchanged from SRC-752 p.345"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.345, unchanged from FSM-26.122 p.345"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.345, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}
   notes: >
     Reference area S_ref used in Q*S_ref force normalization
-    (coefficient definitions, SRC-003 p.223).
+    (coefficient definitions, FSM-26.120 p.223).
 
 SOLVER_SET_REF_LENGTH:
   layout: inline
@@ -239,22 +239,22 @@ SOLVER_SET_REF_LENGTH:
     - name: length
       type: float
       unit: "simulation length units"
-  manual_ref: "SRC-003 p.340"
+  manual_ref: "FSM-26.120 p.340"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.315, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.314, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.315, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.314, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.337, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.345, unchanged from SRC-750 p.345"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.345, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.352, unchanged from SRC-752 p.345"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.345, unchanged from FSM-26.122 p.345"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.345, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}
   notes: >
     Reference length L_ref used in Q*S_ref*L_ref moment normalization
-    (coefficient definitions, SRC-003 p.223).
+    (coefficient definitions, FSM-26.120 p.223).
 
 SET_MAX_PARALLEL_THREADS:
   layout: inline
@@ -262,16 +262,16 @@ SET_MAX_PARALLEL_THREADS:
   args:
     - name: num_cores
       type: int
-  manual_ref: "SRC-003 p.340"
+  manual_ref: "FSM-26.120 p.340"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.301, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.315, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.314, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.315, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.314, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
-    "26.101": {status: documented, note: "SRC-725 p.339, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.337, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.339, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.337, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.345, unchanged from SRC-750 p.345"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.345, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.352, unchanged from SRC-752 p.345"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.345, unchanged from FSM-26.122 p.345"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.345, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.352, unchanged from FSM-26.124 p.345"}

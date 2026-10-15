@@ -12,14 +12,14 @@ can place a mesh, through the keyword-only `translation_m`, so two
 components can be meshed at a controlled gap without a solver transform
 command entering the measurement. The wing
 is written as ASCII STL, one of the mesh formats the IMPORT command
-accepts (SRC-003 p.307).
+accepts (FSM-26.120 p.307).
 
 Reference frame: chord along +X (leading edge at x = 0), span along
 +Y, thickness along +Z; all lengths in meters. A half wing spans
 0 <= y <= span/2 with an open root section lying in the XZ plane, the
 shape the solver's MIRROR symmetry expects: a face on the symmetry
 plane would duplicate itself into coincident faces (the tip-treatment
-caveat of SRC-003 p.386, paraphrased).
+caveat of FSM-26.120 p.386, paraphrased).
 """
 
 from __future__ import annotations

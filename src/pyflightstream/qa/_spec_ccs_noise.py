@@ -133,7 +133,7 @@ def _ccs_select(script: Script, workdir: Path) -> None:
 
 #: The component kind of each component of the probe file, for the curve
 #: assignment 26.125 asks for before a component gets a control surface, a
-#: refinement zone or a trailing edge (FR-423, SRC-753 pp.307, 311, 314).
+#: refinement zone or a trailing edge (FR-423, FSM-26.125 pp.307, 311, 314).
 _COMPONENT_KINDS = {1: "wing", 2: "fuselage", 3: "revolution"}
 
 
@@ -528,7 +528,7 @@ def _export_revolve(script: Script, workdir: Path) -> None:
     """Emit the revolve export in the form its build's grammar states.
 
     26.125 states the revolve loft's form, the one the page's sample prints
-    (SRC-753 p.315), after the heading's six-placeholder form aborted on 26.124
+    (FSM-26.125 p.315), after the heading's six-placeholder form aborted on 26.124
     and 26.125; earlier builds keep the heading's form.
     """
     names = [

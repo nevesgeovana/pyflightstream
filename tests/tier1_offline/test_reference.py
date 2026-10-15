@@ -14,6 +14,38 @@ from pyflightstream.reference import (
 )
 
 
+@pytest.mark.parametrize(
+    "canonical",
+    [
+        "25.000",
+        "25.100",
+        "26.000",
+        "26.100",
+        "26.101",
+        "26.120",
+        "26.121",
+        "26.122",
+        "26.123",
+        "26.124",
+        "26.125",
+    ],
+    ids=lambda value: f"P0420-FSM-{value}",
+)
+def test_p0420_sweeps_fsm_id_resolves_to_edition_and_pages(canonical):
+    from pyflightstream import reference
+    from pyflightstream.versions import manual_editions
+
+    public_id = f"FSM-{canonical}"
+    assert manual_editions()[canonical].startswith(public_id + ":")
+    assert reference._citation_pages(f"{public_id} pp.300-302") == {public_id: {300, 301, 302}}
+
+
+def test_p0420_sweeps_synthetic_manual_id_is_parsed():
+    from pyflightstream import reference
+
+    assert reference._citation_pages("FSM-TEST p.12") == {"FSM-TEST": {12}}
+
+
 def _registered_sources() -> set[str]:
     """Every source id the registry declares, derived from the registry.
 
@@ -27,7 +59,7 @@ def _registered_sources() -> set[str]:
     return {
         match.group(1)
         for text in manual_editions().values()
-        if (match := re.match(r"\s*(SRC-\d{3})\b", text))
+        if (match := re.match(r"\s*(FSM-(?:\d{2}\.\d{3}|TEST))\b", text))
     }
 
 
@@ -78,7 +110,7 @@ def test_markdown_pages_carry_the_navigation_and_evidence():
     solver = pages["solver_settings.md"]
     assert '<span class="status-verified">verified</span>' in solver
     assert "reports/compat/" in solver
-    assert "SRC-725 p.340" in solver
+    assert "FSM-26.101 p.340" in solver
 
 
 def test_compatibility_matrix_is_honest_about_missing_evidence():
@@ -110,10 +142,10 @@ def test_compatibility_matrix_is_honest_about_missing_evidence():
         f"the matrix does not report {silent} commands as unrecorded for 26.000: {row}"
     )
     assert "| 0 |" in row, "no command is inherited by a base release, and the row must say 0"
-    assert "SRC-747" in row, (
+    assert "FSM-26.000" in row, (
         f"26.000's manual edition was registered, so the matrix must name it: {row}"
     )
-    assert "SRC-725" in page and "SRC-003" in page
+    assert "FSM-26.101" in page and "FSM-26.120" in page
     # Commands link back to their reference entry anchors.
     assert "[SET_SOLVER_STEADY](reference/solver_settings.md#set_solver_steady)" in page
 
@@ -122,9 +154,9 @@ def test_html_reference_carries_the_manual_coverage_section():
     page = render_html()
     assert "Manual coverage" in page
     # Chapter rows carry the page citations from the YAML headers.
-    assert "SRC-003 pp.341-343" in page
+    assert "FSM-26.120 pp.341-343" in page
     # A citation wrapped across header comment lines still reassembles.
-    assert "SRC-003 pp.344-346" in page
+    assert "FSM-26.120 pp.344-346" in page
     # The honesty notes: uncited pages are named, never guessed at.
     assert "not yet cited" in page
     assert "not absent from the manual" in page
@@ -134,7 +166,7 @@ def test_markdown_index_carries_the_manual_coverage_section():
     pages = markdown_reference_pages()
     index = pages["index.md"]
     assert "| Chapter | Manual pages | Commands drafted |" in index
-    assert "SRC-003 pp.341-343" in index
+    assert "FSM-26.120 pp.341-343" in index
     assert "## Manual coverage" in index
     assert "not yet cited" in index
     # EVERY REGISTERED EDITION ANSWERS, derived rather than listed. Two
@@ -489,7 +521,7 @@ def test_a_state_that_rests_on_a_run_says_so_and_one_that_reads_a_page_says_that
     def requires_a_run(status: Status) -> bool:
         """Whether the model refuses this status with no committed report."""
         try:
-            VersionStatus(status=status, note="an edition states the withdrawal, SRC-003 p.1")
+            VersionStatus(status=status, note="an edition states the withdrawal, FSM-26.120 p.1")
         except ValidationError:
             return True
         return False
@@ -658,7 +690,7 @@ def test_a_machine_promoted_removal_shows_its_run_in_the_rendered_matrix():
         layout="bare",
         phase="control",
         args=[],
-        manual_ref="SRC-003 p.281",
+        manual_ref="FSM-26.120 p.281",
         versions={
             "26.100": {"status": "documented"},
             "26.120": {
@@ -689,7 +721,7 @@ def test_only_a_removed_row_shows_its_report_in_the_version_cell():
         layout="bare",
         phase="control",
         args=[],
-        manual_ref="SRC-003 p.281",
+        manual_ref="FSM-26.120 p.281",
         versions={
             "26.120": {
                 "status": "verified",

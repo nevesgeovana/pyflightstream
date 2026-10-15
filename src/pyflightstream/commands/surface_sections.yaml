@@ -1,5 +1,5 @@
 # Chapter: Scripting reference, Post Processing, Surface Sections
-# (SRC-003 pp.364-365).
+# (FSM-26.120 pp.364-365).
 
 CREATE_NEW_SURFACE_SECTION:
   layout: payload_lines
@@ -26,19 +26,19 @@ CREATE_NEW_SURFACE_SECTION:
       cites: boundaries
       separator: space
       required: false
-  manual_ref: "SRC-003 p.364"
+  manual_ref: "FSM-26.120 p.364"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.323, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.336, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.335, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.358, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.323, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.336, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.335, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.363, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.358, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.370, unchanged from SRC-750 p.370"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.370, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.376, unchanged from SRC-752 p.370"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.370, unchanged from FSM-26.122 p.370"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.370, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
   notes: >
     SURFACES takes -1 for all boundaries; otherwise the space-separated
     surface indices follow on the next line.
@@ -69,11 +69,11 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       cites: boundaries
       separator: space
       required: false
-  manual_ref: "SRC-003 p.364"
+  manual_ref: "FSM-26.120 p.364"
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.323, this edition's own grammar; see the note below"
+      note: "FSM-25.000 p.323, this edition's own grammar; see the note below"
       args:
         - name: frame
           type: int
@@ -92,7 +92,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
           required: false
     "25.100":
       status: documented
-      note: "SRC-748 p.336, this edition's own grammar; see the note below"
+      note: "FSM-25.100 p.336, this edition's own grammar; see the note below"
       args:
         - name: frame
           type: int
@@ -111,7 +111,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
           required: false
     "26.000":
       status: documented
-      note: "SRC-747 p.335, this edition's own grammar; see the note below"
+      note: "FSM-26.000 p.335, this edition's own grammar; see the note below"
       args:
         - name: frame
           type: int
@@ -131,7 +131,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     "26.100":
       status: documented
       note: >-
-        SRC-741 p.358. SIX keywords, not seven: this edition's parameter
+        FSM-26.100 p.358. SIX keywords, not seven: this edition's parameter
         table and sample both pass straight from PLOT_DIRECTION to
         SURFACES, with no INCLUDE_SYMMETRY anywhere in the entry.
       args:
@@ -145,7 +145,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     "26.101":
       status: documented
       note: >-
-        SRC-725 p.363, the same six keywords as 26.100 and no
+        FSM-26.101 p.363, the same six keywords as 26.100 and no
         INCLUDE_SYMMETRY.
       args:
         - {name: frame, type: int, cites: frames}
@@ -158,9 +158,9 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.370, unchanged from SRC-750 p.370"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.370, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.376, unchanged from SRC-752 p.370"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.370, unchanged from FSM-26.122 p.370"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.370, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
   notes: >
     Creates NUM_SECTIONS sections at once; the surface indices follow
     the SURFACES line.
@@ -171,7 +171,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     edition to document it is 26.121. So the February and May rows
     declare their own six-keyword grammar; copying the default one would
     have told a caller on those builds that a keyword no evidence places
-    there is available (read on the pages, 2026-08-08). The manual grammar (SRC-003 p.364) aborted the
+    there is available (read on the pages, 2026-08-08). The manual grammar (FSM-26.120 p.364) aborted the
     original Tier 2 probe on 26.120, while a working 26.120 script
     additionally carries an INCLUDE_SYMMETRY keyword the manual does
     not list. The 2026-07-23 licensed re-probe
@@ -193,23 +193,23 @@ COMPUTE_SURFACE_SECTIONAL_LOADS:
       type: enum
       values: [COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE,
                KILOGRAM-FORCE]
-  manual_ref: "SRC-003 p.364"
+  manual_ref: "FSM-26.120 p.364"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.323, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.336, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.335, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.358, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.323, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.336, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.335, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.363, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.358, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.370, unchanged from SRC-750 p.370"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.370, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.376, unchanged from SRC-752 p.370"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.370, unchanged from FSM-26.122 p.370"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.370, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.376, unchanged from FSM-26.124 p.370"}
   notes: >
     Integrates the surface section properties into per-section loads.
     Call it only after the relevant sections are updated and before
-    EXPORT_SURFACE_SECTIONAL_LOADS (SRC-003 p.364).
+    EXPORT_SURFACE_SECTIONAL_LOADS (FSM-26.120 p.364).
 
 EXPORT_SURFACE_SECTIONAL_LOADS:
   layout: param_lines
@@ -217,19 +217,19 @@ EXPORT_SURFACE_SECTIONAL_LOADS:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 pp.364-365"
+  manual_ref: "FSM-26.120 pp.364-365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.363, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.324, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.337, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.336, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.363, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.359, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.371, unchanged from SRC-750 p.371"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.371, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.377, unchanged from SRC-752 p.371"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.371, unchanged from FSM-26.122 p.371"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
   notes: >
     Writes the sectional loads file consumed by the sectional-loads
     parser and the FSI coupling loop.
@@ -238,18 +238,18 @@ UPDATE_ALL_SURFACE_SECTIONS:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.365"
+  manual_ref: "FSM-26.120 p.365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.324, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.337, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.336, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.364, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.359, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.371, unchanged from SRC-750 p.371"}
-    "26.124": {status: documented, note: "SRC-752 p.371, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.377, unchanged from SRC-752 p.371"}
+    "26.123": {status: documented, note: "FSM-26.123 p.371, unchanged from FSM-26.122 p.371"}
+    "26.124": {status: documented, note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
 
 EXPORT_ALL_SURFACE_SECTIONS:
   layout: param_lines
@@ -257,19 +257,19 @@ EXPORT_ALL_SURFACE_SECTIONS:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 p.365"
+  manual_ref: "FSM-26.120 p.365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.324, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.337, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.336, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.364, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.359, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.371, unchanged from SRC-750 p.371"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.371, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.377, unchanged from SRC-752 p.371"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.371, unchanged from FSM-26.122 p.371"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
 
 EXPORT_SURFACE_SECTIONS:
   layout: inline
@@ -280,22 +280,22 @@ EXPORT_SURFACE_SECTIONS:
     - name: filename
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.365"
+  manual_ref: "FSM-26.120 p.365"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.368, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.371, unchanged from SRC-750 p.371"}
-    "26.124": {status: documented, note: "SRC-752 p.371, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.377; the previous probe consumed its END sentinel as the filename, so it does not verify this grammar. See RPT-036b finding 1."}
+    "26.123": {status: documented, note: "FSM-26.123 p.371, unchanged from FSM-26.122 p.371"}
+    "26.124": {status: documented, note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.377; the previous probe consumed its END sentinel as the filename, so it does not verify this grammar. See RPT-036b finding 1."}
   notes: >
     Exports one surface section by index (index greater than 0), with a
-    filename on the following line. SRC-003 p.365 names the command;
+    filename on the following line. FSM-26.120 p.365 names the command;
     GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-036b_the-owed-export-capture_2026-08-20.md, finding 1,
     records the following line being consumed as its filename. The corrected
     script has not been verified by a new licensed run. Added at 26.12; the
     26.1 manual documents only the all-sections export, so a 26.1
     script exports everything through EXPORT_ALL_SURFACE_SECTIONS and
-    filters afterwards (SRC-725 p.364).
+    filters afterwards (FSM-26.101 p.364).
 
 DELETE_SURFACE_SECTION:
   layout: inline
@@ -303,35 +303,35 @@ DELETE_SURFACE_SECTION:
   args:
     - name: index
       type: int
-  manual_ref: "SRC-003 p.365"
+  manual_ref: "FSM-26.120 p.365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.324, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.337, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.336, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.364, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.359, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.371, unchanged from SRC-750 p.371"}
-    "26.124": {status: documented, note: "SRC-752 p.371, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.377, unchanged from SRC-752 p.371"}
+    "26.123": {status: documented, note: "FSM-26.123 p.371, unchanged from FSM-26.122 p.371"}
+    "26.124": {status: documented, note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
 
 DELETE_ALL_SURFACE_SECTIONS:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.365"
+  manual_ref: "FSM-26.120 p.365"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.324, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.337, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.336, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.359, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.364, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.324, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.337, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.336, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.359, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.364, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.368, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.371, unchanged from SRC-750 p.371"}
-    "26.124": {status: documented, note: "SRC-752 p.371, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.377, unchanged from SRC-752 p.371"}
+    "26.121": {status: documented, note: "FSM-26.121 p.368, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.371, unchanged from FSM-26.122 p.371"}
+    "26.124": {status: documented, note: "FSM-26.124 p.371, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
   notes: >
     Deletes every surface section.
 

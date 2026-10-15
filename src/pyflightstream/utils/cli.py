@@ -94,7 +94,7 @@ __all__ = [
 _MANIFEST_EXAMPLE = """The --editions manifest is a YAML list, one row per registered build:
 
   - label: "26.121"
-    source: SRC-740
+    source: FSM-26.121
     manual: _private/manual/user-manual-26121.pdf
     chapter: 284-379
     index: 380-386
@@ -117,9 +117,9 @@ def _parser() -> argparse.ArgumentParser:
             "coverage and draft require --manual PDF, --source ID and --chapter-pages "
             "FIRST-LAST. Find the scripting reference range and optional --index-pages "
             "range in that edition's table of contents; use one-based PDF page numbers, "
-            "inclusive. The source ID is its bibliography citation (for example SRC-753). "
+            "inclusive. The source ID is its bibliography citation (for example FSM-26.125). "
             "Example for the 26.121 edition: pyfs-manual coverage --manual manual.pdf "
-            "--source SRC-740 --chapter-pages 284-379. "
+            "--source FSM-26.121 --chapter-pages 284-379. "
             "Install pyflightstream[manual] to read PDFs."
         ),
     )
@@ -131,7 +131,7 @@ def _parser() -> argparse.ArgumentParser:
     ):
         p = sub.add_parser(name, help=help_text)
         p.add_argument("--manual", required=True, help="path of the manual pdf")
-        p.add_argument("--source", required=True, help='citation id, for example "SRC-741"')
+        p.add_argument("--source", required=True, help='citation id, for example "FSM-26.100"')
         p.add_argument(
             "--chapter-pages",
             required=True,

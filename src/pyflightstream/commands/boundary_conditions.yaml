@@ -1,5 +1,5 @@
 # Chapter: Scripting reference, Boundary Conditions families used by
-# the core steady path: Trailing Edges (SRC-003 pp.319-320), Wake
+# the core steady path: Trailing Edges (FSM-26.120 pp.319-320), Wake
 # Termination Nodes (p.321), Free-Stream Velocity (p.322), Fluid
 # Properties (p.328).
 
@@ -7,15 +7,15 @@ AUTO_DETECT_TRAILING_EDGES:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-003 p.319"
+  manual_ref: "FSM-26.120 p.319"
   versions:
-    "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.292, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.314, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
-    "26.123": {status: documented, note: "SRC-751 p.323, unchanged from SRC-750 p.323"}
-    "26.124": {status: documented, note: "SRC-752 p.323, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.123": {status: documented, note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.323"}
+    "26.124": {status: documented, note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
   notes: >
     Finds and marks all trailing edge nodes in the geometry. Trailing
     edge marking controls where the wake is shed, so it must precede
@@ -30,13 +30,13 @@ SET_TRAILING_EDGE_TYPE:
     - name: type
       type: enum
       values: [STANDARD, RELAXED, JET_OUTFLOW, VORTEX_SHEDDING]
-  manual_ref: "SRC-003 pp.319-320"
+  manual_ref: "FSM-26.120 pp.319-320"
   versions:
-    "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.292, same grammar as 26.120"}
     "26.100":
       status: documented
       note: >-
-        SRC-741 p.314. THREE types, not four: this edition closes the
+        FSM-26.100 p.314. THREE types, not four: this edition closes the
         value set at JET_OUTFLOW and does not carry VORTEX_SHEDDING,
         which first appears as a type in the May edition. Checked
         against the wrapped-line failure mode that would fake it, with a
@@ -46,19 +46,19 @@ SET_TRAILING_EDGE_TYPE:
         - {name: te_index, type: int}
         - {name: type, type: enum, values: [STANDARD, RELAXED, JET_OUTFLOW]}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
-    "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.323, unchanged from SRC-750 p.324"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.323, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.329, unchanged from SRC-752 p.323"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.324"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
   notes: >
     STANDARD sheds the full net circulation (Kutta factor 1.0);
     RELAXED sheds half, approximating body carryover at non-lifting
-    trailing edges such as wing-fuselage junctions (SRC-003 p.164).
+    trailing edges such as wing-fuselage junctions (FSM-26.120 p.164).
 
     THE RELAXED TRAILING EDGE IS ALSO SPECIFIED OUTSIDE THE SCRIPT, AND
-    THE NEWEST EDITION ADDS A FIELD THERE. Paraphrasing SRC-751 p.85:
+    THE NEWEST EDITION ADDS A FIELD THERE. Paraphrasing FSM-26.123 p.85:
     relaxed-Kutta trailing edges can also be declared as a COMPONENT
     parameter, written where a component is defined rather than in a
     script, taking semicolon-separated fields; that edition gives it a
@@ -67,7 +67,7 @@ SET_TRAILING_EDGE_TYPE:
     default, 1 for the azimuth direction. The first four fields are
     unchanged, a chordwise or radial location and two spanwise or axial
     bounds, so the four-field form stays valid and the change is
-    additive. SRC-750 p.85 prints the four-field form, so this is a
+    additive. FSM-26.122 p.85 prints the four-field form, so this is a
     26.123 addition. The azimuth value is new control over the direction
     the relaxed wake sheds, which is what makes it a rotor fact and not
     a compatibility footnote.
@@ -96,35 +96,35 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
   args:
     - name: te_index
       type: int
-  manual_ref: "SRC-003 p.320"
+  manual_ref: "FSM-26.120 p.320"
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.294, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.293, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.294, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.293, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
-    "26.101": {status: documented, note: "SRC-725 p.319, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.315, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.319, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.315, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.323, unchanged from SRC-750 p.324"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.323, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.329, unchanged from SRC-752 p.323"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.324"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
 
 AUTO_DETECT_WAKE_TERMINATION_NODES:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-003 p.321"
+  manual_ref: "FSM-26.120 p.321"
   versions:
-    "26.000": {status: documented, note: "SRC-747 p.294, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.324, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.316, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.294, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.324, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.316, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.320, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.325, unchanged from SRC-750 p.325"}
+    "26.123": {status: documented, note: "FSM-26.123 p.325, unchanged from FSM-26.122 p.325"}
     "26.124":
       status: documented
       note: >-
-        SRC-752 p.325, the SRC-751 file, carried from 26.123. Ran on 26.124
+        FSM-26.124 p.325, the FSM-26.123 file, carried from 26.123. Ran on 26.124
         (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07): after IMPORT_WAKE_EDGES_FROM_FILE it marks
         nothing until the solver has initialised, and a repeated
         INITIALIZE_SOLVER clears the first initialisation and initialises
@@ -176,25 +176,25 @@ SET_FREESTREAM:
       type: path
       required: false
       own_line: true
-  manual_ref: "SRC-003 p.322"
+  manual_ref: "FSM-26.120 p.322"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.279, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.296, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.295, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.325, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.317, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.321, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.279, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.296, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.295, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.325, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.317, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.321, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.326, unchanged from SRC-750 p.326"}
-    "26.124": {status: documented, note: "SRC-752 p.326, the SRC-751 file, carried from 26.123; the ROTATION form ran on 26.124 in GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md (TWO ROTATION points against one CONSTANT baseline, all three CONVERGED), which measured its SENSE and is not an acceptance of the other two forms; the CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14 (RPT-071): a uniform field of the row's own speed loaded as the CONSTANT free stream at 0 deg, a field sheared in z moved the lift, and SOLVER_SET_AOA did not turn the field at 4 deg; the CUSTOM UNSTRUCTURED form ran on 26.124 under the licensed probe T16 (RPT-077) and read the same rows as the STRUCTURED one, a field did not reach beyond its grid (closest to the free stream there), a field carrying the incidence loaded the body as that incidence with CL and CDi printed in the stated angle's axes, and a saved simulation kept its field until SET_FREESTREAM was given again"}
-    "26.125": {status: documented, note: "SRC-753 p.332, unchanged from SRC-752 p.326"}
+    "26.123": {status: documented, note: "FSM-26.123 p.326, unchanged from FSM-26.122 p.326"}
+    "26.124": {status: documented, note: "FSM-26.124 p.326, the FSM-26.123 file, carried from 26.123; the ROTATION form ran on 26.124 in GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md (TWO ROTATION points against one CONSTANT baseline, all three CONVERGED), which measured its SENSE and is not an acceptance of the other two forms; the CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14 (RPT-071): a uniform field of the row's own speed loaded as the CONSTANT free stream at 0 deg, a field sheared in z moved the lift, and SOLVER_SET_AOA did not turn the field at 4 deg; the CUSTOM UNSTRUCTURED form ran on 26.124 under the licensed probe T16 (RPT-077) and read the same rows as the STRUCTURED one, a field did not reach beyond its grid (closest to the free stream there), a field carrying the incidence loaded the body as that incidence with CL and CDi printed in the stated angle's axes, and a saved simulation kept its field until SET_FREESTREAM was given again"}
+    "26.125": {status: documented, note: "FSM-26.125 p.332, unchanged from FSM-26.124 p.326"}
   notes: >
     CONSTANT needs no further input. CUSTOM appends a FILETYPE token
     (STRUCTURED or UNSTRUCTURED) and takes the profile file path on
     the next line. ROTATION appends frame index, axis (X, Y or Z) and
     angular velocity in RPM. Which optional arguments each type takes
     is conditional; the free_stream helper enforces the valid
-    combinations (SRC-003 p.322).
+    combinations (FSM-26.120 p.322).
 
 FLUID_PROPERTIES:
   layout: keyword_block
@@ -214,11 +214,11 @@ FLUID_PROPERTIES:
       unit: "Pa s"
     - name: specific_heat_ratio
       type: float
-  manual_ref: "SRC-003 p.328"
+  manual_ref: "FSM-26.120 p.328"
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.286, this edition's own grammar; see the note below"
+      note: "FSM-25.000 p.286, this edition's own grammar; see the note below"
       args:
         - name: density
           type: float
@@ -233,7 +233,7 @@ FLUID_PROPERTIES:
           type: float
     "25.100":
       status: documented
-      note: "SRC-748 p.302, this edition's own grammar; see the note below"
+      note: "FSM-25.100 p.302, this edition's own grammar; see the note below"
       args:
         - name: density
           type: float
@@ -248,7 +248,7 @@ FLUID_PROPERTIES:
           type: float
     "26.000":
       status: documented
-      note: "SRC-747 p.301, this edition's own grammar; see the note below"
+      note: "FSM-26.000 p.301, this edition's own grammar; see the note below"
       args:
         - name: density
           type: float
@@ -261,18 +261,18 @@ FLUID_PROPERTIES:
           type: float
         - name: viscosity
           type: float
-    "26.100": {status: documented, note: "SRC-741 p.324, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.324, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.333, unchanged from SRC-750 p.333"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.333, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.340, unchanged from SRC-752 p.333"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.333, unchanged from FSM-26.122 p.333"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.333, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
   notes: >
     Sets the working fluid state as KEY VALUE lines. Sonic velocity is
     derived from temperature and specific heat ratio; it is no longer
-    an independent input (SRC-003 p.328).
+    an independent input (FSM-26.120 p.328).
 
 AIR_ALTITUDE:
   layout: inline
@@ -283,32 +283,32 @@ AIR_ALTITUDE:
     - name: units
       type: enum
       values: [FEET, METERS]
-  manual_ref: "SRC-003 p.328"
+  manual_ref: "FSM-26.120 p.328"
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.286, this edition's own grammar; see the note below"
+      note: "FSM-25.000 p.286, this edition's own grammar; see the note below"
       args:
         - name: value
           type: float
           unit: "ft"
-    "25.100": {status: documented, note: "SRC-748 p.302, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.301, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.302, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.301, same grammar as 26.120"}
     "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
     "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml",
       note: "Read that report with its erratum beside it, CMP-26122_2026-08-11_full_erratum_2026-08-11.md: the detail on this record carries the probe spec's static cross-build sentence, which is false on this build and which the record's own effect: true contradicts"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.333, unchanged from SRC-750 p.333"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.333, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.340, unchanged from SRC-752 p.333"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.333, unchanged from FSM-26.122 p.333"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.333, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.340, unchanged from FSM-26.124 p.333"}
   notes: >
     Sets the air properties from a standard-atmosphere altitude.
 
     THE 25.000 GRAMMAR TAKES A BARE VALUE AND THAT VALUE IS IN FEET.
-    SRC-749 p.286 states it on the parameter row itself, altitude in
-    feet units, with no units token to pass; SRC-748 p.302 introduces
+    FSM-25.000 p.286 states it on the parameter row itself, altitude in
+    feet units, with no units token to pass; FSM-25.100 p.302 introduces
     the second argument and the FEET or METERS choice with it. So the
     same call means different things on either side of that boundary,
     by a factor of 3.28, and the number alone cannot say which.
@@ -337,16 +337,16 @@ SONIC_VELOCITY:
     - name: value
       type: float
       unit: "m/s"
-  manual_ref: "SRC-003 p.328"
+  manual_ref: "FSM-26.120 p.328"
   versions:
-    "26.101": {status: removed, note: "Already deprecated in 26.1: the solver warns and ignores the value (SRC-725 p.327)."}
+    "26.101": {status: removed, note: "Already deprecated in 26.1: the solver warns and ignores the value (FSM-26.101 p.327)."}
     "26.120":
       status: removed
       successor: null
       note: >
         No longer supported; the solver throws a deprecation warning
         and ignores the value. Sonic velocity now follows from
-        temperature and specific heat ratio (SRC-003 p.328).
+        temperature and specific heat ratio (FSM-26.120 p.328).
 
 DETECT_TRAILING_EDGES_BY_SURFACE:
   layout: keyword_block
@@ -358,22 +358,22 @@ DETECT_TRAILING_EDGES_BY_SURFACE:
       type: int_list
       cites: boundaries
       separator: comma
-  manual_ref: "SRC-003 p.319"
+  manual_ref: "FSM-26.120 p.319"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.276, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.293, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.276, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.293, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.292, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.314, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.322, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.323, unchanged from SRC-750 p.323"}
-    "26.124": {status: documented, note: "SRC-752 p.323, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.322, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.323"}
+    "26.124": {status: documented, note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.329 adds a second sample, SURFACES -1 with no index line
-        after it, which checks every surface; the counted form of SRC-752
+        FSM-26.125 p.329 adds a second sample, SURFACES -1 with no index line
+        after it, which checks every surface; the counted form of FSM-26.124
         p.323 is unchanged
       args:
         - name: surfaces
@@ -396,15 +396,15 @@ TRAILING_EDGES_IMPORT:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.319"
+  manual_ref: "FSM-26.120 p.319"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.276, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.293, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.292, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.314, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.276, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.293, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.292, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.314, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.322, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.322, same grammar as 26.120"}
     "26.124":
       status: removed
       successor: IMPORT_WAKE_EDGES_FROM_FILE
@@ -413,7 +413,7 @@ TRAILING_EDGES_IMPORT:
         Measured 2026-09-23: the 26.124 solver answers the name as an
         unrecognized command, with its file present and with it absent,
         and with end vertices or edge mid-points in the file; its edition
-        stops printing the command, as SRC-751 did. Trailing edges are
+        stops printing the command, as FSM-26.123 did. Trailing edges are
         marked from a file on this build by IMPORT_WAKE_EDGES_FROM_FILE,
         whose file names edge mid-points rather than vertices (RPT-061)
   notes: >
@@ -429,11 +429,11 @@ TRAILING_EDGES_IMPORT:
     simulation's.
 
     THE NEWEST EDITION CONTRADICTS ITSELF ABOUT THIS COMMAND AND NO ROW
-    IS WRITTEN FOR IT. SRC-751 p.323 is where the block used to open and
+    IS WRITTEN FOR IT. FSM-26.123 p.323 is where the block used to open and
     the whole block is gone: that page carries the surviving neighbours,
     trailing-edge auto detection, detection by surface, the leading-edge
     wake detection and the wake-edge import, and prints this command
-    nowhere. SRC-751 p.390, the Script Index, still lists it under the
+    nowhere. FSM-26.123 p.390, the Script Index, still lists it under the
     same chapter heading. So the chapter body and the index disagree,
     and this is the first recorded instance of the index OVER-reporting;
     the caution recorded until now ran the other way, that the index
@@ -458,7 +458,7 @@ TRAILING_EDGES_IMPORT:
     that distinction correctly and this paragraph carries the reason.
 
     26.124 WAS ASKED, AND ITS ROW IS REMOVED (RPT-061). Its edition is
-    the SRC-751 file, so the document says what it says for 26.123; the
+    the FSM-26.123 file, so the document says what it says for 26.123; the
     run of 2026-09-23 is what differs, and the solver answered the name
     as an unrecognized command with a file present and absent. That is
     a fact about the solver, so the row is removed and cites the run.
@@ -471,27 +471,27 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
     - name: surface_id
       type: int
       cites: boundaries
-  manual_ref: "SRC-003 p.321"
+  manual_ref: "FSM-26.120 p.321"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.278, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.295, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.294, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.316, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.278, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.295, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.294, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.316, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.320, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.324, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.325, unchanged from SRC-750 p.325"}
+    "26.121": {status: documented, note: "FSM-26.121 p.324, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.325, unchanged from FSM-26.122 p.325"}
     "26.124":
       status: documented
       note: >-
-        SRC-752 p.325, the SRC-751 file, carried from 26.123. Ran on 26.124
+        FSM-26.124 p.325, the FSM-26.123 file, carried from 26.123. Ran on 26.124
         once (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07), right after IMPORT_WAKE_EDGES_FROM_FILE
         and before the solver was initialised, where it marked nothing, as
         AUTO_DETECT_WAKE_TERMINATION_NODES marks nothing there
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.331 adds -1, every boundary, to the surface index SRC-752
+        FSM-26.125 p.331 adds -1, every boundary, to the surface index FSM-26.124
         p.325 took as one surface, and its second sample passes it
       args:
         - name: surface_id
@@ -505,14 +505,14 @@ MARK_WAKE_TERMINATION_NODES:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-003 p.321"
+  manual_ref: "FSM-26.120 p.321"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.320, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.320, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.324, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.325, unchanged from SRC-750 p.325"}
-    "26.124": {status: documented, note: "SRC-752 p.325, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.331, unchanged from SRC-752 p.325"}
+    "26.121": {status: documented, note: "FSM-26.121 p.324, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.325, unchanged from FSM-26.122 p.325"}
+    "26.124": {status: documented, note: "FSM-26.124 p.325, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.331, unchanged from FSM-26.124 p.325"}
   notes: >
     Marks the currently SELECTED mesh nodes as wake termination nodes,
     which is the manual route where the two detection commands are the
@@ -530,7 +530,7 @@ PHYSICS:
       type: bool
     - name: auto_wake_nodes
       type: bool
-  manual_ref: "SRC-748 p.293"
+  manual_ref: "FSM-25.100 p.293"
   notes: >
     Opens a block that launches the geometry autodetection tools,
     trailing edges and wake termination nodes, and closes on END. Both
@@ -549,15 +549,15 @@ PHYSICS:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.276, this edition documents it"
+      note: "FSM-25.000 p.276, this edition documents it"
     "25.100":
       status: documented
-      note: "SRC-748 p.293, this edition documents it"
+      note: "FSM-25.100 p.293, this edition documents it"
     "26.000":
       status: removed
       successor: AUTO_DETECT_TRAILING_EDGES
       note: >-
-        SRC-747 pp.270-346, the whole scripting reference of the
+        FSM-26.000 pp.270-346, the whole scripting reference of the
         26.000 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -567,7 +567,7 @@ PHYSICS:
       status: removed
       successor: AUTO_DETECT_TRAILING_EDGES
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -577,7 +577,7 @@ PHYSICS:
       status: removed
       successor: AUTO_DETECT_TRAILING_EDGES
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -587,7 +587,7 @@ PHYSICS:
       status: removed
       successor: AUTO_DETECT_TRAILING_EDGES
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -597,7 +597,7 @@ PHYSICS:
       status: removed
       successor: AUTO_DETECT_TRAILING_EDGES
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -613,7 +613,7 @@ DETECT_LEADING_EDGES_WAKES_BY_SURFACE:
     - name: surface_indices
       type: int_list
       cites: boundaries
-  manual_ref: "SRC-750 p.323"
+  manual_ref: "FSM-26.122 p.323"
   notes: >
     Runs wake detection on the LEADING edges of the listed surfaces,
     which is what a vortex-shedding wake needs and what the
@@ -629,10 +629,10 @@ DETECT_LEADING_EDGES_WAKES_BY_SURFACE:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.323, the first edition to document it"
-    "26.123": {status: documented, note: "SRC-751 p.323, unchanged from SRC-750 p.323"}
-    "26.124": {status: documented, note: "SRC-752 p.323, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.329, unchanged from SRC-752 p.323"}
+      note: "FSM-26.122 p.323, the first edition to document it"
+    "26.123": {status: documented, note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.323"}
+    "26.124": {status: documented, note: "FSM-26.124 p.323, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.329, unchanged from FSM-26.124 p.323"}
 
 IMPORT_WAKE_EDGES_FROM_FILE:
   layout: inline
@@ -644,7 +644,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     - name: tolerance
       type: float
       unit: "simulation length units"
-  manual_ref: "SRC-750 p.324"
+  manual_ref: "FSM-26.122 p.324"
   notes: >
     Marks wake edges from an imported node list, matching an
     imported coordinate to a mesh edge whose mid-point is within
@@ -661,7 +661,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
 
     IT TAKES NO PATH, IN EITHER EDITION, AND THAT IS THE PAGE AND NOT
     A HOLE HERE. Both pages that document the command were read for
-    this question, SRC-750 p.324 and SRC-751 p.323, and each prints a
+    this question, FSM-26.122 p.324 and FSM-26.123 p.323, and each prints a
     signature with two placeholders and a sample call with two values.
     Neither says where the node list comes from, on its own line, as a
     third argument, or through a prior command. The one command in
@@ -739,13 +739,13 @@ IMPORT_WAKE_EDGES_FROM_FILE:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.324, the first edition to document it"
-    "26.123": {status: documented, note: "SRC-751 p.323, unchanged from SRC-750 p.324"}
+      note: "FSM-26.122 p.324, the first edition to document it"
+    "26.123": {status: documented, note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.324"}
     "26.124":
       status: verified
       report: "reports/compat/CMP-26124_2026-09-24_wake-edge-import.yaml"
       note: >-
-        SRC-752 p.323 prints the two-value line of SRC-751; this build
+        FSM-26.124 p.323 prints the two-value line of FSM-26.123; this build
         refuses that line as a syntax error, and reads the node list from
         the path on the next line only when the command line carries a
         third token (RPT-061). After it a wake-termination detection marks
@@ -764,10 +764,10 @@ IMPORT_WAKE_EDGES_FROM_FILE:
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
-        SRC-753 p.329 prints the third token 26.124 was measured to require
+        FSM-26.125 p.329 prints the third token 26.124 was measured to require
         (RPT-061) and names it: EDGE_TYPE, 1 when the file lists edge
         mid-points and 2 when it lists edge corner nodes, with the node
-        file's path on the line after the command. SRC-752 p.323 printed two
+        file's path on the line after the command. FSM-26.124 p.323 printed two
         values and no path
       args:
         - name: type

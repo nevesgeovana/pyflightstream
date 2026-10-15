@@ -828,7 +828,7 @@ EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
         EXPORT_EXCLUDED,
         None,
         "vtk",
-        "a free-surface mesh as VTK (26.125, SRC-753 p.338), read by ParaView and every "
+        "a free-surface mesh as VTK (26.125, FSM-26.125 p.338), read by ParaView and every "
         "VTK reader; no workflow writes it",
     ),
     "EXPORT_VOLUME_SECTION_2D_VTK": ExportConversion(

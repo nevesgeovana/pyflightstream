@@ -2,7 +2,7 @@
 
 Pipeline role: FlightStream's Aeroelastic Coupling Toolbox calls an
 external executable bare, once per time step, in the directory set by
-``SET_AEROELASTIC_WORKING_DIRECTORY`` (SRC-003 pp.375-376; evidence
+``SET_AEROELASTIC_WORKING_DIRECTORY`` (FSM-26.120 pp.375-376; evidence
 reports/RPT-005). This module is that executable, with two modes
 dispatched on the run folder's content:
 
@@ -229,7 +229,7 @@ def dummy_step(
     ]
     _textio.write_text(archive / "directory_listing.txt", "\n".join(listing_lines) + "\n")
 
-    # Comma separated per the FSIDisp.txt format of SRC-003 p.273.
+    # Comma separated per the FSIDisp.txt format of FSM-26.120 p.273.
     zero_line = "0.000000000000e+00,0.000000000000e+00,0.000000000000e+00"
     _textio.write_text(cwd / DISPLACEMENT_FILE, "\n".join([zero_line] * node_count) + "\n")
 

@@ -481,7 +481,7 @@ def _chapter_and_report(tmp_path):
         "  args:\n"
         "    - name: message\n"
         "      type: str\n"
-        '  manual_ref: "SRC-003 p.281"\n'
+        '  manual_ref: "FSM-26.120 p.281"\n'
         "  versions:\n"
         '    "26.120": {status: documented}\n',
         encoding="utf-8",

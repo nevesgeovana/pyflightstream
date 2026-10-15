@@ -1906,7 +1906,7 @@ def declined_surface_probes() -> tuple[GapProbe, ...]:
     """Return the licensed probe of a declined surface on 26.125 (PFS-2085.021).
 
     A surface on the vorticity induced-drag list with no trailing edge is not
-    computed, and builds up to 26.124 print its CDi as zero (SRC-003 p.202);
+    computed, and builds up to 26.124 print its CDi as zero (FSM-26.120 p.202);
     the polar declines it there. Whether 26.125, which prints CDp and CDv in
     place of CDi and CDo, prints the same zero was never measured, so the
     package declines nothing on 26.125. Two runs settle it: a wing and a sphere

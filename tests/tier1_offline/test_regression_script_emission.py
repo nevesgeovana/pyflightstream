@@ -104,7 +104,7 @@ class TestScriptEmit:
             layout="keyword_block",
             phase="geometry",
             args=[{"name": "flag", "type": "bool"}],
-            manual_ref="SRC-003 p.1",
+            manual_ref="FSM-26.120 p.1",
             versions={"26.124": {"status": "documented"}},
         )
         # Isolate the line reader from the database rule that today's bools are

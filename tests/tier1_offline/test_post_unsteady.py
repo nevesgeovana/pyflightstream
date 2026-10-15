@@ -17,7 +17,7 @@ THE FIXTURES ARE THIS PACKAGE'S OWN WRITERS, deliberately. No sample of
 the vendor's animation export exists anywhere in this repository, and
 inventing one would make the reader's tests agree with a guess. What the
 command's own database entry does say is that its two data filetypes are
-``TECPLOT_DATA`` and ``PARAVIEW_VTK`` (SRC-003 pp.347-348), and this
+``TECPLOT_DATA`` and ``PARAVIEW_VTK`` (FSM-26.120 pp.347-348), and this
 package writes both, so the frames these tests read are written by
 ``post.writers`` and the reader is held to a real round trip. What that
 does NOT establish is how the solver NAMES the frames, which is why the
@@ -90,7 +90,7 @@ def write_frames(folder, values, *, tecplot=True, solution_times=None):
 def test_the_reader_takes_the_order_the_caller_declares(tmp_path):
     """A declared order is evidence; a filename pattern is not.
 
-    ``frequency`` is counted in solver steps (SRC-003 pp.347-348), so
+    ``frequency`` is counted in solver steps (FSM-26.120 pp.347-348), so
     the step axis is frame index times frequency and the reader never
     reads a step out of a file name.
     """

@@ -3,7 +3,7 @@ case: PHY-02
 fs_version_basis: '26.125'
 updated: '2026-10-12'
 reason: 'initial 26.125 reference: first PHY-02 run on 26.125 build 10052026, both points converged; CDp
-  is the pressure drag 26.125 prints (SRC-753 p.229), seeded under the case''s declared 26.125 bands'
+  is the pressure drag 26.125 prints (FSM-26.125 p.229), seeded under the case''s declared 26.125 bands'
 source_report: GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/physics/PHY-26125_2026-10-12_pressure-drag.yaml
 metrics:
   CL_full_a4:

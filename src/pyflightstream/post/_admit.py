@@ -195,7 +195,7 @@ def _admit_point(
             f"point={stem} product=polars: the solver printed CDi exactly 0 for "
             f"{', '.join(declined)}, on the vorticity induced-drag list "
             "(SET_VORTICITY_DRAG_BOUNDARIES); a boundary there without a defined "
-            "trailing edge is not computed (SRC-003 p.202). The Total row keeps the "
+            "trailing edge is not computed (FSM-26.120 p.202). The Total row keeps the "
             "solver's printed number; every sum this package makes over those surfaces "
             "is NA. Give them a trailing edge, leave them off the list, or raise "
             "SET_SIGNIFICANT_DIGITS if the induced drag is merely small.",

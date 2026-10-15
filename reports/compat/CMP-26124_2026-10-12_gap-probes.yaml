@@ -4,7 +4,7 @@ date: '2026-10-12'
 package_version: 0.39.0
 fs_exe: Flightstream_26124.exe
 fs_exe_sha256: withheld; build 8172026
-executor: GatedExecutor, -hidden -script (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023)
+executor: GatedExecutor, -hidden -script (as run; mechanism FSM-26.120 pp.279-280; argument spelling RPT-023)
 solver_identity:
 - 'FlightStream version 26.1, build #8172026'
 summary:

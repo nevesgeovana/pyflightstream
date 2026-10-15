@@ -127,7 +127,7 @@ def test_every_report_derives_its_executor_line_from_the_executor(tmp_path):
     # are not the provenance.
     assert describe_invocation() == (
         f"LocalExecutor, -hidden {SCRIPT_ARGUMENT} "
-        "(mechanism SRC-003 pp.279-280; argument spelling RPT-023)"
+        "(mechanism FSM-26.120 pp.279-280; argument spelling RPT-023)"
     )
 
 

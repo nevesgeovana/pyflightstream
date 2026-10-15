@@ -334,7 +334,7 @@ PROMOTABLE_OUTCOMES = frozenset(ProbeOutcome) - {ProbeOutcome.UNPROBED}
 #: A per-edition manual page citation, as the database writes one. Used
 #: to recognise a row that an EDITION documents, which a measured
 #: removal contradicts rather than supersedes.
-_EDITION_PAGE = re.compile(r"SRC-\d+\s+pp?\.", re.IGNORECASE)
+_EDITION_PAGE = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)\s+pp?\.", re.IGNORECASE)
 
 
 @dataclass(frozen=True, kw_only=True)

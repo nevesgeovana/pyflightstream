@@ -1,7 +1,7 @@
 """F05: BL fluid parameters follow the manual of the run's build.
 
-SRC-750 and SRC-751 p.352 list all six for both fluid plots and surface
-probes. SRC-003 p.347 has only the eight non-BL fluid parameters.
+FSM-26.122 and FSM-26.123 p.352 list all six for both fluid plots and surface
+probes. FSM-26.120 p.347 has only the eight non-BL fluid parameters.
 """
 
 import pytest

@@ -502,9 +502,9 @@ def _translations(
     the hub now is.
 
     THE SURFACE MOVES BY THE MANUAL'S OWN COMMAND, in the frame it names
-    (SRC-751 p.313), one line per boundary of the alias. A FRAME MOVES TO AN
+    (FSM-26.123 p.313), one line per boundary of the alias. A FRAME MOVES TO AN
     ABSOLUTE ORIGIN: the manual leaves the axes of
-    ``TRANSLATE_COORDINATE_SYSTEM``'s vector unstated (SRC-751 pp.335-336)
+    ``TRANSLATE_COORDINATE_SYSTEM``'s vector unstated (FSM-26.123 pp.335-336)
     and states ``SET_COORDINATE_SYSTEM_ORIGIN``'s origin in the reference
     (p.334), so the new origin is computed from where the script placed the
     frame (:attr:`Script.frame_placements`) plus the distance along the AXIS

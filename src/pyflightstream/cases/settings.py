@@ -67,7 +67,7 @@ class ReferenceData(BaseModel):
     velocity : float, optional
         Reference velocity in m/s; None lets the recipe default it to
         the free-stream velocity (steady runs) or a characteristic
-        velocity such as the rotor tip speed (SRC-003 p.201).
+        velocity such as the rotor tip speed (FSM-26.120 p.201).
     rotor_diameter : float, optional
         Rotor diameter D in simulation length units, carried from
         the reference artifact's ``rotor_diameter_m``. It is the
@@ -216,7 +216,7 @@ class SolverSettings(BaseModel):
     iterations : int
         Solver iteration limit.
     convergence : float
-        Residual threshold declaring convergence (SRC-003 p.200).
+        Residual threshold declaring convergence (FSM-26.120 p.200).
     forced_iterations : bool, optional
         Run the full iteration count regardless of convergence. The
         solver's own words are accepted too (see below).
@@ -266,7 +266,7 @@ class SolverSettings(BaseModel):
         Switches the Reynolds-averaged (flat plate) boundary layer
         calculations.
     solver_stabilization : float, optional
-        Stabilization strength from 0 to 1 (SRC-003 p.346, documented range).
+        Stabilization strength from 0 to 1 (FSM-26.120 p.346, documented range).
         A preset that gates it with a separate
         ENABLE/DISABLE key resolves the pair before it arrives here:
         disabled means None, not zero.
@@ -345,7 +345,7 @@ class SolverSettings(BaseModel):
         Whether the reported loads are the meshed half's or sector's or
         the whole model's; a row's ``SYMMETRY_LOADS`` column wins over it.
     significant_digits : int, optional
-        Output precision from 1 to 8 (SRC-003 p.284, documented range).
+        Output precision from 1 to 8 (FSM-26.120 p.284, documented range).
     reference_velocity_m_per_s : float, optional
         The velocity the coefficients are normalised on, in m/s; unstated,
         the free-stream velocity.
@@ -674,7 +674,7 @@ class SolverSettings(BaseModel):
     #:
     #: SET_SOLVER_ANALYSIS_BOUNDARIES written as FAMILY NAMES, resolved like
     #: :attr:`vorticity_drag_families`: the boundaries that enter the loads, every
-    #: other one leaving the analysis (SRC-003 p.351). A family the geometry does
+    #: other one leaving the analysis (FSM-26.120 p.351). A family the geometry does
     #: not carry is left out, and a list that resolves to none is refused.
     analysis_families: list[str] | None = None
     #: SET_LOADS_AND_MOMENTS_UNITS: the unit the loads table prints, one of the

@@ -286,7 +286,7 @@ def test_sweep_requires_an_axis():
 
 def test_export_results_warns_on_the_deprecated_cp_variable():
     script = Script(version="26.120")
-    with pytest.warns(UserWarning, match=r"CP_REFERENCE or CP_FREESTREAM \(SRC-003 p\.352\)"):
+    with pytest.warns(UserWarning, match=r"CP_REFERENCE or CP_FREESTREAM \(FSM-26\.120 p\.352\)"):
         helpers.export_results(script, vtk="C:/out/a.vtk", vtk_variables=["CP", "VX"])
 
 
@@ -643,7 +643,7 @@ def test_the_atmosphere_helper_serves_both_fluid_property_grammars():
 def test_the_atmosphere_helper_names_the_build_when_the_fifth_property_is_wrong():
     """Both refusals name the caller's build and its own vocabulary.
 
-    The old message quoted SRC-003 p.328 at every caller, which is the
+    The old message quoted FSM-26.120 p.328 at every caller, which is the
     right page for five of the eight builds and a page about another
     document for the other three.
     """
@@ -717,7 +717,7 @@ def test_the_altitude_path_pins_the_unit_each_build_reads(canonical):
     # THE UNIT, not just the number. Asserting the prefix alone passed
     # while the same call emitted 1000 metres on seven builds and 1000
     # FEET on the eighth, a factor of 3.28 with nothing to notice it:
-    # 25.000 reads the bare value in feet (SRC-749 p.286) and the token
+    # 25.000 reads the bare value in feet (FSM-25.000 p.286) and the token
     # arrives at 25.100.
     assert lines[0] == ("AIR_ALTITUDE 1000.0 METERS" if takes_units else "AIR_ALTITUDE 1000.0")
 
@@ -726,7 +726,7 @@ def test_the_build_with_no_units_token_requires_the_unit_it_reads():
     """FEET is accepted there and silence is not, which is the whole point.
 
     A first version of this refused FEET, on the written ground that
-    the unit was undocumented. SRC-749 p.286 documents it on the
+    the unit was undocumented. FSM-25.000 p.286 documents it on the
     parameter row: the bare value is in feet. So the refusal named the
     one unit the page states and permitted the call that crosses the
     boundary silently, which is the gate inverted with respect to both
@@ -1437,7 +1437,7 @@ def test_exactly_one_rotation_command_resolves_on_every_registered_build():
 # The specification is a COMPONENT parameter, written where a component
 # is defined and not in a script, so this pair is the one place in the
 # helper module that takes no `script` and emits nothing. The line is
-# `Relaxed_TE;u;v1;v2;direction` (SRC-752 p.85): three values, and 26.123
+# `Relaxed_TE;u;v1;v2;direction` (FSM-26.124 p.85): three values, and 26.123
 # adds a fourth, the direction the relaxed wake sheds; the three-value
 # form of the earlier editions stays valid, which is the clause that
 # matters most here because artifacts written before this release carry
@@ -1454,7 +1454,7 @@ STATED_AZIMUTH = "0.5;0.1;0.9;1"
 def test_the_specification_accepts_the_direction_value():
     """Clause one: the five-field form parses, and says which direction.
 
-    SRC-751 p.85 gives the specification a fifth field, an integer
+    FSM-26.123 p.85 gives the specification a fifth field, an integer
     direction of the relaxed wake shedding, 1 being the azimuth
     direction. Before this item nothing in the package could read one.
     """

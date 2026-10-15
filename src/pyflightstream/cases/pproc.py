@@ -408,7 +408,7 @@ FORCE_PLOT_PARAMETERS: dict[str, tuple[str, str]] = {
     "CL": ("CL", "COEFFICIENTS"),
     "CDI": ("CDI", "COEFFICIENTS"),
     "CDO": ("CDO", "COEFFICIENTS"),
-    # The pressure and viscous drag split the 26.125 manual names (FR-423, SRC-753
+    # The pressure and viscous drag split the 26.125 manual names (FR-423, FSM-26.125
     # p.359); 26.125 also ran CDI and CDO (RPT-160), and no earlier build has these.
     "CDP": ("CDP", "COEFFICIENTS"),
     "CDV": ("CDV", "COEFFICIENTS"),
@@ -443,7 +443,7 @@ AXES_PLOT_GROUP = "MRP_TOTAL"
 #: expanding frame names its emissions `<alias>` in the rotor's own axes.
 ROTOR_PLOT_GROUP_PREFIX = "ROTOR_"
 
-#: Fluid parameters documented across builds (SRC-003 p.347, SRC-751 p.352).
+#: Fluid parameters documented across builds (FSM-26.120 p.347, FSM-26.123 p.352).
 #: The pproc has no build; the workflow checks the run's command-database enum.
 FLUID_PLOT_PARAMETERS = (
     "CP_FREE",
@@ -637,7 +637,7 @@ class SectionsSpec(BaseModel):
 #: both create commands take them. They are the values the verified create
 #: probes sent (``qa/specs.py``, the volume-section specs, verified on 26.120
 #: to 26.124); with ``NONE`` the manual reads no prism layer, and what the other
-#: three then mean is the manual's (SRC-003 p.366). A pproc cannot state them:
+#: three then mean is the manual's (FSM-26.120 p.366). A pproc cannot state them:
 #: a value no run has sent is not one this package offers.
 VOLUME_SECTION_PRISMS: tuple[str, float, int, float] = ("NONE", 0.1, 1, 1.2)
 

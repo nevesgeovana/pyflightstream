@@ -207,7 +207,7 @@ def surface_averaging_window(
 ) -> SurfaceAveragingWindow:
     """Resolve the solver surface window using the matrix averaging clock.
 
-    Bounds are inclusive time steps: SRC-750 p.353 names each bound an
+    Bounds are inclusive time steps: FSM-26.122 p.353 names each bound an
     unsteady time iteration without distinguishing time steps from inner
     iterations, which awaits licensed verification. This is the sole
     conversion to the command's bounds.

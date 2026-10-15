@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, Inlets and Outlets (SRC-003 pp.325-326).
+# Chapter: Scripting reference, Inlets and Outlets (FSM-26.120 pp.325-326).
 #
 # COMPLETE as of 2026-08-08, entered from all four registered editions in
 # one pass. Every signature is identical across the four.
@@ -21,7 +21,7 @@
 # therefore exempted rather than declared.
 #
 # ONE FEATURE OF THIS CHAPTER HAS NO COMMAND, and it is recorded here
-# because there is no entry to hang it on. SRC-751 p.191 documents an
+# because there is no entry to hang it on. FSM-26.123 p.191 documents an
 # outlet perimeter that can be marked as an exhaust outflow: with it
 # set, the solver sheds the wake from that perimeter and accounts for
 # its interaction with the surrounding flow. It is reached from a
@@ -31,7 +31,7 @@
 # solver will accept an undocumented name for it is not something a
 # reading can answer.
 #
-# SRC-751 p.190 belongs beside it: the radial-meshing heading that named
+# FSM-26.123 p.190 belongs beside it: the radial-meshing heading that named
 # inlets alone now names inlets and outlets, and the section closes by
 # saying the same feature is available for an outlet. REMESH_OUTLET
 # already carries that, so this is the user-interface half catching up
@@ -47,7 +47,7 @@
 # parameter row and CREATE_NEW_OUTLET's velocity description, so this is
 # a pattern in the source rather than a one-off reading.
 #
-# SRC-751 p.331 was read for a link to the feature and does not carry
+# FSM-26.123 p.331 was read for a link to the feature and does not carry
 # one: the command that page prints, SET_OUTLET_TRAILING_EDGES, takes a
 # BASE REGION boundary index and is the renamed base-region command, not
 # the outlet-perimeter marking of p.191. It lives with the base regions
@@ -63,18 +63,18 @@ CREATE_NEW_INLET:
     - name: velocity
       type: float
       unit: "simulation velocity units"
-  manual_ref: "SRC-003 p.325"
+  manual_ref: "FSM-26.120 p.325"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.283, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.300, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.299, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.321, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.330, unchanged from SRC-750 p.330"}
-    "26.124": {status: documented, note: "SRC-752 p.330, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.336, unchanged from SRC-752 p.330"}
+    "26.121": {status: documented, note: "FSM-26.121 p.328, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.330, unchanged from FSM-26.122 p.330"}
+    "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
   notes: >
     Marks one mesh boundary as an inlet with a uniform velocity along
     the surface normal of its faces. The manual states the index must be
@@ -97,18 +97,18 @@ SET_INLET_CUSTOM_PROFILE:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.325"
+  manual_ref: "FSM-26.120 p.325"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.283, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.300, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.299, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.321, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.330, unchanged from SRC-750 p.330"}
-    "26.124": {status: documented, note: "SRC-752 p.330, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.336, unchanged from SRC-752 p.330"}
+    "26.121": {status: documented, note: "FSM-26.121 p.328, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.330, unchanged from FSM-26.122 p.330"}
+    "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
   notes: >
     Replaces an inlet's uniform velocity with a profile read from a text
     file, whose path follows on the next line. Has no outlet
@@ -136,18 +136,18 @@ REMESH_INLET:
       values: ["1", "2"]
     - name: growth_rate
       type: float
-  manual_ref: "SRC-003 p.325"
+  manual_ref: "FSM-26.120 p.325"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.283, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.300, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.299, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.321, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.330, unchanged from SRC-750 p.330"}
-    "26.124": {status: documented, note: "SRC-752 p.330, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.336, unchanged from SRC-752 p.330"}
+    "26.121": {status: documented, note: "FSM-26.121 p.328, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.330, unchanged from FSM-26.122 p.330"}
+    "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
   notes: >
     Rebuilds an inlet's faces as a radial distribution. The manual gives
     no reason for wanting one and none is asserted here; what the page
@@ -172,18 +172,18 @@ DELETE_INLET:
   args:
     - name: inlet
       type: int
-  manual_ref: "SRC-003 p.325"
+  manual_ref: "FSM-26.120 p.325"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.283, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.300, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.299, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.321, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.324, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.283, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.300, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.299, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.321, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.324, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.328, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.330, unchanged from SRC-750 p.330"}
-    "26.124": {status: documented, note: "SRC-752 p.330, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.336, unchanged from SRC-752 p.330"}
+    "26.121": {status: documented, note: "FSM-26.121 p.328, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.330, unchanged from FSM-26.122 p.330"}
+    "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
   notes: >
     Unmarks one inlet. No all-form is stated and there is no
     delete-all command, so removing several takes one call each.
@@ -202,15 +202,15 @@ CREATE_NEW_OUTLET:
     - name: velocity
       type: float
       unit: "simulation velocity units"
-  manual_ref: "SRC-003 pp.325-326"
+  manual_ref: "FSM-26.120 pp.325-326"
   versions:
-    "26.100": {status: documented, note: "SRC-741 pp.321-322, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.324-325, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 pp.321-322, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.324-325, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 pp.328-329, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.330, unchanged from SRC-750 p.330"}
-    "26.124": {status: documented, note: "SRC-752 p.330, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.336, unchanged from SRC-752 p.330"}
+    "26.121": {status: documented, note: "FSM-26.121 pp.328-329, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.330, unchanged from FSM-26.122 p.330"}
+    "26.124": {status: documented, note: "FSM-26.124 p.330, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.336, unchanged from FSM-26.124 p.330"}
   notes: >
     Marks one mesh boundary as an outlet with a uniform normal velocity.
     Always uniform: there is no outlet profile command.
@@ -220,7 +220,7 @@ CREATE_NEW_OUTLET:
 
     THE OUTLET THIS CREATES IS THE ONE THE NEWEST EDITION TELLS A USER
     TO MARK AS AN EXHAUST OUTFLOW, so the reading of that feature sits
-    here as well as in the chapter header. SRC-751 p.191 documents the
+    here as well as in the chapter header. FSM-26.123 p.191 documents the
     perimeter of an outlet being markable so the solver sheds a wake
     from it and accounts for its interaction with the surrounding flow.
     There is no command for it in that edition's scripting reference,
@@ -254,15 +254,15 @@ REMESH_OUTLET:
       values: ["1", "2"]
     - name: growth_rate
       type: float
-  manual_ref: "SRC-003 p.326"
+  manual_ref: "FSM-26.120 p.326"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.322, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.325, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.322, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.325, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.329, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.331, unchanged from SRC-750 p.331"}
-    "26.124": {status: documented, note: "SRC-752 p.331, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.337, unchanged from SRC-752 p.331"}
+    "26.121": {status: documented, note: "FSM-26.121 p.329, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.331, unchanged from FSM-26.122 p.331"}
+    "26.124": {status: documented, note: "FSM-26.124 p.331, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.337, unchanged from FSM-26.124 p.331"}
   notes: >
     The outlet counterpart of REMESH_INLET, differing only in the name
     of its first keyword.
@@ -273,15 +273,15 @@ DELETE_OUTLET:
   args:
     - name: outlet
       type: int
-  manual_ref: "SRC-003 p.326"
+  manual_ref: "FSM-26.120 p.326"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.322, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.325, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.322, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.325, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.329, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.331, unchanged from SRC-750 p.331"}
-    "26.124": {status: documented, note: "SRC-752 p.331, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.337, read against SRC-752 p.331: the parameter table now describes the one argument, the index of the outlet to delete, positive; the signature is unchanged"}
+    "26.121": {status: documented, note: "FSM-26.121 p.329, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.331, unchanged from FSM-26.122 p.331"}
+    "26.124": {status: documented, note: "FSM-26.124 p.331, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.337, read against FSM-26.124 p.331: the parameter table now describes the one argument, the index of the outlet to delete, positive; the signature is unchanged"}
   notes: >
     Unmarks one outlet. Its table row is labelled INLET in all four
     editions, which is the copy that runs through this chapter; the

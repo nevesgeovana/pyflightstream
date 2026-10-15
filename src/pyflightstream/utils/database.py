@@ -138,7 +138,7 @@ def _note(target: Edition, previous: Edition, delta: EditionDelta) -> str:
     first version wrote "same grammar as the 26.122 edition", which
     names a BUILD where an EDITION is meant, in 368 shipped rows. This
     package is careful that the two are different objects, and its own
-    citation checker reads notes for ``SRC-nnn`` ids, so the note taught
+    citation checker reads notes for ``FSM-<build>`` ids, so the note taught
     the confusion that checker exists to catch. Dropping the
     predecessor's page also cost the reader the one thing that makes the
     claim checkable: the claim is that TWO pages say the same thing, so
@@ -368,7 +368,7 @@ def register_edition(
             raise ManualDraftError(
                 f"the manifest row for {edition.label} carries no source, so a row "
                 "written from it would cite nothing. Every documented row states which "
-                "edition was read, as a manual_ref would spell it, for example SRC-751"
+                "edition was read, as a manual_ref would spell it, for example FSM-26.123"
             )
 
     registry = registry or CommandRegistry.load()

@@ -2,7 +2,7 @@
 
 A boundary on the vorticity induced-drag list (``SET_VORTICITY_DRAG_BOUNDARIES``)
 that has no trailing edge of its own is not computed, and the loads export
-prints its ``CDi`` as zero (SRC-003 p.202). The parser keeps that printed zero,
+prints its ``CDi`` as zero (FSM-26.120 p.202). The parser keeps that printed zero,
 as it keeps every cell. What changes is every sum the package makes itself: a
 surface the run's record puts on the list and whose printed ``CDi`` is exactly
 zero is DECLINED, so the group's ``CDI`` is `NA`, and so is every axis column

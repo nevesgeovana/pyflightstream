@@ -1,5 +1,5 @@
 # Chapter: Scripting reference, Post Processing, Off-body Streamlines
-# (SRC-003 pp.368-369) and On-body Streamlines (p.370).
+# (FSM-26.120 pp.368-369) and On-body Streamlines (p.370).
 #
 # COMPLETE as of 2026-08-08. The on-body family was deferred to the cases
 # that would exercise it; that rule is gone with the v0.5.0 sweep, and
@@ -27,13 +27,13 @@ NEW_OFF_BODY_STREAMLINE:
     - name: upstream
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.368"
+  manual_ref: "FSM-26.120 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.328, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.328, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.341, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.367, same grammar as 26.120"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.122": {status: broken, report: "reports/compat/CMP-26122_2026-08-11_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
@@ -59,19 +59,19 @@ NEW_STREAMLINE_DISTRIBUTION:
       type: float
     - name: subdivisions
       type: int
-  manual_ref: "SRC-003 p.368"
+  manual_ref: "FSM-26.120 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.328, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.328, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.341, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.367, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
   notes: >
     SUBDIVISIONS is N+1 for N streamlines between the start and end
     vertices.
@@ -80,19 +80,19 @@ GENERATE_ALL_OFF_BODY_STREAMLINES:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.368"
+  manual_ref: "FSM-26.120 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.329, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.367, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
 
 EXPORT_ALL_OFF_BODY_STREAMLINES:
   layout: param_lines
@@ -100,19 +100,19 @@ EXPORT_ALL_OFF_BODY_STREAMLINES:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 p.369"
+  manual_ref: "FSM-26.120 p.369"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.341, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.364, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.368, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.329, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.341, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.364, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.368, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.375, unchanged from SRC-750 p.375"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.375, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.381, unchanged from SRC-752 p.375"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.375, unchanged from FSM-26.122 p.375"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.375, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.381, unchanged from FSM-26.124 p.375"}
 
 NEW_OFF_BODY_STREAMTUBE:
   layout: inline
@@ -140,16 +140,16 @@ NEW_OFF_BODY_STREAMTUBE:
       type: int
     - name: circular_streamlines
       type: int
-  manual_ref: "SRC-003 p.368"
+  manual_ref: "FSM-26.120 p.368"
   versions:
-    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.367, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
-    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.380, unchanged from SRC-752 p.374 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.121": {status: documented, note: "FSM-26.121 p.371, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     Seeds a cylindrical bundle of off-body streamlines in one call,
     which is how a propeller or rotor slipstream is visualised without
@@ -183,18 +183,18 @@ SET_OFF_BODY_STREAMLINE_LENGTH:
     - name: set_unrestricted_length
       type: bool
       required: false
-  manual_ref: "SRC-003 p.368"
+  manual_ref: "FSM-26.120 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.328, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.341, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.328, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.341, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.367, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.374 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms, SET_LENGTH and SET_UNRESTRICTED_LENGTH, were refused as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.380 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms were refused as an unrecognised command, which 26.125 prints on its standard output only"}
+    "26.121": {status: documented, note: "FSM-26.121 p.371, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
+    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.374 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms, SET_LENGTH and SET_UNRESTRICTED_LENGTH, were refused as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.380 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P3-02 (RPT-166): both documented forms were refused as an unrecognised command, which 26.125 prints on its standard output only"}
   notes: >
     How far a newly created off-body streamline is propagated: to a
     stated length, or until it leaves the domain.
@@ -217,18 +217,18 @@ SET_ALL_OFF_BODY_STREAMLINES_UPSTREAM:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.368"
+  manual_ref: "FSM-26.120 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.329, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.367, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
+    "26.121": {status: documented, note: "FSM-26.121 p.371, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
   notes: >
     Propagates every off-body streamline against the flow, back toward
     where its fluid came from. Applies to all of them at once; there is
@@ -238,18 +238,18 @@ SET_ALL_OFF_BODY_STREAMLINES_DOWNSTREAM:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.368"
+  manual_ref: "FSM-26.120 p.368"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.340, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.363, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.367, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.329, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.363, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.367, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.371, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.374, unchanged from SRC-750 p.374"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.374, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.380, unchanged from SRC-752 p.374"}
+    "26.121": {status: documented, note: "FSM-26.121 p.371, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.374, unchanged from FSM-26.122 p.374"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.374, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.380, unchanged from FSM-26.124 p.374"}
   notes: >
     Propagates every off-body streamline with the flow. The pair with
     the command above, and neither states which is the default.
@@ -258,18 +258,18 @@ DELETE_ALL_OFF_BODY_STREAMLINES:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.369"
+  manual_ref: "FSM-26.120 p.369"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.329, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.342, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.341, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.364, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.368, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.329, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.342, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.341, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.364, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.368, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.372, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.375, unchanged from SRC-750 p.375"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.375, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.381, unchanged from SRC-752 p.375"}
+    "26.121": {status: documented, note: "FSM-26.121 p.372, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.375, unchanged from FSM-26.122 p.375"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.375, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.381, unchanged from FSM-26.124 p.375"}
   notes: >
     Deletes every off-body streamline and streamtube. There is no
     command deleting one, so a seed placed wrongly costs the whole set.
@@ -278,18 +278,18 @@ GENERATE_ALL_SURFACE_STREAMLINES:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.370"
+  manual_ref: "FSM-26.120 p.370"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.343, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.342, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.330, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.343, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.342, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.365, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.369, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.376, unchanged from SRC-750 p.376"}
-    "26.124": {status: documented, note: "SRC-752 p.376, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.382, unchanged from SRC-752 p.376"}
+    "26.121": {status: documented, note: "FSM-26.121 p.373, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.376, unchanged from FSM-26.122 p.376"}
+    "26.124": {status: documented, note: "FSM-26.124 p.376, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
   notes: >
     Generates the on-body streamlines, which are surface friction lines
     rather than paths through the fluid: they follow the direction of
@@ -304,18 +304,18 @@ DELETE_ALL_SURFACE_STREAMLINES:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.370"
+  manual_ref: "FSM-26.120 p.370"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.343, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.342, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.330, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.343, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.342, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.365, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.369, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.376, unchanged from SRC-750 p.376"}
-    "26.124": {status: documented, note: "SRC-752 p.376, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.382, unchanged from SRC-752 p.376"}
+    "26.121": {status: documented, note: "FSM-26.121 p.373, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.376, unchanged from FSM-26.122 p.376"}
+    "26.124": {status: documented, note: "FSM-26.124 p.376, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
   notes: >
     Deletes every on-body streamline.
 
@@ -326,23 +326,23 @@ EXPORT_ALL_SURFACE_STREAMLINES:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.370"
+  manual_ref: "FSM-26.120 p.370"
   versions:
     # These three were missing until 2026-08-10 and were found by the
     # row-level reachability measure rather than by the coverage sweep,
     # which compares ENTRY NAMES and is blind to an entry missing one
     # edition's row. Its two family siblings on the same manual pages
     # had them, which is what made the hole invisible to a reader too.
-    "25.000": {status: documented, note: "SRC-749 p.330, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.343, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.342, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.365, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.369, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.330, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.343, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.342, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.365, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.369, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.373, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.376, unchanged from SRC-750 p.376"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.376, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.382, unchanged from SRC-752 p.376"}
+    "26.121": {status: documented, note: "FSM-26.121 p.373, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.376, unchanged from FSM-26.122 p.376"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.376, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.382, unchanged from FSM-26.124 p.376"}
   notes: >
     Writes every on-body streamline to one file, the path on the next
     line. The off-body counterpart is EXPORT_ALL_OFF_BODY_STREAMLINES,

@@ -106,7 +106,7 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     """Parse the residual table of an exported solver log.
 
     The log's iteration table carries the velocity and pressure
-    residuals the convergence threshold applies to (SRC-003 p.200);
+    residuals the convergence threshold applies to (FSM-26.120 p.200);
     the final row is the convergence evidence of the run.
 
     Parameters

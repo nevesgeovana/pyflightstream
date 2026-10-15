@@ -129,7 +129,7 @@ def load_surface_mesh(path: str | Path, *, require_watertight: bool = True):
     path : str or pathlib.Path
         Mesh file (``.obj`` or ``.stl``), in simulation length units
         and the reference frame, as EXPORT_SURFACE_MESH writes it
-        (SRC-003 pp.307-308).
+        (FSM-26.120 pp.307-308).
     require_watertight : bool
         Refuse open meshes (the default): containment is undefined on
         them. Disable only for distance-only uses.

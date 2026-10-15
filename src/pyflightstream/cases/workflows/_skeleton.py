@@ -138,7 +138,7 @@ def _initialize(case: SimCase, script: Script) -> None:
         accepted modes); if ``PERIODIC_COPIES`` is not a whole positive
         count; or if the pairing rule of the command is broken, which is
         ``PERIODIC`` requiring a copy count and every other mode
-        forbidding one (SRC-003 p.337).
+        forbidding one (FSM-26.120 p.337).
 
     Notes
     -----
@@ -146,7 +146,7 @@ def _initialize(case: SimCase, script: Script) -> None:
     the call is deliberately not wrapped in a ``try``. Every refusal
     this function owns is decided BEFORE the helper runs, so a build
     whose ``INITIALIZE_SOLVER`` this helper cannot express at all
-    (FlightStream 25.000, SRC-749 p.298) still raises the helper's own
+    (FlightStream 25.000, FSM-25.000 p.298) still raises the helper's own
     message, naming that edition and the ``script.emit`` route out of
     it. Wrapping the call instead re-labelled that refusal as a
     symmetry problem on a row that had said nothing about symmetry,
@@ -202,7 +202,7 @@ def _initialize(case: SimCase, script: Script) -> None:
     # because the helper's refusal names the command and the manual page
     # and not the two CELLS the user typed, which is this module's own
     # rule about where a matrix value is refused. The rule itself is the
-    # command's: PERIODIC appends the number of copies (SRC-003 p.337).
+    # command's: PERIODIC appends the number of copies (FSM-26.120 p.337).
     if mode == "PERIODIC" and copies is None:
         # THE PAIR OF FILES ALREADY KNOWS (FR-59, FR-61). The reference
         # declares the wheel's blades one per entry and the geometry

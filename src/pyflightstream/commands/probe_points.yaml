@@ -1,7 +1,7 @@
 # Chapter: Scripting reference, Post Processing, Probe Points
-# (SRC-003 pp.362-363). Probe exports carry velocity components, both
+# (FSM-26.120 pp.362-363). Probe exports carry velocity components, both
 # pressure coefficient forms, Mach and the boundary layer state flags
-# together (SRC-003 p.249), which is what the flux integration work
+# together (FSM-26.120 p.249), which is what the flux integration work
 # consumes downstream.
 
 NEW_PROBE_POINT:
@@ -17,19 +17,19 @@ NEW_PROBE_POINT:
       type: float
     - name: z
       type: float
-  manual_ref: "SRC-003 p.362"
+  manual_ref: "FSM-26.120 p.362"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.334, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.333, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.321, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.334, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.333, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.356, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.368, unchanged from SRC-750 p.368"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.368, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.374, unchanged from SRC-752 p.368"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.368, unchanged from FSM-26.122 p.368"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.368, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
 
 NEW_PROBE_LINE:
   layout: inline
@@ -49,19 +49,19 @@ NEW_PROBE_LINE:
       type: float
     - name: z2
       type: float
-  manual_ref: "SRC-003 p.362"
+  manual_ref: "FSM-26.120 p.362"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.334, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.333, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.321, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.334, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.333, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.356, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.368, unchanged from SRC-750 p.368"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.368, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.374, unchanged from SRC-752 p.368"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.368, unchanged from FSM-26.122 p.368"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.368, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
   notes: >
     Survey line with NUMPTS probe vertices between the start and end
     coordinates.
@@ -70,18 +70,18 @@ UPDATE_PROBE_POINTS:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.362"
+  manual_ref: "FSM-26.120 p.362"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.334, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.333, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.365, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.361, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.321, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.334, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.333, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.365, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.356, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.361, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.368, unchanged from SRC-750 p.368"}
-    "26.124": {status: documented, note: "SRC-752 p.368, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.374, unchanged from SRC-752 p.368"}
+    "26.123": {status: documented, note: "FSM-26.123 p.368, unchanged from FSM-26.122 p.368"}
+    "26.124": {status: documented, note: "FSM-26.124 p.368, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
   notes: >
     Refreshes the probe values from the current solution; run it
     before exporting.
@@ -99,19 +99,19 @@ PROBE_POINTS_IMPORT:
       cites: frames
     - name: filename
       type: path
-  manual_ref: "SRC-003 pp.362-363"
+  manual_ref: "FSM-26.120 pp.362-363"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.321, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.334, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.333, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.356, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.321, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.334, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.333, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.356, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.368, unchanged from SRC-750 p.368"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.368, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.374, unchanged from SRC-752 p.368"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.368, unchanged from FSM-26.122 p.368"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.368, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.374, unchanged from FSM-26.124 p.368"}
   notes: >
     Imports a probe lattice from a CSV file whose rows are
     X,Y,Z,TYPE with TYPE 0 for surface and 1 for volume probes; the
@@ -127,19 +127,19 @@ EXPORT_PROBE_POINTS:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 p.363"
+  manual_ref: "FSM-26.120 p.363"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.322, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.335, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.334, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.357, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.322, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.335, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.334, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.357, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.369, unchanged from SRC-750 p.369"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.369, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.375, unchanged from SRC-752 p.369"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.369, unchanged from FSM-26.122 p.369"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.369, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.375, unchanged from FSM-26.124 p.369"}
   notes: >
     Rows follow the probe creation order, preserved from an imported
     lattice (26.120 build 7012026 round trip,
@@ -155,16 +155,16 @@ DELETE_PROBE_POINTS:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.363"
+  manual_ref: "FSM-26.120 p.363"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.322, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.335, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.334, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.357, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.322, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.335, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.334, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.357, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.369, unchanged from SRC-750 p.369"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.369, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.375, unchanged from SRC-752 p.369"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.369, unchanged from FSM-26.122 p.369"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.369, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.375, unchanged from FSM-26.124 p.369"}

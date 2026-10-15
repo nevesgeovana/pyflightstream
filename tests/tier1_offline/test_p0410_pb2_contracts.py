@@ -138,12 +138,12 @@ def test_p0410_pb2_nfr49_second_chapter_refusal_precedes_every_write(tmp_path, m
     paths = []
     for filename, name, note in [
         ("a.yaml", "PRINT", ""),
-        ("z.yaml", "STOP", ', note: "SRC-741 p.358, this edition"'),
+        ("z.yaml", "STOP", ', note: "FSM-26.100 p.358, this edition"'),
     ]:
         path = chapters / filename
         path.write_text(
             f"{name}:\n  layout: bare\n  phase: control\n  args: []\n"
-            '  manual_ref: "SRC-003 p.281"\n  versions:\n'
+            '  manual_ref: "FSM-26.120 p.281"\n  versions:\n'
             f'    "26.120": {{status: documented{note}}}\n',
             encoding="utf-8",
         )

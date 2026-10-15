@@ -241,7 +241,7 @@ def _inheriting_broken_registry():
         layout="inline",
         phase="setup",
         args=[{"name": "value", "type": "float", "unit": "m/s"}],
-        manual_ref="SRC-003 p.328",
+        manual_ref="FSM-26.120 p.328",
         versions={
             "26.120": {
                 "status": "broken",
@@ -306,7 +306,7 @@ def test_a_direct_broken_record_reports_the_two_builds_as_equal():
         layout="inline",
         phase="setup",
         args=[{"name": "value", "type": "float", "unit": "m/s"}],
-        manual_ref="SRC-003 p.328",
+        manual_ref="FSM-26.120 p.328",
         versions={
             "26.121": {
                 "status": "broken",
@@ -545,7 +545,7 @@ def test_the_committed_enumeration_matches_what_the_emitter_refuses():
 
 
 def test_the_documented_pass_wrote_rows_from_a_reading_and_not_from_a_copy():
-    """26.123's documented rows say what SRC-751 says, per command.
+    """26.123's documented rows say what FSM-26.123 says, per command.
 
     The bulk pass writes a row for a command whose PARSED RECORD is
     identical between the two editions: same argument placeholders, same
@@ -582,24 +582,24 @@ def test_the_documented_pass_wrote_rows_from_a_reading_and_not_from_a_copy():
         evidence = entry.evidence_in(target)
         assert evidence is not None, (
             f"{name} answers ABSENT on 26.123. Its documentation is unchanged "
-            "between SRC-750 and SRC-751, so the documented pass owes it a row"
+            "between FSM-26.122 and FSM-26.123, so the documented pass owes it a row"
         )
         assert evidence.source == "26.123" and not evidence.inherited, (
             f"{name}'s 26.123 answer comes from {evidence.source} rather than from a "
             "row of its own, so inheritance is back on"
         )
         note = evidence.record.note or ""
-        assert "SRC-751" in note, (
-            f"{name}'s 26.123 row does not cite SRC-751. A row written from a reading "
+        assert "FSM-26.123" in note, (
+            f"{name}'s 26.123 row does not cite FSM-26.123. A row written from a reading "
             "names the edition it was read in"
         )
-        page = re.search(r"SRC-751 p\.(\d+)", note)
+        page = re.search(r"FSM-26\.123 p\.(\d+)", note)
         assert page is not None, (
-            f"{name}'s 26.123 note names SRC-751 without a page: {note!r}. The page is "
+            f"{name}'s 26.123 note names FSM-26.123 without a page: {note!r}. The page is "
             "the checkable half, and `pyfs-manual citations` re-reads it"
         )
         assert 283 <= int(page.group(1)) <= 383, (
-            f"{name} cites SRC-751 p.{page.group(1)}, outside that edition's scripting "
+            f"{name} cites FSM-26.123 p.{page.group(1)}, outside that edition's scripting "
             "reference pp.283-383. A page outside the range is a citation nobody can "
             "follow to a command"
         )
@@ -634,6 +634,6 @@ def test_the_documented_pass_wrote_rows_from_a_reading_and_not_from_a_copy():
         "FSI_dz",
         "FSI_displacement",
     }, "the 26.123 value set differs from the base set in something other than the four"
-    assert "SRC-751 p.355" in (row.note or ""), (
+    assert "FSM-26.123 p.355" in (row.note or ""), (
         "the 26.123 row does not cite the page it was read from"
     )

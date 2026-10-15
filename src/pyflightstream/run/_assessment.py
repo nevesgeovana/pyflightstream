@@ -249,7 +249,7 @@ class LoadsAssessor:
     - NaN or infinite Total coefficients: FAILED_DIVERGED.
     - A native log with consecutive frozen time steps: FAILED_DIVERGED.
     - With a log: the final velocity and pressure residuals against
-      the run's convergence limit (SRC-003 p.200). A NaN or infinite
+      the run's convergence limit (FSM-26.120 p.200). A NaN or infinite
       residual in EITHER column is a divergence, judged before the two
       are combined: reducing them first cannot preserve the invalidity
       of one of them.

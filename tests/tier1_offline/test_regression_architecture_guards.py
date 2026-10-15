@@ -466,7 +466,7 @@ class TestG67CommandCoverage:
             "layout": "bare",
             "phase": "setup",
             "args": [],
-            "manual_ref": "SRC-753 p.353",
+            "manual_ref": "FSM-26.125 p.353",
             "versions": {
                 BUILD: {
                     "status": status,

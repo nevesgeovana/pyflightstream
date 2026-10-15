@@ -35,13 +35,13 @@ The local mechanism is the documented command-line script execution:
 ``FlightStream.exe -script <file>``, with the
 ``-hidden`` flag for windowless batch runs. ONE dash on the script
 argument, and the spelling is the module constant
-:data:`SCRIPT_ARGUMENT` rather than a literal here: SRC-003
+:data:`SCRIPT_ARGUMENT` rather than a literal here: FSM-26.120
 pp.279-280 documents the two-dash form, the 25 series does not accept
 it, and one dash is the spelling every registered build accepts
 (RPT-023). In hidden mode an
 abnormal termination writes ``FlightStreamLog.txt`` into the command
 execution directory, which is why the executor runs the solver inside
-the point's own datapoint folder and captures that file (SRC-003 p.280);
+the point's own datapoint folder and captures that file (FSM-26.120 p.280);
 a steady row of several points is one job and runs in the simulation
 folder. A cluster route shares the executor interface:
 :class:`SubmittingExecutor` hands the script to a scheduler and returns

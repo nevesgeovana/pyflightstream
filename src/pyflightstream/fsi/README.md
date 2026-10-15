@@ -394,7 +394,7 @@ case over half a revolution; full evidence in
 `tests/tier1_offline/fixtures/fsi/`. What the run established:
 
 * The implemented scripting interface is the Aeroelastic Coupling
-  Toolbox family (SRC-003 pp.375-376; `aeroelastic_coupling.yaml` in
+  Toolbox family (FSM-26.120 pp.375-376; `aeroelastic_coupling.yaml` in
   the command database). The `SET_MOTION_FSI` pair of the motion
   chapter is rejected as unrecognized by the build; the manual section
   appears to predate the current interface, tracked as candidate
@@ -415,7 +415,7 @@ case over half a revolution; full evidence in
   about the quarter chord (the pitch axis reference).
 * File formats: structural node import and `FSIDisp.txt` are both
   comma separated three-column files, displacement order equal to
-  node import order (SRC-003 pp.273-274).
+  node import order (FSM-26.120 pp.273-274).
 * Blade attribution, by the standing convention: every
   blade is meshed as its own geometry family, and each blade gets
   its own section distribution targeting that boundary in the

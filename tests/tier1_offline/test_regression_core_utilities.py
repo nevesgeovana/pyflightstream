@@ -130,7 +130,7 @@ class TestCoreSmallCommands:
                 ),
                 "26.125": VersionStatus(status=Status.DOCUMENTED),
             },
-            manual_ref="SRC-753 p.388",
+            manual_ref="FSM-26.125 p.388",
         )
         registry = CommandRegistry(commands={"X_CMD": entry})
         with pytest.raises(CommandNotInVersionError) as refused:
@@ -150,7 +150,7 @@ class TestCoreSmallCommands:
                 ),
                 "26.125": VersionStatus(status=Status.DOCUMENTED),
             },
-            manual_ref="SRC-753 p.388",
+            manual_ref="FSM-26.125 p.388",
         )
         registry = CommandRegistry(commands={"X_CMD": entry})
         with pytest.raises(CommandNotInVersionError, match=r"Last documented in 26\.100\. "):
@@ -163,7 +163,7 @@ class TestCoreSmallCommands:
             {
                 "26.100": VersionStatus(
                     status=Status.DOCUMENTED,
-                    note="SRC-747 p.301, this edition's own grammar",
+                    note="FSM-26.000 p.301, this edition's own grammar",
                     args=(ArgSpec(name="mode", type=ArgType.ENUM, values=("A",)),),
                 ),
                 "26.120": VersionStatus(status=Status.DOCUMENTED),
@@ -346,9 +346,9 @@ class TestCoreSmallReview:
     def test_p0400_version_splice_preserves_final_terminator(ending) -> None:
         text = 'X:\n  versions:\n    "26.120": {status: documented}' + ending
         result = insert_version_row(
-            text, command="X", canonical="26.123", status="documented", note="SRC-751 p.1"
+            text, command="X", canonical="26.123", status="documented", note="FSM-26.123 p.1"
         )
-        row = '    "26.123": {status: documented, note: "SRC-751 p.1"}'
+        row = '    "26.123": {status: documented, note: "FSM-26.123 p.1"}'
         assert result == text.removesuffix(ending) + (ending or "\n") + row + ending
 
     @staticmethod

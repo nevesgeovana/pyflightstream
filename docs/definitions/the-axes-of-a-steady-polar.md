@@ -55,8 +55,8 @@ those two integrals as the solver states them.
 
 **On 26.125 the drag split is `CDV` and `CDP`.** The loads export of
 26.125 prints its drag split as `CDp, CDv`, pressure drag and viscous and
-separation drag (SRC-753 pp.227, 229), in the places where every earlier build
-printed `CDi, CDo`, induced and skin friction drag (SRC-752 pp.225, 227). The
+separation drag (FSM-26.125 pp.227, 229), in the places where every earlier build
+printed `CDi, CDo`, induced and skin friction drag (FSM-26.124 pp.225, 227). The
 polar carries each pair under its own names and never reads one as the other:
 a 26.125 point writes `CDV` where an earlier point writes `CD0`, the sum of the
 group's `CDv`, and `CDP` where it writes `CDI`, the sum of its `CDp`. A table
@@ -65,7 +65,7 @@ columns, so a table of 26.124 points is written exactly as before. A table
 holding points of both builds carries `CD0, CDI, CDV, CDP`, each row `NA`
 under the pair its export did not print. On either build the group's total
 drag is the sum of the two columns, which both manuals state of their own pair
-(SRC-752 p.227, SRC-753 p.229). The fixed-width custom polar names its last
+(FSM-26.124 p.227, FSM-26.125 p.229). The fixed-width custom polar names its last
 columns the same way, and its count line counts them. The parsed loads report
 and the loads series keep the column names the export printed. The solver's
 sweeper spreadsheet also keeps its printed `CDp, CDv` pair on 26.125 and
@@ -78,7 +78,7 @@ prints the profile drag. So in a coupled run `CD0` reads that zero.
 
 **A drag the solver declined is `NA`.** A boundary on the vorticity
 induced-drag list (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing
-edge is not computed, and the export prints its `CDi` as zero (SRC-003 p.202).
+edge is not computed, and the export prints its `CDi` as zero (FSM-26.120 p.202).
 So a surface is DECLINED at a point when that point's run record puts it on
 the list AND its printed `CDi` is exactly zero. The list decides, not the zero:
 a surface left off it is integrated by surface pressure and can print a real

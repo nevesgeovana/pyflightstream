@@ -41,7 +41,7 @@ one place that layout is written.
 The two defaults are the vendor's own numbers rather than this
 package's taste: the manual page prints a sample call passing
 VORTEX_SHEDDING and 0.0001, and states the same number as the parameter
-default in its own table (SRC-750 p.324, SRC-751 p.323).
+default in its own table (FSM-26.122 p.324, FSM-26.123 p.323).
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ TRAILING_EDGE_DETECTION_COMMAND = "AUTO_DETECT_TRAILING_EDGES"
 DEFAULT_EDGE_TYPE = "VORTEX_SHEDDING"
 
 #: The tolerance the manual's parameter table states as the default and
-#: the printed sample call passes (SRC-750 p.324, SRC-751 p.323). It is
+#: the printed sample call passes (FSM-26.122 p.324, FSM-26.123 p.323). It is
 #: recorded here rather than invented, so nobody has to reverse engineer
 #: where it came from.
 DEFAULT_TOLERANCE = 0.0001

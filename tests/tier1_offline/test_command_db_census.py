@@ -55,7 +55,7 @@ EMITTABLE = {
     "26.101": 361,
     "26.120": 361,
     # 2026-10-12: CREATE_BULK_SEPARATION removed by the edition, which prints
-    # CREATE_CYLINDRICAL_BULK_SEPARATION instead (SRC-740 pp.345-346): 368 to 367.
+    # CREATE_CYLINDRICAL_BULK_SEPARATION instead (FSM-26.121 pp.345-346): 368 to 367.
     "26.121": 367,
     # Registered 2026-08-10. Ten entries of its own, six rows catching up
     # with what 26.121 added (inheritance runs from the base release, so
@@ -63,7 +63,7 @@ EMITTABLE = {
     # from 26.120 less FOUR: the two commands this edition replaces, and
     # two that the preceding hotfix has a negative record for, which
     # inheritance from the base would otherwise have overturned.
-    # 2026-10-12: CREATE_BULK_SEPARATION removed by the edition (SRC-750 p.347),
+    # 2026-10-12: CREATE_BULK_SEPARATION removed by the edition (FSM-26.122 p.347),
     # 375 to 374. The FSI pair and SET_MOTION_START_TIME gained documented
     # rows of their own, so the 26.120 records no longer reach here.
     "26.122": 374,
@@ -108,8 +108,8 @@ EMITTABLE = {
     # line that runs on 26.122 (RPT-079, CMP-26123_2026-09-25_time-averaging).
     # The row stays, as removed.
     "26.123": 370,
-    # 2026-09-14, registered with the 26.123 manual itself (SRC-752 is the
-    # SRC-751 file), so every row 26.123 documents was carried and the count
+    # 2026-09-14, registered with the 26.123 manual itself (FSM-26.124 is the
+    # FSM-26.123 file), so every row 26.123 documents was carried and the count
     # is the same 371, the removed spelling again not counted.
     # FELL by one on 2026-09-24, a measured removal and not a lost row: the
     # build answers SET_VORTICITY_LIFT_MODEL as an unrecognized command
@@ -119,14 +119,14 @@ EMITTABLE = {
     # pair and SET_OFF_BODY_STREAMLINE_LENGTH, refused as unrecognised
     # (CMP-26124_2026-10-12_gap-probes). The rows stay, as removed.
     "26.124": 367,
-    # 2026-10-05 (item S10), registered with its own edition, SRC-753, which
-    # documents 380 commands: 330 carried word for word from SRC-752, 37 read
+    # 2026-10-05 (item S10), registered with its own edition, FSM-26.125, which
+    # documents 380 commands: 330 carried word for word from FSM-26.124, 37 read
     # anew, 12 entered for the first time; the thirteenth new one,
     # SET_DIRECT_AEROELASTIC_MESH_MORPHING, is entered by item S6.
-    # The four SRC-753 stops printing answer absent, and
+    # The four FSM-26.125 stops printing answer absent, and
     # SET_OUTFLOW_TRAILING_EDGES keeps its removed row naming the successor,
     # so it is not counted. 380 since S6 entered the thirteenth on its
-    # SRC-753 p.388 row.
+    # FSM-26.125 p.388 row.
     # FELL by three on 2026-10-12, the same three measured removals as 26.124,
     # printed by 26.125 on its standard output (CMP-26125_2026-10-12_gap-probes).
     "26.125": 377,
@@ -227,7 +227,7 @@ VERIFIED = {
 #: surface did not grow; the older name keeps its rows and gains a
 #: `removed` one naming the successor.
 #:
-#: +12 on 2026-10-05 (item S10): the commands the 26.125 edition (SRC-753) is
+#: +12 on 2026-10-05 (item S10): the commands the 26.125 edition (FSM-26.125) is
 #: the first to document, but the one item S6 enters.
 #:
 #: +1 on 2026-10-05: SET_DIRECT_AEROELASTIC_MESH_MORPHING (route C), whose

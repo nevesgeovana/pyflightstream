@@ -1356,7 +1356,7 @@ def accepted_symmetry(script: Script) -> tuple[str, ...] | None:
         ``None`` where that build's ``INITIALIZE_SOLVER`` declares no
         argument called ``symmetry`` at all, which is a real case and
         not a failure: FlightStream 25.000 spells it ``SYMMETRY_TYPE``
-        with its own token set (SRC-749 p.298). ``None`` is what sends a
+        with its own token set (FSM-25.000 p.298). ``None`` is what sends a
         row on to
         :func:`pyflightstream.script.helpers.initialize_solver`, whose
         refusal already names that edition and its remedy.

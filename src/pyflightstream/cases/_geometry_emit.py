@@ -106,7 +106,7 @@ SIMULATION_UNIT = "METER"
 #: (a proposed reading the P1-1 probe confirms: the manual prints only the 1).
 _AXIS_INDEX = {"X": "1", "Y": "2", "Z": "3"}
 
-#: The mirror plane as SURFACE_MIRROR numbers it (SRC-003 p.311), the run's own table.
+#: The mirror plane as SURFACE_MIRROR numbers it (FSM-26.120 p.311), the run's own table.
 _MIRROR_PLANE_INDEX = {"YZ": 1, "XZ": 2, "XY": 3}
 
 _RAW_MESH_TYPES = {".obj": "OBJ", ".stl": "STL"}

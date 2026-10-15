@@ -95,7 +95,7 @@ class EntityRegistry:
     ``boundaries``), the number of entities the script has created or
     declared and a label-to-index mapping for the entities the user
     named. Indices are 1-based, in FlightStream order: frame index 1
-    is the always-present reference frame (SRC-003 p.329) and created
+    is the always-present reference frame (FSM-26.120 p.329) and created
     local frames take indices 2 upward; actuators and motions start at
     1; mesh boundaries are numbered from 1 in geometry-tree order.
 
@@ -468,7 +468,7 @@ class EntityRegistry:
             below zero is refused. Supplied from the argument's own
             database entry, because this is a per-command fact and the
             pages disagree three ways: the two TRANSLATE_SURFACE
-            commands state zero (SRC-003 p.309), seven more state -1
+            commands state zero (FSM-26.120 p.309), seven more state -1
             (pp.307, 310-312), and six state none at all. Any per-kind
             default refuses a documented form somewhere, whichever
             value it picks.
@@ -489,7 +489,7 @@ class EntityRegistry:
         # refusal text offered -1 on commands whose page never mentions
         # it. That is the same inversion this argument was added to fix,
         # found a third time by the 2026-08-07 API pass. Absent now means
-        # the command has no all-form (SRC-003 pp.309-313 read command by
+        # the command has no all-form (FSM-26.120 pp.309-313 read command by
         # command; nine of the boundary indices state one and six do not).
         sentinel = all_sentinel
         if sentinel is not None and value == sentinel:

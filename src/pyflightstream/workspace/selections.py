@@ -84,14 +84,14 @@ class EntitySelection:
 
 _VORTICITY_EMPTY = (
     "The solver's default, surface pressure integration on every boundary, is "
-    "expressed by never emitting the command (SRC-003 p.202), so a stated empty list "
+    "expressed by never emitting the command (FSM-26.120 p.202), so a stated empty list "
     "asks for a selection and names none, and the run would converge and publish "
     "induced drag against a setup nobody selected."
 )
 
 _ANALYSIS_EMPTY = (
     "The command enables the boundaries it lists and leaves every other one out of the "
-    "analysis (SRC-003 p.351), and every boundary entering the loads, the solver's "
+    "analysis (FSM-26.120 p.351), and every boundary entering the loads, the solver's "
     "default, is expressed by never emitting it; so a stated empty list asks for a "
     "selection and names none, and the loads table would sum a setup nobody selected."
 )

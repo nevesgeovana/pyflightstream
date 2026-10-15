@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, Mesh Operations (SRC-003 pp.309-313).
+# Chapter: Scripting reference, Mesh Operations (FSM-26.120 pp.309-313).
 #
 # Everything that moves, copies, cuts, selects or deletes a mesh surface
 # after it is imported and before the solver initializes. Phase is
@@ -96,20 +96,20 @@ SURFACE_ROTATE:
     - name: detach_normal_to_axis
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.309"
+  manual_ref: "FSM-26.120 p.309"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.263, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.283, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.282, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.263, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.283, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.282, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.304, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.312, same grammar as 26.120"}
     "26.122":
       status: removed
       successor: ROTATE_SURFACE
       note: >-
-        SRC-750 pp.283-383, the scripting reference of the 26.122
+        FSM-26.122 pp.283-383, the scripting reference of the 26.122
         edition, does not print this command anywhere, AND THAT
         EDITION'S INDEX DISAGREES WITH ITS OWN BODY: while its Script Index at
         pp.384-390 still names it and does not name
@@ -172,7 +172,7 @@ SURFACE_ROTATE:
     rotation and which takes no index line; the list is optional for
     that reason. The
     separator is read from SURFACE_COMBINE, the one command in this
-    chapter that states it (comma separated, SRC-003 p.312), because
+    chapter that states it (comma separated, FSM-26.120 p.312), because
     this page shows a single index and a one-element list looks the same
     under either rule.
 
@@ -205,18 +205,18 @@ TRANSLATE_SURFACE_IN_FRAME:
     - name: split_vertices
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.309"
+  manual_ref: "FSM-26.120 p.309"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.263, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.283, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.282, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.263, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.283, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.282, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.304, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}
-    "26.124": {status: documented, note: "SRC-752 p.313, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.319, unchanged from SRC-752 p.313"}
+    "26.121": {status: documented, note: "FSM-26.121 p.312, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.313, unchanged from FSM-26.122 p.313"}
+    "26.124": {status: documented, note: "FSM-26.124 p.313, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.319, unchanged from FSM-26.124 p.313"}
   notes: >
     Translates one surface by a vector in the named frame, with the
     vector's own UNITS argument rather than the simulation length units.
@@ -242,18 +242,18 @@ TRANSLATE_SURFACE_BY_FRAME:
       type: int
       cites: boundaries
       all_sentinel: 0
-  manual_ref: "SRC-003 p.309"
+  manual_ref: "FSM-26.120 p.309"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.283, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.282, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.304, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.308, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.264, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.283, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.282, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.304, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.308, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.312, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}
-    "26.124": {status: documented, note: "SRC-752 p.313, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.319, unchanged from SRC-752 p.313"}
+    "26.121": {status: documented, note: "FSM-26.121 p.312, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.313, unchanged from FSM-26.122 p.313"}
+    "26.124": {status: documented, note: "FSM-26.124 p.313, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.319, unchanged from FSM-26.124 p.313"}
   notes: >
     Moves a surface by the transform that carries FRAME1 onto FRAME2, so
     the two frames are the instruction and there is no vector. ZERO
@@ -277,18 +277,18 @@ SURFACE_SCALE:
       type: int
       cites: boundaries
       all_sentinel: -1
-  manual_ref: "SRC-003 p.310"
+  manual_ref: "FSM-26.120 p.310"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.264, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.284, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.283, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.305, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}
-    "26.124": {status: documented, note: "SRC-752 p.313, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.319, unchanged from SRC-752 p.313"}
+    "26.121": {status: documented, note: "FSM-26.121 p.313, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.313, unchanged from FSM-26.122 p.313"}
+    "26.124": {status: documented, note: "FSM-26.124 p.313, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.319, unchanged from FSM-26.124 p.313"}
   notes: >
     PER-AXIS scaling, unlike CAD_CREATE_SCALE_CURVES which takes one
     factor for all three. Each must be greater than zero, which the
@@ -313,21 +313,21 @@ SURFACE_MIRROR:
     - name: delete_source_flag
       type: enum
       values: ["TRUE", "FALSE"]
-  manual_ref: "SRC-003 p.311"
+  manual_ref: "FSM-26.120 p.311"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.266, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.285, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.284, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.266, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.285, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.284, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.306, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.315, unchanged from SRC-750 p.315"}
-    "26.124": {status: documented, note: "SRC-752 p.315, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.321, unchanged from SRC-752 p.315"}
+    "26.121": {status: documented, note: "FSM-26.121 p.314, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.315, unchanged from FSM-26.122 p.315"}
+    "26.124": {status: documented, note: "FSM-26.124 p.315, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
   notes: >
     MIRROR_PLANE IS AN INDEX AND NOT A PLANE NAME. The manual gives 1
-    for YZ, 2 for XZ and 3 for XY (SRC-003 p.311), so this is the one
+    for YZ, 2 for XZ and 3 for XY (FSM-26.120 p.311), so this is the one
     plane argument in the database that does not take the two-letter
     token, and passing XZ here is refused while passing 2 means it.
     Recorded because every neighbouring command spells a plane with
@@ -358,18 +358,18 @@ SURFACE_LINEAR_COPY_PASTE:
       type: float
     - name: z
       type: float
-  manual_ref: "SRC-003 pp.311-312"
+  manual_ref: "FSM-26.120 pp.311-312"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.266, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.285, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.284, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.266, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.285, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.284, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.306, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.315, unchanged from SRC-750 p.315"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.315, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.321, unchanged from SRC-752 p.315"}
+    "26.121": {status: documented, note: "FSM-26.121 p.314, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.315, unchanged from FSM-26.122 p.315"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.315, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
   notes: >
     Copies a surface along a vector, NUM_COPIES times. The translation
     vector follows UNITS here and precedes it on
@@ -393,11 +393,11 @@ SURFACE_CIRCULAR_COPY_PASTE:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-003 p.312"
+  manual_ref: "FSM-26.120 p.312"
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.266, this edition's own grammar; see the note below"
+      note: "FSM-25.000 p.266, this edition's own grammar; see the note below"
       args:
         - name: surface
           type: int
@@ -407,15 +407,15 @@ SURFACE_CIRCULAR_COPY_PASTE:
           type: str
         - name: num_copies
           type: int
-    "25.100": {status: documented, note: "SRC-748 p.286, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.285, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.286, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.285, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.307, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.316, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.322, unchanged from SRC-752 p.316"}
+    "26.121": {status: documented, note: "FSM-26.121 p.315, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
   notes: >
     Copies a surface around an axis, and NUM_COPIES INCLUDES THE
     ORIGINAL: the manual's own worked case is a two-blade propeller from
@@ -440,14 +440,14 @@ SURFACE_SELECT_BY_ID:
       type: int
       cites: boundaries
       all_sentinel: -1
-  manual_ref: "SRC-003 p.310"
+  manual_ref: "FSM-26.120 p.310"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.309, the first edition to carry this name"}
+    "26.101": {status: documented, note: "FSM-26.101 p.309, the first edition to carry this name"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.314, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.320, unchanged from SRC-752 p.314"}
+    "26.121": {status: documented, note: "FSM-26.121 p.313, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Selects one surface by its 1-based index, or every surface at -1.
     The February 2026 edition calls the same command
@@ -465,11 +465,11 @@ SELECT_GEOMETRY_BY_ID:
       type: int
       cites: boundaries
       all_sentinel: -1
-  manual_ref: "SRC-741 p.305"
+  manual_ref: "FSM-26.100 p.305"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.265, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.265, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.284, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.283, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     The February 2026 spelling of SURFACE_SELECT_BY_ID above, documented
@@ -503,18 +503,18 @@ SURFACE_SELECT_BY_THRESHOLD:
     - name: subset
       type: enum
       values: [ALL_FACES, VISIBLE_FACES, SELECTED_FACES]
-  manual_ref: "SRC-003 p.310"
+  manual_ref: "FSM-26.120 p.310"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.265, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.265, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.284, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.283, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.305, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.314, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.320, unchanged from SRC-752 p.314"}
+    "26.121": {status: documented, note: "FSM-26.121 p.313, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Selects mesh FACES, not surfaces, by a scalar threshold. RANGE
     decides which of MIN_VALUE and MAX_VALUE are read, so a range of
@@ -535,18 +535,18 @@ CREATE_NEW_SURFACE_FROM_SELECTION:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.311"
+  manual_ref: "FSM-26.120 p.311"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.265, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.285, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.284, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.265, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.285, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.284, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.306, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.314, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.320, unchanged from SRC-752 p.314"}
+    "26.121": {status: documented, note: "FSM-26.121 p.314, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Promotes the currently selected faces into a surface of their own,
     which is what makes SURFACE_SELECT_BY_THRESHOLD useful as more than
@@ -569,18 +569,18 @@ SURFACE_CUT_BY_PLANE:
       type: int
       cites: boundaries
       all_sentinel: -1
-  manual_ref: "SRC-003 p.311"
+  manual_ref: "FSM-26.120 p.311"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.265, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.285, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.284, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.306, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.310, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.265, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.285, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.284, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.306, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.310, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.314, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.315, unchanged from SRC-750 p.315"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.315, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.321, unchanged from SRC-752 p.315"}
+    "26.121": {status: documented, note: "FSM-26.121 p.314, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.315, unchanged from FSM-26.122 p.315"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.315, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.321, unchanged from FSM-26.124 p.315"}
   notes: >
     Cuts surfaces with a plane of the named frame, offset along the
     plane normal. A value of -1 on SURFACE cuts every surface, which the
@@ -603,22 +603,22 @@ SURFACE_COMBINE:
       type: int_list
       cites: boundaries
       separator: comma
-  manual_ref: "SRC-003 p.312"
+  manual_ref: "FSM-26.120 p.312"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.267, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.286, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.285, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.267, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.286, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.285, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.307, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
-    "26.124": {status: documented, note: "SRC-752 p.316, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.315, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
+    "26.124": {status: documented, note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.322 adds a second sample, -1 with no index line after it,
-        which combines every surface; the counted form of SRC-752 p.316 is
+        FSM-26.125 p.322 adds a second sample, -1 with no index line after it,
+        which combines every surface; the counted form of FSM-26.124 p.316 is
         unchanged
       args:
         - name: surface_count
@@ -637,18 +637,18 @@ SURFACE_AUTO_HOLE_FILL:
     - name: surface
       type: int
       cites: boundaries
-  manual_ref: "SRC-003 p.312"
+  manual_ref: "FSM-26.120 p.312"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.267, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.286, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.285, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.307, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.267, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.286, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.285, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.307, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.316, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.322, unchanged from SRC-752 p.316"}
+    "26.121": {status: documented, note: "FSM-26.121 p.315, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
   notes: >
     Fills the holes in one surface. The manual states no -1 form here,
     unlike its neighbours, so this entry does not claim one either.
@@ -661,18 +661,18 @@ SURFACE_INVERT:
       type: int
       cites: boundaries
       all_sentinel: -1
-  manual_ref: "SRC-003 p.310"
+  manual_ref: "FSM-26.120 p.310"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.264, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.284, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.283, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.305, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
-    "26.124": {status: documented, note: "SRC-752 p.314, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.320, unchanged from SRC-752 p.314"}
+    "26.121": {status: documented, note: "FSM-26.121 p.313, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
+    "26.124": {status: documented, note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Flips the surface normals of one surface, or of every surface at -1.
     Its argument is named Index rather than SURFACE, which is the
@@ -687,18 +687,18 @@ SURFACE_RENAME:
       cites: boundaries
     - name: name
       type: str
-  manual_ref: "SRC-003 p.310"
+  manual_ref: "FSM-26.120 p.310"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.264, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.284, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.283, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.305, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.309, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.264, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.284, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.283, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.305, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.309, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.313, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.314, unchanged from SRC-750 p.314"}
-    "26.124": {status: documented, note: "SRC-752 p.314, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.320, unchanged from SRC-752 p.314"}
+    "26.121": {status: documented, note: "FSM-26.121 p.313, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.314, unchanged from FSM-26.122 p.314"}
+    "26.124": {status: documented, note: "FSM-26.124 p.314, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.320, unchanged from FSM-26.124 p.314"}
   notes: >
     Renames a surface, which is worth doing early: the name is what a
     reader of the emitted script sees, and this package's own entity
@@ -716,18 +716,18 @@ DELETE_SELECTED_FACES:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.312"
+  manual_ref: "FSM-26.120 p.312"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.267, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.267, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.286, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.315, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.316, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.322, unchanged from SRC-752 p.316"}
+    "26.121": {status: documented, note: "FSM-26.121 p.315, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
   notes: >
     Deletes the faces currently selected, the destructive counterpart of
     CREATE_NEW_SURFACE_FROM_SELECTION and the other reason the threshold
@@ -737,18 +737,18 @@ DELETE_DEGENERATE_FACES:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.313"
+  manual_ref: "FSM-26.120 p.313"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.268, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.268, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.286, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.317, unchanged from SRC-750 p.317"}
-    "26.124": {status: documented, note: "SRC-752 p.317, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.323, unchanged from SRC-752 p.317"}
+    "26.121": {status: documented, note: "FSM-26.121 p.316, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.317, unchanged from FSM-26.122 p.317"}
+    "26.124": {status: documented, note: "FSM-26.124 p.317, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.323, unchanged from FSM-26.124 p.317"}
   notes: >
     Deletes every degenerate face in the simulation. What counts as
     degenerate is not defined on the page, and this entry does not
@@ -761,20 +761,20 @@ SURFACE_DELETE:
     - name: surface
       type: int
       cites: boundaries
-  manual_ref: "SRC-003 p.312"
+  manual_ref: "FSM-26.120 p.312"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.267, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.311, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.267, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.286, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.311, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Deletes one surface by index, as a keyword block with a single
     keyword line rather than as an inline argument, which is the manual's
     shape and not a choice made here.
 
-    Documented in three editions and in none after. SRC-740 carries the
+    Documented in three editions and in none after. FSM-26.121 carries the
     inline DELETE_SURFACES instead, and states no replacement and no
     removal: it simply stops printing this command, which is absence
     rather than a statement, so the status stays documented and no
@@ -793,18 +793,18 @@ SURFACE_CLEARALL:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.313"
+  manual_ref: "FSM-26.120 p.313"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.268, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.268, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.286, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
   notes: >
     Deletes every surface in the simulation. Documented in three
     editions and in none after, with DELETE_SURFACES carrying the
-    every-surface form in SRC-740. The same two things hold as for
+    every-surface form in FSM-26.121. The same two things hold as for
     SURFACE_DELETE above: no edition states a removal, and 26.121
     inherits the 26.120 record, so the emitter accepts this command for
     a build whose manual does not document it
@@ -818,17 +818,17 @@ SELECT_MESH_NODE:
   args:
     - name: node_id
       type: int
-  manual_ref: "SRC-003 p.313"
+  manual_ref: "FSM-26.120 p.313"
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.286, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.317, unchanged from SRC-750 p.317"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.317, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.323, unchanged from SRC-752 p.317"}
+    "26.121": {status: documented, note: "FSM-26.121 p.316, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.317, unchanged from FSM-26.122 p.317"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.317, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.323, unchanged from FSM-26.124 p.317"}
   notes: >
     Selects one mesh vertex by its node id, which is a different index
     space from the surface indices the rest of this chapter uses: the
@@ -851,17 +851,17 @@ TRANSFORM_SELECTED_NODES:
       type: float
     - name: z
       type: float
-  manual_ref: "SRC-003 p.313"
+  manual_ref: "FSM-26.120 p.313"
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.287, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.286, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.308, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.312, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.287, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.286, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.308, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.312, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.316, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.317, unchanged from SRC-750 p.317"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.317, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.323, read against SRC-752 p.317: the parameter table differs in layout spacing only"}
+    "26.121": {status: documented, note: "FSM-26.121 p.316, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.317, unchanged from FSM-26.122 p.317"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.317, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.323, read against FSM-26.124 p.317: the parameter table differs in layout spacing only"}
   notes: >
     Moves the selected nodes. TRANSLATION_TYPE decides what X, Y and Z
     MEAN: under ABSOLUTE they are the node's new coordinates and under
@@ -896,7 +896,7 @@ ROTATE_SURFACE:
       cites: boundaries
       separator: comma
       required: false
-  manual_ref: "SRC-750 p.313"
+  manual_ref: "FSM-26.122 p.313"
   notes: >
     Rotates surfaces about an axis of the named frame. First
     documented by the 26.122 edition, which is also the first to
@@ -927,7 +927,7 @@ ROTATE_SURFACE:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.313, the first edition to document it"
-    "26.123": {status: documented, note: "SRC-751 p.313, unchanged from SRC-750 p.313"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "SRC-752 p.313, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.319, unchanged from SRC-752 p.313"}
+      note: "FSM-26.122 p.313, the first edition to document it"
+    "26.123": {status: documented, note: "FSM-26.123 p.313, unchanged from FSM-26.122 p.313"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "FSM-26.124 p.313, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.319, unchanged from FSM-26.124 p.313"}

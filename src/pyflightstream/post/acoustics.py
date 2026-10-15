@@ -15,7 +15,7 @@ per observer, a line ``Observer: <name>`` (the name may hold spaces), a line
 ``Position: x,y,z`` in Fortran style (``.00,10.0,.00``), a line
 ``Columns: Observer time (sec), PL (Pa), PT (Pa), PO (Pa)`` and one row of four
 numbers per sample. The signal the package reads is the ``PO`` column. The
-manual pages of the toolbox (SRC-003 pp.374 and 380) do not define PL, PT and
+manual pages of the toolbox (FSM-26.120 pp.374 and 380) do not define PL, PT and
 PO; the probe shows ``PO`` equal to ``PL`` plus ``PT`` in every row (``PT`` was
 zero in the probe) and the package reads ``PO`` as the overall pressure, PL as
 the loading part and PT as the thickness part, which is the customary split

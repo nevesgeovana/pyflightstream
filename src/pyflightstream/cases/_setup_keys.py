@@ -44,7 +44,7 @@ __all__ = [
 
 #: The moments model a script states when no key states one. It is BOTH the
 #: default the command database records for SET_ANALYSIS_MOMENTS_MODEL (its
-#: notes: "PRESSURE is the solver default", SRC-003 p.350) AND the value every
+#: notes: "PRESSURE is the solver default", FSM-26.120 p.350) AND the value every
 #: script of this package emitted before FR-317, so a setup naming none emits
 #: the line it always emitted.
 DEFAULT_MOMENTS_MODEL = "PRESSURE"
@@ -71,7 +71,7 @@ def _a_moments_model(value: str) -> str:
             return token
     raise ValueError(
         f"moments_model = {value!r} is not one of {', '.join(allowed)} "
-        "(SET_ANALYSIS_MOMENTS_MODEL, SRC-003 p.350)"
+        "(SET_ANALYSIS_MOMENTS_MODEL, FSM-26.120 p.350)"
     )
 
 
@@ -82,9 +82,9 @@ MomentsModel = Annotated[str, AfterValidator(_a_moments_model)]
 class UnsteadyAction(BaseModel):
     """``[[unsteady_solver_actions]]``: SET_NEW_UNSTEADY_SOLVER_ACTION.
 
-    First documented by the 26.122 edition of the manual (SRC-750 p.353, the
+    First documented by the 26.122 edition of the manual (FSM-26.122 p.353, the
     reference the command database carries for it; 26.124 prints it on
-    p.353 of SRC-752).
+    p.353 of FSM-26.124).
 
     One action the solver runs after every time step of an unsteady run,
     registered at the end of the solver settings, before the package's own

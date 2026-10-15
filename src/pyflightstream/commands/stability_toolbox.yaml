@@ -1,5 +1,5 @@
 # Chapter: Scripting reference, Stability and Control Toolbox
-# (SRC-003 pp.371-372).
+# (FSM-26.120 pp.371-372).
 #
 # COMPLETE as of 2026-08-08, entered from all four registered editions in
 # one pass. Every signature is identical across the four.
@@ -33,18 +33,18 @@ STABILITY_TOOLBOX_SETTINGS:
     - name: angular_rate_increment
       type: float
       unit: "rad/s"
-  manual_ref: "SRC-003 p.371"
+  manual_ref: "FSM-26.120 p.371"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.331, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.344, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.343, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.331, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.344, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.343, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.366, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.370, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
-    "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.384, unchanged from SRC-752 p.378"}
+    "26.121": {status: documented, note: "FSM-26.121 p.374, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.378, unchanged from FSM-26.122 p.378"}
+    "26.124": {status: documented, note: "FSM-26.124 p.378, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.384, unchanged from FSM-26.124 p.378"}
   notes: >
     Settings shared by every coefficient the toolbox computes.
 
@@ -100,21 +100,21 @@ STABILITY_TOOLBOX_NEW_COEFFICIENT:
       cites: boundaries
       separator: comma
       required: false
-  manual_ref: "SRC-003 p.371"
+  manual_ref: "FSM-26.120 p.371"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.331, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.344, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.343, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.331, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.344, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.343, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.366, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.370, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
-    "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.374, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.378, unchanged from FSM-26.122 p.378"}
+    "26.124": {status: documented, note: "FSM-26.124 p.378, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.384 lists CDP and CDV among the numerators where SRC-752
+        FSM-26.125 p.384 lists CDP and CDV among the numerators where FSM-26.124
         p.378 listed CDI and CDO, as the edition renames the drag split of
         its loads table to pressure drag and viscous and separation drag
         (the 26.125 entry of manual_editions in _meta.yaml)
@@ -160,18 +160,18 @@ STABILITY_TOOLBOX_DELETE_ALL:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.371"
+  manual_ref: "FSM-26.120 p.371"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.331, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.344, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.343, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.366, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.370, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.331, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.344, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.343, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.366, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.370, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.374, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
-    "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.384, unchanged from SRC-752 p.378"}
+    "26.121": {status: documented, note: "FSM-26.121 p.374, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.378, unchanged from FSM-26.122 p.378"}
+    "26.124": {status: documented, note: "FSM-26.124 p.378, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.384, unchanged from FSM-26.124 p.378"}
   notes: >
     Deletes every user-defined coefficient. There is no command deleting
     one, so correcting a single definition means rebuilding the set.
@@ -180,18 +180,18 @@ COMPUTE_STABILITY_COEFFICIENTS:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 pp.371-372"
+  manual_ref: "FSM-26.120 pp.371-372"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.332, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.344, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.343, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 pp.366-367, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.370-371, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.332, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.344, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.343, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 pp.366-367, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.370-371, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 pp.374-375, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.378, unchanged from SRC-750 p.378"}
-    "26.124": {status: documented, note: "SRC-752 p.378, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.385, unchanged from SRC-752 p.378"}
+    "26.121": {status: documented, note: "FSM-26.121 pp.374-375, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.378, unchanged from FSM-26.122 p.378"}
+    "26.124": {status: documented, note: "FSM-26.124 p.378, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.385, unchanged from FSM-26.124 p.378"}
   notes: >
     Runs the whole set.
 
@@ -210,18 +210,18 @@ STABILITY_TOOLBOX_EXPORT:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.372"
+  manual_ref: "FSM-26.120 p.372"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.332, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.345, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.344, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.367, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.371, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.332, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.345, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.344, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.367, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.371, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.375, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.379, unchanged from SRC-750 p.379"}
-    "26.124": {status: documented, note: "SRC-752 p.379, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.385, unchanged from SRC-752 p.379"}
+    "26.121": {status: documented, note: "FSM-26.121 p.375, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.379, unchanged from FSM-26.122 p.379"}
+    "26.124": {status: documented, note: "FSM-26.124 p.379, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.385, unchanged from FSM-26.124 p.379"}
   notes: >
     Writes the computed coefficients to a file, the path on the next
     line. It is the only command in the chapter that produces an
@@ -236,9 +236,9 @@ STABILITY_TOOLBOX_ANGLE_INCREMENT:
     - name: angle_increment
       type: float
       unit: "deg"
-  manual_ref: "SRC-753 p.384"
+  manual_ref: "FSM-26.125 p.384"
   versions:
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.384, the first edition to document it"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.384, the first edition to document it"}
   notes: >
     Sets the angle step, in degrees, the stability and control toolbox
     applies to the angle of attack and the sideslip angle when it forms

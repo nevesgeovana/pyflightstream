@@ -50,8 +50,8 @@ __all__ = [
 
 #: THE TWO DRAG SPLITS A LOADS SPREADSHEET PRINTS, each under the names the
 #: solver wrote (FR-423). Up to 26.124 the split is ``CDi, CDo``, induced and
-#: skin friction drag (SRC-752 pp.225, 227); 26.125 prints ``CDp, CDv`` in the
-#: same two positions, pressure drag and viscous and separation drag (SRC-753
+#: skin friction drag (FSM-26.124 pp.225, 227); 26.125 prints ``CDp, CDv`` in the
+#: same two positions, pressure drag and viscous and separation drag (FSM-26.125
 #: pp.227, 229). The parsed report keeps whichever pair the header printed;
 #: nothing here says the two pairs measure the same quantities.
 DRAG_PAIRS: tuple[tuple[str, str], ...] = (("CDi", "CDo"), ("CDp", "CDv"))
@@ -95,7 +95,7 @@ class LoadsReport:
     """Typed content of one aerodynamic loads spreadsheet.
 
     The spreadsheet is the primary quantitative output of a run
-    (EXPORT_SOLVER_ANALYSIS_SPREADSHEET, SRC-003 p.352). Coefficients
+    (EXPORT_SOLVER_ANALYSIS_SPREADSHEET, FSM-26.120 p.352). Coefficients
     are expressed in the analysis frame named by ``frame``; forces
     follow ``force_units`` and moments ``moment_units``.
 
@@ -379,7 +379,7 @@ def _optional_number(text: str, label: str) -> float | None:
 
 @dataclass(frozen=True)
 class ProbePointsReport:
-    """Parsed EXPORT_PROBE_POINTS output (SRC-003 pp.362-363, p.249).
+    """Parsed EXPORT_PROBE_POINTS output (FSM-26.120 pp.362-363, p.249).
 
     Rows follow the probe creation order: the 26.120 round-trip
     evidence (reports/RPT-004) shows the solver preserves the count
@@ -567,7 +567,7 @@ class UnsteadyPlotsReport:
     than physical time.
 
     GROUNDING, and read it before trusting a column: the shape comes
-    from the command's manual paraphrase (SRC-003 p.347, one column per
+    from the command's manual paraphrase (FSM-26.120 p.347, one column per
     plot and one row per time step) and from no observed export. The
     database entry stays at ``documented`` and the committed fixture
     says SYNTHETIC in its own header.
@@ -665,7 +665,7 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
     dashed rule closes the table or the text ends.
 
     WHAT IS EVIDENCE HERE AND WHAT IS NOT. The row and column meaning
-    is the manual's (SRC-003 p.347, paraphrased in the database entry
+    is the manual's (FSM-26.120 p.347, paraphrased in the database entry
     for ``UNSTEADY_SOLVER_EXPORT_PLOTS``: one column per plot, one row
     per time step). The DELIMITER is not documented anywhere and no
     export of this command has been read: a comma is assumed because

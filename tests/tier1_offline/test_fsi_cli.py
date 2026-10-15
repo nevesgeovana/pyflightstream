@@ -16,7 +16,7 @@ def test_init_dummy_then_step_writes_zero_displacements(tmp_path):
 
     disp = (tmp_path / cli.DISPLACEMENT_FILE).read_text(encoding="utf-8").splitlines()
     assert len(disp) == 6
-    # Comma separated dx,dy,dz per line (SRC-003 p.273).
+    # Comma separated dx,dy,dz per line (FSM-26.120 p.273).
     assert all(line.split(",") == ["0.000000000000e+00"] * 3 for line in disp)
     archived = tmp_path / cli.ARCHIVE_DIR / "call_0001" / "FS_SurfaceSection_Loads.txt"
     assert archived.read_text(encoding="utf-8") == "fixture content\n"

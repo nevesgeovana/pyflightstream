@@ -1,7 +1,7 @@
 # Provenance of the tier-3 actuator profile prop_ct.txt, read by row 5009 of
 # matriz_gui.fs (PROFILE: prop_ct) through SET_PROP_ACTUATOR_PROFILE.
 # Written by hand in the format the 26.124 manual prints for a custom thrust
-# profile (SRC-752 p.185): two comma-separated columns, the radial station as
+# profile (FSM-26.124 p.185): two comma-separated columns, the radial station as
 # r/R and the sectional thrust per unit span of ONE blade in the unit the
 # reference block's profile_units names (NEWTONS: N/m), positive thrust
 # forward, zero at the stations inside the hub. The package passes the file

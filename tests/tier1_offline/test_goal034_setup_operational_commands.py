@@ -980,7 +980,7 @@ REFUSED_ON_26124: dict[str, type[Exception]] = {
             "SET_WAKE_STREAMWISE_AGGLOMERATION",
             "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
             "TRAILING_EDGES_IMPORT",
-            # Documented first by the 26.125 edition (item S10, SRC-753): no 26.124
+            # Documented first by the 26.125 edition (item S10, FSM-26.125): no 26.124
             # row; their setup keys are listed by the setup-key audit addendum.
             "DISABLE_SOLVER_TIME_AVERAGING",
             "ENABLE_SOLVER_TIME_AVERAGING",

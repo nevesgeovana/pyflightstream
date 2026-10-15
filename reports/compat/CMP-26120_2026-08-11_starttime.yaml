@@ -3,7 +3,7 @@ fs_version: '26.120'
 date: '2026-08-11'
 package_version: 0.7.0
 fs_exe: Flightstream_2612.exe
-executor: LocalExecutor, -hidden -script (mechanism SRC-003 pp.279-280; argument spelling RPT-023)
+executor: LocalExecutor, -hidden -script (mechanism FSM-26.120 pp.279-280; argument spelling RPT-023)
 solver_identity:
 - 'FlightStream version 26.1, build #7012026'
 summary:

@@ -1,5 +1,5 @@
 # Chapter: Scripting reference, Solver Initialization / Execution
-# (SRC-003 pp.337-338).
+# (FSM-26.120 pp.337-338).
 
 INITIALIZE_SOLVER:
   layout: keyword_block
@@ -28,11 +28,11 @@ INITIALIZE_SOLVER:
       type: enum
       values: [ENABLE, DISABLE]
       required: false
-  manual_ref: "SRC-003 p.337"
+  manual_ref: "FSM-26.120 p.337"
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.298, this edition's own grammar; see the note below"
+      note: "FSM-25.000 p.298, this edition's own grammar; see the note below"
       args:
         - name: surfaces
           type: int
@@ -62,7 +62,7 @@ INITIALIZE_SOLVER:
           values: ["ENABLE", "DISABLE"]
     "25.100":
       status: documented
-      note: "SRC-748 p.312, this edition's own grammar; see the note below"
+      note: "FSM-25.100 p.312, this edition's own grammar; see the note below"
       args:
         - name: solver_model
           type: enum
@@ -94,7 +94,7 @@ INITIALIZE_SOLVER:
           required: false
     "26.000":
       status: documented
-      note: "SRC-747 p.311, this edition's own grammar; see the note below"
+      note: "FSM-26.000 p.311, this edition's own grammar; see the note below"
       args:
         - name: solver_model
           type: enum
@@ -124,14 +124,14 @@ INITIALIZE_SOLVER:
         - name: stabilization_strength
           type: float
           required: false
-    "26.100": {status: documented, note: "SRC-741 p.334, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.334, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.342, unchanged from SRC-750 p.342"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.342, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.349, unchanged from SRC-752 p.342"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.342, unchanged from FSM-26.122 p.342"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.342, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
   notes: >
     SURFACES takes -1 for all boundaries or a count followed by one
     line per surface with the surface index and the quad mesher toggle
@@ -142,7 +142,7 @@ INITIALIZE_SOLVER:
     (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver
     models 1 to 3. The initialize_solver helper builds both extended
     forms from typed arguments. Initializing MIRROR symmetry with a
-    full (non-half) model diverges instantly (SRC-003 p.217); case
+    full (non-half) model diverges instantly (FSM-26.120 p.217); case
     metadata declaring a full model triggers a build-time warning when
     cases/ lands.
 
@@ -156,20 +156,20 @@ SOLVER_PROXIMAL_BOUNDARIES:
       type: int_list
       cites: boundaries
       separator: newline
-  manual_ref: "SRC-003 pp.337-338"
+  manual_ref: "FSM-26.120 pp.337-338"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.298, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.336, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.298, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.313, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.312, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.335, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.336, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.121":
       status: verified
       report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"
       note: >-
-        SRC-740 pp.340-341 documents a SECOND call form no older edition
+        FSM-26.121 pp.340-341 documents a SECOND call form no older edition
         prints: a count of -1 selects every boundary and takes no index
         lines at all. So this build's grammar makes the index list
         optional, which the grammar the older editions state does not.
@@ -181,19 +181,19 @@ SOLVER_PROXIMAL_BOUNDARIES:
         - {name: count, type: int}
         - {name: boundary_indices, type: int_list, cites: boundaries,
            separator: newline, required: false}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.342, unchanged from SRC-750 p.342"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.342, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.349, unchanged from SRC-752 p.342"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.342, unchanged from FSM-26.122 p.342"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.342, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
   notes: >
     Enables solver proximity checking for the listed boundaries, one
     index per line. Must be called before INITIALIZE_SOLVER
-    (SRC-003 p.338).
+    (FSM-26.120 p.338).
 
 REMOVE_INITIALIZATION:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-003 p.338"
+  manual_ref: "FSM-26.120 p.338"
   notes: >
     Discards the solver initialization. Its empty 25.000 column is not a
     gap: that edition spells the same capability SOLVER_UNINITIALIZE,
@@ -201,34 +201,34 @@ REMOVE_INITIALIZATION:
     sharing the bare layout, the init phase and the chapter. The
     changeover is at 25.100 and the older entry carries the successor.
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.313, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.312, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.335, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.343, unchanged from SRC-750 p.343"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.343, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.350, unchanged from SRC-752 p.343"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.343, unchanged from FSM-26.122 p.343"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.343, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
 
 START_SOLVER:
   layout: bare
   phase: exec
   args: []
-  manual_ref: "SRC-003 p.338"
+  manual_ref: "FSM-26.120 p.338"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.307, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.307, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.313, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.312, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.335, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.343, unchanged from SRC-750 p.343"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.343, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.350, unchanged from SRC-752 p.343"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.343, unchanged from FSM-26.122 p.343"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.343, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
   notes: >
     Runs the solver with the current runtime settings; convergence is
     declared against the SOLVER_SET_CONVERGENCE threshold.
@@ -237,18 +237,18 @@ CLEAR_SOLUTION:
   layout: bare
   phase: exec
   args: []
-  manual_ref: "SRC-003 p.338"
+  manual_ref: "FSM-26.120 p.338"
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.313, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.312, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.337, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.335, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.313, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.337, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.335, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.343, unchanged from SRC-750 p.343"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.343, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.350, unchanged from SRC-752 p.343"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.343, unchanged from FSM-26.122 p.343"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.343, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.350, unchanged from FSM-26.124 p.343"}
   notes: >
     Clears the existing solution while keeping the initialization;
     used between sweep points when solution reuse is not wanted.
@@ -257,7 +257,7 @@ SOLVER_UNINITIALIZE:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-749 p.298"
+  manual_ref: "FSM-25.000 p.298"
   notes: >
     Discards the solver initialization, returning the model to the state
     before INITIALIZE_SOLVER ran. Printed by the 25.000 edition and by
@@ -277,12 +277,12 @@ SOLVER_UNINITIALIZE:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.298, this edition documents it"
+      note: "FSM-25.000 p.298, this edition documents it"
     "25.100":
       status: removed
       successor: REMOVE_INITIALIZATION
       note: >-
-        SRC-748 pp.271-347, the whole scripting reference of the
+        FSM-25.100 pp.271-347, the whole scripting reference of the
         25.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -292,7 +292,7 @@ SOLVER_UNINITIALIZE:
       status: removed
       successor: REMOVE_INITIALIZATION
       note: >-
-        SRC-747 pp.270-346, the whole scripting reference of the
+        FSM-26.000 pp.270-346, the whole scripting reference of the
         26.000 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -302,7 +302,7 @@ SOLVER_UNINITIALIZE:
       status: removed
       successor: REMOVE_INITIALIZATION
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -312,7 +312,7 @@ SOLVER_UNINITIALIZE:
       status: removed
       successor: REMOVE_INITIALIZATION
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -322,7 +322,7 @@ SOLVER_UNINITIALIZE:
       status: removed
       successor: REMOVE_INITIALIZATION
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -332,7 +332,7 @@ SOLVER_UNINITIALIZE:
       status: removed
       successor: REMOVE_INITIALIZATION
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -343,7 +343,7 @@ SOLVER_CLEAR:
   layout: bare
   phase: exec
   args: []
-  manual_ref: "SRC-749 p.307"
+  manual_ref: "FSM-25.000 p.307"
   notes: >
     Clears the solver solution, leaving the initialization in place. The
     25.000 edition states it takes no parameters and no later edition
@@ -351,11 +351,11 @@ SOLVER_CLEAR:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.307, this edition documents it"
+      note: "FSM-25.000 p.307, this edition documents it"
     "25.100":
       status: removed
       note: >-
-        SRC-748 pp.271-347, the whole scripting reference of the
+        FSM-25.100 pp.271-347, the whole scripting reference of the
         25.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -364,7 +364,7 @@ SOLVER_CLEAR:
     "26.000":
       status: removed
       note: >-
-        SRC-747 pp.270-346, the whole scripting reference of the
+        FSM-26.000 pp.270-346, the whole scripting reference of the
         26.000 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -373,7 +373,7 @@ SOLVER_CLEAR:
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -382,7 +382,7 @@ SOLVER_CLEAR:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -391,7 +391,7 @@ SOLVER_CLEAR:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -400,7 +400,7 @@ SOLVER_CLEAR:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal

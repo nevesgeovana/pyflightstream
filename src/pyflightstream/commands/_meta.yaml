@@ -90,7 +90,7 @@ versions:
   # here that the boundary was release 26.1 and the executor's flags
   # were the suspect, then that the EDU licence seat was. Both were
   # wrong. The executor passed the script argument with two dashes, the
-  # spelling SRC-003 documents, and the 25 series does not know it: the
+  # spelling FSM-26.120 documents, and the 25 series does not know it: the
   # 25.0 manual documents the one-dash form. A build given the
   # spelling it does not know starts, checks out its licence, receives
   # no script and waits, which under -hidden with the streams redirected
@@ -110,7 +110,7 @@ versions:
     # recorded log of the build two AIAA Aviation 2025 papers were written
     # on. This install ships its manual only as .chm; it was
     # converted to a pdf with a reproducible pagination on 2026-08-10
-    # and registered as SRC-749, so this build is read by the same tools
+    # and registered as FSM-25.000, so this build is read by the same tools
     # as every other (see the manual_editions entry below).
     build: "12162024"
     prints: "25.0"
@@ -202,7 +202,7 @@ versions:
     build: "7262026"
     prints: "26.1"
     # A real hotfix of 26.120: same release, one manual re-issue apart
-    # (413 pages against 410, every SRC-003 page shifted by +3), so a
+    # (413 pages against 410, every FSM-26.120 page shifted by +3), so a
     # command 26.120 records and this build does not re-probe is
     # genuinely the same command. The compatibility matrix marks every
     # inherited cell and counts them, so the assumption is visible
@@ -309,13 +309,13 @@ versions:
     prints: "26.1"
     #
     # ITS DOCUMENTATION IS THE 26.123 DOCUMENTATION, measured rather than
-    # assumed: the manual in its package is byte-identical to SRC-751 (one
+    # assumed: the manual in its package is byte-identical to FSM-26.123 (one
     # sha256, 417 pages, one creation date), and so are the release notes,
     # the EULA, the three libraries and the sample script. Only the
     # executable differs. The digests of every file of both packages are in
     # GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-050_the-26124-package-against-26123_2026-09-15.md. So its
     # documented rows are carried forward from
-    # 26.123 citing SRC-752, and nothing is inherited from the 26.120 base:
+    # 26.123 citing FSM-26.124, and nothing is inherited from the 26.120 base:
     # a build is answered for by what was read or run on IT, and what was
     # read for it is 26.123's text.
     inherits_base: false
@@ -338,20 +338,20 @@ versions:
     build: "10052026"
     prints: "2612"
     #
-    # UNLIKE 26.124, ITS MANUAL IS A NEW EDITION (SRC-753, 425 pages
+    # UNLIKE 26.124, ITS MANUAL IS A NEW EDITION (FSM-26.125, 425 pages
     # against 417): the release notes, the EULA, the three libraries and
     # the sample script are byte-identical to the 26.124 package, and the
     # manual and the executable are the two files that differ. Its rows
-    # are therefore read from SRC-753 itself: carried forward from 26.124
+    # are therefore read from FSM-26.125 itself: carried forward from 26.124
     # where the two editions describe a command identically, read anew
-    # where they do not, and absent where SRC-753 stops documenting the
+    # where they do not, and absent where FSM-26.125 stops documenting the
     # command (the manual_editions entry below lists those).
     inherits_base: false
 
 # Every range below except the last was MEASURED on 2026-08-06 rather
 # than transcribed. The 26.123 row is the exception and states its own
 # provenance, which is a different kind of measurement: its ranges are
-# SRC-750's, and what was measured on 2026-08-17 is that the two
+# FSM-26.122's, and what was measured on 2026-08-17 is that the two
 # documents are text-identical at every page those ranges bound. The
 # original sentence read as a blanket claim and would have covered the
 # new row falsely.
@@ -366,14 +366,14 @@ versions:
 #
 # Two of those four numbers were wrong before that, both by exactly five
 # pages at each end, and the database had been disagreeing with them in
-# writing the whole time: 22 of its own SRC-003 citations fell outside
-# the range this file declared for SRC-003. tests/tier1_offline/test_command_db.py now
+# writing the whole time: 22 of its own FSM-26.120 citations fell outside
+# the range this file declared for FSM-26.120. tests/tier1_offline/test_command_db.py now
 # fails on that, so the next drift is caught without reading a pdf.
 manual_editions:
   "25.000": >
-    SRC-749: Altair FlightStream User Guide, 25.0 edition, 342 pages,
+    FSM-25.000: Altair FlightStream User Guide, 25.0 edition, 342 pages,
     scripting reference pp.252-337 with its Script Index at pp.338-341;
-    cited in version notes as "SRC-749 p.N".
+    cited in version notes as "FSM-25.000 p.N".
 
     READ THIS BEFORE CITING A PAGE OF IT, because this edition is the
     one document here that the vendor did not paginate. The 25.000
@@ -413,53 +413,53 @@ manual_editions:
     described above (26). All 272 commands the archive documents are
     read from the pdf by pyflightstream.utils.manual.
   "25.100": >
-    SRC-748: Altair FlightStream User Guide, 25.1 edition (local,
+    FSM-25.100: Altair FlightStream User Guide, 25.1 edition (local,
     also shipped inside _private/exe/FlightStream_25100/), 361 pages,
     scripting reference pp.271-347 with its Script Index at pp.348-352;
-    cited in version notes as "SRC-748 p.N".
+    cited in version notes as "FSM-25.100 p.N".
   "26.000": >
-    SRC-747: Altair FlightStream User Guide, 26.0 edition (local,
+    FSM-26.000: Altair FlightStream User Guide, 26.0 edition (local,
     also shipped inside _private/exe/FlightStream_26000/), 360 pages,
     scripting reference pp.270-346 with its Script Index at pp.347-351;
-    cited in version notes as "SRC-747 p.N". NOT the same document as
-    SRC-741 despite both being called a User Guide for a 26 series
+    cited in version notes as "FSM-26.000 p.N". NOT the same document as
+    FSM-26.100 despite both being called a User Guide for a 26 series
     build: that one is 396 pages and belongs to the build that prints
     26.1.
   "26.100": >
-    SRC-741: Altair FlightStream User Guide, 26.1 February 2026 edition
+    FSM-26.100: Altair FlightStream User Guide, 26.1 February 2026 edition
     (local, _private/exe/FlightStream_26100/), 396 pages, scripting
     reference pp.275-369 with its Script Index at pp.370-376; cited in version
-    notes as "SRC-741 p.N". NOT interchangeable with SRC-725 below: they
+    notes as "FSM-26.100 p.N". NOT interchangeable with FSM-26.101 below: they
     are different editions of the same vendor release name, and no page
     citation carries between them.
   "26.101": >
-    SRC-725: Altair FlightStream User Manual, 26.1 May 2026 edition
+    FSM-26.101: Altair FlightStream User Manual, 26.1 May 2026 edition
     (local, _private/exe/FlightStream_26101/), 409 pages, scripting
     reference pp.280-375 with its Script Index at pp.376-382; cited in version
-    notes as "SRC-725 p.N". This is the edition every SRC-725 citation
+    notes as "FSM-26.101 p.N". This is the edition every FSM-26.101 citation
     in this database was read from; those citations were made while the
     install was named 26.100 and are unchanged, because the document did
     not change, only the version identifier pointing at it.
   "26.120": >
-    SRC-003: Altair FlightStream User Manual v2612 (local,
+    FSM-26.120: Altair FlightStream User Manual v2612 (local,
     _private/manual/), 410 pages, scripting reference pp.281-376 with its
-    Script Index at pp.377-383; cited in version notes as "SRC-003 p.N".
+    Script Index at pp.377-383; cited in version notes as "FSM-26.120 p.N".
     This is the flagship edition and the one an unqualified page citation
     in this database means.
   "26.121": >
-    SRC-740: Altair FlightStream User Manual, 26.12 hotfix build 1
+    FSM-26.121: Altair FlightStream User Manual, 26.12 hotfix build 1
     edition (local, _private/exe/FlightStream_26121/), 413 pages against
-    410 for SRC-003, scripting reference pp.284-379 with its Script Index
+    410 for FSM-26.120, scripting reference pp.284-379 with its Script Index
     at pp.380-386. Every page
-    citation of SRC-003 shifts by +3 in this edition, so an SRC-003
+    citation of FSM-26.120 shifts by +3 in this edition, so an FSM-26.120
     page number does NOT address the same page here; that is why the
     two are separate sources rather than one re-issue. The vendor
     release-notes pdf is byte-identical between the two installs and
     documents none of the difference (RPT-014).
   "26.122": >
-    SRC-750: Altair FlightStream User Guide, 26.12 hotfix build 2
+    FSM-26.122: Altair FlightStream User Guide, 26.12 hotfix build 2
     edition, 417 pages, scripting reference pp.283-383 with its Script
-    Index at pp.384-390; cited in version notes as "SRC-750 p.N".
+    Index at pp.384-390; cited in version notes as "FSM-26.122 p.N".
     Registered 2026-08-10, the day after the build was issued.
     It is the LARGEST scripting surface of the eight registered
     editions, 372 commands against 364 for the edition before it, and
@@ -471,9 +471,9 @@ manual_editions:
     layout and loses two options in the move, so each is entered
     separately and each says what it stands next to.
 
-    IT IS STILL THE LARGEST WITH SRC-751 REGISTERED, and the arithmetic
+    IT IS STILL THE LARGEST WITH FSM-26.123 REGISTERED, and the arithmetic
     is written here because the sentence above is scoped to eight and a
-    reader will otherwise assume the newest edition displaced it. SRC-751
+    reader will otherwise assume the newest edition displaced it. FSM-26.123
     deletes the TRAILING_EDGES_IMPORT block from the chapter body and
     renames SET_OUTFLOW_TRAILING_EDGES to SET_OUTLET_TRAILING_EDGES in
     place, so it documents one command FEWER, not more: 371 against 372,
@@ -482,9 +482,9 @@ manual_editions:
     nine because it is a comparison against the edition before it and
     that comparison did not move.
   "26.123": >
-    SRC-751: Altair FlightStream User Guide, 26.12 hotfix build 3
+    FSM-26.123: Altair FlightStream User Guide, 26.12 hotfix build 3
     edition, 417 pages, scripting reference pp.283-383 with its Script
-    Index at pp.384-390; cited in version notes as "SRC-751 p.N".
+    Index at pp.384-390; cited in version notes as "FSM-26.123 p.N".
     Registered 2026-08-17, the day after the build was issued.
 
     THE PAGINATION DOES NOT MOVE, and this is the first build change in
@@ -500,9 +500,9 @@ manual_editions:
     note rests on. By raw bytes, 18 do: p.236 differs in the position of
     a single blank line, with both pages 3364 characters long and every
     word identical. A claim about what an edition DOCUMENTS counts the
-    seventeen. An SRC-750 page number therefore addresses the same page
+    seventeen. An FSM-26.122 page number therefore addresses the same page
     here, with six exceptions inside three local reflows: pp.167 to 170
-    of SRC-750 move back one page, p.324 moves back one, and p.190 moves
+    of FSM-26.122 move back one page, p.324 moves back one, and p.190 moves
     forward one. The manifest that command reads is local and never
     committed (invariant 1); the `pyfs-manual sweep --help` epilog prints
     an example row.
@@ -529,11 +529,11 @@ manual_editions:
     about a document and this is where this repository records what an
     edition did.
 
-    SRC-750 pp.165 and 168 both told the reader that at higher control
+    FSM-26.122 pp.165 and 168 both told the reader that at higher control
     surface deflection angles the gap between split trailing edges opens
     enough that viscous effects can no longer smear the tip vortices
     forming at their ends, and that this is the regime where the solver
-    captures those vortices directly. SRC-751 prints neither sentence, on
+    captures those vortices directly. FSM-26.123 prints neither sentence, on
     either page, while keeping every sentence around them: the guidance
     to mark wake termination nodes across the gap survives and the
     statement about where the solver is valid without them does not. The
@@ -541,8 +541,8 @@ manual_editions:
     delta, and p.168 additionally drops the cross-reference to the
     section that describes those nodes.
 
-    SRC-750 p.209 ended its description of the wake decay constant with a
-    sentence setting it to zero for marine applications. SRC-751 carries
+    FSM-26.122 p.209 ended its description of the wake decay constant with a
+    sentence setting it to zero for marine applications. FSM-26.123 carries
     the definition, the characteristic length and the turbulence
     proportionality on the same page and not that sentence. Read the
     subject carefully: the sentence was recorded elsewhere as guidance
@@ -566,7 +566,7 @@ manual_editions:
     deflection and no validity statement.
 
     Two consequences worth stating rather than leaving implicit. Neither
-    prior page sits inside SRC-750's registered scripting reference, so
+    prior page sits inside FSM-26.122's registered scripting reference, so
     neither could be cited from a version note without the citation walk
     reporting it as an offender, which is why this record lives here and
     not on a version row. And a withdrawal is not a measurement: the
@@ -574,21 +574,21 @@ manual_editions:
     document no longer asserts it, not that the solver changed. Anything
     that wants the claim back needs a probe, not a citation.
   "26.124": >
-    SRC-752: Altair FlightStream User Guide, 26.12 hotfix build 4
+    FSM-26.124: Altair FlightStream User Guide, 26.12 hotfix build 4
     edition, 417 pages, scripting reference pp.283-383 with its Script
-    Index at pp.384-390; cited in version notes as "SRC-752 p.N".
+    Index at pp.384-390; cited in version notes as "FSM-26.124 p.N".
     Registered 2026-09-14, the day the build was delivered.
 
-    IT IS THE SRC-751 FILE (RPT-050 records that the two files are equal). The package's
-    manual carries SRC-751's sha256, page count and creation date, and the
+    IT IS THE FSM-26.123 FILE (RPT-050 records that the two files are equal). The package's
+    manual carries FSM-26.123's sha256, page count and creation date, and the
     text of all 417 pages extracts
-    identically, so every SRC-751 page number addresses the same page here
-    and every statement recorded against SRC-751 above holds for this
+    identically, so every FSM-26.123 page number addresses the same page here
+    and every statement recorded against FSM-26.123 above holds for this
     edition word for word, the withdrawals included. What 26.124 changes,
     if anything, is in its executable, which is the one file of the
     package whose bytes differ, and only running it can say what that is.
 
-    ONE WITHDRAWAL IS NOW MEASURED ON THE EXECUTABLE. The block SRC-751
+    ONE WITHDRAWAL IS NOW MEASURED ON THE EXECUTABLE. The block FSM-26.123
     deletes, TRAILING_EDGES_IMPORT, was run on 26.124 on 2026-09-23 and
     the solver answers the name as an unrecognized command (RPT-061), so
     its 26.124 row is removed and cites that run. The same run found the
@@ -596,14 +596,14 @@ manual_editions:
     as a syntax error; the 26.124 row of that command states the grammar
     the build reads.
   "26.125": >
-    SRC-753: Simcenter Flightstream User Guide, 26.12 hotfix build 5
+    FSM-26.125: Simcenter Flightstream User Guide, 26.12 hotfix build 5
     edition, 425 pages, scripting reference pp.288-390 with its Script
-    Index at pp.391-397; cited in version notes as "SRC-753 p.N".
+    Index at pp.391-397; cited in version notes as "FSM-26.125 p.N".
     Registered 2026-10-05, the day the build was delivered. The document
     carries the vendor's new product name; its creation date is
     2026-09-25.
 
-    IT DOCUMENTS 380 COMMANDS AGAINST 371 FOR SRC-752, counted by this
+    IT DOCUMENTS 380 COMMANDS AGAINST 371 FOR FSM-26.124, counted by this
     package's own reader over both editions (`pyfs-manual surface`):
     thirteen gained and four no longer printed. The gained are the three
     ASSIGN_SELECTED_CURVES_TO_CCS_* commands of the CCS chapters, the
@@ -612,7 +612,7 @@ manual_editions:
     ENABLE_SOLVER_TIME_AVERAGING and DISABLE_SOLVER_TIME_AVERAGING, which
     stands where SOLVER_TIME_AVERAGING stood, RESET_SOLVER_SWEEPER,
     SET_AEROELASTIC_CONVERGENCE_THRESHOLD, SET_CCS_TE_BLEND_LENGTH (named
-    in the CCS file description of SRC-752 at p.85 and given a script
+    in the CCS file description of FSM-26.124 at p.85 and given a script
     entry only here), SET_DIRECT_AEROELASTIC_MESH_MORPHING and
     STABILITY_TOOLBOX_ANGLE_INCREMENT. The four it stops printing are
     AUTO_DETECT_BASE_REGIONS, AUTO_DETECT_TRAILING_EDGES,
@@ -629,7 +629,7 @@ manual_editions:
     26.121.
 
     OUTSIDE THE SCRIPTING REFERENCE, ONE RENAME REACHES THE OUTPUTS. The
-    loads chapter (SRC-753 pp.227 and 229, against SRC-752 pp.225 and 227)
+    loads chapter (FSM-26.125 pp.227 and 229, against FSM-26.124 pp.225 and 227)
     renames the two drag columns of the loads spreadsheet: CDi (induced
     drag) becomes CDp (pressure drag) and CDo (skin friction drag) becomes
     CDv (viscous and separation drag), and the paragraph that said the

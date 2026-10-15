@@ -3,7 +3,7 @@ fs_version: '26.100'
 date: '2026-08-08'
 package_version: 0.5.0.dev0
 fs_exe: FlightStream_26_1.exe
-executor: LocalExecutor, -hidden --script (SRC-003 pp.279-280)
+executor: LocalExecutor, -hidden --script (FSM-26.120 pp.279-280)
 solver_identity:
 - 'FlightStream version 26.1, build #2122026'
 summary:

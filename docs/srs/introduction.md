@@ -22,11 +22,11 @@ responsive: user requests land quickly, often first in intermediate
 hotfix builds that consolidate into stable releases. The natural
 counterpart of that pace is an ASCII scripting command set that
 evolves between versions faster than any single document can track.
-Documented examples from the v26.12 manual (SRC-003):
+Documented examples from the v26.12 manual (FSM-26.120):
 
-- `SONIC_VELOCITY` is no longer supported (SRC-003 p.328).
+- `SONIC_VELOCITY` is no longer supported (FSM-26.120 p.328).
 - The `CP` export variable is deprecated in favor of `CP_REFERENCE`
-  and `CP_FREESTREAM` (SRC-003 p.352).
+  and `CP_FREESTREAM` (FSM-26.120 p.352).
 - A slipstream wake stabilization script variable present in earlier
   versions is missing in v26.1.
 
@@ -112,19 +112,19 @@ tree. The requirements exist to eliminate them.
 
 ## References
 
-- SRC-003: Altair FlightStream User Manual, v26.12 (licensed; cited by
+- FSM-26.120: Altair FlightStream User Manual, v26.12 (licensed; cited by
   page number throughout the command database; the manual itself never
   enters the repository).
-- SRC-741: the 26.1 FEBRUARY 2026 manual edition, shipped with the
+- FSM-26.100: the 26.1 FEBRUARY 2026 manual edition, shipped with the
   26.100 install, 396 pages. A separate source rather than a
-  re-issue of SRC-725 below: the vendor shipped two editions under
+  re-issue of FSM-26.101 below: the vendor shipped two editions under
   the one release name and no page citation carries between them.
-- SRC-725: the 26.1 MAY 2026 manual edition, the second citation source of the
+- FSM-26.101: the 26.1 MAY 2026 manual edition, the second citation source of the
   database.
-- SRC-740: the 26.12 hotfix-1 manual edition, shipped with the 26.121
+- FSM-26.121: the 26.12 hotfix-1 manual edition, shipped with the 26.121
   build (licensed; local, never in the repository). A separate source
-  rather than a re-issue of SRC-003, because its scripting reference is
-  shifted by three pages throughout, so an SRC-003 page number does not
+  rather than a re-issue of FSM-26.120, because its scripting reference is
+  shifted by three pages throughout, so an FSM-26.120 page number does not
   address the same page in it.
 - pyFlightscript repositories (AGPL-3.0, deprecated): prior art for
   scope only, never read at code level.

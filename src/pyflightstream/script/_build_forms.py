@@ -5,23 +5,23 @@ Each function here writes the one form the build the script targets
 documents, where two builds document two forms of the same request, so a
 caller states the request once and the script states the form.
 
-THE EVERY-BOUNDARY DETECTIONS. The 26.125 edition of the manual (SRC-753)
+THE EVERY-BOUNDARY DETECTIONS. The 26.125 edition of the manual (FSM-26.125)
 stops printing ``AUTO_DETECT_TRAILING_EDGES``, ``AUTO_DETECT_BASE_REGIONS`` and
 ``AUTO_DETECT_WAKE_TERMINATION_NODES`` and documents, in their place, the -1
 (every boundary) form of the three ``DETECT_*_BY_SURFACE`` commands
-(SRC-753 pp.327, 329, 331). A build that carries the automatic command
+(FSM-26.125 pp.327, 329, 331). A build that carries the automatic command
 emits it. On 26.125 trailing-edge detection uses a counted inventory:
 the solver has been measured to mark zero edges with the -1 form.
 
 THE WAKE-EDGE IMPORT TOKEN. 26.124 was measured to require a third token on
 ``IMPORT_WAKE_EDGES_FROM_FILE`` and to read the node list from the next line
-only after it (RPT-061); its manual printed two values. SRC-753 p.329 names
+only after it (RPT-061); its manual printed two values. FSM-26.125 p.329 names
 that token EDGE_TYPE, 1 for a file of edge mid-points and 2 for edge corner
 nodes. The package's node file lists mid-points, so a build whose grammar
 names the token gets 1, and a build whose grammar is the measured 26.124
 form keeps the simulation's length unit it was measured with.
 
-THE CCS CURVE ASSIGNMENT. SRC-753 asks for
+THE CCS CURVE ASSIGNMENT. FSM-26.125 asks for
 ``ASSIGN_SELECTED_CURVES_TO_CCS_<COMPONENT>`` before a CCS component gets a
 control surface, a refinement zone or a trailing edge (pp.307, 311, 314).
 No earlier edition prints it, so it is emitted only where the build
@@ -49,7 +49,7 @@ __all__ = [
 ]
 
 #: Every-boundary detection, by what it detects: the automatic command of the
-#: builds up to 26.124, and the by-surface command whose -1 form SRC-753
+#: builds up to 26.124, and the by-surface command whose -1 form FSM-26.125
 #: documents in its place.
 _DETECTIONS: dict[str, tuple[str, str]] = {
     "trailing_edges": ("AUTO_DETECT_TRAILING_EDGES", "DETECT_TRAILING_EDGES_BY_SURFACE"),
@@ -60,11 +60,11 @@ _DETECTIONS: dict[str, tuple[str, str]] = {
     ),
 }
 
-#: The index the by-surface detections read as every boundary (SRC-753
+#: The index the by-surface detections read as every boundary (FSM-26.125
 #: pp.327, 329, 331).
 EVERY_BOUNDARY = -1
 
-#: The EDGE_TYPE token of a node file listing edge mid-points (SRC-753 p.329),
+#: The EDGE_TYPE token of a node file listing edge mid-points (FSM-26.125 p.329),
 #: which is the file the package writes.
 MIDPOINT_EDGE_TYPE = "1"
 
@@ -208,7 +208,7 @@ def solver_time_averaging(script: Script, window: tuple[int, int]) -> None:
         The script being built.
     window : tuple of (int, int)
         The first and the last time iteration of the average, both counted
-        from 1 in the solver's own time steps (SRC-753 p.360).
+        from 1 in the solver's own time steps (FSM-26.125 p.360).
 
     Raises
     ------
