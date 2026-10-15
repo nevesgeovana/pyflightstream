@@ -76,8 +76,7 @@ module, which is stated rather than left to be discovered:
   observer by a compact loading-noise model, reached by explicit exploratory opt-in.
   Its report writer,
   :func:`pyflightstream.post.qsteady_noise.write_qsteady_noise_report`, is
-  left unfilled on purpose and raises
-  :class:`pyflightstream._errors.ContractNotImplementedError`. Reached
+  an index of those exploratory signals in the current product manifest. Reached
   through its own module;
 * :mod:`pyflightstream.post.custom_polar` and
   :mod:`pyflightstream.post.provenance` hold the custom polar format and the

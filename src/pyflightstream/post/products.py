@@ -899,6 +899,10 @@ def _campaign_products(
             manifest["skipped"] = {**partial.skipped, **skipped}
         carry_marks(products_index, points)  # FR-414 R3
         _write_manifest(out, manifest)
+        if any(entry.get("kind") == "loading_noise" for entry in products_index.values()):
+            from pyflightstream.post.qsteady_noise import write_qsteady_noise_report
+
+            write_qsteady_noise_report(workspace, matrix=matrix_stem)
     except BaseException as error:
         manifest["complete"] = False
         manifest["interrupted"] = f"{type(error).__name__}: {error}"

@@ -42,6 +42,9 @@ inplane_radius_m = 0.7
     assert max(abs(float(row["pressure_pa"])) for row in rows) > 0
     entry = manifest["products"][files[0].relative_to(folder).as_posix()]
     assert entry["validation"] == "exploratory, not validated"
+    report = json.loads((folder / "noise_report.json").read_text())
+    assert report["validation"] == "exploratory, not validated"
+    assert report["products"][files[0].relative_to(folder).as_posix()] == entry
 
 
 @pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])

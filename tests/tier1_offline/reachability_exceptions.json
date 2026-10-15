@@ -54,8 +54,7 @@
     "pyflightstream.post.qsteady_noise.SignalComparison",
     "pyflightstream.post.qsteady_noise.azimuth_from_moment",
     "pyflightstream.post.qsteady_noise.compare_signals",
-    "pyflightstream.post.qsteady_noise.gutin_harmonic_rms",
-    "pyflightstream.post.qsteady_noise.write_qsteady_noise_report"
+    "pyflightstream.post.qsteady_noise.gutin_harmonic_rms"
    ]
   },
   {

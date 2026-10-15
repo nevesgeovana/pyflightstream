@@ -12,7 +12,6 @@ that body with tests of its own behaviour.
 from __future__ import annotations
 
 import dataclasses
-import importlib
 import inspect
 import os
 from pathlib import Path
@@ -24,7 +23,6 @@ from pyflightstream._errors import ContractNotImplementedError, PyflightstreamEr
 from pyflightstream._progress import StageProgress, stage_progress
 from pyflightstream.run import cli, records
 
-NOT_YET = "not implemented yet (0.32.0 contract)"
 EMPTY = inspect.Parameter.empty
 KW = inspect.Parameter.KEYWORD_ONLY
 POS = inspect.Parameter.POSITIONAL_OR_KEYWORD
@@ -181,22 +179,6 @@ def test_the_acoustic_signals_contract():
     # here only that the contract name now refuses a file that is not there.
     with pytest.raises(exceptions.ProductError, match="cannot be read"):
         post_acoustics.read_acoustic_signals("P1_acoustic_signals.txt")
-
-
-#: The placeholder modules: (module, the one stub, the arguments to call it with).
-PLACEHOLDERS = [
-    ("pyflightstream.post.qsteady_noise", "write_qsteady_noise_report", (".",)),
-]
-
-
-@pytest.mark.parametrize(("module_name", "stub", "arguments"), PLACEHOLDERS)
-def test_every_placeholder_module_is_documented_and_refuses(module_name, stub, arguments):
-    module = importlib.import_module(module_name)
-    assert (module.__doc__ or "").strip(), f"{module_name} carries no docstring"
-    with pytest.raises(ContractNotImplementedError) as refusal:
-        getattr(module, stub)(*arguments)
-    assert NOT_YET in str(refusal.value)
-    assert f"{module_name}.{stub}" in str(refusal.value)
 
 
 def test_the_cli_registers_restore_and_rebuild_with_their_flags():

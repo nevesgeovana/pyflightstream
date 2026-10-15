@@ -547,6 +547,11 @@ def fsi_input_payloads(config: FsiConfig, provenance: Mapping[str, Any]) -> dict
     -------
     dict of str to str
         File name to text: ``config.json`` and ``fsi-provenance.json``.
+
+    Raises
+    ------
+    FsiSetupError
+        The frozen displacement file changed since matrix resolution.
     """
     payloads = {
         "config.json": config.model_dump_json(indent=2) + "\n",

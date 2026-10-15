@@ -35,7 +35,7 @@
 - Workspace post tables recorded force-distribution and surface CSV exports,
   preserving force units and explicitly unstated scalar identities.
 
-- Workspace post writes mapped structural deflection, twist and available
+- Workspace post writes mapped and direct structural deflection, twist and available
   coupling history from admitted coupled points, with input-digest checks.
 
 - Planar probe grids are declared in `[[probes]]`, with reference-frame placement,
@@ -43,6 +43,9 @@
   simulations require a separate surface mesh export before this route plans.
 
 - Calculated FSI sections accept unit-chord airfoils or NACA four-digit contours.
+
+- Exploratory loading-noise post writes a report indexing the generated signals,
+  observer positions and source runs from the current product manifest.
 
 - Coupled plans report effective station properties, natural frequencies and
   rotational excitation warnings before a licensed run.

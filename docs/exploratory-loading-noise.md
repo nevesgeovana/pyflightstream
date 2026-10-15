@@ -18,6 +18,8 @@ the compact loading term of Formulation 1A for one revolution. The output
 `noise/<point>_observer_<index>.csv` contains time in seconds and pressure in Pa.
 The manifest labels it `exploratory, not validated` and states that thickness
 noise is absent. It is not a prediction validated against a licensed solver run.
+The post stage also writes `noise_report.json` beside `products.json`, indexing
+the loading signals, their source runs and observer positions from that manifest.
 
 All positions and velocities are in the medium-rest frame. State hub velocity
 explicitly; `observer_velocity_m_s` defaults to zero. Optional `orders` limits
