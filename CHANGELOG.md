@@ -47,6 +47,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Probe models refuse non-finite float fields with `ProbeGeometryError` naming the field, including nested and serialized inputs.
+
 - Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
 
 - Sampled-field warnings name only the velocity or rotation-timing conventions
