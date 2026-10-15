@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- Coupled polar and rotor tables include each blade's last recorded tip deflection
+  and twist; missing structural values remain `NA`.
+
 - Located post-processing declarations accept `attach = "space" | "body"`.
   Coupled rows refuse unmeasured body attachment and warn about surface taps
   that remain at declared spatial locations.

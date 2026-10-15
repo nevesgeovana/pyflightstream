@@ -87,7 +87,7 @@ from pyflightstream.post._stage import (
     SECTIONS_DIR,
     _refuse_aliases_a_file_name_cannot_tell_apart,
 )
-from pyflightstream.post._structure import structure_products
+from pyflightstream.post._structure import append_tip_columns, structure_products
 from pyflightstream.post._tables import (
     ADVANCE_RATIO_COLUMN,
     ProductError,
@@ -236,6 +236,7 @@ class SimContext:
     installed_unplaced: set[str] = field(default_factory=set)
     #: FR-460: each point's streamline exports, by kind.
     streamlines: dict[str, dict[str, Path]] = field(default_factory=dict)
+    structure_tips: dict[str, list[tuple[float, float]]] = field(default_factory=dict)
 
     def target(self, path: Path) -> Path:
         """Archive what stands at ``path`` (or refuse it) and return the path to write."""
@@ -660,6 +661,7 @@ def _group_polar(
         drag_columns=drags,
     )
     write_csv_table(target, polar_table_columns(drags), full)
+    append_tip_columns(ctx, target, group_runs)
     if ctx.drafts is not None:
         ctx.super_rows[str(group)] = (
             ctx.out
@@ -1142,6 +1144,7 @@ def _rotor_table(ctx: SimContext, target_path: Path, alias: str, plan: dict[str,
     )
     relative = destination.relative_to(ctx.out).as_posix()
     if done:
+        append_tip_columns(ctx, destination, rotor_runs)
         ctx.written.append(destination)
         ctx.written_names[relative] = {
             # ONLY THE RUNS THIS TABLE ACTUALLY CONTAINS. It listed every

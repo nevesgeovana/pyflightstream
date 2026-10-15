@@ -216,6 +216,28 @@ def test_p0410_workspace_post_reports_structure(tmp_path):
         rows = list(csv.DictReader(handle))
     assert float(rows[-1]["deflection_m"]) == pytest.approx(0.008)
     assert float(rows[-1]["twist_deg"]) == pytest.approx(math.degrees(0.016))
+    polars = list(workspace.root.glob("post/**/polars/*.csv"))
+    assert polars
+    with polars[0].open() as handle:
+        polar_rows = list(csv.DictReader(handle))
+    assert float(polar_rows[0]["tip_deflection_m_blade_1"]) == pytest.approx(0.008)
+
+
+def test_p0410_rotor_tip_rows_keep_run_order_and_alias(tmp_path):
+    from types import SimpleNamespace
+
+    from pyflightstream.post._structure import append_tip_columns
+
+    table = tmp_path / "rotor.csv"
+    table.write_text("PROP\nCT,CQ\n0.1,0.01\n0.2,0.02\n")
+    ctx = SimpleNamespace(out=tmp_path, skipped={}, structure_tips={"second": [(0.04, 2.0)]})
+    append_tip_columns(ctx, table, ["first", "second"])
+    assert table.read_text().splitlines() == [
+        "PROP",
+        "CT,CQ,tip_deflection_m_blade_1,tip_twist_deg_blade_1",
+        "0.1,0.01,NA,NA",
+        "0.2,0.02,0.04,2.0",
+    ]
 
 
 @pytest.mark.parametrize(
