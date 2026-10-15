@@ -81,7 +81,7 @@
   },
   {
    "id": "FR-07",
-   "text": "Read with PFS-2033.01, PFS-2033.02 and PFS-2033.03 at 0.14.0 (GOAL-013): a setup artifact states raw solver commands before a named phase, each through the emitter's own checks; the run record and the provenance carry the lines the script took, and one tier-3 row on a registered build proves the record.",
+   "text": "A raw-emission escape hatch accepts explicitly unvalidated lines, records its use in the run manifest, and invalidates inferred motion and non-reference frame placement that those lines could change.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: BRF-12. Evidence: milestone M2; the manifest raw flag.*",
@@ -433,7 +433,7 @@
   },
   {
    "id": "FR-34",
-   "text": "A campaign can be pre-flighted with zero solver time: recipes and geometry resolve, scripts dry-run build, folders allocate and a plan is written without appending execution records. Resume skips points whose effective recorded outcome is complete and refuses changed inputs where reuse would misattribute existing evidence. Code: pyflightstream.run._plan:plan_campaign. Falsifying test: tests/tier1_offline/test_run_campaign.py::test_a_partial_resume_refuses_when_the_input_changed.",
+   "text": "A campaign can be pre-flighted with zero solver time: recipes and geometry resolve, scripts dry-run build, folders allocate and a plan is written without appending execution records. Resume skips points whose effective recorded outcome is complete and refuses changed inputs where reuse would misattribute existing evidence.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: usage feedback. Evidence: the v0.3 line; pre-flight and resume tests.*",
@@ -593,7 +593,7 @@
   },
   {
    "id": "FR-54",
-   "text": "Read with PFS-2064, PFS-2064.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
+   "text": "A matrix row can state the fluid constants its writer pinned (density, viscosity, sonic velocity, temperature, pressure) as flight-condition keys that override the standard atmosphere and are recorded as pinned; every builder states the reference velocity, the sideslip and the initialisation flag on the opened simulation; the reference artifact's moment point becomes the analysis loads frame and the moments model is stated, both before the solver starts, so the step exports an unsteady row writes during the march carry them (RPT-064); a setup's vorticity-drag families resolve through the geometry's inventory; significant digits and the wake termination in time steps have emitters; and a setup that states symmetry_loads emits it as stated, an absent key remaining recorded-only and warning as before. When density is solved or pinned and pressure is not explicitly pinned, pressure is calculated from that density and temperature as rho * 287.05287 * T. Explicit pressure pins remain as written; inconsistent pressure, density and temperature pins produce the established warning rather than an overwritten pin.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the script diff of 2026-09-02 between the 0.10.1 pre-flight of the reference rows and the recorded scripts. Carried by PFS-2030.02, PFS-2030.03 and its four children, and PFS-2028.05 on the design decision of 2026-09-02. Evidence owed: the tests each node names.*",

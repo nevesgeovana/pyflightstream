@@ -171,13 +171,14 @@ Milestones and session records are listed in the
 !!! requirement "FR-07 Recorded escape hatch <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-12. Evidence: milestone M2; the manifest raw flag.*
 
-    Read with PFS-2033.01, PFS-2033.02 and PFS-2033.03 at 0.14.0 (GOAL-013): a setup artifact states raw solver commands before a named phase, each through the emitter's own checks; the run record and the provenance carry the lines the script took, and one tier-3 row on a registered build proves the record.
-
     A raw-emission escape hatch accepts explicitly unvalidated lines,
     records its use in the run manifest, and invalidates inferred motion
     and non-reference frame placement that those lines could change.
+
     Code: `pyflightstream.script:Script.raw`. Falsifying test:
     `tests/tier1_offline/test_script.py::test_raw_bypasses_validation_and_sets_the_flag`.
+
+    Read with PFS-2033.01, PFS-2033.02 and PFS-2033.03 at 0.14.0 (GOAL-013): a setup artifact states raw solver commands before a named phase, each through the emitter's own checks; the run record and the provenance carry the lines the script took, and one tier-3 row on a registered build proves the record.
 
 !!! requirement "FR-08 Clean-room emitter <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-10. Evidence: the `Clean-room` commit trailer,
@@ -732,6 +733,7 @@ the session records.
     is written without appending execution records. Resume skips points
     whose effective recorded outcome is complete and refuses changed
     inputs where reuse would misattribute existing evidence.
+
     Code: `pyflightstream.run._plan:plan_campaign`. Falsifying test:
     `tests/tier1_offline/test_run_campaign.py::test_a_partial_resume_refuses_when_the_input_changed`.
 
@@ -1818,8 +1820,6 @@ nodes.
     PFS-2030.03 and its four children, and PFS-2028.05 on the design decision of
     2026-09-02. Evidence owed: the tests each node names.*
 
-    Read with PFS-2064, PFS-2064.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
-
     A matrix row can state the fluid constants its writer pinned
     (density, viscosity, sonic velocity, temperature, pressure) as
     flight-condition keys that override the standard atmosphere and are
@@ -1875,6 +1875,8 @@ nodes.
     not carry the command refuses the row at plan naming the build; 26.124
     answers both names as unrecognized (RPT-068), and a setup stating the
     lift model beside `kutta_joukowski_lift` is planned with a warning.
+
+    Read with PFS-2064, PFS-2064.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
 !!! requirement "FR-55 A row states its geometry as a file, and the geometry carries its own boundary inventory <span class='srs-pending'>pending</span>"
     *Origin: feedback items #2 and #6 of 2026-09-02. Carried by
