@@ -72,6 +72,7 @@ both. See :func:`collect`.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
@@ -491,12 +492,61 @@ def build(srs_dir: Path, tests_dir: Path) -> dict[str, object]:
         Propagated from :func:`collect`, BEFORE anything is written.
     """
     entries = collect(srs_dir)
+    _check_anchors(entries, REPO)
     return {
         "source": REQUIREMENTS_DIR.as_posix(),
         "generated_by": "scripts/gen_requirements_index.py",
         "traceability": traceability([e["id"] for e in entries], tests_dir),
         "requirements": entries,
     }
+
+
+def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
+    """Resolve compact-row links without importing product or test modules."""
+    symbols: dict[Path, set[str]] = {}
+
+    def names(path: Path) -> set[str]:
+        if path in symbols:
+            return symbols[path]
+        found: set[str] = set()
+
+        def walk(body: list[ast.stmt], prefix: str = "") -> None:
+            for node in body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    name = prefix + node.name
+                    found.add(name)
+                    if isinstance(node, ast.ClassDef):
+                        walk(node.body, name + ".")
+                elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                    found.update(prefix + n.id for n in targets if isinstance(n, ast.Name))
+
+        if path.is_file():
+            walk(ast.parse(path.read_text(encoding="utf-8-sig")).body)
+        symbols[path] = found
+        return found
+
+    problems = []
+    for row in entries:
+        if "hid" not in row or row["status"] == "retired":
+            continue
+        module, _, symbol = row["code"].partition(":")
+        paths = [
+            base / Path(*module.split(".")).with_suffix(".py") for base in (repo / "src", repo)
+        ]
+        paths += [path.with_suffix("") / "__init__.py" for path in paths]
+        if not any(symbol in names(path) for path in paths):
+            problems.append(f"{row['id']}: missing code anchor {row['code']}")
+        test_path, _, test_symbol = row["test"].partition("::")
+        path = (repo / test_path).resolve()
+        if (
+            not path.is_relative_to((repo / "tests").resolve())
+            or not test_symbol.split("::")[-1].startswith("test_")
+            or test_symbol.replace("::", ".") not in names(path)
+        ):
+            problems.append(f"{row['id']}: missing test anchor {row['test']}")
+    if problems:
+        raise MalformedRequirementPageError("\n".join(problems))
 
 
 def requirement_pages(entries: list[dict[str, str]]) -> dict[str, str]:

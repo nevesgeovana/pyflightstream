@@ -233,3 +233,31 @@ def test_p0410_srs_refuses_ambiguous_or_unanchored_rows(tmp_path, bad_row):
     generator = _generator()
     with pytest.raises(generator.MalformedRequirementPageError):
         generator.collect(tmp_path)
+
+
+@pytest.mark.parametrize("broken", ["code", "test", "none"])
+def test_p0410_srs_resolves_anchors_before_publishing(tmp_path, monkeypatch, broken):
+    """An invented symbol or test must not become a published trace link."""
+    srs = tmp_path / "srs"
+    srs.mkdir()
+    src = tmp_path / "src"
+    src.mkdir()
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (src / "sample.py").write_text("def refine():\n    pass\n", encoding="utf-8")
+    (tests / "test_sample.py").write_text("def test_refine():\n    assert True\n", encoding="utf-8")
+    symbol = "missing" if broken == "code" else "refine"
+    test = "test_missing" if broken == "test" else "test_refine"
+    (srs / "functional-requirements.md").write_text(
+        "| UID | Parent | Area | Status | Statement | Code | Test |\n"
+        f"| FR-1 | - | MESH | implemented | Refine. | sample:{symbol} "
+        f"| tests/test_sample.py::{test} |\n",
+        encoding="utf-8",
+    )
+    generator = _generator()
+    monkeypatch.setattr(generator, "REPO", tmp_path)
+    if broken == "none":
+        assert generator.build(srs, tests)["requirements"][0]["id"] == "FR-1"
+    else:
+        with pytest.raises(generator.MalformedRequirementPageError, match="FR-1"):
+            generator.build(srs, tests)
