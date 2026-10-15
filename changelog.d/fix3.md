@@ -1,1 +1,2 @@
 - OPS-2003.09: The manual converter prints help successfully for `--help` and `-h`, without requiring conversion inputs or dependencies.
+- PFS-2109.019: Dummy FSI failures append to the error log, retaining earlier call evidence. API documentation no longer promises an unmeasured solver abort on nonzero exit.
