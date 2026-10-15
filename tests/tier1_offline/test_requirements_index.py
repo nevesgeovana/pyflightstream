@@ -117,6 +117,97 @@ def test_p0420_srs_reader_preserves_authored_attributes():
         requirement_rows(text.replace(" | reason", ""))
 
 
+def test_p0420_writing_rules_controls_and_baseline():
+    path = REPO / "scripts/check_writing_rules.py"
+    assert path.is_file(), "the repository writing-rule checker is missing"
+    spec = importlib.util.spec_from_file_location("srs_writing_rules", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.controls() == {f"W{i:02}": True for i in range(1, 12)}
+    counts = {rule: 0 for rule in module.RULES}
+    assert not module.compare_baseline(counts, {"rules": counts})
+    assert module.compare_baseline({**counts, "W03": 1}, {"rules": counts})
+    assert module.compare_baseline(counts, {"rules": {}})
+
+
+def test_p0420_writing_receipt_binds_committed_inputs(tmp_path, monkeypatch):
+    from scripts import check_writing_rules as checker
+
+    page = "docs/unpublished/requirements/inst.md"
+    source = (
+        "| UID | Parent | HID | Level | Status | Verification method | Statement "
+        "| Rationale | Derives from | Code | Test |\n"
+        "| FR-1230 | - | INST-1 | L1 | pending | inspection | The system shall record names. "
+        "| - | NL-INST | - | - |\n"
+    )
+    sources = {
+        page: source,
+        "docs/unpublished/requirements/index.md": "# Index\n",
+        "docs/srs/numerical-laboratory-method.md": "# Method\n",
+        "docs/srs/uid-migration.csv": "uid,destination,target,new_uids,file\n",
+        "docs/srs/reserved-ids.json": '{"reserved_ids": []}\n',
+        "scripts/check_writing_rules.py": "# checker fixture\n",
+    }
+    head = "a" * 40
+
+    def git_fixture(root, *args):
+        if args[0] == "rev-parse":
+            return head
+        if args[0] == "status":
+            return ""
+        if args[0] == "ls-tree":
+            return "\n".join(p for p in sources if p.startswith("docs/unpublished/"))
+        assert args[0] == "show"
+        return sources[args[1].split(":", 1)[1]].strip()
+
+    monkeypatch.setattr(checker, "git", git_fixture)
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps({"rules": dict.fromkeys(checker.RULES, 0)}), "utf-8")
+    receipt_path = tmp_path / "receipt.json"
+    assert (
+        checker.main(
+            ["--root", str(REPO), "--baseline", str(baseline), "--receipt", str(receipt_path)]
+        )
+        == 0
+    )
+    receipt = json.loads(receipt_path.read_text("utf-8"))
+    assert receipt["head"] == head
+    assert receipt["inputs"] == {
+        name: checker.digest(value.strip().encode()) for name, value in sources.items()
+    }
+    assert receipt["input_hash_domain"] == "git-show-utf8-stripped"
+    assert receipt["baseline_sha256"] == checker.digest(baseline.read_bytes())
+    assert receipt["log_sha256"] == checker.digest(Path(receipt["log"]).read_bytes())
+    assert receipt["checker"] == {
+        "path": "scripts/check_writing_rules.py",
+        "sha256": receipt["inputs"]["scripts/check_writing_rules.py"],
+    }
+    assert receipt["check_id"] == "srs-writing-rules"
+    assert receipt["hash_domain"] == "exact-file-bytes"
+    assert receipt["exit_status"] == 0
+
+    baseline.write_text('{"rules": {}}', "utf-8")
+    assert (
+        checker.main(
+            ["--root", str(REPO), "--baseline", str(baseline), "--receipt", str(receipt_path)]
+        )
+        == 1
+    )
+    assert json.loads(receipt_path.read_text("utf-8"))["exit_status"] == 1
+
+
+@pytest.mark.skip(reason="Activate at S3 after content lanes bring W01/W02/W10 to zero")
+def test_p0420_srs_w01_w02_w10_zero():
+    from scripts._requirements_paths import read_requirements
+    from scripts.check_writing_rules import check
+
+    violations = {
+        row["uid"]: sorted(set(check(row)) & {"W01", "W02", "W10"})
+        for row in read_requirements(REPO, live_only=True)
+    }
+    assert not {uid: rules for uid, rules in violations.items() if rules}
+
+
 def test_p0410_pa2_owned_citations_use_stable_uids() -> None:
     """P0410-PA2: source, tests and authored SRS reject former child citations."""
     paths = subprocess.check_output(

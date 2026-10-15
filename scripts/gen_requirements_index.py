@@ -553,6 +553,16 @@ def authored_index(root: Path) -> str:
         "An anchor establishes traceability, not universal coverage. Pending contracts "
         "retain that status until their full acceptance guard is implemented.",
         "",
+        "## Writing-rule measurements",
+        "",
+        "Run `python scripts/check_writing_rules.py` to report W01 to W11 counts. "
+        "Use `--self-test` to exercise the planted controls, `--baseline` with a JSON "
+        "rules map to reject increases, and `--receipt` with an external output path "
+        "to attest a clean committed tree against that baseline. Receipt mode hashes "
+        "the committed inputs and its log. Lexical flags need human review; they do "
+        "not authorize changes to a requirement's meaning. The W01/W02/W10 zero guard "
+        "activates at S3 after the content lanes finish.",
+        "",
         hid_legend(root),
     ]
     return "\n".join(lines).rstrip() + "\n"
