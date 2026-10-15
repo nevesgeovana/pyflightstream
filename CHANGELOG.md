@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- Coupling projects spatial-cut loads using applied station slope and twist
+  before elastic-axis moment transfer, including relaxed direct-morphing state.
+
 - Coupled polar and rotor tables include each blade's last recorded tip deflection
   and twist; missing structural values remain `NA`.
 

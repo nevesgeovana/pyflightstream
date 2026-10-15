@@ -269,6 +269,7 @@ class FsiState(BaseModel):
     phase: int = Field(default=1, ge=1, le=4)
     last_solver_iteration: int | None = None
     previous_displacements: list[list[float]] | None = None
+    station_displacements: list[list[float]] | None = None
     previous_twist_rad: list[list[float]] | None = None
     load_history: list[LoadSample] = Field(default_factory=list)
     revolution_history: list[RevolutionSample] = Field(default_factory=list)

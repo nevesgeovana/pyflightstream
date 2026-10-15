@@ -14,6 +14,39 @@ from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_fsi_setup
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 
 
+def test_p0410_workspace_coupling_rotates_station_forces(tmp_path):
+    import numpy as np
+
+    from pyflightstream.fsi import driver, kinematics, nodes
+    from pyflightstream.fsi.state import initial_state, write_state_atomic
+    from tests.tier1_offline.test_fsig_fixed_wing import (
+        SPAN_M,
+        _staged_run,
+        _wing_loads_export,
+        wing_config,
+    )
+
+    config = wing_config(self_weight=False)
+    run = _staged_run(tmp_path, steady_wing_case, config)
+    layout = nodes.load_node_map(run / config.node_map_file)
+    slope, twist = 0.2, 0.3
+    local = kinematics.encode_station_translations(
+        slope * np.asarray(config.blade.station_radii_m),
+        np.full(len(config.blade.station_radii_m), twist),
+        np.asarray(layout.le_offset_m),
+        np.asarray(layout.te_offset_m),
+    )
+    state = initial_state()
+    state.previous_displacements = nodes.flatten_blade_translations(layout, [local]).tolist()
+    write_state_atomic(state, run / "state.json")
+    (run / driver.LOADS_FILE).write_text(_wing_loads_export(60, unsteady=False))
+    result = driver.coupling_step(run)
+    normal = 50 * math.cos(math.atan(slope)) * math.cos(twist)
+    assert result.solutions[0].flap_deflection_m[-1] == pytest.approx(
+        normal * SPAN_M**4 / (8 * 2e5), rel=1e-6
+    )
+
+
 @pytest.mark.parametrize("attachment", ["space", "body"])
 def test_p0410_plan_checks_section_attachment(tmp_path, attachment):
     case = steady_wing_case(tmp_path)
