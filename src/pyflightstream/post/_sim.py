@@ -224,9 +224,9 @@ class SimContext:
     probe_positions: dict[int, tuple[float, float, float, str]]
     written: list[Path] = field(default_factory=list)
     written_names: dict[str, dict[str, object]] = field(default_factory=dict)
-    super_rows: dict[str, tuple[Path, list[tuple[object, ...]], list[PolarPoint]]] = field(
-        default_factory=dict
-    )
+    super_rows: dict[
+        str, tuple[Path, tuple[str, ...], list[tuple[object, ...]], list[PolarPoint]]
+    ] = field(default_factory=dict)
     plots_tables: dict[str, Path] = field(default_factory=dict)
     qsteady_validity_of: dict[str, _qsteady.PointValidity] = field(default_factory=dict)
     #: FR-1062 (0.40.0): per point, the far-field cells of its super-file row.
@@ -662,6 +662,9 @@ def _group_polar(
     )
     write_csv_table(target, polar_table_columns(drags), full)
     append_tip_columns(ctx, target, group_runs)
+    # Retain the accepted tip fields and their row attribution before axes selection.
+    # Reading the written cells also preserves the polar's precision (FR-89).
+    columns, recorded_rows = read_csv_table(target)
     selected_axes(target, ctx.pproc.products.polar_axes)
     if ctx.drafts is not None:
         ctx.super_rows[str(group)] = (
@@ -672,7 +675,8 @@ def _group_polar(
                 sweep=ctx.super_name if ctx.matrix_row is not None else group_name,
                 group=group,
             ),
-            full,
+            columns,
+            [tuple(row[column] for column in columns) for row in recorded_rows],
             group_points,
         )
     entry: dict[str, object] = {"runs": group_runs, **({"kind": "instant"} if instant else {})}
@@ -1415,8 +1419,7 @@ def _superfile_drafts(ctx: SimContext) -> None:
         step = plots_last_row(table_rows)
         if step is not None:
             last_step[name] = step
-    for group, (path, full, group_points) in ctx.super_rows.items():
-        columns = polar_table_columns([drag_columns_of(point.loads) for point in group_points])
+    for group, (path, columns, full, group_points) in ctx.super_rows.items():
         wide = [
             superfile_row(
                 polar_columns=columns,

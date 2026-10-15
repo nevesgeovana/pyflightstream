@@ -364,6 +364,9 @@ def test_p0410_workspace_post_reports_structure(tmp_path, morphing, polar_glob_o
     assert len(super_rows) == 1
     assert super_rows[0]["run_id"] == original.run_id
     assert super_rows[0]["GROUP"] == polar_rows[0]["GROUP"] == "1"
+    for quantity in ("tip_deflection_m_blade_1", "tip_twist_deg_blade_1"):
+        assert quantity in super_rows[0], "FR-89: superfile must carry recorded tip fields"
+        assert super_rows[0][quantity] == polar_rows[0][quantity]
     for quantity in ("CDW", "CYW", "CLW"):
         assert float(super_rows[0][quantity]) == pytest.approx(
             float(polar_rows[0][quantity]), abs=1e-5
