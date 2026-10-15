@@ -51,14 +51,14 @@ def test_goal020_board_items_init_tells_a_user_where_a_mesh_goes(tmp_path):
     assert readme.is_file(), "init left no page where a user puts a mesh"
     text = readme.read_text(encoding="utf-8")
     assert "One folder per mesh" in text
-    # THE THREE THINGS A READER HAS TO LEAVE WITH, and each is a sentence the
-    # owner's own question asked for: the layout, that their existing rows do
-    # not change, and the one command that moves a flat library over.
+    # P0410-INT1: preserve layout and sidecar guidance after retiring the
+    # separate geometry mover. Older formats have one Upgrading reference.
     assert "boundaries.toml" in text, "the page does not say the sidecar travels with the mesh"
     assert "flat library still works" in text.lower(), (
         "the page does not say a flat layout still works"
     )
-    assert "migrate-geometries" in text, "the page does not name the command that moves one over"
+    assert "Upgrading page" in text
+    assert "migrate-geometries" not in text
 
 
 def test_goal020_board_items_init_does_not_overwrite_a_page_already_there(tmp_path):
