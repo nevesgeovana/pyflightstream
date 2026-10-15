@@ -382,6 +382,13 @@ exercises, or `guards` for repository checks, and keep each list sorted.
 Run a package with `pytest -m pkg_post` (replace `post` with its package name,
 using underscores for hyphens).
 
+Release regression tests live in `test_regression_<subject>.py` or the existing
+subject module. Classes keep each former module's fixtures isolated; historical
+test names remain available for selecting individual cases.
+Workflow cases retain independent executions while
+`tests/tier1_offline/goldens/workflows/payloads.json` maps their logical filenames
+to shared canonical payloads.
+
 The suite is three folders under `tests/`, one per tier, and the folder
 says what a test needs before it says what it checks
 (`docs/tiers.md`).

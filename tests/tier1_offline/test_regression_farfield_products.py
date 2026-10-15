@@ -1503,7 +1503,9 @@ class TestRfixF2Matching:
     @pytest.mark.parametrize("tag", ["080", "0390", "01000", "123456"])
     def test_p0400_bgtests2_parity_normalizes_any_report_tag_length(tag):
         """PFS-2081.10: the report tag is a digit run, not a four-digit field."""
-        from tests.tier1_offline.test_p0400_core_small_parity import _load
+        from tests.tier1_offline.test_regression_maintainer_tools import (
+            _core_small_parity___load as _load,
+        )
 
         normalize = _load().normalize
         report = f'{{"superfile_report": "reports/superfile-{tag}.json"}}'.encode()

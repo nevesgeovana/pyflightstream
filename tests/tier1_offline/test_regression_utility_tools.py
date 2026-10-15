@@ -34,11 +34,11 @@ from tests.tier1_offline.test_p0320_changelog_fragments import (
 from tests.tier1_offline.test_p0320_changelog_fragments import (
     _script as _core_small_review_scripts___script,
 )
-from tests.tier1_offline.test_p0400_core_small_parity import (
-    _load as _core_small_review_scripts___load,
+from tests.tier1_offline.test_regression_maintainer_tools import (
+    _core_small_parity___load as _core_small_review_scripts___load,
 )
-from tests.tier1_offline.test_p0400_core_small_prove_extras import (
-    _load as _core_small_review_scripts___extras,
+from tests.tier1_offline.test_regression_maintainer_tools import (
+    _core_small_prove_extras___load as _core_small_review_scripts___extras,
 )
 from tests.tier1_offline.test_utils_database import _run as _core_small_database___run
 from tests.tier1_offline.test_utils_database import tree as _core_small_database__tree
