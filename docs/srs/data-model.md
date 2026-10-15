@@ -222,8 +222,6 @@ The managed folder tree of a campaign:
     fsi/             structural configurations a row's FSI names: f<id>.toml (0.29.0)
     matrices/        run matrices kept inside the library; new files go here, and a
                      matrix at the workspace root keeps its location (0.29.0)
-    costs/           machine cost models
-    sixdof/          declared rigid-body motion inputs
     management/      storage recipes a `pyfs-matrix free-space` call runs: m<id>.toml (0.30.0)
     sync-workspaces.toml  the other workspaces `pyfs-matrix sync` brings runs and results from (0.30.0)
     executables.toml the build-id to executable registry, with an
@@ -238,6 +236,10 @@ The managed folder tree of a campaign:
   runs.json          the manifest
   storage_management.json  the record of every storage and sync call (0.30.0)
 ```
+
+Optional operation-specific inputs also live under `inputs/costs/` (machine
+cost models) and `inputs/sixdof/` (declared rigid-body motion). These directories
+are read when requested; workspace initialization does not create them.
 
 Input artifacts are declarative TOML validated by pydantic, resolved
 by stable id with didactic misses (the error lists what exists and
