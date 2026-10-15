@@ -1866,6 +1866,21 @@ class StreamlinesSpec(BaseModel):
         return self
 
 
+class _NoiseSpec(BaseModel):
+    """Explicit exploratory loading-noise request in SI coordinates."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    exploratory: Literal[True]
+    observers_m: list[tuple[float, float, float]] = Field(min_length=1)
+    hub_velocity_m_s: tuple[float, float, float]
+    observer_velocity_m_s: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    sound_speed_m_s: float = Field(gt=0.0)
+    samples_per_revolution: int = Field(default=360, ge=16, le=10000)
+    orders: int | None = Field(default=None, ge=0)
+    axial_radius_m: float | None = Field(default=None, gt=0.0)
+    inplane_radius_m: float | None = Field(default=None, gt=0.0)
+
+
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
@@ -2017,6 +2032,7 @@ class PprocSpec(BaseModel):
     #: carries it, exactly as 0.29.0 did. A bool, and nothing a bool is read
     #: from: ``"true"`` or ``1`` is refused.
     singularity_strength: bool = Field(default=False, strict=True)
+    noise: _NoiseSpec | None = None
 
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     #: G05 (0.27.0): ONE flow-field plane each point of a STEADY row cuts after

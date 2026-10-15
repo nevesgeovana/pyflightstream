@@ -71,6 +71,7 @@ from pyflightstream.post._installed_copies import (
     write_installed_inflow,
     write_installed_probes,
 )
+from pyflightstream.post._noise_products import noise_products
 from pyflightstream.post._polar_axes import selected_axes
 from pyflightstream.post._reduction_stage import _drift_limit_pct, _point_reductions
 from pyflightstream.post._rotor_plan import _rotor_tables
@@ -1477,6 +1478,7 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     _point_products,
     _rotor_table_products,
     _qsteady_rotor_products,
+    noise_products,
     _unsteady_polar_products,
     # FR-456 (0.40.0): the far-field family, before the superfile reads the rows.
     farfield_products,

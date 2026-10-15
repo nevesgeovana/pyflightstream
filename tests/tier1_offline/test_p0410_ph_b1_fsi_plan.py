@@ -14,6 +14,36 @@ from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_fsi_setup
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 
 
+def test_p0410_workspace_posts_exploratory_loading_noise(tmp_path):
+    import csv
+
+    from tests.tier1_offline.test_goal036_qsteady_corrections import _post_recorded, _recorded_wheel
+
+    workspace = _recorded_wheel(
+        tmp_path,
+        pproc_extra="""
+[noise]
+exploratory = true
+observers_m = [[10.0, 2.0, 2.0]]
+hub_velocity_m_s = [0.0, 0.0, 0.0]
+sound_speed_m_s = 340.0
+samples_per_revolution = 64
+orders = 0
+axial_radius_m = 0.7
+inplane_radius_m = 0.7
+""",
+    )
+    manifest, folder, _ = _post_recorded(workspace)
+    files = list(folder.glob("noise/*.csv"))
+    assert files
+    rows = list(csv.DictReader(files[0].read_text().splitlines()))
+    assert len(rows) == 64
+    assert all(math.isfinite(float(row["pressure_pa"])) for row in rows)
+    assert max(abs(float(row["pressure_pa"])) for row in rows) > 0
+    entry = manifest["products"][files[0].relative_to(folder).as_posix()]
+    assert entry["validation"] == "exploratory, not validated"
+
+
 @pytest.mark.parametrize("axes,suffix", [("wind", "W"), ("stability", "S")])
 def test_p0410_workspace_selects_polar_axes(tmp_path, axes, suffix):
     import csv

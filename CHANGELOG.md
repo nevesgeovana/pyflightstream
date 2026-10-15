@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- An explicit exploratory `[noise]` request writes compact loading-noise observer
+  signals from recorded quasi-steady wheel loads, labelled as unvalidated.
+
 - `[products].polar_axes` selects wind or stability force coefficients as `CD`,
   `CY` and `CL`, retaining the explicit frame columns and naming the selection.
 
