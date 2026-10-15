@@ -46,7 +46,7 @@ def _assess(tmp_path: Path, loads: str, log: str | None = None):
 
 
 def test_p0390_iterlimit_a_steady_point_at_the_limit_with_a_log_is_max_iter_reached(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R1): log counter at the limit 500, residual above the limit.
+    """P0390-ITERLIMIT (FR-974): log counter at the limit 500, residual above the limit.
 
     The record states the requested limit and the iterations reached. A mutant
     that keeps the 0.38.0 status fails this test.
@@ -60,7 +60,7 @@ def test_p0390_iterlimit_a_steady_point_at_the_limit_with_a_log_is_max_iter_reac
 
 
 def test_p0390_iterlimit_a_steady_point_at_the_limit_without_a_log_stays_completed(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R2): the footer supplies the counter only, never the verdict.
+    """P0390-ITERLIMIT (FR-975): the footer supplies the counter only, never the verdict.
 
     A steady export at 500 of 500 and no solver log has no readable residual,
     so the status stays COMPLETED_MAX_ITER and no limit is written. A mutant
@@ -73,14 +73,14 @@ def test_p0390_iterlimit_a_steady_point_at_the_limit_without_a_log_stays_complet
 
 
 def test_p0390_iterlimit_a_log_at_the_limit_that_settled_is_converged(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R1): the residual settled at the limit, so the point converged."""
+    """P0390-ITERLIMIT (FR-974): the residual settled at the limit, so the point converged."""
     assessment = _assess(tmp_path, _at(STEADY, 500), _log(ends_at=500))
     assert assessment.status is RunStatus.CONVERGED
     assert assessment.iterations_requested is None
 
 
 def test_p0390_iterlimit_a_point_short_of_the_limit_keeps_the_0_38_status(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R2): unsettled at 400 of 500 stays COMPLETED_MAX_ITER.
+    """P0390-ITERLIMIT (FR-975): unsettled at 400 of 500 stays COMPLETED_MAX_ITER.
 
     A mutant that maps every unsettled steady point to the new status fails
     this test.
@@ -92,7 +92,7 @@ def test_p0390_iterlimit_a_point_short_of_the_limit_keeps_the_0_38_status(tmp_pa
 
 
 def test_p0390_iterlimit_an_unsteady_point_at_its_requested_count_stays_completed(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R3): an unsteady point whose counter equals the requested 500.
+    """P0390-ITERLIMIT (FR-976): an unsteady point whose counter equals the requested 500.
 
     The time loop reaches its prescribed end, so the counter says nothing; with
     and without a log it stays COMPLETED_MAX_ITER. A mutant that applies the
@@ -107,7 +107,8 @@ def test_p0390_iterlimit_an_unsteady_point_at_its_requested_count_stays_complete
 
 @pytest.mark.parametrize("sweep", ["2.0", "-2.0,0.0,2.0"], ids=["alone", "steady-job"])
 def test_p0390_iterlimit_a_steady_run_through_the_run_layer(sweep, tmp_path, monkeypatch):
-    """P0390-ITERLIMIT (FR-434 R1, R4): a point alone and a steady job's points, through run_matrix.
+    """P0390-ITERLIMIT (FR-974, FR-977): a point alone and a steady job's points, through
+     run_matrix.
 
     The stand-in solver prints the counter at 500 of 500 and writes a log whose
     residual stays above the convergence limit: every point and the job are
@@ -181,7 +182,7 @@ def _limit_workspace(tmp_path: Path) -> CampaignWorkspace:
 
 
 def test_p0390_iterlimit_readers_treat_it_as_an_ended_run(tmp_path, capsys):
-    """P0390-ITERLIMIT (FR-434 R4): post, status, show and resume read an ended, non-failed run.
+    """P0390-ITERLIMIT (FR-977): post, status, show and resume read an ended, non-failed run.
 
     The post writes the products and one WARNING per point naming the limit,
     `run --resume` plans nothing, `status` counts the word apart, and `show`
@@ -213,7 +214,7 @@ def test_p0390_iterlimit_readers_treat_it_as_an_ended_run(tmp_path, capsys):
 
 
 def test_p0390_iterlimit_a_0_38_manifest_reads_unchanged(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R5): a record written before 0.39.0 is read as it was."""
+    """P0390-ITERLIMIT (FR-978): a record written before 0.39.0 is read as it was."""
     workspace = grouped_workspace(tmp_path, mode="alone", logs=False, sims=("7002",))
     rows = _rows(workspace.root)
     for row in rows:
@@ -228,7 +229,7 @@ def test_p0390_iterlimit_a_0_38_manifest_reads_unchanged(tmp_path):
 
 
 def test_p0390_iterlimit_a_forced_run_at_its_budget_keeps_the_0_38_status(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R2): forced iterations run the whole budget by design.
+    """P0390-ITERLIMIT (FR-975): forced iterations run the whole budget by design.
 
     The threshold is off, so reaching 500 of 500 is not a stop that failed to
     settle; the evidence shows no such stop and the 0.38.0 status is kept.
@@ -242,7 +243,8 @@ def test_p0390_iterlimit_a_forced_run_at_its_budget_keeps_the_0_38_status(tmp_pa
     assert assessment.status is RunStatus.COMPLETED_MAX_ITER
 
 
-# --- the footer fallback (R1), the neither-counter control (R2) -----------------------------
+# --- the footer fallback (FR-974), the neither-counter control (FR-975)
+# -----------------------------
 
 
 def _counterless(log: str) -> str:
@@ -254,7 +256,7 @@ def _counterless(log: str) -> str:
 
 @pytest.mark.parametrize("named", [False, True], ids=["found-by-content", "named-log"])
 def test_p0390_iterlimit_a_log_without_a_counter_takes_the_footer_s(named, tmp_path):
-    """P0390-ITERLIMIT (FR-434 R1): the footer fallback, the footer supplies the counter only.
+    """P0390-ITERLIMIT (FR-974): the footer fallback, the footer supplies the counter only.
 
     The log's residual table prints no readable counter on any row and its final
     residual is above the limit; the loads footer states 500 of 500. The point is
@@ -274,7 +276,7 @@ def test_p0390_iterlimit_a_log_without_a_counter_takes_the_footer_s(named, tmp_p
 
 
 def test_p0390_iterlimit_both_footer_routes_carry_the_log_s_times(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R1): a log found by content and one named give the same times.
+    """P0390-ITERLIMIT (FR-974): a log found by content and one named give the same times.
 
     The same counterless log at the limit is read once found by its content and
     once named by the assessor; both verdicts are MAX_ITER_REACHED and carry the
@@ -302,7 +304,7 @@ def test_p0390_iterlimit_both_footer_routes_carry_the_log_s_times(tmp_path):
 def test_p0390_iterlimit_neither_counter_nor_a_settled_counterless_log_gives_the_new_status(
     tmp_path,
 ):
-    """P0390-ITERLIMIT (FR-434 R2): without both pieces of evidence the 0.38.0 status stands.
+    """P0390-ITERLIMIT (FR-975): without both pieces of evidence the 0.38.0 status stands.
 
     A loads footer with no counter is refused as 0.38.0 refuses it, a counterless
     log beside a footer short of the limit keeps the count judgment the same footer
@@ -325,7 +327,7 @@ def test_p0390_iterlimit_neither_counter_nor_a_settled_counterless_log_gives_the
 
 
 def test_p0390_iterlimit_a_log_counter_present_and_different_is_still_refused(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R1): the footer is the counter only when the log has none.
+    """P0390-ITERLIMIT (FR-974): the footer is the counter only when the log has none.
 
     A log that prints its counter at 499 beside a footer at 500 is refused as the
     log of another state; the footer does not replace a counter the log states.
@@ -336,7 +338,8 @@ def test_p0390_iterlimit_a_log_counter_present_and_different_is_still_refused(tm
     assert assessment.iterations_requested is None
 
 
-# --- precedence (R3) and the field written for MAX_ITER_REACHED alone (R1) -------------------
+# --- precedence (FR-976) and the field written for MAX_ITER_REACHED alone (FR-974)
+# -------------------
 
 #: The batch point the precedence cases read; its job's log is its own cumulative copy.
 FIRST = "V0300RE120AL+000"
@@ -400,7 +403,7 @@ def _first(workspace: CampaignWorkspace) -> dict:
 
 
 def test_p0390_iterlimit_the_collected_point_at_the_limit_is_the_control(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R1, R4): the same evidence, nothing overriding it, through collect.
+    """P0390-ITERLIMIT (FR-974, FR-977): the same evidence, nothing overriding it, through collect.
 
     The control of the precedence cases below: the grouped collect records the
     point MAX_ITER_REACHED with the limit, and in the steady job every point.
@@ -425,7 +428,7 @@ def test_p0390_iterlimit_the_collected_point_at_the_limit_is_the_control(tmp_pat
     ids=["failed", "walltime", "missing-log"],
 )
 def test_p0390_iterlimit_a_stronger_word_takes_precedence_through_collect(override, word, tmp_path):
-    """P0390-ITERLIMIT (FR-434 R3, R1): FAILED_, WALLTIME_REACHED and RAN_MISSING_LOG outrank it.
+    """P0390-ITERLIMIT (FR-976, FR-974): FAILED_, WALLTIME_REACHED and RAN_MISSING_LOG outrank it.
 
     On the evidence of the control (500 of 500, unsettled), a G06 refusal line in
     the log, a fired wall-clock stop and a deleted log each give their own word,
@@ -440,7 +443,7 @@ def test_p0390_iterlimit_a_stronger_word_takes_precedence_through_collect(overri
 
 
 def test_p0390_iterlimit_a_steady_job_point_refused_by_its_log_carries_no_limit(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R3): the points of a steady job, collected, under a refusal line."""
+    """P0390-ITERLIMIT (FR-976): the points of a steady job, collected, under a refusal line."""
     workspace = _solved_at_the_limit(tmp_path, "alone", refused=True)
     (job,) = _rows(workspace.root)
     assert {entry["status"] for entry in job["points_ran"]} == {"FAILED_SCRIPT"}, job
@@ -456,7 +459,7 @@ def test_p0390_iterlimit_a_steady_job_point_refused_by_its_log_carries_no_limit(
     ids=["mark-failed", "mark-converged"],
 )
 def test_p0390_iterlimit_the_person_s_verdict_outranks_it(command, word, tmp_path, capsys):
-    """P0390-ITERLIMIT (FR-434 R3, R1): mark-failed and mark-converged outrank MAX_ITER_REACHED.
+    """P0390-ITERLIMIT (FR-976, FR-974): mark-failed and mark-converged outrank MAX_ITER_REACHED.
 
     The marked record keeps the word it had under ``marked`` and drops the limit,
     which is written for MAX_ITER_REACHED alone. A mutant that leaves the field
@@ -475,7 +478,7 @@ def test_p0390_iterlimit_the_person_s_verdict_outranks_it(command, word, tmp_pat
 def test_p0390_iterlimit_mark_converged_on_a_steady_job_s_points_drops_their_limit(
     tmp_path, capsys
 ):
-    """P0390-ITERLIMIT (FR-434 R3, R1): each marked point of a steady job drops its limit.
+    """P0390-ITERLIMIT (FR-976, FR-974): each marked point of a steady job drops its limit.
 
     The points of the job were MAX_ITER_REACHED with the limit; marked
     converged, each entry is CONVERGED with no limit, and the job's row takes
@@ -524,10 +527,10 @@ def _rebuilt(workspace: CampaignWorkspace, matrix: Path, capsys, out: str) -> li
 def test_p0390_iterlimit_rebuild_keeps_the_person_s_verdict_without_the_limit(
     tmp_path, monkeypatch, capsys
 ):
-    """P0390-ITERLIMIT (FR-434 R3, R1): a rebuild of a marked point keeps CONVERGED, no limit.
+    """P0390-ITERLIMIT (FR-976, FR-974): a rebuild of a marked point keeps CONVERGED, no limit.
 
     Control: rebuilt unmarked, the files give MAX_ITER_REACHED with the limit.
-    Marked converged, the rebuild keeps the person's CONVERGED (FR-414 R4) and
+    Marked converged, the rebuild keeps the person's CONVERGED (FR-871) and
     drops the limit the files would give. A mutant whose kept verdict carries
     the field fails.
     """
@@ -547,7 +550,7 @@ def test_p0390_iterlimit_rebuild_keeps_the_person_s_verdict_without_the_limit(
 
 
 def test_p0390_iterlimit_a_local_point_refused_by_its_log_carries_no_limit(tmp_path, monkeypatch):
-    """P0390-ITERLIMIT (FR-434 R3, R1): the run layer's point path, a refusal line in its log.
+    """P0390-ITERLIMIT (FR-976, FR-974): the run layer's point path, a refusal line in its log.
 
     The stand-in solver prints 500 of 500 and an unsettled log carrying a G06
     refusal line: the point is FAILED_SCRIPT and its record has no limit. A
@@ -563,11 +566,11 @@ def test_p0390_iterlimit_a_local_point_refused_by_its_log_carries_no_limit(tmp_p
     _the_word_owns_the_field(_rows(workspace.root))
 
 
-# --- the readers of R4 the first writing left out -----------------------------------------
+# --- the readers of FR-977 the first writing left out -----------------------------------------
 
 
 def test_p0390_iterlimit_the_cost_estimate_reads_an_ended_run(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R4): the cost view counts it as time to an answer, not excluded.
+    """P0390-ITERLIMIT (FR-977): the cost view counts it as time to an answer, not excluded.
 
     Control: the same records as WALLTIME_REACHED are excluded.
     """
@@ -589,7 +592,7 @@ def test_p0390_iterlimit_the_cost_estimate_reads_an_ended_run(tmp_path):
 
 
 def test_p0390_iterlimit_delete_sims_reads_an_ended_run(tmp_path, capsys):
-    """P0390-ITERLIMIT (FR-434 R4): delete-sims takes it without --force, as an ended run.
+    """P0390-ITERLIMIT (FR-977): delete-sims takes it without --force, as an ended run.
 
     Control: the same simulation SUBMITTED is refused without --force.
     """
@@ -606,7 +609,7 @@ def test_p0390_iterlimit_delete_sims_reads_an_ended_run(tmp_path, capsys):
 
 
 def test_p0390_iterlimit_the_grouped_collect_reads_an_ended_run(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R4): collected, not failed; a second collect leaves it as it is."""
+    """P0390-ITERLIMIT (FR-977): collected, not failed; a second collect leaves it as it is."""
     workspace = _solved_at_the_limit(tmp_path, "batch")
     before = workspace.manifest_path.read_bytes()
     with warnings.catch_warnings():
@@ -618,7 +621,7 @@ def test_p0390_iterlimit_the_grouped_collect_reads_an_ended_run(tmp_path):
     assert _first(workspace)["status"] == "MAX_ITER_REACHED"
 
 
-# --- R5: the 0.38.0 reader refuses the new value ------------------------------------------
+# --- FR-978: the 0.38.0 reader refuses the new value ------------------------------------------
 
 #: The RunStatus member set of the published 0.38.0 package, recorded here (FR-46).
 RUN_STATUS_0380 = frozenset(
@@ -638,7 +641,7 @@ RUN_STATUS_0380 = frozenset(
 
 
 def test_p0390_iterlimit_a_0_38_reader_refuses_the_new_value(tmp_path):
-    """P0390-ITERLIMIT (FR-434 R5, FR-46): the 0.38.0 member set reads none of MAX_ITER_REACHED.
+    """P0390-ITERLIMIT (FR-978, FR-46): the 0.38.0 member set reads none of MAX_ITER_REACHED.
 
     The set grows by exactly the new value, and a record validated against the
     0.38.0 set (a closed enum, as the 0.38.0 reader is) is refused when it holds

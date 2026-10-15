@@ -240,7 +240,7 @@ def pyfs(argv: list[str], cwd: Path, capsys) -> tuple[int, str]:
 
 
 def test_p0370_s1_the_owner_s_case_is_not_two_places(tmp_path, capsys):
-    """P0370-S1-MATRIX-HOME (FR-411 R4): the 0.35.1 report, rebuilt from the root and elsewhere.
+    """P0370-S1-MATRIX-HOME (FR-411): the 0.35.1 report, rebuilt from the root and elsewhere.
 
     The matrix is in ``inputs/matrices/`` alone with a RUN 0 row, ``runs.json``
     and the logs are deleted; ``rebuild`` with and without ``--matrix`` (a bare
@@ -265,12 +265,12 @@ WITH_A_WORKSPACE = sorted(MATRIX_ARGUMENTS - {("upgrade", "matrix"), ("convert",
 
 @pytest.mark.parametrize("command", WITH_A_WORKSPACE)
 def test_p0370_s1_a_working_directory_copy_warns_and_is_not_read(command, tmp_path, monkeypatch):
-    """P0370-S1-MATRIX-HOME (FR-411 R1, R3): every command reads the workspace's file and warns.
+    """P0370-S1-MATRIX-HOME (FR-852, FR-854): every command reads the workspace's file and warns.
 
     The working directory holds a file of the matrix's name with other bytes:
     the command is not refused, the workspace's file is read, and the WARNING
     names both files and which one was read. A path that names its folder is
-    read as that path, in silence (R3).
+    read as that path, in silence (FR-854).
     """
     workspace = tmp_path / "ws"
     home = workspace / "inputs" / "matrices" / "m.fs"
@@ -297,7 +297,7 @@ def test_p0370_s1_a_working_directory_copy_warns_and_is_not_read(command, tmp_pa
 
 
 def test_p0370_s1_two_homes_with_different_bytes_are_still_refused(tmp_path):
-    """P0370-S1-MATRIX-HOME (FR-411 R2): one stem in both homes with different bytes is refused.
+    """P0370-S1-MATRIX-HOME (FR-853): one stem in both homes with different bytes is refused.
 
     Both paths are named with the remedy; equal bytes are read once, the root's.
     """
@@ -315,7 +315,7 @@ def test_p0370_s1_two_homes_with_different_bytes_are_still_refused(tmp_path):
 
 
 def test_p0370_s1_the_rebuild_reads_the_matrix_its_workspace_holds(tmp_path, capsys):
-    """P0370-S1-MATRIX-HOME (FR-411 R5): from the root, the rebuild says what 0.36.0 said.
+    """P0370-S1-MATRIX-HOME (FR-411): from the root, the rebuild says what 0.36.0 said.
 
     A workspace whose ``runs.json`` holds every record: the preview rebuilds
     nothing and refuses nothing, and the records file is untouched.

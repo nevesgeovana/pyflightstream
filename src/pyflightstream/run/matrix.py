@@ -626,7 +626,7 @@ def plan_matrix(
         matrix_path=path,
         accept_unregistered_build=accept_unregistered_build,
         inflow_fft=inflow_fft,
-        # FR-436 R7: a build entry of this machine's overlay accepting its own build.
+        # FR-998: a build entry of this machine's overlay accepting its own build.
         accepted_builds=entry_accepted_builds(resolved, workspace, default, fs_exe),
     )
     _warn_when_the_points_may_not_fit(workspace, len(plan.ready))
@@ -1201,7 +1201,7 @@ def run_matrix(
         name_from=name_from,
         accept_unregistered_build=accept_unregistered_build,
         sweep_csv=sweep_csv,
-        # FR-436 R7: a build entry of this machine's overlay accepting its own build.
+        # FR-998: a build entry of this machine's overlay accepting its own build.
         accepted_builds=entry_accepted_builds(resolved, workspace, default, fs_exe),
     )
 

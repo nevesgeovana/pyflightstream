@@ -1,4 +1,5 @@
-"""Tier 1, 0.38.0 S1: the quad-dominant remesh of a remeshed family (FR-424 R3, R4, R8, R11).
+"""Tier 1, 0.38.0 S1: the quad-dominant remesh of a remeshed family (FR-917, FR-918, FR-922,
+ FR-925).
 
 A remeshed family whose element mode is ``"quad-dominant"`` is remeshed into
 triangles as any other, and its triangles are then paired into
@@ -143,7 +144,7 @@ TWO = [[0, 1, 2], [0, 2, 3]]
     ],
 )
 def test_a_pair_is_merged_only_into_a_valid_quadrilateral_of_one_family(verts, labels, curve):
-    """P0380-QUADDOM (FR-424 R8): no merge across a curve or two families, or out of bounds.
+    """P0380-QUADDOM (FR-922): no merge across a curve or two families, or out of bounds.
 
     Two triangles sharing the edge 0-2 are not merged when the edge is a
     curve, when they belong to two families, when the quadrilateral has an
@@ -179,7 +180,7 @@ def _fan(far: float) -> tuple[Remesher, int]:
 
 
 def test_a_smoothing_move_that_breaks_a_quadrilateral_is_undone():
-    """P0380-QUADDOM (FR-424 R8): smoothing never leaves a quadrilateral outside the bounds.
+    """P0380-QUADDOM (FR-922): smoothing never leaves a quadrilateral outside the bounds.
 
     With the right column far away (x = 30), moving the free node halfway to
     its edge neighbors' centroid would give its upper-left quadrilateral an
@@ -196,7 +197,7 @@ def test_a_smoothing_move_that_breaks_a_quadrilateral_is_undone():
 
 
 def test_a_flat_plate_is_mostly_quadrilaterals_each_convex_within_the_band_and_planar():
-    """P0380-QUADDOM (FR-424 R8): a flat plate refined quad-dominant is above FLAT_SHARE quads.
+    """P0380-QUADDOM (FR-922): a flat plate refined quad-dominant is above FLAT_SHARE quads.
 
     Every quadrilateral is convex, its angles lie in QUAD_ANGLE_BAND, its warp
     is within QUAD_WARP_DEGREES, its nodes on the plane z = 0, and it faces
@@ -223,7 +224,7 @@ def test_a_flat_plate_is_mostly_quadrilaterals_each_convex_within_the_band_and_p
 
 @pytest.mark.parametrize("factor", [2.0, 0.5])
 def test_a_curved_strip_keeps_every_node_on_the_surface(factor):
-    """P0380-QUADDOM (FR-424 R8): smoothing projects onto the source; nodes stay on the cylinder.
+    """P0380-QUADDOM (FR-922): smoothing projects onto the source; nodes stay on the cylinder.
 
     Every node lies on the source triangulation within 1e-9 of the size, so
     on the cylinder within the source's own chordal error (the sagitta of its
@@ -252,7 +253,7 @@ def test_a_curved_strip_keeps_every_node_on_the_surface(factor):
 
 
 def test_no_quadrilateral_spans_an_interior_curve():
-    """P0380-QUADDOM (FR-424 R8): a curve inside a family is never merged across.
+    """P0380-QUADDOM (FR-922): a curve inside a family is never merged across.
 
     The row y = 0.5 of a flat plate is declared the trailing edge: every
     trailing-edge edge of the level is an edge of its faces, so no
@@ -279,7 +280,7 @@ def test_no_quadrilateral_spans_an_interior_curve():
 
 
 def test_no_quadrilateral_crosses_a_family_boundary_or_a_frozen_interface():
-    """P0380-QUADDOM (FR-424 R8): the cut between A and B keeps every edge.
+    """P0380-QUADDOM (FR-922): the cut between A and B keeps every edge.
 
     A remeshed alone (B unchanged, so the cut is frozen) keeps every source
     edge of the cut. A and B remeshed together, both quad-dominant, hold one
@@ -327,7 +328,7 @@ def _two_source(tmp_path: Path, toml: str | None) -> Path:
 
 
 def test_a_quad_dominant_level_passes_the_gates_and_reports_its_share(tmp_path):
-    """P0380-QUADDOM (FR-424 R4, FR-426 R2): G1 to G5 pass and refine.json states the share.
+    """P0380-QUADDOM (FR-918, FR-938): G1 to G5 pass and refine.json states the share.
 
     Both families are remeshed together quad-dominant at factor 2. The audit's
     gates G1 to G5 pass (G2: no two neighbors of opposite orientation), and
@@ -360,7 +361,7 @@ def test_a_quad_dominant_level_passes_the_gates_and_reports_its_share(tmp_path):
 
 
 def test_the_default_stays_triangles_byte_for_byte(tmp_path):
-    """P0380-QUADDOM (FR-424 R8, R12): without the key, or with "triangles", nothing changes.
+    """P0380-QUADDOM (FR-922, FR-926): without the key, or with "triangles", nothing changes.
 
     The level of a source with no refinement file, of one stating
     ``[refine] elements = "triangles"``, and of one stating it on the
@@ -388,7 +389,7 @@ def test_the_default_stays_triangles_byte_for_byte(tmp_path):
 
 
 def test_a_family_mode_replaces_the_default_and_a_grid_ignores_it(tmp_path):
-    """P0380-QUADDOM (FR-424 R3, R4, R9): per-family modes, and a grid keeps its cells.
+    """P0380-QUADDOM (FR-917, FR-918, FR-923): per-family modes, and a grid keeps its cells.
 
     ``[refine] elements`` is quad-dominant and ``[families.T]`` says
     triangles: T stays triangles. The grid G keeps its cells, equal to its
@@ -440,7 +441,7 @@ def test_a_family_mode_replaces_the_default_and_a_grid_ignores_it(tmp_path):
     ids=["unknown-default", "unknown-family", "on-a-grid", "unknown-refine-key"],
 )
 def test_an_unknown_mode_is_refused_naming_the_file_table_and_modes(tmp_path, toml, where, said):
-    """P0380-QUADDOM (FR-424 R3, R11): each bad value is refused before anything is written.
+    """P0380-QUADDOM (FR-917, FR-925): each bad value is refused before anything is written.
 
     The message names the file, the table and the key, lists the allowed
     values, and ends "Nothing was written."; no level folder is left. The

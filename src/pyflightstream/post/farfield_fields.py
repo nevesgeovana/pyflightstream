@@ -81,7 +81,7 @@ __all__ = [
 _NA = float("nan")
 _REFERENCE = "REFERENCE"
 #: The columns of ``farfield/<group>_ledgers*.csv`` after ``POL``, ``STEP`` and the
-#: condition block (FR-456 R4).
+#: condition block (FR-1056).
 LEDGER_COLUMNS: tuple[str, ...] = (
     "LATTICE",
     "STATION_X_R",
@@ -392,7 +392,7 @@ class FarLayout:
 
 
 def recorded_layout(shapes: Sequence[Mapping[str, Any]]) -> FarLayout:
-    """Rebuild the far-field probes a run recorded, in metres (FR-455 R4, PFS-2081.58).
+    """Rebuild the far-field probes a run recorded, in metres (FR-1047, PFS-2081.58).
 
     Each shape is one entry of the record's ``farfield_layout`` (``kind``,
     ``source``, ``count`` and the geometry the plan laid it from); the points
@@ -566,7 +566,7 @@ def _locate_one(
 def far_samples(
     samples: ProbeSamples, layout: FarLayout, *, per_m: float
 ) -> tuple[slice | np.ndarray | None, slice | np.ndarray | None, str]:
-    """Locate the lattice and the plane among a point's probes (FR-455 R2, PFS-2081.58).
+    """Locate the lattice and the plane among a point's probes (FR-1045, PFS-2081.58).
 
     Every exported position of a set must match the layout, each set exactly
     once: where the run recorded the layout, where it stands, in the one frame
@@ -678,7 +678,9 @@ def plane_values(
     per_m: float,
     q_ref: float,
 ) -> dict[str, float]:
-    """Return the Trefftz C values of a wing's plane, in N and m (FR-453 R1, R2, R5, R6).
+    """Return the Trefftz C values of a wing's plane, in N and m.
+
+    (FR-1030, FR-1031, FR-1034, FR-1035).
 
     ``flow`` is the density, the free-stream speed, alpha and beta (deg);
     ``grid`` is the plane's half width, half height and spacing in m.
@@ -757,7 +759,7 @@ def lattice_samples(
     q: float,
     hub: tuple[float, np.ndarray, np.ndarray] | None = None,
 ) -> LatticeFields:
-    """Turn a lattice's probe values to its own axes and assemble them (FR-38, FR-453 R8).
+    """Turn a lattice's probe values to its own axes and assemble them (FR-38, FR-1037).
 
     ``hub`` is the frame speed (rad/s), the axis and the origin (m, reference
     frame) of a rotor whose turning frame the probes were read in; its
@@ -799,7 +801,7 @@ def lattice_samples(
 
 
 def rotor_values(fields: LatticeFields, *, rho: float, speed: float, station: float) -> dict:
-    """Return the rotor channels of FR-453 R3 at one station, in W.
+    """Return the rotor channels of FR-1032 at one station, in W.
 
     Parameters
     ----------
@@ -859,7 +861,7 @@ def ledger_values(
     speed: float,
     near: tuple[float, float],
 ) -> list[dict[str, float]]:
-    """Return one mapping of ledger columns per lattice station (FR-38, FR-456 R4).
+    """Return one mapping of ledger columns per lattice station (FR-38, FR-1056).
 
     ``near`` is the near-field axial force of the configuration (N) and the
     reference area (m^2) the spurious counts are stated against. A balance the
@@ -954,7 +956,7 @@ def _control_volume(fields: LatticeFields, chosen: set, rho: float, speed: float
 def average_rows(
     rows: Sequence[Sequence[tuple[object, ...]]], first: int
 ) -> list[tuple[object, ...]]:
-    """Average per-step rows of one shape, cell by cell, from column ``first`` (FR-38 R7).
+    """Average per-step rows of one shape, cell by cell, from column ``first`` (FR-484).
 
     ``rows`` holds one list of rows per time step, each step's rows in the same
     order. Every flux is computed on each step's field and then averaged here,

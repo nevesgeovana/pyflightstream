@@ -115,7 +115,7 @@ __all__ = [
 STATUS_SCHEMA = "pyfs-status/1"
 
 #: The DERIVED state of a point a plan names and no record carries. Lower case
-#: on purpose: every recorded status word is upper case (FR-382 R2, FR-384 R4).
+#: on purpose: every recorded status word is upper case (FR-746, FR-757).
 PLANNED = "planned"
 
 #: The keys of one polar row, in the order the table, the CSV and the JSON print them.
@@ -200,7 +200,7 @@ def status_text(counts: Mapping[str, int]) -> str:
     """Return a polar's status: the one word, or the count of each word.
 
     One word when every datapoint shares it. Otherwise each word with its count,
-    in the order of FR-379 R3: the concluded words (CONVERGED,
+    in the order of FR-733: the concluded words (CONVERGED,
     COMPLETED_MAX_ITER, MAX_ITER_REACHED, WALLTIME_REACHED, RAN_MISSING_LOG), then the failed ones
     (``FAILED_*``),
     then SUBMITTED, then :data:`PLANNED`; a word no group names comes last.
@@ -227,7 +227,7 @@ def status_text(counts: Mapping[str, int]) -> str:
 
 
 def _word_order(word: str) -> tuple[int, int, str]:
-    """Order a status word by its FR-379 R3 group, then by the enum's order."""
+    """Order a status word by its FR-733 group, then by the enum's order."""
     order = [status.value for status in RunStatus]
     position = order.index(word) if word in order else len(order)
     if word in {status.value for status in _CONCLUDED}:
@@ -440,7 +440,7 @@ class Ledger:
         return None
 
     def unmatched(self, sims: Iterable[str]) -> list[str]:
-        """Return the ids of ``sims`` that name no record and no planned point (FR-380 R4).
+        """Return the ids of ``sims`` that name no record and no planned point (FR-738).
 
         Parameters
         ----------
@@ -480,7 +480,7 @@ class Ledger:
         return [path.relative_to(self.root).as_posix() for path in found]
 
     def freshness(self, *, matrix: str | None = None) -> list[dict[str, object]]:
-        """Return, per matrix, whether its plan and its post are current (FR-382 R4).
+        """Return, per matrix, whether its plan and its post are current (FR-748).
 
         Parameters
         ----------
@@ -502,7 +502,7 @@ class Ledger:
         return [self._freshness_of(stem) for stem in stems]
 
     def document(self, rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
-        """Return the ``--json`` document of these rows (FR-385 R2).
+        """Return the ``--json`` document of these rows (FR-759).
 
         Parameters
         ----------

@@ -156,7 +156,7 @@ def _build_continuation(
     """
     _the_custom_freestream(case)
     _acoustics.refuse_acoustics_on_a_continuation(case)
-    # FR-417 R6: NORMAL PROBES ARE CREATED AFTER THE CONTINUED MARCH, as the full
+    # FR-889: NORMAL PROBES ARE CREATED AFTER THE CONTINUED MARCH, as the full
     # script creates them; `build` is the row's full builder, run on a scratch.
     probes = [] if build is None else _normal_probes_of_a_continuation(case, script, build)
     _configuration_comment(case, script)
@@ -192,7 +192,7 @@ def _build_continuation(
 def _the_actions_the_saved_state_runs(
     script: Script, threshold: UnsteadyExportThreshold | None, *, walltime: bool
 ) -> None:
-    """Record the row's unsteady actions on a continuation, and emit no registration (FR-396 R2).
+    """Record the row's unsteady actions on a continuation, and emit no registration (FR-799).
 
     THE REOPENED STATE ALREADY RUNS THEM. A simulation the package saved keeps
     the unsteady solver actions its run registered, and an action a script
@@ -258,7 +258,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
         raise CampaignConfigError(
             f"case {case.sim_id!r}: a SIXDOF row cannot be continued from its saved state: "
             "the body's position, attitude and rates when the march stopped are not a state "
-            "this package has measured a reopened simulation to restore (FR-461 R4)."
+            "this package has measured a reopened simulation to restore (FR-1087)."
         )
     if continuation is not None:
         _build_continuation(

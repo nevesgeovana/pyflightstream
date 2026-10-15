@@ -231,7 +231,7 @@ def _obj_face(words: list[str], vertices: list[tuple[float, ...]]) -> tuple[tupl
 def _meshes_differ(artifacts: ProbeArtifacts, left: str, right: str) -> bool | None:
     """Judge whether two exported lofts differ; equal or absent records unprobed.
 
-    FR-333 R2: equal lofts are what a setting that failed to move the mesh
+    FR-333: equal lofts are what a setting that failed to move the mesh
     produces, so they are never a refutation here. Only the restore judge of
     FR-401, which holds a control that proves the setup moved the mesh, may
     return False.

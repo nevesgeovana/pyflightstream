@@ -3,7 +3,7 @@
 Pipeline role: the command side of :mod:`pyflightstream.workspace.ledger`.
 :func:`run_query` is what :mod:`pyflightstream.run.cli` dispatches a query verb
 to; each verb reads one ledger snapshot and renders the rows the ledger returns,
-as a table, as JSON or as CSV (FR-385, FR-388 R3), so the three forms print the
+as a table, as JSON or as CSV (FR-385, FR-775), so the three forms print the
 same rows and a Python caller of the ledger gets them too.
 
 A query writes nothing (FR-383): it is not a live-log command, it starts no

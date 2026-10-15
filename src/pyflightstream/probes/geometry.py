@@ -444,7 +444,7 @@ def _refine_band(
 
 @dataclass(frozen=True, eq=False)
 class InsideReport:
-    """Which probe points lie inside the body (FR-459 R4).
+    """Which probe points lie inside the body (FR-1074).
 
     Attributes
     ----------
@@ -473,7 +473,7 @@ class InsideReport:
 
 
 def points_inside(points: np.ndarray, *, mesh_path: str | Path) -> InsideReport:
-    """Test probe points against the body, never refusing for a missing tool (FR-459 R4).
+    """Test probe points against the body, never refusing for a missing tool (FR-1074).
 
     The containment of the geometry gate, run on any probe points. Where it
     cannot run, because the ``[geom]`` spatial index is absent or the mesh is

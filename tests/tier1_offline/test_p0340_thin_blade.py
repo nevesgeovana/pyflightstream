@@ -2,7 +2,7 @@
 
 Pipeline role: quality gate on the library core of ``pyfs-matrix degenerate
 --kind thin-blade``, :func:`pyflightstream.workspace._degenerate.derive_thin_blade`.
-The command line itself (FR-330 R1 and R7) is a later package's; what is held
+The command line itself (FR-628 and FR-634) is a later package's; what is held
 here is the geometry and the files.
 
 THE ORACLE IS BUILT, NOT READ. Each test builds a cambered blade whose two sides
@@ -147,10 +147,10 @@ def _off_the_mean_surface(points: numpy.ndarray) -> numpy.ndarray:
 
 
 def test_the_thin_blade_is_the_mean_surface_between_the_two_sides(tmp_path):
-    """FR-330 R2 (P0340-THIN-BLADE): every point of the derived sheet lies on the
+    """FR-629 (P0340-THIN-BLADE): every point of the derived sheet lies on the
     surface the blade's two mirror-image sides are symmetric about, within 1e-9 of
     the span, and strictly between the two sides away from the edges."""
-    # P0340-THIN-BLADE, FR-330 R2: the mean surface lies between the two faces.
+    # P0340-THIN-BLADE, FR-629: the mean surface lies between the two faces.
     vertices, faces = _blade()
     source = _write_obj(tmp_path / "blade.obj", vertices, faces)
     result = derive_thin_blade(source, root_offset=0.05)
@@ -170,9 +170,9 @@ def test_the_thin_blade_is_the_mean_surface_between_the_two_sides(tmp_path):
 
 
 def test_a_mesh_not_built_in_rings_and_a_rotated_blade_give_the_same_mean_surface(tmp_path):
-    """FR-330 R2 (P0340-THIN-BLADE): the derivation holds off the rings (sections cut
+    """FR-629 (P0340-THIN-BLADE): the derivation holds off the rings (sections cut
     between vertices) and in any frame (a blade turned about the origin)."""
-    # P0340-THIN-BLADE, FR-330 R2: no dependence on rings or on the global axes.
+    # P0340-THIN-BLADE, FR-629: no dependence on rings or on the global axes.
     vertices, faces = _blade(jitter=0.01)
     result = derive_thin_blade(
         _write_obj(tmp_path / "loose.obj", vertices, faces), root_offset=0.05
@@ -199,9 +199,9 @@ def test_a_mesh_not_built_in_rings_and_a_rotated_blade_give_the_same_mean_surfac
 
 
 def test_the_root_is_moved_outward_along_the_span_by_the_offset(tmp_path):
-    """FR-330 R3 (P0340-THIN-BLADE): the sheet starts the root offset above the
+    """FR-630 (P0340-THIN-BLADE): the sheet starts the root offset above the
     blade's root, ends at its tip ring, and the sidecar states the offset used."""
-    # P0340-THIN-BLADE, FR-330 R3: the root offset, along the span from root to tip.
+    # P0340-THIN-BLADE, FR-630: the root offset, along the span from root to tip.
     vertices, faces = _blade()
     for offset in (0.05, 0.13):
         source = _write_obj(tmp_path / f"blade_{offset}.obj", vertices, faces)
@@ -226,10 +226,10 @@ def test_the_root_is_moved_outward_along_the_span_by_the_offset(tmp_path):
 
 
 def test_the_thin_blade_and_its_boundaries_are_written_beside_the_source(tmp_path):
-    """FR-330 R4 and R5 (P0340-THIN-BLADE): the OBJ under a name derived from the
+    """FR-631 and FR-632 (P0340-THIN-BLADE): the OBJ under a name derived from the
     source's stem and its boundary inventory beside it, readable by the raw-mesh
     route, with the source's length unit; LF line ends (NFR-32)."""
-    # P0340-THIN-BLADE, FR-330 R4/R5: the output and its boundaries file beside the source.
+    # P0340-THIN-BLADE, FR-631/FR-632: the output and its boundaries file beside the source.
     vertices, faces = _blade()
     source = _write_obj(tmp_path / "rotor_blade.obj", vertices, faces, group="Blade1")
     inventory_sidecar(source).write_text(
@@ -251,9 +251,9 @@ def test_the_thin_blade_and_its_boundaries_are_written_beside_the_source(tmp_pat
 
 
 def test_a_source_without_a_stated_unit_gets_no_import_table(tmp_path):
-    """FR-330 R5 (P0340-THIN-BLADE): a unit is never assumed; the sidecar says
+    """FR-632 (P0340-THIN-BLADE): a unit is never assumed; the sidecar says
     where to write it."""
-    # P0340-THIN-BLADE, FR-330 R5: no [import] units invented.
+    # P0340-THIN-BLADE, FR-632: no [import] units invented.
     vertices, faces = _blade()
     result = derive_thin_blade(_write_obj(tmp_path / "b.obj", vertices, faces), root_offset=0.05)
     assert result.unit is None
@@ -262,7 +262,7 @@ def test_a_source_without_a_stated_unit_gets_no_import_table(tmp_path):
 
 
 def test_a_saved_simulation_written_by_the_solver_is_read(tmp_path):
-    """FR-330 R1 and R2 (P0340-THIN-BLADE): the half wing of the tier-3 library,
+    """FR-628 and FR-629 (P0340-THIN-BLADE): the half wing of the tier-3 library,
     a symmetric section written by the solver, gives a sheet on its plane of
     symmetry, its root moved off the plane the wing meets, in metres."""
     # P0340-THIN-BLADE, FR-330: the saved-simulation route.
@@ -277,9 +277,9 @@ def test_a_saved_simulation_written_by_the_solver_is_read(tmp_path):
 
 
 def test_the_source_is_never_modified_and_an_output_is_not_overwritten_unasked(tmp_path):
-    """FR-330 R4 (P0340-THIN-BLADE): the source keeps its bytes; an existing output
+    """FR-631 (P0340-THIN-BLADE): the source keeps its bytes; an existing output
     is refused, naming it, unless overwrite is given."""
-    # P0340-THIN-BLADE, FR-330 R4: never modifies the source; --overwrite to rewrite.
+    # P0340-THIN-BLADE, FR-631: never modifies the source; --overwrite to rewrite.
     vertices, faces = _blade()
     source = _write_obj(tmp_path / "blade.obj", vertices, faces)
     before = _sha(source)
@@ -311,8 +311,8 @@ def test_the_source_is_never_modified_and_an_output_is_not_overwritten_unasked(t
 def test_a_mesh_that_cannot_be_read_is_refused_by_name_and_nothing_is_written(
     tmp_path, name, content, reason
 ):
-    """FR-330 R6 (P0340-THIN-BLADE): the refusal names the file and the reason."""
-    # P0340-THIN-BLADE, FR-330 R6: an unreadable mesh is refused before anything is written.
+    """FR-633 (P0340-THIN-BLADE): the refusal names the file and the reason."""
+    # P0340-THIN-BLADE, FR-633: an unreadable mesh is refused before anything is written.
     source = tmp_path / name
     source.write_text(content, encoding="utf-8")
     with pytest.raises(InputArtifactError, match=reason) as refused:
@@ -324,9 +324,9 @@ def test_a_mesh_that_cannot_be_read_is_refused_by_name_and_nothing_is_written(
 
 
 def test_a_mesh_whose_two_sides_cannot_be_separated_is_refused(tmp_path):
-    """FR-330 R6 (P0340-THIN-BLADE): an open sheet (a blade already without
+    """FR-633 (P0340-THIN-BLADE): an open sheet (a blade already without
     thickness) has no closed section, and a file of two groups no single blade."""
-    # P0340-THIN-BLADE, FR-330 R6: sides that cannot be separated are refused by name.
+    # P0340-THIN-BLADE, FR-633: sides that cannot be separated are refused by name.
     vertices, faces = _blade(closed=False)
     sheet = _write_obj(tmp_path / "sheet.obj", vertices, faces)
     with pytest.raises(
@@ -345,9 +345,9 @@ def test_a_mesh_whose_two_sides_cannot_be_separated_is_refused(tmp_path):
 
 
 def test_a_root_offset_that_is_not_a_length_inside_the_blade_is_refused(tmp_path):
-    """FR-330 R3 (P0340-THIN-BLADE): the offset is required, positive and shorter
+    """FR-630 (P0340-THIN-BLADE): the offset is required, positive and shorter
     than the blade; a blade whose root cannot be told from its tip is refused."""
-    # P0340-THIN-BLADE, FR-330 R3: the offset refusals and the root rule.
+    # P0340-THIN-BLADE, FR-630: the offset refusals and the root rule.
     vertices, faces = _blade()
     source = _write_obj(tmp_path / "blade.obj", vertices, faces)
     for bad in (0.0, -0.05, math.nan):
@@ -377,10 +377,10 @@ def _box(low: list, high: list, start: int) -> tuple[list, list]:
 
 
 def test_a_section_that_also_cuts_another_closed_body_is_refused(tmp_path):
-    """FR-330 R6 (P0340-THIN-BLADE): a blade and another closed body (a spinner
+    """FR-633 (P0340-THIN-BLADE): a blade and another closed body (a spinner
     exported in the same group) give a plane two closed loops; the blade's two
     sides cannot be separated from the other body's, so it is refused, by name."""
-    # P0340-THIN-BLADE, FR-330 R6: one closed loop per section, never the largest of several.
+    # P0340-THIN-BLADE, FR-633: one closed loop per section, never the largest of several.
     vertices, faces = _blade()
     corners, box = _box([0.4, -0.05, 0.3], [0.5, 0.05, 0.6], len(vertices))
     both = _write_obj(tmp_path / "both.obj", numpy.vstack([vertices, corners]), faces + box)
@@ -391,10 +391,10 @@ def test_a_section_that_also_cuts_another_closed_body_is_refused(tmp_path):
 
 
 def test_an_unwelded_trailing_edge_is_joined_before_the_sections_are_cut(tmp_path):
-    """FR-330 R2 and R6 (P0340-THIN-BLADE): an export that writes the trailing
+    """FR-629 and FR-633 (P0340-THIN-BLADE): an export that writes the trailing
     edge once per side gives the same thin blade as the welded mesh, rather than
     a refusal of a surface open along that edge."""
-    # P0340-THIN-BLADE, FR-330 R2/R6: coincident vertices are merged before cutting.
+    # P0340-THIN-BLADE, FR-629/FR-633: coincident vertices are merged before cutting.
     vertices, faces = _blade()
     welded = derive_thin_blade(_write_obj(tmp_path / "w.obj", vertices, faces), root_offset=0.05)
     vertices, faces = _blade(unwelded=True)
@@ -405,10 +405,10 @@ def test_an_unwelded_trailing_edge_is_joined_before_the_sections_are_cut(tmp_pat
 
 
 def test_the_source_import_table_is_carried_whole_to_the_thin_blade(tmp_path):
-    """FR-330 R5 (P0340-THIN-BLADE): the thin blade lies in the blade's own
+    """FR-632 (P0340-THIN-BLADE): the thin blade lies in the blade's own
     frame, so its sidecar states the source's unit and mesh operations, in
     order; a sidecar stating a CAD conversion is refused, nothing written."""
-    # P0340-THIN-BLADE, FR-330 R5: units and [[import.operations]] carried, never dropped.
+    # P0340-THIN-BLADE, FR-632: units and [[import.operations]] carried, never dropped.
     vertices, faces = _blade()
     source = _write_obj(tmp_path / "blade.obj", vertices, faces, group="naca")
     inventory_sidecar(source).write_text(

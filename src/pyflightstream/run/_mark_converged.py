@@ -285,7 +285,7 @@ def mark_converged(
         for row, unit, _run_id, was in todo:
             unit["marked"] = {"from": was, "at": at, "reason": reason, "verdict": _VERDICT.value}
             unit["status"] = _VERDICT.value
-            unit.pop("iterations_requested", None)  # FR-434 R1: the person's verdict outranks.
+            unit.pop("iterations_requested", None)  # FR-974: the person's verdict outranks.
             if unit is not row:
                 row["status"] = _worst(row, floor=floors[id(row)])
                 if row["status"] != RunStatus.MAX_ITER_REACHED.value:
@@ -313,7 +313,7 @@ def person_verdicts(manifest: Path) -> dict[str, dict[str, Any]]:
 
 
 def keep_verdict(record: dict[str, Any], row: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Return ``record`` keeping the person's verdict ``row`` carries (FR-414 R4).
+    """Return ``record`` keeping the person's verdict ``row`` carries (FR-871).
 
     A writer that makes a record again (the rebuild) never replaces a person's
     verdict by a computed status in silence: the record keeps ``marked`` and
@@ -347,7 +347,7 @@ def keep_verdict(record: dict[str, Any], row: Mapping[str, Any] | None) -> dict[
     warnings = [*list(record.get("warnings") or []), note]
     kept = {**record, "marked": row["marked"], "status": row.get("status"), "warnings": warnings}
     if kept["status"] != RunStatus.MAX_ITER_REACHED.value:
-        kept.pop("iterations_requested", None)  # FR-434 R1: written for that status alone.
+        kept.pop("iterations_requested", None)  # FR-974: written for that status alone.
     return kept
 
 

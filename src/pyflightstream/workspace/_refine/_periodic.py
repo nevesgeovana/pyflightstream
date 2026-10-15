@@ -3,7 +3,7 @@
 A sector is one of ``copies`` identical pieces of a turn about an axis; its
 two CUT BOUNDARIES are open boundary chains that the rotation by 360/copies
 degrees maps onto each other. The source's are found before any work and
-refused when they do not match (R2); the level's are made to match:
+refused when they do not match (FR-943); the level's are made to match:
 
 * a side whose families are all refined as a grid or left unchanged keeps
   its nodes, and the other side is rebuilt on them, rotated;
@@ -11,7 +11,7 @@ refused when they do not match (R2); the level's are made to match:
   first in the source's family order) is resampled along its own nodes by
   the family's factor, and both sides are rebuilt on those positions;
 * after assembly, every node of the other side (the SLAVE) is placed on its
-  master node rotated, and the match is measured (R1).
+  master node rotated, and the match is measured (FR-942).
 
 The open boundary is split into chains at its corners (a node where it
 turns by more than the ridge angle, or where more than two boundary edges
@@ -106,7 +106,7 @@ def nearest_match(moved: Points, target: Points) -> tuple[float, NDArray[numpy.i
 
 
 def level_distance(master: Points, slave: Points, periodic: Periodic, sense: int) -> float:
-    """Return the largest distance of a rotated master node from its slave node (FR-427 R1).
+    """Return the largest distance of a rotated master node from its slave node (FR-942).
 
     Infinite when the two sides hold different numbers of nodes or the
     nearest slave node of two master nodes is one node.
@@ -217,7 +217,7 @@ def find_cuts(
     size: float,
     where: str,
 ) -> list[CutPair]:
-    """Return the source's cut boundaries as chain pairs, refusing what does not match (R2).
+    """Return the source's cut boundaries as chain pairs, refusing what does not match (FR-943).
 
     Parameters
     ----------
@@ -226,7 +226,7 @@ def find_cuts(
     families : mapping of str to list of list of int
         The source's faces per family, in the source's order.
     periodic : Periodic or None
-        The ``[periodic]`` table; None returns no pair (R3).
+        The ``[periodic]`` table; None returns no pair (FR-944).
     size : float
         The source's size.
     where : str
@@ -290,7 +290,7 @@ def _near(points: Points, a: Points, b: Points) -> NDArray[numpy.bool_]:
     return numpy.asarray(dist < ON_CURVE_FRACTION * length[k])
 
 
-#: FR-427, FR-425 R2: a boundary edge runs along a cut when both its ends lie within this
+#: FR-427, FR-933: a boundary edge runs along a cut when both its ends lie within this
 #: fraction of the edge's own length from it; a node near a cut's end whose edges all leave
 #: the cut (the next open boundary) is no node of the cut.
 ALONG_FRACTION = 0.5
@@ -474,7 +474,7 @@ def match_level(
     size: float,
     where: str,
 ) -> tuple[Points, dict[str, Any] | None]:
-    """Make the level's cut boundaries match node for node and report them (FR-427 R1).
+    """Make the level's cut boundaries match node for node and report them (FR-942).
 
     Each slave node within PERIODIC_SOURCE_FRACTION of the size of its
     rotated master node is placed on it; a pair that then differs in its

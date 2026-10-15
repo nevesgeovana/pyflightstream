@@ -1,4 +1,5 @@
-"""P0380-BLOCKS (FR-424 R6, R7, R9): smooth tubes and multiblock grids, recovered and resampled.
+"""P0380-BLOCKS (FR-920, FR-921, FR-923): smooth tubes and multiblock grids, recovered and
+ resampled.
 
 A body of revolution (a spinner, a nacelle barrel) holds no trailing edge: its
 seam is the lowest source vertex index of its first station, and its sections
@@ -61,7 +62,7 @@ def _smooth(body: Body) -> Grid:
 
 @pytest.mark.parametrize("pole", [False, True], ids=["open", "pole"])
 def test_a_smooth_tube_is_recovered_with_its_seam_at_the_lowest_source_index(pole):
-    """P0380-BLOCKS (FR-424 R6, R9): no trailing edge and no ridge give a smooth tube.
+    """P0380-BLOCKS (FR-920, FR-923): no trailing edge and no ridge give a smooth tube.
 
     The seam is the lowest source vertex index of the first station. Control:
     a wing tube without its trailing-edge vertices has a sharp trailing edge,
@@ -79,7 +80,7 @@ def test_a_smooth_tube_is_recovered_with_its_seam_at_the_lowest_source_index(pol
 
 @pytest.mark.parametrize("pole", [False, True], ids=["open", "pole"])
 def test_a_smooth_tube_at_factor_one_is_the_source_in_coordinates_and_order(pole):
-    """P0380-BLOCKS (FR-424 R7): at factor 1 a smooth tube's faces equal the source's, in order.
+    """P0380-BLOCKS (FR-921): at factor 1 a smooth tube's faces equal the source's, in order.
 
     Control: the level's faces rotated by one vertex, and reversed, fail.
     """
@@ -95,7 +96,7 @@ def test_a_smooth_tube_at_factor_one_is_the_source_in_coordinates_and_order(pole
 
 @pytest.mark.parametrize("pole", [False, True], ids=["open", "pole"])
 def test_factor_two_puts_the_sections_on_the_circle_and_the_seam_has_no_kink(pole):
-    """P0380-BLOCKS (FR-424 R6): the periodic spline keeps the new nodes on the circle.
+    """P0380-BLOCKS (FR-920): the periodic spline keeps the new nodes on the circle.
 
     At chordwise 2 every level node lies within 2e-5 of the analytic circle
     of its station, the source nodes are kept bit for bit, and the count
@@ -123,7 +124,7 @@ def test_factor_two_puts_the_sections_on_the_circle_and_the_seam_has_no_kink(pol
 
 
 def test_the_periodic_spline_keeps_its_knots_and_is_smooth_across_the_seam():
-    """P0380-BLOCKS (FR-424 R6): the periodic spline is exact at its knots and closes smoothly.
+    """P0380-BLOCKS (FR-920): the periodic spline is exact at its knots and closes smoothly.
 
     Its slope just before the seam equals its slope just after it. Control:
     the open not-a-knot spline through the same closed chain has a kink there.
@@ -145,7 +146,7 @@ def test_the_periodic_spline_keeps_its_knots_and_is_smooth_across_the_seam():
 
 
 def test_the_periodic_spline_equals_scipys_where_scipy_is_installed():
-    """P0380-BLOCKS (FR-424 R6, R10): the numpy periodic spline is scipy's to 1e-12.
+    """P0380-BLOCKS (FR-920, FR-924): the numpy periodic spline is scipy's to 1e-12.
 
     Control: scipy's not-a-knot spline through the same closed chain differs.
     """
@@ -163,7 +164,7 @@ def test_the_periodic_spline_equals_scipys_where_scipy_is_installed():
 
 
 def test_a_smooth_tube_is_refined_as_a_grid_by_refine_mesh(tmp_path):
-    """P0380-BLOCKS (FR-424 R4, R7, R9; FR-426 R2): refine.json names the smooth tube.
+    """P0380-BLOCKS (FR-918, FR-921, FR-923; FR-938): refine.json names the smooth tube.
 
     At factor 1 the level's faces are the source's (G6 judged and passed); at
     2 and 0.5 the gates G1 to G5 pass and no trailing-edge points are written.
@@ -238,7 +239,7 @@ def _off_surface(points) -> float:
 
 @pytest.mark.parametrize("name", SHEETS)
 def test_the_layout_is_cut_along_the_grid_lines_leaving_the_singular_vertices(name):
-    """P0380-BLOCKS (FR-424 R6, R9): the separatrices cut the family into four-sided patches.
+    """P0380-BLOCKS (FR-920, FR-923): the separatrices cut the family into four-sided patches.
 
     The L-shaped sheet (six corners) is cut by the two grid lines leaving its
     re-entrant corner into three patches; the sheet with a square hole by the
@@ -257,7 +258,7 @@ def test_the_layout_is_cut_along_the_grid_lines_leaving_the_singular_vertices(na
 @pytest.mark.parametrize("shuffled", [False, True], ids=["rows", "shuffled"])
 @pytest.mark.parametrize("name", SHEETS)
 def test_a_multiblock_family_at_factor_one_is_the_source_in_coordinates_and_order(name, shuffled):
-    """P0380-BLOCKS (FR-424 R7): at factor 1 the faces equal the source's, in order.
+    """P0380-BLOCKS (FR-921): at factor 1 the faces equal the source's, in order.
 
     The source's faces are written row by row, or shuffled. Control: the
     level's faces rotated by one vertex, and reversed, fail.
@@ -277,7 +278,7 @@ def test_a_multiblock_family_at_factor_one_is_the_source_in_coordinates_and_orde
 @pytest.mark.parametrize("factor", [2.0, 0.5])
 @pytest.mark.parametrize("name", SHEETS)
 def test_factor_two_and_half_give_a_conforming_all_quad_family_on_the_surface(name, factor):
-    """P0380-BLOCKS (FR-424 R6; FR-425 R5): one welded quad surface, every node on the surface.
+    """P0380-BLOCKS (FR-920; FR-936): one welded quad surface, every node on the surface.
 
     Every edge has at most two faces, no two nodes share a position, the open
     boundary loops are the source's, the counts are round(f m) per patch, and
@@ -320,7 +321,7 @@ def _unweld(points, faces):
 
 @pytest.mark.parametrize("name", SHEETS)
 def test_a_shared_patch_side_is_the_same_nodes_from_both_sides(name):
-    """P0380-BLOCKS (FR-424 R6): each arc is resampled once; both patches hold its nodes.
+    """P0380-BLOCKS (FR-920): each arc is resampled once; both patches hold its nodes.
 
     For every source edge two patches share, the level's nodes between its
     two ends, run straight through 2 m level edges, each of them used by two
@@ -364,7 +365,7 @@ def _walk(points, uses, start, stop, steps):
 
 
 def test_a_family_with_a_triangle_falls_back_as_before(tmp_path):
-    """P0380-BLOCKS (FR-424 R9): a triangle leaves the family without a multiblock grid.
+    """P0380-BLOCKS (FR-923): a triangle leaves the family without a multiblock grid.
 
     ``recover_family`` gives the sheet or tube recovery's own reason; under
     ``method = "grid"`` the refinement is refused naming it. Control: the
@@ -387,7 +388,7 @@ def test_a_family_with_a_triangle_falls_back_as_before(tmp_path):
 
 @pytest.mark.parametrize("name", SHEETS)
 def test_refine_mesh_reports_a_multiblock_grid_and_its_audit_passes(tmp_path, name):
-    """P0380-BLOCKS (FR-424 R4, R7, R9; FR-426 R2): refine.json names the layout and patches.
+    """P0380-BLOCKS (FR-918, FR-921, FR-923; FR-938): refine.json names the layout and patches.
 
     At factor 1 the level's faces are the source's and G6 passes; at 2 and
     0.5 the gates G1 to G5 pass. refine.json gives the method grid, the
@@ -422,7 +423,7 @@ def test_refine_mesh_reports_a_multiblock_grid_and_its_audit_passes(tmp_path, na
 
 @pytest.mark.parametrize("factor", [0.01, 0.24])
 def test_a_factor_that_leaves_a_patch_side_no_interval_is_refused(tmp_path, capsys, factor):
-    """P0380-BLOCKS (FR-424 R1, R11, R16): a factor below 1/m of a patch side is refused.
+    """P0380-BLOCKS (FR-915, FR-925, FR-930): a factor below 1/m of a patch side is refused.
 
     The L-shaped sheet's shortest patch side holds 4 source intervals, so a
     factor below 1/4 would leave it none; it is refused by the function and

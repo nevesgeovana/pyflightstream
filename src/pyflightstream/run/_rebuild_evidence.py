@@ -328,7 +328,7 @@ def _on_disk(base: Path) -> tuple[set[str], set[str]]:
 
     A batch's simulations stay in ``sims/batch/<matrix>_b<ID>/`` until collect
     moves them home (FR-367), so a rebuild that read ``sims/`` alone never saw
-    a grouped simulation whose batch was not moved yet (FR-412 R1b).
+    a grouped simulation whose batch was not moved yet (FR-1203).
     """
     folders: set[str] = set(batch_sim_dirs(base))
     zipped: set[str] = set()

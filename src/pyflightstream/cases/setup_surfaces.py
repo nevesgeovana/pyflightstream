@@ -71,8 +71,8 @@ WAKE_STABILIZATION_KEY = "slipstream_wake_stabilization"
 _DELETE = "DELETE_SURFACES"
 
 #: THE BOUNDARY LIST EACH SCRIPT'S GEOMETRY OPENED WITH, kept where
-#: ``delete_surfaces`` removed some of it (FR-435 R4): every later key of
-#: FR-435 R1 asks whether the MODEL carries a name, and a surface the setup
+#: ``delete_surfaces`` removed some of it (FR-982): every later key of
+#: FR-979 asks whether the MODEL carries a name, and a surface the setup
 #: itself removed is one the model carries. Weakly keyed, so a script that is
 #: dropped takes its entry with it.
 _OPENED: WeakKeyDictionary[Script, tuple[str, ...]] = WeakKeyDictionary()
@@ -133,7 +133,7 @@ def emit_setup_surfaces(script: Script, case: SimCase) -> None:
             )
         doomed.update(labels[name] for name in found)
     if not doomed:
-        # FR-435 R4: every name is one the study holds and this model lacks.
+        # FR-982: every name is one the study holds and this model lacks.
         return
     if len(doomed) >= len(inventory):
         raise CampaignConfigError(
@@ -243,7 +243,7 @@ def refuse_setup_keys_that_reached_nothing(script: Script, case: SimCase) -> Non
 def _every_name_skipped(script: Script, case: SimCase) -> bool:
     """Whether the geometry was opened and every name it was asked to remove was skipped.
 
-    FR-435 R4: a list every name of which the study holds and the model lacks
+    FR-982: a list every name of which the study holds and the model lacks
     emits no ``DELETE_SURFACES``, and that is not a key that reached nothing.
     """
     labels = script.entities.labels("boundaries")
@@ -259,7 +259,7 @@ def _every_name_skipped(script: Script, case: SimCase) -> bool:
 def the_model_inventory(script: Script) -> list[str]:
     """Return the boundary labels of the row's model as its geometry opened them.
 
-    FR-435 R4: every key of R1 after ``delete_surfaces`` asks whether the
+    FR-982: every key of FR-979 after ``delete_surfaces`` asks whether the
     MODEL carries a name, and a key judged against the list AFTER the removal
     would call a name the setup itself removed a name the model lacks (a
     model carrying a Sting, removing it, and citing it in a group). The

@@ -36,7 +36,7 @@ a pproc and a reference written once for every model of one aircraft cite
 names one model lacks: the wing-body row of a study whose wing-body-tail
 carries a sting and a tail. Where the row's REFERENCE declares the study's
 vocabulary (``[study] surfaces``, with its aliases and their members,
-:func:`study_vocabulary`), a name a key of FR-435 R1 cites that selects
+:func:`study_vocabulary`), a name a key of FR-979 cites that selects
 nothing on the row's model is skipped when the vocabulary holds it and refused
 as a misspelling when it does not (:func:`judge_a_name_the_model_lacks`). Each
 skip is noted for the build (:func:`collecting_the_study_skips`), so the run
@@ -149,7 +149,7 @@ def names_no_boundary_answers(
             continue
         if token.strip().casefold() in WORDS_THAT_NAME_NO_SET:
             continue
-        # THE FAMILY ANSWERS FIRST (FR-320 R4, R5). A numbered member whose
+        # THE FAMILY ANSWERS FIRST (FR-578, FR-579). A numbered member whose
         # family the mesh carries selects its exact name only since 0.40.0
         # (PFS-2029.25), so it selects nothing on a sector, and it is still not
         # refused here: the plan's warning names it. Asked first, it also keeps
@@ -362,14 +362,14 @@ def _the_warning(artifact: str, name: str, entries: Sequence[str], rows: Sequenc
 
 # --- FR-435: the names a study holds and a row's model lacks ------------------
 
-#: The two kinds of artifact whose keys FR-435 R1 covers, as a skip names them.
+#: The two kinds of artifact whose keys FR-979 covers, as a skip names them.
 SETUP_ARTIFACT = "setup"
 PPROC_ARTIFACT = "pproc"
 
 
 @dataclass(frozen=True)
 class StudySkip:
-    """One name a key cites, that the row's model lacks and its study holds (FR-435 R4).
+    """One name a key cites, that the row's model lacks and its study holds (FR-982).
 
     Attributes
     ----------
@@ -393,7 +393,7 @@ class StudySkip:
     reference: str
 
     def record(self) -> dict[str, str]:
-        """Return the entry a point's run record carries for this skip (FR-435 R11)."""
+        """Return the entry a point's run record carries for this skip (FR-989)."""
         return {"artifact": self.artifact, "key": self.key, "name": self.name}
 
 
@@ -413,7 +413,7 @@ def names_a_row_can_cite(case: SimCase) -> dict[str, list[str]]:
     ``families_blades``. The reference's ``[aliases]`` table takes precedence,
     so a study that gives one of these names a meaning of its own keeps it.
     One map for every reader: the pproc expansions, the study vocabulary
-    (FR-435 R2) and the classification of a cited name (FR-435 R4, R13).
+    (FR-980) and the classification of a cited name (FR-982, FR-991).
     """
     return {
         **{
@@ -427,7 +427,7 @@ def names_a_row_can_cite(case: SimCase) -> dict[str, list[str]]:
 def study_vocabulary(case: SimCase) -> tuple[str, ...] | None:
     """Return the names a row's study holds, or None where its reference declares none.
 
-    FR-435 R2: the reference's ``[study] surfaces``, then the names of its
+    FR-980: the reference's ``[study] surfaces``, then the names of its
     aliases (a rotor block's own name among them, :func:`names_a_row_can_cite`)
     and every member of each, so an alias followed to the end is in it too.
     Each once, case folded.
@@ -457,11 +457,11 @@ def study_vocabulary(case: SimCase) -> tuple[str, ...] | None:
 
 
 def held_by_the_study(token: str, vocabulary: Sequence[str]) -> bool:
-    """Whether a study's vocabulary holds one cited name (FR-435 R2).
+    """Whether a study's vocabulary holds one cited name (FR-980).
 
     Held when the name equals one of the vocabulary's, case folded, or is a
     FAMILY word (the label without its trailing number) one of them answers,
-    the reading of FR-320 R2.
+    the reading of FR-576.
 
     Examples
     --------
@@ -478,7 +478,7 @@ def held_by_the_study(token: str, vocabulary: Sequence[str]) -> bool:
 def selects_nothing(
     token: str, inventory: Sequence[str], aliases: Mapping[str, Sequence[str]]
 ) -> bool:
-    """Whether one cited name selects no boundary of a model (FR-435 R4).
+    """Whether one cited name selects no boundary of a model (FR-982).
 
     No boundary has the name, case folded, no family the model carries answers
     it, and, for an alias, no member resolves: the reading every
@@ -522,7 +522,7 @@ def ignores_missing_families(case: SimCase) -> bool:
 
 
 def refuses_a_name_the_model_lacks(case: SimCase) -> bool:
-    """Whether the run asked for the refusal rather than the skip (FR-73, FR-435 R10)."""
+    """Whether the run asked for the refusal rather than the skip (FR-73, FR-988)."""
     return not ignores_missing_families(case)
 
 
@@ -553,14 +553,14 @@ def _model(case: SimCase) -> str:
 
 
 def judge_a_name_the_model_lacks(case: SimCase, kind: str, key: str, token: str) -> bool:
-    """Skip one cited name the row's model lacks, or refuse it (FR-435 R4, R6, R10).
+    """Skip one cited name the row's model lacks, or refuse it (FR-982, FR-984, FR-988).
 
-    Called for a token of a key of FR-435 R1 that selects nothing on the row's
+    Called for a token of a key of FR-979 that selects nothing on the row's
     model (:func:`selects_nothing`). In order: a name the row's study does not
     hold is a misspelling and is refused at either value of
-    ``--ignore-missing-families`` (R6); a run that asked for the refusal
-    refuses it, whether or not the reference declares a vocabulary (R10); a
-    name the study holds is skipped and noted for the build (R4, R9, R11).
+    ``--ignore-missing-families`` (FR-984); a run that asked for the refusal
+    refuses it, whether or not the reference declares a vocabulary (FR-988); a
+    name the study holds is skipped and noted for the build (FR-982, FR-987, FR-989).
 
     Parameters
     ----------
@@ -578,7 +578,7 @@ def judge_a_name_the_model_lacks(case: SimCase, kind: str, key: str, token: str)
     bool
         True when the name is skipped; False when the reference declares no
         vocabulary and the run did not ask for the refusal, so the caller reads
-        the name as 0.38.0 did (R3).
+        the name as 0.38.0 did (FR-981).
 
     Raises
     ------
@@ -603,7 +603,7 @@ def judge_a_name_the_model_lacks(case: SimCase, kind: str, key: str, token: str)
 def skips_a_name_the_model_lacks(
     case: SimCase, kind: str, key: str, token: str, inventory: Sequence[str]
 ) -> bool:
-    """Classify one name a key of FR-435 R1 cites, against the model as it opened (R4, R13).
+    """Classify one name a key of FR-979 cites, against the model as it opened (FR-982, FR-991).
 
     The one classification every covered key routes through. A name that
     selects some boundary of ``inventory`` through the row's names
@@ -658,7 +658,7 @@ def skips_a_name_the_model_lacks(
 def _a_misspelling(
     case: SimCase, said: str, key: str, token: str, vocabulary: Sequence[str]
 ) -> str:
-    """Word the refusal of a name neither the model nor the study carries (FR-435 R6)."""
+    """Word the refusal of a name neither the model nor the study carries (FR-984)."""
     return (
         f"case {case.sim_id!r}: {said} cites {token!r} under {key}, and neither the "
         f"geometry of {_model(case)} nor the study vocabulary of {_reference(case)} "
@@ -669,7 +669,7 @@ def _a_misspelling(
 
 
 def _the_refusal_asked_for(case: SimCase, said: str, key: str, token: str) -> str:
-    """Word the refusal a run asked for instead of the skip (FR-435 R10, FR-73)."""
+    """Word the refusal a run asked for instead of the skip (FR-988, FR-73)."""
     return (
         f"case {case.sim_id!r}: {said} cites {token!r} under {key}, and the geometry of "
         f"{_model(case)} carries no boundary, family or alias member of that name. This "
@@ -682,7 +682,7 @@ def _the_refusal_asked_for(case: SimCase, said: str, key: str, token: str) -> st
 
 @contextmanager
 def collecting_the_study_skips() -> Iterator[list[StudySkip]]:
-    """Collect the skips of one build, in the order made (FR-435 R11).
+    """Collect the skips of one build, in the order made (FR-989).
 
     The list the block yields is filled while the block runs and is complete
     when it ends; a nested block collects into its own list.
@@ -696,11 +696,11 @@ def collecting_the_study_skips() -> Iterator[list[StudySkip]]:
 
 
 def saying_the_study_skips[Recipe: Callable[..., Any]](recipe: Recipe) -> Recipe:
-    """Wrap a recipe so a plan notes what each row's build skipped (FR-435 R9).
+    """Wrap a recipe so a plan notes what each row's build skipped (FR-987).
 
     The skips of a build that RETURNS are noted for its row inside
     :func:`noting_the_study_skips`; a build that refuses notes nothing, so a
-    row refused under R5 to R8 or R10 is not also warned about. Outside a
+    row refused under FR-983 to FR-986 or FR-988 is not also warned about. Outside a
     plan the recipe runs as it would alone.
     """
 
@@ -727,7 +727,7 @@ def noting_the_study_skips() -> Iterator[None]:
 
     On leaving the block normally, one :class:`PyflightstreamWarning` is raised
     per artifact, key and name, in the order first noted, naming every row
-    whose model lacks it (FR-435 R9). It changes no plan status. A block left
+    whose model lacks it (FR-987). It changes no plan status. A block left
     by an exception warns nothing.
 
     Warns
@@ -747,7 +747,7 @@ def noting_the_study_skips() -> Iterator[None]:
 
 
 def _the_study_warning(held: Sequence[StudySkip], rows: Sequence[str]) -> str:
-    """Word the one warning for one name of one artifact's key (FR-435 R9).
+    """Word the one warning for one name of one artifact's key (FR-987).
 
     ``held`` is the skip once per reference whose vocabulary holds the name;
     the warning names every one of them.

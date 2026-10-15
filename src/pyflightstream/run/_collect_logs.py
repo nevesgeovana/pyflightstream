@@ -165,7 +165,7 @@ def observed_paths(
     return waited, paths
 
 
-#: The lines of each end-of-job file a FAILED_EXECUTION record carries (FR-311 R2).
+#: The lines of each end-of-job file a FAILED_EXECUTION record carries (FR-526).
 JOB_END_TAIL_LINES = 20
 
 
@@ -188,7 +188,7 @@ def job_ended_without_log(
     :data:`JOB_END_TAIL_LINES` lines of each matched file, read as bytes and
     decoded with replacement. None, and the sweep goes on as before, when the
     profile lists none, when a pattern matches nothing, when the point
-    declares no log, or when the log exists. A heuristic (R5): a log delayed
+    declares no log, or when the log exists. A heuristic (FR-529): a log delayed
     on a shared file system, or a requeued job, can be misjudged.
     """
     profile = resolve_hpc_profile(workspace.inputs_dir)

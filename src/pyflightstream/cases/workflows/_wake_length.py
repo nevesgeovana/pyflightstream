@@ -17,7 +17,7 @@ clock, so the clock resolves it here, and the wake termination reads the same
 functions from here.
 
 THE LENGTH IS NOMINAL: the helical travel of the wake at ``V_ax`` under the
-convention of FR-321, not a measured wake (FR-422 R5).
+convention of FR-321, not a measured wake (FR-908).
 """
 
 from __future__ import annotations
@@ -42,13 +42,13 @@ from ._vocabulary import (
     RUN_WAKE_LENGTH_R_VARIABLE,
 )
 
-#: The rules that give V_ax, as the record and the plan name them (FR-323 R6).
+#: The rules that give V_ax, as the record and the plan name them (FR-595).
 FREE_STREAM, INDUCED_VELOCITY = "free_stream", "induced_velocity"
 
-#: The setup key whose thrust convects the wake near hover (FR-323 R1).
+#: The setup key whose thrust convects the wake near hover (FR-590).
 _THRUST_KEY = "wake_termination_thrust_n"
 
-#: The wake termination's remedy for a thrust with no fluid density (FR-323 R1).
+#: The wake termination's remedy for a thrust with no fluid density (FR-590).
 _CAP_REMEDY = "State the row's flight condition, or use wake_termination_revolutions_cap."
 
 
@@ -76,7 +76,7 @@ def _induced(case: SimCase, radius: float, v_inf: float, *, remedy: str = "") ->
 
     ``remedy`` is the last sentence of the refusal of a thrust with no fluid
     density, which differs by the key the length came from; empty, it is the
-    wake termination's (FR-323 R1).
+    wake termination's (FR-590).
     """
     thrust = case.solver.wake_termination_thrust_n
     if thrust is None:
@@ -85,7 +85,7 @@ def _induced(case: SimCase, radius: float, v_inf: float, *, remedy: str = "") ->
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {_THRUST_KEY} = {thrust} and resolves "
             "no fluid density, so the induced velocity sqrt(T / (2 rho A)) cannot be "
-            "evaluated (FR-323 R1). " + (remedy or _CAP_REMEDY)
+            "evaluated (FR-590). " + (remedy or _CAP_REMEDY)
         )
     induced = math.sqrt(thrust / (2.0 * case.fluid.density_kg_m3 * math.pi * radius**2))
     return (induced, INDUCED_VELOCITY) if induced > v_inf else (v_inf, FREE_STREAM)
@@ -109,7 +109,7 @@ def _wake_steps(length: float, radius: float, omega: float, v_ax: float, dtheta:
     """Return ``ceil(L R Omega / (V_ax dtheta))``, rounded upward so the wake is never shorter.
 
     The quotient is rounded to nine decimals first, so float noise on a whole
-    number does not add a step (FR-321 R2).
+    number does not add a step (FR-581).
     """
     return math.ceil(round(length * radius * omega / (v_ax * dtheta), 9))
 
@@ -167,7 +167,7 @@ class RunWakeLength:
         }
 
     def derived(self) -> dict[str, str]:
-        """Return the values the run record carries beside the solver settings (FR-422 R3).
+        """Return the values the run record carries beside the solver settings (FR-906).
 
         The length asked, the rule and the V_ax it gave, and the resulting
         ``time_iterations``.
@@ -203,7 +203,7 @@ def run_wake_length(case: SimCase, length: float, *, omega: float, dtheta: float
     ------
     CampaignConfigError
         If no rotor radius is known, if a thrust is stated with no fluid
-        density, or if the axial velocity is not positive (FR-422 R2); each
+        density, or if the axial velocity is not positive (FR-905); each
         names the remedy.
     """
     radius, _ = _radius_and_hub(case)

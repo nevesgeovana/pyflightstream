@@ -4,7 +4,7 @@
 body frame, in the setup phase, after the frames and before the solver is
 initialised. The trajectory export is NOT emitted with it: exported before the
 march the file holds its header and no row (RPT-166 probe P4-04), so the export
-block writes it after the march, with the other exports (FR-461 R6).
+block writes it after the march, with the other exports (FR-1089).
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ __all__ = [
     "sixdof_commands",
 ]
 
-#: The record of the input a point staged (FR-461 R5).
+#: The record of the input a point staged (FR-1088).
 SIXDOF_PROVENANCE_FILE = "sixdof-provenance.json"
 
 _FORCE_COMMANDS = {
@@ -70,12 +70,12 @@ def sixdof_commands(spec: SixDofSpec) -> list[str]:
             commands.append(command)
     commands.append("SET_6DOF_MOTION_SYMMETRY_LOADS")
     if spec.export.trajectory:
-        commands.append("EXPORT_6DOF_TRAJECTORY")  # emitted after the march (R6)
+        commands.append("EXPORT_6DOF_TRAJECTORY")  # emitted after the march (FR-1089)
     return commands
 
 
 def _refuse_what_the_motion_cannot_place(case: SimCase, script: Script) -> None:
-    """Refuse a simulation in another length unit than the metre (FR-461 R4).
+    """Refuse a simulation in another length unit than the metre (FR-1087).
 
     The lengths are written as stated, in metres, where the simulation is in
     metres or states no unit (the rule :func:`_from_metres` keeps for every
@@ -93,7 +93,7 @@ def _refuse_what_the_motion_cannot_place(case: SimCase, script: Script) -> None:
 def _sixdof_motion(
     case: SimCase, script: Script, frames: Frames, *, trajectory_file: str | None
 ) -> None:
-    """Emit the row's 6DOF motion in the setup phase (FR-461 R2).
+    """Emit the row's 6DOF motion in the setup phase (FR-1085).
 
     Parameters
     ----------

@@ -250,7 +250,7 @@ _FARFIELD_CORE__REPO = Path(__file__).resolve().parents[2]
 _FARFIELD_CORE__CORE = _FARFIELD_CORE__REPO / "src" / "pyflightstream" / "farfield"
 
 
-#: The packages the core may not import (FR-450 R2), including xarray.
+#: The packages the core may not import (FR-1004), including xarray.
 _FARFIELD_CORE__FORBIDDEN_PACKAGES = (
     "pyflightstream.results",
     "pyflightstream.cases",
@@ -354,14 +354,14 @@ class TestFarfieldCore:
 
     The guard reads every module of ``pyflightstream.farfield`` with ``ast`` and
     refuses an import of a layer above the core or of xarray, and any call that
-    opens, reads or writes a file or reads the environment (FR-450 R2). Its
+    opens, reads or writes a file or reads the environment (FR-1004). Its
     controls plant each forbidden shape in a copy and show the guard refuses it.
     """
 
     @staticmethod
     @pytest.mark.requirement("FR-450")
     def test_p0400_ffamily_the_core_has_no_input_or_output_and_imports_no_upper_layer():
-        """P0400-FFAMILY (FR-450 R2): every module of the far-field core, read with ast."""
+        """P0400-FFAMILY (FR-1004): every module of the far-field core, read with ast."""
         modules = sorted(_FARFIELD_CORE__CORE.rglob("*.py"))
         assert {path.stem for path in modules} >= {
             "__init__",
@@ -394,14 +394,14 @@ class TestFarfieldCore:
         ],
     )
     def test_p0400_ffamily_the_guard_refuses_each_forbidden_shape(planted):
-        """P0400-FFAMILY (FR-450 R2): the control, a planted line in a copy of the core."""
+        """P0400-FFAMILY (FR-1004): the control, a planted line in a copy of the core."""
         source = (_FARFIELD_CORE__CORE / "trefftz.py").read_text(encoding="utf-8") + "\n" + planted
         assert _farfield_core__core_problems(source, "trefftz.py")
 
     @staticmethod
     @pytest.mark.requirement("FR-450")
     def test_p0400_ffamily_the_facade_exports_every_analysis_from_one_home():
-        """P0400-FFAMILY (FR-450 R1, R4; FR-459 R6): the root is a facade over the core."""
+        """P0400-FFAMILY (FR-1003, FR-1006; FR-459): the root is a facade over the core."""
         for name in ff.__all__:
             value = getattr(ff, name)
             home = getattr(value, "__module__", "pyflightstream.farfield.trefftz")

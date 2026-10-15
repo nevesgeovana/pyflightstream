@@ -61,3 +61,13 @@ FUNCTIONAL_REQUIREMENTS: Path = _REQ.FUNCTIONAL_REQUIREMENTS
 NONFUNCTIONAL_REQUIREMENTS: Path = _REQ.NONFUNCTIONAL_REQUIREMENTS
 REQUIREMENTS_INDEX: Path = _REQ.REQUIREMENTS_INDEX
 REQUIREMENTS_FRAGMENTS_DIR: Path = _REQ.REQUIREMENTS_FRAGMENTS_DIR
+
+
+def requirement_rows(text: str) -> dict[str, list[str]]:
+    """Read compact requirement definitions without treating citations as definitions."""
+    rows = {}
+    for line in text.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) == 7 and cells[0].startswith(("FR-", "NFR-")):
+            rows[cells[0]] = cells
+    return rows

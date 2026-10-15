@@ -696,7 +696,7 @@ def _gaps_rt_fsiext___inputs(tmp_path: Path, text: str = _GAPS_RT_FSIEXT__INPUT)
     return folder / "f010.toml"
 
 
-# --------------------------------------------------------------------------- R5, R6
+# --------------------------------------------------------------------------- FR-1094, FR-1095
 def _gaps_rt_fsiext___external_case(tmp_path: Path, make=_gaps_rt_fsiext__steady_case):
     from pyflightstream.fsi.external import ExternalStructure
 
@@ -729,7 +729,7 @@ def _gaps_rt_fsiext___steady_external():
     ]
 
 
-# --------------------------------------------------------------------------- R3, the step
+# --------------------------------------------------------------------------- FR-1092, the step
 _GAPS_RT_FSIEXT__STAND_IN = """import sys
 mode = sys.argv[1] if len(sys.argv) > 1 else "ok"
 rows = [line for line in open("fsi_external_nodes.csv").read().splitlines() if line.strip()]
@@ -781,18 +781,18 @@ def _gaps_rt_fsiext___point(tmp_path: Path, mode: str = "ok") -> Path:
 class TestGapsRtFsiext:
     """P0400-FSIEXT (FR-462): an FSI row couples a structural program of the user's own.
 
-    The input is read and refused at reading (R1, R4); the coupling block of a
+    The input is read and refused at reading (FR-1090, FR-1093); the coupling block of a
     steady wing is held to the beam route's shape with the archiving step as the
-    execution command and the user's node file imported (R5); the run stages the
-    manifest, the node file, the declared inputs and the provenance (R6); and the
+    execution command and the user's node file imported (FR-1094); the run stages the
+    manifest, the node file, the declared inputs and the provenance (FR-1095); and the
     step, run on a stand-in program that writes the PyNite-format displacements,
-    archives and validates each call, failing on each defect R3 names (R3).
+    archives and validates each call, failing on each defect FR-1092 names (FR-1092).
     """
 
     @staticmethod
-    # --------------------------------------------------------------------------- R1, R4
+    # --------------------------------------------------------------------------- FR-1090, FR-1093
     def test_p0400_fsiext_resolves_and_hashes(tmp_path):
-        """P0400-FSIEXT (FR-462 R1, R6): the program, nodes and inputs, hashed; three nodes."""
+        """P0400-FSIEXT (FR-1090, FR-1095): the program, nodes and inputs, hashed; three nodes."""
         from pyflightstream.fsi.external import ExternalStructure
 
         path = _gaps_rt_fsiext___inputs(tmp_path)
@@ -822,7 +822,7 @@ class TestGapsRtFsiext:
         ],
     )
     def test_p0400_fsiext_refusals_at_reading(tmp_path, old, new, words):
-        """P0400-FSIEXT (FR-462 R4): each refusal names its key."""
+        """P0400-FSIEXT (FR-1093): each refusal names its key."""
         from pyflightstream.workspace.fsi_external_setup import (
             FsiExternalSetupError,
             resolve_external_fsi,
@@ -835,7 +835,7 @@ class TestGapsRtFsiext:
 
     @staticmethod
     def test_p0400_fsiext_empty_node_file_is_refused(tmp_path):
-        """P0400-FSIEXT (FR-462 R4): a node file with no node."""
+        """P0400-FSIEXT (FR-1093): a node file with no node."""
         from pyflightstream.workspace.fsi_external_setup import (
             FsiExternalSetupError,
             resolve_external_fsi,
@@ -848,7 +848,7 @@ class TestGapsRtFsiext:
 
     @staticmethod
     def test_p0400_fsiext_factor_keys_are_refused(tmp_path):
-        """P0400-FSIEXT (FR-462 R4): a factor key on an external row changes nothing, so refused."""
+        """P0400-FSIEXT (FR-1093): a factor key on an external row changes nothing, so refused."""
         _gaps_rt_fsiext___inputs(tmp_path)
         with pytest.raises(FsiSetupError, match="external"):
             resolve_row_fsi(
@@ -857,7 +857,7 @@ class TestGapsRtFsiext:
 
     @staticmethod
     def test_p0400_fsiext_steady_block_and_staged_files(tmp_path):
-        """P0400-FSIEXT (FR-462 R5, R6): the beam route's block, the step as the command."""
+        """P0400-FSIEXT (FR-1094, FR-1095): the beam route's block, the step as the command."""
         from pyflightstream.cases._fsi_external import EXTERNAL_NODES_FILE
         from pyflightstream.fsi.external import EXTERNAL_MANIFEST, ExternalStructure
 
@@ -885,7 +885,7 @@ class TestGapsRtFsiext:
 
     @staticmethod
     def test_p0400_fsiext_unsteady_couples_in_the_march(tmp_path):
-        """P0400-FSIEXT (FR-462 R5): one coupling iteration per step inside the march."""
+        """P0400-FSIEXT (FR-1094): one coupling iteration per step inside the march."""
         case, _ = _gaps_rt_fsiext___external_case(tmp_path, _gaps_rt_fsiext__unsteady_case)
         lines, _script = _gaps_rt_fsiext___lines(case)
         assert "SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE" in lines
@@ -893,7 +893,7 @@ class TestGapsRtFsiext:
 
     @staticmethod
     def test_p0400_fsiext_refuses_symmetry_and_a_second_distribution(tmp_path):
-        """P0400-FSIEXT (FR-462 R4): symmetry copies and a second section distribution."""
+        """P0400-FSIEXT (FR-1093): symmetry copies and a second section distribution."""
         case, _ = _gaps_rt_fsiext___external_case(tmp_path)
         mirrored = case.model_copy(update={"variables": {**case.variables, "SYMMETRY": "MIRROR"}})
         with pytest.raises(CampaignConfigError, match="symmetry"):
@@ -906,7 +906,7 @@ class TestGapsRtFsiext:
 
     @staticmethod
     def test_p0400_fsiext_step_archives_and_validates_a_call(tmp_path):
-        """P0400-FSIEXT (FR-462 R2, R3): the call archived with its record, through the CLI."""
+        """P0400-FSIEXT (FR-1091, FR-1092): the call archived with its record, through the CLI."""
         from pyflightstream.fsi.external import EXTERNAL_CALLS_LOG, external_step
 
         folder = _gaps_rt_fsiext___point(tmp_path)
@@ -934,7 +934,7 @@ class TestGapsRtFsiext:
         ],
     )
     def test_p0400_fsiext_step_fails_each_defect(tmp_path, mode, words):
-        """P0400-FSIEXT (FR-462 R3): a nonzero code, no file, a wrong count, a non-finite value."""
+        """P0400-FSIEXT (FR-1092): a nonzero code, no file, a wrong count, a non-finite value."""
         from pyflightstream.fsi.external import external_step
 
         folder = _gaps_rt_fsiext___point(tmp_path, mode)
@@ -948,7 +948,7 @@ class TestGapsRtFsiext:
 
     @staticmethod
     def test_p0400_fsiext_step_refuses_a_changed_input(tmp_path):
-        """P0400-FSIEXT (FR-462 R3): a declared input changed after the plan hashed it."""
+        """P0400-FSIEXT (FR-1092): a declared input changed after the plan hashed it."""
         from pyflightstream.fsi.external import external_step
 
         folder = _gaps_rt_fsiext___point(tmp_path)
@@ -963,7 +963,7 @@ class TestGapsRtFsiext:
 
     @staticmethod
     def test_p0400_fsiext_a_previous_answer_is_not_passed_on(tmp_path):
-        """P0400-FSIEXT (FR-462 R3): the last call's FSIDisp.txt does not survive a silent call."""
+        """P0400-FSIEXT (FR-1092): the last call's FSIDisp.txt does not survive a silent call."""
         from pyflightstream.fsi.external import EXTERNAL_MANIFEST, external_step
 
         folder = _gaps_rt_fsiext___point(tmp_path)
@@ -1201,7 +1201,7 @@ class TestRfixBFsi:
 
 
 class TestRfixR6Fsi:
-    """No declared external FSI file can land on a name the archiving step owns (FR-462 R3, R4).
+    """No declared external FSI file can land on a name the archiving step owns (FR-1092, FR-1093).
 
     P0400-RFIXR6-FSI (PFS-2081.121, REL6-001). The step writes ``call.json`` into
     every per-call archive beside the loads file, the displacement file and the

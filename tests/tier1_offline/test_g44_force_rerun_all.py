@@ -128,7 +128,7 @@ def test_g44_points_recorded_one_by_one_are_counted_as_the_one_job_that_reruns_t
 
 
 def test_g44_points_beside_the_redo_and_an_empty_manifest_are_refused(tmp_path):
-    """FR-326 R7 retargets the refusal of `--sims` alone, which is a selection since 0.34.0.
+    """FR-326 retargets the refusal of `--sims` alone, which is a selection since 0.34.0.
 
     What stays refused is the redo of a selection of points, which `--force-rerun` names, and the
     redo of an empty manifest; both before anything runs.

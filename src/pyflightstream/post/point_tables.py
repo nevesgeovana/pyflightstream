@@ -609,7 +609,7 @@ def write_probes_table(
     step : int, optional
         The time step the export holds, written in every row's ``STEP``: the
         last time step of an unsteady run whose probes are normal (FR-417
-        R4). ``NA`` where the caller states none, as on a steady point.
+        FR-887). ``NA`` where the caller states none, as on a steady point.
 
     Returns
     -------

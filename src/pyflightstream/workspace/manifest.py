@@ -770,7 +770,7 @@ class RunRecord(BaseModel):
     #: registered one (--accept-unregistered-build), so its compatibility was the
     #: user's responsibility; the build the solver printed is `fs_build`.
     accept_unregistered_build: bool = False
-    #: 0.39.0 (FR-436 R7, R8): each value the invocation took from a workspace
+    #: 0.39.0 (FR-998, FR-999): each value the invocation took from a workspace
     #: settings file, and the file it came from (``pyfs.toml``, ``pyfs.local.toml``),
     #: with the acceptance of the build under ``accept_unregistered_build`` where a
     #: file, or the build's entry of ``inputs/executables.local.toml``, stated it.
@@ -798,8 +798,8 @@ class RunRecord(BaseModel):
         ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``,
         FR-435's ``skipped_names``, FR-436's ``settings_sources`` and FR-455's ``farfield_layout``.
 
-        R03 and G01 of 0.27.0, M1 and the L1 fixes of 0.30.0, R8 of FR-436 (0.39.0)
-        and R4 of FR-455 (0.40.0).
+        R03 and G01 of 0.27.0, M1 and the L1 fixes of 0.30.0, FR-999 of FR-436 (0.39.0)
+        and FR-1047 of FR-455 (0.40.0).
 
         The rule ``forced_local`` follows: a key a reader older than 0.27.0
         does not know is written only where something was recorded, so a
@@ -888,7 +888,7 @@ class RunRecord(BaseModel):
     #: are the worst of them. Written only where recorded, so every other
     #: record, and MANIFEST_SCHEMA, is unchanged.
     clocking_verdicts: list[dict[str, Any]] | None = None
-    #: FR-435 R11: the names this point's row skipped, one ``{artifact, key,
+    #: FR-989: the names this point's row skipped, one ``{artifact, key,
     #: name}`` per name a key of its setup or pproc cites that its study holds
     #: and its model lacks, in the order the build skipped them. Written only
     #: where the row skipped one, so every other record keeps its content and
@@ -897,7 +897,7 @@ class RunRecord(BaseModel):
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None
-    #: FR-434 R1 (0.39.0): the iteration limit the run requested, written ONLY for
+    #: FR-974 (0.39.0): the iteration limit the run requested, written ONLY for
     #: ``MAX_ITER_REACHED`` (``iterations`` is the counter reached); absent from the
     #: record of every other status, so a record keeps its 0.38.0 content.
     iterations_requested: int | None = None
@@ -918,7 +918,7 @@ class RunRecord(BaseModel):
     probe_points_file: str | None = None
     #: Emitted sample IDs and field output contract; absent on older runs.
     probe_field_layout: list[dict] | None = None
-    #: 0.40.0 (FR-455 R4, PFS-2081.58): the far-field plane and lattice this
+    #: 0.40.0 (FR-1047, PFS-2081.58): the far-field plane and lattice this
     #: point's script laid or reused, ``{"shapes": [...]}``, each shape as
     #: :meth:`pyflightstream.cases.workflows.FarfieldShape.record` states it
     #: (kind, added or declared, the entry reused, the point count and the
@@ -1072,7 +1072,7 @@ class RunRecord(BaseModel):
                         "outputs": list(entry.get("outputs") or []),
                         "iterations": entry.get("iterations"),
                         "residual": entry.get("residual"),
-                        # The point's own limit and note (FR-434 R4); the job's
+                        # The point's own limit and note (FR-977); the job's
                         # note is the excused-log one, or none.
                         "residual_note": entry.get("residual_note") or self.residual_note,
                         "iterations_requested": entry.get(
@@ -1081,7 +1081,7 @@ class RunRecord(BaseModel):
                         "points_ran": [],
                         # 0.30.0 (M1): a job keys its Mach numbers by point name.
                         "rotor_mach": (self.rotor_mach or {}).get(tag) or None,
-                        # 0.40.0 (FR-455 R4): a job keys its far-field layouts by point name.
+                        # 0.40.0 (FR-1047): a job keys its far-field layouts by point name.
                         "farfield_layout": ((self.farfield_layout or {}).get("by_point") or {}).get(
                             tag
                         )

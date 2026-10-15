@@ -57,7 +57,7 @@ ROW_R_M = 0.6
 
 
 def _steps(length: float, radius: float, v_ax: float) -> int:
-    """FR-321 R2 by hand: n = ceil(L R Omega / (V_ax dtheta))."""
+    """FR-581 by hand: n = ceil(L R Omega / (V_ax dtheta))."""
     return math.ceil(round(length * radius * CASE_OMEGA / (v_ax * CASE_DTHETA), 9))
 
 
@@ -96,7 +96,7 @@ def _rotor(velocity: str = "30.0", **settings: object):
 
 
 def test_p0340_wake_length_a_stated_length_becomes_the_steps_it_keeps():
-    """P0340-WAKE-LENGTH, FR-321 R1 and R2: L = 4.1 R converts at V_ax = V_inf.
+    """P0340-WAKE-LENGTH, FR-580 and FR-581: L = 4.1 R converts at V_ax = V_inf.
 
     4.1 * 1.8288 * 1e4 / 30 = 2499.36, rounded UP to 2500, so the wake kept at
     V_ax is never shorter than L; rounding to nearest would give 2499.
@@ -115,7 +115,7 @@ def test_p0340_wake_length_a_stated_length_becomes_the_steps_it_keeps():
 
 
 def test_p0340_wake_length_a_row_stating_steps_is_emitted_as_stated_the_control():
-    """P0340-WAKE-LENGTH, FR-321 R4 control: a stated step count is not converted."""
+    """P0340-WAKE-LENGTH, FR-583 control: a stated step count is not converted."""
     requirement = "FR-321"
     lines, script = _built(_rotor(wake_termination_steps=100))
     assert _terminations(lines) == [f"{TERMINATION} 100"], (requirement, lines)
@@ -124,7 +124,7 @@ def test_p0340_wake_length_a_row_stating_steps_is_emitted_as_stated_the_control(
 
 
 def test_p0340_wake_length_a_rotor_row_stating_nothing_keeps_four_radii():
-    """P0340-WAKE-LENGTH, FR-321 R4 and R5: the 4R default, and its three recorded values.
+    """P0340-WAKE-LENGTH, FR-583 and FR-584: the 4R default, and its three recorded values.
 
     4 * 1.8288 * 1e4 / 30 = 2438.4, so 2439 steps; the snapshot the run record
     carries says the L asked, the V_ax with its rule, and the steps.
@@ -143,7 +143,7 @@ def test_p0340_wake_length_a_rotor_row_stating_nothing_keeps_four_radii():
 
 
 def test_p0340_wake_length_the_run_record_carries_the_three_values(tmp_path):
-    """P0340-WAKE-LENGTH, FR-321 R5: a rotor point run through the workflow records them.
+    """P0340-WAKE-LENGTH, FR-584: a rotor point run through the workflow records them.
 
     The row turns 1200 rev/min at TASmps 30 with a 1e-4 s step; its reference
     states rotor_diameter_m = 1.2, so R = 0.6 m and 4R is 4 * 0.6 / (30 * 1e-4) = 800
@@ -206,7 +206,7 @@ def _parity():
 
 
 def test_p0340_wake_length_the_parity_entry_names_only_the_added_line_on_a_rotor_script():
-    """P0340-WAKE-LENGTH, FR-321 R6: the parity script names the termination line under FR-321
+    """P0340-WAKE-LENGTH, FR-321: the parity script names the termination line under FR-321
     only in the direction and on the scripts the requirement states: ADDED to a script that
     turns a rotor in time and whose base wrote none. A removed line, a changed count, and
     the line added to a steady script stay unnamed."""
@@ -291,7 +291,7 @@ def _plan(workspace, matrix):
 @pytest.mark.parametrize("where", ["setup", "preset-and-row", "row"])
 @pytest.mark.parametrize("pair", PAIRS, ids=lambda pair: f"{pair[0][0]}+{pair[1][0]}")
 def test_p0340_wake_one_key_two_keys_are_refused_at_plan_naming_both(tmp_path, pair, where):
-    """P0340-WAKE-ONE-KEY, FR-322 R1 and R4: two of the three keys reaching one row, from
+    """P0340-WAKE-ONE-KEY, FR-586 and FR-589: two of the three keys reaching one row, from
     its setup, its preset and the row, or the row alone, are refused at plan, the message
     naming each key, its value and the file or column it comes from."""
     requirement = "FR-322"
@@ -336,7 +336,7 @@ def test_p0340_wake_one_key_one_key_plans_the_control(tmp_path):
     "key, value", [("wake_termination_steps", "100"), ("wake_termination_revolutions", "1")]
 )
 def test_p0340_wake_one_key_the_same_key_in_preset_and_row_is_one_key(tmp_path, key, value):
-    """P0340-WAKE-ONE-KEY, FR-322 R4 control: the SAME key in the preset and in the row is one
+    """P0340-WAKE-ONE-KEY, FR-589 control: the SAME key in the preset and in the row is one
     key, not two. Agreeing, the row plans READY; differing, it is refused by FR-316's
     comparison of the row with its preset, never as two termination keys."""
     requirement = "FR-322"
@@ -354,7 +354,7 @@ def test_p0340_wake_one_key_the_same_key_in_preset_and_row_is_one_key(tmp_path, 
 
 
 def test_p0340_wake_one_key_the_builder_refuses_two_keys_too():
-    """P0340-WAKE-ONE-KEY, FR-322 R2: a case built in Python is refused by the builder, the
+    """P0340-WAKE-ONE-KEY, FR-587: a case built in Python is refused by the builder, the
     0.33.0 reading ("can only disagree") kept and every pair of the three joined to it."""
     requirement = "FR-322"
     for (first, a), (second, b) in PAIRS:
@@ -373,7 +373,7 @@ def _induced(thrust: float, radius: float) -> float:
 
 
 def test_p0340_wake_hover_a_stated_thrust_convects_the_wake_at_zero_speed():
-    """P0340-WAKE-HOVER, FR-323 R1 and R2: at V_inf = 0, V_ax is v_i of the stated thrust."""
+    """P0340-WAKE-HOVER, FR-590 and FR-591: at V_inf = 0, V_ax is v_i of the stated thrust."""
     requirement = "FR-323"
     lines, script = _built(_rotor("0.0", wake_termination_thrust_n=1000.0))
     v_i = _induced(1000.0, CASE_R_M)
@@ -383,7 +383,7 @@ def test_p0340_wake_hover_a_stated_thrust_convects_the_wake_at_zero_speed():
 
 
 def test_p0340_wake_hover_a_revolution_cap_sets_the_steps_at_zero_speed():
-    """P0340-WAKE-HOVER, FR-323 R3: a cap of 2 revolutions is 2 * 500 = 1000 steps."""
+    """P0340-WAKE-HOVER, FR-592: a cap of 2 revolutions is 2 * 500 = 1000 steps."""
     requirement = "FR-323"
     lines, script = _built(_rotor("0.0", wake_termination_revolutions_cap=2.0))
     assert _terminations(lines) == [f"{TERMINATION} 1000"], (requirement, lines)
@@ -392,7 +392,7 @@ def test_p0340_wake_hover_a_revolution_cap_sets_the_steps_at_zero_speed():
 
 
 def test_p0340_wake_hover_neither_key_at_zero_speed_is_refused_naming_both():
-    """P0340-WAKE-HOVER, FR-323 R4: a length at V_inf = 0 with neither bound is refused."""
+    """P0340-WAKE-HOVER, FR-593: a length at V_inf = 0 with neither bound is refused."""
     requirement = "FR-323"
     with pytest.raises(CampaignConfigError) as refused:
         _built(_rotor("0.0"))
@@ -402,7 +402,7 @@ def test_p0340_wake_hover_neither_key_at_zero_speed_is_refused_naming_both():
 
 
 def test_p0340_wake_hover_a_slow_rotor_whose_induced_velocity_exceeds_v_inf():
-    """P0340-WAKE-HOVER, FR-323 R2: at 1 m/s the 1000 N thrust's v_i (6.23 m/s) wins."""
+    """P0340-WAKE-HOVER, FR-591: at 1 m/s the 1000 N thrust's v_i (6.23 m/s) wins."""
     requirement = "FR-323"
     v_i = _induced(1000.0, CASE_R_M)
     assert v_i > 1.0, v_i
@@ -413,7 +413,7 @@ def test_p0340_wake_hover_a_slow_rotor_whose_induced_velocity_exceeds_v_inf():
 
 
 def test_p0340_wake_hover_forward_flight_keeps_the_free_stream_the_control():
-    """P0340-WAKE-HOVER, FR-323 R2 control: at 30 m/s the same thrust's v_i is slower, so
+    """P0340-WAKE-HOVER, FR-591 control: at 30 m/s the same thrust's v_i is slower, so
     V_ax stays V_inf and the steps are the 4R default's 2439; a cap above them changes
     nothing."""
     requirement = "FR-323"
@@ -428,7 +428,7 @@ def test_p0340_wake_hover_forward_flight_keeps_the_free_stream_the_control():
 @pytest.mark.parametrize("bound", ["wake_termination_thrust_n", "wake_termination_revolutions_cap"])
 @pytest.mark.parametrize("count", ["wake_termination_steps", "wake_termination_revolutions"])
 def test_p0340_wake_hover_a_bound_beside_a_count_is_refused(bound, count):
-    """P0340-WAKE-HOVER, FR-323 R6: the two keys bound a length only."""
+    """P0340-WAKE-HOVER, FR-595: the two keys bound a length only."""
     requirement = "FR-323"
     with pytest.raises(CampaignConfigError) as refused:
         _built(_rotor(**{bound: 500.0, count: 2}))
@@ -436,7 +436,7 @@ def test_p0340_wake_hover_a_bound_beside_a_count_is_refused(bound, count):
 
 
 def test_p0340_wake_hover_a_cap_cuts_a_length_in_forward_flight_too():
-    """P0340-WAKE-HOVER, FR-323 R3: the converted steps never exceed the cap, at any speed.
+    """P0340-WAKE-HOVER, FR-592: the converted steps never exceed the cap, at any speed.
 
     At 30 m/s, 6 R is 6 * 1.8288 * 1e4 / 30 = 3657.6, so 3658 steps uncapped; a cap of
     one revolution is 500 steps, which win, and the rule recorded is the cap's.
@@ -465,7 +465,7 @@ def test_p0340_wake_hover_a_cap_cuts_a_length_in_forward_flight_too():
 def test_p0340_wake_hover_a_length_or_bound_on_a_run_turning_no_rotor_is_refused(
     factory, key, value
 ):
-    """P0340-WAKE-HOVER, FR-323 and FR-321 R4: a length, a thrust or a cap on a steady run or
+    """P0340-WAKE-HOVER, FR-323 and FR-583: a length, a thrust or a cap on a steady run or
     on an unsteady run that turns no rotor reaches no line, so it is refused, naming the key,
     rather than silently dropped."""
     requirement = "FR-323"
@@ -480,7 +480,7 @@ def test_p0340_wake_hover_a_length_or_bound_on_a_run_turning_no_rotor_is_refused
 
 
 def test_p0340_wake_trefftz_a_stated_plane_writes_wake_termination_x_and_nothing_else():
-    """P0340-WAKE-TREFFTZ, FR-324 R1: the plane is the one changed line, in INITIALIZE_SOLVER."""
+    """P0340-WAKE-TREFFTZ, FR-596: the plane is the one changed line, in INITIALIZE_SOLVER."""
     requirement = "FR-324"
     before, _ = _built(steady_case())
     after, _ = _built(
@@ -500,7 +500,7 @@ def test_p0340_wake_trefftz_a_stated_plane_writes_wake_termination_x_and_nothing
 
 
 def test_p0340_wake_trefftz_an_unstated_plane_writes_default_as_0330_did():
-    """P0340-WAKE-TREFFTZ, FR-324 R2: unstated and DEFAULT render the same bytes, and the
+    """P0340-WAKE-TREFFTZ, FR-597: unstated and DEFAULT render the same bytes, and the
     committed steady golden, unchanged by 0.34.0, carries WAKE_TERMINATION_X DEFAULT."""
     requirement = "FR-324"
     unstated, _ = _built(steady_case())
@@ -521,7 +521,7 @@ def test_p0340_wake_trefftz_an_unstated_plane_writes_default_as_0330_did():
     ids=lambda value: repr(value),
 )
 def test_p0340_wake_trefftz_any_other_value_is_refused_naming_the_key_and_the_forms(value):
-    """P0340-WAKE-TREFFTZ, FR-324 R3 and R4: a number with a unit, a distance in radii, a
+    """P0340-WAKE-TREFFTZ, FR-598 and FR-599: a number with a unit, a distance in radii, a
     non-finite number, an empty value and any word other than DEFAULT are refused, so no
     such value reaches WAKE_TERMINATION_X."""
     requirement = "FR-324"
@@ -534,7 +534,7 @@ def test_p0340_wake_trefftz_any_other_value_is_refused_naming_the_key_and_the_fo
 
 @pytest.mark.parametrize("value", ["2.75", "-1.5", "3"])
 def test_p0340_wake_trefftz_a_bare_number_in_a_cell_or_a_preset_is_taken(value):
-    """P0340-WAKE-TREFFTZ, FR-324 R1: the text a row cell carries is the number that
+    """P0340-WAKE-TREFFTZ, FR-596: the text a row cell carries is the number that
     WAKE_TERMINATION_X writes."""
     requirement = "FR-324"
     assert SolverSettings(wake_termination_x_m=value).wake_termination_x_m == float(value), (
@@ -543,7 +543,7 @@ def test_p0340_wake_trefftz_a_bare_number_in_a_cell_or_a_preset_is_taken(value):
 
 
 def test_p0340_wake_trefftz_a_refused_value_stops_the_plan(tmp_path):
-    """P0340-WAKE-TREFFTZ, FR-324 R3: refused at plan, from the preset, naming the key,
+    """P0340-WAKE-TREFFTZ, FR-598: refused at plan, from the preset, naming the key,
     before any script writes WAKE_TERMINATION_X."""
     requirement = "FR-324"
     workspace, matrix = _setup_and_row(tmp_path, [("wake_termination_x_m", '"4R"')], [])
@@ -556,6 +556,8 @@ def test_p0340_wake_trefftz_a_refused_value_stops_the_plan(tmp_path):
 
 
 # --- FR-325: the plan always warns -------------------------------------------
+
+_WAKE_WARNING_UIDS = ("FR-325", "FR-600", "FR-601", "FR-602", "FR-603")
 
 #: The two measured placements of the solver's default plane (FR-324), as plan
 #: fixtures: the rotor case's at 5.5 R and the blades-only wheel's at 2.1 R
@@ -599,7 +601,8 @@ def _planned_wake(
     said = [
         str(item.message)
         for item in caught
-        if issubclass(item.category, PyflightstreamWarning) and "FR-325" in str(item.message)
+        if issubclass(item.category, PyflightstreamWarning)
+        and any(uid in str(item.message) for uid in _WAKE_WARNING_UIDS)
     ]
     assert plan.plan_file is not None
     points = json.loads(plan.plan_file.read_text(encoding="utf-8"))["points"]
@@ -607,12 +610,12 @@ def _planned_wake(
 
 
 def _rule(said: list[str], rule: str) -> list[str]:
-    return [text for text in said if f"FR-325 {rule})" in text]
+    return [text for text in said if f"({rule})" in text]
 
 
 @pytest.mark.parametrize("length", [None, 6.0], ids=["4R-default", "6R-stated"])
 def test_p0340_wake_plan_warn_too_few_revolutions_warns_and_enough_does_not(tmp_path, length):
-    """P0340-WAKE-PLAN-WARN, FR-325 R1: the plan warns at the 4R default and at a larger L.
+    """P0340-WAKE-PLAN-WARN, FR-600: the plan warns at the 4R default and at a larger L.
 
     The row's L R / (V dt) is 200 L steps (R = 0.6 m, V = 30 m/s, dt = 1e-4 s): 800
     at 4R, 1200 at 6R, against a revolution of 500 steps. 720 steps (1.44
@@ -622,60 +625,60 @@ def test_p0340_wake_plan_warn_too_few_revolutions_warns_and_enough_does_not(tmp_
     row = "" if length is None else f" / wake_termination_length: {length:g}"
     needed = (200.0 * (length or 4.0)) / 500.0
     few, statuses, _, _ = _planned_wake(tmp_path / "few", iterations=720, row=row)
-    warned = _rule(few, "R1")
+    warned = _rule(few, "FR-600")
     assert len(warned) == 1, (requirement, few)
     assert f"L = {length or 4.0:g} R" in warned[0] and "'7001'" in warned[0], warned
     assert f"{needed:.3g} revolution(s)" in warned[0] and "1.44 revolution(s)" in warned[0], warned
     assert statuses == [PlanStatus.READY], requirement
     enough, statuses, _, _ = _planned_wake(tmp_path / "enough", iterations=1500, row=row)
-    assert _rule(enough, "R1") == [], (requirement, enough)
+    assert _rule(enough, "FR-600") == [], (requirement, enough)
     assert statuses == [PlanStatus.READY], requirement
 
 
 def test_p0340_wake_plan_warn_a_step_count_states_its_length_against_four_radii(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R2: 100 steps keep 100 * 30 * 1e-4 / 0.6 = 0.5 R, below
+    """P0340-WAKE-PLAN-WARN, FR-601: 100 steps keep 100 * 30 * 1e-4 / 0.6 = 0.5 R, below
     the 4R recommendation, and the plan warns; 1000 steps of a 1500-step run keep 5 R."""
     requirement = "FR-325"
     short, _, _, _ = _planned_wake(tmp_path / "short", row=" / wake_termination_steps: 100")
-    warned = _rule(short, "R2")
+    warned = _rule(short, "FR-601")
     assert len(warned) == 1 and "0.5 R" in warned[0], (requirement, short)
-    assert _rule(short, "R1") == [], short
+    assert _rule(short, "FR-600") == [], short
     long, _, _, _ = _planned_wake(
         tmp_path / "long", iterations=1500, row=" / wake_termination_steps: 1000"
     )
-    assert _rule(long, "R2") == [], (requirement, long)
+    assert _rule(long, "FR-601") == [], (requirement, long)
 
 
 @pytest.mark.parametrize("fixture", sorted(PLANES))
 def test_p0340_wake_plan_warn_a_plane_before_the_length_warns_and_after_it_does_not(
     tmp_path, fixture
 ):
-    """P0340-WAKE-PLAN-WARN, FR-325 R3 and R5: the two measured placements as fixtures, on a
+    """P0340-WAKE-PLAN-WARN, FR-602 and FR-604: the two measured placements as fixtures, on a
     rotor row and a blades-only wheel alike. At 4R (2.4 m) the rotor case's plane (3.3 m)
     is after L and the wheel's (1.26 m) is before it; at 6R (3.6 m) both are before it."""
     requirement = "FR-325"
     plane = PLANES[fixture]
     at_4r, _, _, _ = _planned_wake(tmp_path / "4r", iterations=1500, plane=f"{plane:.4g}")
     before = plane < 4.0 * ROW_R_M
-    assert len(_rule(at_4r, "R3")) == (1 if before else 0), (requirement, fixture, at_4r)
+    assert len(_rule(at_4r, "FR-602")) == (1 if before else 0), (requirement, fixture, at_4r)
     at_6r, _, _, _ = _planned_wake(
         tmp_path / "6r",
         iterations=1500,
         row=" / wake_termination_length: 6",
         plane=f"{plane:.4g}",
     )
-    warned = _rule(at_6r, "R3")
+    warned = _rule(at_6r, "FR-602")
     assert len(warned) == 1 and "wake_termination_x_m" in warned[0], (requirement, at_6r)
     assert f"{plane / ROW_R_M:.3g} R downstream" in warned[0], warned
     # A stated plane is never the DEFAULT warning.
-    assert _rule(at_4r, "R4") == [] and _rule(at_6r, "R4") == [], requirement
+    assert _rule(at_4r, "FR-603") == [] and _rule(at_6r, "FR-603") == [], requirement
 
 
 def test_p0340_wake_plan_warn_the_default_plane_always_warns_citing_both_placements(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R4: the plan cannot know where DEFAULT is, and says so."""
+    """P0340-WAKE-PLAN-WARN, FR-603: the plan cannot know where DEFAULT is, and says so."""
     requirement = "FR-325"
     said, statuses, _, _ = _planned_wake(tmp_path, iterations=1500)
-    warned = _rule(said, "R4")
+    warned = _rule(said, "FR-603")
     assert len(warned) == 1, (requirement, said)
     for words in (
         "DEFAULT",
@@ -691,15 +694,15 @@ def test_p0340_wake_plan_warn_the_default_plane_always_warns_citing_both_placeme
 
 
 def test_p0340_wake_plan_warn_the_warnings_change_neither_the_exit_nor_the_plan(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R6: the plan warns, and a row it warns about exits 0,
+    """P0340-WAKE-PLAN-WARN, FR-605: the plan warns, and a row it warns about exits 0,
     plans READY and writes the plan an unwarned row writes, but for the plane it states."""
     requirement = "FR-325"
     warned, statuses, points, (workspace, matrix) = _planned_wake(tmp_path / "warned")
-    assert _rule(warned, "R1") and _rule(warned, "R4"), (requirement, warned)
+    assert _rule(warned, "FR-600") and _rule(warned, "FR-603"), (requirement, warned)
     quiet, quiet_statuses, quiet_points, _ = _planned_wake(
         tmp_path / "quiet", iterations=720, plane="100"
     )
-    assert not _rule(quiet, "R4") and not _rule(quiet, "R3"), (requirement, quiet)
+    assert not _rule(quiet, "FR-603") and not _rule(quiet, "FR-602"), (requirement, quiet)
     assert statuses == quiet_statuses == [PlanStatus.READY], requirement
     for entry in (*points, *quiet_points):
         entry["wake_termination"].pop("plane")
@@ -710,7 +713,7 @@ def test_p0340_wake_plan_warn_the_warnings_change_neither_the_exit_nor_the_plan(
 
 
 def test_p0340_wake_plan_warn_the_plan_states_the_three_values(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 beside FR-321 R5: whether or not it warns, the plan
+    """P0340-WAKE-PLAN-WARN, FR-325 beside FR-584: whether or not it warns, the plan
     states L, V_ax with its rule, and the steps."""
     requirement = "FR-325"
     workspace = _workspace(tmp_path)
@@ -725,7 +728,7 @@ def test_p0340_wake_plan_warn_the_plan_states_the_three_values(tmp_path):
 
 
 def test_p0340_wake_plan_warn_a_count_states_the_length_it_keeps_warned_or_not(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R2: the plan STATES the length a count keeps, whether or
+    """P0340-WAKE-PLAN-WARN, FR-601: the plan STATES the length a count keeps, whether or
     not it warns. 1000 steps of a 1500-step run keep 1000 * 30 * 1e-4 / 0.6 = 5 R, above
     4R and unwarned; 100 steps keep 0.5 R, stated and warned."""
     requirement = "FR-325"
@@ -736,7 +739,7 @@ def test_p0340_wake_plan_warn_a_count_states_the_length_it_keeps_warned_or_not(t
         said, _, _, (workspace, matrix) = _planned_wake(
             tmp_path / name, iterations=iterations, row=f" / wake_termination_steps: {steps}"
         )
-        assert bool(_rule(said, "R2")) is warns, (requirement, name, said)
+        assert bool(_rule(said, "FR-601")) is warns, (requirement, name, said)
         summary = _plan(workspace, matrix).summary()
         assert (
             f"wake termination wake_termination_steps: {steps} steps, keeping about {kept} R "
@@ -745,7 +748,7 @@ def test_p0340_wake_plan_warn_a_count_states_the_length_it_keeps_warned_or_not(t
 
 
 def test_p0340_wake_plan_warn_a_cap_that_cuts_the_length_is_named(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R1 with FR-323 R3: a cap that cuts L in forward flight.
+    """P0340-WAKE-PLAN-WARN, FR-600 with FR-592: a cap that cuts L in forward flight.
 
     6 R is 200 * 6 = 1200 steps, which a 1500-step run reaches; a cap of one revolution
     keeps 500 steps, 500 * 30 * 1e-4 / 0.6 = 2.5 R, and the warning names the cap.
@@ -756,7 +759,7 @@ def test_p0340_wake_plan_warn_a_cap_that_cuts_the_length_is_named(tmp_path):
         iterations=1500,
         row=" / wake_termination_length: 6 / wake_termination_revolutions_cap: 1",
     )
-    warned = _rule(said, "R1")
+    warned = _rule(said, "FR-600")
     assert len(warned) == 1, (requirement, said)
     assert "the revolution cap keeps 500 steps" in warned[0], warned
     assert "about 2.5 R" in warned[0] and "L = 6 R" in warned[0], warned
@@ -765,7 +768,7 @@ def test_p0340_wake_plan_warn_a_cap_that_cuts_the_length_is_named(tmp_path):
 
 
 def test_p0340_wake_plan_warn_a_plane_on_either_side_of_a_hovering_rotor(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R3 at zero speed: with no free-stream sense the wake may
+    """P0340-WAKE-PLAN-WARN, FR-602 at zero speed: with no free-stream sense the wake may
     leave either way, so a plane within L on EITHER side of the hub cuts it. The hub is at
     x = 0 and L is the 4R default, 2.4 m: a plane 1 R upstream (-0.6 m) or downstream
     (0.6 m) warns at 1 R; one 5 R upstream (-3.0 m) does not."""
@@ -776,7 +779,7 @@ def test_p0340_wake_plan_warn_a_plane_on_either_side_of_a_hovering_rotor(tmp_pat
             tmp_path / name, iterations=1500, row=thrust, plane=plane, hover=True
         )
         assert points[0]["wake_termination"]["rule"] == "induced_velocity", points
-        warned = _rule(said, "R3")
+        warned = _rule(said, "FR-602")
         assert len(warned) == (1 if warns else 0), (requirement, name, said)
         if warns:
             assert "lies 1 R downstream" in warned[0], (requirement, warned)
@@ -784,7 +787,7 @@ def test_p0340_wake_plan_warn_a_plane_on_either_side_of_a_hovering_rotor(tmp_pat
 
 
 def test_p0340_wake_plan_warn_a_plane_the_plan_cannot_place_still_warns(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R3: a stated plane on a rotor whose hub X is unknown (the
+    """P0340-WAKE-PLAN-WARN, FR-602: a stated plane on a rotor whose hub X is unknown (the
     reference states rotor_diameter_m and no rotor block) cannot be placed against L, and
     the plan says so rather than passing it in silence (the author's 'always warn')."""
     from tests.tier1_offline.test_matrix_run import _rotor_matrix, make_library
@@ -810,7 +813,7 @@ def test_p0340_wake_plan_warn_a_plane_the_plan_cannot_place_still_warns(tmp_path
         plan = plan_matrix(
             matrix, workspace, name="rotor", recipes={}, recipe_registry=workflow_registry()
         )
-    said = [str(item.message) for item in caught if "FR-325 R3)" in str(item.message)]
+    said = [str(item.message) for item in caught if "FR-602)" in str(item.message)]
     assert len(said) == 1, (requirement, [str(item.message) for item in caught])
     for words in ("wake_termination_x_m = 1 m", "hub X is unknown", "cannot be placed"):
         assert words in said[0], (requirement, words, said[0])
@@ -821,7 +824,7 @@ def test_p0340_wake_plan_warn_a_plane_the_plan_cannot_place_still_warns(tmp_path
 
 
 def test_p0340_wake_length_an_exact_quotient_is_not_one_step_more():
-    """P0340-WAKE-LENGTH, FR-321 R2: L = 5 R at 5.76 m/s is EXACTLY 15875 steps.
+    """P0340-WAKE-LENGTH, FR-581: L = 5 R at 5.76 m/s is EXACTLY 15875 steps.
 
     5 * 1.8288 * 1e4 / 5.76 = 91440 / 5.76 = 15875; floats render the quotient a hair
     above it, so a ceiling taken without rounding first would emit 15876.
@@ -833,7 +836,7 @@ def test_p0340_wake_length_an_exact_quotient_is_not_one_step_more():
 
 
 def test_p0340_wake_length_a_negative_free_stream_speed_converts_as_its_magnitude():
-    """P0340-WAKE-LENGTH, FR-321 R2: V = -30 m/s convects the wake at |V| = 30 m/s, so
+    """P0340-WAKE-LENGTH, FR-581: V = -30 m/s convects the wake at |V| = 30 m/s, so
     L = 4.1 R is the 2500 steps of +30 m/s, not a zero-speed refusal."""
     requirement = "FR-321"
     lines, script = _built(_rotor("-30.0", wake_termination_length=4.1))
@@ -845,7 +848,7 @@ def test_p0340_wake_length_a_negative_free_stream_speed_converts_as_its_magnitud
 
 
 def test_p0340_wake_length_revolutions_round_to_the_nearest_step():
-    """P0340-WAKE-LENGTH, FR-321 R4: 1.0013 revolutions of 500 steps are 500.65 steps,
+    """P0340-WAKE-LENGTH, FR-583: 1.0013 revolutions of 500 steps are 500.65 steps,
     emitted as the nearest whole step, 501, never truncated to 500."""
     requirement = "FR-321"
     lines, _ = _built(_rotor(wake_termination_revolutions=1.0013))
@@ -853,7 +856,7 @@ def test_p0340_wake_length_revolutions_round_to_the_nearest_step():
 
 
 def test_p0340_wake_hover_steps_equal_to_the_cap_keep_the_free_stream_rule():
-    """P0340-WAKE-HOVER, FR-323 R3: 0.82 R at 30 m/s is 0.82 * 1.8288e4 / 30 = 499.87, so
+    """P0340-WAKE-HOVER, FR-592: 0.82 R at 30 m/s is 0.82 * 1.8288e4 / 30 = 499.87, so
     500 steps, exactly the one-revolution cap; the cap does not CUT them, so the rule
     recorded stays free_stream."""
     requirement = "FR-323"
@@ -867,7 +870,7 @@ def test_p0340_wake_hover_steps_equal_to_the_cap_keep_the_free_stream_rule():
 
 
 def test_p0340_wake_trefftz_the_plane_is_written_in_the_simulation_length_unit():
-    """P0340-WAKE-TREFFTZ, FR-324 R1: wake_termination_x_m = 0.5 in a MILLIMETER simulation
+    """P0340-WAKE-TREFFTZ, FR-596: wake_termination_x_m = 0.5 in a MILLIMETER simulation
     writes 500, as every length this package hands the solver is written in its unit."""
     requirement = "FR-324"
     settings = SolverSettings(wake_termination_x_m=0.5, simulation_length_unit="MILLIMETER")
@@ -878,17 +881,17 @@ def test_p0340_wake_trefftz_the_plane_is_written_in_the_simulation_length_unit()
 
 
 def test_p0340_wake_plan_warn_a_plane_upstream_of_the_hub_cuts_the_wake(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R3: in forward flight along +X the wake leaves towards +X,
+    """P0340-WAKE-PLAN-WARN, FR-602: in forward flight along +X the wake leaves towards +X,
     so a plane 5 R UPSTREAM of the hub (x = -3.0 m, R = 0.6 m) cuts it at once and warns,
     though its distance from the hub is more than L = 4 R."""
     requirement = "FR-325"
     said, statuses, _, _ = _planned_wake(tmp_path, iterations=1500, plane="-3.0")
-    assert len(_rule(said, "R3")) == 1, (requirement, said)
+    assert len(_rule(said, "FR-602")) == 1, (requirement, said)
     assert statuses == [PlanStatus.READY], requirement
 
 
 def test_p0340_wake_plan_warn_reversed_flow_turns_the_downstream_side(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R3: at alpha = 180 deg the free stream runs along -X, so
+    """P0340-WAKE-PLAN-WARN, FR-602: at alpha = 180 deg the free stream runs along -X, so
     the wake leaves towards -X: a plane 5 R on -X (x = -3.0 m) is beyond L = 4 R and does
     not warn, and one 5 R on +X (x = 3.0 m) lies upstream and warns."""
     requirement = "FR-325"
@@ -896,18 +899,18 @@ def test_p0340_wake_plan_warn_reversed_flow_turns_the_downstream_side(tmp_path):
         said, statuses, _, _ = _planned_wake(
             tmp_path / name, iterations=1500, plane=plane, alpha="180.0"
         )
-        assert len(_rule(said, "R3")) == (1 if warns else 0), (requirement, name, said)
+        assert len(_rule(said, "FR-602")) == (1 if warns else 0), (requirement, name, said)
         assert statuses == [PlanStatus.READY], requirement
 
 
 def test_p0340_wake_plan_warn_a_negative_count_keeps_the_run_less_it(tmp_path):
-    """P0340-WAKE-PLAN-WARN, FR-325 R2: wake_termination_steps = -620 in a 720-step run keeps
+    """P0340-WAKE-PLAN-WARN, FR-601: wake_termination_steps = -620 in a 720-step run keeps
     720 - 620 = 100 steps, 100 * 30 * 1e-4 / 0.6 = 0.5 R, stated and warned."""
     requirement = "FR-325"
     said, _, _, (workspace, matrix) = _planned_wake(
         tmp_path, iterations=720, row=" / wake_termination_steps: -620"
     )
-    warned = _rule(said, "R2")
+    warned = _rule(said, "FR-601")
     assert len(warned) == 1 and "keep about 0.5 R" in warned[0], (requirement, said)
     summary = _plan(workspace, matrix).summary()
     assert "keeping about 0.5 R of wake" in summary, (requirement, summary)
@@ -946,12 +949,16 @@ def test_p0340_wake_length_the_lq5_kit_plans_ready_offline(tmp_path):
     assert control["steps"] == moved["steps"] == 180, (control, moved)
     assert control["run_steps"] == 288 and control["plane"] == "DEFAULT", control
     assert moved["plane"] == pytest.approx(8.0 * wake_lq5.R_M), moved
-    said = [str(item.message) for item in caught if "FR-325" in str(item.message)]
-    assert len(said) == 1 and "'9501'" in said[0] and "R4" in said[0], said
+    said = [
+        str(item.message)
+        for item in caught
+        if any(uid in str(item.message) for uid in _WAKE_WARNING_UIDS)
+    ]
+    assert len(said) == 1 and "'9501'" in said[0] and "FR-603" in said[0], said
 
 
 def test_p0340_wake_length_the_lq5_analysis_recovers_a_known_convection_speed(tmp_path):
-    """P0340-WAKE-LENGTH, FR-321 R3: the analysis RPT-130 will read, on a synthetic tip vortex
+    """P0340-WAKE-LENGTH, FR-582: the analysis RPT-130 will read, on a synthetic tip vortex
     convecting at 1.15 V_inf and ending at 4.5 R, returns that speed and that end, and the
     slipstream line's induced velocity; the momentum ratio of CT = 0.1 is worked by hand."""
     from tests import support_tier3 as kit

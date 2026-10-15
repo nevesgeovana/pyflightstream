@@ -1,72 +1,14 @@
 #!/usr/bin/env python3
-"""Generate the machine-readable index of the requirement set.
+"""Generate validated requirement data and hierarchical pages from the authored SRS.
 
-Pipeline role: evidence generator. The SRS pages under ``docs/unpublished/requirements`` are
-the single source; this script renders them into one JSON document that
-an external dashboard can consume without parsing Markdown, plus the
-traceability counts that say how much of the set a test reaches.
+Compact rows carry stable UIDs, parent UIDs, areas, status, one statement, a
+module:symbol code anchor and a pytest test ID. Legacy requirement boxes remain
+readable for older snapshots. Retired UIDs remain reserved in the index.
 
-Run it with no argument to write ``build/requirements-index.json``, or
-with ``--check`` to check a previously generated output. The generated index
-is a local build artifact; tests validate the generator against the SRS sources.
-
-Field names are fixed by the consumer. This list is the emitted set,
-and it is checked against the generator's output by a Tier 1 test
-rather than maintained by hand: it described three fields while six
-were being written, and a zero traceability count while eight
-requirements carried falsifying markers (REV010-017).
-
-``id``
-    The requirement identifier, for example ``FR-37`` or ``NFR-13``.
-``text``
-    The statement, as one paragraph of plain text.
-``priority``
-    ``"M"`` for mandatory, ``"D"`` for deferred. Deferred means the
-    requirement is agreed and its implementation waits on something
-    outside this repository, which for this project is almost always
-    licensed-solver evidence.
-``status``
-    The badge the SRS page carries: ``implemented``, ``pending`` or
-    ``deferred``. What ``priority`` cannot say, because a pending
-    requirement is still mandatory.
-``verification``
-    How the requirement is to be shown satisfied.
-``evidence``
-    What currently shows it, when anything does.
-
-The top level carries ``source``, ``generated_by``, ``traceability``
-and ``requirements``. ``traceability`` counts how many requirement ids
-are MENTIONED anywhere under ``tests/``, which is an upper bound rather
-than a measure; the marker ratchet is a separate and smaller number,
-held in ``tests/tier1_offline/test_traceability.py``. See :func:`traceability` for
-why the looser count is reported at all.
-
-What the index does NOT carry, and why. Only ``requirement`` boxes are
-published. Architecture decisions (AD-xx) and non-requirements
-(NREQ-xx) live in the same pages and are excluded, because a field
-named ``priority`` has no value that means "this is a rule rather than
-an obligation" or "this is a refusal": the first version of this
-generator published NREQ-01, "No graphical interface is planned or
-accepted", as a mandatory requirement. Requirements badged
-``deprecated`` are excluded for the same reason. A requirement badged
-``pending`` IS published as mandatory, because it is owed; what a
-consumer cannot learn from this artifact is whether it has shipped.
-
-WHAT A MALFORMED PAGE DOES: the script refuses, names every problem it
-found, and writes nothing. Four shapes are refused, and the reason they
-are refusals rather than defaults is that each one publishes a FALSE
-statement to a reader outside this repository rather than an obviously
-broken one. A requirement box with no ``srs-`` badge used to default to
-``implemented``, so a deferred or pending requirement whose badge was
-lost in an edit reached the dashboard as done and mandatory. A badge
-token outside the four known ones travelled through unread. A repeated
-id published two entries a consumer keyed by id cannot tell apart. And a
-``!!! requirement "`` header this script's pattern cannot read produced
-no entry at all, its body being absorbed into the previous box, so a
-requirement stopped existing with every check green: that last one is
-the shape :mod:`tests.test_requirements_index` was written for and could
-not see, because it compares id sets and a lost box is missing from
-both. See :func:`collect`.
+The generator validates definitions, hierarchy and static code/test anchors before
+writing build/requirements-index.json and build/requirements/*.md. Human-readable
+HIDs are generated from the hierarchy; stable UID anchors identify requirements.
+Run --check to verify that existing generated artifacts match their sources.
 """
 
 from __future__ import annotations
@@ -460,7 +402,8 @@ def traceability(ids: list[str], tests_dir: Path) -> dict[str, object]:
     """
     sources = [p for p in tests_dir.rglob("*.py") if p.name != "conftest.py"]
     corpus = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in sources)
-    cited = {rid for rid in ids if re.search(rf"\b{re.escape(rid)}\b", corpus)}
+    mentions = set(re.findall(r"\b(?:FR|NFR)-\d+[a-z]?\b", corpus))
+    cited = set(ids) & mentions
     return {
         "cited_by_a_test": len(cited),
         "total": len(ids),
@@ -584,9 +527,11 @@ def requirement_pages(entries: list[dict[str, str]]) -> dict[str, str]:
                 ]
             )
         pages[f"{area.lower()}.md"] = "\n".join(lines)
-    retired = [row["id"] for row in entries if row["status"] == "retired"]
+    retired = [row for row in entries if row["status"] == "retired"]
     if retired:
-        index.extend(["", "## Retired UIDs", "", ", ".join(retired), ""])
+        index.extend(["", "## Retired UIDs", ""])
+        index.extend(f'- <a id="{r["id"]}"></a>{r["id"]}: {r["text"]}' for r in retired)
+        index.append("")
     pages["index.md"] = "\n".join(index) + "\n"
     return pages
 
@@ -620,6 +565,9 @@ def main() -> int:
         return 1
     payload = json.dumps(data, indent=1, ensure_ascii=False) + "\n"
     requirements = cast(list[dict[str, str]], data["requirements"])
+    pages = requirement_pages(requirements)
+    pages_dir = OUT.parent / "requirements"
+    generated_names = {"index.md", *(area.lower() + ".md" for area in AREAS)}
     if args.check:
         current = OUT.read_text(encoding="utf-8") if OUT.exists() else ""
         if current != payload:
@@ -629,10 +577,23 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+        for name in sorted(generated_names):
+            path = pages_dir / name
+            current_page = path.read_text(encoding="utf-8") if path.exists() else None
+            if current_page != pages.get(name):
+                print(f"generated requirement page is stale: {name}", file=sys.stderr)
+                return 1
         print(f"index current: {len(requirements)} requirements")
         return 0
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(payload, encoding="utf-8", newline="\n")
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    for name in sorted(generated_names):
+        path = pages_dir / name
+        if name in pages:
+            path.write_text(pages[name], encoding="utf-8", newline="\n")
+        elif path.exists():
+            path.unlink()
     trace = cast(dict[str, object], data["traceability"])
     print(
         f"wrote {OUT.relative_to(REPO)}: {len(requirements)} requirements, "

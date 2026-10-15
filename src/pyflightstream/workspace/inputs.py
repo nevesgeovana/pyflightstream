@@ -457,12 +457,12 @@ ROTOR_FACT_KEYS: tuple[str, ...] = (
 )
 
 
-#: The top-level table of a reference that declares the study's vocabulary (FR-435 R2).
+#: The top-level table of a reference that declares the study's vocabulary (FR-980).
 STUDY_TABLE = "study"
 
 
 class StudyVocabulary(BaseModel):
-    """The surfaces of a study, ``[study] surfaces`` of a reference artifact (FR-435 R2).
+    """The surfaces of a study, ``[study] surfaces`` of a reference artifact (FR-980).
 
     One setup, one pproc and one reference may serve every model of a study
     only if a name one model lacks can be told from a misspelling. The table
@@ -584,7 +584,7 @@ class ReferenceArtifact(BaseModel):
     #: is how a user writes one; which of the two files owns a named
     #: point is the open question of 2026-09-10 and is not answered here.
     points: dict[str, PointXyz] = Field(default_factory=dict)
-    #: THE STUDY'S VOCABULARY (FR-435 R2): the top-level ``[study]`` table that
+    #: THE STUDY'S VOCABULARY (FR-980): the top-level ``[study]`` table that
     #: states no ``kind`` and one key, ``surfaces``. A setup or pproc name the
     #: vocabulary holds and a row's model lacks is skipped and said at plan; a
     #: name it does not hold is refused there. None for a reference declaring
@@ -940,7 +940,7 @@ def resolve_reference(inputs_dir: Path, artifact_id: str) -> ReferenceArtifact:
 
 
 def _refuse_a_study_table_of_another_shape(data: Mapping[str, Any], path: Path) -> None:
-    """Refuse a ``[study]`` table that states anything but a list of names (FR-435 R2).
+    """Refuse a ``[study]`` table that states anything but a list of names (FR-980).
 
     A table named ``study`` that states a ``kind`` is a block like any other
     and is left to the reader, as it was before the vocabulary existed.

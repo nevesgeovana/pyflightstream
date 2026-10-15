@@ -29,7 +29,7 @@ def file_sha256(path: Path) -> str:
 
 
 def fold_separators(text: str) -> str:
-    """Text with every backslash turned into a forward slash, before it is hashed (NFR-44 R2).
+    """Text with every backslash turned into a forward slash, before it is hashed (FR-1189).
 
     A pinned digest of rendered text that holds a staged path must be the same
     on Windows and on Linux; the caller masks the absolute root first.

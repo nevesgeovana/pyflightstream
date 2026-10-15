@@ -206,7 +206,7 @@ _CYCLIC = {"X": (0, 1, 2), "Y": (1, 2, 0), "Z": (2, 0, 1)}
 
 
 def lattice_points(lattice: ProbeLattice, *, axis: str = "X") -> np.ndarray:
-    """Lay out a survey lattice in a frame whose ``axis`` is the shaft (FR-459 R2).
+    """Lay out a survey lattice in a frame whose ``axis`` is the shaft (FR-1072).
 
     The lattice's own coordinates (x along the shaft, ``y = r sin psi``,
     ``z = r cos psi``) are carried onto the frame's axes in cyclic order: for a
@@ -245,7 +245,7 @@ def lattice_points(lattice: ProbeLattice, *, axis: str = "X") -> np.ndarray:
 
 @dataclass(frozen=True, eq=False)
 class FarfieldPlane:
-    """The probe grid of a Trefftz C plane (FR-453 R4).
+    """The probe grid of a Trefftz C plane (FR-1033).
 
     Attributes
     ----------

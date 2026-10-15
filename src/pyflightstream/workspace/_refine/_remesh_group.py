@@ -1,4 +1,4 @@
-"""The group a remesh works on: its local numbering, targets, curves and order (FR-424 R7, R8).
+"""The group a remesh works on: its local numbering, targets, curves and order (FR-921, FR-922).
 
 A section of :mod:`._remesh`, which imports every name of it that other
 modules read, so their import paths hold. A group is the families remeshed
@@ -6,11 +6,11 @@ together, numbered locally and
 fanned into triangles; its TARGETS are the source's local edge lengths over
 each family's factor, and beside a refined side the length of the new shared
 edges returning to the family's own over :data:`SHARED_LAYERS` face layers
-(FR-432 R1, R2). Its CURVES are the edges a remesh splits and collapses only
+(FR-964, FR-965). Its CURVES are the edges a remesh splits and collapses only
 along their source curve: open boundaries, the trailing edge, ridges, and the
 interfaces between families; an interface with a family outside the group is
 FROZEN. The remeshed families are returned oriented and ordered like their
-source faces (FR-424 R7). Nothing here imports the geometry extra.
+source faces (FR-921). Nothing here imports the geometry extra.
 """
 
 from __future__ import annotations
@@ -143,13 +143,13 @@ def shared_targets(
     """Return the targets FR-432 sets along and near the curves shared with a refined side.
 
     The mesh is the group's once each shared interface has been rebuilt on
-    the refined side's new nodes (FR-425 R2), so every node of the curve,
+    the refined side's new nodes (FR-933), so every node of the curve,
     an inserted one included, is a node of ``chains``. A curve node takes
-    the mean length of the new shared edges incident to it (R1). A node
+    the mean length of the new shared edges incident to it (FR-964). A node
     ``d`` face layers from the curve, ``d`` below :data:`SHARED_LAYERS`,
     takes ``s + (own - s) * d / SHARED_LAYERS``, ``s`` the target of the
     curve node nearest it and ``own`` its own target, and a node farther
-    keeps its own, so there is no step (R2). A source node of the curve
+    keeps its own, so there is no step (FR-965). A source node of the curve
     that is no longer a curve node takes the target of the curve node
     nearest it, so the source's field of targets agrees at the curve. A
     ``held`` node keeps its own target.
@@ -175,9 +175,9 @@ def shared_targets(
     Returns
     -------
     tuple
-        The targets to set, by node (empty with no shared curve, R4), and
+        The targets to set, by node (empty with no shared curve, FR-967), and
         per family the least, the mean and the greatest target of its curve
-        nodes, twelve decimals (R3).
+        nodes, twelve decimals (FR-966).
     """
     curve = _curve_targets(points, chains, held)
     if not curve:
@@ -199,7 +199,7 @@ def shared_targets(
 def _curve_targets(
     points: Points, chains: Sequence[Collection[Edge]], held: Collection[int]
 ) -> dict[int, float]:
-    """Return at each curve node the mean length of its incident shared edges (FR-432 R1)."""
+    """Return at each curve node the mean length of its incident shared edges (FR-964)."""
     total: dict[int, float] = defaultdict(float)
     count: dict[int, int] = defaultdict(int)
     for edge in sorted({_ek(*e) for chain in chains for e in chain}):
@@ -285,7 +285,7 @@ def _curves(group: _Group, fixed: set[int], te: set[Edge]) -> tuple[dict[Edge, s
 
 
 def _ordered(points: Points, families: dict[str, Faces], group: _Group) -> dict[str, Faces]:
-    """Return each family oriented and ordered like its source faces (FR-424 R7)."""
+    """Return each family oriented and ordered like its source faces (FR-921)."""
     out: dict[str, Faces] = {}
     for n, source in group.source.items():
         faces = families.get(n, [])

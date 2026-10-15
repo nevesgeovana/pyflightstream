@@ -101,7 +101,7 @@ def _record(level) -> dict:
     return json.loads(record.read_text(encoding="utf-8"))
 
 
-# ------------------------------------------------------------------ R3, R9
+# ------------------------------------------------------------------ FR-952, FR-958
 
 
 @pytest.mark.parametrize("factor", [2.0, 0.5])
@@ -115,7 +115,7 @@ def _record(level) -> dict:
     ids=["far", "station0", "both"],
 )
 def test_a_kept_row_keeps_its_width_and_the_rest_take_the_factor(tmp_path, factor, root, tip, kept):
-    """P0390-FIRSTROW (FR-430 R3, R9): each kept row is the source's, the others take the factor.
+    """P0390-FIRSTROW (FR-952, FR-958): each kept row is the source's, the others take the factor.
 
     A grid kept at the far station, one kept at station 0 and one kept at
     both: each kept row's width equals the source's while the same refinement
@@ -146,12 +146,12 @@ def test_a_kept_row_keeps_its_width_and_the_rest_take_the_factor(tmp_path, facto
     assert "kept_rows" not in _record(plain)["families"]["G"]
 
 
-# ---------------------------------------------------------------------- R4
+# ---------------------------------------------------------------------- FR-953
 
 
 @pytest.mark.parametrize("root", [False, True], ids=["far", "station0"])
 def test_the_last_wake_filament_keeps_its_distance_from_the_adjacent_component(tmp_path, root):
-    """P0390-FIRSTROW (FR-430 R4): the kept row's trailing-edge mid-point stays the source's.
+    """P0390-FIRSTROW (FR-953): the kept row's trailing-edge mid-point stays the source's.
 
     In the level's trailing-edge points file, the mid-point of the kept row's
     trailing-edge edge is at the source's distance from the interface
@@ -169,11 +169,11 @@ def test_the_last_wake_filament_keeps_its_distance_from_the_adjacent_component(t
     assert abs(end - plain_te[0 if root else -1]) < 0.75 * source_gap
 
 
-# ---------------------------------------------------------------------- R5
+# ---------------------------------------------------------------------- FR-954
 
 
 def test_the_level_stays_closed_and_passes_every_gate(tmp_path):
-    """P0390-FIRSTROW (FR-430 R5): the neighbours follow FR-425 and the audit gates pass.
+    """P0390-FIRSTROW (FR-954): the neighbours follow FR-425 and the audit gates pass.
 
     The unselected neighbour takes the grid's new tip nodes in its band, the
     level's open boundary loops are the source's and no gate of the audit
@@ -188,7 +188,7 @@ def test_the_level_stays_closed_and_passes_every_gate(tmp_path):
     assert not [g for g in level.audit.gates if g.verdict == "fail"]
 
 
-# ---------------------------------------------------------------------- R6
+# ---------------------------------------------------------------------- FR-955
 
 
 def _plate_source() -> Composite:
@@ -281,7 +281,9 @@ DETECT = '[import]\nunits = "METER"\n[trailing_edges]\ndetect = "auto"\n'
 
 
 def _refusal_cases():
-    """Each R6 refusal: its source, its refinement file, the keyword, and words of its message."""
+    """Each FR-955 refusal: its source, its refinement file, the keyword, and words of its
+    message.
+    """
     body = _toml(2.0).replace("factor = 2.0", "axial = 2.0\naxis = [0.0, 1.0, 0.0]")
     remesh = _toml(2.0).replace("factor = 2.0", 'factor = 2.0\nmethod = "remesh"')
     return [
@@ -323,7 +325,7 @@ def _refusal_cases():
 def test_every_refusal_names_the_source_family_and_option_and_writes_nothing(
     tmp_path, case, mesh, toml, kw, family, said
 ):
-    """P0390-FIRSTROW (FR-430 R6): each refusal by its message text, before any work.
+    """P0390-FIRSTROW (FR-955): each refusal by its message text, before any work.
 
     A value not true or false; a family stated with method = "remesh" or
     with axial and circumferential; a family whose grid is not recovered; a
@@ -351,7 +353,7 @@ def test_every_refusal_names_the_source_family_and_option_and_writes_nothing(
 
 
 def test_the_command_refuses_with_exit_2_and_writes_nothing(tmp_path, capsys):
-    """P0390-FIRSTROW (FR-430 R6): the command refuses a family the mesh does not hold, exit 2.
+    """P0390-FIRSTROW (FR-955): the command refuses a family the mesh does not hold, exit 2.
 
     Control: the same command naming a family the mesh holds exits 0.
     """
@@ -369,11 +371,11 @@ def test_the_command_refuses_with_exit_2_and_writes_nothing(tmp_path, capsys):
     assert code == 0
 
 
-# ---------------------------------------------------------------------- R7
+# ---------------------------------------------------------------------- FR-956
 
 
 def test_a_listed_and_a_detected_trailing_edge_each_state_their_provenance(tmp_path):
-    """P0390-FIRSTROW (FR-430 R7): listed in the points file, else detected; refine.json says.
+    """P0390-FIRSTROW (FR-956): listed in the points file, else detected; refine.json says.
 
     The wing tube with its trailing edge listed keeps its root row with
     ``trailing_edge = "points file"``; the same tube with no points file and
@@ -410,7 +412,7 @@ def test_a_listed_and_a_detected_trailing_edge_each_state_their_provenance(tmp_p
     ("units", "line"), [("METER", "METER"), ("MILLIMETER", "MILLIMETER")], ids=["m", "mm"]
 )
 def test_a_detected_trailing_edge_is_written_to_the_level_points_file(tmp_path, units, line):
-    """P0390-FIRSTROW (FR-430 R4, R7): a detected kept row's trailing edge is in the points file.
+    """P0390-FIRSTROW (FR-953, FR-956): a detected kept row's trailing edge is in the points file.
 
     The wing tube with no trailing-edge points file anywhere in the source,
     its boundaries file routing the trailing edge to detection, keeps its
@@ -486,7 +488,7 @@ def _fold_degrees(mesh: Composite, column: int, n: int = 48) -> float:
 
 
 def test_a_sharp_leading_edge_is_not_taken_for_the_trailing_edge(tmp_path):
-    """P0390-FIRSTROW (FR-430 R7): the detected trailing edge is the aft sharp line alone.
+    """P0390-FIRSTROW (FR-956): the detected trailing edge is the aft sharp line alone.
 
     The lens wing tube's leading edge (x = 0, chordwise node 0) and trailing
     edge (x = 1, node 24) are both sharper than the ridge angle, measured on
@@ -565,7 +567,7 @@ def _joined_level(tmp_path: Path, units: str | None):
 
 @pytest.mark.parametrize("units", [None, "MILLIMETER"], ids=["same-unit", "mm-mesh"])
 def test_a_listed_edge_joining_the_detected_line_is_one_source_chain(tmp_path, units):
-    """P0390-FIRSTROW (FR-430 R5): G4 counts the listed and detected source edges together.
+    """P0390-FIRSTROW (FR-954): G4 counts the listed and detected source edges together.
 
     The listed Body edges continue Wing's detected trailing-edge line at the
     root node, so on the source they form one chain with it, and the intact
@@ -592,7 +594,7 @@ def test_a_listed_edge_joining_the_detected_line_is_one_source_chain(tmp_path, u
 
 
 def test_a_level_missing_a_middle_detected_edge_fails_g4(tmp_path):
-    """P0390-FIRSTROW (FR-430 R5): a broken trailing edge is two chains against the source's one.
+    """P0390-FIRSTROW (FR-954): a broken trailing edge is two chains against the source's one.
 
     The level of the joined tube is re-audited after the middle Wing
     mid-point (y > 0) is taken out of its points file, so its trailing edge
@@ -615,11 +617,11 @@ def test_a_level_missing_a_middle_detected_edge_fails_g4(tmp_path):
     assert g4.values["chains"] == 2 and g4.values["source_chains"] == 1, g4.values
 
 
-# ---------------------------------------------------------------------- R8
+# ---------------------------------------------------------------------- FR-957
 
 
 def test_the_tag_of_a_kept_selection_carries_k(tmp_path):
-    """P0390-FIRSTROW (FR-430 R8): the option puts the family's k into the level's tag.
+    """P0390-FIRSTROW (FR-957): the option puts the family's k into the level's tag.
 
     Two otherwise identical selections, one with the option and one without,
     are written into folders whose tags differ by the k.
@@ -630,7 +632,7 @@ def test_the_tag_of_a_kept_selection_carries_k(tmp_path):
     assert level.folder.name == "wing_R-G2k"
 
 
-# ---------------------------------------------------------------------- R1
+# ---------------------------------------------------------------------- FR-950
 
 
 def _two_sheets() -> Composite:
@@ -658,7 +660,7 @@ def _bytes(level) -> list[bytes]:
 
 
 def test_the_command_the_keyword_and_the_file_write_the_same_level(tmp_path, capsys):
-    """P0390-FIRSTROW (FR-430 R1): three routes, one family set, one level.
+    """P0390-FIRSTROW (FR-950): three routes, one family set, one level.
 
     ``pyfs-matrix refine --keep-first-row G,H``, ``refine_mesh(keep_first_row=
     ["G", "H"])`` and ``keep_first_row = true`` in the tables of G and H write
@@ -696,7 +698,7 @@ def test_the_command_the_keyword_and_the_file_write_the_same_level(tmp_path, cap
 
 
 def test_factors_from_the_call_warn_that_the_tables_keep_first_row_is_not_read(tmp_path):
-    """P0390-FIRSTROW (FR-430 R1): with FACTOR the tables are not read, keep_first_row named.
+    """P0390-FIRSTROW (FR-950): with FACTOR the tables are not read, keep_first_row named.
 
     The warning that names the tables not read names keep_first_row among
     what they no longer state, and the level keeps no row. Control: the
@@ -712,11 +714,11 @@ def test_factors_from_the_call_warn_that_the_tables_keep_first_row_is_not_read(t
     assert refine_mesh(src, out_dir=tmp_path / "file").report["G"]["kept_rows"] == ["far station"]
 
 
-# ---------------------------------------------------------------------- R2
+# ---------------------------------------------------------------------- FR-951
 
 
 def test_two_shared_nodes_that_are_not_an_edge_make_no_interface(tmp_path):
-    """P0390-FIRSTROW (FR-430 R2): an interface is an edge of the end station, not two nodes.
+    """P0390-FIRSTROW (FR-951): an interface is an edge of the end station, not two nodes.
 
     A family of another component touching G's tip station at two nodes that
     are not consecutive makes no interface: alone, the option is refused

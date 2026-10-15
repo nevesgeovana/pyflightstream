@@ -8,9 +8,9 @@ FlightStream, prints build #7000002 to the identity pre-flight, where 26.120 is
 registered as build #7012026, and writes the committed synthetic loads table
 wherever a point's script exports one.
 
-The workspace, the stub and the R10 scenario live in
+The workspace, the stub and the FR-1001 scenario live in
 ``_p0390_r03_scenario.py``, which imports only what v0.38.0 had: the byte
-comparison of R10 reads the outputs that module gave when run under v0.38.0
+comparison of FR-1001 reads the outputs that module gave when run under v0.38.0
 (``fixtures/p0390_r03_v0380/``, whose README says how they were captured).
 """
 
@@ -121,7 +121,8 @@ SIGNATURE = "geoversegoddess sees you"
 
 
 def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys, monkeypatch):
-    """P0390-R03 (FR-436 Requirement, R1, R3, R7): pyfs.toml gives plan --cost and run options.
+    """P0390-R03 (FR-436 Requirement, FR-992, FR-994, FR-998): pyfs.toml gives plan --cost and run
+     options.
 
     fs_version, hpc, cost_file and accept_unregistered_build are typed nowhere: the plan
     selects the profile and the cost file, the run accepts the installed build, warns, and
@@ -166,7 +167,7 @@ def test_p0390_r03_the_file_gives_plan_and_run_their_defaults(tmp_path, capsys, 
 
 
 def test_p0390_r03_without_the_file_the_run_is_refused_as_in_0380(tmp_path, capsys):
-    """P0390-R03 (FR-436 R10): the control of the first case, the same commands with no file."""
+    """P0390-R03 (FR-1001): the control of the first case, the same commands with no file."""
     root = make_workspace(tmp_path)
     code, _out, err = plan_then_run(capsys, root, "--fs-version", "26.120")
     assert code == 2
@@ -176,7 +177,7 @@ def test_p0390_r03_without_the_file_the_run_is_refused_as_in_0380(tmp_path, caps
 
 
 def test_p0390_r03_the_current_directory_is_the_workspace(tmp_path, capsys, monkeypatch):
-    """P0390-R03 (FR-436 R1): without --workspace the files are read in the current directory."""
+    """P0390-R03 (FR-992): without --workspace the files are read in the current directory."""
     root = make_workspace(tmp_path)
     (root / "pyfs.local.toml").write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
     monkeypatch.chdir(root)
@@ -204,7 +205,9 @@ def test_p0390_r03_the_current_directory_is_the_workspace(tmp_path, capsys, monk
 def test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both(
     tmp_path, capsys, monkeypatch, local, typed, selected, source
 ):
-    """P0390-R03 (FR-436 Requirement, R1, R5): typed > pyfs.local.toml > pyfs.toml > default."""
+    """P0390-R03 (FR-436 Requirement, FR-992, FR-996): typed > pyfs.local.toml > pyfs.toml >
+    default.
+    """
     observed = _observe_profile(monkeypatch)
     root = make_workspace(tmp_path, profiles=True)
     (root / "pyfs.toml").write_text(
@@ -220,7 +223,7 @@ def test_p0390_r03_the_local_file_wins_and_the_command_line_wins_over_both(
 
 
 def test_p0390_r03_a_typed_acceptance_is_named_typed_beside_a_file_value(tmp_path, capsys):
-    """P0390-R03 (FR-436 R7, R8): --accept-unregistered-build typed beside a file value: "typed".
+    """P0390-R03 (FR-998, FR-999): --accept-unregistered-build typed beside a file value: "typed".
 
     The workspace file states fs_version only; the typed acceptance is the first route,
     and plan.json and every record name it "typed" beside the fs_version taken from
@@ -237,7 +240,7 @@ def test_p0390_r03_a_typed_acceptance_is_named_typed_beside_a_file_value(tmp_pat
 
 
 def test_p0390_r03_the_typed_negation_wins_over_every_route(tmp_path, capsys):
-    """P0390-R03 (FR-436 R5, R7): --no-accept-unregistered-build refuses whatever a route says."""
+    """P0390-R03 (FR-996, FR-998): --no-accept-unregistered-build refuses whatever a route says."""
     root = make_workspace(tmp_path)
     (root / "pyfs.toml").write_text('[defaults]\nfs_version = "26.120"\n', encoding="utf-8")
     exe = Path(sys.executable).as_posix()
@@ -252,7 +255,7 @@ def test_p0390_r03_the_typed_negation_wins_over_every_route(tmp_path, capsys):
 
 
 def test_p0390_r03_a_negation_beats_a_file_switch_on_its_command(tmp_path, capsys):
-    """P0390-R03 (FR-436 R5, R8): each --no- form resolves its switch whatever the files say."""
+    """P0390-R03 (FR-996, FR-999): each --no- form resolves its switch whatever the files say."""
     root = make_workspace(tmp_path)
     (root / "pyfs.local.toml").write_text(
         "[defaults]\ncheck_frozen = true\nlocal = true\n[log]\npproc_warnings = true\n",
@@ -268,7 +271,7 @@ def test_p0390_r03_a_negation_beats_a_file_switch_on_its_command(tmp_path, capsy
 
 
 def test_p0390_r03_a_file_value_post_does_not_use_is_left_unused(tmp_path, capsys):
-    """P0390-R03 (FR-436 R2): plain post in a workspace whose file sets the run's options.
+    """P0390-R03 (FR-993): plain post in a workspace whose file sets the run's options.
 
     fs_version, fs_exe, local and recipe mean something to post only with
     --additional-pproc, and check_frozen nothing to --diagnostics: set in pyfs.local.toml,
@@ -297,7 +300,7 @@ def test_p0390_r03_a_file_value_post_does_not_use_is_left_unused(tmp_path, capsy
 
 
 def test_p0390_r03_a_required_option_is_relaxed_against_the_named_workspace(tmp_path, monkeypatch):
-    """P0390-R03 (FR-436 R1): a required option is relaxed by the file --workspace names.
+    """P0390-R03 (FR-992): a required option is relaxed by the file --workspace names.
 
     No command of 0.39.0 has both --workspace and a required settable option, so the
     rule is driven through the one parse entry of pyfs-matrix with a parser that has:
@@ -336,7 +339,7 @@ def test_p0390_r03_a_required_option_is_relaxed_against_the_named_workspace(tmp_
 
 
 def test_p0390_r03_a_positional_of_a_key_name_takes_nothing_from_a_file(tmp_path, capsys):
-    """P0390-R03 (FR-436 R2): the recipe id of free-space is a positional, never a file default.
+    """P0390-R03 (FR-993): the recipe id of free-space is a positional, never a file default.
 
     recipe in pyfs.local.toml is the --recipe option of run and post; free-space typed without
     its recipe id is refused by the parser as in 0.38.0, and one typed is used as typed.
@@ -355,7 +358,7 @@ def test_p0390_r03_a_positional_of_a_key_name_takes_nothing_from_a_file(tmp_path
 
 
 def test_p0390_r03_the_entry_accepts_its_own_build_only(tmp_path, capsys):
-    """P0390-R03 (FR-436 R7): the key on a build entry of executables.local.toml accepts that build.
+    """P0390-R03 (FR-998): the key on a build entry of executables.local.toml accepts that build.
 
     The row naming 26.120 runs, warns naming the file, and its record states the
     acceptance and inputs/executables.local.toml; with a row naming 26.124 beside it,
@@ -388,7 +391,7 @@ def test_p0390_r03_the_entry_accepts_its_own_build_only(tmp_path, capsys):
 
 @pytest.mark.parametrize("carrier", ["26.120", "26.124"])
 def test_p0390_r03_the_key_in_the_committed_registry_is_refused(tmp_path, capsys, carrier):
-    """P0390-R03 (FR-436 R7): accept_unregistered_build in inputs/executables.toml is refused.
+    """P0390-R03 (FR-998): accept_unregistered_build in inputs/executables.toml is refused.
 
     On the entry the row resolves, and on an entry no row of this command names: every
     entry of the committed registry is checked once it is read.
@@ -434,7 +437,9 @@ def test_p0390_r03_the_key_in_the_committed_registry_is_refused(tmp_path, capsys
 def test_p0390_r03_every_refusal_names_the_key_and_the_file_and_writes_nothing(
     tmp_path, capsys, text, named, why, name
 ):
-    """P0390-R03 (FR-436 R1, R2, R3, R4): each refusal before any work, the tree unchanged."""
+    """P0390-R03 (FR-992, FR-993, FR-994, FR-995): each refusal before any work, the tree
+    unchanged.
+    """
     root = make_workspace(tmp_path)
     (root / name).write_text(text, encoding="utf-8")
     before = tree(root)
@@ -448,7 +453,7 @@ def test_p0390_r03_every_refusal_names_the_key_and_the_file_and_writes_nothing(
 
 
 def test_p0390_r03_pyfs_workspace_refuses_as_pyfs_matrix_does(tmp_path, capsys):
-    """P0390-R03 (FR-436 R4, R9): pyfs-workspace reads the same files under the same refusals."""
+    """P0390-R03 (FR-995, FR-1000): pyfs-workspace reads the same files under the same refusals."""
     root = make_workspace(tmp_path)
     (root / "pyfs.toml").write_text("[defaults]\noverwrite = true\n", encoding="utf-8")
     before = tree(root)
@@ -458,7 +463,7 @@ def test_p0390_r03_pyfs_workspace_refuses_as_pyfs_matrix_does(tmp_path, capsys):
 
 
 def test_p0390_r03_a_key_another_command_takes_is_left_unused(tmp_path, capsys):
-    """P0390-R03 (FR-436 R2): a key applies to the commands taking its option; others leave it."""
+    """P0390-R03 (FR-993): a key applies to the commands taking its option; others leave it."""
     root = make_workspace(tmp_path, costs=True)
     (root / "pyfs.toml").write_text(
         '[defaults]\ncost_file = "c002"\nprogress_every = 5\n', encoding="utf-8"
@@ -493,7 +498,7 @@ def _activity(root: Path) -> str:
 
 @pytest.mark.parametrize("typed", [False, True])
 def test_p0390_r03_three_console_levels_one_activity_log(tmp_path, capsys, typed):
-    """P0390-R03 (FR-436 R6): quiet, normal and verbose on the console, from the file or typed.
+    """P0390-R03 (FR-997): quiet, normal and verbose on the console, from the file or typed.
 
     quiet says the final summary line and the signature; normal is the 0.38.0
     console; verbose adds the stage lines printed only on request. The activity
@@ -515,7 +520,7 @@ def test_p0390_r03_three_console_levels_one_activity_log(tmp_path, capsys, typed
 
 
 def test_p0390_r03_a_quiet_console_still_says_the_error(tmp_path, capsys):
-    """P0390-R03 (FR-436 R6): quiet says the errors of a failed command, then the signature."""
+    """P0390-R03 (FR-997): quiet says the errors of a failed command, then the signature."""
     root = make_workspace(tmp_path)
     (root / "pyfs.toml").write_text('[log]\nconsole = "quiet"\n', encoding="utf-8")
     code, out, err = call(capsys, matrix_main, ["run", "polars.fs", "--workspace", str(root)])
@@ -525,7 +530,7 @@ def test_p0390_r03_a_quiet_console_still_says_the_error(tmp_path, capsys):
 
 
 def test_p0390_r03_a_quiet_plan_says_its_blocked_points_and_its_count(tmp_path, capsys):
-    """P0390-R03 (FR-436 R6): quiet keeps the errors a plan prints on stdout, and its summary.
+    """P0390-R03 (FR-997): quiet keeps the errors a plan prints on stdout, and its summary.
 
     A plan prints its blocked points on standard output, and they are its errors: at
     quiet they are said, with the points count, whatever line the plan printed last
@@ -556,7 +561,7 @@ def test_p0390_r03_a_quiet_plan_says_its_blocked_points_and_its_count(tmp_path, 
 
 
 def test_p0390_r03_verbose_prints_what_came_from_each_file(tmp_path, capsys):
-    """P0390-R03 (FR-436 R8): under verbose each value taken and its file, before the work."""
+    """P0390-R03 (FR-999): under verbose each value taken and its file, before the work."""
     root = make_workspace(tmp_path, profiles=True)
     (root / "pyfs.toml").write_text(
         '[defaults]\nfs_version = "26.120"\nhpc = "h001"\n[log]\nconsole = "verbose"\n',
@@ -577,7 +582,7 @@ def test_p0390_r03_verbose_prints_what_came_from_each_file(tmp_path, capsys):
 
 
 def test_p0390_r03_pyfs_workspace_takes_the_console_level_only(tmp_path, capsys):
-    """P0390-R03 (FR-436 R9): pyfs-workspace takes [log] console and no [defaults] key."""
+    """P0390-R03 (FR-1000): pyfs-workspace takes [log] console and no [defaults] key."""
     root = make_workspace(tmp_path)
     (root / "pyfs.toml").write_text(
         '[defaults]\nfs_version = "26.120"\ncost_file = "c001"\n[log]\nconsole = "verbose"\n',
@@ -594,7 +599,7 @@ def test_p0390_r03_pyfs_workspace_takes_the_console_level_only(tmp_path, capsys)
     assert "pyfs-workspace init" not in err and SIGNATURE in err
 
 
-# --- R10: no file, no change -------------------------------------------------------
+# --- FR-1001: no file, no change -------------------------------------------------------
 
 #: The products whose bytes 0.40.0 changes on purpose (PFS-2105.020): the settings
 #: table writes a finite float at its shortest exact spelling (``1e-05``, ``30.0``),
@@ -647,7 +652,7 @@ def settings_spelling_admitted(new: str, captured: str) -> bool:
 )
 @pytest.mark.filterwarnings("ignore::Warning")
 def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
-    """P0390-R03 (FR-436 R10): no file, every output of plan, run, post and collect of 0.38.0.
+    """P0390-R03 (FR-1001): no file, every output of plan, run, post and collect of 0.38.0.
 
     The consoles, plan.json, the records, the activity log, every emitted script, solver
     output and post product of the scenario, captured from v0.38.0 and committed under
@@ -764,7 +769,7 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
 
 
 def test_p0390_r03_the_r10_comparison_takes_out_the_times_and_no_result():
-    """P0390-R03 (FR-436 R10): only the cells of the time columns are taken out of a CSV product.
+    """P0390-R03 (FR-1001): only the cells of the time columns are taken out of a CSV product.
 
     A lift coefficient equal to the wall time of its own row stays in the compared text,
     so a changed CL is a difference even where it coincides with the time.
@@ -778,11 +783,11 @@ def test_p0390_r03_the_r10_comparison_takes_out_the_times_and_no_result():
     assert untimed_csv("CL,wall_time_s\n1.2,NA\n0.4,\n") == "CL,wall_time_s\n1.2,NA\n0.4,\n"
 
 
-# --- every settable key, from each file (R3) ----------------------------------------
+# --- every settable key, from each file (FR-994) ----------------------------------------
 
 EXE = Path(sys.executable).as_posix()
 
-#: Every key of R3: (key as written in the file, TOML value, the line the verbose console
+#: Every key of FR-994: (key as written in the file, TOML value, the line the verbose console
 #: prints for it, a command that takes the option, the table).
 SETTABLE = [
     ("fs_version", '"26.120"', "fs_version = 26.120", "plan", "defaults"),
@@ -810,7 +815,8 @@ SETTABLE = [
 def test_p0390_r03_every_settable_key_is_read_from_each_file(
     tmp_path, capsys, key, value, line, command, table, name
 ):
-    """P0390-R03 (FR-436 R1, R2, R3): each key of R3 set in one file alone reaches its command.
+    """P0390-R03 (FR-992, FR-993, FR-994): each key of FR-994 set in one file alone reaches its
+     command.
 
     The command that takes the option, in a workspace whose only settings file is the
     one named, prints the value and that file under verbose; a reader that does not
@@ -841,7 +847,7 @@ def test_p0390_r03_every_settable_key_is_read_from_each_file(
     ],
 )
 def test_p0390_r03_a_key_of_each_file_reaches_plan_json(tmp_path, capsys, key, value, source):
-    """P0390-R03 (FR-436 R3, R8): a key set in the named file is recorded in plan.json with it."""
+    """P0390-R03 (FR-994, FR-999): a key set in the named file is recorded in plan.json with it."""
     root = make_workspace(tmp_path, _row("7002", "26.120"))
     (root / source).write_text(f"[defaults]\n{key} = {value}\n", encoding="utf-8")
     code, _out, err = call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root)])
@@ -849,7 +855,7 @@ def test_p0390_r03_a_key_of_each_file_reaches_plan_json(tmp_path, capsys, key, v
     assert plan_json(root)["settings_sources"] == {key: source}
 
 
-# --- every negation, on each command that takes it (R5) -------------------------------
+# --- every negation, on each command that takes it (FR-996) -------------------------------
 
 #: Every boolean a file can set, with the commands taking it and the line a file value prints.
 NEGATIONS = [
@@ -887,7 +893,7 @@ def _negated_argv(root: Path, command: str, *extra: str) -> list[str]:
 def test_p0390_r03_every_negation_resolves_its_switch_to_false(
     tmp_path, capsys, command, flag, line, name
 ):
-    """P0390-R03 (FR-436 R5): --no-<option> beats a true the file states, on each command taking it.
+    """P0390-R03 (FR-996): --no-<option> beats a true the file states, on each command taking it.
 
     Without the negation the command takes the switch from the file and says so under
     verbose; with it the switch is resolved to false and nothing is taken for it. A
@@ -923,7 +929,7 @@ def test_p0390_r03_every_negation_resolves_its_switch_to_false(
 
 
 def _resolved(root: Path, command: str, extra: list[str]) -> argparse.Namespace:
-    """The namespace a command line resolves to once the files are overlaid (R5)."""
+    """The namespace a command line resolves to once the files are overlaid (FR-996)."""
     parser = _build_parser()
     argv = [command, *_positional(command), "--workspace", str(root), *extra]
     with withhold_defaults(parser, argv) as held:
@@ -939,7 +945,7 @@ def _subcommands() -> dict[str, argparse.ArgumentParser]:
 
 
 def test_p0390_r03_the_negations_table_is_every_command_taking_a_switch():
-    """P0390-R03 (FR-436 R5): NEGATIONS lists each command whose parser has the --no- form.
+    """P0390-R03 (FR-996): NEGATIONS lists each command whose parser has the --no- form.
 
     The commands are read from the parser itself, so a command that gained a settable
     switch without its negation, or the table missing a command, fails here.
@@ -960,7 +966,7 @@ def test_p0390_r03_the_negations_table_is_every_command_taking_a_switch():
     assert found == {(command, flag) for command, flag, _ in NEGATIONS}
 
 
-# --- the parser refusals (R5, R6) -----------------------------------------------------
+# --- the parser refusals (FR-996, FR-997) -----------------------------------------------------
 
 
 def _positional(command: str) -> list[str]:
@@ -975,7 +981,7 @@ def _positional(command: str) -> list[str]:
 def test_p0390_r03_a_switch_with_its_negation_is_refused_by_the_parser(
     tmp_path, capsys, command, flag, reverse
 ):
-    """P0390-R03 (FR-436 R5): an option and its --no- form on one command: exit 2, not allowed with.
+    """P0390-R03 (FR-996): an option and its --no- form on one command: exit 2, not allowed with.
 
     Refused by the parser (a mutually exclusive group), in either order, before any
     work; the workspace tree is unchanged.
@@ -993,7 +999,7 @@ def test_p0390_r03_a_switch_with_its_negation_is_refused_by_the_parser(
 
 @pytest.mark.parametrize("command", ["plan", "inspect-setups", "run"])
 def test_p0390_r03_the_missing_families_choice_stated_twice_is_refused(tmp_path, capsys, command):
-    """P0390-R03 (FR-436 R5): the negation beside the option is refused."""
+    """P0390-R03 (FR-996): the negation beside the option is refused."""
     root = make_workspace(tmp_path)
     build = ["--fs-version", "26.120"]
     call(capsys, matrix_main, ["plan", "polars.fs", "--workspace", str(root), *build])
@@ -1011,7 +1017,7 @@ def test_p0390_r03_the_missing_families_choice_stated_twice_is_refused(tmp_path,
 def test_p0390_r03_verbose_with_another_level_is_refused_by_the_parser(
     tmp_path, capsys, command, reverse
 ):
-    """P0390-R03 (FR-436 R6): --verbose with --log-level quiet: exit 2, not allowed with."""
+    """P0390-R03 (FR-997): --verbose with --log-level quiet: exit 2, not allowed with."""
     root = make_workspace(tmp_path)
     before = tree(root)
     pair = ["--verbose", "--log-level", "quiet"]
@@ -1027,7 +1033,7 @@ def test_p0390_r03_verbose_with_another_level_is_refused_by_the_parser(
 
 
 def test_p0390_r03_every_command_with_verbose_takes_the_log_level():
-    """P0390-R03 (FR-436 R6): each parser with --verbose has --log-level."""
+    """P0390-R03 (FR-997): each parser with --verbose has --log-level."""
     seen = 0
     for command, sub in _subcommands().items():
         options = {option: a for a in sub._actions for option in a.option_strings}
@@ -1043,7 +1049,7 @@ def test_p0390_r03_every_command_with_verbose_takes_the_log_level():
 def test_p0390_r03_a_schema_version_that_is_not_an_integer_is_refused(
     tmp_path, capsys, literal, name
 ):
-    """P0390-R03 (FR-436 R2, R4): schema_version of another type is refused naming key and file."""
+    """P0390-R03 (FR-993, FR-995): schema_version of another type is refused naming key and file."""
     root = make_workspace(tmp_path)
     (root / name).write_text(f"schema_version = {literal}\n", encoding="utf-8")
     before = tree(root)
@@ -1075,7 +1081,7 @@ def test_p0390_r03_a_schema_version_that_is_not_an_integer_is_refused(
     ],
 )
 def test_p0390_r03_every_key_that_acts_on_one_invocation_is_refused(tmp_path, capsys, key, name):
-    """P0390-R03 (FR-436 R4): each act key of R4 in either file: refused naming key and file."""
+    """P0390-R03 (FR-995): each act key of FR-995 in either file: refused naming key and file."""
     root = make_workspace(tmp_path)
     (root / name).write_text(f"[defaults]\n{key} = true\n", encoding="utf-8")
     before = tree(root)
@@ -1086,7 +1092,7 @@ def test_p0390_r03_every_key_that_acts_on_one_invocation_is_refused(tmp_path, ca
     assert tree(root) == before
 
 
-# --- R7: the acceptance truth table, end to end ------------------------------------
+# --- FR-998: the acceptance truth table, end to end ------------------------------------
 
 WORKSPACE_FILE = "pyfs.toml"
 LOCAL_FILE = "pyfs.local.toml"
@@ -1096,7 +1102,7 @@ ENTRY_FILE = "executables.local.toml"
 #: build, typed flag, the rows' builds, accepted?, the source settings_sources names for
 #: accept_unregistered_build, None where it names none). None states nothing; the matrix
 #: rows name 26.120 (entry 26.120) unless the builds say another. A refused row still
-#: names the file whose false it took (R8 maps every value taken from a file).
+#: names the file whose false it took (FR-999 maps every value taken from a file).
 TRUTH = [
     ("nothing-stated", None, None, None, None, ("26.120",), False, None),
     ("all-false", False, False, False, None, ("26.120",), False, LOCAL_FILE),
@@ -1202,7 +1208,7 @@ TRUTH = [
 def test_p0390_r03_the_acceptance_truth_table_end_to_end(
     tmp_path, capsys, workspace, local, entry, typed, builds, accepted, source
 ):
-    """P0390-R03 (FR-436 R7, R8): each row of the acceptance table, planned and run end to end.
+    """P0390-R03 (FR-998, FR-999): each row of the acceptance table, planned and run end to end.
 
     The workspace acceptance is pyfs.local.toml over pyfs.toml, key by key (so
     "pyfs.toml true, pyfs.local.toml false" is refused); the entry acceptance accepts its
@@ -1262,7 +1268,7 @@ def test_p0390_r03_the_acceptance_truth_table_end_to_end(
 
 
 def test_p0390_r03_an_entry_no_selected_row_uses_accepts_nothing(tmp_path, capsys):
-    """P0390-R03 (FR-436 R7, R8): the entry acceptance reaches only the builds the selection runs.
+    """P0390-R03 (FR-998, FR-999): the entry acceptance reaches only the builds the selection runs.
 
     The entry of 26.120 accepts its build; the selection keeps the 26.124 row alone, which
     nothing accepts. plan.json states no acceptance, no accepted build and no entry
@@ -1290,7 +1296,7 @@ def test_p0390_r03_an_entry_no_selected_row_uses_accepts_nothing(tmp_path, capsy
 def test_p0390_r03_a_continuation_that_cannot_start_records_its_sources(
     tmp_path, capsys, monkeypatch
 ):
-    """P0390-R03 (FR-436 R8): the record of a continuation that cannot start names its sources.
+    """P0390-R03 (FR-999): the record of a continuation that cannot start names its sources.
 
     Its FAILED_SCRIPT record states the acceptance taken from pyfs.toml and every value
     taken from a file, as every other run record does.
@@ -1320,7 +1326,7 @@ def test_p0390_r03_a_continuation_that_cannot_start_records_its_sources(
 
 
 def test_p0390_r03_a_quiet_console_says_each_commands_summary(tmp_path, capsys):
-    """P0390-R03 (FR-436 R6): quiet says the summary each of run, post and collect states.
+    """P0390-R03 (FR-997): quiet says the summary each of run, post and collect states.
 
     The run's is how its points ended, post's the count of the products written,
     collect's its closing count; at normal the same commands print their full console
@@ -1351,7 +1357,7 @@ def test_p0390_r03_a_quiet_console_says_each_commands_summary(tmp_path, capsys):
 
 
 def test_p0390_r03_a_quiet_collect_says_each_point_it_failed(tmp_path, capsys):
-    """P0390-R03 (FR-436 R6): quiet says the run, the refusal and the remedy of a failed collect.
+    """P0390-R03 (FR-997): quiet says the run, the refusal and the remedy of a failed collect.
 
     A submitted record whose working_dir leaves its simulation is refused by the sweep:
     at normal the point's line is printed with the count; at quiet the same line is
@@ -1380,7 +1386,7 @@ def test_p0390_r03_a_quiet_collect_says_each_point_it_failed(tmp_path, capsys):
     assert "purpose:" not in err and "[collection] started" not in err
 
 
-# --- R11: the import graph --------------------------------------------------------------
+# --- FR-1002: the import graph --------------------------------------------------------------
 
 
 def _imports(path: Path) -> set[str]:
@@ -1405,7 +1411,7 @@ PACKAGE = SRC / "pyflightstream"
 
 
 def test_p0390_r03_no_workspace_module_imports_the_run_layer():
-    """P0390-R03 (FR-436 R11): workspace/ never imports the run layer."""
+    """P0390-R03 (FR-1002): workspace/ never imports the run layer."""
     modules = sorted((PACKAGE / "workspace").rglob("*.py"))
     assert (PACKAGE / "workspace" / "_settings_file.py") in modules
     for path in modules:
@@ -1417,7 +1423,7 @@ def test_p0390_r03_no_workspace_module_imports_the_run_layer():
 
 
 def test_p0390_r03_the_settings_module_parses_no_command_line():
-    """P0390-R03 (FR-436 R11): the parsing of the command line stays in the command families.
+    """P0390-R03 (FR-1002): the parsing of the command line stays in the command families.
 
     workspace/_settings_file.py owns the schema, the precedence and the provenance: it
     imports no argparse and calls no parser; the parse of pyfs-matrix is in run/ and the
@@ -1438,7 +1444,7 @@ def test_p0390_r03_the_settings_module_parses_no_command_line():
 
 
 def test_p0390_r03_only_the_two_command_families_import_the_settings_module():
-    """P0390-R03 (FR-436 R11): the schema module is imported by the run layer and workspace/cli.py.
+    """P0390-R03 (FR-1002): the schema module is imported by the run layer and workspace/cli.py.
 
     Both command families take their values from it, and no other module of the
     workspace layer imports it; the build-entry key is parsed by workspace/builds.py,

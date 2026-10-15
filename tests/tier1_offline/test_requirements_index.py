@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import re
+import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -16,6 +18,32 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 GENERATOR = REPO / "scripts" / "gen_requirements_index.py"
+
+
+def test_p0410_pa2_owned_citations_use_stable_uids() -> None:
+    """P0410-PA2: source, tests and authored SRS reject former child citations."""
+    paths = subprocess.check_output(
+        [
+            "git",
+            "ls-files",
+            "src",
+            "tests",
+            "docs/srs",
+            "docs/unpublished/requirements",
+        ],
+        cwd=REPO,
+        text=True,
+    ).splitlines()
+    old = re.compile(r"\b(?:FR|NFR)-\d+[a-z]?(?:[ .]+|\s*\)\s*:?\s*)" + r"R\d+\b")
+    broken = []
+    for relative in paths:
+        path = REPO / relative
+        if path.suffix not in {".py", ".md", ".json", ".toml", ".yaml", ".yml"}:
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if old.search(line):
+                broken.append(f"{relative}:{number}")
+    assert not broken, broken
 
 
 GOOD_BOX = (
@@ -33,6 +61,18 @@ def _generator() -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_p0410_pa2_generated_requirement_page_links_resolve() -> None:
+    """P0410-PA2: generated pages contain no dangling local Markdown links."""
+    generator = _generator()
+    pages = generator.requirement_pages(generator.collect(generator.SRS))
+    broken = []
+    for name, body in pages.items():
+        for target in re.findall(r"\]\(([^)]+\.md)(?:#[^)]*)?\)", body):
+            if "://" not in target and target not in pages:
+                broken.append(f"{name}: {target}")
+    assert not broken, broken
 
 
 def _run_on(page_text: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
@@ -261,3 +301,54 @@ def test_p0410_srs_resolves_anchors_before_publishing(tmp_path, monkeypatch, bro
     else:
         with pytest.raises(generator.MalformedRequirementPageError, match="FR-1"):
             generator.build(srs, tests)
+
+
+def test_p0410_srs_main_writes_and_checks_the_generated_pages(tmp_path, monkeypatch):
+    """The command must deliver its pages and detect edits to a generated page."""
+    code, err, out = _run_on(GOOD_BOX, monkeypatch, tmp_path)
+    assert code == 0, err
+    index = out.parent / "requirements" / "index.md"
+    assert index.is_file(), "the generator published its JSON but omitted the pages"
+    index.write_text("stale\n", encoding="utf-8")
+    generator = _generator()
+    monkeypatch.setattr(generator, "SRS", tmp_path / "srs")
+    monkeypatch.setattr(generator, "OUT", out)
+    monkeypatch.setattr(generator, "TESTS", tmp_path / "tests")
+    monkeypatch.setattr(generator, "REPO", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["gen_requirements_index.py", "--check"])
+    assert generator.main() == 1
+
+
+def test_p0410_pa2_unreadable_saved_actions_warn_with_the_file(tmp_path):
+    """P0410-PA2 (FR-538): an unreadable file is named without raising."""
+    from pyflightstream.workspace._geometry_clean import saved_action_warning
+
+    source = tmp_path / "unreadable.fsm"
+    message = saved_action_warning(source, source.name, ["P7"])
+    assert message is not None
+    assert source.name in message and "P7" in message
+    assert "cannot be read" in message
+    assert not source.exists()
+
+
+@pytest.mark.parametrize("sideslip", [-2.0, 2.0])
+def test_p0410_pa2_section_trefftz_names_a_sideslip_skip(sideslip):
+    """P0410-PA2 (FR-1018): an inapplicable section analysis writes no result."""
+    from types import SimpleNamespace
+
+    from pyflightstream.exceptions import PyflightstreamWarning
+    from pyflightstream.post.farfield_products import _variant_a
+
+    context = SimpleNamespace(pproc=SimpleNamespace(farfield=None), skipped={})
+    point = SimpleNamespace(
+        name="P7",
+        state=SimpleNamespace(density_kg_m3=1.2),
+        loads=SimpleNamespace(
+            freestream_velocity_m_s=30.0, angle_of_attack_deg=0.0, sideslip_deg=sideslip
+        ),
+    )
+    with pytest.warns(PyflightstreamWarning, match="point=P7.*sideslip"):
+        assert _variant_a(context, point) == []
+    assert len(context.skipped) == 1
+    reason = next(iter(context.skipped.values()))
+    assert "sideslip" in reason and "variants B and C" in reason

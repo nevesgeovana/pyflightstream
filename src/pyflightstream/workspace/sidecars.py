@@ -656,7 +656,7 @@ def recorded_mesh_faces(
     Each file the run staged, by the name and the sha256 its record holds,
     is looked up through ``sidecars_of``, which names the inventories that
     may describe it (the geometry library's, then the simulation's staged
-    copy). The count is taken whenever an inventory states it (FR-348 R3):
+    copy). The count is taken whenever an inventory states it (FR-706):
     an inventory counted from the very bytes the run recorded is preferred,
     and otherwise the first that states a count gives it, and the caller
     warns that the two sha256 differ. A file staged under a path rather than

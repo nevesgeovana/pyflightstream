@@ -5,7 +5,7 @@ tests/p0380_mesh_fixtures.py and ``C``, a curved cap of triangles closing G's
 tip station, its rows bent a quarter turn about the chord (a quarter
 cylinder). G is refined at factor 2 and C is rebuilt at factor 1, stated
 ``factor = 1``, ``method = "remesh"``, or as the band of an unselected
-neighbour (FR-425 R3).
+neighbour (FR-934).
 
 The measurement the box asks for first was made on this fixture and on its
 variants (a quarter or half cylinder, a dome of shrinking rows, a flat zipper
@@ -153,12 +153,12 @@ def _refined_strip():
 
 
 def test_p0390_zeroarea_targets_at_the_curve_and_its_layers_follow_r1_and_r2():
-    """P0390-ZEROAREA (FR-432 R1, R2, R3) every curve node, then the layers, exactly.
+    """P0390-ZEROAREA (FR-964, FR-965, FR-966) every curve node, then the layers, exactly.
 
     The curve's nodes are spaced 0.5, 0.5, 1, 1, 2 and 2, so each takes the
-    mean of its one or two incident shared edges (R1), an inserted node as any
+    mean of its one or two incident shared edges (FR-964), an inserted node as any
     other. A node one face layer away takes the target of the curve node
-    nearest it, found here from the coordinates, half way to its own (R2,
+    nearest it, found here from the coordinates, half way to its own (FR-965,
     ``SHARED_LAYERS`` 2); the node at x 1 takes 0.75 from the curve node
     below it, not an average of the curve nodes its faces touch. Nodes two
     layers away and farther keep their own target (not returned). The record
@@ -183,7 +183,7 @@ def test_p0390_zeroarea_targets_at_the_curve_and_its_layers_follow_r1_and_r2():
 
 
 def test_p0390_zeroarea_the_curve_spacing_reads_the_shared_edges_not_proximity():
-    """P0390-ZEROAREA (FR-432 R1) a bent curve: each node averages the shared edges it ends.
+    """P0390-ZEROAREA (FR-964) a bent curve: each node averages the shared edges it ends.
 
     The curve runs (0, 0), (1, 0), (1, 1), (0, 0.1): its last node is 0.1
     from its first, which is no edge of it, so a spacing read from the
@@ -204,7 +204,7 @@ def test_p0390_zeroarea_the_curve_spacing_reads_the_shared_edges_not_proximity()
 
 
 def test_p0390_zeroarea_no_shared_curve_sets_no_target():
-    """P0390-ZEROAREA (FR-432 R4) with no shared curve no target changes and nothing is recorded."""
+    """P0390-ZEROAREA (FR-967) with no shared curve no target changes and nothing is recorded."""
     points, faces, _, _ = _refined_strip()
     own = _own(points, faces)
     assert shared_targets(points, faces, ["C"] * len(faces), own=own, held=set(), chains=[]) == (
@@ -222,7 +222,8 @@ def _spacing_record(spacing: np.ndarray) -> dict:
 
 
 def test_p0390_zeroarea_inserted_curve_nodes_are_recorded_with_their_spacing(tmp_path):
-    """P0390-ZEROAREA (FR-432 R1, R3) a refined side's inserted nodes take and record their spacing.
+    """P0390-ZEROAREA (FR-964, FR-966) a refined side's inserted nodes take and record their
+     spacing.
 
     The cap C is remeshed at factor 1 beside G's tip row refined with a
     mid-point inserted in each segment (the row's spacing is nonuniform).
@@ -243,7 +244,7 @@ def test_p0390_zeroarea_inserted_curve_nodes_are_recorded_with_their_spacing(tmp
 
 
 def test_p0390_zeroarea_a_family_at_2_beside_a_kept_curve_takes_its_spacing(tmp_path):
-    """P0390-ZEROAREA (FR-432 R5) a cap refined alone at 2 takes the spacing its grid keeps.
+    """P0390-ZEROAREA (FR-968) a cap refined alone at 2 takes the spacing its grid keeps.
 
     G is not selected, so it keeps its tip row; C, refined at factor 2,
     takes at that curve the mean of the kept shared edges incident to each
@@ -295,7 +296,7 @@ def _square_in_frame() -> Composite:
 
 
 def test_p0390_zeroarea_a_diagonal_between_shared_nodes_is_not_a_kept_edge(tmp_path):
-    """P0390-ZEROAREA (FR-432 R5) only an edge of the unchanged neighbour is a kept shared edge.
+    """P0390-ZEROAREA (FR-968) only an edge of the unchanged neighbour is a kept shared edge.
 
     The unit-square cap C, remeshed alone at factor 2 inside the unchanged
     frame F, takes at each corner the mean of its kept shared edges, all of
@@ -313,12 +314,12 @@ def test_p0390_zeroarea_a_diagonal_between_shared_nodes_is_not_a_kept_edge(tmp_p
 
 @pytest.mark.parametrize("how", ["stated", "rebuilt", "band"])
 def test_p0390_zeroarea_level_takes_the_spacing_and_records_it(tmp_path, how):
-    """P0390-ZEROAREA (FR-432 R1, R3) C beside G at 2 meshes to the shared spacing; G1 passes.
+    """P0390-ZEROAREA (FR-964, FR-966) C beside G at 2 meshes to the shared spacing; G1 passes.
 
     C is stated at factor 1 (``stated``), rebuilt whole by FR-431 as an
     unselected cap two rows deep (``rebuilt``), or the band of an unselected
     cap three rows deep (``band``). A rebuilt family records the target taken
-    at the curve; an unchanged neighbour keeps the record of FR-425 R3.
+    at the curve; an unchanged neighbour keeps the record of FR-934.
     """
     mesh = sheet_with_cap(rows=2 if how == "rebuilt" else 3)
     if how == "stated":
@@ -365,7 +366,7 @@ def test_p0390_zeroarea_level_takes_the_spacing_and_records_it(tmp_path, how):
 
 
 def test_p0390_zeroarea_control_whole_mesh_at_factor_2(tmp_path):
-    """P0390-ZEROAREA (FR-432 R3 control) the whole-mesh refine at 2 writes no zero-area face."""
+    """P0390-ZEROAREA (FR-966 control) the whole-mesh refine at 2 writes no zero-area face."""
     src = _source(tmp_path, "whole", sheet_with_cap())
     level = refine_mesh(src, 2, out_dir=tmp_path / "o")
     gate = next(item for item in level.audit.gates if item.name == "G1")
@@ -375,7 +376,7 @@ def test_p0390_zeroarea_control_whole_mesh_at_factor_2(tmp_path):
 
 
 def test_p0390_zeroarea_family_sharing_no_curve_is_unchanged(tmp_path):
-    """P0390-ZEROAREA (FR-432 R4) a factor-1 family with no curve on a refined side is unchanged."""
+    """P0390-ZEROAREA (FR-967) a factor-1 family with no curve on a refined side is unchanged."""
     strips = (("T", "tri", (0.03, 0.04, 0.05, 0.065, 0.08)), ("U", "tri", (0.1, 0.1)))
     mesh = sheet_with_strips(strips)
     tail = '[families.U]\nfactor = 1\nmethod = "remesh"\n'

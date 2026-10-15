@@ -5762,7 +5762,7 @@ _FR310_MATRIX_HOMES_ALL__ARGV = {
     ("run", "matrix"): ["run", _FR310_MATRIX_HOMES_ALL__NAME],
     ("post", "matrix"): ["post", _FR310_MATRIX_HOMES_ALL__NAME],
     ("rebuild", "matrix"): ["rebuild", "--matrix", _FR310_MATRIX_HOMES_ALL__NAME],
-    # 0.35.0: the read-only status narrows its rows to the matrix found (FR-380 R2).
+    # 0.35.0: the read-only status narrows its rows to the matrix found (FR-736).
     ("status", "matrix"): ["status", "--matrix", _FR310_MATRIX_HOMES_ALL__NAME],
 }
 
@@ -5990,7 +5990,7 @@ class TestFr310MatrixHomesAll:
 
     @staticmethod
     def test_fr310_no_other_routine_lists_the_matrices_of_a_workspace():
-        """R5: the one listing is ``matrix_files``; no other module globs ``*.fs``."""
+        """FR-524: the one listing is ``matrix_files``; no other module globs ``*.fs``."""
         requirement = "FR-310"
         pattern = re.compile(
             r"""r?glob\(\s*f?["'][^"']*\.fs["']|\.suffix(\.lower\(\))?\s*==\s*["']\.fs["']""", re.I
@@ -6075,7 +6075,7 @@ class TestFr310MatrixHomesAll:
     def test_fr310_a_bare_name_in_a_home_and_in_the_working_directory(same, tmp_path, monkeypatch):
         """0.32.0 read the working directory's file; since 0.37.0 the workspace's is read, warned.
 
-        EXPECTATION CHANGED BY THE OWNER'S REQUIREMENT, FR-411 R1 (her report of
+        EXPECTATION CHANGED BY THE OWNER'S REQUIREMENT, FR-852 (her report of
         2026-10-03 on 0.35.1): until 0.36.0 a different file in the working
         directory refused the command; it is now a WARNING naming both files, and
         the workspace's file is the matrix.

@@ -59,7 +59,7 @@ def _size_findings(sources: dict[str, str]) -> list[str]:
 
 
 def test_push_w3_arch_1_every_refinement_module_is_under_the_guards_size():
-    """P0390-REV38 (NFR-45 R3, PUSH-W3-ARCH-1): no refinement module is above the size guard.
+    """P0390-REV38 (NFR-45, PUSH-W3-ARCH-1): no refinement module is above the size guard.
 
     The unit and the limit are the architecture guard's (``scripts/arch_metrics.py``):
     code lines without docstrings, at most ``SOFT_LINES``, the size above
@@ -118,7 +118,7 @@ def _defined(path: Path) -> set[str]:
 
 
 def test_push_w3_arch_1_the_remesher_split_keeps_every_import_path():
-    """P0390-REV38 (NFR-45 R3, PUSH-W3-ARCH-1): the remesher is split and its paths hold.
+    """P0390-REV38 (NFR-45, PUSH-W3-ARCH-1): the remesher is split and its paths hold.
 
     The group a remesh works on and the pairing of triangles into
     quadrilaterals are modules of their own; each name defined there is
@@ -173,7 +173,7 @@ def _constant_comments(path: Path) -> dict[str, str]:
 
 
 def test_push_w12_arch_1_the_thresholds_paragraph_names_where_each_constant_lives():
-    """P0390-REV38 (NFR-45 R3, PUSH-W12-ARCH-1): each tuning constant is where _geometry says.
+    """P0390-REV38 (NFR-45, PUSH-W12-ARCH-1): each tuning constant is where _geometry says.
 
     The module docstring of ``_geometry`` holds the thresholds the
     requirements name and names the remesher's own tuning constants as
@@ -182,7 +182,7 @@ def test_push_w12_arch_1_the_thresholds_paragraph_names_where_each_constant_live
     module (``_remesh`` and its sections, read from the package's files) is
     named there; and none of them cites a requirement in its comment, since
     a threshold a requirement names is defined in ``_geometry`` (the layers
-    of FR-432 R2 among them). Controls: a constant named in the paragraph
+    of FR-965 among them). Controls: a constant named in the paragraph
     but defined elsewhere, and a remesh constant whose comment cites a
     requirement, are each reported.
     """
@@ -209,7 +209,7 @@ def test_push_w12_arch_1_the_thresholds_paragraph_names_where_each_constant_live
     assert set(constants) == {f"{m}.{n}" for m, n in named}
     cites = re.compile(r"\b(FR|NFR)-\d+")
     assert [k for k, c in constants.items() if cites.search(c)] == []
-    assert cites.search("#: The layers of FR-432 R2.") is not None
+    assert cites.search("#: The layers of FR-965.") is not None
     assert "SHARED_LAYERS" in own and geometry.SHARED_LAYERS == 2
 
 
@@ -233,7 +233,7 @@ def _dense_surface(fx: Fixture, per: int) -> tuple[np.ndarray, list[list[int]]]:
 
 
 def test_rc_qa_1_a_coarse_source_bounds_the_level_by_the_spline_surface():
-    """P0390-REV38 (NFR-45 R4, RC-QA-1; FR-424 R6): the bound is met on the spline surface.
+    """P0390-REV38 (NFR-45, RC-QA-1; FR-920): the bound is met on the spline surface.
 
     A coarse cambered sheet of 4 stations by 4 chordwise nodes (three
     intervals each way, the fewest the not-a-knot spline takes) is refined
@@ -311,7 +311,7 @@ def _two_pole_tube(around: int, split: bool) -> tuple[Composite, Fixture]:
 def test_ind4_01_a_pole_fan_size_shared_by_other_nodes_is_remeshed_never_a_wrong_grid(
     tmp_path, around, split, shared
 ):
-    """P0390-REV38 (NFR-45 R4, IND4-01, PUSH-IND3-QA-3; FR-424 R9): the limit of 0.38.0 is pinned.
+    """P0390-REV38 (NFR-45, IND4-01, PUSH-IND3-QA-3; FR-923): the limit of 0.38.0 is pinned.
 
     A two-pole tube is recovered only when its two poles are the only nodes
     of their fan size. Here the fan size is shared: 4 around a tube of
@@ -359,7 +359,7 @@ def _corner_faces(faces: list[list[int]], grid: Grid) -> list[int]:
 
 
 def test_push_ind2_qa_1_a_square_split_sheet_is_recovered_with_its_corners():
-    """P0390-REV38 (NFR-45 R4, PUSH-IND2-QA-1; FR-424 GRID FAMILY, IND-08): a square sheet.
+    """P0390-REV38 (NFR-45, PUSH-IND2-QA-1; FR-424 GRID FAMILY, IND-08): a square sheet.
 
     A cambered sheet of 9 by 9 nodes (8 by 8 cells, so both sides have the
     same count and the corner search cannot tell them apart by length) is
@@ -380,7 +380,7 @@ def test_push_ind2_qa_1_a_square_split_sheet_is_recovered_with_its_corners():
 
 
 def test_push_ind2_qa_1_a_one_by_n_split_strip_is_recovered_with_its_corners():
-    """P0390-REV38 (NFR-45 R4, PUSH-IND2-QA-1; FR-424 GRID FAMILY, IND-08): a strip of one cell.
+    """P0390-REV38 (NFR-45, PUSH-IND2-QA-1; FR-424 GRID FAMILY, IND-08): a strip of one cell.
 
     A cambered strip of 2 stations by 19 chordwise nodes (one cell by 18) is
     split along a-c: every node lies on the boundary, and the corner search
@@ -415,7 +415,7 @@ def _pinwheel() -> tuple[np.ndarray, list[list[int]]]:
 
 
 def test_push_ind2_qa_1_two_sheets_fitting_the_cells_are_refused_naming_the_family(tmp_path):
-    """P0390-REV38 (NFR-45 R4, PUSH-IND2-QA-1; FR-424 R9, R11, IND-08): the ambiguity refusal.
+    """P0390-REV38 (NFR-45, PUSH-IND2-QA-1; FR-923, FR-925, IND-08): the ambiguity refusal.
 
     The pinwheel sheet's triangles are the cells of two 2 by 2 sheets, one
     cornered at the corners and one at the sides' middle nodes, and the

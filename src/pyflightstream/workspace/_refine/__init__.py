@@ -9,11 +9,11 @@ command layer reaches it only through ``refine_mesh`` and ``audit_mesh`` of
 - ``_obj``: the OBJ and trailing-edge points files;
 - ``_audit``: the audit of a level against its source (FR-426), which imports
   nothing of the refinement modules;
-- ``_grid``: the structured grid of a family, recovered and resampled (FR-424 R6, R7);
+- ``_grid``: the structured grid of a family, recovered and resampled (FR-920, FR-921);
 - ``_remesh_group`` and ``_remesh_pairs``: the group a remesh works on, and the
   pairing of its triangles into quadrilaterals;
 - ``_remesh``: the remeshing of the other families, with conforming interfaces
-  (FR-424 R8, FR-425 R2);
-- ``_config``: the refinement file (FR-424 R2, R3);
+  (FR-922, FR-933);
+- ``_config``: the refinement file (FR-916, FR-917);
 - ``_level``: the orchestration that writes a level (FR-424, FR-425).
 """

@@ -1,4 +1,4 @@
-"""P0390-COLLECT (FR-413 R8): a record with no declared_logs reads its log names from its script.
+"""P0390-COLLECT (FR-867): a record with no declared_logs reads its log names from its script.
 
 A point submitted before 0.37.0 carries no ``submission["declared_logs"]``. Her
 case: 8 of 9 declared outputs present, the log the only one absent, no field in
@@ -52,7 +52,7 @@ def _collect(workspace) -> dict[str, str]:
 
 @pytest.mark.parametrize("mode", MODES)
 def test_p0390_collect_a_record_without_the_field_is_ran_missing_log(mode, tmp_path):
-    """P0390-COLLECT (FR-413 R8): the field-less point whose only absent output is its log.
+    """P0390-COLLECT (FR-867): the field-less point whose only absent output is its log.
 
     Her case: every declared output present but the script's log, no
     ``declared_logs`` in the record, alone and grouped: RAN_MISSING_LOG alone,
@@ -71,7 +71,7 @@ def test_p0390_collect_a_record_without_the_field_is_ran_missing_log(mode, tmp_p
 
 @pytest.mark.parametrize("mode", MODES)
 def test_p0390_collect_the_field_present_control(mode, tmp_path):
-    """P0390-COLLECT (FR-413 R8): a record that carries the field keeps the field's names."""
+    """P0390-COLLECT (FR-867): a record that carries the field keeps the field's names."""
     workspace = _submitted(tmp_path, mode, field=True)
     assert all(row["submission"]["declared_logs"] for row in _rows(workspace.root))
     statuses = _collect(workspace)
@@ -80,7 +80,7 @@ def test_p0390_collect_the_field_present_control(mode, tmp_path):
 
 @pytest.mark.parametrize("field", [True, False], ids=["field", "no-field"])
 def test_p0390_collect_a_running_batch_reads_the_script_in_its_staging_folder(field, tmp_path):
-    """P0390-COLLECT (FR-413 R8): a batch still running renders its script under the batch folder.
+    """P0390-COLLECT (FR-867): a batch still running renders its script under the batch folder.
 
     The script of a running batch's point is not yet in ``sims/``; with the
     field removed the names come from the staging copy, so the point whose log
@@ -94,7 +94,7 @@ def test_p0390_collect_a_running_batch_reads_the_script_in_its_staging_folder(fi
 
 @pytest.mark.parametrize("mode", MODES)
 def test_p0390_collect_neither_field_nor_script_keeps_waiting(mode, tmp_path):
-    """P0390-COLLECT (FR-413 R8): no field and no readable script means no declared log.
+    """P0390-COLLECT (FR-867): no field and no readable script means no declared log.
 
     The rule does not fire: the point is not RAN_MISSING_LOG and collect keeps
     waiting for its log, so it stays SUBMITTED.
@@ -106,7 +106,7 @@ def test_p0390_collect_neither_field_nor_script_keeps_waiting(mode, tmp_path):
 
 
 def test_p0390_collect_one_reading_of_a_script_serves_workspace_and_run():
-    """P0390-COLLECT (FR-413 R8): the script reading lives in the workspace layer, once.
+    """P0390-COLLECT (FR-867): the script reading lives in the workspace layer, once.
 
     The run layer's helper is the workspace function itself, and a record
     without the field reads the names off the script, a record with it the field.
@@ -131,7 +131,7 @@ def test_p0390_collect_one_reading_of_a_script_serves_workspace_and_run():
     ids=["empty-field", "field-names-another", "field-names-it"],
 )
 def test_p0390_collect_the_log_line_checks_read_a_present_field_alone(field, read, tmp_path):
-    """P0390-COLLECT (FR-413 R8): collect's log-line checks take a present field's names alone.
+    """P0390-COLLECT (FR-867): collect's log-line checks take a present field's names alone.
 
     The job's script exports its log to ``log_AL+000.h5``, which carries a G06
     refusal line. Every collected text output is scanned for the line whatever its

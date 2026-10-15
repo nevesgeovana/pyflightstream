@@ -168,7 +168,7 @@ def read_geometry_instruction(path: str | Path) -> GeometryInstruction:
     Raises
     ------
     InputArtifactError
-        Every refusal of FR-470 R6, naming the file, the key and what to write.
+        Every refusal of FR-1101, naming the file, the key and what to write.
     """
     path = Path(path)
     if not path.name.endswith(INSTRUCTION_SUFFIX):
@@ -253,7 +253,7 @@ def checked_trailing_edge_points(
 
 
 def refuse_moved_nodes(instruction: GeometryInstruction, path: Path) -> None:
-    """Refuse node operations whose mesh no longer hashes as pinned (FR-474 R5)."""
+    """Refuse node operations whose mesh no longer hashes as pinned (FR-1129)."""
     for position, operation in enumerate(instruction.operations, start=1):
         if operation.op != "transform_nodes":
             continue

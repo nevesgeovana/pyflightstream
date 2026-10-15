@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.options import option_context
-from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS, requirement_rows
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -174,7 +174,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "fs_exe"): SOLVER,
     ("pyfs-workspace", "png"): SWITCH,
     ("pyfs-workspace", "parallel"): (
-        "how many variants of one sweep this call builds at once, 1 or 2 (FR-472 R6); a "
+        "how many variants of one sweep this call builds at once, 1 or 2 (FR-1117); a "
         "variant refused a seat beside another is built again alone, so it changes the "
         "wall time of one call and never a geometry"
     ),
@@ -272,7 +272,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # Python's full format and every per-point line; presentation only, and the
     # activity log holds the full detail either way.
     ("pyfs-matrix", "verbose"): SWITCH,
-    # 0.39.0 (FR-436 R6): the console level of this invocation, quiet, normal or
+    # 0.39.0 (FR-997): the console level of this invocation, quiet, normal or
     # verbose; presentation only, and the activity log is full at every level.
     ("pyfs-matrix", "log_level"): SWITCH,
     # 0.21.0: `rename` rehearses with --dry-run, which is a mode switch of the
@@ -537,7 +537,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     # 0.31.0 (P0310-CONSOLE-BLOCKS): plan, and its alias inspect-setups, take --verbose too,
     # which is what shows the [continuation] lines on the console.
     ("pyfs-matrix", "verbose"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
-    # 0.39.0 (FR-436 R6): every command that takes --verbose takes --log-level.
+    # 0.39.0 (FR-997): every command that takes --verbose takes --log-level.
     ("pyfs-matrix", "log_level"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
     ("pyfs-matrix", "fs_exe"): frozenset({"inspect-setups", "plan", "post", "run"}),
@@ -868,8 +868,7 @@ def test_the_allowlist_names_only_options_that_exist():
 def test_the_registry_requirement_says_command_line_option():
     """The SRS sentence this test holds the scripts to (design/68, PFS-2022.06)."""
     text = (REPO / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
-    start = text.index('requirement "FR-40')
-    statement = text[start : text.index("!!! requirement", start + 1)]
+    statement = requirement_rows(text)["FR-40"][4]
     assert "every command-line option" in statement.lower(), (
         "FR-40 no longer says 'every command-line option'; this test enforces that sentence"
     )
@@ -884,7 +883,7 @@ def test_every_allowlisted_destination_covers_the_subcommands_it_says():
     written by hand, so it cannot drift into agreeing with itself.
     The pins of ``--verbose`` and ``--log-level`` name the same subcommands, so
     a command that takes ``--verbose`` without ``--log-level`` fails here
-    (FR-436 R6).
+    (FR-997).
     """
     live: dict[tuple[str, str], set[str]] = {}
     for script, module_name in _console_scripts().items():

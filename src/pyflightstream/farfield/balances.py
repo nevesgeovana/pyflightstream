@@ -5,7 +5,7 @@ of the far-field extraction (design note DLV-006 Sec. 3), on the samples of a
 :class:`~pyflightstream.farfield.fields.LatticeFields`. Every integral goes
 through :func:`~pyflightstream.farfield.quadrature.plane_integral`; the
 crossflow kinetic energy has one integrand, :func:`crossflow_integrand`, which
-Trefftz C calls too (FR-450 R1).
+Trefftz C calls too (FR-1003).
 
 Solver asymmetry, by design (DLV-006 Sec. 2.3): the FlightStream side runs the
 purely kinematic, reversible balances with the constant free-stream density;
@@ -483,7 +483,7 @@ def crossflow_integrand(
 
     The balance passes the cylindrical components ``v_r``, ``v_theta`` and the
     sampled axial velocity ``u``; Trefftz C passes the Cartesian crossflow
-    ``v``, ``w`` and the free-stream speed ``V`` (FR-450 R1, FR-453 R1). The
+    ``v``, ``w`` and the free-stream speed ``V`` (FR-1003, FR-1030). The
     integrand is transverse components only: it contains no axial-deficit term
     by construction, a hard rule of the design note.
 

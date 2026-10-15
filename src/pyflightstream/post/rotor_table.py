@@ -716,7 +716,7 @@ def _mach_cells(
             velocity_m_per_s=float(air[0]),
             sonic_velocity_m_per_s=float(air[1]),
         )
-        # FR-176 R1: the advancing tip, on the rotor's own axis and the
+        # FR-1201: the advancing tip, on the rotor's own axis and the
         # row's attitude (an unstated angle is zero, as in the loads above).
         madv = advancing_tip_mach_number(
             rpm=rpm,

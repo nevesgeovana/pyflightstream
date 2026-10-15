@@ -133,7 +133,7 @@ def test_both_files_are_in_the_manifest_with_the_runs_they_derive_from(tmp_path)
 
 
 def test_the_key_absent_is_on_and_false_changes_no_byte_of_0_36_0(tmp_path):
-    """P0370-S7-CODEBOOK (FR-419 R3): absent equals true; false differs from them by the pair."""
+    """P0370-S7-CODEBOOK (FR-896): absent equals true; false differs from them by the pair."""
     absent = _post(_workspace(tmp_path / "a"))
     true = _post(_workspace(tmp_path / "b", key="settings_codebook = true\n"))
     false = _post(_workspace(tmp_path / "c", key="settings_codebook = false\n"))
@@ -154,7 +154,7 @@ def _info_lines(out: Path) -> list[str]:
 
 
 def test_a_point_without_a_snapshot_has_no_row_and_one_info_line_and_no_skip(tmp_path):
-    """P0370-S7-CODEBOOK (FR-419 R1): INFO in post.log, never a blank row, never a skip."""
+    """P0370-S7-CODEBOOK (FR-894): INFO in post.log, never a blank row, never a skip."""
     out = _post(_workspace(tmp_path, without_snapshot=(1,)))
     missing = f"camp/sim_{SIM}/{_name(1)}"
     rows = _rows(out / TABLE)
@@ -172,7 +172,7 @@ def test_a_point_without_a_snapshot_has_no_row_and_one_info_line_and_no_skip(tmp
 
 
 def test_no_snapshot_anywhere_writes_neither_file_and_says_so_once(tmp_path):
-    """P0370-S7-CODEBOOK (FR-419 R1): no table, one INFO line, no skip."""
+    """P0370-S7-CODEBOOK (FR-894): no table, one INFO line, no skip."""
     out = _post(_workspace(tmp_path, without_snapshot=(0, 1, 2)))
     assert not (out / "settings").exists()
     assert not any(name.startswith("settings/") for name in _manifest(out)["products"])
@@ -182,7 +182,7 @@ def test_no_snapshot_anywhere_writes_neither_file_and_says_so_once(tmp_path):
 
 
 def test_strict_counts_no_settings_skip_for_records_that_predate_the_snapshot(tmp_path, capsys):
-    """P0370-S7-CODEBOOK (FR-419 R1): --strict sees the same skips with the product on and off."""
+    """P0370-S7-CODEBOOK (FR-894): --strict sees the same skips with the product on and off."""
     from pyflightstream.run.cli import main
 
     verdicts = {}

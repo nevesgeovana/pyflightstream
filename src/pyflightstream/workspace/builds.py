@@ -48,7 +48,7 @@ LOCAL_EXECUTABLES_FILE = "executables.local.toml"
 #: that looks correct and a run emitted under the campaign default, and
 #: the two look identical from the manifest (PFS-2009.05).
 #:
-#: ``accept_unregistered_build`` is the third since 0.39.0 (FR-436 R7), and
+#: ``accept_unregistered_build`` is the third since 0.39.0 (FR-998), and
 #: it is read in this machine's overlay ONLY: there it accepts the installed
 #: build of that entry, the one this machine has, while in the committed
 #: registry it would carry one machine's acceptance to every machine, so it is
@@ -84,7 +84,7 @@ class RegisteredBuild:
     accept_unregistered_build : bool
         The entry of this machine's overlay accepts the build installed at
         ``fs_exe`` even where it is not the one registered for its version
-        (FR-436 R7); the run warns and every record says so, naming
+        (FR-998); the run warns and every record says so, naming
         ``inputs/executables.local.toml``. False by default, and for every
         entry of the committed registry, which may not state it.
     """
@@ -190,7 +190,7 @@ def resolve_build(
         ``path``; a table carrying a key outside
         :data:`EXECUTABLE_ENTRY_KEYS`; ``accept_unregistered_build`` stated
         in the committed registry, or as anything but true or false (FR-436
-        R7); or a declared version the version registry does not carry.
+        FR-998); or a declared version the version registry does not carry.
 
     Examples
     --------
@@ -303,7 +303,7 @@ def resolve_build(
 
 
 def _refuse_committed_acceptance(table: dict[str, object], registry_path: Path) -> None:
-    """Refuse ``accept_unregistered_build`` on ANY entry of the committed registry (FR-436 R7).
+    """Refuse ``accept_unregistered_build`` on ANY entry of the committed registry (FR-998).
 
     Checked on every entry once the registry is read, not only on the build a
     row resolves: the committed registry is the same file on every machine, and
@@ -324,7 +324,7 @@ def _refuse_committed_acceptance(table: dict[str, object], registry_path: Path) 
 
 
 def _entry_acceptance(entry: dict[str, object], build_id: str, registry_path: Path) -> bool:
-    """Return whether a build entry of this machine's overlay accepts its installed build (R7).
+    """Return whether a build entry of this machine's overlay accepts its installed build (FR-998).
 
     The committed registry was already refused any acceptance by
     :func:`_refuse_committed_acceptance`. A value that is not true or false is

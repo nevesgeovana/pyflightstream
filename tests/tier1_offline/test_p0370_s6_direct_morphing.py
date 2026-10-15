@@ -108,7 +108,7 @@ SET_AEROELASTIC_ITERATIONS 50"""
 
 #: The sha256 of the SEPARATOR-FOLDED render of the mapped sector row's script
 #: (every backslash turned into a slash after the interpreter and the
-#: temporary folder are masked, NFR-44 R2; the native separator of the FILE line
+#: temporary folder are masked, FR-1189; the native separator of the FILE line
 #: is asserted apart, where the hash is taken) and of its staged files with the staged
 #: configuration, measured with the 0.37.0 tree before FR-341 entered it
 #: (rel/0-37 at cb59b941) on 26.124.
@@ -219,7 +219,7 @@ def test_a_row_that_chooses_no_route_is_byte_identical_to_0_36_fr_341(tmp_path):
 
     The hashes were measured on the tree before FR-341 entered it; the staged
     configuration carries no ``morphing`` key and hashes as it did. The script
-    hash is of the separator-folded render (FR-341 R3), so the FILE line naming
+    hash is of the separator-folded render (FR-677), so the FILE line naming
     the blade obj is also asserted with the platform's own separator, before
     the fold.
     """
@@ -227,7 +227,7 @@ def test_a_row_that_chooses_no_route_is_byte_identical_to_0_36_fr_341(tmp_path):
         rendered, script = _render(case, "26.124")
         masked = _INTERPRETER.sub('"PY" "fsi_callback.py"', rendered).replace(str(tmp_path), "TMP")
         assert f"FILE TMP{os.sep}blade.obj" in masked.splitlines()  # native, before the fold
-        masked = fold_separators(masked)  # one hash on Windows and Linux (NFR-44 R2)
+        masked = fold_separators(masked)  # one hash on Windows and Linux (FR-1189)
         assert _sha256(masked) == MAPPED_SCRIPT_SHA256
         staged = effective_fsi_config(case)
         assert staged is not None

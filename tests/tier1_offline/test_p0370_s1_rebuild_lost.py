@@ -53,12 +53,12 @@ def _posted(root: Path, capsys) -> tuple[dict, str]:
 
 @pytest.mark.parametrize("mode", ["alone", "batch"])
 def test_p0370_s1_rebuild_writes_the_records_of_a_lost_runs_json(mode, tmp_path, capsys):
-    """P0370-S1-REBUILD-LOST (FR-412 R1a, R2, R4): per point and grouped, rebuilt and posted.
+    """P0370-S1-REBUILD-LOST (FR-1202, FR-857, FR-859): per point and grouped, rebuilt and posted.
 
     Every point's outputs are in its datapoint folder and its log is deleted:
-    each is rebuilt RAN_MISSING_LOG, never refused for the log alone (R2); a
-    grouped point names its batch and its job, as collect records it (R1a);
-    what only the log or the submission carried is left unstated (R4); and the
+    each is rebuilt RAN_MISSING_LOG, never refused for the log alone (FR-857); a
+    grouped point names its batch and its job, as collect records it (FR-1202);
+    what only the log or the submission carried is left unstated (FR-859); and the
     post writes every point's products.
     """
     workspace = grouped_workspace(tmp_path / mode, mode=mode)
@@ -94,7 +94,7 @@ def test_p0370_s1_rebuild_writes_the_records_of_a_lost_runs_json(mode, tmp_path,
 
 
 def test_p0370_s1_a_batch_not_moved_home_is_rebuilt_from_its_folder(tmp_path, capsys):
-    """P0370-S1-REBUILD-LOST (FR-412 R1b): the batch folder before it moved, then collect, post.
+    """P0370-S1-REBUILD-LOST (FR-1203): the batch folder before it moved, then collect, post.
 
     ``runs.json`` was lost before the batch was collected: the simulations
     are only in ``sims/batch/<matrix>_b1/``. Each point is rebuilt from there,
@@ -126,7 +126,7 @@ def test_p0370_s1_a_batch_not_moved_home_is_rebuilt_from_its_folder(tmp_path, ca
 
 
 def test_p0370_s1_every_refusal_names_the_simulation_its_reason_and_its_remedy(tmp_path, capsys):
-    """P0370-S1-REBUILD-LOST (FR-412 R3): the refused simulation, why, what to do, and the counts.
+    """P0370-S1-REBUILD-LOST (FR-858): the refused simulation, why, what to do, and the counts.
 
     One simulation's datapoint folder is emptied: it is refused by name with
     the reason in plain words and the remedy, and the summary ends with the

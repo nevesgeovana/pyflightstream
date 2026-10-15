@@ -46,7 +46,7 @@ __all__ = [
 def validate_external_fsi(
     case: SimCase, script: Script, *, workflow: str, continuation: bool
 ) -> None:
-    """Refuse a row the external route cannot couple (FR-462 R4), before any coupling line.
+    """Refuse a row the external route cannot couple (FR-1093), before any coupling line.
 
     Parameters
     ----------
@@ -117,7 +117,7 @@ def wire_external_fsi(
     exports: Callable[[Script], None] | None,
     updates: Callable[[Script], None] | None = None,
 ) -> list[dict[str, object]]:
-    """Stage the external program's files and emit its coupling block (FR-462 R5).
+    """Stage the external program's files and emit its coupling block (FR-1094).
 
     Parameters
     ----------
@@ -202,7 +202,7 @@ def wire_external_fsi(
             "raise SystemExit(main(['external', '--out', '.']))\n"
         ),
         "fsi-provenance.json": json.dumps(structure.provenance(), indent=2) + "\n",
-        # FR-462 R6: the input itself, under the digest the record states for it
+        # FR-1095: the input itself, under the digest the record states for it
         # (the run refuses a source changed after the plan).
         Path(structure.source).name: Path(structure.source).read_bytes(),
     }

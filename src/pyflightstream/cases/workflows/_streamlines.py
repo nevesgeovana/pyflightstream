@@ -30,7 +30,7 @@ _DELETES = ("DELETE_ALL_SURFACE_STREAMLINES", "DELETE_ALL_OFF_BODY_STREAMLINES")
 
 
 def streamline_count(case: SimCase) -> int:
-    """Return the off-body streamlines one point of the case traces (FR-460 R3).
+    """Return the off-body streamlines one point of the case traces (FR-1079).
 
     Parameters
     ----------
@@ -80,7 +80,7 @@ def streamline_commands(spec: StreamlinesSpec, *, reopened: bool = False) -> lis
 
 
 def refuse_streamlines_where_they_cannot_run(case: SimCase, spec: StreamlinesSpec) -> None:
-    """Refuse the rows FR-460 R5 names, before the first streamline line."""
+    """Refuse the rows FR-1081 names, before the first streamline line."""
     if case.fsi is not None or case.fsi_external is not None:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} traces streamlines "
@@ -168,7 +168,7 @@ def _pproc_streamlines(
     reopened: bool = False,
     placed: Script | None = None,
 ) -> None:
-    """Emit the row's ``[streamlines]`` table in the analysis phase (FR-460 R1, R2).
+    """Emit the row's ``[streamlines]`` table in the analysis phase (FR-1077, FR-1078).
 
     Only the generation is emitted here; the surface trace is exported by the
     export block, where its export-phase command belongs.
@@ -196,7 +196,7 @@ def _pproc_streamlines(
     Raises
     ------
     CampaignConfigError
-        A row FR-460 R5 refuses, a frame the run did not create, a gated command not
+        A row FR-1081 refuses, a frame the run did not create, a gated command not
         verified on the build, or a surface trace with no declared output.
     """
     spec = case.pproc.streamlines if case.pproc is not None else None
@@ -238,7 +238,7 @@ def _pproc_streamlines(
 def _emit_off_body(
     case: SimCase, script: Script, frames: Frames, spec: StreamlinesSpec, geometry: Script
 ) -> None:
-    """Emit the off-body direction, length, seeds and generation (FR-460 R1)."""
+    """Emit the off-body direction, length, seeds and generation (FR-1077)."""
     if spec.direction is not None:
         script.emit(f"SET_ALL_OFF_BODY_STREAMLINES_{spec.direction.upper()}")
     if spec.length_m is not None:

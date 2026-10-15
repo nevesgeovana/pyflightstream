@@ -897,7 +897,7 @@ def _campaign_products(
         )
         if partial is not None:
             manifest["skipped"] = {**partial.skipped, **skipped}
-        carry_marks(products_index, points)  # FR-414 R3
+        carry_marks(products_index, points)  # FR-870
         _write_manifest(out, manifest)
     except BaseException as error:
         manifest["complete"] = False

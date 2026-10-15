@@ -7,14 +7,13 @@ import builtins
 import importlib.util
 import inspect
 import json
-import re
 import tomllib
 from argparse import Namespace
 from pathlib import Path
 
 import pytest
 
-from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
+from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS, requirement_rows
 
 REPO = Path(__file__).resolve().parents[2]
 #: Measured on 2026-10-03, opening 0.36.0 development from v0.35.1.
@@ -38,12 +37,9 @@ def test_mypy_exempt_module_count_cannot_grow() -> None:
 def test_fr180_evidence_cites_the_per_revolution_test() -> None:
     """P0360-RV-VV-3 (FR-180): its evidence names the existing scale-rule test."""
     text = (REPO / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
-    entry = re.search(r'^!!! requirement "FR-180\b.*?(?=^!!! |\Z)', text, re.M | re.S)
-    assert entry, "FR-180 is absent from the functional requirements"
-    evidence = re.search(r"\bEvidence:\s*(.*?)(?:\n\s*\n|\Z)", entry[0], re.S)
-    assert evidence, "FR-180 has no Evidence line"
+    entry = requirement_rows(text)["FR-180"]
     path = "tests/tier1_offline/test_goal036_per_revolution.py"
-    assert f"`{path}`" in evidence[1], f"FR-180 Evidence must cite {path}"
+    assert entry[6].startswith(path + "::"), f"FR-180 must cite a test in {path}"
     assert (REPO / path).is_file(), f"FR-180 evidence file does not exist: {path}"
 
 

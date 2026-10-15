@@ -40,7 +40,7 @@ ALIAS_JOINER = "_"
 
 
 class AliasError(MatrixError):
-    """An alias that names no point, or whose two readings disagree (FR-395 R5)."""
+    """An alias that names no point, or whose two readings disagree (FR-797)."""
 
 
 def alias_of(sim_id: str, index: int) -> str:
@@ -418,7 +418,7 @@ def row_selected(row: Mapping[str, Any], tags: Collection[str] | None) -> bool:
 def split_typed_ids(
     items: Sequence[str], root: str | Path, *, manifest: str = "runs.json", whole_only: bool = False
 ) -> tuple[list[str], dict[str, list[str]]]:
-    """Split typed simulation ids from run id aliases, for a verb that destroys (FR-395 R2).
+    """Split typed simulation ids from run id aliases, for a verb that destroys (FR-794).
 
     Parameters
     ----------
@@ -478,7 +478,7 @@ def _record_sim(record: Any) -> str:
 def failure_alias_lines(
     failures: Sequence[Any], rows: list[dict[str, Any]], root: str | Path | None = None
 ) -> list[str]:
-    """Name the run id alias beside each failed run id (FR-395 R3).
+    """Name the run id alias beside each failed run id (FR-795).
 
     Read as every other reader of an alias reads it (:func:`planned_in_workspace`),
     so a failed point recorded out of its sweep order is named by the alias that

@@ -1,6 +1,6 @@
 """The licensed run LQ5 of 0.34.0: the wake a rotor keeps, and the speed it convects at.
 
-Package WAKE; the report it will feed is RPT-130 (FR-321 R3,
+Package WAKE; the report it will feed is RPT-130 (FR-582,
 FR-324), owed by a commit after the 0.34.0 release, when this run is made.
 One synthetic propeller (the tier-3 ``31_BLADE_PHY`` blade of the public
 shape law of :mod:`tests.tier3_licensed.recipes`, tip radius
@@ -9,7 +9,7 @@ the advance ratio J = 0.8, a step of 5 degrees and 4 revolutions, on
 FlightStream 26.124, far field 5 layers, one solver instance at a time:
 
 * ``9501``, the wake termination left to the package's default (4 rotor
-  radii, FR-321 R4) and the wake end plane left at ``DEFAULT``: the control,
+  radii, FR-583) and the wake end plane left at ``DEFAULT``: the control,
   where a blades-only wheel's default plane was measured at x/R = 2.08
   (RPT-137 section 7) and may cut the wake before 4 R;
 * ``9502``, the same row with the wake end plane moved to x = 8 R
@@ -40,7 +40,7 @@ measured induced velocity ratio near the disc and far behind it, the
 momentum-theory ratio ``(V_inf + v_i) / V_inf`` from the rotor table's
 ``CT``, the wake end x/R of each row, and the solver log's lines naming the
 wake termination, then the reading RPT-130 will state: V_ax closer to V_inf,
-or closer to V_inf + v_i (FR-321 R3). It decides nothing on its own: RPT-130
+or closer to V_inf + v_i (FR-582). It decides nothing on its own: RPT-130
 will, and will state its conditions.
 
 Commands (from the worktree root, with the package's Python)::
@@ -252,7 +252,7 @@ def analyze(workspace: Path) -> int:
             print(f"  CT_{ALIAS} = {ct:.5f}; momentum (V_inf + v_i) / V_inf = {momentum:.4f}")
             if ratio is not None:
                 nearer = "V_inf" if abs(ratio - 1.0) <= abs(ratio - momentum) else "V_inf + v_i"
-                print(f"  V_ax is closer to {nearer} (FR-321 R3)")
+                print(f"  V_ax is closer to {nearer} (FR-582)")
         for line in _log_lines(workspace, pol):
             print(f"  log: {line}")
     return 0

@@ -194,19 +194,19 @@ class PointPlan:
         on every other point and where the resolver's refusal is the error.
     wake_termination : dict of str to object
         On a point of an ``unsteady_rotor`` row that is not a continuation, the
-        wake termination its script emits (FR-321 R5, 0.34.0): the key that
+        wake termination its script emits (FR-584, 0.34.0): the key that
         stated it (``default`` for the 4R default), the length asked in rotor
         radii, the steps, the rule that gave V_ax and V_ax in m/s, as
         :meth:`pyflightstream.cases.workflows._freestream.WakeTermination.record`
         states them. Empty on every other point.
     run_wake_length : dict of str to object
         On a point of an ``unsteady_rotor`` row stating ``RUN_WAKE_LENGTH_R``
-        (FR-422 R3, 0.37.0), the run length resolved from it: the length asked
+        (FR-906, 0.37.0), the run length resolved from it: the length asked
         in rotor radii, the rule and V_ax, the resulting ``time_iterations`` and
         the revolutions they turn. Empty on every other point, and then left
         out of ``plan.json``.
     streamlines : int
-        The off-body streamlines the point's pproc traces (FR-460 R3, 0.40.0):
+        The off-body streamlines the point's pproc traces (FR-1079, 0.40.0):
         every seed line's count and every tube's ``radial * circular``. 0, and
         left out of ``plan.json``, where it traces none.
     """
@@ -862,11 +862,11 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
             harmonics = entry.qsteady_validity.get("inflow_fft")
             if isinstance(harmonics, Mapping):
                 lines.append(f"  {entry.run_id}: {inflow_harmonics_line(harmonics)}")
-    # 0.34.0 (FR-321 R5): every rotor point states the wake its termination keeps.
+    # 0.34.0 (FR-584): every rotor point states the wake its termination keeps.
     for entry in points:
         if entry.wake_termination:
             lines.append(f"  {entry.run_id}: {wake_termination_line(entry.wake_termination)}")
-    # 0.37.0 (FR-422 R3): a run length stated as a wake length states its count.
+    # 0.37.0 (FR-906): a run length stated as a wake length states its count.
     for entry in points:
         if entry.run_wake_length:
             lines.append(f"  {entry.run_id}: {run_wake_length_line(entry.run_wake_length)}")
@@ -874,7 +874,7 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
 
 
 def _streamline_lines(points: Sequence[PointPlan]) -> list[str]:
-    """Return the plan's line per point that seeds off-body streamlines (FR-460 R3)."""
+    """Return the plan's line per point that seeds off-body streamlines (FR-1079)."""
     return [
         f"  {entry.run_id}: {entry.streamlines} off-body streamlines traced "
         "(the [streamlines] lines and tubes of its pproc)"
@@ -884,7 +884,7 @@ def _streamline_lines(points: Sequence[PointPlan]) -> list[str]:
 
 
 def _farfield_lines(points: Sequence[PointPlan]) -> list[str]:
-    """Return one line per far-field input a plan adds or cannot serve (FR-455 R4, 0.40.0)."""
+    """Return one line per far-field input a plan adds or cannot serve (FR-1047, 0.40.0)."""
     lines: list[str] = []
     for entry in points:
         inputs = entry.farfield.get("inputs", ()) if entry.farfield else ()
@@ -895,7 +895,7 @@ def _farfield_lines(points: Sequence[PointPlan]) -> list[str]:
 
 
 def farfield_line(item: Mapping[str, object]) -> str:
-    """Return one far-field input of the plan as its console line (FR-455 R4)."""
+    """Return one far-field input of the plan as its console line (FR-1047)."""
     what = item.get("source") or item.get("reason") or ""
     return f"{item.get('analysis')} {item.get('input')} {item.get('state')}: {what}".rstrip(": ")
 
@@ -905,7 +905,7 @@ def run_wake_length_line(run: Mapping[str, object]) -> str:
 
     ``run`` is one :attr:`PointPlan.run_wake_length`: the length asked, the
     resolved step count and the revolutions it turns, and the V_ax with the
-    rule that gave it. The length is nominal (R5), so the revolutions are
+    rule that gave it. The length is nominal (FR-908), so the revolutions are
     what a user checks near hover.
     """
     return (
@@ -916,11 +916,11 @@ def run_wake_length_line(run: Mapping[str, object]) -> str:
 
 
 def wake_termination_line(wake: Mapping[str, object]) -> str:
-    """Return the words the plan prints for one rotor point's wake termination (FR-321 R5).
+    """Return the words the plan prints for one rotor point's wake termination (FR-584).
 
     ``wake`` is one :attr:`PointPlan.wake_termination`: the L asked, the V_ax
     used with the rule that gave it, and the steps emitted; a count states
-    itself, its steps and the length it keeps over the run (FR-325 R2).
+    itself, its steps and the length it keeps over the run (FR-601).
     """
     steps, length, speed = wake.get("steps"), wake.get("length_r"), wake.get("v_ax_m_s")
     if not isinstance(length, int | float):
@@ -1159,7 +1159,7 @@ def plan_campaign(
         carries the harmonic content of that inflow. Default False.
     accepted_builds : collection of str
         The installations whose own entry of ``inputs/executables.local.toml``
-        accepts their installed build (FR-436 R7), a build id or ``""`` for
+        accepts their installed build (FR-998), a build id or ``""`` for
         the campaign's own. ``plan.json`` then states the acceptance, the
         builds it holds for and its file, as the run's records will. Default
         empty.
@@ -1200,7 +1200,7 @@ def plan_campaign(
     PyflightstreamWarning
         Once per artifact, key and name, a name a row's setup or pproc cites
         that its reference's study holds and its model lacks, naming every
-        such row (FR-435 R9); the plan status is what it would be without it.
+        such row (FR-987); the plan status is what it would be without it.
     """
     canonical = resolve(campaign.fs_version).canonical
     # Before the first folder is allocated, for the reason run_campaign
@@ -1222,7 +1222,7 @@ def plan_campaign(
         if case_error is None:
             # `resolve_recipe` returns the imported function as a plain Callable; it
             # is a ScriptRecipe, whose named parameters a Callable type cannot state.
-            # FR-435 R9: the build notes what the row's model lacks and its study holds.
+            # FR-987: the build notes what the row's model lacks and its study holds.
             recipe = saying_the_study_skips(
                 recipes[case.recipe]
                 if recipes and case.recipe in recipes
@@ -1282,7 +1282,7 @@ def plan_campaign(
             # 0.21.0: plan launches no solver, so the flag changes no check here;
             # it is recorded so the plan rehearses the command line run executes.
             "accept_unregistered_build": accept_unregistered_build,
-            # FR-436 R7, R8: what the workspace files gave this plan, and where
+            # FR-998, FR-999: what the workspace files gave this plan, and where
             # from; nothing where no file gave anything.
             **_settings_provenance(campaign, accept_unregistered_build, accepted_builds),
         }
@@ -1319,7 +1319,7 @@ def _planned_order(
 def _settings_provenance(
     campaign: Campaign, accepted: bool, accepted_builds: Collection[str]
 ) -> dict[str, object]:
-    """Return what ``plan.json`` adds where a workspace file stated a value (FR-436 R7, R8).
+    """Return what ``plan.json`` adds where a workspace file stated a value (FR-998, FR-999).
 
     ``settings_sources`` names each value this invocation took from ``pyfs.toml``
     or ``pyfs.local.toml`` and its file; an acceptance stated on a build's own
@@ -1391,7 +1391,7 @@ def _discs_naming_a_profile(case: SimCase) -> list[tuple[str, str]]:
 
 
 def _warn_on_relaxed_discs_naming_a_profile(cases: Sequence[SimCase]) -> None:
-    """Warn, and never refuse, on a RELAXED disc whose row names a loading profile (FR-332 R5).
+    """Warn, and never refuse, on a RELAXED disc whose row names a loading profile (FR-646).
 
     Measured on 26.124 (RPT-137): a disc of wake type RELAXED gave the same
     wake for every loading profile and for the native ELLIPTICAL model, and
@@ -1427,7 +1427,7 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
         del record["run_wake_length"]
     if not entry.streamlines:
         del record["streamlines"]
-    # FR-455 R4 (0.40.0): the far-field resolution, on a row with [farfield] only.
+    # FR-1047 (0.40.0): the far-field resolution, on a row with [farfield] only.
     if not entry.farfield:
         del record["farfield"]
     return record
@@ -1440,7 +1440,7 @@ def _point_facts(
 
     The rotors' tip and helical Mach numbers (0.30.0, M1), a quasi-steady
     wheel's 1P reduced frequency (0.30.0) and, on a rotor point, the wake its
-    termination keeps (0.34.0, FR-321 R5).
+    termination keeps (0.34.0, FR-584).
     """
     wake = planned_wake(point_case)
     run = planned_run_wake(point_case)
@@ -1464,7 +1464,7 @@ def _warn_on_short_wakes(points: Sequence[PointPlan]) -> None:
     on the solver's DEFAULT plane, whose position the plan cannot know. Each
     warning names the row and the point. Computed from the plan's own records:
     no solver call and no file read, and the plan's statuses and file are what
-    they would be without it (R6).
+    they would be without it (FR-605).
     """
     for entry in points:
         if entry.status is not PlanStatus.READY or not entry.wake_termination:
@@ -1581,7 +1581,7 @@ def _plan_point(
             status=PlanStatus.BLOCKED,
             error=f"{type(error).__name__}: {error}",
         )
-    # FR-455 R4 (0.40.0, PFS-2081.56): the far-field probes this dry-run script
+    # FR-1047 (0.40.0, PFS-2081.56): the far-field probes this dry-run script
     # chose, reused or added, which are the ones the run lays and records.
     if base.get("farfield"):
         base["farfield"] = farfield_plan_record(point_case, fs_version, script)

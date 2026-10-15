@@ -8,7 +8,7 @@ command accepted was one another could not find. Every command that takes a
 matrix, or looks one up by its name or stem, now asks :func:`matrix_path`,
 which asks :func:`pyflightstream.workspace.find_matrix`: one rule, one home.
 
-THE RULE (FR-310 R2 to R4). A value that names its folder (``inputs/m.fs``,
+THE RULE (FR-521 to FR-523). A value that names its folder (``inputs/m.fs``,
 an absolute path) is read from that folder, as before. A bare file name or a
 stem is looked up in both homes: in one of them, that file; in both with the
 same bytes, the root's, read once; in both with different bytes, refused
@@ -64,7 +64,7 @@ MATRIX_SUFFIX = ".fs"
 #: is resolved by :func:`resolve_matrix_arguments` before the command runs. A
 #: parser argument whose destination names a matrix and which is in neither
 #: this set nor :data:`MATRIX_STEM_ARGUMENTS` fails a tier-1 test that reads
-#: the parsers (FR-310 R1: a command added later that takes a matrix joins it).
+#: the parsers (FR-520: a command added later that takes a matrix joins it).
 MATRIX_ARGUMENTS: frozenset[tuple[str, str]] = frozenset(
     {
         ("plan", "matrix"),
@@ -73,7 +73,7 @@ MATRIX_ARGUMENTS: frozenset[tuple[str, str]] = frozenset(
         ("post", "matrix"),
         ("rebuild", "matrix"),
         # 0.35.0: `status --matrix` reads the matrix of either home by its stem
-        # (FR-380 R2); the resolved path is read back as the stem it names.
+        # (FR-736); the resolved path is read back as the stem it names.
         ("status", "matrix"),
     }
 )

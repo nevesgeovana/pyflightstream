@@ -5,12 +5,12 @@ Pipeline role: the body of the post step that writes ``farfield/<group>_trefftz.
 row) and the spanwise files ``sections/<point>_trefftz_<family>.csv`` from the
 exports a run recorded, through the numpy core of :mod:`pyflightstream.farfield`.
 It reads the exports with the ``results`` readers, turns every vector to the
-far-field axes (FR-450 R3), and states every point an analysis cannot serve as
-a named skip in ``products.json`` and a WARNING in ``post.log`` (FR-450 R5).
+far-field axes (FR-1005), and states every point an analysis cannot serve as
+a named skip in ``products.json`` and a WARNING in ``post.log`` (FR-1007).
 Which analysis applies to which row is the one function the plan uses
 (:func:`pyflightstream.cases.farfield_inputs.applies`). A simulation whose pproc
 artifact has no ``[farfield]`` table writes nothing and logs nothing, so its
-products keep their bytes (FR-456 R8).
+products keep their bytes (FR-1060).
 """
 
 from __future__ import annotations
@@ -79,11 +79,11 @@ __all__ = [
     "farfield_products",
 ]
 
-#: The product folder of the far-field tables (FR-456 R1).
+#: The product folder of the far-field tables (FR-1053).
 FARFIELD_DIR = "farfield"
 
 #: The columns of ``farfield/<group>_trefftz.csv`` after ``POL``, ``STEP`` and the
-#: condition block (FR-456 R2).
+#: condition block (FR-1054).
 TREFFTZ_COLUMNS: tuple[str, ...] = (
     "FAMILY",
     "VARIANT",
@@ -110,7 +110,7 @@ TREFFTZ_COLUMNS: tuple[str, ...] = (
     # PFS-2081.97: the point's solver termination status, as the sweep table writes it.
     "STATUS",
 )
-#: The columns of a spanwise file ``sections/<point>_trefftz_<family>.csv`` (FR-456 R3).
+#: The columns of a spanwise file ``sections/<point>_trefftz_<family>.csv`` (FR-1055).
 SPANWISE_COLUMNS: tuple[str, ...] = (
     "POL",
     "VARIANT",
@@ -128,16 +128,16 @@ SPANWISE_COLUMNS: tuple[str, ...] = (
 _NA = float("nan")
 _VARIANT_NAMES = {"sections": "A", "wake": "B", "plane": "C"}
 #: Above this Mach number the C row is written with a WARNING that the
-#: incompressible relations of the definitions page are used (FR-453 R7).
+#: incompressible relations of the definitions page are used (FR-1036).
 _INCOMPRESSIBLE_MACH = 0.3
 #: A Trefftz C plane whose own lift (its vorticity's first moment) departs from
 #: the solver's CL by more than this fraction is flagged: its field does not hold
 #: the circulation the loads shed, so its crossflow energy is not their induced
-#: drag (FR-453 R9; RPT-171 measured 0.74 on 26.124 and 1.05 on 26.125, one wing).
+#: drag (FR-1038; RPT-171 measured 0.74 on 26.124 and 1.05 on 26.125, one wing).
 _PLANE_LIFT_TOLERANCE = 0.10
 #: Trefftz A over families whose traced lift departs from the solver's CL by
 #: more than this fraction is warned: another family or a body carries the
-#: rest, so CDI_T and E_T are of the traced families alone (FR-451 R13). A wing
+#: rest, so CDI_T and E_T are of the traced families alone (FR-1021). A wing
 #: traced alone agreed to 0.15 percent (RPT-171's wing); a wing traced without
 #: its body departed by 6.6 and 7 percent.
 _TRACED_LIFT_TOLERANCE = 0.05
@@ -251,7 +251,7 @@ def _q_ref(point: PolarPoint, rho: float) -> float:
 
 
 def _near_field(point: PolarPoint) -> tuple[float, float, float]:
-    """Return the solver's CL and its pressure and vorticity induced drags (FR-456 R2).
+    """Return the solver's CL and its pressure and vorticity induced drags (FR-1054).
 
     The solver prints one induced drag: from the vorticity where the run
     selected boundaries for it (``SET_VORTICITY_DRAG_BOUNDARIES``), from the
@@ -279,7 +279,7 @@ def _context(ctx: SimContext, point: PolarPoint) -> tuple[object, ...]:
 
 
 def _status(ctx: SimContext, point: PolarPoint) -> str:
-    """Return the point's solver termination status, as the sweep table writes it (FR-456 R10)."""
+    """Return the point's solver termination status, as the sweep table writes it (FR-1061)."""
     status = getattr(ctx.record_of[point.name], "status", None)
     return str(getattr(status, "value", status) or "NA")
 
@@ -552,7 +552,7 @@ def _variant_a(ctx: SimContext, point: PolarPoint) -> list:
 def _warn_traced_lift(
     ctx: SimContext, point: PolarPoint, lift: float, families: Sequence[str]
 ) -> None:
-    """Warn where the families A traced do not carry the solver's lift (FR-451 R13, PFS-2081.96).
+    """Warn where the families A traced do not carry the solver's lift (FR-1021, PFS-2081.96).
 
     A trace over a subset of the lifting surfaces (a wing without its body)
     sheds the circulation of those surfaces alone and ends at their root with
@@ -571,7 +571,7 @@ def _warn_traced_lift(
             f"point={point.name} product=farfield: Trefftz A traces {', '.join(families)} with "
             f"a lift CL_T = {cl_traced:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
             "the traced families do not carry the configuration's lift, so their CDI_T and "
-            "E_T are of those families alone, not of the configuration (FR-451 R13)",
+            "E_T are of those families alone, not of the configuration (FR-1021)",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -634,7 +634,7 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
     lines, shed_values = _wake_sheet(ctx, point, lines, wake.values, mirror=mirror)
     trace = wake_crossings(lines, values=shed_values, x_t=x_t)
     if trace.problem is not None:
-        # FR-452 R3, R4: the point's B row is written NA, never dropped, and
+        # FR-1025, FR-1026: the point's B row is written NA, never dropped, and
         # the WARNING says why; a short wake states the length the run had.
         reach = min(float(line[-1, 0] - line[0, 0]) for line in lines) if lines else _NA
         length = (
@@ -926,14 +926,14 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
 
 
 def _probe_point(ctx: SimContext, point: PolarPoint, analyses: Sequence[str], tables: _Tables):
-    """C and the ledgers of one point: steady, or instant and average (FR-38 R7, FR-456 R1)."""
+    """C and the ledgers of one point: steady, or instant and average (FR-484, FR-1053)."""
     spec = _spec(ctx)
     record = ctx.record_of[point.name]
     run_type = str(record.recipe or "steady")
     unsteady = run_type in UNSTEADY_RUN_TYPES
     key = f"{FARFIELD_DIR}/probes#point={point.name}"
     rotor = run_type in ROTOR_RUN_TYPES
-    # FR-455 R9: an unsteady row whose [[probes]] entries are of kind normal
+    # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
     # holds its probes at the last time step only, in the probe export.
     normal = unsteady and _normal_probes(ctx)
     try:
@@ -983,7 +983,7 @@ def _step(instant: _Instant) -> float:
 
 
 def _normal_probes(ctx: SimContext) -> bool:
-    """Whether the row's ``[[probes]]`` entries are all of kind normal (FR-417, FR-455 R9)."""
+    """Whether the row's ``[[probes]]`` entries are all of kind normal (FR-417, FR-1052)."""
     try:
         return bool(ctx.pproc.samples_normal_probes())
     except PyflightstreamError:
@@ -1000,7 +1000,7 @@ def _last_step(record: object) -> object:
 def _flag_a_plane_short_of_the_lift(
     ctx: SimContext, point: PolarPoint, plane: Mapping[str, float]
 ) -> None:
-    """Warn where the C plane's own lift is not the solver's CL (FR-453 R9, PFS-2081.95).
+    """Warn where the C plane's own lift is not the solver's CL (FR-1038, PFS-2081.95).
 
     The plane's lift is the Kutta-Joukowski lift of the vorticity it holds,
     which roll-up does not change; a plane holding the wake the loads shed
@@ -1020,20 +1020,20 @@ def _flag_a_plane_short_of_the_lift(
             f"point={point.name} product=farfield: the Trefftz C plane carries a lift of its own "
             f"vorticity CL_T = {cl_plane:.4g}, {ratio:.3g} times the solver's CL {cl_near:.4g}; "
             "the probe field does not hold the circulation the loads shed, so its crossflow "
-            "energy is not their induced drag (FR-453 R9, RPT-171)",
+            "energy is not their induced drag (FR-1038, RPT-171)",
             PyflightstreamWarning,
             stacklevel=3,
         )
 
 
 def _warn_compressible(ctx: SimContext, point: PolarPoint) -> None:
-    """Warn once per point that a C row above Mach 0.3 uses incompressible relations (R7)."""
+    """Warn once per point that a C row above Mach 0.3 uses incompressible relations (FR-1036)."""
     mach = ctx.condition(point).get("MACH")
     if isinstance(mach, int | float) and float(mach) > _INCOMPRESSIBLE_MACH:
         warn(
             f"point={point.name} product=farfield: the point flies at Mach {float(mach):.4g}, "
             f"above {_INCOMPRESSIBLE_MACH}; its Trefftz C row is written with the "
-            "incompressible relations of the definitions page (FR-453 R7)",
+            "incompressible relations of the definitions page (FR-1036)",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -1060,7 +1060,7 @@ def _suffixes(
             point.name,
             'the far-field probes of this unsteady row are [[probes]] of kind = "normal", '
             "which hold the last time step only: the instant is written and the average "
-            "is not (FR-455 R9)",
+            "is not (FR-1052)",
         )
     else:
         _skip(
@@ -1084,7 +1084,10 @@ def _analyses(spec, run_type: str, rotor: bool) -> tuple[list[str], dict[str, st
 
 
 def _super_cells(rows: Sequence[tuple[tuple[object, ...], str]]) -> dict[str, dict[str, str]]:
-    """Return per point the super-file cells of its TOTAL rows, as the tables write them (R9)."""
+    """Return per point the super-file cells of its TOTAL rows, as the tables write them.
+
+    (FR-1062).
+    """
     first = 2 + len(CONTEXT_COLUMNS)
     family = first + TREFFTZ_COLUMNS.index("FAMILY")
     variant = first + TREFFTZ_COLUMNS.index("VARIANT")
@@ -1147,7 +1150,7 @@ def _write(ctx: SimContext, spec, tables: _Tables) -> None:
     for suffix, rows in tables.rows.items():
         analysis = suffix.split("_")[0]
         columns = TREFFTZ_COLUMNS if analysis == "trefftz" else LEDGER_COLUMNS
-        # FR-456 R1: <group> is the stem of the simulation's polar tables, so
+        # FR-1053: <group> is the stem of the simulation's polar tables, so
         # the far-field file sits beside its polars by name.
         group = sweep_file_stem(ctx.sim_id, ctx.table_name)
         path = ctx.target(ctx.out / FARFIELD_DIR / f"{group}_{suffix}.csv")

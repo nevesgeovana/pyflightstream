@@ -93,7 +93,7 @@ def merge_runs(
         mine = merged[index[run_id]]
         if mine == row:
             continue
-        # FR-414 R4: a row carrying a person's verdict (``marked``) is never
+        # FR-871: a row carrying a person's verdict (``marked``) is never
         # replaced by one that does not; the merge names it as a conflict.
         verdict_lost = verdict_changed(mine, row)
         if (mine.get("status") == RunStatus.SUBMITTED.value or prefer_other) and not verdict_lost:

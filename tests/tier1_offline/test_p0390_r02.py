@@ -84,7 +84,7 @@ PPROC = (
 #: The SHA-256 of the wing-body-tail row's script as v0.38.0 renders it from the
 #: same files (the reference without ``[study]``, which v0.38.0 refuses), the
 #: workspace root masked and the separators folded. Recorded on the
-#: tree before FR-435 (d1082220) and kept here, beside the test (R12).
+#: tree before FR-435 (d1082220) and kept here, beside the test (FR-990).
 WING_BODY_TAIL_SCRIPT_V0380 = Path(__file__).parent / "fixtures" / "p0390_r02_script_digest.json"
 
 
@@ -237,18 +237,18 @@ def run_of_the_study(tmp_path_factory):
     return workspace, plan, said, ran(workspace, path)
 
 
-# --- R4: one set of files, every model READY --------------------------------
+# --- FR-982: one set of files, every model READY --------------------------------
 
 
 def test_every_model_of_the_study_plans_ready_from_one_set_of_files(run_of_the_study):
-    """P0390-R02 (FR-435 R4) both rows of the use case plan READY, every point of each."""
+    """P0390-R02 (FR-982) both rows of the use case plan READY, every point of each."""
     _, plan, _, records = run_of_the_study
     assert status_of(plan) == {"2001": {PlanStatus.READY}, "2002": {PlanStatus.READY}}
     assert [record.status for record in records] == [RunStatus.CONVERGED, RunStatus.CONVERGED]
 
 
 def test_the_wing_body_script_emits_nothing_of_the_tail(run_of_the_study):
-    """P0390-R02 (FR-435 R4) no removal, no tail base, and the selections without the tail.
+    """P0390-R02 (FR-982) no removal, no tail base, and the selections without the tail.
 
     The wing-body mesh numbers Wing 1, Body 2 and Base 3: the base detection
     names Base alone, and the loads and vorticity selections keep the families
@@ -282,7 +282,7 @@ def test_the_wing_body_script_emits_nothing_of_the_tail(run_of_the_study):
 
 
 def test_a_third_model_carrying_the_wing_alone_plans_ready_with_no_edit(tmp_path):
-    """P0390-R02 (FR-435 R4) a wing alone joins the study with the same three files, unedited."""
+    """P0390-R02 (FR-982) a wing alone joins the study with the same three files, unedited."""
     workspace, path = study(tmp_path, models=(WING_BODY, WING_BODY_TAIL, WING_ALONE))
     plan, said = planned(workspace, path)
     assert status_of(plan) == {
@@ -295,11 +295,11 @@ def test_a_third_model_carrying_the_wing_alone_plans_ready_with_no_edit(tmp_path
     assert "2 rows do not carry it: '2001', '2003'" in sting[0]
 
 
-# --- R9: one plan line per artifact, key and name ---------------------------
+# --- FR-987: one plan line per artifact, key and name ---------------------------
 
 
 def test_the_plan_says_each_skip_once_naming_the_wing_body_row_alone(run_of_the_study):
-    """P0390-R02 (FR-435 R9) one WARNING per artifact, key and name; row 2002 is named in none.
+    """P0390-R02 (FR-987) one WARNING per artifact, key and name; row 2002 is named in none.
 
     Each names the artifact with its file, the key (the group for a ``[groups]``
     member), the name, the reference whose vocabulary holds it and the row. A
@@ -325,7 +325,7 @@ def test_the_plan_says_each_skip_once_naming_the_wing_body_row_alone(run_of_the_
 
 
 def test_a_row_carrying_every_name_plans_with_no_new_line(tmp_path):
-    """P0390-R02 (FR-435 R12) the wing-body-tail row alone plans READY and says nothing new."""
+    """P0390-R02 (FR-990) the wing-body-tail row alone plans READY and says nothing new."""
     for reference in (REFERENCE + STUDY, REFERENCE):
         workspace, path = study(
             tmp_path / str(len(reference)), reference=reference, models=(WING_BODY_TAIL,)
@@ -335,13 +335,13 @@ def test_a_row_carrying_every_name_plans_with_no_new_line(tmp_path):
         assert said == []
 
 
-# --- R11: the record ---------------------------------------------------------
+# --- FR-989: the record ---------------------------------------------------------
 
 
 def test_the_wing_body_record_names_its_skips_and_the_full_model_record_has_no_field(
     run_of_the_study,
 ):
-    """P0390-R02 (FR-435 R11) skipped_names on each wing-body point; absent from the full model's.
+    """P0390-R02 (FR-989) skipped_names on each wing-body point; absent from the full model's.
 
     Read from ``runs.json`` as written: a point that skipped nothing records no
     such key at all, not an empty list, so its record keeps its 0.38.0 content.
@@ -359,11 +359,11 @@ def test_the_wing_body_record_names_its_skips_and_the_full_model_record_has_no_f
     assert [point.skipped_names for point in points if point.sim_id == "2002"] == [None, None]
 
 
-# --- R12: byte identity ------------------------------------------------------
+# --- FR-990: byte identity ------------------------------------------------------
 
 
 def test_the_full_model_script_is_the_one_v0380_writes_from_the_same_files(tmp_path):
-    """P0390-R02 (FR-435 R12) wbt's script is byte for byte v0.38.0's, with and without [study]."""
+    """P0390-R02 (FR-990) wbt's script is byte for byte v0.38.0's, with and without [study]."""
     pinned = json.loads(WING_BODY_TAIL_SCRIPT_V0380.read_text(encoding="utf-8"))["sha256"]
     for reference in (REFERENCE + STUDY, REFERENCE):
         workspace, path = study(
@@ -376,11 +376,11 @@ def test_the_full_model_script_is_the_one_v0380_writes_from_the_same_files(tmp_p
         assert all("skipped_names" not in row for row in rows)
 
 
-# --- R3: no vocabulary, the 0.38.0 reading -----------------------------------
+# --- FR-981: no vocabulary, the 0.38.0 reading -----------------------------------
 
 
 def test_without_a_study_the_two_measured_v0380_refusals_stand(tmp_path):
-    """P0390-R02 (FR-435 R3) without [study]: delete_surfaces refuses, then base_regions."""
+    """P0390-R02 (FR-981) without [study]: delete_surfaces refuses, then base_regions."""
     workspace, path = study(tmp_path / "first", reference=REFERENCE)
     plan, said = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
@@ -404,7 +404,7 @@ def test_without_a_study_the_two_measured_v0380_refusals_stand(tmp_path):
 
 
 def test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study(tmp_path):
-    """P0390-R02 (FR-435 R1) a row's own BASE_REGIONS is no study key: TailBase still refuses."""
+    """P0390-R02 (FR-979) a row's own BASE_REGIONS is no study key: TailBase still refuses."""
     workspace, path = study(tmp_path, pproc=without(PPROC, 'base_regions = ["Base", "TailBase"]\n'))
     lines = [
         line.rsplit("|", 1)[0] + "| BASE_REGIONS: Base, TailBase"
@@ -418,7 +418,7 @@ def test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study(tmp_path):
     assert "states BASE_REGIONS with 'TailBase'" in error_of(plan, "2001")
 
 
-# --- R6: a name the study does not hold is a misspelling ---------------------
+# --- FR-984: a name the study does not hold is a misspelling ---------------------
 
 
 @pytest.mark.parametrize(
@@ -458,7 +458,7 @@ def test_a_rows_own_base_regions_keeps_its_refusal_beside_a_study(tmp_path):
 def test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary(
     tmp_path, artifact, old, new, key, name
 ):
-    """P0390-R02 (FR-435 R6) BLOCKED on both rows at either flag, naming key, name, vocabulary."""
+    """P0390-R02 (FR-984) BLOCKED on both rows at either flag, naming key, name, vocabulary."""
     files = {"setup": SETUP, "pproc": PPROC}
     files[artifact] = files[artifact].replace(old, new)
     workspace, path = study(tmp_path, setup=files["setup"], pproc=files["pproc"])
@@ -468,7 +468,7 @@ def test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary(
         plan, said = planned(workspace, path, **options)
         assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.BLOCKED}}
         # Under the flag the wing-body row is refused first for the Sting it skips
-        # by default (R10), unless the misspelling is in that very key.
+        # by default (FR-988), unless the misspelling is in that very key.
         rows = [("2001", "wb.fsm"), ("2002", "wbt.fsm")]
         if options and key != "delete_surfaces":
             rows = rows[1:]
@@ -483,11 +483,11 @@ def test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary(
         assert fr435_warnings(said) == []
 
 
-# --- R7, R8: the refusals that stand whatever the study holds ---------------
+# --- FR-985, FR-986: the refusals that stand whatever the study holds ---------------
 
 
 def test_a_family_list_every_name_of_which_is_absent_keeps_its_v0380_refusal(tmp_path):
-    """P0390-R02 (FR-435 R7) analysis_families of the tail alone: an empty selection is refused."""
+    """P0390-R02 (FR-985) analysis_families of the tail alone: an empty selection is refused."""
     setup = SETUP.replace(
         'analysis_families = ["Wing", "Body", "HTail", "VTail"]',
         'analysis_families = ["HTail", "VTail"]',
@@ -505,7 +505,7 @@ def test_a_family_list_every_name_of_which_is_absent_keeps_its_v0380_refusal(tmp
 
 
 def test_a_pproc_whose_only_group_is_the_tail_keeps_the_rpt044_refusal(tmp_path):
-    """P0390-R02 (FR-435 R8) no group selects a wing-body boundary: refused with its 0.38.0 text."""
+    """P0390-R02 (FR-986) no group selects a wing-body boundary: refused with its 0.38.0 text."""
     pproc = 'base_regions = ["Base", "TailBase"]\n[groups]\nTAIL = "tail"\n'
     workspace, path = study(tmp_path, pproc=pproc)
     plan, said = planned(workspace, path)
@@ -518,7 +518,7 @@ def test_a_pproc_whose_only_group_is_the_tail_keeps_the_rpt044_refusal(tmp_path)
     assert fr435_warnings(said) == []
 
 
-# --- R5: a skip that renumbers an indexed base region ------------------------
+# --- FR-983: a skip that renumbers an indexed base region ------------------------
 
 INDEXED = '[[base_region_operations]]\noperation = "set_pressure"\nindex = 1\nmodel = "EMPIRICAL"\n'
 CREATE_TAIL_BASE = (
@@ -528,7 +528,7 @@ CREATE_TAIL_BASE = (
 
 
 def test_a_skipped_base_beside_an_index_addressed_operation_is_refused(tmp_path):
-    """P0390-R02 (FR-435 R5) TailBase skipped while base region 1 is addressed by index: refused."""
+    """P0390-R02 (FR-983) TailBase skipped while base region 1 is addressed by index: refused."""
     workspace, path = study(tmp_path / "regions", setup=SETUP + INDEXED)
     plan, said = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
@@ -548,7 +548,7 @@ def test_a_skipped_base_beside_an_index_addressed_operation_is_refused(tmp_path)
 
 
 def test_a_skipped_create_entry_is_not_emitted_and_is_said(tmp_path):
-    """P0390-R02 (FR-435 R4) a create over TailBase, nothing indexed: 2001 leaves it out, said."""
+    """P0390-R02 (FR-982) a create over TailBase, nothing indexed: 2001 leaves it out, said."""
     pproc = without(PPROC, 'base_regions = ["Base", "TailBase"]\n')
     workspace, path = study(tmp_path, setup=SETUP + CREATE_TAIL_BASE, pproc=pproc)
     plan, said = planned(workspace, path)
@@ -563,7 +563,7 @@ def test_a_skipped_create_entry_is_not_emitted_and_is_said(tmp_path):
     assert "CREATE_NEW_BASE_REGION" in script_of(workspace, records, "2002")
 
 
-# --- R10: the flag that asks for the refusal ---------------------------------
+# --- FR-988: the flag that asks for the refusal ---------------------------------
 
 
 @pytest.mark.parametrize(
@@ -633,7 +633,7 @@ def test_a_skipped_create_entry_is_not_emitted_and_is_said(tmp_path):
 def test_the_flag_turns_each_skip_into_a_refusal_of_the_wing_body_row(
     tmp_path, setup, pproc, key, name, reference
 ):
-    """P0390-R02 (FR-435 R10) --ignore-missing-families false refuses row 2001 on each key of R1."""
+    """P0390-R02 (FR-988) --ignore-missing-families false refuses row 2001 on each key of FR-979."""
     workspace, path = study(tmp_path, reference=reference, setup=setup, pproc=pproc)
     plan, said = planned(workspace, path, ignore_missing_families=False)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
@@ -646,7 +646,7 @@ def test_the_flag_turns_each_skip_into_a_refusal_of_the_wing_body_row(
 
 
 def test_the_flag_refuses_an_axial_separation_family_before_the_build_guard(tmp_path):
-    """P0390-R02 (FR-435 R10) axial_separation_families: the wing-body row refused by the flag.
+    """P0390-R02 (FR-988) axial_separation_families: the wing-body row refused by the flag.
 
     26.124 refuses the command itself on every row (RPT-018), so the full model
     is BLOCKED by its build; the wing-body row is refused first, for the name.
@@ -660,11 +660,11 @@ def test_the_flag_refuses_an_axial_separation_family_before_the_build_guard(tmp_
     assert "cites 'HTail'" not in error_of(plan, "2002")
 
 
-# --- R2: the vocabulary and its table ----------------------------------------
+# --- FR-980: the vocabulary and its table ----------------------------------------
 
 
 def test_the_vocabulary_is_the_surfaces_the_aliases_and_their_members(tmp_path):
-    """P0390-R02 (FR-435 R2) [study] reaches ReferenceArtifact.study; how a name is held."""
+    """P0390-R02 (FR-980) [study] reaches ReferenceArtifact.study; how a name is held."""
     from pyflightstream.cases._skipped_families import held_by_the_study
     from pyflightstream.workspace.inputs import resolve_reference
 
@@ -700,7 +700,7 @@ def test_the_vocabulary_is_the_surfaces_the_aliases_and_their_members(tmp_path):
 def test_a_study_table_of_another_shape_is_refused_naming_the_file_and_the_table(
     tmp_path, table, said
 ):
-    """P0390-R02 (FR-435 R2) another key, or surfaces that is not a list of names, is refused."""
+    """P0390-R02 (FR-980) another key, or surfaces that is not a list of names, is refused."""
     from pyflightstream.workspace import InputArtifactError
     from pyflightstream.workspace.inputs import resolve_reference
 
@@ -711,7 +711,7 @@ def test_a_study_table_of_another_shape_is_refused_naming_the_file_and_the_table
 
 
 def test_a_study_table_stating_a_kind_is_the_block_it_was(tmp_path):
-    """P0390-R02 (FR-435 R2) a top-level [study] with a kind is a named point, as on 0.38.0."""
+    """P0390-R02 (FR-980) a top-level [study] with a kind is a named point, as on 0.38.0."""
     from pyflightstream.workspace.inputs import resolve_reference
 
     table = '[study]\nkind = "airframe"\nx_m = 1.0\ny_m = 0.0\nz_m = 0.0\n'
@@ -725,7 +725,7 @@ def test_a_study_table_stating_a_kind_is_the_block_it_was(tmp_path):
 
 
 def test_a_name_the_setup_deleted_is_not_judged_a_name_the_model_lacks(tmp_path):
-    """P0390-R02 (FR-435 R4) vorticity_drag_families citing the deleted Sting: no line, no skip.
+    """P0390-R02 (FR-982) vorticity_drag_families citing the deleted Sting: no line, no skip.
 
     The wing-body-tail model carries the Sting, the setup removes it, and a
     later key citing it is judged against the boundary list as the geometry
@@ -745,7 +745,7 @@ def test_a_name_the_setup_deleted_is_not_judged_a_name_the_model_lacks(tmp_path)
 
 
 def test_two_references_holding_one_name_are_listed_in_one_warning(tmp_path):
-    """P0390-R02 (FR-435 R9) two references, one line, both named."""
+    """P0390-R02 (FR-987) two references, one line, both named."""
     workspace, path = study(tmp_path, models=(WING_BODY, WING_ALONE))
     other = workspace.inputs_dir / "references" / "r002.toml"
     other.write_text(REFERENCE + STUDY, encoding="utf-8")
@@ -761,7 +761,7 @@ def test_two_references_holding_one_name_are_listed_in_one_warning(tmp_path):
 
 
 def test_one_reader_of_the_flag_treats_absent_and_blank_alike():
-    """P0390-R02 (FR-435 R10) the flag's one reader: absent and blank skip, false refuses."""
+    """P0390-R02 (FR-988) the flag's one reader: absent and blank skip, false refuses."""
     from pyflightstream.cases import ReferenceData, SimCase, SweepAxis
     from pyflightstream.cases._skipped_families import (
         ignores_missing_families,
@@ -788,7 +788,7 @@ def test_one_reader_of_the_flag_treats_absent_and_blank_alike():
 
 
 def test_the_additional_post_judges_the_group_members_the_model_lacks(tmp_path):
-    """P0390-R02 (FR-435 R6, R8) the extraction refuses a misspelled member, skips a held one."""
+    """P0390-R02 (FR-984, FR-986) the extraction refuses a misspelled member, skips a held one."""
     from pyflightstream.cases import CampaignConfigError, PprocSpec, workflows
     from pyflightstream.script import Script
     from tests.tier1_offline.test_additional_post import SAVED, STEM, a_point_of
@@ -823,7 +823,7 @@ SUPPORT_ALIAS = 'support = ["Sting"]\n'
 
 @pytest.mark.parametrize("member", ["Sting", "support"])
 def test_a_group_citing_a_surface_the_setup_deleted_is_not_judged(tmp_path, member):
-    """P0390-R02 (FR-435 R4, R12) a [groups] member the setup removed: no line, no skip, no refusal.
+    """P0390-R02 (FR-982, FR-990) a [groups] member the setup removed: no line, no skip, no refusal.
 
     The wing-body-tail model carries the Sting and the setup removes it; a
     group citing it, by name or through an alias, is classified against the
@@ -855,7 +855,7 @@ WING_BODY_PROP = ("2004", "wbp.fsm", ["Wing", "Body", "Base", "Spinner", "Prop1"
 
 
 def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
-    """P0390-R02 (FR-435 R2, R4) a rotor block's own name: held by the study, selects its families.
+    """P0390-R02 (FR-980, FR-982) a rotor block's own name: held by the study, selects its families.
 
     The study declares the wing-body surfaces alone; the reference's rotor
     block PUSHER names the propeller's families. ``analysis_families`` citing
@@ -909,7 +909,7 @@ def test_a_rotor_name_and_its_families_are_in_the_vocabulary(tmp_path):
     ],
 )
 def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setup, pproc, v0380):
-    """P0390-R02 (FR-435 R4) ``each`` in delete_surfaces or base_regions keeps its 0.38.0 reading.
+    """P0390-R02 (FR-982) ``each`` in delete_surfaces or base_regions keeps its 0.38.0 reading.
 
     The study never skips, refuses or says ``all``, ``each`` or
     ``each_blade``: the word is read as 0.38.0 reads it (here its refusal as a
@@ -955,7 +955,7 @@ def test_the_words_that_name_no_set_are_never_judged_by_the_study(tmp_path, setu
     ],
 )
 def test_the_flag_refuses_every_key_without_a_study(tmp_path, setup, pproc, key, name, v0380):
-    """P0390-R02 (FR-435 R10, R3) no [study]: the flag refuses delete_surfaces and the base keys.
+    """P0390-R02 (FR-988, FR-981) no [study]: the flag refuses delete_surfaces and the base keys.
 
     ``--ignore-missing-families false`` names the key the artifact writes (the
     pproc's ``base_regions``, not the row's ``BASE_REGIONS``), the name and the

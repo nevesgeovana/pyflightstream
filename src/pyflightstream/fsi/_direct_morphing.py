@@ -7,7 +7,7 @@ file, in its order, from ``FSIDisp.txt``. With RIGID aerodynamic nodes (the
 only direct mode the package offers) the rows are the UNDEFORMED vertices at
 every call, and the displacements read back are totals from the undeformed
 surface: build 26.125 moved the surface by exactly what was written over two
-coupling cycles (FR-341 R2).
+coupling cycles (FR-341).
 
 So the beam solution is evaluated at each vertex by the rigid-section
 kinematics the mapped route encodes at its three nodes per station

@@ -22,7 +22,7 @@ def _run_guards():
 
 
 def test_p0380_guards_a_missing_guard_file_exits_2(monkeypatch, capsys):
-    """P0380-GUARDS (NFR-44 R1): a listed file not on disk makes the command exit 2, naming it."""
+    """P0380-GUARDS (FR-1188): a listed file not on disk makes the command exit 2, naming it."""
     guards = _run_guards()
     absent = "tests/tier1_offline/test_p0380_not_a_guard.py"
     monkeypatch.setattr(guards, "GUARDS", (*guards.GUARDS, absent))
@@ -31,7 +31,7 @@ def test_p0380_guards_a_missing_guard_file_exits_2(monkeypatch, capsys):
 
 
 def test_p0380_guards_a_failing_guard_exits_1_and_is_named(tmp_path, monkeypatch, capsys):
-    """P0380-GUARDS (NFR-44 R1): a failing guard, or one that ran no test, exits 1 naming its file.
+    """P0380-GUARDS (FR-1188): a failing guard, or one that ran no test, exits 1 naming its file.
 
     The shipped command line runs (with pytest-xdist), and the red test sits in
     a test class, the case whose junit class name is longer than its module.
@@ -57,7 +57,7 @@ def test_p0380_guards_a_failing_guard_exits_1_and_is_named(tmp_path, monkeypatch
 
 
 def test_p0380_guards_green_only_when_every_guard_ran_and_passed(tmp_path, monkeypatch, capsys):
-    """P0380-GUARDS (NFR-44 R1), control: the same command on green guards exits 0."""
+    """P0380-GUARDS (FR-1188), control: the same command on green guards exits 0."""
     guards = _run_guards()
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
@@ -72,23 +72,23 @@ def test_p0380_guards_green_only_when_every_guard_ran_and_passed(tmp_path, monke
     "text", ["run TMP\\sims\\a.fsm then TMP\\b.txt", "run TMP/sims/a.fsm then TMP/b.txt"]
 )
 def test_p0380_guards_the_fold_gives_one_digest_for_either_separator(text):
-    """P0380-GUARDS (NFR-44 R2): the same text with either separator hashes to one value."""
+    """P0380-GUARDS (FR-1189): the same text with either separator hashes to one value."""
     digest = hashlib.sha256(fold_separators(text).encode("utf-8")).hexdigest()
     assert digest == hashlib.sha256(b"run TMP/sims/a.fsm then TMP/b.txt").hexdigest()
 
 
 def test_p0380_guards_the_fold_is_needed():
-    """P0380-GUARDS (NFR-44 R2), control: without the fold the two spellings hash apart."""
+    """P0380-GUARDS (FR-1189), control: without the fold the two spellings hash apart."""
     a, b = "TMP\\sims\\a.fsm", "TMP/sims/a.fsm"
     # The fold must change the backslash spelling (a constant hash comparison of two
     # different strings could not fail, PFS-2135.022) and leave the other one alone.
     assert fold_separators(a) != a
-    assert fold_separators(a) == b  # the Linux half of R2 is the CI run of this file
+    assert fold_separators(a) == b  # the Linux half of FR-1189 is the CI run of this file
     assert fold_separators(b) == b
 
 
 def test_p0380_guards_a_guard_that_ran_no_test_is_red(tmp_path, monkeypatch, capsys):
-    """P0380-GUARDS (NFR-44 R1): a guard file that collects nothing turns a green run red."""
+    """P0380-GUARDS (FR-1188): a guard file that collects nothing turns a green run red."""
     guards = _run_guards()
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
@@ -105,7 +105,7 @@ def test_p0380_guards_a_guard_that_ran_no_test_is_red(tmp_path, monkeypatch, cap
 def test_p0380_guards_a_guard_whose_tests_were_all_skipped_is_not_run(
     tmp_path, monkeypatch, capsys
 ):
-    """P0380-GUARDS (NFR-44 R1): a guard of which every test was skipped ran no test.
+    """P0380-GUARDS (FR-1188): a guard of which every test was skipped ran no test.
 
     The pytest run is replaced by one that writes pytest's JUnit shape (no
     worker is launched): a passing guard, a guard whose one test is skipped,

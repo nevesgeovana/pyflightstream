@@ -230,7 +230,7 @@ CANONICAL_FORMS = {
         "newline, 'name key=value ...' with the keys sorted, factor always "
         "written and every other option only when it is not its default, a "
         "number as the shortest text that reads back to the same float without "
-        "a trailing '.0' (FR-433 R2). The first 8 hexadecimal characters name a "
+        "a trailing '.0' (FR-970). The first 8 hexadecimal characters name a "
         "level folder whose automatic tag is too long; refine.json lists the "
         "selected families as tag_selection, not the text."
     ),

@@ -158,7 +158,7 @@ def coordinates(point: NDArray[numpy.float64]) -> str:
 
     The shortest round-trip digits and never an exponent
     (:func:`pyflightstream._decimal.plain_decimal`), so a node written and
-    read back is the node computed, at any scale (FR-424 R7).
+    read back is the node computed, at any scale (FR-921).
     """
     return " ".join(plain_decimal(float(x)) for x in point)
 
@@ -254,7 +254,7 @@ class TrailingRoute:
 
 
 def te_route(obj: str | Path) -> TrailingRoute:
-    """Return what a mesh's boundaries file states of its trailing edge (FR-424 R11, NFR-45 R3).
+    """Return what a mesh's boundaries file states of its trailing edge (FR-925, NFR-45).
 
     The refinement's one reader of the boundaries file's
     ``[trailing_edges]``: the refinement and the audit read it here, and
@@ -299,7 +299,7 @@ def te_file(obj: str | Path) -> Path | None:
 
     It is the file the boundaries file names under ``[trailing_edges] file``,
     or else ``<stem>.te.txt`` beside the mesh. The refinement and the audit
-    both read it here, so they refuse the same inputs (FR-424 R11).
+    both read it here, so they refuse the same inputs (FR-925).
 
     Raises
     ------

@@ -3,7 +3,7 @@
 The fixture holds the blocks (MESH left out, machine paths replaced) of the ten tier-3 shapes
 freshly imported on FlightStream 26.124 (build 8172026) by the tier-3 preparation recipe,
 and of D, the blade saved by 26.124 after a 12-step unsteady_rotor solve (far field 5). The
-26.124 table is NOT in the released package (FR-312 R2: a 26.124 file keeps its blocks); the
+26.124 table is NOT in the released package (FR-531: a 26.124 file keeps its blocks); the
 tests give it to the package's own reset in-process, which is what registering it in 0.35.0
 would do, and they pin the released behaviour beside it.
 
@@ -80,7 +80,7 @@ def test_the_26124_table_is_the_measurement_of_the_ten_fresh_imports_fr_312():
 
 
 def test_the_builds_compared_the_26124_table_is_not_the_26120_one_fr_312():
-    """The builds named: a table of one build is not the other's, block by block (R2)."""
+    """The builds named: a table of one build is not the other's, block by block (FR-531)."""
     # Verifies FR-312.
     released = FRESH_IMPORT[(BUILD120, UNIT)]
     differing = [n for n in released if _table().get(n) != released[n]]
@@ -116,7 +116,7 @@ def test_the_dirty_save_differs_and_the_reset_puts_back_what_rpt_135_measured_fr
 
 
 def test_the_released_package_keeps_every_block_of_the_recorded_26124_save_fr_312():
-    """As released (R2): no 26.124 table, so the recorded save keeps every block and says so."""
+    """As released (FR-531): no 26.124 table, so the recorded save keeps every block and says so."""
     # Verifies FR-312.
     dirty = _text(_data()["dirty"])
     result = reset_to_fresh_import(dirty, UNIT, "D")

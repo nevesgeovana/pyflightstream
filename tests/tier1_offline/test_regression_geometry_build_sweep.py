@@ -207,7 +207,7 @@ class TestGeometryBuild:
     def test_p0400_geom_build_preview_runs_nothing_and_writes_nothing(
         tmp_path, capsys, monkeypatch
     ):
-        """P0400-GEOM-BUILD (PFS-2081.41): R1, the preview names the script and the names."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1102, the preview names the script and the names."""
         root = _geometry_build__workspace(tmp_path)
         folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         before = sorted(p.name for p in folder.iterdir())
@@ -222,7 +222,7 @@ class TestGeometryBuild:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_build_script_sets_units_marks_saves_then_exports(tmp_path):
-        """P0400-GEOM-BUILD (PFS-2081.41): R2, the order of one build's script."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1103, the order of one build's script."""
         root = _geometry_build__workspace(tmp_path)
         _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         plan = plan_geometry_build(root / "inputs" / "geometries" / "wing")
@@ -251,7 +251,10 @@ class TestGeometryBuild:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_build_refuses_a_command_awaiting_evidence_and_runs_nothing(tmp_path):
-        """P0400-GEOM-BUILD (PFS-2081.41): R9, the evidence gate; the runner is never called."""
+        """P0400-GEOM-BUILD (PFS-2081.41, FR-1110).
+
+        The evidence gate; the runner is never called.
+        """
         root = _geometry_build__workspace(tmp_path)
         _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         plan = plan_geometry_build(root / "inputs" / "geometries" / "wing")
@@ -264,7 +267,9 @@ class TestGeometryBuild:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_build_a_ccs_loft_waits_for_its_probe_on_26124_only(tmp_path):
-        """P0400-GEOM-BUILD (PFS-2081.41): R9, the loft is verified on 26.125 and not on 26.124."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1110, the loft is verified on 26.125 and not on
+        26.124.
+        """
         from tests.tier1_offline.test_regression_geometry_build_sweep import (
             _GEOMETRY_INSTRUCTION__CCS_WING as CCS_WING,
         )
@@ -283,7 +288,9 @@ class TestGeometryBuild:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_build_writes_the_body_its_preview_and_its_record(tmp_path, verified):
-        """P0400-GEOM-BUILD (PFS-2081.41): R3, R4, R6 and R7 on a body read back as stated."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1104, FR-1105, FR-1107 and FR-1108 on a body read
+        back as stated.
+        """
         root = _geometry_build__workspace(tmp_path)
         folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         plan = plan_geometry_build(folder, registry=verified)
@@ -322,7 +329,9 @@ class TestGeometryBuild:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_build_fails_on_other_boundaries_and_promotes_nothing(tmp_path, verified):
-        """P0400-GEOM-BUILD (PFS-2081.41): R5, a saved body whose names are not the stated ones."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1106, a saved body whose names are not the stated
+        ones.
+        """
         root = _geometry_build__workspace(tmp_path)
         folder = _geometry_build__geometry(
             root,
@@ -345,7 +354,7 @@ class TestGeometryBuild:
     def test_p0400_geom_build_a_failed_solver_promotes_nothing_and_keeps_the_partial_folder(
         tmp_path, verified
     ):
-        """P0400-GEOM-BUILD (PFS-2081.41): R3 and R8, the error the command exits 3 on."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1104 and FR-1109, the error the command exits 3 on."""
         root = _geometry_build__workspace(tmp_path)
         folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         plan = plan_geometry_build(folder, registry=verified)
@@ -358,7 +367,7 @@ class TestGeometryBuild:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_build_refuses_existing_outputs_without_overwrite(tmp_path, verified):
-        """P0400-GEOM-BUILD (PFS-2081.41): R9, a second build is refused until --overwrite."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1110, a second build is refused until --overwrite."""
         root = _geometry_build__workspace(tmp_path)
         folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         plan = plan_geometry_build(folder, registry=verified)
@@ -373,7 +382,9 @@ class TestGeometryBuild:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_build_apply_on_an_unprobed_build_exits_2(tmp_path, capsys, monkeypatch):
-        """P0400-GEOM-BUILD (PFS-2081.41): R9 at the command, before any executable is looked up."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1110 at the command, before any executable is looked
+        up.
+        """
         root = _geometry_build__workspace(tmp_path)
         (root / "inputs" / "executables.toml").unlink()
         folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
@@ -388,7 +399,7 @@ class TestGeometryBuild:
     def test_p0400_geom_build_refuses_an_instruction_outside_a_workspace(
         tmp_path, capsys, monkeypatch
     ):
-        """P0400-GEOM-BUILD (PFS-2081.41): R9, an instruction outside inputs/geometries."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1110, an instruction outside inputs/geometries."""
         folder = tmp_path / "loose"
         folder.mkdir()
         _geometry_build__wing_obj(folder / "src.obj")
@@ -402,7 +413,9 @@ class TestGeometryBuild:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_build_a_failed_audit_gate_keeps_the_files_and_says_so(tmp_path, verified):
-        """P0400-GEOM-BUILD (PFS-2081.41): R8, a zero-area face fails G1; the files stay, exit 1."""
+        """P0400-GEOM-BUILD (PFS-2081.41): FR-1109, a zero-area face fails G1; the files stay,
+        exit 1.
+        """
         root = _geometry_build__workspace(tmp_path)
         folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         plan = plan_geometry_build(folder, registry=verified)
@@ -511,7 +524,7 @@ class TestGeometryCad:
     @staticmethod
     @pytest.mark.requirement("FR-475")
     def test_p0400_geom_cad_body_operations_sit_between_import_and_conversion(tmp_path):
-        """P0400-GEOM-CAD (PFS-2081.14): R1, every body operation, in order, in metres."""
+        """P0400-GEOM-CAD (PFS-2081.14): FR-1131, every body operation, in order, in metres."""
         lines = _geometry_cad___lines(
             tmp_path,
             'boundaries = ["Wing"]\n[cad]\nfile = "rig.igs"\n'
@@ -538,7 +551,7 @@ class TestGeometryCad:
     @staticmethod
     @pytest.mark.requirement("FR-475")
     def test_p0400_geom_cad_a_sphere_is_built_by_the_solver(tmp_path):
-        """P0400-GEOM-CAD (PFS-2081.14): R2, the settings then the primitive."""
+        """P0400-GEOM-CAD (PFS-2081.14): FR-1132, the settings then the primitive."""
         lines = _geometry_cad___lines(
             tmp_path,
             'boundaries = ["Sphere"]\n[create]\nmerge_tolerance_pct = 1.0\n'
@@ -578,7 +591,7 @@ class TestGeometryCad:
     @staticmethod
     @pytest.mark.requirement("FR-475")
     def test_p0400_geom_cad_a_wing_is_lofted_from_its_sections(tmp_path):
-        """P0400-GEOM-CAD (PFS-2081.14): R2, each section placed, then the CCS loft."""
+        """P0400-GEOM-CAD (PFS-2081.14): FR-1132, each section placed, then the CCS loft."""
         lines = _geometry_cad___lines(
             tmp_path,
             _GEOMETRY_CAD__SECTIONS,
@@ -615,7 +628,7 @@ class TestGeometryCad:
         ids=[c[0] for c in _GEOMETRY_CAD__REFUSED],
     )
     def test_p0400_geom_cad_refusals(tmp_path, label, text, words):
-        """P0400-GEOM-CAD (PFS-2081.14): R2 and R3, refused before any solver starts."""
+        """P0400-GEOM-CAD (PFS-2081.14): FR-1132 and FR-1133, refused before any solver starts."""
         with pytest.raises(InputArtifactError, match=words):
             _geometry_cad___lines(tmp_path, text, {"naca.txt": "1 0\n", "rig.igs": "IGES"})
 
@@ -689,7 +702,7 @@ def _geometry_complete___body_runner(fail_once: str | None = None):
 
 
 class TestGeometryComplete:
-    """Tier 1, 0.40.0: the rest of the geometry design (FR-471 R10, FR-472 R5 to R7, FR-473 R5).
+    """Tier 1, 0.40.0: the rest of the geometry design (FR-1111, FR-1116 to FR-1118, FR-1124).
 
     P0400-GEOM-ROWS, P0400-GEOM-PARALLEL, P0400-GEOM-OVERLAY, P0400-GEOM-MIRROR and
     P0400-GEOM-CARRY (PFS-2081.41). The sweep is built on the committed
@@ -703,7 +716,7 @@ class TestGeometryComplete:
     def test_p0400_geom_rows_one_row_per_variant_copied_from_the_template(
         tmp_path, monkeypatch, capsys
     ):
-        """P0400-GEOM-ROWS (PFS-2081.41): R5, three cells set per row; matrix untouched."""
+        """P0400-GEOM-ROWS (PFS-2081.41): FR-1116, three cells set per row; matrix untouched."""
         _, folder = _geometry_complete___sweep(tmp_path)
         matrix = tmp_path / "m.fs"
         matrix.write_text(
@@ -733,7 +746,7 @@ class TestGeometryComplete:
     @staticmethod
     @pytest.mark.requirement("FR-472")
     def test_p0400_geom_rows_refusals(tmp_path, monkeypatch, capsys):
-        """P0400-GEOM-ROWS (PFS-2081.41): R5, a POL the matrix lacks, and --rows without --matrix."""  # noqa: E501
+        """P0400-GEOM-ROWS (PFS-2081.41): FR-1116, a POL the matrix lacks, and --rows without --matrix."""  # noqa: E501
         _, folder = _geometry_complete___sweep(tmp_path)
         matrix = tmp_path / "m.fs"
         matrix.write_text(
@@ -750,7 +763,7 @@ class TestGeometryComplete:
     def test_p0400_geom_parallel_builds_every_variant_and_reruns_a_failed_one_alone(
         tmp_path, monkeypatch
     ):
-        """P0400-GEOM-PARALLEL (PFS-2081.41): R6, two at once; the refused variant runs again alone."""  # noqa: E501
+        """P0400-GEOM-PARALLEL (PFS-2081.41): FR-1117, two at once; the refused variant runs again alone."""  # noqa: E501
         from pyflightstream.workspace._geometry_build import (
             apply_geometry_build,
             plan_geometry_build,
@@ -778,7 +791,9 @@ class TestGeometryComplete:
     @staticmethod
     @pytest.mark.requirement("FR-472")
     def test_p0400_geom_overlay_holds_the_control_surface_of_every_variant(tmp_path):
-        """P0400-GEOM-OVERLAY (PFS-2081.41): R7, one file in the base folder, tagged per variant."""
+        """P0400-GEOM-OVERLAY (PFS-2081.41): FR-1118, one file in the base folder, tagged per
+        variant.
+        """
         from pyflightstream.workspace._geometry_build import (
             apply_geometry_build,
             plan_geometry_build,
@@ -800,7 +815,9 @@ class TestGeometryComplete:
     @staticmethod
     @pytest.mark.requirement("FR-473")
     def test_p0400_geom_mirror_of_a_deflected_body_is_warned(tmp_path):
-        """P0400-GEOM-MIRROR (PFS-2081.41): R5, MIRROR over a nonzero angle; NONE and 0 silent."""
+        """P0400-GEOM-MIRROR (PFS-2081.41): FR-1124, MIRROR over a nonzero angle; NONE and 0
+        silent.
+        """
         from pyflightstream.workspace._geometry_build import (
             apply_geometry_build,
             plan_geometry_build,
@@ -842,7 +859,7 @@ class TestGeometryComplete:
     @staticmethod
     @pytest.mark.requirement("FR-471")
     def test_p0400_geom_carry_the_runs_operations_into_the_built_mesh_sidecar(tmp_path):
-        """P0400-GEOM-CARRY (PFS-2081.41): R10, from the source's sidecar, then kept by a rebuild."""  # noqa: E501
+        """P0400-GEOM-CARRY (PFS-2081.41): FR-1111, from the source's sidecar, then kept by a rebuild."""  # noqa: E501
         from pyflightstream.workspace._geometry_build import (
             apply_geometry_build,
             plan_geometry_build,
@@ -1010,7 +1027,7 @@ class TestGeometryInstruction:
     @staticmethod
     @pytest.mark.requirement("FR-470")
     def test_p0400_geom_file_each_source_reads_with_its_defaults(tmp_path):
-        """P0400-GEOM-FILE (PFS-2081.41): R1 and R2, the default outputs per source."""
+        """P0400-GEOM-FILE (PFS-2081.41): FR-1096 and FR-1097, the default outputs per source."""
         ccs = read_geometry_instruction(
             _geometry_instruction__write(
                 tmp_path,
@@ -1044,7 +1061,7 @@ class TestGeometryInstruction:
     def test_p0400_geom_file_the_source_names_are_the_boundaries_with_the_operations_undone(
         tmp_path,
     ):
-        """P0400-GEOM-FILE (PFS-2081.41): R3, a rename then a copy, undone in reverse."""
+        """P0400-GEOM-FILE (PFS-2081.41): FR-1098, a rename then a copy, undone in reverse."""
         text = (
             'boundaries = ["Blade1", "Blade2", "Blade3"]\n'
             + _GEOMETRY_INSTRUCTION__MESH
@@ -1065,7 +1082,7 @@ class TestGeometryInstruction:
         ids=[case[0] for case in _GEOMETRY_INSTRUCTION__REFUSED],
     )
     def test_p0400_geom_file_every_refusal_names_the_file(tmp_path, label, text, words):
-        """P0400-GEOM-FILE (PFS-2081.41): R6, each refused before any solver starts."""
+        """P0400-GEOM-FILE (PFS-2081.41): FR-1101, each refused before any solver starts."""
         files = dict(_GEOMETRY_INSTRUCTION__OBJ)
         files["m.step"] = "x"
         path = _geometry_instruction__write(tmp_path, text, files)
@@ -1079,7 +1096,7 @@ class TestGeometryInstruction:
     @staticmethod
     @pytest.mark.requirement("FR-470")
     def test_p0400_geom_file_the_ccs_table_keeps_the_sidecars_refusals(tmp_path):
-        """P0400-GEOM-FILE (PFS-2081.41): R2 and R6, the REAL form and the file unit."""
+        """P0400-GEOM-FILE (PFS-2081.41): FR-1097 and FR-1101, the REAL form and the file unit."""
         files = {"wing_sections.csv": _geometry_instruction__ccs_text()}
         real = _GEOMETRY_INSTRUCTION__CCS_WING.replace(
             "slot_gap_pct = 1.0\n", 'slot_gap_pct = 1.0\nspace = "REAL"\n'
@@ -1183,7 +1200,7 @@ class TestGeometryOperations:
     @staticmethod
     @pytest.mark.requirement("FR-474")
     def test_p0400_geom_p1ops_copies_cite_the_surface_and_count_the_original(tmp_path):
-        """P0400-GEOM-P1OPS (PFS-2081.13): R1, circular and linear copies."""
+        """P0400-GEOM-P1OPS (PFS-2081.13): FR-1125, circular and linear copies."""
         lines = _geometry_operations___script(
             tmp_path,
             '["Wing", "W2", "W3", "W4"]',
@@ -1200,7 +1217,9 @@ class TestGeometryOperations:
     @staticmethod
     @pytest.mark.requirement("FR-474")
     def test_p0400_geom_p1ops_cut_fill_and_clean(tmp_path):
-        """P0400-GEOM-P1OPS (PFS-2081.13): R2 and R3, the cut replaces the surface by its parts."""
+        """P0400-GEOM-P1OPS (PFS-2081.13): FR-1126 and FR-1127, the cut replaces the surface by
+        its parts.
+        """
         lines = _geometry_operations___script(
             tmp_path,
             '["Nose", "Body"]',
@@ -1222,7 +1241,7 @@ class TestGeometryOperations:
     @staticmethod
     @pytest.mark.requirement("FR-474")
     def test_p0400_geom_p1ops_extract_selects_then_creates_on_consecutive_lines(tmp_path):
-        """P0400-GEOM-P1OPS (PFS-2081.13): R4, a restricted extraction and a deletion."""
+        """P0400-GEOM-P1OPS (PFS-2081.13): FR-1128, a restricted extraction and a deletion."""
         lines = _geometry_operations___script(
             tmp_path,
             '["Wing", "Tip"]',
@@ -1253,7 +1272,7 @@ class TestGeometryOperations:
     @staticmethod
     @pytest.mark.requirement("FR-474")
     def test_p0400_geom_p1ops_node_moves_are_pinned_to_the_mesh(tmp_path):
-        """P0400-GEOM-P1OPS (PFS-2081.13): R5, the pin holds, and a changed mesh is refused."""
+        """P0400-GEOM-P1OPS (PFS-2081.13): FR-1129, the pin holds, and a changed mesh is refused."""
         from tests.tier1_offline.test_regression_geometry_build_sweep import (
             _geometry_build__wing_obj as wing_obj,
         )
@@ -1284,7 +1303,7 @@ class TestGeometryOperations:
     def test_p0400_geom_p1ops_refusals_name_the_operation(
         tmp_path, label, boundaries, operation, words
     ):
-        """P0400-GEOM-P1OPS (PFS-2081.13): R6, refused before any solver starts."""
+        """P0400-GEOM-P1OPS (PFS-2081.13): FR-1130, refused before any solver starts."""
         with pytest.raises(InputArtifactError, match=words):
             _geometry_operations___script(tmp_path, boundaries, "[[operations]]\n" + operation)
 
@@ -1904,7 +1923,7 @@ class TestSweep1Contracts:
         [
             "6 significant digits",
             "{sim} is the first simulation",
-            "FAILED_*, WALLTIME_REACHED, SUBMITTED and RAN_MISSING_LOG",
+            "`CONVERGED`, `WALLTIME_REACHED`, `RAN_MISSING_LOG`, `SUBMITTED` and every `FAILED_`",
         ],
     )
     def test_p0400_doc_contracts(text_needed):
@@ -2468,7 +2487,7 @@ class TestGeometryGroup:
     @staticmethod
     @pytest.mark.requirement("FR-477")
     def test_p0400_geom_group_audit_gives_the_result_of_audit_mesh(tmp_path, monkeypatch, capsys):
-        """P0400-GEOM-GROUP (PFS-2081.41): R1, the same audit, the alias warned once."""
+        """P0400-GEOM-GROUP (PFS-2081.41): FR-1136, the same audit, the alias warned once."""
         mesh = _geometry_build__wing_obj(tmp_path / "wing.obj")
         monkeypatch.chdir(tmp_path)
         assert workspace_cli.main(["geometry", "audit", str(mesh)]) == 0
@@ -2519,7 +2538,7 @@ class TestGeometryMigration:
         [("wing.csv", "wing.fsm"), ("rig.igs", "rig.fsm"), ("hull.stl", "hull.obj")],
     )
     def test_p0400_geom_migrate_an_in_row_source_warns_with_the_replacement(tmp_path, name, built):
-        """P0400-GEOM-MIGRATE (PFS-2081.41): R1, the converter, the build and the cell, and 0.41.0."""  # noqa: E501
+        """P0400-GEOM-MIGRATE (PFS-2081.41): FR-1134, the converter, the build and the cell, and 0.41.0."""  # noqa: E501
         folder = tmp_path / "inputs" / "geometries" / name.split(".")[0]
         folder.mkdir(parents=True)
         geometry = folder / name
@@ -2533,7 +2552,9 @@ class TestGeometryMigration:
     @staticmethod
     @pytest.mark.requirement("FR-476")
     def test_p0400_geom_migrate_sidecar_operations_warn_and_translate_does_not(tmp_path):
-        """P0400-GEOM-MIGRATE (PFS-2081.41): R1, scale, rename and mirror move; translate stays."""
+        """P0400-GEOM-MIGRATE (PFS-2081.41): FR-1134, scale, rename and mirror move; translate
+        stays.
+        """
         geometry = tmp_path / "blade.obj"
         geometry.write_text("x\n", encoding="utf-8")
         moving = MeshImport(
@@ -2551,7 +2572,7 @@ class TestGeometryMigration:
     @staticmethod
     @pytest.mark.requirement("FR-476")
     def test_p0400_geom_migrate_the_plan_of_a_ccs_row_warns_and_still_binds(tmp_path):
-        """P0400-GEOM-MIGRATE (PFS-2081.41): R1, through the plan's binding."""
+        """P0400-GEOM-MIGRATE (PFS-2081.41): FR-1134, through the plan's binding."""
         from tests.tier1_offline.test_p0320_ccs import THREE, _row_case
 
         with pytest.warns(PyflightstreamWarning, match="0.41.0 refuses"):
@@ -2563,7 +2584,7 @@ class TestGeometryMigration:
     def test_p0400_geom_migrate_the_converter_writes_an_instruction_that_reads(
         tmp_path, monkeypatch, capsys
     ):
-        """P0400-GEOM-MIGRATE (PFS-2081.41): R2, a raw mesh with a rename, a scale and a translate."""  # noqa: E501
+        """P0400-GEOM-MIGRATE (PFS-2081.41): FR-1135, a raw mesh with a rename, a scale and a translate."""  # noqa: E501
         root = _geometry_build__workspace(tmp_path)
         folder = root / "inputs" / "geometries" / "blade"
         folder.mkdir()
@@ -2592,7 +2613,7 @@ class TestGeometryMigration:
     @staticmethod
     @pytest.mark.requirement("FR-476")
     def test_p0400_geom_migrate_the_converter_reads_a_ccs_sidecar(tmp_path, monkeypatch):
-        """P0400-GEOM-MIGRATE (PFS-2081.41): R2, [import.ccs] becomes [ccs]."""
+        """P0400-GEOM-MIGRATE (PFS-2081.41): FR-1135, [import.ccs] becomes [ccs]."""
         root = _geometry_build__workspace(tmp_path)
         folder = root / "inputs" / "geometries" / "wing"
         folder.mkdir()
@@ -2610,7 +2631,7 @@ class TestGeometryMigration:
 
     @staticmethod
     def test_p0400_geom_migrate_the_converter_refuses_a_flat_geometry(tmp_path):
-        """P0410-GEOM-FOLDER: R2, a geometry instruction requires its own folder."""
+        """P0410-GEOM-FOLDER: FR-1135, a geometry instruction requires its own folder."""
         from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
 
         root = _geometry_build__workspace(tmp_path)
@@ -2657,7 +2678,7 @@ class TestGeometryPlan:
     def test_p0400_geom_plan_an_unaccepted_body_is_warned_until_accepted(
         built, monkeypatch, capsys
     ):
-        """P0400-GEOM-PLAN (PFS-2081.41): R1 and R3, accept silences the warning."""
+        """P0400-GEOM-PLAN (PFS-2081.41): FR-1120 and FR-1122, accept silences the warning."""
         root, folder, fsm = built
         assert any(
             "never accepted" in text and "geometry accept wing" in text
@@ -2672,7 +2693,7 @@ class TestGeometryPlan:
     @staticmethod
     @pytest.mark.requirement("FR-473")
     def test_p0400_geom_plan_accept_refuses_a_geometry_never_built(built, monkeypatch, capsys):
-        """P0400-GEOM-PLAN (PFS-2081.41): R1, a name with no record, exit 2."""
+        """P0400-GEOM-PLAN (PFS-2081.41): FR-1120, a name with no record, exit 2."""
         root, _, _ = built
         monkeypatch.chdir(root)
         assert main(["geometry", "accept", "nothing"]) == 2
@@ -2682,7 +2703,7 @@ class TestGeometryPlan:
     @pytest.mark.requirement("FR-473")
     @pytest.mark.parametrize("changed", ["wing.geometry.toml", "src.obj"])
     def test_p0400_geom_plan_refuses_a_body_whose_inputs_changed(built, changed):
-        """P0400-GEOM-PLAN (PFS-2081.41): R2, the instruction or the source edited after the build."""  # noqa: E501
+        """P0400-GEOM-PLAN (PFS-2081.41): FR-1121, the instruction or the source edited after the build."""  # noqa: E501
         _, folder, fsm = built
         with (folder / changed).open("a", encoding="utf-8") as handle:
             handle.write("\n# edited\n")
@@ -2695,7 +2716,7 @@ class TestGeometryPlan:
     @staticmethod
     @pytest.mark.requirement("FR-473")
     def test_p0400_geom_plan_warns_on_a_resaved_body_a_failed_audit_and_another_build(built):
-        """P0400-GEOM-PLAN (PFS-2081.41): R3, each warning names the row and the geometry."""
+        """P0400-GEOM-PLAN (PFS-2081.41): FR-1122, each warning names the row and the geometry."""
         _, folder, fsm = built
         record_path = folder / "wing.build.json"
         record = json.loads(record_path.read_text(encoding="utf-8"))
@@ -2717,7 +2738,7 @@ class TestGeometryPlan:
     @staticmethod
     @pytest.mark.requirement("FR-473")
     def test_p0400_geom_plan_a_body_without_a_record_is_planned_as_before(tmp_path):
-        """P0400-GEOM-PLAN (PFS-2081.41): R4, nothing is said of a GUI-saved simulation."""
+        """P0400-GEOM-PLAN (PFS-2081.41): FR-1123, nothing is said of a GUI-saved simulation."""
         import warnings
 
         fsm = tmp_path / "gui.fsm"
@@ -2802,7 +2823,7 @@ class TestGeometrySweep:
     @staticmethod
     @pytest.mark.requirement("FR-472")
     def test_p0400_geom_sweep_only_builds_the_named_variants(tmp_path):
-        """P0400-GEOM-SWEEP (PFS-2081.41): R2, --only, and an unknown tag is refused."""
+        """P0400-GEOM-SWEEP (PFS-2081.41): FR-1113, --only, and an unknown tag is refused."""
         _, folder = _geometry_sweep___wing(tmp_path)
         plan = plan_geometry_build("wing", cwd=folder.parent, only=("AIL+100",))
         assert [v.tag for v in plan.variants] == ["AIL+100"]
@@ -2812,7 +2833,9 @@ class TestGeometrySweep:
     @staticmethod
     @pytest.mark.requirement("FR-472")
     def test_p0400_geom_sweep_from_inside_its_folder_is_refused(tmp_path):
-        """P0400-GEOM-SWEEP (PFS-2081.41): R4, the variants never live inside the base folder."""
+        """P0400-GEOM-SWEEP (PFS-2081.41): FR-1115, the variants never live inside the base
+        folder.
+        """
         _, folder = _geometry_sweep___wing(tmp_path)
         with pytest.raises(InputArtifactError, match="level above"):
             plan_geometry_build(None, cwd=folder)
@@ -2825,7 +2848,7 @@ class TestGeometrySweep:
         ids=["empty", "repeated", "one-tag"],
     )
     def test_p0400_geom_sweep_values_that_cannot_name_their_folders_are_refused(tmp_path, angles):
-        """P0400-GEOM-SWEEP (PFS-2081.41): R4, an empty list or two values with one tag."""
+        """P0400-GEOM-SWEEP (PFS-2081.41): FR-1115, an empty list or two values with one tag."""
         text = (
             _GEOMETRY_INSTRUCTION__CCS_WING
             + f'[sweep]\ncontrol_surface = "AIL"\nangle_deg = {angles}\n'
@@ -2837,7 +2860,7 @@ class TestGeometrySweep:
     @staticmethod
     @pytest.mark.requirement("FR-472")
     def test_p0400_geom_sweep_refuses_a_foreign_folder_of_a_variant_name(tmp_path):
-        """P0400-GEOM-SWEEP (PFS-2081.41): R4, a foreign folder, even with --overwrite."""
+        """P0400-GEOM-SWEEP (PFS-2081.41): FR-1115, a foreign folder, even with --overwrite."""
         from pyflightstream.workspace._geometry_build import refuse_before_running
         from tests.tier1_offline.test_regression_geometry_build_sweep import (
             _geometry_build__verified_registry as verified_registry,
@@ -2857,7 +2880,7 @@ class TestGeometrySweep:
     def test_p0400_geom_sweep_prints_the_matrix_cells_of_each_variant(
         tmp_path, monkeypatch, capsys
     ):
-        """P0400-GEOM-SWEEP (PFS-2081.41): R3, the CONFIGURATION and GEOMETRY cells."""
+        """P0400-GEOM-SWEEP (PFS-2081.41): FR-1114, the CONFIGURATION and GEOMETRY cells."""
         _, folder = _geometry_sweep___wing(tmp_path)
         monkeypatch.chdir(folder.parent)
         assert main(["geometry", "build", "wing"]) == 0
@@ -3059,7 +3082,7 @@ def _rfixr4_sweep___overlay(folder: Path) -> tuple[list[str], list[str]]:
 
 
 class TestRfixR4Sweep:
-    """Offline regressions for sweep output and original angle ordinals (FR-472 R7)."""
+    """Offline regressions for sweep output and original angle ordinals (FR-1118)."""
 
     @staticmethod
     @pytest.fixture(autouse=True)
@@ -3384,7 +3407,7 @@ def _rfixr6_sweep___records_under(geometries: Path) -> list[Path]:
 class TestRfixR6Sweep:
     """A geometry build is one transaction: staged, verified, then promoted whole or not at all.
 
-    P0400-RFIXR6-SWEEP (PFS-2081.120, REL6-002; FR-471 R3, R7, R8 and FR-472). Every
+    P0400-RFIXR6-SWEEP (PFS-2081.120, REL6-002; FR-1104, FR-1108, FR-1109 and FR-472). Every
     record a build leaves names files that exist beside it, wherever the build
     stopped: promoted into the geometry folders after a success, kept in the
     ``.partial`` folders after a solver, audit or overlay failure (the passing

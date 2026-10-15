@@ -498,7 +498,7 @@ def run_campaign(
         command line's ``--sweep-csv`` never leaves a second copy.
     accepted_builds : collection of str
         The installations whose own entry of ``inputs/executables.local.toml``
-        accepts their installed build (FR-436 R7), a build id or ``""`` for
+        accepts their installed build (FR-998), a build id or ``""`` for
         the campaign's own; each accepts that build only, warns as the flag
         does, and its records say so and name the file. Default empty.
 
@@ -1013,7 +1013,7 @@ def _start_campaign_sweep(state: _CampaignState) -> None:
 def _with_the_acceptance(state: _CampaignState, record: RunRecord) -> RunRecord:
     """Return ``record`` stating the acceptance of its build and what the files gave it.
 
-    The acceptance is recorded as since 0.21.0; since 0.39.0 (FR-436 R7, R8)
+    The acceptance is recorded as since 0.21.0; since 0.39.0 (FR-998, FR-999)
     it may come from a workspace settings file or from the build's own entry of
     ``inputs/executables.local.toml``, and ``settings_sources`` then names that
     file (``executables.local.toml`` for the entry), with every other value
@@ -1153,7 +1153,7 @@ def _resolve_campaign_continuation(state: _CampaignState) -> bool:
             status=RunStatus.FAILED_SCRIPT,
             error=str(error),
         )
-        # Every run record states the acceptance and its sources (FR-436 R8).
+        # Every run record states the acceptance and its sources (FR-999).
         refused = _with_the_acceptance(state, refused)
         state.workspace.append_record(refused)
         state.recorded.add(refused.run_id)
@@ -1414,7 +1414,7 @@ def _say_the_summary(outcomes: Sequence[str], elapsed_s: float, *, quiet: bool) 
         _say(f"  | {status:<{width}} | {count:>6} |", quiet=quiet)
     _say(rule, quiet=quiet)
     _say(f"  {len(outcomes)} point(s) in {_clock(elapsed_s)}", quiet=quiet)
-    # FR-436 R6: the table in one line is what a quiet console says of a run.
+    # FR-997: the table in one line is what a quiet console says of a run.
     ended = ", ".join(f"{status} {count}" for status, count in sorted(counts.items()))
     quiet_keeps(f"{len(outcomes)} point(s) in {_clock(elapsed_s)}: {ended}")
 

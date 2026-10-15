@@ -5,7 +5,7 @@ A row of ``unsteady_rotor`` may state ``RUN_WAKE_LENGTH_R: L`` with one of
 ``ceil(L R Omega / (V_ax dtheta))``, the conversion and the axial velocity rule
 that size ``wake_termination_length``. Every reader of the clock reads the
 resolved count: the script, the plan, the record, the export threshold and the
-averaging window (FR-415 R6). No solver runs.
+averaging window (FR-877). No solver runs.
 
 The hand figures: the rotor below has ``diameter_m`` 3.6576, so R = 1.8288 m; it
 turns 1200 rev/min (Omega = 40 pi rad/s) at 30 m/s. At ``DELTA_THETA: 10`` a step
@@ -188,7 +188,7 @@ def test_p0370_s2_a_stated_thrust_convects_the_run_length_at_zero_speed():
 
 @pytest.mark.parametrize("other", [{"TIME_ITERATIONS": "720"}, {"REVOLUTIONS": "3"}])
 def test_p0370_s2_a_second_run_length_is_refused_naming_both(other):
-    """P0370-S2-RUN-WAKE (FR-422 R1): the key beside TIME_ITERATIONS or REVOLUTIONS is
+    """P0370-S2-RUN-WAKE (FR-904): the key beside TIME_ITERATIONS or REVOLUTIONS is
     refused, naming both keys and the remedy (remove one)."""
     requirement = "FR-422"
     with pytest.raises(CampaignConfigError) as refused:
@@ -223,9 +223,9 @@ def test_p0370_s2_a_length_that_is_not_positive_is_refused_naming_the_key(value)
 
 
 def test_p0370_s2_zero_free_stream_without_a_thrust_is_refused_naming_the_remedy():
-    """P0370-S2-RUN-WAKE (FR-422 R2): the free-stream source at zero speed. V_ax = 0 is no
+    """P0370-S2-RUN-WAKE (FR-905): the free-stream source at zero speed. V_ax = 0 is no
     length; the refusal names both remedies, the thrust in the setup or REVOLUTIONS, and the
-    revolution cap that bounds the wake termination is not offered (R5)."""
+    revolution cap that bounds the wake termination is not offered (FR-908)."""
     requirement = "FR-422"
     with pytest.raises(CampaignConfigError) as refused:
         rotor_time_stepping(_at("0.0"))
@@ -236,7 +236,7 @@ def test_p0370_s2_zero_free_stream_without_a_thrust_is_refused_naming_the_remedy
 
 
 def test_p0370_s2_a_thrust_with_no_fluid_density_is_refused_naming_the_remedy():
-    """P0370-S2-RUN-WAKE (FR-422 R2): the induced-velocity source cannot be evaluated with no
+    """P0370-S2-RUN-WAKE (FR-905): the induced-velocity source cannot be evaluated with no
     density; the refusal names the flight condition or REVOLUTIONS, not the revolution cap."""
     requirement = "FR-422"
     case = _at("0.0", wake_termination_thrust_n=1000.0).model_copy(update={"fluid": None})
@@ -317,7 +317,7 @@ def _plan(workspace, matrix):
 
 
 def test_p0370_s2_the_plan_prints_the_resolved_count_and_revolutions(tmp_path):
-    """P0370-S2-RUN-WAKE (FR-422 R3): the plan prints the length, the steps, the revolutions
+    """P0370-S2-RUN-WAKE (FR-906): the plan prints the length, the steps, the revolutions
     and V_ax with its rule for the point, and plan.json carries them."""
     requirement = "FR-422"
     workspace, matrix = _wake_workspace(tmp_path)
@@ -336,7 +336,7 @@ def test_p0370_s2_the_plan_prints_the_resolved_count_and_revolutions(tmp_path):
 
 
 def test_p0370_s2_a_row_without_the_key_plans_as_before_the_control(tmp_path):
-    """P0370-S2-RUN-WAKE (FR-422 R4): no line, and plan.json carries no new key."""
+    """P0370-S2-RUN-WAKE (FR-907): no line, and plan.json carries no new key."""
     requirement = "FR-422"
     workspace, matrix = _wake_workspace(tmp_path, extra="")
     plan = _plan(workspace, matrix)
@@ -349,7 +349,7 @@ def test_p0370_s2_a_row_without_the_key_plans_as_before_the_control(tmp_path):
 
 @pytest.mark.parametrize("other", ["TIME_ITERATIONS: 720", "REVOLUTIONS: 2"])
 def test_p0370_s2_a_second_run_length_is_blocked_at_plan_naming_both(tmp_path, other):
-    """P0370-S2-RUN-WAKE (FR-422 R1): at plan, through the matrix, the point is BLOCKED with
+    """P0370-S2-RUN-WAKE (FR-904): at plan, through the matrix, the point is BLOCKED with
     the refusal naming both keys."""
     requirement = "FR-422"
     workspace, matrix = _wake_workspace(tmp_path, extra=f" / RUN_WAKE_LENGTH_R: 4 / {other}")
@@ -360,7 +360,7 @@ def test_p0370_s2_a_second_run_length_is_blocked_at_plan_naming_both(tmp_path, o
 
 
 def test_p0370_s2_the_run_record_states_the_rule_the_velocity_and_the_count(tmp_path):
-    """P0370-S2-RUN-WAKE (FR-422 R3): a point run through the workflow records the length,
+    """P0370-S2-RUN-WAKE (FR-906): a point run through the workflow records the length,
     the rule, V_ax and the resulting time_iterations in the solver-flag snapshot. The stub
     solver writes nothing, so the point fails for its outputs; the snapshot is in the part
     of the record every point carries."""
@@ -389,7 +389,7 @@ def test_p0370_s2_the_run_record_states_the_rule_the_velocity_and_the_count(tmp_
 
 
 def test_p0370_s2_a_row_without_the_key_records_no_run_length_the_control():
-    """P0370-S2-RUN-WAKE (FR-422 R4): a REVOLUTIONS row's snapshot carries no run_wake entry.
+    """P0370-S2-RUN-WAKE (FR-907): a REVOLUTIONS row's snapshot carries no run_wake entry.
 
     Its run length is the REVOLUTIONS one: 3 turns of 36 steps (10 degrees a
     step) emit TIME_ITERATIONS 108, so the absence is of the key and not of a
@@ -402,11 +402,11 @@ def test_p0370_s2_a_row_without_the_key_records_no_run_length_the_control():
     assert _march(lines)[0] == "TIME_ITERATIONS 108", (requirement, _march(lines))
 
 
-# --- FR-415 R6: the windows read the resolved count --------------------------
+# --- FR-877: the windows read the resolved count --------------------------
 
 
 def test_p0370_s2_an_export_threshold_reads_the_resolved_count():
-    """P0370-S2-RUN-WAKE (FR-422 R3, FR-415 R6): 176 steps of 36 a turn; the last revolution
+    """P0370-S2-RUN-WAKE (FR-906, FR-877): 176 steps of 36 a turn; the last revolution
     exports steps 141 to 176 and the last 10 steps 167 to 176, both counted back from the
     resolved count."""
     requirement = "FR-422"
@@ -424,7 +424,7 @@ def test_p0370_s2_an_export_threshold_reads_the_resolved_count():
 
 
 def test_p0370_s2_the_averaging_window_reads_the_resolved_count():
-    """P0370-S2-RUN-WAKE (FR-422 R3, FR-415 R6): LAST_REVS_AVG 0.25 of 36 steps is 9 steps,
+    """P0370-S2-RUN-WAKE (FR-906, FR-877): LAST_REVS_AVG 0.25 of 36 steps is 9 steps,
     the last 9 of the resolved 176: steps 168 to 176."""
     requirement = "FR-422"
     windows = reduction_windows(_row())

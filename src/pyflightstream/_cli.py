@@ -37,7 +37,7 @@ _POST_WARNINGS: ContextVar[bool | None] = ContextVar(
     "pyflightstream_cli_post_warnings", default=None
 )
 #: Python's own warning format, held for the length of one invocation so a
-#: console level chosen after the parse can put it back (FR-436 R6).
+#: console level chosen after the parse can put it back (FR-997).
 _STANDARD_FORMAT: ContextVar[Callable[..., str] | None] = ContextVar(
     "pyflightstream_cli_standard_format", default=None
 )
@@ -73,7 +73,7 @@ def note_post_ran() -> None:
 
 
 def set_post_warning_policy(enabled: bool) -> None:
-    """Set whether this invocation prints grouped post-processing warnings (FR-436 R5).
+    """Set whether this invocation prints grouped post-processing warnings (FR-996).
 
     Read from the raw command line before the parse; a workspace settings file
     or ``--no-pproc-warnings`` decides after it. Outside a console command it
@@ -89,7 +89,7 @@ def set_post_warning_policy(enabled: bool) -> None:
 
 
 def set_console_level(level: str) -> None:
-    """Set the console level of this invocation, chosen after the parse (FR-436 R6).
+    """Set the console level of this invocation, chosen after the parse (FR-997).
 
     ``verbose`` prints warnings in Python's full format, the other two levels in
     the package's short one; :func:`pyflightstream._progress.set_console_level`
@@ -264,7 +264,7 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
             _POSTED.reset(posted_token)
             _POST_WARNINGS.reset(warning_token)
             _ACTIVE.reset(token)
-            # FR-436 R6: a quiet console says its errors and final line, then the signature.
+            # FR-997: a quiet console says its errors and final line, then the signature.
             _progress.release_quiet(terminal, failed=outcome in ("failed", "cancelled"))
             if outcome == "success" and posted[0]:
                 outcome = "post"

@@ -1,9 +1,9 @@
-"""FR-318 R5: what the place of the vorticity drag list does to a rotor march's exports (RPT-133).
+"""FR-318: what the place of the vorticity drag list does to a rotor march's exports (RPT-133).
 
 The fixtures are the loads spreadsheets the three arms of RPT-133 exported on FlightStream
 26.124 (build 8172026), far field 5: the final export and the step-1 and step-12 exports of
 arm A (the list after START_SOLVER, as 0.34.0 emitted it), arm B (the same three lines
-moved before START_SOLVER, as 0.35.0 emits it, FR-318 R6) and arm C (no list, the
+moved before START_SOLVER, as 0.35.0 emits it, FR-568) and arm C (no list, the
 control). Only the Total row is read.
 """
 
@@ -38,7 +38,7 @@ SOFTWARE = re.compile(r"Software : Flightstream version 26\.1, build #(\d+)")
 #: carries it; False when none does. Measured True (12 of 12 step exports).
 Q2_CARRIED: bool | None = True
 #: RPT-133's reading of the released order: False when no step export of arm A carries the
-#: list (what FR-318 R5 states), True when they do. Measured False (0 of 12 differ from C).
+#: list (what FR-318 states), True when they do. Measured False (0 of 12 differ from C).
 RELEASED_STEPS_CARRY: bool | None = False
 
 
@@ -91,7 +91,7 @@ def test_before_start_solver_the_step_exports_answer_r5_as_rpt_133_recorded_fr_3
 def test_the_package_emits_the_order_rpt_133_measured_as_arm_b_fr_318(tmp_path):
     """Arm B is the package's order since 0.35.0: the moments model, then the list, then the solve.
 
-    0.34.0 emitted arm A, the list after START_SOLVER; FR-318 R6 moves it right before
+    0.34.0 emitted arm A, the list after START_SOLVER; FR-568 moves it right before
     START_SOLVER, and RPT-133's arm B, in which every step export carries the list, is the
     evidence of that order.
     """

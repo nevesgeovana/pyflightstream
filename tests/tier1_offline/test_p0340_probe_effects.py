@@ -32,7 +32,7 @@ def _effect(command: str, workdir):
 
 
 def test_the_sources_are_verified_only_by_a_nonzero_pressure_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: silence and zeros record unprobed, never broken."""
+    """FR-333, marker P0340-QA-PROMOTE: silence and zeros record unprobed, never broken."""
     assert _effect("ACOUSTIC_SOURCES", tmp_path) is None
     _write(tmp_path, _signals({"PYFS_OBS1": [(0.05, 0.0), (0.06, 0.0)]}))
     assert _effect("ACOUSTIC_SOURCES", tmp_path) is None
@@ -41,7 +41,7 @@ def test_the_sources_are_verified_only_by_a_nonzero_pressure_fr_333(tmp_path):
 
 
 def test_the_observer_is_judged_by_its_name_in_the_signals_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: a file with blocks and no such name is broken."""
+    """FR-333, marker P0340-QA-PROMOTE: a file with blocks and no such name is broken."""
     _write(tmp_path, _signals({"PYFS_OBS1": [(0.05, 1.0)]}))
     assert _effect("CREATE_NEW_ACOUSTIC_OBSERVER", tmp_path) is True
     _write(tmp_path, _signals({"Observer 2": [(0.05, 1.0)]}))
@@ -49,7 +49,7 @@ def test_the_observer_is_judged_by_its_name_in_the_signals_fr_333(tmp_path):
 
 
 def test_the_observer_import_counts_the_blocks_named_by_index_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: two imported observers read back as Observer N."""
+    """FR-333, marker P0340-QA-PROMOTE: two imported observers read back as Observer N."""
     rows = [(0.05, 1.0)]
     _write(tmp_path, _signals({"PYFS_OBS1": rows, "Observer 2": rows, "Observer 3": rows}))
     assert _effect("ACOUSTIC_OBSERVERS_IMPORT", tmp_path) is True
@@ -58,7 +58,7 @@ def test_the_observer_import_counts_the_blocks_named_by_index_fr_333(tmp_path):
 
 
 def test_the_observer_time_needs_sixteen_rows_from_the_start_time_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: the requested window is read from the rows."""
+    """FR-333, marker P0340-QA-PROMOTE: the requested window is read from the rows."""
     good = [(0.05 + 0.01 * i, 1.0) for i in range(16)]
     _write(tmp_path, _signals({"PYFS_OBS1": good}))
     assert _effect("SET_ACOUSTIC_OBSERVER_TIME", tmp_path) is True
@@ -67,7 +67,7 @@ def test_the_observer_time_needs_sixteen_rows_from_the_start_time_fr_333(tmp_pat
 
 
 def test_the_observer_deletions_read_who_is_left_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: one of two left is verified, both left is broken."""
+    """FR-333, marker P0340-QA-PROMOTE: one of two left is verified, both left is broken."""
     rows = [(0.05, 1.0)]
     _write(tmp_path, _signals({"PYFS_OBS2": rows}))
     assert _effect("DELETE_ACOUSTIC_OBSERVER", tmp_path) is True
@@ -84,7 +84,7 @@ def test_the_observer_deletions_read_who_is_left_fr_333(tmp_path):
 
 
 def test_a_loft_is_judged_by_its_name_in_the_saved_simulation_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: the lofts are strict, their preparation is lax."""
+    """FR-333, marker P0340-QA-PROMOTE: the lofts are strict, their preparation is lax."""
     assert _effect("CAD_CREATE_WING_MESH_FROM_CCS", tmp_path) is None
     (tmp_path / "saved.fsm").write_bytes(b"... PYFS_WING ...")
     assert _effect("CAD_CREATE_WING_MESH_FROM_CCS", tmp_path) is True
@@ -95,7 +95,7 @@ def test_a_loft_is_judged_by_its_name_in_the_saved_simulation_fr_333(tmp_path):
 
 
 def test_a_setting_is_verified_only_by_a_different_mesh_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: equal or missing lofts record unprobed."""
+    """FR-333, marker P0340-QA-PROMOTE: equal or missing lofts record unprobed."""
     obj = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
     (tmp_path / "reference.obj").write_text(obj, encoding="utf-8")
     assert _effect("CCS_WING_MESH_SUBDIVISIONS", tmp_path) is None
@@ -106,7 +106,7 @@ def test_a_setting_is_verified_only_by_a_different_mesh_fr_333(tmp_path):
 
 
 def test_an_undoing_command_needs_the_restored_loft_to_equal_the_first_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: set, undo, and the first mesh comes back."""
+    """FR-333, marker P0340-QA-PROMOTE: set, undo, and the first mesh comes back."""
     first = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
     changed = first + "v 1 1 0\nf 2 4 3\n"
     for name, text in (
@@ -131,7 +131,7 @@ def _saved(workdir, filename: str, names) -> None:
 
 
 def test_the_surface_removal_reads_the_inventories_before_and_after_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: one boundary gone, the rest renumbered, is verified."""
+    """FR-333, marker P0340-QA-PROMOTE: one boundary gone, the rest renumbered, is verified."""
     before = ("Body", "Base", "Blade1", "Blade2")
     _saved(tmp_path, "state_before.fsm", before)
     _saved(tmp_path, "state_after.fsm", before[1:])
@@ -143,7 +143,7 @@ def test_the_surface_removal_reads_the_inventories_before_and_after_fr_333(tmp_p
 
 
 def test_the_section_export_is_verified_by_a_file_the_solver_added_fr_333(tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: instrument files and the build listing do not count."""
+    """FR-333, marker P0340-QA-PROMOTE: instrument files and the build listing do not count."""
     (tmp_path / "listing_at_build.txt").write_text("keep.txt", encoding="utf-8")
     (tmp_path / "keep.txt").write_text("x", encoding="utf-8")
     (tmp_path / "log_after.txt").write_text("x", encoding="utf-8")

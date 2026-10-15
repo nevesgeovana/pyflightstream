@@ -1,4 +1,4 @@
-"""The converter from an in-row geometry to its instruction file (FR-476 R2).
+"""The converter from an in-row geometry to its instruction file (FR-1135).
 
 Pipeline role: the workspace row. :func:`instruction_from_sidecar` reads the
 sidecar of a geometry a matrix names today (a CCS file, an IGES file, a raw

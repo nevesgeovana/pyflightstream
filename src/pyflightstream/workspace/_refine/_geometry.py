@@ -10,8 +10,8 @@ them: ``_remesh.PASSES``, ``_remesh.SPLIT_RATIO``, ``_remesh.COLLAPSE_RATIO``,
 ``_remesh_pairs.AUGMENT_DEPTH``.
 
 THE PRIMITIVES need numpy alone, so a grid family and the audit run without
-the geometry extra (FR-424 R10): the nearest-point query bins the points into
-cells, not a k-d tree. Face order (FR-424 R7) is written here too, because a grid family
+the geometry extra (FR-924): the nearest-point query bins the points into
+cells, not a k-d tree. Face order (FR-921) is written here too, because a grid family
 that is not one sweep and a remeshed family both take the source's order the
 same way.
 """
@@ -28,37 +28,37 @@ from numpy.typing import NDArray
 Points = NDArray[numpy.float64]
 Faces = list[list[int]]
 
-#: FR-424 R8: an edge whose dihedral exceeds this many degrees is a curve.
+#: FR-922: an edge whose dihedral exceeds this many degrees is a curve.
 RIDGE_DEGREES = 40.0
-#: FR-424 R8: the median ratio of a remeshed edge to its target lies in this band.
+#: FR-922: the median ratio of a remeshed edge to its target lies in this band.
 EDGE_BAND = (0.8, 1.2)
-#: FR-424 R6: a grid node lies within this fraction of the family's size from the source.
+#: FR-920: a grid node lies within this fraction of the family's size from the source.
 GRID_SURFACE_DISTANCE = 1e-3
-#: FR-426 R2 G1: two nodes closer than this fraction of the size are one position.
+#: FR-938 G1: two nodes closer than this fraction of the size are one position.
 DUPLICATE_FRACTION = 1e-9
-#: FR-426 R2 G1: a face whose area is below this fraction of the size squared has zero area.
+#: FR-938 G1: a face whose area is below this fraction of the size squared has zero area.
 ZERO_AREA_FRACTION = 1e-12
-#: FR-426 R2 G4: a trailing-edge point lies on the edge whose mid-point is this close (of the size).
+#: FR-938 G4: a trailing-edge point lies on the edge whose mid-point is this close (of the size).
 TE_POINT_FRACTION = 1e-6
-#: FR-426 R3: the 95th percentile of the equiangle skewness may grow by this much.
+#: FR-939: the 95th percentile of the equiangle skewness may grow by this much.
 SKEWNESS_MARGIN = 0.05
-#: FR-426 R3: the 95th percentile of the quadrilateral warp may reach this many degrees.
+#: FR-939: the 95th percentile of the quadrilateral warp may reach this many degrees.
 WARP_FLOOR_DEGREES = 10.0
-#: FR-426 R3: the 95th percentile of the size growth may reach this ratio.
+#: FR-939: the 95th percentile of the size growth may reach this ratio.
 GROWTH_FLOOR = 2.0
-#: FR-426 R3: a figure within this fraction of a limit or a floor meets it, so a figure
+#: FR-939: a figure within this fraction of a limit or a floor meets it, so a figure
 #: computed in a different order of floating-point operations is not judged by rounding.
 CHECK_TOLERANCE = 1e-6
-#: FR-426 R3: size growth is measured across edges whose dihedral is below this.
+#: FR-939: size growth is measured across edges whose dihedral is below this.
 GROWTH_DIHEDRAL_DEGREES = 30.0
-#: FR-426 R3: the percentile every relative check reads (linear interpolation).
+#: FR-939: the percentile every relative check reads (linear interpolation).
 PERCENTILE = 95.0
-#: FR-426 R4: the aspect ratio beyond which a face is counted (the anisotropy the solver's
+#: FR-940: the aspect ratio beyond which a face is counted (the anisotropy the solver's
 #: user's manual states it accepts, p. 62, p. 67, p. 70).
 ASPECT_LIMIT = 50.0
-#: FR-426 R4: the face quality ratio called good below this (user's manual, p. 247).
+#: FR-940: the face quality ratio called good below this (user's manual, p. 247).
 QUALITY_GOOD = 2.0
-#: FR-426 R4: the pre-processor's panel quality thresholds, counted and never judged:
+#: FR-940: the pre-processor's panel quality thresholds, counted and never judged:
 #: (figure, measure, counted when above the limit rather than below it, limit).
 PANEL_PRACTICE_COUNTS: tuple[tuple[str, str, bool, float], ...] = (
     ("aspect_over_8", "aspect", True, 8.0),
@@ -82,28 +82,28 @@ QUAD_ANGLE_BAND = (30.0, 150.0)
 #: warp_over_10_degrees; the diagonal is the shared edge, so an edge sharper than this is
 #: never merged across.
 QUAD_WARP_DEGREES = 10.0
-#: FR-427 R1: the matched cut nodes of a periodic level lie within this fraction of the size.
+#: FR-942: the matched cut nodes of a periodic level lie within this fraction of the size.
 PERIODIC_LEVEL_FRACTION = 1e-9
-#: FR-427 R2: the source's cut boundaries must match within this fraction of the size.
+#: FR-943: the source's cut boundaries must match within this fraction of the size.
 PERIODIC_SOURCE_FRACTION = 1e-6
-#: FR-428 R1: the projected edge lengths match their factor within this fraction.
+#: FR-945: the projected edge lengths match their factor within this fraction.
 AXIAL_BAND = 0.15
-#: FR-425 R2, R3 and FR-427: a level node lies on a source curve (a grid's interface with
+#: FR-933, FR-934 and FR-427: a level node lies on a source curve (a grid's interface with
 #: a neighbour, a periodic cut) when it is within this fraction of the nearest segment's
 #: length from it.
 ON_CURVE_FRACTION = 0.25
-#: FR-425 R5, FR-426 R2 G3: a level loop closes the same opening as a source loop when every
+#: FR-936, FR-938 G3: a level loop closes the same opening as a source loop when every
 #: node of each lies within this fraction of the source loop's extent (the diagonal of its
 #: bounding box) from the other's polyline. Resampling a loop moves its polyline by the
 #: sagitta of the segments it merges, a few hundredths of the extent of a coarsened circle;
 #: a hole moved by one cell of its own size moves by at least 0.7 of it.
 OPENING_FRACTION = 0.25
-#: FR-425 R3: the band of an unchanged neighbour is this many face layers deep.
+#: FR-934: the band of an unchanged neighbour is this many face layers deep.
 BAND_LAYERS = 2
-#: FR-432 R2: the face layers over which the target of a family at factor 1 beside a refined
+#: FR-965: the face layers over which the target of a family at factor 1 beside a refined
 #: side returns from the length of their new shared edges to the family's own.
 SHARED_LAYERS = 2
-#: The schema version of refine.json and audit.json (FR-424 R4, FR-426 R1).
+#: The schema version of refine.json and audit.json (FR-918, FR-937).
 SCHEMA_VERSION = 1
 
 
@@ -411,7 +411,7 @@ class Stretch:
 
 
 def order_like(pts: Points, new_faces: Faces, verts: Points, faces: Faces) -> Faces:
-    """Write new faces in the order of the source faces they fall on (FR-424 R7).
+    """Write new faces in the order of the source faces they fall on (FR-921).
 
     Each new face takes the position of the source face whose centroid is
     nearest its own; faces on one source face keep the order in which that

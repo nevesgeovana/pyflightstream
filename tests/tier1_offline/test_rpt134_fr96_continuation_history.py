@@ -1,4 +1,4 @@
-"""FR-96 R6 on the plots exports a continuation really wrote on 26.124 (RPT-134).
+"""FR-491 on the plots exports a continuation really wrote on 26.124 (RPT-134).
 
 The fixtures are four plots exports recorded on FlightStream 26.124 (build 8172026), far
 field 5, 30_BLADE, 12 steps a revolution: the point's (one revolution, CONVERGED, archived
@@ -157,7 +157,7 @@ def test_the_joined_history_ends_where_the_unbroken_march_ends_fr_96(tmp_path):
 def test_the_0340_continuation_re_marched_and_posts_one_revolution_fr_96(tmp_path):
     """The continuation 0.34.0 emits: its export IS the point's, and the post says so.
 
-    Since 0.35.0 the post also warns that the continuation added no time step (FR-396 R3).
+    Since 0.35.0 the post also warns that the continuation added no time step (FR-800).
     """
     # Verifies FR-96.
     _, continued = _rows("continuation_plots.txt")
@@ -183,7 +183,7 @@ def test_the_package_keeps_the_reopened_state_as_rpt_134_resume_arm_fr_96():
 
     On 26.124 that block, which 0.34.0 emitted, clears the reopened solution and the march
     restarts at step 1 (RPT-134). The resume arm is that script without the block, and it
-    marched on from step 13 (FR-396 R1); the package now emits the resume arm's order.
+    marched on from step 13 (FR-798); the package now emits the resume arm's order.
     """
     # Verifies FR-96.
     case = _continuing_case(

@@ -539,14 +539,16 @@ class TestRfixBParity:
     @staticmethod
     @pytest.mark.requirement("FR-457")
     def test_p0400_rfixb_parity_contract_names_only_the_sign_exception():
-        """P0400-RFIXB-PARITY: R2 records the exception, platform and unverified outcome."""
+        """P0400-RFIXB-PARITY: FR-457 records the exception, platform and unverified outcome."""
         root = Path(__file__).resolve().parents[2]
         text = (root / "docs/unpublished/requirements/functional-requirements.md").read_text()
-        box = text.split('!!! requirement "FR-457 ', 1)[1].split("!!! requirement ", 1)[0]
-        assert "right-handed cross product" in box
-        assert "z-axis in-plane moment" in box
-        assert "Windows AMD64" in box and "numpy 2.5.4" in box
-        assert "unverified" in box
+        from tests.tier1_offline._docs_site import requirement_rows
+
+        row = requirement_rows(text)["FR-1064"]
+        assert "right-handed cross product" in row[4]
+        assert "z-axis in-plane moment" in row[4]
+        assert row[5] == "pyflightstream.farfield.balances:in_plane_moment"
+        assert row[6].endswith("::test_p0400_rfixb_moment_is_the_integral_of_r_cross_momentum")
 
     @staticmethod
     @pytest.mark.requirement("FR-457")

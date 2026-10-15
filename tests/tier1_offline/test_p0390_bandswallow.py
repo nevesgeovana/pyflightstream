@@ -4,10 +4,10 @@ Every source is synthetic (tests/p0380_mesh_fixtures.py): the cambered sheet
 grid ``G`` with its trailing-edge points file, and ``T``, a strip of
 triangles sharing G's tip station node for node. G is refined at factor 2
 with T unselected, so T's curve with G changes and T is an unchanged
-neighbour whose band of two face layers is remeshed (FR-425 R3). A strip of
+neighbour whose band of two face layers is remeshed (FR-934). A strip of
 two rows is all band: 0.38.0 cut an empty remainder from it and raised on the
 trailing-edge lookup of that empty family. The control strip has four rows,
-so its band leaves a remainder and the cut of FR-425 R3 stays.
+so its band leaves a remainder and the cut of FR-934 stays.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def _gate(level, name: str):
 
 
 def test_p0390_bandswallow_two_rows_are_rebuilt_whole_and_warned(tmp_path):
-    """P0390-BANDSWALLOW (FR-431 R1, R2) a neighbour two layers deep: a level and one warning."""
+    """P0390-BANDSWALLOW (FR-959, FR-960) a neighbour two layers deep: a level and one warning."""
     mesh, _, level, rebuilt = _refine(tmp_path, TWO_ROWS, "swallow")
     assert level.obj.is_file()
     faces = len(mesh.families["T"])
@@ -77,12 +77,12 @@ def test_p0390_bandswallow_two_rows_are_rebuilt_whole_and_warned(tmp_path):
     assert fams["T"], "the rebuilt family is in the level"
     g_nodes = {v for f in fams["G"] for v in f}
     t_nodes = {v for f in fams["T"] for v in f}
-    # R1: T's nodes on the shared curve are the grid's new nodes (factor 2 doubles the 19 nodes)
+    # FR-959: T's nodes on the shared curve are the grid's new nodes (factor 2 doubles the 19 nodes)
     assert len(g_nodes & t_nodes) == 2 * (len(mesh.rows["G"][-1]) - 1) + 1
 
 
 def test_p0390_bandswallow_record_states_the_rebuild(tmp_path):
-    """P0390-BANDSWALLOW (FR-431 R3) refine.json records method, reason, band and faces."""
+    """P0390-BANDSWALLOW (FR-961) refine.json records method, reason, band and faces."""
     mesh, _, level, _ = _refine(tmp_path, TWO_ROWS, "record")
     entry = _record(level)["families"]["T"]
     faces = len(mesh.families["T"])
@@ -94,7 +94,7 @@ def test_p0390_bandswallow_record_states_the_rebuild(tmp_path):
 
 
 def test_p0390_bandswallow_equals_the_stated_remesh_at_factor_1(tmp_path):
-    """P0390-BANDSWALLOW (FR-431 R4, R3) the swallowed neighbour equals T stated at factor 1."""
+    """P0390-BANDSWALLOW (FR-962, FR-961) the swallowed neighbour equals T stated at factor 1."""
     _, _, swallowed, _ = _refine(tmp_path, TWO_ROWS, "swallowed")
     _, _, stated, rebuilt = _refine(tmp_path, TWO_ROWS, "stated", stated=True)
     assert rebuilt == [], "a stated family is not rebuilt by FR-431"
@@ -108,7 +108,7 @@ def test_p0390_bandswallow_equals_the_stated_remesh_at_factor_1(tmp_path):
 
 
 def test_p0390_bandswallow_level_keeps_the_guarantees_of_fr425(tmp_path):
-    """P0390-BANDSWALLOW (FR-431 R5) open loops as the source's, G1 and G3 pass, G as asked."""
+    """P0390-BANDSWALLOW (FR-963) open loops as the source's, G1 and G3 pass, G as asked."""
     mesh, src, level, _ = _refine(tmp_path, TWO_ROWS, "loops")
     _, src_fams = read_mesh(src)
     _, fams = read_mesh(level.obj)
@@ -121,7 +121,7 @@ def test_p0390_bandswallow_level_keeps_the_guarantees_of_fr425(tmp_path):
 
 
 def test_p0390_bandswallow_control_four_rows_keep_the_band(tmp_path):
-    """P0390-BANDSWALLOW (FR-431 R2) four layers deep: cut as FR-425 R3, with no warning."""
+    """P0390-BANDSWALLOW (FR-960) four layers deep: cut as FR-934, with no warning."""
     mesh, _, level, rebuilt = _refine(tmp_path, FOUR_ROWS, "control")
     assert rebuilt == []
     entry = _record(level)["families"]["T"]

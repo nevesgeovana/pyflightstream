@@ -41,7 +41,7 @@ def _rows(workspace) -> dict[str, dict]:
 
 
 def test_p0370_s1_preview_writes_nothing_and_apply_marks_with_an_archive(workspace, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414 R1): the preview leaves runs.json byte-equal; apply marks.
+    """P0370-S1-MARK-CONVERGED (FR-868): the preview leaves runs.json byte-equal; apply marks.
 
     Each marked record keeps under ``marked`` the status it had, the time, the
     reason and the verdict, and the archive holds the previous runs.json.
@@ -73,7 +73,7 @@ def test_p0370_s1_preview_writes_nothing_and_apply_marks_with_an_archive(workspa
 
 
 def test_p0370_s1_points_narrow_the_mark_and_the_reason_is_required(workspace, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414 R1): ``--points`` marks those alone; a reason is required."""
+    """P0370-S1-MARK-CONVERGED (FR-868): ``--points`` marks those alone; a reason is required."""
     code, said = pyfs(
         ["mark-converged", "--sims", "7001", "--points", "V0300RE120AL+020", "--reason", REASON]
         + ["--apply"],
@@ -122,7 +122,7 @@ def _marked_failed(workspace):
     "make", [_submitted, _no_loads, _deleted, _marked_failed], ids=lambda make: make.__name__
 )
 def test_p0370_s1_each_refusal_names_the_point_and_writes_nothing(make, workspace, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414 R2): SUBMITTED, no loads export, deleted, marked failed.
+    """P0370-S1-MARK-CONVERGED (FR-869): SUBMITTED, no loads export, deleted, marked failed.
 
     Each class is refused by name with its reason and remedy, the preview says
     so, and applying writes nothing.
@@ -140,7 +140,7 @@ def test_p0370_s1_each_refusal_names_the_point_and_writes_nothing(make, workspac
 
 
 def test_p0370_s1_show_status_and_the_post_name_the_person_s_verdict(workspace, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414 R3): show, status, post.log and products.json name it.
+    """P0370-S1-MARK-CONVERGED (FR-870): show, status, post.log and products.json name it.
 
     The steady job's two points and the rotor polar are marked: ``show``
     prints the verdict with its reason, ``status --points`` the status each
@@ -174,7 +174,7 @@ def test_p0370_s1_show_status_and_the_post_name_the_person_s_verdict(workspace, 
 
 
 def test_p0370_s1_rebuild_keeps_marked_steady_points(workspace, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414 R4): rebuild retains nested steady-job marks."""
+    """P0370-S1-MARK-CONVERGED (FR-871): rebuild retains nested steady-job marks."""
     from pyflightstream.workspace import RunRecord
 
     mark_converged(workspace.root, ["7002"], reason=REASON, apply=True)
@@ -202,7 +202,7 @@ def test_p0370_s1_rebuild_keeps_marked_steady_points(workspace, capsys):
 
 
 def test_p0370_s1_later_writers_keep_the_person_s_verdict(workspace, tmp_path, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414 R4): rebuild and sync never replace the verdict in silence.
+    """P0370-S1-MARK-CONVERGED (FR-871): rebuild and sync never replace the verdict in silence.
 
     A rebuild of every simulation keeps the person's verdict over the status
     the files support and says so; a sync that prefers the other workspace
@@ -235,7 +235,7 @@ def test_p0370_s1_later_writers_keep_the_person_s_verdict(workspace, tmp_path, c
 
 
 def test_p0370_s1_unknown_ids_name_the_remedy_and_the_points_held(workspace):
-    """P0370-S1-MARK-CONVERGED (FR-414 R2): an unknown simulation or point names the remedy.
+    """P0370-S1-MARK-CONVERGED (FR-869): an unknown simulation or point names the remedy.
 
     A point no record names lists the point names the records do hold, by
     simulation, so a misspelled name is seen at once (API F-3).

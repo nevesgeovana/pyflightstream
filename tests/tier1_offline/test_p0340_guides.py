@@ -63,7 +63,7 @@ def omitted_from_source(tools: dict[str, argparse.ArgumentParser], source: str) 
 
 
 def test_every_command_and_option_of_every_console_tool_is_in_the_source():
-    """FR-328 R4: the source names each command and option, and none that no parser has.
+    """FR-621: the source names each command and option, and none that no parser has.
 
     P0340-CHEATSHEET-ONE
     """
@@ -79,7 +79,7 @@ def test_every_command_and_option_of_every_console_tool_is_in_the_source():
 
 
 def test_a_planted_flag_command_or_cut_line_is_named_by_the_walk():
-    """FR-328 R4 controls: a flag, a command and a cut line, each reported.
+    """FR-621 controls: a flag, a command and a cut line, each reported.
 
     P0340-CHEATSHEET-ONE
     """

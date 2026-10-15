@@ -120,7 +120,7 @@ def _entry(
     """Return the job entry collect wrote for this point, from the receipt and the job folder.
 
     What only the submission carried is left unstated, never invented (FR-412
-    R4): ``values``, the scheduler's fields bound when the job was submitted,
+    FR-859): ``values``, the scheduler's fields bound when the job was submitted,
     is empty.
     """
     folder = job.dir.rstrip("/")
@@ -226,7 +226,7 @@ def grouped_facts(facts: dict[str, Any], grouped: GroupedPoint | None) -> str | 
     A point whose job folder holds the scheduler descriptor was submitted, as
     a point run alone whose own folder holds it (FR-372). A point whose files
     are still in its batch folder is left SUBMITTED with its job entry, for
-    ``collect`` to move home and complete (FR-412 R1b): a rebuild writes nothing
+    ``collect`` to move home and complete (FR-1203): a rebuild writes nothing
     in the tree, and a record completed there would name outputs the post does
     not find. Without a plan receipt naming its job, collect could not move it.
     """

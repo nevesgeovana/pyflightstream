@@ -14,7 +14,7 @@ command that reads a manifest takes ``--runs NAME`` from one list.
 Since 0.39.0 (FR-436) :mod:`pyflightstream.run.cli` parses through
 :func:`parsed`: an option the command line does not state takes its default
 from ``pyfs.local.toml``, else ``pyfs.toml``, else the package. The parse is
-this family's (R11); the parser adaptation it runs inside is the command-line
+this family's (FR-1002); the parser adaptation it runs inside is the command-line
 side of :mod:`pyflightstream.workspace.cli`, and the schema, the precedence and
 the provenance are :mod:`pyflightstream.workspace._settings_file`'s.
 """
@@ -251,7 +251,7 @@ def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_console_arguments(parser: argparse.ArgumentParser, verbose_help: str) -> None:
-    """Add ``--verbose`` and ``--log-level`` (FR-436 R6), one choice of the console level."""
+    """Add ``--verbose`` and ``--log-level`` (FR-997), one choice of the console level."""
     console = parser.add_mutually_exclusive_group()
     console.add_argument("--verbose", action="store_true", help=verbose_help)
     console.add_argument(
@@ -269,7 +269,7 @@ def _add_console_arguments(parser: argparse.ArgumentParser, verbose_help: str) -
 def _add_switch(
     parser: argparse.ArgumentParser, flag: str, help_text: str, *, no_help: str = ""
 ) -> None:
-    """Add a settable switch and its ``--no-`` form, one choice of it (FR-436 R5)."""
+    """Add a settable switch and its ``--no-`` form, one choice of it (FR-996)."""
     name = flag.removeprefix("--").replace("-", "_")
     switch = parser.add_mutually_exclusive_group()
     switch.add_argument(flag, dest=name, action="store_true", help=help_text)

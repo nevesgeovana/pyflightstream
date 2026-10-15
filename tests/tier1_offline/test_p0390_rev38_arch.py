@@ -1,4 +1,4 @@
-"""P0390-REV38 (NFR-45 R3, PUSH-W12-ARCH-2): no private name crosses the workspace package boundary.
+"""P0390-REV38 (NFR-45, PUSH-W12-ARCH-2): no private name crosses the workspace package boundary.
 
 The 0.38.0 package re-exported ``_is_reparse`` from ``pyflightstream.workspace`` for
 the helpers that had moved out of ``storage.py``. The helper now has a public name
@@ -64,7 +64,7 @@ def _tree() -> dict[str, str]:
 
 
 def test_the_reparse_helper_has_a_public_name_in_its_home_module():
-    """P0390-REV38 (NFR-45 R3, PUSH-W12-ARCH-2): ``_links.is_reparse`` is public."""
+    """P0390-REV38 (NFR-45, PUSH-W12-ARCH-2): ``_links.is_reparse`` is public."""
     assert callable(_links.is_reparse)
     assert not hasattr(_links, "_is_reparse")
     assert not hasattr(workspace, "_is_reparse")
@@ -72,12 +72,12 @@ def test_the_reparse_helper_has_a_public_name_in_its_home_module():
 
 
 def test_no_module_outside_workspace_reads_a_new_private_name_from_it():
-    """P0390-REV38 (NFR-45 R3, PUSH-W12-ARCH-2): no crossing exists at all."""
+    """P0390-REV38 (NFR-45, PUSH-W12-ARCH-2): no crossing exists at all."""
     assert crossings(_tree()) == set()
 
 
 def test_the_guard_sees_a_planted_private_import():
-    """P0390-REV38 (NFR-45 R3, PUSH-W12-ARCH-2): control, a planted private import is found."""
+    """P0390-REV38 (NFR-45, PUSH-W12-ARCH-2): control, a planted private import is found."""
     planted = _tree()
     planted["run/planted.py"] = "from pyflightstream.workspace import _is_reparse\n"
     assert crossings(planted) - KNOWN_CROSSINGS == {("run/planted.py", "_is_reparse")}
@@ -86,7 +86,7 @@ def test_the_guard_sees_a_planted_private_import():
 
 
 def test_the_guard_resolves_a_planted_relative_import():
-    """P0390-REV38 (NFR-45 R3, PUSH-W12-ARCH-2): control, a relative private import is found.
+    """P0390-REV38 (NFR-45, PUSH-W12-ARCH-2): control, a relative private import is found.
 
     ``from ..workspace import _x`` and ``from ..workspace._links import _x`` in ``run/``
     are the absolute imports written relatively and are found; a relative import of

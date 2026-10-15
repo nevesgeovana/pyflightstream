@@ -65,7 +65,7 @@ def _offences(text: str, digests: frozenset[str] = WITHDRAWN_DIGESTS) -> list[st
 
 
 def test_no_tracked_file_carries_a_documentation_digest():
-    """P0340-VENDOR-DIGESTS, FR-344 R2: the tracked tree is clean."""
+    """P0340-VENDOR-DIGESTS, FR-688: the tracked tree is clean."""
     files = _tracked()
     offenders = []
     read = 0
@@ -83,7 +83,7 @@ def test_no_tracked_file_carries_a_documentation_digest():
 
 
 def test_the_guard_refuses_a_withdrawn_digest_and_a_named_line():
-    """P0340-VENDOR-DIGESTS, FR-344 R2: a planted digest and a planted line are found."""
+    """P0340-VENDOR-DIGESTS, FR-688: a planted digest and a planted line are found."""
     sample = hashlib.sha256(b"P0340-VENDOR-DIGESTS a planted digest").hexdigest()
     withdrawn = frozenset({hashlib.sha256(sample.encode("utf-8")).hexdigest()})
     assert _offences("clean prose, no value here\n", withdrawn) == []
@@ -95,7 +95,7 @@ def test_the_guard_refuses_a_withdrawn_digest_and_a_named_line():
 
 
 def test_the_guard_keeps_its_negative_controls():
-    """P0340-VENDOR-DIGESTS, FR-344 R2: a commit id and an unrelated name pass."""
+    """P0340-VENDOR-DIGESTS, FR-688: a commit id and an unrelated name pass."""
     commit = hashlib.sha1(b"P0340-VENDOR-DIGESTS a commit").hexdigest()
     assert len(commit) == 40
     other = hashlib.sha256(b"P0340-VENDOR-DIGESTS an unrelated value").hexdigest()

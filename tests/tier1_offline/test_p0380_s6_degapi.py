@@ -55,7 +55,7 @@ def _command(capsys, *argv: str) -> tuple[int, str, str]:
 
 
 def test_the_command_and_the_package_share_one_function_and_the_old_path_still_serves():
-    """P0380-DEGAPI (FR-429 R1): the command module's derive_thin_blade IS the
+    """P0380-DEGAPI (FR-947): the command module's derive_thin_blade IS the
     workspace's, the three names are declared in __all__ and the private module still
     defines the same objects with unchanged signatures."""
     assert cli.derive_thin_blade is workspace.derive_thin_blade
@@ -81,7 +81,7 @@ def test_the_command_and_the_package_share_one_function_and_the_old_path_still_s
 
 
 def test_the_command_and_the_function_write_the_same_bytes(tmp_path, capsys):
-    """P0380-DEGAPI (FR-429 R2): on one synthetic blade OBJ the command and the
+    """P0380-DEGAPI (FR-948): on one synthetic blade OBJ the command and the
     function write byte-identical mesh and sidecar files."""
     by_command = _source(tmp_path / "command")
     by_function = _source(tmp_path / "function")
@@ -168,7 +168,7 @@ _INVALID = [
 
 @pytest.mark.parametrize("build", _INVALID, ids=lambda build: build.__name__.strip("_"))
 def test_every_refusal_has_the_same_text_from_the_command_and_the_function(tmp_path, capsys, build):
-    """P0380-DEGAPI (FR-429 R2): a refused input gives the one message from both, the
+    """P0380-DEGAPI (FR-948): a refused input gives the one message from both, the
     command prints it on standard error with exit code 2, and neither writes anything
     the other did not find."""
     source, flags = build(tmp_path)
@@ -191,7 +191,7 @@ def test_every_refusal_has_the_same_text_from_the_command_and_the_function(tmp_p
 
 
 def test_the_generated_reference_lists_the_three_names():
-    """P0380-DEGAPI (FR-429 R3): the API reference page of pyflightstream.workspace holds
+    """P0380-DEGAPI (FR-949): the API reference page of pyflightstream.workspace holds
     an entry for each of the three names, and the surface the generator reads holds them."""
     generator = _generator()
     module = "pyflightstream.workspace"

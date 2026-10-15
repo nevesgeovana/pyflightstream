@@ -6,12 +6,12 @@ Pipeline role: quality gate on ``pyfs-workspace profile`` and
 The command writes the radial thrust profile a row's ``PROFILE: <stem>``
 names, ``inputs/profiles/<stem>.csv``, beside its provenance record, as the
 field operations write a custom free stream: from a POL's written sections
-(R1), or as the uniform or the Betz-Prandtl shape (R2); scaled so that
-``B * integral(F dr)`` is a thrust in newtons or a CT, never both (R3); the
-integral of the written rows taken again and stated (R4); in the form the
-run's copy of a profile takes (R5); previewing until applied and never
-overwriting unless asked (R6); the ELLIPTICAL disc said to need no file and
-the RELAXED disc said to ignore a profile (R7). Every expected number here is
+(FR-697), or as the uniform or the Betz-Prandtl shape (FR-698); scaled so that
+``B * integral(F dr)`` is a thrust in newtons or a CT, never both (FR-699); the
+integral of the written rows taken again and stated (FR-700); in the form the
+run's copy of a profile takes (FR-701); previewing until applied and never
+overwriting unless asked (FR-702); the ELLIPTICAL disc said to need no file and
+the RELAXED disc said to ignore a profile (FR-703). Every expected number here is
 worked out in this file from the fixture, never read back from the module.
 
 What it does NOT check: what the solver does with the file. RPT-070 measured
@@ -95,7 +95,7 @@ def _post(root: Path, table: str = TABLE) -> Path:
 
 
 def test_p0340_adprof_a_pol_s_written_sections_become_the_profile(tmp_path, capsys):
-    """P0340-ADPROF, FR-347 R1 R3 R4 R5: the table of POL 7 found by --pol, -Fx at the
+    """P0340-ADPROF, FR-697 FR-699 FR-700 FR-701: the table of POL 7 found by --pol, -Fx at the
     stations, a zero from the axis to the hub and a zero at the tip, scaled to 100 N, the
     one negative station set to zero and counted, and the record naming the table."""
     # P0340-ADPROF FR-347
@@ -140,7 +140,7 @@ def test_p0340_adprof_a_pol_s_written_sections_become_the_profile(tmp_path, caps
 
 
 def test_p0340_adprof_a_table_of_several_steps_is_averaged_over_the_last_k(tmp_path):
-    """P0340-ADPROF, FR-347 R1: a history table is refused without --last and averaged over
+    """P0340-ADPROF, FR-697: a history table is refused without --last and averaged over
     its last K steps, station by station, with --last; steps that state different stations
     are refused."""
     # P0340-ADPROF FR-347
@@ -180,7 +180,7 @@ def test_p0340_adprof_a_table_of_several_steps_is_averaged_over_the_last_k(tmp_p
 
 
 def test_p0340_adprof_the_uniform_and_betz_prandtl_shapes(tmp_path):
-    """P0340-ADPROF, FR-347 R2: UNI is F = c r from the hub to the tip with a zero inside the
+    """P0340-ADPROF, FR-698: UNI is F = c r from the hub to the tip with a zero inside the
     hub; BP is c r f_tip f_hub with Prandtl's factors and tan(phi) = J R / (pi r), zero at
     the hub and at the tip, each value worked out here from the formula."""
     # P0340-ADPROF FR-347
@@ -212,7 +212,7 @@ def test_p0340_adprof_the_uniform_and_betz_prandtl_shapes(tmp_path):
 
 
 def test_p0340_adprof_a_betz_prandtl_disc_whose_hub_is_the_axis_is_zero_on_it():
-    """P0340-ADPROF, FR-347 R2: with hub radius 0 the first station is r = 0, where
+    """P0340-ADPROF, FR-698: with hub radius 0 the first station is r = 0, where
     F = r f_tip is zero; the row is (0, 0) and no row is put inside a hub there is none of."""
     # P0340-ADPROF FR-347
     bp = betz_prandtl_profile(DiscGeometry(TIP, 0.0, BLADES), advance_ratio=1.2, stations=5)
@@ -222,7 +222,7 @@ def test_p0340_adprof_a_betz_prandtl_disc_whose_hub_is_the_axis_is_zero_on_it():
 
 
 def test_p0340_adprof_a_station_at_zero_thrust_is_not_counted_as_clipped(tmp_path):
-    """P0340-ADPROF, FR-347 R1: of a station at exactly 0 N/m and one at -1 N/m (as -Fx),
+    """P0340-ADPROF, FR-697: of a station at exactly 0 N/m and one at -1 N/m (as -Fx),
     only the negative one is set to zero and counted; the zero one already is zero."""
     # P0340-ADPROF FR-347
     path = tmp_path / "P7_sloads_Blade1.csv"
@@ -234,7 +234,7 @@ def test_p0340_adprof_a_station_at_zero_thrust_is_not_counted_as_clipped(tmp_pat
 
 
 def test_p0340_adprof_the_target_is_a_thrust_or_a_ct_never_both(tmp_path, capsys):
-    """P0340-ADPROF, FR-347 R3: a CT is worked out as T = CT rho n^2 D^4, D twice the tip
+    """P0340-ADPROF, FR-699: a CT is worked out as T = CT rho n^2 D^4, D twice the tip
     radius; both, neither, or a CT without its density and speed are refused with exit 2."""
     # P0340-ADPROF FR-347
     root = tmp_path / "ws"
@@ -263,7 +263,7 @@ def test_p0340_adprof_the_target_is_a_thrust_or_a_ct_never_both(tmp_path, capsys
 
 
 def test_p0340_adprof_the_integral_of_the_written_rows_is_stated(tmp_path):
-    """P0340-ADPROF, FR-347 R4: the record states B * integral(F dr) of the rows the file
+    """P0340-ADPROF, FR-700: the record states B * integral(F dr) of the rows the file
     holds, by the trapezoid rule, equal to the target, worked out here from the bytes; rows
     that miss the target by more than one part in 10^9 are refused and nothing is written."""
     # P0340-ADPROF FR-347
@@ -298,7 +298,7 @@ def test_p0340_adprof_the_integral_of_the_written_rows_is_stated(tmp_path):
 
 
 def test_p0340_adprof_the_plan_reads_the_written_profile(tmp_path, capsys):
-    """P0340-ADPROF, FR-347 R5 R7: the file written under the stem a row's PROFILE names is
+    """P0340-ADPROF, FR-701 FR-703: the file written under the stem a row's PROFILE names is
     the file the row binds and the text the run's copy holds, every point READY; the disc is
     read from the reference (--ref, --disc); a RELAXED disc is noted by the command and still
     warned about by the plan (FR-332), a RIGID one is neither."""
@@ -361,7 +361,7 @@ def test_p0340_adprof_the_plan_reads_the_written_profile(tmp_path, capsys):
 
 
 def test_p0340_adprof_preview_overwrite_and_one_file_per_stem(tmp_path, capsys):
-    """P0340-ADPROF, FR-347 R6: a preview writes nothing; a second write is refused without
+    """P0340-ADPROF, FR-702: a preview writes nothing; a second write is refused without
     --overwrite; a stem the folder already holds in another file is refused."""
     # P0340-ADPROF FR-347
     root = tmp_path / "ws"
@@ -381,7 +381,7 @@ def test_p0340_adprof_preview_overwrite_and_one_file_per_stem(tmp_path, capsys):
 
 
 def test_p0340_adprof_refusals_name_what_is_wrong(tmp_path, capsys):
-    """P0340-ADPROF, FR-347 R1 R5 R6: a station outside the disc, a sign that reads no
+    """P0340-ADPROF, FR-697 FR-701 FR-702: a station outside the disc, a sign that reads no
     thrust, an option of another shape, --family beside a named table, a POL with no
     recorded table, a disc named half by a reference, a disc named by a reference AND
     stated, a reference disc whose profile_units are not NEWTONS, and no blade are refused,
@@ -449,7 +449,7 @@ def test_p0340_adprof_refusals_name_what_is_wrong(tmp_path, capsys):
 
 
 def test_p0340_adprof_pol_finds_its_family_s_table_alone(tmp_path, capsys):
-    """P0340-ADPROF, FR-347 R1: --pol finds the table of its family whether products.json
+    """P0340-ADPROF, FR-697: --pol finds the table of its family whether products.json
     states the families as a list or as one name, a family whose name begins another's
     (Blade1 and Blade12) is not taken for it, and a POL with two tables of the family is
     refused, naming both."""
@@ -483,7 +483,7 @@ def test_p0340_adprof_pol_finds_its_family_s_table_alone(tmp_path, capsys):
 
 
 def test_p0340_adprof_the_elliptical_disc_needs_no_file_and_the_pages_say_so(capsys):
-    """P0340-ADPROF, FR-347 R7: the command's description and the page say the ELLIPTICAL
+    """P0340-ADPROF, FR-703: the command's description and the page say the ELLIPTICAL
     disc is native and needs no file, that a RELAXED disc ignores a profile (RPT-137), and
     the page and the cheatsheet name the command."""
     # P0340-ADPROF FR-347

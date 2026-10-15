@@ -12,7 +12,7 @@ WHAT "DECLARED" MEANS. The solver log of a point is the file its script told
 the solver to write its log to, recorded at submission under
 ``declared_logs``, and present among its ``declared_outputs``. A machine whose
 HPC profile states ``[log] export_log = false`` writes no log from the
-script, so nothing is declared there and the rule never fires (R5): that
+script, so nothing is declared there and the rule never fires (FR-864): that
 machine's log is the scheduler's, and collect keeps its 0.36.0 handling.
 
 WHAT IS UNAVAILABLE, said once here and read by every writer and reader of
@@ -43,7 +43,7 @@ __all__ = [
     "script_log_names",
 ]
 
-#: What only a solver log carries, in the order every message names it (FR-413 R7).
+#: What only a solver log carries, in the order every message names it (FR-865).
 UNAVAILABLE_WITHOUT_LOG: tuple[str, ...] = (
     "the residual history",
     "the convergence verdict",
@@ -52,7 +52,7 @@ UNAVAILABLE_WITHOUT_LOG: tuple[str, ...] = (
     "the solver's own iteration count",
 )
 
-#: The record fields that only a log can fill, each written null (R2): never zero,
+#: The record fields that only a log can fill, each written null (FR-861): never zero,
 #: never estimated, never carried over from an assessment that read no log.
 _LOG_ONLY_FIELDS: tuple[str, ...] = (
     "wall_time_s",
@@ -73,7 +73,7 @@ _LOG_VERBS = frozenset(verb for kind, _, verb, _ in EXPORT_KINDS if kind == "log
 def script_log_names(script_text: str | None) -> list[str]:
     """Return the name of every file a script tells the solver to write its log to.
 
-    THE ONE READING of a script's log names (FR-413 R8): the run layer's
+    THE ONE READING of a script's log names (FR-867): the run layer's
     log-line checks and the collect of a point whose record declares no log
     both come here, so the two cannot disagree. EXPORT_LOG is ``param_lines``:
     the command alone on its line and the file on the next. The name is the
@@ -104,7 +104,7 @@ def script_log_names(script_text: str | None) -> list[str]:
 
 
 def declared_log_names(record: RunRecord, sim_dir: Path | None) -> list[str]:
-    """Name the solver logs of a record: its ``declared_logs``, else its script's (FR-413 R8).
+    """Name the solver logs of a record: its ``declared_logs``, else its script's (FR-867).
 
     A record that carries the field keeps the field's names. A record without
     it (a point submitted before 0.37.0) is read from the job's own script on
@@ -142,11 +142,11 @@ def absent_solver_logs(
 ) -> tuple[str, ...]:
     """Return the declared solver logs absent from ``folder`` while every other output is there.
 
-    THE ONE DECISION OF RAN_MISSING_LOG (FR-413 R6). Empty when no output of
+    THE ONE DECISION OF RAN_MISSING_LOG (FR-866). Empty when no output of
     ``outputs`` is a declared log, when every declared log is present, or when
     any other declared output (those the package writes itself, such as a
     translated Tecplot, excepted) is missing: a point missing an output other
-    than its log is FAILED_INCOMPLETE_OUTPUT as before (R7).
+    than its log is FAILED_INCOMPLETE_OUTPUT as before (FR-865).
 
     Parameters
     ----------
@@ -188,7 +188,7 @@ def point_absent_logs(
         Where its job wrote them.
     sim_dir : Path, optional
         The simulation folder holding the job's script, read for the log names
-        when the record carries no ``declared_logs`` (R8).
+        when the record carries no ``declared_logs`` (FR-867).
 
     Returns
     -------
@@ -214,7 +214,7 @@ def point_absent_logs(
 
 
 def missing_log_note(logs: Sequence[str]) -> str:
-    """Return the ``residual_note`` of a RAN_MISSING_LOG record (R2)."""
+    """Return the ``residual_note`` of a RAN_MISSING_LOG record (FR-861)."""
     return (
         f"the solver log {_listed([_name(name) for name in logs])} is absent, so "
         f"{_listed(UNAVAILABLE_WITHOUT_LOG)} are unavailable; the run ended with its "
@@ -223,7 +223,7 @@ def missing_log_note(logs: Sequence[str]) -> str:
 
 
 def missing_log_fields(logs: Sequence[str]) -> dict[str, object]:
-    """Return the record fields a RAN_MISSING_LOG point is completed with (R2, R7).
+    """Return the record fields a RAN_MISSING_LOG point is completed with (FR-861, FR-865).
 
     The status, the note naming the absent log and what it would have
     carried, and every field only a log fills set to null.
@@ -234,7 +234,7 @@ def missing_log_fields(logs: Sequence[str]) -> dict[str, object]:
 
 
 def missing_log_warning(run_id: str, *, check_frozen: bool) -> str:
-    """Return the one ``post.log`` WARNING of a RAN_MISSING_LOG point (R3).
+    """Return the one ``post.log`` WARNING of a RAN_MISSING_LOG point (FR-862).
 
     Parameters
     ----------

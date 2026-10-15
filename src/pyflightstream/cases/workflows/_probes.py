@@ -227,7 +227,7 @@ def _record_probe_field(
             "native_to_m": 1.0 / _from_metres(case, script, "probe field coordinates"),
             "formats": list(probes.field_formats),
             "reusable_inflow": probes.reusable_inflow,
-            # FR-418 R2: the product says which instant it holds.
+            # FR-892: the product says which instant it holds.
             **({"sampled_at": "last-time-step"} if normal else {}),
         }
     )
@@ -314,7 +314,7 @@ def _pproc_probes(
             )
 
     _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
-    # FR-455 and FR-459 R4 (0.40.0): the far field's plane and lattice after
+    # FR-455 and FR-1074 (0.40.0): the far field's plane and lattice after
     # every declared point, then the inside-the-body check of the declared ones.
     farfield_probes(
         case,
@@ -336,7 +336,7 @@ def _open_the_probe_points(
 ) -> None:
     """Delete and forget earlier probe points where this emission replaces them.
 
-    A sampled field starts from no probe point. FR-417 R7: so do the normal
+    A sampled field starts from no probe point. FR-890: so do the normal
     probes of a row with a per-step window, which the exports script of the
     window's first step already created; the creation after the march deletes
     them first, so the final export holds each point once.
@@ -367,7 +367,7 @@ def _has_a_per_step_window(case: SimCase, script: Script) -> bool:
     THE THRESHOLD ITSELF ANSWERS, not the stated keys: a ``[time_averaging]``
     window builds a per-step window with no key stated, and its exports update
     and export the normal probes at every step, so the first exporting step must
-    create them, as it does for a stated key (FR-417 R7).
+    create them, as it does for a stated key (FR-890).
     """
     return unsteady_export_threshold(case, version=script.version) is not None
 
@@ -386,7 +386,7 @@ def _refuse_unmeasured_normal_probes(case: SimCase, script: Script) -> None:
 
 
 def _normal_probes_of(case: SimCase) -> bool:
-    """Whether an unsteady row samples its pproc's probes as normal probe points (FR-417 R2).
+    """Whether an unsteady row samples its pproc's probes as normal probe points (FR-885).
 
     Every ``[[probes]]`` entry of one unsteady row is of one kind, an entry
     that states none counting as unsteady. The pproc's ``[volume_section]`` is
@@ -446,7 +446,7 @@ class _ProbePointRecorder:
 def _built_from_the_mesh(
     case: SimCase, script: Script, build: Callable[[SimCase, Script], None]
 ) -> _ProbePointRecorder:
-    """Build the row from the mesh on a scratch script that is never written (FR-417 R6, R7).
+    """Build the row from the mesh on a scratch script that is never written (FR-889, FR-890).
 
     Raises
     ------
@@ -490,7 +490,7 @@ def _normal_probes_of_a_continuation(
     script: Script,
     build: Callable[[SimCase, Script], None],
 ) -> list[RecordedCommand]:
-    """Return the probe-point commands a continuation emits after its march (FR-417 R6).
+    """Return the probe-point commands a continuation emits after its march (FR-889).
 
     A stopped march saved its state before the full script created its normal
     probes, so the continuation creates them after the continued march, with
@@ -512,7 +512,7 @@ def _normal_probes_of_a_continuation(
 def _creation_of_normal_probes(
     case: SimCase, script: Script, build: Callable[[SimCase, Script], None]
 ) -> str:
-    """Return the lines the first exporting step runs to create the normal probes (FR-417 R7).
+    """Return the lines the first exporting step runs to create the normal probes (FR-890).
 
     ``DELETE_PROBE_POINTS`` and the creation commands of the post-march route,
     taken from the row built from the mesh on a scratch script; empty for a
@@ -761,7 +761,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         lattice += rectangle_points(rectangle, scale=scale)
     for circle in probes.circles:
         lattice += circle_points(circle, scale=scale)
-    # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`. A steady entry
+    # FR-1072 (0.40.0): the survey lattices, laid by `probes`. A steady entry
     # in the reference frame has the probes home emit them too
     # (`emit_declared_lattices`), placed and rounded as recorded here; in
     # another frame each point is carried into the reference one.

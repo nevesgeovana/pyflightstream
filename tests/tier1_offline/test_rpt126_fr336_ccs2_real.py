@@ -9,7 +9,7 @@ digest), read here against the criterion fixed before the run.
 
 RPT-126 measured `refusal_stays`: the REAL token is not the cause, the limits 2.0 and 3.6 end
 the solver process in both spaces, and RPT-097's row neither solved nor saved. What this module
-cannot hold in the arms: FR-336 R4's `refusal_stays` branch also asks that the refusal's MESSAGE
+cannot hold in the arms: FR-336's `refusal_stays` branch also asks that the refusal's MESSAGE
 cite RPT-126 and state the measured cause; ``test_the_refusal_message_cites_rpt126_and_states_the_
 measured_cause_fr_336`` checks it against the message in ``src/pyflightstream/cases/ccs_wing.py``.
 A `form_works` verdict would be the same: its re-admission is src, and the first test fails on
@@ -31,7 +31,7 @@ REPORTS = REPO / "reports"
 FIX = Path(__file__).resolve().parent / "fixtures" / "rpt126"
 CS = "NEW_CCS_WING_CONTROL_SURFACE"
 EXPORTS = ("EXPORT_FUSELAGE_CCS_FILE", "EXPORT_REVOLVE_CCS_FILE")
-#: The pairs that change one thing (FR-336 R1): the arm, the arm it is compared with, what moves.
+#: The pairs that change one thing (FR-336): the arm, the arm it is compared with, what moves.
 PAIRS = (
     ("R", "P", "space"),
     ("RL", "R", "limits"),
@@ -51,7 +51,7 @@ def _arity_arms() -> dict[str, dict]:
 
 
 def verdict_from(arms: dict[str, dict]) -> str:
-    """FR-336 R4, fixed before the run: form_works only when RPT-097's row (RL_s) saved."""
+    """FR-336, fixed before the run: form_works only when RPT-097's row (RL_s) saved."""
     return "form_works" if arms["RL_s"]["solved_save"] else "refusal_stays"
 
 
@@ -83,13 +83,13 @@ def changed_tokens(a: str, b: str) -> list[int]:
 
 
 def test_rpt126_states_the_ccs2_real_verdict_and_the_plan_still_refuses_real_fr_336(tmp_path):
-    """P0340-CCS2-REAL, FR-336 R2 and R3: `refusal_stays`, a cause stated, and the refusal holds."""
+    """P0340-CCS2-REAL, FR-336: `refusal_stays`, a cause stated, and the refusal holds."""
     with pytest.raises(CampaignConfigError, match="refus"):
         _built(_real_case(tmp_path))
 
 
 def test_the_parametric_form_the_control_arm_ran_is_still_planned_fr_336(tmp_path):
-    """P0340-CCS2-REAL, FR-336 R1: the control: arm P's PARAMETRIC line is the planned one."""
+    """P0340-CCS2-REAL, FR-336: the control: arm P's PARAMETRIC line is the planned one."""
     case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + AILERON, ["WING"])
     _, lines = _built(case)
     assert f"{CS} AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y" in lines
@@ -102,7 +102,7 @@ def test_the_parametric_form_the_control_arm_ran_is_still_planned_fr_336(tmp_pat
 
 
 def test_the_recorded_arms_give_the_verdict_rpt126_states_fr_336():
-    """P0340-CCS2-REAL, FR-336 R1 and R4: the control arms ran, and the verdict follows RL_s."""
+    """P0340-CCS2-REAL, FR-336 and FR-336: the control arms ran, and the verdict follows RL_s."""
     arms = _arms()
     assert arms["P"]["outcome"] == "verified", (
         "the PARAMETRIC control did not run: nothing is separated"
@@ -114,7 +114,7 @@ def test_the_recorded_arms_give_the_verdict_rpt126_states_fr_336():
 
 
 def test_the_recorded_arms_separate_the_limits_not_the_space_fr_336():
-    """P0340-CCS2-REAL, FR-336 R1 and R3: the cause RPT-126 states is the one the arms record.
+    """P0340-CCS2-REAL, FR-336 and FR-336: the cause RPT-126 states is the one the arms record.
 
     REAL with 0.5 and 0.9 is lofted without error, as PARAMETRIC is (R against P); the limits
     2.0 and 3.6 write no loft in either space (RL against R, PL against P) nor along the
@@ -130,7 +130,7 @@ def test_the_recorded_arms_separate_the_limits_not_the_space_fr_336():
 
 
 def test_each_arm_changes_one_thing_against_its_pair_fr_336():
-    """P0340-CCS2-REAL, FR-336 R1: each probe changes one thing against the form that runs."""
+    """P0340-CCS2-REAL, FR-336: each probe changes one thing against the form that runs."""
     arms = _arms()
     for arm, pair, what in PAIRS:
         moved = changed_tokens(arms[arm]["line"], arms[pair]["line"])
@@ -139,7 +139,7 @@ def test_each_arm_changes_one_thing_against_its_pair_fr_336():
 
 
 def test_the_refusal_message_cites_rpt126_and_states_the_measured_cause_fr_336(tmp_path):
-    """P0340-CCS2-REAL, FR-336 R4 (refusal_stays): the message names RPT-126 and its cause.
+    """P0340-CCS2-REAL, FR-336 (refusal_stays): the message names RPT-126 and its cause.
 
     The cause is the one the recorded arms separate: the limits 2.0 and 3.6 end the solver
     process (0xC0000005) in both spaces, and the REAL token is not the cause; the report
@@ -157,7 +157,7 @@ def test_the_refusal_message_cites_rpt126_and_states_the_measured_cause_fr_336(t
 
 
 def test_a_planted_saved_real_row_reads_form_works_fr_336():
-    """P0340-CCS2-REAL, FR-336 R4: the control of the verdict rule."""
+    """P0340-CCS2-REAL, FR-336: the control of the verdict rule."""
     arms = {"RL_s": {"solved_save": False}}
     assert verdict_from(arms) == "refusal_stays"
     arms["RL_s"]["solved_save"] = True
@@ -166,7 +166,7 @@ def test_a_planted_saved_real_row_reads_form_works_fr_336():
 
 @pytest.mark.parametrize("command", EXPORTS)
 def test_the_recorded_arity_forms_give_the_arity_rpt126_states_fr_335(command):
-    """FR-335 R1: the five forms of each export give the arity RPT-126 states (undetermined)."""
+    """FR-335: the five forms of each export give the arity RPT-126 states (undetermined)."""
     record = _arity_arms()[command]
     assert set(record["arms"]) == {"A6", "A6m", "A6c", "A4", "A4c"}
     wrote = [
@@ -178,7 +178,7 @@ def test_the_recorded_arity_forms_give_the_arity_rpt126_states_fr_335(command):
 
 
 def test_a_planted_file_that_moves_with_the_two_tokens_reads_six_fr_335():
-    """FR-335 R1: the control of the arity criterion, six and four are reachable."""
+    """FR-335: the control of the arity criterion, six and four are reachable."""
     form = {"outcome": "verified", "sentinel_after": True, "written": True, "sha256": "a"}
     arms = {name: dict(form) for name in ("A6", "A6m", "A6c", "A4", "A4c")}
     assert arity_from(arms) == "undetermined", "a control token that moves nothing proves nothing"

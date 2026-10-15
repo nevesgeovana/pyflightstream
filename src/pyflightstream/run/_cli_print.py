@@ -151,7 +151,7 @@ def _print_delete_sims(entry: dict[str, Any]) -> None:
 def _print_collect(report: CollectReport) -> None:
     """Print one line per point of a collect sweep, and keep each failed one for quiet.
 
-    FR-436 R6: a quiet console says each point the sweep failed as normal prints it,
+    FR-997: a quiet console says each point the sweep failed as normal prints it,
     the run, the refusal and its remedy, because they are the command's errors.
     """
     for line in report.lines():
@@ -249,7 +249,7 @@ def _print_plan(
     if rest:
         # After the warnings the blank line is already out.
         print(rest if held else f"\n{rest}", flush=True)
-    # FR-436 R6: a quiet console says the blocked points, the plan's errors, and the count.
+    # FR-997: a quiet console says the blocked points, the plan's errors, and the count.
     if plan.blocked:
         quiet_keeps(blocks([_blocked_block(plan)]), error=True)
     quiet_keeps(_points_line(plan))
@@ -273,7 +273,7 @@ def _blocked_block(plan: CampaignPlan) -> tuple[str, list[str]]:
 
 
 def _alias_block(plan: CampaignPlan, rows: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Return one line per planned point: its run id alias beside the point (FR-395 R3).
+    """Return one line per planned point: its run id alias beside the point (FR-795).
 
     Numbered against each simulation's WHOLE sweep (:attr:`CampaignPlan.planned_order`),
     as ``run --points`` reads an alias, and printed for the planned points only: a plan

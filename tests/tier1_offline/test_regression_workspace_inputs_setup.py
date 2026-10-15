@@ -497,7 +497,7 @@ class TestIntegfixStrictBoundary:
                 _INTEGFIX_STRICT_BOUNDARY__SECTOR,
                 strict=strict,
             ) == ["Blade1", "Blade2"]
-        # FR-320 R4: the plan's warning names each lacked blade, and the refusal of
+        # FR-578: the plan's warning names each lacked blade, and the refusal of
         # --ignore-missing-families false does not catch one whose family answers.
         lacked = [(None, f"Blade{number}") for number in range(3, 7)]
         assert (
@@ -1403,7 +1403,7 @@ class TestWorkspace2Review:
     @staticmethod
     @pytest.mark.parametrize("unit", ["MILLIMETER", None])
     def test_p0400_review_shared_target_has_honest_units(tmp_path, unit):
-        """P0400-SHARED-UNITS (FR-432 R3): metres only when import units convert to metres."""
+        """P0400-SHARED-UNITS (FR-966): metres only when import units convert to metres."""
         mesh = _workspace_2_review__sheet_with_strips(
             (("T", "tri", (0.03, 0.04, 0.05, 0.065, 0.08)),)
         )

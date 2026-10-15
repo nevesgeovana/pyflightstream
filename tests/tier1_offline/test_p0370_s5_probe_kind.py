@@ -107,12 +107,12 @@ _PROBE_CREATION = ("NEW_PROBE_LINE", "NEW_PROBE_POINT", "PROBE_POINTS_IMPORT")
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_normal_entry_is_probe_points_after_the_march(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-417 R1, R3): steady shapes after the march, update, export."""
+    """P0370-S5-PROBE-KIND (FR-884, FR-886): steady shapes after the march, update, export."""
     spec = _spec(_entry("normal"))
     script = _script(tmp_path, run_type, spec)
     heads = _heads(script)
     assert "UNSTEADY_SOLVER_NEW_FLUID_PLOT" not in heads, (
-        "a normal entry emitted a fluid plot; a normal probe is a probe point (FR-417 R3)"
+        "a normal entry emitted a fluid plot; a normal probe is a probe point (FR-886)"
     )
     march = heads.index("START_SOLVER")
     created = [i for i, head in enumerate(heads) if head in _PROBE_CREATION]
@@ -127,7 +127,7 @@ def test_p0370_s5_normal_entry_is_probe_points_after_the_march(tmp_path, run_typ
     exported = lines[lines.index("EXPORT_PROBE_POINTS") + 1]
     assert "{name}_probes.txt" in spec.outputs(True), "the export is not a declared output"
     assert exported.endswith("P_probes.txt"), exported
-    # THE SAME COMMANDS, IN THE SAME ORDER, AS A STEADY ROW (R1).
+    # THE SAME COMMANDS, IN THE SAME ORDER, AS A STEADY ROW (FR-884).
     steady = _script(tmp_path / "steady", "steady", spec)
     assert [line for line in _commands(script) if line.split()[0] in _PROBE_CREATION] == [
         line for line in _commands(steady) if line.split()[0] in _PROBE_CREATION
@@ -137,7 +137,7 @@ def test_p0370_s5_normal_entry_is_probe_points_after_the_march(tmp_path, run_typ
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_unsteady_kind_and_no_kind_render_as_0_36_0(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-417 R3): no kind is unsteady, byte for byte, and the goldens hold."""
+    """P0370-S5-PROBE-KIND (FR-886): no kind is unsteady, byte for byte, and the goldens hold."""
     unstated = _script(tmp_path / "a", run_type, _spec(_entry()))
     stated = _script(tmp_path / "b", run_type, _spec(_entry("unsteady")))
     assert stated.render().replace(str(tmp_path / "b"), "<T>") == unstated.render().replace(
@@ -155,7 +155,7 @@ def test_p0370_s5_unsteady_kind_and_no_kind_render_as_0_36_0(tmp_path, run_type)
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_mixed_kinds_are_refused_naming_both_lists(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-417 R2): one unsteady row samples its entries one way."""
+    """P0370-S5-PROBE-KIND (FR-885): one unsteady row samples its entries one way."""
     spec = _spec(_entry("normal"), _entry(), _entry("normal"))
     with pytest.raises(CampaignConfigError) as refused:
         _script(tmp_path, run_type, spec)
@@ -180,7 +180,7 @@ def test_p0370_s5_mixed_kinds_are_refused_naming_both_lists(tmp_path, run_type):
 
 
 def test_p0370_s5_a_steady_row_accepts_kind_and_changes_nothing(tmp_path):
-    """P0370-S5-PROBE-KIND (FR-417 R2): on a steady row `kind` is accepted and inert."""
+    """P0370-S5-PROBE-KIND (FR-885): on a steady row `kind` is accepted and inert."""
     mixed = _script(tmp_path / "a", "steady", _spec(_entry("normal"), _entry("unsteady")))
     plain = _script(tmp_path / "b", "steady", _spec(_entry(), _entry()))
     assert mixed.render().replace(str(tmp_path / "a"), "<T>") == plain.render().replace(
@@ -190,7 +190,7 @@ def test_p0370_s5_a_steady_row_accepts_kind_and_changes_nothing(tmp_path):
 
 @pytest.mark.parametrize("value", ["instant", "Normal", "", 1])
 def test_p0370_s5_an_unknown_kind_is_refused_naming_the_two(value):
-    """P0370-S5-PROBE-KIND (FR-417 R5): the pproc model refuses any other kind."""
+    """P0370-S5-PROBE-KIND (FR-888): the pproc model refuses any other kind."""
     with pytest.raises(ValidationError) as refused:
         _spec(_entry(value))  # type: ignore[arg-type]
     message = str(refused.value)
@@ -254,7 +254,7 @@ def _normal_workspace(tmp_path, monkeypatch, *, stopped_at=None, export=True):
 def test_p0370_s5_post_writes_the_normal_table_at_the_last_step(
     tmp_path, monkeypatch, stopped_at, step
 ):
-    """P0370-S5-PROBE-KIND (FR-417 R4): the steady spine, STEP the run's last time step."""
+    """P0370-S5-PROBE-KIND (FR-887): the steady spine, STEP the run's last time step."""
     workspace = _normal_workspace(tmp_path, monkeypatch, stopped_at=stopped_at)
     write_campaign_products(workspace)
     columns, rows = read_csv_table(workspace.root / "post/products/probes/AL-020_probes.csv")
@@ -269,7 +269,7 @@ def test_p0370_s5_post_writes_the_normal_table_at_the_last_step(
 
 
 def test_p0370_s5_post_names_a_missing_normal_export(tmp_path, monkeypatch):
-    """P0370-S5-PROBE-KIND (FR-417 R4): no export, no table, and the skip says why."""
+    """P0370-S5-PROBE-KIND (FR-887): no export, no table, and the skip says why."""
     workspace = _normal_workspace(tmp_path, monkeypatch, export=False)
     write_campaign_products(workspace)
     assert not (workspace.root / "post/products/probes/AL-020_probes.csv").exists()
@@ -307,7 +307,7 @@ _FRAME_HEADS = ("CREATE_NEW_COORDINATE_SYSTEM", "SET_COORDINATE_SYSTEM", "INITIA
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_a_continuation_creates_the_normal_probes_after_its_march(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-417 R6): the full script's probe commands, after the march."""
+    """P0370-S5-PROBE-KIND (FR-889): the full script's probe commands, after the march."""
     spec = _spec(_entry("normal", frame="MRP"))
     full, continued = _continuation(tmp_path, run_type, spec)
     heads = _heads(continued)
@@ -325,7 +325,7 @@ def test_p0370_s5_a_continuation_creates_the_normal_probes_after_its_march(tmp_p
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_a_continuation_without_normal_probes_creates_none(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-417 R6): no normal entry, no probe command, as in 0.36.0."""
+    """P0370-S5-PROBE-KIND (FR-889): no normal entry, no probe command, as in 0.36.0."""
     _, continued = _continuation(tmp_path, run_type, _spec(_entry()))
     heads = _heads(continued)
     assert not set(heads) & {*_PROBE_CREATION, "UPDATE_PROBE_POINTS", "EXPORT_PROBE_POINTS"}
@@ -334,7 +334,7 @@ def test_p0370_s5_a_continuation_without_normal_probes_creates_none(tmp_path, ru
 
 @pytest.mark.parametrize("kind", ["unsteady", "normal"])
 def test_p0370_s5_a_continuation_that_cannot_place_its_normal_probes_is_refused(tmp_path, kind):
-    """P0370-S5-PROBE-KIND (FR-417 R6): without its full script, a rerun from the mesh."""
+    """P0370-S5-PROBE-KIND (FR-889): without its full script, a rerun from the mesh."""
     spec = _spec(_entry(kind, frame="MRP"), _entry(kind, frame="MRP"))
     base = _case_for("unsteady")
     restart = {
@@ -389,7 +389,7 @@ def _windowed(tmp_path: Path, run_type: str, kind: str = "normal") -> tuple[SimC
 
 @pytest.mark.parametrize("run_type", UNSTEADY_TYPES)
 def test_p0370_s5_a_window_updates_and_exports_normal_probes_every_step(tmp_path, run_type):
-    """P0370-S5-PROBE-KIND (FR-417 R7): the per-step action updates, then exports the probes."""
+    """P0370-S5-PROBE-KIND (FR-890): the per-step action updates, then exports the probes."""
     case, script = _windowed(tmp_path, run_type)
     action = action_export_lines(WorkflowConventions(), case, version="26.124")
     assert "UPDATE_PROBE_POINTS" in action, "the per-step action does not update the probes"
@@ -429,7 +429,7 @@ def _run_counter(tmp_path: Path, case: SimCase, script: Script, steps: int) -> l
 
 
 def test_p0370_s5_the_first_exporting_step_creates_the_points_once(tmp_path):
-    """P0370-S5-PROBE-KIND (FR-417 R7): creation on the first exporting step, then exports."""
+    """P0370-S5-PROBE-KIND (FR-890): creation on the first exporting step, then exports."""
     case, script = _windowed(tmp_path, "unsteady")
     steps = _run_counter(tmp_path, case, script, 4)
     creation = normal_probe_creation(case, "26.124")
@@ -446,7 +446,7 @@ def test_p0370_s5_the_first_exporting_step_creates_the_points_once(tmp_path):
 
 
 def test_p0370_s5_stamped_normal_exports_feed_the_probes_series(tmp_path, monkeypatch):
-    """P0370-S5-PROBE-KIND (FR-417 R7): one series row per probe and exporting step."""
+    """P0370-S5-PROBE-KIND (FR-890): one series row per probe and exporting step."""
     workspace = _normal_workspace(tmp_path, monkeypatch)
     (record,) = workspace.read_manifest()
     window = {
@@ -473,7 +473,7 @@ def test_p0370_s5_stamped_normal_exports_feed_the_probes_series(tmp_path, monkey
 
 
 def test_p0370_s5_a_raw_probe_line_is_not_replayed_by_the_continuation(tmp_path):
-    """P0370-S5-PROBE-KIND (FR-417 R6): the setup's own probe line appears once, not twice."""
+    """P0370-S5-PROBE-KIND (FR-889): the setup's own probe line appears once, not twice."""
     from pyflightstream.cases import RawCommand
 
     raw = RawCommand(command="NEW_PROBE_POINT VOLUME 7.0 8.0 9.0", before="analysis")

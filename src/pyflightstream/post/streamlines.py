@@ -1,4 +1,4 @@
-"""The streamline products of a point (FR-460 R7, 0.40.0).
+"""The streamline products of a point (FR-1083, 0.40.0).
 
 A point whose pproc states ``[streamlines]`` leaves the solver's own export
 files, collected and hashed in its run record: ``<point>_slo.txt`` for the
@@ -93,7 +93,7 @@ def render_streamlines_vtk(report: OffBodyStreamlinesReport, *, title: str) -> s
 def write_point_streamlines(ctx: Any, point: str) -> None:
     """Write one point's streamline products into a simulation's post context.
 
-    The post step of FR-460 R7: the context (the post's ``SimContext``) holds
+    The post step of FR-1083: the context (the post's ``SimContext``) holds
     the point's streamline exports by kind (``ctx.streamlines``), its pproc,
     its products root and its sinks; a product written is added to the
     manifest as an instant of the point's runs, and one not written is a skip

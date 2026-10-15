@@ -53,7 +53,8 @@ def _points(rows: list[dict]) -> list[dict]:
 @pytest.mark.parametrize("check_frozen", [False, True], ids=["default", "check-frozen"])
 @pytest.mark.parametrize("kind", sorted(KINDS))
 def test_p0370_s1_collected_and_posted_as_ran_missing_log(kind, check_frozen, tmp_path, capsys):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R1, R2, R3, R7): collected, never CONVERGED, posted.
+    """P0370-S1-RAN-MISSING-LOG (FR-860, FR-861, FR-862, FR-865): collected, never CONVERGED,
+     posted.
 
     Every output of every point is present and no log was ever written back:
     collect records RAN_MISSING_LOG with the note naming what only the log
@@ -90,7 +91,7 @@ def test_p0370_s1_collected_and_posted_as_ran_missing_log(kind, check_frozen, tm
 
 @pytest.mark.parametrize("mode", ["alone", "batch"])
 def test_p0370_s1_end_files_with_outputs_are_not_failed_execution(mode, tmp_path):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R1): the job's end files and the outputs, no log.
+    """P0370-S1-RAN-MISSING-LOG (FR-860): the job's end files and the outputs, no log.
 
     The profile names the files its scheduler writes when a job ends
     (``job_end_files``), each point has one beside its outputs, and no log
@@ -115,7 +116,7 @@ def test_p0370_s1_end_files_with_outputs_are_not_failed_execution(mode, tmp_path
 
 
 def test_p0370_s1_status_show_plan_and_resume_read_a_run_that_ended(tmp_path, capsys):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R4): every status reader treats it as a run that ended.
+    """P0370-S1-RAN-MISSING-LOG (FR-863): every status reader treats it as a run that ended.
 
     ``status`` counts it apart from a converged point, ``show`` prints the
     status and what is unavailable, ``plan`` counts its points recorded, and
@@ -176,7 +177,7 @@ def _run_resume(workspace, profile):
 
 
 def test_p0370_s1_a_machine_that_exports_no_log_keeps_its_behaviour(tmp_path):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R5): ``export_log = false`` declares no log, so not this.
+    """P0370-S1-RAN-MISSING-LOG (FR-864): ``export_log = false`` declares no log, so not this.
 
     On such a machine the script exports no log, the scheduler writes it under
     ``native_log``, and its absence is collect's 0.36.0 wait, never
@@ -191,7 +192,7 @@ def test_p0370_s1_a_machine_that_exports_no_log_keeps_its_behaviour(tmp_path):
 
 
 def test_p0370_s1_the_three_paths_decide_the_same_status(tmp_path, capsys):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R6): collect, the grouped collect and rebuild agree.
+    """P0370-S1-RAN-MISSING-LOG (FR-866): collect, the grouped collect and rebuild agree.
 
     The same files (every output, no log) fed to the collect of a point run
     alone, to the collect of a grouped point, and to the rebuild of a lost

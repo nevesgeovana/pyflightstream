@@ -187,7 +187,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[[probes.lines]]`"): _fields(ProbeLine),
         ("pproc", "`[[probes.rectangles]]`"): _fields(ProbeRectangle),
         ("pproc", "`[[probes.circles]]`"): _fields(ProbeCircle),
-        # FR-459 R2 (0.40.0): the survey lattice, a probe shape.
+        # FR-1072 (0.40.0): the survey lattice, a probe shape.
         ("pproc", "`[[probes.lattices]]`"): _fields(LatticeShape),
         # FR-454 (0.40.0): the far-field family's table.
         ("pproc", "`[farfield]`"): _fields(FarfieldSpec),
@@ -200,7 +200,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ),
         ("reference", "`[moment_point]`"): _fields(PointXyz),
         ("reference", "`[body_axes]`"): {axis for _rate, axis in RATE_VARIABLES},
-        # FR-435 R2 (0.39.0): the study's vocabulary, a requirement that adds the table.
+        # FR-980 (0.39.0): the study's vocabulary, a requirement that adds the table.
         ("reference", "`[study]`"): _fields(StudyVocabulary),
         ("reference", "`[rotor]`"): _fields(RotorReference),
         ("reference", "`[rotor.position]`"): _fields(PointXyz),

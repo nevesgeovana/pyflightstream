@@ -11,7 +11,7 @@ trailing edges and the others), and everything else should come from the
 script. So every block other than those is put back to the content a freshly
 imported file holds.
 
-WHAT IS RESET IS MEASURED, NEVER GUESSED (FR-312 R2). A saved simulation is a
+WHAT IS RESET IS MEASURED, NEVER GUESSED (FR-531). A saved simulation is a
 sequence of ``$<NAME>_START$`` ... ``$<NAME>_END$`` blocks after a two-line
 head (the solver's version, then its build). Measured on 2026-09-30 over the
 ten committed tier-3 geometries, which the tier-3 preparation made by
@@ -375,7 +375,7 @@ def reset_to_fresh_import(text: str, unit: str | None, where: str) -> FreshReset
             (),
             f"{where}: no fresh import of build {build or 'unknown'} saved in "
             f"{unit or 'an unread unit'} is measured, so every block other than the "
-            "saved solver actions is kept as it is (FR-312 R2)",
+            "saved solver actions is kept as it is (FR-531)",
         )
     eol, lines = _lines(text)
     held = block_lines(text)

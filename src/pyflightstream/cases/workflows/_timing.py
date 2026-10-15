@@ -516,7 +516,7 @@ def _turning_speed(case: SimCase, speed: RotorSpeed | None) -> RotorSpeed:
 def _run_wake_length_r(case: SimCase) -> float:
     """Return the row's ``RUN_WAKE_LENGTH_R``, refusing a second run length or a bad value.
 
-    FR-422 R1: a row states its run length once, so the key beside
+    FR-904: a row states its run length once, so the key beside
     ``TIME_ITERATIONS`` or ``REVOLUTIONS`` is refused naming both; the length
     is a positive number of rotor radii.
     """
@@ -586,7 +586,7 @@ def _run_wake_stepping(case: SimCase, speed: RotorSpeed | None) -> TimeStepping:
     Omega and dtheta from the same clock arithmetic. Every reader of the
     clock (the script, the export threshold, the averaging window, the plan
     and the cost table) reads the resolved count, because they all read it
-    from here (FR-415 R6).
+    from here (FR-877).
     """
     length = _run_wake_length_r(case)
     resolved = _turning_speed(case, speed)

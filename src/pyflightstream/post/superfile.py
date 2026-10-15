@@ -143,7 +143,7 @@ _AXIS_COLUMNS = {"ALPHA": "ALPHA", "BETA": "BETA", "ADVANCE_RATIO": "J"}
 RPM_COLUMN = "RPM"
 
 
-#: The far-field super-file cells of FR-456 R9: ``CL_T_A``, ``CDI_T_B``, ``E_T_C``.
+#: The far-field super-file cells of FR-1062: ``CL_T_A``, ``CDI_T_B``, ``E_T_C``.
 _FARFIELD_COLUMN = re.compile(r"(CL_T|CDI_T|E_T)_[ABC]")
 
 
@@ -759,7 +759,7 @@ def write_superfiles(
                 if key not in seen:
                     seen.add(key)
                     columns.append(key)
-    # FR-456 R9 (0.40.0): the far-field block after every other column of the
+    # FR-1062 (0.40.0): the far-field block after every other column of the
     # campaign, whichever simulation brought it in.
     farfield = [column for column in columns if _FARFIELD_COLUMN.fullmatch(column)]
     columns = [column for column in columns if column not in farfield] + farfield

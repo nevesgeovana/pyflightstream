@@ -62,14 +62,14 @@
     "id": "PUSH-W12-QA-3",
     "source": "0.38",
     "severity": "low",
-    "summary": "Four cherry-picks of the FR-424 R7 change carry one commit message.",
+    "summary": "Four cherry-picks of the FR-921 change carry one commit message.",
     "files": [],
     "proposed_fix": "History cannot be rewritten after the tag; close with a justification recorded in the register (owner answer P3 of 2026-10-10).",
     "test": "doc only",
     "needs_owner_decision": false,
     "disposition": "closed",
     "commit": null,
-    "justification": "The four cherry-picks of the FR-424 R7 change carry one commit message and sit on a branch already tagged and published in 0.38.0; rewriting published history would change every later hash and break the tag, so the history is kept as published (owner answer P3 of 2026-10-10) and the release notes of 0.39.0 say so."
+    "justification": "The four cherry-picks of the FR-921 change carry one commit message and sit on a branch already tagged and published in 0.38.0; rewriting published history would change every later hash and break the tag, so the history is kept as published (owner answer P3 of 2026-10-10) and the release notes of 0.39.0 say so."
   },
   {
     "id": "PUSH-W3-ARCH-1",
@@ -342,7 +342,7 @@
       "tests/tier1_offline/test_p0370_s6_direct_morphing.py",
       "docs/unpublished/requirements/functional-requirements.md"
     ],
-    "proposed_fix": "Say in the comment above MAPPED_SCRIPT_SHA256 and the docstring that the hash is of the separator-folded render; add a native assertion on the FILE TMP?blade.obj line; state the folded comparison in FR-341 R3.",
+    "proposed_fix": "Say in the comment above MAPPED_SCRIPT_SHA256 and the docstring that the hash is of the separator-folded render; add a native assertion on the FILE TMP?blade.obj line; state the folded comparison in FR-677.",
     "test": "tests/tier1_offline/test_p0390_rev37_docs.py",
     "needs_owner_decision": false,
     "disposition": "fixed",

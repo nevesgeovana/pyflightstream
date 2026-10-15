@@ -1,4 +1,4 @@
-"""Remeshing of the families a refinement does not resample as a grid (FR-424 R8, FR-425 R2).
+"""Remeshing of the families a refinement does not resample as a grid (FR-922, FR-933).
 
 The target edge length at a point is the source's local edge length there
 divided by the family's factor, so the source's distribution of sizes is kept
@@ -7,7 +7,7 @@ smoothing change the panel count and never the shape: every node is projected
 back onto the source surface. A family at factor 1 beside a refined side
 takes instead, at the nodes of the curve they share, the length of the new
 shared edges there, and returns to its own target over
-:data:`SHARED_LAYERS` face layers (FR-432 R1, R2).
+:data:`SHARED_LAYERS` face layers (FR-964, FR-965).
 
 CURVES are the edges whose nodes move only along the source curve they lie
 on and are split and collapsed along it, never flipped: open boundaries, the
@@ -31,7 +31,7 @@ mode, ``"triangles"``, is returned exactly as the remesh ends.
 The projection onto the source surface searches a spatial index that ships
 with the geometry extra, so every import of trimesh, scipy and rtree here is
 deferred: a refinement of grid families alone imports none of them
-(FR-424 R10). :func:`require_geometry_extra` is the check an orchestrator
+(FR-924). :func:`require_geometry_extra` is the check an orchestrator
 calls before any family is resampled.
 
 Two sections live in their own modules below this one, and every name of
@@ -131,14 +131,14 @@ SMOOTH_PASSES = 3
 SMOOTH_COSINE = 0.9
 #: A grid node this close to an interface node (a fraction of the interface's size) keeps it.
 CONFORM_FRACTION = 1e-6
-#: What the geometry extra supplies to a remesh, for the refusal of FR-424 R10.
+#: What the geometry extra supplies to a remesh, for the refusal of FR-924.
 SPATIAL_INDEX = "scipy and rtree, the spatial index the projection onto the source surface searches"
-#: The modules whose absence refuses a remesh (FR-424 R10).
+#: The modules whose absence refuses a remesh (FR-924).
 INDEX_MODULES = ("scipy.spatial", "rtree")
 
 
 def geometry_extra_refusal(names: Sequence[str]) -> MissingExtraError:
-    """Return the refusal of a remesh without the geometry extra (FR-424 R10, R11).
+    """Return the refusal of a remesh without the geometry extra (FR-924, FR-925).
 
     Parameters
     ----------
@@ -155,14 +155,14 @@ def geometry_extra_refusal(names: Sequence[str]) -> MissingExtraError:
     error = missing_extra(
         "geom", package=SPATIAL_INDEX, purpose=f"Remeshing the {noun} {', '.join(names)}"
     )
-    # ImportError prints its ``msg`` attribute, not ``args``: both carry the ending of R11.
+    # ImportError prints its ``msg`` attribute, not ``args``: both carry the ending of FR-925.
     error.msg = f"{error.args[0]}. Nothing was written."
     error.args = (error.msg,)
     return error
 
 
 def require_geometry_extra(families: Iterable[str]) -> None:
-    """Refuse a remesh, before any work, when the geometry extra is missing (FR-424 R10).
+    """Refuse a remesh, before any work, when the geometry extra is missing (FR-924).
 
     Parameters
     ----------
@@ -557,7 +557,7 @@ class Remesher:
                     self.try_flip(*k)
             self.smooth_and_project()
 
-    # ---- conforming an interface to a grid's new nodes (FR-425 R2)
+    # ---- conforming an interface to a grid's new nodes (FR-933)
 
     def _place(self, p: Points, chain: set[Edge], keep: set[int], tol: float) -> int:
         """Keep the chain node at p, or insert one there; return 1 when a node was inserted."""
@@ -597,7 +597,7 @@ class Remesher:
         return False
 
     def conform(self, old: Iterable[int], new_points: Points) -> dict[str, int]:
-        """Rebuild a frozen interface on the new nodes of a grid refined before it (FR-425 R2).
+        """Rebuild a frozen interface on the new nodes of a grid refined before it (FR-933).
 
         Each new point is inserted on the interface at its own position (an
         old node it coincides with is kept and takes the point exactly), each
@@ -812,7 +812,7 @@ class Remesher:
     # ---- the result
 
     def edge_ratio_median(self) -> float:
-        """Return the median ratio of a non-curve edge's length to its target (FR-424 R8)."""
+        """Return the median ratio of a non-curve edge's length to its target (FR-922)."""
         ratios = [self._length(k) / self._target(k) for k in self.E if k not in self.CE]
         return float(numpy.median(ratios)) if ratios else float("nan")
 
@@ -844,7 +844,7 @@ class Remeshed(NamedTuple):
     points : ndarray
         The group's new nodes.
     families : dict
-        Each family's new triangles in the source's face order (FR-424 R7).
+        Each family's new triangles in the source's face order (FR-921).
     trailing_edge : ndarray
         The mid-point of every trailing-edge edge of the new mesh.
     info : dict
@@ -882,12 +882,12 @@ def _take_shared(
     *,
     outside: set[Edge],
 ) -> dict[str, dict[str, float]]:
-    """Set the targets of FR-432 at the curves a family shares; return the record of R3.
+    """Set the targets of FR-432 at the curves a family shares; return the record of FR-966.
 
     A family at factor 1 takes them on each conformed interface ``shared``
-    names, the new shared edges of a refined side (R1); a family at another
+    names, the new shared edges of a refined side (FR-964); a family at another
     factor takes them on each frozen interface no ``conform`` entry rebuilt,
-    the shared edges an unchanged neighbour keeps (R5): an edge of a face of
+    the shared edges an unchanged neighbour keeps (FR-968): an edge of a face of
     the neighbour (``outside``, local numbering), so a diagonal the group's
     triangulation draws between two shared nodes is not one. A node of a
     face of the other kind keeps its own target.
@@ -938,7 +938,7 @@ def refine_group(
     shared: Sequence[tuple[Iterable[int], Points]] = (),
     te_edges: set[tuple[int, int]] | None = None,
 ) -> Remeshed:
-    """Remesh a group of families together (FR-424 R8, FR-425 R2, FR-428).
+    """Remesh a group of families together (FR-922, FR-933, FR-428).
 
     An interface between two families of the group is a curve remeshed once
     and shared by both; an interface with any other family of the mesh is
@@ -949,7 +949,7 @@ def refine_group(
     space ``stretch`` maps it into, towards the source's local lengths
     measured in the real space (its factor is 1): an edge of length L there
     is L / axial long along the axis and L / circumferential around it once
-    mapped back. The curves (the dihedral of R8) are found in the real space
+    mapped back. The curves (the dihedral of FR-922) are found in the real space
     and every node is projected onto the real source surface.
 
     Parameters
@@ -995,7 +995,7 @@ def refine_group(
     Raises
     ------
     MissingExtraError
-        When the geometry extra is missing, before any work (FR-424 R10).
+        When the geometry extra is missing, before any work (FR-924).
     """
     require_geometry_extra(names)
     factors = dict(factor) if isinstance(factor, Mapping) else {n: float(factor) for n in names}

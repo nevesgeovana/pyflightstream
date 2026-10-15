@@ -6505,7 +6505,7 @@ class TestFr313PlanGeometryWarning:
     @staticmethod
     @pytest.mark.parametrize("geometry", sorted(_FR313_PLAN_GEOMETRY_WARNING__GEOMETRIES))
     def test_fr313_the_command_exits_as_the_clean_plan_does(geometry, tmp_path, capsys):
-        """R4: never a refusal on this account; the exit status is the clean geometry's."""
+        """FR-539: never a refusal on this account; the exit status is the clean geometry's."""
         requirement = "FR-313"
         codes = {}
         for index, case in enumerate(("clean", geometry)):
@@ -6518,7 +6518,9 @@ class TestFr313PlanGeometryWarning:
 
     @staticmethod
     def test_fr313_one_warning_per_geometry_names_every_row_that_opens_it(tmp_path):
-        """R2: two rows on one dirty file give ONE warning naming both; a clean file gives none."""
+        """FR-537: two rows on one dirty file give ONE warning naming both; a clean file gives
+        none.
+        """
         requirement = "FR-313"
         dirty = _fr313_plan_geometry_warning___saved_simulation(
             tmp_path / "shared.fsm", _FR313_PLAN_GEOMETRY_WARNING__ACTIONS
@@ -6537,7 +6539,7 @@ class TestFr313PlanGeometryWarning:
 
     @staticmethod
     def test_fr313_a_continuation_of_an_unsteady_row_is_read(tmp_path):
-        """R1: a row that continues a saved unsteady run opens its geometry too."""
+        """FR-536: a row that continues a saved unsteady run opens its geometry too."""
         from pyflightstream.cases.workflows import (
             RESTART_FROM_VARIABLE,
             RESTART_ITERATIONS_VARIABLE,
@@ -6559,7 +6561,7 @@ class TestFr313PlanGeometryWarning:
     @staticmethod
     @pytest.mark.parametrize("run_type", ["steady", "polar", ""])
     def test_fr313_a_row_that_is_not_unsteady_is_not_read_the_control(run_type, tmp_path):
-        """R5 and the control of R1: the same dirty file under a row with no time loop warns nothing."""  # noqa: E501
+        """FR-540 and the control of FR-536: the same dirty file under a row with no time loop warns nothing."""  # noqa: E501
         requirement = "FR-313"
         dirty = _fr313_plan_geometry_warning___saved_simulation(
             tmp_path / "wing.fsm", _FR313_PLAN_GEOMETRY_WARNING__ACTIONS
@@ -6579,7 +6581,7 @@ class TestFr313PlanGeometryWarning:
 
     @staticmethod
     def test_fr313_a_raw_mesh_or_a_row_with_no_geometry_is_not_read(tmp_path):
-        """R5: only a saved simulation carries actions; a raw mesh is never opened for them."""
+        """FR-540: only a saved simulation carries actions; a raw mesh is never opened for them."""
         requirement = "FR-313"
         mesh = tmp_path / "wing.stl"
         mesh.write_text("solid wing\nendsolid wing\n", encoding="utf-8")
@@ -6626,7 +6628,7 @@ def _fr314_counter_everywhere___continuation() -> SimCase:
     )
 
 
-#: Every unsteady run type, a continuation included (R1), with the steps its
+#: Every unsteady run type, a continuation included (FR-541), with the steps its
 #: script marches.
 _FR314_COUNTER_EVERYWHERE__ROWS = {
     "unsteady": (unsteady_case, 480),
@@ -6653,7 +6655,7 @@ _FR314_COUNTER_EVERYWHERE__GOLDENS_0320 = (
 _FR314_COUNTER_EVERYWHERE__REPO = Path(__file__).resolve().parents[2]
 
 
-#: The counter's registration, the only lines FR-314 adds to a script (R4).
+#: The counter's registration, the only lines FR-314 adds to a script (FR-314).
 _FR314_COUNTER_EVERYWHERE__COUNTER_REGISTRATION = re.compile(
     r"^SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter\n"
     r'"[^"\n]+" "actions/pfs_unsteady_actions\.py"\n\n',
@@ -6737,7 +6739,7 @@ _FR314_COUNTER_EVERYWHERE__WAKE_DEFAULT_LINE = re.compile(
 def _fr314_counter_everywhere___strip_fr321_wake(text: str) -> str | None:
     """The text with the one termination line FR-321 (0.34.0) adds removed, or None.
 
-    FR-321 R6: a rotor row stating no wake termination keeps 4 rotor radii, and
+    FR-321: a rotor row stating no wake termination keeps 4 rotor radii, and
     its script differs from v0.32.0 by one ``SET_WAKE_TERMINATION_TIME_STEPS``
     line and nothing else. A text carrying no such line, or more than one,
     never takes the allowance, and what is left must still match its digest.
@@ -6904,7 +6906,7 @@ _FR314_COUNTER_EVERYWHERE__FR331_GOLDENS = {
 
 
 #: The goldens FR-321 (0.34.0) changes: every rotor row that states no wake termination keeps
-#: the 4R default, one SET_WAKE_TERMINATION_TIME_STEPS line more (R6). The 26.100 rows are
+#: the 4R default, one SET_WAKE_TERMINATION_TIME_STEPS line more (FR-605). The 26.100 rows are
 #: refused since 0.40.0 (REFUSED_26100_GOLDENS).
 _FR314_COUNTER_EVERYWHERE__FR321_GOLDENS = {
     *(
@@ -6957,7 +6959,7 @@ class TestFr314CounterEverywhere:
     unsteady solver action, run the count-only program with the real interpreter,
     and read the local-run bar off it. A build that documents no action (26.120)
     is the control: it registers nothing, as before. What the solver does with a
-    counter on such a row is owed by the licensed round of FR-314 (R5).
+    counter on such a row is owed by the licensed round of FR-314 (FR-314).
     """
 
     @staticmethod
@@ -6975,7 +6977,7 @@ class TestFr314CounterEverywhere:
         rendered = script.render()
         actions = _fr314_counter_everywhere___actions(rendered)
         if row == "continuation":
-            # FR-396 R2 (0.35.0): the reopened state carries the counter its run
+            # FR-799 (0.35.0): the reopened state carries the counter its run
             # registered and runs it, so the continuation emits no registration and
             # records the counter for the run to stage its program.
             assert actions == [], (requirement, rendered)
@@ -6986,7 +6988,7 @@ class TestFr314CounterEverywhere:
                 rendered,
             )
             assert actions[0][1].endswith(f'"{UNSTEADY_ACTION_PROGRAM}"'), actions
-        # R2: no exports action, no parked exports file.
+        # FR-542: no exports action, no parked exports file.
         assert UNSTEADY_ACTION_SCRIPT not in rendered
         assert script.pending_action_scripts == {}
         # The label stays what the row asks: a single march with a counter that counts.
@@ -7014,7 +7016,7 @@ class TestFr314CounterEverywhere:
 
     @staticmethod
     def test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration():
-        """R4, against the goldens of v0.32.0 by their recorded digests.
+        """FR-314, against the goldens of v0.32.0 by their recorded digests.
 
         Every unsteady tier-1 golden and every tier-3 golden is either the bytes
         v0.32.0 committed, or those bytes with exactly one counter registration
@@ -7177,7 +7179,7 @@ class TestFr314CounterEverywhere:
 
     @staticmethod
     def test_fr314_a_row_with_per_step_export_registers_the_pair_as_before():
-        """The counter and its exports script, in that order and nothing more (R4)."""
+        """The counter and its exports script, in that order and nothing more (FR-314)."""
         requirement = "FR-314"
         script = Script("26.123")
         build_script(rotor_case(EXPORT_UNSTEADY_AFTER_REV="1"), script)

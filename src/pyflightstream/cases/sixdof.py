@@ -165,7 +165,7 @@ class SixDofExport(_Strict):
 
 
 class SixDofSpec(_Strict):
-    """One body free to move under its loads (FR-461 R1).
+    """One body free to move under its loads (FR-1084).
 
     Attributes
     ----------

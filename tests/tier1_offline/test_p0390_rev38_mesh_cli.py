@@ -58,7 +58,7 @@ def _tree(folder: Path) -> dict[str, bytes]:
 
 
 def test_refine_out_and_its_deprecated_alias_out_dir_write_the_same_level(tmp_path, capsys):
-    """P0390-REV38 (NFR-45 R2, API-05): ``refine --out DIR``; ``--out-dir`` is its alias.
+    """P0390-REV38 (NFR-45, API-05): ``refine --out DIR``; ``--out-dir`` is its alias.
 
     Both write the level folder under the directory they name, file for file
     byte-identical; the alias warns once that it is deprecated and names
@@ -89,7 +89,7 @@ def test_refine_out_and_its_deprecated_alias_out_dir_write_the_same_level(tmp_pa
 
 
 def test_audit_mesh_out_and_its_deprecated_alias_csv_write_the_same_figures(tmp_path, capsys):
-    """P0390-REV38 (NFR-45 R2, API-05): ``audit-mesh --out FILE``; ``--csv`` is its alias.
+    """P0390-REV38 (NFR-45, API-05): ``audit-mesh --out FILE``; ``--csv`` is its alias.
 
     Both write the CSV of the figures byte for byte the same and print the
     same summary; the alias warns once that it is deprecated and names
@@ -116,7 +116,7 @@ def test_audit_mesh_out_and_its_deprecated_alias_csv_write_the_same_figures(tmp_
 
 
 def test_the_mesh_command_names_no_key_of_the_boundaries_layout():
-    """P0390-REV38 (NFR-45 R3, PUSH-IND-ARCH-6): the boundaries layout has one reader.
+    """P0390-REV38 (NFR-45, PUSH-IND-ARCH-6): the boundaries layout has one reader.
 
     The command module imports no TOML reader and holds no key of the
     boundaries file's ``[trailing_edges]`` table (``trailing_edges``,
@@ -144,7 +144,7 @@ def test_the_mesh_command_names_no_key_of_the_boundaries_layout():
 
 
 def test_the_command_reads_the_points_entry_through_the_one_reader(tmp_path, capsys):
-    """P0390-REV38 (NFR-45 R3, PUSH-IND-ARCH-6): the command asks the refinement's reader.
+    """P0390-REV38 (NFR-45, PUSH-IND-ARCH-6): the command asks the refinement's reader.
 
     A boundaries file naming its points file in a subfolder: the audit's own
     list of the files it reads (``MeshAudit.files_read``, through the
@@ -184,7 +184,7 @@ def test_the_command_reads_the_points_entry_through_the_one_reader(tmp_path, cap
     ids=["word", "foreign-key", "no-surface", "file-and-detect"],
 )
 def test_a_detect_shape_the_workflow_refuses_is_refused_by_the_refinement(tmp_path, detect):
-    """P0390-REV38 (NFR-45 R3, PUSH-IND-ARCH-6): the refinement reads detect as the workflow does.
+    """P0390-REV38 (NFR-45, PUSH-IND-ARCH-6): the refinement reads detect as the workflow does.
 
     A ``[trailing_edges]`` routing the trailing edge to detection in a shape
     the workflow's reader (``read_raw_mesh_conditions``) refuses is refused

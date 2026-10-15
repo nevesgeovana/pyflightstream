@@ -92,7 +92,7 @@ def test_one_quoted_value_of_words_reads_as_separate_ids(tmp_path, capsys):
     code, lines = quoted
     assert code == 0 and any("sim 7001" in line for line in lines), quoted
     assert any("sim 7002" in line for line in lines), quoted
-    # P0390-REV37 (NFR-45 R2, R37-08): the mixed form exits 0 and keeps all three ids.
+    # P0390-REV37 (NFR-45, NFR-45-08): the mixed form exits 0 and keeps all three ids.
     assert mixed[0] == 0, mixed
     for sim in ("7001", "7002", "7003"):
         assert any(f"sim {sim}" in line for line in mixed[1]), mixed

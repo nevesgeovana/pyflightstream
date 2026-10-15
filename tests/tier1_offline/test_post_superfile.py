@@ -620,7 +620,7 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # MTIP_<alias> and MHEL_<alias> columns of the rotor table, beside the
         # speed and the diameter they were taken at.
         "rotor_mach",
-        # 0.39.0, FR-436 R8. WHICH WORKSPACE SETTINGS FILE each default of the
+        # 0.39.0, FR-999. WHICH WORKSPACE SETTINGS FILE each default of the
         # invocation came from: a block, and about how the command was given its
         # options, not about the simulation, as `argv` is. Absent where no file
         # gave anything.

@@ -148,7 +148,7 @@ BOTH = 'installed_frame = ["probes", "inflow"]\n'
 
 
 def test_withdrawing_installed_families_retires_the_previous_copies(tmp_path):
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R3): no stale installed copy survives withdrawal."""
+    """P0370-S8-INSTALLED-INFLOW (FR-899): no stale installed copy survives withdrawal."""
     workspace = _workspace(tmp_path, key=BOTH)
     out = _post(workspace)
     before = json.loads((out / "products.json").read_text(encoding="utf-8"))["products"]
@@ -195,7 +195,7 @@ def test_the_inflow_profile_is_mirrored_through_y_zero(tmp_path):
 
 
 def test_the_vorticity_negates_its_x_and_z_and_keeps_y(tmp_path):
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R1): the axial vector's x and z change sign."""
+    """P0370-S8-INSTALLED-INFLOW (FR-897): the axial vector's x and z change sign."""
     table = tmp_path / "t.csv"
     table.write_text(
         "POL,Y,VY,VORTICITY_X,VORTICITY_Y,VORTICITY_Z,AZIMUTH\n0001,2.5,3.5,4.5,5.5,6.5,30\n",
@@ -224,7 +224,7 @@ def test_mirroring_twice_returns_the_source(tmp_path):
 
 
 def test_a_column_the_classification_cannot_place_is_copied_and_named_once(tmp_path):
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R2): unknown column unchanged, one post.log line."""
+    """P0370-S8-INSTALLED-INFLOW (FR-898): unknown column unchanged, one post.log line."""
     out = _post(_workspace(tmp_path, key='installed_frame = ["probes"]\n', extra=True))
     for index in range(2):
         point = f"POLAR-{SIM}_{_name(index)}"
@@ -239,7 +239,7 @@ def test_a_column_the_classification_cannot_place_is_copied_and_named_once(tmp_p
 
 
 def test_the_manifest_names_each_copy_and_its_source(tmp_path):
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R3): kind installed_frame and the source table."""
+    """P0370-S8-INSTALLED-INFLOW (FR-899): kind installed_frame and the source table."""
     out = _post(_workspace(tmp_path, key=BOTH))
     products = _manifest(out)["products"]
     for index in range(2):
@@ -256,7 +256,7 @@ def test_the_manifest_names_each_copy_and_its_source(tmp_path):
 
 
 def test_with_the_key_empty_or_absent_nothing_new_is_written(tmp_path):
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R3): absent equals empty and lacks the copies."""
+    """P0370-S8-INSTALLED-INFLOW (FR-899): absent equals empty and lacks the copies."""
     absent = _post(_workspace(tmp_path / "a"))
     empty = _post(_workspace(tmp_path / "b", key="installed_frame = []\n"))
     full = _post(_workspace(tmp_path / "c", key=BOTH))
@@ -276,7 +276,7 @@ def test_with_the_key_empty_or_absent_nothing_new_is_written(tmp_path):
 
 
 def test_a_family_the_post_does_not_mirror_is_refused_where_the_pproc_is_read(tmp_path):
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R4): the refusal names the accepted families."""
+    """P0370-S8-INSTALLED-INFLOW (FR-900): the refusal names the accepted families."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = "Wing"\n\n[products]\ninstalled_frame = ["probes", "wake"]\n',
@@ -287,7 +287,7 @@ def test_a_family_the_post_does_not_mirror_is_refused_where_the_pproc_is_read(tm
 
 
 def test_the_classification_list_is_the_definitions_page_with_the_flow_columns():
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R1): the code's one list equals the page's flip rows."""
+    """P0370-S8-INSTALLED-INFLOW (FR-897): the code's one list equals the page's flip rows."""
     section = PAGE.read_text(encoding="utf-8").split("## The installed-frame copy", 1)[1]
     section = section.split("\n## ", 1)[0]
     listed = re.findall(r"^\| `([^`]+)` \| (flip|azimuth|keep) \|", section, flags=re.M)
@@ -297,7 +297,7 @@ def test_the_classification_list_is_the_definitions_page_with_the_flow_columns()
 
 
 def test_to_installed_frame_now_mirrors_the_flow_columns_of_a_table_that_carries_them(tmp_path):
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R1): the migration consequence, held by behaviour."""
+    """P0370-S8-INSTALLED-INFLOW (FR-897): the migration consequence, held by behaviour."""
     table = tmp_path / "t.csv"
     table.write_text("X,Y,Z,VX,VY,VZ\n1,2,3,4,5,6\n", encoding="utf-8")
     (row,) = _rows(to_installed_frame(table))
@@ -305,7 +305,7 @@ def test_to_installed_frame_now_mirrors_the_flow_columns_of_a_table_that_carries
 
 
 def test_the_reference_chord_is_not_a_roll_coefficient(tmp_path):
-    """P0370-S8-INSTALLED-INFLOW (FR-420 R1): CREF stays as written, CRB25 changes sign."""
+    """P0370-S8-INSTALLED-INFLOW (FR-897): CREF stays as written, CRB25 changes sign."""
     table = tmp_path / "t.csv"
     table.write_text("CREF,CRB25,CR\n1.5,2.5,3.5\n", encoding="utf-8")
     (row,) = _rows(to_installed_frame(table))

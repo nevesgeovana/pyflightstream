@@ -152,7 +152,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_a_missing_distribution_is_added(tmp_path):
-        """P0400-FFPLAN (FR-455 R3): no declared distribution, one added over W, 40 stations."""
+        """P0400-FFPLAN (FR-1046): no declared distribution, one added over W, 40 stations."""
         case = _farfield_plan___case(tmp_path, _FARFIELD_PLAN___SECTIONS)
         text = _farfield_plan___script(case).render()
         assert _farfield_plan___distributions(text) == 1
@@ -163,7 +163,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_a_declared_distribution_is_reused_once(tmp_path):
-        """P0400-FFPLAN (FR-455 R2): the declared XZ distribution over W is reused, never doubled."""  # noqa: E501
+        """P0400-FFPLAN (FR-1045): the declared XZ distribution over W is reused, never doubled."""  # noqa: E501
         case = _farfield_plan___case(
             tmp_path, _FARFIELD_PLAN___SECTIONS, **_FARFIELD_PLAN___DECLARED
         )
@@ -172,7 +172,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_the_wake_is_switched_on(tmp_path):
-        """P0400-FFPLAN (FR-455 R3): Trefftz B adds the VTK export with the wake switch."""
+        """P0400-FFPLAN (FR-1046): Trefftz B adds the VTK export with the wake switch."""
         case = _farfield_plan___case(tmp_path, {"families": "all", "trefftz": {"variant": "wake"}})
         assert any(name.endswith(".vtk") for name in case.outputs)
         text = _farfield_plan___script(case).render()
@@ -188,7 +188,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_the_plane_is_added_as_probes(tmp_path):
-        """P0400-FFPLAN (FR-455 R3, FR-453 R4): the C plane, behind the body, normal to the stream."""  # noqa: E501
+        """P0400-FFPLAN (FR-1046, FR-1033): the C plane, behind the body, normal to the stream."""  # noqa: E501
         farfield = {"families": "all", "trefftz": {"variant": "plane", "spacing_bref": 0.25}}
         case = _farfield_plan___case(tmp_path, farfield)
         script = _farfield_plan___script(case)
@@ -202,7 +202,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_a_declared_lattice_is_reused(tmp_path):
-        """P0400-FFPLAN (FR-455 R2): an identical declared lattice is not emitted twice."""
+        """P0400-FFPLAN (FR-1045): an identical declared lattice is not emitted twice."""
         lattice = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 16, "r_inner": 0.5}
         added = _farfield_plan___script(
             _farfield_plan___case(tmp_path, {"families": "all", "ledgers": dict(lattice, m_max=2)})
@@ -222,7 +222,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_a_frame_lattice_is_laid_from_the_frame(tmp_path):
-        """P0400-FFPLAN (FR-454 R1): a lattice of the MRP frame, along its x axis, in metres."""
+        """P0400-FFPLAN (FR-1039): a lattice of the MRP frame, along its x axis, in metres."""
         ledgers = {
             "frame": "MRP",
             "tip_radius_m": 0.5,
@@ -242,7 +242,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_an_added_point_inside_the_body_is_refused(tmp_path):
-        """P0400-FFPLAN (FR-455 R7): a lattice station inside the box is refused, naming the remedy."""  # noqa: E501
+        """P0400-FFPLAN (FR-1050): a lattice station inside the box is refused, naming the remedy."""  # noqa: E501
         pytest.importorskip("rtree")
         farfield = {
             "families": "all",
@@ -255,7 +255,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_a_false_export_is_turned_on_with_a_warning(tmp_path):
-        """P0400-FFPLAN (FR-455 R3): ``[exports] sectional_loads = false`` is turned on, warned."""
+        """P0400-FFPLAN (FR-1046): ``[exports] sectional_loads = false`` is turned on, warned."""
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             case = _farfield_plan___case(
@@ -271,7 +271,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_the_three_states():
-        """P0400-FFPLAN (FR-455 R2, R3, R5): reused, added and not applicable, each with its source."""  # noqa: E501
+        """P0400-FFPLAN (FR-1045, FR-1046, FR-1048): reused, added and not applicable, each with its source."""  # noqa: E501
         resolution = _farfield_plan___resolve()
         assert resolution.state_of("trefftz:sections") == "ready"
         states = {(item.analysis, item.input): item.state for item in resolution.inputs}
@@ -298,7 +298,7 @@ class TestFarfieldPlan:
     )
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_only_the_impossible_is_refused(overrides, analysis, words):
-        """P0400-FFPLAN (FR-455 R6): the build, the row type, the families, the coupled cut."""
+        """P0400-FFPLAN (FR-1049): the build, the row type, the families, the coupled cut."""
         resolution = _farfield_plan___resolve(**overrides)
         refused = [item for item in resolution.refused if item.analysis == analysis]
         assert refused and words in refused[0].reason
@@ -307,7 +307,7 @@ class TestFarfieldPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffplan_post_resolves_with_the_same_function():
-        """P0400-FFPLAN (FR-455 R4): post reads applicability through the plan's one function."""
+        """P0400-FFPLAN (FR-1047): post reads applicability through the plan's one function."""
         assert farfield_products.applies is applies
 
 
@@ -379,7 +379,9 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_the_crossflow_energy_converges_on_the_elliptic_drag():
-        """P0400-TREFFTZC (FR-453 R1, R5): within the truncation, which falls as the plane grows."""
+        """P0400-TREFFTZC (FR-1030, FR-1034): within the truncation, which falls as the plane
+        grows.
+        """
         near = plane_induced_drag(
             _farfield_plane___elliptic_plane(4.0, 4.0, 0.1),
             rho=_FARFIELD_PLANE__RHO,
@@ -402,7 +404,7 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_the_vorticity_path_converges_and_ignores_the_extent():
-        """P0400-TREFFTZC (FR-453 R1): the vorticity path converges, blind to the plane's extent."""
+        """P0400-TREFFTZC (FR-1030): the vorticity path converges, blind to the plane's extent."""
         coarse = plane_vorticity_drag(
             _farfield_plane___elliptic_plane(1.5, 1.0, 0.1), rho=_FARFIELD_PLANE__RHO
         )
@@ -426,14 +428,14 @@ class TestFarfieldPlane:
             fine / _FARFIELD_PLANE__EXACT - 1.0
         ), (
             "on a plane too small for the wake the energy path falls short and the vorticity path "
-            "does not: their difference is the flag of FR-453 R1"
+            "does not: their difference is the flag of FR-1030"
         )
 
     @staticmethod
     @pytest.mark.requirement("FR-450")
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_one_integrand_for_the_plane_and_the_balance():
-        """P0400-TREFFTZC (FR-450 R1, FR-453 R1): advected by V, the balance's integrand is C's."""
+        """P0400-TREFFTZC (FR-1003, FR-1030): advected by V, the balance's integrand is C's."""
         plane = _farfield_plane___elliptic_plane(2.0, 2.0, 0.1)
         drag = plane_induced_drag(
             plane, rho=_FARFIELD_PLANE__RHO, v_inf=_FARFIELD_PLANE__V
@@ -464,7 +466,7 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_a_uniform_stream_has_no_drag_and_full_coverage():
-        """P0400-TREFFTZC (FR-453 R1, R2, R6)."""
+        """P0400-TREFFTZC (FR-1030, FR-1031, FR-1035)."""
         y = np.linspace(-1.0, 1.0, 21)
         z = np.linspace(-0.5, 0.5, 11)
         ones = np.ones((21, 11))
@@ -486,7 +488,7 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_a_bernoulli_consistent_field_has_no_residual():
-        """P0400-TREFFTZC (FR-453 R2): zero by construction where p0 = p0_inf."""
+        """P0400-TREFFTZC (FR-1031): zero by construction where p0 = p0_inf."""
         plane = _farfield_plane___elliptic_plane(1.5, 1.0, 0.1)
         assert bernoulli_residual(
             plane, rho=_FARFIELD_PLANE__RHO, v_inf=_FARFIELD_PLANE__V
@@ -495,7 +497,7 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_a_total_pressure_wake_gives_its_momentum_deficit():
-        """P0400-TREFFTZC (FR-453 R2): the Betz term of a Gaussian wake is its analytic deficit."""
+        """P0400-TREFFTZC (FR-1031): the Betz term of a Gaussian wake is its analytic deficit."""
         h = 0.02
         y = h * np.arange(-150, 151)
         z = h * np.arange(-150, 151)
@@ -519,7 +521,7 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_one_missing_sample_makes_the_plane_na():
-        """P0400-TREFFTZC (FR-453 R6): never a smaller number, and the coverage says how much."""
+        """P0400-TREFFTZC (FR-1035): never a smaller number, and the coverage says how much."""
         plane = _farfield_plane___elliptic_plane(1.5, 1.0, 0.1)
         holed = dict(plane.values)
         holed["w"] = holed["w"].copy()
@@ -536,7 +538,7 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_a_static_rotor_has_no_plane_drag():
-        """P0400-TREFFTZC (FR-453 R3): V = 0 makes the drag and the efficiency NA."""
+        """P0400-TREFFTZC (FR-1032): V = 0 makes the drag and the efficiency NA."""
         plane = _farfield_plane___elliptic_plane(1.5, 1.0, 0.1)
         assert math.isnan(
             plane_induced_drag(plane, rho=_FARFIELD_PLANE__RHO, v_inf=0.0).induced_drag
@@ -545,7 +547,7 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_the_rotor_channels_of_a_swirling_slipstream():
-        """P0400-TREFFTZC (FR-453 R3): axial and swirl powers analytic, the efficiency defined."""
+        """P0400-TREFFTZC (FR-1032): axial and swirl powers analytic, the efficiency defined."""
         jump, omega = 4.0, 6.0
         _, fields = _farfield_plane___slipstream(_FARFIELD_PLANE__V, omega=omega, jump=jump)
         channels = rotor_channels(
@@ -576,7 +578,7 @@ class TestFarfieldPlane:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_trefftzc_a_static_rotor_writes_its_channels_and_no_efficiency():
-        """P0400-TREFFTZC (FR-453 R3): ETA_FF is NA at V = 0, the powers are written."""
+        """P0400-TREFFTZC (FR-1032): ETA_FF is NA at V = 0, the powers are written."""
         _, fields = _farfield_plane___slipstream(0.0, omega=6.0, jump=4.0)
         channels = rotor_channels(fields, rho=_FARFIELD_PLANE__RHO, v_inf=0.0, station=2.0)
         assert math.isnan(channels.eta_ff)
@@ -586,7 +588,7 @@ class TestFarfieldPlane:
     @pytest.mark.requirement("FR-453")
     @pytest.mark.parametrize("sense", [1.0, -1.0])
     def test_p0400_trefftzc_the_quasi_steady_field_is_converted_to_the_hub_frame(sense):
-        """P0400-TREFFTZC (FR-453 R8): a still-air rotor reads no swirl after the conversion.
+        """P0400-TREFFTZC (FR-1037): a still-air rotor reads no swirl after the conversion.
 
         The field is the free stream of a rotor turning at ``omega`` written in the
         frame that turns with the blades, ``v = V x - Omega x r``; adding back
@@ -644,7 +646,7 @@ class TestFarfieldSpec:
     @staticmethod
     @pytest.mark.requirement("FR-454")
     def test_p0400_fftable_keys_and_defaults():
-        """P0400-FFTABLE (FR-454 R1): each key with its type and default."""
+        """P0400-FFTABLE (FR-1039): each key with its type and default."""
         spec = _farfield_spec___pproc(
             {"families": "all", "trefftz": {"variant": "sections"}}
         ).farfield
@@ -664,7 +666,7 @@ class TestFarfieldSpec:
     @staticmethod
     @pytest.mark.requirement("FR-454")
     def test_p0400_fftable_variant_is_a_word_or_a_list():
-        """P0400-FFTABLE (FR-454 R3): ``variant`` reads like ``families``."""
+        """P0400-FFTABLE (FR-1041): ``variant`` reads like ``families``."""
         word = FarfieldSpec.model_validate({"families": "all", "trefftz": {"variant": "wake"}})
         many = FarfieldSpec.model_validate(
             {"families": ["W", "HT"], "trefftz": {"variant": ["sections", "wake", "plane"]}}
@@ -702,7 +704,7 @@ class TestFarfieldSpec:
     )
     @pytest.mark.requirement("FR-454")
     def test_p0400_fftable_refusals_name_the_key(farfield, words):
-        """P0400-FFTABLE (FR-454 R2): each malformed table is refused at load, naming its key."""
+        """P0400-FFTABLE (FR-1040): each malformed table is refused at load, naming its key."""
         with pytest.raises((ValidationError, ValueError)) as caught:
             _farfield_spec___pproc(farfield)
         assert words in str(caught.value)
@@ -720,7 +722,7 @@ class TestFarfieldSpec:
     @staticmethod
     @pytest.mark.requirement("FR-454")
     def test_p0400_fftable_a_lattice_is_a_probe_shape():
-        """P0400-FFTABLE and FR-459 R2: ``[[probes]] lattices`` takes the ledgers' geometry keys."""
+        """P0400-FFTABLE and FR-1072: ``[[probes]] lattices`` takes the ledgers' geometry keys."""
         spec = _farfield_spec___pproc(
             None,
             probes=[{"frame": "REFERENCE", "lattices": [{"rotor": "ROTOR", "n_psi": 24}]}],
@@ -749,7 +751,7 @@ _FFPROOF_INPUTS___LEDGERS = '[farfield]\nfamilies = "all"\n[farfield.ledgers]\n'
 
 
 class TestFfproofInputs:
-    """P0400-FFPROOF: a malformed ``[farfield]`` table is refused at load, naming its file (FR-454 R2).
+    """P0400-FFPROOF: a malformed ``[farfield]`` table is refused at load, naming its file (FR-1040).
 
     Each case is a pproc file written under ``inputs/pproc/`` of a workspace and
     loaded by ``workspace.resolve_pproc``, the reader every ``pyfs-matrix`` command
@@ -837,7 +839,7 @@ class TestFfproofInputs:
     )
     @pytest.mark.requirement("FR-454")
     def test_p0400_ffproof_a_malformed_table_is_refused_naming_the_artifact(tmp_path, table, key):
-        """P0400-FFPROOF (FR-454 R2): refused at load, naming the pproc file and the key."""
+        """P0400-FFPROOF (FR-1040): refused at load, naming the pproc file and the key."""
         workspace = CampaignWorkspace.init(tmp_path / "camp")
         path = Path(workspace.inputs_dir) / "pproc" / "p007.toml"
         path.write_text(_FFPROOF_INPUTS___HEAD + table, encoding="utf-8")
@@ -850,7 +852,7 @@ class TestFfproofInputs:
     @staticmethod
     @pytest.mark.requirement("FR-454")
     def test_p0400_ffproof_a_well_formed_table_loads(tmp_path):
-        """P0400-FFPROOF (FR-454 R2): the control, the same reader accepts a valid table."""
+        """P0400-FFPROOF (FR-1040): the control, the same reader accepts a valid table."""
         workspace = CampaignWorkspace.init(tmp_path / "camp")
         path = Path(workspace.inputs_dir) / "pproc" / "p007.toml"
         path.write_text(
@@ -930,7 +932,7 @@ def _ffproof_upgrading___changed() -> dict[str, str]:
 
 
 class TestFfproofUpgrading:
-    """P0400-FFPROOF: the migration table of the far-field signatures (FR-457 R5, FR-458 R1).
+    """P0400-FFPROOF: the migration table of the far-field signatures (FR-457, FR-458).
 
     ``docs/upgrading.md`` must give, under 0.40.0, the old-to-new table of every
     far-field signature that changed. The old side is the 0.39.0 surface captured
@@ -945,7 +947,7 @@ class TestFfproofUpgrading:
     @staticmethod
     @pytest.mark.requirement("FR-457")
     def test_p0400_ffproof_the_table_lists_every_changed_signature_and_no_other():
-        """P0400-FFPROOF (FR-457 R5): one row per changed 0.39.0 signature, the old text exact."""
+        """P0400-FFPROOF (FR-457): one row per changed 0.39.0 signature, the old text exact."""
         changed = _ffproof_upgrading___changed()
         assert len(changed) >= 18, "the snapshot no longer sees the numpy change"
         rows = _ffproof_upgrading___table()
@@ -959,7 +961,7 @@ class TestFfproofUpgrading:
     @staticmethod
     @pytest.mark.requirement("FR-457")
     def test_p0400_ffproof_each_new_side_is_the_signature_the_code_defines():
-        """P0400-FFPROOF (FR-457 R5): the new cell is today's signature of the replacement.
+        """P0400-FFPROOF (FR-457): the new cell is today's signature of the replacement.
 
         A name kept is written with its own new signature; a retired name with the
         signature of the replacement its refusal names; a removed name says so,
@@ -986,7 +988,7 @@ class TestFfproofUpgrading:
     @staticmethod
     @pytest.mark.requirement("FR-458")
     def test_p0400_ffproof_the_migration_page_names_both_removed_functions_and_why():
-        """P0400-FFPROOF (FR-458 R1): ``docs/upgrading.md`` itself, the release and the reason."""
+        """P0400-FFPROOF (FR-458): ``docs/upgrading.md`` itself, the release and the reason."""
         page = (_FFPROOF_UPGRADING__REPO / "docs" / "upgrading.md").read_text(encoding="utf-8")
         section = page.split("\n## 0.40.0\n", 1)[1].split("\n## ", 1)[0]
         assert "farfield.rothalpy" in section and "farfield.irreversible_deficit" in section
@@ -1043,7 +1045,7 @@ def _ffproof_plan___declared(count: int) -> dict[str, object]:
 
 
 class TestFfproofPlan:
-    """P0400-FFPROOF: what the plan says about the far field it lays (FR-451 R10, FR-455 R9, FR-459 R5).
+    """P0400-FFPROOF: what the plan says about the far field it lays (FR-1019, FR-1052, FR-1075).
 
     Each case is a row built by the public script builder the plan calls, on the
     synthetic box mesh of ``test_p0400_farfield_plan`` (one family ``W``): the
@@ -1054,7 +1056,7 @@ class TestFfproofPlan:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_ffproof_the_plan_warns_a_reused_distribution_with_few_stations(tmp_path):
-        """P0400-FFPROOF (FR-451 R10): one plan WARNING naming the family, its count and the bias.
+        """P0400-FFPROOF (FR-1019): one plan WARNING naming the family, its count and the bias.
 
         A full model's declared distribution of 80 sections is 40 stations per
         side, under the 80 of ``[farfield.trefftz]``: the plan reuses it and says
@@ -1082,7 +1084,7 @@ class TestFfproofPlan:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffproof_the_plan_states_the_fluid_plots_an_added_lattice_costs(tmp_path):
-        """P0400-FFPROOF (FR-455 R9): an unsteady row's added lattice, sampled at every step.
+        """P0400-FFPROOF (FR-1052): an unsteady row's added lattice, sampled at every step.
 
         The WARNING states the point count and the fluid-plot count, and the
         script carries exactly that many fluid plots, four parameters per point.
@@ -1092,17 +1094,17 @@ class TestFfproofPlan:
         )
         text, messages = _ffproof_plan___built(case)
         assert text.count(_FFPROOF_PLAN___PLOT) == 4 * _FFPROOF_PLAN___POINTS
-        stated = [m for m in messages if "FR-455 R9" in m]
+        stated = [m for m in messages if "FR-1052" in m]
         assert stated == [
             f"case '7002': the far-field lattice samples {_FFPROOF_PLAN___POINTS} points at every time step, "  # noqa: E501
-            f"{4 * _FFPROOF_PLAN___POINTS} fluid plots (FR-455 R9)."
+            f"{4 * _FFPROOF_PLAN___POINTS} fluid plots (FR-1052)."
         ]
         assert any(name.endswith("_plots.txt") for name in case.outputs)
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffproof_a_reused_normal_lattice_is_laid_once_as_probe_points(tmp_path):
-        """P0400-FFPROOF (FR-455 R2, R9): a lattice declared in a ``kind = "normal"`` entry.
+        """P0400-FFPROOF (FR-1045, FR-1052): a lattice declared in a ``kind = "normal"`` entry.
 
         The far field reuses it by identity: the lattice is laid once, as probe
         points after the march (no fluid plot, no cost WARNING), and the row
@@ -1121,13 +1123,13 @@ class TestFfproofPlan:
             "the declared lattice, laid once"
         )
         assert _FFPROOF_PLAN___PLOT not in text
-        assert not [m for m in messages if "FR-455 R9" in m]
+        assert not [m for m in messages if "FR-1052" in m]
         assert any(name.endswith("_probes.txt") for name in case.outputs)
 
     @staticmethod
     @pytest.mark.requirement("FR-459")
     def test_p0400_ffproof_a_declared_unsteady_lattice_states_its_fluid_plots(tmp_path):
-        """P0400-FFPROOF (FR-459 R5): a ``[[probes]]`` lattice on an unsteady entry is accepted.
+        """P0400-FFPROOF (FR-1075): a ``[[probes]]`` lattice on an unsteady entry is accepted.
 
         One plan WARNING states its fluid-plot count, the points times the
         entry's parameters, which is the count of fluid plots the script carries.
@@ -1135,9 +1137,9 @@ class TestFfproofPlan:
         entry = {"frame": "MRP", "parameters": ["VX", "VY"], "lattices": [_FFPROOF_PLAN___LATTICE]}
         case = _ffproof_plan___unsteady(tmp_path, None, probes=[entry])
         text, messages = _ffproof_plan___built(case)
-        stated = [m for m in messages if "FR-459 R5" in m]
+        stated = [m for m in messages if "FR-1075" in m]
         assert stated == [
             f"case '7002': a [[probes]] lattice samples {_FFPROOF_PLAN___POINTS} points at every time step, "  # noqa: E501
-            f"{2 * _FFPROOF_PLAN___POINTS} fluid plots (FR-459 R5)."
+            f"{2 * _FFPROOF_PLAN___POINTS} fluid plots (FR-1075)."
         ]
         assert text.count(_FFPROOF_PLAN___PLOT) == 2 * _FFPROOF_PLAN___POINTS

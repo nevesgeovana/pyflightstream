@@ -231,7 +231,7 @@ class _Context:
     origin_differs: list[str]
     known: dict[str, _Known]
     quiet_window_s: float
-    #: FR-414 R4: the person's verdicts runs.json holds, by run id, kept over a computed one.
+    #: FR-871: the person's verdicts runs.json holds, by run id, kept over a computed one.
     verdicts: dict[str, dict[str, Any]] = dataclasses.field(init=False)
 
     def __post_init__(self) -> None:
@@ -389,7 +389,7 @@ def _mint_one(
 
     Returns the SUBMITTED rows, the rendered script text and the folder the
     simulation's scripts are in now (its home, or its batch folder before the
-    batch was moved home, FR-412 R1b), or the refusal.
+    batch was moved home, FR-1203), or the refusal.
     """
     shadow = context.shadow
     refusal = (
@@ -826,7 +826,7 @@ def _refused_before_minting(
     zipped: set[str],
     submitted: set[str],
 ) -> bool:
-    """Refuse, naming its reason and remedy, a simulation a rebuild cannot start on (FR-412 R3)."""
+    """Refuse, naming its reason and remedy, a simulation a rebuild cannot start on (FR-858)."""
     if sim in retired:
         out.refused[sim] = (
             "delete-sims retired this simulation, so it is not brought back; run its row again "
@@ -1045,7 +1045,7 @@ def rebuild(
             "written, run it again when it ends"
         )
     if not out_come.records:
-        # FR-412 R3: every simulation refused is named, with its reason and its remedy.
+        # FR-858: every simulation refused is named, with its reason and its remedy.
         said = summary_lines(entry)
         head = "rebuild: no record was rebuilt, so there is nothing to write"
         raise RecordsError("\n".join([head, *said[:-2], said[-1]]))

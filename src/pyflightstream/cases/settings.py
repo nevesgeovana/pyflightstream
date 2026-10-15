@@ -118,7 +118,7 @@ class ReferenceData(BaseModel):
     #: declares none, and a row stating a rate against such a reference is
     #: refused by name rather than guessed for.
     body_axes: dict[str, str] = Field(default_factory=dict)
-    #: THE STUDY'S SURFACES (FR-435 R2), from the reference artifact's
+    #: THE STUDY'S SURFACES (FR-980), from the reference artifact's
     #: ``[study] surfaces``: with the reference's aliases they are the names
     #: one setup and one pproc may cite across every model of the study. A
     #: name they hold and the row's model lacks is skipped and said; a name
@@ -177,7 +177,7 @@ _BARE_NUMBER = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$")
 
 
 def _an_end_plane(value: object) -> object:
-    """Return ``DEFAULT`` or a finite X in metres for ``wake_termination_x_m`` (FR-324 R1, R3).
+    """Return ``DEFAULT`` or a finite X in metres for ``wake_termination_x_m`` (FR-596, FR-598).
 
     The solver's own two forms and nothing else: a bare finite number (a
     preset's TOML number, or a row cell's text), or the word ``DEFAULT``. A

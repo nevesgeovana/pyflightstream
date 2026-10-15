@@ -69,7 +69,7 @@ def test_reference_point_returns_the_anchor_time(tmp_path):
 
 
 def test_efficiency_curve_is_interpolated_linearly(tmp_path):
-    """P0350-COST-FILE (FR-398 R1): ncpus 6 sits halfway between 4 and 8."""
+    """P0350-COST-FILE (FR-803): ncpus 6 sits halfway between 4 and 8."""
     cost = _cost(tmp_path)
     assert cost.speedup_at(6) == pytest.approx(4.0)
     est = estimate_seconds(cost, faces=1000, steps=10, ncpus=6)
@@ -77,7 +77,7 @@ def test_efficiency_curve_is_interpolated_linearly(tmp_path):
 
 
 def test_outside_the_range_is_never_extrapolated(tmp_path):
-    """P0350-COST-FILE (FR-398 R1): 16 CPUs exceeds the curve, so no estimate."""
+    """P0350-COST-FILE (FR-803): 16 CPUs exceeds the curve, so no estimate."""
     cost = _cost(tmp_path)
     assert cost.speedup_at(16) is None
     est = estimate_seconds(cost, faces=1000, steps=10, ncpus=16)
@@ -86,14 +86,14 @@ def test_outside_the_range_is_never_extrapolated(tmp_path):
 
 
 def test_mesh_and_step_exponents(tmp_path):
-    """P0350-COST-FILE (FR-398 R2): time follows faces^b and steps^exponent."""
+    """P0350-COST-FILE (FR-804): time follows faces^b and steps^exponent."""
     cost = _cost(tmp_path)
     assert estimate_seconds(cost, faces=2000, steps=10, ncpus=4).seconds == pytest.approx(400.0)
     assert estimate_seconds(cost, faces=1000, steps=40, ncpus=4).seconds == pytest.approx(200.0)
 
 
 def test_flag_multiplier_applies_only_to_a_flag_the_point_sets(tmp_path):
-    """P0350-COST-FILE (FR-398 R3): a stated flag multiplies; an unstated one does not."""
+    """P0350-COST-FILE (FR-805): a stated flag multiplies; an unstated one does not."""
     cost = _cost(tmp_path)
     base = {"faces": 1000, "steps": 10, "ncpus": 4}
     assert estimate_seconds(cost, **base, flags=["viscous_coupling"]).seconds == 300.0
@@ -138,7 +138,7 @@ def _row(run_id="r1", processors=4):
 
 
 def test_no_cost_file_leaves_the_rows_untouched(tmp_path):
-    """P0350-COST-FILE (FR-398 R4): without a cost file the 0.34.0 rows come back as they are."""
+    """P0350-COST-FILE (FR-806): without a cost file the 0.34.0 rows come back as they are."""
     inputs = tmp_path / "inputs"
     inputs.mkdir()
     rows = [_row()]
@@ -159,14 +159,14 @@ def test_a_cost_file_prices_the_rows_and_warns_outside_the_range(tmp_path):
 
 
 def test_the_shipped_example_reads_and_is_synthetic():
-    """P0350-COST-FILE (FR-398 R5): the example parses; the tree has no unmarked cost file."""
+    """P0350-COST-FILE (FR-807): the example parses; the tree has no unmarked cost file."""
     example = read_cost_file(REPO / "examples" / "costs" / "c000.toml")
     assert example.flags["viscous_coupling"] == 2.0
     assert unmarked_cost_files(REPO) == []
 
 
 def test_the_guard_catches_a_planted_non_synthetic_file(tmp_path):
-    """P0350-COST-FILE (FR-398 R5): a measured-looking file in the tree is caught."""
+    """P0350-COST-FILE (FR-807): a measured-looking file in the tree is caught."""
     planted = tmp_path / "examples" / "costs"
     planted.mkdir(parents=True)
     (planted / "c001.toml").write_text(_FILE.replace("# synthetic test file\n", ""), "utf-8")

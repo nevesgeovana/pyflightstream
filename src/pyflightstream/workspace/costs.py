@@ -54,7 +54,7 @@ __all__ = [
 #: Where a workspace keeps the cost file of each machine it is planned for.
 COSTS_DIR = "costs"
 
-#: The word every tracked cost file carries, so no measured value ships (FR-398 R5).
+#: The word every tracked cost file carries, so no measured value ships (FR-807).
 SYNTHETIC_WORD = "synthetic"
 
 _TABLES: dict[str, frozenset[str]] = {
@@ -396,7 +396,7 @@ def estimate_seconds(
 def unmarked_cost_files(root: str | Path, *, skip: Collection[str] = ("tests",)) -> list[Path]:
     """Every tracked-style ``c*.toml`` under ``root`` that does not say it is synthetic.
 
-    The guard of FR-398 R5: the package ships no measured machine value, so a
+    The guard of FR-807: the package ships no measured machine value, so a
     cost file anywhere in the tree (outside the ``skip`` folders) must carry
     the word :data:`SYNTHETIC_WORD`.
 

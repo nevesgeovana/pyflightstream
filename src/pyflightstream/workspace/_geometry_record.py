@@ -147,7 +147,7 @@ def _judge_the_record(geometry: Path, pol: str, fs_build: str | None) -> None:
 
 
 def _warn_a_mirrored_deflection(geometry: Path, pol: str, symmetry: str | None) -> None:
-    """Warn on a MIRROR row whose body carries a deflected control surface (FR-473 R5)."""
+    """Warn on a MIRROR row whose body carries a deflected control surface (FR-1124)."""
     if (symmetry or "").strip().upper() != "MIRROR":
         return
     found = build_record_of(geometry)

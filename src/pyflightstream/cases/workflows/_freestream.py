@@ -16,14 +16,14 @@ THE LENGTH IS WHAT MATTERS, not the count. A termination stated in steps or
 revolutions keeps a different length of wake behind the rotor whenever the
 rotor speed, the free-stream speed or the step angle changes, so a setup may
 state ``wake_termination_length`` in rotor radii instead, and a rotor row that
-states no termination at all keeps 4 radii (the default of FR-321 R4, a
+states no termination at all keeps 4 radii (the default of FR-583, a
 recommendation the user may change). The conversion is
 ``n = ceil(L R Omega / (V_ax dtheta))``: R the tip radius in metres, Omega the
 rotor speed in rad/s, dtheta the step angle in rad and V_ax the axial
 convection speed of the wake in m/s, rounded upward so the wake kept at V_ax
 is never shorter than L.
 
-V_AX IS THE FREE-STREAM SPEED (FR-321 R3), a lower bound in forward flight,
+V_AX IS THE FREE-STREAM SPEED (FR-582), a lower bound in forward flight,
 where axial induction speeds the wake up. Near hover the free-stream speed
 goes to zero and the conversion would divide by it, so a row may state a
 thrust (``wake_termination_thrust_n``), whose momentum-theory induced velocity
@@ -35,7 +35,7 @@ WHAT THIS MODULE DOES NOT DO: place the wake end plane. That is the
 ``wake_termination_x`` argument of ``INITIALIZE_SOLVER`` (FR-324), stated by the
 setup key ``wake_termination_x_m`` and emitted by
 the skeleton; this module only reads it to warn when the plane sits before the
-length (FR-325 R3, R4).
+length (FR-602, FR-603).
 """
 
 from __future__ import annotations
@@ -797,7 +797,7 @@ def _finish_custom_field_coverage(case: SimCase, script: Script) -> None:
 
 
 #: The wake length a rotor row keeps when nothing states its termination, in
-#: rotor radii (FR-321 R4): the recommendation of 2026-10-01, kept for
+#: rotor radii (FR-583): the recommendation of 2026-10-01, kept for
 #: its computational cost; any length may be stated instead.
 DEFAULT_WAKE_LENGTH_R = 4.0
 
@@ -814,7 +814,7 @@ WAKE_TERMINATION_KEYS = (
 WAKE_BOUND_KEYS = ("wake_termination_thrust_n", "wake_termination_revolutions_cap")
 
 #: The solver's default wake end plane as measured on 26.124, downstream of the
-#: rotor in rotor radii, with the case and the report that state it (FR-325 R4):
+#: rotor in rotor radii, with the case and the report that state it (FR-603):
 #: RPT-137 section 7 reads x/R 5.52 with the body behind the rotor and 2.08 on a
 #: wheel of blades alone.
 MEASURED_DEFAULT_PLANES = (
@@ -822,7 +822,7 @@ MEASURED_DEFAULT_PLANES = (
     ("a blades-only wheel", 2.1, "RPT-137 section 7"),
 )
 
-#: The rule that gave V_ax, as the record and the plan name it (FR-323 R6).
+#: The rule that gave V_ax, as the record and the plan name it (FR-595).
 REVOLUTION_CAP = "revolution_cap"
 
 
@@ -833,7 +833,7 @@ class WakeTermination:
     Attributes
     ----------
     stated_as : str
-        The key that stated it, or ``default`` for the 4R default (FR-321 R4).
+        The key that stated it, or ``default`` for the 4R default (FR-583).
     length_r : float or None
         The length asked in rotor radii; None for a step or revolution count.
     steps : int or None
@@ -884,7 +884,7 @@ class WakeTermination:
         return asdict(self)
 
     def derived(self) -> dict[str, str]:
-        """Return the three recorded values of a converted length (FR-321 R5), else nothing.
+        """Return the three recorded values of a converted length (FR-584), else nothing.
 
         They join the solver-flag snapshot's ``derived`` entries the run record
         carries, so a record says the L asked, the V_ax used with its rule, and
@@ -910,7 +910,7 @@ class WakeTermination:
     def count_kept_r(self) -> float | None:
         """Return the length a step or revolution count keeps over the run, in radii.
 
-        FR-325 R2: L_kept = n V_ax dtheta / (Omega R), with n the count the run
+        FR-601: L_kept = n V_ax dtheta / (Omega R), with n the count the run
         reaches (a negative count is the run's steps less it). None for a
         converted length, and where the length is unknown (zero free-stream
         speed, or no rotor radius known).
@@ -948,7 +948,7 @@ def _refuse_two_keys(case: SimCase) -> list[tuple[str, object]]:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {bounds[0][0]} = {bounds[0][1]} beside "
             f"{key} = {value}: {' and '.join(WAKE_BOUND_KEYS)} bound a wake LENGTH "
-            "converted into steps, and a count is emitted as stated (FR-323 R6). Drop "
+            "converted into steps, and a count is emitted as stated (FR-595). Drop "
             f"{bounds[0][0]}, or state the termination as wake_termination_length."
         )
     return stated
@@ -961,7 +961,7 @@ def refuse_a_wake_length(case: SimCase, run: str) -> None:
     length is converted against a rotor's radius, speed and step angle, so a
     steady run (no time step) and a run that turns nothing (no rotor) cannot
     convert one, and a key that reaches no line is refused rather than
-    dropped (FR-321 R4, FR-323).
+    dropped (FR-583, FR-323).
     """
     stated = _stated(case, ("wake_termination_length", *WAKE_BOUND_KEYS))
     if not stated:
@@ -998,7 +998,7 @@ def rotor_row_stepping(case: SimCase) -> TimeStepping:
 def _length_steps(
     case: SimCase, length: float, radius: float, clock: tuple[float, float], delta_time_s: float
 ) -> tuple[int, float | None, str]:
-    """Convert a length into steps, with V_ax and its rule (FR-321 R2, FR-323)."""
+    """Convert a length into steps, with V_ax and its rule (FR-581, FR-323)."""
     omega, dtheta = clock
     v_ax, rule = _induced(case, radius, abs(_velocity(case)))
     cap = case.solver.wake_termination_revolutions_cap
@@ -1021,7 +1021,7 @@ def _length_steps(
             raise CampaignConfigError(
                 f"case {case.sim_id!r} turns a rotor at zero free-stream speed with a wake "
                 f"termination of {length:g} rotor radii, and a length divided by a zero "
-                "convection speed is no number of steps (FR-323 R4). State "
+                "convection speed is no number of steps (FR-593). State "
                 "wake_termination_thrust_n (the rotor's thrust in newtons, whose induced "
                 "velocity convects the wake) or wake_termination_revolutions_cap (a "
                 "revolution count that bounds it)."
@@ -1074,15 +1074,15 @@ def wake_termination_of(case: SimCase, stepping: TimeStepping | None = None) -> 
     -------
     WakeTermination
         The steps the script emits and what they came from. A row stating no
-        termination gets the 4R default (FR-321 R4); a default with no rotor
+        termination gets the 4R default (FR-583); a default with no rotor
         radius known converts nothing and emits nothing, as before 0.34.0.
 
     Raises
     ------
     CampaignConfigError
         Two termination keys (FR-322), a thrust or a cap beside a count
-        (FR-323 R6), a length at zero free-stream speed with neither bound
-        (FR-323 R4), a stated length with no rotor radius known, or
+        (FR-595), a length at zero free-stream speed with neither bound
+        (FR-593), a stated length with no rotor radius known, or
         revolutions with no rotor speed.
     """
     stated = _refuse_two_keys(case)
@@ -1115,7 +1115,7 @@ def wake_termination_of(case: SimCase, stepping: TimeStepping | None = None) -> 
             raise CampaignConfigError(
                 f"case {case.sim_id!r} states wake_termination_length = {length:g} and the "
                 "rotor it turns has no known radius: its reference declares no rotor block "
-                "with a diameter_m and states no rotor_diameter_m (FR-321 R1)."
+                "with a diameter_m and states no rotor_diameter_m (FR-580)."
             )
         return replace(base, length_r=length, v_ax_m_s=None)
     steps, v_ax, rule = _length_steps(case, length, radius, (omega, dtheta), stepping.delta_time_s)
@@ -1128,9 +1128,9 @@ def settings_with_the_wake(case: SimCase, script: Script, stepping: TimeStepping
     The rotor builders' one call: the steps of :func:`wake_termination_of`
     reach ``SET_WAKE_TERMINATION_TIME_STEPS`` through the settings emitter,
     and a converted length's three values join the solver-flag snapshot the
-    run record carries (FR-321 R5). A run length stated as a target wake
+    run record carries (FR-584). A run length stated as a target wake
     length joins it too: the length, the rule, V_ax and the resulting
-    ``time_iterations`` (FR-422 R3).
+    ``time_iterations`` (FR-906).
     """
     termination = wake_termination_of(case, stepping)
     _settings(case, script, wake_termination_time_steps=termination.steps)
@@ -1146,7 +1146,7 @@ def wake_end_plane(case: SimCase, script: Script) -> str:
     """Return the ``wake_termination_x`` argument of ``INITIALIZE_SOLVER`` (FR-324).
 
     ``DEFAULT`` where the setup states no plane, so the script is the one
-    0.33.0 wrote (R2); else the stated X in metres, written in the
+    0.33.0 wrote (FR-597); else the stated X in metres, written in the
     simulation's length unit as every length this package hands the solver.
     """
     plane = case.solver.wake_termination_x_m
@@ -1183,7 +1183,7 @@ def planned_run_wake(case: SimCase) -> RunWakeLength | None:
     length), and for a row the builder refuses (that point is BLOCKED with the
     builder's own reason). The clock the builder runs
     (:func:`rotor_row_stepping`), so the plan prints the count the script
-    carries (FR-422 R3).
+    carries (FR-906).
     """
     if case.recipe != "unsteady_rotor":
         return None
@@ -1196,7 +1196,7 @@ def planned_run_wake(case: SimCase) -> RunWakeLength | None:
 
 
 def _length_warnings(row: str, wake: WakeTermination) -> list[str]:
-    """FR-325 R1: a length the run's revolutions cannot reach, or a cap that cuts it."""
+    """FR-600: a length the run's revolutions cannot reach, or a cap that cuts it."""
     if wake.length_r is None:
         return []
     if wake.steps is None:
@@ -1204,7 +1204,7 @@ def _length_warnings(row: str, wake: WakeTermination) -> list[str]:
             f"{row}: the {wake.length_r:g} R default wake termination is not converted: the "
             "rotor has no known radius (no rotor block with a diameter_m and no "
             "rotor_diameter_m on the reference), so the run keeps the solver's own "
-            "termination and the plan cannot say what length it keeps (FR-325 R1)."
+            "termination and the plan cannot say what length it keeps (FR-600)."
         ]
     per_revolution = 2.0 * math.pi / wake.dtheta_rad
     kept = wake.kept_r(min(wake.steps, wake.run_steps))
@@ -1213,7 +1213,7 @@ def _length_warnings(row: str, wake: WakeTermination) -> list[str]:
         return [
             f"{row}: the wake termination asks L = {wake.length_r:g} R and its "
             f"{wake.steps} steps were set by the revolution cap at zero free-stream speed, "
-            "so the plan cannot say what length they keep (FR-325 R1)."
+            "so the plan cannot say what length they keep (FR-600)."
         ]
     if kept >= wake.length_r * (1.0 - 1e-9):
         return []
@@ -1225,12 +1225,12 @@ def _length_warnings(row: str, wake: WakeTermination) -> list[str]:
     return [
         f"{row}: the wake termination asks L = {wake.length_r:g} R and needs "
         f"{wake.length_r / one_revolution:.3g} revolution(s) at V_ax = {wake.v_ax_m_s:.4g} m/s "
-        f"({wake.rule}); {cause}, so the wake kept is about {kept:.3g} R (FR-325 R1)."
+        f"({wake.rule}); {cause}, so the wake kept is about {kept:.3g} R (FR-600)."
     ]
 
 
 def _count_warnings(row: str, wake: WakeTermination) -> list[str]:
-    """FR-325 R2: the length a count keeps, against the 4R recommendation."""
+    """FR-601: the length a count keeps, against the 4R recommendation."""
     if wake.length_r is not None or wake.steps is None:
         return []
     kept = wake.count_kept_r()
@@ -1238,7 +1238,7 @@ def _count_warnings(row: str, wake: WakeTermination) -> list[str]:
         return [
             f"{row}: the wake termination {wake.stated_as} keeps an unknown length at zero "
             "free-stream speed or with no rotor radius known; the plan cannot judge it "
-            f"against the {DEFAULT_WAKE_LENGTH_R:g} R recommendation (FR-325 R2)."
+            f"against the {DEFAULT_WAKE_LENGTH_R:g} R recommendation (FR-601)."
         ]
     if kept >= DEFAULT_WAKE_LENGTH_R * (1.0 - 1e-9):
         return []
@@ -1246,12 +1246,12 @@ def _count_warnings(row: str, wake: WakeTermination) -> list[str]:
         f"{row}: the wake termination {wake.stated_as} ({wake.steps} steps) and the run's "
         f"{wake.run_steps} steps keep about {kept:.3g} R of wake at V_ax = "
         f"{wake.v_ax_m_s:.4g} m/s, below the {DEFAULT_WAKE_LENGTH_R:g} R recommendation "
-        "(FR-325 R2). State wake_termination_length to keep a length."
+        "(FR-601). State wake_termination_length to keep a length."
     ]
 
 
 def _plane_warnings(row: str, wake: WakeTermination) -> list[str]:
-    """FR-325 R3 and R4: a stated plane before the length, or the solver's default plane."""
+    """FR-602 and FR-603: a stated plane before the length, or the solver's default plane."""
     length = DEFAULT_WAKE_LENGTH_R if wake.length_r is None else wake.length_r
     if wake.plane == "DEFAULT":
         placements = ", ".join(
@@ -1261,7 +1261,7 @@ def _plane_warnings(row: str, wake: WakeTermination) -> list[str]:
             f"{row}: the wake end plane is the solver's DEFAULT, whose position the plan "
             f"cannot know, and it may cut the wake before L = {length:g} R: measured on "
             f"26.124 at {placements}. State wake_termination_x_m, an X in metres in the "
-            "simulation's frame, to place it (FR-325 R4)."
+            "simulation's frame, to place it (FR-603)."
         ]
     if wake.radius_m is None or wake.hub_x_m is None:
         unknown = "hub X" if wake.radius_m is not None else "radius"
@@ -1269,7 +1269,7 @@ def _plane_warnings(row: str, wake: WakeTermination) -> list[str]:
             f"{row}: the wake end plane wake_termination_x_m = {float(wake.plane):g} m cannot be "
             f"placed against L = {length:g} R, because the rotor's {unknown} is unknown (no "
             "rotor block states it), so the plan cannot say whether the plane cuts the wake "
-            "(FR-325 R3). Declare the rotor block on the reference to place it."
+            "(FR-602). Declare the rotor block on the reference to place it."
         ]
     offset = float(wake.plane) - wake.hub_x_m
     distance = abs(offset) if wake.downstream == 0 else offset * wake.downstream
@@ -1278,7 +1278,7 @@ def _plane_warnings(row: str, wake: WakeTermination) -> list[str]:
     return [
         f"{row}: the wake end plane wake_termination_x_m = {float(wake.plane):g} m lies "
         f"{distance / wake.radius_m:.3g} R downstream of the rotor hub, before the "
-        f"L = {length:g} R the wake keeps, so the plane cuts it (FR-325 R3)."
+        f"L = {length:g} R the wake keeps, so the plane cuts it (FR-602)."
     ]
 
 
@@ -1286,7 +1286,7 @@ def wake_warnings(row: str, wake: WakeTermination) -> list[str]:
     """Return the plan's warnings on one rotor point's wake (FR-325); empty where none is owed.
 
     ``row`` names the row and point in each message. The warnings are computed
-    from the conversion alone: no solver call and no file read (R6).
+    from the conversion alone: no solver call and no file read (FR-605).
     """
     return [
         *_length_warnings(row, wake),

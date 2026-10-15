@@ -3,7 +3,7 @@
 The input names a structural program of the user's own and its node file, both
 under the workspace's ``inputs/fsi/``, the files the program reads and writes,
 and the one family the program's structure couples to. The plan reads it,
-refuses what FR-462 R4 names, counts the nodes, and hashes the program, the
+refuses what FR-1093 names, counts the nodes, and hashes the program, the
 node file and every declared input, so the archiving step (``pyfs-fsi
 external``) can verify at every call that it runs what the plan hashed.
 """
@@ -60,7 +60,7 @@ class _CouplingTable(BaseModel):
 
 
 class ExternalFsiInput(BaseModel):
-    """The ``inputs/fsi/f<id>.toml`` of an external structural program (FR-462 R1).
+    """The ``inputs/fsi/f<id>.toml`` of an external structural program (FR-1090).
 
     Attributes
     ----------
@@ -96,7 +96,7 @@ def _under(root: Path, stated: str, *, what: str, source: Path) -> Path:
 
 
 def _refuse_the_beam_keys(source: Path, data: dict[str, object]) -> None:
-    """Refuse ``show_console`` and ``morphing`` by name (FR-462 R4)."""
+    """Refuse ``show_console`` and ``morphing`` by name (FR-1093)."""
     table = data.get("external")
     if isinstance(table, dict) and "show_console" in table:
         raise FsiExternalSetupError(
@@ -112,7 +112,7 @@ def _refuse_the_beam_keys(source: Path, data: dict[str, object]) -> None:
 
 
 def resolve_external_fsi(path: str | Path) -> ExternalStructure:
-    """Read, check and hash an external FSI input (FR-462 R1, R4, R6).
+    """Read, check and hash an external FSI input (FR-1090, FR-1093, FR-1095).
 
     Parameters
     ----------

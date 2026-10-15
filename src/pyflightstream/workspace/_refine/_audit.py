@@ -1,16 +1,16 @@
 """The audit of a panel mesh, alone or against its source (FR-426).
 
-THREE KINDS OF RESULT. A GATE (R2) is judged on its own terms: the topology,
+THREE KINDS OF RESULT. A GATE (FR-938) is judged on its own terms: the topology,
 the orientation, the open boundary, the trailing edge, the shared nodes and
-the faces a grid family at factor 1 keeps. A RELATIVE CHECK (R3) compares a
+the faces a grid family at factor 1 keeps. A RELATIVE CHECK (FR-939) compares a
 95th percentile of the level with the source's, because the source is the
-accepted mesh. A FIGURE (R4) is reported and never judged. Without a
-source only G1, G2 and G4 are judged and the rest is reported (R5).
+accepted mesh. A FIGURE (FR-940) is reported and never judged. Without a
+source only G1, G2 and G4 are judged and the rest is reported (FR-941).
 
 HOW IT MEASURES. Every measure is computed once on all the faces of a mesh
 and read per family through the family of each face; an edge belongs to a
 family when both its faces do. The audit needs numpy alone and imports
-nothing of the refinement modules (FR-424 R10, R14), so it judges a level
+nothing of the refinement modules (FR-924, FR-928), so it judges a level
 without them.
 
 WHAT IT WRITES. ``<stem>.audit.json`` beside the mesh audited (a level's
@@ -22,7 +22,7 @@ its values. The trailing-edge points file of a mesh is the one its
 first line to the mesh's (the ``[import] units`` of the boundaries file)
 before they are matched to the mesh's edges. G4 compares the level's
 trailing-edge chains with the source's; a source family whose trailing edge
-the refinement detected (FR-430 R7) has no points file to count, so the
+the refinement detected (FR-956) has no points file to count, so the
 record beside the level (``refine.json``, read when it names this level and
 the source, as for G6) states it ``"trailing_edge": "detected"`` with the
 mid-points of the detected line's edges (``"trailing_edge_points"``, in the
@@ -100,7 +100,7 @@ PASS, FAIL, NOT_JUDGED = "pass", "fail", "not judged"
 AUDIT_SUFFIX = ".audit.json"
 #: The suffix of a level's refinement record, beside it, which the audit reads.
 RECORD_SUFFIX = ".refine.json"
-#: The relative checks of R3: the name and the figure each compares.
+#: The relative checks of FR-939: the name and the figure each compares.
 CHECKS = (("skewness", "skewness_p95"), ("warp", "warp_p95"), ("growth", "growth_p95"))
 _TINY = 1e-300
 
@@ -149,13 +149,13 @@ class MeshAudit:
     mesh : Path
         The OBJ audited.
     source : Path or None
-        The source it was audited against, or None (FR-426 R5).
+        The source it was audited against, or None (FR-941).
     gates : tuple of AuditItem
-        G1 to G6 (R2), each with its family, its values and its verdict.
+        G1 to G6 (FR-938), each with its family, its values and its verdict.
     checks : tuple of AuditItem
-        The relative checks of R3, per family and on the whole mesh.
+        The relative checks of FR-939, per family and on the whole mesh.
     figures : Mapping
-        Per family (and ``"(whole mesh)"``), each reported figure (R4) and the
+        Per family (and ``"(whole mesh)"``), each reported figure (FR-940) and the
         95th percentiles the checks read.
     path : Path
         The ``<stem>.audit.json`` written beside the mesh.
@@ -206,7 +206,7 @@ class MeshAudit:
 
     @staticmethod
     def files_read(mesh: str | os.PathLike[str]) -> list[tuple[str, Path]]:
-        """Return the files an audit of ``mesh`` reads, each with what it is (FR-426 R1).
+        """Return the files an audit of ``mesh`` reads, each with what it is (FR-937).
 
         The OBJ, its boundaries file, ``<stem>.te.txt`` and the trailing-edge
         points file the boundaries file names, read through the one reader
@@ -315,7 +315,7 @@ def audit_mesh(
         ``<stem>.boundaries.toml`` names, or else ``<stem>.te.txt``.
     against : str or Path, optional
         The source the mesh was made from. Without it only G1, G2 and G4 are
-        judged and the rest is reported (FR-426 R5).
+        judged and the rest is reported (FR-941).
     unchanged_grids : sequence of str, optional
         The grid families a refinement wrote at factor 1, whose faces G6
         compares with the source's. Without them they are read from the
@@ -370,7 +370,7 @@ def _refusal(subject: Path, reason: str, remedy: str) -> InputArtifactError:
 
 
 def _inputs(mesh: Path, against: Path | None) -> list[tuple[str, Path]]:
-    """Return the files the audit of ``mesh`` reads, each with what it is (FR-426 R1).
+    """Return the files the audit of ``mesh`` reads, each with what it is (FR-937).
 
     The OBJ, its boundaries file, its trailing-edge points file and its
     ``refine.json``; with ``against``, the source, its boundaries file and
@@ -407,7 +407,7 @@ def _same_file(a: Path, b: Path) -> bool:
 
 
 def _refuse_an_input_as_target(target: Path, mesh: Path, against: Path | None) -> None:
-    """Refuse an audit JSON that is a file the audit reads, before anything is written (R1)."""
+    """Refuse an audit JSON that is a file the audit reads, before anything is written (FR-937)."""
     for what, path in _inputs(mesh, against):
         if _same_file(target, path):
             raise _refusal(
@@ -426,7 +426,7 @@ def _read(
 
     With ``components``, the families each component lists are measured as
     that one family, so a level whose families were grouped into components
-    (FR-425 R4) is compared with the union of its members in the source.
+    (FR-935) is compared with the union of its members in the source.
     ``detected`` maps the families whose trailing edge the refinement
     detected to their recorded mid-points (:func:`_recorded_detected`); the
     chains of the listed and the detected edges together are counted once
@@ -516,7 +516,7 @@ def _components_of(record: Mapping[str, Any]) -> dict[str, list[str]]:
 def _recorded_grids(
     record: Mapping[str, Any], level: Path, against: str | Path | None
 ) -> tuple[str, ...]:
-    """Return the grid families the refinement wrote at factor 1, which G6 compares (R2).
+    """Return the grid families the refinement wrote at factor 1, which G6 compares (FR-938).
 
     They are read only from a record that names this level's stem and the
     source it is audited against, so a record of another refinement is not
@@ -538,7 +538,7 @@ def _names_this_level(record: Mapping[str, Any], level: Path, against: str | Pat
 def _recorded_detected(
     record: Mapping[str, Any], level: Path, against: str | Path | None
 ) -> dict[str, list[list[float]] | None] | None:
-    """Return the source families whose trailing edge the refinement detected (G4, FR-430 R7).
+    """Return the source families whose trailing edge the refinement detected (G4, FR-956).
 
     They are the families the record states with ``"trailing_edge":
     "detected"``, read only from a record that names this level and the
@@ -755,7 +755,7 @@ def _neighbour_ratios(m: _Mesh) -> tuple[Array, Array]:
 def _figures(
     m: _Mesh, faces: Array, edges: Array, growth: Array, quality: Array
 ) -> dict[str, Value]:
-    """Return the figures of one selection of faces and edges (R4 and the checks' figures)."""
+    """Return the figures of one selection of faces and edges (FR-940 and the checks' figures)."""
     shape = m.shape
     aspect = shape["aspect"][faces]
     out: dict[str, Value] = {
@@ -792,7 +792,7 @@ def _reported(kind: str, name: str, family: str, values: dict[str, Value]) -> Au
 
 
 def _gates(level: _Mesh, source: _Mesh | None, grids: tuple[str, ...]) -> tuple[AuditItem, ...]:
-    """Return G1 to G6 in order (R2), the source-relative ones reported without a source."""
+    """Return G1 to G6 in order (FR-938), the source-relative ones reported without a source."""
     return (
         _g1(level),
         *_g2(level),
@@ -862,7 +862,7 @@ def _unmatched_loops(level: _Mesh, source: _Mesh) -> int:
 
 
 def _same_opening(mine: Array, theirs: Array) -> bool:
-    """Return whether two closed loops bound the same opening (FR-425 R5).
+    """Return whether two closed loops bound the same opening (FR-936).
 
     Every node of each lies within :data:`OPENING_FRACTION` of the source
     loop's extent from the other's polyline, so the loops coincide up to the
@@ -878,7 +878,7 @@ def _same_opening(mine: Array, theirs: Array) -> bool:
 
 
 def _g3(level: _Mesh, source: _Mesh | None) -> AuditItem:
-    """G3: the open boundary loops of the level are the source's (FR-425 R5)."""
+    """G3: the open boundary loops of the level are the source's (FR-936)."""
     loops = len(boundary_loops(level.faces))
     if source is None:
         return _reported("gate", "G3", WHOLE_MESH, {"open_loops": loops})
@@ -1003,7 +1003,7 @@ def _g6(level: _Mesh, source: _Mesh | None, grids: tuple[str, ...]) -> Iterator[
 
 
 def _limit(check: str, source_value: float | None) -> float | None:
-    """Return the limit of a relative check from the source's 95th percentile (R3)."""
+    """Return the limit of a relative check from the source's 95th percentile (FR-939)."""
     if check == "skewness":
         return None if source_value is None else source_value + SKEWNESS_MARGIN
     floor = WARP_FLOOR_DEGREES if check == "warp" else GROWTH_FLOOR
@@ -1013,7 +1013,7 @@ def _limit(check: str, source_value: float | None) -> float | None:
 def _checks(
     mine: Mapping[str, Mapping[str, Value]], theirs: Mapping[str, Mapping[str, Value]] | None
 ) -> Iterator[AuditItem]:
-    """Yield the relative checks of each family and of the whole mesh (R3).
+    """Yield the relative checks of each family and of the whole mesh (FR-939).
 
     A family the source does not hold, and every family without a source, is
     reported and not judged.
@@ -1039,7 +1039,7 @@ def _check(check: str, family: str, value: Value, base: Value) -> AuditItem:
             1.0 + CHECK_TOLERANCE
         )
     if value is None or limit is None or values.get("source_beyond_practice"):
-        # R3: a source that fails a practice is reported, not judged.
+        # FR-939: a source that fails a practice is reported, not judged.
         return _reported("check", check, family, values)
     failed = float(value) > limit + CHECK_TOLERANCE * abs(limit)
     return _item("check", check, family, values, failed)

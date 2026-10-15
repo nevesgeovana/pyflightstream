@@ -350,7 +350,7 @@ def _refuse_the_real_control_surface_form(case: SimCase, spec: CcsImportOptions)
     simulation that differs from the wing without it (POL 3204), and the REAL
     form ended ``FAILED_EXECUTION`` with no saved simulation (POL 3205). No
     other build measured the REAL form, so it is refused on every build.
-    RPT-126 then separated the cause (FR-336 R4, ``refusal_stays``): the limits
+    RPT-126 then separated the cause (FR-336, ``refusal_stays``): the limits
     2.0 and 3.6 end the solver process in both spaces, the REAL token does not,
     and the message states it.
     """

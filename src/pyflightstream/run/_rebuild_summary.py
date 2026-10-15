@@ -14,7 +14,7 @@ from typing import Any
 #: The word every rebuilt record's warning starts with.
 REBUILT = "REBUILT"
 
-#: What to do about a row this version cannot mint again (FR-412 R3).
+#: What to do about a row this version cannot mint again (FR-858).
 MINT_REMEDY = (
     "rebuild with the pyflightstream version that ran it, or pass the matrix revision that "
     "ran (CLI: --matrix FILE)"
@@ -50,7 +50,7 @@ def summary_lines(entry: Mapping[str, Any]) -> list[str]:
     The entry is what :func:`~pyflightstream.run.records.restore` or
     :func:`rebuild` returned: the lines say what was, or would be, written,
     and name every refusal. A rebuild's lines end with the count rebuilt and
-    the count refused (FR-412 R3).
+    the count refused (FR-858).
     """
     if "kind" in entry:
         return _restore_lines(entry)

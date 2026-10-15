@@ -35,20 +35,22 @@ def _strip_verbatim_and_math(tex: str) -> str:
 
 
 def superscript_defects(tex: str) -> list[str]:
-    """R1: the lines with a ``^`` outside math and verbatim; pdfTeX stops on each ("Missing $")."""
+    """FR-1196: the lines with a ``^`` outside math and verbatim; pdfTeX stops on each ("Missing
+    $").
+    """
     text = _strip_verbatim_and_math(tex)
     return [line.strip() for line in text.splitlines() if "^" in line]
 
 
 def test_the_user_guide_source_writes_no_superscript_outside_math():
-    """P0390-PDFS (NFR-46 R1) the coefficient expression is in a form the typesetter accepts."""
+    """P0390-PDFS (FR-1196) the coefficient expression is in a form the typesetter accepts."""
     tex = USER_GUIDE_TEX.read_text(encoding="utf-8")
     defects = superscript_defects(tex)
     assert not defects, f"a superscript outside math stops the build: {defects}"
 
 
 def test_the_v0380_line_fails_the_superscript_check():
-    """P0390-PDFS (NFR-46 R1) control: the v0.38.0 line is refused, its math form accepted."""
+    """P0390-PDFS (FR-1196) control: the v0.38.0 line is refused, its math form accepted."""
     assert superscript_defects(V0380_R1_LINE), "the v0.38.0 line passed the R1 check"
     assert not superscript_defects(r"\item over $\rho n^2 D^4$, \(D^5\)")
     assert not superscript_defects("\\begin{lstlisting}\nCT = T/(rho n^2 D^4)\n\\end{lstlisting}")

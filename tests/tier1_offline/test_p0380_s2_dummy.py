@@ -1,9 +1,9 @@
-"""P0380-DUMMY (FR-425 R1 to R5): a grid's shared nodes become its neighbours', and components.
+"""P0380-DUMMY (FR-932 to FR-936): a grid's shared nodes become its neighbours', and components.
 
 Every source is synthetic (tests/p0380_mesh_fixtures.py): the cambered sheet
 grid ``G``; ``T``, a strip of triangles (no grid) sharing G's tip station
 node for node; ``U``, a strip of triangles sharing T's last row only, so it
-touches T and never G; and for R1 ``G2``, a second grid of quadrilaterals
+touches T and never G; and for FR-932 ``G2``, a second grid of quadrilaterals
 sharing G's tip station. Each behaviour is also run with the step it rests on
 taken away or on a planted input, so a check that accepts everything cannot
 pass.
@@ -73,11 +73,11 @@ def _refused(tmp_path: Path, src: Path, capsys, *args, **kwargs) -> str:
     return text
 
 
-# --------------------------------------------------------- R1 grids first
+# --------------------------------------------------------- FR-932 grids first
 
 
 def test_r1_a_second_grid_sharing_nodes_is_remeshed_under_auto(tmp_path):
-    """P0380-DUMMY (FR-425 R1): G is refined as a grid first, G2 sharing its nodes is remeshed.
+    """P0380-DUMMY (FR-932): G is refined as a grid first, G2 sharing its nodes is remeshed.
 
     Controls: G2 alone is refined as a grid (it is one), and with G2 written
     first in the source it is G that is remeshed, naming G2.
@@ -97,7 +97,7 @@ def test_r1_a_second_grid_sharing_nodes_is_remeshed_under_auto(tmp_path):
 
 
 def test_r1_method_grid_on_the_second_grid_is_refused_naming_both(tmp_path, capsys):
-    """P0380-DUMMY (FR-425 R1; FR-424 R11): ``grid`` on G2 is refused naming G2 and G.
+    """P0380-DUMMY (FR-932; FR-925): ``grid`` on G2 is refused naming G2 and G.
 
     Control: ``grid`` on G2 with G not refined is accepted.
     """
@@ -112,7 +112,7 @@ def test_r1_method_grid_on_the_second_grid_is_refused_naming_both(tmp_path, caps
     assert refine_mesh(src).report["G2"]["method"] == "grid"
 
 
-# ------------------------------------------- R2 the remeshed neighbour conforms
+# ------------------------------------------- FR-933 the remeshed neighbour conforms
 
 
 def _tip_nodes(verts: np.ndarray, faces) -> set[int]:
@@ -121,7 +121,7 @@ def _tip_nodes(verts: np.ndarray, faces) -> set[int]:
 
 
 def test_r2_the_remeshed_neighbour_holds_exactly_the_grids_new_nodes(tmp_path):
-    """P0380-DUMMY (FR-425 R2, R5): T, remeshed, shares every new node of G's tip and no other.
+    """P0380-DUMMY (FR-933, FR-936): T, remeshed, shares every new node of G's tip and no other.
 
     The level welds G and T on the 37 nodes of G's refined tip station, and
     its open loops are the source's. Control: the source's G and T share
@@ -142,11 +142,11 @@ def test_r2_the_remeshed_neighbour_holds_exactly_the_grids_new_nodes(tmp_path):
     assert len(shared) == 19 and len({tuple(lv[v]) for v in tip} - shared) == 18
 
 
-# ---------------------------------------- R3 the band of an unchanged neighbour
+# ---------------------------------------- FR-934 the band of an unchanged neighbour
 
 
 def _band(faces, seed: set[int], layers: int) -> set[int]:
-    """Return the faces within ``layers`` face layers of the seed nodes (FR-425 R3).
+    """Return the faces within ``layers`` face layers of the seed nodes (FR-934).
 
     Layer one is the faces with a node on the curve; each next layer the
     faces sharing a node with the layers before.
@@ -174,7 +174,7 @@ def _kept_in_order(level_faces: list[tuple], outside: list[tuple]) -> bool:
 
 
 def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path):
-    """P0380-DUMMY (FR-425 R3): T, not asked to change, is remeshed only in a band of two layers.
+    """P0380-DUMMY (FR-934): T, not asked to change, is remeshed only in a band of two layers.
 
     Outside the band T's faces equal the source's in coordinates, first
     vertex and order; U, beyond T, is untouched; refine.json names the band's
@@ -190,7 +190,7 @@ def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path):
     lv, lf = read_mesh(level.obj)
     got = face_coordinates(lv, lf["T"])
     assert _kept_in_order(got, outside)
-    # FR-432 R3 (0.39.0): the band beside a refined grid may also record shared_edge_target_m
+    # FR-966 (0.39.0): the band beside a refined grid may also record shared_edge_target_m
     entry = dict(level.report["T"])
     target = entry.pop("shared_edge_target_mesh_units")
     assert set(target) == {"min", "mean", "max"}
@@ -214,7 +214,7 @@ def test_r3_an_unchanged_neighbour_changes_only_in_its_two_layer_band(tmp_path):
 def test_r3_when_the_grids_curve_nodes_do_not_change_nothing_of_the_neighbour_changes(
     tmp_path, kwargs
 ):
-    """P0380-DUMMY (FR-425 R3): G's tip nodes unchanged leaves T and U as the source.
+    """P0380-DUMMY (FR-934): G's tip nodes unchanged leaves T and U as the source.
 
     At factor 1, and when only the spanwise direction is refined (the tip
     station is a knot and keeps its nodes), T and U are written face for face.
@@ -231,11 +231,11 @@ def test_r3_when_the_grids_curve_nodes_do_not_change_nothing_of_the_neighbour_ch
     assert len(lf["G"]) == len(sf["G"]) * (2 if "spanwise" in kwargs else 1)
 
 
-# ------------------------------------------------------------- R4 components
+# ------------------------------------------------------------- FR-935 components
 
 
 def test_r4_a_component_writes_its_members_as_one_family_in_the_sources_order(tmp_path):
-    """P0380-DUMMY (FR-425 R4): ``Wing = ["T", "G"]`` writes Wing = G's faces then T's.
+    """P0380-DUMMY (FR-935): ``Wing = ["T", "G"]`` writes Wing = G's faces then T's.
 
     The members are listed in reverse; the faces follow the source's family
     order. The boundaries file names Wing in place of G and T. Control: the
@@ -280,7 +280,7 @@ def test_r4_a_component_writes_its_members_as_one_family_in_the_sources_order(tm
 def test_r4_a_bad_component_is_refused_naming_the_component_and_the_family(
     tmp_path, capsys, toml, said
 ):
-    """P0380-DUMMY (FR-425 R4; FR-424 R11): each refusal by both routes, nothing written.
+    """P0380-DUMMY (FR-935; FR-925): each refusal by both routes, nothing written.
 
     Control: a component named after one of its own members is accepted.
     """
@@ -292,7 +292,7 @@ def test_r4_a_bad_component_is_refused_naming_the_component_and_the_family(
     assert list(read_mesh(level.obj)[1]) == ["G", "T"]
 
 
-# ------------------------------------------------------------ R5 open loops
+# ------------------------------------------------------------ FR-936 open loops
 
 
 def _box(verts: np.ndarray, loop: set[int]) -> np.ndarray:
@@ -301,7 +301,7 @@ def _box(verts: np.ndarray, loop: set[int]) -> np.ndarray:
 
 @pytest.mark.parametrize("factor", [2.0, 0.5])
 def test_r5_the_levels_open_loops_are_the_sources(tmp_path, factor):
-    """P0380-DUMMY (FR-425 R5): refined or coarsened, the level has the source's open loops.
+    """P0380-DUMMY (FR-936): refined or coarsened, the level has the source's open loops.
 
     Every family changes (G as a grid, T and U remeshed together and onto
     G's new nodes); the level has as many loops as the source, its loop
@@ -324,7 +324,7 @@ def test_r5_the_levels_open_loops_are_the_sources(tmp_path, factor):
 
 
 def test_r4_the_audit_compares_a_component_with_the_union_of_its_members(tmp_path):
-    """P0380-DUMMY (FR-425 R4, FR-426 R3): a level written with ``Wing = ["G", "T"]`` at factor
+    """P0380-DUMMY (FR-935, FR-939): a level written with ``Wing = ["G", "T"]`` at factor
     1 is audited against the source's G and T measured as one family, so no relative check
     of Wing fails and its source figure is the union's. Control: with the components removed
     from the level's refine.json the audit compares Wing with nothing of that name in the

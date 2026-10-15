@@ -133,7 +133,7 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
             velocity_m_per_s=velocity,
             sonic_velocity_m_per_s=sound,
         )
-        # FR-176 R1: the advancing tip; an axis the row cannot resolve gives the
+        # FR-1201: the advancing tip; an axis the row cannot resolve gives the
         # edgewise bound, which the record and the plan line say.
         advancing, resolved = advancing_tip_mach_number(
             rpm=rpm,
@@ -233,7 +233,7 @@ def _disc_axis(case: SimCase, frame: str, letter: str) -> tuple[float, float, fl
     ``MRP`` is the reference frame itself and a ``[[frames]]`` entry states its
     axes; a rotor's own frame is built from a shaft this function does not
     rebuild, so a disc on one is unresolved and its ``M_adv`` is the edgewise
-    bound (FR-176 R1).
+    bound (FR-1201).
     """
     if frame.upper() == "MRP":
         return AXIS_UNIT_VECTORS[letter]

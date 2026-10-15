@@ -263,7 +263,7 @@ def _initialize(case: SimCase, script: Script) -> None:
 def _initialize_the_solver(case: SimCase, script: Script) -> None:
     """Emit the initialization of a run that starts from a mesh, never of a reopened state.
 
-    A CONTINUATION EMITS NONE (FR-396 R1, RPT-134). On 26.124 an
+    A CONTINUATION EMITS NONE (FR-798, RPT-134). On 26.124 an
     ``INITIALIZE_SOLVER`` after the ``OPEN`` of a saved simulation clears the
     solution that file carries ("Solution cleared. Initialization removed.")
     and the march starts again at step 1; without it the solver marches on
@@ -295,7 +295,7 @@ def _a_march_turning_a_rotor(case: SimCase) -> bool:
 
 
 def _vorticity_list_before_the_solve(script: Script) -> None:
-    """Emit the deferred vorticity drag list right before ``START_SOLVER`` (FR-318 R6).
+    """Emit the deferred vorticity drag list right before ``START_SOLVER`` (FR-568).
 
     MEASURED ON 26.124 (build 8172026, RPT-133): on a rotor march the list
     emitted after ``START_SOLVER`` reaches the final loads export and no step
@@ -341,11 +341,11 @@ def _script_tail(
     of it.
     """
     if case.pproc is not None and case.pproc.streamlines is not None:
-        # FR-460 R5, before the first line of the tail: a coupled steady row
+        # FR-1081, before the first line of the tail: a coupled steady row
         # never reaches the trace, and must not reach its exports either.
         refuse_streamlines_where_they_cannot_run(case, case.pproc.streamlines)
     if case.sixdof is not None and case.recipe != "unsteady":
-        # FR-461 R4, for a case built without the matrix: the matrix refuses it
+        # FR-1087, for a case built without the matrix: the matrix refuses it
         # when the row binds, and a case authored in Python meets it here.
         raise CampaignConfigError(
             f"case {case.sim_id!r}: a 6DOF body runs on the unsteady run type only, and this "
@@ -562,7 +562,7 @@ def _wire_the_fixed_wing(
 
 
 def _validate_the_external_structure(case: SimCase, script: Script, *, continuation: bool) -> None:
-    """Refuse a row the external FSI route cannot couple (FR-462 R4); nothing where none."""
+    """Refuse a row the external FSI route cannot couple (FR-1093); nothing where none."""
     if case.fsi_external is None:
         return
     from .._fsi_external import validate_external_fsi
@@ -786,7 +786,7 @@ def _script_solve_and_export(
     # fluid plots long before this point and needs nothing here.
     if frames is not None:
         _pproc_probes(case, script, frames, unsteady=unsteady, analysis=True)
-    # FR-417 R6: a continuation creates the normal probes its full script would.
+    # FR-889: a continuation creates the normal probes its full script would.
     for name, args, kwargs in replayed_probes:
         script.emit(name, *args, **kwargs)  # type: ignore[arg-type]
     # 0.32.0 (E2): the acoustic signals, computed from the march and exported.

@@ -212,11 +212,11 @@ def _judge_the_group_members_the_model_lacks(case: SimCase, script: Script) -> N
 
     Called after :func:`_refuse_a_pproc_the_geometry_shares_no_name_with`, so a
     pproc none of whose groups selects a boundary keeps that refusal and its
-    text (R8). Of the rest, a member the row's study holds is skipped and said
-    (R4: it is left out of its group at post, and a group none of whose members
+    text (FR-986). Of the rest, a member the row's study holds is skipped and said
+    (FR-982: it is left out of its group at post, and a group none of whose members
     selects anything writes no polar row, both as on 0.38.0), one the study
-    does not hold is refused (R6), and every one is refused on a run that asked
-    for the refusal (R10). A position, ``all`` and a member the model answers
+    does not hold is refused (FR-984), and every one is refused on a run that asked
+    for the refusal (FR-988). A position, ``all`` and a member the model answers
     are not judged; with no vocabulary and no refusal asked for, nothing is said.
     A member is judged against the model as its geometry OPENED it
     (:func:`~pyflightstream.cases.setup_surfaces.the_model_inventory`): a

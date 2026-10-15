@@ -1,7 +1,7 @@
 """Tier 1, 0.34.0: the thin-blade command and its --boundary option (FR-330, P0340-THIN-BLADE).
 
 Pipeline role: quality gate on ``pyfs-matrix degenerate --kind thin-blade``
-(FR-330 R1, R7 and R9): the parser of the family, the command that runs it, its
+(FR-628, FR-634 and FR-636): the parser of the family, the command that runs it, its
 refusals by name, the selection of the blade among the bodies of one file, and
 the two places that must name it (the generated command-line reference and the
 cheatsheet). The geometry itself is the library core's, held by
@@ -77,9 +77,9 @@ def _run(capsys, *argv: str) -> tuple[int, str, str]:
 
 
 def test_the_command_derives_the_thin_blade_beside_the_source(tmp_path, capsys):
-    """FR-330 R1 and R4 (P0340-THIN-BLADE): the command writes what the library writes,
+    """FR-628 and FR-631 (P0340-THIN-BLADE): the command writes what the library writes,
     beside the source, names both files, and leaves the source's bytes alone."""
-    # P0340-THIN-BLADE, FR-330 R1: pyfs-matrix degenerate GEOMETRY --kind thin-blade --root-offset.
+    # P0340-THIN-BLADE, FR-628: pyfs-matrix degenerate GEOMETRY --kind thin-blade --root-offset.
     vertices, faces = _blade()
     source = _write_obj(tmp_path / "blade.obj", vertices, faces)
     before = _sha(source)
@@ -99,8 +99,8 @@ def test_the_command_derives_the_thin_blade_beside_the_source(tmp_path, capsys):
 
 
 def test_the_kind_defaults_to_thin_blade_and_no_other_kind_is_accepted(tmp_path, capsys):
-    """FR-330 R1 (P0340-THIN-BLADE): thin-blade is the one kind and the default of --kind."""
-    # P0340-THIN-BLADE, FR-330 R1: --kind thin-blade, the default; a later kind is a new choice.
+    """FR-628 (P0340-THIN-BLADE): thin-blade is the one kind and the default of --kind."""
+    # P0340-THIN-BLADE, FR-628: --kind thin-blade, the default; a later kind is a new choice.
     with pytest.raises(SystemExit) as helped:
         cli.main(["degenerate", "--help"])
     assert helped.value.code == 0
@@ -117,9 +117,9 @@ def test_the_kind_defaults_to_thin_blade_and_no_other_kind_is_accepted(tmp_path,
 
 
 def test_a_missing_or_unusable_root_offset_is_refused_by_name(tmp_path, capsys):
-    """FR-330 R1, R3 and R6 (P0340-THIN-BLADE): the offset is required, and one that is not a
+    """FR-628, FR-630 and FR-633 (P0340-THIN-BLADE): the offset is required, and one that is not a
     positive length is refused naming the file, with nothing written."""
-    # P0340-THIN-BLADE, FR-330 R3: the command requires --root-offset, a positive length.
+    # P0340-THIN-BLADE, FR-630: the command requires --root-offset, a positive length.
     vertices, faces = _blade()
     source = _write_obj(tmp_path / "blade.obj", vertices, faces)
     with pytest.raises(SystemExit) as missing:
@@ -135,9 +135,9 @@ def test_a_missing_or_unusable_root_offset_is_refused_by_name(tmp_path, capsys):
 
 
 def test_a_mesh_the_command_cannot_use_is_refused_by_name_and_nothing_is_written(tmp_path, capsys):
-    """FR-330 R4 and R6 (P0340-THIN-BLADE): an absent file, a file of another kind and an
+    """FR-631 and FR-633 (P0340-THIN-BLADE): an absent file, a file of another kind and an
     existing output without --overwrite exit 2 naming the file and the reason."""
-    # P0340-THIN-BLADE, FR-330 R6: refusals by name, exit 2, standard error, nothing written.
+    # P0340-THIN-BLADE, FR-633: refusals by name, exit 2, standard error, nothing written.
     absent = tmp_path / "absent.obj"
     code, out, err = _run(capsys, "degenerate", str(absent), "--root-offset", "0.05")
     assert code == 2 and out == "" and str(absent) in err and "it is not a file" in err
@@ -158,10 +158,10 @@ def test_a_mesh_the_command_cannot_use_is_refused_by_name_and_nothing_is_written
 
 
 def test_a_file_holding_several_bodies_is_refused_until_the_blade_is_named(tmp_path, capsys):
-    """FR-330 R6 and R9 (P0340-THIN-BLADE): without --boundary the file with a spinner is
+    """FR-633 and FR-636 (P0340-THIN-BLADE): without --boundary the file with a spinner is
     refused naming its groups and the option; with it, the blade alone is derived, equal to the
     sheet of the blade file alone, under a name that carries the boundary."""
-    # P0340-THIN-BLADE, FR-330 R9: --boundary NAME selects the blade of a file of several bodies.
+    # P0340-THIN-BLADE, FR-636: --boundary NAME selects the blade of a file of several bodies.
     source = _with_spinner(tmp_path / "rotor.obj")
     code, out, err = _run(capsys, "degenerate", str(source), "--root-offset", "0.05")
     assert code == 2 and out == ""
@@ -187,9 +187,9 @@ def test_a_file_holding_several_bodies_is_refused_until_the_blade_is_named(tmp_p
 
 
 def test_a_boundary_the_file_does_not_hold_is_refused_naming_what_it_holds(tmp_path, capsys):
-    """FR-330 R6 and R9 (P0340-THIN-BLADE): an unknown boundary of an OBJ, of a saved
+    """FR-633 and FR-636 (P0340-THIN-BLADE): an unknown boundary of an OBJ, of a saved
     simulation and one named twice in a saved simulation are each refused, nothing written."""
-    # P0340-THIN-BLADE, FR-330 R9: an unknown or ambiguous boundary is refused by name.
+    # P0340-THIN-BLADE, FR-636: an unknown or ambiguous boundary is refused by name.
     source = _with_spinner(tmp_path / "rotor.obj")
     code, out, err = _run(
         capsys, "degenerate", str(source), "--root-offset", "0.05", "--boundary", "Nacelle"
@@ -216,9 +216,9 @@ def test_a_boundary_the_file_does_not_hold_is_refused_naming_what_it_holds(tmp_p
 
 
 def test_the_boundary_of_a_saved_simulation_is_cut_out_of_its_mesh_block(tmp_path, capsys):
-    """FR-330 R9 (P0340-THIN-BLADE): of the pusher's three boundaries only the named one's
+    """FR-636 (P0340-THIN-BLADE): of the pusher's three boundaries only the named one's
     faces are read, so the sheet lies inside the body's own span and is written under its name."""
-    # P0340-THIN-BLADE, FR-330 R9: --boundary on a saved simulation holding three boundaries.
+    # P0340-THIN-BLADE, FR-636: --boundary on a saved simulation holding three boundaries.
     saved = shutil.copy(_LIBRARY / "40_PUSHER.fsm", tmp_path / "pusher.fsm")
     code, out, err = _run(
         capsys, "degenerate", str(saved), "--root-offset", "0.01", "--boundary", "Body"
@@ -247,10 +247,10 @@ def test_the_boundary_of_a_saved_simulation_is_cut_out_of_its_mesh_block(tmp_pat
 def test_a_saved_simulation_of_exactly_two_boundaries_is_refused_until_one_is_named(
     tmp_path, capsys
 ):
-    """FR-330 R6 and R9 (P0340-THIN-BLADE): the body's saved simulation holds exactly TWO
+    """FR-633 and FR-636 (P0340-THIN-BLADE): the body's saved simulation holds exactly TWO
     boundaries, the least that is several; without --boundary it is refused naming both and
     the option, nothing written, and with it the named one is derived."""
-    # P0340-THIN-BLADE, FR-330 R9: two boundaries are several, as three are.
+    # P0340-THIN-BLADE, FR-636: two boundaries are several, as three are.
     saved = shutil.copy(_LIBRARY / "20_BODY.fsm", tmp_path / "body.fsm")
     assert _degenerate.boundary_names(saved) == ("Body", "Base")
     code, out, err = _run(capsys, "degenerate", str(saved), "--root-offset", "0.01")
@@ -267,9 +267,9 @@ def test_a_saved_simulation_of_exactly_two_boundaries_is_refused_until_one_is_na
 def test_a_saved_simulation_without_a_boundary_row_and_a_name_that_collides_are_refused(
     tmp_path, capsys
 ):
-    """FR-330 R6 and R9 (P0340-THIN-BLADE): a mesh block with no per-face boundary row, an
+    """FR-633 and FR-636 (P0340-THIN-BLADE): a mesh block with no per-face boundary row, an
     empty NAME and two boundaries whose names write the same output are each refused."""
-    # P0340-THIN-BLADE, FR-330 R9: no boundary row, an empty name, a colliding sanitized name.
+    # P0340-THIN-BLADE, FR-636: no boundary row, an empty name, a colliding sanitized name.
     saved = shutil.copy(_LIBRARY / "40_PUSHER.fsm", tmp_path / "pusher.fsm")
     bare = _with_owners(saved, {1: 99, 2: 99, 3: 99})
     with pytest.raises(InputArtifactError, match="carries no boundary row") as refused:
@@ -293,9 +293,9 @@ def test_a_saved_simulation_without_a_boundary_row_and_a_name_that_collides_are_
 
 
 def test_the_cli_reference_and_the_cheatsheet_name_the_command_and_its_options():
-    """FR-330 R7 (P0340-THIN-BLADE): the generated reference lists degenerate with its four
+    """FR-634 (P0340-THIN-BLADE): the generated reference lists degenerate with its four
     options, and both pages of the cheatsheet that name the commands carry it."""
-    # P0340-THIN-BLADE, FR-330 R7: the CLI reference and the cheatsheet name the command.
+    # P0340-THIN-BLADE, FR-634: the CLI reference and the cheatsheet name the command.
     sys.path.insert(0, str(REPO / "scripts"))
     try:
         from gen_cli_reference import cli_reference_pages

@@ -11,7 +11,7 @@ from pyflightstream.workspace import RunRecord, RunStatus
 
 @pytest.mark.parametrize("status", [RunStatus.RAN_MISSING_LOG, RunStatus.COMPLETED_MAX_ITER])
 def test_clock_evidence_does_not_replace_missing_log_status(tmp_path, status):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R1, R3): keep status and retain the stop step."""
+    """P0370-S1-RAN-MISSING-LOG (FR-860, FR-862): keep status and retain the stop step."""
     record = RunRecord(
         run_id="campaign/sim_1/A",
         sim_id="1",

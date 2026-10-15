@@ -115,7 +115,7 @@ def _wing_call(tmp_path: Path, cfg: FsiConfig, fz_n_per_m: float) -> tuple[Path,
 def test_the_last_column_is_the_signed_tip_deflection_of_the_displacement_file_fr_339(
     tmp_path, case, cfg, fz_n_per_m, sign
 ):
-    """P0340-FSI-TIP-SIGN, FR-339 R1: the sign the displacement file carries.
+    """P0340-FSI-TIP-SIGN, FR-668: the sign the displacement file carries.
 
     Lift alone bends the wing toward the suction side (+z, positive); its own
     weight alone bends it down (negative). The test reads the tip node of the
@@ -131,12 +131,12 @@ def test_the_last_column_is_the_signed_tip_deflection_of_the_displacement_file_f
     )
     # The written displacement is the relaxed one, d = lambda * d_calc from rest.
     assert signed * cfg.phases.coupling_relaxation == pytest.approx(tip_z, rel=1e-6)
-    # FR-339 R2: the magnitude column keeps its value, the absolute of the same number.
+    # FR-669: the magnitude column keeps its value, the absolute of the same number.
     assert rows[-1]["tip_flap_m"] == f"{abs(signed):.6e}"
 
 
 def test_every_earlier_column_keeps_its_name_position_and_value_fr_339(tmp_path):
-    """P0340-FSI-TIP-SIGN, FR-339 R2: 0.33.0's thirteen columns, then the new one.
+    """P0340-FSI-TIP-SIGN, FR-669: 0.33.0's thirteen columns, then the new one.
 
     The rotor route through every phase (wake development, averaging,
     convergence, recording) and a frozen replay: the header is 0.33.0's plus
@@ -229,7 +229,7 @@ def _assert_signed_row(row: dict[str, str], tips: list[float], sign: float) -> N
 
 @pytest.mark.parametrize("sign", [1.0, -1.0], ids=["positive", "negative"])
 def test_the_rotor_routes_write_the_tip_with_its_sign_fr_339(tmp_path, sign):
-    """P0340-FSI-TIP-SIGN, FR-339 R1 on the two rotor routes, both signs.
+    """P0340-FSI-TIP-SIGN, FR-668 on the two rotor routes, both signs.
 
     The unsteady rotor through every phase and the quasi-steady sector, each
     fed the real export of call 2 as recorded (the blade bends toward the
@@ -270,7 +270,7 @@ def test_the_rotor_routes_write_the_tip_with_its_sign_fr_339(tmp_path, sign):
 
 
 def test_a_run_resumed_on_a_0330_log_is_refused_before_it_writes_fr_339(tmp_path):
-    """P0340-FSI-TIP-SIGN, FR-339 R1 and R2: one log, one layout.
+    """P0340-FSI-TIP-SIGN, FR-668 and FR-669: one log, one layout.
 
     A run whose log 0.33.0 started (thirteen columns) and which this release
     resumes would append rows of fourteen under that header. The call is
@@ -299,7 +299,7 @@ def test_a_run_resumed_on_a_0330_log_is_refused_before_it_writes_fr_339(tmp_path
 
 
 def test_a_reader_of_a_0330_log_keeps_reading_it_fr_339(tmp_path):
-    """P0340-FSI-TIP-SIGN, FR-339 R3, and the FSI page states the convention (R1).
+    """P0340-FSI-TIP-SIGN, FR-670, and the FSI page states the convention (FR-668).
 
     A reader that takes the columns by name reads a 0.33.0 log, which lacks
     the new column, and a 0.34.0 log alike; the FSI page names the column and

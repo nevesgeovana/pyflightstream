@@ -176,7 +176,7 @@ def _preset_spellings(
 def _refuse_two_wake_terminations(
     setup: SetupArtifact, preset: SolverSettings, row: MatrixRow, aliases: Mapping[str, str]
 ) -> None:
-    """Refuse a row whose preset and cell state two wake termination keys (FR-322 R1, R4).
+    """Refuse a row whose preset and cell state two wake termination keys (FR-586, FR-589).
 
     Each of ``wake_termination_length``, ``wake_termination_steps`` and
     ``wake_termination_revolutions`` states the whole termination, so two can

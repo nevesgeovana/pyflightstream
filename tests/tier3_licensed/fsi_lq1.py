@@ -58,7 +58,7 @@ The added line pair and the cap are this probe's, made by :func:`run`
 patching the post and the cap in its own process; nothing in the package
 changes.
 
-THE XZ RATIOS OF FR-340 (R2, fixed before the run): on each point, the
+THE XZ RATIOS OF FR-340 (FR-340, fixed before the run): on each point, the
 summed cut moments over their strips against the solver's ``CMy q S c``
 about the same line (the moment point on the quarter chord, the MRP the cuts
 are taken in), and the summed cut forces ``Fz`` against ``Cz q S``. The
@@ -386,7 +386,7 @@ def _loads(folder: Path, name: str | None = None) -> object:
 
 
 def xz_ratios(folder: Path) -> dict[str, float]:
-    """The two ratios of FR-340 R2 on one point, from its loads and its section loads."""
+    """The two ratios of FR-340 on one point, from its loads and its section loads."""
     from pyflightstream.results.sectional_loads import parse_sectional_loads
 
     report = _loads(folder)
@@ -424,7 +424,7 @@ def xz_ratios(folder: Path) -> dict[str, float]:
 
 
 def xz_verdict(moment_ratio: float, force_ratio: float) -> str:
-    """FR-340 R2: confirmed when the moment ratio is at least as close to 1 as the force ratio."""
+    """FR-340: confirmed when the moment ratio is at least as close to 1 as the force ratio."""
     return "confirmed" if abs(moment_ratio - 1.0) <= abs(force_ratio - 1.0) else "refuted"
 
 

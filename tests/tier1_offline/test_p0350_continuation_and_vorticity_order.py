@@ -1,8 +1,8 @@
 """Tier 1: a continuation continues the march; a rotor march lands its drag list before the solve.
 
 FR-396 (RPT-134): a continuation that reopens a saved state emits no INITIALIZE_SOLVER
-(R1), registers none of the unsteady actions the saved file carries (R2), and the post
-warns when a continuation adds no time step to the march (R3). FR-318 R6 (RPT-133): a
+(FR-798), registers none of the unsteady actions the saved file carries (FR-799), and the post
+warns when a continuation adds no time step to the march (FR-800). FR-568 (RPT-133): a
 row turning a rotor in time that states vorticity_drag_families emits the list right
 before START_SOLVER. Each behaviour is checked on the script the package builds, with a
 control that shows the check can see the other answer, and each named difference of the
@@ -114,7 +114,7 @@ def _parity():
     return module
 
 
-# --- FR-396 R1: no INITIALIZE_SOLVER on a reopened state --------------------------------
+# --- FR-798: no INITIALIZE_SOLVER on a reopened state --------------------------------
 
 
 @pytest.mark.parametrize("run_type", ["unsteady", "unsteady_rotor"])
@@ -138,7 +138,7 @@ def test_a_continuation_emits_no_initialize_solver_fr_396(run_type):
     assert "INITIALIZE_SOLVER" in _lines(control)
 
 
-# --- FR-396 R2: the actions the saved state carries are not registered again ----------
+# --- FR-799: the actions the saved state carries are not registered again ----------
 
 
 @pytest.mark.parametrize("run_type", ["unsteady", "unsteady_rotor"])
@@ -182,7 +182,7 @@ def test_a_continuation_without_a_threshold_records_the_counter_alone_fr_396():
     assert script.pending_action_scripts == {}
 
 
-# --- FR-396 R3: the post warns on a continuation that adds no step ---------------------
+# --- FR-800: the post warns on a continuation that adds no step ---------------------
 
 
 def test_the_post_warns_when_a_continuation_adds_no_time_step_fr_396(tmp_path):
@@ -231,7 +231,7 @@ def test_the_post_is_silent_when_the_continuation_marched_on_fr_396(tmp_path):
     assert not [message for message in said if NO_STEP in message], said
 
 
-# --- FR-318 R6: the vorticity drag list before START_SOLVER on a rotor march ------------
+# --- FR-568: the vorticity drag list before START_SOLVER on a rotor march ------------
 
 
 @pytest.mark.parametrize(
@@ -267,7 +267,8 @@ def test_a_rotor_march_lands_its_drag_list_before_start_solver_fr_318(tmp_path, 
 
 @pytest.mark.parametrize("run_type", ["steady", "unsteady"])
 def test_a_row_turning_no_rotor_in_time_keeps_its_list_after_the_solve_fr_318(tmp_path, run_type):
-    """P0350-VORTICITY-BEFORE-SOLVE (FR-318), the control: R6 moves the list of a rotor march only.
+    """P0350-VORTICITY-BEFORE-SOLVE (FR-318), the control: FR-568 moves the list of a rotor march
+     only.
 
     A steady row exports after the solve, and a march turning no rotor is outside the
     requirement and RPT-133's measurement: both keep the list right after START_SOLVER,

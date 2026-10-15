@@ -5,7 +5,7 @@ Pipeline role: the frozen numpy containers that replaced the xarray dataset of
 survey lattice, shaped ``(station, ring, azimuth)``, in the shaft-aligned
 coordinates defined by :mod:`pyflightstream.probes.lattice`; :class:`PlaneFields`
 carries the samples of a rectangular far-field plane, shaped ``(y, z)``. Neither
-reads or writes a file (FR-450 R2).
+reads or writes a file (FR-1004).
 
 Field names: axial velocity ``u`` (m/s, +x downstream), transverse Cartesian
 ``v`` (+y) and ``w`` (+z), cylindrical ``v_r`` and ``v_theta`` (derived, see
@@ -355,7 +355,7 @@ def hub_frame_velocities(
     free stream, so a probe there reads the velocity relative to a frame that
     turns at ``omega`` about ``axis``. The hub-frame velocity adds back the
     frame velocity at the probe, ``v_hub = v + Omega x (x - x_hub)`` with
-    ``Omega = omega axis`` (FR-453 R8). The positions are not moved: the
+    ``Omega = omega axis`` (FR-1037). The positions are not moved: the
     balances of one solve read the field at one instant, where the two frames
     coincide.
 

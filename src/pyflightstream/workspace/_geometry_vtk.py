@@ -1,4 +1,4 @@
-"""The preview of a built geometry: a legacy VTK file coloured by boundary (FR-471 R6).
+"""The preview of a built geometry: a legacy VTK file coloured by boundary (FR-1107).
 
 Pipeline role: the workspace row. :func:`write_preview_vtk` writes the
 surface of a built body with one cell array ``boundary`` (the boundary's
@@ -162,7 +162,7 @@ def _surface_of(
 def write_sweep_vtk(
     target: Path, variants: Sequence[tuple[int, str, Path, Path]], surface: str
 ) -> Path | None:
-    """Overlay the control surface of every built variant in one file (FR-472 R7).
+    """Overlay the control surface of every built variant in one file (FR-1118).
 
     Parameters
     ----------

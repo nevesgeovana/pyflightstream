@@ -15,13 +15,13 @@ the script one solver execution runs to make the body, with no solve::
     CLOSE_FLIGHTSTREAM
 
 The OBJ is written in the simulation length unit in force at export, so the
-unit is set explicitly before marking, saving and exporting (FR-471 R2).
+unit is set explicitly before marking, saving and exporting (FR-1103).
 An OBJ carries no trailing-edge marks; they are saved in the simulation.
 The CCS source is emitted by the run's own emitter
 (:func:`pyflightstream.cases.ccs_wing.emit_ccs_geometry`), so the stage adds no
 second CCS emitter.
 
-THE EVIDENCE GATE (FR-471 R9). :data:`EVIDENCE_GATED` lists the commands the
+THE EVIDENCE GATE (FR-1110). :data:`EVIDENCE_GATED` lists the commands the
 run did not emit before 0.40.0 and the lofts the stage now runs on every build;
 each one used and not ``verified`` on the build is named in
 :attr:`GeometryScript.awaiting_evidence`, and the build refuses to run the
@@ -125,7 +125,7 @@ class GeometryScript:
     commands : tuple of str
         Every command the script emits, in first-use order.
     awaiting_evidence : tuple of str
-        The gated commands used and not verified on the build (FR-471 R9).
+        The gated commands used and not verified on the build (FR-1110).
     pending_files : mapping of str to bytes
         Files the script reads that the build writes first (a CCS copy in a
         shedding direction, a trailing-edge node file), by absolute path.
@@ -306,7 +306,7 @@ def _emit_ccs(
 
 
 def _emit_cad_operation(script: Script, operation: CadBodyOperation) -> None:
-    """Emit one CAD body operation, in the reference frame and in metres (FR-475 R1)."""
+    """Emit one CAD body operation, in the reference frame and in metres (FR-1131)."""
     if operation.op == "delete":
         script.emit("CAD_BODY_DELETE", operation.body)
     elif operation.op == "delete_by_threshold":
@@ -384,7 +384,7 @@ def _emit_section_loft(
     instruction: GeometryInstruction,
     names: Sequence[str],
 ) -> None:
-    """Emit each section placed at its station, then the CCS wing loft (FR-475 R2)."""
+    """Emit each section placed at its station, then the CCS wing loft (FR-1132)."""
     loft = create.loft
     if loft is None:
         raise ValueError("[[create.sections]] are lofted by [create.loft]; the table is not stated")
@@ -441,7 +441,7 @@ def _position(names: Sequence[str], surface: str | None) -> int:
 def _emit_operation(
     script: Script, operation: GeometryOperation, names: Sequence[str], unit: str
 ) -> None:
-    """Emit one operation of the instruction (FR-470 R3, FR-474)."""
+    """Emit one operation of the instruction (FR-1098, FR-474)."""
     if operation.op in ("scale", "rename", "mirror"):
         _emit_sidecar_operation(script, operation, names)
     else:

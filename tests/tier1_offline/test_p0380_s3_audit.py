@@ -129,7 +129,8 @@ def _assert_fails(audit: MeshAudit, said: list[str], name: str, family: str, tex
 
 
 def test_a_level_equal_to_its_source_passes_every_gate_and_check(tmp_path):
-    """P0380-AUDIT (FR-426 R1, R2, R3): the control: the source against itself passes, no warning.
+    """P0380-AUDIT (FR-937, FR-938, FR-939): the control: the source against itself passes, no
+     warning.
 
     Every gate is judged (G6 with the triangle family named as a grid at factor 1), the
     closed box yields its positive volume, and the audit is written beside the level.
@@ -178,7 +179,7 @@ def _zero_area(m: Mesh) -> None:
     ],
 )
 def test_g1_fails_on_each_of_its_three_defects(tmp_path, plant, value):
-    """P0380-AUDIT (FR-426 R1, R2 G1, R5): an edge of three faces, two nodes at one position,
+    """P0380-AUDIT (FR-937, FR-938 G1, FR-941): an edge of three faces, two nodes at one position,
     a face of zero area each fail G1, against the source and alone; the audit is written."""
     m = Mesh()
     plant(m)
@@ -190,7 +191,7 @@ def test_g1_fails_on_each_of_its_three_defects(tmp_path, plant, value):
 
 
 def test_g2_fails_on_a_flipped_face_and_on_an_inward_closed_family(tmp_path):
-    """P0380-AUDIT (FR-426 R2 G2, R5): a face whose neighbours run the other way fails G2 on the
+    """P0380-AUDIT (FR-938 G2, FR-941): a face whose neighbours run the other way fails G2 on the
     whole mesh; a closed family turned inside out fails G2 on that family, alone too."""
     m = Mesh()
     m.families["A"][14] = m.families["A"][14][::-1]
@@ -206,7 +207,7 @@ def test_g2_fails_on_a_flipped_face_and_on_an_inward_closed_family(tmp_path):
 
 
 def test_g3_fails_on_a_new_hole_and_on_a_hole_moved_elsewhere(tmp_path):
-    """P0380-AUDIT (FR-426 R2 G3, FR-425 R5, R5): a level that opens a hole fails G3 by count;
+    """P0380-AUDIT (FR-938 G3, FR-936, FR-936): a level that opens a hole fails G3 by count;
     a level whose hole is not the source's opening fails by matching; alone, G3 is reported."""
     m = Mesh()
     del m.families["A"][14]  # cell (2, 1): every node of it is inside the sheet
@@ -238,7 +239,7 @@ def _plate(path: Path, hole: tuple[int, int]) -> Path:
 
 @pytest.mark.parametrize("hole", [(3, 2), (4, 3), (5, 5)], ids=["beside", "near", "far"])
 def test_g3_fails_on_a_hole_moved_near_with_the_outer_boundary_unchanged(tmp_path, hole):
-    """P0380-AUDIT (FR-426 R2 G3; FR-425 R5): a hole closed and another opened nearby fails G3.
+    """P0380-AUDIT (FR-938 G3; FR-936): a hole closed and another opened nearby fails G3.
 
     The plate's outer boundary is unchanged and the level holds as many loops
     as the source, so only the place of the opening tells them apart: a hole
@@ -258,7 +259,7 @@ def test_g3_fails_on_a_hole_moved_near_with_the_outer_boundary_unchanged(tmp_pat
 
 
 def test_g4_fails_on_a_point_off_every_edge_and_on_a_split_chain(tmp_path):
-    """P0380-AUDIT (FR-426 R2 G4, R5): a trailing-edge point off every mesh edge fails G4, alone
+    """P0380-AUDIT (FR-938 G4, FR-941): a trailing-edge point off every mesh edge fails G4, alone
     too; a points file whose chains are not the source's in number fails G4 against it."""
     m = Mesh()
     off = m.te_points()
@@ -275,7 +276,7 @@ def test_g4_fails_on_a_point_off_every_edge_and_on_a_split_chain(tmp_path):
 
 
 def test_g4_reads_the_points_file_the_sidecar_names_and_refuses_a_missing_one(tmp_path):
-    """P0380-AUDIT (FR-426 R2 G4): the points file is the one ``[trailing_edges] file`` names;
+    """P0380-AUDIT (FR-938 G4): the points file is the one ``[trailing_edges] file`` names;
     a named file that does not exist is refused, and nothing is written."""
     level, src = _pair(tmp_path, Mesh())
     level.with_suffix(".te.txt").rename(level.with_name("edge.te.txt"))
@@ -291,7 +292,7 @@ def test_g4_reads_the_points_file_the_sidecar_names_and_refuses_a_missing_one(tm
 
 
 def test_g5_fails_when_two_families_no_longer_share_their_nodes(tmp_path):
-    """P0380-AUDIT (FR-426 R2 G5, R5): families that shared nodes in the source and share none in
+    """P0380-AUDIT (FR-938 G5, FR-941): families that shared nodes in the source and share none in
     the level fail G5 on that pair; alone, G5 is reported and not judged."""
     m = Mesh()
     seam = {_node(i, NY // 2) for i in range(NX + 1)}
@@ -306,7 +307,7 @@ def test_g5_fails_when_two_families_no_longer_share_their_nodes(tmp_path):
 
 
 def test_g6_fails_when_a_factor_one_grid_family_moves_or_reorders(tmp_path):
-    """P0380-AUDIT (FR-426 R2 G6, FR-424 R7, R5): a grid family named as unchanged fails G6 when
+    """P0380-AUDIT (FR-938 G6, FR-921, FR-919): a grid family named as unchanged fails G6 when
     one node moves by 1e-6 or its faces change order; unnamed or alone, G6 is not judged."""
     moved = Mesh()
     moved.verts[_node(2, 1)] += [0.0, 0.0, 1e-6]
@@ -350,7 +351,8 @@ def _graded() -> Mesh:
     [(_sheared, "skewness", "A"), (_warped, "warp", "B"), (_graded, "growth", "A")],
 )
 def test_each_relative_check_fails_on_a_mesh_built_to_fail_it(tmp_path, build, check, family):
-    """P0380-AUDIT (FR-426 R1, R3, R5): a sheared grid fails the skewness check, a warped one the
+    """P0380-AUDIT (FR-937, FR-939, FR-941): a sheared grid fails the skewness check, a warped one
+     the
     warp check, a graded one the size-growth check, per family and on the whole mesh, each a
     warning naming both 95th percentiles; alone, the check is reported and not judged."""
     level, src = _pair(tmp_path, build())
@@ -370,7 +372,7 @@ def _said(value: float) -> str:
 
 
 def test_the_relative_limits_are_the_margin_and_the_floors_of_r3(tmp_path):
-    """P0380-AUDIT (FR-426 R3): skewness at most the source's plus 0.05; warp and growth at most
+    """P0380-AUDIT (FR-939): skewness at most the source's plus 0.05; warp and growth at most
     the larger of the source's and 10 degrees, and of the source's and 2; the percentile is the
     95th with linear interpolation between ranks."""
     level, src = _pair(tmp_path, _graded())
@@ -397,7 +399,7 @@ def test_the_relative_limits_are_the_margin_and_the_floors_of_r3(tmp_path):
 
 
 def test_size_growth_across_a_corner_is_not_a_size_jump(tmp_path):
-    """P0380-AUDIT (FR-426 R3): the size growth is read across edges whose dihedral is below 30
+    """P0380-AUDIT (FR-939): the size growth is read across edges whose dihedral is below 30
     degrees only, so a long box whose sides are ten times its ends grows by 1, and its growth
     check passes against a cube (its skewness check is the one that fails)."""
     level, src = _pair(tmp_path, Mesh(box=2.0))
@@ -412,7 +414,7 @@ def _slender() -> Mesh:
 
 
 def test_each_reported_figure_exceeded_gives_its_figure_and_no_warning(tmp_path):
-    """P0380-AUDIT (FR-426 R4, R5): a mesh in the plane y = 0 whose last column at the trailing
+    """P0380-AUDIT (FR-940, FR-941): a mesh in the plane y = 0 whose last column at the trailing
     edge is a thousandth wide exceeds every reported figure (aspect above 50, the
     pre-processor's thresholds, the face quality ratio above 2, trailing-edge triangles above
     50, faces on y = 0); against itself and alone it passes, with each figure and no warning."""
@@ -438,7 +440,7 @@ def test_each_reported_figure_exceeded_gives_its_figure_and_no_warning(tmp_path)
 
 
 def test_without_a_source_only_g1_g2_and_g4_are_judged(tmp_path):
-    """P0380-AUDIT (FR-426 R5): alone, G1, G2 and G4 carry a verdict and G3, G5, G6 and every
+    """P0380-AUDIT (FR-941): alone, G1, G2 and G4 carry a verdict and G3, G5, G6 and every
     relative check are reported; the audit names no source."""
     audit, said = _audit(Mesh().write(tmp_path, "wing"))
     verdicts = {(i.name, i.family): i.verdict for i in audit.gates}
@@ -458,10 +460,10 @@ def _run(*argv: str) -> tuple[int, list[str]]:
 
 
 def test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv(tmp_path, capsys):
-    """P0380-AUDIT (FR-426 R1): ``audit-mesh OBJ --against SOURCE --out FILE`` exits 0, prints
+    """P0380-AUDIT (FR-937): ``audit-mesh OBJ --against SOURCE --out FILE`` exits 0, prints
     the summary and the files written, and the CSV holds one row per family and figure.
 
-    0.39.0 (NFR-45 R2, API-05): the CSV option is ``--out``; its deprecated alias ``--csv``,
+    0.39.0 (NFR-45, API-05): the CSV option is ``--out``; its deprecated alias ``--csv``,
     which warns, is held in tests/tier1_offline/test_p0390_rev38_mesh_cli.py."""
     level, src = _pair(tmp_path, Mesh())
     table = tmp_path / "audit.csv"
@@ -485,7 +487,7 @@ def test_the_command_exits_0_when_every_gate_and_check_passes_and_writes_the_csv
 
 
 def test_the_command_exits_1_when_a_gate_fails_and_still_writes_the_audit(tmp_path, capsys):
-    """P0380-AUDIT (FR-426 R1): a level that opens a hole exits 1 with the warning naming G3,
+    """P0380-AUDIT (FR-937): a level that opens a hole exits 1 with the warning naming G3,
     the family and both values, and the audit is written."""
     m = Mesh()
     del m.families["A"][14]
@@ -498,7 +500,7 @@ def test_the_command_exits_1_when_a_gate_fails_and_still_writes_the_audit(tmp_pa
 
 
 def test_the_command_exits_2_on_a_refusal_and_writes_nothing(tmp_path, capsys):
-    """P0380-AUDIT (FR-426 R1): a missing OBJ, an OBJ with no face, a missing source and a CSV in
+    """P0380-AUDIT (FR-937): a missing OBJ, an OBJ with no face, a missing source and a CSV in
     a folder that does not exist each exit 2 with the refusal, and no audit is written."""
     level, src = _pair(tmp_path, Mesh())
     empty = tmp_path / "empty.obj"
@@ -517,7 +519,7 @@ def test_the_command_exits_2_on_a_refusal_and_writes_nothing(tmp_path, capsys):
 
 
 def test_the_command_refuses_a_csv_it_cannot_write_before_the_audit(tmp_path, capsys):
-    """P0380-AUDIT (FR-426 R1): a CSV file that cannot be written is refused before any audit.
+    """P0380-AUDIT (FR-937): a CSV file that cannot be written is refused before any audit.
 
     The file exists and is read-only, so writing it would fail after the audit
     was written; the command refuses it first with the standard refusal (the
@@ -547,7 +549,7 @@ def test_the_command_refuses_a_csv_it_cannot_write_before_the_audit(tmp_path, ca
 
 
 def test_the_command_reaches_the_audit_only_through_the_public_function():
-    """P0380-AUDIT (FR-426, FR-424 R14): no module of ``run`` imports the refinement package; the
+    """P0380-AUDIT (FR-426, FR-928): no module of ``run`` imports the refinement package; the
     mesh verbs import ``audit_mesh`` from ``pyflightstream.workspace``."""
     run = Path(cli.__file__).parent
     imported = {}
@@ -564,7 +566,7 @@ def test_the_command_reaches_the_audit_only_through_the_public_function():
 
 
 def test_a_check_whose_source_fails_its_practice_is_reported_not_judged(tmp_path):
-    """P0380-AUDIT (FR-426 R3): a source that fails a practice is reported, not judged, so a
+    """P0380-AUDIT (FR-939): a source that fails a practice is reported, not judged, so a
     level equal to a graded source (growth beyond 2) is not failed on growth; the same graded
     level against the even source is judged and fails (the control)."""
     level, src = _pair(tmp_path / "same", _graded(), _graded())

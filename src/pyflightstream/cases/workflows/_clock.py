@@ -175,7 +175,7 @@ class UnsteadyExportThreshold:
         cannot know, so it compares the invocation count against the
         resolved first step: the program of ``EXPORT_UNSTEADY_LAST_REV`` is
         that of ``EXPORT_UNSTEADY_AFTER_ITER`` with the same first step
-        (FR-415 R1).
+        (FR-872).
         """
         return (
             "iterations"
@@ -280,7 +280,7 @@ def _action_export_kinds(
         for kind, name in classify_outputs(names).items()
         if whole_run or kind not in (*WHOLE_RUN_EXPORT_KINDS, *END_OF_RUN_EXPORT_KINDS)
     }
-    # FR-417 R7: the per-step exports of a row whose probes are NORMAL update and
+    # FR-890: the per-step exports of a row whose probes are NORMAL update and
     # export them at every step of the window; the wall clock's rescue does not,
     # since the points may not exist when it fires.
     normal = not whole_run and case.pproc is not None and case.pproc.samples_normal_probes()

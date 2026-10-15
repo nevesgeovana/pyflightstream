@@ -1,6 +1,6 @@
 """PFS-2081.75 / RPT-170: does the order of the geometry-build commands matter?
 
-FR-471 R2 lists SET_SIMULATION_LENGTH_UNITS, the trailing edges, SAVEAS, then
+FR-1103 lists SET_SIMULATION_LENGTH_UNITS, the trailing edges, SAVEAS, then
 EXPORT_SURFACE_MESH OBJ. ``cases/_geometry_emit.py`` exports the OBJ BEFORE the
 units, the trailing edges and SAVEAS. This probe builds one small wing, given
 in MILLIMETRES (so the units matter), in both orders, with both ways of marking

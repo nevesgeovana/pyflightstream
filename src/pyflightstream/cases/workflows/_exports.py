@@ -234,7 +234,7 @@ def _export_surface_vtk(script: Script, case: SimCase, name: str) -> None:
                 f"{script.version.canonical}; select variables supported by this build"
             )
     if wants_wake(case):
-        # FR-455 R3 (0.40.0): Trefftz B reads <name>_wakes.vtk, which the
+        # FR-1046 (0.40.0): Trefftz B reads <name>_wakes.vtk, which the
         # wake switch in the variable selection writes.
         helpers.export_results(script, vtk=name, vtk_variables=variables or "all", vtk_wake=True)
         return
@@ -443,9 +443,9 @@ def _export_each_kind(
     # loads table's alone: a log pointed at the VTK was written over it.
     claimed: list[int] = [names.index(kinds["loads"]) + 1]
     for kind, _, verb, only_unsteady in EXPORT_KINDS:
-        # FR-460 R2: the surface trace is exported HERE, like the others: its
+        # FR-1078: the surface trace is exported HERE, like the others: its
         # command is an export-phase command, so it follows every analysis
-        # command of the point. FR-461 R6: the trajectory is written HERE, after
+        # command of the point. FR-1089: the trajectory is written HERE, after
         # the march, never with the motion in the setup phase.
         if kind not in kinds or (only_unsteady and not unsteady):
             continue

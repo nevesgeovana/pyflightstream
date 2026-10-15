@@ -114,7 +114,7 @@ PROFILE_PROVENANCE_SCHEMA = "pyfs-actuator-profile/1"
 PROFILE_DIR = "profiles"
 #: The extension of a written profile: rows ``r,F`` separated by one comma.
 PROFILE_SUFFIX = ".csv"
-#: The shapes a profile is built from (FR-347 R1, R2).
+#: The shapes a profile is built from (FR-697, FR-698).
 PROFILE_SHAPES = ("SECTIONS", "UNI", "BP")
 #: The sectional-loads column, with its sign, read as the thrust per unit span.
 THRUST_COMPONENTS = ("-Fx", "Fx", "-Fz", "Fz")

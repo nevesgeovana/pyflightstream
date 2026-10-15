@@ -943,7 +943,7 @@ def _limit_note(note: object, requested: int, reached: int) -> str:
 def _counterless_final(text: str) -> ResidualSample | None:
     """Return the final row of a residual table that prints no readable counter, or None.
 
-    FR-434 R1, the footer fallback: the residual history is there, both residuals
+    FR-974, the footer fallback: the residual history is there, both residuals
     readable and finite on its last row, and the counter column of EVERY row is not a
     count (a field the solver could not print). Such a log is no iteration history
     (:func:`~pyflightstream.results.parse_residual_history` refuses it), so its row
@@ -978,7 +978,7 @@ def _stamp_log(job: _LoadsJudgment, log_text: str, log_name: str) -> None:
     """Stamp the log a verdict is read from: its name and the times it prints.
 
     One route for a log named by ``log_file`` and one found by content
-    (FR-434 R1), so both carry the same ``solver_run_time_s``,
+    (FR-974), so both carry the same ``solver_run_time_s``,
     ``solver_initialization_s`` and ``time_steps`` (0.21.0: the times the
     log prints ride on every verdict read from it).
     """
@@ -990,7 +990,7 @@ def _stamp_log(job: _LoadsJudgment, log_text: str, log_name: str) -> None:
 
 
 def _footer_counter_limit(job: _LoadsJudgment, log_text: str, log_name: str) -> Assessment | None:
-    """MAX_ITER_REACHED from a counterless log and the footer's counter (FR-434 R1), or None.
+    """MAX_ITER_REACHED from a counterless log and the footer's counter (FR-974), or None.
 
     The footer supplies the counter only, never the verdict: the log's final residuals
     must be readable and above the convergence limit, and the footer's counter must
@@ -1172,7 +1172,7 @@ _CLOCKING_SEVERITY = (
 def _clocking_at_the_limit(
     report: LoadsReport, judged: _ResidualJudgment, reached: int
 ) -> tuple[RunStatus, str | None]:
-    """Return one wheel clocking's status and note under FR-434 R1 (PFS-2103.002).
+    """Return one wheel clocking's status and note under FR-974 (PFS-2103.002).
 
     A steady solve stopped at the requested iteration limit, unsettled and
     not forced, is MAX_ITER_REACHED with the limit note; the clocking path
@@ -1190,7 +1190,7 @@ def _clocking_at_the_limit(
 
 
 def _requested_of(status: RunStatus, report: LoadsReport) -> dict[str, int]:
-    """Return ``iterations_requested`` for a MAX_ITER_REACHED status, else nothing (FR-434 R1)."""
+    """Return ``iterations_requested`` for a MAX_ITER_REACHED status, else nothing (FR-974)."""
     if status is RunStatus.MAX_ITER_REACHED:
         return {"iterations_requested": report.requested_iterations}
     return {}
@@ -1360,7 +1360,7 @@ def _judge_the_clockings(
         worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
     else:
         worst = max(statuses, key=_CLOCKING_SEVERITY.index)
-    stamp.update(_requested_of(worst, report))  # FR-434 R1: written for MAX_ITER_REACHED alone.
+    stamp.update(_requested_of(worst, report))  # FR-974: written for MAX_ITER_REACHED alone.
     judged_residuals = [value for value in residuals if value is not None]
     return Assessment(
         status=worst,

@@ -337,7 +337,9 @@ class TestFarfieldProducts:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_trefftz_table(posted):
-        """P0400-FFOUT (FR-456 R1, R2): one file beside the polar, A, B and C rows, NA per rule."""
+        """P0400-FFOUT (FR-1053, FR-1054): one file beside the polar, A, B and C rows, NA per
+        rule.
+        """
         root, _plain, _messages = posted
         path = _farfield_products___one(root, "farfield/*_trefftz.csv")
         rows = {row["VARIANT"]: row for row in _farfield_products___table(path)}
@@ -360,7 +362,7 @@ class TestFarfieldProducts:
         )
         assert a["X_T_M"] == "NA"
         assert float(c["CDI_T"]) == pytest.approx(0.0, abs=1e-9), "a uniform stream has no drag"
-        # FR-453 R9 (PFS-2081.95): C states the lift of its own vorticity; this
+        # FR-1038 (PFS-2081.95): C states the lift of its own vorticity; this
         # fixture's plane holds none, so it is zero (and post flags it).
         assert float(c["COVERAGE"]) == 1.0 and float(c["CL_T"]) == pytest.approx(0.0, abs=1e-9)
         assert a["P_AXIAL_W"] == "NA" and a["CDI_NEAR_PRESSURE"] == "0.0012418"
@@ -368,7 +370,7 @@ class TestFarfieldProducts:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_spanwise_files(posted):
-        """P0400-FFOUT (FR-456 R3): A per family, B as TOTAL, downwash and local drag."""
+        """P0400-FFOUT (FR-1055): A per family, B as TOTAL, downwash and local drag."""
         root, _plain, _messages = posted
         family = _farfield_products___table(
             _farfield_products___one(root, "sections/*_trefftz_W.csv")
@@ -386,7 +388,7 @@ class TestFarfieldProducts:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_manifest(posted):
-        """P0400-FFOUT (FR-456 R6): runs held, analysis, variants, inputs and the strip rule."""
+        """P0400-FFOUT (FR-1058): runs held, analysis, variants, inputs and the strip rule."""
         root, _plain, _messages = posted
         manifest = json.loads(
             _farfield_products___one(root, "products.json").read_text(encoding="utf-8")
@@ -404,9 +406,9 @@ class TestFarfieldProducts:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_polar_keeps_its_bytes(posted):
-        """P0400-FFOUT (FR-456 R8, FR-450): the polar is byte-identical with and without [farfield].
+        """P0400-FFOUT (FR-1060, FR-450): the polar is byte-identical with and without [farfield].
 
-        The super file beside it gains its far-field block (R9), so it is the one
+        The super file beside it gains its far-field block (FR-1062), so it is the one
         file of the folder left out here.
         """
         root, plain, _messages = posted
@@ -418,7 +420,7 @@ class TestFarfieldProducts:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffout_the_super_file_block(tmp_path):
-        """P0400-FFOUT (FR-456 R9, NFR-19): the three columns append without renaming others."""
+        """P0400-FFOUT (FR-1062, NFR-19): the three columns append without renaming others."""
         from tests.tier1_offline.test_post_superfile import _post as post_matrix
         from tests.tier1_offline.test_post_superfile import _superfiles
         from tests.tier1_offline.test_post_superfile import _workspace as matrix_workspace
@@ -644,7 +646,7 @@ def _ffproof_post___set_record(workspace: CampaignWorkspace, **fields: object) -
     workspace._replace_manifest(data)
 
 
-# ----------------------------------------------------------------- FR-452 R3
+# ----------------------------------------------------------------- FR-1025
 def _ffproof_post___short_wakes(short: int) -> str:
     """The wing's wake with ``short`` lines ending 3 m behind the trailing edge."""
     text = _ffproof_post__wing._farfield_products___wakes()
@@ -674,10 +676,10 @@ class TestFfproofPost:
     """
 
     @staticmethod
-    # ----------------------------------------------------------------- FR-450 R7
+    # ----------------------------------------------------------------- FR-1009
     @pytest.mark.requirement("FR-450")
     def test_p0400_ffproof_the_sweep_table_keeps_its_bytes(tmp_path):
-        """P0400-FFPROOF (FR-450 R7): ``campaign_sweep.csv`` byte-identical with and without it.
+        """P0400-FFPROOF (FR-1009): ``campaign_sweep.csv`` byte-identical with and without it.
 
         The same point recorded twice: once by a row selecting the three Trefftz
         variants, which the plan gave the sectional loads, wake and probe exports,
@@ -706,10 +708,10 @@ class TestFfproofPost:
         assert b"-2" in tables[1] and tables[0] == tables[1]
 
     @staticmethod
-    # ----------------------------------------------------------------- FR-451 R10
+    # ----------------------------------------------------------------- FR-1019
     @pytest.mark.requirement("FR-451")
     def test_p0400_ffproof_post_warns_a_family_with_few_stations(tmp_path):
-        """P0400-FFPROOF (FR-451 R10): one post WARNING naming the family, its count and the bias.
+        """P0400-FFPROOF (FR-1019): one post WARNING naming the family, its count and the bias.
 
         The recorded distribution has 160 sections over the full span, 80 per
         side; the table asks for 160 per side. Variant A is still integrated and
@@ -734,7 +736,7 @@ class TestFfproofPost:
     @staticmethod
     @pytest.mark.requirement("FR-452")
     def test_p0400_ffproof_a_short_wake_posts_the_b_row_na(tmp_path):
-        """P0400-FFPROOF (FR-452 R3): the B row is NA, and the WARNING says why and how long.
+        """P0400-FFPROOF (FR-1025): the B row is NA, and the WARNING says why and how long.
 
         Three of the 161 wake lines end 3 m behind the trailing edge and the
         plane stands 0.25 BREF = 5 m behind it: the B row is written with its
@@ -772,11 +774,11 @@ class TestFfproofPost:
         assert any("variant=wake" in key for key in skipped)
 
     @staticmethod
-    # ----------------------------------------------------------------- FR-453 R7
+    # ----------------------------------------------------------------- FR-1036
     @pytest.mark.requirement("FR-453")
     @pytest.mark.parametrize(("mach", "warned"), [(0.5, True), (0.2, False)])
     def test_p0400_ffproof_above_mach_0_3_the_c_row_is_warned(tmp_path, mach, warned):
-        """P0400-FFPROOF (FR-453 R7): the C row is written, with the incompressible WARNING above 0.3.
+        """P0400-FFPROOF (FR-1036): the C row is written, with the incompressible WARNING above 0.3.
 
         The same recorded point at Mach 0.5 and at Mach 0.2: both write their C
         row; only the first writes the WARNING that the incompressible relations
@@ -797,14 +799,14 @@ class TestFfproofPost:
             assert "Mach 0.5" in said[0] and "Trefftz C" in said[0]
 
     @staticmethod
-    # ------------------------------------------------- FR-456 R1, R4 and FR-38 R1 to R3
+    # ------------------------------------------------- FR-1053, FR-1056 and FR-478 to FR-480
     @pytest.mark.requirement("FR-456")
     @pytest.mark.requirement("FR-38")
     def test_p0400_ffproof_post_writes_the_ledgers_table(tmp_path):
-        """P0400-FFPROOF (FR-456 R1, R4; FR-38 R1 to R3): ``farfield/<group>_ledgers.csv``.
+        """P0400-FFPROOF (FR-1053, FR-1056; FR-478 to FR-480): ``farfield/<group>_ledgers.csv``.
 
         A steady point whose probe export holds the survey lattice in a uniform
-        stream: one row per station, the columns of R4 in order, the mass flow
+        stream: one row per station, the columns of FR-1056 in order, the mass flow
         constant over the stations, the control-volume columns NA on the inlet
         row and zero on the next, the gate columns written; the file sits beside
         the polar by name and its manifest entry names the analysis and the run.
@@ -842,11 +844,11 @@ class TestFfproofPost:
         assert "reduction" not in entry, "a steady row's table is neither instant nor average"
 
     @staticmethod
-    # ------------------------------------------------- FR-38 R7 and FR-456 R1
+    # ------------------------------------------------- FR-484 and FR-1053
     @pytest.mark.requirement("FR-38")
     @pytest.mark.requirement("FR-456")
     def test_p0400_ffproof_an_unsteady_row_writes_the_instant_and_the_average(tmp_path):
-        """P0400-FFPROOF (FR-38 R7, FR-456 R1): two ledgers files, each labelled.
+        """P0400-FFPROOF (FR-484, FR-1053): two ledgers files, each labelled.
 
         An ``unsteady`` row of eight steps whose window is ``LAST_ITERS_AVG: 4``
         (steps 5 to 8), its lattice sampled by fluid plots at every step in a
@@ -883,10 +885,10 @@ class TestFfproofPost:
         assert _ffproof_post___entry(manifest, "_ledgers_average.csv")["reduction"] == "average"
 
     @staticmethod
-    # ----------------------------------------------------------------- FR-455 R9
+    # ----------------------------------------------------------------- FR-1052
     @pytest.mark.requirement("FR-455")
     def test_p0400_ffproof_a_normal_declaration_gives_the_instant_only(tmp_path):
-        """P0400-FFPROOF (FR-455 R9): a reused ``kind = "normal"`` lattice holds the last step.
+        """P0400-FFPROOF (FR-1052): a reused ``kind = "normal"`` lattice holds the last step.
 
         The far field reuses a ``[[probes]]`` lattice of kind normal on an
         unsteady row: the probe export of the last step (18 m/s) gives the
@@ -1061,7 +1063,7 @@ class TestRfixAProducts:
 
     @staticmethod
     def test_p0400_rfixa_missing_families_get_individual_distributions(tmp_path):
-        """FR-455 R3: both auto-added distributions have ownership post can interpret."""
+        """FR-1046: both auto-added distributions have ownership post can interpret."""
         case = _rfixa_products__plan._farfield_plan___case(
             tmp_path, {"families": "all", "trefftz": {"variant": "sections", "stations": 80}}
         )
@@ -1096,7 +1098,7 @@ class TestRfixAProducts:
 
     @staticmethod
     def test_p0400_rfixa_plane_uses_reference_dynamic_pressure(tmp_path):
-        """FR-453 R2: Cp_ref=-0.1, rho=1, V=10, Vref=20 gives p'=-20 Pa."""
+        """FR-1031: Cp_ref=-0.1, rho=1, V=10, Vref=20 gives p'=-20 Pa."""
         case = _rfixa_products__plan._farfield_plan___case(
             tmp_path,
             {
@@ -1178,7 +1180,7 @@ class TestRfixAProducts:
 
     @staticmethod
     def test_p0400_rfixa_residual_documents_the_integrated_force():
-        """FR-453 R2: generated API Returns describes the integrated diagnostic in N."""
+        """FR-1031: generated API Returns describes the integrated diagnostic in N."""
         returns = bernoulli_residual.__doc__.split("Returns", 1)[1]
         assert "integrated" in returns.lower() and "N" in returns
         assert "divided by dynamic pressure" not in returns
@@ -1225,7 +1227,7 @@ class TestRfixF2Distributions:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_an_all_distribution_of_one_family_is_traced(tmp_path, monkeypatch):
-        """P0400-RFIXF2-DISTRIBUTIONS (FR-455 R2, R4): plan reuses it, post traces it (row A)."""
+        """P0400-RFIXF2-DISTRIBUTIONS (FR-1045, FR-1047): plan reuses it, post traces it (row A)."""
         import tests.tier1_offline.test_regression_farfield_products as wing
         from pyflightstream.cases.workflows._farfield import plan_record
         from tests.tier1_offline.test_regression_farfield_interfaces import (
@@ -1268,7 +1270,7 @@ class TestRfixF2Distributions:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_multi_family_aggregate_covers_none(tmp_path):
-        """P0400-RFIXF2-DISTRIBUTIONS (FR-455 R2, R3): a block over W and T is no family's block.
+        """P0400-RFIXF2-DISTRIBUTIONS (FR-1045, FR-1046): a block over W and T is no family's block.
 
         The plan's coverage, the rule post reads by, leaves both families
         uncovered, so the plan adds a block of each instead of reusing the
@@ -1403,7 +1405,7 @@ class TestRfixF2Matching:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_translated_frame_lattice_reads_its_own_samples():
-        """P0400-RFIXF2-MATCHING (FR-455 R2, PFS-2081.102): MRP lattice before a REFERENCE entry.
+        """P0400-RFIXF2-MATCHING (FR-1045, PFS-2081.102): MRP lattice before a REFERENCE entry.
 
         The lattice's 24 points are recorded in MRP at their local positions with
         20 m/s; the next entry, in REFERENCE, stands at the lattice's reference
@@ -1427,7 +1429,7 @@ class TestRfixF2Matching:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_frame_lattice_found_twice_in_its_frame_is_refused():
-        """P0400-RFIXF2-MATCHING (FR-455 R2): two MRP entries at the same points are refused."""
+        """P0400-RFIXF2-MATCHING (FR-1045): two MRP entries at the same points are refused."""
         from pyflightstream.post.farfield_fields import far_samples, recorded_layout
 
         _, _LOCAL, _SHAPE = _rfixf2_matching___lattice_case()
@@ -1438,7 +1440,7 @@ class TestRfixF2Matching:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_distant_plane_of_another_grid_is_refused():
-        """P0400-RFIXF2-MATCHING (FR-455 R2, PFS-2081.103): 4 m2 laid, 16 m2 recorded, at x = 30 km.
+        """P0400-RFIXF2-MATCHING (FR-1045, PFS-2081.103): 4 m2 laid, 16 m2 recorded, at x = 30 km.
 
         The control is the recorded 4 m2 plane at the same place: matched, and its
         induced drag is the crossflow's 0.5 rho v^2 S = 2 N.
@@ -1464,7 +1466,7 @@ class TestRfixF2Matching:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_legacy_export_with_a_distant_point_keeps_a_tight_tolerance():
-        """P0400-RFIXF2-MATCHING (FR-455 R2, PFS-2081.103): one far point does not loosen matching.
+        """P0400-RFIXF2-MATCHING (FR-1045, PFS-2081.103): one far point does not loosen matching.
 
         A record without a layout matches the plane by shape. A distant unrelated
         point before a 1 m grid must not make a 2 m grid's shape match it.
@@ -1491,7 +1493,7 @@ class TestRfixF2Matching:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_layout_finer_than_the_printed_digits_is_refused():
-        """P0400-RFIXF2-MATCHING (FR-455 R2, PFS-2081.103): seven digits cannot place 1 m at 3e7 m."""  # noqa: E501
+        """P0400-RFIXF2-MATCHING (FR-1045, PFS-2081.103): seven digits cannot place 1 m at 3e7 m."""  # noqa: E501
         from pyflightstream.post.farfield_fields import far_samples, recorded_layout
 
         center = (3.0e7, 0.0, 0.0)
@@ -1537,7 +1539,7 @@ class TestRfixF2PlanStates:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_rotor_trefftz_c_reads_the_declared_lattice_flag():
-        """P0400-RFIXF2-PLANSTATES (FR-455 R4): the resolver uses the lattice flag for a rotor's C."""  # noqa: E501
+        """P0400-RFIXF2-PLANSTATES (FR-1047): the resolver uses the lattice flag for a rotor's C."""  # noqa: E501
         spec = FarfieldSpec.model_validate(
             {"families": "all", "trefftz": {"variant": "plane"}, "ledgers": {"rotor": "R"}}
         )
@@ -1562,7 +1564,7 @@ class TestRfixF2PlanStates:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_the_rotor_plan_matches_the_selected_shapes(tmp_path):
-        """P0400-RFIXF2-PLANSTATES (FR-455 R2, R4): a steady rotor row reusing one lattice twice.
+        """P0400-RFIXF2-PLANSTATES (FR-1045, FR-1047): a steady rotor row reusing one lattice twice.
 
         The script lays the declared lattice once and records it as the entry
         reused; the plan says reused for the ledgers and for the rotor's Trefftz C.
@@ -1616,7 +1618,8 @@ class TestRfixF2Plots:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_vx_only_lattice_gets_the_other_histories(tmp_path):
-        """P0400-RFIXF2-PLOTS (FR-455 R2, R9): VX declared; VY, VZ and CP_REF added at its vertices.
+        """P0400-RFIXF2-PLOTS (FR-1045, FR-1052): VX declared; VY, VZ and CP_REF added at its
+         vertices.
 
         No probe point is laid twice; every vertex of the lattice carries the four
         histories post reads, so one step of synthetic plots under those names
@@ -1639,7 +1642,7 @@ class TestRfixF2Plots:
         (shape,) = script.farfield_layout[-1]["shapes"]
         assert (shape["source"], shape["plots_added"]) == ("declared", ["VY", "VZ", "CP_REF"])
         assert any(
-            f"{3 * _RFIXF2_PLOTS___POINTS} fluid plots at every time step (FR-455 R9)" in m
+            f"{3 * _RFIXF2_PLOTS___POINTS} fluid plots at every time step (FR-1052)" in m
             for m in messages
         )
         names = _rfixf2_plots___plot_names(text)
@@ -1660,7 +1663,7 @@ class TestRfixF2Plots:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf2_a_lattice_stating_every_history_adds_none(tmp_path):
-        """P0400-RFIXF2-PLOTS (FR-455 R2): nothing is added to an entry that states all four."""
+        """P0400-RFIXF2-PLOTS (FR-1045): nothing is added to an entry that states all four."""
         entry = {
             "frame": "MRP",
             "parameters": ["VX", "VY", "VZ", "CP_REF"],
@@ -1945,7 +1948,7 @@ class TestRfixFLayout:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf_a_unique_nondefault_lattice_is_reused(tmp_path):
-        """P0400-RFIXF-LAYOUT (FR-455 R2): a table stating no geometry reuses the one declared.
+        """P0400-RFIXF-LAYOUT (FR-1045): a table stating no geometry reuses the one declared.
 
         The ledgers name the rotor and state no lattice key; one ``[[probes]]``
         lattice is declared on that rotor with its own stations and rings. It is
@@ -1970,7 +1973,7 @@ class TestRfixFLayout:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf_a_default_equivalent_geometry_is_reused(tmp_path):
-        """P0400-RFIXF-LAYOUT (FR-455 R2): a stated key equal to its default is the same lattice.
+        """P0400-RFIXF-LAYOUT (FR-1045): a stated key equal to its default is the same lattice.
 
         The ledgers state ``r_inner = 0.05``, the default the declared lattice
         takes by leaving it unstated: the same points after layout, so the
@@ -1990,7 +1993,7 @@ class TestRfixFLayout:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf_a_declared_plane_is_reused(tmp_path):
-        """P0400-RFIXF-LAYOUT (FR-455 R2): the one rectangle that is a Trefftz plane is reused.
+        """P0400-RFIXF-LAYOUT (FR-1045): the one rectangle that is a Trefftz plane is reused.
 
         No plane key is stated; one rectangle is declared behind the box, normal
         to the free stream, 5 by 3 points 0.5 m apart. It is the far field's
@@ -2026,7 +2029,7 @@ class TestRfixFLayout:
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf_a_rectangle_that_is_no_trefftz_plane_is_not_reused(tmp_path):
-        """P0400-RFIXF-LAYOUT (FR-455 R2): a rectangle in front of the body is not the plane."""
+        """P0400-RFIXF-LAYOUT (FR-1045): a rectangle in front of the body is not the plane."""
         rectangle = {
             "origin": [-3.0, -1.0, -0.5],
             "along_u": [-3.0, 1.0, -0.5],
@@ -2045,10 +2048,10 @@ class TestRfixFLayout:
         assert len(script.probe_points) == 15 + 7 * 5
 
     @staticmethod
-    # ------------------------------------------------- the record (FR-455 R4)
+    # ------------------------------------------------- the record (FR-1047)
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixf_a_job_hands_each_point_its_own_layout():
-        """P0400-RFIXF-LAYOUT (FR-455 R4): a steady job keys the layouts by point; absent unset."""
+        """P0400-RFIXF-LAYOUT (FR-1047): a steady job keys the layouts by point; absent unset."""
         common = dict(
             sim_id="1",
             status=RunStatus.CONVERGED,
@@ -2123,7 +2126,7 @@ class TestRfixFDragSplit:
     @pytest.mark.requirement("FR-456")
     @pytest.mark.parametrize("build", ["26.124", "26.125"])
     def test_p0400_rfixf_the_near_field_induced_drag_is_read_on_both_builds(tmp_path, build):
-        """P0400-RFIXF-DRAGSPLIT (FR-456 R2, FR-423): ``CDI_NEAR_PRESSURE`` is the split's first column.
+        """P0400-RFIXF-DRAGSPLIT (FR-1054, FR-423): ``CDI_NEAR_PRESSURE`` is the split's first column.
 
         The same loads table with the 26.124 header and with the recorded 26.125
         header (``CDp, CDv`` in the same places): both rows state 0.0012418, the
@@ -2281,7 +2284,7 @@ class TestRfixFPlaneLift:
     loads shed gives a crossflow energy that is not their induced drag (RPT-171:
     one build's probe field carried 0.74 of a wing's lift). The C row now states
     ``CL_T``, the Kutta-Joukowski lift of the plane's own streamwise vorticity
-    (FR-453 R9), and post warns where it departs from the solver's CL by more
+    (FR-1038), and post warns where it departs from the solver's CL by more
     than 10 percent. Synthetic: a pair of Lamb-Oseen vortices of known
     circulation behind the loads fixture's wing.
     """
@@ -2289,7 +2292,7 @@ class TestRfixFPlaneLift:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_rfixf_the_plane_states_the_lift_of_its_vorticity(tmp_path):
-        """P0400-RFIXF-PLANELIFT (FR-453 R9): CL_T of C is rho V Gamma 2 s, and no flag.
+        """P0400-RFIXF-PLANELIFT (FR-1038): CL_T of C is rho V Gamma 2 s, and no flag.
 
         Before the fix the C row's CL_T was NA, so a plane holding a fraction of
         the shed circulation could not be told from one holding all of it.
@@ -2301,7 +2304,7 @@ class TestRfixFPlaneLift:
     @staticmethod
     @pytest.mark.requirement("FR-453")
     def test_p0400_rfixf_a_plane_short_of_the_lift_is_flagged(tmp_path):
-        """P0400-RFIXF-PLANELIFT (FR-453 R9, PFS-2081.95): 0.74 of the circulation is flagged.
+        """P0400-RFIXF-PLANELIFT (FR-1038, PFS-2081.95): 0.74 of the circulation is flagged.
 
         The field of one build's probes on a wing carried 0.74 of the lift
         (RPT-171). The row is written, its CL_T says 0.74 CL, and post.log names
@@ -2405,7 +2408,7 @@ class TestRfixFQsteady:
     @pytest.mark.requirement("FR-38")
     @pytest.mark.parametrize("rpm", [600.0, -600.0], ids=["right-hand", "left-hand"])
     def test_p0400_rfixf_the_qsteady_balances_read_the_rows_own_speed(tmp_path, rpm):
-        """P0400-RFIXF-QSTEADY (FR-453 R8, PFS-2081.93): the ledgers are written, swirl-free.
+        """P0400-RFIXF-QSTEADY (FR-1037, PFS-2081.93): the ledgers are written, swirl-free.
 
         Before the fix the far field asked the record's plan for the speed, which a
         quasi-steady run never writes, and skipped the point ("states no speed").
@@ -2441,7 +2444,7 @@ class TestRfixFStatus:
     @pytest.mark.requirement("FR-456")
     @pytest.mark.parametrize("status", ["MAX_ITER_REACHED", "CONVERGED"])
     def test_p0400_rfixf_every_trefftz_row_carries_the_status(tmp_path, status):
-        """P0400-RFIXF-STATUS (FR-456 R10): A, B and C rows and the spanwise files say the status."""  # noqa: E501
+        """P0400-RFIXF-STATUS (FR-1061): A, B and C rows and the spanwise files say the status."""  # noqa: E501
         workspace = _rfixf_status__wing._farfield_products___workspace(tmp_path, farfield=True)
         extra = {"iterations": 1500, "iterations_requested": 1500} if status != "CONVERGED" else {}
         _rfixf_status__ffpost._ffproof_post___set_record(workspace, status=status, **extra)
@@ -2460,7 +2463,7 @@ class TestRfixFStatus:
     @staticmethod
     @pytest.mark.requirement("FR-456")
     def test_p0400_rfixf_every_ledger_row_carries_the_status(tmp_path):
-        """P0400-RFIXF-STATUS (FR-456 R10): the ledgers of a point at its iteration limit say so."""
+        """P0400-RFIXF-STATUS (FR-1061): the ledgers of a point at its iteration limit say so."""
         workspace = _rfixf_status__ffpost._ffproof_post___campaign(
             tmp_path,
             pproc=_rfixf_status__ffpost._FFPROOF_POST___LEDGERS,
@@ -2509,13 +2512,13 @@ class TestRfixFTracedLift:
     body) holds those surfaces' lift alone, and its span efficiency is theirs: a
     wing-body traced over the wing gave e = 0.25 with no warning. Post now writes a
     WARNING naming the families, both lifts and their ratio where the traced lift
-    departs from the solver's CL by more than 5 percent (FR-451 R13).
+    departs from the solver's CL by more than 5 percent (FR-1021).
     """  # noqa: E501
 
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_rfixf_a_trace_short_of_the_configurations_lift_is_warned(tmp_path):
-        """P0400-RFIXF-TRACEDLIFT (FR-451 R13): the traced wing carries 0.75 of the solver's CL.
+        """P0400-RFIXF-TRACEDLIFT (FR-1021): the traced wing carries 0.75 of the solver's CL.
 
         The configuration's CL is raised to 0.2510 (a body lifting the rest); the
         traced wing still lifts 0.1883. The A rows are written and post.log names
@@ -2524,11 +2527,11 @@ class TestRfixFTracedLift:
         rows, said = _rfixf_traced_lift___post(tmp_path, "+0.2510439")
         assert rows and float(rows[-1]["CL_T"]) == pytest.approx(0.1883, rel=3e-3)
         (line,) = said
-        assert "W" in line and "0.75" in line and "0.251" in line and "FR-451 R13" in line
+        assert "W" in line and "0.75" in line and "0.251" in line and "FR-1021" in line
 
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_rfixf_a_trace_carrying_the_lift_is_not_warned(tmp_path):
-        """P0400-RFIXF-TRACEDLIFT (FR-451 R13): the wing traced alone, at its own CL, is silent."""
+        """P0400-RFIXF-TRACEDLIFT (FR-1021): the wing traced alone, at its own CL, is silent."""
         rows, said = _rfixf_traced_lift___post(tmp_path, None)
         assert rows and not said

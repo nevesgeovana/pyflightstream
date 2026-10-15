@@ -303,7 +303,7 @@ def _found(names: Sequence[str], surface: str | None, where: str) -> int:
 
 
 class CcsSource(BaseModel):
-    """The ``[ccs]`` source: a CCS file lofted or imported whole (FR-470 R2)."""
+    """The ``[ccs]`` source: a CCS file lofted or imported whole (FR-1097)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -314,7 +314,7 @@ class CcsSource(BaseModel):
 
 
 class CadBodyOperation(BaseModel):
-    """One ``[[cad.operations]]`` table, applied before the conversion (FR-475 R1)."""
+    """One ``[[cad.operations]]`` table, applied before the conversion (FR-1131)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -373,7 +373,7 @@ class CadSource(BaseModel):
 
 
 class CreateBody(BaseModel):
-    """One ``[[create.bodies]]`` table: a solver primitive, in metres (FR-475 R2)."""
+    """One ``[[create.bodies]]`` table: a solver primitive, in metres (FR-1132)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -422,7 +422,7 @@ class CreateBody(BaseModel):
 
 
 class CreateSection(BaseModel):
-    """One ``[[create.sections]]`` table: a section file placed at a station (FR-475 R2)."""
+    """One ``[[create.sections]]`` table: a section file placed at a station (FR-1132)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -450,7 +450,7 @@ class CreateLoft(BaseModel):
 
 
 class CreateSource(BaseModel):
-    """The ``[create]`` source: the CAD Create recipe (FR-475 R2)."""
+    """The ``[create]`` source: the CAD Create recipe (FR-1132)."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -629,7 +629,7 @@ class GeometryInstruction(BaseModel):
             )
 
     def marks_trailing_edges(self) -> bool:
-        """Return whether the built body must carry marked trailing edges (FR-471 R5)."""
+        """Return whether the built body must carry marked trailing edges (FR-1106)."""
         if self.ccs is not None:
             return self.ccs.options.kind == "wing" and self.ccs.options.mark_trailing_edges
         if self.create is not None and self.create.loft is not None:

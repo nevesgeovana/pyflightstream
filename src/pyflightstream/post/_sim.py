@@ -227,9 +227,9 @@ class SimContext:
     )
     plots_tables: dict[str, Path] = field(default_factory=dict)
     qsteady_validity_of: dict[str, _qsteady.PointValidity] = field(default_factory=dict)
-    #: FR-456 R9 (0.40.0): per point, the far-field cells of its super-file row.
+    #: FR-1062 (0.40.0): per point, the far-field cells of its super-file row.
     farfield_super: dict[str, dict[str, str]] = field(default_factory=dict)
-    #: The columns of an installed-frame copy already named as unplaced (FR-420 R2), so each
+    #: The columns of an installed-frame copy already named as unplaced (FR-898), so each
     #: is named once for the simulation.
     installed_unplaced: set[str] = field(default_factory=set)
     #: FR-460: each point's streamline exports, by kind.
@@ -718,7 +718,7 @@ def _point_products(ctx: SimContext) -> None:
         legacy_profiles = bool(release and tuple(map(int, release.groups())) < (0, 25))
         _probes_products(ctx, point, probes_path, legacy_profiles)
         _plots_products(ctx, point, plots_path, legacy_profiles)
-        # FR-460 R7: the streamline products of the point, from its exports.
+        # FR-1083: the streamline products of the point, from its exports.
         write_point_streamlines(ctx, point.name)
 
 
@@ -877,7 +877,7 @@ def _probes_products(
     """Write a point's probe-points table; name the profiles an older unsteady point lacks.
 
     A steady point's, and an unsteady point's whose probes are NORMAL (FR-417
-    R4): its probe-points export holds the last time step, which the table's
+    FR-887): its probe-points export holds the last time step, which the table's
     `STEP` states.
     """
     record = ctx.record_of[point.name]
@@ -923,7 +923,7 @@ def _probes_products(
             condition=ctx.condition(point),
             reference=ctx.reference,
             pol=ctx.sim_id,
-            # FR-417 R4: a normal probe holds the run's last time step.
+            # FR-887: a normal probe holds the run's last time step.
             step=_last_time_step(record) if normal else None,
         )
     except ProductError as error:
@@ -1434,7 +1434,7 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 point, ctx.record_of.get(point.name), ctx.qsteady_validity_of
             ).items():
                 row.setdefault(validity_column, validity_cell)
-            # FR-456 R9 (0.40.0): the far-field TOTAL cells, after every other key.
+            # FR-1062 (0.40.0): the far-field TOTAL cells, after every other key.
             for farfield_column, farfield_cell in ctx.farfield_super.get(point.name, {}).items():
                 row.setdefault(farfield_column, farfield_cell)
             # FR-348: from the inventory only, and placed last by the writer.

@@ -100,7 +100,7 @@ def _only_step(entry: dict) -> dict:
     return step
 
 
-# ------------------------------------------------------------------ R1 selection
+# ------------------------------------------------------------------ FR-879 selection
 
 
 def test_keep_last_twelve_of_thirty_keeps_the_last_twelve_of_each_export(tmp_path):
@@ -160,7 +160,7 @@ def test_a_count_above_the_steps_or_a_range_outside_them_deletes_nothing_and_is_
     assert step[key] == json.loads(value)
 
 
-# ------------------------------------------------------------------ R2 keys and values
+# ------------------------------------------------------------------ FR-880 keys and values
 
 
 def test_an_unknown_key_is_refused_naming_it_and_the_accepted_keys_with_the_tree_unchanged(
@@ -240,7 +240,7 @@ def test_a_value_that_is_not_a_positive_count_or_an_ordered_pair_is_refused_befo
     assert _snapshot(workspace.root) == before
 
 
-# ------------------------------------------------------------------ R3 what 0.30.0 did
+# ------------------------------------------------------------------ FR-881 what 0.30.0 did
 
 
 def test_the_preview_protected_files_and_submitted_refusal_are_those_of_030(tmp_path):
@@ -275,7 +275,7 @@ def test_the_recorded_call_carries_the_stated_key_in_its_step_entry(tmp_path):
     assert second["steps"][0]["delete_steps"] == [1, 3] and "keep_last" not in second["steps"][0]
 
 
-# ------------------------------------------------------------------ R4 the post refusal
+# ------------------------------------------------------------------ FR-882 the post refusal
 
 
 def _refusal(workspace: CampaignWorkspace, step: int) -> str | None:
@@ -301,7 +301,7 @@ def test_a_later_post_refusal_says_what_the_call_kept_not_the_last_step(tmp_path
     assert _refusal(other, 4) is None, "a step no call deleted is left to the caller's own rule"
 
 
-# ------------------------------------------------------------------ R5 nothing stated
+# ------------------------------------------------------------------ FR-883 nothing stated
 
 
 def test_a_table_that_states_neither_key_deletes_and_records_what_0360_did(tmp_path):

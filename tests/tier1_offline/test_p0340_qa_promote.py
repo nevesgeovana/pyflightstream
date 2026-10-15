@@ -35,7 +35,7 @@ from tests.tier1_offline._p0340_probe_support import (
     verdicts_of,
 )
 
-#: R1: every command whose 26.124 status was `documented` and which ran on 26.124 in RPT-096,
+#: FR-647: every command whose 26.124 status was `documented` and which ran on 26.124 in RPT-096,
 #: RPT-097 or RPT-098, less the CCS-wing control surface that FR-334 owns. Counted when the
 #: package started: 17 (seven acoustic, DELETE_SURFACES, the wake stabilisation, and eight
 #: CCS lofting commands). The FR names six acoustic commands and the reports name seven.
@@ -78,7 +78,7 @@ EVERY = tuple(dict.fromkeys((*R1_SET, *ARM_CN)))
 
 
 def test_every_command_of_the_set_and_of_the_chapters_has_a_catalog_entry_fr_333():
-    """FR-333 R2, marker P0340-QA-PROMOTE: each has a probe specification the probe runs."""
+    """FR-333, marker P0340-QA-PROMOTE: each has a probe specification the probe runs."""
     missing = [name for name in EVERY if name not in specs.PROBE_SPECS]
     assert not missing, f"commands without a catalog entry: {missing}"
     assert len(ARM_CN) >= 40
@@ -86,7 +86,7 @@ def test_every_command_of_the_set_and_of_the_chapters_has_a_catalog_entry_fr_333
 
 @pytest.mark.parametrize("command", EVERY)
 def test_each_entry_builds_a_script_that_emits_its_command_on_26124_fr_333(command):
-    """FR-333 R2, marker P0340-QA-PROMOTE: the generated script emits the command under test."""
+    """FR-333, marker P0340-QA-PROMOTE: the generated script emits the command under test."""
     entry = specs.PROBE_SPECS[command]
     assert entry.command == command
     assert entry.assert_effect is not None or entry.expects_halt
@@ -96,7 +96,7 @@ def test_each_entry_builds_a_script_that_emits_its_command_on_26124_fr_333(comma
 
 @pytest.mark.parametrize("family", ["FUSELAGE", "REVOLVE"])
 def test_a_broken_precondition_is_waived_and_stays_visible_in_the_script_fr_333(family, tmp_path):
-    """FR-333 R2, marker P0340-QA-PROMOTE: RPT-126 records NEW_CCS_*_RELAXED_TE broken on 26.124.
+    """FR-333, marker P0340-QA-PROMOTE: RPT-126 records NEW_CCS_*_RELAXED_TE broken on 26.124.
 
     The deletion's probe needs it, so the build of the script waives it (it used to end in
     BrokenCommandError) and names it in the script; the control is the same spec with the
@@ -121,7 +121,7 @@ def test_a_broken_precondition_is_waived_and_stays_visible_in_the_script_fr_333(
 
 
 def test_the_wake_stabilisation_reads_the_saved_simulation_not_a_placeholder_fr_333():
-    """FR-333 R2, marker P0340-QA-PROMOTE: the wake entry saves state and judges a change."""
+    """FR-333, marker P0340-QA-PROMOTE: the wake entry saves state and judges a change."""
     entry = specs.PROBE_SPECS["SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION"]
     assert entry.save_state, "the stored key is read from the saved simulation"
     line = target_line("SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION")
@@ -131,10 +131,11 @@ def test_the_wake_stabilisation_reads_the_saved_simulation_not_a_placeholder_fr_
 
 
 def test_the_database_follows_the_verdict_of_the_runs_report_fr_333():
-    """FR-333 R3 and R4, marker P0340-QA-PROMOTE: each status equals the verdict the report records.
+    """FR-333 and FR-333, marker P0340-QA-PROMOTE: each status equals the verdict the report
+     records.
 
     Until the licensed run commits its report (``CMP-26124_<date>_qa-promote.yaml``) nothing
-    moved, and every command of R1 keeps the status it had; once it exists, every command of
+    moved, and every command of FR-647 keeps the status it had; once it exists, every command of
     the set has a line in it and each status equals its verdict.
     """
     statuses = {name: status_on(name) for name in EVERY}
@@ -149,7 +150,7 @@ def test_the_database_follows_the_verdict_of_the_runs_report_fr_333():
 
 
 def test_a_planted_mismatch_between_the_report_and_the_database_is_found_fr_333():
-    """FR-333 R4, marker P0340-QA-PROMOTE: the check names a status that differs from a verdict."""
+    """FR-333, marker P0340-QA-PROMOTE: the check names a status that differs from a verdict."""
     report = {
         "A": {"outcome": "verified"},
         "B": {"outcome": "unprobed"},
@@ -181,7 +182,7 @@ def _report(tmp_path: Path, outcome: str) -> Path:
 
 
 def test_a_promotion_from_a_report_that_judged_nothing_changes_nothing_fr_333(tmp_path):
-    """FR-333 R4, marker P0340-QA-PROMOTE: an unprobed report leaves the chapters byte for byte."""
+    """FR-333, marker P0340-QA-PROMOTE: an unprobed report leaves the chapters byte for byte."""
     commands = _chapter_copy(tmp_path)
     before = {p.name: p.read_bytes() for p in commands.glob("*.yaml")}
     report = _report(tmp_path, "unprobed")
@@ -190,7 +191,7 @@ def test_a_promotion_from_a_report_that_judged_nothing_changes_nothing_fr_333(tm
 
 
 def test_a_promotion_from_a_report_that_judged_the_command_moves_it_fr_333(tmp_path):
-    """FR-333 R4, marker P0340-QA-PROMOTE: the control of the test above, a verdict promotes.
+    """FR-333, marker P0340-QA-PROMOTE: the control of the test above, a verdict promotes.
 
     The planted verdict is one that MOVES the row as it stands: `verified` while the row is not
     verified, `broken` once the licensed run of RPT-126 promoted it, because a second `verified`

@@ -318,7 +318,7 @@ class TestIntegfixPostSetprec:
 
     @staticmethod
     def test_p0400_setprec_the_r10_admission_takes_the_spelling_and_no_value():
-        """P0400-SETPREC (PFS-2105.020): R10 admits a 0.38.0 cell's new spelling, never a new value."""  # noqa: E501
+        """P0400-SETPREC (PFS-2105.020): FR-1001 admits a 0.38.0 cell's new spelling, never a new value."""  # noqa: E501
         from tests.tier1_offline.test_p0390_r03 import settings_spelling_admitted
 
         old = "POL,f1_value\n7002,0.00001\n7002,30.00000\n"

@@ -273,7 +273,7 @@ def escaping_catalogued_errors(
 def raises_gaps(
     node: ast.FunctionDef | ast.AsyncFunctionDef, doc: str, namespace: dict
 ) -> list[str]:
-    """What a function's docstring lacks of NFR-30 R2's Raises: each escaping catalogued error."""
+    """What a function's docstring lacks of FR-1147's Raises: each escaping catalogued error."""
     listed = _documented_types(_sections(doc).get("Raises", ""))
     missing = sorted(escaping_catalogued_errors(node, namespace) - listed)
     return [f"Raises does not name {missing}"] if missing else []
@@ -295,7 +295,7 @@ def _own_nodes(node: ast.AST):
 
 
 def numpydoc_gaps(node: ast.FunctionDef | ast.AsyncFunctionDef, doc: str) -> list[str]:
-    """What a function's docstring lacks of NFR-30 R2: Parameters and Returns.
+    """What a function's docstring lacks of FR-1147: Parameters and Returns.
 
     Every parameter but ``self`` and ``cls`` is named in ``Parameters``
     (``*args`` and ``**kwargs`` with or without their stars, and several names
@@ -373,11 +373,11 @@ def _pending_failures(pending: set[str], failures: dict[str, list[str]]) -> list
     return wrong + [f"{rel} is no module" for rel in sorted(pending) if not (PKG / rel).is_file()]
 
 
-# ----------------------------------------------------------------- R1 and R2
+# ----------------------------------------------------------------- NFR-30 and FR-1147
 
 
 def test_every_exported_function_documents_its_parameters_and_result():
-    """NFR-30 R1 and R2: Parameters, Returns where a value returns, Raises where one escapes.
+    """NFR-30 and FR-1147: Parameters, Returns where a value returns, Raises where one escapes.
 
     The Raises half reads the function's own ``raise`` statements of a
     catalogued error that no enclosing handler catches; an error a callee
@@ -418,7 +418,7 @@ def test_every_exported_function_documents_its_parameters_and_result():
 
 
 def test_every_exported_docstring_parses_cleanly(caplog):
-    """NFR-30 R2: the numpydoc parser the reference renders with reads every one cleanly.
+    """FR-1147: the numpydoc parser the reference renders with reads every one cleanly.
 
     P0330-DOCSTRINGS-NUMPYDOC
     """
@@ -452,7 +452,7 @@ def test_every_exported_docstring_parses_cleanly(caplog):
 
 
 def test_the_numpydoc_check_refuses_planted_defects():
-    """NFR-30 R2: the check is shown to refuse each defect it exists for.
+    """FR-1147: the check is shown to refuse each defect it exists for.
 
     P0330-DOCSTRINGS-NUMPYDOC
     """
@@ -561,11 +561,11 @@ def test_the_numpydoc_check_refuses_planted_defects():
     assert numpydoc_gaps(node, cut) and "Parameters does not name" in numpydoc_gaps(node, cut)[0]
 
 
-# ----------------------------------------------------------------- R3
+# ----------------------------------------------------------------- FR-1148
 
 
 def _example_gaps(doc: str) -> list[str]:
-    """What a docstring lacks of R3: an Examples section holding doctest examples."""
+    """What a docstring lacks of FR-1148: an Examples section holding doctest examples."""
     section = _sections(doc).get("Examples")
     if section is None:
         return ["no Examples section"]
@@ -607,7 +607,7 @@ def _root_conftest():
 
 
 def test_documented_entry_points_carry_examples_the_gate_runs():
-    """NFR-30 R3: every documented entry point carries examples, and CI runs them.
+    """FR-1148: every documented entry point carries examples, and CI runs them.
 
     P0330-DOC-EXAMPLES
     """
@@ -654,7 +654,7 @@ def test_documented_entry_points_carry_examples_the_gate_runs():
 
 
 def test_the_examples_check_refuses_planted_defects():
-    """NFR-30 R3: the examples check refuses a missing section and an empty one.
+    """FR-1148: the examples check refuses a missing section and an empty one.
 
     P0330-DOC-EXAMPLES
     """
@@ -673,7 +673,7 @@ def test_the_examples_check_refuses_planted_defects():
     ]
 
 
-# ----------------------------------------------------------------- R4
+# ----------------------------------------------------------------- FR-1149
 
 #: The page that defines the reductions, and the section that lists them.
 REDUCTIONS_HOME = "post-processing-definitions.md"
@@ -727,7 +727,7 @@ def reductions_restated(name: str, text: str) -> list[str]:
 
 
 def test_the_unsteady_reductions_have_one_home():
-    """NFR-30 R4: the definitions page defines the reductions; every other page links to it.
+    """FR-1149: the definitions page defines the reductions; every other page links to it.
 
     P0330-DOC-REDUCTIONS-HOME
     """
@@ -755,7 +755,7 @@ def test_the_unsteady_reductions_have_one_home():
 
 
 def test_the_reductions_check_refuses_planted_defects():
-    """NFR-30 R4: a restated table, a stale claim and a missing link are each refused.
+    """FR-1149: a restated table, a stale claim and a missing link are each refused.
 
     P0330-DOC-REDUCTIONS-HOME
     """
@@ -857,7 +857,7 @@ def all_gaps(module, source: str) -> list[str]:
 
 
 def test_the_modules_docb_gave_all_list_every_name_they_define():
-    """Decision 10 and NFR-29 R8: an ``__all__`` DOC-B added drops no defined public name.
+    """Decision 10 and FR-1144: an ``__all__`` DOC-B added drops no defined public name.
 
     The API reference reads ``__all__`` (``gen_api_reference.public_surface``),
     so a name left out would leave the reference and its completeness check

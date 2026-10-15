@@ -102,10 +102,11 @@ class TestCoreSmallParity:
         srs = tmp_path / _CORE_SMALL_PARITY__REQUIREMENTS_DIR
         srs.mkdir(parents=True)
         (srs / "functional-requirements.md").write_text(
-            '!!! requirement "FR-12 A box"\n\n    Text that mentions FR-331 in passing.\n',
+            '!!! requirement "FR-12 A box"\n\n    Text that mentions FR-331 in passing.\n'
+            "| FR-13 | - | CORE | implemented | Shall cite FR-331. | m:f | t::f |\n",
             encoding="utf-8",
         )
-        assert _core_small_parity___load().srs_ids(tmp_path) == {"FR-12"}
+        assert _core_small_parity___load().srs_ids(tmp_path) == {"FR-12", "FR-13"}
 
     @staticmethod
     @pytest.mark.parametrize("pattern", ["*/post.log", "*/post.log.json"])

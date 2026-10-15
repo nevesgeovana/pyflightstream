@@ -11,26 +11,26 @@ The order, from the source to the level folder:
 1. read the mesh, the request (:mod:`._config`) and the trailing-edge points;
 2. recover the grid of every family asked to change (a sheet, a tube, or a
    multiblock grid of quadrilaterals, :mod:`._blocks`) and decide its
-   method, refusing before any work (FR-424 R9 to R11);
+   method, refusing before any work (FR-923 to FR-925);
 3. refine the grid families first, in the source's family order; a grid that
-   shares nodes with a grid refined before it is remeshed (FR-425 R1);
+   shares nodes with a grid refined before it is remeshed (FR-932);
 4. hand each neighbour the grid's new nodes on their shared curve: a remeshed
-   neighbour is rebuilt on them (FR-425 R2), an unchanged one is remeshed at
-   factor 1 in a band of two face layers (FR-425 R3), or whole when the band
+   neighbour is rebuilt on them (FR-933), an unchanged one is remeshed at
+   factor 1 in a band of two face layers (FR-934), or whole when the band
    would hold every face of it (FR-431); a family remeshed at factor 1 takes,
    along and near that curve, the length of the new shared edges (FR-432);
-5. remesh the other families, together where they touch (FR-424 R8); a
+5. remesh the other families, together where they touch (FR-922); a
    body refined along and around its axis is remeshed in its stretched space
    (FR-428), together only with bodies stretched alike, and its curve with
    a factor-1 family or the band of an unchanged neighbour stays frozen;
 6. assemble in the source's family order, weld the shared nodes, put each
    band back into its family in the source's order, group the components
-   (FR-425 R4), write the level into a temporary folder, audit it there
+   (FR-935), write the level into a temporary folder, audit it there
    (FR-426), and rename it once complete; an existing level is replaced only
-   then (FR-424 R4, R5).
+   then (FR-918, FR-919).
 
 Every input the audit refuses (the boundaries file, the trailing-edge points
-file it names) is read in step 1, so a refusal comes before any work (R11).
+file it names) is read in step 1, so a refusal comes before any work (FR-925).
 """
 
 from __future__ import annotations
@@ -68,10 +68,10 @@ BAND_SUFFIX = "~band"
 #: The trailing-edge points file of a mesh, when its boundaries file names none.
 TE_SUFFIX = _obj.TE_SUFFIX
 #: The prefix of the folder a level is written into before it is renamed to its own name
-#: (FR-424 R5); a unique name the run creates and alone removes, ``<level>.partial-<random>``.
+#: (FR-919); a unique name the run creates and alone removes, ``<level>.partial-<random>``.
 STAGING_SUFFIX = ".partial"
 #: The name, inside the run's own staging folder, an existing level is moved to while
-#: ``overwrite`` replaces it, until the new level is in place (FR-424 R5): an error before
+#: ``overwrite`` replaces it, until the new level is in place (FR-919): an error before
 #: then puts it back.
 PREVIOUS_SUFFIX = ".previous"
 #: Version 2 names native-unit target lengths explicitly when mesh units are absent.
@@ -136,13 +136,13 @@ class _Work:
     unchanged: list[str] = field(default_factory=list)  # the families G6 compares
     # FR-430: per grid, whether station 0 and the far station keep their row's width
     keep_rows: dict[str, tuple[bool, bool]] = field(default_factory=dict)
-    # FR-430 R7: what the boundaries file states of the trailing edge, and per grid asked
+    # FR-956: what the boundaries file states of the trailing edge, and per grid asked
     # to keep its rows where its trailing edge comes from ("points file" or "detected")
     te_route: _obj.TrailingRoute = field(default_factory=_obj.TrailingRoute)
     te_source: dict[str, str] = field(default_factory=dict)
-    # FR-430 R7, FR-426 G4: the mid-points of each detected line's edges, in the mesh's unit
+    # FR-956, FR-426 G4: the mid-points of each detected line's edges, in the mesh's unit
     te_detected: dict[str, Points] = field(default_factory=dict)
-    # FR-433 R4: the selected families of a summary tag, taken with the tag before any work
+    # FR-972: the selected families of a summary tag, taken with the tag before any work
     tag_selection: list[str] | None = None
     # The working copy of the request's specs: a factor-1 family leaves it, a band or a
     # rebuilt family joins it; the request itself, which refine.json records, never changes.
@@ -175,7 +175,7 @@ def _listed_edges(mesh: ObjMesh, family: str, points: Points, scale: float) -> s
 def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
     te = _obj.te_points(source)
     # Without a points file, one the level writes (a detected kept row's trailing edge,
-    # FR-430 R4, R7) is in the mesh's unit, stated as the boundaries file states it.
+    # FR-953, FR-956) is in the mesh's unit, stated as the boundaries file states it.
     unit = (_obj.mesh_unit(source) or "METER") if te is None else te.unit
     points = numpy.zeros((0, 3)) if te is None else te.points
     scale = mesh.size
@@ -203,7 +203,10 @@ def _start(source: Path, request: RefineRequest, mesh: ObjMesh) -> _Work:
 
 
 def _decide(work: _Work) -> None:
-    """Recover the grids and choose each family's method, refusing before any work (R9, R10)."""
+    """Recover the grids and choose each family's method, refusing before any work.
+
+    (FR-923, FR-924).
+    """
     for name in [n for n in work.names if n in work.specs]:
         _decide_family(work, name)
     _grid_after_grid(work)
@@ -305,13 +308,13 @@ def _component_of(work: _Work, name: str) -> str:
 
 
 def _kept_trailing_edge(work: _Work, name: str) -> None:
-    """Take the trailing edge of a grid asked to keep its rows, or refuse it (FR-430 R6, R7).
+    """Take the trailing edge of a grid asked to keep its rows, or refuse it (FR-955, FR-956).
 
     The trailing edge is the one listed in the trailing-edge points file;
     else, when the boundaries file routes the family's trailing edge to
     detection, the edges detected on the source by the rule the refinement
     uses for a source without a points file: an edge of two faces whose
-    dihedral exceeds the ridge angle (FR-424 R8), kept only where those
+    dihedral exceeds the ridge angle (FR-922), kept only where those
     edges form the grid line that runs from station 0 to the far station at
     the aft chordwise extreme (:func:`_detected_line`), so a sharp leading
     edge or a crease is not taken for it. Which of the two it is goes to
@@ -355,7 +358,7 @@ def _kept_trailing_edge(work: _Work, name: str) -> None:
 
 
 def _detection(work: _Work, name: str) -> tuple[set[tuple[int, int]], set[int] | str | None]:
-    """Return a family's sharp edges and the trailing edge detected on them (FR-430 R7).
+    """Return a family's sharp edges and the trailing edge detected on them (FR-956).
 
     Measure across all families before filtering to this family's edges.
     A sheet's trailing edge can have its opposite face in another family.
@@ -389,7 +392,7 @@ def _detected_line(
     sharp: set[tuple[int, int]],
     direction: tuple[float, float, float] | None = None,
 ) -> set[int] | str:
-    """Return the vertices of the detected trailing edge, or why the sharp edges hold none (R7).
+    """Return the vertices of the detected trailing edge, or why the sharp edges hold none (FR-956).
 
     The grid is recovered on every sharp edge's vertices, and the trailing
     edge is the grid line whose every spanwise edge, from station 0 to the
@@ -450,14 +453,17 @@ def _chord_ends(verts: Points, grid: _grid.Grid) -> tuple[int, int]:
 
 
 def _meets(row: NDArray[numpy.int64], wrap: bool, nodes: set[int]) -> bool:
-    """Return whether two consecutive nodes of a station, an edge of it, are in ``nodes`` (R2)."""
+    """Return whether two consecutive nodes of a station, an edge of it, are in ``nodes``.
+
+    (FR-951).
+    """
     ids = [int(v) for v in row]
     pairs = zip(ids, ids[1:] + ids[:1] if wrap else ids[1:], strict=False)
     return any(a in nodes and b in nodes for a, b in pairs)
 
 
 def _first_rows(work: _Work, name: str, grid: _grid.Grid) -> tuple[bool, bool]:
-    """Return which end rows of a grid keep their width under ``keep_first_row`` (FR-430 R2).
+    """Return which end rows of a grid keep their width under ``keep_first_row`` (FR-951).
 
     An end station is an interface when two consecutive nodes of it, an edge
     of the source, are nodes of a family of another component: there the
@@ -465,7 +471,7 @@ def _first_rows(work: _Work, name: str, grid: _grid.Grid) -> tuple[bool, bool]:
     the trailing edge from that component. Two nodes it shares that are not
     consecutive make no interface. A grid with no end at another component,
     and one whose kept rows leave no spanwise interval, are refused before
-    any work (R6).
+    any work (FR-955).
     """
     where = f"{work.source} family {name} keep_first_row"
     if grid.smooth:
@@ -492,13 +498,13 @@ def _first_rows(work: _Work, name: str, grid: _grid.Grid) -> tuple[bool, bool]:
 
 
 def _planned_bands(work: _Work) -> list[str]:
-    """Return the unchanged families whose band will be remeshed (FR-425 R3), before any work.
+    """Return the unchanged families whose band will be remeshed (FR-934), before any work.
 
     An unchanged neighbour gets a band when it shares a curve with a grid
     family whose nodes on that curve change, which the grid's counts tell
     without resampling it (:func:`._grid.curve_changes`,
     :func:`._blocks.nodes_change`); its remesh needs the geometry extra like
-    any other (FR-424 R10, R11).
+    any other (FR-924, FR-925).
     """
     planned: list[str] = []
     for name in [n for n in work.names if n not in work.specs]:
@@ -529,7 +535,7 @@ def _planned_bands(work: _Work) -> list[str]:
 
 
 def _grid_after_grid(work: _Work) -> None:
-    """Remesh a grid that shares nodes with a grid refined first, or refuse it (FR-425 R1)."""
+    """Remesh a grid that shares nodes with a grid refined first, or refuse it (FR-932)."""
     done: list[str] = []
     for name in [n for n in work.names if n in work.grids]:
         first = [m for m in done if work.fam_v[name] & work.fam_v[m]]
@@ -551,7 +557,7 @@ def _remesh_or_keep(work: _Work, name: str, reason: str) -> None:
 
     A remeshed family at factor 1 is an UNCHANGED FAMILY (FR-424): it is
     copied as the source holds it, and a band of it is remeshed only where a
-    grid beside it changed their shared curve (FR-425 R3). A family the
+    grid beside it changed their shared curve (FR-934). A family the
     refinement file states ``method = "remesh"`` is remeshed at any factor.
     """
     spec = work.specs[name]
@@ -590,8 +596,8 @@ def _kept_apart(work: _Work, name: str, other: str) -> bool:
 
     They are when one of them is unchanged: a remeshed family at factor 1,
     a body at axial and circumferential 1, or the band of an unchanged
-    neighbour (FR-425 R3). The curve they share keeps its nodes on both
-    sides, as an interface with an unchanged family does (FR-424 R8).
+    neighbour (FR-934). The curve they share keeps its nodes on both
+    sides, as an interface with an unchanged family does (FR-922).
     """
     specs = work.specs
     unchanged = specs[name].unchanged or specs[other].unchanged
@@ -602,7 +608,7 @@ def _bodies_apart(work: _Work) -> None:
     """Refuse a body remeshed together with a family not stretched alike (FR-428).
 
     Two remeshed families that share nodes are remeshed together, so their
-    shared curve is remeshed once (FR-424 R8). A stretch applies to the whole
+    shared curve is remeshed once (FR-922). A stretch applies to the whole
     group, so a body can join only bodies with the same axis and factors; an
     unchanged family beside it is remeshed apart (:func:`_kept_apart`), and
     any other pair is refused naming both families.
@@ -647,7 +653,7 @@ def _no_stretched_cut(work: _Work) -> None:
 
 
 def _refine_grids(work: _Work) -> None:
-    """Refine every grid family and record what its neighbours must take (FR-425 R2, R3)."""
+    """Refine every grid family and record what its neighbours must take (FR-933, FR-934)."""
     for name, grid in work.grids.items():
         chordwise, spanwise = work.specs[name].directions
         if isinstance(grid, _blocks.Blocks):
@@ -745,7 +751,7 @@ def _unchanged_curve(work: _Work, old: set[int], new: Points) -> bool:
 
 
 def _bands(work: _Work) -> None:
-    """Cut a band of face layers out of each unchanged neighbour whose curve changed (FR-425 R3).
+    """Cut a band of face layers out of each unchanged neighbour whose curve changed (FR-934).
 
     A band that would hold every face of the family leaves no remainder: the
     family is rebuilt whole at factor 1 instead, as if stated ``factor = 1``,
@@ -841,7 +847,7 @@ def _conform_cuts(work: _Work) -> None:
 
 
 def _remesh_groups(work: _Work) -> None:
-    """Remesh the other families, together where they share nodes (FR-424 R8)."""
+    """Remesh the other families, together where they share nodes (FR-922)."""
     if not work.remesh:
         return
     from pyflightstream.workspace._refine._remesh import element_report, refine_group
@@ -892,10 +898,10 @@ def _remesh_groups(work: _Work) -> None:
                 **element_report(modes[n], done.families.get(n, [])),
             )
             entry.update(work.rebuilt.get(n, {}))
-            if n in at_curve and n not in work.bands:  # FR-432 R3, under the rebuilt family
+            if n in at_curve and n not in work.bands:  # FR-966, under the rebuilt family
                 entry[target_key] = at_curve[n]
         for n in ordered:
-            if n in work.bands and n in at_curve:  # FR-432 R3, under the band's family
+            if n in work.bands and n in at_curve:  # FR-966, under the band's family
                 work.report[work.bands[n]][target_key] = at_curve[n]
         work.parts[ordered[0]] = (done.points, done.families, done.trailing_edge)
 
@@ -969,7 +975,7 @@ def _distinct(points: Points, scale: float) -> Points:
 def _source_numbering(
     verts: Points, faces: dict[str, Faces], source: Points, scale: float
 ) -> tuple[Points, dict[str, Faces]]:
-    """Renumber the level's nodes the way the source numbers them (FR-424 R7).
+    """Renumber the level's nodes the way the source numbers them (FR-921).
 
     A node at a source node's position takes that node's place in the source's
     order; the new nodes follow, in their order of first use. A level that
@@ -991,7 +997,7 @@ def _source_text(work: _Work, verts: Points) -> list[str | None]:
 
     A node equal in every coordinate to the source node at its position is
     written as the source wrote it, so a node the refinement kept is the
-    source's in its text too (FR-424 R7); any other node is written by
+    source's in its text too (FR-921); any other node is written by
     :func:`._obj.coordinates`.
     """
     if not len(verts) or len(work.mesh.vertex_text) != len(work.mesh.verts):
@@ -1026,7 +1032,7 @@ def _weld(
 
 
 def _components(work: _Work, faces: dict[str, Faces]) -> dict[str, Faces]:
-    """Write each component's members as one family, in the source's family order (FR-425 R4)."""
+    """Write each component's members as one family, in the source's family order (FR-935)."""
     owner = {m: c for c, members in work.request.components.items() for m in members}
     out: dict[str, Faces] = {}
     for name in [n for n in work.names if n not in work.bands]:
@@ -1042,7 +1048,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
 
     The file is read as TOML, and only the two values that change are
     rewritten in place: ``[trailing_edges] file`` and, with components, the
-    ``boundaries`` list (FR-425 R4); every other byte, comments included, is
+    ``boundaries`` list (FR-935); every other byte, comments included, is
     the source's. Each rewrite is checked by parsing the result, which must
     equal the source's values with those two replaced, so no spelling of
     TOML can make a rewrite land on the wrong text.
@@ -1051,7 +1057,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
     ------
     InputArtifactError
         A value the rewrite cannot place; nothing was written. It is called
-        before any family is resampled (FR-424 R11).
+        before any family is resampled (FR-925).
     """
     read = _obj.read_sidecar(work.source)
     if read is None:
@@ -1078,7 +1084,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
 def _route_detected_te(work: _Work, stem: str) -> None:
     """Name the level's points file in its boundaries file when the refinement detected it.
 
-    A kept row's trailing edge detected by the refinement (FR-430 R4, R7) is
+    A kept row's trailing edge detected by the refinement (FR-953, FR-956) is
     written to ``<stem>.te.txt``, and a boundaries file that routes the
     trailing edge to detection names no file, so the run would mark the
     trailing edge by the workflow's own rule and never read the audited line
@@ -1218,7 +1224,7 @@ def _value_of(data: dict[str, Any], key: str) -> object:
 
 
 def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]:
-    # FR-433 R4: every selected family and its factor, a factor-1 family kept unchanged
+    # FR-972: every selected family and its factor, a factor-1 family kept unchanged
     # included; the method each got is in "families".
     specs = {
         n: {k: v for k, v in vars(s).items() if v is not None}
@@ -1256,7 +1262,7 @@ def _write(
     note = f"refined by pyflightstream from {work.source.name}"
     written = [_obj.write_obj(mesh, folder / f"{stem}.obj", note)]
     # The source's points file, carried to the level under the level's name, else the
-    # trailing edge the level holds without one: a detected kept row's (FR-430 R4, R7).
+    # trailing edge the level holds without one: a detected kept row's (FR-953, FR-956).
     if work.te_listed or len(te):
         target = folder / f"{stem}{TE_SUFFIX}"
         written.append(_obj.write_te(target, work.te_unit, te * work.te_to_file))
@@ -1273,7 +1279,7 @@ def _write(
 
 
 def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool) -> Path:
-    """Return the level folder, refusing an existing one unless ``overwrite`` (FR-424 R5).
+    """Return the level folder, refusing an existing one unless ``overwrite`` (FR-919).
 
     The level folder is a folder directly inside ``out_dir``, whatever gave
     its name, and never the source's folder, one holding it, or one inside
@@ -1364,7 +1370,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
     InputArtifactError
         Every refusal of FR-424 and FR-425, before any file is written.
     MissingExtraError
-        A family must be remeshed and the geometry extra is missing (FR-424 R10).
+        A family must be remeshed and the geometry extra is missing (FR-924).
 
     Examples
     --------
@@ -1427,7 +1433,7 @@ def refine_mesh(  # noqa: PLR0913 (one keyword per option of the command)
 
 
 def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
-    """Return the level's families G6 compares with the source's (FR-426 R2, FR-424 R7).
+    """Return the level's families G6 compares with the source's (FR-938, FR-921).
 
     A grid family written at factor 1, and a component whose every member is
     one, in the level's family order. ``refine.json`` lists them, so the
@@ -1444,7 +1450,7 @@ def _unchanged_grids(work: _Work, families: list[str]) -> list[str]:
 
 
 def _release(owned: Path, folder: Path) -> None:
-    """Remove the run's own folder, never with an old level still inside it (FR-424 R5).
+    """Remove the run's own folder, never with an old level still inside it (FR-919).
 
     When a publish failed and the old level is still set aside in the run's
     folder, it is put back first; when that also fails, the run's folder is
@@ -1466,7 +1472,7 @@ def _release(owned: Path, folder: Path) -> None:
 
 
 def _publish(staging: Path, folder: Path, previous: Path, overwrite: bool) -> None:
-    """Rename the complete, audited staging folder to the level (FR-424 R5).
+    """Rename the complete, audited staging folder to the level (FR-919).
 
     An existing level is moved aside to ``previous``, a path inside the run's
     own staging folder that the caller removes once the new level is in

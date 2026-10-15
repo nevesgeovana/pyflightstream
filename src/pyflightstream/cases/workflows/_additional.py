@@ -239,7 +239,7 @@ def additional_outputs(pproc: PprocSpec, *, stem: str, unsteady: bool) -> tuple[
     if unsteady and chosen.get("plots", True):
         kinds.append("plots")
     if pproc.streamlines is not None:
-        # FR-460 R6: the traces of the reopened simulation.
+        # FR-1082: the traces of the reopened simulation.
         if pproc.streamlines.surface:
             kinds.append("streamlines_surface")
         if pproc.streamlines.off_body:
@@ -451,7 +451,7 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
     _analysis(case, script, moment_frame if isinstance(moment_frame, int) else None)
     if not unsteady:
         _setup_link.loads_selections(case, script)
-    # FR-460 R6: the streamlines of the additional pproc, traced in the reopened
+    # FR-1082: the streamlines of the additional pproc, traced in the reopened
     # simulation after deleting those it carries; the post warns per extraction.
     extraction = WorkflowConventions(outputs=tuple(case.outputs))
     _pproc_streamlines(

@@ -55,7 +55,7 @@ def arity_mismatch(detail: str, emitted: int) -> bool:
 
 @pytest.mark.parametrize("command", EXPORTS)
 def test_the_database_and_the_emitted_line_agree_on_the_arity_fr_335(command):
-    """FR-335 R2, marker P0340-ARITY-2003-06: the emitter writes as many arguments as the entry."""
+    """FR-335, marker P0340-ARITY-2003-06: the emitter writes as many arguments as the entry."""
     assert command in specs.PROBE_SPECS
     assert database_arity(command) == emitted_arity(command) == 6
 
@@ -78,7 +78,7 @@ ARITY_UNDETERMINED = (
     ],
 )
 def test_the_arity_equals_the_one_the_runs_report_records_fr_335(command):
-    """FR-335 R1 and R2, marker P0340-ARITY-2003-06: the arity the report states is emitted."""
+    """FR-335 and FR-335, marker P0340-ARITY-2003-06: the arity the report states is emitted."""
     report = run_report(RUN_LABEL_CN)
     if report is None:
         return
@@ -90,7 +90,7 @@ def test_the_arity_equals_the_one_the_runs_report_records_fr_335(command):
 
 
 def test_a_planted_arity_mismatch_is_found_fr_335():
-    """FR-335 R2, marker P0340-ARITY-2003-06: the control of the arity check."""
+    """FR-335, marker P0340-ARITY-2003-06: the control of the arity check."""
     assert arity_mismatch("the file was written with an arity of 4", 6)
     assert not arity_mismatch("the file was written with an arity of 6", 6)
     assert not arity_mismatch("no arity stated", 6)
@@ -103,7 +103,7 @@ def test_a_planted_arity_mismatch_is_found_fr_335():
 
 @pytest.mark.parametrize("command", EXPORTS)
 def test_the_probe_judges_the_file_the_command_writes_fr_335(command, tmp_path):
-    """FR-335 R1, marker P0340-ARITY-2003-06: absent or empty is broken, a written file verified."""
+    """FR-335, marker P0340-ARITY-2003-06: absent or empty is broken, a written file verified."""
     entry = specs.PROBE_SPECS[command]
     name = "fuselage_export.csv" if "FUSELAGE" in command else "revolve_export.csv"
     assert entry.assert_effect(artifacts_in(tmp_path)) is False
@@ -115,7 +115,7 @@ def test_the_probe_judges_the_file_the_command_writes_fr_335(command, tmp_path):
 
 
 def test_the_export_reading_never_quotes_the_numbers_of_the_file_fr_335(tmp_path):
-    """FR-335 R1, marker P0340-ARITY-2003-06: the evidence line states size and first line only."""
+    """FR-335, marker P0340-ARITY-2003-06: the evidence line states size and first line only."""
     (tmp_path / "fuselage_export.csv").write_text("Component;X\n1.0;2.0;3.0\n", encoding="utf-8")
     said = specs.PROBE_SPECS["EXPORT_FUSELAGE_CCS_FILE"].observe(artifacts_in(tmp_path))
     assert "2.0" not in said and "bytes" in said and "Component;X" in said

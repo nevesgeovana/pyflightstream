@@ -177,12 +177,14 @@ def _first_step(case: SimCase) -> int:
     return threshold.first_step
 
 
-# --- R1: the first step against hand counts -------------------------------------
+# --- FR-872: the first step against hand counts -------------------------------------
 
 
 @pytest.mark.requirement("FR-415")
 def test_the_last_revolution_of_three_exports_steps_73_to_108():
-    """P0370-S3-LAST-REV (FR-415) R1: 3 revolutions of 36 steps, the last 1 is steps 73 to 108."""
+    """P0370-S3-LAST-REV (FR-415) FR-872: 3 revolutions of 36 steps, the last 1 is steps 73 to
+    108.
+    """
     threshold = unsteady_export_threshold(_rotor_row(**{LAST_REV: "1"}), version="26.124")
     assert threshold is not None
     assert threshold.time_iterations == 108
@@ -192,7 +194,7 @@ def test_the_last_revolution_of_three_exports_steps_73_to_108():
 
 @pytest.mark.requirement("FR-415")
 def test_a_non_integer_product_rounds_the_count_up():
-    """P0370-S3-LAST-REV (FR-415) R1: 0.5 revolution of 36.4 steps a turn is n = 19."""
+    """P0370-S3-LAST-REV (FR-415) FR-872: 0.5 revolution of 36.4 steps a turn is n = 19."""
     threshold = unsteady_export_threshold(
         _non_integer_rotor_row(**{LAST_REV: "0.5"}), version="26.124"
     )
@@ -208,16 +210,16 @@ def test_a_non_integer_product_rounds_the_count_up():
     [(_unsteady_row, 1, 480), (_unsteady_row, 12, 469), (_rotor_row, 36, 73), (_rotor_row, 108, 1)],
 )
 def test_the_last_k_steps_start_at_the_run_length_minus_k_plus_one(row, k, first):
-    """P0370-S3-LAST-REV (FR-415) R1: ``n = K``, first step ``TIME_ITERATIONS - K + 1``."""
+    """P0370-S3-LAST-REV (FR-415) FR-872: ``n = K``, first step ``TIME_ITERATIONS - K + 1``."""
     assert _first_step(row(**{LAST_ITER: str(k)})) == first
 
 
-# --- R3: the bounds ---------------------------------------------------------------
+# --- FR-874: the bounds ---------------------------------------------------------------
 
 
 @pytest.mark.requirement("FR-415")
 def test_n_equal_to_the_run_length_is_accepted_and_one_more_is_refused_naming_the_length():
-    """P0370-S3-LAST-REV (FR-415) R3: ``n = TIME_ITERATIONS`` is accepted, one more refused."""
+    """P0370-S3-LAST-REV (FR-415) FR-874: ``n = TIME_ITERATIONS`` is accepted, one more refused."""
     assert _first_step(_unsteady_row(**{LAST_ITER: "480"})) == 1
     with pytest.raises(CampaignConfigError) as refused:
         build_script(_unsteady_row(**{LAST_ITER: "481"}), Script("26.124"))
@@ -234,7 +236,7 @@ def test_n_equal_to_the_run_length_is_accepted_and_one_more_is_refused_naming_th
 @pytest.mark.parametrize("key", [LAST_ITER, LAST_REV])
 @pytest.mark.parametrize("value", ["0", "-2"])
 def test_a_value_that_is_not_positive_is_refused_naming_the_key(key, value):
-    """P0370-S3-LAST-REV (FR-415) R3: zero and negative counts are refused at plan."""
+    """P0370-S3-LAST-REV (FR-415) FR-874: zero and negative counts are refused at plan."""
     with pytest.raises(CampaignConfigError) as refused:
         build_script(_rotor_row(**{key: value}), Script("26.124"))
     message = str(refused.value)
@@ -250,7 +252,8 @@ def test_a_fractional_step_count_is_refused():
 
 @pytest.mark.requirement("FR-415")
 def test_the_revolutions_form_without_a_rotor_clock_names_the_iterations_form():
-    """P0370-S3-LAST-REV (FR-415) R3: LAST_REV on the run type that turns nothing names LAST_ITER.
+    """P0370-S3-LAST-REV (FR-415) FR-874: LAST_REV on the run type that turns nothing names
+     LAST_ITER.
 
     Reached through the resolver on a row that names its run type by recipe (the
     row-key guard refuses it first on a row with a WORKFLOW cell, naming the keys the
@@ -272,13 +275,13 @@ def test_the_revolutions_form_without_a_rotor_clock_names_the_iterations_form():
     assert f"'{AFTER_ITER}: <steps>'" in str(before.value), before.value
 
 
-# --- R2: at most one of the four --------------------------------------------------
+# --- FR-873: at most one of the four --------------------------------------------------
 
 
 @pytest.mark.requirement("FR-415")
 @pytest.mark.parametrize(("first", "second"), list(itertools.combinations(FOUR_KEYS, 2)))
 def test_two_threshold_keys_are_refused_naming_both(first, second):
-    """P0370-S3-LAST-REV (FR-415) R2: every pair of the four keys is refused, naming both."""
+    """P0370-S3-LAST-REV (FR-415) FR-873: every pair of the four keys is refused, naming both."""
     row = _rotor_row(**{first: "1", second: "1"})
     with pytest.raises(CampaignConfigError) as refused:
         build_script(row, Script("26.124"))
@@ -287,7 +290,7 @@ def test_two_threshold_keys_are_refused_naming_both(first, second):
     assert "7001" in message
 
 
-# --- R5: the averaging window -----------------------------------------------------
+# --- FR-876: the averaging window -----------------------------------------------------
 
 
 def _averaged_rotor_row(**overrides: str | None) -> SimCase:
@@ -303,7 +306,9 @@ def _averaged_rotor_row(**overrides: str | None) -> SimCase:
 
 @pytest.mark.requirement("FR-415")
 def test_a_first_step_after_the_averaging_window_start_is_refused():
-    """P0370-S3-LAST-REV (FR-415) R5: the window starts at step 91, so the last 53 are refused."""
+    """P0370-S3-LAST-REV (FR-415) FR-876: the window starts at step 91, so the last 53 are
+    refused.
+    """
     with pytest.raises(CampaignConfigError, match=r"step 92.*from step 91"):
         build_script(_averaged_rotor_row(**{LAST_ITER: "53"}), Script("26.124"))
     with pytest.raises(CampaignConfigError, match=r"step 109.*from step 91"):
@@ -314,7 +319,7 @@ def test_a_first_step_after_the_averaging_window_start_is_refused():
     assert _first_step(_averaged_rotor_row(**{LAST_ITER: "54"})) == 91
 
 
-# --- R4: the record ---------------------------------------------------------------
+# --- FR-875: the record ---------------------------------------------------------------
 
 
 @pytest.mark.requirement("FR-415")
@@ -330,7 +335,7 @@ def test_a_first_step_after_the_averaging_window_start_is_refused():
 def test_the_export_window_states_the_form_the_value_and_the_first_step(
     tmp_path, row, form, value, first
 ):
-    """P0370-S3-LAST-REV (FR-415) R4: ``export_window`` states form, value and first step."""
+    """P0370-S3-LAST-REV (FR-415) FR-875: ``export_window`` states form, value and first step."""
     case = row()
     script = Script("26.124")
     build_script(case, script)
@@ -342,7 +347,7 @@ def test_the_export_window_states_the_form_the_value_and_the_first_step(
     assert window["time_iterations"] == (108 if case.recipe == "unsteady_rotor" else 480)
 
 
-# --- R1: the rendered script and counter program are those of AFTER_ITER --------
+# --- FR-872: the rendered script and counter program are those of AFTER_ITER --------
 
 
 @pytest.mark.requirement("FR-415")
@@ -361,7 +366,9 @@ def test_the_export_window_states_the_form_the_value_and_the_first_step(
 def test_a_last_row_renders_the_script_and_program_of_after_iter_at_its_first_step(
     tmp_path, last, after
 ):
-    """P0370-S3-LAST-REV (FR-415) R1: byte-equal script, parked file, counter program, exports."""
+    """P0370-S3-LAST-REV (FR-415) FR-872: byte-equal script, parked file, counter program,
+    exports.
+    """
     rendered = []
     for case in (last(), after()):
         script = Script("26.124")
@@ -385,12 +392,14 @@ def test_a_last_row_renders_the_script_and_program_of_after_iter_at_its_first_st
     assert "THRESHOLD_FORM = 'iterations'" in rendered[0][2]
 
 
-# --- R1: the counter program exports from the first step to the last --------------
+# --- FR-872: the counter program exports from the first step to the last --------------
 
 
 @pytest.mark.requirement("FR-415")
 def test_the_counter_program_of_a_last_row_exports_the_last_steps_and_no_earlier_one(tmp_path):
-    """P0370-S3-LAST-REV (FR-415) R1: run as the solver runs it, the last 4 of 10 steps export."""
+    """P0370-S3-LAST-REV (FR-415) FR-872: run as the solver runs it, the last 4 of 10 steps
+    export.
+    """
     case = _unsteady_row(
         **{LAST_ITER: "4", "TIME_ITERATIONS": "10", "LAST_ITERS_AVG": "10", "DELTA_TIME": "0.01"}
     )
@@ -415,12 +424,15 @@ def test_the_counter_program_of_a_last_row_exports_the_last_steps_and_no_earlier
     assert seen == [False] * 6 + [True] * 4, seen
 
 
-# --- R7: a row stating none of the four keys is as before -----------------------
+# --- FR-878: a row stating none of the four keys is as before -----------------------
 
 
 @pytest.mark.requirement("FR-415")
 def test_a_row_stating_none_of_the_four_keys_has_no_threshold_and_a_count_only_program(tmp_path):
-    """P0370-S3-LAST-REV (FR-415) R7: no threshold, no exports action, the count-only program."""
+    """P0370-S3-LAST-REV (FR-415, FR-878).
+
+    No threshold, no exports action, the count-only program.
+    """
     for case in (_rotor_row(), _unsteady_row()):
         assert unsteady_export_threshold(case, version="26.124") is None
         script = Script("26.124")
@@ -434,7 +446,9 @@ def test_a_row_stating_none_of_the_four_keys_has_no_threshold_and_a_count_only_p
 
 @pytest.mark.requirement("FR-415")
 def test_the_rounded_count_is_bounded_after_the_tolerance_is_applied():
-    """P0370-S3-LAST-REV (FR-415) R1/R3: n = ceil(N x spr - 1e-9) and 1 <= n <= TIME_ITERATIONS."""
+    """P0370-S3-LAST-REV (FR-415) FR-872/FR-874: n = ceil(N x spr - 1e-9) and 1 <= n <=
+    TIME_ITERATIONS.
+    """
     # A value that rounds to no step is refused like a non-positive one.
     with pytest.raises(CampaignConfigError) as refused:
         build_script(_rotor_row(**{LAST_REV: "1e-12"}), Script("26.124"))
@@ -454,7 +468,7 @@ def test_the_rounded_count_is_bounded_after_the_tolerance_is_applied():
 @pytest.mark.requirement("FR-415")
 @pytest.mark.parametrize("row", [_steady_row, _qsteady_row, _unsteady_row])
 def test_last_rev_without_an_unsteady_rotor_clock_names_last_iter_in_every_run_type(row):
-    """P0370-S3-LAST-REV (FR-415) R3: steady, qsteady_rotor and unsteady all name LAST_ITER."""
+    """P0370-S3-LAST-REV (FR-415) FR-874: steady, qsteady_rotor and unsteady all name LAST_ITER."""
     with pytest.raises(CampaignConfigError) as refused:
         build_script(row(**{LAST_REV: "1"}), Script("26.124"))
     message = str(refused.value)
@@ -467,7 +481,7 @@ def test_last_rev_without_an_unsteady_rotor_clock_names_last_iter_in_every_run_t
 @pytest.mark.requirement("FR-415")
 @pytest.mark.parametrize("key", [LAST_REV, AFTER_REV])
 def test_a_huge_finite_revolution_count_is_refused_naming_the_key_and_the_length(key):
-    """P0370-S3-LAST-REV (FR-415) R3: 1e308 raises CampaignConfigError, never OverflowError."""
+    """P0370-S3-LAST-REV (FR-415) FR-874: 1e308 raises CampaignConfigError, never OverflowError."""
     with pytest.raises(CampaignConfigError) as refused:
         build_script(_rotor_row(**{key: "1e308"}), Script("26.124"))
     message = str(refused.value)
@@ -517,7 +531,7 @@ def _refusal(case: SimCase) -> str:
 
 @pytest.mark.requirement("FR-415")
 def test_the_refusals_of_the_legacy_keys_are_those_of_v0_36_0_byte_for_byte():
-    """P0370-S3-LAST-REV (FR-415) R7: an exact oracle of the 0.36.0 refusal texts."""
+    """P0370-S3-LAST-REV (FR-415) FR-878: an exact oracle of the 0.36.0 refusal texts."""
     assert _refusal(_rotor_row(**{AFTER_REV: "1", AFTER_ITER: "1"})) == _LEGACY_TWO_KEYS
     assert _refusal(_steady_row(**{AFTER_ITER: "1"})) == _LEGACY_STEADY
     assert _refusal(_rotor_row(**{AFTER_ITER: "0"})) == _LEGACY_NOT_POSITIVE

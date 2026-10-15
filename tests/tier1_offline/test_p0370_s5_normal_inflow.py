@@ -140,7 +140,7 @@ def _numbers(path: Path) -> np.ndarray:
 
 
 def test_p0370_s5_normal_entry_records_the_steady_layout(tmp_path):
-    """P0370-S5-NORMAL-INFLOW (FR-418 R1, R3): the steady export kind; unsteady keeps 0.36.0."""
+    """P0370-S5-NORMAL-INFLOW (FR-891, FR-893): the steady export kind; unsteady keeps 0.36.0."""
     normal = _built(tmp_path / "n", steady=False).probe_field_layout
     steady = _built(tmp_path / "s", steady=True).probe_field_layout
     assert normal[0]["export_kind"] == "steady-probe"
@@ -152,7 +152,7 @@ def test_p0370_s5_normal_entry_records_the_steady_layout(tmp_path):
 
 
 def test_p0370_s5_normal_inflow_equals_the_steady_routes(tmp_path, monkeypatch):
-    """P0370-S5-NORMAL-INFLOW (FR-418, R2): value for value the steady route's inflow."""
+    """P0370-S5-NORMAL-INFLOW (FR-418, FR-892): value for value the steady route's inflow."""
     oracle = _posted(tmp_path / "steady", monkeypatch, steady=True)
     posted = _posted(tmp_path / "unsteady", monkeypatch, steady=False)
     expected = oracle / "AL-020_field_01.inflow.dat"
@@ -169,7 +169,7 @@ def test_p0370_s5_normal_inflow_equals_the_steady_routes(tmp_path, monkeypatch):
 
 
 def test_p0370_s5_unsteady_inflow_entry_keeps_its_history_route(tmp_path):
-    """P0370-S5-NORMAL-INFLOW (FR-418 R3): an unsteady entry still samples fluid plots."""
+    """P0370-S5-NORMAL-INFLOW (FR-893): an unsteady entry still samples fluid plots."""
     kind = "unsteady"
     script = _built(tmp_path, steady=False, kind=kind)
     text = script.render()

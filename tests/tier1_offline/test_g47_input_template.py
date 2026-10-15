@@ -228,7 +228,7 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
     overlay = inputs / LOCAL_EXECUTABLES_FILE
     if overlay.is_file():
         for build, entry in tomllib.loads(overlay.read_text(encoding="utf-8")).items():
-            # 0.39.0 (FR-436 R7): a table entry carries its path and may accept its build.
+            # 0.39.0 (FR-998): a table entry carries its path and may accept its build.
             stated = entry if isinstance(entry, str) else entry["path"]
             resolved = resolve_build(inputs, build)
             assert resolved.fs_exe.as_posix() == stated, (
@@ -535,7 +535,7 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         "`[products]`": [f.get("products", {}) for f in data],
         "`[moment_point]`": [f.get("moment_point", {}) for f in data],
         "`[body_axes]`": [f.get("body_axes", {}) for f in data],
-        # FR-435 R2 (0.39.0): the study's vocabulary, a requirement that adds the table.
+        # FR-980 (0.39.0): the study's vocabulary, a requirement that adds the table.
         "`[study]`": [f.get("study", {}) for f in data],
         "`[rotor]`": [f.get("rotor", {}) for f in data],
         "`[rotor.position]`": [f.get("rotor", {}).get("position", {}) for f in data],

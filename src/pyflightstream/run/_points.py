@@ -636,7 +636,7 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
     try:
         with collecting_the_study_skips() as skipped:
             job.recipe(job.point_case, job.script)
-        # FR-435 R11: the names the build skipped, recorded only where it skipped one.
+        # FR-989: the names the build skipped, recorded only where it skipped one.
         job.base["skipped_names"] = [skip.record() for skip in skipped] or None
         # G02: before the solver starts, and knowing the machine this time.
         _refuse_an_import_count_nothing_logs(job.point_case, job.script, job.executor)
@@ -655,7 +655,7 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
 def _retain_point_provenance(job: _PointJob) -> RunRecord | None:
     """Retain point provenance."""
     job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
-    # FR-455 R4 (0.40.0, PFS-2081.58): the far-field probes this script laid or
+    # FR-1047 (0.40.0, PFS-2081.58): the far-field probes this script laid or
     # reused, so post integrates exactly them; one point, so its last layout.
     if job.script.farfield_layout:
         job.base["farfield_layout"] = {"shapes": job.script.farfield_layout[-1]["shapes"]}
@@ -1269,7 +1269,7 @@ def _assess_point_record(job: _PointJob) -> RunRecord:
         solver_run_time_s=assessment.solver_run_time_s,
         solver_initialization_s=assessment.solver_initialization_s,
         time_steps=assessment.time_steps,
-        # FR-434 R1: the limit rides only on the FINAL status MAX_ITER_REACHED, so a
+        # FR-974: the limit rides only on the FINAL status MAX_ITER_REACHED, so a
         # walltime or log verdict that overrode the assessment does not carry it.
         iterations_requested=(
             assessment.iterations_requested if status is RunStatus.MAX_ITER_REACHED else None

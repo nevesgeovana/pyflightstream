@@ -293,7 +293,7 @@ def test_loads_assessor_judgments_per_evidence(tmp_path):
         None,
         make_collected(tmp_path / "b", "", text=steady.replace("312", "500")),
     )
-    # FR-434 R2: the footer supplies the counter only; with no readable residual (no log)
+    # FR-975: the footer supplies the counter only; with no readable residual (no log)
     # a steady point at 500 of 500 keeps its 0.38.0 status.
     assert limited.status is RunStatus.COMPLETED_MAX_ITER
 

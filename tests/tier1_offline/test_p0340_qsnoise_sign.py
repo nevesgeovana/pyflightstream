@@ -27,7 +27,7 @@ DIMENSIONAL = re.compile(
 
 
 def test_the_dimensional_guard_finds_each_unit_form_and_passes_ratios_fr_337():
-    """P0340-QSNOISE-SIGN, FR-337 R1: the guard's control, one planted value per unit form.
+    """P0340-QSNOISE-SIGN, FR-337: the guard's control, one planted value per unit form.
 
     Each planted dimensional value is found by the length or the unit pattern,
     and the nondimensional values the report does state are not.

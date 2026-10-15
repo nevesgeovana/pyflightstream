@@ -735,7 +735,7 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     assert _skipped_besides_the_axes(manifest) == {}
 
     # The docs name the files a user meets beside the plots table, on the one
-    # page that defines the reductions (NFR-30 R4); the workflow pages link there.
+    # page that defines the reductions (FR-1149); the workflow pages link there.
     page = (DEFINITION_DOCS).read_text(encoding="utf-8")
     for name in ("<point>_time_average.csv", "<point>_phase_locked.csv", "<point>_per_blade.csv"):
         assert name in page, f"docs/post-processing-definitions.md does not name {name}"

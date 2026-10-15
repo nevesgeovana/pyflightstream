@@ -207,7 +207,7 @@ def _farfield_ledgers___uniform(points: np.ndarray, speed: float) -> ProbeSample
 
 
 class TestFarfieldLedgers:
-    """P0400-LEDGERS: the balances from a point's probes, instant and average (FR-38 R1 to R7).
+    """P0400-LEDGERS: the balances from a point's probes, instant and average (FR-478 to FR-484).
 
     Synthetic lattices sampled with analytic fields: a uniform stream, a stream
     read in a frame turning with a rotor, and per-step rows averaged. Each test
@@ -217,7 +217,7 @@ class TestFarfieldLedgers:
     @staticmethod
     @pytest.mark.requirement("FR-38")
     def test_p0400_ledgers_the_lattice_is_found_by_its_positions():
-        """P0400-LEDGERS (FR-455 R2): a lattice behind other probes, in millimetres, by its positions.
+        """P0400-LEDGERS (FR-1045): a lattice behind other probes, in millimetres, by its positions.
 
         Since PFS-2081.58 nothing is found by count: the points before the lattice
         are no plane unless their positions are one.
@@ -237,7 +237,7 @@ class TestFarfieldLedgers:
     @staticmethod
     @pytest.mark.requirement("FR-38")
     def test_p0400_ledgers_a_uniform_stream_closes_every_balance():
-        """P0400-LEDGERS (FR-38 R2): constant mass flow, zero forces, the inlet row NA."""
+        """P0400-LEDGERS (FR-479): constant mass flow, zero forces, the inlet row NA."""
         lattice, points_m, axis = rotor_lattice(_FARFIELD_LEDGERS___SPEC, _FarfieldLedgersRotor())
         samples = _farfield_ledgers___uniform(points_m, 12.0)
         fields = lattice_samples(samples, slice(0, len(points_m)), lattice, axis, q=0.0)
@@ -256,7 +256,7 @@ class TestFarfieldLedgers:
     @staticmethod
     @pytest.mark.requirement("FR-38")
     def test_p0400_ledgers_an_unselected_balance_stays_out():
-        """P0400-LEDGERS (FR-38 R2): a balance the table does not select is not written."""
+        """P0400-LEDGERS (FR-479): a balance the table does not select is not written."""
         spec = LedgersSpec(
             rotor="R", stations=(-1.0, 1.0), n_r=4, n_psi=16, m_max=2, balances=["mass"]
         )
@@ -274,7 +274,7 @@ class TestFarfieldLedgers:
     @staticmethod
     @pytest.mark.requirement("FR-38")
     def test_p0400_ledgers_the_turning_frame_is_converted_to_the_hub():
-        """P0400-LEDGERS (FR-453 R8): a still stream read in the rotor's frame has no swirl after."""  # noqa: E501
+        """P0400-LEDGERS (FR-1037): a still stream read in the rotor's frame has no swirl after."""  # noqa: E501
         lattice, points_m, axis = rotor_lattice(_FARFIELD_LEDGERS___SPEC, _FarfieldLedgersRotor())
         omega, shaft, origin = 30.0, np.array([1.0, 0.0, 0.0]), np.array([0.5, 0.0, 0.0])
         relative = np.cross(shaft * omega, points_m - origin)
@@ -293,7 +293,7 @@ class TestFarfieldLedgers:
     @staticmethod
     @pytest.mark.requirement("FR-38")
     def test_p0400_ledgers_unsteady_samples_read_each_vertex():
-        """P0400-LEDGERS (FR-455 R9): fluid plots by vertex; a missing plot is NaN, never zero."""
+        """P0400-LEDGERS (FR-1052): fluid plots by vertex; a missing plot is NaN, never zero."""
         series = {
             "VX1": np.array([1.0, 2.0]),
             "VY1": np.array([0.0, 0.0]),
@@ -308,7 +308,7 @@ class TestFarfieldLedgers:
     @staticmethod
     @pytest.mark.requirement("FR-38")
     def test_p0400_ledgers_the_average_is_of_each_steps_balance():
-        """P0400-LEDGERS (FR-38 R7): per-step rows averaged cell by cell; a NaN step stays NaN."""
+        """P0400-LEDGERS (FR-484): per-step rows averaged cell by cell; a NaN step stays NaN."""
         steps = [
             [("P", 1, "R", 1.0, 4.0), ("P", 1, "R", 2.0, 1.0)],
             [("P", 2, "R", 3.0, float("nan")), ("P", 2, "R", 4.0, 3.0)],
@@ -502,7 +502,7 @@ class TestFarfieldNumpy:
     inputs: explicit ring edges and uniform pseudo-random samples of a PCG64
     stream, the same bits on every platform. The comparison is EXACT, a hex float
     or the SHA-256 of an array's bytes: except for the approved z-axis moment
-    sign correction, a difference is a defect, never a tolerance (FR-457 R2).
+    sign correction, a difference is a defect, never a tolerance (FR-1064).
     Windows AMD64 with CPython 3.12 and numpy 2.5.4 is supported for bit parity;
     other platforms are explicitly UNVERIFIED. A trigonometry mismatch on the
     supported platform fails verification.
@@ -512,7 +512,7 @@ class TestFarfieldNumpy:
     @pytest.mark.requirement("FR-457")
     @pytest.mark.parametrize("case", sorted(_FARFIELD_NUMPY__CASES))
     def test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_bit(case):
-        """P0400-NUMPY (FR-457 R2): exact equality with the goldens of release 0.39.0."""
+        """P0400-NUMPY (FR-1064): exact equality with the goldens of release 0.39.0."""
         expected = _FARFIELD_NUMPY__GOLDENS["cases"][case]
         got = _farfield_numpy___results(case)
         supported = (
@@ -538,7 +538,7 @@ class TestFarfieldNumpy:
             if not key.startswith("in_plane_moment.z.") and got[key] != expected[key]
         )
         assert not differing, f"{case}: these results moved from the 0.39.0 goldens: {differing}"
-        # FR-457 R2's named sign exception is held separately to a cross-product
+        # FR-1064's named sign exception is held separately to a cross-product
         # oracle; the baseline above is untouched for every other result.
         for key in expected:
             if key.startswith("in_plane_moment.z."):
@@ -547,7 +547,7 @@ class TestFarfieldNumpy:
     @staticmethod
     @pytest.mark.requirement("FR-457")
     def test_p0400_numpy_the_goldens_cover_every_far_field_balance():
-        """P0400-NUMPY (FR-457 R2): the golden set is the whole 0.39.0 surface, not a sample."""
+        """P0400-NUMPY (FR-1064): the golden set is the whole 0.39.0 surface, not a sample."""
         covered = {key.split(".")[0] for key in _FARFIELD_NUMPY__GOLDENS["cases"]["even"]}
         balances = {
             "cylindrical",
@@ -607,7 +607,7 @@ class TestFarfieldNumpy:
     @staticmethod
     @pytest.mark.requirement("FR-457")
     def test_p0400_numpy_the_package_imports_with_xarray_blocked():
-        """P0400-NUMPY (FR-457 R4): every public name imports where xarray cannot.
+        """P0400-NUMPY (FR-1066): every public name imports where xarray cannot.
 
         Run in a fresh interpreter with ``sys.modules["xarray"] = None``, which
         makes any ``import xarray`` raise, and an import hook that refuses it too.
@@ -649,7 +649,7 @@ class TestFarfieldNumpy:
         ],
     )
     def test_p0400_numpy_the_retired_names_refuse_naming_the_replacement(module, name, replacement):
-        """P0400-NUMPY (FR-457 R3): a call refuses, naming the numpy replacement."""
+        """P0400-NUMPY (FR-1065): a call refuses, naming the numpy replacement."""
         import importlib
 
         target = importlib.import_module(module)
@@ -675,7 +675,7 @@ class TestFarfieldNumpy:
     @staticmethod
     @pytest.mark.requirement("FR-458")
     def test_p0400_rothalpy_upgrading_names_both_functions_and_why():
-        """P0400-ROTHALPY (FR-458 R1): the release's migration entries name both and the reason.
+        """P0400-ROTHALPY (FR-458): the release's migration entries name both and the reason.
 
         The entries ride in the change-log fragment until the release folds it
         into the migration page; either place answers.
@@ -690,7 +690,7 @@ class TestFarfieldNumpy:
     @staticmethod
     @pytest.mark.requirement("FR-457")
     def test_p0400_numpy_every_retired_attribute_is_one_the_package_no_longer_defines():
-        """P0400-NUMPY (FR-457 R3): a retirement that a live name would shadow never fires."""
+        """P0400-NUMPY (FR-1065): a retirement that a live name would shadow never fires."""
         import importlib
 
         for key in RETIRED_ATTRIBUTES:
@@ -745,7 +745,7 @@ _FARFIELD_PROBES___LAYOUT_NAME = (
 
 
 def _farfield_probes__layout_definitions(root: Path) -> list[str]:
-    """Return every probe-layout function defined outside ``probes/`` (FR-459 R3)."""
+    """Return every probe-layout function defined outside ``probes/`` (FR-1073)."""
     found = []
     for path in sorted(root.rglob("*.py")):
         if "probes" in path.relative_to(root).parts[:1]:
@@ -773,7 +773,7 @@ class TestFarfieldProbes:
     @pytest.mark.requirement("FR-459")
     @pytest.mark.requirement("FR-79")
     def test_p0400_probehome_a_rectangle_runs_v_fastest_with_its_corners():
-        """P0400-PROBEHOME (FR-459 R1, FR-79): three declared vertices are three corners."""
+        """P0400-PROBEHOME (FR-1071, FR-79): three declared vertices are three corners."""
         rectangle = SimpleNamespace(
             origin=(0.0, -1.0, 0.0),
             along_u=(0.0, 1.0, 0.0),
@@ -792,7 +792,7 @@ class TestFarfieldProbes:
     @pytest.mark.requirement("FR-459")
     @pytest.mark.requirement("FR-79")
     def test_p0400_probehome_a_circle_has_its_centre_once_and_math_trig():
-        """P0400-PROBEHOME (FR-459 R1, FR-79): the centre once; the rim by math.cos and math.sin."""
+        """P0400-PROBEHOME (FR-1071, FR-79): the centre once; the rim by math.cos and math.sin."""
         circle = SimpleNamespace(
             center=(1.0, 0.0, 0.0),
             normal=(1.0, 0.0, 0.0),
@@ -815,7 +815,7 @@ class TestFarfieldProbes:
     @staticmethod
     @pytest.mark.requirement("FR-459")
     def test_p0400_probehome_a_line_includes_both_ends():
-        """P0400-PROBEHOME (FR-459 R1): the line sampling of FR-77, rounded as the script is."""
+        """P0400-PROBEHOME (FR-1071): the line sampling of FR-77, rounded as the script is."""
         points = line_points((0.0, 0.0, 0.0), end=(1.0, 2.0, 3.0), points=4, scale=1.5)
         assert points[0] == [0.0, 0.0, 0.0] and points[-1] == [1.5, 3.0, 4.5]
         assert points[1] == [0.5, 1.0, 1.5]
@@ -826,7 +826,7 @@ class TestFarfieldProbes:
         ("axis", "order"), [("X", (0, 1, 2)), ("Y", (1, 2, 0)), ("Z", (2, 0, 1))]
     )
     def test_p0400_probehome_a_lattice_is_laid_along_its_frame_axis_right_handed(axis, order):
-        """P0400-PROBEHOME (FR-459 R2): build_lattice's points, carried onto the frame cyclically."""  # noqa: E501
+        """P0400-PROBEHOME (FR-1072): build_lattice's points, carried onto the frame cyclically."""  # noqa: E501
         lattice = build_lattice(tip_radius=0.8, stations=(-1.0, 1.0), n_r=4, n_psi=8)
         local = lattice.dimensional_points()
         laid = lattice_points(lattice, axis=axis)
@@ -840,7 +840,7 @@ class TestFarfieldProbes:
     @pytest.mark.requirement("FR-459")
     @pytest.mark.requirement("FR-453")
     def test_p0400_probehome_the_farfield_plane_is_normal_to_the_free_stream():
-        """P0400-PROBEHOME (FR-453 R4): normal to each point's free stream, uniform, centred."""
+        """P0400-PROBEHOME (FR-1033): normal to each point's free stream, uniform, centred."""
         alpha = math.radians(8.0)
         direction = (math.cos(alpha), 0.0, math.sin(alpha))
         plane = farfield_plane(
@@ -868,7 +868,7 @@ class TestFarfieldProbes:
     @staticmethod
     @pytest.mark.requirement("FR-459")
     def test_p0400_probehome_the_inside_check_counts_and_drops_nothing(tmp_path):
-        """P0400-PROBEHOME (FR-459 R4): the count and the first points; every point is kept."""
+        """P0400-PROBEHOME (FR-1074): the count and the first points; every point is kept."""
         mesh = _farfield_probes___box(tmp_path / "box.obj")
         points = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.5, 0.5, 0.5], [0.0, 4.0, 0.0]])
         report = points_inside(points, mesh_path=mesh)
@@ -881,7 +881,7 @@ class TestFarfieldProbes:
     @staticmethod
     @pytest.mark.requirement("FR-459")
     def test_p0400_probehome_an_open_mesh_is_not_checked_and_not_refused(tmp_path):
-        """P0400-PROBEHOME (FR-459 R4): the report says why, nothing is flagged, nothing raised."""
+        """P0400-PROBEHOME (FR-1074): the report says why, nothing is flagged, nothing raised."""
         mesh = _farfield_probes___box(tmp_path / "open.obj", closed=False)
         report = points_inside(np.zeros((2, 3)), mesh_path=mesh)
         assert not report.checked and "not watertight" in report.reason
@@ -890,7 +890,7 @@ class TestFarfieldProbes:
     @staticmethod
     @pytest.mark.requirement("FR-459")
     def test_p0400_probehome_a_missing_spatial_index_is_not_checked(tmp_path):
-        """P0400-PROBEHOME (FR-459 R4): without the [geom] extra the plan warns, never refuses.
+        """P0400-PROBEHOME (FR-1074): without the [geom] extra the plan warns, never refuses.
 
         Run in a fresh interpreter where scipy and rtree cannot be imported, which
         is the installation without the extra.
@@ -918,7 +918,7 @@ class TestFarfieldProbes:
     @staticmethod
     @pytest.mark.requirement("FR-459")
     def test_p0400_probehome_no_module_outside_probes_defines_a_layout(tmp_path):
-        """P0400-PROBEHOME (FR-459 R3): the guard, with its planted control."""
+        """P0400-PROBEHOME (FR-1073): the guard, with its planted control."""
         assert not _farfield_probes__layout_definitions(_FARFIELD_PROBES__SRC)
         planted = tmp_path / "pkg" / "cases"
         planted.mkdir(parents=True)
@@ -980,7 +980,7 @@ class TestFarfieldTrefftz:
     @pytest.mark.requirement("FR-451")
     @pytest.mark.parametrize(("per_side", "bias_pct"), [(40, 1.05), (80, 0.52), (160, 0.26)])
     def test_p0400_trefftza_an_elliptic_loading_shows_the_measured_strip_bias(per_side, bias_pct):
-        """P0400-TREFFTZA (FR-451 R3): E_T exceeds 1 by the definitions page's bias, halving."""
+        """P0400-TREFFTZA (FR-1012): E_T exceeds 1 by the definitions page's bias, halving."""
         y = _farfield_trefftz___uniform_stations(per_side)
         result = trace_forces(
             y,
@@ -995,7 +995,7 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_the_station_rule_is_not_the_far_field_rule():
-        """P0400-TREFFTZA (FR-451 R3): edges at the end stations shorten the span by one spacing.
+        """P0400-TREFFTZA (FR-1012): edges at the end stations shorten the span by one spacing.
 
         The control of the mutant "the station rule used for the trace": with the
         integrated sectional loads' rule the traced span is one spacing short, the
@@ -1024,7 +1024,9 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_a_uniform_circulation_is_two_tip_filaments():
-        """P0400-TREFFTZA (FR-451 R3, R6): lift rho V Gamma b exactly, drag of the two filaments."""
+        """P0400-TREFFTZA (FR-1012, FR-1015): lift rho V Gamma b exactly, drag of the two
+        filaments.
+        """
         y = _farfield_trefftz___uniform_stations(20)
         gamma = np.full_like(y, _FARFIELD_TREFFTZ__G0)
         result = trace_forces(
@@ -1055,7 +1057,7 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_a_mirrored_half_span_equals_the_full_span():
-        """P0400-TREFFTZA (FR-451 R5): the mirror rebuilds the full sheet, no root filament."""
+        """P0400-TREFFTZA (FR-1014): the mirror rebuilds the full sheet, no root filament."""
         y = _farfield_trefftz___uniform_stations(40)
         z = 0.02 * np.abs(y)
         gamma = _farfield_trefftz___elliptic(y)
@@ -1087,7 +1089,7 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_a_half_trace_not_mirrored_is_not_the_full_span():
-        """P0400-TREFFTZA (FR-451 R5): the control of the mutant "the mirror skipped"."""
+        """P0400-TREFFTZA (FR-1014): the control of the mutant "the mirror skipped"."""
         y = _farfield_trefftz___uniform_stations(40)
         right = y > 0.0
         full = trace_forces(
@@ -1109,7 +1111,7 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_a_straddling_half_model_is_refused():
-        """P0400-TREFFTZA (FR-451 R5): stations on both sides cannot say which half was meant."""
+        """P0400-TREFFTZA (FR-1014): stations on both sides cannot say which half was meant."""
         y = np.array([-0.5, 0.5, 1.5, 2.5])
         with pytest.raises(FarfieldInputError, match="straddle"):
             trace_forces(
@@ -1124,7 +1126,7 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_cosine_stations_converge_to_the_elliptic_efficiency():
-        """P0400-TREFFTZA (FR-451 R3): uneven stations converge to e = 1 as they double."""
+        """P0400-TREFFTZA (FR-1012): uneven stations converge to e = 1 as they double."""
         errors = []
         for per_side in (20, 40, 80, 160):
             theta = (np.arange(2 * per_side) + 0.5) * math.pi / (2 * per_side)
@@ -1145,7 +1147,7 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_family_shares_add_up_and_isolated_values_are_each_alone():
-        """P0400-TREFFTZA (FR-451 R7): the share of the total and the family alone, both."""
+        """P0400-TREFFTZA (FR-1016): the share of the total and the family alone, both."""
         wing_y = _farfield_trefftz___uniform_stations(40)
         tail_y = _farfield_trefftz___uniform_stations(10, span=3.0)
         y = np.concatenate([wing_y, tail_y])
@@ -1186,7 +1188,7 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_the_trace_follows_the_quarter_chord_height():
-        """P0400-TREFFTZA (FR-451 R4): a dihedral sheet is traced in (y, z), with side force zero."""  # noqa: E501
+        """P0400-TREFFTZA (FR-1013): a dihedral sheet is traced in (y, z), with side force zero."""  # noqa: E501
         y = _farfield_trefftz___uniform_stations(40)
         z = 0.1 * np.abs(y)
         result = trace_forces(
@@ -1209,7 +1211,7 @@ class TestFarfieldTrefftz:
     @staticmethod
     @pytest.mark.requirement("FR-451")
     def test_p0400_trefftza_the_coefficients_and_the_na_rules():
-        """P0400-TREFFTZA (FR-451 R6; FR-456 R5): q SREF normalisation, E_T NA at zero drag."""
+        """P0400-TREFFTZA (FR-1015; FR-1057): q SREF normalisation, E_T NA at zero drag."""
         c = trace_coefficients(
             120.0, side_force=3.0, induced_drag=4.0, q=_FARFIELD_TREFFTZ__Q, s_ref=8.0, b_ref=10.0
         )
@@ -1302,7 +1304,7 @@ class TestFarfieldWake:
     @pytest.mark.requirement("FR-452")
     @pytest.mark.parametrize("shared", [True, False])
     def test_p0400_trefftzb_the_reader_chains_the_segments_into_one_line_per_station(shared):
-        """P0400-TREFFTZB (FR-452 R1): one line per trailing-edge node, its one value."""
+        """P0400-TREFFTZB (FR-1023): one line per trailing-edge node, its one value."""
         y = _farfield_wake___stations(5)
         values = np.sqrt(1.0 - (2.0 * y / _FARFIELD_WAKE__SPAN) ** 2)
         wake = parse_wake_export(
@@ -1319,7 +1321,7 @@ class TestFarfieldWake:
     @staticmethod
     @pytest.mark.requirement("FR-452")
     def test_p0400_trefftzb_the_reader_refuses_what_is_no_wake():
-        """P0400-TREFFTZB (FR-452 R1): counts, a varying value and polygons are each refused."""
+        """P0400-TREFFTZB (FR-1023): counts, a varying value and polygons are each refused."""
         y = _farfield_wake___stations(2)
         good = _farfield_wake___vtk(
             _farfield_wake___straight_wake(y, np.ones_like(y)), [1.0] * len(y)
@@ -1337,7 +1339,7 @@ class TestFarfieldWake:
     @staticmethod
     @pytest.mark.requirement("FR-452")
     def test_p0400_trefftzb_each_line_is_cut_at_its_first_crossing():
-        """P0400-TREFFTZB (FR-452 R3): linear interpolation on the straddling segment."""
+        """P0400-TREFFTZB (FR-1025): linear interpolation on the straddling segment."""
         line = np.array([[0.0, 1.0, 0.0], [2.0, 1.0, 0.2], [4.0, 1.0, 0.6], [1.0, 1.0, 1.0]])
         other = np.array([[0.0, 2.0, 0.0], [4.0, 2.0, 0.4]])
         trace = wake_crossings([line, other], values=np.array([1.0, 2.0]), x_t=3.0)
@@ -1348,7 +1350,7 @@ class TestFarfieldWake:
     @staticmethod
     @pytest.mark.requirement("FR-452")
     def test_p0400_trefftzb_a_line_ending_before_the_plane_makes_the_row_na():
-        """P0400-TREFFTZB (FR-452 R3): never a trace of the lines that did reach."""
+        """P0400-TREFFTZB (FR-1025): never a trace of the lines that did reach."""
         short = np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 0.0]])
         long = np.array([[0.0, 2.0, 0.0], [5.0, 2.0, 0.0]])
         trace = wake_crossings([short, long], values=np.array([1.0, 1.0]), x_t=3.0)
@@ -1358,7 +1360,7 @@ class TestFarfieldWake:
     @staticmethod
     @pytest.mark.requirement("FR-452")
     def test_p0400_trefftzb_a_rolled_up_sheet_keeps_the_order_of_its_starts():
-        """P0400-TREFFTZB (FR-452 R4): ordered by the trailing edge, not by the crossing."""
+        """P0400-TREFFTZB (FR-1026): ordered by the trailing edge, not by the crossing."""
         y0 = np.linspace(-1.0, 1.0, 9)
         lines = []
         for k, y in enumerate(y0):
@@ -1377,7 +1379,7 @@ class TestFarfieldWake:
     @staticmethod
     @pytest.mark.requirement("FR-452")
     def test_p0400_trefftzb_two_sheets_are_not_one_run():
-        """P0400-TREFFTZB (FR-452 R4, R5): starts that interleave two sheets make the row NA."""
+        """P0400-TREFFTZB (FR-1026, FR-1027): starts that interleave two sheets make the row NA."""
         wing = [np.array([[0.0, y, 0.0], [5.0, y, 0.0]]) for y in np.linspace(-5, 5, 21)]
         tail = [
             np.array([[4.0, y + 0.05, 1.0], [5.0, y + 0.05, 1.0]]) for y in np.linspace(-1, 1, 5)
@@ -1388,7 +1390,7 @@ class TestFarfieldWake:
     @staticmethod
     @pytest.mark.requirement("FR-452")
     def test_p0400_trefftzb_on_a_planar_trace_b_returns_a():
-        """P0400-TREFFTZB (FR-452 R6): shed values at strip edges reconstruct A's loading."""
+        """P0400-TREFFTZB (FR-1028): shed values at strip edges reconstruct A's loading."""
         y = _farfield_wake___stations(20)
         gamma = 5.0 * np.sqrt(1.0 - (2.0 * y / _FARFIELD_WAKE__SPAN) ** 2)
         edges = np.linspace(-_FARFIELD_WAKE__SPAN / 2, _FARFIELD_WAKE__SPAN / 2, len(y) + 1)
@@ -1407,7 +1409,7 @@ class TestFarfieldWake:
     @staticmethod
     @pytest.mark.requirement("FR-452")
     def test_p0400_trefftzb_the_scale_is_calibrated_from_the_near_field_lift():
-        """P0400-TREFFTZB (FR-452 R2): CL_T is the solver's, E_T does not see the scale."""
+        """P0400-TREFFTZB (FR-1024): CL_T is the solver's, E_T does not see the scale."""
         y = _farfield_wake___stations(20)
         raw = np.sqrt(1.0 - (2.0 * y / _FARFIELD_WAKE__SPAN) ** 2)
         s_ref, cl_near = 8.0, 0.65
@@ -1969,7 +1971,7 @@ def _madv___plan_of(*machs):
 
 
 class TestMadv:
-    """P0400-MADV (FR-176 R1): the advancing-tip Mach number beside M_tip and M_hel.
+    """P0400-MADV (FR-1201): the advancing-tip Mach number beside M_tip and M_hel.
 
         M_adv = sqrt((Omega R + V_ip)^2 + V_ax^2) / a
 
@@ -2233,13 +2235,13 @@ class TestRfixAEvidence:
             Path(__file__).resolve().parents[2]
             / "docs/unpublished/requirements/functional-requirements.md"
         ).read_text(encoding="utf-8")
-        box = text.split('!!! requirement "FR-452 ', 1)[1].split("!!! requirement ", 1)[0]
-        # The merged box carries rfixD's wording of the same decision (PFS-2081.78, VV-001).
-        assert "signed shed circulation at strip edges" in box
-        assert "[-1, -1, 0, 1, 1]" in box and "[1, 2, 2, 1]" in box
-        assert "p0400_litB_wake_26125_fine.vtk.xz" in box
-        assert "test_p0400_rfixa_signed_shed_reconstructs_strips_and_agrees_through_post" in box
-        assert "crossings coincide with the stations" not in box
+        from tests.tier1_offline._docs_site import requirement_rows
+
+        row = requirement_rows(text)["FR-1024"]
+        assert "signed shed circulation" in row[4] and "strip-edge strengths" in row[4]
+        assert "cumulative edge differences" in row[4]
+        assert row[5] == "pyflightstream.farfield.trefftz:calibration_scale"
+        assert "test_p0400_rfixa_signed_shed_reconstructs_strips_and_agrees_through_post" in row[6]
 
     @staticmethod
     def test_p0400_rfixa_ledger_verification_names_the_nonlinear_post_oracle():
@@ -2247,12 +2249,12 @@ class TestRfixAEvidence:
             Path(__file__).resolve().parents[2]
             / "docs/unpublished/requirements/functional-requirements.md"
         ).read_text(encoding="utf-8")
-        box = text.split('!!! requirement "FR-38 ', 1)[1].split("!!! requirement ", 1)[0]
-        assert "mean of each step's nonlinear balance" in box
-        assert (
-            "full-spectrum Parseval" in box
-            and "Licensed G1, G3 and G4 verdicts remain deferred" in box
-        )
+        from tests.tier1_offline._docs_site import requirement_rows
+
+        rows = requirement_rows(text)
+        assert "mean of each step's nonlinear balance" in rows["FR-484"][4]
+        assert "full-spectrum Parseval" in rows["FR-481"][4]
+        assert rows["FR-38"][3] == "deferred"
 
     @staticmethod
     def test_p0400_rfixa_signed_shed_reconstructs_strips_and_agrees_through_post(tmp_path):
@@ -2330,7 +2332,7 @@ class TestRfixAEvidence:
     def test_p0400_rfixa_nonlinear_window_and_harmonic_routes_reach_written_columns(
         tmp_path, monkeypatch
     ):
-        """FR-38 R4,R7: mean(u^2) and a correlated order-two transverse field."""
+        """FR-481,FR-484: mean(u^2) and a correlated order-two transverse field."""
         lattice = _rfixa_evidence__post._FFPROOF_POST___SHAPE.build(1.0)
         n = lattice.point_count
         names = [f"{p}{i}" for i in range(1, n + 1) for p in ("VX", "VY", "VZ", "CP_REF")]

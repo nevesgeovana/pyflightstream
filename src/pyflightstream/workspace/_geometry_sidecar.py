@@ -1,4 +1,4 @@
-"""The sidecar a build writes beside a built mesh, and what it carries over (FR-471 R4, R10).
+"""The sidecar a build writes beside a built mesh, and what it carries over (FR-1105, FR-1111).
 
 Pipeline role: the workspace row. A built OBJ is opened by the run through its
 ``<name>.boundaries.toml``: the inventory, the unit of the export and the

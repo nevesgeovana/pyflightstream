@@ -116,7 +116,7 @@ def _current_extraction(
 
 
 def _warn_reopened_streamlines(run_id: str, prefix: str, files: list[str]) -> None:
-    """Warn once per extraction that traced streamlines (FR-460 R6), in the post log's form.
+    """Warn once per extraction that traced streamlines (FR-1082), in the post log's form.
 
     Streamlines are allowed in an additional pproc and declared explicitly.
     """

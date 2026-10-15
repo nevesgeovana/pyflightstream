@@ -726,7 +726,7 @@ def advancing_tip_mach_number(
     flow_direction: tuple[float, float, float] | None = None,
     axis: tuple[float, float, float] | None = None,
 ) -> tuple[float, bool]:
-    """Return a rotor's advancing-tip Mach number and whether its axis was used (FR-176 R1).
+    """Return a rotor's advancing-tip Mach number and whether its axis was used (FR-1201).
 
     The sibling of :func:`rotor_mach_numbers`, in the same home::
 
@@ -809,7 +809,7 @@ class RotorMach:
         ``M_tip`` and ``M_hel`` (:func:`rotor_mach_numbers`); None where
         ``note`` says why they are not known.
     advancing : float or None
-        ``M_adv`` (:func:`advancing_tip_mach_number`, FR-176 R1); None where
+        ``M_adv`` (:func:`advancing_tip_mach_number`, FR-1201); None where
         ``tip`` is.
     axis_resolved : bool
         False where ``advancing`` is the edgewise bound ``(Omega R + V) / a``

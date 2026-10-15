@@ -11,7 +11,7 @@ Pipeline role: the command side of the panel-mesh audit of
 handler as the ``mesh_command`` default, which :mod:`pyflightstream.run.cli`
 calls, so the dispatcher imports nothing of this module. The handler reaches
 the audit only through :func:`pyflightstream.workspace.audit_mesh` (FR-424
-R14), so the command and a Python caller run the same code.
+FR-928), so the command and a Python caller run the same code.
 
 The geometry verbs ``inventory`` and ``degenerate`` (FR-308, FR-312, FR-330) name
 their handlers the same way; :func:`cmd_geometry` is the one entry the dispatcher
@@ -19,7 +19,7 @@ calls for any command of :data:`GEOMETRY_COMMANDS`.
 
 A mesh verb needs no executable, no matrix and no workspace: it reads the OBJ
 it is given and writes beside it. Its exit status is the console contract of
-FR-426 R1: 0 when every gate and check passes, 1 when one fails (the audit is
+FR-937: 0 when every gate and check passes, 1 when one fails (the audit is
 still written, and each failure is a warning held to the end of the command),
 2 when the input is refused, with the refusal on standard error. ``audit-mesh``
 also exits 2 when the CSV of ``--out`` cannot be written after the audit was:
@@ -28,7 +28,7 @@ the error on standard error names the audit file that was written.
 The written file is named by ``--out`` on both verbs, as on their sibling
 commands (``rebuild --out``, ``pyfs-workspace ... --out``): ``refine --out
 DIR`` and ``audit-mesh --out FILE``. The former names ``--out-dir`` and
-``--csv`` are kept as deprecated aliases (NFR-45 R2): each gives the identical
+``--csv`` are kept as deprecated aliases (NFR-45): each gives the identical
 result and warns once that it is deprecated.
 """
 
@@ -45,7 +45,7 @@ from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, w
 from pyflightstream.cases.workflows._vocabulary import RAW_MESH_FORMATS
 from pyflightstream.workspace import MeshAudit, audit_mesh, derive_thin_blade, refine_mesh
 
-#: The exit status of an audit that passed, of one that failed, of a refusal (FR-426 R1).
+#: The exit status of an audit that passed, of one that failed, of a refusal (FR-937).
 EXIT_PASSED, EXIT_FAILED, EXIT_REFUSED = 0, 1, 2
 
 _AUDIT_DESCRIPTION = (
@@ -101,7 +101,7 @@ def add_mesh_parsers(subparsers: Any) -> None:
 def _chosen(
     args: argparse.Namespace, new: tuple[str, str], old: tuple[str, str], *, since: str = "0.39.0"
 ) -> tuple[str | None, str, str | None]:
-    """Return an option's value, the flag that gave it, and a refusal (NFR-45 R2).
+    """Return an option's value, the flag that gave it, and a refusal (NFR-45).
 
     ``new`` and ``old`` are each ``(flag, dest)``: the option's name and its
     deprecated alias. The alias gives the identical value and warns once
@@ -132,7 +132,7 @@ def _refused_csv(csv: str | None, flag: str = "--out") -> str | None:
 
     A folder that does not exist, a path that is a folder, and a file that
     cannot be opened for writing are refused before the audit runs, so a
-    refusal leaves no audit behind (FR-426 R1). The file is opened for
+    refusal leaves no audit behind (FR-937). The file is opened for
     appending, which changes nothing in it, and removed again when the probe
     created it.
     """
@@ -185,7 +185,7 @@ def _csv_collision(
     The CSV must not be the audited OBJ, the source of ``--against``, a
     boundaries or trailing-edge points file either is read with, the OBJ's
     ``<stem>.refine.json`` (its refinement record, which the audit reads), or
-    the audit JSON written beside the OBJ (FR-426 R1), under any spelling.
+    the audit JSON written beside the OBJ (FR-937), under any spelling.
     """
     if csv is None:
         return None

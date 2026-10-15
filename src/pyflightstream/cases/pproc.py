@@ -1158,7 +1158,7 @@ class ProbesSpec(BaseModel):
         Circular probe planes, each gridded in polar coordinates.
     lattices : list of LatticeShape
         Cylindrical survey lattices, each laid out by ``probes`` point by point
-        (FR-459 R2).
+        (FR-1072).
     points_file : str, optional
         The name of a points file of ``inputs/profiles/``, cited instead of
         drawing lines and planes.
@@ -1195,7 +1195,7 @@ class ProbesSpec(BaseModel):
     #: whatever the run type.
     rectangles: list[ProbeRectangle] = Field(default_factory=list)
     circles: list[ProbeCircle] = Field(default_factory=list)
-    #: FR-459 R2 (0.40.0): a survey lattice is a shape like a rectangle, so it
+    #: FR-1072 (0.40.0): a survey lattice is a shape like a rectangle, so it
     #: is a list beside them and not a `kind`, which names the sampling mode.
     lattices: list[LatticeShape] = Field(default_factory=list)
     #: FR-80: the name of a points file the USER wrote, under
@@ -1224,7 +1224,7 @@ class ProbesSpec(BaseModel):
     @field_validator("kind", mode="before")
     @classmethod
     def _a_known_probe_kind(cls, value: object) -> object:
-        """Refuse a probe kind other than the two, naming both (FR-417 R5)."""
+        """Refuse a probe kind other than the two, naming both (FR-888)."""
         if value not in PROBE_KINDS:
             raise ValueError(
                 f"probe kind {value!r} is not one of {' or '.join(map(repr, PROBE_KINDS))}: "
@@ -1686,7 +1686,7 @@ STREAMLINE_KINDS: dict[str, str] = {
     "off_body": "streamlines_off_body",
 }
 
-#: The broken single seed a streamline line of one would need (FR-460 R4):
+#: The broken single seed a streamline line of one would need (FR-1080):
 #: ``NEW_OFF_BODY_STREAMLINE`` aborts the script on 26.124 and exits with an
 #: access violation on 26.125 (the compatibility sweeps of the command database).
 BROKEN_SINGLE_SEED = "NEW_OFF_BODY_STREAMLINE"
@@ -1811,7 +1811,7 @@ class StreamlinesSpec(BaseModel):
         return bool(self.lines or self.tubes)
 
     def off_body_count(self) -> int:
-        """Return the number of off-body streamlines one point traces (FR-460 R3)."""
+        """Return the number of off-body streamlines one point traces (FR-1079)."""
         return sum(line.count for line in self.lines) + sum(
             tube.radial * tube.circular for tube in self.tubes
         )
@@ -2311,7 +2311,7 @@ class PprocSpec(BaseModel):
         return names
 
     def _streamline_exports(self) -> list[str]:
-        """Return the files the streamline traces are exported to (FR-460 R2)."""
+        """Return the files the streamline traces are exported to (FR-1078)."""
         if self.streamlines is None:
             return []
         suffix = {kind: end for kind, end, _, _ in EXPORT_KINDS}

@@ -1,4 +1,4 @@
-"""Tier 1, 0.38.0 S1: the remeshed families of a refinement (FR-424 R8, R10, R12; FR-425 R2).
+"""Tier 1, 0.38.0 S1: the remeshed families of a refinement (FR-922, FR-924, FR-926; FR-933).
 
 Every fixture is built in tests/p0380_mesh_fixtures.py: a sphere, a curved
 plate with a square hole, a cube (its twelve edges are ridges) and a plate cut
@@ -92,12 +92,12 @@ def _on_line(points: numpy.ndarray, faces: list[list[int]]) -> numpy.ndarray:
     return hit[numpy.lexsort((hit[:, 2], hit[:, 1]))]
 
 
-# ---- FR-424 R8: the edge length
+# ---- FR-922: the edge length
 
 
 @pytest.mark.parametrize("factor", [2.0, 0.5])
 def test_the_median_edge_ratio_lies_in_the_band(factor):
-    """P0380-REFINE (FR-424 R8): the median edge ratio of a remeshed sphere lies in EDGE_BAND.
+    """P0380-REFINE (FR-922): the median edge ratio of a remeshed sphere lies in EDGE_BAND.
 
     The control measures the same level against the factor it was NOT refined
     with, and the median leaves the band.
@@ -115,7 +115,7 @@ def test_the_median_edge_ratio_lies_in_the_band(factor):
 
 
 def test_every_node_lies_on_the_source_surface_and_faces_keep_the_orientation():
-    """P0380-REFINE (FR-424 R8, R7): nodes are projected onto the source, faces face outward."""
+    """P0380-REFINE (FR-922, FR-921): nodes are projected onto the source, faces face outward."""
     mesh = sphere()
     result = refine_group(mesh, ["S"], (), 2.0)
     source = trimesh.Trimesh(mesh.verts, numpy.asarray(mesh.families["S"]), process=False)
@@ -125,12 +125,12 @@ def test_every_node_lies_on_the_source_surface_and_faces_keep_the_orientation():
     assert ((normals * centroids).sum(axis=1) > 0).all()
 
 
-# ---- FR-424 R8: curves
+# ---- FR-922: curves
 
 
 @pytest.mark.parametrize("factor", [2.0, 0.5])
 def test_open_boundary_nodes_stay_on_the_boundary(factor):
-    """P0380-REFINE (FR-424 R8): open boundaries are curves; a hole is neither opened nor closed.
+    """P0380-REFINE (FR-922): open boundaries are curves; a hole is neither opened nor closed.
 
     The control moves one source boundary node inward and the same check
     reports the level's boundary off the moved curve.
@@ -151,7 +151,7 @@ def test_open_boundary_nodes_stay_on_the_boundary(factor):
 
 
 def test_a_quadrilateral_family_is_remeshed_into_triangles():
-    """P0380-REFINE (FR-424 R8): a family of quadrilaterals is remeshed; its level is triangles.
+    """P0380-REFINE (FR-922): a family of quadrilaterals is remeshed; its level is triangles.
 
     The control is the source itself, which the same check rejects.
     """
@@ -173,7 +173,7 @@ def test_a_quadrilateral_family_is_remeshed_into_triangles():
 
 
 def test_ridge_nodes_stay_on_their_ridges():
-    """P0380-REFINE (FR-424 R8): an edge whose dihedral exceeds RIDGE_DEGREES is a curve.
+    """P0380-REFINE (FR-922): an edge whose dihedral exceeds RIDGE_DEGREES is a curve.
 
     On a cube every level edge sharper than the ridge angle has both nodes on
     a cube edge, every node stays on a cube face, and the eight corners stay.
@@ -198,7 +198,7 @@ def test_ridge_nodes_stay_on_their_ridges():
 
 
 def test_trailing_edge_edges_are_a_curve_and_reported():
-    """P0380-REFINE (FR-424 R8, R4): trailing-edge nodes stay on it; its mid-points are returned.
+    """P0380-REFINE (FR-922, FR-918): trailing-edge nodes stay on it; its mid-points are returned.
 
     The plate's edge y = 0 is declared the trailing edge: every returned
     mid-point lies on that edge, and the source's mid-points are not what is
@@ -216,11 +216,11 @@ def test_trailing_edge_edges_are_a_curve_and_reported():
     assert len(none.trailing_edge) == 0
 
 
-# ---- FR-424 R8: interfaces
+# ---- FR-922: interfaces
 
 
 def test_an_interface_with_an_unchanged_family_keeps_its_nodes():
-    """P0380-REFINE (FR-424 R8): remeshing A alone leaves its nodes on the cut with B unchanged.
+    """P0380-REFINE (FR-922): remeshing A alone leaves its nodes on the cut with B unchanged.
 
     The control remeshes A and B together, and the same comparison sees the
     cut's nodes change.
@@ -236,7 +236,7 @@ def test_an_interface_with_an_unchanged_family_keeps_its_nodes():
 
 
 def test_an_interface_between_two_remeshed_families_is_remeshed_once_and_shared():
-    """P0380-REFINE (FR-424 R8): the cut between two remeshed families is one set of nodes."""
+    """P0380-REFINE (FR-922): the cut between two remeshed families is one set of nodes."""
     mesh = two_families()
     result = refine_group(mesh, ["A", "B"], (), 2.0)
     fa, fb = result.families["A"], result.families["B"]
@@ -246,7 +246,7 @@ def test_an_interface_between_two_remeshed_families_is_remeshed_once_and_shared(
     assert len(boundary_loops(fa + fb)) == 1
 
 
-# ---- FR-425 R2: conforming to a grid's new nodes
+# ---- FR-933: conforming to a grid's new nodes
 
 
 def _cut_ids(mesh: ObjMesh) -> list[int]:
@@ -268,7 +268,7 @@ def _resampled_cut(mesh: ObjMesh, ys: numpy.ndarray) -> numpy.ndarray:
     ids=["doubled", "halved", "clustered"],
 )
 def test_conform_makes_the_neighbour_share_exactly_the_new_nodes(ys, counts):
-    """P0380-DUMMY (FR-425 R2): B, rebuilt on A's new cut nodes, holds exactly those nodes there.
+    """P0380-DUMMY (FR-933): B, rebuilt on A's new cut nodes, holds exactly those nodes there.
 
     Three resamplings of the cut: every source node kept and one inserted per
     interval, every other node dropped, and a clustering that keeps only the
@@ -290,7 +290,7 @@ def test_conform_makes_the_neighbour_share_exactly_the_new_nodes(ys, counts):
     assert not numpy.array_equal(_on_line(plain.points, plain.families["B"]), want)
 
 
-# ---- FR-424 R10: the geometry extra
+# ---- FR-924: the geometry extra
 
 
 def _block_extra(monkeypatch) -> None:
@@ -299,7 +299,7 @@ def _block_extra(monkeypatch) -> None:
 
 
 def test_a_remesh_without_the_extra_is_refused_before_any_work(monkeypatch):
-    """P0380-REFINE (FR-424 R10, R11): no scipy or rtree refuses, naming the family and the remedy.
+    """P0380-REFINE (FR-924, FR-925): no scipy or rtree refuses, naming the family and the remedy.
 
     The refusal comes before any work: a family the mesh does not hold would
     fail on its first use, and it is the refusal that is raised. The control
@@ -319,7 +319,7 @@ def test_a_remesh_without_the_extra_is_refused_before_any_work(monkeypatch):
 
 
 def test_the_remesh_module_imports_no_geometry_library_at_import():
-    """P0380-REFINE (FR-424 R10): the remesh module imports no geometry library at import.
+    """P0380-REFINE (FR-924): the remesh module imports no geometry library at import.
 
     Measured in a fresh interpreter against what the modules it imports have
     already loaded; the control imports trimesh by hand and is seen.
@@ -355,11 +355,11 @@ def test_the_remesh_module_imports_no_geometry_library_at_import():
         assert ("'trimesh'" in out) is bool(argv), out
 
 
-# ---- FR-424 R12: determinism
+# ---- FR-926: determinism
 
 
 def test_two_remeshes_of_one_source_are_identical():
-    """P0380-REFINE (FR-424 R12): the same source and factor give the same nodes and faces."""
+    """P0380-REFINE (FR-926): the same source and factor give the same nodes and faces."""
     mesh = two_families()
     first = refine_group(mesh, ["A", "B"], (), 0.5)
     second = refine_group(mesh, ["A", "B"], (), 0.5)

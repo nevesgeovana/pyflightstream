@@ -196,7 +196,7 @@ def resolve_first_step(
     """Resolve the key a row states into its form, its value and the first exported step.
 
     The run length is the stepping's own ``time_iterations``: the count the
-    run marches, whatever resolved it (FR-415 R6).
+    run marches, whatever resolved it (FR-877).
 
     Parameters
     ----------

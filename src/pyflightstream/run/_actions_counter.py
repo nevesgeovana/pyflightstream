@@ -109,7 +109,7 @@ if __name__ == "__main__":
 '''
 
 
-#: FR-417 R7: what the program of a row with normal probes and a per-step window
+#: FR-890: what the program of a row with normal probes and a per-step window
 #: writes instead of the plain rewrite. The probe points are created after the
 #: march, which the window's steps precede, so the first exporting step writes
 #: the creation lines (``DELETE_PROBE_POINTS`` first, so a continued run that
@@ -140,7 +140,7 @@ def render_program(
         The Python the registration line names, recorded in the program
         so a reader of the folder can see which one ran it.
     creation : str, optional
-        The lines that create the row's normal probe points (FR-417 R7),
+        The lines that create the row's normal probe points (FR-890),
         written on the first exporting step only; empty, the program is the
         one every other row gets.
 
@@ -294,7 +294,7 @@ def stage_counter(
     hashes = {**inputs_sha256, UNSTEADY_ACTION_PROGRAM: file_sha256(program)}
     fields: dict[str, object] = {"inputs_sha256": hashes, "action_program": UNSTEADY_ACTION_PROGRAM}
     if threshold is None:
-        # A count-only program records no export_window (FR-415 R7 and the
+        # A count-only program records no export_window (FR-878 and the
         # unsteady-rotor page): every reader of the key reads first_step, and a
         # continuation of this run sums its recorded count through the chain.
         return fields

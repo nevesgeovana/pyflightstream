@@ -5,14 +5,14 @@ plan warning.
 
 A research study of the disc on 26.124, summarised in RPT-137, measured four
 behaviours a reader would not assume: the probe velocities of a quasi-steady
-run are in the rotating frame of the blade (R1); the disc's swirl is one
-global factor (R2); the ELLIPTICAL model placed 0.62 of the thrust asked in
-the wake (R3); a RELAXED disc ignored a custom profile and carried about half
-of the thrust (R4). Each statement is read on its page, in one paragraph with
+run are in the rotating frame of the blade (FR-332); the disc's swirl is one
+global factor (FR-332); the ELLIPTICAL model placed 0.62 of the thrust asked in
+the wake (FR-332); a RELAXED disc ignored a custom profile and carried about half
+of the thrust (FR-332). Each statement is read on its page, in one paragraph with
 its fact, so a page that drops or changes the fact fails. The unpublished
 requirement register binds those pages to RPT-137 under Docs Q5. The plan
 warns, and never refuses, on a RELAXED disc whose row names a
-profile (R5): the warning names the row, the disc and RPT-137, every point
+profile (FR-646): the warning names the row, the disc and RPT-137, every point
 plans READY, and the plan written is the same bytes as without the warning;
 a RIGID disc naming a profile and a RELAXED disc loaded by its thrust are the
 controls, and warn of nothing.
@@ -67,7 +67,7 @@ def _says(page: Path, anchor: str, *facts: str) -> None:
 
 @pytest.mark.parametrize("page", [PROBES_PAGE, QSTEADY_PAGE], ids=["probes", "qsteady"])
 def test_p0340_act_docs_quasi_steady_probe_velocities_are_in_the_blade_frame(page):
-    """P0340-ACT-DOCS, FR-332 R1: the probes page and the quasi-steady page each state that
+    """P0340-ACT-DOCS, FR-332: the probes page and the quasi-steady page each state that
     the probe velocities of a quasi-steady run are expressed in the rotating frame of the
     blade, with the measured -2.618 and RPT-137."""
     _says(
@@ -80,7 +80,7 @@ def test_p0340_act_docs_quasi_steady_probe_velocities_are_in_the_blade_frame(pag
 
 
 def test_p0340_act_docs_the_swirl_is_one_global_factor():
-    """P0340-ACT-DOCS, FR-332 R2: the actuator page states that the disc's swirl is one global
+    """P0340-ACT-DOCS, FR-332: the actuator page states that the disc's swirl is one global
     factor and not a radial distribution, citing RPT-137."""
     _says(
         ACTUATOR_PAGE,
@@ -91,7 +91,7 @@ def test_p0340_act_docs_the_swirl_is_one_global_factor():
 
 
 def test_p0340_act_docs_elliptical_placed_0_62_of_the_thrust_in_the_wake():
-    """P0340-ACT-DOCS, FR-332 R3: the actuator page states that ELLIPTICAL placed 0.62 of
+    """P0340-ACT-DOCS, FR-332: the actuator page states that ELLIPTICAL placed 0.62 of
     the thrust asked in the wake on the one case RPT-137 summarises, a measured value and
     not a guaranteed one."""
     _says(
@@ -104,7 +104,7 @@ def test_p0340_act_docs_elliptical_placed_0_62_of_the_thrust_in_the_wake():
 
 
 def test_p0340_act_docs_relaxed_ignored_a_custom_profile_and_carried_about_half():
-    """P0340-ACT-DOCS, FR-332 R4: the actuator page states that a RELAXED disc ignored a
+    """P0340-ACT-DOCS, FR-332: the actuator page states that a RELAXED disc ignored a
     custom profile and carried about half of the thrust on the same case, a measured value
     and not a guaranteed one, citing RPT-137."""
     _says(
@@ -118,7 +118,7 @@ def test_p0340_act_docs_relaxed_ignored_a_custom_profile_and_carried_about_half(
 
 
 def test_p0340_act_docs_the_actuator_page_states_the_hand():
-    """P0340-ACT-DOCS with FR-331 R2: the actuator page states that a disc of rpm_sign +1
+    """P0340-ACT-DOCS with FR-638: the actuator page states that a disc of rpm_sign +1
     swirls the way a rotor of rpm_sign +1 turns, how the script hands the solver the sign,
     and the change from 0.33.0."""
     _says(
@@ -175,7 +175,7 @@ def _plan_written(tmp_path: Path, cell: str, wake: str) -> tuple[list[str], list
 
 @pytest.mark.parametrize("cell", [WITH_A_PROFILE, AS_RECORDS], ids=["flat", "records"])
 def test_p0340_act_docs_the_plan_warns_on_a_relaxed_disc_naming_a_profile(tmp_path, cell):
-    """P0340-ACT-DOCS, FR-332 R5: a row whose RELAXED disc names a PROFILE is warned about,
+    """P0340-ACT-DOCS, FR-646: a row whose RELAXED disc names a PROFILE is warned about,
     naming the row, the disc and RPT-137; it is never refused (every point READY), and the
     plan written is the same bytes as the plan of the same row with a RIGID disc, which is
     not warned about."""
@@ -192,7 +192,7 @@ def test_p0340_act_docs_the_plan_warns_on_a_relaxed_disc_naming_a_profile(tmp_pa
 
 
 def test_p0340_act_docs_a_relaxed_disc_loaded_by_its_thrust_is_not_warned_about(tmp_path):
-    """P0340-ACT-DOCS, FR-332 R5 control: a RELAXED disc loaded by its net thrust names no
+    """P0340-ACT-DOCS, FR-646 control: a RELAXED disc loaded by its net thrust names no
     profile, and the plan says nothing of it."""
     said, statuses, _ = _plan_written(tmp_path, WITH_A_THRUST, RELAXED)
     assert said == [], said

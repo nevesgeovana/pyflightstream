@@ -287,7 +287,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.subcommand == "collect":
             return _cmd_collect(args)
         if args.subcommand in GEOMETRY_COMMANDS:
-            # FR-477 R1: the identical result, and one warning naming the home.
+            # FR-1136: the identical result, and one warning naming the home.
             from pyflightstream.run._cli_geometry import alias_warning
 
             warnings.warn(alias_warning(args.subcommand), PyflightstreamWarning, stacklevel=2)
@@ -716,7 +716,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
     # FLAGS THAT ONLY MEAN SOMETHING TO THE ADDITIONAL POST ARE REFUSED WITHOUT
     # IT, in the form `--yes` is refused without `--force-overwrite`: accepted and
     # ignored, `post --fs-exe X` would read as though the rebuild ran something.
-    # Only what the COMMAND LINE typed is judged (FR-436 R2): a value a workspace
+    # Only what the COMMAND LINE typed is judged (FR-993): a value a workspace
     # settings file gave is left unused by a rebuild that does not take it.
     if idle := [
         flag
@@ -810,7 +810,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
                     sims_of[matrix] = sorted(chosen & held)
             matrices = [matrix for matrix in matrices if matrix in sims_of]
         if getattr(args, "diagnostics", False):
-            # A --check-frozen a settings file gave is left unused here (FR-436 R2).
+            # A --check-frozen a settings file gave is left unused here (FR-993).
             if (
                 args.additional_pproc
                 or args.force_overwrite

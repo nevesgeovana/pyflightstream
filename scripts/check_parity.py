@@ -1668,7 +1668,9 @@ def srs_ids(tree: Path) -> set[str]:
         for folder in (tree / "docs" / "srs", tree / REQUIREMENTS_DIR)
         for p in folder.rglob("*.md")
     )
-    return set(re.findall(r'!!! requirement "((?:FR|NFR|IR|DR|AD|CR|SR|QR)-\d+[a-z]?)\b', text))
+    legacy = re.findall(r'!!! requirement "((?:FR|NFR|IR|DR|AD|CR|SR|QR)-\d+[a-z]?)\b', text)
+    compact = re.findall(r"^\|\s*((?:FR|NFR)-\d+[a-z]?)\s*\|", text, re.M)
+    return set(legacy + compact)
 
 
 def api_pairs(api: dict[str, Any], key: str = "exports") -> list[list[str]]:

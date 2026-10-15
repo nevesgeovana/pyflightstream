@@ -76,9 +76,9 @@ def _expected_subpackages() -> list[str]:
 #: The public modules that declare no ``__all__``: 51 of 122 when DOC-A
 #: measured it, 7 once DOC-B part 1 gave the others one and WP3 (AD-11) gave
 #: ``workspace.inputs`` one, its ten new public modules each declaring their
-#: own. Their surface is the public names they define (R2 as amended in SRS
+#: own. Their surface is the public names they define (FR-1138 as amended in SRS
 #: 1.53.0). The list only shrinks: a new public module declares ``__all__``
-#: (R8), and a module listed here that gains one leaves the list in the same
+#: (FR-1144), and a module listed here that gains one leaves the list in the same
 #: change. Six of the seven are the modules DOC-B part 2 completes;
 #: ``script.helpers`` stays because it sits at its module-size baseline
 #: entry, which an ``__all__`` would exceed.
@@ -171,7 +171,7 @@ def _api_differences(page: str, module_name: str, expected: set[str]) -> tuple[s
 
 
 def test_the_api_reference_carries_every_public_name_and_nothing_else():
-    """NFR-29 R2: both set differences are empty for every public subpackage.
+    """FR-1138: both set differences are empty for every public subpackage.
 
     P0330-DOC-API-COMPLETE
     """
@@ -244,7 +244,7 @@ def test_the_api_reference_carries_every_public_name_and_nothing_else():
 
 
 def test_the_built_reference_holds_every_public_name():
-    """NFR-29 R2: the rendered site's inventory, when a build is at hand.
+    """FR-1138: the rendered site's inventory, when a build is at hand.
 
     P0330-DOC-API-COMPLETE
     """
@@ -326,7 +326,7 @@ def _page_pairs(page: str) -> set[tuple[str, str]]:
 
 
 def test_the_cli_reference_carries_every_tool_subcommand_and_option():
-    """NFR-29 R3: every console tool, subcommand and option is on its page, and no other.
+    """FR-1139: every console tool, subcommand and option is on its page, and no other.
 
     P0330-DOC-CLI-COMPLETE
     """
@@ -408,7 +408,7 @@ def _executed_blocks(text: str) -> list[str]:
 
 
 def test_the_python_api_tutorial_is_on_the_site_and_its_blocks_run():
-    """NFR-29 R5: the Python API tutorial exists, is a tutorial, and its blocks run.
+    """FR-1141: the Python API tutorial exists, is a tutorial, and its blocks run.
 
     P0330-DOC-TUTORIAL
     """
@@ -442,7 +442,7 @@ def test_the_python_api_tutorial_is_on_the_site_and_its_blocks_run():
 
 
 def test_the_home_page_offers_the_two_routes_near_its_top():
-    """NFR-29 R4: the workspace route and the Python API route, before anything else.
+    """FR-1140: the workspace route and the Python API route, before anything else.
 
     P0330-DOC-HOME
     """
@@ -466,7 +466,7 @@ _CATALOG_ROW = re.compile(
 
 
 def test_the_exceptions_catalog_lists_every_catalogued_exception():
-    """NFR-29 R6: the catalog page is generated from the catalog and carries all of it.
+    """FR-1142: the catalog page is generated from the catalog and carries all of it.
 
     P0330-DOC-EXCEPTIONS
     """
@@ -498,8 +498,8 @@ def test_the_exceptions_catalog_lists_every_catalogued_exception():
 
 
 def test_the_nav_follows_the_approved_reader_structure():
-    """NFR-29 R1: eight reader groups with workspace workflows before the API."""
-    # NFR-29 R1 (decision 13 of GOAL-038)
+    """FR-1137: eight reader groups with workspace workflows before the API."""
+    # FR-1137 (decision 13 of GOAL-038)
     names = [next(iter(item)) for item in _nav()]
     assert names == GROUPS
     srs = sorted(p.relative_to(DOCS).as_posix() for p in (DOCS / "srs").glob("*.md"))
@@ -520,8 +520,8 @@ def test_the_nav_follows_the_approved_reader_structure():
 
 
 def test_the_renderer_is_a_docs_dependency_with_its_licence_card():
-    """NFR-29 R7: mkdocstrings[python] in the docs dependencies, its card committed."""
-    # NFR-29 R7 (decision 11 of GOAL-038)
+    """NFR-29: mkdocstrings[python] in the docs dependencies, its card committed."""
+    # NFR-29 (decision 11 of GOAL-038)
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
     dev = project["optional-dependencies"]["dev"]
     assert any(req.replace(" ", "").startswith("mkdocstrings[python]") for req in dev), dev

@@ -53,7 +53,7 @@ def _speed_lines(case: SimCase, rpm_sign: int) -> list[str]:
 @pytest.mark.parametrize("make", [steady_case, unsteady_case], ids=["steady", "unsteady"])
 @pytest.mark.parametrize("rpm_sign", [1, -1], ids=["plus", "minus"])
 def test_p0340_act_swirl_sign_the_disc_line_carries_minus_the_hand(make, rpm_sign):
-    """P0340-ACT-SWIRL-SIGN, FR-331 R2 and R3: the disc speed handed to the solver is minus
+    """P0340-ACT-SWIRL-SIGN, FR-638 and FR-331: the disc speed handed to the solver is minus
     the block's rpm_sign times the row's magnitude, so rpm_sign +1 writes -2400.0 and
     rpm_sign -1 writes 2400.0, 0.33.0's lines with the other sign."""
     lines = _speed_lines(
@@ -67,7 +67,7 @@ def test_p0340_act_swirl_sign_the_disc_line_carries_minus_the_hand(make, rpm_sig
 
 @pytest.mark.parametrize("rpm_sign", [1, -1], ids=["plus", "minus"])
 def test_p0340_act_swirl_sign_the_advance_ratio_route_follows_the_same_rule(rpm_sign):
-    """P0340-ACT-SWIRL-SIGN, FR-331 R2: a disc turned by ADVANCE_RATIO (n = V / (J D) with
+    """P0340-ACT-SWIRL-SIGN, FR-638: a disc turned by ADVANCE_RATIO (n = V / (J D) with
     its own diameter, 2250 rev/min at J 0.8 and 30 m/s) is handed minus its rpm_sign times
     that speed, as a disc turned by ACTUATOR_RPM is."""
     lines = _speed_lines(
@@ -77,7 +77,7 @@ def test_p0340_act_swirl_sign_the_advance_ratio_route_follows_the_same_rule(rpm_
 
 
 def test_p0340_act_swirl_sign_the_block_docstring_says_the_disc_swirls_with_the_rotor():
-    """P0340-ACT-SWIRL-SIGN, FR-331 R1 and R2: the reference block's docstring states that
+    """P0340-ACT-SWIRL-SIGN, FR-637 and FR-638: the reference block's docstring states that
     rpm_sign +1 is the right-hand rule about the axis and that the disc swirls as a rotor of
     that sign turns, citing FR-331 and RPT-137."""
     block = " ".join((ActuatorBlock.__doc__ or "").split())
@@ -128,7 +128,7 @@ OLD = (
     ids=["sign-flip", "an-added-line", "magnitude", "magnitude-and-sign", "index", "another-line"],
 )
 def test_p0340_act_swirl_sign_parity_names_the_sign_flip_alone(new, named):
-    """P0340-ACT-SWIRL-SIGN, FR-331 R4: the parity script's NAMED_DIFFERENCES ties a script
+    """P0340-ACT-SWIRL-SIGN, FR-331: the parity script's NAMED_DIFFERENCES ties a script
     difference to FR-331 only when every changed line is a disc speed line whose sign, and
     nothing else, flipped; a changed magnitude, index or any other line stays unnamed."""
     entry = _parity().name_difference("scripts", "P5008-x.txt", OLD, new, {"FR-331"})
@@ -156,7 +156,7 @@ OLD_MINUS = OLD.replace("RPM 1 2400.0", "RPM 1 -2400.0")
     ids=["sign-flip", "index", "magnitude"],
 )
 def test_p0340_act_swirl_sign_parity_minus_first_holds_index_and_magnitude(new, named):
-    """P0340-ACT-SWIRL-SIGN, FR-331 R4: from a 0.33.0 disc speed handed negative, the
+    """P0340-ACT-SWIRL-SIGN, FR-331: from a 0.33.0 disc speed handed negative, the
     flip to positive is named, and a flip that also moves the disc index or the magnitude
     stays unnamed, so the minus-first branch of the block holds the index and the speed."""
     entry = _parity().name_difference("scripts", "P5008-x.txt", OLD_MINUS, new, {"FR-331"})

@@ -133,7 +133,7 @@ class _Terminal:
         self.console: _Console | None = None
         #: The width of the progress line a terminal shows now, to clear before any other line.
         self.redrawn = 0
-        #: The ``quiet`` console level (FR-436 R6): what the console would show is
+        #: The ``quiet`` console level (FR-997): what the console would show is
         #: held, and only the errors and the final summary line are said at the end.
         self.quiet = False
         #: How deep the console is in its own chatter (the opening block, a stage
@@ -173,7 +173,7 @@ def command_terminal(*, verbose: bool) -> Iterator[_Terminal]:
 
 
 def set_console_level(level: str) -> None:
-    """Set the console level of the running command (FR-436 R6).
+    """Set the console level of the running command (FR-997).
 
     ``verbose`` is the console of ``--verbose``; ``normal`` the default one;
     ``quiet`` holds everything the console would show and, once the command
@@ -220,7 +220,7 @@ def _chatter() -> Iterator[None]:
 
 
 def quiet_keeps(text: str, *, error: bool = False) -> None:
-    """State a command's final summary, or one of its errors, for a quiet console (FR-436 R6).
+    """State a command's final summary, or one of its errors, for a quiet console (FR-997).
 
     A ``quiet`` console says, once the command has ended, the errors and the
     final summary line a command states here, whatever stream the command
@@ -250,7 +250,7 @@ def say_summary(text: str) -> None:
     """Print a command's final summary line on standard output, stated for a quiet console.
 
     The same line :func:`print` writes, at every level; a ``quiet`` console
-    says it once the command has ended (FR-436 R6, :func:`quiet_keeps`).
+    says it once the command has ended (FR-997, :func:`quiet_keeps`).
 
     Parameters
     ----------
@@ -788,7 +788,7 @@ class _ConsoleStream:
     Each write clears a progress line a terminal shows, says the opening block
     first where it is still owed, then goes to the stream it wraps and to the
     live log. Every other attribute is the wrapped stream's. On a ``quiet``
-    console (FR-436 R6) a write still reaches the live log and is not said:
+    console (FR-997) a write still reaches the live log and is not said:
     of standard error what is not the console's own chatter is held, for
     :func:`release_quiet` to say if the command fails; standard output is
     said only through what the command states with :func:`quiet_keeps`.

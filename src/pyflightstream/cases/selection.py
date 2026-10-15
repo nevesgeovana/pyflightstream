@@ -473,7 +473,7 @@ def _absent_members(
             for pair in _absent_members(nested, inventory, aliases, seen=path):
                 if pair not in absent:
                     absent.append(pair)
-        # THE REFUSAL'S READING OF A NAME IS THE FAMILY'S (FR-320 R4, R5): a
+        # THE REFUSAL'S READING OF A NAME IS THE FAMILY'S (FR-578, FR-579): a
         # numbered member whose family the mesh carries (Blade2 over Blade1) is
         # not refused here, although it selects nothing, so a sector row still
         # plans; the plan's warning names it (`declared_names_the_geometry_lacks`).

@@ -41,11 +41,11 @@ __all__ = [
     "warn_saved_actions_of_unsteady_rows",
 ]
 
-#: The run types whose rows the plan reads the geometry of (FR-313 R1): the ones
+#: The run types whose rows the plan reads the geometry of (FR-536): the ones
 #: with a time loop, and so with unsteady solver actions to run.
 UNSTEADY_WORKFLOWS: tuple[str, ...] = ("unsteady", "unsteady_rotor")
 
-#: The suffix of a saved simulation; a raw mesh carries no action (FR-313 R5).
+#: The suffix of a saved simulation; a raw mesh carries no action (FR-540).
 SAVED_SUFFIX = ".fsm"
 
 
@@ -171,7 +171,7 @@ def saved_action_warning(geometry: Path, shown: str, rows: Iterable[str] = ()) -
     the rows of the plan that open it, each saved action by its name, its
     type and its command or script file, and the command that removes them.
     A file whose action records cannot be read is warned about as unreadable,
-    naming the file (FR-313 R3).
+    naming the file (FR-538).
 
     Parameters
     ----------

@@ -6,7 +6,7 @@ version, the HPC profile and the cost file,
 how much the console says. This module is the one reader of those two files,
 and the one place that decides which of their values a command takes.
 
-THE FILES (FR-436 R1, R2). ``pyfs.toml`` at the workspace root is the
+THE FILES (FR-992, FR-993). ``pyfs.toml`` at the workspace root is the
 workspace's own file, meant to be versioned; ``pyfs.local.toml`` beside it is
 this machine's overlay, meant to be kept out of version control as
 ``inputs/executables.local.toml`` is, and is read over ``pyfs.toml`` key by
@@ -16,7 +16,7 @@ nothing else. A key of ``[defaults]`` is a long option without its leading
 dashes, inner dashes written as underscores; ``[log]`` holds ``console`` and
 ``pproc_warnings``.
 
-WHAT A FILE MAY SET (R3, R4). Only the facts about the workspace or the machine
+WHAT A FILE MAY SET (FR-994, FR-995). Only the facts about the workspace or the machine
 in :data:`DEFAULT_KEYS`, each with the type its option takes. A key that acts on
 one invocation (:data:`ACT_KEYS`), a key no command takes, ``workspace`` (which
 is what locates the file), another table, a value of the wrong type, a console
@@ -27,12 +27,12 @@ error) and the file.
 PRECEDENCE (the requirement's sentence). An option typed on the command line
 wins over ``pyfs.local.toml``, which wins over ``pyfs.toml``, which wins over the
 package default (:func:`take_defaults`). The command line itself is parsed
-above this module, by each command family (R11): the family states what was
+above this module, by each command family (FR-1002): the family states what was
 typed and which settable options were left open, and gives its options the
 values this module returns. A workspace without either file therefore takes
 nothing from here and parses exactly as before.
 
-PROVENANCE (R7, R8). The values a command took from a file, and the file each
+PROVENANCE (FR-998, FR-999). The values a command took from a file, and the file each
 came from, are held for the length of the invocation
 (:func:`invocation_sources`), so ``plan.json`` and every run record can name
 them. A value typed, or left at the package default, is recorded as before.
@@ -87,16 +87,16 @@ LOCAL_SETTINGS_FILE = "pyfs.local.toml"
 _SCHEMA_VERSION = 1
 
 #: The source a record names for an acceptance stated on a build entry of
-#: ``inputs/executables.local.toml`` (FR-436 R7, R8): the file's name, as R8 writes it.
+#: ``inputs/executables.local.toml`` (FR-998, FR-999): the file's name, as FR-999 writes it.
 ENTRY_ACCEPTANCE_SOURCE = LOCAL_EXECUTABLES_FILE
 #: The source a record names for an acceptance typed on the command line, written
-#: only beside another value taken from a file (FR-436 R8).
+#: only beside another value taken from a file (FR-999).
 TYPED_ACCEPTANCE_SOURCE = "typed"
 
 #: Every key ``[defaults]`` may set, and the kind of value its option takes:
 #: ``text`` a string, ``switch`` a boolean, ``count`` a whole number,
 #: ``texts`` a list of strings (a repeatable option). Each is a fact about the
-#: workspace or the machine, never a decision about one invocation (R3).
+#: workspace or the machine, never a decision about one invocation (FR-994).
 DEFAULT_KEYS: Mapping[str, str] = MappingProxyType(
     {
         "fs_version": "text",
@@ -118,7 +118,7 @@ DEFAULT_KEYS: Mapping[str, str] = MappingProxyType(
 LOG_KEYS: Mapping[str, str] = MappingProxyType({"console": "level", "pproc_warnings": "switch"})
 
 #: The options that act on one invocation: refused in a file, because a file that
-#: made one of them the default would act without being asked (R4).
+#: made one of them the default would act without being asked (FR-995).
 ACT_KEYS = (
     "runs",
     "apply",
@@ -170,7 +170,7 @@ class WorkspaceSettings:
 
 
 def read_workspace_settings(root: str | Path) -> WorkspaceSettings:
-    """Read, check and merge the settings files of one workspace (FR-436 R1 to R4).
+    """Read, check and merge the settings files of one workspace (FR-992 to FR-995).
 
     Parameters
     ----------
@@ -210,7 +210,7 @@ def read_workspace_settings(root: str | Path) -> WorkspaceSettings:
 
 
 def _checked(path: Path) -> dict[str, dict[str, object]]:
-    """Return the two tables of one settings file, refusing whatever R4 refuses."""
+    """Return the two tables of one settings file, refusing whatever FR-995 refuses."""
     try:
         with open(path, "rb") as handle:
             raw = tomllib.load(handle)
@@ -428,7 +428,7 @@ def take_defaults(
 
 
 def console_only(settings: WorkspaceSettings) -> TakenDefaults:
-    """Return what ``pyfs-workspace`` takes from the files: the ``[log]`` console only (R9).
+    """Return what ``pyfs-workspace`` takes from the files: the ``[log]`` console only (FR-1000).
 
     Parameters
     ----------
@@ -449,7 +449,7 @@ def console_only(settings: WorkspaceSettings) -> TakenDefaults:
 
 
 def defaults_lines(taken: TakenDefaults) -> list[str]:
-    """Return the lines a ``verbose`` command prints before its work (FR-436 R8).
+    """Return the lines a ``verbose`` command prints before its work (FR-999).
 
     Parameters
     ----------
@@ -488,11 +488,11 @@ class Invocation:
     Attributes
     ----------
     sources : Mapping of str to str
-        The file each value taken came from (FR-436 R8).
+        The file each value taken came from (FR-999).
     entry_acceptance : bool
         Whether an ``accept_unregistered_build`` on a build entry of
         ``inputs/executables.local.toml`` may accept its build; False when
-        ``--no-accept-unregistered-build`` was typed (R5, R7).
+        ``--no-accept-unregistered-build`` was typed (FR-996, FR-998).
     """
 
     sources: Mapping[str, str] = field(default_factory=dict)
@@ -534,7 +534,7 @@ def declare_invocation(taken: TakenDefaults, *, verbose: bool) -> None:
     Sets the console level and the grouped post-processing warnings a file or
     the new options chose, holds the sources for the records
     (:func:`invocation_sources`) and, at the ``verbose`` level, prints every
-    value taken and its file on stderr before the command's work (FR-436 R8).
+    value taken and its file on stderr before the command's work (FR-999).
     Everything set here is restored when the console command ends.
 
     Parameters
@@ -555,7 +555,7 @@ def declare_invocation(taken: TakenDefaults, *, verbose: bool) -> None:
 
 
 def entry_acceptance_allowed() -> bool:
-    """Return whether a build entry's own acceptance may accept its build (FR-436 R7).
+    """Return whether a build entry's own acceptance may accept its build (FR-998).
 
     Returns
     -------

@@ -447,7 +447,7 @@ def _plot_each_rotors_own_history(
 
 
 def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
-    """Emit the declared section distributions, then the one the far field adds (FR-455 R3)."""
+    """Emit the declared section distributions, then the one the far field adds (FR-1046)."""
     _declared_sections(case, script, frames)
     farfield_sections(case, script, frames)
 
@@ -580,7 +580,7 @@ def row_outputs(case: SimCase, workflow: str) -> list[str]:
         The declared output names, their ``{name}`` placeholder unrendered.
     """
     unsteady = workflow.startswith("unsteady")
-    # FR-461 R2: the trajectory a SIXDOF row's input exports joins its outputs.
+    # FR-1085: the trajectory a SIXDOF row's input exports joins its outputs.
     trajectory = (
         ["{name}_trajectory_6dof.txt"]
         if unsteady and case.sixdof is not None and case.sixdof.export.trajectory
@@ -592,7 +592,7 @@ def row_outputs(case: SimCase, workflow: str) -> list[str]:
     names = pproc.outputs(unsteady)
     plot = classify_outputs(names).get("plot_sections_cp")
     if plot is None or case.inventory is None or _cuts_a_section(case, pproc, case.inventory):
-        # FR-455 R3 (0.40.0): the exports the far field reads; none without [farfield].
+        # FR-1046 (0.40.0): the exports the far field reads; none without [farfield].
         return farfield_outputs(case, workflow, names + trajectory)
     return farfield_outputs(case, workflow, [name for name in names if name != plot] + trajectory)
 

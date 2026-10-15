@@ -4,7 +4,7 @@ A thin-blade study replaces a blade by its mean surface, a sheet with no
 thickness, and until 0.34.0 that sheet was built by hand. This module builds
 it from the blade's own surface mesh and writes it beside the source, with
 the boundary inventory the raw-mesh route reads (FR-55), so the command
-``pyfs-matrix degenerate --kind thin-blade`` (FR-330 R1) has one library
+``pyfs-matrix degenerate --kind thin-blade`` (FR-628) has one library
 function to call: :func:`derive_thin_blade`.
 
 WHAT IS COMPUTED, in the mesh's own frame and length unit:
@@ -18,7 +18,7 @@ WHAT IS COMPUTED, in the mesh's own frame and length unit:
    ends lie equally far from the origin is refused, because which end is the
    root cannot be told.
 2. THE STATIONS. The root station is the blade's lowest span coordinate
-   moved outward by the required root offset (FR-330 R3), so the sheet does
+   moved outward by the required root offset (FR-630), so the sheet does
    not cross the spinner. A mesh built in rings (its vertices on planes of
    constant span) is cut at its own rings above the root station; any other
    mesh at :data:`SPAN_STATIONS` evenly spaced stations, the last one
@@ -35,7 +35,7 @@ WHAT IS COMPUTED, in the mesh's own frame and length unit:
 4. THE MEAN SURFACE. Each side is projected on its chord, resampled at the
    cosine stations ``(1 - cos(pi k / n)) / 2`` of :data:`CHORD_PANELS`
    panels, and the thin blade's point at each station is the mean of the two
-   sides there (FR-330 R2): the surface midway between them, from the root
+   sides there (FR-629): the surface midway between them, from the root
    to the tip, with the solid section's leading and trailing edge. The root
    row runs from the leading edge, the end where the two sides stand farther
    apart, and every row above it runs the way the row below it runs.
@@ -48,10 +48,10 @@ sidecar's unit and the mesh operations that act on the blade (on every surface,
 or on the blade by its name or a name an earlier rename gave it), because the
 thin blade lies in the blade's own frame and the same operations place it; an
 operation naming another body is left out and named in a comment. The source
-is only read (FR-330 R4).
+is only read (FR-631).
 
 WHAT IS REFUSED, by name and with the reason, before anything is written
-(FR-330 R6): a file that is not a saved simulation or an OBJ, one that cannot
+(FR-633): a file that is not a saved simulation or an OBJ, one that cannot
 be read, one holding more than one boundary when ``boundary`` names none, a
 boundary the file does not hold or holds twice, an OBJ whose sidecar states a
 CAD or CCS conversion, a root offset that is not a positive length shorter
@@ -62,13 +62,13 @@ a section whose two sides cannot be separated. An existing output is refused
 unless ``overwrite`` is given.
 
 WHICH BLADE. A file that holds the blade with a spinner, a nacelle or other
-bodies is read with ``boundary`` naming the blade's boundary (FR-330 R9): only
+bodies is read with ``boundary`` naming the blade's boundary (FR-636): only
 its faces are taken, so the other bodies take no part in the span, the stations
 or the sections, and the output's stem carries the boundary's name.
 
 WHAT IT IS NOT. The derived geometry is a modelling choice of the user; this
 module makes no claim about the solver's behaviour on it, which a run
-confirms (FR-330 R8). No trailing edge is marked on the sheet: the sidecar's
+confirms (FR-330). No trailing edge is marked on the sheet: the sidecar's
 ``[trailing_edges]`` table is the user's to write, as for any raw mesh.
 """
 
@@ -106,13 +106,13 @@ __all__ = [
     "thin_blade_path",
 ]
 
-#: The one kind of degenerate geometry of 0.34.0 (FR-330 R1).
+#: The one kind of degenerate geometry of 0.34.0 (FR-628).
 THIN_BLADE_KIND = "thin-blade"
 
 #: The suffixes read: a saved simulation and an OBJ, the forms ``inventory`` reads.
 READ_SUFFIXES = (".fsm", ".obj")
 
-#: What the output's stem adds to the source's (FR-330 R4).
+#: What the output's stem adds to the source's (FR-631).
 THIN_BLADE_STEM = "_thin_blade"
 
 #: The chordwise panels of the thin sheet, at cosine stations.
@@ -191,14 +191,14 @@ class ThinBlade:
 
 
 def thin_blade_path(geometry: str | Path, boundary: str | None = None) -> Path:
-    """Return the path the thin blade of ``geometry`` is written at (FR-330 R4).
+    """Return the path the thin blade of ``geometry`` is written at (FR-631).
 
     Parameters
     ----------
     geometry : str or Path
         The source blade mesh.
     boundary : str, optional
-        The boundary the blade was selected by (FR-330 R9); its name, with
+        The boundary the blade was selected by (FR-636); its name, with
         every character that is not a letter, a digit or a hyphen turned
         into an underscore, joins the stem so two blades of one file do
         not share an output.
@@ -231,7 +231,7 @@ class _Blade:
     faces: Faces
     boundary: str
     unit: str | None
-    #: The source sidecar's mesh operations, carried to the thin blade's (FR-330 R5).
+    #: The source sidecar's mesh operations, carried to the thin blade's (FR-632).
     operations: tuple[MeshOperation, ...] = ()
 
 
@@ -420,7 +420,7 @@ def _welded(blade: _Blade) -> _Blade:
 
 
 def _read_blade(source: Path, boundary: str | None = None) -> _Blade:
-    """Read the blade mesh ``source`` names, refusing what cannot be read (FR-330 R6)."""
+    """Read the blade mesh ``source`` names, refusing what cannot be read (FR-633)."""
     if not source.is_file():
         raise _refuse(source, "it is not a file")
     if source.suffix.lower() not in READ_SUFFIXES:
@@ -888,7 +888,7 @@ def derive_thin_blade(
     boundary : str, optional
         The name of the one boundary (OBJ group) that is the blade, for a
         file that holds the blade with a spinner, a nacelle or other bodies
-        (FR-330 R9). Only its faces are read, and the output is written
+        (FR-636). Only its faces are read, and the output is written
         under the name :func:`thin_blade_path` gives for it. Without it a
         file holding more than one boundary is refused.
 

@@ -58,9 +58,9 @@ option of another shape rather than leave it unread.
 0.39.0 (FR-436) reads the workspace settings files ``pyfs.toml`` and
 ``pyfs.local.toml`` through :mod:`pyflightstream.workspace._settings_file`,
 which owns their schema, the precedence and the provenance: this program
-takes their ``[log]`` console level only (R9). The command-line side of the
+takes their ``[log]`` console level only (FR-1000). The command-line side of the
 same files lives here too, because the parsing of a command line stays in
-the command families (R11): :func:`withhold_defaults` and
+the command families (FR-1002): :func:`withhold_defaults` and
 :func:`take_settings` adapt an ``argparse`` parser so that an option the
 command line does not state takes its default from the files, and
 ``pyfs-matrix`` parses through them.
@@ -523,7 +523,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _take_the_console_level(args: argparse.Namespace) -> None:
-    """Read the workspace settings files and take their console level, nothing else (FR-436 R9).
+    """Read the workspace settings files and take their console level, nothing else (FR-1000).
 
     The files are read and refused as every ``pyfs-matrix`` command reads
     them, before anything is written; no key of ``[defaults]`` reaches a
@@ -535,7 +535,7 @@ def _take_the_console_level(args: argparse.Namespace) -> None:
 
 
 def _settings_or_refusal(root: str | Path) -> WorkspaceSettings:
-    """Read a workspace's settings files; a refused file stops the command, exit 2 (FR-436 R4).
+    """Read a workspace's settings files; a refused file stops the command, exit 2 (FR-995).
 
     Before the command's console opens and before anything is written, for
     both programs: the message names the key (or the parse error) and the file.
@@ -547,7 +547,7 @@ def _settings_or_refusal(root: str | Path) -> WorkspaceSettings:
         raise SystemExit(2) from None
 
 
-# --- the command line over the settings files (FR-436 R11) --------------------------
+# --- the command line over the settings files (FR-1002) --------------------------
 
 
 class _Withheld:
@@ -609,7 +609,7 @@ def _dests(sub: argparse.ArgumentParser) -> dict[str, argparse.Action]:
 
 
 def _named_workspace(argv: Sequence[str] | None) -> str:
-    """Return the folder ``--workspace`` names on a command line, else the current one (R1).
+    """Return the folder ``--workspace`` names on a command line, else the current one (FR-992).
 
     Read before the full parse, so the REQUIRED options a file supplies are
     relaxed against the files of the workspace the command names, not of
@@ -778,7 +778,7 @@ def take_settings(parser: argparse.ArgumentParser, args: argparse.Namespace, hel
 
 
 def typed_value(args: argparse.Namespace, flag: str) -> object:
-    """Return the value of ``flag`` where the command line typed it, else None (FR-436 R2).
+    """Return the value of ``flag`` where the command line typed it, else None (FR-993).
 
     A value a workspace settings file supplied is not the command line's: a
     command that judges what was asked of it judges the typed value alone, and

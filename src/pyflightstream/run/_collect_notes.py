@@ -88,7 +88,7 @@ def is_a_sweep_job(record: RunRecord) -> bool:
 
 
 def no_time_without_the_log(update: dict[str, object]) -> None:
-    """Null a point's wall time where its solver log is absent, and say why (FR-413 R2).
+    """Null a point's wall time where its solver log is absent, and say why (FR-861).
 
     The solver clock is the log's, and a time is never estimated. The basis
     says so too (PFS-2103.007): it still named the clock file the nulled time
@@ -99,13 +99,13 @@ def no_time_without_the_log(update: dict[str, object]) -> None:
     job = submission.get("job") if isinstance(submission, dict) else None
     if isinstance(job, dict):
         job["wall_time_basis"] = (
-            "not recorded: the solver log is absent (FR-413 R2), and the solver "
+            "not recorded: the solver log is absent (FR-861), and the solver "
             "clock is the log's; a time is never estimated"
         )
 
 
 def limit_for_its_word(update: dict[str, object]) -> None:
-    """Keep ``iterations_requested`` only where the FINAL status is MAX_ITER_REACHED (FR-434 R1).
+    """Keep ``iterations_requested`` only where the FINAL status is MAX_ITER_REACHED (FR-974).
 
     The assessor stamps the limit with its own verdict; the log verdicts and the
     walltime stop that may replace that verdict come after it, so the field is

@@ -1,4 +1,4 @@
-"""What a refinement is asked to do: the arguments and the refinement file (FR-424 R1 to R3).
+"""What a refinement is asked to do: the arguments and the refinement file (FR-915 to FR-917).
 
 The factors come from the call (FACTOR, ``--chordwise``, ``--spanwise``) or,
 when the call gives none, from the refinement file: ``--config FILE`` or
@@ -37,7 +37,7 @@ from typing import Any
 from pyflightstream._errors import InputArtifactError, PyflightstreamWarning
 from pyflightstream.workspace._refine._obj import KIND
 
-#: The methods a family may state (FR-424 R9).
+#: The methods a family may state (FR-923).
 METHODS = ("auto", "grid", "remesh")
 #: The element mode of a remeshed family that states none (today's triangles).
 TRIANGLES = "triangles"
@@ -143,13 +143,13 @@ def _refuse(where: str, reason: str) -> InputArtifactError:
     return InputArtifactError(f"{where}: {reason}. Nothing was written.", kind=KIND)
 
 
-#: The characters a level's folder name never holds (FR-424 R5): the path separators,
+#: The characters a level's folder name never holds (FR-919): the path separators,
 #: the drive colon and the characters Windows reserves in a file name.
 UNSAFE_CHARACTERS = '/\\:<>"|?*'
 
 
 def folder_name_problem(name: str) -> str | None:
-    """Return why ``name`` is not one portable folder name, or None when it is (FR-424 R5).
+    """Return why ``name`` is not one portable folder name, or None when it is (FR-919).
 
     A name holding a path separator, a drive colon, a character Windows
     reserves, a control character or ``..``, a name that is ``.``, and a name
@@ -167,7 +167,7 @@ def folder_name_problem(name: str) -> str | None:
 
 
 def positive(where: str, value: Any) -> float:
-    """Return a factor as a float, refusing anything but a finite number above zero (R1)."""
+    """Return a factor as a float, refusing anything but a finite number above zero (FR-915)."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise _refuse(where, f"the factor {value!r} is not a number; give a number above zero")
     number = float(value)
@@ -246,7 +246,7 @@ def _family_spec(where: str, table: Mapping[str, Any]) -> FamilySpec:
 
 
 def _keep_flag(where: str, table: Mapping[str, Any]) -> bool:
-    """Return a table's ``keep_first_row`` (FR-430 R1), refusing a value not true or false (R6)."""
+    """Return a table's ``keep_first_row`` (FR-950), refusing a value not true or false (FR-955)."""
     keep = table.get("keep_first_row", False)
     if not isinstance(keep, bool):
         raise _refuse(where, f"keep_first_row = {keep!r} is not true or false")
@@ -254,7 +254,7 @@ def _keep_flag(where: str, table: Mapping[str, Any]) -> bool:
 
 
 def with_kept_rows(where: str, spec: FamilySpec) -> FamilySpec:
-    """Return a family's spec asked to keep its interface rows, or refuse it (FR-430 R6).
+    """Return a family's spec asked to keep its interface rows, or refuse it (FR-955).
 
     ``keep_first_row`` applies to a grid family: a family stated with
     ``method = "remesh"``, or with ``axial`` or ``circumferential`` (a body
@@ -301,7 +301,7 @@ def _body_spec(where: str, table: Mapping[str, Any], method: str) -> FamilySpec:
 
 
 def _components(path: Path, raw: Any, names: Sequence[str]) -> dict[str, list[str]]:
-    """Return ``[components]`` checked against the mesh's families (FR-425 R4)."""
+    """Return ``[components]`` checked against the mesh's families (FR-935)."""
     where = f"{path} [components]"
     if not isinstance(raw, dict):
         raise _refuse(where, "the table must map a component name to a list of families")
@@ -408,7 +408,7 @@ def read_refine_file(
     """Read a refinement file against the mesh's family names, refusing what it cannot honour.
 
     ``keep`` lists the families whose table states ``keep_first_row = true``
-    (FR-430 R1); a refusal of that key names ``mesh``, the source, as well.
+    (FR-950); a refusal of that key names ``mesh``, the source, as well.
     """
     source = Path(path)
     try:
@@ -486,10 +486,10 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
     config: str | Path | None = None,
     keep_first_row: Sequence[str] | None = None,
 ) -> RefineRequest:
-    """Return what the refinement is asked, from the call and the refinement file (FR-424 R2).
+    """Return what the refinement is asked, from the call and the refinement file (FR-916).
 
     ``keep_first_row`` names the families that keep their interface rows
-    (FR-430 R1), with the families whose table states the key when the
+    (FR-950), with the families whose table states the key when the
     file's tables give the factors.
     """
     file = refine_file_of(mesh, config)
@@ -558,7 +558,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             )
             for n in chosen
         }
-        reason = "FACTOR, --chordwise or --spanwise gives the factors (FR-424 R2)"
+        reason = "FACTOR, --chordwise or --spanwise gives the factors (FR-916)"
         ignored = tuple(stated_specs)
         asked = []
     if ignored:
@@ -586,7 +586,7 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
 def _kept(
     mesh: Path, names: Sequence[str], specs: dict[str, FamilySpec], asked: Sequence[str]
 ) -> dict[str, FamilySpec]:
-    """Return the specs with ``keep_first_row`` set on each family asked (FR-430 R1, R6).
+    """Return the specs with ``keep_first_row`` set on each family asked (FR-950, FR-955).
 
     A family the mesh does not hold, or one the selection leaves out, is
     refused before any work, naming the source, the family and the option.
@@ -611,9 +611,9 @@ def _fmt(value: float) -> str:
 
 
 def spec_tag(spec: FamilySpec) -> str:
-    """Return a family's part of a level's tag: R5 of FR-424, a and t for a body (FR-428).
+    """Return a family's part of a level's tag: FR-919 of FR-424, a and t for a body (FR-428).
 
-    A family asked to keep its first row carries ``k`` (FR-430 R8), so a level
+    A family asked to keep its first row carries ``k`` (FR-957), so a level
     with kept rows and one without never share a tag.
     """
     if spec.axial is not None or spec.circumferential is not None:
@@ -627,7 +627,7 @@ def spec_tag(spec: FamilySpec) -> str:
     return tag + ("k" if spec.keep_first_row else "")
 
 
-#: The longest built tag that stays the tag of 0.38.0; a longer one is summarised (FR-433 R2).
+#: The longest built tag that stays the tag of 0.38.0; a longer one is summarised (FR-970).
 TAG_MAX = 32
 
 
@@ -645,7 +645,7 @@ def _built_tag(request: RefineRequest, names: Sequence[str]) -> tuple[str, list[
 
 
 def _value(value: object) -> str:
-    """Return one option value as the canonical selection writes it (FR-433 R2, R3).
+    """Return one option value as the canonical selection writes it (FR-970, FR-971).
 
     A number is written in the shortest text that reads back to the same
     float (:func:`repr`), without a trailing ``.0``, so two factors that
@@ -661,7 +661,7 @@ def _value(value: object) -> str:
 
 
 def canonical_selection(request: RefineRequest, picked: Sequence[str]) -> str:
-    """Return the canonical selection a summary tag hashes (FR-433 R2).
+    """Return the canonical selection a summary tag hashes (FR-970).
 
     One line per selected family, in the source's order: the family's name,
     then every option its table states that changes the level, as sorted
@@ -696,14 +696,14 @@ def tag_selection(request: RefineRequest, names: Sequence[str]) -> list[str] | N
 def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the mesh") -> str:
     """Return the level's tag: the file's, else ``R<factors>``, else ``R-<family><factors>-...``.
 
-    A built tag of more than 32 characters is ``R-<n>fam-<hash>`` (FR-433 R2):
+    A built tag of more than 32 characters is ``R-<n>fam-<hash>`` (FR-970):
     ``<hash>`` the first 8 hexadecimal characters of the SHA-256 of the
     :func:`canonical_selection`, encoded as UTF-8. A tag built from family
-    names is one folder name (FR-424 R5): a family whose name would put a
+    names is one folder name (FR-919): a family whose name would put a
     path separator, ``..``, a drive or a reserved character into it is
-    refused naming the family, before any work (R11); the uniform tag
+    refused naming the family, before any work (FR-925); the uniform tag
     ``R<factors>`` and the summary form hold no family name and are not
-    refused (FR-433 R5), as on 0.38.0.
+    refused (FR-973), as on 0.38.0.
     """
     tag, picked, uniform = _built_tag(request, names)
     if not picked:

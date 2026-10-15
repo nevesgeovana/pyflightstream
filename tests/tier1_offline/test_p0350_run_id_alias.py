@@ -77,7 +77,7 @@ def test_fr395_each_point_of_a_three_point_polar_has_its_alias(tmp_path, monkeyp
 def test_fr395_the_alias_is_stable_when_a_point_is_rerun_or_continued(
     tmp_path, monkeypatch, capsys
 ):
-    """P0350-RUN-ID-ALIAS (FR-395 R1): a re-run and a continuation add records, move no alias."""
+    """P0350-RUN-ID-ALIAS (FR-793): a re-run and a continuation add records, move no alias."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     before = _aliases(capsys, workspace, matrix)
@@ -97,7 +97,7 @@ def test_fr395_the_alias_is_stable_when_a_point_is_rerun_or_continued(
 
 
 def test_fr395_a_steady_jobs_points_have_aliases(tmp_path, monkeypatch, capsys):
-    """P0350-RUN-ID-ALIAS (FR-395 R4): a job record stands for its points, in the order it ran."""
+    """P0350-RUN-ID-ALIAS (FR-796): a job record stands for its points, in the order it ran."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5001")
     ran = [{"tag": name, "status": "CONVERGED"} for name in names]
@@ -112,7 +112,7 @@ def test_fr395_a_steady_jobs_points_have_aliases(tmp_path, monkeypatch, capsys):
 
 
 def test_fr395_points_takes_an_alias_and_a_name_alike(tmp_path, monkeypatch, capsys):
-    """P0350-RUN-ID-ALIAS (FR-395 R2): ``--points 5002_2`` plans that point alone, no ``--sims``."""
+    """P0350-RUN-ID-ALIAS (FR-794): ``--points 5002_2`` plans that point alone, no ``--sims``."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     assert cli.main(_argv("plan", workspace, matrix, "--points", "5002_2")) == 0
@@ -128,7 +128,7 @@ def test_fr395_points_takes_an_alias_and_a_name_alike(tmp_path, monkeypatch, cap
 def test_fr395_an_alias_that_names_no_point_is_named_on_standard_error(
     tmp_path, monkeypatch, capsys
 ):
-    """P0350-RUN-ID-ALIAS (FR-395 R5): index 9 of a three-point polar is refused by name."""
+    """P0350-RUN-ID-ALIAS (FR-797): index 9 of a three-point polar is refused by name."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     capsys.readouterr()
     assert cli.main(_argv("plan", workspace, matrix, "--points", "5002_9")) == 2
@@ -139,7 +139,7 @@ def test_fr395_an_alias_that_names_no_point_is_named_on_standard_error(
 
 
 def test_fr395_mark_failed_marks_the_point_of_the_alias_alone(tmp_path, monkeypatch, capsys):
-    """P0350-RUN-ID-ALIAS (FR-395 R2): the control is an alias both readings agree on."""
+    """P0350-RUN-ID-ALIAS (FR-794): the control is an alias both readings agree on."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     assert cli.main(_argv("plan", workspace, matrix)) == 0
@@ -175,7 +175,7 @@ def test_fr395_a_destructive_verb_refuses_an_alias_the_two_readings_disagree_on(
 
 
 def test_fr395_delete_sims_refuses_an_alias_and_names_the_simulation(tmp_path, monkeypatch, capsys):
-    """P0350-RUN-ID-ALIAS (FR-395 R2): delete-sims removes whole simulations, never one point."""
+    """P0350-RUN-ID-ALIAS (FR-794): delete-sims removes whole simulations, never one point."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     assert cli.main(_argv("plan", workspace, matrix)) == 0

@@ -346,7 +346,7 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
             build_steady_sweep([pc for _, _, pc in job.point_cases], job.script, cold=job.cold)
         # FR-48: the waivers the job's script carries, recorded as a point's are.
         job.base["waived_commands"] = waived_record(job.script)
-        # FR-435 R11: the names the row skipped, once each; recorded only where there is one.
+        # FR-989: the names the row skipped, once each; recorded only where there is one.
         job.base["skipped_names"] = [skip.record() for skip in skipped] or None
         # G02: the switch is the row's, so the first point's case states it.
         _refuse_an_import_count_nothing_logs(job.point_cases[0][2], job.script, job.executor)
@@ -362,7 +362,7 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
 def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     """Write sweep script."""
     job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
-    # FR-455 R4 (0.40.0, PFS-2081.58): each point's far-field plane turns with its
+    # FR-1047 (0.40.0, PFS-2081.58): each point's far-field plane turns with its
     # attitude, so the layouts are keyed by point name, as the rotor Mach numbers are.
     by_point = {
         point_name(job.case, point): {"shapes": laid["shapes"]}
@@ -749,7 +749,7 @@ def _assess_sweep_points(job: _SweepJob) -> RunRecord | None:
             "residual": assessment.residual,
         }
         if status == RunStatus.MAX_ITER_REACHED:
-            # FR-434 R1/R4: the limit and the note, so the record and the post WARNING state them.
+            # FR-974/FR-977: the limit and the note, so the record and the post WARNING state them.
             ran_entry["iterations_requested"] = assessment.iterations_requested
             ran_entry["residual_note"] = assessment.residual_note
         job.ran.append(ran_entry)

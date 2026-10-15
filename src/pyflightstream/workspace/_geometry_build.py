@@ -9,7 +9,7 @@ imports it), in ``<folder>.partial/``, then reads the saved file back, audits
 the exported mesh, writes the preview and the record, and only then moves the
 outputs into place.
 
-THE BUILD IS ONE TRANSACTION (FR-471 R3, R8; FR-472). Every geometry of the
+THE BUILD IS ONE TRANSACTION (FR-1104, FR-1109; FR-472). Every geometry of the
 plan is built and judged in its partial folder first, where it holds a record
 whose every path resolves in that folder. Only when every geometry passed its
 audit and the sweep overlay is written in full does anything move: each
@@ -22,7 +22,7 @@ its partial folder or in its geometry folder. The partial folder's ownership
 record lists the destinations of a promotion under way, so a rebuild with
 overwrite completes an interrupted one.
 
-Exit codes of the command (FR-471 R8): 0 built, audited and promoted, 1 built
+Exit codes of the command (FR-1109): 0 built, audited and promoted, 1 built
 and kept in the partial folders because an audit gate failed, 2 refused with
 nothing written (:class:`InputArtifactError`), 3 the solver, read-back or sweep
 overlay failed (:class:`GeometryBuildError`), nothing promoted either.
@@ -168,7 +168,7 @@ class GeometryBuilt:
     ``passed`` is the audit's verdict and ``promoted`` whether the geometry is in
     its geometry folder: a geometry that passed is kept in its partial folder,
     not promoted, when another geometry of the build failed its audit. Only a
-    promoted geometry is accepted (FR-473 R1).
+    promoted geometry is accepted (FR-1120).
     """
 
     folder: Path
@@ -322,15 +322,15 @@ def plan_geometry_build(
     only: Sequence[str] = (),
     registry: CommandRegistry | None = None,
 ) -> GeometryBuildPlan:
-    """Plan one build: find, read and check the instruction, and render its scripts (FR-471 R1).
+    """Plan one build: find, read and check the instruction, and render its scripts (FR-1102).
 
     Runs nothing and writes nothing.
 
     Raises
     ------
     InputArtifactError
-        Every refusal of FR-470 and FR-471 R9 that needs no executable, and
-        those of FR-472 R4 about where a sweep runs and which tags it builds.
+        Every refusal of FR-470 and FR-1110 that needs no executable, and
+        those of FR-1115 about where a sweep runs and which tags it builds.
     """
     path, from_above = locate_instruction(target, Path(cwd) if cwd is not None else Path.cwd())
     instruction = read_geometry_instruction(path)
@@ -509,7 +509,7 @@ def _promoting(work: Path, instruction: Path) -> frozenset[Path]:
 
 
 def refuse_before_running(plan: GeometryBuildPlan, *, overwrite: bool, png: bool) -> None:
-    """Refuse, before any executable is looked up, what ``--apply`` would refuse (FR-471 R9).
+    """Refuse, before any executable is looked up, what ``--apply`` would refuse (FR-1110).
 
     Raises
     ------
@@ -545,12 +545,12 @@ def apply_geometry_build(
     package_version: str = "",
     parallel: int = 1,
 ) -> tuple[GeometryBuilt, ...]:
-    """Run each geometry of a plan once, read it back, audit it and promote it (FR-471 R2 to R8).
+    """Run each geometry of a plan once, read it back, audit it and promote it (FR-1103 to FR-1109).
 
     ``parallel`` (1 or 2) runs up to that many variants of a sweep at once; a
     variant that fails while another runs beside it is run again alone
-    (FR-472 R6). After a sweep, ``<name>.sweep.vtk`` overlays the swept control
-    surface of every variant built (FR-472 R7).
+    (FR-1117). After a sweep, ``<name>.sweep.vtk`` overlays the swept control
+    surface of every variant built (FR-1118).
 
     Raises
     ------
@@ -596,7 +596,7 @@ def apply_geometry_build(
     else:
         staged = _built_two_at_a_time(plan.variants, build, parallel)
     if any(not item.kept.passed for item in staged):
-        # FR-471 R8: one failed gate promotes nothing of the build.
+        # FR-1109: one failed gate promotes nothing of the build.
         return tuple(item.kept for item in staged)
     _verify_destinations(staged, overwrite)
     pending = _stage_the_overlay(plan, staged)
@@ -642,7 +642,7 @@ def _built_two_at_a_time(
     build: Callable[[GeometryVariant], _Staged],
     parallel: int,
 ) -> tuple[_Staged, ...]:
-    """Build the variants ``parallel`` at a time, and each failed one again alone (FR-472 R6)."""
+    """Build the variants ``parallel`` at a time, and each failed one again alone (FR-1117)."""
     from concurrent.futures import ThreadPoolExecutor
 
     done: dict[int, _Staged] = {}
@@ -664,7 +664,7 @@ def _overlay_path(plan: GeometryBuildPlan) -> Path:
 
 
 def _stage_the_overlay(plan: GeometryBuildPlan, staged: Sequence[_Staged]) -> Path | None:
-    """Write the sweep overlay to a pending file beside its target, before any promotion (R7).
+    """Write the sweep overlay to a pending file beside its target, before any promotion (FR-1108).
 
     Returns the pending file, published by the caller after every variant is
     promoted, or None for a build without a sweep.
@@ -713,7 +713,7 @@ def _build_one(
     png: bool,
     package_version: str,
 ) -> _Staged:
-    """Build and judge one geometry in its partial folder; promote nothing (FR-471 R3)."""
+    """Build and judge one geometry in its partial folder; promote nothing (FR-1104)."""
     instruction = variant.instruction
     name = instruction.name
     work = Path(variant.script.fsm).parent
@@ -800,7 +800,7 @@ def _build_one(
 
 
 def _read_back(variant: GeometryVariant, fsm: Path) -> dict[str, Any]:
-    """Read the saved file's boundaries and trailing edges, failing on a mismatch (FR-471 R5)."""
+    """Read the saved file's boundaries and trailing edges, failing on a mismatch (FR-1106)."""
     instruction = variant.instruction
     try:
         names = boundary_names(fsm)
@@ -835,7 +835,7 @@ def _read_back(variant: GeometryVariant, fsm: Path) -> dict[str, Any]:
 
 
 def _carried(variant: GeometryVariant, mesh_name: str) -> dict[str, Any]:
-    """Return what the rebuilt mesh's sidecar, else the [mesh] source's, carries over (R10)."""
+    """Return what the rebuilt mesh's sidecar, else the [mesh] source's, carries over (FR-1111)."""
     instruction = variant.instruction
     folder = variant.folder
     built = folder / f"{mesh_name}.boundaries.toml"
@@ -927,7 +927,7 @@ def _record(
     obj: Path,
     retained: bool = False,
 ) -> dict[str, Any]:
-    """Return ``<name>.build.json`` (FR-471 R7)."""
+    """Return ``<name>.build.json`` (FR-1108)."""
     folder = fsm.parent if retained else variant.folder
     rel = lambda path: Path(_relative(path, folder)).as_posix()  # noqa: E731
     outputs = []
@@ -978,7 +978,7 @@ def _record(
 
 
 def _control_surfaces(instruction: GeometryInstruction) -> list[dict[str, Any]]:
-    """Return the angle of every control surface of a [ccs] wing (FR-473 R5)."""
+    """Return the angle of every control surface of a [ccs] wing (FR-1124)."""
     if instruction.ccs is None:
         return []
     return [
@@ -1035,7 +1035,7 @@ def _mesh_target(item: _Staged) -> Path | None:
 
 
 def _moves(item: _Staged) -> list[tuple[Path, Path]]:
-    """Return each staged file with where promotion moves it, the records apart (FR-471 R4)."""
+    """Return each staged file with where promotion moves it, the records apart (FR-1105)."""
     variant, work, mesh_dir = item.variant, item.work, item.mesh_dir
     name = variant.instruction.name
     folder = variant.folder
@@ -1127,7 +1127,7 @@ def _promote(plan: GeometryBuildPlan, item: _Staged, overwrite: bool) -> Geometr
 def accept_geometries(
     names: Sequence[str], *, geometries: Path, by: str | None = None
 ) -> tuple[Path, ...]:
-    """Record the inspection of built geometries in their records (FR-473 R1).
+    """Record the inspection of built geometries in their records (FR-1120).
 
     Parameters
     ----------

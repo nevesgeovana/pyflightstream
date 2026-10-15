@@ -145,7 +145,7 @@ DIRECT_MORPHING_NODES = "RIGID"
 def direct_morphing_refusal(
     case: SimCase, *, workflow: str, version: str | FsVersion
 ) -> str | None:
-    """Return why a row's direct mesh morphing is refused, or None (FR-341 R4).
+    """Return why a row's direct mesh morphing is refused, or None (FR-678).
 
     Direct morphing is offered where it was measured: a ``qsteady_rotor`` row
     (whose builder accepts FSI on a periodic sector alone), on a build whose

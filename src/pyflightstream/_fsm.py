@@ -1010,7 +1010,7 @@ def surface_mesh(
 def boundary_owners(path: str | Path) -> tuple[int, ...]:
     """Return the boundary of every face of a saved simulation's mesh block, counted from 1.
 
-    The geometry stage colours its preview by it (FR-471 R6). Empty where the
+    The geometry stage colours its preview by it (FR-1107). Empty where the
     block carries no boundary row this reader recognises.
 
     Raises

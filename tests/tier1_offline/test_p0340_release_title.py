@@ -11,7 +11,9 @@ RELEASE_YML = REPO / ".github" / "workflows" / "release.yml"
 
 @pytest.mark.requirement("FR-345")
 def test_a_dry_run_branch_rehearses_the_release_and_only_a_tag_publishes_fr_345():
-    """P0340-RELEASE-TITLE, R3: dry-run/** triggers; publish and the version check are tag-gated."""
+    """P0340-RELEASE-TITLE, FR-345: dry-run/** triggers; publish and the version check are
+    tag-gated.
+    """
     document = yaml.safe_load(RELEASE_YML.read_text(encoding="utf-8"))
     trigger = document.get("on", document.get(True))
     assert "dry-run/**" in trigger["push"]["branches"]

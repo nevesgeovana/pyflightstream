@@ -6,11 +6,11 @@ scripts a campaign leaves.
 
 Marker P0340-LF-PRODUCTS, requirement NFR-32. A file written in text mode gets CRLF
 on Windows and LF on Linux, so the same campaign posted on two platforms gave two
-byte sequences. The package now writes every text file with LF (R1), through
-``pyflightstream._textio`` (R2); a campaign posted with text mode forced to write
-CRLF, as Windows does, holds no CR byte in any product or emitted script (R3); the
+byte sequences. The package now writes every text file with LF (FR-1154), through
+``pyflightstream._textio`` (FR-1155); a campaign posted with text mode forced to write
+CRLF, as Windows does, holds no CR byte in any product or emitted script (FR-1156); the
 parity script compares 0.33.0 with the CR before LF removed and counts the CR in
-the release (R4); the writers that produced CRLF are listed in RPT-140 (R7).
+the release (NFR-32); the writers that produced CRLF are listed in RPT-140 (NFR-32).
 
 The guard (:func:`text_write_bypasses`) reads the SYNTAX of every module under
 ``src/`` and refuses a text write that does not go through the route: a
@@ -30,7 +30,7 @@ their rendered form.
 
 What this does NOT prove: that the solver reads an LF script. The licensed probes
 of RPT-070 found that line ends change nothing in the disc profile file, and the
-licensed runs of 0.34.0 are the confirmation (NFR-32 R6).
+licensed runs of 0.34.0 are the confirmation (FR-1159).
 """
 # The evidence line of this requirement cites this module
 # (docs/unpublished/requirements/nonfunctional-requirements.md):
@@ -387,7 +387,7 @@ def _sources() -> dict[str, str]:
 
 
 def test_every_text_write_under_src_goes_through_the_one_lf_route() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: a walk of src/ finds no text write outside _textio."""
+    """P0340-LF-PRODUCTS, FR-1155: a walk of src/ finds no text write outside _textio."""
     sources = _sources()
     assert len(sources) > 150, "the walk found too few modules to be the package"
     assert ROUTE in sources
@@ -400,14 +400,14 @@ def test_every_text_write_under_src_goes_through_the_one_lf_route() -> None:
 
 
 def test_a_planted_bypass_of_every_kind_is_caught_and_the_clean_forms_pass() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: the control of the guard, caught 28 of 28."""
+    """P0340-LF-PRODUCTS, FR-1155: the control of the guard, caught 28 of 28."""
     caught, planted = guard_control()
     assert planted == 28
     assert caught == planted, f"caught {caught} of {planted}"
 
 
 def test_the_forms_the_guard_leaves_uncovered_are_named_with_their_reason_and_really_pass() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: what the guard does not read is a named list, kept true."""
+    """P0340-LF-PRODUCTS, FR-1155: what the guard does not read is a named list, kept true."""
     assert UNCOVERED, "the list of uncovered forms is empty"
     for name, (text, reason) in UNCOVERED.items():
         assert len(reason) > 40, f"{name}: no reason written down"
@@ -415,7 +415,7 @@ def test_the_forms_the_guard_leaves_uncovered_are_named_with_their_reason_and_re
 
 
 def test_a_re_exporter_of_the_route_really_binds_the_route() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: a re-exporter of the route binds the route."""
+    """P0340-LF-PRODUCTS, FR-1155: a re-exporter of the route binds the route."""
     assert _ROUTE_REEXPORTERS
     for module, reason in _ROUTE_REEXPORTERS.items():
         assert len(reason) > 40, f"{module}: no reason written down"
@@ -427,7 +427,7 @@ def test_a_re_exporter_of_the_route_really_binds_the_route() -> None:
 
 
 def test_a_line_end_name_passes_only_when_it_comes_from_the_route() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: the same call passes or fails by where LINE_END comes from."""
+    """P0340-LF-PRODUCTS, FR-1155: the same call passes or fails by where LINE_END comes from."""
     call = "frame.to_csv(p, lineterminator={})\n"
     imported = "from pyflightstream._textio import LINE_END\n"
     assert text_write_bypasses({"a": imported + call.format("LINE_END")}) == []
@@ -440,7 +440,7 @@ def test_a_line_end_name_passes_only_when_it_comes_from_the_route() -> None:
 
 
 def test_the_route_is_a_floor_module_that_imports_nothing_of_the_package() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: ``_textio`` imports the standard library only: a floor."""
+    """P0340-LF-PRODUCTS, FR-1155: ``_textio`` imports the standard library only: a floor."""
     tree = ast.parse((SRC / ROUTE).read_text(encoding="utf-8"))
     roots = set()
     for node in ast.walk(tree):
@@ -459,7 +459,7 @@ def test_the_route_is_a_floor_module_that_imports_nothing_of_the_package() -> No
 
 
 def test_the_route_writes_lf_with_text_mode_forced_to_crlf(tmp_path: Path) -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R1: each route function writes no CR where text mode does."""
+    """P0340-LF-PRODUCTS, FR-1154: each route function writes no CR where text mode does."""
     from tests.tier1_offline.test_products_snapshot import crlf_text_mode
 
     with crlf_text_mode():
@@ -507,7 +507,7 @@ def test_the_route_writes_lf_with_text_mode_forced_to_crlf(tmp_path: Path) -> No
 def test_the_campaign_sweep_table_a_run_writes_holds_no_cr_with_crlf_forced(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R1: the sweep table the RUN writes is LF where Windows is CRLF.
+    """P0340-LF-PRODUCTS, FR-1154: the sweep table the RUN writes is LF where Windows is CRLF.
 
     ``campaign_sweep.csv`` is written by the run stage (``write_table``, after the points
     ran), so the campaigns posted above never read it. pandas ends a row with
@@ -551,7 +551,7 @@ def bypassed_route() -> Iterator[None]:
 def test_a_campaign_posted_with_text_mode_forced_to_crlf_holds_no_cr_in_any_product(
     name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R3: no CR byte in any file the post writes; a bypass plants one."""
+    """P0340-LF-PRODUCTS, FR-1156: no CR byte in any file the post writes; a bypass plants one."""
     from tests.tier1_offline.test_products_snapshot import (
         CAMPAIGNS,
         FORCE_CRLF_IN_POST,
@@ -575,7 +575,7 @@ def test_a_campaign_posted_with_text_mode_forced_to_crlf_holds_no_cr_in_any_prod
 def test_the_scripts_a_campaign_emits_hold_no_cr_with_text_mode_forced_to_crlf(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R1, R3: the emitted solver scripts and records hold no CR."""
+    """P0340-LF-PRODUCTS, FR-1154, FR-1156: the emitted solver scripts and records hold no CR."""
     from tests.tier1_offline.test_additional_post import (
         POST_ADDITIONAL_TOML,
         a_recorded_campaign,
@@ -607,7 +607,7 @@ def test_the_scripts_a_campaign_emits_hold_no_cr_with_text_mode_forced_to_crlf(
 
 
 def test_the_programs_the_solver_runs_state_lf_for_every_file_they_write(tmp_path: Path) -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R1: the counter and clock programs write with ``newline="\\n"``."""
+    """P0340-LF-PRODUCTS, FR-1154: the counter and clock programs write with ``newline="\\n"``."""
     from pyflightstream.cases.workflows import UnsteadyExportThreshold
     from pyflightstream.cases.workflows._clock import WALLTIME_CLOCK_TEMPLATE
     from pyflightstream.run._actions_counter import render_count_program, render_program
@@ -661,7 +661,7 @@ def _parity():
 
 
 def test_the_parity_script_removes_cr_before_lf_on_the_033_side_and_counts_the_release_cr() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R4: a CRLF-only difference is named NFR-32, any other differs."""
+    """P0340-LF-PRODUCTS, NFR-32: a CRLF-only difference is named NFR-32, any other differs."""
     parity = _parity()
     assert parity.LF_REQUIREMENT == "NFR-32"
     defined = {"NFR-32"}
@@ -685,7 +685,7 @@ def test_the_parity_script_removes_cr_before_lf_on_the_033_side_and_counts_the_r
 
 
 def test_the_parity_byte_control_is_caught_alone_over_a_crlf_base() -> None:
-    """NFR-32 R4: the planted byte is caught alone though the 0.33 base holds CRLF files.
+    """NFR-32: the planted byte is caught alone though the 0.33 base holds CRLF files.
 
     The parity run of 2026-10-02 on Windows caught 6 of 7 controls: the post control
     mutated the raw base, so every CRLF product differed beside the victim.
@@ -708,7 +708,7 @@ def test_the_parity_byte_control_is_caught_alone_over_a_crlf_base() -> None:
 
 
 def test_the_snapshot_receipt_judges_line_ends_and_names_its_platform() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R3: this platform's receipt judges line ends and counts 0 CR."""
+    """P0340-LF-PRODUCTS, FR-1156: this platform's receipt judges line ends and counts 0 CR."""
     from tests.tier1_offline.test_products_snapshot import _platform, snapshot_receipt
 
     receipt = snapshot_receipt()
@@ -723,7 +723,7 @@ def test_the_snapshot_receipt_judges_line_ends_and_names_its_platform() -> None:
 def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_reads(
     tmp_path: Path,
 ) -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R3: lf_products_check.py writes SHA, platform, counts, verdict."""
+    """P0340-LF-PRODUCTS, FR-1156: lf_products_check.py writes SHA, platform, counts, verdict."""
     out = tmp_path / "lf_products.txt"
     command = [
         sys.executable,

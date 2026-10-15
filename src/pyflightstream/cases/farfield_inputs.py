@@ -5,7 +5,7 @@ the plan and by post so the two cannot disagree. From the pproc artifact, the
 row's run type and its facts, it states for every selected analysis and every
 input one of four states: ``reused`` (the artifact declares it), ``added``
 (the plan adds it), ``not_applicable`` (the analysis does not apply to the run
-type, FR-456 R7) or ``refused`` (it cannot be produced, FR-455 R6), each with
+type, FR-1059) or ``refused`` (it cannot be produced, FR-1049), each with
 its source and its reason. It reads nothing from disk and imports no layer
 above ``cases``.
 """
@@ -41,7 +41,7 @@ UNSTEADY_RUN_TYPES = frozenset({"unsteady", "unsteady_rotor"})
 #: discretization bias).
 STRIP_BIAS_PERCENT: dict[int, float] = {40: 1.05, 80: 0.52, 160: 0.26}
 
-#: The command each input reaches, checked against the selected build (FR-455 R6).
+#: The command each input reaches, checked against the selected build (FR-1049).
 _COMMANDS = {
     "section_distribution": "NEW_SURFACE_SECTION_DISTRIBUTION",
     "sectional_loads_export": "EXPORT_SURFACE_SECTIONAL_LOADS",
@@ -79,7 +79,7 @@ class FarfieldInput:
     reason: str = ""
 
     def as_record(self) -> dict[str, str]:
-        """Return the input as the plan output states it (FR-455 R4)."""
+        """Return the input as the plan output states it (FR-1047)."""
         return {
             "analysis": self.analysis,
             "input": self.input,
@@ -115,12 +115,12 @@ class FarfieldResolution:
         return "ready"
 
     def as_record(self) -> dict[str, object]:
-        """Return the row's ``farfield`` object of ``plan.json`` (FR-455 R4)."""
+        """Return the row's ``farfield`` object of ``plan.json`` (FR-1047)."""
         return {"inputs": [item.as_record() for item in self.inputs]}
 
 
 def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
-    """Return why ``analysis`` does not apply to ``run_type``, or ``""`` (FR-456 R7).
+    """Return why ``analysis`` does not apply to ``run_type``, or ``""`` (FR-1059).
 
     ``rotor`` marks a steady row whose far field is a rotor's.
 
@@ -154,7 +154,7 @@ def applies(analysis: str, run_type: str, *, rotor: bool = False) -> str:
 
 
 def traced_family(families: Sequence[str], inventory: Sequence[str]) -> str | None:
-    """Return the one family a section distribution cuts, or None (FR-455 R2, PFS-2081.100).
+    """Return the one family a section distribution cuts, or None (FR-1045, PFS-2081.100).
 
     The one rule the plan and post share for whether a declared distribution
     serves Trefftz A: the sectional-loads export holds one block per
@@ -181,7 +181,7 @@ def traced_family(families: Sequence[str], inventory: Sequence[str]) -> str | No
 
 
 def few_stations_warning(family: str, per_side: int, stations: int) -> str:
-    """Return the WARNING of a family traced on fewer stations than asked (FR-451 R10).
+    """Return the WARNING of a family traced on fewer stations than asked (FR-1019).
 
     One sentence, said by the plan and by post alike: the family, its station
     count per side, the count ``[farfield.trefftz] stations`` asks for, and the
@@ -208,7 +208,7 @@ def few_stations_warning(family: str, per_side: int, stations: int) -> str:
     return (
         f"family {family} has {per_side} stations per side, fewer than the {stations} of "
         f"[farfield.trefftz]; the strip bias of E_T measured on the definitions page is "
-        f"{STRIP_BIAS_PERCENT[nearest]} percent at {nearest} stations per side (FR-451 R10)"
+        f"{STRIP_BIAS_PERCENT[nearest]} percent at {nearest} stations per side (FR-1019)"
     )
 
 
@@ -246,14 +246,14 @@ def resolve_farfield(
         ``qsteady_rotor``).
     covered_families : collection of str
         The families a declared ``[sections]`` distribution cuts in plane XZ of a
-        reference-axes frame (FR-455 R2).
+        reference-axes frame (FR-1045).
     selected_families : sequence of str
         The families ``[farfield] families`` resolves to on the row's geometry.
     exports : dict of str to bool
         The artifact's ``[exports]`` table, as stated.
     declares_lattice, declares_plane : bool
         Whether a ``[[probes]]`` entry declares the lattice or the plane the far
-        field reuses (identity is the caller's test, FR-455 R2).
+        field reuses (identity is the caller's test, FR-1045).
     coupled : bool
         Whether the row is a coupled FSI row.
     admits_probes : bool
@@ -261,7 +261,7 @@ def resolve_farfield(
     has_command : callable
         Whether the selected build's command database records a command.
     rotor : bool
-        Whether a steady row's far field is a rotor's (FR-456 R7).
+        Whether a steady row's far field is a rotor's (FR-1059).
 
     Returns
     -------

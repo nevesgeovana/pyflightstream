@@ -1,4 +1,6 @@
-"""The multiblock grid of an all-quadrilateral family, recovered and resampled (FR-424 R6, R7, R9).
+"""The multiblock grid of an all-quadrilateral family, recovered and resampled.
+
+(FR-920, FR-921, FR-923).
 
 A family of quadrilaterals that is not one sheet or one tube (a nacelle whose
 pylon junction cuts a hole, a fuselage sheet whose boundary has six corners)
@@ -20,7 +22,7 @@ alone:
    traced to their ends cross one another rather than stopping, so a side
    never meets a corner of the patch beside it: the arcs are the sides.
 
-Resampling (R6) keeps that structure: each arc is resampled ONCE, by the
+Resampling (FR-920) keeps that structure: each arc is resampled ONCE, by the
 cubic spline of :func:`._grid.not_a_knot` through its source nodes in index
 space, to ``round(f m)`` intervals of its m; opposite sides of a patch hold
 the same m, so they agree. A patch's interior is the tensor spline of its
@@ -28,7 +30,7 @@ nodes, as a single grid's is, and its boundary nodes are the arcs' nodes, so
 two patches sharing an arc share its nodes exactly. The source's nodes at
 integer parameters are kept bit for bit, the layout's corners among them.
 
-Face order (R7): every new face takes the position of the source face whose
+Face order (FR-921): every new face takes the position of the source face whose
 centroid is nearest (``_geometry.order_like``), each patch oriented like the
 source faces it replaces; at factor 1 the family is the source in coordinates
 and in order. A family with a face that is not a quadrilateral, or whose
@@ -36,7 +38,7 @@ layout is one patch (a sheet or a tube, recovered or refused by
 :mod:`._grid`), or whose cut leaves a patch that is not four-sided, has no
 multiblock grid, and falls back as before.
 
-This module imports neither scipy nor rtree (R10).
+This module imports neither scipy nor rtree (FR-924).
 """
 
 from __future__ import annotations
@@ -367,7 +369,7 @@ def check_factor(blocks: Blocks, family: str, spec: FamilySpec) -> None:
     """Refuse chordwise or spanwise on a multiblock family, and a factor leaving no interval.
 
     A factor below 1/m for the m source intervals of any patch side would
-    leave that side no interval (FR-424 R1), so it is refused naming the
+    leave that side no interval (FR-915), so it is refused naming the
     family, the patch side and the value rather than rounded up to one.
 
     Parameters
@@ -416,7 +418,7 @@ def nodes_change(blocks: Blocks, factor: float) -> bool:
     """Return whether resampling by ``factor`` would change the nodes of any patch side.
 
     Read from the counts alone, before any family is resampled (FR-424
-    R11): a side keeps its nodes when its count is the source's. Any side
+    FR-925): a side keeps its nodes when its count is the source's. Any side
     changing is taken to change every curve the family shares.
     """
     return any(_count(len(arc) - 1, factor) != len(arc) - 1 for arc in blocks.arcs)
@@ -498,7 +500,7 @@ def _forward(quad: Sequence[int], a: int, b: int) -> bool:
 
 
 def refine_blocks(verts: Points, faces: Faces, blocks: Blocks, *, factor: float) -> GridLevel:
-    """Resample a multiblock family by its factor (FR-424 R6, R7).
+    """Resample a multiblock family by its factor (FR-920, FR-921).
 
     Parameters
     ----------

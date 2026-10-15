@@ -3,7 +3,7 @@
 Every fixture is built here: an open cylinder of near-equilateral triangles
 (each ring of nodes turned half a step from the one before), written as an
 OBJ with its refinement file beside it, and refined through
-:func:`pyflightstream.workspace.refine_mesh`. R1 is measured on the level's
+:func:`pyflightstream.workspace.refine_mesh`. FR-945 is measured on the level's
 OBJ against the source's, never on the remesher's own bookkeeping, and each
 measurement is run once on a level it must reject, so a check that accepts
 everything cannot pass.
@@ -77,7 +77,7 @@ def _body(axial: float, circumferential: float, family: str = "B") -> str:
     )
 
 
-# ---- the measurement of R1
+# ---- the measurement of FR-945
 
 
 def _mean_components(nodes: numpy.ndarray, faces: list[list[int]]) -> tuple[float, float]:
@@ -98,7 +98,7 @@ def _mean_components(nodes: numpy.ndarray, faces: list[list[int]]) -> tuple[floa
 
 
 def _r1(source: Path, level: Path, axial: float, circumferential: float) -> tuple[bool, bool]:
-    """Return whether the level meets R1 along the axis and around it for the given factors."""
+    """Return whether the level meets FR-945 along the axis and around it for the given factors."""
     before = read_obj(source)
     after = read_obj(level)
     along0, around0 = _mean_components(before.verts, before.families["B"])
@@ -122,14 +122,14 @@ def levels(
     return out
 
 
-# ---- R1
+# ---- FR-945
 
 
 @pytest.mark.parametrize(("axial", "circumferential"), [(2, 1), (1, 2)])
 def test_r1_edges_shrink_by_their_own_factor_along_and_around_the_axis(
     levels: dict[tuple[float, float], tuple[Path, Path]], axial: int, circumferential: int
 ) -> None:
-    """P0380-AXIAL (FR-428 R1): each component of the edges shrinks by its own factor.
+    """P0380-AXIAL (FR-945): each component of the edges shrinks by its own factor.
 
     Control: the level refined along the wrong direction (the two factors
     swapped) fails both halves of the same check.
@@ -143,7 +143,7 @@ def test_r1_edges_shrink_by_their_own_factor_along_and_around_the_axis(
 def test_r1_every_node_lies_on_the_source_surface(
     levels: dict[tuple[float, float], tuple[Path, Path]],
 ) -> None:
-    """P0380-AXIAL (FR-428 R1, FR-424 R8): the stretched remesh projects onto the real surface.
+    """P0380-AXIAL (FR-945, FR-922): the stretched remesh projects onto the real surface.
 
     Control: the same level with its nodes pushed out radially by 1e-4 of
     the size is caught.
@@ -189,7 +189,7 @@ def _turning_patch(degrees: float, stretch: Stretch | None) -> Patch:
 
 
 def test_a_corner_of_a_curve_is_judged_in_the_real_space() -> None:
-    """P0380-AXIAL (FR-428, FR-424 R8): a stretch does not make a corner of a smooth turn.
+    """P0380-AXIAL (FR-428, FR-922): a stretch does not make a corner of a smooth turn.
 
     A boundary turning by 30 degrees is no corner (the ridge angle is 40);
     stretched 4 times across the axis it would turn by 67 degrees, and a
@@ -207,7 +207,7 @@ def test_a_corner_of_a_curve_is_judged_in_the_real_space() -> None:
 
 
 def test_an_unchanged_neighbour_keeps_the_shared_ring_exactly(tmp_path: Path) -> None:
-    """P0380-AXIAL (FR-428, FR-424 R8): the curve a body shares with an unchanged family stays.
+    """P0380-AXIAL (FR-428, FR-922): the curve a body shares with an unchanged family stays.
 
     The body ``B`` is remeshed in its stretched space while ``U`` is not
     asked to change: in the level every source node of their shared ring is
@@ -239,9 +239,9 @@ def test_an_unchanged_neighbour_keeps_the_shared_ring_exactly(tmp_path: Path) ->
 def test_a_body_sharing_a_curve_with_an_isotropic_remeshed_family_is_refused(
     tmp_path: Path,
 ) -> None:
-    """P0380-AXIAL (FR-428, FR-424 R8, R11): a body and a family not stretched alike are refused.
+    """P0380-AXIAL (FR-428, FR-922, FR-925): a body and a family not stretched alike are refused.
 
-    Their shared curve would be remeshed once for both (R8), and a stretch
+    Their shared curve would be remeshed once for both (FR-922), and a stretch
     applies to the whole group. The refusal names both families and leaves
     no level folder; two bodies with swapped factors are refused alike.
     Control: the same two families stretched alike refine.
@@ -265,7 +265,7 @@ def test_a_body_sharing_a_curve_with_an_isotropic_remeshed_family_is_refused(
 
 
 def test_a_body_beside_a_factor_one_family_is_remeshed_apart(tmp_path: Path) -> None:
-    """P0380-AXIAL (FR-428, FR-424 R8): a body and a family at factor 1 keep their shared curve.
+    """P0380-AXIAL (FR-428, FR-922): a body and a family at factor 1 keep their shared curve.
 
     A remeshed family at factor 1 is unchanged, so the body is remeshed
     alone and the curve they share keeps every source node. Control: the
@@ -282,7 +282,7 @@ def test_a_body_beside_a_factor_one_family_is_remeshed_apart(tmp_path: Path) -> 
     assert all(tuple(before.verts[v].tolist()) in written for v in sorted(ring))
 
 
-# ---- R2, each refusal through refine_mesh
+# ---- FR-946, each refusal through refine_mesh
 
 
 REFUSALS = [
@@ -306,7 +306,7 @@ REFUSALS = [
 def test_r2_each_refusal_reaches_the_user_through_refine_mesh(
     tmp_path: Path, table: str, expected: str
 ) -> None:
-    """P0380-AXIAL (FR-428 R2): each refusal names the file, the table and the key.
+    """P0380-AXIAL (FR-946): each refusal names the file, the table and the key.
 
     Control: the same body stated well refines (the module's levels), and a
     refused call leaves no level folder beside the source's folder.

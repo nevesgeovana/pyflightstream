@@ -84,7 +84,7 @@ class TestDecidedDocs1RefineTag:
     @staticmethod
     def test_p0400_refine_tag_close_factors_collide_and_refine_json_keeps_the_exact_one(tmp_path):
         # Verifies FR-433.
-        """P0400-REFINE-TAG: 2.0000001 and 2.0000002 share R2; the second is refused, then replaced."""  # noqa: E501
+        """P0400-REFINE-TAG: 2.0000001 and 2.0000002 share FR-970; the second is refused, then replaced."""  # noqa: E501
         src = _decided_docs_1_refine_tag___source(tmp_path)
         first = refine_mesh(src, 2.0000001)
         assert first.folder.name.endswith("_R2"), first.folder
@@ -424,7 +424,7 @@ class TestWorkspace2RefineLevel:
     @staticmethod
     def test_p0400_refinelevel_a_selected_family_at_factor_one_is_in_the_specs(tmp_path):
         """P0400-REFINELEVEL (PFS-2099.007): G at 2 and T at 1 are both selected; T is kept
-        unchanged, and refine.json's specs still records it with its factor (FR-433 R4)."""
+        unchanged, and refine.json's specs still records it with its factor (FR-972)."""
         toml = "[families.G]\nfactor = 2\n[families.T]\nfactor = 1\n"
         mesh = _workspace_2_refine_level__sheet_with_strips(
             (("T", "tri", (0.03, 0.04, 0.05, 0.065, 0.08)),)

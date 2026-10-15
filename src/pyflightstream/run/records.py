@@ -290,7 +290,7 @@ def _apply_marking(
     for _run_id, unit in marking:
         unit["marked"] = {"from": unit.get("status"), "at": at, "reason": reason}
         unit["status"] = str(RunStatus.FAILED_MARKED)
-        unit.pop("iterations_requested", None)  # FR-434 R1: for MAX_ITER_REACHED alone.
+        unit.pop("iterations_requested", None)  # FR-974: for MAX_ITER_REACHED alone.
     # A job's status is its worst point's, by the one order (worse_of).
     worst = RunStatus.FAILED_MARKED
     for entry in row.get("points_ran") or []:

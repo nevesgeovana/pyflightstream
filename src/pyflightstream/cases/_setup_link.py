@@ -82,10 +82,10 @@ def family_indices(
     reference driver filtered the preset's list to the configuration it opened;
     a list that resolves to nothing is refused, because an empty selection would
     be read by the solver as the default and the preset asked for something else
-    (FR-435 R7, whatever the study holds). A name that selects nothing on the
+    (FR-985, whatever the study holds). A name that selects nothing on the
     model is judged by the row's study first (FR-435): skipped and said where the
     study holds it, refused where it does not, and refused where the run asked
-    for the refusal (``--ignore-missing-families false``, R10).
+    for the refusal (``--ignore-missing-families false``, FR-988).
 
     ONE RULE FOR EVERY PER-FAMILY LIST, not one copy per list. This was written
     for `vorticity_drag_families` alone and generalised when
@@ -165,7 +165,7 @@ def family_indices(
 def _judge_a_family_the_model_lacks(
     case: SimCase, script: Script, name: str, preset_key: str
 ) -> None:
-    """Skip or refuse one family the opened inventory does not resolve (FR-435 R4, R6, R10).
+    """Skip or refuse one family the opened inventory does not resolve (FR-982, FR-984, FR-988).
 
     Only a name that selects nothing on the model as its geometry opened it
     (:func:`~pyflightstream.cases.setup_surfaces.the_model_inventory`) is

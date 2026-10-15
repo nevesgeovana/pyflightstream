@@ -1091,7 +1091,7 @@ class _MarchHistory:
         What the post log states about how the history was put together.
     idle : tuple of str
         One warning per run of the chain whose export adds no time step to the
-        march it continues (FR-396 R3), naming both runs; empty where every
+        march it continues (FR-800), naming both runs; empty where every
         continuation marched on.
     """
 
@@ -1315,7 +1315,7 @@ def _march_history(
 
 
 def _adds_no_step(run_id: str, continued: str, reached: int) -> str:
-    """Return the warning for a continuation whose export adds no time step (FR-396 R3).
+    """Return the warning for a continuation whose export adds no time step (FR-800).
 
     The shape RPT-134 measured on 26.124 for the continuation 0.34.0 emitted:
     the solver cleared the reopened state and marched again from step 1, so the

@@ -179,28 +179,30 @@ def _table(out: str) -> list[list[str]]:
 
 
 def test_status_prints_one_row_per_polar_in_matrix_then_numeric_order(workspace, capsys):
-    """P0350-STATUS-POLAR (FR-379): one row per polar with its six columns, R1 and R4."""
+    """P0350-STATUS-POLAR (FR-379): one row per polar with its six columns, FR-731 and FR-734."""
     code, out, _ = _status(workspace, capsys)
     assert code == 0
     table = _table(out)
     assert table[0] == ["SIM", "POLAR", "SWEEP", "POINTS", "MATRIX", "STATUS"]
-    # R4: by matrix, then by simulation id as a number (10001 after 2011, not before 2006).
+    # FR-734: by matrix, then by simulation id as a number (10001 after 2011, not before 2006).
     assert [row[0] for row in table[1:]] == ["2006", "2007", "2008", "2009", "2011", "10001"]
     rows = {row[0]: row for row in table[1:]}
     assert rows["2006"][1:5] == ["M144AL+sweep", "alpha", "3/4", MATRIX]
     # A polar only planned has no recorded sweep name; the one its points imply.
     assert rows["2007"][1:5] == ["M144AL+sweep", "alpha", "0/2", MATRIX]
-    # R1: a one-point polar sweeps what its name marks swept.
+    # FR-731: a one-point polar sweeps what its name marks swept.
     assert rows["10001"][1:5] == ["M144AL+sweep", "alpha", "1", MATRIX]
 
 
 def test_a_mixed_polar_counts_each_word_and_a_uniform_one_states_its_word(workspace, capsys):
-    """P0350-STATUS-MIXED (FR-379): R2 one word when all agree, R3 the counts of a mixed polar."""
+    """P0350-STATUS-MIXED (FR-379): FR-732 one word when all agree, FR-733 the counts of a mixed
+    polar.
+    """
     _, out, _ = _status(workspace, capsys)
     rows = {row[0]: row for row in _table(out)[1:]}
-    # R3: concluded, then failed, then submitted or running, then planned, each a number.
+    # FR-733: concluded, then failed, then submitted or running, then planned, each a number.
     assert rows["2006"][5] == "CONVERGED 2, FAILED_DIVERGED 1, planned 1"
-    # R2: every datapoint the same word.
+    # FR-732: every datapoint the same word.
     assert rows["2011"][5] == "SUBMITTED"
     assert rows["10001"][5] == "CONVERGED"
     totals = next(line for line in out.splitlines() if " polar(s), " in line)
@@ -211,19 +213,19 @@ def test_a_mixed_polar_counts_each_word_and_a_uniform_one_states_its_word(worksp
 
 
 def test_status_selects_by_sims_matrix_status_and_failed(workspace, capsys):
-    """P0350-STATUS-SELECT (FR-380): R1 to R4."""
+    """P0350-STATUS-SELECT (FR-380): FR-735 to FR-738."""
     _, plain, _ = _status(workspace, capsys, "--sims", "2006,2007")
     _, bracketed, _ = _status(workspace, capsys, "--sims", "[2006, 2007]")
     assert [row[0] for row in _table(plain)[1:]] == ["2006", "2007"]
     assert _table(bracketed) == _table(plain)
     assert listed_sims("[2006,2007]") == listed_sims("2006,2007") == ["2006", "2007"]
-    # R2: a stem, its file name, or its path in a home all name the matrix.
+    # FR-736: a stem, its file name, or its path in a home all name the matrix.
     for name in (MATRIX, f"{MATRIX}.fs", f"inputs/matrices/{MATRIX}.fs"):
         _, out, _ = _status(workspace, capsys, "--matrix", name)
         assert len(_table(out)) == 7
     _, out, _ = _status(workspace, capsys, "--matrix", "another")
     assert len(_table(out)) == 1
-    # R3: a recorded word, repeatable, with a trailing *; --failed.
+    # FR-737: a recorded word, repeatable, with a trailing *; --failed.
     _, out, _ = _status(workspace, capsys, "--status", "FAILED_DIVERGED")
     assert [row[0] for row in _table(out)[1:]] == ["2006"]
     _, out, _ = _status(workspace, capsys, "--status", "FAILED_*")
@@ -234,12 +236,12 @@ def test_status_selects_by_sims_matrix_status_and_failed(workspace, capsys):
     assert [row[0] for row in _table(out)[1:]] == ["2006", "2009"]
     code, _, err = _status(workspace, capsys, "--status", "SUCCESS")
     assert code == 2 and "status (CLI: --status)" in err and "'SUCCESS'" in err
-    # R4: an id that names nothing is named on standard error; the others print.
+    # FR-738: an id that names nothing is named on standard error; the others print.
     code, out, err = _status(workspace, capsys, "--sims", "2006,9999")
     assert code == 0
     assert "sims (CLI: --sims): simulation 9999 holds no record and no planned point" in err
     assert [row[0] for row in _table(out)[1:]] == ["2006"]
-    # The exit status of an id that matches nothing is open (FR-380 R4); today's is 1.
+    # The exit status of an id that matches nothing is open (FR-738); today's is 1.
     code, _, err = _status(workspace, capsys, "--sims", "9999")
     assert code == 1 and "9999" in err
 
@@ -247,18 +249,18 @@ def test_status_selects_by_sims_matrix_status_and_failed(workspace, capsys):
 def test_planned_points_are_counted_in_lower_case_and_the_footer_states_freshness(
     workspace, capsys
 ):
-    """P0350-STATUS-PLANNED (FR-382): R1 to R4."""
+    """P0350-STATUS-PLANNED (FR-382): FR-745 to FR-748."""
     _, out, _ = _status(workspace, capsys)
     rows = {row[0]: row for row in _table(out)[1:]}
-    # R1 and R3: a polar only planned reads `planned`; a partly planned one counts both.
+    # FR-745 and FR-747: a polar only planned reads `planned`; a partly planned one counts both.
     assert rows["2007"][5] == PLANNED == "planned"
     assert rows["2006"][3] == "3/4" and "planned 1" in rows["2006"][5]
     # The job SUBMITTED for its row carries both its points, so neither is planned.
     assert rows["2011"][3] == "2/2"
-    # R2: no recorded status word is lower case.
+    # FR-746: no recorded status word is lower case.
     assert all(status.value.isupper() for status in RunStatus)
     assert PLANNED not in {status.value for status in RunStatus}
-    # R4: the plan is the matrix's on disk; the post is complete and indexes 1 of 7 runs.
+    # FR-748: the plan is the matrix's on disk; the post is complete and indexes 1 of 7 runs.
     assert f"plan/{MATRIX}: made from the matrix on disk" in out
     assert f"post/{MATRIX}: written " in out and ", complete, 6 recorded run(s)" in out
     (workspace / f"{MATRIX}.fs").write_text("POL,SIM,ALPHA\n", encoding="utf-8")
@@ -270,25 +272,25 @@ def test_planned_points_are_counted_in_lower_case_and_the_footer_states_freshnes
 
 
 def test_each_datapoint_is_counted_once_by_its_effective_record(workspace):
-    """P0350-QUERY-EFFECTIVE (FR-381): R1 to R6."""
+    """P0350-QUERY-EFFECTIVE (FR-381): FR-739 to FR-744."""
     ledger = read_ledger(workspace)
     points = {(row["sim"], row["point"]): row for row in ledger.points()}
-    # R1: the steady job is three datapoints, each with its own status.
+    # FR-739: the steady job is three datapoints, each with its own status.
     assert [points[("2006", name)]["status"] for name in ("M144AL-040", "M144AL+000")] == [
         "CONVERGED",
         "CONVERGED",
     ]
     assert points[("2006", "M144AL+040")]["status"] == "FAILED_DIVERGED"
-    # R2, R3, R5: the continued point is ONE datapoint, the continuation's, by name;
+    # FR-740, FR-741, FR-743: the continued point is ONE datapoint, the continuation's, by name;
     # the refused continuation after it is a note and does not replace it.
     assert [key for key in points if key[0] == "2008"] == [("2008", "M144AL+000")]
     assert points[("2008", "M144AL+000")]["status"] == "CONVERGED"
     assert points[("2008", "M144AL+000")]["run_id"].endswith("r20261002-101010/M144AL+000")
     assert any(note.get("kind") == "refused continuation" for note in ledger.notes)
-    # R4: the delete-sims note is no datapoint.
+    # FR-742: the delete-sims note is no datapoint.
     assert not any(key[0] == "2010" for key in points)
     assert any(note.get("deleted_sim") == "2010" for note in ledger.notes)
-    # R6: the run layer reads the rule from the workspace home, not a copy of its own.
+    # FR-744: the run layer reads the rule from the workspace home, not a copy of its own.
     assert run_rule is latest_record_of_point
     records = [RunRecord.model_validate(row) for row in _rows() if "deleted_sim" not in row]
     latest = latest_record_of_point(records, "2008", "M144AL+000")
@@ -298,19 +300,19 @@ def test_each_datapoint_is_counted_once_by_its_effective_record(workspace):
 
 
 def test_status_prints_recorded_words_as_recorded(workspace, capsys):
-    """P0350-QUERY-RECORDED-WORDS (FR-384): R1, R3 and R4."""
+    """P0350-QUERY-RECORDED-WORDS (FR-384): FR-754, FR-756 and FR-757."""
     _, out, _ = _status(workspace, capsys, "--points")
     table = _table(out)
     heading = table[0]
     assert heading[:5] == ["SIM", "POINT", "MATRIX", "STATUS", "WAS"]
     rows = {(row[0], row[1]): row for row in table[1:]}
-    # R3: the marked verdict as recorded, with the status it replaced beside it.
+    # FR-756: the marked verdict as recorded, with the status it replaced beside it.
     assert rows[("2009", "M144AL+000")][3:5] == ["FAILED_MARKED", "CONVERGED"]
-    # R1: every word printed is a recorded word or the derived one.
+    # FR-754: every word printed is a recorded word or the derived one.
     words = {row[3] for row in table[1:]}
     assert words <= {status.value for status in RunStatus} | {PLANNED}
     assert "WALLTIME_REACHED" not in words  # superseded by its continuation, not renamed
-    # R4: a planned point reads `planned`, a form no recorded word takes.
+    # FR-757: a planned point reads `planned`, a form no recorded word takes.
     assert rows[("2006", "M144AL+080")][3] == "planned"
     # The batch job's points say where they run.
     assert rows[("2011", "M144AL+000")][-1] == f"{MATRIX}_b1"
@@ -339,7 +341,7 @@ def _leaves_the_tree_as_it_was(root: Path, action: Callable[[], object]) -> bool
 
 
 def test_status_writes_nothing_and_takes_no_lock(workspace, capsys):
-    """P0350-QUERY-READ-ONLY (FR-383): R1 to R4, with a planted writer as the control."""
+    """P0350-QUERY-READ-ONLY (FR-383): FR-749 to FR-752, with a planted writer as the control."""
     # A held lock of a campaign writing now: the query neither waits on it nor touches it.
     lock = workspace / "runs.json.lock"
     lock.write_text('{"pid": 1, "token": "held"}', encoding="utf-8")
@@ -365,11 +367,11 @@ def test_status_writes_nothing_and_takes_no_lock(workspace, capsys):
 
         assert _leaves_the_tree_as_it_was(workspace, query), flags
     assert time.monotonic() - started < 30
-    # R4: the row it cannot read is named by its position and run id; the others print.
+    # FR-752: the row it cannot read is named by its position and run id; the others print.
     _, out, err = _status(workspace, capsys)
     assert f"runs.json row 9 (run {CAMPAIGN}/sim_2012/M144AL+000) cannot be read" in err
     assert len(_table(out)) == 7
-    # R3: the compacted simulation is found where it is and left compacted.
+    # FR-751: the compacted simulation is found where it is and left compacted.
     assert read_ledger(workspace).sim_folders("2009") == ["sims/sim_2009.zip"]
     assert not (workspace / "sims" / "sim_2009").exists()
 
@@ -384,11 +386,11 @@ def test_status_writes_nothing_and_takes_no_lock(workspace, capsys):
 
 
 def test_json_and_csv_print_the_table_rows_and_nothing_else(workspace, capsys):
-    """P0350-QUERY-MACHINE (FR-385): R1 to R4."""
+    """P0350-QUERY-MACHINE (FR-385): FR-758 to FR-761."""
     _, table_out, _ = _status(workspace, capsys)
     code, out, err = _status(workspace, capsys, "--json")
     assert code == 0
-    document = json.loads(out)  # R1: stdout is the document alone
+    document = json.loads(out)  # FR-758: stdout is the document alone
     assert document["schema"] == "pyfs-status/1"
     assert document["workspace"] == str(workspace.resolve())
     assert document["read_at"].endswith("+00:00")
@@ -399,11 +401,11 @@ def test_json_and_csv_print_the_table_rows_and_nothing_else(workspace, capsys):
     }
     assert "status" in err  # the opening block is on stderr
     table = _table(table_out)
-    # R4: the same rows, in the same order, with the same cells.
+    # FR-761: the same rows, in the same order, with the same cells.
     assert [[str(row[key]) for key in STATUS_COLUMNS] for row in document["rows"]] == table[1:]
     code, out, _ = _status(workspace, capsys, "--csv")
     assert code == 0
-    assert "\r" not in out  # R3: LF line ends
+    assert "\r" not in out  # FR-760: LF line ends
     parsed = list(csv.reader(io.StringIO(out)))
     assert parsed[0] == list(STATUS_COLUMNS)
     assert parsed[1:] == table[1:]
@@ -413,7 +415,9 @@ def test_json_and_csv_print_the_table_rows_and_nothing_else(workspace, capsys):
 
 
 def test_the_python_mirror_returns_plain_rows(workspace):
-    """P0350-QUERY-PYTHON (FR-388): R1 (status, points, card) and R3, the rows the CLI prints."""
+    """P0350-QUERY-PYTHON (FR-388): FR-773 (status, points, card) and FR-775, the rows the CLI
+    prints.
+    """
     ledger = read_ledger(workspace)
     rows = ledger.status(sims=["2006"])
     assert json.loads(json.dumps(rows)) == rows  # plain dictionaries, nothing else
@@ -425,7 +429,7 @@ def test_the_python_mirror_returns_plain_rows(workspace):
 
 
 def test_a_continued_run_is_not_counted_even_after_its_continuation(tmp_path):
-    """P0350-QUERY-EFFECTIVE (FR-381): R2, the chain read from what the continuation states.
+    """P0350-QUERY-EFFECTIVE (FR-381): FR-740, the chain read from what the continuation states.
 
     A merged manifest can carry the continued run AFTER its continuation in file
     order; the run it continues is still not the point's state.
@@ -446,7 +450,7 @@ def test_a_continued_run_is_not_counted_even_after_its_continuation(tmp_path):
 
 
 def test_a_planned_point_whose_record_cannot_be_read_is_not_called_planned(workspace, capsys):
-    """P0350-STATUS-PLANNED (FR-382): R1, a point is planned only when NO row records it.
+    """P0350-STATUS-PLANNED (FR-382): FR-745, a point is planned only when NO row records it.
 
     The rule's one home (``planned_points_without_record``) reads every row that
     names a run, read or not: a row this version cannot read still says the

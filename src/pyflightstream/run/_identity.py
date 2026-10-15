@@ -453,7 +453,7 @@ def check_solver_identity(
         With True, an installed build other than the registered one is
         warned about and accepted instead of refused. Default False.
     accepted_by : str, keyword-only, optional
-        The file that stated the acceptance (FR-436 R7): ``pyfs.toml``,
+        The file that stated the acceptance (FR-998): ``pyfs.toml``,
         ``pyfs.local.toml`` or ``executables.local.toml`` (a build entry of
         ``inputs/executables.local.toml``), which the warning names; None
         where the command line typed it. Default None.
@@ -598,7 +598,7 @@ def acceptance_of(
 ) -> tuple[bool, str | None]:
     """Return whether one installation's build is accepted, and the file that said so.
 
-    FR-436 R7: the acceptance is stated by the command line, by a workspace
+    FR-998: the acceptance is stated by the command line, by a workspace
     settings file, or by the build's own entry in
     ``inputs/executables.local.toml``; either route accepts, and the entry
     accepts its own build only.
@@ -632,7 +632,7 @@ def entry_accepted_builds(
     default: str | None,
     fs_exe: str | Path | None,
 ) -> frozenset[str]:
-    """Return the installations whose own build entry accepts their installed build (FR-436 R7).
+    """Return the installations whose own build entry accepts their installed build (FR-998).
 
     Read off the registry entries the bound matrix resolved, for the
     installations its rows use once the selection narrowed them (an entry no
@@ -793,7 +793,7 @@ def _check_scheduled_builds(
         warned about and accepted instead of refused. Default False.
     accepted_builds : collection of str, keyword-only
         The installations whose own entry of ``inputs/executables.local.toml``
-        accepts their build (FR-436 R7), keyed as the cases are grouped; each
+        accepts their build (FR-998), keyed as the cases are grouped; each
         accepts that build only. Default empty.
 
     Raises

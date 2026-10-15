@@ -4,9 +4,9 @@ An FSI input with ``mode = "external"`` names a structural program of the
 user's own. The solver does not call it directly: its aeroelastic execution
 command calls ``pyfs-fsi external`` in the point folder at every coupling
 iteration, and :func:`external_step` runs the program, then archives and
-validates the call (FR-462 R3).
+validates the call (FR-1092).
 
-THE EXCHANGE IS THE PACKAGE BEAM'S (FR-462 R2): the solver writes the section
+THE EXCHANGE IS THE PACKAGE BEAM'S (FR-1091): the solver writes the section
 loads file :data:`~pyflightstream.fsi.state.LOADS_FILE` in the point folder,
 and the program writes :data:`~pyflightstream.fsi.state.DISPLACEMENT_FILE`, one
 comma-separated ``dx,dy,dz`` translation in metres per structural node, in the
@@ -50,7 +50,7 @@ __all__ = [
 
 #: The manifest the plan stages in each point folder: what the step runs and checks.
 EXTERNAL_MANIFEST = "fsi_external.json"
-#: One row per call, appended by the step (FR-462 R3).
+#: One row per call, appended by the step (FR-1092).
 EXTERNAL_CALLS_LOG = "fsi_external_calls.csv"
 #: The user's node file, as the point folder holds it.
 EXTERNAL_NODES_FILE = "fsi_external_nodes.csv"
@@ -60,7 +60,7 @@ _ARCHIVE_DIR = "fsi_archive"
 _ERROR_LOG = "pyfs_fsi_error.log"
 _STDOUT = "fsi_external_stdout.txt"
 #: Every name the step reads or writes in the point folder or in a call's archive
-#: (FR-462 R3, R4). A declared input or output under one of them, compared without
+#: (FR-1092, FR-1093). A declared input or output under one of them, compared without
 #: case as the file system does, would be overwritten by the step or overwrite
 #: its file while the call reports success, so it is refused at reading, at plan
 #: and by the step itself before the program runs.
@@ -90,7 +90,7 @@ _LOG_COLUMNS = (
 
 
 class ExternalStructure(BaseModel):
-    """A resolved external structural program, as the plan hashed it (FR-462 R1, R6).
+    """A resolved external structural program, as the plan hashed it (FR-1090, FR-1095).
 
     Attributes
     ----------
@@ -146,7 +146,7 @@ class ExternalStructure(BaseModel):
     convergence_threshold: float | None = Field(default=None, gt=0.0)
 
     def provenance(self) -> dict[str, object]:
-        """Return the record's ``fsi-provenance.json`` content (FR-462 R6)."""
+        """Return the record's ``fsi-provenance.json`` content (FR-1095)."""
         return {
             "mode": "external",
             "route": "B: SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND -> pyfs-fsi external",
@@ -164,7 +164,7 @@ class ExternalStructure(BaseModel):
 
 
 def step_name_collisions(names: Iterable[str]) -> list[str]:
-    """Return names identifying a file of :data:`STEP_NAMES` (FR-462 R4).
+    """Return names identifying a file of :data:`STEP_NAMES` (FR-1093).
 
     Use the staged-file identity rule, including Windows trailing dots and
     spaces, so an alias cannot overwrite the archive record (REL9-001).
@@ -188,7 +188,7 @@ def _sha256(path: Path) -> str:
 
 
 def count_structural_nodes(path: str | Path) -> int:
-    """Count the nodes of a node file: one ``x,y,z`` row each, finite (FR-462 R2).
+    """Count the nodes of a node file: one ``x,y,z`` row each, finite (FR-1091).
 
     Parameters
     ----------
@@ -305,7 +305,7 @@ def _judge_displacements(directory: Path, structure: ExternalStructure) -> tuple
 
 
 def external_step(directory: str | Path) -> int:
-    """Run, archive and validate one call of the external structural program (FR-462 R3).
+    """Run, archive and validate one call of the external structural program (FR-1092).
 
     Parameters
     ----------

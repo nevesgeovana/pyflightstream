@@ -106,7 +106,7 @@ def _program(path: Path) -> None:
 
 
 def _march(actions: list[tuple[str, Path]], steps: int, cwd: Path, log: list[str]) -> None:
-    """One START_SOLVER: every action after every step, the step from 1 (measured, R2)."""
+    """One START_SOLVER: every action after every step, the step from 1 (measured, FR-823)."""
     log.append("Following geometry is being initialized")
     for step in range(1, steps + 1):
         log.append(f"Solving unsteady time-step iteration ( {step} / {steps} )")

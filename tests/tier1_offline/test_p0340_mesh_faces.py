@@ -222,7 +222,7 @@ def test_the_post_carries_the_inventorys_count_as_the_last_column_fr_348(
     The run recorded the sha256 the inventory states, so every row carries 7
     and post.log holds no MESH_FACES warning. The same campaign whose run
     recorded another sha256 still carries 7 in every row, since the inventory
-    states the field (R3), and its post.log WARNS naming both sha256; every
+    states the field (FR-706), and its post.log WARNS naming both sha256; every
     other column and cell of both posts is the same.
     """
     requirement = "FR-348"
@@ -348,7 +348,7 @@ def _inventory(path: Path, faces: int, digest: str) -> Path:
 
 
 def test_an_inventory_of_the_recorded_bytes_wins_over_an_earlier_stale_one_fr_348(tmp_path):
-    """P0340-MESH-FACES, FR-348 R3: the library's inventory, looked up first, was counted in
+    """P0340-MESH-FACES, FR-706: the library's inventory, looked up first, was counted in
     other bytes (5 faces); the staged copy's states the sha256 the run recorded (7 faces). The
     count is the staged one's, with no mismatch to warn about."""
     from pyflightstream.workspace.sidecars import recorded_mesh_faces
@@ -366,7 +366,7 @@ def test_an_inventory_of_the_recorded_bytes_wins_over_an_earlier_stale_one_fr_34
 
 
 def test_a_staged_name_with_a_directory_part_is_never_looked_up_fr_348(tmp_path):
-    """P0340-MESH-FACES, FR-348 R3: a record naming ``sub/wing.fsm`` or ``../wing.fsm`` is not
+    """P0340-MESH-FACES, FR-706: a record naming ``sub/wing.fsm`` or ``../wing.fsm`` is not
     a geometry staged beside the simulation, so no inventory is read for it and the count is
     NA; the bare name with the same inventory is the control."""
     from pyflightstream.workspace.sidecars import recorded_mesh_faces

@@ -15,7 +15,7 @@ from pyflightstream.workspace.record_document import encode_rows
 
 @pytest.mark.parametrize("new_status", ["SUBMITTED", "FAILED_MARKED", "CONVERGED"])
 def test_apply_rechecks_the_locked_plan(tmp_path, new_status):
-    """P0370-S1-MARK-CONVERGED (FR-414 R1, R2): lock-time changes govern the write."""
+    """P0370-S1-MARK-CONVERGED (FR-868, FR-869): lock-time changes govern the write."""
     sim = tmp_path / "sims" / "sim_1"
     sim.mkdir(parents=True)
     (sim / "A.txt").write_text("loads", encoding="utf-8")

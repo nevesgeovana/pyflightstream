@@ -430,7 +430,7 @@ class TestRun2Assessment:
 
     @staticmethod
     def test_p0400_a_wheel_clocking_at_its_iteration_limit_is_max_iter_reached(tmp_path):
-        """P0400-QS-ITERLIMIT (PFS-2103.002): FR-434 R1 holds for a wheel's clockings.
+        """P0400-QS-ITERLIMIT (PFS-2103.002): FR-974 holds for a wheel's clockings.
 
         Clocking 0 stops at the requested 500 iterations unsettled (9e-3 against
         the limit 1e-5); the clocking path skipped the promotion and the point
@@ -599,7 +599,7 @@ class TestRun2Collect:
 
     @staticmethod
     def test_p0400_a_grouped_point_missing_its_log_says_why_it_has_no_time(tmp_path):
-        """P0400-MISSING-LOG-BASIS (PFS-2103.007): the nulled wall time's basis names FR-413 R2.
+        """P0400-MISSING-LOG-BASIS (PFS-2103.007): the nulled wall time's basis names FR-861.
 
         wall_time_s was nulled for a RAN_MISSING_LOG point while the basis still
         said it was measured (or not) from the clock file.

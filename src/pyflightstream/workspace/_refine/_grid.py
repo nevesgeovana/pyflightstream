@@ -1,4 +1,6 @@
-"""The structured grid of a family, recovered and resampled (FR-424 R1, R6, R7, R9, R10).
+"""The structured grid of a family, recovered and resampled.
+
+(FR-915, FR-920, FR-921, FR-923, FR-924).
 
 A GRID FAMILY is recovered from the connectivity alone, never from the vertex
 order of the file: quadrilaterals, or quadrilaterals each split into two
@@ -18,19 +20,19 @@ The surface the orchestrator calls:
 
 - :func:`recover_grid` ``(verts, faces, te_vertices)`` returns the
   :class:`Grid` of a family, or the reason, as text, why none was recovered
-  (R9 names it in ``refine.json`` and in the refusal of ``method = "grid"``).
+  (FR-923 names it in ``refine.json`` and in the refusal of ``method = "grid"``).
 - :func:`check_factors` ``(grid, family, chordwise=, spanwise=)`` raises the
-  R1 refusal of a factor that is not finite and positive or that is below
+  FR-915 refusal of a factor that is not finite and positive or that is below
   1/m for the m source intervals of its index direction; call it for every
-  family before any family is resampled (R11).
+  family before any family is resampled (FR-925).
 - :func:`refine_grid` ``(verts, faces, grid, chordwise=, spanwise=)`` returns
   a :class:`GridLevel`: the new points, the faces as indices into them, the
   trailing-edge mid-points and the per-family report.
 - :func:`not_a_knot` is the cubic spline the resampling uses, and
   :func:`periodic` the closed one of a smooth tube's sections, both written
-  with numpy alone: this module imports neither scipy nor rtree (R10).
+  with numpy alone: this module imports neither scipy nor rtree (FR-924).
 
-Resampling (R6) is a cubic spline in INDEX space, so the clustering of the
+Resampling (FR-920) is a cubic spline in INDEX space, so the clustering of the
 source is kept and only the counts change: ``round(f m)`` intervals per index
 direction, counted per stretch between knots (the trailing edge to the
 leading edge and back, around a tube). The trailing edge, the leading edge
@@ -46,7 +48,7 @@ kept rows. The orchestrator asks for it on the end that meets another
 component, where the row's width sets how far the last wake filament shed by
 the trailing edge is from that component.
 
-Face order (R7): when the source's lateral faces form one sweep (each cell's
+Face order (FR-921): when the source's lateral faces form one sweep (each cell's
 faces consecutive, the cells in row or column order from one start cell),
 the level is written in that sweep, each cell's faces following the source
 cell's template; otherwise every face takes the position of the nearest
@@ -159,7 +161,7 @@ class GridLevel:
         The new nodes, shape (P, 3); the far end's pole, then station 0's,
         when there are, are last.
     faces : list of list of int
-        The new faces as indices into ``points``, in the order of R7.
+        The new faces as indices into ``points``, in the order of FR-921.
     te_midpoints : numpy.ndarray
         One mid-point per trailing-edge edge, shape (K' - 1, 3).
     report : dict
@@ -378,7 +380,7 @@ def _grid_of(verts: Points, te: frozenset[int], part: _Part, layout: str, seed: 
 
 
 def _without_ridge(verts: Points, faces: Faces) -> bool:
-    """Return whether no edge of the family is sharper than the ridge angle (FR-424 R8)."""
+    """Return whether no edge of the family is sharper than the ridge angle (FR-922)."""
     return all(d <= RIDGE_DEGREES for d in dihedral_degrees(verts, faces).values())
 
 
@@ -815,12 +817,12 @@ def check_factors(
     spanwise: float,
     keep: tuple[bool, bool] = (False, False),
 ) -> None:
-    """Refuse a factor that is not finite and positive, or that leaves no interval (R1).
+    """Refuse a factor that is not finite and positive, or that leaves no interval (FR-915).
 
     On a tube the chordwise factor is also refused when the section it
     leaves cannot close: fewer than three nodes around, or fewer than two
     intervals on each half of a zipper-capped section, which its end caps
-    need. Every refusal comes before any family is resampled (R11).
+    need. Every refusal comes before any family is resampled (FR-925).
 
     Parameters
     ----------
@@ -869,7 +871,7 @@ def check_factors(
 
 
 def _check_section(grid: Grid, family: str, chordwise: float) -> None:
-    """Refuse a chordwise factor whose section a tube's caps cannot carry (R1, R11)."""
+    """Refuse a chordwise factor whose section a tube's caps cannot carry (FR-915, FR-925)."""
     s, new_le = _chordwise_params(grid, chordwise)
     if "zipper" in grid.ends and new_le < 2:
         half = grid.i_le
@@ -902,11 +904,11 @@ def curve_changes(
     """Return whether resampling would change the nodes of a curve of the grid's boundary.
 
     Read from the counts alone, before any family is resampled (FR-424
-    R11): a boundary edge along a station keeps its nodes when the
+    FR-925): a boundary edge along a station keeps its nodes when the
     chordwise parameters are the source's integers, and an edge along a
     column when the spanwise ones are; an edge the grid does not place is
     taken to change. The orchestrator plans the band of an unchanged
-    neighbour with it (FR-425 R3), so its extra is checked first (R10).
+    neighbour with it (FR-934), so its extra is checked first (FR-924).
     """
     k, n = grid.ids.shape
     s, _ = _chordwise_params(grid, chordwise)
@@ -1042,7 +1044,7 @@ def refine_grid(
     family: str = "family",
     keep: tuple[bool, bool] = (False, False),
 ) -> GridLevel:
-    """Resample a grid family by its chordwise and spanwise factors (FR-424 R6, R7).
+    """Resample a grid family by its chordwise and spanwise factors (FR-920, FR-921).
 
     Parameters
     ----------
@@ -1112,7 +1114,7 @@ def _identity_copy(
     source: Points,
     poles: tuple[int | None, int | None],
 ) -> Faces | None:
-    """Return the source's faces on the new nodes when the resampling kept every node (R7).
+    """Return the source's faces on the new nodes when the resampling kept every node (FR-921).
 
     At factor 1 in both directions the new node ``(k, i)`` is the source's
     node ``(k, i)``, so each source face is written as it is: in its order,
@@ -1367,7 +1369,7 @@ def _align_end_rotation(
     old_faces: Faces,
     geometry: tuple[Points, Points],
 ) -> Faces:
-    """Start every new end face on the vertex role its nearest source end face starts on (R7).
+    """Start every new end face on the vertex role its nearest source end face starts on (FR-921).
 
     The source end face is the one of the same end and kind (fan triangle,
     trailing-edge or leading-edge cap triangle, cap quadrilateral) whose

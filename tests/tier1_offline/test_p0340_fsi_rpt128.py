@@ -12,7 +12,7 @@ export and the head export of its last pass, and the head and own exports of the
 capped at one coupling iteration. Only the Total row is read.
 
 A `package_order` cause or a `refuted` verdict cannot be committed after the tag: each leaves a
-change in src/ (the export order, FR-338 R2; the warning on every coupled run, FR-340 R4), outside
+change in src/ (the export order, FR-338; the warning on every coupled run, FR-340), outside
 the post-release allowlist; the first and fifth tests fail on them by design, naming the release
 that owes the change.
 """
@@ -74,12 +74,12 @@ def cdo_cause(
 
 
 def _xz_verdict(moment_ratio: float, force_ratio: float) -> str:
-    """FR-340 R2, fixed before the run: confirmed when the moment ratio is as close to 1."""
+    """FR-340, fixed before the run: confirmed when the moment ratio is as close to 1."""
     return "confirmed" if abs(moment_ratio - 1.0) <= abs(force_ratio - 1.0) else "refuted"
 
 
 def test_the_recorded_exports_give_the_cause_rpt128_states_fr_338():
-    """P0340-FSI-CDO, FR-338 R1: the cause recomputed from the five recorded loads exports."""
+    """P0340-FSI-CDO, FR-338: the cause recomputed from the five recorded loads exports."""
     report, fields = _front_matter(128)
     one_pass = fields.get("capped_one_pass") == "true"
     cause = cdo_cause(
@@ -107,7 +107,7 @@ _TABLE_ROWS = {
 
 
 def test_each_recorded_export_reads_the_cdo_rpt128_tabulates_fr_338():
-    """P0340-FSI-CDO, FR-338 R1: every fixture is the export RPT-128's `CDo` table states.
+    """P0340-FSI-CDO, FR-338: every fixture is the export RPT-128's `CDo` table states.
 
     The head export of the coupled point's last pass decides nothing (it follows the updates of
     every earlier pass); its row is read like the others, so no recorded export is unread.
@@ -141,7 +141,7 @@ def test_a_planted_reading_moves_the_cause_fr_338():
 
 
 def test_a_planted_ratio_pair_flips_the_xz_verdict_fr_340():
-    """P0340-FSI-XZ, FR-340 R2: the control of the criterion, on RPT-092's symmetric ratios."""
+    """P0340-FSI-XZ, FR-340: the control of the criterion, on RPT-092's symmetric ratios."""
     assert _xz_verdict(0.43689, 0.98444) == "refuted"
     assert _xz_verdict(0.99, 0.98444) == "confirmed"
     assert _xz_verdict(1.01, 0.98444) == "confirmed"

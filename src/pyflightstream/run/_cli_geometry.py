@@ -242,7 +242,7 @@ def _geometry_cell(variant: Any) -> str:
 
 
 def _print_rows(plan: GeometryBuildPlan, args: argparse.Namespace) -> None:
-    """Print the matrix rows of --rows (FR-472 R5); refuse --rows without --matrix."""
+    """Print the matrix rows of --rows (FR-1116); refuse --rows without --matrix."""
     if args.rows is None and args.matrix is None:
         return
     if args.rows is None or args.matrix is None:
@@ -369,7 +369,7 @@ def run_geometry(args: argparse.Namespace) -> int:
 
 
 def alias_warning(verb: str) -> str:
-    """Return the warning a ``pyfs-matrix`` geometry verb prints once per invocation (FR-477 R1)."""
+    """Return the warning a ``pyfs-matrix`` geometry verb prints once per invocation (FR-1136)."""
     group = next(name for name, matrix in PYFS_MATRIX_ALIASES.items() if matrix == verb)
     promise = next(
         entry for entry in MATRIX_GEOMETRY_ALIASES if entry.subject == f"pyfs-matrix {verb}"

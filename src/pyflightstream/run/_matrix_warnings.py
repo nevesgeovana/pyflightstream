@@ -106,7 +106,7 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
             if not isinstance(helical, int | float):
                 unknown[str(mach.get("note"))] = None
                 continue
-            # FR-176 R1: the warning reads the advancing tip, which is M_hel in
+            # FR-1201: the warning reads the advancing tip, which is M_hel in
             # axial flow and the larger edgewise; a record without it reads M_hel.
             advancing = mach.get("mach_advancing")
             tip_mach = advancing if isinstance(advancing, int | float) else helical

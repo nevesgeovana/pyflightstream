@@ -1,7 +1,7 @@
-"""The synthetic workspace of P0390-R03 (the workspace settings files), and its R10 scenario.
+"""The synthetic workspace of P0390-R03 (the workspace settings files), and its FR-1001 scenario.
 
 Data and functions only, no test: ``test_p0390_r03.py`` builds every workspace
-through :func:`make_workspace`, and the R10 byte comparison runs
+through :func:`make_workspace`, and the FR-1001 byte comparison runs
 :func:`r10_outputs` on this tree and compares it with what the same function
 gave on v0.38.0, committed under ``fixtures/p0390_r03_v0380/``.
 
@@ -148,9 +148,9 @@ def make_workspace(
     return root
 
 
-# --- R10: the scenario run with no settings file -------------------------------------
+# --- FR-1001: the scenario run with no settings file -------------------------------------
 
-#: The folders and files of the workspace whose bytes R10 compares: every record,
+#: The folders and files of the workspace whose bytes FR-1001 compares: every record,
 #: the plan, every emitted script, every solver output and every post product.
 COMPARED = ("runs.json", "logs/activity.log", "post/", "sims/")
 
@@ -297,7 +297,7 @@ def _compared_files(root: Path) -> list[Path]:
 
 
 def r10_outputs(tmp_path: Path) -> dict[str, str]:
-    """Run the R10 scenario, with no settings file, and return its normalized outputs.
+    """Run the FR-1001 scenario, with no settings file, and return its normalized outputs.
 
     ``plan``, ``run``, ``post`` and ``collect`` in a workspace holding neither
     ``pyfs.toml`` nor ``pyfs.local.toml``: each command's console, then every

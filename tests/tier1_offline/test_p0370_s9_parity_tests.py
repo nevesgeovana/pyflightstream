@@ -113,7 +113,7 @@ FIXTURE_BUILDERS = (
 
 
 def test_p0370_s9_the_fixture_has_one_definition_in_the_support_module():
-    """P0370-S9-PARITY-TESTS (NFR-42 R1): the fixture and every builder it uses live in one module.
+    """P0370-S9-PARITY-TESTS (FR-1183): the fixture and every builder it uses live in one module.
 
     The dependency graph is walked, not one spelling: the support module imports no tier-1 test
     module at any depth, each builder of the fixture is defined there and nowhere in tier 1, and
@@ -151,7 +151,7 @@ def test_p0370_s9_the_fixture_has_one_definition_in_the_support_module():
 
 
 def test_p0370_s9_the_shared_fixture_builds_the_grouped_plan_workspace(tmp_path):
-    """P0370-S9-PARITY-TESTS (NFR-42 R1): the support fixture returns the matrix it names.
+    """P0370-S9-PARITY-TESTS (FR-1183): the support fixture returns the matrix it names.
 
     One rotor row per walltime cell, each with its own pol, in a workspace that holds the row's
     geometry.
@@ -163,7 +163,7 @@ def test_p0370_s9_the_shared_fixture_builds_the_grouped_plan_workspace(tmp_path)
 
 
 def test_p0370_s9_without_a_plan_a_one_line_config_message_change_is_a_difference(tmp_path):
-    """P0370-S9-PARITY-TESTS (NFR-42 R2): the whole-message fallback compares the message.
+    """P0370-S9-PARITY-TESTS (FR-1184): the whole-message fallback compares the message.
 
     A refusal before planning has one line and no plan.json; the script reads it whole, so one
     changed word is reported with both messages, and an unchanged message is not.
@@ -179,7 +179,7 @@ def test_p0370_s9_without_a_plan_a_one_line_config_message_change_is_a_differenc
 
 
 def test_p0370_s9_without_a_plan_a_point_line_of_the_message_is_compared(tmp_path):
-    """P0370-S9-PARITY-TESTS (NFR-42 R2): the parsed-message branch counts the point lines only.
+    """P0370-S9-PARITY-TESTS (FR-1184): the parsed-message branch counts the point lines only.
 
     A pre-flight message that lists points but has no plan.json is parsed into its point rows:
     one changed reason is a difference, and a changed heading alone is not.
@@ -193,7 +193,7 @@ def test_p0370_s9_without_a_plan_a_point_line_of_the_message_is_compared(tmp_pat
 
 
 def test_p0370_s9_with_a_plan_only_the_per_point_reasons_count(tmp_path):
-    """P0370-S9-PARITY-TESTS (NFR-42 R2): plan.json reasons decide, a heading change does not.
+    """P0370-S9-PARITY-TESTS (FR-1184): plan.json reasons decide, a heading change does not.
 
     The same pre-flight refusal with a structured plan: a new heading is no difference, a
     changed per-point reason is, and a point that gains a reason is.
@@ -212,7 +212,7 @@ def test_p0370_s9_with_a_plan_only_the_per_point_reasons_count(tmp_path):
 
 
 def test_p0370_s9_a_refusal_on_one_side_only_is_a_difference():
-    """P0370-S9-PARITY-TESTS (NFR-42 R2): a pair refused at the release only is reported."""
+    """P0370-S9-PARITY-TESTS (FR-1184): a pair refused at the release only is reported."""
     parity = _parity()
     scripts: dict = {"differing": []}
     row = {"matrix": "m.fs", "mode": "--batch", "message": "refused"}
@@ -298,7 +298,7 @@ def _sim(reason):
 
 
 def test_p0370_s9_the_verdict_names_exactly_the_changed_coupled_reason(tmp_path, monkeypatch):
-    """P0370-S9-GROUPED-HELP (FR-421 R2): ``parity()`` passes the one exact old to new pair.
+    """P0370-S9-GROUPED-HELP (FR-421): ``parity()`` passes the one exact old to new pair.
 
     The release's reason is the 0.36.0 text replaced by the 0.37.0 text, and nothing else
     differs: the receipt lists one difference, named FR-421, and the verdict is PASS. The same
@@ -322,7 +322,7 @@ def test_p0370_s9_the_verdict_names_exactly_the_changed_coupled_reason(tmp_path,
 def test_p0370_s9_the_verdict_refuses_every_other_change_of_a_left_out_reason(
     tmp_path, monkeypatch
 ):
-    """P0370-S9-GROUPED-HELP (FR-421 R2): append-only, newline, reverse, unrelated are unnamed.
+    """P0370-S9-GROUPED-HELP (FR-421): append-only, newline, reverse, unrelated are unnamed.
 
     Each change reaches the final verdict as a difference without a requirement, and the verdict
     is FAIL: a reason with the pair appended to it, the new text with a trailing newline, the
@@ -348,7 +348,7 @@ def test_p0370_s9_the_verdict_refuses_every_other_change_of_a_left_out_reason(
 
 
 def test_p0370_s9_the_verdict_compares_grouped_point_errors(tmp_path, monkeypatch):
-    """P0370-S9-GROUPED-HELP (FR-421 R2): a changed per-point error fails the verdict.
+    """P0370-S9-GROUPED-HELP (FR-421): a changed per-point error fails the verdict.
 
     A point the grouped plan blocked beside a written batch carries ``run_id`` and ``reason``;
     its reason changing between the trees is a difference, and the same error on both sides is not.

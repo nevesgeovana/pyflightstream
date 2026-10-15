@@ -57,7 +57,7 @@ def _recovered(fx: Fixture) -> Grid:
 
 
 def _params(fx: Fixture, chordwise: float, spanwise: float):
-    """Return the new chordwise and station indices of FR-424 R6: round(f m) per stretch."""
+    """Return the new chordwise and station indices of FR-920: round(f m) per stretch."""
     t = np.linspace(0, fx.stations - 1, round(spanwise * (fx.stations - 1)) + 1)
     if not fx.wrap:
         return np.linspace(0, fx.nodes - 1, round(chordwise * (fx.nodes - 1)) + 1), t
@@ -166,7 +166,7 @@ def _distance_to_surface(points, verts, faces):
 
 @pytest.mark.parametrize("make", FIXTURES, ids=lambda m: m.__name__)
 def test_factor_one_is_the_source_in_coordinates_and_order(make):
-    """P0380-REFINE (FR-424 R7): at factor 1 a grid's faces equal the source's, in order.
+    """P0380-REFINE (FR-921): at factor 1 a grid's faces equal the source's, in order.
 
     Coordinates face for face and vertex for vertex, so the start vertex of
     every face is checked too. Control: each control writer fails the check.
@@ -188,7 +188,7 @@ def test_factor_one_is_the_source_in_coordinates_and_order(make):
 
 @pytest.mark.parametrize("make", FIXTURES, ids=lambda m: m.__name__)
 def test_factor_two_doubles_the_intervals_keeps_the_knots_on_the_surface(make):
-    """P0380-REFINE (FR-424 R6): factor 2 gives 2m by 2n intervals, knots exact, nodes on it.
+    """P0380-REFINE (FR-920): factor 2 gives 2m by 2n intervals, knots exact, nodes on it.
 
     Every source node is a level node bit for bit (the trailing edge, the
     leading edge and the end stations among them), and every level node lies
@@ -218,7 +218,7 @@ def test_factor_two_doubles_the_intervals_keeps_the_knots_on_the_surface(make):
 
 @pytest.mark.parametrize("make", FIXTURES, ids=lambda m: m.__name__)
 def test_factor_two_is_written_in_the_source_sweep(make):
-    """P0380-REFINE (FR-424 R7): the level keeps the source's start cell, directions, cell order.
+    """P0380-REFINE (FR-921): the level keeps the source's start cell, directions, cell order.
 
     Controls: a writer that sweeps the cells in reverse, one that transposes
     the index directions and one that rotates each face's vertices all fail.
@@ -249,7 +249,7 @@ def _diagonals(fx, level, where):
 
 
 def test_each_new_cell_is_split_along_its_source_cells_diagonal():
-    """P0380-REFINE (FR-424 R6): a mirrored split is kept cell by cell at factor 2.
+    """P0380-REFINE (FR-920): a mirrored split is kept cell by cell at factor 2.
 
     The fixture splits the upper half of the section along one diagonal and
     the lower half along the other. Control: the same wing split along one
@@ -275,7 +275,7 @@ def test_each_new_cell_is_split_along_its_source_cells_diagonal():
     ("chordwise", "spanwise"), [(0.5, 0.5), (2.0, 1.0), (1.0, 2.0), (1.5, 0.7)]
 )
 def test_counts_round_each_direction_and_the_knots_stay(chordwise, spanwise):
-    """P0380-REFINE (FR-424 R1, R6): round(f m) intervals per direction; TE, LE, ends are knots.
+    """P0380-REFINE (FR-915, FR-920): round(f m) intervals per direction; TE, LE, ends are knots.
 
     Factor 0.5, each direction separately, and uneven factors. The trailing
     edge, the leading edge and the two end stations keep the source's nodes
@@ -309,7 +309,7 @@ def test_counts_round_each_direction_and_the_knots_stay(chordwise, spanwise):
 
 @pytest.mark.parametrize("direction", ["chordwise", "spanwise"])
 def test_a_factor_below_one_over_m_is_refused(direction):
-    """P0380-REFINE (FR-424 R1): a factor below 1/m is refused naming family, direction, value.
+    """P0380-REFINE (FR-915): a factor below 1/m is refused naming family, direction, value.
 
     Exactly 1/m is accepted and leaves one interval (the control); zero,
     negative, infinite and not-a-number factors are refused the same way.
@@ -337,7 +337,7 @@ def test_a_factor_below_one_over_m_is_refused(direction):
 
 @pytest.mark.parametrize("make", [tube_pole_quads, tube_zipper], ids=lambda m: m.__name__)
 def test_the_end_faces_start_on_the_source_role(make):
-    """P0380-REFINE (FR-424 R7): pole fans and zipper caps start where the source's start.
+    """P0380-REFINE (FR-921): pole fans and zipper caps start where the source's start.
 
     The source's fan triangles start at the pole and its cap faces start one
     vertex after the cap builder's first; the level at factor 2 keeps both.
@@ -375,7 +375,7 @@ def test_the_end_faces_start_on_the_source_role(make):
 
 
 def test_a_source_not_in_one_sweep_takes_the_nearest_source_face_order():
-    """P0380-REFINE (FR-424 R7): faces follow their nearest source face, starting like it.
+    """P0380-REFINE (FR-921): faces follow their nearest source face, starting like it.
 
     The source's faces are shuffled, so they form no sweep. At factor 1 the
     level is still the source in coordinates and order; at factor 2 the
@@ -413,7 +413,7 @@ def test_a_source_not_in_one_sweep_takes_the_nearest_source_face_order():
 
 
 def test_recovery_reads_the_connectivity_and_names_why_it_fails():
-    """P0380-REFINE (FR-424 R9): a grid is recovered from connectivity, or the reason is named.
+    """P0380-REFINE (FR-923): a grid is recovered from connectivity, or the reason is named.
 
     Each fixture's numbering is shuffled and its layout and ends are still
     found. Planted bad inputs: a face removed, no trailing-edge vertex, and
@@ -440,7 +440,7 @@ def test_recovery_reads_the_connectivity_and_names_why_it_fails():
 
 
 def test_the_grid_runs_with_scipy_and_rtree_unimportable():
-    """P0380-REFINE (FR-424 R10): the grid module imports neither scipy nor rtree.
+    """P0380-REFINE (FR-924): the grid module imports neither scipy nor rtree.
 
     A fresh interpreter makes both unimportable before importing the module,
     then recovers and refines a grid and finds neither loaded.
@@ -475,7 +475,7 @@ def test_the_grid_runs_with_scipy_and_rtree_unimportable():
 
 
 def test_the_spline_reproduces_a_cubic_and_keeps_its_knots():
-    """P0380-REFINE (FR-424 R6): the index-space spline is exact on a cubic and at the knots.
+    """P0380-REFINE (FR-920): the index-space spline is exact on a cubic and at the knots.
 
     A not-a-knot spline reproduces any cubic. Control: a linear interpolation
     through the same nodes misses it.
@@ -496,7 +496,7 @@ def test_the_spline_reproduces_a_cubic_and_keeps_its_knots():
 
 
 def test_the_spline_equals_scipys_not_a_knot_where_scipy_is_installed():
-    """P0380-REFINE (FR-424 R6, R10): the numpy spline is scipy's not-a-knot to 1e-12.
+    """P0380-REFINE (FR-920, FR-924): the numpy spline is scipy's not-a-knot to 1e-12.
 
     Runs only where scipy is installed (the geometry extra); the module itself
     never imports it. Control: scipy's natural spline differs.

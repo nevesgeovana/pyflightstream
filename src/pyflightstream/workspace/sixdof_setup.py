@@ -28,7 +28,7 @@ __all__ = [
     "resolve_row_sixdof",
 ]
 
-#: The one run type a free body runs on in this release (FR-461 R4).
+#: The one run type a free body runs on in this release (FR-1087).
 _SIXDOF_WORKFLOW = "unsteady"
 
 
@@ -38,7 +38,7 @@ class SixDofSetupError(PyflightstreamError, ValueError):
 
 @dataclass(frozen=True)
 class ResolvedSixDof:
-    """A resolved 6DOF input: the validated spec, its source and the digests (FR-461 R5)."""
+    """A resolved 6DOF input: the validated spec, its source and the digests (FR-1088)."""
 
     source: Path
     source_sha256: str
@@ -66,7 +66,7 @@ def _digest(path: Path) -> str:
 def resolve_row_sixdof(
     inputs_dir: str | Path, variables: Mapping[str, Any], *, workflow: str, pol: str = ""
 ) -> ResolvedSixDof | None:
-    """Resolve ``SIXDOF: d001`` from the matrix free cell, refusing what FR-461 R3 and R4 name.
+    """Resolve ``SIXDOF: d001`` from the matrix free cell, refusing what FR-1086 and FR-1087 name.
 
     Parameters
     ----------
@@ -104,13 +104,13 @@ def resolve_row_sixdof(
         raise SixDofSetupError(
             f"{where}SIXDOF {code} on a {workflow or 'LEGACY'} row: a body free to move needs "
             "the time march of an unsteady row, and a free body with a rotor turning is "
-            "outside this route (FR-461 R4). Run the row as WORKFLOW unsteady."
+            "outside this route (FR-1087). Run the row as WORKFLOW unsteady."
         )
     fsi = str(variables.get("FSI", "")).strip()
     if fsi not in ("", "-"):
         raise SixDofSetupError(
             f"{where}SIXDOF {code} with FSI {fsi}: a body free to move under its loads and a "
-            "structure coupled to them at once is outside this route (FR-461 R4); state one."
+            "structure coupled to them at once is outside this route (FR-1087); state one."
         )
     root = (Path(inputs_dir) / "sixdof").resolve()
     path = (root / f"{code}.toml").resolve()
@@ -138,7 +138,7 @@ def resolve_row_sixdof(
 def _with_force_files(
     spec: SixDofSpec, root: Path, path: Path
 ) -> tuple[SixDofSpec, dict[str, str]]:
-    """Resolve and hash each custom force's file under ``root`` (FR-461 R3, R5)."""
+    """Resolve and hash each custom force's file under ``root`` (FR-1086, FR-1088)."""
     files: dict[str, str] = {}
     forces = []
     for force in spec.forces:

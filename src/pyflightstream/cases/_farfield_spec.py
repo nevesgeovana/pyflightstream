@@ -1,13 +1,13 @@
 """The ``[farfield]`` table of the pproc artifact and the lattice shape of ``[[probes]]``.
 
 Pipeline role: the input model of the far-field family (FR-454) and of the
-survey-lattice probe shape (FR-459 R2), validated at load with
+survey-lattice probe shape (FR-1072), validated at load with
 ``extra="forbid"`` and ``allow_inf_nan=False``. It lives beside
 :mod:`pyflightstream.cases.pproc` and not inside it, so that module does not
 grow; :class:`~pyflightstream.cases.pproc.PprocSpec` holds ``farfield`` and
 :class:`~pyflightstream.cases.pproc.ProbesSpec` holds ``lattices`` through
 these types. The geometry a table states is the far field's own; a table that
-states none leaves the geometry to the plan's reuse rule (FR-454 R4, FR-455).
+states none leaves the geometry to the plan's reuse rule (FR-1042, FR-455).
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ __all__ = [
 
 #: The three Trefftz variants, by the words of the decision of 2026-10-12.
 TREFFTZ_VARIANTS: tuple[str, ...] = ("sections", "wake", "plane")
-#: The six balances of FR-38 R2, in the order the ledgers table writes them.
+#: The six balances of FR-479, in the order the ledgers table writes them.
 BALANCES: tuple[str, ...] = (
     "mass",
     "axial",
@@ -39,7 +39,7 @@ BALANCES: tuple[str, ...] = (
     "in_plane_moment",
     "crossflow_energy",
 )
-#: The defaults of FR-454 R1 that a table may leave unstated, accepted on
+#: The defaults of FR-1039 that a table may leave unstated, accepted on
 #: 2026-10-12: the plan's station count per side, the plane's distance behind the
 #: families and, for the wing plane, its half extents and spacing, all in BREF.
 FARFIELD_DEFAULTS: dict[str, float] = {
@@ -81,7 +81,7 @@ class LatticeShape(BaseModel):
     """A survey lattice, by its rotor or its frame and the ``build_lattice`` parameters.
 
     The keys of ``[farfield.ledgers]`` geometry and of one entry of a
-    ``[[probes]]`` entry's ``lattices`` (FR-459 R2): ``rotor`` names the rotor
+    ``[[probes]]`` entry's ``lattices`` (FR-1072): ``rotor`` names the rotor
     whose hub frame and tip radius place the lattice, or ``frame`` and
     ``tip_radius_m`` place a lattice that belongs to no rotor; the rest are the
     parameters of :func:`pyflightstream.probes.build_lattice`, unstated ones
@@ -156,7 +156,7 @@ class LatticeShape(BaseModel):
 
     @property
     def states_geometry(self) -> bool:
-        """Whether any ``build_lattice`` parameter is stated (FR-454 R4)."""
+        """Whether any ``build_lattice`` parameter is stated (FR-1042)."""
         return any(getattr(self, key) is not None for key in _LATTICE_KEYS)
 
     def build(self, tip_radius: float) -> ProbeLattice:
@@ -231,7 +231,7 @@ class TrefftzSpec(BaseModel):
 
     @property
     def states_plane(self) -> bool:
-        """Whether a plane key is stated (FR-454 R4)."""
+        """Whether a plane key is stated (FR-1042)."""
         return any(
             value is not None
             for value in (self.half_width_bref, self.half_height_bref, self.spacing_bref)
@@ -252,7 +252,7 @@ class LedgersSpec(LatticeShape):
     Attributes
     ----------
     balances : list of str
-        Any of the six balances of FR-38 R2; all six by default.
+        Any of the six balances of FR-479; all six by default.
     m_max : int
         The highest azimuthal order stored and used by gate G3; below half of
         the lattice's azimuth count.

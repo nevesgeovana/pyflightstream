@@ -1092,7 +1092,7 @@ def _sweep_point_entry(
             "residual": assessment.residual,
         }
         if status == RunStatus.MAX_ITER_REACHED:
-            # FR-434 R1/R4: the limit the point stopped at, for the entry and its WARNING.
+            # FR-974/FR-977: the limit the point stopped at, for the entry and its WARNING.
             read["iterations_requested"] = assessment.iterations_requested
             read["residual_note"] = assessment.residual_note
     else:
@@ -1289,7 +1289,7 @@ def _log_verdicts(
     rule, and its refusal line was left unread under a CONVERGED point. A log
     is every output named ``_log.txt`` and every file the job was told to write
     its log to, whatever its name: the record's ``declared_logs`` when it carries
-    the field, else its script's (FR-413 R8, the workspace layer's one reading).
+    the field, else its script's (FR-867, the workspace layer's one reading).
     """
     from pyflightstream.run._wake_edge_verdict import (
         SOLVER_OWN_LOG,

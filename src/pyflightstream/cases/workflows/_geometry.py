@@ -1025,8 +1025,8 @@ def _base_region_operations(
     """Apply explicit base indices in order; deletion may renumber later selections.
 
     An entry whose ``boundary`` the row's study holds and the model lacks is
-    not emitted (FR-435 R4), and a skip that renumbers the base regions an
-    indexed entry counts is refused (R5).
+    not emitted (FR-982), and a skip that renumbers the base regions an
+    indexed entry counts is refused (FR-983).
     """
     for action in _the_operations_the_model_reaches(case, script, skipped_regions):
         if action.operation == "create":
@@ -1088,13 +1088,13 @@ def _the_operations_the_model_reaches(
 ) -> list[BaseRegionOperation]:
     """Return the base-region operations this model reaches, refusing a renumbering skip.
 
-    FR-435 R4: an entry whose ``boundary`` names a surface the row's model
-    lacks and its study holds is left out. R5: a skip in ``base_regions``
+    FR-982: an entry whose ``boundary`` names a surface the row's model
+    lacks and its study holds is left out. FR-983: a skip in ``base_regions``
     (``skipped_regions``), or of a ``create`` entry, renumbers every base
     region after it, so it is refused where an entry addresses a region by an
     index other than ``all``. With no vocabulary every entry is kept and a
     name the model lacks is refused where it is resolved, as on 0.38.0, unless
-    the run asked for the refusal (R10). A ``boundary`` is classified against
+    the run asked for the refusal (FR-988). A ``boundary`` is classified against
     the model as its geometry opened it, before ``delete_surfaces``.
     """
     operations = list(case.solver.base_region_operations or ())
@@ -1119,7 +1119,7 @@ def _the_operations_the_model_reaches(
 
 
 def _refuse_a_renumbering_skip(case: SimCase, skipped: Sequence[tuple[str, str]]) -> None:
-    """Refuse a skip that renumbers the base regions an indexed entry counts (FR-435 R5)."""
+    """Refuse a skip that renumbers the base regions an indexed entry counts (FR-983)."""
     indexed = next(
         (
             (position, action.index)
@@ -1143,14 +1143,14 @@ def _refuse_a_renumbering_skip(case: SimCase, skipped: Sequence[tuple[str, str]]
 
 
 def _a_base_region_the_study_skips(case: SimCase, script: Script, name: str) -> bool:
-    """Whether a pproc ``base_regions`` name the model lacks is skipped (FR-435 R4).
+    """Whether a pproc ``base_regions`` name the model lacks is skipped (FR-982).
 
-    A row's own ``BASE_REGIONS`` keeps the 0.38.0 refusal (R1), and so does a
-    reference declaring no vocabulary at the default flag (R3); the study
+    A row's own ``BASE_REGIONS`` keeps the 0.38.0 refusal (FR-979), and so does a
+    reference declaring no vocabulary at the default flag (FR-981); the study
     refuses a name it does not hold, and a run that asked for the refusal
-    refuses every one under the pproc key, with or without a vocabulary (R6,
-    R10). The words that name no set and a surface the setup removed are not
-    judged (R4).
+    refuses every one under the pproc key, with or without a vocabulary (FR-984,
+    FR-988). The words that name no set and a surface the setup removed are not
+    judged (FR-982).
     """
     if _variable(case, BASE_REGIONS_VARIABLE) is not None:
         return False

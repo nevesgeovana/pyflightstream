@@ -6,7 +6,7 @@ configuration, from a discrete trailing-vortex sheet in the Trefftz plane
 of probes (variant C, FR-453), and the far-field loss channels of a rotor. The
 equations are those of the definitions page, The far-field family; every
 component here is already in the axes the docstring names, turned by the
-caller (FR-450 R3), and nothing here reads or writes a file (FR-450 R2).
+caller (FR-1005), and nothing here reads or writes a file (FR-1004).
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ __all__ = [
 #: A wake sheet's starting nodes form one ordered run along the trailing edge
 #: when no gap between two consecutive ones (in span order) exceeds this many
 #: times their median gap; a larger gap means the lines belong to more than one
-#: sheet, which variant B of 0.40.0 does not split (FR-452 R4).
+#: sheet, which variant B of 0.40.0 does not split (FR-1026).
 RUN_GAP_FACTOR = 4.0
 
 
@@ -212,10 +212,10 @@ def trace_forces(
         the order its points are given.
     ends : {"extended", "station"}
         The strip-edge rule beyond the end points; the far field uses
-        ``"extended"`` (FR-451 R3).
+        ``"extended"`` (FR-1012).
     mirror : bool
         Mirror each sheet about the plane ``y = 0`` before the integral (a half
-        model, FR-451 R5); the inner edge of the innermost strip then lies on
+        model, FR-1014); the inner edge of the innermost strip then lies on
         the plane.
 
     Returns
@@ -315,7 +315,7 @@ def trace_forces(
 
 
 def calibration_scale(raw_lift: float, *, cl_near: float, q: float, s_ref: float) -> float:
-    """Return the scale ``k`` that makes a trace's lift the solver's own (FR-452 R2).
+    """Return the scale ``k`` that makes a trace's lift the solver's own (FR-1024).
 
     The wake export's value is proportional to the circulation with a scale the
     solver does not document; ``Gamma = k Gamma_raw`` with
@@ -620,11 +620,11 @@ class PlaneDrag:
 
 
 def plane_induced_drag(plane: PlaneFields, *, rho: float, v_inf: float) -> PlaneDrag:
-    """Induced drag from the crossflow kinetic energy on a plane (FR-453 R1).
+    """Induced drag from the crossflow kinetic energy on a plane (FR-1030).
 
     ``D_i = (rho / 2) integral (v^2 + w^2) dS``: the crossflow-energy
     integrand of the balances advected by ``V`` and divided by it, so the
-    balance and Trefftz C share one integrand (FR-450 R1). NaN at ``V = 0``.
+    balance and Trefftz C share one integrand (FR-1003). NaN at ``V = 0``.
 
     Parameters
     ----------
@@ -664,7 +664,7 @@ def _cell_log_integral(hy: float, hz: float) -> float:
 
 
 def plane_vorticity_drag(plane: PlaneFields, *, rho: float, chunk: int = 512) -> float:
-    """Induced drag from the streamwise vorticity on a plane (Maskell, FR-453 R1).
+    """Induced drag from the streamwise vorticity on a plane (Maskell, FR-1030).
 
     ``xi = dw/dy - dv/dz`` by central differences on the grid, its stream
     function ``psi(P) = -(1 / (2 pi)) sum_Q xi_Q ln|P - Q| dS_Q`` (the cell's
@@ -712,7 +712,7 @@ def plane_vorticity_drag(plane: PlaneFields, *, rho: float, chunk: int = 512) ->
 
 
 def plane_lift(plane: PlaneFields, *, rho: float, v_inf: float) -> float:
-    """Lift from the first moment of the streamwise vorticity on a plane (FR-453 R9).
+    """Lift from the first moment of the streamwise vorticity on a plane (FR-1038).
 
     ``L = rho V sum_P y_P xi_P dS_P`` with ``xi = dw/dy - dv/dz`` by central
     differences on the grid: the Kutta-Joukowski lift of the trailing vorticity
@@ -746,7 +746,7 @@ def plane_lift(plane: PlaneFields, *, rho: float, v_inf: float) -> float:
 
 
 def bernoulli_residual(plane: PlaneFields, *, rho: float, v_inf: float) -> float:
-    """Return the Betz-Maskell term of a plane, in N (FR-453 R2).
+    """Return the Betz-Maskell term of a plane, in N (FR-1031).
 
     With the total-pressure deficit
     ``p0_inf - p0 = -p' - (rho / 2) (u^2 + v^2 + w^2 - V^2)`` and the
@@ -801,7 +801,7 @@ class RotorChannels:
 def rotor_channels(
     fields: LatticeFields, *, rho: float, v_inf: float, station: float
 ) -> RotorChannels:
-    """Axial, swirl and crossflow loss powers of a rotor at a station (FR-453 R3).
+    """Axial, swirl and crossflow loss powers of a rotor at a station (FR-1032).
 
     ``P_AXIAL = (rho / 2) I[u'^2 u]``, ``P_SWIRL`` and ``P_CROSSFLOW`` the swirl
     and induced channels of the crossflow kinetic energy (one integrand),

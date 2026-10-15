@@ -56,7 +56,7 @@ def _sentinel(folder: Path) -> dict[str, bytes]:
 
 @pytest.mark.parametrize("suffix", [".partial", ".previous"])
 def test_ind01_a_source_in_a_reserved_name_is_never_removed(tmp_path, suffix):
-    """P0380-REFINE (FR-424 R5, IND-01): a source inside ``<level>.partial`` or ``.previous`` stays.
+    """P0380-REFINE (FR-919, IND-01): a source inside ``<level>.partial`` or ``.previous`` stays.
 
     The source sits in ``study/wing_R1<suffix>/``, so its default level is
     ``study/wing_R1`` and the reserved staging or backup name is the source's
@@ -75,7 +75,7 @@ def test_ind01_a_source_in_a_reserved_name_is_never_removed(tmp_path, suffix):
 
 @pytest.mark.parametrize("overwrite", [False, True])
 def test_ind01_unrelated_reserved_folders_are_kept_and_the_run_leaves_none(tmp_path, overwrite):
-    """P0380-REFINE (FR-424 R5, IND-01): unrelated ``.partial`` and ``.previous`` folders stay.
+    """P0380-REFINE (FR-919, IND-01): unrelated ``.partial`` and ``.previous`` folders stay.
 
     Both hold a file the refinement did not write. A run (and with
     ``overwrite`` a run replacing an existing level) keeps both byte for byte
@@ -97,7 +97,7 @@ def test_ind01_unrelated_reserved_folders_are_kept_and_the_run_leaves_none(tmp_p
 
 
 def test_ind01_a_failed_publish_removes_only_its_own_folder(tmp_path):
-    """P0380-REFINE (FR-424 R5, IND-01): a failed publish keeps every folder it did not make.
+    """P0380-REFINE (FR-919, IND-01): a failed publish keeps every folder it did not make.
 
     The level's path is occupied by a file, so the publish fails after the
     level was written and audited. The occupying file and the unrelated
@@ -117,7 +117,7 @@ def test_ind01_a_failed_publish_removes_only_its_own_folder(tmp_path):
 
 
 def test_ind01_a_level_holding_the_source_is_refused_before_any_work(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R5, R11, IND-01): ``overwrite`` never replaces the source's folder.
+    """P0380-REFINE (FR-919, FR-925, IND-01): ``overwrite`` never replaces the source's folder.
 
     The source is ``study/wing_R2/inner/wing.obj`` and ``out_dir`` is
     ``study``, so the level ``study/wing_R2`` holds the source's folder. Both
@@ -135,7 +135,7 @@ def test_ind01_a_level_holding_the_source_is_refused_before_any_work(tmp_path, c
 
 
 def test_ind01_a_level_inside_the_sources_folder_is_refused(tmp_path):
-    """P0380-REFINE (FR-424 R5, R11, IND-01): nothing is written into the source's folder.
+    """P0380-REFINE (FR-919, FR-925, IND-01): nothing is written into the source's folder.
 
     ``out_dir`` is the source's own folder; the refinement is refused and
     the folder is kept byte for byte.
@@ -150,7 +150,7 @@ def test_ind01_a_level_inside_the_sources_folder_is_refused(tmp_path):
 
 @pytest.mark.parametrize("tag", ["../up", "a/b", "a\\b", "..", "."])
 def test_ind01_a_tag_that_is_not_one_folder_name_is_refused(tmp_path, tag):
-    """P0380-REFINE (FR-424 R3, R5, IND-01): ``[refine] tag`` names one folder beside the source's.
+    """P0380-REFINE (FR-917, FR-919, IND-01): ``[refine] tag`` names one folder beside the source's.
 
     A tag holding a path separator, or ``.`` or ``..``, is refused naming the
     file, the table and the key. Control: ``fine`` writes ``wing_fine``.
@@ -188,7 +188,7 @@ def _rotated(face: list[int], by: int = 1) -> list[int]:
 
 
 def test_ind02_a_fan_triangle_rotated_alone_keeps_its_start_at_factor_one():
-    """P0380-REFINE (FR-424 R7, IND-02): at factor 1 one rotated fan triangle keeps its own start.
+    """P0380-REFINE (FR-921, IND-02): at factor 1 one rotated fan triangle keeps its own start.
 
     The tube's fan triangles start at the pole, except one that starts at a
     ring node. The level at factor 1 equals the source face for face and
@@ -205,7 +205,7 @@ def test_ind02_a_fan_triangle_rotated_alone_keeps_its_start_at_factor_one():
 
 
 def test_ind02_mixed_cap_rotations_interleaved_with_lateral_faces_are_kept_at_factor_one():
-    """P0380-REFINE (FR-424 R7, IND-02): zipper caps of mixed starts, in among the lateral faces.
+    """P0380-REFINE (FR-921, IND-02): zipper caps of mixed starts, in among the lateral faces.
 
     One cap quad and one cap triangle start one vertex later than the other
     cap faces, and one cap face is moved between two lateral cells. At
@@ -225,7 +225,7 @@ def test_ind02_mixed_cap_rotations_interleaved_with_lateral_faces_are_kept_at_fa
 
 
 def test_ind02_above_factor_one_each_fan_triangle_starts_like_its_nearest_source_triangle():
-    """P0380-REFINE (FR-424 R7, IND-02): a cap face starts as its nearest source face does.
+    """P0380-REFINE (FR-921, IND-02): a cap face starts as its nearest source face does.
 
     The first 8 of the 24 fan triangles start at a ring node and the other 16
     at the pole. At factor 2 the 48 new fan triangles follow the source
@@ -272,7 +272,7 @@ def test_ind02_above_factor_one_each_fan_triangle_starts_like_its_nearest_source
     ids=["zipper-1/m", "zipper-0.05", "zipper-0.1", "pole-1/m", "pole-0.07"],
 )
 def test_ind03_a_coarsening_the_caps_cannot_carry_is_refused(make, factor, said):
-    """P0380-REFINE (FR-424 R1, R11, IND-03): too few nodes around a tube is refused, not a crash.
+    """P0380-REFINE (FR-915, FR-925, IND-03): too few nodes around a tube is refused, not a crash.
 
     The factor passes the 1/m limit of 24 intervals, but leaves a zipper
     section one interval per half (its end caps need two) or a pole tube two
@@ -293,7 +293,7 @@ def test_ind03_a_coarsening_the_caps_cannot_carry_is_refused(make, factor, said)
     ids=["zipper-2/half", "pole-3/n"],
 )
 def test_ind03_the_smallest_accepted_coarsening_builds_valid_caps(make, factor, nodes):
-    """P0380-REFINE (FR-424 R1, IND-03): just above the limit the tube is coarsened.
+    """P0380-REFINE (FR-915, IND-03): just above the limit the tube is coarsened.
 
     Control of the refusal: the smallest factor the message asks for builds
     the section's nodes and closes the ends with faces of distinct nodes.
@@ -305,7 +305,7 @@ def test_ind03_the_smallest_accepted_coarsening_builds_valid_caps(make, factor, 
 
 
 def test_ind03_a_smooth_tube_of_two_nodes_around_is_refused_by_both_routes(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R1, R11, IND-03): a smooth tube keeps three nodes around.
+    """P0380-REFINE (FR-915, FR-925, IND-03): a smooth tube keeps three nodes around.
 
     The body has 24 nodes around; chordwise 2/24 leaves two, which
     ``refine_mesh`` and ``pyfs-matrix refine`` refuse before any work with the
@@ -362,7 +362,7 @@ def _lines(lines: list[str]) -> bytes:
     ids=["word", "trailing-text", "nan", "inf", "overflow", "word-index", "float-index", "range"],
 )
 def test_ind04_a_malformed_obj_is_refused_naming_file_and_line(tmp_path, capsys, line, text, said):
-    """P0380-REFINE and P0380-AUDIT (FR-424 R11, FR-426 R1, IND-04): a bad OBJ line is a refusal.
+    """P0380-REFINE and P0380-AUDIT (FR-925, FR-937, IND-04): a bad OBJ line is a refusal.
 
     A coordinate that is not a number or not finite, and a face index that is
     not an integer or names no vertex, is refused as InputArtifactError
@@ -401,7 +401,7 @@ def test_ind04_a_malformed_obj_is_refused_naming_file_and_line(tmp_path, capsys,
     ids=["two-columns", "one-short-row", "four-columns", "ragged", "nan", "word"],
 )
 def test_ind05_each_trailing_edge_row_holds_three_numbers(tmp_path, capsys, rows, row, said):
-    """P0380-REFINE and P0380-AUDIT (FR-424 R11, FR-426 R2 G4, IND-05): x,y,z on every row.
+    """P0380-REFINE and P0380-AUDIT (FR-925, FR-938 G4, IND-05): x,y,z on every row.
 
     A points file whose rows hold two or four numbers, or a word, or a number
     that is not finite, is refused naming the file and the row before any
@@ -463,7 +463,7 @@ def _csv_case(tmp_path: Path) -> tuple[Path, Path]:
     ],
 )
 def test_ind06_csv_naming_a_file_the_audit_reads_or_writes_is_refused(tmp_path, capsys, target):
-    """P0380-AUDIT (FR-426 R1, IND-06): ``--csv`` never overwrites an input or the audit JSON.
+    """P0380-AUDIT (FR-937, IND-06): ``--csv`` never overwrites an input or the audit JSON.
 
     The mesh, the source given by ``--against``, their boundaries and points
     files, the audit JSON, a path spelled otherwise and a hard link to the
@@ -507,7 +507,7 @@ def _known_limitations() -> str:
 
 
 def test_ind07_a_paired_square_mesh_passes_the_relative_checks(tmp_path):
-    """P0380-AUDIT (FR-426 R3, IND-07): quad-dominant is not a warning by construction.
+    """P0380-AUDIT (FR-939, IND-07): quad-dominant is not a warning by construction.
 
     Two right triangles per square of a planar grid, paired into the square
     quadrilaterals, lower the skewness (0.25 to 0) and keep every area ratio
@@ -563,7 +563,7 @@ def _failing_renames(monkeypatch, fail_put_back):
 
 
 def test_ind01_a_failed_publish_puts_the_previous_level_back(tmp_path, monkeypatch):
-    """P0380-REFINE (FR-424 R5, IND-01): the old level survives a publish that fails.
+    """P0380-REFINE (FR-919, IND-01): the old level survives a publish that fails.
 
     An existing level is set aside, the rename of the new one fails, and the
     old level is back at its path byte for byte, with no folder of the run
@@ -584,7 +584,7 @@ def test_ind01_a_failed_publish_puts_the_previous_level_back(tmp_path, monkeypat
 
 
 def test_ind01_a_level_that_cannot_be_put_back_is_kept_and_named(tmp_path, monkeypatch):
-    """P0380-REFINE (FR-424 R5, IND-01): when the old level cannot be put back, it is not removed.
+    """P0380-REFINE (FR-919, IND-01): when the old level cannot be put back, it is not removed.
 
     Both the publish and the put-back fail: the run's folder is kept with the
     old level inside it, byte for byte, and a warning names where it is.
@@ -615,7 +615,7 @@ def _tabbed(text: str) -> str:
 
 
 def test_ind09_statements_separated_by_tabs_are_read_whole(tmp_path):
-    """P0380-REFINE and P0380-AUDIT (FR-424 R4, R7, FR-426 R1, IND-09): a tab separates too.
+    """P0380-REFINE and P0380-AUDIT (FR-918, FR-921, FR-937, IND-09): a tab separates too.
 
     The fixture's OBJ is written again with every other ``v``, ``f`` and
     ``g`` line's keyword followed by a tab, or by spaces and a tab. The mesh
@@ -649,7 +649,7 @@ UNSAFE_FAMILIES = ["A/../../victim", "A\\..\\..\\victim", "A..B", "C:victim", "A
 def test_ind01_a_family_name_that_is_not_one_folder_name_is_refused(
     tmp_path, capsys, family, overwrite
 ):
-    """P0380-REFINE (FR-424 R5, R11, IND-01, IND2-02): a family name never leaves out_dir.
+    """P0380-REFINE (FR-919, FR-925, IND-01, IND2-02): a family name never leaves out_dir.
 
     The family whose name holds a path separator, ``..``, a drive colon or a
     reserved character is the only one refined, so its name would enter the
@@ -682,7 +682,7 @@ def test_ind01_a_family_name_that_is_not_one_folder_name_is_refused(
 
 @pytest.mark.parametrize("tag", ["a<b", "a|b", "a?b", "a*b", "fine.", "fine ", "a..b"])
 def test_ind01_a_tag_holding_a_reserved_character_is_refused(tmp_path, tag):
-    """P0380-REFINE (FR-424 R3, R5, IND2-02): ``[refine] tag`` is one portable folder name.
+    """P0380-REFINE (FR-917, FR-919, IND2-02): ``[refine] tag`` is one portable folder name.
 
     A tag holding a character Windows reserves, ``..``, or ending with a dot
     or a space (which Windows drops, naming another folder) is refused naming
@@ -701,7 +701,7 @@ def test_ind01_a_tag_holding_a_reserved_character_is_refused(tmp_path, tag):
 
 @pytest.mark.parametrize("overwrite", [False, True])
 def test_ind01_a_level_path_resolving_outside_out_dir_is_refused(tmp_path, overwrite):
-    """P0380-REFINE (FR-424 R5, R11, IND-01): the level is a folder directly inside out_dir.
+    """P0380-REFINE (FR-919, FR-925, IND-01): the level is a folder directly inside out_dir.
 
     ``study/levels/wing_R2`` is a directory junction to the unrelated
     ``study/victim``, so the level path resolves outside ``out_dir``. The
@@ -748,7 +748,7 @@ def _level_appears_once_the_run_is_under_way(monkeypatch, folder: Path) -> None:
 
 
 def test_ind2_03_a_level_that_appears_during_the_run_is_not_replaced(tmp_path, monkeypatch):
-    """P0380-REFINE (FR-424 R5, IND2-03): without overwrite, a level made meanwhile is kept.
+    """P0380-REFINE (FR-919, IND2-03): without overwrite, a level made meanwhile is kept.
 
     The level folder does not exist when the run starts, and another writer
     creates it, holding a file, while the run writes and audits its staged
@@ -812,7 +812,7 @@ def _json_over_an_input(case: str, level: Path, src: Path) -> tuple[Path, Path]:
     ["against", "named-points", "mesh-link", "record-link", "against-link", "against-points-link"],
 )
 def test_ind11_the_audit_json_never_overwrites_a_file_the_audit_reads(tmp_path, capsys, case):
-    """P0380-AUDIT (FR-426 R1, IND-11): ``<stem>.audit.json`` is refused when it is an input.
+    """P0380-AUDIT (FR-937, IND-11): ``<stem>.audit.json`` is refused when it is an input.
 
     The audit JSON beside the level is, by its own path or as a hard link,
     the source of ``against``, the points file the level's boundaries file
@@ -846,7 +846,7 @@ def test_ind11_the_audit_json_never_overwrites_a_file_the_audit_reads(tmp_path, 
 
 @pytest.mark.parametrize("target", ["level/wing.refine.json", "level/../level/wing.refine.json"])
 def test_ind2_01_csv_naming_the_levels_refine_json_is_refused(tmp_path, capsys, target):
-    """P0380-AUDIT (FR-426 R1, IND2-01): ``--csv`` never truncates the record the audit reads.
+    """P0380-AUDIT (FR-937, IND2-01): ``--csv`` never truncates the record the audit reads.
 
     The audited level holds ``<stem>.refine.json``, which the audit reads
     for its components and unchanged grids. ``--csv`` naming it, directly or
@@ -919,7 +919,7 @@ def _cell_triangles(grid: Grid) -> list[frozenset[int]]:
 
 @pytest.mark.parametrize("rule", sorted(SPLITS))
 def test_ind08_a_sheet_of_split_quadrilaterals_is_recovered_as_its_grid(rule):
-    """P0380-REFINE (FR-424 GRID FAMILY, R6, R9, IND-08): corners come from the cells.
+    """P0380-REFINE (FR-424 GRID FAMILY, FR-920, FR-923, IND-08): corners come from the cells.
 
     Every quadrilateral of the 9 by 19 sheet is split into two triangles,
     along one diagonal, the other, a checkerboard of both, or one per half,
@@ -943,7 +943,7 @@ def test_ind08_a_sheet_of_split_quadrilaterals_is_recovered_as_its_grid(rule):
 
 @pytest.mark.parametrize("rule", ["a-c", "checkerboard"])
 def test_ind08_a_split_sheet_refines_as_a_grid_through_refine_mesh(tmp_path, rule):
-    """P0380-REFINE (FR-424 R2, R6, R7, IND-08): the split sheet keeps its grid behavior.
+    """P0380-REFINE (FR-916, FR-920, FR-921, IND-08): the split sheet keeps its grid behavior.
 
     Through ``refine_mesh`` under ``auto``: at factor 1 the level is the
     source's faces in order and its audit passes with G6 judged; at factor 2
@@ -973,7 +973,7 @@ def test_ind08_a_split_sheet_refines_as_a_grid_through_refine_mesh(tmp_path, rul
 
 
 def test_ind08_triangles_that_are_not_the_cells_are_no_grid():
-    """P0380-REFINE (FR-424 GRID FAMILY, R9, IND-08): triangles across two cells are no grid.
+    """P0380-REFINE (FR-424 GRID FAMILY, FR-923, IND-08): triangles across two cells are no grid.
 
     In the sheet split along a-c, the side shared by two neighboring cells
     is flipped into the diagonal of the two triangles beside it: the nodes,
@@ -1044,7 +1044,8 @@ def _tube_with_poles(root: bool, tip: bool, split: bool = False) -> tuple[Compos
     ids=["open-pole", "pole-open", "pole-pole", "pole-pole-split"],
 )
 def test_ind10_a_tube_closed_by_a_pole_fan_at_each_end_is_a_grid(tmp_path, root, tip, split):
-    """P0380-REFINE (FR-424 GRID FAMILY, R6, R7, IND-10): either end, or both, may be a pole fan.
+    """P0380-REFINE (FR-424 GRID FAMILY, FR-920, FR-921, IND-10): either end, or both, may be a
+     pole fan.
 
     The wing tube of 9 stations by 24 chordwise nodes is closed by a fan of
     triangles around a pole at the root, at the tip, or at both, its lateral
@@ -1082,7 +1083,7 @@ def test_ind10_a_tube_closed_by_a_pole_fan_at_each_end_is_a_grid(tmp_path, root,
 
 
 def test_ind3_01_an_unstructured_closed_triangulation_is_refused_at_once():
-    """P0380-REFINE (FR-424 R6, IND3-01): a closed irregular triangulation offers no pole pair.
+    """P0380-REFINE (FR-920, IND3-01): a closed irregular triangulation offers no pole pair.
 
     The convex hull of 2402 random points on a sphere is a closed family of
     triangles whose nodes share a handful of fan sizes, so no node can be the

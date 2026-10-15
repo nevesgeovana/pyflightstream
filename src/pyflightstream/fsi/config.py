@@ -670,7 +670,7 @@ class FsiConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _deflected_morphing_is_explained(cls, data: object) -> object:
-        """Refuse the direct route the measurement did not close, saying why (FR-341 R4).
+        """Refuse the direct route the measurement did not close, saying why (FR-678).
 
         ``direct_deflected`` is not a value of the route; it is read before the
         route's type so the refusal explains it rather than listing the values.

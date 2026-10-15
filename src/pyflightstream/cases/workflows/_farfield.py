@@ -1,4 +1,4 @@
-"""What the plan adds to a row's script for the far field (FR-455, FR-459 R4).
+"""What the plan adds to a row's script for the far field (FR-455, FR-1074).
 
 The emission half of the far-field family: where a row's pproc artifact carries
 ``[farfield]``, the builders call these functions to declare the outputs the far
@@ -83,7 +83,7 @@ __all__ = [
 
 #: The fluid-plot parameters an unsteady row samples at every far-field point:
 #: the velocity and the pressure coefficient on the reference velocity, which a
-#: rotor at rest still has (FR-455 R9).
+#: rotor at rest still has (FR-1052).
 FARFIELD_PLOT_PARAMETERS: tuple[str, ...] = ("VX", "VY", "VZ", "CP_REF")
 #: The reference frame of the far-field fluid plots (frame 1, the global frame).
 _PLOT_FRAME = 1
@@ -91,7 +91,7 @@ _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _MESH_SUFFIXES = (".obj", ".stl")
 #: Two laid-out probe sets are one declaration when every coordinate agrees at
 #: the fifth decimal of the simulation's unit, the precision the script writes
-#: a probe position in (FR-455 R2, PFS-2081.56).
+#: a probe position in (FR-1045, PFS-2081.56).
 _SAME_POSITION = 1.01e-5
 
 
@@ -154,7 +154,7 @@ def _normal(case: SimCase) -> bool:
 
 
 def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list[str]:
-    """Return ``names`` with the exports the far field reads added (FR-455 R3).
+    """Return ``names`` with the exports the far field reads added (FR-1046).
 
     An ``[exports]`` entry set to false that the far field needs is turned on
     for this row, with a WARNING naming the entry and the analysis.
@@ -169,7 +169,7 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
     if "trefftz:wake" in analyses:
         wanted.append(("vtk", "{name}.vtk", "trefftz:wake"))
     if needs_fresh_probes(case):
-        # FR-455 R9: an unsteady row whose [[probes]] entries are of kind normal
+        # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
         # samples the far field with them, as probe points exported once.
         kind = "plots" if workflow.startswith("unsteady") and not _normal(case) else "probes"
         wanted.append((kind, f"{{name}}_{kind}.txt", "trefftz:plane or ledgers"))
@@ -183,7 +183,7 @@ def farfield_outputs(case: SimCase, workflow: str, names: Sequence[str]) -> list
             warn(
                 f"case {case.sim_id!r}: [exports] {kind} = false in the pproc artifact "
                 f"{case.pproc_id!r}, and the far field's {analysis} needs it; it is turned on "
-                "for this row (FR-455 R3).",
+                "for this row (FR-1046).",
                 PyflightstreamWarning,
                 stacklevel=2,
             )
@@ -228,7 +228,7 @@ def _covered(case: SimCase, inventory: Sequence[str]) -> set[str]:
 def _warn_few_stations(
     case: SimCase, inventory: Sequence[str], reused: Sequence[str], mirror: bool
 ) -> None:
-    """Warn per reused family whose declared distribution has too few stations (FR-451 R10).
+    """Warn per reused family whose declared distribution has too few stations (FR-1019).
 
     The stations per side of a family are those of the densest declared
     distribution that covers it: its count on a mirrored half model, half its
@@ -257,7 +257,7 @@ def _warn_few_stations(
 
 @dataclass(frozen=True)
 class FarfieldShape:
-    """One far-field probe set as the plan chose it: the plane or the lattice (FR-455 R2).
+    """One far-field probe set as the plan chose it: the plane or the lattice (FR-1045).
 
     The ONE selection planning, emission and post use (PFS-2081.56, .58): the
     plan lays an ``added`` shape and reuses a ``declared`` one, the run record
@@ -294,7 +294,7 @@ class FarfieldShape:
     lattice: Any = field(default=None, compare=False, repr=False)
 
     def record(self) -> dict[str, Any]:
-        """Return the shape as the run record and ``plan.json`` carry it (FR-455 R4)."""
+        """Return the shape as the run record and ``plan.json`` carry it (FR-1047)."""
         return {
             "kind": self.kind,
             "source": self.source,
@@ -309,7 +309,7 @@ def _same_points(first: np.ndarray, second: np.ndarray, native_per_m: float) -> 
 
     The script writes a probe position rounded to five decimals of the
     simulation's unit, so two declarations whose every coordinate agrees there
-    are the same probes (FR-455 R2: same frame, same points after layout).
+    are the same probes (FR-1045: same frame, same points after layout).
     """
     if first.shape != second.shape:
         return False
@@ -346,7 +346,7 @@ def _plane_shape(
 
 
 def _qualifying_plane(rectangle: Any, axes: np.ndarray, reach: float) -> tuple | None:
-    """Return a declared rectangle as a far-field plane (center, grid), or None (FR-455 R2).
+    """Return a declared rectangle as a far-field plane (center, grid), or None (FR-1045).
 
     It qualifies when it IS a Trefftz C plane of this point: a uniform grid of
     one spacing both ways with an odd count each way (so its center is a
@@ -373,7 +373,7 @@ def _qualifying_plane(rectangle: Any, axes: np.ndarray, reach: float) -> tuple |
 
 
 def _plane_choice(case: SimCase, native_per_m: float) -> FarfieldShape:
-    """Choose the wing's Trefftz C plane: a declared one, or the one the plan lays (FR-455 R2)."""
+    """Choose the wing's Trefftz C plane: a declared one, or the one the plan lays (FR-1045)."""
     spec = _spec(case)
     trefftz = spec.trefftz if spec is not None else None
     if trefftz is None:
@@ -418,7 +418,7 @@ def _lattice_placement(
 
 
 def _rotor_placement(case: SimCase, shape: LatticeShape) -> tuple[Any, str, np.ndarray]:
-    """Return a rotor's lattice, its shaft axis letter and its hub in metres (FR-459 R2)."""
+    """Return a rotor's lattice, its shaft axis letter and its hub in metres (FR-1072)."""
     rotor = case.rotors.get(str(shape.rotor))
     if rotor is None:
         raise CampaignConfigError(
@@ -475,7 +475,7 @@ def _placed_alike(wanted: LatticeShape, shape: LatticeShape, entry_frame: str) -
 def _lattice_choice(
     case: SimCase, script: Script, frames: Any, native_per_m: float
 ) -> FarfieldShape:
-    """Choose the survey lattice: a declared one, or the one the plan lays (FR-455 R2).
+    """Choose the survey lattice: a declared one, or the one the plan lays (FR-1045).
 
     A ``[farfield.ledgers]`` that states no lattice key reuses the one declared
     lattice placed on its rotor or frame, when exactly one is and its azimuths
@@ -607,7 +607,7 @@ def _recorded_shapes(case: SimCase, script: Script | None) -> list[Mapping[str, 
 
 
 def plan_record(case: SimCase, version: str, script: Script | None = None) -> dict[str, object]:
-    """Return the row's ``farfield`` object of ``plan.json``, empty without one (FR-455 R4).
+    """Return the row's ``farfield`` object of ``plan.json``, empty without one (FR-1047).
 
     With the dry-run ``script`` of the point, the record states the probe
     shapes that script selected (``probes``: kind, declared or added, the
@@ -641,7 +641,7 @@ def _refuse(case: SimCase, resolution: FarfieldResolution) -> None:
 
 
 def farfield_sections(case: SimCase, script: Script, frames: Any) -> None:
-    """Add the section distribution Trefftz A needs over the uncovered families (FR-455 R3)."""
+    """Add the section distribution Trefftz A needs over the uncovered families (FR-1046)."""
     spec = _spec(case)
     if spec is None or "trefftz:sections" not in _analyses(spec, case):
         return
@@ -704,7 +704,7 @@ def _free_stream(case: SimCase) -> np.ndarray:
 
 
 def farfield_plane_of(case: SimCase, *, extent_m: float | None) -> FarfieldPlane:
-    """Lay the Trefftz C plane of the row's point, in metres (FR-453 R4).
+    """Lay the Trefftz C plane of the row's point, in metres (FR-1033).
 
     Normal to the point's free stream, centered on the free-stream line through
     the moment reference point, ``distance_bref BREF`` behind ``extent_m``, the
@@ -742,7 +742,7 @@ def _rotor_lattice(case: SimCase, shape: LatticeShape) -> np.ndarray:
 
 
 def farfield_lattice(case: SimCase, shape: LatticeShape) -> np.ndarray:
-    """Lay a rotor's survey lattice in the reference frame, in metres (FR-459 R2).
+    """Lay a rotor's survey lattice in the reference frame, in metres (FR-1072).
 
     The lattice lies on the rotor's hub along its axis letter, scaled by its
     tip radius.
@@ -756,7 +756,7 @@ def farfield_lattice(case: SimCase, shape: LatticeShape) -> np.ndarray:
 
 
 def declared_lattice_points(case: SimCase, shape: LatticeShape, frame: str) -> np.ndarray:
-    """Lay a ``[[probes]]`` lattice in its entry's frame, in metres (FR-459 R2).
+    """Lay a ``[[probes]]`` lattice in its entry's frame, in metres (FR-1072).
 
     A lattice naming a rotor lies on the rotor's hub in the reference frame, so
     its entry's frame is ``REFERENCE``; a lattice naming a frame lies along that
@@ -780,7 +780,7 @@ def declared_lattice_points(case: SimCase, shape: LatticeShape, frame: str) -> n
 def declared_lattices(
     case: SimCase, probes: Any, native_per_m: float, *, unsteady: bool
 ) -> list[list[float]]:
-    """Return the native points of a ``[[probes]]`` entry's lattices (FR-459 R2, R5).
+    """Return the native points of a ``[[probes]]`` entry's lattices (FR-1072, FR-1075).
 
     Rounded to five decimals as every drawn probe is; an unsteady entry warns
     the fluid-plot count its lattices cost.
@@ -792,7 +792,7 @@ def declared_lattices(
         if unsteady:
             warn(
                 f"case {case.sim_id!r}: a [[probes]] lattice samples {len(laid)} points at every "
-                f"time step, {len(laid) * len(probes.parameters)} fluid plots (FR-459 R5).",
+                f"time step, {len(laid) * len(probes.parameters)} fluid plots (FR-1075).",
                 PyflightstreamWarning,
                 stacklevel=3,
             )
@@ -800,7 +800,7 @@ def declared_lattices(
 
 
 def emit_declared_lattices(case: SimCase, script: Script, probes: Any, native_per_m: float) -> int:
-    """Emit a steady reference-frame entry's lattices through the probes home (FR-459 R2).
+    """Emit a steady reference-frame entry's lattices through the probes home (FR-1072).
 
     Each lattice is placed as :func:`declared_lattice_points` places it (on its
     rotor's hub along the rotor's axis, or along the reference x axis), scaled
@@ -860,7 +860,7 @@ def _inside(case: SimCase, native: np.ndarray) -> tuple[int, str]:
 
 
 def warn_declared_inside(case: SimCase, entries: Sequence[tuple[int, str, np.ndarray]]) -> None:
-    """Warn per declared ``[[probes]]`` entry with points inside the body (FR-459 R4).
+    """Warn per declared ``[[probes]]`` entry with points inside the body (FR-1074).
 
     ``entries`` holds the entry number, its frame and its native points. The
     points are kept. An entry in a frame other than the reference one, or a row
@@ -881,26 +881,26 @@ def warn_declared_inside(case: SimCase, entries: Sequence[tuple[int, str, np.nda
             warn(
                 f"case {case.sim_id!r}: {count} point(s) of [[probes]] entry {number} lie "
                 f"inside the body, the first at {detail} (native units); they are kept "
-                "(FR-459 R4).",
+                "(FR-1074).",
                 PyflightstreamWarning,
                 stacklevel=3,
             )
     if unchecked:
         warn(
             f"case {case.sim_id!r}: probe points were not checked against the body: "
-            f"{'; '.join(dict.fromkeys(unchecked))} (FR-459 R4).",
+            f"{'; '.join(dict.fromkeys(unchecked))} (FR-1074).",
             PyflightstreamWarning,
             stacklevel=3,
         )
 
 
 def _check_added(case: SimCase, native: np.ndarray, what: str) -> None:
-    """Refuse a package-added point inside the body (FR-455 R7); warn when unchecked."""
+    """Refuse a package-added point inside the body (FR-1050); warn when unchecked."""
     count, detail = _inside(case, native)
     if count < 0:
         warn(
             f"case {case.sim_id!r}: the far-field {what} was not checked against the body: "
-            f"{detail} (FR-459 R4).",
+            f"{detail} (FR-1074).",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -909,14 +909,14 @@ def _check_added(case: SimCase, native: np.ndarray, what: str) -> None:
             f"case {case.sim_id!r}: {count} point(s) of the far-field {what} the plan adds lie "
             f"inside the body, the first at {detail} (native units); state the geometry in "
             "[farfield] (the plane's extent and distance, or the lattice's r_inner and "
-            "stations) so it clears the body (FR-455 R7)."
+            "stations) so it clears the body (FR-1050)."
         )
 
 
 def _frame_origin(
     case: SimCase, script: Script, frames: Any, name: str, native_per_m: float
 ) -> np.ndarray:
-    """Return where a frame's survey lattice starts, in metres, reference frame (FR-454 R1).
+    """Return where a frame's survey lattice starts, in metres, reference frame (FR-1039).
 
     The lattice lies along the frame's x axis from the frame's origin, as the
     script placed the frame; a frame whose axes turn from the reference axes
@@ -959,7 +959,7 @@ def _complete_declared_plots(
     reuses its histories and adds only the missing ones, at the same vertices,
     in the frame the entry laid them in (a reused frame keeps the reference
     axes, :func:`_frame_origin`). The added plots are recorded on the shape as
-    ``plots_added`` and their count is warned (FR-455 R9).
+    ``plots_added`` and their count is warned (FR-1052).
     """
     entries = case.pproc.probes if case.pproc is not None else []
     entry = entries[int(shape.entry or 0) - 1]
@@ -992,7 +992,7 @@ def _complete_declared_plots(
     warn(
         f"case {case.sim_id!r}: the far field reuses the {shape.kind} of [[probes]] entry "
         f"{shape.entry} and adds its missing histories {', '.join(missing)}: "
-        f"{count * len(missing)} fluid plots at every time step (FR-455 R9).",
+        f"{count * len(missing)} fluid plots at every time step (FR-1052).",
         PyflightstreamWarning,
         stacklevel=3,
     )
@@ -1040,7 +1040,7 @@ def farfield_probes(
             warn(
                 f"case {case.sim_id!r}: the far-field {what} samples {len(points)} points at "
                 f"every time step, {len(points) * len(FARFIELD_PLOT_PARAMETERS)} fluid plots "
-                "(FR-455 R9).",
+                "(FR-1052).",
                 PyflightstreamWarning,
                 stacklevel=2,
             )

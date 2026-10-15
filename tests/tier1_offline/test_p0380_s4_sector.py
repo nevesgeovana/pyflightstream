@@ -145,12 +145,12 @@ def _level(result) -> tuple[numpy.ndarray, list[list[int]]]:
     return mesh.verts, [f for fs in mesh.families.values() for f in fs]
 
 
-# ---- R1: the level's cuts match node for node
+# ---- FR-942: the level's cuts match node for node
 
 
 @pytest.mark.parametrize("factor", [2.0, 0.5])
 def test_a_remeshed_sector_keeps_its_cuts_node_for_node(tmp_path, factor):
-    """P0380-SECTOR (FR-427 R1): a remeshed wedge's two cuts match within 1e-9 of the size.
+    """P0380-SECTOR (FR-942): a remeshed wedge's two cuts match within 1e-9 of the size.
 
     The cut holds about factor times its source intervals, so the cut was
     rebuilt rather than kept. Control: the same level with the nodes of one
@@ -177,7 +177,7 @@ def test_a_remeshed_sector_keeps_its_cuts_node_for_node(tmp_path, factor):
 
 
 def test_a_grid_sector_keeps_its_cuts_node_for_node(tmp_path):
-    """P0380-SECTOR (FR-427 R1): a wedge refined as a grid at factor 2 keeps its cuts matched.
+    """P0380-SECTOR (FR-942): a wedge refined as a grid at factor 2 keeps its cuts matched.
 
     Control: the level's cut nodes shifted by 1e-6 of the size fail the measurement.
     """
@@ -194,7 +194,7 @@ def test_a_grid_sector_keeps_its_cuts_node_for_node(tmp_path):
 
 
 def test_a_grid_master_rebuilds_the_remeshed_slave_on_its_nodes(tmp_path):
-    """P0380-SECTOR (FR-427 R1): the cut of grid A at 0 degrees is imposed on remeshed B at 60.
+    """P0380-SECTOR (FR-942): the cut of grid A at 0 degrees is imposed on remeshed B at 60.
 
     Control: the slave cut of the level, read back without the rotation's
     sense reversed, does not match (a check that cannot tell the senses apart fails here).
@@ -213,11 +213,11 @@ def test_a_grid_master_rebuilds_the_remeshed_slave_on_its_nodes(tmp_path):
     assert level_distance(first, second, SIX, -1) > PERIODIC_LEVEL_FRACTION * size
 
 
-# ---- R2: the source's cuts
+# ---- FR-943: the source's cuts
 
 
 def test_the_source_cut_pair_is_found_with_its_sense():
-    """P0380-SECTOR (FR-427 R2): the wedge's cuts are one pair, master at 0 degrees, sense +60.
+    """P0380-SECTOR (FR-943): the wedge's cuts are one pair, master at 0 degrees, sense +60.
 
     Control: the same wedge with seven copies (51.4 degrees) finds no pair and is refused.
     """
@@ -242,7 +242,7 @@ def _moved(fraction: float, *, quads: bool = False) -> tuple[ObjMesh, float]:
 
 
 def test_a_source_whose_cut_node_moved_is_refused_naming_the_distance(tmp_path):
-    """P0380-SECTOR (FR-427 R2): one cut node moved by 1e-4 of the size refuses, naming 1e-4.
+    """P0380-SECTOR (FR-943): one cut node moved by 1e-4 of the size refuses, naming 1e-4.
 
     Control: a node moved by 1e-8 of the size (inside PERIODIC_SOURCE_FRACTION)
     is accepted; refined as a grid, whose spline carries the move into the
@@ -269,7 +269,7 @@ def test_a_source_whose_cut_node_moved_is_refused_naming_the_distance(tmp_path):
 
 
 def test_a_mesh_without_cut_boundaries_is_refused(tmp_path):
-    """P0380-SECTOR (FR-427 R2): a whole band (no cut) with a [periodic] table is refused.
+    """P0380-SECTOR (FR-943): a whole band (no cut) with a [periodic] table is refused.
 
     Control: the wedge with the same table is accepted (the first test of this file).
     """
@@ -284,7 +284,7 @@ def test_a_mesh_without_cut_boundaries_is_refused(tmp_path):
 
 
 def test_a_level_whose_cuts_do_not_match_is_refused_before_writing():
-    """P0380-SECTOR (FR-427 R1): the level check refuses a cut moved beyond the source tolerance.
+    """P0380-SECTOR (FR-942): the level check refuses a cut moved beyond the source tolerance.
 
     Control: the unmoved wedge passes the same check and is reported.
     """
@@ -302,11 +302,11 @@ def test_a_level_whose_cuts_do_not_match_is_refused_before_writing():
         match_level(bad, mesh.families, cuts, SIX, source=mesh.verts, size=size, where="w")
 
 
-# ---- R3: without [periodic]
+# ---- FR-944: without [periodic]
 
 
 def test_without_periodic_the_cuts_are_free(tmp_path):
-    """P0380-SECTOR (FR-427 R3): without [periodic] a wedge whose cuts differ is refined as any.
+    """P0380-SECTOR (FR-944): without [periodic] a wedge whose cuts differ is refined as any.
 
     The source with a cut node moved by 1e-4 of the size, refused with
     [periodic] (the control, asserted here too), is refined without it; its

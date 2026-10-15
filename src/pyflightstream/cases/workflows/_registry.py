@@ -306,7 +306,7 @@ def normal_probe_creation(
 ) -> str:
     """Return the lines that create a row's normal probes on its first exporting step.
 
-    FR-417 R7: a row whose probes are normal and which states a per-step
+    FR-890: a row whose probes are normal and which states a per-step
     export window exports them at every step of the window, so the exports
     script of the window's first step creates them: ``DELETE_PROBE_POINTS``,
     then the creation commands the row's full script emits after the march,

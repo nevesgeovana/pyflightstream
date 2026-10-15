@@ -5,7 +5,7 @@ from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyf
 
 
 def test_one_surviving_log_does_not_hide_a_missing_sibling(tmp_path):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R1): decide log loss per point."""
+    """P0370-S1-RAN-MISSING-LOG (FR-860): decide log loss per point."""
     for name in ("a.txt", "b.txt", "a_log.txt"):
         (tmp_path / name).write_text("settled output", encoding="utf-8")
     assert absent_solver_logs(
@@ -16,7 +16,7 @@ def test_one_surviving_log_does_not_hide_a_missing_sibling(tmp_path):
 
 
 def test_a_missing_non_log_output_still_prevents_admission(tmp_path):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R7): partial outputs are not admitted."""
+    """P0370-S1-RAN-MISSING-LOG (FR-865): partial outputs are not admitted."""
     (tmp_path / "a.txt").write_text("settled output", encoding="utf-8")
     assert (
         absent_solver_logs(
@@ -29,7 +29,7 @@ def test_a_missing_non_log_output_still_prevents_admission(tmp_path):
 
 
 def test_a_steady_job_missing_a_point_output_is_not_admitted(tmp_path, capsys):
-    """P0370-S1-RAN-MISSING-LOG (FR-413 R7): collect waits and names the missing output.
+    """P0370-S1-RAN-MISSING-LOG (FR-865): collect waits and names the missing output.
 
     A steady job of two points whose logs never came back, and the second
     point's loads file gone too: collect admits neither point as

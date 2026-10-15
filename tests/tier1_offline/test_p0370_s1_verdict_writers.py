@@ -32,7 +32,7 @@ def _marked_job():
 
 
 def test_rebuild_keeps_each_steady_point_verdict(tmp_path):
-    """P0370-S1-MARK-CONVERGED (FR-414 R4): nested marks survive rebuild."""
+    """P0370-S1-MARK-CONVERGED (FR-871): nested marks survive rebuild."""
     original = _marked_job()
     manifest = tmp_path / "runs.json"
     manifest.write_text(json.dumps(encode_rows([original])), encoding="utf-8")
@@ -50,7 +50,7 @@ def test_rebuild_keeps_each_steady_point_verdict(tmp_path):
 
 @pytest.mark.parametrize("change", ["drop", "reason", "status"])
 def test_sync_refuses_to_replace_a_steady_point_verdict(change):
-    """P0370-S1-MARK-CONVERGED (FR-414 R4): prefer-other cannot erase a mark."""
+    """P0370-S1-MARK-CONVERGED (FR-871): prefer-other cannot erase a mark."""
     original = _marked_job()
     incoming = copy.deepcopy(original)
     point = incoming["points_ran"][0]
@@ -67,7 +67,7 @@ def test_sync_refuses_to_replace_a_steady_point_verdict(change):
 
 
 def test_sync_refuses_changed_top_level_verdict():
-    """P0370-S1-MARK-CONVERGED (FR-414 R4): a present mark is not proof it survived."""
+    """P0370-S1-MARK-CONVERGED (FR-871): a present mark is not proof it survived."""
     original = _marked_job()
     original.update(original.pop("points_ran")[0])
     incoming = {**original, "status": "FAILED_EXECUTION"}

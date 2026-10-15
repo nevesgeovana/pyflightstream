@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 
 #: The statuses whose products ``check_frozen`` never withholds. RAN_MISSING_LOG is
-#: one (FR-413 R3): its freeze cannot be read, and the requirement
+#: one (FR-862): its freeze cannot be read, and the requirement
 #: is that the post does not refuse it; the point's one WARNING says so.
 _ADMITTED_WHEN_CHECKING = (
     RunStatus.CONVERGED,
@@ -177,7 +177,7 @@ def _person_s_verdict(record: RunRecord) -> dict[str, object] | None:
 
 
 def _say_a_person_s_verdict(record: RunRecord) -> None:
-    """Name, once in ``post.log``, a point whose CONVERGED is a person's verdict (FR-414 R3)."""
+    """Name, once in ``post.log``, a point whose CONVERGED is a person's verdict (FR-870)."""
     marked = _person_s_verdict(record)
     if marked is None or record.status is not RunStatus.CONVERGED:
         return
@@ -193,7 +193,7 @@ def _say_a_person_s_verdict(record: RunRecord) -> None:
 def carry_marks(
     products_index: Mapping[str, dict[str, object]], points: Sequence[RunRecord]
 ) -> None:
-    """Give every product entry built from a point a person judged its ``marked`` (FR-414 R3).
+    """Give every product entry built from a point a person judged its ``marked`` (FR-870).
 
     Keyed by run id under ``marked``, beside ``runs``; an entry built from no
     such point is left byte for byte as it was.
@@ -215,7 +215,7 @@ def _record_has_frozen_failure(
 
     A RAN_MISSING_LOG point has no log to read: its one WARNING names the
     status and what is unavailable, and with ``check_frozen`` that its freeze
-    cannot be read (FR-413 R3).
+    cannot be read (FR-862).
     """
     frozen_failure = False
     _say_a_person_s_verdict(point_record)
@@ -226,7 +226,7 @@ def _record_has_frozen_failure(
             stacklevel=4,
         )
     elif point_record.status is RunStatus.MAX_ITER_REACHED:
-        # FR-434 R4: an ended run that is not a failure; its products are written
+        # FR-977: an ended run that is not a failure; its products are written
         # and its one WARNING names the point and the limit the run stopped at.
         warn(
             f"point={point_record.run_id} product=all: the recorded status is "

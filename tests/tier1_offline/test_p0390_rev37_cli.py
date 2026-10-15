@@ -1,4 +1,4 @@
-"""P0390-REV37 (NFR-45 R2): the behaviour findings of the 0.37.0 release review.
+"""P0390-REV37 (NFR-45): the behaviour findings of the 0.37.0 release review.
 
 R37-01 the help constant beside ``listed_sims``; R37-02 the sweep refusal names the
 column that differs; R37-03 and R37-04 a quoted ``--sims "2006 2007"`` is two ids in
@@ -32,7 +32,7 @@ def _help(command, tmp_path, capsys):
 
 
 def test_the_sims_help_constant_lives_beside_listed_sims(tmp_path, capsys):
-    """P0390-REV37 (NFR-45 R2, R37-01): defined in workspace.ledger, not in run._alias.
+    """P0390-REV37 (NFR-45, NFR-45-01): defined in workspace.ledger, not in run._alias.
 
     run._alias keeps the name importable at its 0.38.0 path (release parity), but only as the
     very object ledger defines: a second definition there would be a different object.
@@ -52,7 +52,7 @@ def _header(**renamed: str) -> str:
 
 
 def test_the_sweep_refusal_names_the_column_that_differs_in_each_layout():
-    """P0390-REV37 (NFR-45 R2, R37-02): position, expected, found, per layout."""
+    """P0390-REV37 (NFR-45, NFR-45-02): position, expected, found, per layout."""
     with pytest.raises(MalformedOutputError) as refused:
         sweep_columns(_header(CL="CLx"), what="sweeper spreadsheet")
     said = str(refused.value)
@@ -68,7 +68,7 @@ def test_the_sweep_refusal_names_the_column_that_differs_in_each_layout():
 
 
 def test_a_header_that_is_a_prefix_is_refused_with_its_length():
-    """P0390-REV37 (NFR-45 R2, R37-02): a header cut short names the counts, not a column."""
+    """P0390-REV37 (NFR-45, NFR-45-02): a header cut short names the counts, not a column."""
     with pytest.raises(MalformedOutputError) as refused:
         sweep_columns(", ".join(SWEEP_COLUMNS[:10]), what="sweeper spreadsheet")
     assert "agree as far as they go, and the header has 10 where 12 are expected" in str(
@@ -78,7 +78,7 @@ def test_a_header_that_is_a_prefix_is_refused_with_its_length():
 
 @pytest.mark.parametrize("value", ["7001 7002", "[7001,7002]", "7001\t7002", "7001, 7002"])
 def test_listed_sims_reads_blank_and_comma_forms_alike(value):
-    """P0390-REV37 (NFR-45 R2, R37-04): a blank separates ids as a comma does."""
+    """P0390-REV37 (NFR-45, NFR-45-04): a blank separates ids as a comma does."""
     assert ledger.listed_sims(value) == ["7001", "7002"]
     assert ledger.listed_sims("7001") == ["7001"]
 
@@ -95,7 +95,7 @@ def _named(text: str) -> list[str]:
 
 @pytest.mark.parametrize("value", ["7001 7002", "[7001,7002]", "7001\t7002"])
 def test_mark_converged_reads_a_quoted_value_as_two_ids_through_the_cli(value, tmp_path, capsys):
-    """P0390-REV37 (NFR-45 R2, R37-03): quoted, bracket and tab values give the two-id preview."""
+    """P0390-REV37 (NFR-45, NFR-45-03): quoted, bracket and tab values give the two-id preview."""
     workspace = grouped_workspace(tmp_path / "ws", mode="alone", logs=False, sims=SIMS)
     base = ["mark-converged", "--reason", REASON]
     want = pyfs([*base, "--sims", "7001,7002"], workspace.root, capsys)
@@ -105,7 +105,7 @@ def test_mark_converged_reads_a_quoted_value_as_two_ids_through_the_cli(value, t
 
 
 def test_mark_converged_help_names_the_quoted_value_and_the_mixed_shape(tmp_path, capsys):
-    """P0390-REV37 (NFR-45 R2, R37-09): the help names one quoted value and the mixed shape."""
+    """P0390-REV37 (NFR-45, NFR-45-09): the help names one quoted value and the mixed shape."""
     text = _help("mark-converged", tmp_path, capsys)
     assert "reads as two ids" in text and "'2006 2007'" in text, text
     assert text.count("quoted value") == 1, text
@@ -120,7 +120,7 @@ def test_mark_converged_help_names_the_quoted_value_and_the_mixed_shape(tmp_path
 def test_a_quoted_sims_value_is_two_ids_in_mark_failed_and_rebuild(
     command, value, tmp_path, capsys
 ):
-    """P0390-REV37 (NFR-45 R2, R37-04): the quoted value gives what the comma form gives."""
+    """P0390-REV37 (NFR-45, NFR-45-04): the quoted value gives what the comma form gives."""
     workspace = grouped_workspace(tmp_path / "ws", mode="alone", logs=False, sims=SIMS)
     want = pyfs([*command, "7001,7002"], workspace.root, capsys)
     got = pyfs([*command, value], workspace.root, capsys)
@@ -130,7 +130,7 @@ def test_a_quoted_sims_value_is_two_ids_in_mark_failed_and_rebuild(
 
 @pytest.mark.parametrize("value", ["7001,7002", "[7001,7002]", "7001, 7002"])
 def test_every_form_accepted_before_still_reads_the_same_ids(value, tmp_path, capsys):
-    """P0390-REV37 (NFR-45 R2, R37-04): the comma and bracket forms of 0.38.0 keep their result."""
+    """P0390-REV37 (NFR-45, NFR-45-04): the comma and bracket forms of 0.38.0 keep their result."""
     workspace = grouped_workspace(tmp_path / "ws", mode="alone", logs=False, sims=SIMS)
     code, said = pyfs(["delete-sims", value], workspace.root, capsys)
     assert code == 0, said
@@ -138,7 +138,7 @@ def test_every_form_accepted_before_still_reads_the_same_ids(value, tmp_path, ca
 
 
 def test_delete_sims_reads_a_quoted_value_as_two_ids(tmp_path, capsys):
-    """P0390-REV37 (NFR-45 R2, R37-04): ``delete-sims "7001 7002"`` previews both, not 70017002."""
+    """P0390-REV37 (NFR-45, NFR-45-04): ``delete-sims "7001 7002"`` previews both, not 70017002."""
     workspace = grouped_workspace(tmp_path / "ws", mode="alone", logs=False, sims=SIMS)
     want = pyfs(["delete-sims", "7001,7002"], workspace.root, capsys)
     got = pyfs(["delete-sims", "7001 7002"], workspace.root, capsys)
@@ -147,7 +147,7 @@ def test_delete_sims_reads_a_quoted_value_as_two_ids(tmp_path, capsys):
 
 
 def test_a_single_layout_refusal_names_the_first_difference_without_a_layout_number():
-    """P0390-REV37 (NFR-45 R2, R37-02): one expected layout says "The first difference"."""
+    """P0390-REV37 (NFR-45, NFR-45-02): one expected layout says "The first difference"."""
     text = (FIXTURES / "force_distributions_26.123.txt").read_text(encoding="utf-8")
     header = "Boundary, X, Y, Z, Cx, Cy, Cz, Cxv, Cyv, Czv"
     assert text.count(header) == 1

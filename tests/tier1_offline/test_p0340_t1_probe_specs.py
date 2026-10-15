@@ -77,7 +77,7 @@ def unspecified(
 
 
 def test_the_census_finds_no_emitted_command_without_an_entry_fr_342():
-    """FR-342 R1 and R2, marker P0340-T1-PROBE-SPECS: the goldens render nothing the catalog lacks.
+    """FR-342 and FR-342, marker P0340-T1-PROBE-SPECS: the goldens render nothing the catalog lacks.
 
     The two commands of the builds no authorised run reaches are the only ones left, named.
     """
@@ -86,7 +86,7 @@ def test_the_census_finds_no_emitted_command_without_an_entry_fr_342():
 
 
 def test_the_census_counts_the_commands_it_found_when_the_package_started_fr_342():
-    """FR-342 R1, marker P0340-T1-PROBE-SPECS: three commands, in the builds the goldens name."""
+    """FR-342, marker P0340-T1-PROBE-SPECS: three commands, in the builds the goldens name."""
     emitted = emitted_by_the_goldens()
     for command, builds in CENSUS.items():
         assert command in specs.PROBE_SPECS
@@ -95,7 +95,7 @@ def test_the_census_counts_the_commands_it_found_when_the_package_started_fr_342
 
 
 def test_a_planted_command_without_an_entry_is_refused_by_the_census_fr_342():
-    """FR-342 R2, marker P0340-T1-PROBE-SPECS: the control of the census test."""
+    """FR-342, marker P0340-T1-PROBE-SPECS: the control of the census test."""
     planted = {"26.124": {"ROTATE_SURFACE", "PYFS_PLANTED_COMMAND"}}
     assert unspecified(planted, specs.PROBE_SPECS) == {"PYFS_PLANTED_COMMAND": {"26.124"}}
 
@@ -104,13 +104,13 @@ def test_a_planted_command_without_an_entry_is_refused_by_the_census_fr_342():
     ("command", "build"), [(c, b) for c, builds in CENSUS.items() for b in builds]
 )
 def test_each_entry_builds_for_every_build_that_holds_its_command_fr_342(command, build):
-    """FR-342 R2, marker P0340-T1-PROBE-SPECS: the script emits the command on that build."""
+    """FR-342, marker P0340-T1-PROBE-SPECS: the script emits the command on that build."""
     assert target_line(command, build).startswith(command)
     assert f"PYFS_PROBE_END_{command}" in build_script(command, build)
 
 
 def test_the_unsteady_action_probe_registers_a_script_that_prints_a_marker_fr_342():
-    """FR-342 R2, marker P0340-T1-PROBE-SPECS: the action is observed through the log it writes."""
+    """FR-342, marker P0340-T1-PROBE-SPECS: the action is observed through the log it writes."""
     script = build_script("SET_NEW_UNSTEADY_SOLVER_ACTION")
     assert "SET_NEW_UNSTEADY_SOLVER_ACTION SCRIPT PYFS_ACTION" in script
     assert script.index("SET_NEW_UNSTEADY_SOLVER_ACTION") < script.index("INITIALIZE_SOLVER")
@@ -119,13 +119,13 @@ def test_the_unsteady_action_probe_registers_a_script_that_prints_a_marker_fr_34
 
 
 def test_the_rotation_probe_changes_the_saved_mesh_not_a_placeholder_fr_342():
-    """FR-342 R2, marker P0340-T1-PROBE-SPECS: the rotation is judged on the saved simulation."""
+    """FR-342, marker P0340-T1-PROBE-SPECS: the rotation is judged on the saved simulation."""
     for command in ("ROTATE_SURFACE", "SURFACE_ROTATE"):
         assert specs.PROBE_SPECS[command].save_state
 
 
 def test_each_status_equals_the_verdict_the_tier_2_report_records_fr_342():
-    """FR-342 R3, marker P0340-T1-PROBE-SPECS: the database follows the report of the native run.
+    """FR-342, marker P0340-T1-PROBE-SPECS: the database follows the report of the native run.
 
     Until ``CMP-26124_<date>_t1-probe.yaml`` is committed the two commands of 26.124 keep the
     status they had; afterwards each status equals the verdict its line records.
@@ -139,7 +139,7 @@ def test_each_status_equals_the_verdict_the_tier_2_report_records_fr_342():
 
 
 def test_a_planted_mismatch_is_found_for_the_tier_2_report_fr_342():
-    """FR-342 R3, marker P0340-T1-PROBE-SPECS: the control of the status check."""
+    """FR-342, marker P0340-T1-PROBE-SPECS: the control of the status check."""
     report = {"ROTATE_SURFACE": {"outcome": "verified"}}
     assert verdict_mismatches(report, {"ROTATE_SURFACE": "documented"}, ["ROTATE_SURFACE"])
     assert not verdict_mismatches(report, {"ROTATE_SURFACE": "verified"}, ["ROTATE_SURFACE"])

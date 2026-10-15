@@ -59,7 +59,7 @@ def _matching(pairs: Sequence[tuple[int, int]], quality: Points) -> dict[int, in
     """Return a matching of triangles: greedy best quality first, then grown.
 
     Ties of quality are broken by the pair's face numbers, so the matching is
-    deterministic (FR-424 R12).
+    deterministic (FR-926).
     """
     mate: dict[int, int] = {}
     order = sorted(range(len(pairs)), key=lambda c: (-float(quality[c]), pairs[c]))

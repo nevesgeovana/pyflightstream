@@ -1,4 +1,4 @@
-"""The quadratures of the far field, each implemented once (FR-450 R1).
+"""The quadratures of the far field, each implemented once (FR-1003).
 
 Pipeline role: the annular-plane quadrature of the survey lattice, its
 coverage, the trapezoid rule of a rectangular far-field plane, and the strip
@@ -31,7 +31,7 @@ __all__ = [
 ]
 
 
-# THE AZIMUTH HELPERS, shared with the balances (FR-450 R1: one home each). They
+# THE AZIMUTH HELPERS, shared with the balances (FR-1003: one home each). They
 # carry public names so that a sibling module imports them without reaching into
 # an underscore-private name; they are outside __all__ and not part of the API.
 
@@ -223,7 +223,7 @@ def strip_edges(
 
     Between two stations the edge is their midpoint. Beyond the end stations:
 
-    - ``"extended"`` (the far field, FR-451 R3): half the adjacent spacing
+    - ``"extended"`` (the far field, FR-1012): half the adjacent spacing
       further out, so ``n`` uniform stations at the centers of ``n`` equal
       strips tile exactly the extent the solver divided;
     - ``"station"``: the end stations themselves, the rule of the integrated

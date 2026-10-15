@@ -1769,16 +1769,16 @@ class TestGapsRtSixdof:
     """P0400-SIXDOF (FR-461): the SIXDOF row key frees a body to move under its loads.
 
     The free-to-pitch input is resolved and its motion block is held to a golden
-    (R1, R2), built against the committed database with the 6DOF commands recorded
+    (FR-1084, FR-1085), built against the committed database with the 6DOF commands recorded
     verified on the build; the evidence gate refuses a build recording one of them
     documented (R-GATE); every
-    refusal of R3 and R4 is asserted by its message; the provenance and the custom
-    force file are staged with the script (R5).
+    refusal of FR-1086 and FR-1087 is asserted by its message; the provenance and the custom
+    force file are staged with the script (FR-1088).
     """
 
     @staticmethod
     def test_p0400_sixdof_free_to_pitch_golden(tmp_path):
-        """P0400-SIXDOF (FR-461 R1, R2): the motion block, before the solver is initialised."""
+        """P0400-SIXDOF (FR-1084, FR-1085): the motion block, before the solver is initialised."""
         resolved = _gaps_rt_sixdof___resolved(tmp_path)
         assert resolved is not None
         script = _gaps_rt_sixdof___script(tmp_path, resolved)
@@ -1791,7 +1791,7 @@ class TestGapsRtSixdof:
     @staticmethod
     @pytest.mark.parametrize((), [pytest.param(id="P0400-6DOFEXPORT")])
     def test_p0400_6dofexport_the_trajectory_is_exported_after_the_march(tmp_path):
-        """P0400-6DOFEXPORT (FR-461 R6): the export follows the march, never the motion's setup."""
+        """P0400-6DOFEXPORT (FR-1089): the export follows the march, never the motion's setup."""
         resolved = _gaps_rt_sixdof___resolved(tmp_path)
         assert resolved is not None
         lines = _gaps_rt_sixdof___script(tmp_path, resolved).render().splitlines()
@@ -1804,7 +1804,7 @@ class TestGapsRtSixdof:
 
     @staticmethod
     def test_p0400_sixdof_stages_its_provenance_and_force_file(tmp_path):
-        """P0400-SIXDOF (FR-461 R5): the provenance and the custom force file go with the script."""
+        """P0400-SIXDOF (FR-1088): the provenance and the custom force file go with the script."""
         from pyflightstream.cases.workflows._sixdof import SIXDOF_PROVENANCE_FILE
 
         resolved = _gaps_rt_sixdof___resolved(tmp_path)
@@ -1855,7 +1855,7 @@ class TestGapsRtSixdof:
         ],
     )
     def test_p0400_sixdof_input_refusals(tmp_path, text, words):
-        """P0400-SIXDOF (FR-461 R3): each refusal names its key."""
+        """P0400-SIXDOF (FR-1086): each refusal names its key."""
         from pyflightstream.workspace.sixdof_setup import SixDofSetupError
 
         with pytest.raises(SixDofSetupError, match=words):
@@ -1863,7 +1863,7 @@ class TestGapsRtSixdof:
 
     @staticmethod
     def test_p0400_sixdof_mirror_refuses_a_lateral_freedom(tmp_path):
-        """P0400-SIXDOF (FR-461 R3): a mirrored half model frees no lateral freedom."""
+        """P0400-SIXDOF (FR-1086): a mirrored half model frees no lateral freedom."""
         from pyflightstream.workspace.sixdof_setup import SixDofSetupError
 
         text = _gaps_rt_sixdof___replace("q = true", "q = true\nv = true")
@@ -1877,7 +1877,7 @@ class TestGapsRtSixdof:
     @staticmethod
     @pytest.mark.parametrize("workflow", ["steady", "qsteady_rotor", "unsteady_rotor"])
     def test_p0400_sixdof_refused_off_the_unsteady_run_type(tmp_path, workflow):
-        """P0400-SIXDOF (FR-461 R4): a free body needs the march, and no rotor turning."""
+        """P0400-SIXDOF (FR-1087): a free body needs the march, and no rotor turning."""
         from pyflightstream.workspace.sixdof_setup import SixDofSetupError, resolve_row_sixdof
 
         with pytest.raises(SixDofSetupError, match="time march"):
@@ -1887,7 +1887,7 @@ class TestGapsRtSixdof:
 
     @staticmethod
     def test_p0400_sixdof_refused_with_fsi_and_a_bad_code(tmp_path):
-        """P0400-SIXDOF (FR-461 R3, R4): SIXDOF with FSI, and a code that is not d-prefixed."""
+        """P0400-SIXDOF (FR-1086, FR-1087): SIXDOF with FSI, and a code that is not d-prefixed."""
         from pyflightstream.workspace.sixdof_setup import SixDofSetupError, resolve_row_sixdof
 
         with pytest.raises(SixDofSetupError, match="FSI"):
@@ -1906,7 +1906,7 @@ class TestGapsRtSixdof:
 
     @staticmethod
     def test_p0400_sixdof_frame_the_run_does_not_create(tmp_path):
-        """P0400-SIXDOF (FR-461 R4): a body frame the run does not create is refused."""
+        """P0400-SIXDOF (FR-1087): a body frame the run does not create is refused."""
         resolved = _gaps_rt_sixdof___resolved(
             tmp_path, _gaps_rt_sixdof___replace('frame = "MRP"', 'frame = "PIVOT"')
         )
@@ -1916,7 +1916,7 @@ class TestGapsRtSixdof:
 
     @staticmethod
     def test_p0400_sixdof_rotor_run_type_does_not_register_the_key():
-        """P0400-SIXDOF (FR-461 R4): the key is the unsteady run type's alone."""
+        """P0400-SIXDOF (FR-1087): the key is the unsteady run type's alone."""
         from pyflightstream.cases.workflows import WORKFLOWS
 
         assert "SIXDOF" in WORKFLOWS["unsteady"].keys
@@ -1925,7 +1925,7 @@ class TestGapsRtSixdof:
 
     @staticmethod
     def test_p0400_sixdof_active_lines_in_solver_order():
-        """P0400-SIXDOF (FR-461 R2): six lines, U V W P Q R, each named once."""
+        """P0400-SIXDOF (FR-1085): six lines, U V W P Q R, each named once."""
         from pyflightstream.cases.sixdof import SixDofSpec
 
         spec = SixDofSpec.model_validate(
@@ -2029,12 +2029,12 @@ def _gaps_rt_streamlines___tail(script: Script) -> str:
 class TestGapsRtStreamlines:
     """P0400-STREAMLINES (FR-460): a pproc's [streamlines] table traces streamlines on every point.
 
-    The table is read and refused at reading (R4); a steady and an unsteady row
-    emit the trace after the solve and before the exports, against goldens (R1,
-    R2), with the evidence gate exercised both ways (R-GATE); the plan states the
-    count (R3); the rows R5 names are refused; the additional extraction deletes
-    first (R6); and the post writes the VTK polylines of the observed 26.123
-    export (R7).
+    The table is read and refused at reading (FR-1080); a steady and an unsteady row
+    emit the trace after the solve and before the exports, against goldens (FR-1077,
+    FR-1078), with the evidence gate exercised both ways (R-GATE); the plan states the
+    count (FR-1079); the rows FR-1081 names are refused; the additional extraction deletes
+    first (FR-1082); and the post writes the VTK polylines of the observed 26.123
+    export (FR-1083).
 
     THE GATE. The streamline commands were recorded ``documented`` and unprobed on
     26.124 when the route was written, so a row reaching them is refused at plan
@@ -2045,7 +2045,7 @@ class TestGapsRtStreamlines:
     """
 
     @staticmethod
-    # --------------------------------------------------------------------------- R4, reading
+    # --------------------------------------------------------------------------- FR-1080, reading
     @pytest.mark.parametrize(
         ("table", "words"),
         [
@@ -2061,13 +2061,15 @@ class TestGapsRtStreamlines:
         ],
     )
     def test_p0400_streamlines_reading_refuses_by_key(table, words):
-        """P0400-STREAMLINES (FR-460 R4): each refusal names its key or the broken single seed."""
+        """P0400-STREAMLINES (FR-1080): each refusal names its key or the broken single seed."""
         with pytest.raises(ValidationError, match=words):
             PprocSpec.model_validate({"streamlines": table})
 
     @staticmethod
     def test_p0400_streamlines_outputs_and_count():
-        """P0400-STREAMLINES (FR-460 R2, R3): the two export names and the count of 20 + 4 * 12."""
+        """P0400-STREAMLINES (FR-1078, FR-1079): the two export names and the count of 20 + 4 *
+        12.
+        """
         spec = _gaps_rt_streamlines___spec()
         names = spec.outputs(False)
         assert "{name}_sls.txt" in names and "{name}_slo.txt" in names
@@ -2078,15 +2080,16 @@ class TestGapsRtStreamlines:
 
     @staticmethod
     def test_p0400_streamlines_exports_cannot_name_them():
-        """P0400-STREAMLINES (FR-460 R2): [exports] cannot switch a trace on or off."""
+        """P0400-STREAMLINES (FR-1078): [exports] cannot switch a trace on or off."""
         with pytest.raises(ValidationError, match=r"\[streamlines\] table"):
             PprocSpec.model_validate({"exports": {"streamlines_off_body": True}})
 
     @staticmethod
-    # --------------------------------------------------------------------------- R1, R2, R-GATE
+    # --------------------------------------------------------------------------- FR-1077,
+    # FR-1078, R-GATE
     @pytest.mark.parametrize("run_type", ["steady", "unsteady"])
     def test_p0400_streamlines_golden(tmp_path, run_type):
-        """P0400-STREAMLINES (FR-460 R1, R2): the trace after the solve, before the exports."""
+        """P0400-STREAMLINES (FR-1077, FR-1078): the trace after the solve, before the exports."""
         spec = _gaps_rt_streamlines___spec()
         script = _gaps_rt_streamlines___script(tmp_path, run_type, spec)
         heads = [line.split()[0] for line in script.render().splitlines() if line[:1].isalpha()]
@@ -2123,7 +2126,7 @@ class TestGapsRtStreamlines:
 
     @staticmethod
     def test_p0400_streamlines_plan_count(tmp_path):
-        """P0400-STREAMLINES (FR-460 R3): the plan's count is the pproc's off-body count."""
+        """P0400-STREAMLINES (FR-1079): the plan's count is the pproc's off-body count."""
         from pyflightstream.cases.workflows import streamline_count
 
         case = _gaps_rt_streamlines___with_pproc(
@@ -2135,9 +2138,9 @@ class TestGapsRtStreamlines:
         assert streamline_count(_gaps_rt_streamlines__steady_case()) == 0
 
     @staticmethod
-    # --------------------------------------------------------------------------- R5
+    # --------------------------------------------------------------------------- FR-1081
     def test_p0400_streamlines_qsteady_rotor_refuses_off_body_names_the_frame():
-        """P0400-STREAMLINES (FR-460 R5): off-body lines on qsteady_rotor name the rotor-fixed frame."""  # noqa: E501
+        """P0400-STREAMLINES (FR-1081): off-body lines on qsteady_rotor name the rotor-fixed frame."""  # noqa: E501
         from pyflightstream.cases.workflows._streamlines import (
             refuse_streamlines_where_they_cannot_run,
         )
@@ -2155,7 +2158,7 @@ class TestGapsRtStreamlines:
 
     @staticmethod
     def test_p0400_streamlines_frame_the_run_does_not_create(tmp_path):
-        """P0400-STREAMLINES (FR-460 R5): a frame the run does not create is refused."""
+        """P0400-STREAMLINES (FR-1081): a frame the run does not create is refused."""
         table = {
             "lines": [{"frame": "NOWHERE", "start": [0, 0, 0], "end": [1, 0, 0], "count": 2}],
         }
@@ -2164,9 +2167,9 @@ class TestGapsRtStreamlines:
             _gaps_rt_streamlines___script(tmp_path, "steady", spec)
 
     @staticmethod
-    # --------------------------------------------------------------------------- R6
+    # --------------------------------------------------------------------------- FR-1082
     def test_p0400_streamlines_reopened_deletes_first():
-        """P0400-STREAMLINES (FR-460 R6): an extraction deletes what the saved simulation carries."""  # noqa: E501
+        """P0400-STREAMLINES (FR-1082): an extraction deletes what the saved simulation carries."""  # noqa: E501
         from pyflightstream.cases.workflows import streamline_commands
 
         spec = _gaps_rt_streamlines___spec()
@@ -2177,7 +2180,7 @@ class TestGapsRtStreamlines:
 
     @staticmethod
     def test_p0400_streamlines_additional_outputs():
-        """P0400-STREAMLINES (FR-460 R6): an additional pproc's extraction declares the traces."""
+        """P0400-STREAMLINES (FR-1082): an additional pproc's extraction declares the traces."""
         from pyflightstream.cases.workflows._additional import (
             additional_outputs,
             refuse_what_a_saved_point_cannot_give,
@@ -2189,9 +2192,9 @@ class TestGapsRtStreamlines:
         assert "P_sls.txt" in names and "P_slo.txt" in names
 
     @staticmethod
-    # --------------------------------------------------------------------------- R7
+    # --------------------------------------------------------------------------- FR-1083
     def test_p0400_streamlines_vtk_of_the_observed_export(tmp_path):
-        """P0400-STREAMLINES (FR-460 R7): three polylines of thirty points, with the variables."""
+        """P0400-STREAMLINES (FR-1083): three polylines of thirty points, with the variables."""
         from pyflightstream.post.streamlines import (
             render_streamlines_vtk,
             write_streamline_products,
@@ -2229,7 +2232,7 @@ class TestGapsRtStreamlines:
 
     @staticmethod
     def test_p0400_streamlines_vtk_off_writes_nothing(tmp_path):
-        """P0400-STREAMLINES (FR-460 R7): vtk = false writes no product."""
+        """P0400-STREAMLINES (FR-1083): vtk = false writes no product."""
         from pyflightstream.post.streamlines import write_streamline_products
 
         assert write_streamline_products({}, tmp_path, "P", vtk=False) == {}
@@ -2323,7 +2326,7 @@ class TestLast6Script:
 
 
 class TestRfixr3Azimuths:
-    """Release review round three, REL3-001 (FR-454 R2, FR-455 R2): an odd azimuth count.
+    """Release review round three, REL3-001 (FR-1040, FR-1045): an odd azimuth count.
 
     The aliasing rule refuses a harmonic order at or above half the azimuth count,
     2 m_max >= n_psi. Integer division (m_max >= n_psi // 2) refused order 6 on

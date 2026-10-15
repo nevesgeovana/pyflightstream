@@ -1,4 +1,4 @@
-"""The reader of the solver's wake export, ``<name>_wakes.vtk`` (FR-452 R1).
+"""The reader of the solver's wake export, ``<name>_wakes.vtk`` (FR-1023).
 
 Pipeline role: parses the wake lines the surface VTK export writes beside the
 surface when ``SET_VTK_EXPORT_VARIABLES`` states the wake: VTK legacy ASCII

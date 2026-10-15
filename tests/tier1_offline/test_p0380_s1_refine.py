@@ -1,4 +1,4 @@
-"""P0380-REFINE (FR-424 R1 to R14): a level written by refine_mesh and by pyfs-matrix refine.
+"""P0380-REFINE (FR-915 to FR-928): a level written by refine_mesh and by pyfs-matrix refine.
 
 Every source is synthetic (tests/p0380_mesh_fixtures.py): the cambered sheet
 grid ``G`` alone, or followed by strips extruded from its tip station that
@@ -92,12 +92,12 @@ def _json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-# ---------------------------------------------------------------- R1 factors
+# ---------------------------------------------------------------- FR-915 factors
 
 
 @pytest.mark.parametrize("value", [0.0, -1.0, float("nan")], ids=["zero", "negative", "nan"])
 def test_r1_a_factor_not_above_zero_is_refused_by_both_routes(tmp_path, capsys, value):
-    """P0380-REFINE (FR-424 R1, R11): zero, negative and not-a-number factors are refused.
+    """P0380-REFINE (FR-915, FR-925): zero, negative and not-a-number factors are refused.
 
     The function and the command give the same text, the command exits 2,
     and no level is left. Control: factor 2 is accepted and exits 0.
@@ -112,7 +112,7 @@ def test_r1_a_factor_not_above_zero_is_refused_by_both_routes(tmp_path, capsys, 
 
 
 def test_r1_a_factor_that_is_not_a_number_is_refused_by_both_routes(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R1, R11): FACTOR ``two`` is refused alike by the function and command.
+    """P0380-REFINE (FR-915, FR-925): FACTOR ``two`` is refused alike by the function and command.
 
     The command exits 2 with the function's own text, which names the value
     and ends "Nothing was written.". Control: the number 2 passes both.
@@ -128,7 +128,7 @@ def test_r1_a_factor_that_is_not_a_number_is_refused_by_both_routes(tmp_path, ca
 
 @pytest.mark.parametrize("flag", ["chordwise", "spanwise"])
 def test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes(tmp_path, capsys, flag):
-    """P0380-REFINE (FR-424 R1, R11): ``--chordwise two`` and ``--spanwise two`` alike.
+    """P0380-REFINE (FR-915, FR-925): ``--chordwise two`` and ``--spanwise two`` alike.
 
     The command's refusal is the function's text, naming the flag and the
     value. Control: the same flag with the number 2 exits 0.
@@ -152,7 +152,7 @@ def test_r1_a_direction_that_is_not_a_number_is_refused_by_both_routes(tmp_path,
 def test_r1_a_factor_below_one_over_m_is_refused_naming_family_direction_value(
     tmp_path, capsys, kwargs, argv, said
 ):
-    """P0380-REFINE (FR-424 R1, R11): a factor leaving no interval is refused before any work.
+    """P0380-REFINE (FR-915, FR-925): a factor leaving no interval is refused before any work.
 
     The grid G has 18 chordwise and 8 spanwise intervals. Control: exactly
     1/8 spanwise is accepted by the command and leaves one interval.
@@ -168,11 +168,11 @@ def test_r1_a_factor_below_one_over_m_is_refused_naming_family_direction_value(
     assert report["families"]["G"]["intervals"]["spanwise"] == [8, 1]
 
 
-# ------------------------------------------------- R2 where the factors come from
+# ------------------------------------------------- FR-916 where the factors come from
 
 
 def test_r2_factor_applies_and_chordwise_replaces_one_direction(tmp_path):
-    """P0380-REFINE (FR-424 R2, R5): FACTOR doubles both directions; --chordwise replaces one.
+    """P0380-REFINE (FR-916, FR-919): FACTOR doubles both directions; --chordwise replaces one.
 
     Control: the same FACTOR without --chordwise doubles the chordwise count.
     """
@@ -185,7 +185,7 @@ def test_r2_factor_applies_and_chordwise_replaces_one_direction(tmp_path):
 
 
 def test_r2_the_file_gives_the_factors_only_when_the_call_gives_none(tmp_path):
-    """P0380-REFINE (FR-424 R2): ``<stem>.refine.toml`` is read for factors only without FACTOR.
+    """P0380-REFINE (FR-916): ``<stem>.refine.toml`` is read for factors only without FACTOR.
 
     Without a factor the file's 0.5 halves the grid; with FACTOR 2 the file's
     factor is not used but the file is still named in refine.json. A file
@@ -206,7 +206,7 @@ def test_r2_the_file_gives_the_factors_only_when_the_call_gives_none(tmp_path):
 
 
 def test_r2_components_are_read_whatever_gives_the_factors(tmp_path):
-    """P0380-REFINE (FR-424 R2; FR-425 R4): [components] applies when FACTOR is given.
+    """P0380-REFINE (FR-916; FR-935): [components] applies when FACTOR is given.
 
     Control: the same call with no refinement file keeps the two families.
     """
@@ -235,7 +235,7 @@ BOTH_TABLES = "[families.A]\nfactor = 2\n[families.B]\nfactor = 2\n"
 
 
 def test_r2_families_selects_from_the_files_factors_by_both_routes(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R2, R11): ``--families`` selects when the file gives the factors.
+    """P0380-REFINE (FR-916, FR-925): ``--families`` selects when the file gives the factors.
 
     The file states factor 2 for A and B; ``families=["A"]`` changes A alone
     and B is written as the source holds it. A selected name the mesh does
@@ -268,10 +268,10 @@ def test_r2_families_selects_from_the_files_factors_by_both_routes(tmp_path, cap
 
 
 def test_r2_the_files_family_tables_not_read_are_warned_and_recorded(tmp_path):
-    """P0380-REFINE (FR-424 R2, R4): a [families.*] table the refinement does not read is said.
+    """P0380-REFINE (FR-916, FR-918): a [families.*] table the refinement does not read is said.
 
     With FACTOR, the file's family tables are not read for their factors
-    (R2), and with ``--families`` on the file's factors an unselected table is
+    (FR-916), and with ``--families`` on the file's factors an unselected table is
     not read: each is a warning naming the tables, and ``refine.json`` lists
     them under ``ignored_families_tables``. Control: the file's factors for
     every family warn of nothing and record an empty list.
@@ -297,7 +297,7 @@ def test_r2_the_files_family_tables_not_read_are_warned_and_recorded(tmp_path):
 
 
 def test_r2_no_factor_and_no_file_is_refused_by_both_routes(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R2, R11): no FACTOR, no direction and no file is refused.
+    """P0380-REFINE (FR-916, FR-925): no FACTOR, no direction and no file is refused.
 
     A file that states no factor (only [components]) is refused the same way.
     Control: the same command with FACTOR exits 0.
@@ -316,7 +316,7 @@ def test_r2_no_factor_and_no_file_is_refused_by_both_routes(tmp_path, capsys):
 
 
 def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
-    """P0380-REFINE (FR-424 R2, R11): --chordwise on a family that is no grid is refused.
+    """P0380-REFINE (FR-916, FR-925): --chordwise on a family that is no grid is refused.
 
     T recovers no grid, so it would be remeshed. Control: --chordwise on G
     alone is accepted.
@@ -332,7 +332,7 @@ def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
     assert level.folder.name == "wing_R-G1c2"
 
 
-# --------------------------------------------------------- R3 the refinement file
+# --------------------------------------------------------- FR-917 the refinement file
 
 
 @pytest.mark.parametrize(
@@ -360,7 +360,7 @@ def test_r2_a_direction_on_a_remeshed_family_is_refused(tmp_path):
     ids=["unknown-key", "unknown-family", "chordwise-on-remesh", "no-factor", "unknown-table"],
 )
 def test_r3_the_refinement_file_is_refused_naming_file_table_and_key(tmp_path, capsys, toml, said):
-    """P0380-REFINE (FR-424 R3, R11): each bad file is refused by both routes, naming its path.
+    """P0380-REFINE (FR-917, FR-925): each bad file is refused by both routes, naming its path.
 
     Control: a valid file (``factor = 2``) writes the level.
     """
@@ -388,7 +388,7 @@ def test_r3_the_refinement_file_is_refused_naming_file_table_and_key(tmp_path, c
          "refine-false", "components-zero", "tag-number"],
 )  # fmt: skip
 def test_r3_a_table_of_the_wrong_shape_is_refused_by_both_routes(tmp_path, capsys, toml, said):
-    """P0380-REFINE (FR-424 R3, R11): valid TOML whose table is a scalar, a list or falsey.
+    """P0380-REFINE (FR-917, FR-925): valid TOML whose table is a scalar, a list or falsey.
 
     Each is refused by the function and the command alike with the standard
     refusal (the file, the table, what to write, "Nothing was written."), not
@@ -427,7 +427,7 @@ def test_r3_a_table_of_the_wrong_shape_is_refused_by_both_routes(tmp_path, capsy
     ids=["unknown-and-missing", "missing", "unknown"],
 )
 def test_r3_a_periodic_table_names_its_unknown_and_its_missing_keys(tmp_path, toml, said):
-    """P0380-REFINE (FR-424 R3; FR-427 R2): the refusal names each unknown and each missing key.
+    """P0380-REFINE (FR-917; FR-943): the refusal names each unknown and each missing key.
 
     The unknown keys and the missing keys are named separately, not as one
     "unknown or missing" key.
@@ -437,11 +437,11 @@ def test_r3_a_periodic_table_names_its_unknown_and_its_missing_keys(tmp_path, to
     assert f"{src.with_name('wing.refine.toml')} [periodic]: {said}" in text, text
 
 
-# ---------------------------------------------------------- R4 what a level holds
+# ---------------------------------------------------------- FR-918 what a level holds
 
 
 def test_r4_a_level_holds_its_files_and_refine_json_reports_each_family(tmp_path):
-    """P0380-REFINE (FR-424 R4, R5, R9): the five files, the record and the audit beside it.
+    """P0380-REFINE (FR-918, FR-919, FR-923): the five files, the record and the audit beside it.
 
     G is a grid, T is remeshed (no grid recovered), U is copied; the source's
     folder is not touched. The returned RefinedMesh is frozen and names every
@@ -484,7 +484,7 @@ def test_r4_a_level_holds_its_files_and_refine_json_reports_each_family(tmp_path
 
 
 def test_r4_r9_a_source_without_points_file_gets_none_and_auto_remeshes(tmp_path):
-    """P0380-REFINE (FR-424 R4, R9): no points file in, none out; auto names why it remeshed.
+    """P0380-REFINE (FR-918, FR-923): no points file in, none out; auto names why it remeshed.
 
     Without trailing-edge points no grid is recovered, so under ``auto`` the
     sheet is remeshed and refine.json gives the recovery's own reason. (The
@@ -505,7 +505,7 @@ def test_r4_r9_a_source_without_points_file_gets_none_and_auto_remeshes(tmp_path
     assert level.report["G"]["reason"] == f"no grid recovered: {why}"
 
 
-# ------------------------------------------------------ R5 where a level goes
+# ------------------------------------------------------ FR-919 where a level goes
 
 
 @pytest.mark.parametrize(
@@ -522,7 +522,7 @@ def test_r4_r9_a_source_without_points_file_gets_none_and_auto_remeshes(tmp_path
 def test_r5_the_tag_names_the_level_beside_the_sources_folder(
     tmp_path, strips, toml, kwargs, folder
 ):
-    """P0380-REFINE (FR-424 R5): the tag forms, and the default out-dir is the source's parent.
+    """P0380-REFINE (FR-919): the tag forms, and the default out-dir is the source's parent.
 
     Control: ``out_dir`` places the same level in the folder it names.
 
@@ -547,7 +547,7 @@ def test_r5_the_tag_names_the_level_beside_the_sources_folder(
 
 
 def test_r5_the_command_writes_the_tagged_level_and_prints_its_files(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R5): the command exits 0 and prints each file it wrote."""
+    """P0380-REFINE (FR-919): the command exits 0 and prints each file it wrote."""
     src = _source(tmp_path)
     code, out, _ = _command(capsys, str(src), "1", "--chordwise", "1.5", "--spanwise", "0.7")
     folder = tmp_path / "wing_R1c1p5s0p7"
@@ -557,7 +557,7 @@ def test_r5_the_command_writes_the_tagged_level_and_prints_its_files(tmp_path, c
 
 
 def test_r5_the_refine_help_states_its_exit_status_beside_audit_meshs(capsys):
-    """P0380-REFINE (FR-424; FR-426 R1): ``refine --help`` says a failed audit still exits 0.
+    """P0380-REFINE (FR-424; FR-937): ``refine --help`` says a failed audit still exits 0.
 
     The help states that ``refine`` exits 0 when the level is written, a
     failed audit being a warning with the audit written, that ``audit-mesh``
@@ -578,7 +578,7 @@ def test_r5_the_refine_help_states_its_exit_status_beside_audit_meshs(capsys):
 
 
 def test_r5_an_existing_level_is_refused_unless_overwrite(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R5, R11): a second run is refused and leaves the first level alone.
+    """P0380-REFINE (FR-919, FR-925): a second run is refused and leaves the first level alone.
 
     With ``--overwrite`` the level is replaced: a file planted in it is gone.
     """
@@ -602,7 +602,7 @@ def test_r5_an_existing_level_is_refused_unless_overwrite(tmp_path, capsys):
 
 
 def test_r5_an_error_while_writing_leaves_no_level_and_no_partial_folder(tmp_path, capsys):
-    """P0380-REFINE (FR-424 R5): an error in the write step leaves no level and no ``.partial``.
+    """P0380-REFINE (FR-919): an error in the write step leaves no level and no ``.partial``.
 
     The level's path is occupied by a file, so with ``overwrite`` the files
     are written into the staging folder and replacing the level then fails:
@@ -659,7 +659,7 @@ def _resampled_while(call) -> list[str]:
 def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
     tmp_path, capsys, sidecar, said
 ):
-    """P0380-REFINE (FR-424 R5, R11; FR-426 R2 G4): the inputs the audit reads are checked first.
+    """P0380-REFINE (FR-919, FR-925; FR-938 G4): the inputs the audit reads are checked first.
 
     A boundaries file naming a points file that does not exist, or that is not
     TOML, is refused by the function and the command before any family is
@@ -696,7 +696,7 @@ def test_r11_a_sidecar_the_audit_refuses_is_refused_before_any_work(
 
 
 def test_r5_an_audit_that_raises_publishes_nothing_and_keeps_the_old_level(tmp_path):
-    """P0380-REFINE (FR-424 R4, R5): the level is published only after its audit is written.
+    """P0380-REFINE (FR-918, FR-919): the level is published only after its audit is written.
 
     The audit runs inside the staging folder. Coarsening the strip T at 0.5
     fails its growth check, a warning, which a caller running with warnings
@@ -751,7 +751,7 @@ SIDECARS = {
 
 @pytest.mark.parametrize("spelling", list(SIDECARS))
 def test_r4_the_boundaries_file_is_rewritten_by_its_toml_values(tmp_path, spelling):
-    """P0380-REFINE (FR-424 R4; FR-425 R4): the level's boundaries file is the source's, rewritten.
+    """P0380-REFINE (FR-918; FR-935): the level's boundaries file is the source's, rewritten.
 
     The source's boundaries file is spelled with literal strings, comments,
     a multi-line array, an inline table with escapes or a dotted key, beside
@@ -804,7 +804,7 @@ def _g4(audit) -> dict:
 
 @pytest.mark.parametrize("factor", [1.0, 2.0])
 def test_r4_points_in_another_unit_are_converted_to_the_meshs_unit(tmp_path, capsys, factor):
-    """P0380-REFINE (FR-424 R4, R6; FR-426 R2 G4): the points file's unit line is honoured.
+    """P0380-REFINE (FR-918, FR-920; FR-938 G4): the points file's unit line is honoured.
 
     The OBJ is in metres (``[import] units = "METER"`` of its boundaries file,
     the package's convention) and its trailing-edge points are the same
@@ -847,7 +847,7 @@ def test_r4_points_in_another_unit_are_converted_to_the_meshs_unit(tmp_path, cap
         refine_mesh(other, factor)
 
 
-# ----------------------------------------------------------------- R7 face order
+# ----------------------------------------------------------------- FR-921 face order
 
 
 def _mesh_lines(path: Path, tags: tuple[str, ...] = ("v", "g", "f")) -> list[str]:
@@ -857,7 +857,7 @@ def _mesh_lines(path: Path, tags: tuple[str, ...] = ("v", "g", "f")) -> list[str
 
 
 def test_r7_factor_one_writes_the_sources_vertex_and_face_lines(tmp_path):
-    """P0380-REFINE (FR-424 R7): at factor 1 the OBJ's v and f lines are the source's, in order.
+    """P0380-REFINE (FR-921): at factor 1 the OBJ's v and f lines are the source's, in order.
 
     The source's vertex numbering is shuffled, so the level must number its
     nodes as the source does, not by first use. Controls: the level's faces
@@ -895,7 +895,7 @@ def _sheet_source(folder: Path, scale: float) -> tuple[Path, numpy.ndarray]:
 
 @pytest.mark.parametrize("scale", [1e-7, 0.01, 1.0, 1e3])
 def test_r7_factor_one_keeps_every_source_coordinate_at_any_precision(tmp_path, scale):
-    """P0380-REFINE (FR-424 R7; FR-426 R2 G1, G6): coordinates are written so they read back equal.
+    """P0380-REFINE (FR-921; FR-938 G1, G6): coordinates are written so they read back equal.
 
     A source written with 17 significant digits, at scales from 1e-7 to 1e3,
     refined at factor 1 reads back with every coordinate equal to the
@@ -929,7 +929,7 @@ def _swap_two_faces(obj: Path) -> None:
 
 @pytest.mark.parametrize("components", [None, '[components]\nWing = ["G"]\n'])
 def test_r7_a_saved_factor_one_level_is_reaudited_with_g6(tmp_path, capsys, components):
-    """P0380-REFINE (FR-424 R7; FR-426 R1, R2 G6): G6 is judged from the level's refine.json.
+    """P0380-REFINE (FR-921; FR-937, FR-938 G6): G6 is judged from the level's refine.json.
 
     refine.json lists the grid families written at factor 1 (a component
     whose every member is one counts as one), and audit_mesh, and so the
@@ -960,11 +960,11 @@ def test_r7_a_saved_factor_one_level_is_reaudited_with_g6(tmp_path, capsys, comp
     assert next(g for g in other.gates if g.name == "G6").verdict == "not judged"
 
 
-# --------------------------------------------------------------------- R9 method
+# --------------------------------------------------------------------- FR-923 method
 
 
 def test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes(tmp_path):
-    """P0380-REFINE (FR-424 R9, R11): ``grid`` on T is refused naming why; ``auto`` remeshes it.
+    """P0380-REFINE (FR-923, FR-925): ``grid`` on T is refused naming why; ``auto`` remeshes it.
 
     Controls: ``grid`` on G (a recovered grid) is accepted, and ``remesh``
     on G remeshes it although it is a grid, giving that reason.
@@ -986,13 +986,13 @@ def test_r9_method_grid_without_a_grid_is_refused_and_auto_remeshes(tmp_path):
     assert (entry["method"], entry["reason"]) == ("remesh", "the refinement file states remesh")
 
 
-# --------------------------------------------------------------- R10 the extra
+# --------------------------------------------------------------- FR-924 the extra
 
 
 def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
     tmp_path, monkeypatch, capsys
 ):
-    """P0380-REFINE (FR-424 R10, R11): scipy and rtree unimportable (``sys.modules`` None).
+    """P0380-REFINE (FR-924, FR-925): scipy and rtree unimportable (``sys.modules`` None).
 
     The grid-only refinement writes its level. The one that must remesh T is
     refused by both routes naming T and ``pip install pyflightstream[geom]``,
@@ -1018,7 +1018,7 @@ def test_r10_without_scipy_and_rtree_a_grid_refines_and_a_remesh_is_refused(
 def test_r10_the_band_of_an_unchanged_neighbour_needs_the_extra_before_any_resampling(
     tmp_path, monkeypatch, capsys
 ):
-    """P0380-REFINE (FR-424 R10, R11; FR-425 R3): the band's remesh is planned before any work.
+    """P0380-REFINE (FR-924, FR-925; FR-934): the band's remesh is planned before any work.
 
     Only G is selected, beside the unchanged strip T; G's tip station, the
     curve they share, gains nodes at factor 2, so T must be remeshed in its
@@ -1057,7 +1057,7 @@ def test_r10_the_band_of_an_unchanged_neighbour_needs_the_extra_before_any_resam
     assert level.report["T"]["method"] == "unchanged" and level.report["T"]["band"] > 0
 
 
-# ------------------------------------------------------- R12, R13 the bytes written
+# ------------------------------------------------------- FR-926, FR-927 the bytes written
 
 
 def _digests(folder: Path) -> dict[str, str]:
@@ -1065,7 +1065,7 @@ def _digests(folder: Path) -> dict[str, str]:
 
 
 def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path):
-    """P0380-REFINE (FR-424 R12): two processes with other hash seeds write the same files.
+    """P0380-REFINE (FR-926): two processes with other hash seeds write the same files.
 
     A grid refined, a neighbour remeshed onto its new nodes and a family
     copied, each run in its own interpreter (PYTHONHASHSEED 1 and 2).
@@ -1095,7 +1095,7 @@ def test_r12_two_runs_under_different_hash_seeds_write_identical_bytes(tmp_path)
 
 
 def test_r13_no_written_file_holds_a_carriage_return(tmp_path):
-    """P0380-REFINE (FR-424 R13): every level file is free of CR, from a source written in CRLF.
+    """P0380-REFINE (FR-927): every level file is free of CR, from a source written in CRLF.
 
     The source's OBJ, points file, boundaries file and refinement file are all
     CRLF (the control: the same byte scan finds CR in each of them).
@@ -1111,7 +1111,7 @@ def test_r13_no_written_file_holds_a_carriage_return(tmp_path):
     assert [p.name for p in level.folder.iterdir() if b"\r" in p.read_bytes()] == []
 
 
-# ------------------------------------------------------------------- R14 layering
+# ------------------------------------------------------------------- FR-928 layering
 
 
 def _imports(text: str, package: str) -> set[str]:
@@ -1163,7 +1163,7 @@ PRIVATE = _refinement_modules()
 
 
 def test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows():
-    """P0380-REFINE (FR-424 R14): an AST walk of every import, deferred ones included.
+    """P0380-REFINE (FR-928): an AST walk of every import, deferred ones included.
 
     ``workspace/_refine`` imports nothing of ``pyflightstream.run``; ``_audit``
     imports no module of the refinement package but the shared helpers

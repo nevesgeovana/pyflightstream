@@ -103,7 +103,7 @@ def _restored_differs_from_modified(artifacts: ProbeArtifacts) -> bool | None:
 def _restoration(first: object, modified: object, control: object, restored: object) -> bool | None:
     """Require the control to preserve a demonstrated modification before judging the undo.
 
-    FR-333 R2 records equal or missing lofts as unprobed. False ("not
+    FR-333 records equal or missing lofts as unprobed. False ("not
     restored") is returned only here, where a valid control differing from the
     reference proves the setup moved the mesh and the restored state still
     equals that control.

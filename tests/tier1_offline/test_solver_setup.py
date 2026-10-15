@@ -1791,8 +1791,8 @@ class TestFr317Fr318MomentsModel:
         """FR-318 through the builder: the unsteady_rotor row with a drag list states VORTICITY.
 
         It also pins the order: the moments model, then the vorticity drag list,
-        then START_SOLVER (R6 of 0.35.0, RPT-133; 0.34.0 emitted the list after
-        START_SOLVER, the limit R5 stated).
+        then START_SOLVER (FR-568 of 0.35.0, RPT-133; 0.34.0 emitted the list after
+        START_SOLVER, the limit FR-318 stated).
         """
         case = _fr317_fr318_moments_model__rotor_case().model_copy(
             update={
