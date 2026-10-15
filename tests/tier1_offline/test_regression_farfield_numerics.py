@@ -685,7 +685,7 @@ class TestFarfieldNumpy:
         if fragment.is_file():
             page += fragment.read_text(encoding="utf-8")
         assert "rothalpy" in page and "irreversible_deficit" in page
-        assert "ITACA" in page and "total enthalpy" in page
+        assert "no supported replacement" in page and "total enthalpy" in page
 
     @staticmethod
     @pytest.mark.requirement("FR-457")

@@ -90,9 +90,8 @@ boundaries; they do not repeat the chronology of each extraction.
     is future work, not a property of this release.
 
 !!! decision "AD-07 External numerical integration"
-    ITACA is not a current runtime dependency or an installed extra. Future
-    integration crosses a solver-independent array boundary; it must not be
-    described as already available.
+    Numerical integration crosses a solver-independent array boundary.
+    Available runtime dependencies and extras are declared in pyproject.toml.
 
 !!! decision "AD-08 Structural guards"
     Layering, import cycles, optional-dependency isolation, facade size and

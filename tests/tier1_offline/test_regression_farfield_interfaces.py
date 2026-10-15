@@ -975,7 +975,10 @@ class TestFfproofUpgrading:
             if dotted in RETIRED_ATTRIBUTES:
                 message = RETIRED_ATTRIBUTES[dotted].new
                 if "ITACA" in message:
-                    assert cell.startswith("removed") and "ITACA" in cell, (old, cell)
+                    assert cell.startswith("removed") and "no supported replacement" in cell, (
+                        old,
+                        cell,
+                    )
                     continue
                 new = cell.strip("`")
                 target = new.split("(", 1)[0]
@@ -992,7 +995,8 @@ class TestFfproofUpgrading:
         page = (_FFPROOF_UPGRADING__REPO / "docs" / "upgrading.md").read_text(encoding="utf-8")
         section = page.split("\n## 0.40.0\n", 1)[1].split("\n## ", 1)[0]
         assert "farfield.rothalpy" in section and "farfield.irreversible_deficit" in section
-        assert "ITACA" in section and "total enthalpy" in section and "entropy" in section
+        assert "no supported replacement" in section
+        assert "total enthalpy" in section and "entropy" in section
         assert "removed in 0.40.0" in section
 
 

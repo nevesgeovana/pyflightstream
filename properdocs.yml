@@ -234,7 +234,6 @@ nav:
       - Scope: srs/scope.md
       - Data and evidence model: srs/data-model.md
       - Architecture: architecture.md
-      - Sister library: sister-itaca.md
   - Contributing:
       - Contributing guide: contributing.md
       - Contributor graphs: graphs/index.md
@@ -249,6 +248,7 @@ nav:
 # Requirement registers and release history remain repository material.
 exclude_docs: |
   /unpublished/
+  /sister-itaca.md
   /requirement-mapping.md
   /release-notes.md
 

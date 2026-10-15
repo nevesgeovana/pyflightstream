@@ -217,13 +217,13 @@ that replaces it; all are in `pyflightstream.farfield` except
 | `crossflow_kinetic_energy(ds: xr.Dataset, rho: float) -> xr.Dataset` | `crossflow_kinetic_energy(fields: LatticeFields, rho: float) -> CrossflowEnergy` |
 | `cylindrical_components(ds: xr.Dataset) -> xr.Dataset` | `cylindrical_components(fields: LatticeFields) -> LatticeFields` |
 | `in_plane_moment(ds: xr.Dataset, rho: float, v_inf: float, *, inlet: float, outlet: float, axis: str='y', method: str='quadrature') -> xr.Dataset` | `in_plane_moment(fields: LatticeFields, rho: float, v_inf: float, *, inlet: float, outlet: float, axis: str='y', method: str='quadrature') -> InPlaneMoment` |
-| `irreversible_deficit(w_rel: xr.DataArray, delta_rothalpy: xr.DataArray, entropy_enthalpy_rise: xr.DataArray) -> xr.Dataset` | removed, handed to ITACA for evaluation (below) |
+| `irreversible_deficit(w_rel: xr.DataArray, delta_rothalpy: xr.DataArray, entropy_enthalpy_rise: xr.DataArray) -> xr.Dataset` | removed; no supported replacement (below) |
 | `lattice_dataset(lattice: ProbeLattice, fields: Mapping[str, np.ndarray]) -> xr.Dataset` | `lattice_fields(lattice: ProbeLattice, *, fields: Mapping[str, np.ndarray], lateral: Mapping[str, np.ndarray] \| None=None) -> LatticeFields` |
 | `mass_closure(ds: xr.Dataset, rho: float) -> xr.Dataset` | `mass_closure(fields: LatticeFields, rho: float) -> MassClosure` |
 | `mass_flux(ds: xr.Dataset, rho: float) -> xr.DataArray` | `mass_flux(fields: LatticeFields, rho: float) -> np.ndarray` |
 | `plane_integral(ds: xr.Dataset, integrand: xr.DataArray) -> xr.DataArray` | `plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray` |
 | `ring_sample_weights(ds: xr.Dataset) -> xr.DataArray` | `ring_sample_weights(fields: LatticeFields) -> np.ndarray` |
-| `rothalpy(h_total: xr.DataArray, omega: float, r: xr.DataArray, v_theta: xr.DataArray) -> xr.DataArray` | removed, handed to ITACA for evaluation (below) |
+| `rothalpy(h_total: xr.DataArray, omega: float, r: xr.DataArray, v_theta: xr.DataArray) -> xr.DataArray` | removed; no supported replacement (below) |
 | `sample_coverage(integrand: xr.DataArray) -> xr.DataArray` | `sample_coverage(integrand: np.ndarray) -> np.ndarray` |
 | `shaft_torque(ds: xr.Dataset, rho: float) -> xr.DataArray` | `shaft_torque(fields: LatticeFields, rho: float) -> np.ndarray` |
 | `spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float=1.0) -> float` | `spurious_diagnostic(near_field: float, far_field: float, *, rho_inf: float, v_inf: float, s_ref: float) -> float` |
@@ -253,8 +253,7 @@ called, naming the replacement in this table.
 `farfield.rothalpy` and `farfield.irreversible_deficit` were removed in 0.40.0,
 with no deprecation release: both apply to an Euler CFD field, where total
 enthalpy and entropy exist, and no FlightStream output carries total enthalpy
-or entropy. A call refuses, naming ITACA, the sister library, where both were
-handed for evaluation.
+or entropy. A call refuses; there is no supported replacement in this package.
 
 ### The command that does it
 
