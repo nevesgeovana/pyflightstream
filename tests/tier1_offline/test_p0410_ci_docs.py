@@ -58,7 +58,8 @@ def test_p0420_docs_diag_manual_build_and_failure_artifact():
     workflow = yaml.safe_load((ROOT / ".github/workflows/docs.yml").read_text("utf-8"))
     triggers = workflow.get("on", workflow.get(True))
     assert "workflow_dispatch" in triggers
-    assert triggers["workflow_dispatch"] is None
+    deploy = triggers["workflow_dispatch"]["inputs"]["deploy"]
+    assert deploy["type"] == "boolean" and deploy["default"] is False
     assert triggers["push"] == {"tags": ["v*"]}
     steps = workflow["jobs"]["build"]["steps"]
     uploads = [
@@ -71,11 +72,12 @@ def test_p0420_docs_diag_manual_build_and_failure_artifact():
     assert workflow["jobs"]["deploy"]["if"] == DEPLOY_IF
 
 
-# A version tag deploys; a manual dispatch deploys only from main (owner decision of
-# 2026-10-15: the 0.41.0 site is published from main). A branch push never deploys.
+# A version tag deploys. A manual dispatch is the pre-tag Linux build and deploys only
+# from main with deploy=true (owner decision of 2026-10-15: the 0.41.0 site is published
+# from main). A branch push never deploys.
 DEPLOY_IF = (
     "startsWith(github.ref, 'refs/tags/v') || "
-    "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')"
+    "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy)"
 )
 
 
@@ -83,7 +85,8 @@ def test_p0410_docs_deploy_only_on_version_tags():
     root = Path(__file__).resolve().parents[2] / ".github/workflows"
     docs = yaml.safe_load((root / "docs.yml").read_text("utf-8"))
     triggers = docs.get("on", docs.get(True))
-    assert triggers == {"workflow_dispatch": None, "push": {"tags": ["v*"]}}
+    assert set(triggers) == {"workflow_dispatch", "push"}
+    assert triggers["push"] == {"tags": ["v*"]}
     assert docs["jobs"]["deploy"]["if"] == DEPLOY_IF
     ci = yaml.safe_load((root / "ci.yml").read_text("utf-8"))
     assert any(
