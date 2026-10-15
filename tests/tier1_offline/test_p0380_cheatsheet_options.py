@@ -120,12 +120,12 @@ def missing_options(
 def test_every_option_of_every_pyfs_matrix_subcommand_is_in_the_cheatsheet():
     """P0380-DOCS (FR-424 docs, owner request of 2026-10-06): no option of pyfs-matrix is missing.
 
-    A floor on the walk, so a capture that reads nothing cannot pass: 0.37.0
-    offers 23 subcommands (an alias read once) and 219 option strings, help
-    included.
+    A floor on the walk, so a capture that reads nothing cannot pass: the parser
+    retains 22 subcommands after the 0.41.0 convert, upgrade and rename cut
+    (an alias read once). Help is included in the option walk.
     """
     options = parser_options(_parser())
-    assert len({sub for sub, _ in options}) >= 23, len({sub for sub, _ in options})
+    assert len({sub for sub, _ in options}) >= 22, len({sub for sub, _ in options})
     assert len(options) >= 200, len(options)
     missing = missing_options(options, cheatsheet_text())
     assert not missing, (
