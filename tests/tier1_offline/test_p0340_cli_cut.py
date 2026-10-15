@@ -88,6 +88,7 @@ def test_the_command_line_keeps_the_subcommands_and_their_order_ad_18():
     assert choices == [
         *V0330_SUBCOMMANDS,
         "degenerate",
+        "support",
         "status",
         "show",
         "log",

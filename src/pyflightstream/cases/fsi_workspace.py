@@ -623,6 +623,34 @@ def is_steady_aeroelastic_script(rendered: str) -> bool:
     return bool(lines) and lines[-1] == "EXECUTE_AEROELASTIC_ANALYSIS"
 
 
+def _check_output_attachment(case: SimCase) -> None:
+    """Refuse unmeasured material attachment and warn about fixed surface taps."""
+    if case.pproc is None:
+        return
+
+    def inspect(value: object, location: str) -> None:
+        if isinstance(value, dict):
+            if value.get("attach") == "body":
+                raise CampaignConfigError(
+                    f"{location}: attach='body' on an FSI row requires measured moving "
+                    "station frames; use attach='space' until the licensed frame probes pass."
+                )
+            for name, child in value.items():
+                inspect(child, f"{location}.{name}")
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                inspect(child, f"{location}[{index}]")
+
+    inspect(case.pproc.model_dump(), "pproc")
+    if case.pproc.surface_probes:
+        warn(
+            "Surface taps on an FSI row remain at their declared spatial locations; "
+            "they do not follow material points as the surface deforms.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+
+
 def validate_workspace_fsi(
     case: SimCase,
     script: Script,
@@ -655,6 +683,7 @@ def validate_workspace_fsi(
     """
     if case.fsi is None:
         return
+    _check_output_attachment(case)
     _refuse_the_workflow(case, workflow, script.version)
     if workflow in FIXED_WING_WORKFLOWS and case.fsi.wing is None:
         raise CampaignConfigError(

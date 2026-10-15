@@ -521,9 +521,13 @@ def polar_axis_coefficients(
     moment = EXPORT_TO_BODY @ np.asarray(moment_in_export_frame, dtype=float)
     span = float(cref_m) / float(bref_m)
     row: list[float] = []
-    for turn in (np.eye(3), to_stability, to_wind):
+    for index, turn in enumerate((np.eye(3), to_stability, to_wind)):
         turned = turn @ moment
-        row.extend(_forward_right_down_to_drag_side_lift(turn @ force))
+        row.extend(
+            stability_force_coefficients(force_in_export_frame, alpha_deg, beta_deg)
+            if index == 1
+            else _forward_right_down_to_drag_side_lift(turn @ force)
+        )
         row.extend((float(turned[0]) * span, float(turned[1]), float(turned[2]) * span))
     # `+ 0.0` turns a negative zero into zero: a table prints `-0.00000` otherwise.
     return tuple(value + 0.0 for value in row)

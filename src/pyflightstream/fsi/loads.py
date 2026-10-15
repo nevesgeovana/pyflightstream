@@ -434,7 +434,13 @@ def _tributary_widths(radii: np.ndarray) -> np.ndarray:
     return np.diff(edges)
 
 
-def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
+def to_elastic_axis(
+    block: SectionBlock,
+    cfg: FsiConfig,
+    *,
+    deflection_m: np.ndarray | None = None,
+    twist_rad: np.ndarray | None = None,
+) -> ElasticAxisLoads:
     """Transfer one blade block to elastic-axis load densities (FSI-R04).
 
     The elastic-axis offsets e(r) come from the configuration,
@@ -460,6 +466,11 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
         One blade family from :meth:`SectionalLoadsReport.split`.
     cfg : FsiConfig
         Configuration whose blade the sections were cut on.
+    deflection_m, twist_rad : numpy.ndarray, optional
+        Applied station deflection and twist. When supplied together, project the
+        cut-plane forces onto the bent and twisted station triad before transferring
+        moments. The export supplies no spanwise force; that component is zero in
+        this spatial-cut fallback.
 
     Returns
     -------
@@ -542,6 +553,23 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     else:
         chordwise, normal = block.fx_n_per_m, block.fz_n_per_m
         moment_pa = block.moment_qc_nm_per_m
+    if deflection_m is not None or twist_rad is not None:
+        if deflection_m is None or twist_rad is None:
+            raise FsiInputError("Station rotation requires both deflection_m and twist_rad.")
+        w, theta = np.asarray(deflection_m), np.asarray(twist_rad)
+        if w.shape != stations.shape or theta.shape != stations.shape:
+            raise FsiInputError("Station rotation arrays must match the configured stations.")
+        if not np.isfinite(w).all() or not np.isfinite(theta).all():
+            raise FsiInputError("Station rotation arrays must be finite.")
+        slope = np.interp(radii, stations, np.gradient(w, stations))
+        theta = np.interp(radii, stations, theta)
+        cosine = np.cos(np.arctan(slope))
+        bent_normal = normal * cosine
+        chordwise, normal = (
+            chordwise * np.cos(theta) + bent_normal * np.sin(theta),
+            -chordwise * np.sin(theta) + bent_normal * np.cos(theta),
+        )
+        moment_pa = moment_pa * cosine
     return ElasticAxisLoads(
         radius_m=radii,
         chord_m=block.chord_m,

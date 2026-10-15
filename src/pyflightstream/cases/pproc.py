@@ -41,6 +41,7 @@ from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import EVERY_FAMILY
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.probes.planar import PlanarProbeGrid
 
 __all__ = [
     "DEFAULT_DRIFT_LIMIT_PCT",
@@ -543,7 +544,17 @@ def validated_family_selection(value: object) -> str | list[str]:
     )
 
 
-class SectionDistribution(BaseModel):
+class _LocatedSpec(BaseModel):
+    """An output's location is fixed in space unless body attachment is explicit."""
+
+    attach: Literal["space", "body"] = Field(
+        default="space",
+        description="Output attachment: fixed in space or following the body. "
+        "Body attachment is refused for FSI pending licensed moving-frame evidence.",
+    )
+
+
+class SectionDistribution(_LocatedSpec):
     """One surface-section distribution: families, frame and planes.
 
     Attributes
@@ -642,7 +653,7 @@ _VOLUME_SECTION_SHAPE_KEYS: dict[str, tuple[str, ...]] = {
 }
 
 
-class VolumeSectionSpec(BaseModel):
+class VolumeSectionSpec(_LocatedSpec):
     """A sampled flow plane, generated from explicit reference-frame probes.
 
     New runs export samples and post converts them to VTK or Tecplot. Existing
@@ -784,7 +795,7 @@ def global_frame_plot_declarations(pproc: object) -> tuple[ForcePlotGroup, ...]:
     )
 
 
-class ForcePlotGroup(BaseModel):
+class ForcePlotGroup(_LocatedSpec):
     """One group of unsteady force plots: a name, a frame and the families summed.
 
     THE FRAME DECIDES HOW MANY GROUPS THIS ENTRY IS (FR-65). One citing
@@ -1123,7 +1134,7 @@ class ProbeCircle(BaseModel):
         return self
 
 
-class ProbesSpec(BaseModel):
+class ProbesSpec(_LocatedSpec):
     """One ``[[probes]]`` entry: fluid plots along lines, in a frame, per parameter.
 
     Each line is sampled at ``points`` vertices from ``start`` to ``end``,
@@ -1198,6 +1209,11 @@ class ProbesSpec(BaseModel):
     #: FR-1072 (0.40.0): a survey lattice is a shape like a rectangle, so it
     #: is a list beside them and not a `kind`, which names the sampling mode.
     lattices: list[LatticeShape] = Field(default_factory=list)
+    grids: list[PlanarProbeGrid] = Field(
+        default_factory=list,
+        description="Planar grids in metres in the REFERENCE frame; "
+        "refinement additions must pass the geometry gate.",
+    )
     #: FR-80: the name of a points file the USER wrote, under
     #: `inputs/profiles/`, cited instead of `lines`. The entry still
     #: states its `frame` and its `scale`, because a file of numbers says
@@ -1246,7 +1262,18 @@ class ProbesSpec(BaseModel):
             raise ValueError("field_formats must not repeat a format")
         if self.field_formats or self.reusable_inflow:
             self.parameters = list(dict.fromkeys([*self.parameters, "VX", "VY", "VZ"]))
-        drawn = len(self.lines) + len(self.rectangles) + len(self.circles) + len(self.lattices)
+        drawn = (
+            len(self.lines)
+            + len(self.rectangles)
+            + len(self.circles)
+            + len(self.lattices)
+            + len(self.grids)
+        )
+        if self.grids and (self.frame != "REFERENCE" or self.scale != "m"):
+            raise ValueError(
+                "grids use metre coordinates and explicit reference placement; "
+                'state frame="REFERENCE", scale="m".'
+            )
         if self.points_file and drawn:
             raise ValueError(
                 f"a probe entry in {self.frame or 'the rotor hub frame'} states both "
@@ -1367,6 +1394,9 @@ class ProductsSpec(BaseModel):
     #: default; ``false`` turns it off and
     #: writes what 0.36.0 wrote.
     settings_codebook: bool = True
+    polar_axes: Literal["wind", "stability"] | None = Field(
+        default=None, description="Frame for the additional CD, CY and CL polar columns."
+    )
     #: FR-420: the families whose tables are also written mirrored through y = 0.
     #: The accepted names are :data:`INSTALLED_FRAME_FAMILIES`, refused where the
     #: pproc is read.
@@ -1634,7 +1664,7 @@ def _command_tokens(command: str, argument: str) -> dict[str, str]:
     return {token.casefold(): token for tokens in lists for token in tokens or ()}
 
 
-class SurfaceProbeSpec(BaseModel):
+class SurfaceProbeSpec(_LocatedSpec):
     """One surface property recorded at a named-frame point during an unsteady march."""
 
     model_config = ConfigDict(extra="forbid")
@@ -1692,7 +1722,7 @@ STREAMLINE_KINDS: dict[str, str] = {
 BROKEN_SINGLE_SEED = "NEW_OFF_BODY_STREAMLINE"
 
 
-class StreamlineLine(BaseModel):
+class StreamlineLine(_LocatedSpec):
     """A seed line of off-body streamlines, ``count`` of them from ``start`` to ``end``.
 
     Attributes
@@ -1742,7 +1772,7 @@ class StreamlineLine(BaseModel):
         return self
 
 
-class StreamlineTube(BaseModel):
+class StreamlineTube(_LocatedSpec):
     """A tube of off-body streamlines about one axis of a frame (``NEW_OFF_BODY_STREAMTUBE``).
 
     Attributes
@@ -1844,6 +1874,30 @@ class StreamlinesSpec(BaseModel):
                 "[[streamlines.tubes]] tube, or remove the key"
             )
         return self
+
+
+class _NoiseSpec(BaseModel):
+    """Explicit exploratory loading-noise request in SI coordinates."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    #: Required acknowledgement that this compact loading-noise model is unvalidated.
+    exploratory: Literal[True]
+    #: Observer positions in the REFERENCE frame, in metres.
+    observers_m: list[tuple[float, float, float]] = Field(min_length=1)
+    #: Hub velocity relative to the acoustic medium, in metres per second.
+    hub_velocity_m_s: tuple[float, float, float]
+    #: Observer velocity relative to the acoustic medium, in metres per second.
+    observer_velocity_m_s: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    #: Sound speed of the acoustic medium, in metres per second.
+    sound_speed_m_s: float = Field(gt=0.0)
+    #: Number of time samples per rotor revolution.
+    samples_per_revolution: int = Field(default=360, ge=16, le=10000)
+    #: Highest fitted harmonic order; omitted uses the available clockings.
+    orders: int | None = Field(default=None, ge=0)
+    #: Explicit axial loading radius in metres; omitted uses the inferred centroid.
+    axial_radius_m: float | None = Field(default=None, gt=0.0)
+    #: Explicit in-plane loading radius in metres; omitted uses the inferred centroid.
+    inplane_radius_m: float | None = Field(default=None, gt=0.0)
 
 
 class PprocSpec(BaseModel):
@@ -1997,6 +2051,8 @@ class PprocSpec(BaseModel):
     #: carries it, exactly as 0.29.0 did. A bool, and nothing a bool is read
     #: from: ``"true"`` or ``1`` is refused.
     singularity_strength: bool = Field(default=False, strict=True)
+    #: Explicit opt-in to exploratory compact loading-noise products.
+    noise: _NoiseSpec | None = None
 
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     #: G05 (0.27.0): ONE flow-field plane each point of a STEADY row cuts after

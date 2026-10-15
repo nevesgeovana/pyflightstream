@@ -779,7 +779,13 @@ def _blade_family_names(family_map: SectionFamilyMap, cfg: FsiConfig) -> list[st
 
 
 def _per_blade_densities(
-    report: SectionalLoadsReport, family_map: SectionFamilyMap, names: Sequence[str], cfg: FsiConfig
+    report: SectionalLoadsReport,
+    family_map: SectionFamilyMap,
+    names: Sequence[str],
+    cfg: FsiConfig,
+    *,
+    state: FsiState,
+    layout: nodes.NodeOrderingMap,
 ) -> tuple[list[list[float]], list[list[float]], float]:
     """Return every blade's flap and torsion densities at the stations, and the normal force."""
     blocks = report.split(family_map)
@@ -787,8 +793,42 @@ def _per_blade_densities(
     flap_per_blade: list[list[float]] = []
     torsion_per_blade: list[list[float]] = []
     total_normal_force = 0.0
-    for name in names:
-        ea_loads = to_elastic_axis(blocks[name], cfg)
+    applied = (
+        state.station_displacements_m
+        if cfg.morphing == DIRECT_MORPHING
+        else state.previous_displacements
+    )
+    if (
+        applied is None
+        and cfg.morphing == DIRECT_MORPHING
+        and state.previous_displacements is not None
+    ):
+        raise FsiInputError(
+            "Direct coupling state lacks station_displacements_m; start a fresh coupled point."
+        )
+    if applied is not None and np.asarray(applied).shape != (layout.total_nodes, 3):
+        raise FsiInputError(
+            "The node list changed between two calls: applied station displacements "
+            f"have shape {np.asarray(applied).shape}, expected {(layout.total_nodes, 3)}; "
+            "restore the matching coupling state before projecting station forces."
+        )
+    rotations = (
+        None
+        if applied is None
+        else [
+            kinematics.decode_station_translations(
+                local, np.asarray(layout.le_offset_m), np.asarray(layout.te_offset_m)
+            )
+            for local in nodes.unflatten_translations(layout, np.asarray(applied))
+        ]
+    )
+    for index, name in enumerate(names):
+        rotation = (
+            {}
+            if rotations is None
+            else dict(deflection_m=rotations[index][0], twist_rad=rotations[index][1])
+        )
+        ea_loads = to_elastic_axis(blocks[name], cfg, **rotation)
         flap, torsion = _blade_densities(ea_loads, stations)
         flap_per_blade.append(flap)
         torsion_per_blade.append(torsion)
@@ -807,7 +847,9 @@ def _steady_coupling_step(
     subject: str,
     label: str,
     check_time_increment: bool,
-    solve: Callable[[SectionFamilyMap, SectionalLoadsReport], _StructuralSolve],
+    solve: Callable[
+        [SectionFamilyMap, SectionalLoadsReport, nodes.NodeOrderingMap], _StructuralSolve
+    ],
 ) -> StepResult:
     """One coupling call of a steady route, the structural solve being the variation.
 
@@ -828,11 +870,19 @@ def _steady_coupling_step(
         ),
         time_increment="check" if check_time_increment else "ignore",
     )
-    solved = solve(call.family_map, call.report)
+    solved = solve(call.family_map, call.report, call.layout)
     solutions = solved.solutions
     relaxation = cfg.phases.coupling_relaxation
     computed = _computed_displacements(run_dir, cfg, call.layout, solutions)
     written = _relaxed(state, computed, relaxation)
+    if cfg.morphing == DIRECT_MORPHING:
+        station_rows = _mapped_displacements(call.layout, solutions)
+        previous = (
+            np.zeros_like(station_rows)
+            if state.station_displacements_m is None
+            else np.asarray(state.station_displacements_m)
+        )
+        state.station_displacements_m = (previous + relaxation * (station_rows - previous)).tolist()
     _write_displacements(run_dir, state, written)
     state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
     _commit_call(
@@ -910,6 +960,12 @@ def _computed_displacements(
     if cfg.morphing == DIRECT_MORPHING:
         points = _direct_morphing.read_aero_nodes(run_dir / _direct_morphing.AERO_NODES_FILE)
         return _direct_morphing.translations_at_points(layout, at_nodes, points)
+    return _mapped_displacements(layout, solutions)
+
+
+def _mapped_displacements(layout: nodes.NodeOrderingMap, solutions: Sequence[Any]) -> np.ndarray:
+    """Evaluate a structural solution at mapped station nodes."""
+    at_nodes = _at_the_elastic_axis_nodes(layout, solutions)
     return nodes.flatten_blade_translations(
         layout,
         [
@@ -947,10 +1003,12 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
             "structural solve needs the rotor's speed, which the package writes from the row"
         )
 
-    def solve(family_map: SectionFamilyMap, report: SectionalLoadsReport) -> _StructuralSolve:
+    def solve(
+        family_map: SectionFamilyMap, report: SectionalLoadsReport, layout: nodes.NodeOrderingMap
+    ) -> _StructuralSolve:
         names = _blade_family_names(family_map, cfg)
         flap_per_blade, torsion_per_blade, total_normal_force = _per_blade_densities(
-            report, family_map, names, cfg
+            report, family_map, names, cfg, state=state, layout=layout
         )
         solved = [
             centrifugal.solve_rotating_static(
@@ -999,7 +1057,9 @@ def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResu
     an unsteady one's is held to a configured increment as the rotor's is.
     """
 
-    def solve(family_map: SectionFamilyMap, report: SectionalLoadsReport) -> _StructuralSolve:
+    def solve(
+        family_map: SectionFamilyMap, report: SectionalLoadsReport, layout: nodes.NodeOrderingMap
+    ) -> _StructuralSolve:
         wings = [family.name for family in family_map.families if family.is_blade]
         if len(wings) != 1:
             raise FsiInputError(
@@ -1007,7 +1067,7 @@ def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResu
                 "fixed-wing configuration is one cantilever, fed by one section distribution"
             )
         flap_per_blade, torsion_per_blade, total_normal_force = _per_blade_densities(
-            report, family_map, wings, cfg
+            report, family_map, wings, cfg, state=state, layout=layout
         )
         solution = wing.solve_wing_static(
             cfg,
@@ -1205,7 +1265,7 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
     )
     names = _blade_family_names(call.family_map, cfg)
     flap_per_blade, torsion_per_blade, total_normal_force = _per_blade_densities(
-        call.report, call.family_map, names, cfg
+        call.report, call.family_map, names, cfg, state=state, layout=call.layout
     )
     time_increment_s = call.time_increment_s
     assert time_increment_s is not None  # "require" refused an export without one

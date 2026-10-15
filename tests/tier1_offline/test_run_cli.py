@@ -51,6 +51,26 @@ FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "workflow_rotor_matrix.fs"
 LOADS = FIXTURES / "loads_steady_26.120.txt"
 
+
+@pytest.mark.parametrize(
+    "build", [None, "26.125"], ids=["P0410-SUPPORT-ALL", "P0410-SUPPORT-BUILD"]
+)
+def test_p0410_support_reports_build_evidence_without_a_solver(build, capsys):
+    arguments = ["support"] + ([] if build is None else [build])
+    try:
+        result = main(arguments)
+    except SystemExit as exc:
+        result = exc.code
+    assert result == 0
+    output = capsys.readouterr().out
+    assert "26.125" in output
+    assert "operational" in output
+    if build is None:
+        assert "25.000" in output
+    else:
+        assert "25.000" not in output
+
+
 #: A stub solver process: it reads the script it was handed and writes
 #: the committed loads fixture to whatever path the script exported to.
 #: Writing the REAL shape matters here and not in the sibling module,
@@ -674,6 +694,7 @@ def test_plan_and_inspect_still_take_recipe_references(tmp_path):
         "restore",
         "run",
         "space-in-use",
+        "support",
         "status",
         "show",
         "log",

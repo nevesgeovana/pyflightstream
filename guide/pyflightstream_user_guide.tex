@@ -1159,17 +1159,11 @@ averaging_span({"LAST_REVS_AVG": "0.5"}, last_step=1000, per_revolution=250.0)
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Groups are named, and your files are renamed for you}
-\begin{lstlisting}
-from pyflightstream.workspace import rename_group_products
-rename_group_products(root, {1: "PUSHER"}, dry_run=True)   # look first
-rename_group_products(root, {1: "PUSHER"})
-\end{lstlisting}
-  \begin{itemize}
-    \item A product file carries the group's NAME instead of \code{\_g01}. A number told you which position the group held in a list, which is a fact about the list and not about the group.
-    \item You supply the mapping: nothing in a workspace records which group \code{\_g03} was. A number you do not give is LEFT ALONE, never renamed on a guess.
-    \item It ARCHIVES each file before it moves it, and never deletes. A destination that already exists is refused, naming both paths, with nothing moved.
-  \end{itemize}
+\begin{frame}[fragile]{Group names determine product filenames}
+Declare the physical group name in the pproc artifact before posting.
+The current workspace format uses named groups; the numeric-group conversion
+command from older releases is retired. See the single Upgrading page for
+the supported migration from the 0.38.0 workspace format.
 \end{frame}
 
 % =====================================================================

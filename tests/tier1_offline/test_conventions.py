@@ -40,6 +40,9 @@ _UNIT_SUFFIX = re.compile(
 
 
 _DIMENSIONLESS_OR_DEBT = {
+    # Normalized airfoil coordinates and chord fraction are dimensionless.
+    "airfoil",
+    "pitch_axis_chord_fraction",
     # (a) dimensionless by physics or by construction
     "cp",  # BaseRegionOperation: pressure coefficient, (p - p_ref) / dynamic pressure
     "growth_rate",  # RadialBoundaryMesh: ratio between successive cell sizes

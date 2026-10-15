@@ -22,6 +22,7 @@ length_m = 6.0                    # how far every off-body line goes
 vtk = true                        # the package VTK polyline product
 
 [[streamlines.lines]]
+attach = "space"
 frame = "MRP"
 start = [-0.5, 1.9, -0.1]
 end = [-0.5, 1.9, 0.1]
@@ -29,6 +30,7 @@ count = 20                        # streamlines, evenly from start to end
 scale = "m"                       # m, or rotor_radius
 
 [[streamlines.tubes]]
+attach = "space"
 frame = "MRP"
 axis = "X"                        # X, Y or Z of that frame
 origin = [-0.3, 0.0, 0.0]

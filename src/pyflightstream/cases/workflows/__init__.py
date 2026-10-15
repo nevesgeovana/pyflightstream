@@ -165,6 +165,7 @@ from ._probes import (
 )
 from ._qsteady_rotor import (
     qsteady_inflow_fft,
+    qsteady_inflow_map_inputs,
     qsteady_validity,
 )
 from ._reductions import (
@@ -604,5 +605,6 @@ __all__ = [
     "qsteady_case_kind",
     "qsteady_validity",
     "qsteady_inflow_fft",
+    "qsteady_inflow_map_inputs",
     "effective_fsi_config",
 ]

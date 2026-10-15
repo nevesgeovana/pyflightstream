@@ -56,6 +56,7 @@ from pyflightstream.cases.workflows import (
     RESTART_ITERATIONS_VARIABLE,
     STEADY_RUN_TYPES,
     actuator_records,
+    effective_fsi_config,
     qsteady_validity,
     rotor_machs,
     streamline_count,
@@ -99,6 +100,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
     collection_name,
     datapoint_dir_name,
+    structural_assessment,
 )
 from pyflightstream.workspace._batches import GroupingReceipt
 from pyflightstream.workspace._settings_file import (
@@ -227,6 +229,8 @@ class PointPlan:
     run_wake_length: dict[str, object] = field(default_factory=dict)
     streamlines: int = 0
     farfield: dict[str, object] = field(default_factory=dict)
+    fsi: dict[str, object] = field(default_factory=dict)
+    inflow_harmonics: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -1253,6 +1257,7 @@ def plan_campaign(
                     recorded_here,
                     fs_version=case_version,
                     inflow_fft=inflow_fft,
+                    write_products=write_plan,
                 )
             )
     _warn_on_relaxed_discs_naming_a_profile(campaign.sims)
@@ -1430,6 +1435,9 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
     # FR-1047 (0.40.0): the far-field resolution, on a row with [farfield] only.
     if not entry.farfield:
         del record["farfield"]
+    for key in ("fsi", "inflow_harmonics"):
+        if not record[key]:
+            del record[key]
     return record
 
 
@@ -1485,6 +1493,7 @@ def _plan_point(
     *,
     fs_version: str,
     inflow_fft: bool = False,
+    write_products: bool = True,
 ) -> PointPlan:
     """Judge one point in dry run: names, script build, manifest state.
 
@@ -1570,10 +1579,23 @@ def _plan_point(
     script = Script(version=fs_version)
     try:
         recipe(point_case, script)
+        structural_config = effective_fsi_config(point_case)
+        if structural_config is not None:
+            base["fsi"] = structural_assessment(structural_config)
         # G02: the plan knows no machine, so a log export the row turned off
         # is refused here, before any run can spend a seat on it.
         _refuse_an_import_count_nothing_logs(point_case, script, None)
         script.render()
+        if inflow_fft and write_products:
+            from pyflightstream.workspace import write_plan_products
+
+            base["inflow_harmonics"] = [
+                path.relative_to(workspace.root).as_posix()
+                for path in write_plan_products(
+                    point_case,
+                    workspace.plan_dir(campaign.matrix_stem) / "inflow" / case.sim_id / stem,
+                )
+            ]
     except Exception as error:  # recipes are user code; any failure blocks the point
         return PointPlan(
             **base,

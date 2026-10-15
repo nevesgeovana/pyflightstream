@@ -46,6 +46,7 @@ from pyflightstream.workspace._geometry_convert import (
 )
 from pyflightstream.workspace.builds import resolve_build
 from pyflightstream.workspace.cli import register_command_group
+from pyflightstream.workspace.trailing_edges import DEFAULT_SECTIONS
 
 __all__ = [
     "GEOMETRY_VERBS",
@@ -65,7 +66,7 @@ PYFS_MATRIX_ALIASES = {
 }
 
 #: Every verb of the group.
-GEOMETRY_VERBS = ("build", "accept", "from-sidecar", *PYFS_MATRIX_ALIASES)
+GEOMETRY_VERBS = ("build", "accept", "from-sidecar", "trailing-edge", *PYFS_MATRIX_ALIASES)
 
 #: How long one build may run; a build makes a body and solves nothing.
 _TIMEOUT_S = 1800.0
@@ -96,6 +97,14 @@ def add_geometry_commands(subparsers: Any) -> None:
         ),
     )
     verbs = geometry.add_subparsers(dest="geometry_command", required=True)
+    edge = verbs.add_parser("trailing-edge", help="extract trailing-edge midpoint coordinates")
+    edge.add_argument("mesh")
+    edge.add_argument("output")
+    edge.add_argument("--axis", nargs=3, type=float, required=True)
+    edge.add_argument("--hub", nargs=3, type=float, required=True)
+    edge.add_argument("--unit", required=True)
+    edge.add_argument("--sections", type=int, default=DEFAULT_SECTIONS)
+    edge.add_argument("--overwrite", action="store_true")
     build = verbs.add_parser(
         "build",
         help="preview a geometry's build, or run it with --apply",
@@ -353,6 +362,24 @@ def _cmd_from_sidecar(args: argparse.Namespace) -> int:
 def run_geometry(args: argparse.Namespace) -> int:
     """Run the ``pyfs-workspace geometry`` verb ``args`` names and return its exit code."""
     verb = args.geometry_command
+    if verb == "trailing-edge":
+        from pyflightstream.workspace.trailing_edges import write_trailing_edge_node_file
+
+        try:
+            path = write_trailing_edge_node_file(
+                args.mesh,
+                args.output,
+                axis=args.axis,
+                hub=args.hub,
+                unit=args.unit,
+                sections=args.sections,
+                overwrite=args.overwrite,
+            )
+        except (PyflightstreamError, OSError, ValueError) as error:
+            print(str(error), file=sys.stderr)
+            return 2
+        print(path)
+        return 0
     if verb == "build":
         return _cmd_build(args)
     if verb == "accept":

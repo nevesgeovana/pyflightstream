@@ -46,6 +46,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import (
     SIM_DATAPOINTS_DIR,
 )
+from pyflightstream.workspace.fsi_setup import fsi_input_payloads
 from pyflightstream.workspace.ledger import walltime_stop
 
 
@@ -202,10 +203,7 @@ def _write_pending_files(
                 "staged": effective.omega_rad_per_s,
                 "rule": "qsteady_rotor sector: the structure turns at the row's RPM",
             }
-        payloads = {
-            "config.json": effective.model_dump_json(indent=2) + "\n",
-            "fsi-provenance.json": json.dumps(provenance, indent=2) + "\n",
-        }
+        payloads = fsi_input_payloads(effective, provenance)
         source_name = case.fsi_provenance.get("source")
         if source_name:
             source = Path(str(source_name))

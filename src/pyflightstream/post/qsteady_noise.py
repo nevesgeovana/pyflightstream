@@ -67,12 +67,13 @@ signed ``omega_rad_s`` turns the blades in that sense when positive. Blade
 ``b`` (from zero) sits ``b / B`` of a turn from blade one, right-handed, as
 :func:`pyflightstream.post.axes.placed_blade_azimuth_deg` places them.
 
-Nothing here reads a workspace: the workspace writer
-:func:`write_qsteady_noise_report` stays a refusing contract in 0.32.0.
+The workspace writer :func:`write_qsteady_noise_report` indexes the exploratory
+loading signals recorded by the ordinary post stage.
 """
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -81,7 +82,9 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from pyflightstream._errors import ContractNotImplementedError, ProductError
+import pyflightstream._textio as _textio
+from pyflightstream._errors import ProductError
+from pyflightstream.workspace import CampaignWorkspace
 
 __all__ = [
     "AzimuthalSeries",
@@ -886,18 +889,15 @@ def compare_signals(
     )
 
 
-def write_qsteady_noise_report(root: str | Path, *, matrix: str | None = None) -> Path:
-    """Write the exploratory quasi-steady noise report of a workspace (NOT FILLED in 0.32.0).
-
-    The contract laid down by the 0.32.0 preparation step. Work package F
-    left it unfilled on purpose: QS-NOISE is exploratory and not wired into
-    the post stage, and its one comparison is report RPT-099, made from the
-    library functions above.
+def write_qsteady_noise_report(
+    root: str | Path | CampaignWorkspace, *, matrix: str | None = None
+) -> Path:
+    """Index the exploratory loading signals in the current product manifest.
 
     Parameters
     ----------
-    root : str or Path
-        The workspace root.
+    root : str or Path or CampaignWorkspace
+        The workspace root, or its view when posting an alternate manifest.
     matrix : str, optional
         The matrix stem whose points are compared.
 
@@ -908,10 +908,28 @@ def write_qsteady_noise_report(root: str | Path, *, matrix: str | None = None) -
 
     Raises
     ------
-    ContractNotImplementedError
-        Always, in 0.32.0.
+    ProductError
+        The manifest cannot be read or contains no loading-noise products.
     """
-    raise ContractNotImplementedError(
-        "pyflightstream.post.qsteady_noise.write_qsteady_noise_report: "
-        "not implemented yet (0.32.0 contract)"
+    workspace = root if isinstance(root, CampaignWorkspace) else CampaignWorkspace(Path(root))
+    folder = workspace.products_dir(matrix)
+    try:
+        manifest = json.loads((folder / "products.json").read_text(encoding="utf-8"))
+        products = {
+            name: entry
+            for name, entry in manifest["products"].items()
+            if entry.get("kind") == "loading_noise"
+        }
+    except (OSError, ValueError, KeyError, AttributeError, TypeError) as error:
+        raise ProductError(f"Loading-noise product manifest cannot be read: {error}") from error
+    if not products:
+        raise ProductError(
+            "No loading-noise products; post a pproc with exploratory noise enabled."
+        )
+    target = folder / "noise_report.json"
+    _textio.write_text(
+        target,
+        json.dumps({"validation": "exploratory, not validated", "products": products}, indent=2)
+        + "\n",
     )
+    return target

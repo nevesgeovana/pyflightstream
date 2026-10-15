@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream._errors import ContractNotImplementedError, ProductError
+from pyflightstream._errors import ProductError
 from pyflightstream.post import qsteady_noise as qn
 
 C0 = 340.0
@@ -413,9 +413,9 @@ def test_the_comparison_measures_fr_304():
 
 
 @pytest.mark.requirement("FR-304")
-def test_the_workspace_writer_is_not_wired_and_still_refuses_fr_304():
-    with pytest.raises(ContractNotImplementedError, match="not implemented yet"):
-        qn.write_qsteady_noise_report(".")
+def test_p0410_workspace_noise_report_requires_recorded_products(tmp_path):
+    with pytest.raises(ProductError, match="cannot be read"):
+        qn.write_qsteady_noise_report(tmp_path)
 
 
 # --------------------------------------------------------------------------- RPT-099

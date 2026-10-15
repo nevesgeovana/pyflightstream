@@ -1,5 +1,52 @@
 # FSI workspace inputs
 
+## Structural products after a run
+
+Ordinary `pyfs-matrix post` writes `structure/<point>_deflection.csv` for
+admitted coupled points. Rows contain blade number, station radius in metres,
+deflection in metres and elastic twist in degrees. The decoder uses the
+recorded configuration's node ordering and embedding, undoing the wing or
+rotor frame before decoding each station's translations. The configuration
+digest must match the run's recorded input. Direct morphing uses the applied
+`station_displacements_m` stored in `state.json`, whose configuration digest
+must also match. It never decodes mesh-vertex rows as structural stations.
+An older direct state without these station rows produces a named skip.
+
+When present, the recorded `fsi_convergence_log.csv` is retained as
+`structure/<point>_history.csv`. Products record source digests. Keep the
+coupled run's working folder available for post; no structural solve is
+repeated to reconstruct missing output. The workspace regression example
+uses a tip deflection of 0.008 m and tip twist of 0.016 radians and checks
+the resulting CSV through the ordinary campaign post stage.
+
+## Structural quantities before a run
+
+Calculated `[sections]` accepts exactly one contour source: `sections_m`
+(a physical contour at each station), `airfoil` (one unit-chord contour),
+or `naca` (a four-digit designation such as `"0012"`). Airfoil and NACA
+contours are scaled by each station's `chord_m` and placed about
+`pitch_axis_chord_fraction` (default 0.25). `chord_panels` controls NACA
+panels per side (default 40). For example, replace `sections_m` in the
+calculated input with `naca = "0012"` to use the same symmetric section
+at every station. The workspace tests resolve and plan both contour forms.
+
+Run `pyfs-matrix plan matrix.fs --workspace . --fs-version 26.124` after
+selecting an FSI input. Each coupled point in `plan.json` has an `fsi` object:
+`station_properties`, `natural_frequencies_hz`, `mode_kinds`,
+`excitation_frequency_ratios`, and `warnings`. The properties are the effective
+calibrated properties; a quasi-steady sector uses the row's rotational speed.
+The existing rotating beam model includes centrifugal stiffness. No licensed
+solver is launched by this calculation.
+
+The frequency ratios cover once-per-revolution and blade-passing excitation.
+A ratio above 0.3 warns that a quasi-static structural response may be
+inadequate. This screen does not establish dynamic stability or native
+coupling accuracy. A fixed wing has zero rotational excitation. A uniform
+four-metre cantilever with bending stiffness 200000 N m2 and mass per length
+3 kg/m has a first bending frequency of approximately 9 Hz; quadrupling
+its bending stiffness doubles that frequency. The workspace regression test
+executes this example through `plan_campaign`.
+
 The [workspace calibration example](examples/workspace_fsi_calibration.md) creates
 complete calculated and supplied inputs for the same synthetic solid blade, then
 checks their equivalence with one explicit matrix factor.
@@ -467,3 +514,11 @@ inputs also retain base/effective material properties and the section algorithm
 provenance. Effective properties are validated again, including the ordering of
 major and minor principal inertia. No solver executes while loading or planning
 these inputs.
+# Frozen displacement inputs
+
+An FSI artifact can set `frozen_displacements_file = "frozen.txt"` at its
+top level. The path is relative to that artifact. Resolution checks the mapped
+node count and finite translations; staging verifies its recorded digest before
+copying it into the point folder. Direct vertex morphing is refused for this route.
+`allow_configuration_change = true` explicitly permits the driver's existing
+configuration-change handling. Both controls are absent or false by default.

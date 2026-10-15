@@ -9,6 +9,9 @@ FlightStream versions.
 
 ### Changed
 
+- `pyfs-matrix support [build]` reports evidence-derived build support without
+  launching the solver; omit the build to list every registered version.
+
 - Migration instructions live in `docs/upgrading.md`. Current help no longer
   recommends retired input-id, geometry-folder or group-product migration tools;
   geometry instructions name the folder they require.

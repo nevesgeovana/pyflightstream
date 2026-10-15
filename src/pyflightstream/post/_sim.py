@@ -65,11 +65,14 @@ from pyflightstream.post._condition import (
     point_condition,
     row_rotor_speeds,
 )
+from pyflightstream.post._export_tables import export_tables
 from pyflightstream.post._installed_copies import (
     INFLOW_SUFFIX,
     write_installed_inflow,
     write_installed_probes,
 )
+from pyflightstream.post._noise_products import noise_products
+from pyflightstream.post._polar_axes import selected_axes
 from pyflightstream.post._reduction_stage import _drift_limit_pct, _point_reductions
 from pyflightstream.post._rotor_plan import _rotor_tables
 from pyflightstream.post._rotor_products import (
@@ -86,6 +89,7 @@ from pyflightstream.post._stage import (
     SECTIONS_DIR,
     _refuse_aliases_a_file_name_cannot_tell_apart,
 )
+from pyflightstream.post._structure import append_tip_columns, structure_products
 from pyflightstream.post._tables import (
     ADVANCE_RATIO_COLUMN,
     ProductError,
@@ -234,6 +238,7 @@ class SimContext:
     installed_unplaced: set[str] = field(default_factory=set)
     #: FR-460: each point's streamline exports, by kind.
     streamlines: dict[str, dict[str, Path]] = field(default_factory=dict)
+    structure_tips: dict[str, list[tuple[float, float]]] = field(default_factory=dict)
 
     def target(self, path: Path) -> Path:
         """Archive what stands at ``path`` (or refuse it) and return the path to write."""
@@ -658,6 +663,8 @@ def _group_polar(
         drag_columns=drags,
     )
     write_csv_table(target, polar_table_columns(drags), full)
+    append_tip_columns(ctx, target, group_runs)
+    selected_axes(target, ctx.pproc.products.polar_axes)
     if ctx.drafts is not None:
         ctx.super_rows[str(group)] = (
             ctx.out
@@ -1140,6 +1147,7 @@ def _rotor_table(ctx: SimContext, target_path: Path, alias: str, plan: dict[str,
     )
     relative = destination.relative_to(ctx.out).as_posix()
     if done:
+        append_tip_columns(ctx, destination, rotor_runs)
         ctx.written.append(destination)
         ctx.written_names[relative] = {
             # ONLY THE RUNS THIS TABLE ACTUALLY CONTAINS. It listed every
@@ -1336,6 +1344,7 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
             "these points of the sweep are not rows of the unsteady polar: " + "; ".join(left_out)
         )
     if done is not None:
+        selected_axes(done, ctx.pproc.products.polar_axes)
         ctx.add(
             done,
             {
@@ -1463,10 +1472,13 @@ def _superfile_drafts(ctx: SimContext) -> None:
 
 #: The steps of one simulation's post, in the order the manifest has always had.
 _STEPS: tuple[Callable[[SimContext], None], ...] = (
+    export_tables,
+    structure_products,
     _group_polars,
     _point_products,
     _rotor_table_products,
     _qsteady_rotor_products,
+    noise_products,
     _unsteady_polar_products,
     # FR-456 (0.40.0): the far-field family, before the superfile reads the rows.
     farfield_products,

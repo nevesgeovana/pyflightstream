@@ -352,6 +352,7 @@ plot_direction = 1                # 1 or 2
 include_symmetry = false
 
 [[sections.distributions]]
+attach = "space"  # fixed in the undeformed REFERENCE space
 families = "lifting"              # an alias, a family name, or a list of them
 frame = "MRP"                     # MRP, a frame of the reference, or a rotor's
 planes = ["XZ"]                   # XY, XZ or YZ, one distribution each
@@ -363,6 +364,7 @@ integrate = true                  # append the strip integrals of the sectional 
 # rectangle is shown; a circle states shape = "circle", radii_m = [r1, r2] and
 # points = [ipts, jpts] in place of corners_m and refinement_layers.
 [volume_section]
+attach = "space"  # fixed in the undeformed REFERENCE space
 shape = "rectangle"
 frame = "MRP"
 plane = "XZ"
@@ -376,6 +378,7 @@ format = "vtk"                    # vtk or tecplot
 parameters = ["CL", "CD", "FX", "FZ", "MY"]
 
 [[plots.groups]]
+attach = "space"  # fixed in the undeformed REFERENCE space
 name = "WING"
 frame = "MRP"
 families = "lifting"
@@ -384,6 +387,7 @@ families = "lifting"
 # points in the entry's frame and scale. An unsteady entry samples the parameters
 # listed; probe points (steady row, normal entry) export a fixed set, with a warning.
 [[probes]]
+attach = "space"  # fixed in the undeformed REFERENCE space
 frame = "MRP"
 parameters = ["VX", "VY", "VZ", "CP_FREE"]
 points = 11                       # points per line, both ends included
@@ -413,6 +417,7 @@ points_azimuth = 8
 # ... or a points file of inputs/profiles/, named without a folder, in place
 # of drawing them.
 [[probes]]
+attach = "space"  # fixed in the undeformed REFERENCE space
 parameters = ["VX", "VY", "VZ"]
 points_file = "wake_survey.csv"
 
@@ -454,12 +459,14 @@ _SURFACE_PROBE_EXAMPLE = """\
 # Select this artifact only for an unsteady row. Coordinates are local metres.
 # This native surface history is separate from off-body fluid probes.
 [[surface_probes]]
+attach = "space"  # fixed in the undeformed REFERENCE space
 name = "upper_cp"
 parameter = "CP_FREE"
 frame = "REFERENCE"
 point_m = [0.25, 0.1, 0.02]
 
 [[surface_probes]]
+attach = "space"  # fixed in the undeformed REFERENCE space
 name = "upper_speed"
 parameter = "VELOCITY"
 frame = "REFERENCE"
@@ -1159,6 +1166,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                     {
                         "an unsteady row's surface average, which a steady row refuses; "
                         "INPUTS.md names the builds": ("time_averaging",),
+                        "exploratory loading noise requires an explicit opt-in": ("noise",),
                         "an unsteady rotor's drift limit, 1 per cent where the table is absent": (
                             "per_revolution",
                         ),
@@ -1188,6 +1196,63 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                 "`[volume_section]`": MappingProxyType(
                     {"a circle's keys, " + _IN_THE_COMMENT: ("radii_m", "points")}
                 ),
+                "`[noise]`": {
+                    "exploratory wheel-only model; see exploratory-loading-noise": (
+                        "exploratory",
+                        "observers_m",
+                        "hub_velocity_m_s",
+                        "observer_velocity_m_s",
+                        "sound_speed_m_s",
+                        "samples_per_revolution",
+                        "orders",
+                        "axial_radius_m",
+                        "inplane_radius_m",
+                    )
+                },
+                "`[[probes]]`": {"optional planar grids; see planar-workspace-probes": ("grids",)},
+                "`[products]`": {
+                    "optional selected force axes; labelled columns remain": ("polar_axes",)
+                },
+                "`[[probes.grids]]`": {
+                    "optional planar grid; see planar-workspace-probes": (
+                        "frame",
+                        "u",
+                        "v",
+                        "refinement",
+                    )
+                },
+                "`[probes.grids.frame]`": {
+                    "optional planar grid; see planar-workspace-probes": (
+                        "origin",
+                        "x_axis",
+                        "y_axis",
+                    )
+                },
+                "`[probes.grids.u]`": {
+                    "optional planar grid; see planar-workspace-probes": (
+                        "start",
+                        "stop",
+                        "spacing",
+                        "count",
+                        "distribution",
+                        "ratio",
+                        "cluster",
+                    )
+                },
+                "`[probes.grids.v]`": {
+                    "optional planar grid; see planar-workspace-probes": (
+                        "start",
+                        "stop",
+                        "spacing",
+                        "count",
+                        "distribution",
+                        "ratio",
+                        "cluster",
+                    )
+                },
+                "`[probes.grids.refinement]`": {
+                    "optional planar grid; see planar-workspace-probes": ("distance", "factor")
+                },
                 **field_left_out(),
             }
         ),

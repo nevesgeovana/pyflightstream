@@ -1182,3 +1182,50 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     _script_solve_and_export(conventions, case, script, unsteady=False, frames=frames)
     script.emit("CLOSE_FLIGHTSTREAM")
     _finish_custom_field_coverage(case, script)
+
+
+def qsteady_inflow_map_inputs(case: SimCase) -> dict[str, object] | None:
+    """Resolve SI inputs for an inflow map from a workspace point.
+
+    Parameters
+    ----------
+    case : SimCase
+        Resolved point, including its geometry and custom freestream.
+
+    Returns
+    -------
+    dict[str, object] or None
+        Map inputs at the point's speed, or None without a sampled inflow.
+    """
+    from ..freestream import field_rows_in_metres
+
+    fft = qsteady_inflow_fft(case)
+    if not fft or "radius_m" not in fft:
+        return None
+    custom = _the_custom_freestream(case)
+    assert custom is not None
+    rotor = _the_isolated_rotor(case)
+    rpm = float(_qsteady_speed(case, rotor).rpm)
+    speed = _velocity(case)
+    _, rows = field_rows_in_metres(
+        Path(custom.path),
+        form=custom.form,
+        source_units=custom.source_units,
+        native_unit=_the_fields_native_unit(case),
+    )
+    stations = _blade_stations_from_the_mesh(case, rotor)
+    chords = None if isinstance(stations, str) else stations[1]
+    radii = fft["radius_m"]
+    assert isinstance(radii, list)
+    return dict(
+        rows=rows,
+        hub=rotor.origin,
+        axis=rotor.axis_vector,
+        radii_m=radii,
+        diameter_m=rotor.diameter_m,
+        v_inf_m_s=speed,
+        advance_ratios=[speed / (abs(rpm) / 60 * rotor.diameter_m)],
+        blades=rotor.blade_count,
+        chords_m=chords,
+        sense=1 if rpm > 0 else -1,
+    )

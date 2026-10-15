@@ -45,7 +45,9 @@
       "tests/tier1_offline/test_fsi_native_interface_evidence.py",
       "tests/tier1_offline/test_fsi_wing.py",
       "tests/tier1_offline/test_goal036_fsi_shared_step.py",
-      "tests/tier1_offline/test_p0370_s6_node_integrity.py"
+      "tests/tier1_offline/test_p0370_s6_node_integrity.py",
+      "tests/tier1_offline/test_p0410_ph_b1_frame_probes.py",
+      "tests/tier1_offline/test_p0410_ph_b1_fsi_plan.py"
     ],
     "cases": [
       "tests/tier1_offline/test_base_region_setup.py",

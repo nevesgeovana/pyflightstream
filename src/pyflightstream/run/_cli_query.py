@@ -27,6 +27,7 @@ from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._cli_query_history import add_history_parsers, run_history_query
 from pyflightstream.run._cli_query_point import _add_parsers, _run_point_query
+from pyflightstream.support import support_table, version_support
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.ledger import (
     PLANNED,
@@ -41,7 +42,7 @@ from pyflightstream.workspace.ledger import (
 )
 
 #: The read-only verbs this module answers, dispatched by :mod:`pyflightstream.run.cli`.
-QUERY_COMMANDS = ("status", "show", "log", "trace", "history", "diff")
+QUERY_COMMANDS = ("status", "show", "log", "trace", "history", "diff", "support")
 
 #: The table heading of a row key; a key not here is printed upper case.
 _HEADINGS = {"iterations": "ITER", "wall_s": "WALL"}
@@ -66,6 +67,10 @@ def add_query_parsers(subparsers: Any) -> None:
         The ``pyfs-matrix`` subcommand table, from
         :func:`pyflightstream.run._cli_parsers._build_parser`.
     """
+    support = subparsers.add_parser(
+        "support", help="show the evidence-derived support level of FlightStream builds"
+    )
+    support.add_argument("build", nargs="?", help="one build; omitted lists every registered build")
     status = subparsers.add_parser(
         "status",
         help="one row per polar: simulation, polar, sweep, datapoints, matrix and status "
@@ -151,6 +156,15 @@ def run_query(args: argparse.Namespace) -> int:
         no record and no planned point; 2 for a refused argument or a manifest
         that is not JSON.
     """
+    if args.subcommand == "support":
+        try:
+            rows = support_table() if args.build is None else (version_support(args.build),)
+        except (PyflightstreamError, ValueError) as error:
+            print(str(error), file=sys.stderr)
+            return 2
+        for row in rows:
+            print(row.summary)
+        return 0
     if args.subcommand in ("history", "diff"):
         return run_history_query(args)
     if args.subcommand == "status" and args.additional:

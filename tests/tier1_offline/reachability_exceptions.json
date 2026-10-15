@@ -10,22 +10,6 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
-   "id": "RX-05",
-   "capability": "Planar probe grids on a frame with per-axis distributions and refinement bands",
-   "reason": "routed later",
-   "node": "PFS-2140.001",
-   "release": "0.41.0",
-   "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
-   "names": [
-    "pyflightstream.probes.AxisSpec",
-    "pyflightstream.probes.FrameDefinition",
-    "pyflightstream.probes.GeometryGateReport",
-    "pyflightstream.probes.PlanarProbeGrid",
-    "pyflightstream.probes.PlannedProbes",
-    "pyflightstream.probes.RefinementBand"
-   ]
-  },
-  {
    "id": "RX-06",
    "capability": "Inside-the-body check of probe points against the surface mesh, and the surface mesh export it reads",
    "reason": "routed later",
@@ -34,7 +18,6 @@
    "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
    "names": [
     "pyflightstream.exceptions.SurfaceMeshExportError",
-    "pyflightstream.probes.geometry.apply_geometry_gate",
     "pyflightstream.run.export_surface_mesh"
    ]
   },
@@ -45,24 +28,9 @@
    "node": "PFS-2140.002",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.fsi.beam.ModalResult",
-    "pyflightstream.fsi.beam.lumped_station_masses",
-    "pyflightstream.fsi.beam.modal_frequencies",
     "pyflightstream.fsi.centrifugal.CampbellData",
     "pyflightstream.fsi.centrifugal.campbell_sweep",
-    "pyflightstream.fsi.centrifugal.rotating_frequencies",
     "pyflightstream.fsi.centrifugal.southwell_fit"
-   ]
-  },
-  {
-   "id": "RX-09",
-   "capability": "Airfoil or NACA section contour as an FSI section input",
-   "reason": "routed later",
-   "node": "PFS-2140.002",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.fsi.sections.airfoil_section_contour",
-    "pyflightstream.qa.geometry.naca4_contour"
    ]
   },
   {
@@ -72,8 +40,6 @@
    "node": "PFS-2140.003",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.fsi.kinematics.decode_station_translations",
-    "pyflightstream.fsi.kinematics.twist_from_node_translations",
     "pyflightstream.fsi.loads.cross_check_totals"
    ]
   },
@@ -85,36 +51,10 @@
    "release": "0.42.0",
    "names": [
     "pyflightstream.exceptions.ContractNotImplementedError",
-    "pyflightstream.post.qsteady_noise.AzimuthalSeries",
-    "pyflightstream.post.qsteady_noise.BladeLoad",
-    "pyflightstream.post.qsteady_noise.PointForce",
-    "pyflightstream.post.qsteady_noise.RotorMotion",
     "pyflightstream.post.qsteady_noise.SignalComparison",
     "pyflightstream.post.qsteady_noise.azimuth_from_moment",
     "pyflightstream.post.qsteady_noise.compare_signals",
-    "pyflightstream.post.qsteady_noise.emission_times",
-    "pyflightstream.post.qsteady_noise.fit_azimuthal_series",
-    "pyflightstream.post.qsteady_noise.gutin_harmonic_rms",
-    "pyflightstream.post.qsteady_noise.loading_noise",
-    "pyflightstream.post.qsteady_noise.reconstruct_blade_load",
-    "pyflightstream.post.qsteady_noise.rotating_components",
-    "pyflightstream.post.qsteady_noise.rotor_loading_noise",
-    "pyflightstream.post.qsteady_noise.rotor_point_forces",
-    "pyflightstream.post.qsteady_noise.write_qsteady_noise_report"
-   ]
-  },
-  {
-   "id": "RX-12",
-   "capability": "Blade-view harmonics map of a custom inflow over the advance ratio",
-   "reason": "routed later",
-   "node": "PFS-2140.004",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.post.inflow_tools.HarmonicsMap",
-    "pyflightstream.post.inflow_tools.InflowStationHarmonics",
-    "pyflightstream.post.inflow_tools.blade_view_harmonics",
-    "pyflightstream.post.inflow_tools.inflow_harmonics_map",
-    "pyflightstream.post.inflow_tools.write_inflow_harmonics"
+    "pyflightstream.post.qsteady_noise.gutin_harmonic_rms"
    ]
   },
   {
@@ -124,31 +64,7 @@
    "node": "PFS-2140.004",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.post.corrections.bessel_y",
-    "pyflightstream.post.corrections.sector_offset_calibration"
-   ]
-  },
-  {
-   "id": "RX-14",
-   "capability": "Wind-axes and stability-axes force coefficients",
-   "reason": "routed later",
-   "node": "PFS-2140.004",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.post.axes.stability_force_coefficients"
-   ]
-  },
-  {
-   "id": "RX-15",
-   "capability": "Force-distribution and solver-analysis CSV exports tabled as per-point products",
-   "reason": "routed later",
-   "node": "PFS-2140.005",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.results.ForceDistributionReport",
-    "pyflightstream.results.SolverAnalysisCsvReport",
-    "pyflightstream.results.parse_force_distributions",
-    "pyflightstream.results.parse_solver_analysis_csv"
+    "pyflightstream.post.corrections.bessel_y"
    ]
   },
   {
@@ -172,10 +88,7 @@
    "names": [
     "pyflightstream.workspace.TrailingEdge",
     "pyflightstream.workspace.extract_trailing_edge",
-    "pyflightstream.workspace.trailing_edge_midpoints",
-    "pyflightstream.workspace.wake_edges.write_node_file",
-    "pyflightstream.workspace.wake_edges.write_trailing_edge_points",
-    "pyflightstream.workspace.write_trailing_edge_node_file"
+    "pyflightstream.workspace.wake_edges.write_node_file"
    ]
   },
   {
@@ -185,12 +98,8 @@
    "node": "PFS-2140.005",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.SupportLevel",
-    "pyflightstream.support.VersionSupport",
     "pyflightstream.support.minimal_workflow",
-    "pyflightstream.support_level",
-    "pyflightstream.support_table",
-    "pyflightstream.version_support"
+    "pyflightstream.support_level"
    ]
   },
   {
@@ -406,11 +315,8 @@
    "names": [
     "pyflightstream.fsi.StructuralSolver",
     "pyflightstream.fsi.centrifugal.axial_tension",
-    "pyflightstream.fsi.centrifugal.propeller_moment_twist_stiffness",
     "pyflightstream.fsi.config.dump_config",
-    "pyflightstream.fsi.nodes.unflatten_translations",
     "pyflightstream.fsi.nodes.write_node_file",
-    "pyflightstream.workspace.fsi_setup.fsi_input_payloads",
     "pyflightstream.workspace.fsi_setup.load_fsi_setup",
     "pyflightstream.workspace.fsi_setup.stage_fsi_setup"
    ]
@@ -421,7 +327,6 @@
    "reason": "maintainer or developer API",
    "decision": "classified by the release session under the owner's delegation of 2026-10-12",
    "names": [
-    "pyflightstream.cases.corrections.calibration_text",
     "pyflightstream.cases.matrix.rewrite_codes",
     "pyflightstream.cases.workflows.ExportWindow",
     "pyflightstream.cases.workflows.ReductionPlan",

@@ -7,6 +7,18 @@ ones, and the list is what EXISTS rather than what is planned
 Each says whether it is reached through this package or through its own
 module, which is stated rather than left to be discovered:
 
+* :mod:`pyflightstream.post._export_tables` writes declared solver tables;
+  reached by the workspace pipeline.
+* :mod:`pyflightstream.post._structure` writes structural response and tip columns;
+  reached by the workspace pipeline.
+* :mod:`pyflightstream.post._plan_inflow` registers plan-time inflow maps;
+  reached by the workspace pipeline.
+* :mod:`pyflightstream.post._workspace_commands` registers calibration commands;
+  reached by the workspace pipeline.
+* :mod:`pyflightstream.post._polar_axes` selects explicit polar axes;
+  reached by the workspace pipeline.
+* :mod:`pyflightstream.post._noise_products` writes opt-in exploratory loading noise;
+  reached by the workspace pipeline.
 * :mod:`pyflightstream.post.diagnostics` renders complete saved post logs as
   Markdown without executing stages or changing products. Its report renderer
   is re-exported here and registered through workspace for lower-layer
@@ -61,11 +73,10 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post.qsteady_noise` holds the exploratory
   quasi-steady rotor noise model (0.32.0): a blade's load reconstructed
   against azimuth from a quasi-steady wheel's clockings and propagated to an
-  observer by a compact loading-noise model, not wired into the post stage.
+  observer by a compact loading-noise model, reached by explicit exploratory opt-in.
   Its report writer,
   :func:`pyflightstream.post.qsteady_noise.write_qsteady_noise_report`, is
-  left unfilled on purpose and raises
-  :class:`pyflightstream._errors.ContractNotImplementedError`. Reached
+  an index of those exploratory signals in the current product manifest. Reached
   through its own module;
 * :mod:`pyflightstream.post.custom_polar` and
   :mod:`pyflightstream.post.provenance` hold the custom polar format and the
@@ -290,3 +301,6 @@ def _the_guides_stage(workspace: object, **_options: object) -> list[Path]:
 
 
 register_post_stage(_the_guides_stage)
+
+import pyflightstream.post._plan_inflow  # noqa: E402, F401
+import pyflightstream.post._workspace_commands  # noqa: E402, F401

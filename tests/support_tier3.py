@@ -538,12 +538,14 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
     rendered: dict[str, str] = {}
     original = plan_module._plan_point
 
-    def hooked(campaign, case, point, ws, recipe, case_error, recorded, *, fs_version, **options):
+    def hooked(
+        campaign, case, point, workspace, recipe, case_error, recorded, *, fs_version, **options
+    ):
         plan = original(
             campaign,
             case,
             point,
-            ws,
+            workspace,
             recipe,
             case_error,
             recorded,
@@ -551,7 +553,7 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
             **options,
         )
         if plan.status.name in ("READY", "ALREADY_RECORDED") and recipe is not None:
-            stem, outputs = plan_module._point_names(campaign, case, point, ws)
+            stem, outputs = plan_module._point_names(campaign, case, point, workspace)
             point_case = case.model_copy(update={"point": dict(point), "outputs": outputs})
             script = Script(version=fs_version)
             recipe(point_case, script)

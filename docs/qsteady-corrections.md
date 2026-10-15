@@ -206,3 +206,11 @@ station for the sectional components), `derived_na`, `validation`
 (`"not validated"`) and a `note` saying the same; a route 2 entry adds
 `source_run_id`. The definitions are in
 [the post-processing definitions](post-processing-definitions.md#quasi-steady-wheel-corrections).
+# Workspace calibration command
+
+After posting both recorded points, run
+`pyfs-workspace calibrate c001 --workspace campaign --wheel-run WHEEL_RUN_ID --sector-run SECTOR_RUN_ID --matrix MATRIX_STEM`.
+Use `--rotor ALIAS` when a point contributes to several rotor tables. The command
+checks axial flow, matching advance ratio and the sector's recorded whole-rotor
+loads evidence. It writes `inputs/calibrations/c001.toml`; an existing file is
+refused unless `--overwrite` is explicit. This route remains unvalidated.
