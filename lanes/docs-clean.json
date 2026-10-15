@@ -1,0 +1,1960 @@
+{
+  "_geoverse_header": {
+    "file_version": "1.2.0",
+    "last_modified_at": "2026-10-15T18:19:21.109462+00:00",
+    "last_modified_by": {
+      "provider": "OpenAI",
+      "product": "Codex",
+      "model": "GPT-6",
+      "role": "primary-agent"
+    },
+    "dependencies": [
+      "LANE-CONTRACT.md",
+      "library-lane-implement/SKILL.md",
+      "codex/docs-clean.md"
+    ],
+    "authority": "geoverse-goddess-control-plane",
+    "status": "active",
+    "confidentiality": "internal",
+    "change_summary": "Record committed owned-scope cleanup, red/green proofs, strict build, generated-source blockers and the unowned navigation-test failure.",
+    "revision_source": "git"
+  },
+  "lane": "docs-clean",
+  "base": "6bad1dac664ef7b0959e683749f4b1f437af6033",
+  "head": "0bdbae3bc7c18a2d83d9e97db29d13ded56cdd23",
+  "head_scope": "Tested implementation head before the report-only commit; this report does not claim an integrated release.",
+  "worktree": "C:/WORK/w41/dclean",
+  "branch": "lane/0.42.0/docs-clean",
+  "report_routing": "Owner-supplied worktree path; all writes and commits stay in this lane. No external report or estate file was edited.",
+  "items": [
+    {
+      "id": "docs-clean-1",
+      "status": "fixed",
+      "implementation": "owned scope committed",
+      "commit": "032d3d58dcd14e78b52b8e9da5cf78a0affd34af",
+      "test": "tests/tier1_offline/test_p0420_docs_clean_public.py::test_p0420_docs_clean_no_deferred_dependency_in_published_pages",
+      "revert_proof": {
+        "id": "docs-clean-1",
+        "restored_base_file": "docs/upgrading.md",
+        "red_exit": 1,
+        "red_summary": "1 failed in 0.37s",
+        "green_exit": 0,
+        "green_summary": "1 passed in 0.27s",
+        "byte_exact_restoration": true
+      },
+      "evidence": "The deferred-integration page leaves nav and is excluded from the site. Architecture and upgrading omit its name; the removed-function reason and owned pinned tests move together. All 356 rendered articles contain zero mentions. The requested physical archive move is not performed because docs/unpublished is read-only; the source stays excluded in place.",
+      "migration": null
+    },
+    {
+      "id": "docs-clean-2",
+      "status": "blocked",
+      "implementation": "owned scope committed",
+      "commit": "b04ba80f63f9510812f1d76a76d611a6b3ae3067",
+      "test": "tests/tier1_offline/test_p0420_docs_clean_public.py::test_p0420_docs_clean_release_narration",
+      "revert_proof": {
+        "id": "docs-clean-2",
+        "restored_base_file": "README.md",
+        "red_exit": 1,
+        "red_summary": "1 failed in 0.40s",
+        "green_exit": 0,
+        "green_summary": "1 passed in 0.40s",
+        "byte_exact_restoration": true
+      },
+      "evidence": "All owned authored pages, percent-format example introductions and input_template module docstring state behavior without release narration. Historical roll/yaw release bounds are retained on upgrading. Remaining generated API, CLI and command-reference narration requires unowned source files listed here and in rendered_audit.",
+      "migration": null,
+      "followup_commit": "0bdbae3bc7c18a2d83d9e97db29d13ded56cdd23",
+      "needed_files": [
+        "src/pyflightstream/__init__.py",
+        "src/pyflightstream/_errors.py",
+        "src/pyflightstream/cases/__init__.py",
+        "src/pyflightstream/cases/acoustics.py",
+        "src/pyflightstream/cases/corrections.py",
+        "src/pyflightstream/cases/freestream.py",
+        "src/pyflightstream/cases/fsi_workspace.py",
+        "src/pyflightstream/cases/matrix.py",
+        "src/pyflightstream/cases/mesh.py",
+        "src/pyflightstream/cases/naming.py",
+        "src/pyflightstream/cases/pproc.py",
+        "src/pyflightstream/cases/qsteady.py",
+        "src/pyflightstream/cases/reference_blocks.py",
+        "src/pyflightstream/cases/selection.py",
+        "src/pyflightstream/cases/settings.py",
+        "src/pyflightstream/cases/setup_surfaces.py",
+        "src/pyflightstream/cases/sixdof.py",
+        "src/pyflightstream/cases/windows.py",
+        "src/pyflightstream/cases/workflows/__init__.py",
+        "src/pyflightstream/commands/__init__.py",
+        "src/pyflightstream/commands/_meta.yaml",
+        "src/pyflightstream/commands/acoustics.yaml",
+        "src/pyflightstream/commands/ccs_wing_mesh.yaml",
+        "src/pyflightstream/commands/mesh_import_export.yaml",
+        "src/pyflightstream/commands/motion_definitions.yaml",
+        "src/pyflightstream/commands/solver_export.yaml",
+        "src/pyflightstream/exceptions.py",
+        "src/pyflightstream/farfield/__init__.py",
+        "src/pyflightstream/farfield/fields.py",
+        "src/pyflightstream/fsi/README.md",
+        "src/pyflightstream/fsi/__init__.py",
+        "src/pyflightstream/fsi/centrifugal.py",
+        "src/pyflightstream/fsi/config.py",
+        "src/pyflightstream/fsi/driver.py",
+        "src/pyflightstream/fsi/errors.py",
+        "src/pyflightstream/fsi/external.py",
+        "src/pyflightstream/fsi/loads.py",
+        "src/pyflightstream/fsi/nodes.py",
+        "src/pyflightstream/fsi/state.py",
+        "src/pyflightstream/fsi/wing.py",
+        "src/pyflightstream/overview.py",
+        "src/pyflightstream/post/__init__.py",
+        "src/pyflightstream/post/axes.py",
+        "src/pyflightstream/post/corrections.py",
+        "src/pyflightstream/post/custom_polar.py",
+        "src/pyflightstream/post/disc_maps.py",
+        "src/pyflightstream/post/glossary.py",
+        "src/pyflightstream/post/guides.py",
+        "src/pyflightstream/post/harmonics.py",
+        "src/pyflightstream/post/inflow_tools.py",
+        "src/pyflightstream/post/point_tables.py",
+        "src/pyflightstream/post/polar.py",
+        "src/pyflightstream/post/products.py",
+        "src/pyflightstream/post/provenance.py",
+        "src/pyflightstream/post/qsteady.py",
+        "src/pyflightstream/post/qsteady_noise.py",
+        "src/pyflightstream/post/rotor_table.py",
+        "src/pyflightstream/post/section_distributions.py",
+        "src/pyflightstream/post/series.py",
+        "src/pyflightstream/post/settings_table.py",
+        "src/pyflightstream/post/streamlines.py",
+        "src/pyflightstream/post/superfile.py",
+        "src/pyflightstream/post/surfaces.py",
+        "src/pyflightstream/post/unsteady_polar.py",
+        "src/pyflightstream/qa/__init__.py",
+        "src/pyflightstream/qa/cost.py",
+        "src/pyflightstream/qa/drift.py",
+        "src/pyflightstream/qa/physics.py",
+        "src/pyflightstream/results/__init__.py",
+        "src/pyflightstream/results/core.py",
+        "src/pyflightstream/results/exports.py",
+        "src/pyflightstream/results/loads.py",
+        "src/pyflightstream/results/log.py",
+        "src/pyflightstream/results/native_surface.py",
+        "src/pyflightstream/results/sectional_loads.py",
+        "src/pyflightstream/results/surface.py",
+        "src/pyflightstream/results/tables.py",
+        "src/pyflightstream/run/__init__.py",
+        "src/pyflightstream/run/cli.py",
+        "src/pyflightstream/run/collect.py",
+        "src/pyflightstream/run/matrix.py",
+        "src/pyflightstream/run/records.py",
+        "src/pyflightstream/script/__init__.py",
+        "src/pyflightstream/script/entities.py",
+        "src/pyflightstream/script/helpers.py",
+        "src/pyflightstream/support.py",
+        "src/pyflightstream/utils/__init__.py",
+        "src/pyflightstream/utils/manual.py",
+        "src/pyflightstream/workspace/__init__.py",
+        "src/pyflightstream/workspace/actuator_profiles.py",
+        "src/pyflightstream/workspace/builds.py",
+        "src/pyflightstream/workspace/cli.py",
+        "src/pyflightstream/workspace/costs.py",
+        "src/pyflightstream/workspace/fields.py",
+        "src/pyflightstream/workspace/flight_condition.py",
+        "src/pyflightstream/workspace/fsi_external_setup.py",
+        "src/pyflightstream/workspace/hpc.py",
+        "src/pyflightstream/workspace/inputs.py",
+        "src/pyflightstream/workspace/ledger.py",
+        "src/pyflightstream/workspace/manifest.py",
+        "src/pyflightstream/workspace/matrix.py",
+        "src/pyflightstream/workspace/migrate.py",
+        "src/pyflightstream/workspace/naming.py",
+        "src/pyflightstream/workspace/selections.py",
+        "src/pyflightstream/workspace/setup_inspection.py",
+        "src/pyflightstream/workspace/sidecars.py",
+        "src/pyflightstream/workspace/sixdof_setup.py",
+        "src/pyflightstream/workspace/storage.py",
+        "src/pyflightstream/workspace/trailing_edges.py"
+      ]
+    },
+    {
+      "id": "docs-clean-3",
+      "status": "blocked",
+      "implementation": "owned scope committed",
+      "commit": "b1026b8d6fef6f6af6de6cee8a7e52cb20cc7cf5",
+      "test": "tests/tier1_offline/test_p0420_docs_clean_public.py::test_p0420_docs_clean_dated_narration",
+      "revert_proof": {
+        "id": "docs-clean-3",
+        "restored_base_file": "src/pyflightstream/probes/geometry.py",
+        "red_exit": 1,
+        "red_summary": "1 failed in 0.39s",
+        "green_exit": 0,
+        "green_summary": "1 passed in 0.34s",
+        "byte_exact_restoration": true
+      },
+      "evidence": "All owned authored pages and the geometry API docstrings omit dated editing narration; evidence timestamps and data examples remain. Generated API, FSI tutorial and command-reference narration outside the ownership grant remains, with rendered evidence and source homes listed.",
+      "migration": null,
+      "needed_files": [
+        "src/pyflightstream/cases/__init__.py",
+        "src/pyflightstream/cases/pproc.py",
+        "src/pyflightstream/cases/reference_blocks.py",
+        "src/pyflightstream/cases/selection.py",
+        "src/pyflightstream/cases/workflows/__init__.py",
+        "src/pyflightstream/commands/__init__.py",
+        "src/pyflightstream/commands/base_regions.yaml",
+        "src/pyflightstream/commands/boundary_conditions.yaml",
+        "src/pyflightstream/commands/cad.yaml",
+        "src/pyflightstream/commands/ccs_fuselage_mesh.yaml",
+        "src/pyflightstream/commands/mesh_import_export.yaml",
+        "src/pyflightstream/commands/motion_definitions.yaml",
+        "src/pyflightstream/commands/scenes.yaml",
+        "src/pyflightstream/commands/solver_settings.yaml",
+        "src/pyflightstream/commands/sweeper.yaml",
+        "src/pyflightstream/fsi/README.md",
+        "src/pyflightstream/fsi/config.py",
+        "src/pyflightstream/fsi/driver.py",
+        "src/pyflightstream/post/point_tables.py",
+        "src/pyflightstream/post/polar.py",
+        "src/pyflightstream/post/provenance.py",
+        "src/pyflightstream/post/reductions.py",
+        "src/pyflightstream/qa/physics.py",
+        "src/pyflightstream/results/__init__.py",
+        "src/pyflightstream/results/core.py",
+        "src/pyflightstream/script/__init__.py",
+        "src/pyflightstream/script/helpers.py",
+        "src/pyflightstream/utils/__init__.py",
+        "src/pyflightstream/utils/manual.py",
+        "src/pyflightstream/versions.py",
+        "src/pyflightstream/workspace/__init__.py",
+        "src/pyflightstream/workspace/inputs.py",
+        "src/pyflightstream/workspace/manifest.py",
+        "src/pyflightstream/workspace/selections.py"
+      ]
+    },
+    {
+      "id": "docs-clean-4",
+      "status": "blocked",
+      "implementation": "owned scope committed",
+      "commit": "bbcac78ca41027b1a5796a39f4a95e2885f01d71",
+      "test": "tests/tier1_offline/test_p0420_docs_clean_public.py::test_p0420_docs_clean_one_architecture_page",
+      "revert_proof": {
+        "id": "docs-clean-4",
+        "restored_base_file": "properdocs.yml",
+        "red_exit": 1,
+        "red_summary": "1 failed in 0.33s",
+        "green_exit": 0,
+        "green_summary": "1 passed in 0.25s",
+        "byte_exact_restoration": true
+      },
+      "evidence": "Concepts has one generated architecture page. Contributing links to its architectural-decisions section by canonical URL, which passes ProperDocs strict mode. The SRS source is excluded as a duplicate site page and its owned nav pin is updated. The remaining unowned delivery test treats every section URL as a missing file.",
+      "migration": null,
+      "needed_files": [
+        "tests/tier1_offline/test_goal033_delivery.py"
+      ],
+      "required_integration_change": "At test_every_documented_page_is_built_and_reachable, resolve same-site section URLs to their generated page and validate the fragment; do not accept arbitrary missing links. The current unresolved comprehension at lines 331-336 only accepts exact Markdown targets or strings ending in a slash."
+    }
+  ],
+  "counts": {
+    "fixed": 1,
+    "not-a-bug": 0,
+    "blocked": 3
+  },
+  "validation": {
+    "environment": {
+      "PYTHONPATH": "C:/WORK/w41/dclean/src",
+      "working_directory": "C:/WORK/w41/dclean"
+    },
+    "full_suite_command": "C:/WORK/v41/Scripts/python.exe C:/GeoverseGoddess/GeoverseArtifacts/pyflightstream/GEO-083-PYFLIGHTSTREAM-RELEASE-LANES/tools/memgate.py -- C:/WORK/v41/Scripts/python.exe -m pytest C:/WORK/w41/dclean/tests/tier1_offline/test_command_db_grammar.py C:/WORK/w41/dclean/tests/tier1_offline/test_digest.py C:/WORK/w41/dclean/tests/tier1_offline/test_docs_example_currency.py C:/WORK/w41/dclean/tests/tier1_offline/test_documented_invocations.py C:/WORK/w41/dclean/tests/tier1_offline/test_examples.py C:/WORK/w41/dclean/tests/tier1_offline/test_extras_isolation.py C:/WORK/w41/dclean/tests/tier1_offline/test_g47_input_template.py C:/WORK/w41/dclean/tests/tier1_offline/test_goal031_d07_pages.py C:/WORK/w41/dclean/tests/tier1_offline/test_goal031_g08_input_glossary.py C:/WORK/w41/dclean/tests/tier1_offline/test_goal033_delivery.py C:/WORK/w41/dclean/tests/tier1_offline/test_goal035_qsteady_completion.py C:/WORK/w41/dclean/tests/tier1_offline/test_gui_to_pyfs_page.py C:/WORK/w41/dclean/tests/tier1_offline/test_guide_decks.py C:/WORK/w41/dclean/tests/tier1_offline/test_i1_docs_by_task.py C:/WORK/w41/dclean/tests/tier1_offline/test_i2_docs_fit.py C:/WORK/w41/dclean/tests/tier1_offline/test_overview.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0330_doca_reference.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0330_docb_docstrings.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0340_act_docs.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0340_adprof.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0340_fsi.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0340_fsi_rpt128.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0360_doc.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0370_s8_installed.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0410_ci_docs.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0410_fx3_contributing.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0410_int1_migration_remedies.py C:/WORK/w41/dclean/tests/tier1_offline/test_p0420_docs_clean_public.py C:/WORK/w41/dclean/tests/tier1_offline/test_probes_geometry.py C:/WORK/w41/dclean/tests/tier1_offline/test_reference.py C:/WORK/w41/dclean/tests/tier1_offline/test_regression_documented_examples.py C:/WORK/w41/dclean/tests/tier1_offline/test_regression_farfield_interfaces.py C:/WORK/w41/dclean/tests/tier1_offline/test_regression_farfield_numerics.py C:/WORK/w41/dclean/tests/tier1_offline/test_regression_post_rotor_acoustics.py C:/WORK/w41/dclean/tests/tier1_offline/test_regression_workspace_refinement.py C:/WORK/w41/dclean/tests/tier1_offline/test_repository_guards.py C:/WORK/w41/dclean/tests/tier1_offline/test_settings_codebook.py C:/WORK/w41/dclean/tests/tier1_offline/test_workspace.py -q -n 4 --tb=short --disable-warnings --basetemp C:/WORK/w41/dclean/.pytest_cache/docs-clean-tmp",
+    "full_suite_files": [
+      "tests/tier1_offline/test_command_db_grammar.py",
+      "tests/tier1_offline/test_digest.py",
+      "tests/tier1_offline/test_docs_example_currency.py",
+      "tests/tier1_offline/test_documented_invocations.py",
+      "tests/tier1_offline/test_examples.py",
+      "tests/tier1_offline/test_extras_isolation.py",
+      "tests/tier1_offline/test_g47_input_template.py",
+      "tests/tier1_offline/test_goal031_d07_pages.py",
+      "tests/tier1_offline/test_goal031_g08_input_glossary.py",
+      "tests/tier1_offline/test_goal033_delivery.py",
+      "tests/tier1_offline/test_goal035_qsteady_completion.py",
+      "tests/tier1_offline/test_gui_to_pyfs_page.py",
+      "tests/tier1_offline/test_guide_decks.py",
+      "tests/tier1_offline/test_i1_docs_by_task.py",
+      "tests/tier1_offline/test_i2_docs_fit.py",
+      "tests/tier1_offline/test_overview.py",
+      "tests/tier1_offline/test_p0330_doca_reference.py",
+      "tests/tier1_offline/test_p0330_docb_docstrings.py",
+      "tests/tier1_offline/test_p0340_act_docs.py",
+      "tests/tier1_offline/test_p0340_adprof.py",
+      "tests/tier1_offline/test_p0340_fsi.py",
+      "tests/tier1_offline/test_p0340_fsi_rpt128.py",
+      "tests/tier1_offline/test_p0360_doc.py",
+      "tests/tier1_offline/test_p0370_s8_installed.py",
+      "tests/tier1_offline/test_p0410_ci_docs.py",
+      "tests/tier1_offline/test_p0410_fx3_contributing.py",
+      "tests/tier1_offline/test_p0410_int1_migration_remedies.py",
+      "tests/tier1_offline/test_p0420_docs_clean_public.py",
+      "tests/tier1_offline/test_probes_geometry.py",
+      "tests/tier1_offline/test_reference.py",
+      "tests/tier1_offline/test_regression_documented_examples.py",
+      "tests/tier1_offline/test_regression_farfield_interfaces.py",
+      "tests/tier1_offline/test_regression_farfield_numerics.py",
+      "tests/tier1_offline/test_regression_post_rotor_acoustics.py",
+      "tests/tier1_offline/test_regression_workspace_refinement.py",
+      "tests/tier1_offline/test_repository_guards.py",
+      "tests/tier1_offline/test_settings_codebook.py",
+      "tests/tier1_offline/test_workspace.py"
+    ],
+    "full_suite_result": "1 failed, 1102 passed, 2 skipped, 667 warnings in 227.59s (0:03:47)",
+    "full_suite_exit": 1,
+    "failure": "test_goal033_delivery.py::test_every_documented_page_is_built_and_reachable: rejects the canonical architecture section URL as a missing menu page.",
+    "touched_tests": "All touched tests passed in the full lane suite. The failing file was read but not edited.",
+    "strict_build_command": "PYTHONPATH=C:/WORK/w41/dclean/src; C:/WORK/v41/Scripts/properdocs.exe build --strict --config-file C:/WORK/w41/dclean/properdocs.yml",
+    "strict_build_result": "exit 0; Documentation built in 48.59 seconds",
+    "ruff": "ruff check and ruff format --check passed on all touched Python files; commit hooks passed.",
+    "mypy": "mypy --follow-imports=silent on each touched Python file passed under the repository configuration. Two annotation-unchecked notes in the existing reference test are not errors.",
+    "initial_suite": "3 failed, 1046 passed, 2 skipped: fixed a legacy anchor, remaining short release labels and placement of temporary test fixtures. Later nav-relative-link failures were corrected to the canonical URL; the unowned URL pin remains.",
+    "example_environment": "An initial test_examples run had two subprocess import errors without PYTHONPATH; the final 38-file run supplied the lane source path and both passed.",
+    "source_identity": [
+      {
+        "path": "src/pyflightstream/post/input_template.py",
+        "non_docstring_ast_identical_to_base": true
+      },
+      {
+        "path": "src/pyflightstream/probes/geometry.py",
+        "non_docstring_ast_identical_to_base": true
+      },
+      {
+        "path": "docs/examples/_sources/campaign_matrix.py",
+        "non_docstring_ast_identical_to_base": true
+      },
+      {
+        "path": "docs/examples/_sources/roll_rate_row.py",
+        "non_docstring_ast_identical_to_base": true
+      }
+    ],
+    "final_migration_guard_check": "10 passed in 1.63s; P0420 guard file and both affected far-field migration checks through memgate after the final migration paragraph."
+  },
+  "rendered_audit": {
+    "article_count": 356,
+    "remaining": [
+      {
+        "page": "api/cases/acoustics/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "nt's acoustic export is written to. WHAT A ROW STATES (0.32.0, FR-265 to FR-269). Five keys of the VAR_NAMES_VALUES cell, registered on the two unstead",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/acoustics.py"
+        ]
+      },
+      {
+        "page": "api/cases/corrections/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "n routes: the pproc's choice and the calibration file (0.31.0). A quasi-steady WHEEL solves every blade once per clocking and reads its unsteady conten",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/corrections.py"
+        ]
+      },
+      {
+        "page": "api/cases/freestream/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "s rows in metres and metres per second (qsteady_rotor, 0.30.0). SI and an undeclared file are read as the manual states the form, in metres and metres ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/freestream.py"
+        ]
+      },
+      {
+        "page": "api/cases/fsi_workspace/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ack wiring. THE PIECES A COUPLED ROUTE CALLS (FSI-1 of 0.30.0), each usable on its own so the rotor route and the fixed-wing route wire the same facts ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/fsi_workspace.py"
+        ]
+      },
+      {
+        "page": "api/cases/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "The ABSOLUTE path of a custom free-stream file (G15 of 0.27.0): a velocity field over the YZ plane of the global frame, in metres and metres per second",
+        "history_excerpt": " not one word on the campaign.toml surface (the design decision of 2026-09-08). Notes :attr: source_path is retained for existing in-memory provenance consumers. New c",
+        "source_homes": [
+          "src/pyflightstream/cases/__init__.py"
+        ]
+      },
+      {
+        "page": "api/cases/matrix/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " a first-class interface of the file-managed modality (v0.3 decision): reading a matrix and running it is one call, :func: pyflightstream.run.matrix.",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/matrix.py"
+        ]
+      },
+      {
+        "page": "api/cases/mesh/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "geometry enters the solver and what its mesh declares (0.34.0). Pipeline role: describes the geometry side of a case. :class: MeshImport and :class: Ca",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/mesh.py"
+        ]
+      },
+      {
+        "page": "api/cases/naming/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "of a point and of a sweep: the identity a run carries (0.34.0). Pipeline role: turns a case's flight condition into the name that ends its run_id , nam",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/naming.py"
+        ]
+      },
+      {
+        "page": "api/cases/pproc/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "odels: what a point exports and what the post reduces (0.34.0). Pipeline role: describes the pproc artifact. The exports vocabulary names every file a ",
+        "history_excerpt": "rix row's PPROC cell names. PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the home of post-processing and is renamed pproc. Twelve tables. ",
+        "source_homes": [
+          "src/pyflightstream/cases/pproc.py"
+        ]
+      },
+      {
+        "page": "api/cases/qsteady/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "der Advanced. The quasi-steady rotor's own arithmetic (0.30.0): clocking, validity and the inflow. The qsteady_rotor run type solves an isolated rotor ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/qsteady.py"
+        ]
+      },
+      {
+        "page": "api/cases/reference_blocks/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "f a geometry: rotors, actuator discs and blade datums (0.34.0). Pipeline role: describes what the reference artifact declares about the moving parts of",
+        "history_excerpt": "and the axis its azimuth is measured from (FR-60). The decision of 2026-09-10, on the first reading of the use case: an azimuth ALONE carries a hidden convention, zero",
+        "source_homes": [
+          "src/pyflightstream/cases/reference_blocks.py"
+        ]
+      },
+      {
+        "page": "api/cases/selection/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "f families and aliases: which surfaces an entry names (0.34.0). Pipeline role: reads a selector word, an alias of the setup or a family name against a ",
+        "history_excerpt": "s of the setup, or None when it is not one. The design decision of 2026-09-09: an alias is a name the setup's [aliases] table gives to a list of boundary names or fami",
+        "source_homes": [
+          "src/pyflightstream/cases/selection.py"
+        ]
+      },
+      {
+        "page": "api/cases/settings/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ight-condition state and the reference data of a case (0.34.0). Pipeline role: describes how a case asks the solver to solve. :class: SolverSettings ho",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/settings.py"
+        ]
+      },
+      {
+        "page": "api/cases/setup_surfaces/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "tory read the new numbering. Licensed probe round 1 of 0.32.0 on 26.124 (probe D1_delete_surfaces ): DELETE_SURFACES 3 on a four-surface mesh (Body, Ba",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/setup_surfaces.py"
+        ]
+      },
+      {
+        "page": "api/cases/sixdof/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " The 6DOF input a row names by its SIXDOF key (FR-461, 0.40.0). A file inputs/sixdof/d<id>.toml states a body free to move under its loads: the moving ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/sixdof.py"
+        ]
+      },
+      {
+        "page": "api/cases/windows/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "averaging window, for the plan and for the post stage (0.24.0). The window of an unsteady point is a MATRIX input: LAST_REVS_AVG on a row that turns a ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/windows.py"
+        ]
+      },
+      {
+        "page": "api/cases/workflows/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "he three things this module reads off a row arrived at 0.8.1 and both were absent rather than wrong. A case carrying a geometry rendered a script byte",
+        "history_excerpt": "The emitted step is rounded to the reference precision since 2026-09-04, so counting a revolution from the seconds answered 36.0238 where the run resolves 36, an",
+        "source_homes": [
+          "src/pyflightstream/cases/workflows/__init__.py"
+        ]
+      },
+      {
+        "page": "api/commands/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "mitter's two argument-name maps having been removed at v0.5.0 (PLN-20260807-1410), so omitting this field is a decision and not a default. The maps c",
+        "history_excerpt": "d on 26.120, a build whose manual does not mention it. Until 2026-08-06 such a command could not be recorded at all, because every entry needed a page. That refu",
+        "source_homes": [
+          "src/pyflightstream/commands/__init__.py"
+        ]
+      },
+      {
+        "page": "api/exceptions/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "r \u00b6 Bases: PyflightstreamError , NotImplementedError A 0.32.0 contract function whose body its work package has not filled yet. Defined here because FO",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/exceptions.py"
+        ]
+      },
+      {
+        "page": "api/farfield/fields/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "n numpy containers that replaced the xarray dataset of 0.39.0 (FR-457). :class: LatticeFields carries the samples of a cylindrical survey lattice, shap",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/farfield/fields.py"
+        ]
+      },
+      {
+        "page": "api/farfield/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "et , rothalpy and irreversible_deficit were removed in 0.40.0 and refuse, naming what replaced them (FR-457, FR-458). Advanced \u00b6 pyflightstream.farfiel",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/farfield/__init__.py"
+        ]
+      },
+      {
+        "page": "api/fsi/centrifugal/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "in a small inner iteration, FSI-R06 and FSI-R11), and, since 0.30.0, the in-plane centrifugal softening of the flap (:func: in_plane_softening_coefficients",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/fsi/centrifugal.py"
+        ]
+      },
+      {
+        "page": "api/fsi/config/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "ing or None The fixed wing this structure is (FSI-G of 0.30.0): its placement in the reference frame and its own weight. None for a rotor blade, and th",
+        "history_excerpt": " between consecutive revolutions, below this fraction. Until 2026-08-03 this criterion was documented here as \"revolution-averaged CT stability judged from the c",
+        "source_homes": [
+          "src/pyflightstream/fsi/config.py"
+        ]
+      },
+      {
+        "page": "api/fsi/driver/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "s header (DLV-007 Section 4.1). A fixed wing (FSI-G of 0.30.0, a configuration stating wing ) has no revolution and no phase schedule: each call solves",
+        "history_excerpt": "e thrust half as \"judged from the same log downstream\" until 2026-08-03, when a review measured that nothing judged it anywhere and phase 4 began on twist alone ",
+        "source_homes": [
+          "src/pyflightstream/fsi/driver.py"
+        ]
+      },
+      {
+        "page": "api/fsi/errors/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "t PyflightstreamError now catches it too. Defined here since 0.33.0 (AD-10) because TWO LAYERS name it: the coupling ( fsi ) and the sectional loads parser",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/fsi/errors.py"
+        ]
+      },
+      {
+        "page": "api/fsi/external/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " program and the archiving step that calls it (FR-462, 0.40.0). An FSI input with mode = \"external\" names a structural program of the user's own. The s",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/fsi/external.py"
+        ]
+      },
+      {
+        "page": "api/fsi/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " handles azimuth or global-frame transforms (FSI-R02). Since 0.30.0 the same executable couples a fixed wing, one clamped beam in the reference frame loade",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/fsi/__init__.py"
+        ]
+      },
+      {
+        "page": "api/fsi/loads/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": ".results.sectional_loads , where the parser is defined since 0.33.0 and which this module re-exports), splits the flat table into per-blade blocks, and tra",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/fsi/loads.py"
+        ]
+      },
+      {
+        "page": "api/fsi/nodes/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "nd of the dry-run node fixture. A fixed wing (FSI-G of 0.30.0) embeds in the package's reference frame, x aft, y right, z up ( wing_frame ): toward the",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/fsi/nodes.py"
+        ]
+      },
+      {
+        "page": "api/fsi/state/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " unknown, which is different from matching. RENAMED at 0.8.0, from config_hash , so the field names the algorithm that produced it as script_sha256 an",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/fsi/state.py"
+        ]
+      },
+      {
+        "page": "api/fsi/wing/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "un and of a coupled unsteady run with nothing turning (0.30.0). The wing is one cantilever beam on its elastic axis, built by :mod: pyflightstream.fsi.",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/fsi/wing.py"
+        ]
+      },
+      {
+        "page": "api/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "n routes: the pproc's choice and the calibration file (0.31.0). pyflightstream.cases.farfield_inputs provisional 10 What each far-field analysis of a r",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/__init__.py"
+        ]
+      },
+      {
+        "page": "api/overview/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " \"how the package is put together and where to start\". Since 0.35.0 the grouped run modes ( run --polar-sweep and run --batch ) and the read-only query led",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/overview.py"
+        ]
+      },
+      {
+        "page": "api/post/axes/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": ". The ONE home of every axis rotation a product makes (0.24.0). Two copies of one rotation are how two published numbers come to disagree about which w",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/axes.py"
+        ]
+      },
+      {
+        "page": "api/post/corrections/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "-steady wheel's corrected products and its diagnostic (0.31.0, P0310-CAL). The one applicator of the correction routes a pproc's [qsteady_correction] t",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/corrections.py"
+        ]
+      },
+      {
+        "page": "api/post/custom_polar/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "as written when a group WAS a number. A group is named since 0.23.0, and int(group) on a name was a bare ValueError that no handler of the products stage c",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/custom_polar.py"
+        ]
+      },
+      {
+        "page": "api/post/disc_maps/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "f a rotor point: sectional load by radius and azimuth (0.32.0). Pipeline role: the post row, where recorded exports become products. It tabulates the s",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/disc_maps.py"
+        ]
+      },
+      {
+        "page": "api/post/glossary/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "at accept it and the solver command it reaches (G08 of 0.27.0). It reads the registries the code uses: the run types' key tables, the matrix columns, t",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/glossary.py"
+        ]
+      },
+      {
+        "page": "api/post/guides/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "entry, the phase-locked table and a group rename; and, since 0.27.0 (G08), every key an INPUT artifact may state, the matrix row, the setup, the pproc, the",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/guides.py"
+        ]
+      },
+      {
+        "page": "api/post/harmonics/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ed. The per-station harmonic product of a rotor point (0.31.0, P0310-HARMONICS). For each rotor of a point, each blade station and each sectional load ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/harmonics.py"
+        ]
+      },
+      {
+        "page": "api/post/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "tz-plane and balance tables of a simulation from them (0.40.0). Reached through their own modules; :mod: pyflightstream.post.streamlines writes the off",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/__init__.py"
+        ]
+      },
+      {
+        "page": "api/post/inflow_tools/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "flow tools: frame change and the blade-view harmonics (0.32.0). Pipeline role: the post row, where recorded exports become products. It holds the inflo",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/inflow_tools.py"
+        ]
+      },
+      {
+        "page": "api/post/point_tables/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": " :mod: pyflightstream.post (AD-13, work package WP5 of 0.33.0), written by the post stage of :mod: pyflightstream.post.products , which re-exports ever",
+        "history_excerpt": "other half and the one this docstring promised wrongly until 2026-09-11: it said an unrecognised file answers an empty mapping too, twelve lines above the raise ",
+        "source_homes": [
+          "src/pyflightstream/post/point_tables.py"
+        ]
+      },
+      {
+        "page": "api/post/polar/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": " :mod: pyflightstream.post (AD-13, work package WP5 of 0.33.0), written by the post stage of :mod: pyflightstream.post.products , which re-exports ever",
+        "history_excerpt": "h, so an empty member list is every family (the design decision of 2026-09-09) and the summer is asked for that reading. A surface whose induced drag the point's recor",
+        "source_homes": [
+          "src/pyflightstream/post/polar.py"
+        ]
+      },
+      {
+        "page": "api/post/products/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "er boundary GROUP of the pproc artifact, under polars/ since 0.16.0 (FR-88): one row per point of the polar, the reference block and the coefficients of th",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/products.py"
+        ]
+      },
+      {
+        "page": "api/post/provenance/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": " run id, which is what every document was named before 0.16.0. Parameters: Name Type Description Default record RunRecord The run's record. required Re",
+        "history_excerpt": "er-product. THIS DOCSTRING SAID post/<matrix>/archive/ UNTIL 2026-09-13, which is one archive for the whole rebuild \"keeping whatever folders the product sat in ",
+        "source_homes": [
+          "src/pyflightstream/post/provenance.py"
+        ]
+      },
+      {
+        "page": "api/post/qsteady/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "low under Advanced. The quasi-steady rotor's products (0.30.0): its clockings, their average and its validity. A qsteady_rotor point is one steady solv",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/qsteady.py"
+        ]
+      },
+      {
+        "page": "api/post/qsteady_noise/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " exploratory: it carries no threshold and no gate, and 0.32.0 does not wait on it. The module holds the model of route A of the 0.32.0 scope (GEO-066 s",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/qsteady_noise.py"
+        ]
+      },
+      {
+        "page": "api/post/reductions/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": "blade_passage_average ) is pure and has none. THE FILE RULE OF 2026-08-16, absorbed from PFS-2015.03 into PFS-2015.01: a reduction NEVER overwrites the file it cam",
+        "history_excerpt": "blade_passage_average ) is pure and has none. THE FILE RULE OF 2026-08-16, absorbed from PFS-2015.03 into PFS-2015.01: a reduction NEVER overwrites the file it cam",
+        "source_homes": [
+          "src/pyflightstream/post/reductions.py"
+        ]
+      },
+      {
+        "page": "api/post/rotor_table/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "umbers, and the alias has to be inside the bytes. From 0.23.0 to 0.26.x the alias stood alone on the first line instead, before the header, and no CSV ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/rotor_table.py"
+        ]
+      },
+      {
+        "page": "api/post/section_distributions/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "EEL point exports its distributions at every clocking (0.31.0): each file then holds every clocking's rows, clocking 0 first, with a CLOCKING column af",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/section_distributions.py"
+        ]
+      },
+      {
+        "page": "api/post/series/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " record states them, or what it lets one infer. PUBLIC SINCE 0.23.0 ITEM 13, because the sections table needs the same answer. Reaching into a sibling modu",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/series.py"
+        ]
+      },
+      {
+        "page": "api/post/settings_table/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "hen it reads NA , which is what this writer emits from 0.23.0; an EMPTY cell and the literal \"NA\" are both accepted and both come back as None, so a ta",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/settings_table.py"
+        ]
+      },
+      {
+        "page": "api/post/streamlines/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "Advanced. The streamline products of a point (FR-1083, 0.40.0). A point whose pproc states [streamlines] leaves the solver's own export files, collecte",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/streamlines.py"
+        ]
+      },
+      {
+        "page": "api/post/superfile/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "mulation WAS and what it PRODUCED took six files until 0.16.0: the polar table, the campaign sweep table, the matrix row, the setup, the reference and ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/superfile.py"
+        ]
+      },
+      {
+        "page": "api/post/surfaces/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "window by the package, from the per-step exports (G25, 0.28.0). Pipeline role: the product a pproc's [time_averaging] asks for. The run exports the sur",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/surfaces.py"
+        ]
+      },
+      {
+        "page": "api/post/unsteady_polar/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " :mod: pyflightstream.post (AD-13, work package WP5 of 0.33.0), written by the post stage of :mod: pyflightstream.post.products , which re-exports ever",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/post/unsteady_polar.py"
+        ]
+      },
+      {
+        "page": "api/pyflightstream/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "d files name was a deprecation shim and was removed at v0.4.0. run : execution and the campaign loop, one row above workspace since 0.33.0: run impor",
+        "history_excerpt": null,
+        "source_homes": []
+      },
+      {
+        "page": "api/qa/cost/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "oses. FR-19 has recorded wall_time_s per run since the v0.3 line, beside the requested version, the reported version, the vendor build string and the",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/qa/cost.py"
+        ]
+      },
+      {
+        "page": "api/qa/drift/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "er 3 registry of :mod: pyflightstream.qa.physics , and since 0.13.0 the two measurements are two runs of the workspace's physics matrix under two registrie",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/qa/drift.py"
+        ]
+      },
+      {
+        "page": "api/qa/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "rison drift diff (:mod: pyflightstream.qa.drift ), and since 0.13.0 the driver that reads both out of a campaign workspace (:mod: pyflightstream.qa.matrix ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/qa/__init__.py"
+        ]
+      },
+      {
+        "page": "api/qa/physics/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": " changes (SAD Section 11). WHERE THE CASES ARE STATED, since 0.13.0 (PFS-2031.17, the design decision B of 2026-09-08 in design study 66): as rows of a run",
+        "history_excerpt": " registered version. A MINIMUM AND NOT AN ENUMERATION, since 2026-08-17, and the difference is that an enumeration excludes the newest build every time. The two ",
+        "source_homes": [
+          "src/pyflightstream/qa/physics.py"
+        ]
+      },
+      {
+        "page": "api/results/core/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "changed, by :mod: pyflightstream.results , its path of 0.32.0 (AD-11, since 0.33.0). Advanced \u00b6 pyflightstream.results.core.AnchorNotFoundError \u00b6 Bases",
+        "history_excerpt": "tional argument, an offset just past the first footer, until 2026-08-03. Only the module-private footer regex could produce that value, so a public function requ",
+        "source_homes": [
+          "src/pyflightstream/results/core.py"
+        ]
+      },
+      {
+        "page": "api/results/exports/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "changed, by :mod: pyflightstream.results , its path of 0.32.0 (AD-11, since 0.33.0). Advanced \u00b6 pyflightstream.results.exports.ExportSolution dataclass",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/results/exports.py"
+        ]
+      },
+      {
+        "page": "api/results/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "ntity under another one's label. THIS ROOT IS A FACADE since 0.33.0 (AD-11): the errors, the anchor primitives and the code vocabularies are :mod: pyflight",
+        "history_excerpt": "tional argument, an offset just past the first footer, until 2026-08-03. Only the module-private footer regex could produce that value, so a public function requ",
+        "source_homes": [
+          "src/pyflightstream/results/__init__.py"
+        ]
+      },
+      {
+        "page": "api/results/loads/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "changed, by :mod: pyflightstream.results , its path of 0.32.0 (AD-11, since 0.33.0). Used in the guides \u00b6 pyflightstream.results.loads.parse_loads \u00b6 pa",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/results/loads.py"
+        ]
+      },
+      {
+        "page": "api/results/log/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ts it imported (:func: imported_trailing_edges ); and, since 0.35.0, the cumulative log of a job that ran several points cut into each point's own log (:fu",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/results/log.py"
+        ]
+      },
+      {
+        "page": "api/results/native_surface/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ot just equal node counts. ONE ZONE PER PERIODIC COPY (0.30.0). A row under SYMMETRY PERIODIC writes its native Tecplot as one zone per copy, each zone",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/results/native_surface.py"
+        ]
+      },
+      {
+        "page": "api/results/sectional_loads/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "e code that made the distributions. Why it lives here, since 0.33.0. It was defined in :mod: pyflightstream.fsi.loads , the coupling's module, while :mod: ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/results/sectional_loads.py"
+        ]
+      },
+      {
+        "page": "api/results/surface/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": ": read from the solver's VTK, written as Tecplot (G45, 0.28.0). Pipeline role: the ONE route to a Tecplot surface of a campaign point. The script expor",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/results/surface.py"
+        ]
+      },
+      {
+        "page": "api/results/tables/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": ".CampaignWorkspace the caller has already constructed. Since 0.29.0 (GEO-060 B1) the module does not name the workspace layer even for the type checker: th",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/results/tables.py"
+        ]
+      },
+      {
+        "page": "api/run/cli/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " The human output of plan is laid out in titled blocks since 0.31.0; its exit codes and plan.json did not change. What moved is the dotted module path, whi",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/run/cli.py"
+        ]
+      },
+      {
+        "page": "api/run/collect/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "file states export_log = false and names a native_log (0.21.0). There EXPORT_LOG is not emitted at all, so the argument below does not hold: the copy i",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/run/collect.py"
+        ]
+      },
+      {
+        "page": "api/run/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "end of it, recording which commit of this package ran. Since 0.32, :mod: pyflightstream.run.records holds the operations on the records themselves: which m",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/run/__init__.py"
+        ]
+      },
+      {
+        "page": "api/run/matrix/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "trix format, the flags or the records moved with them. Since 0.27.0 it also carries the ADDITIONAL POST (G12): :func: plan_additional_post and :func: run_a",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/run/matrix.py"
+        ]
+      },
+      {
+        "page": "api/run/records/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "w, beside the manifest the run stage writes. It is the 0.32.0 home of three operations on the records of a campaign workspace (work package B1; the pac",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/run/records.py"
+        ]
+      },
+      {
+        "page": "api/script/entities/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "bove it moves down one with the entity it names. Until 0.40.0 the ledger was not told which index went and dropped the TOP label instead, so after dele",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/script/entities.py"
+        ]
+      },
+      {
+        "page": "api/script/helpers/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "e limiter already in the script as it is, where before 0.40.0 it wrote -100 over an earlier explicit value. The physics references were re-validated un",
+        "history_excerpt": "f rotor blades, so -100 is the library default (design decision of 2026-07-22, retiring the earlier reference-velocity workaround); pass the flag to override. A re-emi",
+        "source_homes": [
+          "src/pyflightstream/script/helpers.py"
+        ]
+      },
+      {
+        "page": "api/script/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "elpers import every moved name, so each public path of 0.33.0 is kept. In the 0.29 workflow, emitted surface operations and frame motions also form a p",
+        "history_excerpt": "hat is the build the cited report was run on. Required since 2026-08-19 (PFS-2012.03, manifest schema pyfs-manifest/2 ). It was str | None with a None default, a",
+        "source_homes": [
+          "src/pyflightstream/script/__init__.py"
+        ]
+      },
+      {
+        "page": "api/support/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "every build registered. They came apart as recently as v0.5.0's own development, when 26.100 sat at verified behind both of its successors for want o",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/support.py"
+        ]
+      },
+      {
+        "page": "api/utils/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "he motion of reading it. This was sweep_editions until 0.13.0, and sweep is the solver's own word for a parameter sweep ( SWEEPER_START , the sweep run",
+        "history_excerpt": "ghtstream.utils.database , and this paragraph said cli until 2026-08-17, when the registration transaction was lifted out of the argument parser. That module rea",
+        "source_homes": [
+          "src/pyflightstream/utils/__init__.py"
+        ]
+      },
+      {
+        "page": "api/utils/manual/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "he motion of reading it. This was sweep_editions until 0.13.0, and sweep is the solver's own word for a parameter sweep ( SWEEPER_START , the sweep run",
+        "history_excerpt": "atabase ENTRIES, and read that word precisely, because since 2026-08-17 the module does write into chapter files: insert_version_row splices one single-line VERS",
+        "source_homes": [
+          "src/pyflightstream/utils/manual.py"
+        ]
+      },
+      {
+        "page": "api/versions/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": "e which alias the example uses: \"26.1\" named one build until 2026-08-04 and now names two, so it raises :class: AmbiguousVersionAliasError like \"26.12\" does. An ",
+        "history_excerpt": "e which alias the example uses: \"26.1\" named one build until 2026-08-04 and now names two, so it raises :class: AmbiguousVersionAliasError like \"26.12\" does. An ",
+        "source_homes": [
+          "src/pyflightstream/versions.py"
+        ]
+      },
+      {
+        "page": "api/workspace/actuator_profiles/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " or a shape. Pipeline role: prepares an INPUT (FR-347, 0.34.0). A matrix row loads an actuator disc either by its net thrust ( ACTUATOR_THRUST , the so",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/actuator_profiles.py"
+        ]
+      },
+      {
+        "page": "api/workspace/builds/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "by :mod: pyflightstream.workspace.inputs , its path of 0.32.0 (AD-11, since 0.33.0). Advanced \u00b6 pyflightstream.workspace.builds.EXECUTABLES_FILE module",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/builds.py"
+        ]
+      },
+      {
+        "page": "api/workspace/cli/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "mmand line. Every subcommand accepts --workspace PATH (0.40.0, PFS-2089.004), defaulting to the current directory. For example, pyfs-workspace init --w",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/cli.py"
+        ]
+      },
+      {
+        "page": "api/workspace/costs/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "are, which is what keeps plan --cost byte-identical to 0.34.0. A point the file cannot answer for (a processor count outside its stated range) keeps no",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/costs.py"
+        ]
+      },
+      {
+        "page": "api/workspace/fields/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ll the probes inside the body from the ray outside it (0.32.0, P0320-FILL-INTERIOR). Every probe with r < r_body_m ( r the distance from the x axis, hy",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/fields.py"
+        ]
+      },
+      {
+        "page": "api/workspace/flight_condition/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " a writer who pins all three owns their agreement, and since 0.40.0 the plan and the post WARN when the three disagree with p = rho R T by more than half a",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/flight_condition.py"
+        ]
+      },
+      {
+        "page": "api/workspace/fsi_external_setup/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " of mode = \"external\" to the program it names (FR-462, 0.40.0). The input names a structural program of the user's own and its node file, both under th",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/fsi_external_setup.py"
+        ]
+      },
+      {
+        "page": "api/workspace/hpc/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "by :mod: pyflightstream.workspace.inputs , its path of 0.32.0 (AD-11, since 0.33.0). Advanced \u00b6 pyflightstream.workspace.hpc.HPC_BUILD_ALIAS module-att",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/hpc.py"
+        ]
+      },
+      {
+        "page": "api/workspace/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "ries/ , references/ , setups/ , pproc/ ( groups/ until 0.11.0), profiles/ , plus the executables.toml build registry; artifacts are declarative TOML re",
+        "history_excerpt": "current schema. It defaulted to :data: MANIFEST_SCHEMA until 2026-08-03, so reading a historical manifest stamped every row in it with a positive assertion about",
+        "source_homes": [
+          "src/pyflightstream/workspace/__init__.py"
+        ]
+      },
+      {
+        "page": "api/workspace/inputs/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "26-08-19 (PFS-2009.01, PFS-2009.03, a BREAK carried by v0.8.0). A reference id begins with r , a setup id with s , a pproc id with p ( e until 0.11.0",
+        "history_excerpt": "ailable ids. AN ID OF A CODED KIND DECLARES THAT KIND, since 2026-08-19 (PFS-2009.01, PFS-2009.03, a BREAK carried by v0.8.0). A reference id begins with r , a s",
+        "source_homes": [
+          "src/pyflightstream/workspace/inputs.py"
+        ]
+      },
+      {
+        "page": "api/workspace/ledger/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "dger: one read-only snapshot of a workspace's records (0.35.0). Pipeline role: the reader under every query verb of pyfs-matrix (FR-379 to FR-385) and ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/ledger.py"
+        ]
+      },
+      {
+        "page": "api/workspace/manifest/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "hat collected nothing and for manifests written before v0.4.0. Inputs have carried a hash since the first manifest and outputs did not, so a record c",
+        "history_excerpt": "current schema. It defaulted to :data: MANIFEST_SCHEMA until 2026-08-03, so reading a historical manifest stamped every row in it with a positive assertion about",
+        "source_homes": [
+          "src/pyflightstream/workspace/manifest.py"
+        ]
+      },
+      {
+        "page": "api/workspace/matrix/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "lanned or run. THE GEOMETRY ARRIVED LAST AND IT IS WHY 0.8.1 EXISTS. The run layer had always done its half: :func: pyflightstream.run._campaign._prep",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/matrix.py"
+        ]
+      },
+      {
+        "page": "api/workspace/migrate/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "py-first migration of the workspace record format used since 0.38.0. Advanced \u00b6 pyflightstream.workspace.migrate.migrate_workspace \u00b6 migrate_workspace ( ro",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/migrate.py"
+        ]
+      },
+      {
+        "page": "api/workspace/naming/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " in its order, for example M144RE438AL+000BE+000J+080 (0.21.0). {alpha} , {beta} : sweep angles in deg, compact ( 2 , -3.5 ). {advance_ratio} : rotor a",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/naming.py"
+        ]
+      },
+      {
+        "page": "api/workspace/selections/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "by :mod: pyflightstream.workspace.inputs , its path of 0.32.0 (AD-11, since 0.33.0). Advanced \u00b6 pyflightstream.workspace.selections.ALIASES_TABLE modul",
+        "history_excerpt": "group is every family the geometry carries, the design decision of 2026-09-09: the polar table sums every surface row of the loads table, and a motion naming the group",
+        "source_homes": [
+          "src/pyflightstream/workspace/selections.py"
+        ]
+      },
+      {
+        "page": "api/workspace/setup_inspection/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " the lines of the console block Solver setup per case (0.31.0). The facts of :func: setup_inspection_summary , laid out for a reader: one heading line ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/setup_inspection.py"
+        ]
+      },
+      {
+        "page": "api/workspace/sidecars/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "by :mod: pyflightstream.workspace.inputs , its path of 0.32.0 (AD-11, since 0.33.0). Advanced \u00b6 pyflightstream.workspace.sidecars.BASE_REGIONS_TABLE mo",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/sidecars.py"
+        ]
+      },
+      {
+        "page": "api/workspace/sixdof_setup/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "e a row's SIXDOF: d<id> key to its 6DOF input (FR-461, 0.40.0). The key names inputs/sixdof/d<id>.toml , the way FSI: f<id> names inputs/fsi/f<id>.toml",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/sixdof_setup.py"
+        ]
+      },
+      {
+        "page": "api/workspace/storage/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ced. Workspace storage management and synchronisation (0.30.0). Five commands of pyfs-matrix live here, and every one of them writes one entry to stora",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/storage.py"
+        ]
+      },
+      {
+        "page": "api/workspace/trailing_edges/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "wrote the extraction's vertices as the node list until 0.27.0. The wake-edge import matches an edge by its MID-POINT, and a file of the edges' end vert",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/trailing_edges.py"
+        ]
+      },
+      {
+        "page": "cli/pyfs-matrix/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ht every point, executing nothing. REQUIRED BEFORE run since v0.17.0: it writes the receipt that command asks for, pinned to the digest of the matrix it rea",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/run/cli.py"
+        ]
+      },
+      {
+        "page": "cli/pyfs-workspace/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "-workspace migrate : preview the record migration from 0.38.0; --apply writes backups and records pyfs-workspace init : create the full campaign tree (",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/workspace/cli.py"
+        ]
+      },
+      {
+        "page": "compatibility/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ECT_AEROELASTIC_MESH_MORPHING is entered by item S6 of 0.37.0 (FR-341, RPT-154), not with the other twelve. Each of the four answers ABSENT on 26.125 (",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/commands/_meta.yaml"
+        ]
+      },
+      {
+        "page": "exceptions/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "entedError PyflightstreamError , NotImplementedError A 0.32.0 contract function whose body its work package has not filled yet. ExcelSyncError Pyflight",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/_errors.py"
+        ]
+      },
+      {
+        "page": "fsi-tutorial/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": " named for a hash rather than for its algorithm before 0.8.0; they now say sha256 , matching RunRecord.script_sha256 and outputs_sha256 . FsiState is ",
+        "history_excerpt": "R09). The thrust half was documented and unimplemented until 2026-08-03, REV010-010 4, recording instantaneous loads, lambda = 1 by design, twist recorded per st",
+        "source_homes": [
+          "src/pyflightstream/fsi/README.md"
+        ]
+      },
+      {
+        "page": "inputs/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " of inputs/geometries/; written in the GEOMETRY column since 0.17.0. a file name with its extension every run type OPEN , IMPORT SYMMETRY The symmetry the ",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/cases/__init__.py",
+          "src/pyflightstream/post/glossary.py"
+        ]
+      },
+      {
+        "page": "reference/acoustics/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "ried from 26.123; run on 26.124 in licensed round 1 of 0.32.0 through the release harness (RPT-096): accepted, its effect read in the exported signals.",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/commands/acoustics.yaml"
+        ]
+      },
+      {
+        "page": "reference/base_regions/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": "of the manual's stated bounds in this database (design decision of 2026-08-08); the argument's own page is where a reader finds it, and this note is where a reader of ",
+        "history_excerpt": "of the manual's stated bounds in this database (design decision of 2026-08-08); the argument's own page is where a reader finds it, and this note is where a reader of ",
+        "source_homes": [
+          "src/pyflightstream/commands/base_regions.yaml"
+        ]
+      },
+      {
+        "page": "reference/boundary_conditions/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": "ere. THAT ENCODING IS NOW DECIDED rather than pending (decision of 2026-08-19, PFS-2026.04): no version row, plus this note and the committed enumeration, and NO fifth",
+        "history_excerpt": "ere. THAT ENCODING IS NOW DECIDED rather than pending (decision of 2026-08-19, PFS-2026.04): no version row, plus this note and the committed enumeration, and NO fifth",
+        "source_homes": [
+          "src/pyflightstream/commands/boundary_conditions.yaml"
+        ]
+      },
+      {
+        "page": "reference/cad/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": "s the letter, and this entry carried the letters alone until 2026-08-06. The parameter table names only X, Y or Z, in every edition, and the sample printed benea",
+        "history_excerpt": "s the letter, and this entry carried the letters alone until 2026-08-06. The parameter table names only X, Y or Z, in every edition, and the sample printed benea",
+        "source_homes": [
+          "src/pyflightstream/commands/cad.yaml"
+        ]
+      },
+      {
+        "page": "reference/ccs_fuselage_mesh/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": "tment of the manual's stated positivity bounds (design decision of 2026-08-08). Argument Specification direction enum in rate float Version Status Evidence 26.100 docu",
+        "history_excerpt": "tment of the manual's stated positivity bounds (design decision of 2026-08-08). Argument Specification direction enum in rate float Version Status Evidence 26.100 docu",
+        "source_homes": [
+          "src/pyflightstream/commands/ccs_fuselage_mesh.yaml"
+        ]
+      },
+      {
+        "page": "reference/ccs_wing_mesh/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": " file, carried from 26.123. Run in licensed round 2 of 0.32.0 through the package route (RPT-097): the ten-argument PARAMETRIC form completed and its s",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/commands/ccs_wing_mesh.yaml"
+        ]
+      },
+      {
+        "page": "reference/mesh_import_export/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "-index form awaits a probe (RPT-014). PROBE ROUND 1 OF 0.32.0, on 26.124: DELETE_SURFACES 3 on a mesh whose inventory was Body, Base, Blade1, Blade2 wa",
+        "history_excerpt": " SRC-003 pp.312-313. Both of those are registered here since 2026-08-07, in mesh_operations.yaml, each carrying version rows for the three editions that document",
+        "source_homes": [
+          "src/pyflightstream/commands/mesh_import_export.yaml"
+        ]
+      },
+      {
+        "page": "reference/motion_definitions/index.html",
+        "release": true,
+        "history": true,
+        "dependency": false,
+        "excerpt": "RC-751 file, carried from 26.123. Run on 26.124 by the 0.32.0 licensed probe round 1 (probe W1_wake_stab_disable): the arguments 1 DISABLE 1 after 1 EN",
+        "history_excerpt": " in its parameter table and its sample alike. Recorded until 2026-09-15 with the 26.120 grammar, which put ROTARY in an edition that never names it; re-read that",
+        "source_homes": [
+          "src/pyflightstream/commands/motion_definitions.yaml"
+        ]
+      },
+      {
+        "page": "reference/scenes/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": "the rest of the chapter and carried a 26.120 row alone until 2026-08-08; the other three editions document it on their own pages and now say so. Version Status E",
+        "history_excerpt": "the rest of the chapter and carried a 26.120 row alone until 2026-08-08; the other three editions document it on their own pages and now say so. Version Status E",
+        "source_homes": [
+          "src/pyflightstream/commands/scenes.yaml"
+        ]
+      },
+      {
+        "page": "reference/solver_export/index.html",
+        "release": true,
+        "history": false,
+        "dependency": false,
+        "excerpt": "he reference frame with its values per node (RPT-074). Since 0.28.0 no campaign workflow emits it: the surface Tecplot of a point is written by the package",
+        "history_excerpt": null,
+        "source_homes": [
+          "src/pyflightstream/commands/solver_export.yaml"
+        ]
+      },
+      {
+        "page": "reference/solver_settings/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": "y below, recorded on a probe citation since the design decision of 2026-08-06 (PLN-20260805-1540). Both are kept: this one because SRC-741 p.339 documents it and a rea",
+        "history_excerpt": "y below, recorded on a probe citation since the design decision of 2026-08-06 (PLN-20260805-1540). Both are kept: this one because SRC-741 p.339 documents it and a rea",
+        "source_homes": [
+          "src/pyflightstream/commands/solver_settings.yaml"
+        ]
+      },
+      {
+        "page": "reference/sweeper/index.html",
+        "release": false,
+        "history": true,
+        "dependency": false,
+        "excerpt": " THAT PAIRING, and this note said the sweep helper did until 2026-08-06, which was false in a place a reader consults. Both tails are declared optional because A",
+        "history_excerpt": " THAT PAIRING, and this note said the sweep helper did until 2026-08-06, which was false in a place a reader consults. Both tails are declared optional because A",
+        "source_homes": [
+          "src/pyflightstream/commands/sweeper.yaml"
+        ]
+      }
+    ],
+    "sister_page_absent": true,
+    "duplicate_architecture_absent": true,
+    "architecture_present": true
+  },
+  "rendered_scope_note": "122 rendered pages match release/history patterns outside the owned cleaned surface. These are an inventory for source-owner triage, not 122 independently adjudicated bugs; migration API examples and evidence descriptions require context. Confirmed examples include the root/API release introductions, fsi/README.md dated history, and command YAML narration. Source homes can re-export definitions from other unowned modules.",
+  "bootstrap": {
+    "workspace": "GEO-WS-PYFLIGHTSTREAM",
+    "expected_remote_verified": true,
+    "initial_status": "Only the pre-existing lanes/docs-clean.json was untracked; no product edits were present.",
+    "pillars": [
+      {
+        "path": "C:/GeoverseGoddess/AGENTS.md",
+        "sha256": "4bc2e5db73ac5a5683555bb700322c8b653fac6023cd6364a4d8cc96dd19d2b2",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/GeoverseGoddess/GeoverseSetup/SESSION-BOOTSTRAP.md",
+        "sha256": "5874a8f35a846afa1433e1b96642f97a3b9a2b96e770c105fc1331ce32c1a3f4",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/GeoverseGoddess/GeoverseCatalog/registry/workspaces.yaml",
+        "sha256": "a60b1932edc1f536829dfafca312cf62f25518f0d3905c56b2898c04c92681d8",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/GeoverseGoddess/GeoverseCatalog/registry/providers.yaml",
+        "sha256": "d5cbdcfdb87c7ad01309609df79d0d21cfc903e74f0a4243f4ee752d59ca4184",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/GeoverseGoddess/GeoverseSetup/capabilities/shared/shell-dialect.md",
+        "sha256": "d213f0c1ca5d0c157fdf7935f51c2c542770fe8705450bedaf0194b445fff686",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/GeoverseGoddess/GeoverseSetup/capabilities/shared/no-vcs-state-mutation.md",
+        "sha256": "29c34fc9657040b7466e4dc1a7e116046dfc07f46b6086052c1840b13551f48c",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/GeoverseGoddess/GeoverseSetup/capabilities/shared/reviewer-policy.md",
+        "sha256": "55b713378dacaf7f8d89b6a134bafe01f9f8ec0c795d0817296d6ca7ebff125e",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/GeoverseGoddess/GeoverseSetup/capabilities/skills/develop/SKILL.md",
+        "sha256": "6a5f4c664a6b532c246f2a8d764f3d2ab4daf0af70a87a0e162c20bd13a0ef75",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/WORK/w41/dclean/README.md",
+        "sha256": "1564bcc54a57ba32ccf953688d95783951056783638474ef90c5bc280137cad5",
+        "pin_matches": false
+      },
+      {
+        "path": "C:/WORK/w41/dclean/docs/srs/architecture-srs.md",
+        "sha256": "c065b04a45d6955d2ddbb99c662ce6b6cc36d13b7b692c1831dd1b1cfe2d69b8",
+        "pin_matches": false
+      },
+      {
+        "path": "C:/WORK/w41/dclean/CONTRIBUTING.md",
+        "sha256": "fce090e52102103829d25e54430a9cc8188063dc705dd49310798097937806d4",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/WORK/w41/dclean/pyproject.toml",
+        "sha256": "c6d5e1381c92f36b2bb87da31c3ec7bb629e044f9bb93640f2137f17f74701c9",
+        "pin_matches": true
+      },
+      {
+        "path": "C:/GeoverseGoddess/GeoversePlan/coordination/private/pyflightstream/HANDOFF-0160-night.md",
+        "sha256": "de7b2a60b390d0d34ba9ca4e4f99d06de46fb838f257d99a0fdc4831c892d572",
+        "pin_matches": true
+      }
+    ],
+    "pin_exception": "Only the lane README and architecture source differ from their pillar pins; owner explicitly permits release-related pyflightstream pin drift.",
+    "provider_enforcement": "Commit hooks reported content checks passed and routing disabled for the nested repository. No native routing-enforcement claim is made."
+  },
+  "control_count": {
+    "implementation_commits": 5,
+    "changed_paths": [
+      "README.md",
+      "changelog.d/docs-clean.md",
+      "docs/continuation-recovery.md",
+      "docs/definitions/a-volume-section.md",
+      "docs/definitions/native-surface-flow-exports.md",
+      "docs/definitions/the-axes-of-a-steady-polar.md",
+      "docs/definitions/the-far-field-family.md",
+      "docs/definitions/the-probes-table.md",
+      "docs/definitions/the-quasi-steady-rotor.md",
+      "docs/definitions/the-sections-table-and-which-row-is-which.md",
+      "docs/definitions/the-solvers-own-plots.md",
+      "docs/definitions/the-unsteady-polar.md",
+      "docs/definitions/tip-and-helical-mach-numbers.md",
+      "docs/definitions/what-every-product-states.md",
+      "docs/examples/_sources/campaign_matrix.py",
+      "docs/examples/_sources/roll_rate_row.py",
+      "docs/flight-conditions.md",
+      "docs/fsi-workspace.md",
+      "docs/geometry.md",
+      "docs/getting-started.md",
+      "docs/guides.md",
+      "docs/mesh/how-to.md",
+      "docs/mesh/reference.md",
+      "docs/post-processing-definitions.md",
+      "docs/pproc-artifact.md",
+      "docs/qsteady-corrections.md",
+      "docs/sampled-fields.md",
+      "docs/solver-cost.md",
+      "docs/srs/architecture-srs.md",
+      "docs/srs/data-model.md",
+      "docs/srs/introduction.md",
+      "docs/srs/philosophy.md",
+      "docs/srs/scope.md",
+      "docs/srs/standards.md",
+      "docs/upgrading.md",
+      "docs/workflow-builds-and-hpc.md",
+      "docs/workflow-input-library.md",
+      "docs/workflow-qsteady-rotor.md",
+      "docs/workflow-row-geometry-motion.md",
+      "docs/workflow-run-matrix.md",
+      "docs/workflow-unsteady-rotor.md",
+      "docs/workflow-unsteady.md",
+      "docs/workspace-and-workflows.md",
+      "properdocs.yml",
+      "src/pyflightstream/post/input_template.py",
+      "src/pyflightstream/probes/geometry.py",
+      "tests/tier1_offline/packages.json",
+      "tests/tier1_offline/test_p0330_doca_reference.py",
+      "tests/tier1_offline/test_p0420_docs_clean_public.py",
+      "tests/tier1_offline/test_regression_farfield_interfaces.py",
+      "tests/tier1_offline/test_regression_farfield_numerics.py"
+    ],
+    "unowned_product_paths_edited": 0,
+    "runtime_behavior_ast_changes": 0,
+    "executable_example_ast_changes": 0,
+    "scientific_formula_changes": 0,
+    "intentional_categories": [
+      "dependency publicity removed",
+      "release narration removed or placed on upgrading",
+      "dated editing narration replaced by current rules",
+      "duplicate architecture publication excluded",
+      "guard and pinned-test updates"
+    ],
+    "preserved_categories": [
+      "solver build numbers",
+      "physical values",
+      "data timestamps",
+      "measurement evidence",
+      "old section anchors",
+      "scientific definitions",
+      "migration release bounds"
+    ],
+    "unintended_categories": 0
+  },
+  "recipe_checklist": [
+    "[x] 1. Prompt read: lane, base, worktree, branch, four owner items, final ownership, report path.",
+    "[x] 2. Worktree and branch checked; only the inherited report was untracked.",
+    "[x] 3. Requirement and acceptance read in the owner prompt, which supplies these four item identities.",
+    "[x] 4. Requirement guards measured red before each fix, including the generated-example follow-up.",
+    "[x] 5. Owned sibling sites and pinned tests updated; unowned generated sources and delivery test recorded.",
+    "[x] 6. Contract in-place proof: original base-file bytes cause assertion failures; own snapshots restored byte-exactly and guards pass. No stash, restore or other worktree used.",
+    "[x] 7. Four item commits by explicit absolute paths, plus one disclosed item-2 follow-up found during rendered validation; no amend or history rewrite.",
+    "[x] 8. Lane changelog fragment updated with each item; no runtime behavior migration introduced.",
+    "[ ] 9. Full 38-file lane suite is not green: one unowned nav-test failure. Current main is still the exact base and is already an ancestor, so no merge is needed or performed.",
+    "[x] 10. Implementation commits read back with git show; executable AST identity and working-tree diff checked.",
+    "[x] 11. Report updated in the authorized lane; report-only commit follows the implementation head."
+  ],
+  "deviations": [
+    "The final ownership manifest excludes docs/unpublished; use site exclusion instead of physically moving the sister page into that directory.",
+    "One additional item-2 follow-up commit was needed for rendered percent-format examples discovered after the initial commit; estate CONTRIBUTING prohibits amending.",
+    "Recipe scratch-worktree proof and external report path conflict with the owner-only lane write grant; contract in-place proof and the explicitly requested lane report govern.",
+    "Temporary fixture removal was rejected by automatic approval review as blocked by policy; fixtures were preserved by moving them to the existing ignored cache directory within this worktree."
+  ],
+  "committed_readback": [
+    {
+      "commit": "032d3d58dcd14e78b52b8e9da5cf78a0affd34af",
+      "hash_domain": "git-blob-bytes",
+      "files": {
+        "changelog.d/docs-clean.md": "103266d8b1cee70d0e003bee2ebf82c981b80ea115f0af268cef1d7d3c9fdec4",
+        "docs/srs/architecture-srs.md": "4be5e7cb31c08f4e93af3d0f3e36444a8a1489677c954347c7c9fbb7b1faf81e",
+        "docs/upgrading.md": "d636daeeddc9617fed130095c0ed97ee73f0faa84d06e909369faa3c86c4869a",
+        "properdocs.yml": "153dce660a09566da3aff6d9ed0a40caaacb480d06b69313e4a7905cbe57afc4",
+        "tests/tier1_offline/packages.json": "d4f9a2adc9f1657e683567dbbd0821988a5fd30eface941548b06957731b200a",
+        "tests/tier1_offline/test_p0420_docs_clean_public.py": "1eb0c649ab9852437c55a686a21fd99050ab5e0edec826436d000e37f8631c3b",
+        "tests/tier1_offline/test_regression_farfield_interfaces.py": "5c93e2ab565b484faa0506bcdb819d6a81bc2c993c236be96f2b256803826ec5",
+        "tests/tier1_offline/test_regression_farfield_numerics.py": "24ee0c6c0161d88805132611f959daf665b7c76a12951db4c66cb6647a75af86"
+      }
+    },
+    {
+      "commit": "b04ba80f63f9510812f1d76a76d611a6b3ae3067",
+      "hash_domain": "git-blob-bytes",
+      "files": {
+        "README.md": "0f55f386fc86990bf411cc220d89f3858292e4c207ab79052d0dc3a05b3f05a9",
+        "changelog.d/docs-clean.md": "f42332983c1e306b58f6d6cc5935615d1643bf9bbb7dfb1ba0bda40c88ca73e2",
+        "docs/continuation-recovery.md": "b58d608d4f9db22058f8eb0d16335c779ba5abc8bc348d02217df1af3dbc6f5e",
+        "docs/definitions/a-volume-section.md": "568032c00fec88ce894445a1d9d08ed4b021ea03a7f72637b22815f00fb9bf6d",
+        "docs/definitions/native-surface-flow-exports.md": "1646031af4701c3cf643fd94543e4b856c31fa00e47f7ee480ee2e4dc6b27bdf",
+        "docs/definitions/the-axes-of-a-steady-polar.md": "1adcd071f6f79e8135b32697c87523f83cdec7a9b73340b6bcd994b0adabefb6",
+        "docs/definitions/the-far-field-family.md": "39a48c752b1e72989904f975fad02bd927090b0228fd62facaf95c7b496c0ef9",
+        "docs/definitions/the-probes-table.md": "c5388c380b6de66c2a6d3c9f8c92ce8c785c1396729ce0f65c2e27ccc2116e60",
+        "docs/definitions/the-quasi-steady-rotor.md": "5e5220c007636557ff2b85623d429c6fca8c8429bc92796af26b0e629d2a2ed7",
+        "docs/definitions/the-sections-table-and-which-row-is-which.md": "e8965b2603149e3e8f6358039fe5f87d0e9d1c9e13d99a1b29a4ab2cd0537e98",
+        "docs/definitions/the-solvers-own-plots.md": "a011b4c4102b40a02ac62c5bda43578e2c3c28fa4a87a739b2db26c8d9692f8c",
+        "docs/definitions/the-unsteady-polar.md": "766725b0baa5b24aa2bd2ca434628acd5ccb3b8ce7d16c2a08cb787494abd6f8",
+        "docs/definitions/tip-and-helical-mach-numbers.md": "7375d909dd605860eb16f197a8fd90593d42d0b1c5bf638acf3f6ca083540e21",
+        "docs/definitions/what-every-product-states.md": "232fcc433bb2723eb64fd865f104ecb37e61a3eba773c57d130fdf935d608812",
+        "docs/flight-conditions.md": "064f72e13a5f894712353520864a679ab823d0f8dabd1022ed8ede53290ac40e",
+        "docs/fsi-workspace.md": "5b5f6a6b7df38dfde82e7a1a31eabb5bca6580493282c1310756a77d84116643",
+        "docs/geometry.md": "adf21ffc1acaa9589d2ba3651534e2736f2cc8bf0fd147e25ab342001f8d0998",
+        "docs/getting-started.md": "e1a97beba8b9532125a34406f16cfddd765f0a38ed4e50fc17d0e024c149ed3a",
+        "docs/guides.md": "9e1c8b051f670af8e19a1ff1b1098eccae16378a7c4beabf15a53e587d58c02d",
+        "docs/mesh/reference.md": "3ca57c2e00b78678e26cfc54a294608483de9770df932c66060aaa11b6ed29ee",
+        "docs/post-processing-definitions.md": "102262c7e303ea6dc105c6d9f960e543b9635981a5824f60e1facfc1b1bede90",
+        "docs/pproc-artifact.md": "92cf5a399cf2c519904312e5d1616acad2317beab8b2c4be25b9a73b6f9f6d51",
+        "docs/qsteady-corrections.md": "13f6c9037dc25c95ebb6e66ca60a023bbfb6ff152d907f60787216ddb1d13910",
+        "docs/solver-cost.md": "e1a3a9b3d0401dc2e8b1864455254be44e7d765f67696bbbea5b634fcf2e0784",
+        "docs/srs/data-model.md": "1e044e72d39b842bd2ab18371b87a777902ce6516bb4a8e3061836cf5079eee5",
+        "docs/srs/introduction.md": "f3a25ba621a37177188d40207f960f252680fb8af962888b0b071161e2626823",
+        "docs/srs/scope.md": "f7f56e4ae48f891ce8aad7a289d1ffd2c6d41a872f74d27e295b51fb2ae0a144",
+        "docs/srs/standards.md": "3a22ad190951048b13cccb0b948443c18b32cac8cd67a89b62e739aa03ef40a0",
+        "docs/workflow-builds-and-hpc.md": "5daf5a6127b1d4f36de40b196abc3529368a7443269ccf411b4772522e42d665",
+        "docs/workflow-input-library.md": "0efe79457fe5ea9883c94e6ae3ed2f7250bceb88693e8ff2ac9e164d171b820c",
+        "docs/workflow-qsteady-rotor.md": "e651524739b54ba3223e7aaf9a70686a06b9da230b30fdef2fc78a6bde7fbee2",
+        "docs/workflow-row-geometry-motion.md": "f0ba0c4a718cd7722fe62b8d50c30aa3e3cfe5ab015261f8d13d3db403586209",
+        "docs/workflow-run-matrix.md": "0d9e018aabece07b688a67c166b64748c78200b0bd69422176634f947b98a9dd",
+        "docs/workflow-unsteady-rotor.md": "98a25d5fe700b32edbf1f891815675c46d8de2c47563cabe9a6a975de6e57c56",
+        "docs/workflow-unsteady.md": "44aefc58e4b5b5db9f66163c0a62aedd5c428a3c2d2133fe0eacf095784e3d68",
+        "docs/workspace-and-workflows.md": "ea588df6608425e0d99ccbf25ae7626b991db204eaca64cdcd8c8a726b173951",
+        "src/pyflightstream/post/input_template.py": "fc89b0de78e7b7723c17b3414f248f77d4f4608bb47f5d1f3969f21527416475",
+        "tests/tier1_offline/test_p0420_docs_clean_public.py": "c92aebcf5f1b4cdc430a53d4abac5641ed17ce72b878aa5bf5d2e24f35c1a93b"
+      }
+    },
+    {
+      "commit": "b1026b8d6fef6f6af6de6cee8a7e52cb20cc7cf5",
+      "hash_domain": "git-blob-bytes",
+      "files": {
+        "changelog.d/docs-clean.md": "07fbfab4208abfe6f2708bfad4ed83649f494cf8a48a0c4f6c903a5bf6352a1a",
+        "docs/continuation-recovery.md": "a5cf8599eda5f415339ceca316233a6e37655dbb1cdb678414d4f729c9327395",
+        "docs/definitions/the-sections-table-and-which-row-is-which.md": "a30fcc076169486525d699af1aa4662fd23ffb97fd03452009f7cf6247c60dea",
+        "docs/flight-conditions.md": "565c17ca34a89574d82453c65e90e9fa1fd425f010fa517f98c7aaf9ccc0ef6f",
+        "docs/mesh/how-to.md": "799e0f56d0787288706d2326e76ead28e4a791d669179b2ae404f092e350a523",
+        "docs/mesh/reference.md": "262b69d79cbe5de7f3bfba1eae9aa67d9093ddc979432001067da04008c8d1da",
+        "docs/pproc-artifact.md": "e4d29110e3fad19a827380364f4983de6538782bae287e5f158b97f93ed4200b",
+        "docs/sampled-fields.md": "541d3415062f899f84eeb526202b088764b6781bc64496ef9d0e8e02aeed59c9",
+        "docs/srs/data-model.md": "5b3cb07ab1fcc78b9b8966f11a6a392ac74c4bfd674cec7441f60c87e5583428",
+        "docs/srs/introduction.md": "b5705e44d8214e661944b3f043132cd0dbe4f82f31fb3c79f57d2ab02e889bb5",
+        "docs/srs/philosophy.md": "27c04e5051eb06dd85944454106805b8be67f77c5dc66bf883b024c3f191ca79",
+        "docs/srs/standards.md": "5c1c46c3702fb5fe310e1cbbf50d455e079e5b54b9447168484f7d452599a6ef",
+        "docs/workflow-input-library.md": "ddf823cc105ca8a855825d593e8061e89a4aec31018d7f4d7de203b39155ee30",
+        "src/pyflightstream/probes/geometry.py": "5164e6f9f3334094df0f380141b3eb13667ff6a6fdd17ae82330ccc12e5f2f89",
+        "tests/tier1_offline/test_p0420_docs_clean_public.py": "4a8e60f98d7226725cb851449b376a319e4a58744cbb209828638399f54e9540"
+      }
+    },
+    {
+      "commit": "bbcac78ca41027b1a5796a39f4a95e2885f01d71",
+      "hash_domain": "git-blob-bytes",
+      "files": {
+        "changelog.d/docs-clean.md": "381f1ac68bbba6493a766d8047e61408a7c891bed1d05ba5b8724b67403dfed5",
+        "docs/srs/architecture-srs.md": "99e454d26fdbf02da7ac474304e44ccd00d75d5999de16726379f6f7558b2399",
+        "properdocs.yml": "24a7ba796c8172b13e2fd8f9dc5b41f5e4bf211dd420bf2f8d9fd85c73400f04",
+        "tests/tier1_offline/test_p0330_doca_reference.py": "6715962bcb845a0d917994cb1ba024a1abf85c970023b367d96dee65efa4fddc",
+        "tests/tier1_offline/test_p0420_docs_clean_public.py": "20f0421f2a1dc1b708cb96f14c5ce8625dcf4b14e2ac5678ab3860b3d642650b"
+      }
+    },
+    {
+      "commit": "0bdbae3bc7c18a2d83d9e97db29d13ded56cdd23",
+      "hash_domain": "git-blob-bytes",
+      "files": {
+        "changelog.d/docs-clean.md": "c1fc8204fc8d9e692d9fecda361f6401287bcfb08ae494b5ce6d908ced822143",
+        "docs/examples/_sources/campaign_matrix.py": "f092743dfce0764beef142cc7518ef7c571e227290dda32ea81d354992ef928c",
+        "docs/examples/_sources/roll_rate_row.py": "6a9370968445c16eb502c403ffccbe89f858830334313d0370c13257f6fe8582",
+        "docs/upgrading.md": "f16cfdb4797d6e22148ade38a972898b0ebe7001949eef7d25fc0a52dee302ce",
+        "tests/tier1_offline/test_p0420_docs_clean_public.py": "954aa21ec6011cde88671209a61d86414393aed5cdc8dc643674ba1e4263e567"
+      }
+    }
+  ],
+  "worktree_status": "Product tree clean at the tested head; report-only commit records this receipt. Temporary helpers and fixtures are retained only in the ignored lane-local cache."
+}
