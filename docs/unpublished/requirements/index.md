@@ -218,7 +218,7 @@ makes unexplained software jargon a clarity defect (NFR-24).
 | Command database | The machine-readable registry of FlightStream script commands with per-version evidence |
 | Escape hatch | A deliberate way out of the validated path (here, emitting a raw solver line the builder does not model), allowed but recorded so its use is visible |
 | Golden | A committed reference output a test compares against byte for byte, so an unintended change to generated text fails loudly |
-| Manifest | The append-only `runs.json` record that is the sole authority on run identity |
+| Manifest | The versioned `runs.json` document, mutable under its writer lease, that is the sole authority on run identity |
 | Probe | A minimal solver run asserting one command's real effect on a licensed machine |
 | Round-trip | Writing a structure out and reading it back, asserting the result equals the original; the test that proves a writer and its reader agree |
 | `shell=True` | A Python option that hands a command to the operating system shell to interpret; refused here, because it makes a path containing a space or a quote behave as syntax |

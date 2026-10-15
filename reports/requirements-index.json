@@ -2,8 +2,8 @@
  "source": "docs/unpublished/requirements",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 479,
-  "total": 479,
+  "cited_by_a_test": 403,
+  "total": 482,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -433,7 +433,7 @@
   },
   {
    "id": "FR-34",
-   "text": "A campaign can be pre-flighted with zero solver time (recipes resolved, scripts dry-run built, folders allocated, geometry verified, plan written) and re-run with resume semantics that skip manifest-recorded points, enabling incremental sweeps.",
+   "text": "A campaign can be pre-flighted with zero solver time: recipes and geometry resolve, scripts dry-run build, folders allocate and a plan is written without appending execution records. Resume skips points whose effective recorded outcome is complete and refuses changed inputs where reuse would misattribute existing evidence. Code: pyflightstream.run._plan:plan_campaign. Falsifying test: tests/tier1_offline/test_run_campaign.py::test_a_partial_resume_refuses_when_the_input_changed.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: usage feedback. Evidence: the v0.3 line; pre-flight and resume tests.*",
@@ -465,7 +465,7 @@
   },
   {
    "id": "FR-38",
-   "text": "The far-field subpackage computes the mass, momentum, swirl and crossflow-kinetic-energy conservation ledgers on the survey lattice, evaluates gates G1, G3, and G4 and the near-field versus far-field spurious diagnostic, and records each ledger and gate outcome in the run outputs.",
+   "text": "The far-field subpackage computes the mass, momentum, swirl and crossflow-kinetic-energy conservation ledgers on the survey lattice, records those balances and the near-field versus far-field spurious diagnostic in the run outputs. Licensed acceptance verdicts for gates G1, G3 and G4 remain deferred; diagnostic output is not a verdict.",
    "priority": "D",
    "status": "deferred",
    "evidence": "*Origin: Phase 4 review, accepted 2026-07-27, absorbing the C11 acceptance of the same subject. Evidence for the delivered half: milestone M7; the G0 synthetic gate in tests/tier1_offline/test_farfield.py.*",
@@ -809,11 +809,11 @@
   },
   {
    "id": "FR-81",
-   "text": "WHAT IS WRONG TODAY. A STEADY row citing a pproc artifact whose [probes] table is valid, and whose frame is one the row DOES create, emits no creation command at all: not NEW_PROBE_POINT, not NEW_PROBE_LINE, not PROBE_POINTS_IMPORT. It nevertheless emits UPDATE_PROBE_POINTS and EXPORT_PROBE_POINTS. Measured on the template's rows 1001 and 1004 with one artifact whose probes are in MRP:",
+   "text": "A script creates the probe points it exports. Before creating each steady point's probes it emits DELETE_PROBE_POINTS, so probes that persist across solves cannot accumulate from an earlier point. The deletion precedes that point's creation commands; no script emits EXPORT_PROBE_POINTS without creating the points it exports.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: measured on 2026-09-10 while building the probe-plane design. Carried by PFS-2035.28. Evidence: tests/tier1_offline/test_workflows.py.*",
-   "verification": "test"
+   "evidence": "",
+   "verification": "review"
   },
   {
    "id": "FR-82",
@@ -972,7 +972,7 @@
    "text": "A matrix row names its build in FS_BUILD and nothing else about it. The package decides, per point and before the first emission, how the row runs on that build, from the command database and recorded evidence and never from a list of builds:",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the 0.20.0 scope, every workflow on every registered build with the build as the only cell that changes. Evidence: tests/tier1_offline/test_goal023_every_build.py (every run type and case shape against every registered build, the cells that do not render named exactly, the single march on each build without actions, each feature only actions give refused at plan time by name, the strategy in the plan and the run record, one row planned under every build, and the 26.123 goldens unchanged). tests/tier1_offline/test_workflows.py (coverage derived with the substitute, and the Euclidean rotor's speed, axis and mark). And reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md (the unit and sense of the Euclidean angular velocity measured on 26.000 against the rotary motion on 26.120, and the rotor mark removed on 26.100). reports/RPT-051_a-rotor-on-26100-without-the-rotor-mark_2026-09-15.md (the 26.100 rotor without the mark, in rev/min, recorded as a decision at 0.20.1). tests/tier1_offline/test_p0400_script_helpers.py and the 26.100 rotor goldens of tests/tier1_offline/goldens/workflows/ (the refusal of 0.40.0). AMENDS FR-98 and FR-96, whose wall clock and continuations are refused on a build without actions, and the coverage rule of the workflow table.*",
+   "evidence": "*Origin: the 0.20.0 scope, every workflow on every registered build with the build as the only cell that changes. Evidence: tests/tier1_offline/test_goal023_every_build.py (every run type and case shape against every registered build, the cells that do not render named exactly, the single march on each build without actions, each feature only actions give refused at plan time by name, the strategy in the plan and the run record, one row planned under every build, and the 26.123 goldens unchanged). tests/tier1_offline/test_workflows.py (coverage derived with the substitute, and the Euclidean rotor's speed, axis and mark). And reports/RPT-049_a-rotor-on-the-builds-before-the-rotary-motion_2026-09-15.md (the unit and sense of the Euclidean angular velocity measured on 26.000 against the rotary motion on 26.120, and the rotor mark removed on 26.100). reports/RPT-051_a-rotor-on-26100-without-the-rotor-mark_2026-09-15.md (the 26.100 rotor without the mark, in rev/min, recorded as a decision at 0.20.1). tests/tier1_offline/test_regression_script_emission.py and the 26.100 rotor goldens of tests/tier1_offline/goldens/workflows/ (the refusal of 0.40.0). AMENDS FR-98 and FR-96, whose wall clock and continuations are refused on a build without actions, and the coverage rule of the workflow table.*",
    "verification": "test"
   },
   {
@@ -1268,7 +1268,7 @@
    "text": "Read with PFS-2075, PFS-2075.20 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the sampled-field need of the 0.29.0 quality gate. Evidence: tests/tier1_offline/test_f01_probe_source.py, tests/tier1_offline/test_approved_capabilities_029.py and, for R1, tests/tier1_offline/test_fr153_field_build_warning.py and, for the registration of build 8242026, tests/tier1_offline/test_p0340_fr153_build_8242026.py.*",
+   "evidence": "*Origin: the sampled-field need of the 0.29.0 quality gate. Evidence: tests/tier1_offline/test_f01_probe_source.py, tests/tier1_offline/test_approved_capabilities_029.py and, for R1, tests/tier1_offline/test_probe_fields.py and, for the registration of build 8242026, tests/tier1_offline/test_p0340_fr153_build_8242026.py.*",
    "verification": "test"
   },
   {
@@ -2268,7 +2268,7 @@
    "text": "Read with PFS-2074, PFS-2074.06 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item MATRIX-HOMES-ALL of the 0.33.0 scope (scope record GEO-071, section 2.1). Built on 2026-09-30; the status stays pending until accepted. Evidence: tests/tier1_offline/test_fr310_matrix_homes_all.py::test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup, ::test_fr310_each_command_resolves_its_matrix_over_both_homes (every matrix argument of the parsers, in the four layouts, with the path as given as the control), ::test_fr310_a_path_that_names_its_folder_is_read_as_given, ::test_fr310_upgrade_reads_a_bare_name_from_either_home, ::test_fr310_the_physics_matrix_of_qa_is_found_in_either_home, ::test_fr310_the_physics_matrix_in_neither_home_is_refused_the_control, ::test_fr310_the_excel_read_finds_the_matrix_in_either_home, ::test_fr310_the_rebuild_sweep_reads_one_matrix_per_stem, ::test_fr310_rename_reads_the_matrix_from_either_home, ::test_fr310_rename_with_the_matrix_in_neither_home_is_refused_the_control, ::test_fr310_no_other_routine_lists_the_matrices_of_a_workspace, ::test_fr310_main_refuses_a_differing_pair_for_every_command (through main, post --additional-pproc included), ::test_fr310_main_hands_the_command_the_file_in_inputs_matrices, ::test_fr310_a_bare_name_in_a_home_and_in_the_working_directory.*",
+   "evidence": "*Origin: item MATRIX-HOMES-ALL of the 0.33.0 scope (scope record GEO-071, section 2.1). Built on 2026-09-30; the status stays pending until accepted. Evidence: tests/tier1_offline/test_matrix_run.py::test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup, ::test_fr310_each_command_resolves_its_matrix_over_both_homes (every matrix argument of the parsers, in the four layouts, with the path as given as the control), ::test_fr310_a_path_that_names_its_folder_is_read_as_given, ::test_fr310_upgrade_reads_a_bare_name_from_either_home, ::test_fr310_the_physics_matrix_of_qa_is_found_in_either_home, ::test_fr310_the_physics_matrix_in_neither_home_is_refused_the_control, ::test_fr310_the_excel_read_finds_the_matrix_in_either_home, ::test_fr310_the_rebuild_sweep_reads_one_matrix_per_stem, ::test_fr310_rename_reads_the_matrix_from_either_home, ::test_fr310_rename_with_the_matrix_in_neither_home_is_refused_the_control, ::test_fr310_no_other_routine_lists_the_matrices_of_a_workspace, ::test_fr310_main_refuses_a_differing_pair_for_every_command (through main, post --additional-pproc included), ::test_fr310_main_hands_the_command_the_file_in_inputs_matrices, ::test_fr310_a_bare_name_in_a_home_and_in_the_working_directory.*",
    "verification": "none"
   },
   {
@@ -2276,7 +2276,7 @@
    "text": "Read with PFS-2074, PFS-2074.07 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: built on 2026-09-30 and verified on recorded folders (tests/tier1_offline/test_fr311_collect_job_ended.py), and the file naming is confirmed from one real cluster folder (archived RPT-108 investigation, 2026-09-30: three files of one job that ended with its log), which does not close the requirement. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder that shows the files the patterns name: received as RPT-108 for a job that ended with its log; the cluster's user reports that a job that never starts leaves only the two end-of-job files and no log, which is the case R2 records, reported and not observed in a folder; still owed, a real cluster folder of a job that ended WITHOUT its log.*",
+   "evidence": "*Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: built on 2026-09-30 and verified on recorded folders (tests/tier1_offline/test_run.py), and the file naming is confirmed from one real cluster folder (archived RPT-108 investigation, 2026-09-30: three files of one job that ended with its log), which does not close the requirement. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder that shows the files the patterns name: received as RPT-108 for a job that ended with its log; the cluster's user reports that a job that never starts leaves only the two end-of-job files and no log, which is the case R2 records, reported and not observed in a folder; still owed, a real cluster folder of a job that ended WITHOUT its log.*",
    "verification": "none"
   },
   {
@@ -2284,7 +2284,7 @@
    "text": "Read with PFS-2075, PFS-2075.21 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: built on 2026-09-30 over the measurement of R2. Evidence: tests/tier1_offline/test_fr312_inventory_clean.py; and, measured after the 0.34.0 release on 2026-10-02 on 26.124 (build 8172026), far field 5, reports/RPT-135_the-block-reset-against-a-fresh-import-of-26124_2026-10-02.md: the paired measurement (the blade saved by 26.124 after a 12-step solve, a simulation carrying every block, against the same mesh freshly imported on 26.124, the ten tier-3 shapes freshly imported and builds 8172026 and 7012026 compared), and the licensed confirmation that 26.124 opens and runs the block-reset file. The uncleaned file is the control of the saved actions only: its loads equal the fresh import's and the reset file's, so the solve discriminates the saved actions (twice the runtime commands) and not the blocks; the block content is verified block by block offline, and the solve confirms that the block-reset file opens and runs on 26.124; tests/tier1_offline/test_rpt135_fr312_fresh_import_26124.py re-measures the 26.124 table from the recorded fresh imports and resets the recorded save with it, each test with a control. The 26.124 table differs from the 26.120 one in AEROELASTIC, GLOBAL, SOLVER, STABILITY and WAKE; registering it in pyflightstream._fsm_fresh.FRESH_IMPORT is 0.35.0 scope, and until then a 26.124 file keeps every block but its saved actions (R2).*",
+   "evidence": "*Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: built on 2026-09-30 over the measurement of R2. Evidence: tests/tier1_offline/test_inventory_cli.py; and, measured after the 0.34.0 release on 2026-10-02 on 26.124 (build 8172026), far field 5, reports/RPT-135_the-block-reset-against-a-fresh-import-of-26124_2026-10-02.md: the paired measurement (the blade saved by 26.124 after a 12-step solve, a simulation carrying every block, against the same mesh freshly imported on 26.124, the ten tier-3 shapes freshly imported and builds 8172026 and 7012026 compared), and the licensed confirmation that 26.124 opens and runs the block-reset file. The uncleaned file is the control of the saved actions only: its loads equal the fresh import's and the reset file's, so the solve discriminates the saved actions (twice the runtime commands) and not the blocks; the block content is verified block by block offline, and the solve confirms that the block-reset file opens and runs on 26.124; tests/tier1_offline/test_rpt135_fr312_fresh_import_26124.py re-measures the 26.124 table from the recorded fresh imports and resets the recorded save with it, each test with a control. The 26.124 table differs from the 26.120 one in AEROELASTIC, GLOBAL, SOLVER, STABILITY and WAKE; registering it in pyflightstream._fsm_fresh.FRESH_IMPORT is 0.35.0 scope, and until then a 26.124 file keeps every block but its saved actions (R2).*",
    "verification": "none"
   },
   {
@@ -2292,7 +2292,7 @@
    "text": "Read with PFS-2074, PFS-2074.09 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Built on 2026-09-30; the status stays pending until accepted. Evidence: tests/tier1_offline/test_fr313_plan_geometry_warning.py::test_fr313_the_plan_warns_and_writes_the_same_plan, ::test_fr313_the_command_exits_as_the_clean_plan_does, ::test_fr313_one_warning_per_geometry_names_every_row_that_opens_it, ::test_fr313_a_continuation_of_an_unsteady_row_is_read, ::test_fr313_a_row_that_is_not_unsteady_is_not_read_the_control, ::test_fr313_a_raw_mesh_or_a_row_with_no_geometry_is_not_read. Evidence asked: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*",
+   "evidence": "*Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Built on 2026-09-30; the status stays pending until accepted. Evidence: tests/tier1_offline/test_workflows.py::test_fr313_the_plan_warns_and_writes_the_same_plan, ::test_fr313_the_command_exits_as_the_clean_plan_does, ::test_fr313_one_warning_per_geometry_names_every_row_that_opens_it, ::test_fr313_a_continuation_of_an_unsteady_row_is_read, ::test_fr313_a_row_that_is_not_unsteady_is_not_read_the_control, ::test_fr313_a_raw_mesh_or_a_row_with_no_geometry_is_not_read. Evidence asked: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*",
    "verification": "none"
   },
   {
@@ -2300,7 +2300,7 @@
    "text": "Read with PFS-2074, PFS-2074.10 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item PROGRESS-ALL-UNSTEADY of the 0.33.0 scope (GEO-071, section 2.3). Built on 2026-09-30; the status stays pending until accepted. Evidence: tests/tier1_offline/test_fr314_counter_everywhere.py (every run type and a continuation on 26.123 and 26.124, the 26.120 control, the count-only program run by the real interpreter, the local-run bar read off it), tests/tier1_offline/test_unsteady_actions.py::test_a_row_stating_no_threshold_registers_the_counter_alone, ::test_a_run_without_a_threshold_records_the_count_only_program, the 18 regenerated tier-1 goldens and the 10 tier-3 goldens, whose diff against 0.32.0 is the counter's three lines, ::test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration (every unsteady tier-1 golden and every tier-3 golden against the sha256 of v0.32.0 recorded in tests/tier1_offline/fixtures/goldens_v0320_sha256.json: unchanged, or changed by exactly one counter registration, and the changed set is every unsteady run type on 26.122 to 26.124 and the ten tier-3 scripts of rows without per-step export), and the FR-314 entry of scripts/check_parity.py, which holds each changed script to those three lines in order. Evidence asked: a tier-1 test that every unsteady run type is covered by a golden and that the diff of each regenerated golden against the golden of v0.32.0 is confined to the counter lines; the parity receipt of the release listing each changed golden against this requirement; and the licensed run of an unsteady row without per-step export on 26.124 (licensed round L1), which is the only evidence that the solver accepts the counter on such a row. A golden regenerated in the same commit as the code verifies the emitter and nothing about the solver.*",
+   "evidence": "*Origin: item PROGRESS-ALL-UNSTEADY of the 0.33.0 scope (GEO-071, section 2.3). Built on 2026-09-30; the status stays pending until accepted. Evidence: tests/tier1_offline/test_workflows.py (every run type and a continuation on 26.123 and 26.124, the 26.120 control, the count-only program run by the real interpreter, the local-run bar read off it), tests/tier1_offline/test_unsteady_actions.py::test_a_row_stating_no_threshold_registers_the_counter_alone, ::test_a_run_without_a_threshold_records_the_count_only_program, the 18 regenerated tier-1 goldens and the 10 tier-3 goldens, whose diff against 0.32.0 is the counter's three lines, ::test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration (every unsteady tier-1 golden and every tier-3 golden against the sha256 of v0.32.0 recorded in tests/tier1_offline/fixtures/goldens_v0320_sha256.json: unchanged, or changed by exactly one counter registration, and the changed set is every unsteady run type on 26.122 to 26.124 and the ten tier-3 scripts of rows without per-step export), and the FR-314 entry of scripts/check_parity.py, which holds each changed script to those three lines in order. Evidence asked: a tier-1 test that every unsteady run type is covered by a golden and that the diff of each regenerated golden against the golden of v0.32.0 is confined to the counter lines; the parity receipt of the release listing each changed golden against this requirement; and the licensed run of an unsteady row without per-step export on 26.124 (licensed round L1), which is the only evidence that the solver accepts the counter on such a row. A golden regenerated in the same commit as the code verifies the emitter and nothing about the solver.*",
    "verification": "none"
   },
   {
@@ -2316,7 +2316,7 @@
    "text": "Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: an author decision of 2026-09-30, for a per-build setup study whose matrix gives every row one basic preset and one setup factor, the factor named by its native setup key; the default that a row never overwrites a value its preset states is part of the same decision. Measured before it on 0.32.0: a row stating viscous_coupling, wake_on_wake_induction or reynolds_averaged_drag in its cell was refused by the run type as a key of no run type. Evidence: tests/tier1_offline/test_fr316_row_setup_keys.py::test_a_key_the_preset_lacks_is_added_for_that_row_only_and_warned, ::test_an_equal_value_is_accepted_with_the_warning, ::test_a_differing_value_for_a_key_the_preset_states_is_refused, ::test_a_solver_alias_is_a_setup_key_and_follows_the_same_rule, ::test_an_unstated_row_resolves_its_preset_unchanged, ::test_an_unknown_key_is_still_refused, ::test_a_table_valued_key_is_refused_naming_what_a_row_can_carry, ::test_a_list_of_names_is_carried_comma_separated, ::test_one_setting_in_both_vocabularies_is_refused_as_ambiguous, ::test_an_invalid_value_is_refused_by_the_presets_own_loader, ::test_the_row_keys_reach_the_setup_snapshot_of_the_run_record.*",
+   "evidence": "*Origin: an author decision of 2026-09-30, for a per-build setup study whose matrix gives every row one basic preset and one setup factor, the factor named by its native setup key; the default that a row never overwrites a value its preset states is part of the same decision. Measured before it on 0.32.0: a row stating viscous_coupling, wake_on_wake_induction or reynolds_averaged_drag in its cell was refused by the run type as a key of no run type. Evidence: tests/tier1_offline/test_solver_setup.py::test_a_key_the_preset_lacks_is_added_for_that_row_only_and_warned, ::test_an_equal_value_is_accepted_with_the_warning, ::test_a_differing_value_for_a_key_the_preset_states_is_refused, ::test_a_solver_alias_is_a_setup_key_and_follows_the_same_rule, ::test_an_unstated_row_resolves_its_preset_unchanged, ::test_an_unknown_key_is_still_refused, ::test_a_table_valued_key_is_refused_naming_what_a_row_can_carry, ::test_a_list_of_names_is_carried_comma_separated, ::test_one_setting_in_both_vocabularies_is_refused_as_ambiguous, ::test_an_invalid_value_is_refused_by_the_presets_own_loader, ::test_the_row_keys_reach_the_setup_snapshot_of_the_run_record.*",
    "verification": "test"
   },
   {
@@ -2324,7 +2324,7 @@
    "text": "Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: an author decision of 2026-09-30 asking for a key for the moments model, which every builder wrote as SET_ANALYSIS_MOMENTS_MODEL PRESSURE with no key; found missing by the audit of FR-319. Evidence: tests/tier1_offline/test_fr317_fr318_moments_model.py::test_an_unstated_moments_model_leaves_the_script_byte_identical, ::test_a_stated_moments_model_changes_that_line_and_no_other, ::test_a_moments_model_the_command_does_not_take_is_refused, ::test_a_stated_moments_model_is_emitted_where_no_frame_is_placed; the workflow goldens, unchanged.*",
+   "evidence": "*Origin: an author decision of 2026-09-30 asking for a key for the moments model, which every builder wrote as SET_ANALYSIS_MOMENTS_MODEL PRESSURE with no key; found missing by the audit of FR-319. Evidence: tests/tier1_offline/test_solver_setup.py::test_an_unstated_moments_model_leaves_the_script_byte_identical, ::test_a_stated_moments_model_changes_that_line_and_no_other, ::test_a_moments_model_the_command_does_not_take_is_refused, ::test_a_stated_moments_model_is_emitted_where_no_frame_is_placed; the workflow goldens, unchanged.*",
    "verification": "test"
   },
   {
@@ -2332,7 +2332,7 @@
    "text": "Read with PFS-2077, PFS-2077.12 at 0.35.0 (GOAL-040): the 0.35.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: an author requirement of 2026-09-30, set from a prior measurement made outside this package: on a propeller run with the induced drag by vorticity and the moments by pressure, the thrust came from the vorticity integration and the torque from the pressure integration. The requirement is that on a rotor the two settings are one decision; it asserts no solver behaviour of its own. Evidence: tests/tier1_offline/test_fr317_fr318_moments_model.py::test_on_a_rotor_vorticity_drag_implies_vorticity_moments_warned_and_recorded, ::test_on_a_rotor_pressure_moments_beside_vorticity_drag_are_refused, ::test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list, ::test_a_rotor_row_is_recognised_by_the_builder. The licensed confirmation of R5, registered in RPT-106, was measured after the 0.34.0 release on 2026-10-02, on 26.124 (build 8172026), far field 5: reports/RPT-133_vorticity-drag-list-and-the-step-exports-on-26124_2026-10-02.md, three arms of one rotor march (the list after START_SOLVER as emitted, the list moved before it, no list as the control); tests/tier1_offline/test_rpt133_fr318_vorticity_order.py reads the recorded exports of the three arms and pins the emitted order.*",
+   "evidence": "*Origin: an author requirement of 2026-09-30, set from a prior measurement made outside this package: on a propeller run with the induced drag by vorticity and the moments by pressure, the thrust came from the vorticity integration and the torque from the pressure integration. The requirement is that on a rotor the two settings are one decision; it asserts no solver behaviour of its own. Evidence: tests/tier1_offline/test_solver_setup.py::test_on_a_rotor_vorticity_drag_implies_vorticity_moments_warned_and_recorded, ::test_on_a_rotor_pressure_moments_beside_vorticity_drag_are_refused, ::test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list, ::test_a_rotor_row_is_recognised_by_the_builder. The licensed confirmation of R5, registered in RPT-106, was measured after the 0.34.0 release on 2026-10-02, on 26.124 (build 8172026), far field 5: reports/RPT-133_vorticity-drag-list-and-the-step-exports-on-26124_2026-10-02.md, three arms of one rotor march (the list after START_SOLVER as emitted, the list moved before it, no list as the control); tests/tier1_offline/test_rpt133_fr318_vorticity_order.py reads the recorded exports of the three arms and pins the emitted order.*",
    "verification": "test"
   },
   {
@@ -2340,7 +2340,7 @@
    "text": "Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: an author decision of 2026-09-30 that every setting of the solver's setup and advanced settings be reached by the workflow, and that a setting that cannot be is listed with its measured reason for a decision rather than deferred silently. Evidence: reports/RPT-106_setup-key-audit_2026-09-30.md; tests/tier1_offline/test_fr319_setup_key_audit.py::test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason, ::test_each_audit_defect_is_caught, ::test_no_emitter_hard_codes_a_choosable_value_of_the_five_chapters, ::test_every_argument_of_initialize_solver_has_a_row, ::test_the_wake_end_plane_row_states_its_measured_reason_and_the_release_owed, ::test_the_keys_given_now_are_routed_to_their_commands_on_26124, ::test_a_marching_row_registers_the_setups_actions_and_a_steady_row_refuses_them.*",
+   "evidence": "*Origin: an author decision of 2026-09-30 that every setting of the solver's setup and advanced settings be reached by the workflow, and that a setting that cannot be is listed with its measured reason for a decision rather than deferred silently. Evidence: reports/RPT-106_setup-key-audit_2026-09-30.md; tests/tier1_offline/test_setup_argument_inventory.py::test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason, ::test_each_audit_defect_is_caught, ::test_no_emitter_hard_codes_a_choosable_value_of_the_five_chapters, ::test_every_argument_of_initialize_solver_has_a_row, ::test_the_wake_end_plane_row_states_its_measured_reason_and_the_release_owed, ::test_the_keys_given_now_are_routed_to_their_commands_on_26124, ::test_a_marching_row_registers_the_setups_actions_and_a_steady_row_refuses_them.*",
    "verification": "test"
   },
   {
@@ -2348,7 +2348,7 @@
    "text": "Read with PFS-2074.13 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: a defect measured on 0.32.0 with a real plan, fixed under the 0.33.0 rule that a defect found may be fixed. One pproc declared a [[sections.distributions]] entry over the families Blade1 to Blade5; the matrix held sector rows whose mesh carries Blade1 alone and wheel rows carrying all five. Every row planned READY, the sector scripts cut one blade and the wheel scripts five, and the plan named no family, no blade and no skip. Evidence: tests/tier1_offline/test_fr320_skipped_families_warn.py::test_a_sector_row_lacking_four_blades_is_named_once_per_blade_fr_320, ::test_a_mistyped_family_warns_naming_the_word_and_the_row_fr_320, ::test_a_row_carrying_every_family_gives_no_warning_fr_320, ::test_the_plan_still_plans_ready_and_refuses_only_when_asked_fr_320, ::test_a_numbered_name_is_lacking_where_only_its_family_answers_fr_320, ::test_the_refusals_reading_is_unchanged_by_the_move_fr_320, ::test_a_force_plot_group_is_said_the_same_way_fr_320, ::test_a_local_axis_entry_names_the_blade_through_the_rotor_it_cites_fr_320, ::test_the_words_that_name_no_set_and_the_guessing_selectors_are_never_said_fr_320, ::test_a_plan_that_raises_warns_nothing_and_a_note_outside_a_plan_is_dropped_fr_320, ::test_a_nested_plan_keeps_its_own_collection_fr_320, ::test_two_families_both_reach_a_user_and_point_at_the_plans_caller_fr_320; the workflow goldens, unchanged.*",
+   "evidence": "*Origin: a defect measured on 0.32.0 with a real plan, fixed under the 0.33.0 rule that a defect found may be fixed. One pproc declared a [[sections.distributions]] entry over the families Blade1 to Blade5; the matrix held sector rows whose mesh carries Blade1 alone and wheel rows carrying all five. Every row planned READY, the sector scripts cut one blade and the wheel scripts five, and the plan named no family, no blade and no skip. Evidence: tests/tier1_offline/test_workflows.py::test_a_sector_row_lacking_four_blades_is_named_once_per_blade_fr_320, ::test_a_mistyped_family_warns_naming_the_word_and_the_row_fr_320, ::test_a_row_carrying_every_family_gives_no_warning_fr_320, ::test_the_plan_still_plans_ready_and_refuses_only_when_asked_fr_320, ::test_a_numbered_name_is_lacking_where_only_its_family_answers_fr_320, ::test_the_refusals_reading_is_unchanged_by_the_move_fr_320, ::test_a_force_plot_group_is_said_the_same_way_fr_320, ::test_a_local_axis_entry_names_the_blade_through_the_rotor_it_cites_fr_320, ::test_the_words_that_name_no_set_and_the_guessing_selectors_are_never_said_fr_320, ::test_a_plan_that_raises_warns_nothing_and_a_note_outside_a_plan_is_dropped_fr_320, ::test_a_nested_plan_keeps_its_own_collection_fr_320, ::test_two_families_both_reach_a_user_and_point_at_the_plans_caller_fr_320; the workflow goldens, unchanged.*",
    "verification": "test"
   },
   {
@@ -2356,7 +2356,7 @@
    "text": "Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (scope record GEO-071, section 4.7) and the author decisions of 2026-10-01 that set its default (L = 4R, a recommendation the user may change, kept for its computational cost). Marker P0340-WAKE-LENGTH; read at 0.34.0 (GOAL-039, arm MW). Built on 2026-10-01; the status stays pending until accepted. Evidence: tests/tier1_offline/test_p0340_wake_length.py (a stated 4.1 R converted and rounded up to 2500 steps by hand, a row stating steps as the control, the 4R default of a rotor row stating none with its three recorded values in the solver snapshot, and a rotor point run through the workflow whose run record carries them), the conversion wake_termination_of beside _wake_termination in pyflightstream.cases.workflows._freestream, the 27 unsteady_rotor workflow goldens and the 23 tier-3 goldens whose diff is the one termination line, admitted whole and alone against the v0.32.0 digests by tests/tier1_offline/test_fr314_counter_everywhere.py, the NAMED_DIFFERENCES entry of scripts/check_parity.py under this requirement (held by its release_has and base_lacks keys to a line ADDED to a script that turns a rotor in time and whose base wrote none, which the marker file tests on the goldens), and the migration paragraph of docs/upgrading.md. R is read as half the largest diameter of the rotors the row turns: the rotor block's diameter_m (a rotor block states no tip_radius_m), else the reference's rotor_diameter_m, as the rotor Mach numbers of the plan take it. RPT-130 (the licensed long-wake run, kit tests/tier3_licensed/wake_lq5.py) does not exist at the 0.34.0 tag: the run is made after the release, and RPT-130 is owed by a commit after the release, before this requirement leaves pending. Verification method: tier-1 tests carrying the marker, and the licensed confirmation of a long wake on 26.124 to be reported in RPT-130 after the release (tier 3, a run of the package's own workflow; the tier-1 tests check the conversion, the emitted line and the recorded values, never the solver). Evidence owed: tier-1 tests that convert a stated length into steps from V_ax, Omega and the step angle and assert the emitted SET_WAKE_TERMINATION_TIME_STEPS line, with a row stating steps as the control; a test that a rotor row stating no termination gets the 4R default and that the run record carries the three recorded values; the parity entry naming the scripts the default changes; and RPT-130, read before this requirement leaves pending, R3 being amended by a dated line where RPT-130 changes the default.*",
+   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (scope record GEO-071, section 4.7) and the author decisions of 2026-10-01 that set its default (L = 4R, a recommendation the user may change, kept for its computational cost). Marker P0340-WAKE-LENGTH; read at 0.34.0 (GOAL-039, arm MW). Built on 2026-10-01; the status stays pending until accepted. Evidence: tests/tier1_offline/test_p0340_wake_length.py (a stated 4.1 R converted and rounded up to 2500 steps by hand, a row stating steps as the control, the 4R default of a rotor row stating none with its three recorded values in the solver snapshot, and a rotor point run through the workflow whose run record carries them), the conversion wake_termination_of beside _wake_termination in pyflightstream.cases.workflows._freestream, the 27 unsteady_rotor workflow goldens and the 23 tier-3 goldens whose diff is the one termination line, admitted whole and alone against the v0.32.0 digests by tests/tier1_offline/test_workflows.py, the NAMED_DIFFERENCES entry of scripts/check_parity.py under this requirement (held by its release_has and base_lacks keys to a line ADDED to a script that turns a rotor in time and whose base wrote none, which the marker file tests on the goldens), and the migration paragraph of docs/upgrading.md. R is read as half the largest diameter of the rotors the row turns: the rotor block's diameter_m (a rotor block states no tip_radius_m), else the reference's rotor_diameter_m, as the rotor Mach numbers of the plan take it. RPT-130 (the licensed long-wake run, kit tests/tier3_licensed/wake_lq5.py) does not exist at the 0.34.0 tag: the run is made after the release, and RPT-130 is owed by a commit after the release, before this requirement leaves pending. Verification method: tier-1 tests carrying the marker, and the licensed confirmation of a long wake on 26.124 to be reported in RPT-130 after the release (tier 3, a run of the package's own workflow; the tier-1 tests check the conversion, the emitted line and the recorded values, never the solver). Evidence owed: tier-1 tests that convert a stated length into steps from V_ax, Omega and the step angle and assert the emitted SET_WAKE_TERMINATION_TIME_STEPS line, with a row stating steps as the control; a test that a rotor row stating no termination gets the 4R default and that the run record carries the three recorded values; the parity entry naming the scripts the default changes; and RPT-130, read before this requirement leaves pending, R3 being amended by a dated line where RPT-130 changes the default.*",
    "verification": "none"
   },
   {
@@ -3276,7 +3276,7 @@
    "text": "Plan: PFS-2139.007 (0.40.0). Marker: P0400-FFAMILY.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the far-field family restructure approved for 0.40.0 and the rule that everything is accessible and functional through the workspace. Verification: test, tests/tier1_offline/test_p0400_farfield_core.py, tests/tier1_offline/test_p0400_farfield_plane.py, tests/tier1_offline/test_p0400_farfield_products.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "evidence": "*Origin: the far-field family restructure approved for 0.40.0 and the rule that everything is accessible and functional through the workspace. Verification: test, tests/tier1_offline/test_regression_architecture_guards.py, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_products.py, tests/tier1_offline/test_regression_farfield_products.py.*",
    "verification": "test"
   },
   {
@@ -3284,7 +3284,7 @@
    "text": "Plan: PFS-2139.002 (0.40.0). Marker: P0400-TREFFTZA.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the Trefftz-plane request and the three-variant decision of 2026-10-12; the motivation that far-field drag is less sensitive to panel refinement than pressure drag is an unverified motivation here, not an empirical acceptance claim. The offline elliptic-loading tests establish mathematical discretization behavior only. Verification: test, tests/tier1_offline/test_p0400_farfield_trefftz.py, tests/tier1_offline/test_p0400_ffproof_plan.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "evidence": "*Origin: the Trefftz-plane request and the three-variant decision of 2026-10-12; the motivation that far-field drag is less sensitive to panel refinement than pressure drag is an unverified motivation here, not an empirical acceptance claim. The offline elliptic-loading tests establish mathematical discretization behavior only. Verification: test, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_products.py.*",
    "verification": "test"
   },
   {
@@ -3292,7 +3292,7 @@
    "text": "Plan: PFS-2139.003 (0.40.0). Marker: P0400-TREFFTZB.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the three-variant decision of 2026-10-12; the signed shed-circulation interpretation is the release decision resolving VV-001. Native fixture identities: tests/tier1_offline/fixtures/p0400_litB_wake_26124.vtk, p0400_litB_wake_26125.vtk and p0400_litB_wake_26125_fine.vtk.xz, whose captured-byte digests are pinned in test_house_style.py RECORDED_WAKE_FIXTURES (the compressed fixture is pinned over compressed bytes). These exports carry CELL_DATA Normalized_Vorticity; POINT_DATA holds redundant X, Y and Z coordinate scalars; shared node indices chain segments, preserving both mirror halves and signed strengths. Verification: test, tests/tier1_offline/test_p0400_farfield_wake.py, tests/tier1_offline/test_p0400_ffproof_post.py, tests/tier1_offline/test_p0400_litB_wake.py, tests/tier1_offline/test_p0400_litB_circulation.py.*",
+   "evidence": "*Origin: the three-variant decision of 2026-10-12; the signed shed-circulation interpretation is the release decision resolving VV-001. Native fixture identities: tests/tier1_offline/fixtures/p0400_litB_wake_26124.vtk, p0400_litB_wake_26125.vtk and p0400_litB_wake_26125_fine.vtk.xz, whose captured-byte digests are pinned in test_house_style.py RECORDED_WAKE_FIXTURES (the compressed fixture is pinned over compressed bytes). These exports carry CELL_DATA Normalized_Vorticity; POINT_DATA holds redundant X, Y and Z coordinate scalars; shared node indices chain segments, preserving both mirror halves and signed strengths. Verification: test, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_products.py, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_numerics.py.*",
    "verification": "test"
   },
   {
@@ -3300,7 +3300,7 @@
    "text": "Plan: PFS-2139.004 (0.40.0). Marker: P0400-TREFFTZC.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the three-variant decision of 2026-10-12 and the decision that variant C and FR-38 share one far-field home. Verification: test, tests/tier1_offline/test_p0400_farfield_ledgers.py, tests/tier1_offline/test_p0400_farfield_plan.py, tests/tier1_offline/test_p0400_farfield_plane.py, tests/tier1_offline/test_p0400_farfield_probes.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "evidence": "*Origin: the three-variant decision of 2026-10-12 and the decision that variant C and FR-38 share one far-field home. Verification: test, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_products.py.*",
    "verification": "test"
   },
   {
@@ -3308,7 +3308,7 @@
    "text": "Plan: PFS-2139.005 (0.40.0). Marker: P0400-FFTABLE.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the decision of 2026-10-12 that the three variants are selectable in the pproc artifact, the input-synergy rule of the same day, and the keys and defaults accepted then. Verification: test, tests/tier1_offline/test_p0400_farfield_plan.py, tests/tier1_offline/test_p0400_farfield_spec.py, tests/tier1_offline/test_p0400_ffproof_inputs.py.*",
+   "evidence": "*Origin: the decision of 2026-10-12 that the three variants are selectable in the pproc artifact, the input-synergy rule of the same day, and the keys and defaults accepted then. Verification: test, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_interfaces.py.*",
    "verification": "test"
   },
   {
@@ -3316,7 +3316,7 @@
    "text": "Plan: PFS-2139.005 (0.40.0). Marker: P0400-FFPLAN.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the input-synergy rule of 2026-10-12 (the far-field inputs reuse what the pproc artifact declares, a declared section distribution is reused and a missing one is added), the FSI rule of the same day, and the plan rule accepted then. Verification: test, tests/tier1_offline/test_p0400_farfield_ledgers.py, tests/tier1_offline/test_p0400_farfield_plan.py, tests/tier1_offline/test_p0400_ffproof_plan.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "evidence": "*Origin: the input-synergy rule of 2026-10-12 (the far-field inputs reuse what the pproc artifact declares, a declared section distribution is reused and a missing one is added), the FSI rule of the same day, and the plan rule accepted then. Verification: test, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_products.py.*",
    "verification": "test"
   },
   {
@@ -3324,7 +3324,7 @@
    "text": "Plan: PFS-2139.006 (0.40.0). Marker: P0400-FFOUT.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: PFS-2139.006 and the outputs accepted on 2026-10-12. Verification: test, tests/tier1_offline/test_p0400_farfield_products.py, tests/tier1_offline/test_p0400_farfield_trefftz.py, tests/tier1_offline/test_p0400_ffproof_post.py.*",
+   "evidence": "*Origin: PFS-2139.006 and the outputs accepted on 2026-10-12. Verification: test, tests/tier1_offline/test_regression_farfield_products.py, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_products.py.*",
    "verification": "test"
   },
   {
@@ -3332,7 +3332,7 @@
    "text": "Plan: PFS-2139.007, PFS-2023.03 (0.40.0). Marker: P0400-NUMPY.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the decision of 2026-10-12 to avoid xarray and use numpy wherever possible, the far field moving to numpy in the release of Trefftz C, and the direct break accepted the same day. Verification: test, tests/tier1_offline/test_p0400_farfield_numpy.py, tests/tier1_offline/test_p0400_ffproof_upgrading.py.*",
+   "evidence": "*Origin: the decision of 2026-10-12 to avoid xarray and use numpy wherever possible, the far field moving to numpy in the release of Trefftz C, and the direct break accepted the same day. Verification: test, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_interfaces.py.*",
    "verification": "test"
   },
   {
@@ -3340,7 +3340,7 @@
    "text": "Plan: PFS-2139.009 (0.40.0). Marker: P0400-ROTHALPY.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the decision of 2026-10-12 to remove both functions from the package and hand them to ITACA for evaluation, with no deprecation release: both apply to an Euler CFD field, where total enthalpy and entropy exist, and no FlightStream product can feed them. Verification: test, tests/tier1_offline/test_p0400_farfield_numpy.py, tests/tier1_offline/test_p0400_ffproof_upgrading.py; R2 by inspection: ITACA inbox item ROTHALPY_2026-10-12 (estate commit 4dbc73b).*",
+   "evidence": "*Origin: the decision of 2026-10-12 to remove both functions from the package and hand them to ITACA for evaluation, with no deprecation release: both apply to an Euler CFD field, where total enthalpy and entropy exist, and no FlightStream product can feed them. Verification: test, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_interfaces.py; R2 by inspection: ITACA inbox item ROTHALPY_2026-10-12 (estate commit 4dbc73b).*",
    "verification": "test"
   },
   {
@@ -3348,7 +3348,7 @@
    "text": "Plan: PFS-2140.001 (0.40.0). Marker: P0400-PROBEHOME.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the reachability audit of 2026-10-12 (probes as the single home of probe geometry, with a lattice) and the probes home accepted the same day. Verification: test, tests/tier1_offline/test_p0400_farfield_core.py, tests/tier1_offline/test_p0400_farfield_probes.py, tests/tier1_offline/test_p0400_farfield_spec.py, tests/tier1_offline/test_p0400_ffproof_plan.py.*",
+   "evidence": "*Origin: the reachability audit of 2026-10-12 (probes as the single home of probe geometry, with a lattice) and the probes home accepted the same day. Verification: test, tests/tier1_offline/test_regression_architecture_guards.py, tests/tier1_offline/test_regression_farfield_numerics.py, tests/tier1_offline/test_regression_farfield_interfaces.py, tests/tier1_offline/test_regression_farfield_interfaces.py.*",
    "verification": "test"
   },
   {
@@ -3356,7 +3356,7 @@
    "text": "Plan: PFS-2081.15 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (routes Q0-1, P3-Q1 to P3-Q3). Verification: test, tests/tier1_offline/test_p0400_gaps_rt_streamlines.py.*",
+   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (routes Q0-1, P3-Q1 to P3-Q3). Verification: test, tests/tier1_offline/test_regression_workflow_emission.py.*",
    "verification": "test"
   },
   {
@@ -3364,7 +3364,7 @@
    "text": "Plan: PFS-2081.16 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P4-Q2 to P4-Q4); reference case: a free-to-pitch model. Verification: test, tests/tier1_offline/test_p0400_gaps_rt_sixdof.py.*",
+   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P4-Q2 to P4-Q4); reference case: a free-to-pitch model. Verification: test, tests/tier1_offline/test_regression_workflow_emission.py.*",
    "verification": "test"
   },
   {
@@ -3372,7 +3372,7 @@
    "text": "Plan: PFS-2081.17 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P5-Q1 to P5-Q3). Verification: test, tests/tier1_offline/test_p0400_gaps_rt_fsiext.py.*",
+   "evidence": "*Origin: owner decisions of 2026-10-12 on the command gap (Q0-1, P5-Q1 to P5-Q3). Verification: test, tests/tier1_offline/test_regression_fsi_integration.py.*",
    "verification": "test"
   },
   {
@@ -3380,7 +3380,7 @@
    "text": "Plan: PFS-2081.41 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, questions G-Q2 to G-Q4, G-Q12 to G-Q14). Verification: test, tests/tier1_offline/test_p0400_geometry_instruction.py.*",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, questions G-Q2 to G-Q4, G-Q12 to G-Q14). Verification: test, tests/tier1_offline/test_regression_geometry_build_sweep.py.*",
    "verification": "test"
   },
   {
@@ -3388,7 +3388,7 @@
    "text": "Plan: PFS-2081.41 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q3 to G-Q8). Verification: test, tests/tier1_offline/test_p0400_geometry_build.py.*",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q3 to G-Q8). Verification: test, tests/tier1_offline/test_regression_geometry_build_sweep.py.*",
    "verification": "test"
   },
   {
@@ -3396,7 +3396,7 @@
    "text": "Plan: PFS-2081.41 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q9). Verification: test, tests/tier1_offline/test_p0400_geometry_sweep.py.*",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q9). Verification: test, tests/tier1_offline/test_regression_geometry_build_sweep.py.*",
    "verification": "test"
   },
   {
@@ -3404,7 +3404,7 @@
    "text": "Plan: PFS-2081.41 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q6, G-Q7, G-Q8, G-Q11). Verification: test, tests/tier1_offline/test_p0400_geometry_plan.py.*",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q6, G-Q7, G-Q8, G-Q11). Verification: test, tests/tier1_offline/test_regression_geometry_build_sweep.py.*",
    "verification": "test"
   },
   {
@@ -3412,7 +3412,7 @@
    "text": "Plan: PFS-2081.13 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope decisions of 2026-10-12 (P1-Q1, P1-Q2, and the geometry stage that receives them). Verification: test, tests/tier1_offline/test_p0400_geometry_operations.py.*",
+   "evidence": "*Origin: scope decisions of 2026-10-12 (P1-Q1, P1-Q2, and the geometry stage that receives them). Verification: test, tests/tier1_offline/test_regression_geometry_build_sweep.py.*",
    "verification": "test"
   },
   {
@@ -3420,7 +3420,7 @@
    "text": "Plan: PFS-2081.14 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope decisions of 2026-10-12 (P2-Q1 to P2-Q4, and G-Q12 of the geometry stage). Verification: test, tests/tier1_offline/test_p0400_geometry_cad.py.*",
+   "evidence": "*Origin: scope decisions of 2026-10-12 (P2-Q1 to P2-Q4, and G-Q12 of the geometry stage). Verification: test, tests/tier1_offline/test_regression_geometry_build_sweep.py.*",
    "verification": "test"
   },
   {
@@ -3428,7 +3428,7 @@
    "text": "Plan: PFS-2081.41 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q1, option A). Verification: test, tests/tier1_offline/test_p0400_geometry_migration.py.*",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q1, option A). Verification: test, tests/tier1_offline/test_regression_geometry_build_sweep.py.*",
    "verification": "test"
   },
   {
@@ -3436,7 +3436,7 @@
    "text": "Plan: PFS-2081.41 (0.40.0).",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q10). Verification: test, tests/tier1_offline/test_p0400_geometry_group.py.*",
+   "evidence": "*Origin: scope decision of 2026-10-12 (the geometry stage, G-Q10). Verification: test, tests/tier1_offline/test_regression_geometry_build_sweep.py.*",
    "verification": "test"
   },
   {
@@ -3838,6 +3838,30 @@
    "status": "implemented",
    "evidence": "",
    "verification": "review"
+  },
+  {
+   "id": "NFR-47",
+   "text": "Numeric input boundaries refuse NaN and positive or negative infinity with the established public refusal type and a diagnostic naming the offending field, before that value reaches execution or output generation; finite inputs retain their existing numerical tolerances.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-48",
+   "text": "A console command reports a failed operation through its documented nonzero exit outcome and a diagnostic naming the cause and available remedy, without an uncaught exception traceback; interruption must not be reported as success.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-49",
+   "text": "An operation validates its requested inputs and affected destinations before its first destructive write, replacement or deletion, so an invalid request leaves existing data unchanged and reports the refusal through the operation's established public interface.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "",
+   "verification": "none"
   }
  ]
 }

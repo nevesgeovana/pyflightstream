@@ -1202,6 +1202,9 @@ the base could not offer while it bundled several.
     diagnostic in the run outputs. Licensed acceptance verdicts for
     gates G1, G3 and G4 remain deferred; diagnostic output is not a verdict.
 
+    Code: `pyflightstream.farfield.balances:mass_closure`.
+    Falsifying test: `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldLedgers::test_p0400_ledgers_a_uniform_stream_closes_every_balance`.
+
     Amended for 0.40.0 (0.40.0, implemented), PFS-2139.008 for the workspace route and PFS-2139.010 (0.43.0) for the gates G1, G3 and G4; marker P0400-LEDGERS. The box stays deferred until the licensed gates of PFS-2139.010 return; the clauses R1 to R7 below are what 0.40.0 delivers. The rothalpy ledger leaves the package (FR-458). The equations are those of [The far-field family](../../definitions/the-far-field-family.md#the-balances).
 
     - R1 Route. A row whose `[farfield.ledgers]` selects balances gets the survey lattice at plan (FR-455) and post writes them to `farfield/<group>_ledgers.csv` (FR-456 R4).
