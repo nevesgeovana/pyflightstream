@@ -13,8 +13,8 @@ imported file holds.
 
 WHAT IS RESET IS MEASURED, NEVER GUESSED (FR-531). A saved simulation is a
 sequence of ``$<NAME>_START$`` ... ``$<NAME>_END$`` blocks after a two-line
-head (the solver's version, then its build). Measured on 2026-09-30 over the
-ten committed tier-3 geometries, which the tier-3 preparation made by
+head (the solver's version, then its build). The evidence covers the
+ten committed tier-3 geometries, which the tier-3 preparation makes by
 importing an STL, setting the length unit to metres, detecting the trailing
 edges and the wake termination nodes and saving, nothing else, on 26.120
 (build 7012026): the blocks below hold the SAME lines in all ten, whatever the

@@ -1,22 +1,22 @@
 """The console layout of a command's human output: titled blocks and wrapped lines.
 
 Below the package's domain layers, beside :mod:`pyflightstream._cli`, so
-every command prints the same shapes (0.31.0). A block is a short title line
+every command prints the same shapes. A block is a short title line
 saying what it is, then its lines indented under it; one blank line separates
 two blocks, and a block with nothing to say is not printed. A long line is
 wrapped at :data:`WIDTH` columns with its continuation lines indented under
 its text, never under its label, and every word is kept in order: only the
 spaces at a break change.
 
-Nothing here decides a stream. Each caller prints where it printed before:
+Nothing here decides a stream. Each caller chooses its stream:
 the human summary of ``plan`` on stdout, a warning on stderr.
 
-THE CONSOLE CONTRACT (0.32.0, FR-200 and FR-201). Every ``pyfs-matrix`` and
+THE CONSOLE CONTRACT (FR-200 and FR-201). Every ``pyfs-matrix`` and
 ``pyfs-workspace`` command opens with a titled block, the command's own name
 and what it is for (:func:`opening_lines`, :func:`opens_with_titled_block`),
 and a command's warnings are held and printed together at the end under
-``Warnings (<count>)`` (:func:`warnings_title`). The blocks the contract adds
-go to stderr, so standard output carries exactly what it carried before. The
+``Warnings (<count>)`` (:func:`warnings_title`). These console blocks
+go to stderr, keeping standard output available for command results. The
 progress of a long stage is one line of the shape :func:`progress_text` draws
 (FR-202). :mod:`pyflightstream._progress` holds the state that uses these
 shapes; this module holds only the shapes.
@@ -37,8 +37,8 @@ _Subparsers = argparse._SubParsersAction
 WIDTH = 90
 
 #: The console levels of a command (FR-997), least to most: ``quiet`` says the
-#: errors, the final summary line and the signature; ``normal`` is the console of
-#: 0.38.0; ``verbose`` is its ``--verbose``. The activity log is full at every level.
+#: errors, the final summary line and the signature; ``normal`` includes progress
+#: and summaries; ``verbose`` includes details. The activity log is full at every level.
 CONSOLE_LEVELS = ("quiet", "normal", "verbose")
 
 #: What a console warning starts with; its continuation lines align with the

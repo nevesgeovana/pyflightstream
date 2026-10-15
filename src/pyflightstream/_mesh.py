@@ -5,23 +5,18 @@ and importing nothing from this package. It exists for the same reason
 :mod:`pyflightstream._digest` does: two layers need one thing, and
 neither may import the other to get it. The probe planner's geometry
 gate (a side branch) and the workspace layer's trailing-edge extraction
-both read a surface mesh, and before this module there were two
-hand-rolled accessors in one file and a third about to be written in
-another.
+both read a surface mesh through this shared accessor.
 
 WHY THE IMPORT IS DEFERRED AND NOT AT MODULE LEVEL. ``trimesh`` is a
-RUNTIME dependency of this package since the promotion of 2026-08-19
-(design note DD-27), so its absence is a broken installation rather than
+RUNTIME dependency of this package (design note DD-27), so its absence is a
+broken installation rather than
 a missing extra. It is still imported at call time, and the reason is
 cost rather than availability: ``import pyflightstream`` reaches the
 workspace layer eagerly, and a reader that costs 3.89 MiB and pulls its
 own numpy machinery has no business being paid for by a user who only
 wanted to build a script.
 
-WHAT HAPPENS WHEN IT IS ABSENT, stated because the previous accessor
-raised a didactic refusal here and this one does not. Before the
-promotion trimesh arrived with the ``[geom]`` extra, so its absence was
-an ordinary and recoverable state with a remedy to print. It is now a
+WHAT HAPPENS WHEN IT IS ABSENT. Trimesh is a
 declared runtime dependency exactly as numpy, pandas and pydantic
 are, and none of those is guarded anywhere in this package: an
 environment missing one is an incomplete install, and the interpreter's

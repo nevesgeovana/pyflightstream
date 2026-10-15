@@ -4,12 +4,12 @@ Decorating a console ``main`` preserves its return value and exceptions.
 Only the outermost entry point reports, including argparse's early exits.
 Machine-readable stdout is never used for human outcome reporting.
 
-Every invocation ends with the package's signature on stderr (0.30.0): a box
+Every invocation ends with the package's signature on stderr: a box
 drawn from :mod:`pyflightstream._signature` for an outcome, or one short line
 for ``--help`` and ``--version`` so their output stays compact. For the length
 of the call, a warning of the package's own categories prints as
 ``[warning] <message>`` with no file, line or echoed source, wrapped at 90
-columns under its text and followed by a blank line (0.31.0); ``--verbose``
+columns under its text and followed by a blank line; ``--verbose``
 keeps Python's full format. A Python caller outside a console script is never
 touched.
 
