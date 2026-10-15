@@ -46,6 +46,7 @@
       "tests/tier1_offline/test_fsi_wing.py",
       "tests/tier1_offline/test_goal036_fsi_shared_step.py",
       "tests/tier1_offline/test_p0370_s6_node_integrity.py",
+      "tests/tier1_offline/test_p0410_fx3_fsi_logs.py",
       "tests/tier1_offline/test_p0410_ph_b1_frame_probes.py",
       "tests/tier1_offline/test_p0410_ph_b1_fsi_plan.py"
     ],
@@ -590,6 +591,8 @@
       "tests/tier1_offline/test_p0410_ci_triggers.py",
       "tests/tier1_offline/test_p0410_cl_fin_versions.py",
       "tests/tier1_offline/test_p0410_cl_fin_workflow_goldens.py",
+      "tests/tier1_offline/test_p0410_fx3_contributing.py",
+      "tests/tier1_offline/test_p0410_fx3_manual_help.py",
       "tests/tier1_offline/test_p0410_int1_migration_remedies.py",
       "tests/tier1_offline/test_p0410_pb2_contracts.py",
       "tests/tier1_offline/test_p0410_pb2_fft.py",

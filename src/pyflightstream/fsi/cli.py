@@ -19,8 +19,8 @@ dispatched on the run folder's content:
   interface file FlightStream produces; this is how the dry-run
   fixtures were collected.
 
-Nothing printed to stdout is visible from inside the solver, so both
-modes log to files and any coupled-mode failure lands with its
+Both modes log to files so their evidence does not depend on whether
+the solver displays stdout. Any coupled-mode failure lands with its
 traceback in ``pyfs_fsi_error.log`` instead of a silent nonzero exit,
 a missing ``[fsi]`` extra included. A failure of the explicit
 ``pyfs-fsi step``, which a person runs, also prints its one-line cause
@@ -118,8 +118,8 @@ def coupled_step(
     node files for offline replay, and logs the outcome. Any failure,
     a missing ``[fsi]`` extra included, writes its traceback to the
     error log, archives the files under ``failed_<stamp>`` and returns a
-    nonzero exit code, which aborts the FlightStream coupling instead of
-    silently continuing rigid.
+    nonzero exit code. The solver's response to that code has not been
+    measured; this function does not guarantee that coupling stops.
 
     Parameters
     ----------
@@ -198,11 +198,11 @@ def dummy_step(
     config_path = cwd / DUMMY_CONFIG
     if not config_path.is_file():
         listing = "\n".join(sorted(p.name for p in cwd.iterdir()))
-        _textio.write_text(
-            cwd / ERROR_LOG,
-            f"{stamp} pyfs-fsi called without {DUMMY_CONFIG} in {cwd} ({argv_note})\n"
-            f"directory listing:\n{listing}\n",
-        )
+        with _textio.open_text(cwd / ERROR_LOG, "a") as log:
+            log.write(
+                f"{stamp} pyfs-fsi called without {DUMMY_CONFIG} in {cwd} ({argv_note})\n"
+                f"directory listing:\n{listing}\n"
+            )
         if echo_failure:
             _echo_failure(cwd, f"no {COUPLED_CONFIG} and no {DUMMY_CONFIG} in {cwd}")
         return 1

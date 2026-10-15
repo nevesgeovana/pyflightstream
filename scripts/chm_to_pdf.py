@@ -231,7 +231,8 @@ def main() -> int:
         different codes deliberately: a caller that cannot tell a usage
         mistake from a missing dependency cannot act on either.
     """
-    if len(sys.argv) < 3:
+    help_requested = any(arg in {"-h", "--help"} for arg in sys.argv[1:])
+    if help_requested or len(sys.argv) < 3:
         # To stderr, and short. Printing the whole module docstring at
         # someone who forgot an argument buries the one line they need
         # under four paragraphs about page geometry, and printing a
@@ -250,9 +251,9 @@ def main() -> int:
             f"    the [manual] extra is needed too: {remedy}\n"
             "Why the conversion is done this way: read the docstring at the top of "
             "this file.",
-            file=sys.stderr,
+            file=sys.stdout if help_requested else sys.stderr,
         )
-        return 2
+        return 0 if help_requested else 2
 
     chrome_path = sys.argv[3] if len(sys.argv) > 3 else os.environ.get("PYFS_CHROME")
     if not chrome_path:
