@@ -179,29 +179,6 @@
    ]
   },
   {
-   "id": "RX-19",
-   "capability": "Renaming the products of a renamed group",
-   "reason": "routed later",
-   "node": "PFS-2140.005",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.workspace.RenamedProduct",
-    "pyflightstream.workspace.rename_group_products",
-    "pyflightstream.workspace.unmapped_group_numbers"
-   ]
-  },
-  {
-   "id": "RX-20",
-   "capability": "Migrating an input library written before the id rule",
-   "reason": "routed later",
-   "node": "PFS-2140.005",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.workspace.IdMigration",
-    "pyflightstream.workspace.migrate_input_ids"
-   ]
-  },
-  {
    "id": "RX-21",
    "capability": "Support level of a FlightStream build",
    "reason": "routed later",

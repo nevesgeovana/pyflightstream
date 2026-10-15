@@ -52,10 +52,11 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # 280: the plan writes the added far-field csv with probes.write_points_csv (RX-04 shrinks).
 # 278: the plan places and rounds lattices through emit_probe_points and write_probe_csv.
 # 277: field_formats "tecplot-points" writes through post.write_tecplot_points (RX-04 deleted).
-_REACH_GUARD___REGISTER_CEILING = 278
+# 273: N3 removes five retired RX-19/RX-20 migration names; no new exception.
+_REACH_GUARD___REGISTER_CEILING = 273
 
 
-_REACH_GUARD___REGISTER_DIGEST = "41f92f411f5afe2e9fffaa4c7e12859d014f8beb24aea2286a2f2fde2a24a8b4"
+_REACH_GUARD___REGISTER_DIGEST = "e28c98289c80e63a1604d5e5df72f863769e569ca8dc91b2553bafb1023eb613"
 
 
 _REACH_GUARD__REASONS = (
