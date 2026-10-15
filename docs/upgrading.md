@@ -9,6 +9,21 @@ describe the older releases that supplied them.
 
 ## 0.41.0
 
+### Workspace input guide
+
+The generated input glossary lives at `inputs/INPUTS.md`. Initialization,
+planning and post-processing refresh only the block between
+`<!-- pyflightstream:input-glossary:begin -->` and
+`<!-- pyflightstream:input-glossary:end -->`, preserving notes outside it.
+An existing page without markers keeps its content and gains the generated
+block. Ambiguous or reversed markers are refused without overwriting the page.
+
+Use this root-level guide for current input formats. An existing
+`inputs/pproc/INPUTS.md` remains untouched as legacy content and is no longer
+updated. Move any personal notes you want beside the current glossary outside
+its marked block. The pproc-specific `VARIABLES.md` and `WRITING-EQUATIONS.md`
+guides remain under `inputs/pproc/`.
+
 ### Run records
 
 The run manifest is now an object with `schema_version: 4`, shared immutable

@@ -3,3 +3,4 @@
 - PFS-2112.017: LoadsAssessor documentation describes the current residual and iteration-limit verdicts without a stale terminal-status count.
 - PFS-2112.028: Default-output documentation now explains unsteady normal probes and the solver residual and load plots correctly.
 - OWNER-CONTRIBUTING: Generated house conventions retain current rules and evidence, with historical change narratives left to Git and migration guidance.
+- PFS-2116.044: Current upgrading guidance and FR-123 name `inputs/INPUTS.md`, its generated-block refresh and preservation of the legacy pproc copy.
