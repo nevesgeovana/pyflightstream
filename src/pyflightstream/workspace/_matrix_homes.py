@@ -67,7 +67,6 @@ MATRIX_SUFFIX = ".fs"
 #: the parsers (FR-310 R1: a command added later that takes a matrix joins it).
 MATRIX_ARGUMENTS: frozenset[tuple[str, str]] = frozenset(
     {
-        ("upgrade", "matrix"),
         ("convert", "matrix"),
         ("plan", "matrix"),
         ("inspect-setups", "matrix"),

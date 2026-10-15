@@ -29,6 +29,7 @@ from pyflightstream.workspace.ledger import (
     status_rows,
     trace_product,
 )
+from pyflightstream.workspace.record_document import encode_rows
 
 RUN = "sample/sim_2006/A0"
 NEXT = "sample/sim_2006/r20261002-120000/A0"
@@ -37,6 +38,14 @@ STAMP = "20261001-120000"
 
 def _write(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(value, dict) and "run_id" in value:
+        value = encode_rows([value])
+    elif (
+        isinstance(value, list)
+        and path.name != "additional.json"
+        and all(isinstance(row, dict) and "run_id" in row for row in value)
+    ):
+        value = encode_rows(value)
     path.write_text(json.dumps(value), encoding="utf-8")
 
 
@@ -364,7 +373,7 @@ def test_archives_in_a_compacted_sim_are_read_without_expansion(workspace, capsy
     with zipfile.ZipFile(workspace / "sims/sim_2007.zip", "w") as archive:
         archive.writestr(
             f"sim_2007/datapoints/DP-A0/archive/{STAMP}/record.json",
-            json.dumps(_record("sample/sim_2007/A0", sim_id="2007")),
+            json.dumps(encode_rows([_record("sample/sim_2007/A0", sim_id="2007")])),
         )
     before = _tree(workspace)
     code, out, _ = _call(workspace, capsys, "history", "2007", "--json")
@@ -377,15 +386,17 @@ def test_archives_in_a_compacted_sim_are_read_without_expansion(workspace, capsy
 
 def test_missing_ambiguous_and_unreadable_records_are_named(workspace, capsys):
     """FR-390 FR-391 FR-383: an absent selector and bad row never look like clean history."""
-    _write(workspace / "archive/runs-20260930-120000.json", [17, _record()])
+    document = encode_rows([_record()])
+    document["runs"].insert(0, 17)
+    _write(workspace / "archive/runs-20260930-120000.json", document)
     code, out, err = _call(workspace, capsys, "history", "2006", "--json")
-    assert code == 0 and "row 1" in err and "cannot be read" in err
+    assert code == 0 and "schema_version=4" in err and "cannot be read" in err
     assert any("error" in row for row in json.loads(out)["rows"])
     code, _, err = _call(workspace, capsys, "history", "absent", "--json")
     assert code == 1 and "target (CLI: history)" in err
     code, _, err = _call(workspace, capsys, "diff", RUN + "@absent", NEXT)
     assert code == 2 and "run (CLI: diff)" in err
-    _write(workspace / "archive" / f"runs-{STAMP}.json", [_record(), _record(status="FAILED_EXEC")])
+    _write(workspace / "archive" / f"runs-{STAMP}.json", [_record(status="FAILED_EXECUTION")])
     code, _, err = _call(workspace, capsys, "diff", f"{RUN}@{STAMP}", NEXT)
     assert code == 2 and "several archived copies" in err
 

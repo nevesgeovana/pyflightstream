@@ -34,6 +34,7 @@ from pyflightstream.post.products import (
     write_sections_table,
 )
 from pyflightstream.results import parse_loads
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline._workflow_docs import DEFINITION_DOCS, workflow_docs_text
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -2265,13 +2266,12 @@ def _restate_records(workspace, digests_by_run):
     needs a record that STATES its digests, which is what the run stage
     writes and what this fixture's shorthand left out.
     """
-    import json
 
-    entries = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    entries = _read_record_rows(workspace.manifest_path)
     for entry in entries:
         if entry["run_id"] in digests_by_run:
             entry["outputs_sha256"] = digests_by_run[entry["run_id"]]
-    workspace.manifest_path.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+    workspace._replace_manifest(entries)
 
 
 def test_goal019_bandd_two_rotor_names_one_file_name_refuses_before_any_write(tmp_path):

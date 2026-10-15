@@ -36,6 +36,7 @@ from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_b01_frozen_solve import _products_manifest
 from tests.tier1_offline.test_integrated_sectional_loads import EXTRA, _case
 from tests.tier1_offline.test_matrix_run import (
@@ -59,7 +60,7 @@ PPROC_WITH_SECTIONS = (
 
 
 def _raw_rows(workspace: CampaignWorkspace) -> list[dict]:
-    payload = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    payload = _read_record_rows(workspace.manifest_path)
     return payload["runs"] if isinstance(payload, dict) else payload
 
 

@@ -597,17 +597,10 @@ class RunRecord(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _take_the_earlier_name_of_the_matrix_stem(cls, data: object) -> object:
-        """Read a record written under the field's one-day name, ``matrix``.
-
-        The field was ``matrix`` for one day of the 0.13.0 development line
-        and no release carried it; a manifest written that day still reads
-        (review round two of 2026-09-08 found the alternative was a bare
-        pydantic traceback out of ``pyfs-matrix post``).
-        """
-        if isinstance(data, dict) and "matrix" in data and "matrix_stem" not in data:
-            data = {**data, "matrix_stem": data["matrix"]}
-            del data["matrix"]
+    def _refuse_old_matrix_key(cls, data: object) -> object:
+        """Name the current key and the explicit migration for an older record."""
+        if isinstance(data, dict) and "matrix" in data:
+            raise ValueError("matrix was replaced by matrix_stem; run `pyfs-workspace migrate`")
         return data
 
     #: The resolved flow state, and WHICH BRANCH produced the density.
@@ -790,20 +783,12 @@ class RunRecord(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _take_the_earlier_name_of_the_waived_commands(cls, data: object) -> object:
-        """Read an older manifest's ``broken_commands`` as ``waived_commands`` silently.
-
-        This reader stays for as long as such manifests exist. Since 0.26.0 it
-        is plain compatibility, no longer a promise counting down to removal.
-        A recorded manifest is never rewritten. Both keys together remain
-        invalid through ``extra="forbid"``: two lists for one fact are ambiguous.
-
-        The dated manifest census lives in the 0.26.0 CHANGELOG entry for
-        ``broken_commands``; that entry is the evidence home for this reader.
-        """
-        if isinstance(data, dict) and "broken_commands" in data and "waived_commands" not in data:
-            data = {**data, "waived_commands": data["broken_commands"]}
-            del data["broken_commands"]
+    def _refuse_old_waived_commands_key(cls, data: object) -> object:
+        """Refuse the earlier key; only explicit migration translates it."""
+        if isinstance(data, dict) and "broken_commands" in data:
+            raise ValueError(
+                "broken_commands was replaced by waived_commands; run `pyfs-workspace migrate`"
+            )
         return data
 
     @model_serializer(mode="wrap")

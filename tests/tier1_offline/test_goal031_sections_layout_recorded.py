@@ -35,6 +35,7 @@ from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.post.products import write_campaign_products
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_f07_section_distributions import _exports
 from tests.tier1_offline.test_goal021_inputs_absolute import _workspace as _rotor_workspace
 from tests.tier1_offline.test_goal021_swept_row import _restart_row, _stopped, _submitting
@@ -162,11 +163,11 @@ def _splits_refused(manifest: dict) -> dict[str, str]:
 
 def _rewrite_row(workspace: CampaignWorkspace, **fields: object) -> None:
     """Set fields of the one manifest row, as a record written by an older run reads."""
-    payload = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    payload = _read_record_rows(workspace.manifest_path)
     rows = payload["runs"] if isinstance(payload, dict) else payload
     (row,) = rows
     row.update(fields)
-    workspace.manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    workspace._replace_manifest(payload)
 
 
 @pytest.mark.parametrize(

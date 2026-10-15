@@ -672,7 +672,6 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
         "post",
         "rebuild",
         "refine",
-        "rename",
         "restore",
         "run",
         "space-in-use",
@@ -681,7 +680,6 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
         "log",
         "trace",
         "sync",
-        "upgrade",
     }
     assert choices["inspect-setups"] is choices["plan"], (
         "inspect-setups is registered as plan's alias; a separate parser could "
@@ -690,102 +688,6 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     for name in ("convert", "plan", "inspect-setups"):
         flags = {option for action in choices[name]._actions for option in action.option_strings}
         assert "--recipe" in flags, f"{name} lost its --recipe option"
-
-
-def test_upgrade_converts_an_older_matrix_from_the_command_line(tmp_path):
-    """The migration path a matrix user can actually take.
-
-    An independent review found the only route from a refused matrix to
-    a readable one was a Python call, addressed to the one user who does
-    not write Python. This is the same converter behind a subcommand.
-    """
-    import shutil
-
-    from pyflightstream.cases.matrix import _COLUMNS, MatrixError, read_matrix
-    from pyflightstream.run import cli
-
-    source = Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs"
-    target = tmp_path / "old.fs"
-    shutil.copyfile(source, target)
-
-    # It is refused before the upgrade, naming the command that fixes it.
-    with pytest.raises(MatrixError) as caught:
-        read_matrix(target)
-    assert "pyfs-matrix upgrade" in str(caught.value)
-
-    assert cli.main(["upgrade", str(target), "--in-place"]) == 0
-
-    rows = read_matrix(target, active_only=False)
-    assert rows, "the upgraded matrix reads back empty"
-    assert rows[0].flight_condition == {"MACH": 0.1441, "REmi": 4.38}
-    header = target.read_text(encoding="utf-8").splitlines()[0]
-    assert [cell.strip() for cell in header.split("|")] == list(_COLUMNS)
-
-
-def test_upgrade_writes_to_standard_output_and_touches_nothing(capsysbinary, tmp_path):
-    """The DEFAULT, which the CHANGELOG sells and no test executed.
-
-    A QA pass measured that replacing the stdout branch with a raise left
-    77 tests passing: both CLI tests passed --in-place. The default is
-    the safe one a cautious user reaches for first, it is the one the
-    release notes offer so a diff is possible before overwriting, and
-    `sys.stdout.buffer` on a Windows console is exactly where newline
-    translation goes wrong.
-    """
-    import shutil
-
-    from pyflightstream.run import cli
-
-    source = Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs"
-    target = tmp_path / "old.fs"
-    shutil.copyfile(source, target)
-    before = target.read_bytes()
-
-    assert cli.main(["upgrade", str(target)]) == 0
-    written = capsysbinary.readouterr().out
-
-    assert target.read_bytes() == before, "the default overwrote the source file"
-    assert b"FLIGHT_CONDITION" in written, "standard output carried no upgraded matrix"
-    assert b"| RE " not in written and b"| MACH " not in written
-    # Byte for byte what --in-place would have written, so the two routes
-    # cannot drift.
-    from pyflightstream.cases.matrix import upgrade_matrix
-
-    assert written == upgrade_matrix(target)
-
-
-def test_upgrade_warns_that_the_results_move_on_both_routes(capsysbinary, tmp_path):
-    """The one point at which a user commits to the change.
-
-    A release review found this subcommand was the only surface in the
-    release carrying no warning: the results-will-move paragraph was in
-    the changelog, on the docs page and in the guide, and in front of
-    nobody who runs the command. The subcommand exists BECAUSE the
-    previous migration path was a Python call a matrix user does not
-    write, so it cannot assume that user read any of the three.
-
-    Asserted on both routes, and asserted to be on STDERR, because the
-    stdout route exists to hand back bytes the user can diff and a
-    warning in them would defeat it.
-    """
-    source = Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs"
-
-    in_place = tmp_path / "in_place.fs"
-    in_place.write_bytes(source.read_bytes())
-    assert main(["upgrade", str(in_place)]) == 0
-    captured = capsysbinary.readouterr()
-    assert b"RESULTS are not preserved" in captured.err
-    assert b"REmi is a CONSTRAINT" in captured.err
-    assert b"docs/flight-conditions.md" in captured.err
-
-    to_stdout = tmp_path / "to_stdout.fs"
-    to_stdout.write_bytes(source.read_bytes())
-    assert main(["upgrade", str(to_stdout)]) == 0
-    captured = capsysbinary.readouterr()
-    assert b"RESULTS are not preserved" in captured.err
-    # And the diffable bytes are clean: the warning is not in them.
-    assert b"RESULTS are not preserved" not in captured.out
-    assert captured.out.splitlines()[0].startswith(b"POL")
 
 
 # --- FR-97, GOAL-019 item 6: plan is mandatory and pinned ---------------------

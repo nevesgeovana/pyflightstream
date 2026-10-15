@@ -189,6 +189,11 @@ def test_a_0331_cli_action_exists_unchanged(program, key):
     # P0340-KILL-P1..P5: a changed default, a dropped choice or a dropped
     # option fails; an action the release adds is not in the golden and passes.
     current = _current()[program]
+    # PFS-2141.031 / N3: only the explicit 0.38.0 workspace migration remains.
+    retired = {"pyfs-matrix": {"rename", "upgrade"}, "pyfs-workspace": {"migrate-geometries"}}
+    if key.split("|", 1)[0] in retired.get(program, set()):
+        assert key not in current
+        return
     moved_to, moved_fields = _MOVED.get((program, key), (key, {}))
     assert moved_to in current, f"{program}: the 0.33.1 action {key!r} is gone"
     want = dict(_GOLDEN_0331[program][key])

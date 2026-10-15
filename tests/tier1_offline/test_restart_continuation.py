@@ -552,11 +552,10 @@ def _fr96_converged_continuation___verdict(request, record):
 
 def _fr96_converged_continuation___as_recorded_before_0_33(workspace):
     """Remove the stated request from every record, as a 0.32 manifest has none."""
-    manifest = workspace.root / "runs.json"
-    data = json.loads(manifest.read_text(encoding="utf-8"))
-    for entry in data["runs"] if isinstance(data, dict) else data:
+    data = workspace.read_raw_manifest()
+    for entry in data:
         entry.pop("restart", None)
-    manifest.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    workspace._replace_manifest(data)
     assert all(record.restart is None for record in workspace.read_manifest())
 
 

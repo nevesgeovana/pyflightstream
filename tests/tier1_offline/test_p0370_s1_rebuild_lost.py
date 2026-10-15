@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_p0370_s1_matrix_home import (
     BATCH,
     MATRIX,
@@ -37,7 +38,7 @@ RUN_IDS = (
 
 
 def _records(root: Path) -> dict[str, dict]:
-    return {row["run_id"]: row for row in json.loads((root / "runs.json").read_text("utf-8"))}
+    return {row["run_id"]: row for row in _read_record_rows(root / "runs.json")}
 
 
 def _posted(root: Path, capsys) -> tuple[dict, str]:

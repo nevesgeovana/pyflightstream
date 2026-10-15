@@ -179,6 +179,7 @@ from pyflightstream.script._surface_averaging import (
 )
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace import manifest as _manifest
+from pyflightstream.workspace import record_document
 from pyflightstream.workspace._degenerate import ThinBlade, derive_thin_blade, thin_blade_path
 from pyflightstream.workspace._layout import _EXECUTABLES_TEMPLATE, _GEOMETRIES_README
 from pyflightstream.workspace._layout import MATRIX_FOLDERS as MATRIX_FOLDERS
@@ -214,8 +215,6 @@ from pyflightstream.workspace.inputs import EXECUTABLES_FILE as EXECUTABLES_FILE
 from pyflightstream.workspace.inputs import GEOMETRIES_README as GEOMETRIES_README
 from pyflightstream.workspace.inputs import INPUT_KINDS as INPUT_KINDS
 from pyflightstream.workspace.inputs import KIND_LETTERS as KIND_LETTERS
-from pyflightstream.workspace.inputs import GeometryMigration as GeometryMigration
-from pyflightstream.workspace.inputs import IdMigration as IdMigration
 from pyflightstream.workspace.inputs import InputArtifactError as InputArtifactError
 from pyflightstream.workspace.inputs import PointXyz as PointXyz
 from pyflightstream.workspace.inputs import PprocArtifact as PprocArtifact
@@ -223,9 +222,6 @@ from pyflightstream.workspace.inputs import ReferenceArtifact as ReferenceArtifa
 from pyflightstream.workspace.inputs import RegisteredBuild as RegisteredBuild
 from pyflightstream.workspace.inputs import RotorReference as RotorReference
 from pyflightstream.workspace.inputs import SetupArtifact as SetupArtifact
-from pyflightstream.workspace.inputs import migrate_geometry_layout as migrate_geometry_layout
-from pyflightstream.workspace.inputs import migrate_groups_to_pproc as migrate_groups_to_pproc
-from pyflightstream.workspace.inputs import migrate_input_ids as migrate_input_ids
 from pyflightstream.workspace.inputs import resolve_build as resolve_build
 from pyflightstream.workspace.inputs import (
     resolve_executable,
@@ -235,7 +231,6 @@ from pyflightstream.workspace.inputs import (
     resolve_setup,
 )
 from pyflightstream.workspace.inputs import resolve_pproc as resolve_pproc
-from pyflightstream.workspace.inputs import strip_rotor_facts as strip_rotor_facts
 from pyflightstream.workspace.manifest import ADDITIONAL_MANIFEST as ADDITIONAL_MANIFEST
 from pyflightstream.workspace.manifest import (
     ADDITIONAL_MANIFEST_SCHEMA as ADDITIONAL_MANIFEST_SCHEMA,
@@ -270,9 +265,6 @@ from pyflightstream.workspace.naming import PointName as PointName
 from pyflightstream.workspace.naming import archive_previous
 from pyflightstream.workspace.naming import datapoint_dir_name as datapoint_dir_name
 from pyflightstream.workspace.naming import datapoint_name_of as datapoint_name_of
-from pyflightstream.workspace.rename_groups import RenamedProduct as RenamedProduct
-from pyflightstream.workspace.rename_groups import rename_group_products as rename_group_products
-from pyflightstream.workspace.rename_groups import unmapped_group_numbers as unmapped_group_numbers
 from pyflightstream.workspace.sixdof_setup import SixDofSetupError  # noqa: F401
 from pyflightstream.workspace.trailing_edges import TrailingEdge as TrailingEdge
 from pyflightstream.workspace.trailing_edges import extract_trailing_edge as extract_trailing_edge
@@ -306,9 +298,6 @@ __all__ = [
     "AdditionalRecord",
     "ARCHIVE_DIR",
     "ARCHIVE_STAMP",
-    "RenamedProduct",
-    "rename_group_products",
-    "unmapped_group_numbers",
     "GEOMETRIES_README",
     "EXECUTABLES_FILE",
     "INPUT_KINDS",
@@ -323,8 +312,6 @@ __all__ = [
     "BrokenCommandRecord",
     "CampaignWorkspace",
     "PprocArtifact",
-    "GeometryMigration",
-    "IdMigration",
     "InputArtifactError",
     "MissingOutputsError",
     "NamingTemplate",
@@ -348,10 +335,6 @@ __all__ = [
     "collection_name",
     "expand_group",
     "extract_trailing_edge",
-    "migrate_geometry_layout",
-    "migrate_groups_to_pproc",
-    "strip_rotor_facts",
-    "migrate_input_ids",
     "resolve_build",
     "post_diagnostics",
     "post_stages",
@@ -1810,10 +1793,7 @@ class CampaignWorkspace:
             One dict per row, in file order; empty when the manifest
             does not exist yet.
         """
-        if not self.manifest_path.is_file():
-            return []
-        entries = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        return list(entries)
+        return record_document.read_rows(self.manifest_path)
 
     def read_manifest(self) -> list[RunRecord]:
         """Read and validate every record of ``runs.json``.
@@ -2104,7 +2084,7 @@ class CampaignWorkspace:
         already keeps two writers of one process apart.
         """
         self.root.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(raw, indent=2)
+        payload = json.dumps(record_document.encode_rows(raw), indent=2)
         temporary = self.manifest_path.with_suffix(f".json.{os.getpid()}.tmp")
         _textio.write_text(temporary, payload + "\n")
         temporary.replace(self.manifest_path)

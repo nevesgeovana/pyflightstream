@@ -327,7 +327,7 @@ def test_a_point_still_plans_ready_when_the_run_asked_for_the_refusal(tmp_path):
         write_plan=False,
         ignore_missing_families=False,
     )
-    assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points)
+    assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points), plan
     assert plan.points, "the fixture planned no point at all, so this asserted nothing"
 
 

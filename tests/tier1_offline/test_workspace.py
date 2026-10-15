@@ -28,6 +28,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace.cli import main as workspace_cli
 from pyflightstream.workspace.inputs import resolve_build
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline._workflow_docs import workflow_docs_text
 
 
@@ -217,7 +218,7 @@ def test_manifest_round_trip_and_unique_run_id(tmp_path):
 def test_manifest_is_valid_json_on_disk(tmp_path):
     workspace = CampaignWorkspace(tmp_path)
     workspace.append_record(make_record(status=RunStatus.FAILED_DIVERGED, error="diverged"))
-    payload = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    payload = _read_record_rows(workspace.manifest_path)
     assert payload[0]["status"] == "FAILED_DIVERGED"
     assert payload[0]["error"] == "diverged"
 
@@ -1174,7 +1175,7 @@ def test_a_manifest_row_written_before_the_annotation_still_reads_back(tmp_path)
     sparse = {"source_version": "26.000"}
     row = json.loads(make_record(waived_commands=[waived]).model_dump_json())
     row["waived_commands"] = [waived, sparse]
-    workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
+    workspace._replace_manifest([row])
 
     (record,) = workspace.read_manifest()
     assert record.waived_commands[0] == waived, (
@@ -1561,7 +1562,7 @@ def _manifest_with_waiver(tmp_path, waiver, *, stamp):
     workspace.root.mkdir(parents=True)
     row = json.loads(make_record(manifest_schema=stamp).model_dump_json())
     row["waived_commands"] = [waiver]
-    workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
+    workspace._replace_manifest([row])
     return workspace
 
 
@@ -1690,7 +1691,7 @@ def test_a_manifest_with_no_waiver_at_all_still_reads_under_the_old_stamp(tmp_pa
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.root.mkdir(parents=True)
     row = json.loads(make_record(manifest_schema="pyfs-manifest/1").model_dump_json())
-    workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
+    workspace._replace_manifest([row])
     (record,) = workspace.read_manifest()
     assert record.manifest_schema == "pyfs-manifest/1"
     assert record.waived_commands == []
@@ -1876,169 +1877,6 @@ def _pre_letter_workspace(tmp_path):
     header = " | ".join(_COLUMNS)
     matrix.write_text("\n".join([header, PFS200903_MATRIX_ROW]) + "\n", encoding="utf-8")
     return workspace, matrix
-
-
-def test_the_migration_renames_the_files_and_rewrites_the_cells_in_one_call(tmp_path):
-    from pyflightstream.cases.matrix import read_matrix
-    from pyflightstream.workspace import migrate_input_ids
-
-    workspace, matrix = _pre_letter_workspace(tmp_path)
-    # BEFORE: three unreachable files and a matrix naming all three.
-    before = read_matrix(matrix)
-    assert [(row.ref_code, row.set_code, row.pproc_code) for row in before] == [
-        ("003", "002", "001")
-    ], "the fixture matrix does not spell the pre-letter codes"
-    for kind, code in (("reference", "003"), ("setup", "002"), ("pproc", "001")):
-        with pytest.raises(InputArtifactError, match="does not declare its kind"):
-            getattr(workspace, f"resolve_{kind}")(code)
-
-    plan = migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
-
-    assert plan.applied is True
-    assert not plan.is_empty
-    assert sorted((old.name, new.name) for old, new in plan.renames) == [
-        ("001.toml", "p001.toml"),
-        ("002.toml", "s002.toml"),
-        ("003.toml", "r003.toml"),
-    ], f"the rename plan is not the three coded kinds: {plan.renames}"
-    assert plan.cells == {str(matrix): {"REF": 1, "SET": 1, "PPROC": 1}}, (
-        f"the matrix cells did not all move: {plan.cells}"
-    )
-    # AFTER: the library resolves and the matrix names what it resolves.
-    after = read_matrix(matrix)
-    assert [(row.ref_code, row.set_code, row.pproc_code) for row in after] == [
-        ("r003", "s002", "p001")
-    ]
-    assert workspace.resolve_reference("r003").area_m2 == 10.0
-    assert workspace.resolve_setup("s002").settings["iterations"] == 800
-    assert workspace.resolve_pproc("p001").groups == {"wing": ["wing_left"]}
-    # No bare file is left behind: a file no id can reach teaches the next
-    # reader that the old spelling still resolves.
-    for subdir, stem in (("references", "003"), ("setups", "002"), ("pproc", "001")):
-        assert not (workspace.inputs_dir / subdir / f"{stem}.toml").exists()
-
-
-def test_the_migration_keeps_every_other_byte_of_the_matrix(tmp_path):
-    """Including the column padding, which a longer id eats rather than shifts."""
-    from pyflightstream.workspace import migrate_input_ids
-
-    workspace, matrix = _pre_letter_workspace(tmp_path)
-    before = matrix.read_bytes()
-    migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
-    after = matrix.read_bytes()
-    assert after != before
-    assert len(after.splitlines()) == len(before.splitlines())
-    assert after.count(b"|") == before.count(b"|")
-    # The three cells grew by one character each and ate one pad space
-    # each, so every cell keeps the width it had and the row does too.
-    body_before = before.splitlines()[1].split(b"|")
-    body_after = after.splitlines()[1].split(b"|")
-    from pyflightstream.cases.matrix import _COLUMNS, CODE_COLUMNS
-
-    assert len(body_after) == len(body_before) == len(_COLUMNS)
-    differing = [
-        index
-        for index, (old, new) in enumerate(zip(body_before, body_after, strict=True))
-        if old != new
-    ]
-    # Derived rather than written as [7, 8, 9]: those positions moved when
-    # RE and MACH folded into FLIGHT_CONDITION at 0.9.0, and a literal
-    # list would then be asserting about the wrong three cells.
-    expected_indices = [_COLUMNS.index(name) for name in CODE_COLUMNS]
-    assert differing == expected_indices, (
-        f"cells outside {', '.join(CODE_COLUMNS)} moved: indices {differing}"
-    )
-    for index, expected in zip(differing, (b"r003", b"s002", b"p001"), strict=True):
-        assert body_after[index].strip() == expected
-        assert len(body_after[index]) == len(body_before[index]), (
-            f"cell {index} changed width: {body_before[index]!r} -> {body_after[index]!r}"
-        )
-
-
-def test_the_dry_run_writes_nothing_at_all(tmp_path):
-    from pyflightstream.workspace import migrate_input_ids
-
-    workspace, matrix = _pre_letter_workspace(tmp_path)
-    before = matrix.read_bytes()
-    plan = migrate_input_ids(workspace.inputs_dir, [matrix])
-    assert plan.applied is False
-    assert len(plan.renames) == 3
-    assert plan.cells == {str(matrix): {"REF": 1, "SET": 1, "PPROC": 1}}
-    assert matrix.read_bytes() == before
-    assert (workspace.inputs_dir / "references" / "003.toml").is_file()
-    assert not (workspace.inputs_dir / "references" / "r003.toml").exists()
-
-
-def test_the_migration_refuses_before_writing_when_a_rename_would_collide(tmp_path):
-    """The safety property: a refused migration is a no-op, not a half-done one."""
-    from pyflightstream.workspace import migrate_input_ids
-
-    workspace, matrix = _pre_letter_workspace(tmp_path)
-    # A library holding both 003.toml and r003.toml: two files answering to
-    # one id the moment the letter is added.
-    (workspace.inputs_dir / "references" / "r003.toml").write_text(
-        "area_m2 = 99.0\nchord_m = 9.9\nspan_m = 9.9\n", encoding="utf-8"
-    )
-    matrix_before = matrix.read_bytes()
-
-    with pytest.raises(InputArtifactError) as caught:
-        migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
-    message = str(caught.value)
-    assert "003.toml" in message and "r003.toml" in message
-
-    assert matrix.read_bytes() == matrix_before, "the matrix was rewritten anyway"
-    assert (workspace.inputs_dir / "references" / "003.toml").is_file()
-    # AND the two kinds that would NOT have collided are untouched, which is
-    # what makes this all-or-nothing rather than best-effort.
-    assert (workspace.inputs_dir / "setups" / "002.toml").is_file()
-    assert not (workspace.inputs_dir / "setups" / "s002.toml").exists()
-    assert (workspace.inputs_dir / "pproc" / "001.toml").is_file()
-
-
-def test_the_migration_refuses_a_matrix_it_cannot_find_and_renames_nothing(tmp_path):
-    from pyflightstream.workspace import migrate_input_ids
-
-    workspace, matrix = _pre_letter_workspace(tmp_path)
-    absent = tmp_path / "pfs200903_absent.fs"
-    with pytest.raises(InputArtifactError, match="do not exist"):
-        migrate_input_ids(workspace.inputs_dir, [matrix, absent], apply=True)
-    assert (workspace.inputs_dir / "references" / "003.toml").is_file()
-    assert b"| 003  |" in matrix.read_bytes()
-
-
-def test_migrating_an_already_lettered_library_moves_nothing(tmp_path):
-    """Idempotent: running it twice is not an error and is not a second rename."""
-    from pyflightstream.workspace import migrate_input_ids
-
-    workspace, matrix = _pre_letter_workspace(tmp_path)
-    migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
-    settled = matrix.read_bytes()
-
-    again = migrate_input_ids(workspace.inputs_dir, [matrix], apply=True)
-    assert again.renames == ()
-    # The matrix appears with zeros rather than being dropped: "looked at
-    # and nothing matched" is a different report from "never read".
-    assert again.cells == {str(matrix): {"REF": 0, "SET": 0, "PPROC": 0}}
-    assert again.is_empty
-    assert matrix.read_bytes() == settled
-
-
-def test_the_migration_leaves_the_uncoded_kinds_alone(tmp_path):
-    """Geometries and profiles are file stems the user chose; no letter rule."""
-    from pyflightstream.workspace import migrate_input_ids
-
-    workspace, _ = _pre_letter_workspace(tmp_path)
-    mesh = workspace.inputs_dir / "geometries" / "wing_v2.fsm"
-    mesh.write_bytes(b"geometry")
-    profile = workspace.inputs_dir / "profiles" / "thrust.toml"
-    profile.write_text("values = [1.0]\n", encoding="utf-8")
-
-    plan = migrate_input_ids(workspace.inputs_dir, apply=True)
-    moved = {old.name for old, _ in plan.renames}
-    assert moved == {"003.toml", "002.toml", "001.toml"}, (
-        f"the migration reached outside the three coded kinds: {moved}"
-    )
-    assert mesh.is_file() and profile.is_file()
 
 
 # --- the build registry declares a version, PFS-2009.05 ---------------------
@@ -2366,7 +2204,7 @@ def test_the_documented_pproc_artifact_resolves_as_the_page_reads(tmp_path):
     # The old shape is still told apart: a bare list that is not the one
     # top-level key the pproc shape defines is a groups file of before 0.11.0.
     (workspace.inputs_dir / "pproc" / "p021.toml").write_text('wing = ["W"]\n', encoding="utf-8")
-    with pytest.raises(InputArtifactError, match="migrate_groups_to_pproc"):
+    with pytest.raises(InputArtifactError, match="pyfs-workspace migrate"):
         workspace.resolve_pproc("p021")
 
 
@@ -2430,8 +2268,6 @@ def test_a_diameter_and_a_radius_that_disagree_are_refused_naming_both(tmp_path)
 
 
 def test_the_four_rotor_facts_are_refused_naming_the_row_keys(tmp_path):
-    from pyflightstream.workspace import strip_rotor_facts
-
     workspace = library(tmp_path)
     text = (
         "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\nrotor_diameter_m = 3.6576\n"
@@ -2446,18 +2282,7 @@ def test_the_four_rotor_facts_are_refused_naming_the_row_keys(tmp_path):
     for key in ("rotation", "blade_travel", "rpm_sign_installed", "rpm_sign_isolated"):
         assert key in message
     assert "RPM_SIGN" in message and "ROTOR_AXIS" in message and "docs/mesh-inputs.md" in message
-    # The upgrade strips exactly the four lines and leaves every other byte.
-    removed = strip_rotor_facts(workspace.inputs_dir)
-    assert removed == {
-        "r030.toml": ["blade_travel", "rotation", "rpm_sign_installed", "rpm_sign_isolated"]
-    }
-    after = (workspace.inputs_dir / "references" / "r030.toml").read_text(encoding="utf-8")
-    assert after == (
-        "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\nrotor_diameter_m = 3.6576\n"
-        "[rotor]\nradius_m = 1.8288  # half the diameter\nn_blades = 1\n"
-    )
-    assert workspace.resolve_reference("r030").rotor.n_blades == 1
-    assert strip_rotor_facts(workspace.inputs_dir) == {}, "a second pass finds nothing"
+    assert "pyfs-workspace migrate" in message
 
 
 # --- PFS-2029.09.01: the GEOMETRY cell names a file --------------------------------
@@ -2487,7 +2312,7 @@ def test_a_bare_stem_is_refused_naming_the_candidates(tmp_path):
     message = str(caught.value)
     assert "GEOMETRY: 30_WB.fsm" in message and "GEOMETRY: 30_WB.stl" in message
     assert caught.value.available == ("30_WB.fsm", "30_WB.stl")
-    assert "in_place" in message and "--in-place" in message, "the upgrade completes the cell"
+    assert "predates 0.38.0" in message and "docs/upgrading.md" in message
 
 
 def test_a_dotted_stem_reads_one_way(tmp_path):
@@ -2662,83 +2487,6 @@ def test_a_folder_wins_over_a_flat_file_of_the_same_name(tmp_path):
     assert workspace.resolve_geometry("30_WB.fsm").read_bytes() == b"in the folder"
 
 
-def test_migrate_geometries_moves_a_flat_library_into_folders_once(tmp_path, capsys):
-    """PFS-2032.05: ``pyfs-workspace migrate-geometries <root>`` moves every
-    ``geometries/<stem>.<ext>`` with its ``.boundaries.toml`` and
-    ``.provenance.toml`` into ``geometries/<stem>/``, says what it moved, leaves
-    a folder that exists alone, and moves nothing on a second run. A workspace
-    whose manifest records runs keeps working: the record names its inputs by
-    file name, and the file's bytes did not move with its path."""
-    from pyflightstream._digest import file_sha256
-    from pyflightstream.workspace.inputs import write_inventory
-
-    root = tmp_path / "camp"
-    workspace = CampaignWorkspace.init(root)
-    geometries = workspace.inputs_dir / "geometries"
-    saved = _saved_simulation(geometries / "30_WB.fsm", ["W", "B"])
-    write_inventory(saved)
-    (geometries / "30_WB.provenance.toml").write_text('generator = "by hand"\n', encoding="utf-8")
-    (geometries / "31_TAIL.stl").write_bytes(b"a mesh with no sidecar")
-    (geometries / "40_DONE").mkdir()
-    (geometries / "40_DONE" / "40_DONE.fsm").write_bytes(b"already a folder")
-    hashes = workspace.stage_inputs("9001", [saved])
-    workspace.append_record(
-        make_record(sim_id="9001", run_id="camp/sim_9001/a+00.0", inputs_sha256=hashes)
-    )
-
-    assert workspace_cli(["migrate-geometries", str(root)]) == 0
-    out = capsys.readouterr().out
-    assert sorted(path.name for path in (geometries / "30_WB").iterdir()) == [
-        "30_WB.boundaries.toml",
-        "30_WB.fsm",
-        "30_WB.provenance.toml",
-    ]
-    assert (geometries / "31_TAIL" / "31_TAIL.stl").is_file()
-    assert sorted(path.name for path in geometries.iterdir()) == [
-        "30_WB",
-        "31_TAIL",
-        "40_DONE",
-        # THE PAGE `init` WROTE STAYS A FILE, and stays here. It is asserted
-        # in position rather than merely allowed, because the first run of
-        # this test after `init` began writing it (PFS-2032.07) filed it
-        # under `geometries/README/`: the instruction page was hidden from
-        # the person it is written for, and the folder it left behind read
-        # to the resolver as a geometry's home.
-        "README.md",
-    ], "a flat file survived the migration, or the library's own page was moved"
-    assert (geometries / "README.md").is_file()
-    assert "30_WB.fsm" in out and "30_WB.boundaries.toml" in out and "31_TAIL.stl" in out
-    assert "README" not in out, "the migration reports the library's own page as something it moved"
-    assert "40_DONE" in out, "the folder left alone is not named"
-    # The library reads as before, and the recorded hash still names the file.
-    moved = workspace.resolve_geometry("30_WB.fsm")
-    assert moved == geometries / "30_WB" / "30_WB.fsm"
-    record = workspace.read_manifest()[0]
-    assert record.inputs_sha256["30_WB.fsm"] == file_sha256(moved)
-    assert workspace.stage_inputs("9001", [moved]) == hashes, (
-        "the recorded simulation cannot be re-staged from the folder"
-    )
-    # A second run moves nothing and says so.
-    assert workspace_cli(["migrate-geometries", str(root)]) == 0
-    out = capsys.readouterr().out
-    assert "nothing to move" in out
-    assert sorted(path.name for path in geometries.iterdir()) == [
-        "30_WB",
-        "31_TAIL",
-        "40_DONE",
-        "README.md",
-    ]
-
-
-def test_migrate_geometries_refuses_a_root_without_a_library(tmp_path, capsys):
-    bare = tmp_path / "bare"
-    bare.mkdir()
-    assert workspace_cli(["migrate-geometries", str(bare)]) == 2
-    err = capsys.readouterr().err
-    assert "inputs/geometries" in err.replace("\\", "/") and "pyfs-workspace init" in err
-    assert not (bare / "inputs").exists(), "the refusal created the library"
-
-
 # --- PFS-2029.11.02: a reference point declares its kind ------------------------------
 
 
@@ -2820,22 +2568,13 @@ def test_a_run_record_names_waived_commands():
     assert "broken_commands" not in row
 
 
-def test_an_old_manifest_key_still_reads_silently_without_a_countdown():
-    """Recorded manifests stay readable; since 0.26.0 this is plain compatibility."""
-    import warnings
-
-    from pyflightstream._deprecations import DEPRECATIONS
-
+def test_an_old_manifest_key_is_refused_naming_the_replacement():
+    """P0410-REC: N3 requires explicit migration of the former waiver key."""
     row = json.loads(make_record().model_dump_json())
     del row["waived_commands"]
     row["broken_commands"] = [dict(WAIVER_ROW)]
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        record = RunRecord.model_validate(row)
-    assert not caught
-    assert record.waived_commands == [WAIVER_ROW]
-    assert "broken_commands" not in record.model_dump()
-    assert not any("broken_commands" in entry.subject for entry in DEPRECATIONS)
+    with pytest.raises(ValidationError, match="waived_commands.*pyfs-workspace migrate"):
+        RunRecord.model_validate(row)
 
 
 def test_a_row_carrying_both_spellings_is_refused():

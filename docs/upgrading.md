@@ -3,10 +3,48 @@
 ## Which version are you on
 
 Read the section for each release after the version used by the workspace, in
-ascending order. Use `pyfs-matrix upgrade` to convert workspace layouts and
-`pyfs-matrix rename` to update legacy names.
+ascending order. The current package provides only `pyfs-workspace migrate`,
+for the workspace format used since 0.38.0. Earlier conversion commands below
+describe the older releases that supplied them.
 
 ## 0.41.0
+
+### Run records
+
+The run manifest is now an object with `schema_version: 4`, shared immutable
+definitions and `runs`. Ordinary readers refuse the earlier array format;
+they never rewrite a workspace on read.
+
+For the workspace format used by 0.38.0 and 0.40.0, preview and then apply:
+
+```text
+pyfs-workspace migrate /path/to/workspace
+pyfs-workspace migrate /path/to/workspace --apply
+```
+
+The preview prints each file, byte counts and backup name. Apply validates all
+candidate root manifests first, keeps each exact original as `<name>.json.bak`,
+then replaces each manifest atomically under its existing lease. A different
+existing backup is refused. Repeating the command on a migrated workspace
+changes nothing. Archives, solver state and scientific product files are not
+rewritten. To inspect an older archived manifest through history, apply the same
+command to its containing archive directory after previewing it. For compressed
+archives, extract a separate copy first and migrate that copy. Older formats must
+first reach 0.38.0 using an older package.
+
+Raw JSON consumers now read `runs`, `id` in place of `run_id`, `build` in place
+of `fs_build`, and the ordered `artifacts` list in place of `outputs` and
+`outputs_sha256`. Shared `solver_setup`, `frame_motions` and geometry evidence
+move to definitions referenced by id. Other record evidence lives in `details`.
+The explicit migration also replaces `matrix` with `matrix_stem` and
+`broken_commands` with `waived_commands`; conflicting copies are refused.
+Typed record reads and the resolved run display join these definitions.
+
+Migration leaves existing scientific products byte-for-byte unchanged.
+Reposting a 0.38.0 workspace uses the coefficient precision already introduced
+in 0.40.0. In the migration fixture, this affects `CDB`, `CLB`, `CMB25`, `CDS`,
+`CLS`, `CMS25`, `CDW`, `CLW`, `CMW25`, `CD0` and `CDI` in the polar CSV;
+the values retain more significant digits. The superfile bytes are unchanged.
 
 The matrix is the sole campaign declaration. Authored campaign files, including
 the former TOML file loaded from Python, are refused immediately; there is no

@@ -866,7 +866,7 @@ def test_g47_a_pproc_stating_vtk_variables_is_read(tmp_path):
     (pproc / "p001.toml").write_text('vtk_variables = ["CP_FREESTREAM", "VX"]\n', encoding="utf-8")
     assert resolve_pproc(inputs, "p001").vtk_variables == ["CP_FREESTREAM", "VX"]
     (pproc / "p002.toml").write_text('wing = ["Wing"]\n', encoding="utf-8")
-    with pytest.raises(PyflightstreamError, match="migrate_groups_to_pproc"):
+    with pytest.raises(PyflightstreamError, match="pyfs-workspace migrate"):
         resolve_pproc(inputs, "p002")
 
 

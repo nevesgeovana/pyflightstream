@@ -24,6 +24,7 @@ from pyflightstream.run import (
     check_solver_identity,
 )
 from pyflightstream.versions import resolve
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_run import IdentitySolver
 
 #: The 26.120 install, which the tests point a 26.121 campaign at.
@@ -79,7 +80,7 @@ def test_goal024_unregistered_build_flag_run_passes_it_and_every_record_says_so(
     records = run_for_records(REGISTRY_FIXTURE, workspace, accept_unregistered_build=accepted)
     assert records and seen and set(seen) == {accepted}
     assert all(record.accept_unregistered_build is accepted for record in records)
-    manifest = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    manifest = _read_record_rows(workspace.manifest_path)
     assert all(row.get("accept_unregistered_build", False) is accepted for row in manifest)
 
 

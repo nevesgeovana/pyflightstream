@@ -100,64 +100,6 @@ def test_the_held_angle_is_stated_once_and_still_reaches_every_point():
     assert row.variables["BETA"] == 0.0, "the sideslip is not on the row either"
 
 
-def test_the_upgrade_does_not_rename_a_run(tmp_path):
-    """The promise the fourth stage is held to, beyond lossless content.
-
-    A paired `AL/BE` row whose second axis held one value tagged its
-    points with BOTH angles, and those tags end the run_id of every record
-    in every manifest written before 0.15.0. If the conversion dropped the
-    held angle from the point, an upgraded workspace would plan runs under
-    new names, find no record of them, and spend a seat re-running work
-    that is already done. The tags are therefore compared against the ones
-    the previous layout produced, taken from the 0.11.0 fixture rather than
-    written out here.
-
-    THE FIXTURE'S POL 9008 WAS DE-DIAGONALISED IN THIS RELEASE, and that is
-    deliberate rather than convenient: it held the tree's only TRUE diagonal,
-    both axes varying point by point, which the 0.15.0 fold structurally
-    cannot represent and which the converter now REFUSES naming the row.
-    That shape is tested by its refusal, at
-    `test_a_row_that_varies_both_angles_is_refused_naming_it`, which
-    reconstructs the diagonal by substitution rather than keeping it in the
-    fixture. This case is about the rows that DO convert, and the helper
-    below broadcasts a single-valued axis because that is the only pairing
-    the fold produces. Said here because the QA lens of the release review
-    found this docstring calling the fixture frozen while the same range had
-    edited it.
-    """
-    from pyflightstream.cases import point_tag
-
-    code_at = matrix_mod._LAYOUT_0_11_0.index("SWEEP_TYPE")
-    values_at = matrix_mod._LAYOUT_0_11_0.index("SWEEP_VALUES")
-    upgraded = tmp_path / "upgraded.fs"
-    upgraded.write_bytes(_upgrade()(LAYOUT_0_11_0_FIXTURE))
-    before = {}
-    for line in LAYOUT_0_11_0_FIXTURE.read_text(encoding="utf-8").splitlines():
-        cells = [cell.strip() for cell in line.split("|")]
-        if len(cells) != len(matrix_mod._LAYOUT_0_11_0) or "/" not in cells[code_at]:
-            continue
-        before[cells[0]] = (cells[code_at], cells[values_at])
-    assert before, "the 0.11.0 fixture carries no paired row, so this case measures nothing"
-
-    def tags_the_old_reader_produced(code, values):
-        """The retired paired reader, restated: one axis varies, the other broadcasts."""
-        groups = dict(zip(code.split("/"), values.split("/"), strict=True))
-        alpha = [float(v) for v in groups["AL"].split(",")]
-        beta = [float(v) for v in groups["BE"].split(",")]
-        if len(alpha) == 1:
-            alpha *= len(beta)
-        if len(beta) == 1:
-            beta *= len(alpha)
-        return [f"a{a:+05.1f}_b{b:+05.1f}" for a, b in zip(alpha, beta, strict=True)]
-
-    for row in read_matrix(upgraded, active_only=False):
-        if row.pol not in before:
-            continue
-        assert [point_tag(point) for point in row.sweep.points()] == tags_the_old_reader_produced(
-            *before[row.pol]
-        ), f"POL {row.pol} would be planned under names no manifest holds"
-
-
 def test_a_beta_sweep_holds_its_incidence_the_same_way():
     """POL 9004: five sideslips at one incidence, and the mirror image.
 
@@ -650,7 +592,9 @@ def test_a_fifteen_column_file_is_recognised_and_named_with_its_converter():
         read_matrix(LEGACY_FIXTURE)
     message = str(caught.value)
     assert str(LEGACY_FIXTURE) in message
-    assert "upgrade_matrix" in message, "the refusal names no converter, so it teaches nothing"
+    assert "pyfs-workspace migrate" in message, (
+        "the refusal names no converter, so it teaches nothing"
+    )
     assert "WORKFLOW" in message
 
 
@@ -662,12 +606,12 @@ def test_the_legacy_refusal_is_a_different_message_from_the_foreign_one(tmp_path
         read_matrix(foreign)
     message = str(caught.value)
     assert "does not match the verified 19-column layout" in message
-    assert "upgrade_matrix" not in message
+    assert "pyfs-workspace migrate" not in message
 
 
 def test_nothing_parses_after_the_fifteen_column_refusal():
     """Every consumer reaches rows through read_matrix, so all inherit it."""
-    with pytest.raises(MatrixError, match="upgrade_matrix"):
+    with pytest.raises(MatrixError, match="pyfs-workspace migrate"):
         to_campaign(
             LEGACY_FIXTURE,
             name="matrix",
@@ -675,7 +619,7 @@ def test_nothing_parses_after_the_fifteen_column_refusal():
             fs_exe="C:/fs.exe",
             recipes=RECIPES,
         )
-    with pytest.raises(MatrixError, match="upgrade_matrix"):
+    with pytest.raises(MatrixError, match="pyfs-workspace migrate"):
         convert_matrix(
             LEGACY_FIXTURE,
             name="matrix",
@@ -686,15 +630,6 @@ def test_nothing_parses_after_the_fifteen_column_refusal():
 
 
 # --- the converter (PFS-2025.12.03) ----------------------------------------
-
-
-def _upgrade():
-    converter = getattr(matrix_mod, "upgrade_matrix", None)
-    assert converter is not None, (
-        "cases.matrix offers no converter for the fifteen-column layout, so the "
-        "refusal that names one is naming something a user cannot run"
-    )
-    return converter
 
 
 def _peel(line: bytes) -> tuple[bytes, bytes]:
@@ -926,169 +861,6 @@ def test_rewriting_a_code_cell_leaves_the_same_id_alone_outside_its_column(tmp_p
     )
 
 
-def test_the_third_stage_changes_only_the_cells_it_owns(tmp_path):
-    """FS_SCRIPT goes, ENTRY becomes PPROC, the variables move; nothing else.
-
-    PFS-2029.04 and PFS-2029.07.02. Read on the 0.9.0-layout fixture of
-    the matrix, whose rows are LEGACY: every cell but the ENTRY id, the
-    removed FS_SCRIPT cell and the variables cell is byte for byte the
-    cell it was, the id gained its kind letter in the same width, and the
-    variables gained exactly the recipe code the removed cell carried.
-    """
-    # THE STAGE'S OWN OUTPUT IS THE 0.11.0 FIXTURE, not the committed
-    # matrix: since 0.15.0 a FOURTH stage follows this one, so comparing
-    # here against the current layout would measure two stages and call
-    # them one. Each stage lands on the fixture of the layout it produces,
-    # and the fourth is measured in the case below.
-    landing = (Path(__file__).parent / "fixtures" / "pfs202609_matrix14.fs").read_bytes()
-    legacy = (Path(__file__).parent / "fixtures" / "pfs202701_matrix16.fs").read_bytes()
-    before = matrix_mod._fold_flight_condition(legacy, "legacy16")
-    after = matrix_mod._drop_fs_script_and_name_pproc(before, "legacy16")
-    assert after == landing, "the 0.11.0 fixture is not the third stage's own output"
-    entry = matrix_mod._LAYOUT_0_9_0.index("ENTRY")
-    script = matrix_mod._LAYOUT_0_9_0.index("FS_SCRIPT")
-    variables = matrix_mod._LAYOUT_0_9_0.index("VAR_NAMES_VALUES")
-    before_rows = [line.split(b"|") for line in before.splitlines() if b"|" in line]
-    after_rows = [line.split(b"|") for line in after.splitlines() if b"|" in line]
-    assert len(before_rows) == len(after_rows)
-    header_before, header_after = before_rows[0], after_rows[0]
-    assert len(header_after) == len(header_before) - 1
-    assert header_after[entry] == header_before[entry].replace(b"ENTRY", b"PPROC")
-    for old_cells, new_cells in zip(before_rows[1:], after_rows[1:], strict=True):
-        assert len(new_cells) == len(old_cells) - 1
-        code = old_cells[script].strip().decode()
-        expected = list(old_cells)
-        del expected[script]
-        for position, (new_cell, old_cell) in enumerate(zip(new_cells, expected, strict=True)):
-            if position == entry:
-                assert len(new_cell) == len(old_cell), "the id changed width"
-                assert new_cell.strip() == b"p" + old_cell.strip()[1:]
-            elif position == variables - 1:
-                assert new_cell.rstrip() == old_cell.rstrip() + f" / RECIPE: {code}".encode()
-            else:
-                assert new_cell == old_cell, (
-                    f"cell {position} changed: {old_cell!r} -> {new_cell!r}"
-                )
-
-
-def test_the_fourth_stage_changes_only_the_two_cells_it_folds(tmp_path):
-    """SWEEP_TYPE goes into FLIGHT_CONDITION; nothing else moves (FR-69).
-
-    Measured on the 0.11.0 fixture, which the three older stages produce
-    from the file that precedes WORKFLOW, and it lands byte for byte on
-    the committed matrix. The invariant is the one every stage carries: a
-    user diffing the converted file sees the conversion and nothing else,
-    so of the fourteen cells exactly one disappears, one is rewritten,
-    one may be re-padded, and eleven are byte for byte what they were.
-    """
-    before = (Path(__file__).parent / "fixtures" / "pfs202609_matrix14.fs").read_bytes()
-    after = matrix_mod._fold_sweep_type(before, "layout14")
-    # FIVE STAGES SINCE 0.17.0: the fourth folds SWEEP_TYPE and the fifth
-    # expands the thirteen columns to nineteen, so the committed fixture is
-    # what the fifth writes. Naming the fourth alone would compare the
-    # fixture against a file no release has ever produced.
-    assert (
-        matrix_mod._expand_to_nineteen(matrix_mod._name_geometry_files(after), "layout14")
-        == FIXTURE.read_bytes()
-    ), "the committed fixture is not what the fifth stage writes"
-    type_index = matrix_mod._LAYOUT_0_11_0.index("SWEEP_TYPE")
-    condition = matrix_mod._LAYOUT_0_11_0.index("FLIGHT_CONDITION")
-    values = matrix_mod._LAYOUT_0_11_0.index("SWEEP_VALUES")
-    before_rows = [line.split(b"|") for line in before.splitlines() if b"|" in line]
-    after_rows = [line.split(b"|") for line in after.splitlines() if b"|" in line]
-    assert len(before_rows) == len(after_rows)
-    for row, (old_cells, new_cells) in enumerate(zip(before_rows, after_rows, strict=True)):
-        assert len(new_cells) == len(old_cells) - 1, f"row {row} did not lose exactly one cell"
-        expected = list(old_cells)
-        code = expected.pop(type_index).strip()
-        for position, (new_cell, old_cell) in enumerate(zip(new_cells, expected, strict=True)):
-            if position == condition:
-                # The header keeps its cell; a data row gains the key the
-                # code named. Containment alone would pass for ANY appended
-                # content, so what it gains is asserted EXACTLY: the old
-                # cell, then the fold's separator, then one KEY:value pair
-                # per axis the code named.
-                gained = new_cell.strip()[len(old_cell.strip()) :].decode()
-                assert new_cell.strip().startswith(old_cell.strip()), (
-                    f"row {row}: the condition was lost"
-                )
-                if row:
-                    pairs = [pair.strip() for pair in gained.lstrip(", ").split(",")]
-                    assert len(pairs) == len(code.decode().split("/")), (
-                        f"row {row}: the fold added {pairs}, which is not one pair per axis"
-                    )
-                    assert all(":" in pair for pair in pairs), f"row {row}: {pairs!r}"
-                else:
-                    assert gained == "", f"row {row}: the header gained {gained!r}"
-            elif position == values - 1:
-                # A held second axis leaves the values cell, so its
-                # content may shrink; what it holds must stay a prefix of
-                # what it held, which is what "the values stay" means.
-                assert new_cell.strip() in old_cell.strip(), f"row {row}: the values moved"
-            else:
-                assert new_cell == old_cell, (
-                    f"row {row}: cell {position} changed and the fold does not touch it: "
-                    f"{old_cell!r} -> {new_cell!r}"
-                )
-        if row:
-            assert code.upper() != b"", "a data row with no code measures nothing here"
-
-
-def test_a_row_that_varies_both_angles_is_refused_naming_it(tmp_path):
-    """The one row the converter will NOT convert, and why it must not.
-
-    FOUND BY A SURVIVING MUTANT, not by reading. No fixture in this tree
-    varies both angles any more, so a converter that folded such a row by
-    QUIETLY DROPPING its second axis passed every case in this module.
-    That is the worst failure this lane could ship: `AL/BE` over
-    `-4,0,4/-2,0,2` is three DIAGONAL points, and dropping the beta list
-    turns it into three points at one sideslip, which is a different
-    study wearing the same POL.
-
-    The file is built here rather than committed as a fixture: the tree
-    deliberately holds no such row, and one committed to test this would
-    be a row every other case has to keep stepping around.
-    """
-    layout = matrix_mod._LAYOUT_0_11_0
-    header = " | ".join(layout)
-    cells = dict.fromkeys(layout, "")
-    cells.update(
-        {
-            "POL": "9100",
-            "AIRCRAFT": "TestWing",
-            "DESCRIPTION": "DIAGONAL",
-            "FLIGHT_CONDITION": "MACH:0.0890, REmi:3.10",
-            "SWEEP_TYPE": "AL/BE",
-            "SWEEP_VALUES": "-4.0,0.0,4.0/-2.0,0.0,2.0",
-            "REF": "r003",
-            "SET": "s003",
-            "PPROC": "p001",
-            "FS_BUILD": "MANUAL",
-            "HIDDEN": "0",
-            "RUN": "1",
-            "WORKFLOW": "LEGACY",
-            "VAR_NAMES_VALUES": "FSM_FILE:wing_clean / RECIPE: 003",
-        }
-    )
-    row = " | ".join(cells[name] for name in layout)
-    diagonal = tmp_path / "diagonal.fs"
-    diagonal.write_text("\n".join([header, "-" * 20, row]) + "\n", encoding="utf-8")
-
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(diagonal)
-    message = str(caught.value)
-    assert "9100" in message, "the refusal does not name the row a person has to split"
-    assert "-4.0,0.0,4.0/-2.0,0.0,2.0" in message, "the refusal does not show the cell"
-    assert "one row per" in message.lower(), "the refusal says no and not what to do instead"
-    assert "POL" in message, "the refusal does not say why the converter will not do it"
-    # AND NOTHING IS WRITTEN: an in-place run that refuses must leave the
-    # file as it was, or the author loses the row the author has to split.
-    before = diagonal.read_bytes()
-    with pytest.raises(MatrixError):
-        _upgrade()(diagonal, in_place=True)
-    assert diagonal.read_bytes() == before, "the refused conversion wrote to the source"
-
-
 def _one_row_at_the_0_11_0_layout(tmp_path, name, condition, code, values):
     """Write a one-row matrix at the layout the converter reads, and return it."""
     layout = matrix_mod._LAYOUT_0_11_0
@@ -1124,262 +896,6 @@ def _one_row_at_the_0_11_0_layout(tmp_path, name, condition, code, values):
         encoding="utf-8",
     )
     return path
-
-
-def test_a_fold_that_would_state_one_key_twice_is_refused(tmp_path):
-    """The converter may not write a file its own reader refuses.
-
-    FOUND BY THE ARCHITECTURE AND INTERFACE LENSES INDEPENDENTLY, and it
-    is two defects behind one omission: the fold chose what to append
-    from SWEEP_TYPE alone and never read the cell it appended to. A cell
-    already stating an incidence, beside a code that names the same
-    angle, produced `ALPHA:2.0, ALPHA:sweep`, the converter reported
-    success, and the next read refused with a message about a duplicate
-    key that said nothing about the conversion that wrote it.
-
-    The second half is the release's own promise. An angle the cell
-    states is HELD at every point and therefore ends the run_id, so
-    appending over it renames the row's runs, which is the one thing this
-    converter must not do.
-
-    MEASURED, because the blast radius decides what kind of defect this
-    is: the two never coexisted in a RELEASE. `ATTITUDE_KEYS` arrived at
-    0.15.0.dev0 and `SWEEP_TYPE` left in the same unreleased cycle, so at
-    v0.14.0 an angle in the cell was refused as an unknown key, and 0 of
-    the 7 licensed matrices name one. This is reachable by a hand edit
-    made mid-migration, not by any released file.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path, "twice.fs", "MACH:0.0890, REmi:3.10, ALPHA:2.0", "AL", "0.0,2.0,4.0"
-    )
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(source)
-    message = str(caught.value)
-    assert "9100" in message and "ALPHA" in message
-    assert "ALPHA:2.0" in message, "the refusal does not show what the cell already says"
-    assert "run_id" in message, "the refusal does not say why it is not the converter's to do"
-    # THE CONTROL: the same row without the stated angle converts, so this
-    # case measures the duplicate and not the fold.
-    good = _one_row_at_the_0_11_0_layout(
-        tmp_path, "once.fs", "MACH:0.0890, REmi:3.10", "AL", "0.0,2.0,4.0"
-    )
-    rows = read_matrix(_written(tmp_path, good))
-    assert rows[0].sweep.type == "alpha" and rows[0].sweep.values == [0.0, 2.0, 4.0]
-
-
-def _written(tmp_path, source):
-    """Upgrade a file and write the result where the reader can take it."""
-    target = tmp_path / "converted.fs"
-    target.write_bytes(_upgrade()(source))
-    return target
-
-
-def test_a_paired_code_with_an_empty_group_is_refused_rather_than_reversed(tmp_path):
-    """`AL/BE` over `0.0,2.0/` names an axis and gives it nothing.
-
-    The fold chose the swept axis by asking which group held exactly ONE
-    value, so a group of NONE was read as the held one and the axis with
-    two values was written into the held cell: `BETA:sweep, ALPHA:0.0,2.0`,
-    which parses as one pair and one bare number and is refused downstream
-    by a message about the row the converter itself corrupted.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path, "empty.fs", "MACH:0.0890, REmi:3.10", "AL/BE", "0.0,2.0/"
-    )
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(source)
-    message = str(caught.value)
-    assert "9100" in message
-    assert "no values" in message, "the refusal does not name the empty axis"
-    assert "drop the axis" in message, "the refusal offers no remedy"
-
-
-def test_an_unknown_paired_code_is_refused_as_a_typo_and_not_as_a_diagonal(tmp_path):
-    """`AL/XX` is a mistyped code, and the split remedy cannot fix a typo.
-
-    The fold returned None for an unrecognised token and the caller then
-    classed it with the two-varying sweeps, so the author of a typo was
-    told to split the row one per sideslip: advice that cannot be
-    followed, about a problem they do not have.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path, "typo.fs", "MACH:0.0890, REmi:3.10", "AL/XX", "0.0,2.0/0.0"
-    )
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(source)
-    message = str(caught.value)
-    assert "XX" in message, "the refusal does not name the code that is wrong"
-    assert "AL, BE" in message, "the refusal does not name the codes it does fold"
-    assert "one row per" not in message.lower(), (
-        "a typo is still being answered with the split remedy, which cannot fix it"
-    )
-
-
-def test_a_single_point_paired_row_sweeps_the_first_axis(tmp_path):
-    """Both groups hold one value, and the first is the swept one.
-
-    The control for the two cases above: choosing by `which one varies`
-    rather than by `which count is 1` has to leave this row where it was,
-    because a single-point row has always meant the first axis swept over
-    its one value with the second held.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path, "single.fs", "MACH:0.0890, REmi:3.10", "AL/BE", "0.0/0.0"
-    )
-    row = read_matrix(_written(tmp_path, source))[0]
-    assert row.sweep.type == "alpha"
-    assert row.sweep.values == [0.0]
-    assert row.sweep.held == {"beta": 0.0}
-    assert point_tag(next(iter(row.sweep.points()))) == "a+00.0_b+00.0", (
-        "the single-point paired row would be planned under a name no manifest holds"
-    )
-
-
-@pytest.mark.parametrize(
-    ("values", "shape"),
-    [("-4.0,0.0,4.0/-2.0,0.0,2.0", "3 by 3"), ("-4.0,4.0/-2.0,2.0", "2 by 2")],
-)
-def test_a_diagonal_is_refused_at_the_boundary_and_above_it(tmp_path, values, shape):
-    """The predicate is `both groups hold more than one`, and 2 is more than one.
-
-    FOUND BY A SURVIVING MUTANT: widening the test to `counts[0] > 2`
-    passed every case in this module, because the only diagonal in the
-    tree was 3 by 3 and the predicate was never exercised at its
-    boundary. A 2 by 2 diagonal folded silently, dropping the second
-    sideslip, which is the different-study-same-POL failure this refusal
-    exists to stop.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path,
-        f"diagonal_{shape.replace(' ', '')}.fs",
-        "MACH:0.0890, REmi:3.10",
-        "AL/BE",
-        values,
-    )
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(source)
-    assert values in str(caught.value), f"the {shape} diagonal is not named in the refusal"
-
-
-def test_a_diagonal_in_a_fifteen_column_file_is_refused_through_the_whole_chain(tmp_path):
-    """The refusal has to survive three stages before it can fire.
-
-    The four frozen legacy fixtures carried the tree's only diagonal and
-    all four were edited in this lane, so nothing reached the fourth
-    stage's refusal through `_insert_workflow_cell`,
-    `_fold_flight_condition` and `_drop_fs_script_and_name_pproc` first. A
-    file written before v0.8.0 is exactly the one whose author is least
-    likely to remember what the row meant, so the path that serves them
-    is the one that most needs the case.
-    """
-    legacy = LEGACY_FIXTURE.read_text(encoding="utf-8")
-    held = "-4.0,0.0,4.0/-2.0"
-    assert legacy.count(held) == 1, "the fifteen-column fixture no longer holds its sideslip"
-    source = tmp_path / "legacy_diagonal.fs"
-    source.write_text(legacy.replace(held, "-4.0,0.0,4.0/-2.0,0.0,2.0", 1), encoding="utf-8")
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(source)
-    message = str(caught.value)
-    assert "9008" in message and "one row per" in message.lower()
-
-
-def test_a_row_of_the_wrong_width_is_refused_by_the_fourth_stage(tmp_path):
-    """A short row cannot say which cell carries SWEEP_TYPE.
-
-    FOUND BY A SURVIVING MUTANT: relaxing the width test to `>` let a
-    short row be folded against the wrong cell index instead of refused,
-    and no case in the tree named this message.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path, "short.fs", "MACH:0.0890, REmi:3.10", "AL", "0.0"
-    )
-    lines = source.read_text(encoding="utf-8").splitlines()
-    lines[-1] = lines[-1].rsplit("|", 1)[0].rstrip()
-    source.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(source)
-    message = str(caught.value)
-    assert "data row 1" in message and "SWEEP_TYPE" in message
-    assert "repair the row first" in message
-
-
-def test_an_unknown_single_code_is_refused_rather_than_read_as_alpha(tmp_path):
-    """The converter's own version of accepted-and-ignored.
-
-    FOUND BY A SURVIVING MUTANT: defaulting the code lookup to ALPHA made
-    every unrecognised code a silent alpha sweep, and nothing measured
-    it. This is the failure mode the whole lane is written against, one
-    layer down.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path, "unknown.fs", "MACH:0.0890, REmi:3.10", "ZZ", "0.0,2.0"
-    )
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(source)
-    message = str(caught.value)
-    assert "ZZ" in message and "does not know" in message
-    assert "AL, BE" in message, "the refusal does not name the codes it does fold"
-
-
-@pytest.mark.parametrize("code", ["AL/BE/XX", "AL/BE/AL"])
-def test_a_code_that_is_not_a_pair_is_refused_naming_how_many_it_names(tmp_path, code):
-    """A '/' code names exactly two axes, and reading two of three drops a group.
-
-    FOUND BY A SURVIVING MUTANT, and the first case written for it did not
-    kill it. `AL/BE/XX` is refused by the UNKNOWN-CODE check, which fires
-    whatever the arity test says, so a mutant relaxing the arity walked
-    past the case that was supposed to catch it. `AL/BE/AL` is three
-    KNOWN codes, which is the shape that reaches the arity test and
-    nothing else, and it is the one that discriminates. Both are kept:
-    the one that measures, and the one a user is more likely to type.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path,
-        f"{code.replace('/', '_')}.fs",
-        "MACH:0.0890, REmi:3.10",
-        code,
-        "0.0,2.0/0.0/1.0",
-    )
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(source)
-    message = str(caught.value)
-    assert "9100" in message
-    assert "exactly TWO axes" in message or "XX" in message, message
-    assert "3 axis or axes" in message or "XX" in message, (
-        "the refusal says neither how many axes were named nor which code is wrong"
-    )
-
-
-def test_a_lower_case_paired_code_folds(tmp_path):
-    """The case fold in `_paired_sweep_as_one` is exercised, not assumed.
-
-    FOUND BY A SURVIVING MUTANT: removing `.upper()` changed nothing in
-    the suite, because every fixture writes the codes in capitals. A
-    matrix is a file a person types, and the reader has folded case
-    everywhere else since 0.8.0.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path, "lower.fs", "MACH:0.0890, REmi:3.10", "al/be", "0.0,2.0/0.0"
-    )
-    row = read_matrix(_written(tmp_path, source))[0]
-    assert row.sweep.type == "alpha"
-    assert row.sweep.held == {"beta": 0.0}
-
-
-def test_the_duplicate_refusal_leaves_the_source_untouched(tmp_path):
-    """An in-place run that refuses may not have written first.
-
-    The paired refusal is asserted this way already; this one was not,
-    and it is the same promise: a converter that overwrites and THEN
-    refuses has destroyed the file the author has to repair.
-    """
-    source = _one_row_at_the_0_11_0_layout(
-        tmp_path, "twice_in_place.fs", "MACH:0.0890, REmi:3.10, ALPHA:2.0", "AL", "0.0,2.0"
-    )
-    before = source.read_bytes()
-    with pytest.raises(MatrixError):
-        _upgrade()(source, in_place=True)
-    assert source.read_bytes() == before, "the refused conversion overwrote its source"
 
 
 def _unfolded(data: bytes) -> bytes:
@@ -1418,189 +934,6 @@ def _unfolded(data: bytes) -> bytes:
             parts[index : index + 1] = [b" " + remi + b"   ", b" " + mach + b"  "]
         rebuilt.append(b"|".join(parts) + terminator)
     return b"".join(rebuilt)
-
-
-def test_the_upgrade_changes_only_the_cells_the_conversion_touches(tmp_path):
-    """Two conversions now, and the invariant is the same one.
-
-    The upgrade used to insert exactly one cell, so removing that cell
-    had to give the original back. Since 0.9.0 it ALSO folds RE and MACH
-    into FLIGHT_CONDITION (PFS-2027.01), so the inverse of both is what
-    must give the original back. The claim being tested is unchanged: a
-    user diffing the converted file sees the conversion and nothing else.
-    """
-    upgrade_matrix = _upgrade()
-    index = matrix_mod._LAYOUT_0_9_0.index("WORKFLOW")
-    for label, path, original in _line_ending_variants(tmp_path):
-        # FOUR STAGES SINCE 0.15.0 (PFS-2029.04, FR-69): the converted file
-        # is the two older stages followed by the third and the fourth, and
-        # this invariant reads the two-stage result, whose inverse is the
-        # one written below; the third and fourth stages have invariants of
-        # their own in the two cases above.
-        two_stage = matrix_mod._fold_flight_condition(
-            matrix_mod._insert_workflow_cell(original, label), label
-        )
-        assert upgrade_matrix(path) == matrix_mod._expand_to_nineteen(
-            matrix_mod._name_geometry_files(
-                matrix_mod._fold_sweep_type(
-                    matrix_mod._drop_fs_script_and_name_pproc(two_stage, label), label
-                )
-            ),
-            label,
-        ), label
-        upgraded = two_stage
-        restored = _unfolded(_without_the_new_cell(upgraded, index))
-        # THE STRIP IS SCOPED TO THE FOLDED REGION, and that scoping is
-        # the point. An earlier version of this test stripped EVERY cell
-        # before comparing, which is a band widened so a case could pass:
-        # a converter that reflowed the padding of DESCRIPTION or
-        # VAR_NAMES_VALUES would have passed it, while the refusal
-        # message promises those are untouched. A V and V pass found it.
-        # Only the two cells the fold rebuilds may differ in padding;
-        # every other cell is compared BYTE FOR BYTE.
-        folded = matrix_mod._LEGACY_COLUMNS_16.index("RE")
-        restored_rows = [line.split(b"|") for line in restored.splitlines() if b"|" in line]
-        original_rows = [line.split(b"|") for line in original.splitlines() if b"|" in line]
-        assert len(restored_rows) == len(original_rows), label
-        for restored_cells, original_cells in zip(restored_rows, original_rows, strict=True):
-            assert len(restored_cells) == len(original_cells), label
-            for position, (new_cell, old_cell) in enumerate(
-                zip(restored_cells, original_cells, strict=True)
-            ):
-                if position in (folded, folded + 1):
-                    assert new_cell.strip() == old_cell.strip(), f"{label} cell {position}"
-                else:
-                    assert new_cell == old_cell, (
-                        f"{label}: cell {position} changed and the fold does not touch "
-                        f"it: {old_cell!r} -> {new_cell!r}"
-                    )
-        # Line endings and every line carrying no cell survive exactly.
-        assert restored.count(b"\r\n") == original.count(b"\r\n"), label
-        assert len(restored.splitlines()) == len(original.splitlines()), label
-
-
-def test_the_upgraded_bytes_are_what_the_reader_accepts(tmp_path):
-    """The clause the byte comparison alone cannot state.
-
-    Removing the inserted cell and rejoining passes for ANY content, so
-    a converter writing the label into the data rows, or an empty cell
-    into the header, would satisfy it. What settles the two roles is
-    that the reader takes the result.
-    """
-    target = tmp_path / "matrix.fs"
-    target.write_bytes(_upgrade()(LEGACY_FIXTURE))
-    rows = read_matrix(target, active_only=False)
-    assert [row.pol for row in rows] == [
-        "9001",
-        "9002",
-        "9003",
-        "9004",
-        "9005",
-        "9006",
-        "9007",
-        "9008",
-    ]
-    assert {row.workflow for row in rows} == {matrix_mod.LEGACY_WORKFLOW}
-
-
-def test_the_header_takes_the_label_and_the_rows_take_the_workflow():
-    upgraded = _upgrade()(LEGACY_FIXTURE).decode("utf-8")
-    index = matrix_mod._COLUMNS.index("WORKFLOW")
-    piped = [line for line in upgraded.splitlines() if "|" in line]
-    assert piped[0].split("|")[index].strip() == "WORKFLOW"
-    assert {line.split("|")[index].strip() for line in piped[1:]} == {matrix_mod.LEGACY_WORKFLOW}
-
-
-def test_the_inserted_cell_is_written_with_exactly_one_space_on_each_side():
-    """The padding is a contract, and nothing else could measure it.
-
-    The byte comparison passes for ANY padding, because removing the cell
-    removes whatever it held, and the reader strips every cell before it
-    looks. So a converter writing a lavishly padded cell would satisfy
-    both and still hand the author a column that does not line up with
-    the one beside it, in a file the author reads by eye.
-    """
-    index = matrix_mod._COLUMNS.index("WORKFLOW")
-    last = index == len(matrix_mod._COLUMNS) - 1
-    trailing = b"" if last else b" "
-    piped = [line for line in _upgrade()(LEGACY_FIXTURE).splitlines() if b"|" in line]
-    assert piped[0].split(b"|")[index] == b" WORKFLOW" + trailing
-    assert {line.split(b"|")[index] for line in piped[1:]} == {
-        b" " + matrix_mod.LEGACY_WORKFLOW.encode() + trailing
-    }
-
-
-def test_the_upgrade_leaves_no_trailing_whitespace_on_any_line():
-    """The pre-commit hook strips it, which would rewrite a committed matrix.
-
-    The cell is written unpadded on its right when it is the LAST column
-    and padded when it is not, so this holds however the stated position
-    moves.
-    """
-    for line in _upgrade()(LEGACY_FIXTURE).splitlines():
-        assert line == line.rstrip(), line
-
-
-def test_a_file_with_no_cell_separator_at_all_is_refused(tmp_path):
-    empty = tmp_path / "nothing.fs"
-    empty.write_bytes(b"\r\n-----\r\n\r\n")
-    with pytest.raises(MatrixError, match="no matrix content"):
-        _upgrade()(empty)
-
-
-def test_an_already_upgraded_matrix_is_returned_byte_for_byte():
-    assert _upgrade()(FIXTURE) == FIXTURE.read_bytes()
-
-
-def test_a_file_that_is_not_a_run_matrix_is_refused_by_the_converter(tmp_path):
-    """Refused on its HEADER, and the message has to say so.
-
-    Matching the file name alone was not enough: with the header check
-    removed, this file reached the row check instead and was refused
-    there, naming the same path. Both refusals are correct in isolation
-    and only one of them is this one.
-    """
-    foreign = tmp_path / "notamatrix.fs"
-    foreign.write_bytes(b"A | B | C\r\n1 | 2 | 3\r\n")
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(foreign)
-    message = str(caught.value)
-    assert "notamatrix.fs" in message
-    assert "its header names A, B, C" in message
-
-
-def test_a_row_of_the_wrong_width_is_refused_by_the_converter_naming_the_row(tmp_path):
-    """One row short of a cell, and the refusal names which row.
-
-    The split is on the NORMALIZED bytes. Splitting the fixture on
-    ``\r\n`` as read returned one element on any checkout that gave
-    LF, so this case raised IndexError on the line below rather than
-    testing the converter, on every Linux runner.
-    """
-    lines = _normalized(LEGACY_FIXTURE.read_bytes()).split(b"\n")
-    assert len(lines) > 3, f"the fixture parsed into {len(lines)} lines, which is not a matrix"
-    lines[2] = lines[2].rsplit(b"|", 1)[0]
-    ragged = tmp_path / "ragged.fs"
-    ragged.write_bytes(b"\r\n".join(lines))
-    with pytest.raises(MatrixError) as caught:
-        _upgrade()(ragged)
-    message = str(caught.value)
-    assert "data row 1 of" in message
-    assert "ragged.fs" in message
-    assert "holds 14 cells" in message
-
-
-def test_in_place_rewrites_the_source_and_returns_the_same_bytes(tmp_path):
-    target = tmp_path / "matrix.fs"
-    target.write_bytes(LEGACY_FIXTURE.read_bytes())
-    returned = _upgrade()(target, in_place=True)
-    assert target.read_bytes() == returned
-    assert len(read_matrix(target, active_only=False)) == 8
-    # and the source file is untouched when nothing asks for the write
-    other = tmp_path / "second.fs"
-    other.write_bytes(LEGACY_FIXTURE.read_bytes())
-    _upgrade()(other)
-    assert other.read_bytes() == LEGACY_FIXTURE.read_bytes()
 
 
 # --- two sweeps in one row (PFS-2025.17.01) --------------------------------
@@ -2021,7 +1354,7 @@ def test_a_half_edited_matrix_is_told_how_to_recover_and_a_foreign_file_is_not(t
     with pytest.raises(MatrixError) as caught:
         read_matrix(edited)
     message = str(caught.value)
-    assert "upgrade_matrix" in message
+    assert "pyfs-workspace migrate" in message
     assert "restore the original" in message
     # And it says WHERE the file differs rather than leaving two lists to diff by eye.
     assert "column 4" in message and "FLIGHT_CONDITION" in message and "REmi" in message
@@ -2032,7 +1365,7 @@ def test_a_half_edited_matrix_is_told_how_to_recover_and_a_foreign_file_is_not(t
     foreign.write_text("POL | ANGLE\n9001 | 4.0\n", encoding="utf-8")
     with pytest.raises(MatrixError) as caught:
         read_matrix(foreign)
-    assert "upgrade_matrix" not in str(caught.value)
+    assert "pyfs-workspace migrate" not in str(caught.value)
 
 
 # --- PFS-2029.04 and PFS-2029.07.02: the 0.11.0 layout ------------------------
@@ -2054,8 +1387,8 @@ def test_the_0_11_0_layout_is_recognised_and_refused_naming_its_converter():
     with pytest.raises(MatrixError) as caught:
         read_matrix(LAYOUT_0_11_0_FIXTURE)
     message = str(caught.value)
-    assert "v0.11.0 to v0.14.0" in message and "SWEEP_TYPE" in message
-    assert "pyfs-matrix upgrade" in message and "in_place" in message
+    assert "predates 0.38.0" in message and "FLIGHT_CONDITION" in message
+    assert "pyfs-workspace migrate" in message and "older package" in message
     assert "restore the original" not in message, (
         "a file at a known layout is told to restore a backup it does not need"
     )
@@ -2064,7 +1397,7 @@ def test_the_0_11_0_layout_is_recognised_and_refused_naming_its_converter():
 
 def test_the_0_11_0_refusal_reaches_the_planner_too():
     """The same refusal from `to_campaign`, so nothing parses past the header."""
-    with pytest.raises(MatrixError, match="pyfs-matrix upgrade"):
+    with pytest.raises(MatrixError, match="pyfs-workspace migrate"):
         to_campaign(
             LAYOUT_0_11_0_FIXTURE, name="m", fs_version="26.120", fs_exe="fs.exe", recipes=RECIPES
         )
@@ -2090,13 +1423,13 @@ def test_the_0_9_0_layout_is_refused_naming_upgrade():
     with pytest.raises(MatrixError) as caught:
         read_matrix(LAYOUT_0_9_0_FIXTURE)
     message = str(caught.value)
-    assert "v0.9.0 to v0.10.1" in message and "ENTRY and FS_SCRIPT" in message
-    assert "pyfs-matrix upgrade" in message and "in_place" in message
+    assert "predates 0.38.0" in message and "FLIGHT_CONDITION" in message
+    assert "pyfs-workspace migrate" in message and "older package" in message
 
 
 def test_the_fifteen_column_layout_is_refused_naming_upgrade():
     """The same refusal from `to_campaign`, so nothing parses past the header."""
-    with pytest.raises(MatrixError, match="pyfs-matrix upgrade"):
+    with pytest.raises(MatrixError, match="pyfs-workspace migrate"):
         to_campaign(
             LAYOUT_0_9_0_FIXTURE, name="m", fs_version="26.120", fs_exe="fs.exe", recipes=RECIPES
         )
@@ -2110,7 +1443,7 @@ def test_a_partly_edited_layout_is_refused_naming_upgrade(tmp_path):
     with pytest.raises(MatrixError) as caught:
         read_matrix(half)
     message = str(caught.value)
-    assert "upgrade" in message, message
+    assert "pyfs-workspace migrate" in message, message
     assert "15" in message and "19" in message
 
 

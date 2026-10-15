@@ -31,6 +31,7 @@ from pyflightstream.run import PlanStatus
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.support_helpers import fold_separators, saved_mesh_fixture
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
@@ -346,7 +347,7 @@ def test_the_wing_body_record_names_its_skips_and_the_full_model_record_has_no_f
     such key at all, not an empty list, so its record keeps its 0.38.0 content.
     """
     workspace, _, _, _ = run_of_the_study
-    rows = json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.root / "runs.json")
     rows = rows if isinstance(rows, list) else rows["runs"]
     by_row = {row["sim_id"]: row for row in rows}
     assert by_row["2001"]["skipped_names"] == WING_BODY_SKIPS
@@ -370,7 +371,7 @@ def test_the_full_model_script_is_the_one_v0380_writes_from_the_same_files(tmp_p
         )
         records = ran(workspace, path)
         assert digest(script_of(workspace, records, "2002")) == pinned
-        rows = json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
+        rows = _read_record_rows(workspace.root / "runs.json")
         rows = rows if isinstance(rows, list) else rows["runs"]
         assert all("skipped_names" not in row for row in rows)
 

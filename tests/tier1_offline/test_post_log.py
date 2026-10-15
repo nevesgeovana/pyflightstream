@@ -8,6 +8,8 @@ import pytest
 from pyflightstream import __version__
 from pyflightstream.post.products import freeze_of_log, write_campaign_products
 from pyflightstream.results import UnjudgeableSolve
+from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_b01_frozen_solve import (
     _log,
     _make_one_step_unreadable,
@@ -115,7 +117,7 @@ def test_reducer_samples_control_product_warning_or_refusal(tmp_path, shape, ask
                 'families_blades = ["B"]', 'families_blades = ["Blade1", "Blade2"]'
             )
         )
-    records = json.loads((workspace.root / "runs.json").read_text())
+    records = _read_record_rows(workspace.root / "runs.json")
     span, depth, last, first = (3.6, 4.0, 20, 6) if shape == "fractional" else (3.0, 1.0, 61, 59)
     entry = {
         "windows": [[first, last]],
@@ -134,7 +136,7 @@ def test_reducer_samples_control_product_warning_or_refusal(tmp_path, shape, ask
             "phase_locked": entry,
         }
     }
-    (workspace.root / "runs.json").write_text(json.dumps(records))
+    (workspace.root / "runs.json").write_text(json.dumps(_encode_record_rows(records)))
     raw = workspace.sim_dir("7001") / "datapoints/DP-AL-020"
     if shape != "alias":
         path = raw / "AL-020_plots.txt"

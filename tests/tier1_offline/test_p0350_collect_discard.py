@@ -13,6 +13,7 @@ from pyflightstream.run.cli import main
 from pyflightstream.run.collect import collect_and_post
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
+from pyflightstream.workspace.record_document import read_rows
 from tests.support_helpers import grouped_plan_fixture as plan_fixture
 from tests.tier1_offline.test_matrix_run import HPC_PROFILE
 from tests.tier1_offline.test_matrix_run import converged as run_converged
@@ -103,7 +104,7 @@ def test_discard_is_per_point_and_keeps_outputs(tmp_path):
     )
     archived = list((workspace.root / "archive").glob("runs-*.json"))
     assert len(archived) == 1
-    previous = json.loads(archived[0].read_text(encoding="utf-8"))
+    previous = read_rows(archived[0])
     assert previous[0]["status"] == "WALLTIME_REACHED"
     assert workspace.read_raw_manifest()[1] == previous[1]
 
@@ -195,9 +196,7 @@ def test_grouped_plan_and_run_archive_the_discarded_point(tmp_path, capsys):
     archives = list((output.parent / "archive").glob("*/old.txt"))
     assert len(archives) == 1 and archives[0].read_bytes() == b"interrupted outputs"
     archived_rows = [
-        row
-        for path in (workspace.root / "archive").glob("runs-*.json")
-        for row in json.loads(path.read_text(encoding="utf-8"))
+        row for path in (workspace.root / "archive").glob("runs-*.json") for row in read_rows(path)
     ]
     assert any(
         row["run_id"] == first.run_id and row["status"] == "FAILED_MARKED" for row in archived_rows

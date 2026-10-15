@@ -35,7 +35,6 @@ from pyflightstream.cases.matrix import (
     convert_matrix,
     read_matrix,
     to_campaign,
-    upgrade_matrix,
 )
 from pyflightstream.cases.naming import name_field
 from pyflightstream.cases.pproc import (
@@ -271,8 +270,8 @@ class TestCasesMatrix:
         with pytest.raises(MatrixError) as caught:
             read_matrix(path)
         text = str(caught.value)
-        assert "v0.15.0 to v0.16.0" in text and "pyfs-matrix upgrade" in text
-        assert "CONFIGURATION" in text and "WALLTIME" in text
+        assert "predates 0.38.0" in text and "pyfs-workspace migrate" in text
+        assert "WORKFLOW" in text and "PPROC" in text
         assert "restore the original" not in text
 
     @staticmethod
@@ -320,53 +319,11 @@ _CASES_MATRIX_UPGRADE__FIXTURES = Path(__file__).parent / "fixtures"
 class TestCasesMatrixUpgrade:
     """Tier 1: the matrix upgrade edits only what its stage names and counts data rows (0.40.0)."""
 
-    @staticmethod
-    def test_p0400_upgrade_leaves_a_current_layout_file_unchanged(tmp_path):
-        """P0400-GEOMETRY-ANCHOR (PFS-2096.001): free text naming GEOMETRY is not a file name."""
-        row = dict.fromkeys(MATRIX_COLUMNS, "NA")
-        row.update(
-            POL="9001",
-            DESCRIPTION="see GEOMETRY: baseline",
-            VAR_NAMES_VALUES="NOTE_GEOMETRY: blade",
-        )
-        path = tmp_path / "current.fs"
-        path.write_bytes((" | ".join(row) + "\n" + " | ".join(row.values()) + "\n").encode("utf-8"))
-        assert upgrade_matrix(path) == path.read_bytes()
+    pass
 
-    @staticmethod
-    def test_p0400_geometry_stage_renames_only_the_geometry_pair_of_the_free_cell(tmp_path):
-        """P0400-GEOMETRY-ANCHOR (PFS-2096.001): on an older layout only the GEOMETRY key is renamed."""  # noqa: E501
-        lines = (
-            (_CASES_MATRIX_UPGRADE__FIXTURES / "pfs202609_matrix14.fs")
-            .read_text(encoding="utf-8")
-            .splitlines()
-        )
-        first = next(index for index, line in enumerate(lines) if line.startswith("9001"))
-        head, separator, tail = lines[first].rpartition("| ")
-        lines[first] = (
-            head + separator + "NOTE_GEOMETRY: blade / GEOMETRY: wing / " + tail
-        ).replace("STEADY_POLAR_B45", "see GEOMETRY: baseline", 1)
-        path = tmp_path / "older.fs"
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        renamed = upgrade_matrix(path)
-        assert b"see GEOMETRY: baseline " in renamed
-        assert b"NOTE_GEOMETRY: blade /" in renamed
-        assert b"| wing.fsm |" in renamed
+    pass
 
-    @staticmethod
-    def test_p0400_layout_0_9_0_upgrade_counts_data_rows_from_one(tmp_path):
-        """P0400-UPGRADE-ROW (PFS-2100.009): the first data row is data row 1, not row 2."""
-        lines = (
-            (_CASES_MATRIX_UPGRADE__FIXTURES / "pfs202609_matrix15.fs")
-            .read_text(encoding="utf-8")
-            .splitlines()
-        )
-        first = next(index for index, line in enumerate(lines) if line.startswith("9001"))
-        lines[first] = lines[first].rsplit("|", 1)[0]
-        path = tmp_path / "short.fs"
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        with pytest.raises(MatrixError, match=r"data row 1 of .* holds 14 cells against the 15"):
-            upgrade_matrix(path)
+    pass
 
 
 class TestCasesNaming:
@@ -808,11 +765,10 @@ class TestCasesReview:
             "time_average": {"windows": [[5, 8]], "window_from": "recorded"},
         }
         workspace = _cases_review___unsteady_workspace(tmp_path, reductions=plan, recipe="unsteady")
-        manifest = workspace.root / "runs.json"
-        records = json.loads(manifest.read_text(encoding="utf-8"))
-        container = records["runs"] if isinstance(records, dict) else records
+        records = workspace.read_raw_manifest()
+        container = records
         container[0]["matrix_stem"] = "matriz"
-        manifest.write_text(json.dumps(records), encoding="utf-8")
+        workspace._replace_manifest(records)
         (workspace.root / "matriz.fs").write_text(
             _cases_review__window_matrix(window), encoding="utf-8"
         )

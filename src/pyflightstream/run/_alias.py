@@ -444,10 +444,9 @@ def split_typed_ids(
         An alias with no point, whose two readings disagree, or, with ``whole_only``,
         any alias.
     """
-    try:
-        rows = json.loads((Path(root) / manifest).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        rows = []
+    from pyflightstream.workspace.record_document import read_rows
+
+    rows = read_rows(Path(root) / manifest)
     rows = [row for row in rows if isinstance(row, Mapping)] if isinstance(rows, list) else []
     known = planned_in_workspace(root, rows)
     sims: list[str] = []

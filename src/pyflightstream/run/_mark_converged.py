@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import json
 import shutil
 import sys
 from collections.abc import Mapping, Sequence
@@ -36,7 +35,7 @@ from pyflightstream.run._alias import listed_ids as _listed
 from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._assessment import worse_of
 from pyflightstream.run._record_files import _now_stamp, _relative, manifest_lock
-from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
 from pyflightstream.workspace._verdicts import marked_units
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP
 from pyflightstream.workspace.naming import ARCHIVE_DIR, DEFAULT_MANIFEST, RunsManifestError
@@ -65,7 +64,10 @@ def _whole_simulations(base: Path, ids: list[str]) -> list[str]:
     recognise the same ``<sim>_<index>``; this command selects points by name,
     so the refusal spells the point's simulation and name.
     """
-    sims, aliased = split_typed_ids(ids, base)
+    try:
+        sims, aliased = split_typed_ids(ids, base)
+    except WorkspaceError as error:
+        raise RunsManifestError(str(error)) from error
     if not aliased:
         return sims
     named = [text for text in ids if text not in sims]
@@ -388,9 +390,11 @@ def _status_of(row: Mapping[str, Any], status: object) -> RunStatus:
 
 
 def _read(manifest: Path) -> list[dict[str, Any]]:
+    from pyflightstream.workspace.record_document import read_rows
+
     try:
-        rows = json.loads(manifest.read_text(encoding="utf-8"))
-    except ValueError as error:
+        rows = read_rows(manifest)
+    except (ValueError, WorkspaceError) as error:
         raise RunsManifestError(
             f"{manifest} is not readable JSON ({error}); restore it from archive/ "
             "(pyfs-matrix restore runs) or rebuild it (pyfs-matrix rebuild)"

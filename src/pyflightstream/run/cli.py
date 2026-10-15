@@ -85,7 +85,7 @@ from pyflightstream._progress import (
 )
 from pyflightstream._progress import print_held_warnings as print_held_warnings
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.cases.matrix import MatrixError, upgrade_matrix
+from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import (
     WorkflowCoverageError,
     workflow_registry,
@@ -292,10 +292,6 @@ def main(argv: list[str] | None = None) -> int:
 
             warnings.warn(alias_warning(args.subcommand), PyflightstreamWarning, stacklevel=2)
             return cmd_geometry(args)
-        if args.subcommand == "upgrade":
-            return _cmd_upgrade(args)
-        if args.subcommand == "rename":
-            return _cmd_rename(args)
         try:
             recipes = _parse_recipes(args.recipe)
             if args.subcommand in ("run", "plan", "inspect-setups"):
@@ -596,35 +592,6 @@ def _naming(args: argparse.Namespace) -> NamingTemplate:
             f"point_name (CLI: --point-name): {error} The placeholders a template may "
             f"use are listed under `pyfs-matrix run --help`; the default is {MATRIX_POINT_NAME!r}."
         )
-
-
-def _cmd_rename(args: argparse.Namespace) -> int:
-    """Rename a 0.20.x workspace to the 0.21.0 names, or rehearse it."""
-    from pyflightstream.run.rename import rename_workspace
-
-    workspace = CampaignWorkspace(Path(args.workspace))
-    try:
-        report = rename_workspace(workspace, apply=not args.dry_run)
-    except (WorkspaceError, CampaignConfigError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
-    for line in report.lines():
-        print(line)
-    print(report.summary())
-    # EVERY ARM ENDS WITH THE NEXT STEP. The first writing wrote one only for
-    # the nothing-to-do arm, so a user who had just read forty rehearsed
-    # changes was told nothing about how to make them happen (the interface
-    # lens, 2026-09-16).
-    if not report.changes:
-        # NOTHING TO DO IS A SUCCESS and says so in words, because this
-        # command is run twice by anybody who is careful: once to see, once
-        # to move. A silent zero reads as "it did not run".
-        print("every record is already at the 0.21.0 names; nothing moved.")
-    elif args.dry_run:
-        print("nothing was changed. Run the same command without --dry-run to move them.")
-    else:
-        print("the workspace is at the 0.21.0 names; pyfs-matrix collect and post read it now.")
-    return 0
 
 
 def _cmd_collect(args: argparse.Namespace) -> int:
@@ -1040,88 +1007,6 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
             )
         skipped += len(entries)
     return skipped
-
-
-def _notices_for(before: str) -> list[str]:
-    """Return the notices this upgrade owes, one per stage its INPUT needs.
-
-    The single unconditional notice this replaces told every user, at every
-    layout, that their RESULTS ARE NOT PRESERVED. That is true across the
-    v0.8.x boundary and it is the OPPOSITE of what this release guarantees
-    about its own stage, so a user converting a 14-column file read the one
-    surface they meet at the moment of committing and were told to throw
-    away a campaign that still resolves. The release review raised it at
-    severity one, and the cost of believing it is a licensed seat.
-
-    The header is what decides, because the header is what the reader
-    refuses on: a file carrying an `RE` column entered at the v0.8.x layout
-    and needs the REmi paragraph; a file carrying `SWEEP_TYPE` is the
-    migration this release is for and needs the opposite sentence.
-    """
-    header = next((line for line in before.splitlines() if "|" in line), "")
-    cells = [cell.strip().upper() for cell in header.split("|")]
-    notices = []
-    if "RE" in cells:
-        notices.append(_RE_NOTICE)
-    if "SWEEP_TYPE" in cells:
-        notices.append(_SWEEP_NOTICE)
-    if not notices:
-        notices.append(_NO_STAGE_NOTICE)
-    return notices
-
-
-def _cmd_upgrade(args: argparse.Namespace) -> int:
-    """Bring a matrix at an older layout up to the current one."""
-    if args.inputs is not None and not args.in_place:
-        print(
-            "inputs (CLI: --inputs) moves library files and rewrites the cells that name "
-            "them, so it needs in_place (CLI: --in-place); without it the matrix would go "
-            "to standard output naming files that no longer exist.",
-            file=sys.stderr,
-        )
-        return 2
-    try:
-        # READ BEFORE THE CONVERSION, because the notices are decided by the
-        # layout the file ENTERED at and `--in-place` overwrites it.
-        original = Path(args.matrix).read_text(encoding="utf-8", errors="replace")
-        upgraded = upgrade_matrix(args.matrix, in_place=args.in_place)
-        if args.inputs is not None:
-            from pyflightstream.workspace.inputs import (
-                InputArtifactError,
-                migrate_groups_to_pproc,
-                strip_rotor_facts,
-            )
-
-            try:
-                moved = migrate_groups_to_pproc(Path(args.inputs))
-            except InputArtifactError as error:
-                print(str(error), file=sys.stderr)
-                return 2
-            for old, new in sorted(moved.items()):
-                print(f"moved inputs/groups/{old}.toml to inputs/pproc/{new}.toml", file=sys.stderr)
-            if not moved:
-                print(f"no groups file under {args.inputs} to move", file=sys.stderr)
-            for name, keys in sorted(strip_rotor_facts(Path(args.inputs)).items()):
-                print(
-                    f"stripped {', '.join(keys)} from inputs/references/{name}; the row "
-                    "states the rotor speed's sign and axis (PFS-2029.08)",
-                    file=sys.stderr,
-                )
-    except (OSError, MatrixError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
-    if args.in_place:
-        print(f"upgraded {args.matrix}", file=sys.stderr)
-    # ONE NOTICE PER STAGE THAT ACTUALLY FIRED, on stderr on BOTH routes so
-    # it never contaminates the bytes the stdout route hands back for a diff.
-    # A file that never carried an RE column is not told about REmi, and a
-    # file whose sweep cell was folded is told the thing that matters to it.
-    for notice in _notices_for(original):
-        print(notice, file=sys.stderr)
-    if args.in_place:
-        return 0
-    sys.stdout.buffer.write(upgraded)
-    return 0
 
 
 def _the_missing_family_choice(args: argparse.Namespace) -> bool:

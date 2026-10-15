@@ -11,7 +11,6 @@ keeps its bytes, and runs.json is archived first. Every workspace is a real
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 from pathlib import Path
 
@@ -22,6 +21,7 @@ from pyflightstream.run import records as records_module
 from pyflightstream.run import worse_of
 from pyflightstream.run.records import RunsManifestError, mark_failed
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import delete_sims
 
 
@@ -59,7 +59,7 @@ def _workspace(tmp_path: Path) -> CampaignWorkspace:
 
 
 def _rows(workspace: CampaignWorkspace) -> list[dict]:
-    return json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    return _read_record_rows(workspace.manifest_path)
 
 
 def test_preview_names_each_record_and_writes_nothing_fr_309(tmp_path):

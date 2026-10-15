@@ -25,6 +25,8 @@ import pytest
 
 from pyflightstream.cases.windows import AZIMUTHAL
 from pyflightstream.post.products import write_campaign_products
+from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_b01_frozen_solve import (
     _make_one_step_unreadable,
     _post_workspace,
@@ -50,7 +52,7 @@ def _azimuthal_campaign(tmp_path, steps_per_revolution: float, unread: int | Non
         ),
         encoding="utf-8",
     )
-    recorded = json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
+    recorded = _read_record_rows(workspace.root / "runs.json")
     entry = {
         "windows": [[60, 61]],
         "shape": AZIMUTHAL,
@@ -71,7 +73,9 @@ def _azimuthal_campaign(tmp_path, steps_per_revolution: float, unread: int | Non
             "phase_locked": entry,
         }
     }
-    (workspace.root / "runs.json").write_text(json.dumps(recorded, indent=1), encoding="utf-8")
+    (workspace.root / "runs.json").write_text(
+        json.dumps(_encode_record_rows(recorded), indent=1), encoding="utf-8"
+    )
     if unread is not None:
         _make_one_step_unreadable(workspace, unread)
     write_campaign_products(workspace, matrix_stem="products", check_frozen=True)

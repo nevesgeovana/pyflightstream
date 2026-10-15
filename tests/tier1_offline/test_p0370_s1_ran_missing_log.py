@@ -20,6 +20,7 @@ import pytest
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import CampaignErrors
 from pyflightstream.run.matrix import run_matrix
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline import test_p0350_batch_run as grouped_run
 from tests.tier1_offline.test_p0370_s1_matrix_home import (
     MATRIX,
@@ -41,7 +42,7 @@ JOB_END = '\n[log]\njob_end_files = ["{point}.e*"]\n'
 
 
 def _records(root: Path) -> list[dict]:
-    return json.loads((root / "runs.json").read_text("utf-8"))
+    return _read_record_rows(root / "runs.json")
 
 
 def _points(rows: list[dict]) -> list[dict]:
@@ -124,7 +125,7 @@ def test_p0370_s1_status_show_plan_and_resume_read_a_run_that_ended(tmp_path, ca
     workspace = grouped_workspace(tmp_path / "ws", logs=False)
     rows = _records(workspace.root)
     rows[0]["status"] = "CONVERGED"  # one point the log of which was kept, for the count
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     code, said = pyfs(["status"], workspace.root, capsys)
     assert code == 0, said
     assert "CONVERGED 1, RAN_MISSING_LOG 2" in said, said
@@ -139,7 +140,7 @@ def test_p0370_s1_status_show_plan_and_resume_read_a_run_that_ended(tmp_path, ca
     assert workspace.manifest_path.read_bytes() == before, "run --resume ran a point that ended"
     # The control: one point not ended (its record gone), and the same resume
     # runs exactly that point again.
-    workspace.manifest_path.write_text(json.dumps(rows[:2], indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows[:2])
     assert _resume(workspace) == [rows[2]["run_id"]]
     assert [row["run_id"] for row in _records(workspace.root)][2:] == [rows[2]["run_id"]]
 

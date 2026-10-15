@@ -24,6 +24,7 @@ from pyflightstream.results import parse_loads, to_table
 from pyflightstream.results.tables import sweep_table
 from pyflightstream.run import LoadsAssessor
 from pyflightstream.workspace import CampaignWorkspace, PointName, RunStatus
+from pyflightstream.workspace.record_document import encode_rows
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -69,7 +70,7 @@ def _workspace_holding(tmp_path: Path, folder: str) -> CampaignWorkspace:
     (sim / folder).mkdir(parents=True)
     (sim / folder / "loads.txt").write_text(_loads_text(), encoding="utf-8")
     (root / "runs.json").write_text(
-        json.dumps([_record(f"{folder}/loads.txt")], indent=2), encoding="utf-8"
+        json.dumps(encode_rows([_record(f"{folder}/loads.txt")]), indent=2), encoding="utf-8"
     )
     return CampaignWorkspace(root)
 

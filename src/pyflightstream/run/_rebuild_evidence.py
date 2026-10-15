@@ -43,6 +43,7 @@ from pyflightstream.workspace._script_comparison import (
     slashes as slashes,
 )
 from pyflightstream.workspace.naming import DEFAULT_MANIFEST
+from pyflightstream.workspace.record_document import encode_rows, read_rows
 
 
 class _WouldWriteError(RuntimeError):
@@ -179,7 +180,9 @@ def collect_without_writing(
         return seen
 
     workspace = _Staged(Path(root))
-    _textio.write_text(workspace.manifest_path, json.dumps([dict(record)], indent=2) + "\n")
+    _textio.write_text(
+        workspace.manifest_path, json.dumps(encode_rows([dict(record)]), indent=2) + "\n"
+    )
 
     # The stage logs its activity under the workspace it is given; entered
     # here first with the STAGING folder, its log lands there, not in the
@@ -197,7 +200,7 @@ def collect_without_writing(
             report = collect_in(folder)
     except _WouldWriteError as error:
         return dict(record), f"{error}; pyfs-matrix collect does that, a rebuild does not"
-    (row,) = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    (row,) = read_rows(workspace.manifest_path)
     if row.get("status") == "SUBMITTED":
         detail = "; ".join(
             outcome.detail for outcome in (*report.waiting, *report.unknown, *report.failed)
@@ -212,15 +215,7 @@ def collect_without_writing(
 
 
 def _read_rows(path: Path) -> list[dict[str, Any]] | None:
-    try:
-        document = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, ValueError):
-        return None
-    if isinstance(document, dict) and isinstance(document.get("runs"), list):
-        document = document["runs"]
-    if not isinstance(document, list):
-        return None
-    return [row for row in document if isinstance(row, dict)]
+    return read_rows(path)
 
 
 _SIM_IN_RUN_ID = re.compile(r"(?:^|/)sim_([^/]+)(?:/|$)")

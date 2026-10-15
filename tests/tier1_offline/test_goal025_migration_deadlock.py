@@ -30,7 +30,6 @@ recomputed, which is what the original refusal was protecting.
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 
@@ -38,6 +37,7 @@ import pytest
 
 from pyflightstream.run.collect import _datapoint_of, collect_once
 from pyflightstream.workspace import RunStatus, WorkspaceError
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
 from tests.tier1_offline.test_goal024_profile_log import _profile_text
 
@@ -92,7 +92,7 @@ def _a_0_20_workspace(tmp_path, *, with_native_log: bool = True):
         (work / f"FTS{POL}.e{JOB}").write_text("", encoding="utf-8")
         (work / f"FTS{POL}.o{JOB}").write_text("", encoding="utf-8")
 
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     for row in rows:
         # WHAT MAKES IT 0.20.x: the fields this release added are simply absent,
         # and the folder the job ran in is named by the earlier tag.
@@ -110,7 +110,7 @@ def _a_0_20_workspace(tmp_path, *, with_native_log: bool = True):
         # The loads fixture prints alpha 2.0, so the record must have REQUESTED
         # it; the collector checks the export against the point it was asked for.
         row["point"] = {**dict(row.get("point") or {}), "alpha": 2.0}
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
     return workspace, work
 
 
@@ -132,7 +132,7 @@ def test_goal025_a_submitted_0_20_record_collects_in_the_folder_it_ran_in(tmp_pa
 
     assert not report.failed, [outcome.detail for outcome in report.failed]
     assert len(report.collected) == 1, report
-    row = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))[0]
+    row = _read_record_rows(workspace.manifest_path)[0]
     assert row["status"] == RunStatus.CONVERGED.value, (row["status"], row.get("error"))
     assert not row.get("error"), row["error"]
     # The scheduler's log was put where the row declared it, which is what let
@@ -154,7 +154,7 @@ def test_goal025_the_outputs_stay_in_the_old_folder_and_are_not_refiled(tmp_path
 
     assert work.name.startswith("DP-"), work.name
     assert (work / f"{STEM}.txt").is_file(), sorted(p.name for p in work.iterdir())
-    row = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))[0]
+    row = _read_record_rows(workspace.manifest_path)[0]
     # The record still carries no 0.21.0 name: collecting does not invent one,
     # `pyfs-matrix rename` is what names it, and that is the documented order.
     assert not row.get("point_name")
@@ -187,14 +187,14 @@ def test_goal025_a_record_naming_no_folder_at_all_is_still_refused(tmp_path):
         .replace(chr(10) + "1574 ", chr(10) + "311 "),
         encoding="utf-8",
     )
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     for row in rows:
         row["submission"] = {
             key: value
             for key, value in dict(row.get("submission") or {}).items()
             if key != "working_dir"
         }
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
 
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
 
@@ -219,11 +219,11 @@ def test_goal025_a_working_dir_that_is_not_a_datapoint_folder_is_refused_for_wha
     from pyflightstream.run.collect import _datapoint_of, _recorded_name
 
     workspace, work = _a_0_20_workspace(tmp_path)
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     for row in rows:
         # A working directory that IS named and is not a datapoint folder.
         row["submission"] = {**dict(row.get("submission") or {}), "working_dir": "."}
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
     record = workspace.read_manifest()[0]
 
     assert _datapoint_of(record) is None, "this is the second way there is no answer"
@@ -274,7 +274,7 @@ def test_goal025_a_folder_name_that_is_not_a_point_name_does_not_abort_the_sweep
     good.mkdir(parents=True, exist_ok=True)
     shutil.copy2(work / f"{STEM}.txt", good / f"{STEM}.txt")
     shutil.copy2(FIXTURES / "log_residuals_26.120.txt", good / f"{STEM}_log.txt")
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     healthy = {
         **dict(rows[0]),
         "run_id": "camp/sim_9001/AL+020",
@@ -289,9 +289,7 @@ def test_goal025_a_folder_name_that_is_not_a_point_name_does_not_abort_the_sweep
         "run_id": "camp/sim_9001/a b",
         "submission": {**dict(rows[0].get("submission") or {}), "working_dir": "datapoints/DP-a b"},
     }
-    workspace.manifest_path.write_text(
-        json.dumps([broken, healthy], indent=2) + "\n", encoding="utf-8"
-    )
+    workspace._replace_manifest([broken, healthy])
 
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
 
@@ -365,7 +363,7 @@ def test_goal025_a_swept_row_record_with_no_folder_at_all_does_not_abort_the_swe
     shutil.copy2(FIXTURES / "loads_steady_26.120.txt", sim / f"{STEM}.txt")
     shutil.copy2(FIXTURES / "log_residuals_26.120.txt", sim / f"{STEM}_log.txt")
 
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     swept = dict(rows[0])
     swept.pop("point_name", None)
     swept.pop("sweep_name", None)
@@ -384,7 +382,7 @@ def test_goal025_a_swept_row_record_with_no_folder_at_all_does_not_abort_the_swe
         OLD_TAG: {"alpha": 2.0},
         "a+04.0_b+00.0_j+00.8": {"alpha": 4.0},
     }
-    workspace.manifest_path.write_text(json.dumps([swept], indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest([swept])
 
     record = workspace.read_manifest()[0]
     assert record.point_name is None
@@ -416,12 +414,12 @@ def test_goal025_a_working_dir_naming_another_points_folder_is_not_taken(tmp_pat
     from pyflightstream.run.collect import _datapoint_of
 
     workspace, work = _a_0_20_workspace(tmp_path)
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     rows[0]["submission"] = {
         **dict(rows[0].get("submission") or {}),
         "working_dir": "datapoints/DP-a+09.0_b+00.0_j+00.8",
     }
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
     record = workspace.read_manifest()[0]
 
     assert str(record.run_id).endswith(OLD_TAG), record.run_id
@@ -441,13 +439,13 @@ def test_goal025_a_recorded_name_wins_over_a_folder_that_disagrees(tmp_path):
     from pyflightstream.run.collect import _datapoint_of, _RecordAsCase
 
     workspace, work = _a_0_20_workspace(tmp_path)
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     rows[0]["point_name"] = "AL+020"
     rows[0]["submission"] = {
         **dict(rows[0].get("submission") or {}),
         "working_dir": f"datapoints/{work.name}",
     }
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
     record = workspace.read_manifest()[0]
 
     assert _datapoint_of(record) == "AL+020", "the recorded name, not the folder"

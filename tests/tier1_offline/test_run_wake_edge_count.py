@@ -31,6 +31,7 @@ from pyflightstream.run import Assessment, CampaignErrors, LocalExecutor, run_ca
 from pyflightstream.run.collect import collect_once
 from pyflightstream.script import helpers
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 #: The sixteen trailing-edge mid-points of the tier-3 straight wing, which is
 #: the case the solver's line was read on: 16 imported for boundary Wing.
@@ -226,15 +227,14 @@ def test_a_collected_job_is_held_to_the_count_its_submission_recorded(
     submission records the points its script imported, and the log the assessor
     read among the collected outputs is held to that number, as the local path
     holds a point the moment its solver returns."""
-    import json
 
     from pyflightstream.run import collect as collect_module
     from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
 
     workspace, sim = _submitted_workspace(tmp_path)
-    raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(workspace.manifest_path)
     raw[0]["submission"]["wake_edge_points"] = 16
-    workspace.manifest_path.write_text(json.dumps(raw), encoding="utf-8")
+    workspace._replace_manifest(raw)
     (sim / "loads.txt").write_text("numbers", encoding="utf-8")
     line = f"{logged} trailing edges imported for boundary Wing"
     (sim / "run_log.txt").write_text(LOG_AROUND.format(line=line), encoding="utf-8", newline="")
@@ -275,15 +275,14 @@ def test_a_collected_job_judged_by_a_custom_assessor_is_held_to_the_count(
     own assessor finds it, among the collected outputs, so a log carrying all 16
     keeps the caller's verdict, one carrying 15 is FAILED_SCRIPT, and a job that
     collected no log is FAILED_INCOMPLETE_OUTPUT."""
-    import json
 
     from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
 
     declared = ("loads.txt", "run_log.txt") if logged is not None else ("loads.txt",)
     workspace, sim = _submitted_workspace(tmp_path, declared=declared)
-    raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(workspace.manifest_path)
     raw[0]["submission"]["wake_edge_points"] = 16
-    workspace.manifest_path.write_text(json.dumps(raw), encoding="utf-8")
+    workspace._replace_manifest(raw)
     (sim / "loads.txt").write_text("numbers", encoding="utf-8")
     if logged is not None:
         line = f"{logged} trailing edges imported for boundary Wing"

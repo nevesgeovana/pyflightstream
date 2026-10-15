@@ -26,6 +26,7 @@ from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run import collect as collect_module
 from pyflightstream.run.collect import collect_and_post, collect_once
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 #: The wing's body-axis normal force every loads export of the fixture states
 #: (the polar's CLB is built from it); a rerun is modelled by changing it in
@@ -330,7 +331,7 @@ def _submitted(tmp_path: Path) -> CampaignWorkspace:
 
 
 def _status(workspace: CampaignWorkspace, sim: str) -> str:
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     return next(row["status"] for row in rows if row["sim_id"] == sim)
 
 
@@ -423,11 +424,11 @@ def test_collect_sims_passes_the_simulations_to_the_workspace_post_fr_307(tmp_pa
 def test_collect_sims_posts_each_matrix_only_its_own_simulations_fr_307(tmp_path):
     # Verifies FR-307.
     workspace = _submitted(tmp_path)
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     for row in rows:
         if row["sim_id"] == "9002":
             row["matrix_stem"] = "other"
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
     posted: list[tuple[str | None, object]] = []
     collect_and_post(
         workspace,

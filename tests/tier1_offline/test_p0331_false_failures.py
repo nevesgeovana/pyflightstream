@@ -31,7 +31,6 @@ declaration.
 from __future__ import annotations
 
 import csv
-import json
 import sys
 import warnings
 from pathlib import Path
@@ -54,6 +53,7 @@ from pyflightstream.run._wake_edge_verdict import collected_solver_log
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.matrix import resolve_matrix
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_matrix_run import STUB_BODY, make_library
 from tests.tier1_offline.test_raw_mesh_conditions import (
     FILE_ROUTE,
@@ -456,7 +456,7 @@ def _as_0330_recorded(workspace, sim: str, failed: list[int], error: str) -> Non
     ``error`` is formatted with the first failed point's tag and the
     simulation folder, as 0.33.0 named the first failure.
     """
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     assert isinstance(rows, list) and rows, rows
     for row in rows:
         row["package_version"] = "0.33.0"
@@ -467,7 +467,7 @@ def _as_0330_recorded(workspace, sim: str, failed: list[int], error: str) -> Non
         tag = row["points_ran"][failed[0]]["tag"]
         row["status"] = RunStatus.FAILED_INCOMPLETE_OUTPUT.value
         row["error"] = error.format(tag=tag, sim_dir=workspace.sim_dir(sim).as_posix())
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
 
 
 def _statuses(workspace) -> dict[str, list[str]]:

@@ -192,8 +192,12 @@ def _workspace(root: str | Path) -> CampaignWorkspace:
 
 def _read_rows(path: Path) -> list[dict[str, Any]]:
     """Return the rows of a manifest as written; empty when the file does not exist."""
+    from pyflightstream.workspace.record_document import read_rows
+
     if not path.is_file():
         return []
+    if path.name != "additional.json":
+        return read_rows(path)
     rows = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(rows, list):
         raise StorageError(f"{path} is not a list of run records")
@@ -202,11 +206,14 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
 
 def _replace_rows(workspace: CampaignWorkspace, path: Path, rows: list[dict[str, Any]]) -> None:
     """Replace a manifest atomically; ``runs.json`` through the workspace's own writer."""
+    from pyflightstream.workspace.record_document import encode_rows
+
     if path == workspace.manifest_path:
         workspace._replace_manifest(rows)
         return
     temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    _textio.write_text(temporary, json.dumps(rows, indent=2) + "\n")
+    document = rows if path.name == "additional.json" else encode_rows(rows)
+    _textio.write_text(temporary, json.dumps(document, indent=2) + "\n")
     temporary.replace(path)
 
 

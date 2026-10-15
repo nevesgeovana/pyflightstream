@@ -40,6 +40,7 @@ from pyflightstream.workspace._matrix_homes import (
     matrix_path,
     resolve_matrix_arguments,
 )
+from pyflightstream.workspace.record_document import decode_document
 from tests.support_helpers import no_sleep
 from tests.tier1_offline import test_p0350_batch_run as grouped_run
 from tests.tier1_offline.test_matrix_run import _FR310_MATRIX_HOMES_ALL__ARGV as ARGV
@@ -326,5 +327,5 @@ def test_p0370_s1_the_rebuild_reads_the_matrix_its_workspace_holds(tmp_path, cap
     assert "rebuild: 0 record(s) rebuilt" in said, said
     assert "NOT RECOVERABLE" not in said, said
     assert workspace.manifest_path.read_bytes() == before
-    rows = json.loads(before)
+    rows = decode_document(json.loads(before))
     assert {row["submission"]["batch"] for row in rows} == {BATCH}

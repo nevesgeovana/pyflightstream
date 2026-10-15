@@ -783,7 +783,7 @@ def test_a_record_written_without_the_field_reads_as_velocity_not_requested(tmp_
     workspace, record = build_velocity_workspace(tmp_path, velocity_requested_m_s=30.0)
     row = json.loads(record.model_dump_json())
     del row["velocity_requested_m_s"]
-    workspace.manifest_path.write_text(json.dumps([row]), encoding="utf-8")
+    workspace._replace_manifest([row])
 
     (raw,) = workspace.read_raw_manifest()
     assert "velocity_requested_m_s" not in raw, "the row under test must not carry the key"

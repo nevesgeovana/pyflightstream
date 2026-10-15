@@ -23,6 +23,8 @@ import json
 import pytest
 
 from pyflightstream.cases import CampaignConfigError, windows
+from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 #: A run of 1000 steps turning a rotor at 250 steps per revolution, four blades
 #: on the flat path, with a second rotor block at 500 steps per revolution.
@@ -193,10 +195,10 @@ def _posted(tmp_path, window: str) -> dict:
     workspace = _unsteady_workspace(tmp_path, reductions=plan, recipe="unsteady")
     # The same record, now tied to a matrix that is on disk beside the runs.
     manifest = workspace.root / "runs.json"
-    records = json.loads(manifest.read_text(encoding="utf-8"))
-    container = records["runs"] if isinstance(records, dict) else records
+    records = _read_record_rows(manifest)
+    container = records
     container[0]["matrix_stem"] = "matriz"
-    manifest.write_text(json.dumps(records), encoding="utf-8")
+    manifest.write_text(json.dumps(_encode_record_rows(records)), encoding="utf-8")
     assert RunRecord.model_validate(container[0]).matrix_stem == "matriz"
     (workspace.root / "matriz.fs").write_text(_matrix(window), encoding="utf-8")
     import warnings as _warnings

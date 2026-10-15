@@ -973,7 +973,6 @@ class TestReachGuard:
         # conservation ledgers through the workspace, so the audit's NO became reached (rule (a)).
         confirmed = (
             "pyflightstream.post.corrections.sector_offset_calibration",
-            "pyflightstream.workspace.rename_groups.rename_group_products",
             "pyflightstream.fsi.centrifugal.campbell_sweep",
         )
         wrong = []

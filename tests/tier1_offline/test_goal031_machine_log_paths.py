@@ -38,6 +38,7 @@ from pyflightstream.run.matrix import run_matrix
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 # --- A. the build-identity pre-flight ----------------------------------------
 from tests.support_helpers import no_sleep as _no_sleep
@@ -335,9 +336,9 @@ def test_a_steady_job_that_imported_trailing_edges_is_held_to_the_job_s_log(tmp_
         root = tmp_path / expected
         root.mkdir()
         workspace, _ = _submitted_steady_job(root, native=LOG_AROUND.format(line=line))
-        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows = _read_record_rows(workspace.manifest_path)
         rows[0]["submission"]["wake_edge_points"] = 16
-        workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+        workspace._replace_manifest(rows)
         collect_and_post(
             workspace, watch=True, rounds=3, interval=0.0, watch_interval=0.0, sleep=_no_sleep
         )

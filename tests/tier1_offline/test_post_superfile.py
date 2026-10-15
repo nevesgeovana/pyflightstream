@@ -31,6 +31,8 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
+
 # ---------------------------------------------------------------------------
 # The workspace, in the shape of the one that ran.
 
@@ -373,11 +375,14 @@ def _the_union_the_workspace_knows(workspace) -> set[str]:
     # why they are the only two words written here rather than read.
     known |= {"RPM", "J"}
     pols: set[str] = set()
-    for record in json.loads((workspace.root / "runs.json").read_text(encoding="utf-8")):
+    document = json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
+    for run in document["runs"]:
+        record = run["details"]
+        setup = document["solver_setups"][run["solver_setup_id"]]
         pols.add(str(record.get("sim_id")))
         known |= set(record.get("flight_condition") or {})
         known |= set(record.get("flight_condition_defaults") or {})
-        known |= set(((record.get("solver_setup") or {}).get("flags")) or {})
+        known |= set(((setup or {}).get("flags")) or {})
         rotors = ((record.get("reductions") or {}).get("rotors")) or {}
         known |= {f"RPM_{alias}" for alias in rotors}
     known |= _matrix_names(workspace.root / "matriz.fs", pols)
@@ -678,7 +683,7 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
     )
 
     workspace = _workspace(tmp_path)
-    payload = json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
+    payload = _read_record_rows(workspace.root / "runs.json")
     runs = payload["runs"] if isinstance(payload, dict) else payload
     keys = {key for record in runs for key in record}
     assert keys, "the fixture wrote no record, so this proves nothing"
@@ -836,7 +841,7 @@ def test_every_record_scalar_reaches_the_file_with_its_value(tmp_path):
 
     records = {
         str(record.get("run_id")): record
-        for record in json.loads((workspace.root / "runs.json").read_text(encoding="utf-8"))
+        for record in _read_record_rows(workspace.root / "runs.json")
     }
     assert records, "the fixture recorded nothing, so this proves nothing"
 

@@ -26,7 +26,6 @@ FIX-0212).
 
 from __future__ import annotations
 
-import json
 import re
 
 import pytest
@@ -128,7 +127,7 @@ def test_goal026_force_rerun_archives_the_manifest_into_archive(tmp_path):
     knows the first never finds the second (the architecture lens, FIX-0212).
     """
     workspace = _ran_once(tmp_path)
-    original = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    original = workspace.manifest_path.read_bytes()
     target = str(workspace.read_manifest()[0].run_id)
 
     with pytest.warns(Warning, match="manifest was copied"):
@@ -142,9 +141,7 @@ def test_goal026_force_rerun_archives_the_manifest_into_archive(tmp_path):
 
     copies = sorted((workspace.root / "archive").glob("runs-*.json"))
     assert copies, sorted(p.name for p in workspace.root.iterdir())
-    assert json.loads(copies[0].read_text(encoding="utf-8")) == original, (
-        "the copy is not the manifest as it was"
-    )
+    assert copies[0].read_bytes() == original, "the copy is not the manifest as it was"
     assert not list(workspace.root.glob("runs-*.json")), (
         "a second copy was left at the campaign root, which the layout does not admit"
     )

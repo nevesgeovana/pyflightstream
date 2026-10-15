@@ -9,9 +9,7 @@ where the geometry came from, which the package never writes. This module
 writes and checks the inventory (the boundary names read off an OBJ or a
 saved simulation), with the mesh's face count taken at the same time
 (FR-348, which the post carries and never counts: :func:`recorded_mesh_faces`),
-reads each table of the sidecar with its own reader over one parse, and
-moves a flat geometry library into one folder per geometry
-(:func:`migrate_geometry_layout`, PFS-2032.04).
+and reads each table of the sidecar with its own reader over one parse.
 
 It also holds the TOML reader of the input library's artifact files, which
 the artifact resolvers and the HPC profile reader share.
@@ -26,7 +24,6 @@ import json
 import sys
 import tomllib
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, NamedTuple, cast
 
@@ -66,10 +63,8 @@ __all__ = [
     "TRAILING_EDGES_TABLE",
     "TRAILING_EDGE_DETECT_KEYS",
     "WAKE_TERMINATION_TABLE",
-    "GeometryMigration",
     "ensure_inventory",
     "inventory_sidecar",
-    "migrate_geometry_layout",
     "obj_boundary_names",
     "read_inventory",
     "read_mesh_import",
@@ -1225,107 +1220,6 @@ def _where_in_the_import_table(loc: Sequence[int | str]) -> str:
 
 
 # --- one subfolder per geometry (PFS-2032.05) ----------------------------------------
-
-
-@dataclass(frozen=True)
-class GeometryMigration:
-    """What :func:`migrate_geometry_layout` did to one library.
-
-    Attributes
-    ----------
-    moved : tuple of (Path, Path)
-        Every file moved, as ``(where it was, where it is)``, in the order
-        the moves were made: each geometry file, then the sidecars that
-        carry its stem, then its companion files.
-    kept : tuple of str
-        The stems whose folder already existed and was left alone, a flat
-        file of that stem included: the folder is the reading's first
-        answer, so the migration does not decide which of the two the
-        owner meant.
-    """
-
-    moved: tuple[tuple[Path, Path], ...]
-    kept: tuple[str, ...]
-
-
-def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
-    """Move a flat geometry library into one folder per geometry, idempotently.
-
-    Every ``geometries/<stem>.<ext>`` directly under the library moves to
-    ``geometries/<stem>/<stem>.<ext>``, and its ``<stem>.boundaries.toml``
-    and ``<stem>.provenance.toml`` move with it, so what belongs to one
-    geometry sits in one place (PFS-2032.05, design 68 section A3). Its
-    companion files move with it too: the points file its sidecar's
-    ``[trailing_edges]`` table names, which is read beside the sidecar,
-    and every other ``<stem>.*`` file that is not itself a geometry, such
-    as the ``<stem>.audit.json`` and ``<stem>.refine.json`` written beside
-    a mesh (PFS-2096.013). A geometry is a file the workflow opens or
-    imports (``.fsm``, a raw mesh, a CAD or a CCS file), so ``blade.v2.fsm``
-    is a geometry of its own and never a companion of ``blade.fsm``. A
-    folder that already exists is left alone with whatever it holds, and a
-    second run over the same library moves nothing: nothing here decides
-    for the user. The run records of a workspace are untouched and keep
-    reading, because a record names its inputs by file name and hashes
-    their bytes, and neither moved.
-
-    Nothing migrates by itself: the resolver reads both layouts, and the
-    flat one is not deprecated.
-
-    Parameters
-    ----------
-    inputs_dir : str or Path
-        The workspace ``inputs/`` directory.
-
-    Returns
-    -------
-    GeometryMigration
-        The files moved and the folders left alone.
-
-    Raises
-    ------
-    InputArtifactError
-        A root with no ``inputs/geometries``, or a points file shared by
-        multiple geometries that cannot move to one geometry's folder.
-    """
-    directory = Path(inputs_dir) / "geometries"
-    if not directory.is_dir():
-        raise InputArtifactError(
-            f"{directory} does not exist, so there is no geometry library to migrate: "
-            "the root of a campaign workspace carries inputs/geometries (create the "
-            "tree with pyfs-workspace init), and the path given holds none.",
-            kind="geometry",
-            artifact_id=None,
-        )
-    entries = sorted(directory.iterdir())
-    kept = tuple(entry.name for entry in entries if entry.is_dir())
-    companions = _geometry_companions(directory, entries)
-    created: set[Path] = set()
-    moved: list[tuple[Path, Path]] = []
-    for entry in entries:
-        # THE LIBRARY'S OWN README IS NOT A GEOMETRY and is left where it is.
-        # `init` writes one here (PFS-2032.07), and without this line the
-        # migration filed the instruction page under `geometries/README/`,
-        # which both hides the page from the person it was written for and
-        # creates a folder the resolver then reads as a geometry's home.
-        if not entry.is_file() or is_sidecar(entry.name) or entry.name == GEOMETRIES_README:
-            continue
-        if entry.name in companions:
-            continue
-        folder = directory / entry.stem
-        if folder.exists() and folder not in created:
-            continue
-        if folder not in created:
-            folder.mkdir()
-            created.add(folder)
-        sidecars = [directory / (entry.stem + suffix) for suffix in SIDECAR_SUFFIXES]
-        owned = [directory / name for name, stem in companions.items() if stem == entry.stem]
-        for source in (entry, *sidecars, *owned):
-            if not source.is_file():
-                continue
-            target = folder / source.name
-            source.rename(target)
-            moved.append((source, target))
-    return GeometryMigration(moved=tuple(moved), kept=kept)
 
 
 #: The suffixes of a file a workflow opens or imports as a geometry.

@@ -99,7 +99,7 @@ def _submitted_workspace(tmp_path, *, declared=("loads.txt", "run_log.txt")):
 
 
 def _status_of(workspace, run_id: str) -> str:
-    raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    raw = workspace.read_raw_manifest()
     return next(row["status"] for row in raw if row["run_id"] == run_id)
 
 
@@ -466,11 +466,7 @@ def _submitted_sweep(tmp_path):
     )
     # THE ROW IS REPLACED, not appended beside itself: the fixture above wrote
     # one record for this run id and a second would be a manifest holding two.
-    path = workspace.root / "runs.json"
-    path.write_text(
-        json.dumps([json.loads(swept.model_dump_json())], indent=2) + "\n",
-        encoding="utf-8",
-    )
+    workspace._replace_manifest([json.loads(swept.model_dump_json())])
     return workspace, workspace.sim_dir("9001")
 
 

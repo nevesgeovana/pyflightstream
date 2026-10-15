@@ -1,7 +1,5 @@
 """Missing per-step actions add a status warning, never an invented solver failure."""
 
-import json
-
 import pytest
 
 from pyflightstream.run.collect import collect_once
@@ -20,7 +18,7 @@ def test_collect_keeps_converged_with_explicit_missing_step_warning(tmp_path, co
             "export_window": {"first_step": 1, "time_iterations": 5},
         }
     )
-    workspace.manifest_path.write_text(json.dumps([record.model_dump(mode="json")]))
+    workspace._replace_manifest([record.model_dump(mode="json")])
     (sim / "loads.txt").write_text("final loads retained")
     (sim / "run_log.txt").write_text("final log retained")
     result = collect_once(

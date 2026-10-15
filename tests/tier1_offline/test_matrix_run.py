@@ -35,11 +35,11 @@ from pyflightstream._errors import (
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.matrix import (
     DEFAULT_VERSION_OPTION,
+    MATRIX_COLUMNS,
     MatrixError,
     convert_matrix,
     read_matrix,
     to_campaign,
-    upgrade_matrix,
 )
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.qa.matrix import physics_matrix
@@ -53,7 +53,6 @@ from pyflightstream.run import (
 )
 from pyflightstream.run.cli import _build_parser, main
 from pyflightstream.run.matrix import plan_matrix, run_matrix
-from pyflightstream.run.rename import rename_workspace
 from pyflightstream.script import helpers
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
@@ -175,16 +174,34 @@ def register(workspace, build_id, exe_path, version=None):
 
 
 def write_matrix(path, rows):
-    """Write an inline matrix in the pre-v0.8.0 shape, then upgrade it.
-
-    HEADER is the fifteen-column layout, which the reader now refuses
-    with a didactic pointer at ``upgrade_matrix``. Going through that
-    migration rather than hand-writing the WORKFLOW cell keeps these
-    rows readable AND exercises the one path a user with an existing
-    matrix takes.
-    """
-    path.write_text("\n".join([HEADER, *rows]) + "\n", encoding="utf-8")
-    upgrade_matrix(path, in_place=True)
+    """Write current fixture rows from the test's compact positional data."""
+    lines = [" | ".join(MATRIX_COLUMNS)]
+    for text in rows:
+        row = dict(
+            zip(
+                (key.strip() for key in HEADER.split("|")),
+                (value.strip() for value in text.split("|")),
+                strict=True,
+            )
+        )
+        variables = row["VAR_NAMES_VALUES"]
+        for key in ("GEOMETRY", "SYMMETRY"):
+            match = re.search(rf"(?:^|/)\s*{key}\s*:\s*([^/]+)", variables)
+            row[key] = match[1].strip() if match else "-"
+            if match:
+                variables = variables[: match.start()] + variables[match.end() :]
+        if row["GEOMETRY"] != "-" and not Path(row["GEOMETRY"]).suffix:
+            row["GEOMETRY"] += ".fsm"
+        axis = {"AL": "ALPHA", "BE": "BETA"}[row["SWEEP_TYPE"]]
+        row["FLIGHT_CONDITION"] = f"MACH:{row['MACH']}, REmi:{row['RE']}, {axis}:sweep"
+        row["PPROC"] = "p" + row["ENTRY"].removeprefix("e")
+        row["WORKFLOW"] = "LEGACY"
+        variables = variables.strip(" /")
+        row["VAR_NAMES_VALUES"] = (
+            variables + " / " if variables else ""
+        ) + f"RECIPE: {row['FS_SCRIPT']}"
+        lines.append(" | ".join(row.get(key, "-") for key in MATRIX_COLUMNS))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -4795,7 +4812,6 @@ def test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup(tmp_p
     none. A LEGACY row is refused the table (QA-4 of REL-0140), so the registry
     fixture's rows, all LEGACY, are not the ones to read it back from."""
     import json
-    import shutil
 
     from pyflightstream.post.products import write_campaign_products
     from pyflightstream.workspace import CampaignWorkspace, RunRecord
@@ -5777,12 +5793,11 @@ _FR310_MATRIX_HOMES_ALL__NAME = "m.fs"
 
 
 #: ``upgrade`` and ``convert`` take no workspace: their homes are the working directory's.
-_FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE = {("upgrade", "matrix"), ("convert", "matrix")}
+_FR310_MATRIX_HOMES_ALL__WITHOUT_WORKSPACE = {("convert", "matrix")}
 
 
 #: The fewest arguments each command's parser accepts beside its matrix.
 _FR310_MATRIX_HOMES_ALL__ARGV = {
-    ("upgrade", "matrix"): ["upgrade", _FR310_MATRIX_HOMES_ALL__NAME],
     ("convert", "matrix"): ["convert", _FR310_MATRIX_HOMES_ALL__NAME, "--fs-exe", "solver"],
     ("plan", "matrix"): ["plan", _FR310_MATRIX_HOMES_ALL__NAME],
     ("inspect-setups", "matrix"): ["inspect-setups", _FR310_MATRIX_HOMES_ALL__NAME],
@@ -5955,26 +5970,6 @@ class TestFr310MatrixHomesAll:
 
     @staticmethod
     @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
-    def test_fr310_upgrade_reads_a_bare_name_from_either_home(
-        layout, tmp_path, monkeypatch, capsys
-    ):
-        """End to end: the command reads the file the lookup found."""
-        requirement = "FR-310"
-        monkeypatch.chdir(tmp_path)
-        placed = _fr310_matrix_homes_all___place(
-            tmp_path, layout, _FR310_MATRIX_HOMES_ALL__UPGRADABLE.read_bytes()
-        )
-        code = main(["upgrade", _FR310_MATRIX_HOMES_ALL__NAME])
-        said = capsys.readouterr()
-        if layout == "both-different":
-            assert code == 2, requirement
-            assert _fr310_matrix_homes_all___names(said.err, placed["inputs"], tmp_path), said.err
-            return
-        assert code == 0, (requirement, said.err)
-        assert "FLIGHT_CONDITION" in said.out
-
-    @staticmethod
-    @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
     def test_fr310_the_physics_matrix_of_qa_is_found_in_either_home(layout, tmp_path):
         requirement = "FR-310"
         placed = _fr310_matrix_homes_all___place(
@@ -6031,50 +6026,9 @@ class TestFr310MatrixHomesAll:
             return
         assert every_matrix(tmp_path) == [placed["root"] if "root" in placed else placed["inputs"]]
 
-    @staticmethod
-    @pytest.mark.parametrize("layout", _FR310_MATRIX_HOMES_ALL__LAYOUTS)
-    def test_fr310_rename_reads_the_matrix_from_either_home(layout, tmp_path):
-        from tests.tier1_offline.test_goal024_rename_command import (
-            _as_0_20 as _fr310_matrix_homes_all___as_0_20,
-        )
-        from tests.tier1_offline.test_goal024_rename_command import (
-            _ran as _fr310_matrix_homes_all___ran,
-        )
-        from tests.tier1_offline.test_goal024_rename_command import (
-            _reopened as _fr310_matrix_homes_all___reopened,
-        )
+    pass
 
-        requirement = "FR-310"
-        workspace, matrix, _ = _fr310_matrix_homes_all___ran(tmp_path)
-        _fr310_matrix_homes_all___as_0_20(workspace, mach=0.2)
-        content = matrix.read_bytes()
-        matrix.unlink()
-        placed = _fr310_matrix_homes_all___place(workspace.root, layout, content, matrix.name)
-        if layout == "both-different":
-            with pytest.raises(WorkspaceError) as caught:
-                rename_workspace(_fr310_matrix_homes_all___reopened(workspace), apply=False)
-            assert str(placed["inputs"]) in str(caught.value), requirement
-            return
-        report = rename_workspace(_fr310_matrix_homes_all___reopened(workspace), apply=False)
-        assert report.changes, requirement
-
-    @staticmethod
-    def test_fr310_rename_with_the_matrix_in_neither_home_is_refused_the_control(tmp_path):
-        from tests.tier1_offline.test_goal024_rename_command import (
-            _as_0_20 as _fr310_matrix_homes_all___as_0_20,
-        )
-        from tests.tier1_offline.test_goal024_rename_command import (
-            _ran as _fr310_matrix_homes_all___ran,
-        )
-        from tests.tier1_offline.test_goal024_rename_command import (
-            _reopened as _fr310_matrix_homes_all___reopened,
-        )
-
-        workspace, matrix, _ = _fr310_matrix_homes_all___ran(tmp_path)
-        _fr310_matrix_homes_all___as_0_20(workspace, mach=0.2)
-        shutil.move(matrix, tmp_path / "elsewhere.fs")
-        with pytest.raises(WorkspaceError, match="inputs/matrices"):
-            rename_workspace(_fr310_matrix_homes_all___reopened(workspace), apply=False)
+    pass
 
     @staticmethod
     def test_fr310_no_other_routine_lists_the_matrices_of_a_workspace():

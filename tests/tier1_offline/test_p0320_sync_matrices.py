@@ -39,6 +39,8 @@ from pyflightstream.run._rebuild_evidence import _matrices
 from pyflightstream.workspace import WorkspaceError, find_matrix, matrix_by_stem
 from pyflightstream.workspace import storage as storage_module
 from pyflightstream.workspace.naming import ARCHIVE_DIR
+from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_goal021_matrix_ids import _matrix, row
 from tests.tier1_offline.test_goal021_matrix_ids import _workspace as _library
 from tests.tier1_offline.test_goal035_storage import (
@@ -525,13 +527,13 @@ def test_p0320_runs_name_sync_merges_into_the_named_manifest_only(tmp_path):
     main, other = _sync_pair(tmp_path, "runsname")
     main.append_record(_record("7100", "campo/sim_7100/AL+000"))
     before = main.manifest_path.read_bytes()
-    (main.root / "runs-alt.json").write_text("[]\n", encoding="utf-8")
+    (main.root / "runs-alt.json").write_text(json.dumps(_encode_record_rows([])), encoding="utf-8")
     other.append_record(_record("7101", "campo/sim_7101/AL+000"))
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True, runs="runs-alt.json")
     assert entry["runs"]["manifest"] == "runs-alt.json"
     assert entry["runs"]["added"] == ["campo/sim_7101/AL+000"]
     assert main.manifest_path.read_bytes() == before
-    alt = json.loads((main.root / "runs-alt.json").read_text("utf-8"))
+    alt = _read_record_rows(main.root / "runs-alt.json")
     assert [item["run_id"] for item in alt] == ["campo/sim_7101/AL+000"]
     assert list((main.root / ARCHIVE_DIR).glob("runs-alt-*.json"))
 
@@ -560,7 +562,7 @@ def test_p0320_runs_name_delete_sims_edits_the_named_manifest_only(tmp_path):
     alt.write_text(main.manifest_path.read_text("utf-8"), encoding="utf-8")
     entry = storage_module.delete_sims(main.root, ["7200"], apply=True, runs="runs-alt.json")
     assert main.manifest_path.read_bytes() == before
-    rows = json.loads(alt.read_text("utf-8"))
+    rows = _read_record_rows(alt)
     assert [row.get("deleted_sim") for row in rows] == ["7200"]
     assert entry["runs_archived_as"].startswith(f"{ARCHIVE_DIR}/runs-alt-")
     assert (main.root / entry["runs_archived_as"]).is_file()
@@ -592,10 +594,11 @@ def test_p0320_runs_name_free_space_protects_what_the_named_manifest_names(tmp_p
         {
             "run_id": "campo/sim_7300/AL+000",
             "sim_id": "7300",
+            "status": "CONVERGED",
             "outputs": ["datapoints/DP-1/rebuilt.vtk"],
         }
     ]
-    (main.root / "runs-alt.json").write_text(json.dumps(alt), encoding="utf-8")
+    (main.root / "runs-alt.json").write_text(json.dumps(_encode_record_rows(alt)), encoding="utf-8")
     _write_recipe(main, "m001", '[[delete_extensions]]\nextensions = [".vtk"]\n')
     storage_module.free_space(main.root, "m001", apply=True, runs="runs-alt.json")
     assert (folder / "rebuilt.vtk").exists()

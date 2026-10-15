@@ -37,15 +37,13 @@ The library tree, created by ``CampaignWorkspace.init``:
   aggregates, ``[exports]`` selects the export kinds, ``[sections]``,
   ``[plots]`` and ``[[probes]]`` are the solver definitions, ``[products]``
   says which files are written after the run. The id begins with ``p``,
-  after the PPROC column that carries it; ``pyfs-matrix upgrade --inputs``
-  moves a groups library (``inputs/groups/e<id>.toml``) here.
+  after the PPROC column that carries it.
 - ``inputs/geometries/``: staged geometry files of any extension,
   registered by file name; the id is the stem. A geometry sits either
   directly in the folder (the flat layout) or in one subfolder named by
   its stem, ``geometries/30_WB/30_WB.fsm``, with its boundary inventory
   and provenance record beside it (PFS-2032.04, since 0.13.0); the cell
-  says ``30_WB.fsm`` in both cases, the folder is read first, and
-  :func:`migrate_geometry_layout` moves a flat library into folders.
+  says ``30_WB.fsm`` in both cases, and the folder is read first.
 - ``inputs/profiles/``: input profile files (for example actuator
   thrust distributions), registered by file name.
 - ``inputs/freestreams/``: custom free-stream fields a row's
@@ -78,7 +76,6 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any
 
@@ -91,8 +88,6 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-
-import pyflightstream._textio as _textio
 
 # InputArtifactError is DEFINED in `_errors`, below every layer, and
 # re-exported here and from `pyflightstream.workspace`, which is the name
@@ -141,7 +136,6 @@ from pyflightstream.cases import TrailingEdgeMarking as TrailingEdgeMarking
 # rewrite is asked of it rather than reimplemented here, which is what
 # would put a second reader of the pipe-delimited layout in the package
 # (PFS-2009.03).
-from pyflightstream.cases.matrix import CODE_COLUMNS, rewrite_codes
 from pyflightstream.versions import AmbiguousVersionAliasError as AmbiguousVersionAliasError
 from pyflightstream.versions import UnknownVersionError as UnknownVersionError
 from pyflightstream.versions import resolve as resolve
@@ -199,12 +193,10 @@ from pyflightstream.workspace.sidecars import (
     TRAILING_EDGE_DETECT_KEYS,
     TRAILING_EDGES_TABLE,
     WAKE_TERMINATION_TABLE,
-    GeometryMigration,
     ensure_inventory,
     inventory_sidecar,
     is_sidecar,
     load_toml,
-    migrate_geometry_layout,
     obj_boundary_names,
     read_inventory,
     read_mesh_import,
@@ -252,9 +244,7 @@ __all__ = [
     "WALLTIME_ARITHMETIC",
     "CleanedGeometry",
     "EntitySelection",
-    "GeometryMigration",
     "HpcProfile",
-    "IdMigration",
     "InputArtifactError",
     "PointXyz",
     "PprocArtifact",
@@ -270,9 +260,6 @@ __all__ = [
     "hpc_profiles",
     "inventory_sidecar",
     "is_valid_artifact_id",
-    "migrate_geometry_layout",
-    "migrate_groups_to_pproc",
-    "migrate_input_ids",
     "obj_boundary_names",
     "read_hpc_profile",
     "read_inventory",
@@ -288,7 +275,6 @@ __all__ = [
     "resolve_reference",
     "resolve_setup",
     "rotor_integration_groups",
-    "strip_rotor_facts",
     "write_inventory",
 ]
 
@@ -323,7 +309,7 @@ _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 #:
 #: ``p`` for pproc since 0.11.0: until then the artifact was the groups
 #: file under ``e``, after the ENTRY column that carried it, and
-#: ``pyfs-matrix upgrade --inputs`` renames both the file and the cell.
+#: Earlier packages migrated both the file and the cell.
 KIND_LETTERS = {"reference": "r", "setup": "s", "pproc": "p"}
 
 #: The library folder each coded kind lives in, for the refusal below.
@@ -426,8 +412,7 @@ class RotorReference(BaseModel):
     is ``rpm_sign`` on a rotor block of the reference (or ``RPM_SIGN`` on a
     row whose reference declares no rotor), ``RPM`` is a magnitude, and the
     axis is ``ROTOR_AXIS``. A file still
-    carrying them is refused naming those row keys, and ``pyfs-matrix
-    upgrade --inputs`` strips them; the measured argument that related
+    carrying them is refused naming those row keys; the measured argument that related
     the datasheet's sense of rotation to the sign about the rotor axis is
     kept on ``docs/mesh-inputs.md``, where a reader setting up a new rotor
     finds it.
@@ -457,10 +442,8 @@ class RotorReference(BaseModel):
             "elsewhere: the hand is rpm_sign on a rotor block of the reference (or RPM_SIGN "
             "on a row whose reference declares no rotor); RPM is a magnitude; and the axis "
             "is ROTOR_AXIS (PFS-2029.08). Drop the key(s), or "
-            "call pyflightstream.workspace.strip_rotor_facts on the inputs directory, which "
-            "strips them from every reference artifact (`pyfs-matrix upgrade` does the same "
-            "with in_place (CLI: --in-place) and inputs (CLI: --inputs)); the measured "
-            "argument behind them is on docs/mesh-inputs.md."
+            "use an older package to reach the 0.38.0 format before "
+            "pyfs-workspace migrate. See docs/upgrading.md and docs/mesh-inputs.md."
         )
 
 
@@ -472,47 +455,6 @@ ROTOR_FACT_KEYS: tuple[str, ...] = (
     "rpm_sign_installed",
     "rpm_sign_isolated",
 )
-
-
-def strip_rotor_facts(inputs_dir: Path) -> dict[str, list[str]]:
-    """Remove the four rotor facts from every reference artifact, textually.
-
-    PFS-2029.08, the ``--inputs`` half of ``pyfs-matrix upgrade``. Each line
-    of ``inputs/references/*.toml`` whose key is one of
-    :data:`ROTOR_FACT_KEYS` is removed, comments and every other line
-    staying as written, so the diff a reader sees is the four lines and
-    nothing else. Returns, per file, the keys removed; a file carrying
-    none is not rewritten.
-
-    Parameters
-    ----------
-    inputs_dir : Path
-        The workspace ``inputs/`` directory.
-
-    Returns
-    -------
-    dict of str to list of str
-        The keys removed, by the name of the reference file they were removed
-        from; empty when the folder is absent or no file carried a key.
-    """
-    directory = Path(inputs_dir) / "references"
-    removed: dict[str, list[str]] = {}
-    if not directory.is_dir():
-        return removed
-    key_line = re.compile(r"^\s*(" + "|".join(ROTOR_FACT_KEYS) + r")\s*=")
-    for path in sorted(directory.glob("*.toml")):
-        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-        kept, gone = [], []
-        for line in lines:
-            match = key_line.match(line)
-            if match:
-                gone.append(match.group(1))
-            else:
-                kept.append(line)
-        if gone:
-            _textio.write_text(path, "".join(kept))
-            removed[path.name] = gone
-    return removed
 
 
 #: The top-level table of a reference that declares the study's vocabulary (FR-435 R2).
@@ -922,15 +864,9 @@ def _check_id(artifact_id: str, kind: str) -> None:
             "the REF, SET and PPROC columns cannot resolve to another artifact's file. "
             f"Rename the library file to inputs/{directory}/{letter}{artifact_id}.toml "
             "and the matrix cell that names it in the same edit; the letter is part of "
-            "the id, not a prefix the library adds or strips. A library written before "
-            "v0.8.0 is migrated in ONE call rather than one rename per artifact: "
-            "pyflightstream.workspace.migrate_input_ids(inputs_dir, matrices, "
-            "...) for the r and s letters; a groups library (e) moves to pproc (p) with "
-            "`pyfs-matrix upgrade`, in_place (CLI: --in-place) and inputs (CLI: --inputs) "
-            "both given. The call "
-            "as documented: migrate_input_ids(inputs_dir, matrices, "
-            "apply=True) renames every file and rewrites the REF, SET and ENTRY cells "
-            "of the matrices you hand it, together.",
+            "the id, not a prefix the library adds or strips. This format predates "
+            "0.38.0. Use an older package to reach 0.38.0, then pyfs-workspace migrate. "
+            "See docs/upgrading.md.",
             kind=kind,
             artifact_id=artifact_id,
         )
@@ -1538,9 +1474,8 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
             "level, which is the shape the groups artifact had before 0.11.0. A pproc "
             "file holds its groups under a [groups] table, beside [exports], "
             "[sections], [plots], [[probes]] and [products]; "
-            "pyflightstream.workspace.migrate_groups_to_pproc moves a groups file into "
-            "that shape, given the workspace inputs directory (the command line "
-            "spells it inputs (CLI: --inputs) on `pyfs-matrix upgrade`)."
+            "this format predates 0.38.0. Use an older package to reach 0.38.0, "
+            "then pyfs-workspace migrate. See docs/upgrading.md."
         )
     refuse_empty_selections("pproc", path, data)
     return _validate(PprocArtifact, data, path, "pproc")
@@ -1549,82 +1484,6 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
 #: The kind letter a groups id carried before 0.11.0, when the kind was
 #: renamed pproc (PFS-2029.07): ``e`` for ENTRY, the column that named it.
 GROUPS_LETTER = "e"
-
-
-def migrate_groups_to_pproc(inputs_dir: Path) -> dict[str, str]:
-    """Move every ``inputs/groups/e*.toml`` to ``inputs/pproc/p*.toml`` under ``[groups]``.
-
-    PFS-2029.07.01: the groups artifact becomes the pproc artifact, the
-    file's nine groups migrating verbatim: the new file is the old one's
-    text under a ``[groups]`` header, comments and all, so a diff of the
-    two shows one added line. Returns the id mapping (old to new) for the
-    matrix cells that name them, which :func:`upgrade_matrix` rewrites.
-
-    Parameters
-    ----------
-    inputs_dir : Path
-        The workspace ``inputs/`` directory.
-
-    Returns
-    -------
-    dict of str to str
-        Old id to new id, ``e001`` to ``p001``; empty when there is no
-        groups directory or it holds no file.
-
-    Raises
-    ------
-    InputArtifactError
-        A groups file whose id does not carry the ``e`` letter (it
-        predates the kind-letter rule; run the id migration first), a
-        file that already carries a table (it is not a groups file), or
-        a target that already exists.
-    """
-    source_dir = Path(inputs_dir) / "groups"
-    target_dir = Path(inputs_dir) / "pproc"
-    if not source_dir.is_dir():
-        return {}
-    mapping: dict[str, str] = {}
-    for path in sorted(source_dir.glob("*.toml")):
-        old = path.stem
-        if old[:1].lower() != GROUPS_LETTER:
-            raise InputArtifactError(
-                f"the groups file {path} carries the id {old!r}, which does not declare "
-                f"its kind with the letter {GROUPS_LETTER!r}; give the library its kind "
-                "letters first (migrate_input_ids) and then move the groups to pproc."
-            )
-        data = load_toml(path, "groups")
-        tables = sorted(key for key, value in data.items() if isinstance(value, dict))
-        if tables:
-            raise InputArtifactError(
-                f"the groups file {path} carries table(s) {', '.join(tables)}, so it is "
-                "not a groups file of the shape this migration moves (a flat table of "
-                "group name to members)."
-            )
-        new = KIND_LETTERS["pproc"] + old[1:]
-        target = target_dir / f"{new}.toml"
-        if target.exists():
-            raise InputArtifactError(
-                f"cannot move {path} to {target}: the target already exists. Remove or "
-                "rename it, then run the migration again."
-            )
-        mapping[old] = new
-    for old, new in mapping.items():
-        path = source_dir / f"{old}.toml"
-        target = target_dir / f"{new}.toml"
-        text = path.read_text(encoding="utf-8")
-        target_dir.mkdir(parents=True, exist_ok=True)
-        _textio.write_text(
-            target,
-            "# Moved from inputs/groups/" + path.name + " by `pyfs-matrix upgrade --inputs`;\n"
-            "# the groups are the file's own lines, under the [groups] table a pproc\n"
-            "# artifact holds them in (PFS-2029.07).\n[groups]\n" + text,
-        )
-        path.unlink()
-    try:
-        source_dir.rmdir()
-    except OSError:
-        pass
-    return mapping
 
 
 def _resolve_file(inputs_dir: Path, kind: str, subdir: str, artifact_id: str) -> Path:
@@ -1668,8 +1527,7 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     its provenance record sit beside it, and a point staged from the
     folder shows that geometry's files and never the whole library
     (:meth:`~pyflightstream.workspace.CampaignWorkspace.stage_inputs`).
-    The flat layout is not deprecated; :func:`migrate_geometry_layout`
-    moves a library when its owner decides to.
+    The flat layout remains supported.
 
     Parameters
     ----------
@@ -1730,8 +1588,7 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
                 f"geometry {name!r} is a bare stem, and since 0.11.0 the GEOMETRY cell "
                 f"carries the file name with its extension: write GEOMETRY: "
                 f"{' or GEOMETRY: '.join(candidates)} (the file(s) under {directory} "
-                "carrying that stem), or run `pyfs-matrix upgrade` with in_place (CLI: "
-                "--in-place), which completes every GEOMETRY cell with .fsm.",
+                "carrying that stem). This layout predates 0.38.0; see docs/upgrading.md.",
                 kind="geometry",
                 artifact_id=name,
                 available=tuple(candidates),
@@ -1822,170 +1679,6 @@ def resolve_profile(inputs_dir: Path, artifact_id: str) -> Path:
         ambiguous stem shared by several files.
     """
     return _resolve_file(inputs_dir, "profile", "profiles", artifact_id)
-
-
-@dataclass(frozen=True)
-class IdMigration:
-    """What a kind-letter migration renamed and rewrote, or would.
-
-    Attributes
-    ----------
-    renames : tuple of (Path, Path)
-        Library files to rename, source then destination, sorted by
-        source. Empty for a library already migrated, which is a
-        legitimate outcome and not an error.
-    cells : dict of str to dict of str to int
-        Per matrix (as given, stringified) and per column, how many
-        cells the rewrite changed. A matrix that names no migrated id
-        appears with zeros rather than being dropped, so a caller can
-        tell "this matrix was looked at and nothing matched" from "this
-        matrix was never read".
-    applied : bool
-        Whether the plan was carried out. False is the dry run.
-    """
-
-    renames: tuple[tuple[Path, Path], ...]
-    cells: dict[str, dict[str, int]]
-    applied: bool
-
-    @property
-    def is_empty(self) -> bool:
-        """True when nothing would move: no rename and no changed cell."""
-        return not self.renames and not any(
-            count for columns in self.cells.values() for count in columns.values()
-        )
-
-
-def _rename_plan(inputs_dir: Path) -> tuple[list[tuple[Path, Path]], dict[str, dict[str, str]]]:
-    """Plan the renames of one library, and the cell mapping they imply.
-
-    A file whose stem already begins with its kind's letter is left
-    alone; it is already an id of the new form. Matching is
-    case-insensitive for the same reason :func:`_check_id` is: the id is
-    a file stem and two spellings name one file on a case-insensitive
-    file system.
-    """
-    renames: list[tuple[Path, Path]] = []
-    mapping: dict[str, dict[str, str]] = {column: {} for column in CODE_COLUMNS}
-    for kind, letter in KIND_LETTERS.items():
-        directory = inputs_dir / _KIND_DIRECTORIES[kind]
-        if not directory.is_dir():
-            continue
-        for path in sorted(directory.iterdir()):
-            if not path.is_file() or path.suffix != ".toml":
-                continue
-            old = path.stem
-            if old[:1].lower() == letter:
-                continue
-            new = f"{letter}{old}"
-            renames.append((path, path.with_name(f"{new}{path.suffix}")))
-            mapping[KIND_COLUMNS[kind]][old] = new
-    return renames, mapping
-
-
-def migrate_input_ids(
-    inputs_dir: str | Path,
-    matrices: Sequence[str | Path] = (),
-    *,
-    apply: bool = False,
-) -> IdMigration:
-    r"""Give every coded library id its kind letter, and move the matrices with it.
-
-    A reference, setup or group id declares its kind with a leading
-    letter since v0.8.0 (:data:`KIND_LETTERS`, PFS-2009.01), so a library
-    written before that break holds files no id can reach and matrices
-    whose REF, SET and ENTRY cells name ids the library refuses. This
-    performs BOTH halves of the repair IN ONE CALL, which is the whole
-    safety property: renaming the files without rewriting the cells, or
-    the other way round, leaves a corpus that half-resolves, and half of
-    it silently.
-
-    Nothing is written until every step is known to be possible. A
-    rename onto an existing file, a matrix that is missing, and a matrix
-    at any other layout are all refused with the library and the
-    matrices untouched, so a refused migration is a no-op rather than a
-    half-done one.
-
-    Parameters
-    ----------
-    inputs_dir : str or Path
-        The workspace ``inputs/`` directory
-        (:attr:`~pyflightstream.workspace.CampaignWorkspace.inputs_dir`).
-    matrices : sequence of str or Path
-        Every run matrix whose cells name ids of this library. It
-        defaults to none, and passing none is a real choice rather than
-        an oversight: a library with no matrix beside it still migrates,
-        and this signature makes the omission visible in the call.
-    apply : bool
-        Carry the plan out. Keyword-only and False by default, so the
-        call that finds out what would happen cannot be the call that
-        does it.
-
-    Returns
-    -------
-    IdMigration
-        The renames and the per-column cell counts, with ``applied``
-        saying whether they happened.
-
-    Raises
-    ------
-    InputArtifactError
-        A rename would land on a file that already exists, or a named
-        matrix does not exist. Both are refused before anything is
-        written.
-    pyflightstream.cases.matrix.MatrixError
-        A named matrix does not read at the verified layout. Also
-        refused before anything is written.
-
-    Examples
-    --------
-    >>> from pyflightstream.workspace import CampaignWorkspace, migrate_input_ids
-    >>> workspace = CampaignWorkspace("campaign")            # doctest: +SKIP
-    >>> plan = migrate_input_ids(                            # doctest: +SKIP
-    ...     workspace.inputs_dir, ["matrix.fs"]
-    ... )
-    >>> [(old.name, new.name) for old, new in plan.renames]  # doctest: +SKIP
-    [('003.toml', 'r003.toml')]
-    >>> migrate_input_ids(                                   # doctest: +SKIP
-    ...     workspace.inputs_dir, ["matrix.fs"], apply=True
-    ... ).applied
-    True
-    """
-    inputs = Path(inputs_dir)
-    renames, mapping = _rename_plan(inputs)
-    collisions = [(old, new) for old, new in renames if new.exists()]
-    if collisions:
-        listing = "; ".join(f"{old.name} -> {new.name} in {new.parent}" for old, new in collisions)
-        raise InputArtifactError(
-            f"{len(collisions)} rename(s) would land on a file that already exists: "
-            f"{listing}. Nothing was renamed and no matrix was rewritten. Both files "
-            "answer to one id once the letter is added, so the migration cannot say "
-            "which artifact a matrix cell means; open the pair, decide which one the "
-            "campaign uses, and give the other a distinct id first."
-        )
-    missing = [str(path) for path in matrices if not Path(path).is_file()]
-    if missing:
-        raise InputArtifactError(
-            f"matrix file(s) {', '.join(missing)} do not exist, so their REF, SET and "
-            "ENTRY cells cannot be rewritten. Nothing was renamed: renaming the "
-            "library while a matrix that names it stays behind is exactly the "
-            "half-resolving state this migration exists to prevent."
-        )
-    # DRY FIRST, every matrix, before a single byte moves. rewrite_codes
-    # refuses a wrong layout or a malformed row, and finding that out
-    # after the library has been renamed would leave the corpus split.
-    rewritten: dict[str, bytes] = {}
-    cells: dict[str, dict[str, int]] = {}
-    for path in matrices:
-        text, counts = rewrite_codes(path, mapping)
-        rewritten[str(path)] = text
-        cells[str(path)] = counts
-    if apply:
-        for old, new in renames:
-            old.rename(new)
-        for name, text in rewritten.items():
-            Path(name).write_bytes(text)
-    return IdMigration(renames=tuple(renames), cells=cells, applied=apply)
 
 
 def rotor_integration_groups(

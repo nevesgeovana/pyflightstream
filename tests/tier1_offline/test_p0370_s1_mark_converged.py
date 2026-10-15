@@ -19,6 +19,7 @@ import pytest
 from pyflightstream.run.records import mark_converged
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.naming import RunsManifestError
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import sync_workspaces
 from tests.tier1_offline.test_goal035_storage import _record, _sync_pair
 from tests.tier1_offline.test_p0370_s1_matrix_home import MATRIX, grouped_workspace, pyfs
@@ -36,7 +37,7 @@ def workspace(tmp_path):
 
 
 def _rows(workspace) -> dict[str, dict]:
-    return {row["run_id"]: row for row in json.loads(workspace.manifest_path.read_text("utf-8"))}
+    return {row["run_id"]: row for row in _read_record_rows(workspace.manifest_path)}
 
 
 def test_p0370_s1_preview_writes_nothing_and_apply_marks_with_an_archive(workspace, capsys):
@@ -89,9 +90,9 @@ def test_p0370_s1_points_narrow_the_mark_and_the_reason_is_required(workspace, c
 
 
 def _submitted(workspace):
-    rows = json.loads(workspace.manifest_path.read_text("utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     rows[0]["status"] = "SUBMITTED"
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     return "7001", ROTOR[0], "still SUBMITTED"
 
 
@@ -102,11 +103,11 @@ def _no_loads(workspace):
 
 
 def _deleted(workspace):
-    rows = json.loads(workspace.manifest_path.read_text("utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     gone = [row["run_id"] for row in rows if row["sim_id"] == "7003"]
     kept = [row for row in rows if row["sim_id"] != "7003"]
     kept.append({"deleted_sim": "7003", "deleted_run_ids": gone})
-    workspace.manifest_path.write_text(json.dumps(kept, indent=2), encoding="utf-8")
+    workspace._replace_manifest(kept)
     return "7003", "sim_7003", "deleted by delete-sims"
 
 
@@ -190,7 +191,7 @@ def test_p0370_s1_rebuild_keeps_marked_steady_points(workspace, capsys):
         ["rebuild", "--all-sims", "--out", "rebuilt.json", "--apply"], workspace.root, capsys
     )
     assert code == 0, said
-    rebuilt = json.loads((workspace.root / "rebuilt.json").read_text("utf-8"))
+    rebuilt = _read_record_rows(workspace.root / "rebuilt.json")
     after = {
         point.run_id: (point.status, point.marked)
         for row in rebuilt
@@ -217,7 +218,7 @@ def test_p0370_s1_later_writers_keep_the_person_s_verdict(workspace, tmp_path, c
     argv = ["rebuild", "--all-sims", "--out", "rebuilt.json", "--apply"]
     code, said = pyfs(argv, workspace.root, capsys)
     assert code == 0, said
-    rebuilt = json.loads((workspace.root / "rebuilt.json").read_text("utf-8"))
+    rebuilt = _read_record_rows(workspace.root / "rebuilt.json")
     for row in (row for row in rebuilt if row["run_id"] in ROTOR):
         assert (row["status"], row["marked"]) == ("CONVERGED", marks[row["run_id"]]), row
         assert any("a person's verdict is kept" in line for line in row["warnings"]), row
@@ -229,7 +230,7 @@ def test_p0370_s1_later_writers_keep_the_person_s_verdict(workspace, tmp_path, c
     other.append_record(_record("7004", "campo/sim_7004/AL+000", status=RunStatus.FAILED_EXECUTION))
     (entry,) = sync_workspaces(main.root, "runs", apply=True, prefer_other=True)
     assert [item["run_id"] for item in entry["runs"]["conflicts"]] == ["campo/sim_7004/AL+000"]
-    row = json.loads(main.manifest_path.read_text("utf-8"))[0]
+    row = _read_record_rows(main.manifest_path)[0]
     assert (row["status"], row["marked"]) == ("CONVERGED", marked)
 
 

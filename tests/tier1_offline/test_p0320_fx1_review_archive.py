@@ -17,10 +17,8 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 from pyflightstream.run import plan_campaign
-from pyflightstream.run.rename import rename_workspace
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.storage import read_storage_calls, record_storage_call
-from tests.tier1_offline.test_goal024_rename_command import _as_0_20, _ran, _reopened
 from tests.tier1_offline.test_p0320_fx1_restore_archive import _extraction
 from tests.tier1_offline.test_run_campaign import steady_recipe
 
@@ -50,29 +48,6 @@ def test_p0320_restore_archive_the_additional_writer_writes_when_the_copy_fails_
     with pytest.warns(PyflightstreamWarning, match="could not be archived"):
         workspace.append_additional(_extraction("e2"))
     assert [r.extraction_id for r in workspace.read_additional()] == ["e1", "e2"]
-
-
-@pytest.mark.requirement("FR-293")
-def test_p0320_restore_archive_a_rename_archives_the_plan_it_rewrites_fr_293(tmp_path):
-    """P0320-RESTORE-ARCHIVE: rename keeps the plan it rewrote, so `restore plan` brings it back."""
-    workspace, _, _ = _ran(tmp_path)
-    old_rows = _as_0_20(workspace, mach=0.2)
-    stem = str(old_rows[0]["matrix_stem"])
-    plan_file = workspace.plan_dir(stem) / "plan.json"
-    # A run_matrix run writes no plan.json, so the receipt is written in the shape
-    # plan_campaign gives it: one entry per point, its run_id under the 0.20 name.
-    entries = [
-        {"run_id": f"{str(row['run_id']).rsplit('/', 1)[0]}/{ran['tag']}"}
-        for row in old_rows
-        for ran in row["points_ran"]
-    ]
-    payload = {"points": entries}
-    plan_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    before = plan_file.read_bytes()
-    rename_workspace(_reopened(workspace))
-    assert plan_file.read_bytes() != before, "the rename rewrote the plan"
-    kept = sorted((workspace.root / "post" / stem / "archive").glob("*/plan.json"))
-    assert [p.read_bytes() for p in kept] == [before]
 
 
 def test_p0320_restore_archive_a_plan_without_a_matrix_is_not_archived_fr_293(tmp_path):

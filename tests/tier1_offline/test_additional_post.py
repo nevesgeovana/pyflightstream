@@ -73,6 +73,8 @@ from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
+from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline._workflow_docs import DEFINITION_DOCS, workflow_docs_text
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
@@ -872,10 +874,10 @@ def test_g12_a_point_whose_build_changed_is_skipped(tmp_path):
     for record in workspace.read_manifest():
         assert record.fs_version_requested == BUILD
     manifest = workspace.manifest_path
-    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    raw = _read_record_rows(manifest)
     for entry in raw:
         entry["fs_version_requested"] = "26.123"
-    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    manifest.write_text(json.dumps(_encode_record_rows(raw), indent=2), encoding="utf-8")
     plans, records = extract(workspace, matrix, a_stub(tmp_path))
     assert [plan.reason for plan in plans] == ["BUILD_CHANGED"] * 2
     assert all("26.123" in plan.message for plan in plans)
@@ -891,10 +893,10 @@ def test_g12_a_run_that_averaged_its_surface_in_time_is_skipped(tmp_path):
         last_step=20, per_revolution=None, last_revs=None, last_iters=10
     )
     manifest = workspace.manifest_path
-    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    raw = _read_record_rows(manifest)
     for entry in raw:
         entry["surface_time_averaging"] = window
-    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    manifest.write_text(json.dumps(_encode_record_rows(raw), indent=2), encoding="utf-8")
     plans, records = extract(workspace, matrix, a_stub(tmp_path))
     assert [plan.reason for plan in plans] == ["SURFACE_AVERAGED"] * 2
     assert records == []
@@ -904,11 +906,11 @@ def test_g12_a_point_whose_boundaries_moved_since_the_run_is_skipped(tmp_path):
     """D07: the run declared other boundaries than the geometry declares today."""
     workspace, matrix = a_recorded_campaign(tmp_path)
     manifest = workspace.manifest_path
-    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    raw = _read_record_rows(manifest)
     for entry in raw:
         assert entry["inventory"] == ["W", "B"], entry["inventory"]
         entry["inventory"] = ["B", "W"]
-    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    manifest.write_text(json.dumps(_encode_record_rows(raw), indent=2), encoding="utf-8")
     stub = a_stub(tmp_path)
     plans, records = extract(workspace, matrix, stub)
     assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, plans
@@ -919,10 +921,10 @@ def test_g12_a_point_whose_boundaries_moved_since_the_run_is_skipped(tmp_path):
 def a_record_from_before_0_27_0(workspace: CampaignWorkspace) -> None:
     """Take ``inventory`` out of every row of runs.json: a record 0.26.0 wrote states none."""
     manifest = workspace.manifest_path
-    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    raw = _read_record_rows(manifest)
     for entry in raw:
         assert entry.pop("inventory") == ["W", "B"], entry
-    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    manifest.write_text(json.dumps(_encode_record_rows(raw), indent=2), encoding="utf-8")
 
 
 def test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers(tmp_path):
@@ -1007,12 +1009,12 @@ def test_g12_a_point_still_in_a_queue_is_skipped(tmp_path):
     """D07: a point a scheduler still holds has no final state to reopen; collect it first."""
     workspace, matrix = a_recorded_campaign(tmp_path)
     manifest = workspace.manifest_path
-    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    raw = _read_record_rows(manifest)
     for entry in raw:
         entry["status"] = "SUBMITTED"
         for ran in entry.get("points_ran") or []:
             ran["status"] = "SUBMITTED"
-    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    manifest.write_text(json.dumps(_encode_record_rows(raw), indent=2), encoding="utf-8")
     stub = a_stub(tmp_path)
     plans, records = extract(workspace, matrix, stub)
     assert [plan.reason for plan in plans] == ["NOT_FINISHED"] * 2, plans
@@ -1026,9 +1028,11 @@ def test_g12_a_run_a_continuation_replaced_is_skipped_and_the_continuation_extra
         tmp_path, workflow="unsteady", cell=f"{UNSTEADY_CELL} / {KEY}: p002", values="0.0"
     )
     manifest = workspace.manifest_path
-    (first,) = json.loads(manifest.read_text(encoding="utf-8"))
+    (first,) = _read_record_rows(manifest)
     continued = {**first, "run_id": f"{first['run_id']}-continued", "continues": first["run_id"]}
-    manifest.write_text(json.dumps([first, continued], indent=2), encoding="utf-8")
+    manifest.write_text(
+        json.dumps(_encode_record_rows([first, continued]), indent=2), encoding="utf-8"
+    )
     stub = a_stub(tmp_path)
     with pytest.warns(PyflightstreamWarning, match="one instant"):
         plans, records = extract(workspace, matrix, stub)
@@ -1359,12 +1363,12 @@ def test_g12_an_extraction_of_another_state_of_the_point_is_stale(tmp_path):
     workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
     _, records = extract(workspace, matrix, a_stub(tmp_path))
     manifest = workspace.manifest_path
-    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    raw = _read_record_rows(manifest)
     for entry in raw:
         for name in entry["outputs_sha256"]:
             if name.endswith(".fsm"):
                 entry["outputs_sha256"][name] = "0" * 64
-    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    manifest.write_text(json.dumps(_encode_record_rows(raw), indent=2), encoding="utf-8")
     document = products_of(workspace, matrix)
     for record in records:
         reason = document["skipped"][f"additional/p002/runs/{record.extraction_id}"]

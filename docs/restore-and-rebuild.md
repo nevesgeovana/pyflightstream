@@ -1,5 +1,24 @@
 # Restore and rebuild the run records
 
+## The run record
+
+`runs.json` has `schema_version: 4`, immutable `solver_setups`, `frames` and
+`geometries` definitions, and a `runs` list. Each run has one header: `id`,
+`point`, `build`, `status`, `started_at`, `finished_at` and `run_folder`.
+`solver_setup_id`, `frames_id` and `geometry_id` reference definitions by their
+SHA-256 digest. A changed definition gets a new id; earlier runs keep theirs.
+
+The ordered `artifacts` list owns output paths and optional hashes. Point
+results reference that list with `artifact_indices`. `details` holds the
+remaining evidence, including requested and observed conditions, invocation,
+provenance, recovery history and the distinct elapsed-time measurements.
+Point outcomes remain distinct from their containing job's outcome.
+
+`CampaignWorkspace.read_manifest()` resolves the definitions into typed records.
+Reading never consults current input settings to fill
+historical evidence. Invalid definition digests or references are refused.
+See [Upgrading](upgrading.md) for old workspaces.
+
 ## Archive and restore
 
 A campaign workspace keeps its run records in `runs.json`, and a few files of
@@ -37,7 +56,7 @@ archive forms read are:
 | `products` | `post/<matrix>/products.json` | `post/<matrix>/archive/<stamp>/products.json` |
 | `plan` | `post/<matrix>/plan.json` | `post/<matrix>/archive/<stamp>/plan.json` |
 
-`sync`, `--force-rerun`, `delete-sims` and `rename` copy `runs.json` to
+`sync`, `--force-rerun` and `delete-sims` copy `runs.json` to
 `archive/runs-<stamp>.json` before they rewrite it. A copy numbered within one
 stamp (`runs-<stamp>.2.json`) or labelled after it
 (`runs-<stamp>-before-doctor.json`) is found too. Without `--stamp` the newest
@@ -46,7 +65,7 @@ several matrices have archives.
 
 With `--apply` the current file, when there is one, is first archived in the
 same form, so a restore can itself be undone by restoring that copy. A copy
-that is not readable JSON, or a manifest copy that is not a list of records,
+that is not readable JSON, or a manifest copy that is not a valid current record document,
 is refused. A restore writes holding the lease on `runs.json` that a run, a
 collect and a sync hold while they write, and for the storage and
 additional-post records their own lease too; while one of those leases is held

@@ -42,6 +42,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace import storage as storage_module
 from pyflightstream.workspace.naming import ARCHIVE_DIR
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 STORAGE_SRC = Path(storage_module.__file__)
 #: The free-space recipe runner and the protection it applies live in this
@@ -329,7 +330,7 @@ def test_delete_sims_preview_changes_nothing(tmp_path):
     entry = storage_module.delete_sims(workspace.root, ["2001"], apply=False)
     assert entry["applied"] is False
     assert sim.is_dir()
-    raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(workspace.manifest_path)
     assert len(raw) == 1 and raw[0]["run_id"] == "camp/sim_2001/AL+000"
 
 
@@ -367,7 +368,7 @@ def test_delete_sims_points_only_apply_removes_folder_products_and_leaves_note_r
     assert document["deleted_by_storage"][-1]["stale"] == ["polar.csv"]
 
     # runs.json keeps a note row, not a run record, for the deleted sim
-    raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(workspace.manifest_path)
     note_rows = [row for row in raw if row.get("deleted_sim") == "3001"]
     assert len(note_rows) == 1
     assert not any(row.get("run_id") == "camp/sim_3001/AL+000" for row in raw)
@@ -388,7 +389,7 @@ def test_sync_adds_a_run_present_only_in_the_other_workspace(tmp_path):
     other.append_record(_record("7001", "campo/sim_7001/AL+000"))
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
     assert entry["runs"]["added"] == ["campo/sim_7001/AL+000"]
-    raw = json.loads(main.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(main.manifest_path)
     assert any(row["run_id"] == "campo/sim_7001/AL+000" for row in raw)
 
 
@@ -398,7 +399,7 @@ def test_sync_a_submitted_main_record_is_replaced_by_the_others(tmp_path):
     other.append_record(_record("7002", "campo/sim_7002/AL+000", status=RunStatus.CONVERGED))
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
     assert entry["runs"]["replaced"][0]["to"] == "CONVERGED"
-    raw = json.loads(main.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(main.manifest_path)
     status = next(row["status"] for row in raw if row["run_id"] == "campo/sim_7002/AL+000")
     assert status == "CONVERGED"
 
@@ -409,7 +410,7 @@ def test_sync_a_conflict_keeps_main_unless_prefer_other(tmp_path):
     other.append_record(_record("7003", "campo/sim_7003/AL+000", status=RunStatus.FAILED_EXECUTION))
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
     assert entry["runs"]["conflicts"]
-    raw = json.loads(main.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(main.manifest_path)
     status = next(row["status"] for row in raw if row["run_id"] == "campo/sim_7003/AL+000")
     assert status == "CONVERGED"
 
@@ -420,7 +421,7 @@ def test_sync_prefer_other_takes_the_other_workspaces_record(tmp_path):
     other.append_record(_record("7004", "campo/sim_7004/AL+000", status=RunStatus.FAILED_EXECUTION))
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True, prefer_other=True)
     assert not entry["runs"]["conflicts"]
-    raw = json.loads(main.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(main.manifest_path)
     status = next(row["status"] for row in raw if row["run_id"] == "campo/sim_7004/AL+000")
     assert status == "FAILED_EXECUTION"
 
@@ -434,7 +435,7 @@ def test_sync_a_submitted_sim_in_the_other_workspace_is_record_only(tmp_path):
     assert "7005" in entry["runs"]["submitted_sims_record_only"]
     assert entry["files"]["to_copy"] == 0
     assert not (main.sim_dir("7005") / "scripts" / "point.fs").exists()
-    raw = json.loads(main.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(main.manifest_path)
     assert any(row["run_id"] == "campo/sim_7005/AL+000" for row in raw)
 
 
@@ -517,7 +518,7 @@ def test_sync_does_not_re_add_a_run_deleted_by_delete_sims(tmp_path):
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
     assert entry["runs"]["conflicts"]
     assert entry["runs"]["conflicts"][0]["reason"].startswith("deleted")
-    raw = json.loads(main.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(main.manifest_path)
     assert not any(
         row.get("run_id") == "campo/sim_7008/AL+000" and "deleted_sim" not in row for row in raw
     )

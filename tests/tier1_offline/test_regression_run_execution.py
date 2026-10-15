@@ -48,6 +48,7 @@ from pyflightstream.workspace.inputs import read_hpc_profile
 from pyflightstream.workspace.ledger import read_ledger
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.naming import RunsManifestError
+from pyflightstream.workspace.record_document import encode_rows
 from pyflightstream.workspace.storage import _compact_sim
 from tests.support_helpers import no_sleep as _integfix_run1_review___no_sleep
 from tests.support_helpers import no_sleep as _run_2_review__no_sleep
@@ -327,7 +328,7 @@ class TestLast6Continuation:
 
 
 def _run_1_alias___rows(root, rows):
-    (root / "runs.json").write_text(json.dumps(rows), encoding="utf-8")
+    (root / "runs.json").write_text(json.dumps(encode_rows(rows)), encoding="utf-8")
 
 
 class TestRun1Alias:
@@ -1217,20 +1218,20 @@ class TestRun1Review:
     )
     def test_p0400_review_invalid_manifest_is_refused_before_writes(workspace, broken):  # noqa: F811
         """P0400-REVIEW-MANIFEST: invalid shapes or statuses never become a person's verdict."""
-        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
-        row = next(row for row in rows if row["sim_id"] == "7002")
+        document = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        row = next(row for row in document["runs"] if row["details"]["sim_id"] == "7002")
         if broken == "points_shape":
-            row["points_ran"] = "invalid"
+            row["details"]["points_ran"] = "invalid"
         elif broken == "point_shape":
-            row["points_ran"] = [None]
+            row["details"]["points_ran"] = [None]
         elif broken == "point_status":
-            row["points_ran"][0]["status"] = "HALF_DONE"
+            row["details"]["points_ran"][0]["status"] = "HALF_DONE"
         else:
             row["status"] = "HALF_DONE"
-        workspace.manifest_path.write_text(json.dumps(rows), encoding="utf-8")
+        workspace.manifest_path.write_text(json.dumps(document), encoding="utf-8")
         before = workspace.manifest_path.read_bytes()
         archives = sorted((workspace.root / "archive").glob("runs-*.json"))
-        with pytest.raises(RunsManifestError, match=row["run_id"]):
+        with pytest.raises(RunsManifestError, match="invalid|HALF_DONE|points_ran"):
             mark_converged(workspace.root, ["7002"], reason=_RUN_1_REVIEW__REASON, apply=True)
         assert workspace.manifest_path.read_bytes() == before
         assert sorted((workspace.root / "archive").glob("runs-*.json")) == archives

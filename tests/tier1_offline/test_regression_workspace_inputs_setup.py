@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import json
 import os
 import re
 import shutil
@@ -27,7 +26,6 @@ from pyflightstream._errors import InputArtifactError as _Workspace2CostsInputAr
 from pyflightstream._errors import InputArtifactError as _Workspace2HpcInputArtifactError
 from pyflightstream._errors import InputArtifactError as _Workspace2ReviewInputArtifactError
 from pyflightstream._errors import InputArtifactError as _Workspace2SettingsFileInputArtifactError
-from pyflightstream._errors import InputArtifactError as _Workspace3ReviewInputArtifactError
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError as _Workspace2InputsCampaignConfigError
 from pyflightstream.cases import RawMeshConditions, SimCase, SweepAxis, TrailingEdgeMarking
@@ -87,6 +85,7 @@ from pyflightstream.workspace.inputs import (
     rotor_integration_groups,
 )
 from pyflightstream.workspace.matrix import resolve_matrix
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.setup_inspection import inspect_case_setup
 from pyflightstream.workspace.setup_standards import (
     render_guidelines,
@@ -95,7 +94,6 @@ from pyflightstream.workspace.setup_standards import (
 )
 from pyflightstream.workspace.sidecars import (
     inventory_sidecar,
-    migrate_geometry_layout,
     read_inventory,
     read_mesh_import,
 )
@@ -258,11 +256,11 @@ def _integfix_state_consistency___posted(tmp_path: Path, condition: dict[str, fl
     """Post the recorded superfile campaign with sim 6001's condition replaced; post.log."""
     workspace = _integfix_state_consistency___workspace(tmp_path)
     if condition is not None:
-        raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        raw = _read_record_rows(workspace.manifest_path)
         for row in raw:
             if str(row["sim_id"]) == "6001":
                 row["flight_condition"] = condition
-        workspace.manifest_path.write_text(json.dumps(raw, indent=1), encoding="utf-8")
+        workspace._replace_manifest(raw)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         assert cli.main(["post", "matriz", "--workspace", str(workspace.root)]) == 0
@@ -1734,21 +1732,7 @@ delete_sims(sys.argv[1], ["3001"], matrix_products="regenerate", apply=True)
             storage.sync_workspaces(main.root, "all", apply=apply)
         assert (main.sim_dir("5104") / "keep.txt").read_bytes() == before
 
-    @staticmethod
-    @pytest.mark.parametrize("reference", ["te.txt", "./te.txt"])
-    def test_p0400_migration_refuses_shared_points_before_moving(tmp_path, reference):
-        directory = tmp_path / "inputs" / "geometries"
-        for stem in ("left", "right"):
-            _workspace_3_review___write(directory / f"{stem}.stl", "mesh")
-            _workspace_3_review___write(
-                directory / f"{stem}.boundaries.toml",
-                f'[trailing_edges]\nfile = "{reference}"\n',
-            )
-        _workspace_3_review___write(directory / "te.txt", "0 0 0")
-        before = {path.name: path.read_bytes() for path in directory.iterdir()}
-        with pytest.raises(_Workspace3ReviewInputArtifactError, match="te.txt"):
-            migrate_geometry_layout(directory.parent)
-        assert {path.name: path.read_bytes() for path in directory.iterdir()} == before
+    pass
 
     @staticmethod
     def test_p0400_lane_regressions_carry_release_in_test_names():

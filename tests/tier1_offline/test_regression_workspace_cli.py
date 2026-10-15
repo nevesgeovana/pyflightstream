@@ -34,9 +34,9 @@ class TestWorkspace1Cli:
         assert "taken" in capsys.readouterr().err
 
     @staticmethod
-    @pytest.mark.parametrize("command", ["init", "migrate-geometries"])
+    @pytest.mark.parametrize("command", ["init", "migrate"])
     def test_p0400_wscli_every_command_accepts_the_workspace_option(tmp_path, command):
-        """P0400-WSCLI (PFS-2089.004): init and migrate-geometries accept --workspace."""
+        """P0400-WSCLI (PFS-2089.004): init and migrate accept --workspace."""
         args = _build_parser().parse_args([command, "--workspace", str(tmp_path)])
         assert args.workspace == str(tmp_path)
 

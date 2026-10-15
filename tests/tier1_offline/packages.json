@@ -134,6 +134,7 @@
       "tests/tier1_offline/test_p0390_taglen.py",
       "tests/tier1_offline/test_p0390_zeroarea.py",
       "tests/tier1_offline/test_p0410_rec_manifest.py",
+      "tests/tier1_offline/test_p0410_rec_migration.py",
       "tests/tier1_offline/test_pproc_by_frame.py",
       "tests/tier1_offline/test_raw_on_the_row.py",
       "tests/tier1_offline/test_reference_vocabulary.py",

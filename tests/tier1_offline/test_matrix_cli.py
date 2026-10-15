@@ -499,24 +499,27 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
 def test_a_manifest_written_under_the_fields_one_day_name_still_reads():
     """Review round two of 2026-09-08: a runs.json carrying "matrix" instead of
     "matrix_stem" used to be a bare pydantic traceback out of pyfs-matrix post."""
+    import pytest
+    from pydantic import ValidationError
+
     from pyflightstream.cases import Campaign, SimCase, SweepAxis
     from pyflightstream.workspace import RunRecord
 
-    record = RunRecord.model_validate(
-        {
-            "run_id": "camp/sim_1/AL+000",
-            "sim_id": "1",
-            "point": {"alpha": 0.0},
-            "matrix": "matriz",
-            "fs_version_requested": "26.120",
-            "package_version": "0.13.0.dev0",
-            "script_sha256": "",
-            "raw_flag": False,
-            "status": "CONVERGED",
-            "outputs": [],
-        }
-    )
-    assert record.matrix_stem == "matriz"
+    with pytest.raises(ValidationError, match="matrix_stem.*pyfs-workspace migrate"):
+        RunRecord.model_validate(
+            {
+                "run_id": "camp/sim_1/AL+000",
+                "sim_id": "1",
+                "point": {"alpha": 0.0},
+                "matrix": "matriz",
+                "fs_version_requested": "26.120",
+                "package_version": "0.13.0.dev0",
+                "script_sha256": "",
+                "raw_flag": False,
+                "status": "CONVERGED",
+                "outputs": [],
+            }
+        )
     campaign = Campaign.model_validate(
         {
             "name": "camp",

@@ -3,7 +3,7 @@
 Every subcommand accepts ``--workspace PATH`` (0.40.0,
 PFS-2089.004), defaulting to the current directory. For example,
 ``pyfs-workspace init --workspace campaign`` creates the campaign tree there.
-``init`` and ``migrate-geometries`` still take the positional root, and naming
+``init`` and ``migrate`` take the positional root, and naming
 two different folders is refused. ``archive SIM_ID --workspace ROOT`` names
 the campaign the same way; ``archive ROOT SIM_ID`` still works and warns that
 the positional root is deprecated.
@@ -26,13 +26,8 @@ the simulation and re-run, and until 0.13.0 the command they named was
 not there. The refusal of a simulation the manifest does not record is
 ``archive_sim``'s own, printed to stderr with exit 2.
 
-``pyfs-workspace migrate-geometries <root>`` moves a flat geometry
-library into one folder per geometry, each with its boundary inventory
-and provenance record, through :func:`migrate_geometry_layout`
-(PFS-2032.05, the reading of design 68 section A3). It says what it
-moved and which folders it left alone, moves nothing on a second run,
-and refuses a root with no ``inputs/geometries`` with exit 2. Nothing
-migrates by itself, and the flat layout is not deprecated.
+``pyfs-workspace migrate <root>`` previews migration from the 0.38.0 record
+format; ``--apply`` backs up each rewritten file. See docs/upgrading.md.
 
 ``pyfs-workspace field mirror|move|subtract|time-mean`` builds a custom
 free-stream file of ``inputs/freestreams/`` out of other fields, through
@@ -92,7 +87,6 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     InputArtifactError,
     WorkspaceError,
-    migrate_geometry_layout,
 )
 from pyflightstream.workspace import actuator_profiles as _profiles
 from pyflightstream.workspace import fields as _fields
@@ -154,6 +148,12 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
+    migration = subparsers.add_parser(
+        "migrate",
+        help="preview the record migration from 0.38.0; --apply writes backups and records",
+    )
+    migration.add_argument("root", nargs="?", default=".")
+    migration.add_argument("--apply", action="store_true")
 
     init = subparsers.add_parser(
         "init",
@@ -190,27 +190,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "sims/sim_<sim_id>/)",
     )
 
-    migrate = subparsers.add_parser(
-        "migrate-geometries",
-        help="move a flat inputs/geometries library into one folder per geometry",
-        description=(
-            "Moves every inputs/geometries/<stem>.<ext> into inputs/geometries/<stem>/ "
-            "with its <stem>.boundaries.toml and <stem>.provenance.toml, so what belongs "
-            "to one geometry sits in one place and a point stages that geometry's files "
-            "only. A folder that already exists is left alone, a second run moves "
-            "nothing, and the GEOMETRY cells of a matrix do not change: the package reads "
-            "both layouts, the folder first. Refuses a root with no inputs/geometries."
-        ),
-    )
-    migrate.add_argument(
-        "root",
-        nargs="?",
-        default=".",
-        help="campaign root carrying inputs/geometries/ (default: the current directory)",
-    )
     # THE CAMPAIGN IS NAMED AS EVERY OTHER SUBCOMMAND NAMES IT (PFS-2089.004): --workspace,
     # beside the positional roots retained for compatibility.
-    for command in (init, migrate, archive):
+    for command in (init, archive, migration):
         command.add_argument(
             "--workspace",
             help="campaign workspace (default: the current directory); the positional "
@@ -508,8 +490,28 @@ def main(argv: list[str] | None = None) -> int:
     ):
         if args.subcommand == "archive":
             return _cmd_archive(args)
-        if args.subcommand == "migrate-geometries":
-            return _cmd_migrate_geometries(args)
+        if args.subcommand == "migrate":
+            from pyflightstream.workspace.migrate import migrate_workspace
+
+            try:
+                changes = migrate_workspace(_campaign_root(args), apply=args.apply)
+            except (WorkspaceError, OSError) as error:
+                print(str(error), file=sys.stderr)
+                return 2
+            for change in changes:
+                print(
+                    f"{change['file']}: schema_version=4, id, artifacts and shared definition ids; "
+                    f"{change['before_bytes']} -> {change['after_bytes']} bytes; "
+                    f"backup {change['backup']}"
+                )
+            print(
+                "migration applied"
+                if args.apply and changes
+                else "no changes needed"
+                if not changes
+                else "preview only; --apply writes"
+            )
+            return 0
         if args.subcommand == "field":
             return _cmd_field(args)
         if args.subcommand == "profile":
@@ -858,33 +860,6 @@ def _cmd_archive(args: argparse.Namespace) -> int:
     say_summary(
         f"archived sim_{args.sim_id} to {bundle}; the folder sims/sim_{args.sim_id}/ is removed"
     )
-    return 0
-
-
-def _cmd_migrate_geometries(args: argparse.Namespace) -> int:
-    """Move a flat geometry library into folders; the refusal is the migration's own."""
-    try:
-        workspace = CampaignWorkspace(_campaign_root(args))
-        migration = migrate_geometry_layout(workspace.inputs_dir)
-    except (OSError, WorkspaceError, InputArtifactError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
-    for source, target in migration.moved:
-        print(
-            f"moved {source.relative_to(workspace.root).as_posix()} -> "
-            f"{target.relative_to(workspace.root).as_posix()}"
-        )
-    for stem in migration.kept:
-        print(f"left alone: inputs/geometries/{stem}/ (already a folder)")
-    if migration.moved:
-        folders = {target.parent for _, target in migration.moved}
-        say_summary(
-            f"moved {len(migration.moved)} file(s) into {len(folders)} folder(s) under "
-            f"{workspace.inputs_dir / 'geometries'}; the GEOMETRY cells of every matrix "
-            "keep reading, the folder first"
-        )
-    else:
-        say_summary(f"nothing to move under {workspace.inputs_dir / 'geometries'}")
     return 0
 
 

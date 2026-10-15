@@ -20,6 +20,7 @@ import re
 
 from pyflightstream.run import cli
 from pyflightstream.workspace import RunRecord, RunStatus
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_p0340_run_usability import (
     _argv,
     _names,
@@ -146,10 +147,7 @@ def test_fr395_mark_failed_marks_the_point_of_the_alias_alone(tmp_path, monkeypa
     capsys.readouterr()
     argv = ["mark-failed", "--sims", "5002_2", "--workspace", str(workspace.root), "--apply"]
     assert cli.main(argv) == 0
-    status = {
-        row["run_id"]: row["status"]
-        for row in json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
-    }
+    status = {row["run_id"]: row["status"] for row in _read_record_rows(workspace.manifest_path)}
     assert status[f"warm/sim_5002/{names[1]}"] == "FAILED_MARKED"
     assert status[f"warm/sim_5002/{names[0]}"] == "CONVERGED"
     assert status[f"warm/sim_5002/{names[2]}"] == "CONVERGED"

@@ -9,7 +9,6 @@ log deleted, the field removed from the record, and collect run as she runs it.
 
 from __future__ import annotations
 
-import json
 import warnings
 from pathlib import Path
 
@@ -18,6 +17,7 @@ import pytest
 from pyflightstream.run.collect import collect_once
 from pyflightstream.workspace._missing_log import declared_log_names, script_log_names
 from pyflightstream.workspace.manifest import RunRecord
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.support_helpers import no_sleep
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace
 
@@ -25,7 +25,7 @@ MODES = ["alone", "batch"]
 
 
 def _rows(root: Path) -> list[dict]:
-    return json.loads((root / "runs.json").read_text("utf-8"))
+    return _read_record_rows(root / "runs.json")
 
 
 def _submitted(tmp_path: Path, mode: str, *, field: bool, script: bool = True, ended: bool = True):
@@ -39,7 +39,7 @@ def _submitted(tmp_path: Path, mode: str, *, field: bool, script: bool = True, e
         if not script:
             for found in (workspace.root / "sims").rglob(Path(row["script_path"]).name):
                 found.unlink()
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     return workspace
 
 
@@ -154,7 +154,7 @@ def test_p0390_collect_the_log_line_checks_read_a_present_field_alone(field, rea
     workspace, sim = _submitted_workspace(tmp_path, declared=("loads.txt", "log_AL+000.h5"))
     rows = _rows(workspace.root)
     rows[0]["submission"]["declared_logs"] = field
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     script = sim / "scripts" / "point.fs"
     script.parent.mkdir(parents=True, exist_ok=True)
     script.write_text(

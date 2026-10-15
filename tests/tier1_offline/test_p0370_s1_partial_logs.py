@@ -1,7 +1,5 @@
 """Partial log loss in a steady job must not strand its surviving outputs."""
 
-import json
-
 from pyflightstream.workspace._missing_log import absent_solver_logs
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
@@ -48,13 +46,13 @@ def test_a_steady_job_missing_a_point_output_is_not_admitted(tmp_path, capsys):
     assert code != 0, said
     waiting = [line for line in said.splitlines() if "WAITING" in line]
     assert len(waiting) == 1 and "V0300RE120AL+020.txt" in waiting[0], said
-    rows = json.loads(workspace.manifest_path.read_text("utf-8"))
+    rows = workspace.read_raw_manifest()
     points = [entry["status"] for row in rows for entry in row.get("points_ran") or [row]]
     assert points == ["SUBMITTED", "SUBMITTED"], points
     # The control: the same files with the output back are admitted.
     lost.write_bytes(kept)
     code, said = pyfs(["collect", "--no-post"], workspace.root, capsys)
     assert code == 0, said
-    rows = json.loads(workspace.manifest_path.read_text("utf-8"))
+    rows = workspace.read_raw_manifest()
     points = [entry["status"] for row in rows for entry in row.get("points_ran") or [row]]
     assert points == ["RAN_MISSING_LOG", "RAN_MISSING_LOG"], points

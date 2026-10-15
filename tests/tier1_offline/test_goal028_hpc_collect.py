@@ -16,11 +16,10 @@ COLLECT-POST-NO-MATRIX
 
 from __future__ import annotations
 
-import json
-
 from pyflightstream.run import cli as cli_mod
 from pyflightstream.run.collect import collect_once
 from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_collect_stage import (
     _no_sleep,
     _submitted_sweep,
@@ -180,9 +179,9 @@ def test_the_log_the_run_is_judged_by_is_the_scheduler_s_final_one(tmp_path):
 def _collect_at_requested_velocity(tmp_path, requested: float):
     workspace, sim = _submitted_workspace(tmp_path, declared=("loads.txt",))
     work = _work_dir(workspace, sim, alpha=2.0)
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     rows[0]["velocity_requested_m_s"] = requested
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
     # The recorded export prints a free-stream velocity of 30 m/s.
     (work / "loads.txt").write_text(_loads(2.0), encoding="utf-8")
     collect_once(workspace, interval=0.0, sleep=_no_sleep)
@@ -237,15 +236,13 @@ def test_each_collected_matrix_is_posted_once_and_a_sweep_that_collects_nothing_
     from pyflightstream.run.collect import collect_and_post
 
     workspace, sim = _submitted_workspace(tmp_path, declared=("a.txt",))
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     second = {**rows[0], "run_id": "camp/sim_9001/AL+020", "point_name": "AL+020"}
     second["matrix_stem"] = "outra"
     second["submission"] = {**rows[0]["submission"], "declared_outputs": ["b.txt"]}
     third = {**rows[0], "run_id": "camp/sim_9001/AL+040", "point_name": "AL+040"}
     third["submission"] = {**rows[0]["submission"], "declared_outputs": ["c.txt"]}
-    workspace.manifest_path.write_text(
-        json.dumps([rows[0], second, third], indent=2) + "\n", encoding="utf-8"
-    )
+    workspace._replace_manifest([rows[0], second, third])
     for name in ("a.txt", "b.txt", "c.txt"):
         (sim / name).write_text("written by the job", encoding="utf-8")
     posted: list[str | None] = []

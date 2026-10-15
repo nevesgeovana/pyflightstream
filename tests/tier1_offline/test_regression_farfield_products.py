@@ -56,6 +56,7 @@ from pyflightstream.run._pending import _write_probe_points
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace import RunRecord as _FarfieldProductsRunRecord
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_post_products import LOADS as _FARFIELD_PRODUCTS__LOADS
 from tests.tier1_offline.test_post_products import LOADS as _FFPROOF_POST__LOADS
 from tests.tier1_offline.test_post_products import LOADS as _LITB_POST__LOADS
@@ -304,13 +305,14 @@ def _farfield_products___add_outputs(
     manifest: Path, sim_id: str, suffixes: tuple[str, ...]
 ) -> None:
     """Add exports to the recorded outputs of one simulation's runs, as a run records them."""
-    data = json.loads(manifest.read_text(encoding="utf-8"))
-    runs = data if isinstance(data, list) else data.get("runs", data.get("records", []))
+    from pyflightstream.workspace.record_document import encode_rows, read_rows
+
+    runs = read_rows(manifest)
     for run in runs:
         if run.get("sim_id") == sim_id:
             loads = run["outputs"][0]
             run["outputs"] = [loads] + [loads[: -len(".txt")] + suffix for suffix in suffixes]
-    manifest.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    manifest.write_text(json.dumps(encode_rows(runs), indent=1), encoding="utf-8")
 
 
 class TestFarfieldProducts:
@@ -635,11 +637,11 @@ def _ffproof_post___warnings_of(root: Path) -> list[str]:
 
 def _ffproof_post___set_record(workspace: CampaignWorkspace, **fields: object) -> None:
     """Change fields of the recorded run, as a record of that shape would carry them."""
-    data = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    data = _read_record_rows(workspace.manifest_path)
     runs = data if isinstance(data, list) else data.get("runs", data.get("records", []))
     for run in runs:
         run.update(fields)
-    workspace.manifest_path.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    workspace._replace_manifest(data)
 
 
 # ----------------------------------------------------------------- FR-452 R3

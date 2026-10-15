@@ -54,11 +54,8 @@ whole flow condition in one place and which quantity is solved for
 follows from which keys it names. The cell is MANDATORY, exactly as the
 two columns it replaced were.
 
-A file written at either preceding width is not merely unparsable:
-:func:`read_matrix` RECOGNISES it, says which of the two layouts it is,
-and refuses it naming :func:`upgrade_matrix`. That converter runs both
-stages, so a file written before 0.8.0 gains the workflow cell AND has
-its two numeric columns folded, from one call.
+:func:`read_matrix` refuses earlier layouts and names the current columns.
+Migration instructions are in docs/upgrading.md.
 
 What is left here imports nothing above the cases layer, at any level,
 which is what :mod:`tests.test_conventions` now holds it to.
@@ -119,30 +116,11 @@ from pyflightstream.cases._matrix_upgrade import (
     _KEYS_THAT_BECAME_COLUMNS as _KEYS_THAT_BECAME_COLUMNS,
 )
 from pyflightstream.cases._matrix_upgrade import _SWEEP_CODE_KEYS as _SWEEP_CODE_KEYS
-from pyflightstream.cases._matrix_upgrade import _append_pair as _append_pair
-from pyflightstream.cases._matrix_upgrade import (
-    _drop_fs_script_and_name_pproc as _drop_fs_script_and_name_pproc,
-)
-from pyflightstream.cases._matrix_upgrade import _expand_to_nineteen as _expand_to_nineteen
-from pyflightstream.cases._matrix_upgrade import _fold_flight_condition as _fold_flight_condition
-from pyflightstream.cases._matrix_upgrade import _fold_sweep_type as _fold_sweep_type
 from pyflightstream.cases._matrix_upgrade import _header_names as _header_names
-from pyflightstream.cases._matrix_upgrade import _insert_workflow_cell as _insert_workflow_cell
-from pyflightstream.cases._matrix_upgrade import _name_geometry_files as _name_geometry_files
 from pyflightstream.cases._matrix_upgrade import _pad_like as _pad_like
-from pyflightstream.cases._matrix_upgrade import _paired_sweep_as_one as _paired_sweep_as_one
 from pyflightstream.cases._matrix_upgrade import _peel_terminator as _peel_terminator
-from pyflightstream.cases._matrix_upgrade import (
-    _refuse_a_key_the_cell_already_names as _refuse_a_key_the_cell_already_names,
-)
 from pyflightstream.cases._matrix_upgrade import _refuse_an_earlier_layout
 from pyflightstream.cases._matrix_upgrade import _retag_cell as _retag_cell
-from pyflightstream.cases._matrix_upgrade import _split_free_cell as _split_free_cell
-from pyflightstream.cases._matrix_upgrade import (
-    _strip_keys_from_variables as _strip_keys_from_variables,
-)
-from pyflightstream.cases._matrix_upgrade import _strip_pairs as _strip_pairs
-from pyflightstream.cases._matrix_upgrade import _upgraded_bytes as _upgraded_bytes
 from pyflightstream.cases._matrix_upgrade import rewrite_codes as rewrite_codes
 from pyflightstream.cases._sweep_names import _HELD_POINT_KEYS as _HELD_POINT_KEYS
 from pyflightstream.cases._sweep_names import ATTITUDE_KEYS as ATTITUDE_KEYS
@@ -203,7 +181,6 @@ __all__ = [
     "renumber_pols",
     "rewrite_codes",
     "to_campaign",
-    "upgrade_matrix",
     "workflow_types",
 ]
 
@@ -1082,10 +1059,8 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
         looks_half_edited = len(known & set(header)) * 2 > len(_COLUMNS)
         remedy = (
             " If this file was written at an earlier layout AND has since been edited "
-            "by hand, restore the original and upgrade THAT: pass in_place=True to "
-            "pyflightstream.cases.matrix.upgrade_matrix(path), or run "
-            "`pyfs-matrix upgrade <path> --in-place`. The converter reads the older "
-            "layouts as they were written and does not recognise a partly edited one."
+            "by hand, restore the original. Use an older package to reach 0.38.0, "
+            "then pyfs-workspace migrate. See docs/upgrading.md."
             if looks_half_edited
             else ""
         )
@@ -1398,80 +1373,6 @@ def renumber_pols(
     return rewritten
 
 
-def upgrade_matrix(path: str | Path, *, in_place: bool = False) -> bytes:
-    """Bring a matrix of ANY earlier layout up to the current one.
-
-    FOUR STAGES, because the format has broken four times and a file
-    written before v0.8.0 needs all four. A fifteen-column file gains the
-    ``WORKFLOW`` cell; then ``RE`` and ``MACH`` fold into one
-    ``FLIGHT_CONDITION`` cell; then ``FS_SCRIPT`` goes and ``ENTRY``
-    becomes ``PPROC``; then ``SWEEP_TYPE`` folds into the flight
-    condition too, ``AL`` becoming ``ALPHA:sweep`` and ``BE`` becoming
-    ``BETA:sweep``. A file at any of the four earlier layouts enters the
-    chain where its header says it belongs, and a file already at the
-    current layout is returned unchanged, so running this twice is safe.
-
-    THE ONE THING IT WILL NOT DO, since 0.15.0: split a row that sweeps
-    BOTH angles. That is one row per sideslip, each new row needs a POL
-    of its own, a POL is run identity, and an invented identity is worse
-    than a refusal, so such a file is refused with every such row named.
-    A paired ``AL/BE`` whose second axis holds ONE value is not one of
-    those: it varied one variable all along and it folds with the same
-    rows.
-
-    AND IT DOES NOT RENAME A RUN. An angle a row holds is carried at
-    every point of the sweep, so the point tags that end every ``run_id``
-    in an existing manifest are the ones the converted file plans under,
-    and a resume after the upgrade finds its records.
-
-    WHAT SURVIVES, stated precisely because the earlier wording said
-    "every other byte" and that is not quite true of the fold. Every
-    VALUE moves across verbatim -- ``0.20`` keeps its trailing zero --
-    and every other cell, separator, comment rule and line ending is
-    untouched. What cannot survive is the two folded columns' own
-    PADDING, because two cells become one and the original widths are
-    not recoverable from the joined text.
-
-    The value written into each data row is
-    :data:`LEGACY_WORKFLOW`, which names the behaviour those rows already
-    have; the header receives the column LABEL, so the result is a file
-    :func:`read_matrix` accepts rather than one that merely has the right
-    number of cells.
-
-    Parameters
-    ----------
-    path : str or Path
-        The matrix to upgrade. It is read as bytes and is not decoded.
-    in_place : bool
-        Write the upgraded bytes back over ``path``. Keyword-only, and
-        False by default, so nothing is rewritten unless it is asked
-        for; a caller wanting a different destination writes the
-        returned bytes there.
-
-    Returns
-    -------
-    bytes
-        The upgraded file content. A matrix already carrying the column
-        is returned unchanged, so running this twice is safe.
-
-    Raises
-    ------
-    MatrixError
-        The header names neither layout, a data row holds the wrong
-        number of cells, or no line carries a cell separator.
-
-    Examples
-    --------
-    >>> from pyflightstream.cases.matrix import upgrade_matrix
-    >>> upgrade_matrix("matrix.fs", in_place=True)  # doctest: +SKIP
-    """
-    target = Path(path)
-    upgraded = _upgraded_bytes(target.read_bytes(), str(target))
-    if in_place:
-        target.write_bytes(upgraded)
-    return upgraded
-
-
 def _condition_reynolds(row: MatrixRow) -> float | None:
     """Return the absolute Reynolds number a row STATES, or None.
 
@@ -1555,9 +1456,8 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
                 "set of a workflow row is decided by the pproc artifact its PPROC cell "
                 "names ([exports], PFS-2029.07), every export is named for the point, "
                 "and the log is always exported; the two keys would be a second home "
-                "for the same fact. Remove them, or upgrade the matrix with "
-                "pyflightstream.cases.matrix.upgrade_matrix(path) and in_place (CLI: "
-                "--in-place), which takes them out of every workflow row."
+                "for the same fact. Remove these variables and use the PPROC "
+                "artifact's [exports] table. See docs/upgrading.md."
             )
         return default_outputs(unsteady=row.workflow.startswith("unsteady"))
     if not outputs and not required:

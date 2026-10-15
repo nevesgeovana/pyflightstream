@@ -37,6 +37,7 @@ from pyflightstream.run.collect import collect_once
 from pyflightstream.script import Script
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import InputArtifactError, read_hpc_profile
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
 
 PROFILE = """\
@@ -84,16 +85,15 @@ def _work_dir(workspace, sim, *, alpha=None):
     test that skipped that check would be asserting on a run this package
     would refuse.
     """
-    import json
 
     work = sim / "datapoints" / "DP-AL+000"
     work.mkdir(parents=True, exist_ok=True)
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     for row in rows:
         row["submission"]["working_dir"] = f"datapoints/{work.name}"
         if alpha is not None:
             row["point"] = {"alpha": alpha}
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
     return work
 
 

@@ -7,11 +7,13 @@ import pytest
 
 from pyflightstream.run._mark_converged import keep_verdict, person_verdicts
 from pyflightstream.workspace._verdicts import merge_runs
+from pyflightstream.workspace.record_document import encode_rows
 
 
 def _marked_job():
     return {
         "run_id": "campaign/sim_1/sweep",
+        "sim_id": "1",
         "status": "RAN_MISSING_LOG",
         "points_ran": [
             {
@@ -33,7 +35,7 @@ def test_rebuild_keeps_each_steady_point_verdict(tmp_path):
     """P0370-S1-MARK-CONVERGED (FR-414 R4): nested marks survive rebuild."""
     original = _marked_job()
     manifest = tmp_path / "runs.json"
-    manifest.write_text(json.dumps([original]), encoding="utf-8")
+    manifest.write_text(json.dumps(encode_rows([original])), encoding="utf-8")
     computed = copy.deepcopy(original)
     computed["status"] = "COMPLETED_MAX_ITER"
     for point in computed["points_ran"]:

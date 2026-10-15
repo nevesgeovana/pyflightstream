@@ -20,6 +20,7 @@ import pytest
 from pyflightstream.run import LoadsAssessor
 from pyflightstream.run.collect import collect_once
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.support_helpers import no_sleep
 from tests.tier1_offline import test_goal031_local_run_log as local_run
 from tests.tier1_offline.test_goal028_hpc_log_completeness import _log
@@ -147,7 +148,7 @@ def test_p0390_iterlimit_a_steady_run_through_the_run_layer(sweep, tmp_path, mon
 
 
 def _rows(root: Path) -> list[dict]:
-    return json.loads((root / "runs.json").read_text("utf-8"))
+    return _read_record_rows(root / "runs.json")
 
 
 def _limit_workspace(tmp_path: Path) -> CampaignWorkspace:
@@ -175,7 +176,7 @@ def _limit_workspace(tmp_path: Path) -> CampaignWorkspace:
             row.pop("residual_note", None)
         for entry in row.get("points_ran") or []:
             entry.update(fields)
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     return workspace
 
 
@@ -219,7 +220,7 @@ def test_p0390_iterlimit_a_0_38_manifest_reads_unchanged(tmp_path):
         row["status"] = "COMPLETED_MAX_ITER"
         for entry in row.get("points_ran") or []:
             entry["status"] = "COMPLETED_MAX_ITER"
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     before = workspace.manifest_path.read_bytes()
     read = workspace.read_manifest()
     assert {record.status for record in read} == {RunStatus.COMPLETED_MAX_ITER}
@@ -517,7 +518,7 @@ def _rebuilt(workspace: CampaignWorkspace, matrix: Path, capsys, out: str) -> li
     argv = ["rebuild", "--all-sims", "--matrix", str(matrix), "--out", out, "--apply"]
     code, said = pyfs(argv, workspace.root, capsys)
     assert code == 0, said
-    return json.loads((workspace.root / out).read_text("utf-8"))
+    return _read_record_rows(workspace.root / out)
 
 
 def test_p0390_iterlimit_rebuild_keeps_the_person_s_verdict_without_the_limit(
@@ -582,7 +583,7 @@ def test_p0390_iterlimit_the_cost_estimate_reads_an_ended_run(tmp_path):
         for entry in row.get("points_ran") or []:
             entry.pop("iterations_requested", None)
         row.pop("iterations_requested", None)
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     walltime = list(cost_view(workspace).cells.values())
     assert sum(cell.excluded_count for cell in walltime) == len(rows), walltime
 
@@ -599,7 +600,7 @@ def test_p0390_iterlimit_delete_sims_reads_an_ended_run(tmp_path, capsys):
     for row in rows:
         row["status"] = "SUBMITTED"
         row.pop("iterations_requested", None)
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     code, said = pyfs(["delete-sims", "7002"], workspace.root, capsys)
     assert code != 0 and "SUBMITTED" in said, said
 

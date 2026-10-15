@@ -268,11 +268,10 @@ def _marked_points(todo: list[_Marking], *, applied: bool = False) -> list[dict[
 
 
 def _read_manifest_rows(manifest: Path) -> list[dict[str, Any]]:
-    """Read ``runs.json`` as a list of run records, refusing anything else."""
-    rows = json.loads(manifest.read_text(encoding="utf-8"))
-    if not isinstance(rows, list):
-        raise RunsManifestError(f"{manifest} is not a list of run records")
-    return rows
+    """Read current run records with immutable definitions resolved."""
+    from pyflightstream.workspace.record_document import read_rows
+
+    return read_rows(manifest)
 
 
 def _apply_marking(
@@ -543,13 +542,10 @@ def restore(
             f"restore {kind}: the archived copy {_relative(base, source.path)} is not readable "
             f"JSON ({error}); choose another stamp, nothing was changed"
         ) from error
-    if kind == "runs" and not (
-        isinstance(document, list) and all(isinstance(row, dict) for row in document)
-    ):
-        raise RecordsError(
-            f"restore runs: the archived copy {_relative(base, source.path)} is not a list of "
-            "run records; choose another stamp, nothing was changed"
-        )
+    if kind == "runs":
+        from pyflightstream.workspace.record_document import decode_document
+
+        document = decode_document(document, source=source.path)
     same = target.is_file() and target.read_bytes() == payload
     entry: dict[str, Any] = {
         "kind": kind,

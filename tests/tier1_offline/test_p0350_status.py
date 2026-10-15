@@ -25,6 +25,8 @@ from pyflightstream.run._continuation_frame import latest_record_of_point as run
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace._effective import latest_record_of_point
 from pyflightstream.workspace.ledger import PLANNED, STATUS_COLUMNS, listed_sims, read_ledger
+from pyflightstream.workspace.record_document import encode_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 MATRIX = "l1_g6"
 CAMPAIGN = "camp"
@@ -126,7 +128,9 @@ def _rows() -> list[dict]:
 def workspace(tmp_path: Path) -> Path:
     root = tmp_path / CAMPAIGN
     CampaignWorkspace.init(root)
-    (root / "runs.json").write_text(json.dumps(_rows(), indent=1) + "\n", encoding="utf-8")
+    (root / "runs.json").write_text(
+        json.dumps(encode_rows(_rows()), indent=1) + "\n", encoding="utf-8"
+    )
     matrix = root / f"{MATRIX}.fs"
     matrix.write_text("POL,SIM\n", encoding="utf-8")
     plan = {
@@ -340,9 +344,11 @@ def test_status_writes_nothing_and_takes_no_lock(workspace, capsys):
     lock = workspace / "runs.json.lock"
     lock.write_text('{"pid": 1, "token": "held"}', encoding="utf-8")
     (workspace / "sims" / "sim_2009.zip").write_bytes(b"PK\x05\x06" + b"\0" * 18)
-    rows = json.loads((workspace / "runs.json").read_text(encoding="utf-8"))
-    rows.append({"run_id": f"{CAMPAIGN}/sim_2012/M144AL+000", "sim_id": "2012", "status": "X"})
-    (workspace / "runs.json").write_text(json.dumps(rows), encoding="utf-8")
+    rows = _read_record_rows(workspace / "runs.json")
+    rows.append(
+        {"run_id": f"{CAMPAIGN}/sim_2012/M144AL+000", "sim_id": "2012", "status": "CONVERGED"}
+    )
+    (workspace / "runs.json").write_text(json.dumps(encode_rows(rows)), encoding="utf-8")
     calls = (
         (),
         ("--points",),
@@ -434,7 +440,7 @@ def test_a_continued_run_is_not_counted_even_after_its_continuation(tmp_path):
         point={"alpha": 0.0},
         continues=f"{CAMPAIGN}/sim_2008/M144AL+000",
     )
-    (root / "runs.json").write_text(json.dumps([continued, stopped]), encoding="utf-8")
+    (root / "runs.json").write_text(json.dumps(encode_rows([continued, stopped])), encoding="utf-8")
     rows = read_ledger(root).points()
     assert [(row["point"], row["status"]) for row in rows] == [("M144AL+000", "CONVERGED")]
 
@@ -446,9 +452,11 @@ def test_a_planned_point_whose_record_cannot_be_read_is_not_called_planned(works
     names a run, read or not: a row this version cannot read still says the
     point ran, so the point is named as unreadable rather than counted planned.
     """
-    rows = json.loads((workspace / "runs.json").read_text(encoding="utf-8"))
-    rows.append({"run_id": f"{CAMPAIGN}/sim_2007/M144AL+040", "sim_id": "2007", "status": "X"})
-    (workspace / "runs.json").write_text(json.dumps(rows), encoding="utf-8")
+    rows = _read_record_rows(workspace / "runs.json")
+    rows.append(
+        {"run_id": f"{CAMPAIGN}/sim_2007/M144AL+040", "sim_id": "2007", "status": "CONVERGED"}
+    )
+    (workspace / "runs.json").write_text(json.dumps(encode_rows(rows)), encoding="utf-8")
     _, out, err = _status(workspace, capsys, "--sims", "2007")
     assert _table(out)[1][3:] == ["0/2", MATRIX, "planned"]
     assert read_ledger(workspace).status(sims=["2007"])[0]["counts"] == {"planned": 1}

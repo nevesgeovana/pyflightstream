@@ -10,6 +10,7 @@ import pytest
 from pyflightstream.run import _mark_converged as marking
 from pyflightstream.run.records import manifest_lock
 from pyflightstream.workspace.naming import RunsManifestError
+from pyflightstream.workspace.record_document import encode_rows
 
 
 @pytest.mark.parametrize("new_status", ["SUBMITTED", "FAILED_MARKED", "CONVERGED"])
@@ -25,8 +26,8 @@ def test_apply_rechecks_the_locked_plan(tmp_path, new_status):
         "outputs": ["A.txt"],
     }
     manifest = tmp_path / "runs.json"
-    manifest.write_text(json.dumps([row]), encoding="utf-8")
-    changed = json.dumps([{**row, "status": new_status}]).encode()
+    manifest.write_text(json.dumps(encode_rows([row])), encoding="utf-8")
+    changed = json.dumps(encode_rows([{**row, "status": new_status}])).encode()
 
     with ThreadPoolExecutor(max_workers=1) as pool:
         with manifest_lock(tmp_path):

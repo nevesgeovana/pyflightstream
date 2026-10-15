@@ -17,6 +17,8 @@ import pytest
 
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run.matrix import run_matrix
+from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_goal024_point_name import RECIPES, _matrix
 from tests.tier1_offline.test_goal024_sweep_any_variable import _every_value
 from tests.tier1_offline.test_matrix_run import WRITES_EVERY_EXPORT, CountingStub, converged
@@ -83,13 +85,13 @@ def _as_0_23_0_wrote_them(workspace) -> None:
     import json
 
     path = workspace.root / "runs.json"
-    data = json.loads(path.read_text(encoding="utf-8"))
-    runs = data["runs"] if isinstance(data, dict) else data
+    data = _read_record_rows(path)
+    runs = data
     first = min(runs, key=lambda run: run["point"]["MACH"])
     for run in runs:
         for key in ("mach", "velocity_requested_m_s", "density_kg_m3", "flight_condition"):
             run[key] = first[key]
-    path.write_text(json.dumps(data), encoding="utf-8")
+    path.write_text(json.dumps(_encode_record_rows(data)), encoding="utf-8")
 
 
 def test_the_post_stage_re_resolves_a_point_a_record_describes_wrongly(swept):

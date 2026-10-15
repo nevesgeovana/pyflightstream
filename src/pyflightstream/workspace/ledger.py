@@ -670,8 +670,10 @@ def _point_row(stem: str, sim: str, entry: _Entry) -> dict[str, object]:
 
 def _read_records(path: Path) -> _Records:
     """Read the manifest's rows one by one, naming each row that cannot be read."""
+    from pyflightstream.workspace.record_document import read_rows
+
     try:
-        raw = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+        raw = read_rows(path)
     except (OSError, ValueError) as error:
         raise WorkspaceError(
             f"runs (CLI: --runs): the manifest {path} cannot be read as JSON: {error}. "

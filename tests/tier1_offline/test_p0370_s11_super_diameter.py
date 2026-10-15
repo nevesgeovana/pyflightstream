@@ -28,6 +28,8 @@ import pytest
 
 from pyflightstream.post.products import write_campaign_products
 from pyflightstream.post.superfile import superfile_row, union_the_workspace_knows
+from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
 from tests.tier1_offline.test_goal035_l1_defects import _posted_qsteady
 
@@ -49,14 +51,14 @@ def _posted_unsteady_rotor(tmp_path: Path) -> Path:
     """Post the unsteady rotor campaign with its record's per-rotor plan block; return post/."""
     workspace = _post_workspace(tmp_path, 2411, (60, 61), rotor=True)
     runs = workspace.root / "runs.json"
-    recorded = json.loads(runs.read_text(encoding="utf-8"))
+    recorded = _read_record_rows(runs)
     plan = recorded[0]["reductions"]
     # A real unsteady_rotor record states the speed twice: flat, and in the
     # rotor's own block (measured on a 0.37 record of the research workspace).
     plan["rotors"] = {
         "PUSHER": {"rpm": plan["rpm"], "steps_per_revolution": plan["steps_per_revolution"]}
     }
-    runs.write_text(json.dumps(recorded, indent=1), encoding="utf-8")
+    runs.write_text(json.dumps(_encode_record_rows(recorded), indent=1), encoding="utf-8")
     write_campaign_products(workspace, matrix_stem="products")
     return workspace.root / "post" / "products"
 
@@ -86,7 +88,7 @@ def test_p0370_s11_a_quasi_steady_super_file_states_its_speed_diameter_and_clock
     same clock.
     """
     products, folder = _posted_qsteady(tmp_path, "sector")
-    runs = json.loads((folder.parents[1] / "runs.json").read_text(encoding="utf-8"))
+    runs = _read_record_rows(folder.parents[1] / "runs.json")
     sector = [record for record in runs if str(record["sim_id"]) == "6001"]
     assert sector and all(record["reductions"] is None for record in sector), sector
     supers = sorted((folder / "polars").glob("SUPER-6001-*_g01.csv"))
@@ -116,7 +118,7 @@ def test_p0370_s11_a_row_without_a_rotor_has_no_diameter_column(tmp_path):
     _products, folder = _posted_qsteady(tmp_path, "sector")
     from pyflightstream.workspace import RunRecord
 
-    runs = json.loads((folder.parents[1] / "runs.json").read_text(encoding="utf-8"))
+    runs = _read_record_rows(folder.parents[1] / "runs.json")
     steady = RunRecord(**{**runs[0], "recipe": "steady"})
 
     class Block:

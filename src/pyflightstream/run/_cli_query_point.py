@@ -24,7 +24,6 @@ from pyflightstream.run._alias import planned_from_plan_files as planned_from_pl
 from pyflightstream.workspace.ledger import (
     Ledger,
     listed_sims,
-    read_json_file,
     read_ledger,
     select_logs,
     storage_rows,
@@ -84,7 +83,9 @@ def _add_parsers(subparsers: Any) -> None:
 
 
 def _aliases(ledger: Ledger) -> dict[str, tuple[str, str]]:
-    rows = read_json_file(ledger.manifest, [])
+    from pyflightstream.workspace.record_document import read_rows
+
+    rows = read_rows(ledger.manifest)
     rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
     planned = planned_in_workspace(ledger.root, rows)
     for row in ledger.points():

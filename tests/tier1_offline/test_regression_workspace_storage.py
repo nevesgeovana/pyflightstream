@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import datetime as clock
 import datetime as dt
-import importlib
 import json
 import os
 import re
@@ -15,7 +13,6 @@ import threading
 import time
 import tomllib
 import zipfile
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -29,26 +26,14 @@ from pyflightstream.workspace import CampaignWorkspace, WorkspaceError, _make_di
 from pyflightstream.workspace import RunStatus as _IntegfixStorageRunStatus
 from pyflightstream.workspace import RunStatus as _Workspace3StorageRunStatus
 from pyflightstream.workspace import _batch_life as batch_life
-from pyflightstream.workspace import (
-    rename_group_products as _workspace_1_rename_groups__rename_group_products,
-)
 from pyflightstream.workspace import storage as storage_module
-from pyflightstream.workspace import (
-    unmapped_group_numbers as _workspace_1_rename_groups__unmapped_group_numbers,
-)
 from pyflightstream.workspace.ledger import activity_rows, additional_rows, diff, post_log_groups
 from pyflightstream.workspace.manifest import RunRecord
 from pyflightstream.workspace.manifest import RunStatus as _Workspace2ManifestRunStatus
 from pyflightstream.workspace.naming import ARCHIVE_DIR
-from pyflightstream.workspace.rename_groups import (
-    rename_group_products as _workspace_2_rename_groups__rename_group_products,
-)
-from pyflightstream.workspace.rename_groups import (
-    unmapped_group_numbers as _workspace_2_rename_groups__unmapped_group_numbers,
-)
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.sidecars import (
     load_toml,
-    migrate_geometry_layout,
     read_inventory,
     write_inventory,
 )
@@ -90,11 +75,6 @@ from tests.tier1_offline.test_p0350_query_history import RUN as _WORKSPACE_1_LED
 from tests.tier1_offline.test_p0350_query_history import _record as _workspace_1_ledger___record
 from tests.tier1_offline.test_p0350_query_history import _script as _workspace_1_ledger___script
 from tests.tier1_offline.test_p0350_query_history import _write as _workspace_1_ledger___write
-from tests.tier1_offline.test_raw_mesh_conditions import (
-    FILE_ROUTE as _WORKSPACE_3_SIDECARS__FILE_ROUTE,
-)
-from tests.tier1_offline.test_raw_mesh_conditions import _case as _workspace_3_sidecars___case
-from tests.tier1_offline.test_raw_mesh_conditions import _library as _workspace_3_sidecars___library
 from tests.tier1_offline.test_workspace import make_record as _workspace_1_manifest__make_record
 
 
@@ -451,9 +431,9 @@ class TestWorkspace1Manifest:
                 points_ran=[{"tag": "AL+000", "status": "CONVERGED"}]
             )
         )
-        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows = _read_record_rows(workspace.manifest_path)
         rows[0]["points_ran"] = [entry]
-        workspace.manifest_path.write_text(json.dumps(rows), encoding="utf-8")
+        workspace._replace_manifest(rows)
         with pytest.raises(ValidationError, match=named):
             workspace.read_manifest()
 
@@ -489,26 +469,9 @@ class TestWorkspace1RenameGroups:
 
     pytestmark = pytest.mark.requirement("P0400-WSRENAME")
 
-    @staticmethod
-    def test_p0400_wsrename_inputs_and_simulations_are_never_renamed(tmp_path):
-        """P0400-WSRENAME (PFS-2096.012): a row's PROFILE and a solver file keep their names."""
-        polars, profile, solver = _workspace_1_rename_groups___workspace(tmp_path)
-        assert _workspace_1_rename_groups__unmapped_group_numbers(tmp_path, {}) == {
-            1: [polars / "P0001-M150_g01.csv"]
-        }
-        moved = _workspace_1_rename_groups__rename_group_products(tmp_path, {1: "PUSHER"})
-        assert [item.after for item in moved] == [polars / "P0001-M150_PUSHER.csv"]
-        assert profile.is_file() and solver.is_file()
+    pass
 
-    @staticmethod
-    def test_p0400_wsrename_a_linked_folder_is_not_walked_twice(tmp_path):
-        """P0400-WSRENAME (PFS-2096.012): a junction to the products plans each file once."""
-        polars, _, _ = _workspace_1_rename_groups___workspace(tmp_path)
-        _make_dir_link(polars, tmp_path / "post" / "linked")
-        moved = _workspace_1_rename_groups__rename_group_products(
-            tmp_path, {1: "PUSHER"}, dry_run=True
-        )
-        assert [item.before for item in moved] == [polars / "P0001-M150_g01.csv"]
+    pass
 
 
 _WORKSPACE_1_SIDECARS__NAMES = ["Wing\\tip", 'Say "hi"', "Plain"]
@@ -734,50 +697,9 @@ class TestWorkspace2Manifest:
 class TestWorkspace2RenameGroups:
     """P0400-RENAMEGROUPS: the group-rename migration skips only the workspace's own archive/."""
 
-    @staticmethod
-    def test_p0400_renamegroups_a_root_under_a_folder_named_archive_is_migrated(tmp_path):
-        """P0400-RENAMEGROUPS (PFS-2094.024): a workspace at .../archive/campaign2025 has its
-        products renamed and reported; only archive/ INSIDE the root is skipped."""
-        root = tmp_path / "archive" / "campaign2025"
-        (root / "post" / "m").mkdir(parents=True)
-        (root / "archive").mkdir()
-        (root / "post" / "m" / "loads_g1.csv").write_text("x\n", encoding="utf-8")
-        (root / "post" / "m" / "loads_g2.csv").write_text("x\n", encoding="utf-8")
-        (root / "archive" / "old_g1.csv").write_text("x\n", encoding="utf-8")
-        assert list(_workspace_2_rename_groups__unmapped_group_numbers(root, {1: "WING"})) == [2]
-        moved = _workspace_2_rename_groups__rename_group_products(root, {1: "WING"}, archive=False)
-        assert [entry.after.name for entry in moved] == ["loads_WING.csv"]
-        assert (root / "archive" / "old_g1.csv").is_file()
+    pass
 
-    @staticmethod
-    def test_p0400_renamegroups_the_archive_stamp_is_local_time(tmp_path, monkeypatch):
-        """P0400-RENAMEGROUPS (PFS-2087.003): the archive folder is stamped on the local clock, as
-        every other ARCHIVE_STAMP writer stamps. A fixed non-UTC clock makes the test
-        discriminate between local and UTC even on a UTC CI host."""
-        from pyflightstream.workspace import rename_groups
-
-        local = datetime(2026, 10, 13, 21, 30, 45, tzinfo=timezone(timedelta(hours=-3)))
-
-        class Clock(datetime):
-            @classmethod
-            def now(cls, tz=None):
-                return local.replace(tzinfo=None) if tz is None else local.astimezone(tz)
-
-        # A product lives under post/ (PFS-2096.012: nothing else is renamed).
-        (tmp_path / "post" / "m").mkdir(parents=True)
-        (tmp_path / "post" / "m" / "loads_g1.csv").write_text("x\n", encoding="utf-8")
-        # Load the public operation with the standard-library clock supplied.
-        # Restore both the dependency and the module even if the operation fails.
-        try:
-            with monkeypatch.context() as patched:
-                patched.setattr(clock, "datetime", Clock)
-                importlib.reload(rename_groups)
-                (moved,) = rename_groups.rename_group_products(tmp_path, {1: "WING"})
-        finally:
-            importlib.reload(rename_groups)
-        assert moved.archived is not None
-        folder = next(p.name for p in moved.archived.parents if p.name.startswith("rename-groups-"))
-        assert folder == "rename-groups-20261013-213045"
+    pass
 
 
 _WORKSPACE_3_SIDECARS__CP1252_TOML = 'name = "référence"\n'.encode("cp1252")
@@ -813,33 +735,7 @@ class TestWorkspace3Sidecars:
         message = str(raised.value)
         assert str(sidecar) in message and "UTF-8" in message, message
 
-    @staticmethod
-    def test_p0400_migration_carries_the_points_file_and_companions_and_the_row_binds(
-        tmp_path: Path,
-    ):
-        """P0400-MIGRATE-COMPANIONS (PFS-2096.013): the trailing-edge points file and the
-        ``<stem>.*`` companions move with their geometry, a ``<stem>.v2`` geometry keeps a
-        folder of its own, and the row still binds against the migrated library."""
-        workspace = _workspace_3_sidecars___library(tmp_path, _WORKSPACE_3_SIDECARS__FILE_ROUTE)
-        geometries = workspace.inputs_dir / "geometries"
-        (geometries / "wing.audit.json").write_text("{}\n", encoding="utf-8")
-        (geometries / "blade.fsm").write_bytes(b"one")
-        (geometries / "blade.v2.fsm").write_bytes(b"two")
-
-        migrate_geometry_layout(workspace.inputs_dir)
-
-        assert sorted(path.name for path in (geometries / "wing").iterdir()) == [
-            "wing.audit.json",
-            "wing.boundaries.toml",
-            "wing.stl",
-            "wing.te.txt",
-        ]
-        assert (geometries / "blade" / "blade.fsm").is_file()
-        assert (geometries / "blade.v2" / "blade.v2.fsm").is_file()
-        assert not (geometries / "wing.te").exists() and not (geometries / "wing.audit").exists()
-        case = _workspace_3_sidecars___case(tmp_path, workspace)
-        marking = case.raw_mesh_conditions.trailing_edges
-        assert Path(marking.points_file) == geometries / "wing" / "wing.te.txt"
+    pass
 
 
 _Workspace3StorageStorageError = storage_module.StorageError
@@ -882,7 +778,7 @@ def _workspace_3_storage___members(archive: Path) -> set[str]:
 
 
 def _workspace_3_storage___rows(workspace) -> list[dict]:
-    return json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    return _read_record_rows(workspace.manifest_path)
 
 
 _WORKSPACE_3_STORAGE__FULL = {"scripts/point.fs": "s", "datapoints/DP-1/loads.txt": "full"}
@@ -1049,7 +945,7 @@ class TestWorkspace3Storage:
         archives = sorted((workspace.root / ARCHIVE_DIR).glob("runs-*.json"))
         assert len(archives) == 3, [path.name for path in archives]
         chosen = restore(workspace.root, "runs")
-        newest = json.loads((workspace.root / chosen["source"]).read_text(encoding="utf-8"))
+        newest = _read_record_rows(workspace.root / chosen["source"])
         assert any(row.get(_WORKSPACE_3_STORAGE__DELETED) == "4402" for row in newest), chosen[
             "source"
         ]

@@ -23,16 +23,12 @@ import shutil
 import warnings
 from pathlib import Path
 
-import pytest
-
 from pyflightstream.cases import point_tag
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run.matrix import run_matrix
-from pyflightstream.run.rename import rename_workspace
 from pyflightstream.workspace import (
     CampaignWorkspace,
     RunStatus,
-    WorkspaceError,
     post_stages,
 )
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
@@ -136,7 +132,7 @@ def _as_0_20(workspace: CampaignWorkspace, mach: float) -> list[dict]:
         old.pop("sweep_name", None)
         old_rows.append(old)
         _rewrite_plan(workspace, str(row.get("matrix_stem")), pairs)
-    workspace.manifest_path.write_text(json.dumps(old_rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(old_rows)
     return old_rows
 
 
@@ -203,206 +199,6 @@ def _reopened(workspace: CampaignWorkspace) -> CampaignWorkspace:
     return CampaignWorkspace(workspace.root, naming=NamingTemplate(point_name=MATRIX_POINT_NAME))
 
 
-@pytest.mark.requirement("FR-103")
-def test_goal024_rename_command_moves_the_folders_the_files_and_the_records(tmp_path):
-    """The whole move, measured on a workspace that really ran under the old names."""
-    workspace, _, records = _ran(tmp_path)
-    expected = [str(row["point_name"]) for row in workspace.read_raw_manifest()]
-    sweeps = [str(row["sweep_name"]) for row in workspace.read_raw_manifest()]
-    old_rows = _as_0_20(workspace, mach=0.2)
-    assert all("point_name" not in row for row in old_rows), "the fixture is a 0.20.x manifest"
-    sim = workspace.sim_dir("3207")
-    before = sorted(p.name for p in (sim / "datapoints").iterdir())
-    # The 0.20 tag of a row that declares no sideslip: one field, one decimal.
-    assert before == ["DP-a+00.0", "DP-a-02.0"], before
-
-    report = rename_workspace(_reopened(workspace))
-
-    assert report.records == len(old_rows)
-    assert report.renamed_records == len(old_rows)
-    folders = sorted(p.name for p in (sim / "datapoints").iterdir())
-    assert folders == sorted(f"DP-{name}" for name in {"M200RE230AL-020", "M200RE230AL+000"})
-    for name in ("M200RE230AL-020", "M200RE230AL+000"):
-        files = sorted(p.name for p in (sim / "datapoints" / f"DP-{name}").iterdir())
-        assert files, name
-        assert all(f.startswith(f"P3207-{name}") for f in files), files
-    rows = workspace.read_raw_manifest()
-    assert [str(row["point_name"]) for row in rows] == expected
-    assert [str(row["sweep_name"]) for row in rows] == sweeps
-    for row in rows:
-        assert "a+00.0" not in json.dumps(row), row["run_id"]
-        assert "POLAR-" not in json.dumps(row), row["run_id"]
-        script = sim / str(row["script_path"])
-        assert script.is_file(), script
-    # The manifest it replaced is kept, so a rename that named something
-    # wrongly is not the end of the record it rewrote.
-    archived = sorted((workspace.root / "archive").glob("runs-*.json"))
-    assert len(archived) == 1
-    assert json.loads(archived[0].read_text(encoding="utf-8")) == old_rows
-    assert any(change.kind == "manifest archived" for change in report.changes)
-
-
-def test_goal024_rename_command_is_idempotent(tmp_path):
-    """A second run changes nothing, which is what makes it safe to run twice."""
-    workspace, _, _ = _ran(tmp_path)
-    _as_0_20(workspace, mach=0.2)
-    first = rename_workspace(_reopened(workspace))
-    assert first.changes
-    after = workspace.manifest_path.read_text(encoding="utf-8")
-
-    second = rename_workspace(_reopened(workspace))
-
-    assert second.changes == [], second.lines()
-    assert second.renamed_records == 0
-    assert workspace.manifest_path.read_text(encoding="utf-8") == after
-    assert len(sorted((workspace.root / "archive").glob("runs-*.json"))) == 1
-
-
-def test_goal024_rename_command_rehearses_without_moving_anything(tmp_path):
-    """--dry-run says what would move and leaves the workspace as it was."""
-    workspace, _, _ = _ran(tmp_path)
-    old_rows = _as_0_20(workspace, mach=0.2)
-    before = sorted(p.name for p in (workspace.sim_dir("3207") / "datapoints").iterdir())
-
-    report = rename_workspace(_reopened(workspace), apply=False)
-
-    # IT SAYS WHAT WOULD MOVE, which is the whole use of a rehearsal, and it
-    # moves none of it.
-    assert report.changes, "a rehearsal that lists nothing tells a reader nothing"
-    assert any(change.kind == "datapoint" for change in report.changes)
-    assert all(change.kind != "manifest archived" for change in report.changes)
-    assert report.renamed_records == len(old_rows)
-    assert "would rename" in report.summary()
-    assert sorted(p.name for p in (workspace.sim_dir("3207") / "datapoints").iterdir()) == before
-    assert workspace.read_raw_manifest() == old_rows
-    assert not sorted((workspace.root / "archive").glob("runs-*.json"))
-
-
-def test_goal024_rename_command_leaves_a_tree_the_post_stage_reads(tmp_path):
-    """The point of the command: 0.21.0 code reads the renamed workspace.
-
-    The products stage refuses a record written before 0.21.0 BY NAME rather
-    than recomputing one, so the two states are told apart by the refusal and
-    by the tables that appear once it is gone. The stub writes a real loads
-    spreadsheet, because a stage that parses nothing writes nothing and would
-    report the same empty answer either way.
-    """
-    workspace, _, _ = _ran(tmp_path, executor=_writes_loads_and_every_export(tmp_path))
-    # A GROUP THAT SELECTS A SURFACE OF THE EXPORT (0.24.0). The shared fixture's
-    # pproc names `wing_left` and `wing_right`, which this loads table does not
-    # carry, and the polar this test counted was a table of zeros. A group that
-    # selects nothing is now a named skip, by the rule that `NA` and never a zero
-    # stands for no value, so the fixture names the surfaces the export has.
-    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = "all"\n', encoding="utf-8"
-    )
-    _as_0_20(workspace, mach=0.2)
-    reopened = _reopened(workspace)
-
-    before, said = _polars(reopened)
-
-    assert before == [], "a workspace at the 0.20 names produced tables anyway"
-    assert any("pyfs-matrix rename" in message for message in said), said
-
-    rename_workspace(reopened)
-
-    after, _ = _polars(reopened)
-    assert after, "the renamed tree produced no polar table"
-    # THE RENAMED POINT NAME IS IN EVERY TABLE, the super file included. This asked
-    # for a `P3207-` prefix on everything in the folder, and it passed only because
-    # the placeholder sections export of this fixture ABORTED the simulation before
-    # its super file was written (MT-01). One unreadable export now costs one
-    # product, so the super file is there, under its own `SUPER-` prefix.
-    assert all("3207-M200RE230" in p.name for p in after), [p.name for p in after]
-    assert any(p.name.startswith("P3207-M200RE230") for p in after), [p.name for p in after]
-
-
-def test_goal024_rename_command_refuses_a_record_whose_row_is_gone(tmp_path):
-    """The new name is written BY the row, so a record without one is refused by name."""
-    workspace, matrix, _ = _ran(tmp_path)
-    _as_0_20(workspace, mach=0.2)
-    text = matrix.read_text(encoding="utf-8")
-    renumbered = text.replace("| 3207 |", "| 3299 |").replace("3207 |", "3299 |", 1)
-    matrix.write_text(renumbered, encoding="utf-8")
-
-    with pytest.raises(WorkspaceError) as caught:
-        rename_workspace(_reopened(workspace))
-    message = str(caught.value)
-    assert "3207" in message and "no row" in message, message
-    assert "nothing was changed" in message
-    assert not sorted((workspace.root / "archive").glob("runs-*.json"))
-
-
-def test_goal024_rename_command_refuses_a_point_the_matrix_no_longer_holds(tmp_path):
-    """A matrix edited since the run would rename old evidence under a new meaning."""
-    workspace, matrix, _ = _ran(tmp_path)
-    _as_0_20(workspace, mach=0.2)
-    text = matrix.read_text(encoding="utf-8")
-    matrix.write_text(text.replace("-2.0,0.0", "4.0,6.0"), encoding="utf-8")
-
-    with pytest.raises(WorkspaceError, match="the matrix changed since the run"):
-        rename_workspace(_reopened(workspace))
-    assert not sorted((workspace.root / "archive").glob("runs-*.json"))
-
-
-def test_goal024_rename_command_refuses_a_queued_job_whose_folder_would_move(tmp_path):
-    """A submitted job writes where its descriptor said, and this command cannot reach it."""
-    workspace, _, _ = _ran(tmp_path)
-    rows = _as_0_20(workspace, mach=0.2)
-    rows[0]["status"] = str(RunStatus.SUBMITTED)
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
-
-    with pytest.raises(WorkspaceError) as caught:
-        rename_workspace(_reopened(workspace))
-    message = str(caught.value)
-    assert "scheduler's queue" in message and "collect" in message, message
-    assert workspace.read_raw_manifest() == rows, "the refusal moved nothing"
-
-
-def test_goal024_rename_command_the_command_line_runs_it(tmp_path, capsys):
-    """The command is a COMMAND: `pyfs-matrix rename` moves the workspace and says so.
-
-    The library function is what the other tests drive; this is the surface a
-    user of the matrix has, and it is the one the migration page names.
-    """
-    from pyflightstream.run.cli import main
-
-    workspace, _, _ = _ran(tmp_path)
-    _as_0_20(workspace, mach=0.2)
-
-    assert main(["rename", "--workspace", str(workspace.root), "--dry-run"]) == 0
-    rehearsed = capsys.readouterr().out
-    assert "DP-a-02.0 -> DP-M200RE230AL-020" in rehearsed, rehearsed
-    assert (workspace.sim_dir("3207") / "datapoints" / "DP-a-02.0").is_dir(), (
-        "the rehearsal moved something"
-    )
-
-    assert main(["rename", "--workspace", str(workspace.root)]) == 0
-    printed = capsys.readouterr().out
-    assert "DP-a-02.0 -> DP-M200RE230AL-020" in printed, printed
-    assert "record(s) read" in printed
-    assert (workspace.sim_dir("3207") / "datapoints" / "DP-M200RE230AL-020").is_dir()
-
-    assert main(["rename", "--workspace", str(workspace.root)]) == 0
-    assert "nothing moved" in capsys.readouterr().out
-
-
-def test_goal024_rename_command_the_command_line_refuses_with_a_status(tmp_path, capsys):
-    """A refusal is exit 2 and stderr, as every other refusal of this command line is."""
-    from pyflightstream.run.cli import main
-
-    workspace, matrix, _ = _ran(tmp_path)
-    rows = _as_0_20(workspace, mach=0.2)
-    rows[0]["status"] = str(RunStatus.SUBMITTED)
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
-
-    assert main(["rename", "--workspace", str(workspace.root)]) == 2
-    captured = capsys.readouterr()
-    assert "scheduler's queue" in captured.err, captured.err
-    assert captured.out == "", "a refusal writes nothing to standard output"
-    assert workspace.read_raw_manifest() == rows
-
-
 def _as_0_20_library_default(workspace, mach: float) -> list[dict]:
     """Write the workspace back into the shape the LIBRARY default left.
 
@@ -450,109 +246,8 @@ def _as_0_20_library_default(workspace, mach: float) -> list[dict]:
         old.pop("sweep_name", None)
         old_rows.append(old)
         _rewrite_plan(workspace, str(row.get("matrix_stem")), pairs)
-    workspace.manifest_path.write_text(json.dumps(old_rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(old_rows)
     return old_rows
-
-
-def test_goal024_rename_command_a_workspace_named_by_the_library_default(tmp_path):
-    """A workspace whose file stem IS its point tag: the identity and the path differ.
-
-    Found by the qa lens, 2026-09-16, with a surviving mutant: the first
-    writing substituted one ordered list of pairs, and where the stem equals
-    the tag that list holds three rules with one left-hand side. The winner was
-    set-iteration order, and the `run_id` came out holding the FILE STEM while
-    the `point_name` beside it held the bare name -- a manifest disagreeing
-    with itself, unstably.
-    """
-    # AN UNSTEADY ROW IS ONE JOB PER POINT, so each record's run_id ENDS IN THE
-    # TAG. A steady row's ends in `sweep`, which no substitution touches, and
-    # the mutant that rewrites an identity with a path's rules walked straight
-    # past the first writing of this test.
-    workspace, _, _ = _ran(
-        tmp_path,
-        condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
-        values="-2.0,0.0",
-        workflow="unsteady",
-        cell="DELTA_TIME: 0.01 / TIME_ITERATIONS: 8 / LAST_ITERS_AVG: 8",
-    )
-    old_rows = _as_0_20_library_default(workspace, mach=0.2)
-    assert [str(row["run_id"]).rsplit("/", 1)[-1] for row in old_rows] == [
-        "a-02.0",
-        "a+00.0",
-    ], [row["run_id"] for row in old_rows]
-    # The 0.20 tag is everywhere in the fixture: the job's id ends in `sweep`,
-    # and every point of it carries the tag as its identity AND as its stem.
-    assert any("a+00.0" in json.dumps(row) for row in old_rows), old_rows
-    # A per-point record lists no points_ran; the tag IS its identity.
-    assert all("point_name" not in row for row in old_rows), old_rows
-
-    report = rename_workspace(_reopened(workspace))
-
-    assert report.renamed_records == len(old_rows)
-    rows = workspace.read_raw_manifest()
-    for row in rows:
-        # THE IDENTITY IS THE NAME, and carries no file stem.
-        tail = str(row["run_id"]).rsplit("/", 1)[-1]
-        assert tail == str(row["point_name"]), (row["run_id"], row["point_name"])
-        assert tail.startswith("M200RE230AL"), row["run_id"]
-        assert not tail.startswith("P3207-"), row["run_id"]
-        # A per-point record lists no points_ran (the loop that once checked its entries
-        # never ran), so the tag stays the whole identity after the rename (PFS-2135.039).
-        assert not row.get("points_ran"), row["run_id"]
-        # AND THE PATHS ARE PATHS: the folder and the stem, both moved.
-        for output in row["outputs"]:
-            assert output.startswith("datapoints/DP-M200RE230AL"), output
-            assert Path(output).name.startswith("P3207-M200RE230AL"), output
-        assert "a+00.0" not in json.dumps(row), row["run_id"]
-
-
-def test_goal024_rename_command_the_steady_script_path_resolves_and_a_second_run_is_quiet(
-    tmp_path,
-):
-    """A STEADY row under the library default: the manifest names the file the move made.
-
-    Found by the qa lens of the closing round, 2026-09-16, measured end to end.
-    A steady row is ONE JOB, and its script stem is the point tag with `_sweep`
-    after it, so the point-stem rule CONTAINS the script-stem rule and consumed
-    it: the manifest came out saying `scripts/P3207-M200RE230AL-020_sweep.txt`
-    while the file on disk was `scripts/P3207-M200RE230AL+sweep.txt`, because
-    the disk move uses the script pair directly and only the record went through
-    the substitutions.
-
-    The two halves that make it a test rather than an example: the manifest's
-    own `script_path` is RESOLVED against the simulation directory, so a name
-    nothing wrote fails; and the command is run a SECOND time, because the
-    migration page promises a second run changes nothing and a self-healing
-    rewrite breaks that promise quietly.
-    """
-    workspace, _, _ = _ran(tmp_path)
-    old_rows = _as_0_20_library_default(workspace, mach=0.2)
-    assert len(old_rows) == 1, old_rows
-    # THE SHAPE THAT MATTERS: the job's script stem is the point tag plus
-    # `_sweep`, so one of the path rules is a prefix of the other.
-    assert str(old_rows[0]["script_path"]).endswith("a-02.0_sweep.txt"), old_rows
-
-    report = rename_workspace(_reopened(workspace))
-
-    assert report.renamed_records == 1, report
-    row = workspace.read_raw_manifest()[0]
-    sim = workspace.sim_dir(str(row["sim_id"]))
-    script = sim / str(row["script_path"])
-    assert script.is_file(), (
-        row["script_path"],
-        sorted(p.name for p in (sim / "scripts").iterdir()),
-    )
-    assert script.name == "P3207-M200RE230AL+sweep.txt", script.name
-    # The identity is untouched by the path rules: a steady job ends in `sweep`.
-    assert str(row["run_id"]).endswith("/sweep"), row["run_id"]
-
-    again = rename_workspace(_reopened(workspace))
-
-    assert again.renamed_records == 0, [change for change in again.changes]
-    assert not again.changes, [
-        (change.kind, change.before, change.after) for change in again.changes
-    ]
-    assert workspace.read_raw_manifest()[0]["script_path"] == row["script_path"]
 
 
 def _renamed_in_place(workspace, old: str, new: str) -> list[dict]:
@@ -565,7 +260,7 @@ def _renamed_in_place(workspace, old: str, new: str) -> list[dict]:
     """
     rows = workspace.read_raw_manifest()
     swapped = json.loads(json.dumps(rows).replace(new, old))
-    workspace.manifest_path.write_text(json.dumps(swapped, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(swapped)
     for sim in (workspace.root / "sims").iterdir():
         if not sim.is_dir():
             continue
@@ -581,45 +276,3 @@ def _renamed_in_place(workspace, old: str, new: str) -> list[dict]:
             if script.is_file() and old not in script.name:
                 script.rename(script.with_name(script.name.replace(new, old)))
     return swapped
-
-
-def test_goal024_rename_command_bridges_a_name_only_change_of_scheme(tmp_path):
-    """0.22.0: a point whose NAME moved and whose VALUES did not is renamed, not orphaned.
-
-    THE OWNER'S QUESTION, 2026-09-17, asked of the `RPM` field losing its sign:
-    that change moves the folder of every rotor point that ever ran, including
-    the ones whose rotor turned the RIGHT way. Those points are still evidence --
-    only the name moved -- so they have to be renameable rather than re-run.
-
-    AND IT NEEDS NO `--from-version`, which is what this measures. The OLD name
-    is READ from the record and the NEW one is computed from the row, so the
-    command never has to be told which scheme wrote the workspace: it compares
-    the two names it already holds. A version flag would be a second source of
-    truth for something the manifest already states, and the two could disagree.
-
-    The sign CORRECTION is the other case and deliberately not this one: there
-    the row's VALUE changes, the recorded point stops being a point of the row,
-    and `rename` refuses -- which is right, because those runs turned the wrong
-    way and renaming would file them under a name claiming they did not. That
-    refusal is `..._refuses_a_point_the_matrix_no_longer_holds`.
-    """
-    workspace, _, _ = _ran(tmp_path)
-    sim = workspace.sim_dir("3207")
-    expected = sorted(p.name for p in (sim / "datapoints").iterdir())
-    assert "DP-M200RE230AL+000" in expected, expected
-
-    # The same points, spelled the way another naming scheme spelled them.
-    old_rows = _renamed_in_place(workspace, "M200RE230AL+0000", "M200RE230AL+000")
-    assert any("AL+0000" in p.name for p in (sim / "datapoints").iterdir()), "fixture not renamed"
-
-    report = rename_workspace(_reopened(workspace))
-
-    assert report.renamed_records == len(old_rows), report.summary()
-    folders = sorted(p.name for p in (sim / "datapoints").iterdir())
-    assert not any("AL+0000" in name for name in folders), folders
-    for folder in (sim / "datapoints").iterdir():
-        files = sorted(p.name for p in folder.iterdir() if p.is_file())
-        assert files, folder.name
-        assert not any("AL+0000" in name for name in files), files
-    assert sorted(p.name for p in (sim / "datapoints").iterdir()) == expected
-    assert "AL+0000" not in workspace.manifest_path.read_text(encoding="utf-8")

@@ -855,9 +855,7 @@ def test_g06_a_collected_steady_job_judges_each_point_by_its_own_log(tmp_path):
             ],
         }
     )
-    workspace.manifest_path.write_text(
-        json.dumps([json.loads(job.model_dump_json())], indent=2) + "\n", encoding="utf-8"
-    )
+    workspace._replace_manifest([json.loads(job.model_dump_json())])
     profile = tmp_path / "inputs" / "profiles" / "prop_ct.txt"
     refused = f"{PROFILE_REFUSALS[1]}{profile}"
     for tag in declared:
@@ -959,9 +957,7 @@ def test_g06_a_collected_steady_job_reads_a_point_log_that_is_no_residual_histor
             ],
         }
     )
-    workspace.manifest_path.write_text(
-        json.dumps([json.loads(job.model_dump_json())], indent=2) + "\n", encoding="utf-8"
-    )
+    workspace._replace_manifest([json.loads(job.model_dump_json())])
     refused = f"{PROFILE_REFUSALS[0]}{sim / COPY}"
     for tag in declared:
         (sim / f"{tag}.txt").write_text("numbers", encoding="utf-8")

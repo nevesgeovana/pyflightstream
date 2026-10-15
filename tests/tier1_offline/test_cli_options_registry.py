@@ -106,7 +106,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # switches of `pyfs-matrix`'s storage commands, per call for the same reason.
     # `--workspace` is the campaign the field is written into, spelled as every
     # sibling command that names a workspace spells it (the 0.31.0 release
-    # review); 0.40.0 also offers it on init, migrate-geometries and archive,
+    # review); 0.40.0 also offers it on init, migrate and archive,
     # beside their positional root (archive warns that the positional is deprecated).
     ("pyfs-workspace", "workspace"): SUBJECT,
     ("pyfs-workspace", "field"): SUBJECT,
@@ -198,7 +198,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
         "stated per call and never a machine default"
     ),
     ("pyfs-matrix", "matrix"): SUBJECT,
-    ("pyfs-matrix", "inputs"): SUBJECT,
     ("pyfs-matrix", "geometry"): SUBJECT,
     ("pyfs-matrix", "workspace"): SUBJECT,
     ("pyfs-matrix", "name"): CASE,
@@ -208,7 +207,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "sweep_csv"): CASE,
     ("pyfs-matrix", "fs_version"): SOLVER,
     ("pyfs-matrix", "fs_exe"): SOLVER,
-    ("pyfs-matrix", "in_place"): SWITCH,
     ("pyfs-matrix", "overwrite"): SWITCH,
     # 0.34.0 (FR-330): `degenerate` derives a geometry from the mesh it is given.
     # `--root-offset` defines the geometry written, is stated per call and is
@@ -279,7 +277,6 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "log_level"): SWITCH,
     # 0.21.0: `rename` rehearses with --dry-run, which is a mode switch of the
     # one invocation and changes nothing about the workspace it reads.
-    ("pyfs-matrix", "dry_run"): SWITCH,
     ("pyfs-matrix", "interval"): SWITCH,
     ("pyfs-matrix", "watch_interval"): SWITCH,
     ("pyfs-matrix", "rounds"): SWITCH,
@@ -550,8 +547,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "root_offset"): frozenset({"degenerate"}),
     ("pyfs-matrix", "boundary"): frozenset({"degenerate"}),
     ("pyfs-matrix", "ignore_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "in_place"): frozenset({"upgrade"}),
-    ("pyfs-matrix", "inputs"): frozenset({"upgrade"}),
     ("pyfs-matrix", "matrix"): frozenset(
         {
             "convert",
@@ -562,7 +557,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "restore",
             "run",
             "status",
-            "upgrade",
         }
     ),
     ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
@@ -581,7 +575,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),
     ("pyfs-matrix", "point_name"): frozenset({"inspect-setups", "plan", "run"}),
-    ("pyfs-matrix", "dry_run"): frozenset({"rename"}),
     ("pyfs-matrix", "recipe"): frozenset(
         {"convert", "free-space", "inspect-setups", "plan", "post", "run"}
     ),
@@ -635,7 +628,6 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "plan",
             "post",
             "rebuild",
-            "rename",
             "restore",
             "run",
             "space-in-use",
@@ -721,7 +713,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "timeout"): frozenset({"probe"}),
     ("pyfs-qa", "workroot"): frozenset({"drift", "probe"}),
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
-    ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate-geometries"}),
+    ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate"}),
     ("pyfs-workspace", "workspace"): frozenset(
         {
             "accept",
@@ -729,7 +721,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "fill-interior",
             "from-sidecar",
             "init",
-            "migrate-geometries",
+            "migrate",
             "mirror",
             "move",
             "profile",
@@ -753,6 +745,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
+            "migrate",
             "build",
             "fill-interior",
             "from-sidecar",

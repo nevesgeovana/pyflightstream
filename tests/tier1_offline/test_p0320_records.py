@@ -39,6 +39,8 @@ from pyflightstream.run import _record_files as record_files
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
+from pyflightstream.workspace.record_document import encode_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.support_helpers import file_sha256 as _sha
 from tests.tier1_offline.test_goal031_local_run_log import FIXTURES, LOG, STUB, Solver, _matrix
 from tests.tier1_offline.test_matrix_run import (
@@ -132,7 +134,7 @@ def _local_campaign(tmp_path, monkeypatch):
         assess=LoadsAssessor(),
         local=True,
     )
-    (record,) = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    (record,) = _read_record_rows(workspace.manifest_path)
     assert record["status"] == "CONVERGED", record.get("error")
     _quiet(workspace.root / "sims")
     return workspace, at_root, record
@@ -213,6 +215,19 @@ def _script(workspace, record) -> Path:
 
 def _write(path: Path, text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.name == "runs.json" or path.name.startswith("runs-"):
+        try:
+            rows = json.loads(text)
+        except ValueError:
+            pass
+        else:
+            if isinstance(rows, list):
+                text = (
+                    json.dumps(
+                        encode_rows([{"sim_id": "1", "status": "CONVERGED", **row} for row in rows])
+                    )
+                    + "\n"
+                )
     path.write_text(text, encoding="utf-8")
     return path
 
@@ -237,6 +252,7 @@ def test_restore_previews_then_applies_each_kind_archiving_the_current_file(
 ):
     """P0320-RESTORE-ARCHIVE: exact and cheap, preview by default, current file archived first."""
     current = _write(tmp_path / live, '[{"run_id": "now"}]\n')
+    current_bytes = current.read_bytes()
     source = _write(tmp_path / archived, '[{"run_id": "then"}]\n')
     before = _tree(tmp_path)
     preview = records.restore(tmp_path, kind)
@@ -249,7 +265,7 @@ def test_restore_previews_then_applies_each_kind_archiving_the_current_file(
     assert done["applied"] is True
     assert current.read_bytes() == source.read_bytes(), "the restore is not exact"
     kept = tmp_path / done["archived_as"]
-    assert kept.read_text(encoding="utf-8") == '[{"run_id": "now"}]\n'
+    assert kept.read_bytes() == current_bytes
     assert kept != source and source.is_file(), "the archived copy was consumed"
     # The copy just made is the newest one: the restore can itself be undone.
     assert records.restore(tmp_path, kind)["source"] == done["archived_as"]
@@ -263,7 +279,9 @@ def test_restore_takes_the_newest_stamp_and_a_named_one(tmp_path):
     _write(tmp_path / "archive" / "runs-20260929-120000.2.json", '[{"run_id": "c"}]\n')
     assert records.restore(tmp_path, "runs")["source"] == "archive/runs-20260929-120000.2.json"
     named = records.restore(tmp_path, "runs", stamp="20260901-080000", apply=True)
-    assert json.loads((tmp_path / "runs.json").read_text(encoding="utf-8")) == [{"run_id": "a"}]
+    assert _read_record_rows(tmp_path / "runs.json") == [
+        {"run_id": "a", "sim_id": "1", "status": "CONVERGED"}
+    ]
     assert named["records"] == 1
 
 
@@ -293,7 +311,7 @@ def test_restore_of_the_manifest_refuses_while_a_run_holds_its_lock(tmp_path):
     _write(tmp_path / "runs.json.lock", "held")
     with pytest.raises(records.RecordsError, match=r"runs\.json\.lock"):
         records.restore(tmp_path, "runs", apply=True)
-    assert (tmp_path / "runs.json").read_text(encoding="utf-8") == "[]\n"
+    assert _read_record_rows(tmp_path / "runs.json") == []
 
 
 # ------------------------------------------------------------------ rebuild
@@ -323,7 +341,7 @@ def test_rebuild_from_sims_gives_the_record_back_and_writes_nothing_until_asked(
 
     done = records.rebuild(workspace.root, apply=True)
     assert done["written"] == "runs.json"
-    (written,) = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    (written,) = _read_record_rows(workspace.manifest_path)
     assert written["run_id"] == original["run_id"]
     assert written["status"] == "CONVERGED"
 
@@ -354,7 +372,7 @@ def test_rebuild_refuses_a_version_other_than_the_one_that_ran(tmp_path, monkeyp
     script = _script(workspace, original)
     script.write_text(script.read_text(encoding="utf-8") + "EXTRA_LINE\n", encoding="utf-8")
     older = dict(original, package_version="0.30.0")
-    workspace.manifest_path.write_text(json.dumps([older]), encoding="utf-8")
+    workspace._replace_manifest([older])
     entry = records.rebuild(workspace.root, sims=["5001"], out="runs-new.json")
     reason = entry["refused"]["5001"]
     assert "0.30.0" in reason and VERSION in reason, reason
@@ -408,12 +426,12 @@ def test_rebuild_out_never_touches_runs_json(tmp_path, monkeypatch):
     """P0320-REBUILD-OUT: the rebuilt records go to the named file, runs.json keeps its bytes."""
     workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)
     manifest = workspace.manifest_path
-    manifest.write_text("[]\n", encoding="utf-8")  # the record is lost; the file is not
+    workspace._replace_manifest([])  # the record is lost; the file is not
     sha = _sha(manifest)
     done = records.rebuild(workspace.root, out="runs-rebuilt.json", apply=True)
     assert done["written"] == "runs-rebuilt.json"
     assert _sha(manifest) == sha
-    (written,) = json.loads((workspace.root / "runs-rebuilt.json").read_text(encoding="utf-8"))
+    (written,) = _read_record_rows(workspace.root / "runs-rebuilt.json")
     assert written["run_id"] == original["run_id"]
 
 
@@ -428,7 +446,7 @@ def test_rebuild_all_sims_requires_out_and_rebuilds_the_recorded_ones_too(tmp_pa
     done = records.rebuild(workspace.root, all_sims=True, out="runs-all.json", apply=True)
     assert [row["run_id"] for row in done["records"]] == [original["run_id"]]
     assert _sha(workspace.manifest_path) == sha
-    written = json.loads((workspace.root / "runs-all.json").read_text(encoding="utf-8"))
+    written = _read_record_rows(workspace.root / "runs-all.json")
     assert [row["run_id"] for row in written] == [original["run_id"]]
 
 
@@ -664,14 +682,12 @@ def test_the_archive_spellings_are_the_workspaces(tmp_path):
     # The stamp is written by the record files module since 0.33.0 (AD-11).
     assert record_files.ARCHIVE_STAMP == ARCHIVE_STAMP
     workspace = CampaignWorkspace.init(tmp_path / "camp")
-    workspace.manifest_path.write_text(
-        '[{"run_id": "c/sim_1/P", "sim_id": "1"}]\n', encoding="utf-8"
-    )
+    workspace._replace_manifest([{"run_id": "c/sim_1/P", "sim_id": "1", "status": "CONVERGED"}])
     kept = workspace.supersede_records(["c/sim_1/P"])
     assert kept is not None and kept.parent.name == ARCHIVE_DIR
     entry = records.restore(workspace.root, "runs", apply=True)
     assert entry["source"] == f"{ARCHIVE_DIR}/{kept.name}"
-    assert json.loads(workspace.manifest_path.read_text(encoding="utf-8"))[0]["sim_id"] == "1"
+    assert _read_record_rows(workspace.manifest_path)[0]["sim_id"] == "1"
 
 
 # ------------------------------------------------------------------ review of B1
@@ -684,7 +700,7 @@ def test_rebuild_out_holds_the_rebuilt_record_of_a_named_recorded_sim(tmp_path, 
     sha = _sha(workspace.manifest_path)
     done = records.rebuild(workspace.root, sims=["5001"], out="runs-5001.json", apply=True)
     assert [row["sim"] for row in done["rebuilt"]] == ["5001"]
-    (written,) = json.loads((workspace.root / "runs-5001.json").read_text(encoding="utf-8"))
+    (written,) = _read_record_rows(workspace.root / "runs-5001.json")
     assert written["run_id"] == original["run_id"]
     assert any(line.startswith(records.REBUILT) for line in written["warnings"]), (
         "the file --out names holds the original record, not the rebuilt one"
@@ -697,12 +713,12 @@ def test_rst6_every_restore_refuses_while_a_sync_holds_the_runs_lease(
     tmp_path, kind, live, archived
 ):
     """P0320-RST-6: a sync copies under runs.json.lock; a restore of any kind refuses meanwhile."""
-    _write(tmp_path / live, "[]\n")
+    before = _write(tmp_path / live, "[]\n").read_bytes()
     _write(tmp_path / archived, '[{"run_id": "then"}]\n')
     _write(tmp_path / "runs.json.lock", "held by a sync")
     with pytest.raises(records.RecordsError, match=r"runs\.json\.lock"):
         records.restore(tmp_path, kind, apply=True, matrix="matrix-lnx")
-    assert (tmp_path / live).read_text(encoding="utf-8") == "[]\n"
+    assert (tmp_path / live).read_bytes() == before
 
 
 @pytest.mark.parametrize(("kind", "live", "archived"), KINDS)

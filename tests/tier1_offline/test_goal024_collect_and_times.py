@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.run.collect import collect_once
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
 
 
@@ -91,7 +92,6 @@ def test_goal024_collect_and_times_the_record_carries_the_times_to_the_manifest(
     the three names from the collect stage's stamp left it green (the qa lens,
     2026-09-16). This drives the stage and reads the manifest.
     """
-    import json
 
     from pyflightstream.run.collect import collect_once
     from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
@@ -118,7 +118,7 @@ def test_goal024_collect_and_times_the_record_carries_the_times_to_the_manifest(
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
 
     assert not report.failed, [outcome.detail for outcome in report.failed]
-    row = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))[0]
+    row = _read_record_rows(workspace.manifest_path)[0]
     assert row["solver_run_time_s"] == pytest.approx(841.2), row
     assert row["log_file_used"] == "P9001-AL+000_log.txt", row
     # 312 and no longer 1575: the number was the OTHER run's last iteration,

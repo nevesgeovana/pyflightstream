@@ -17,6 +17,8 @@ import pytest
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import RunRecord, RunStatus
 from pyflightstream.workspace.ledger import read_ledger
+from pyflightstream.workspace.record_document import encode_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import STORAGE_SCHEMA
 
 RUN = "synthetic/sim_9101/A0"
@@ -25,6 +27,8 @@ PRODUCT = "post/demo/polars/polar.csv"
 
 def _write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(value, list) and (path.name == "runs.json" or path.name.startswith("runs-")):
+        value = encode_rows(value)
     path.write_text(json.dumps(value), encoding="utf-8")
 
 
@@ -150,7 +154,15 @@ def _rows(workspace, capsys, *args):
 def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
     """P0350-QUERY-SHOW FR-386: card order, alias, evidence and failed polar cards."""
     row = _rows(workspace, capsys, "show", "9101_1")[0]
-    assert list(row) == ["outcome", "evidence", "activity", "post", "chain", "identity", "inputs"]
+    assert list(row) == [
+        "outcome",
+        "evidence",
+        "activity",
+        "post",
+        "chain",
+        "identity",
+        "inputs",
+    ]
     assert row["outcome"]["status"] == "FAILED_MARKED"
     assert row["outcome"]["marked"]["from"] == "CONVERGED"
     assert row["outcome"]["error"] == "synthetic error"
@@ -183,7 +195,7 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
 
 def test_show_uses_current_chain_and_names_archived_outputs(workspace, capsys):
     """P0350-QUERY-SHOW FR-386: continuation card never merges archived manifests."""
-    old = json.loads((workspace / "runs.json").read_text(encoding="utf-8"))[0]
+    old = _read_record_rows(workspace / "runs.json")[0]
     new = {
         **old,
         "run_id": "synthetic/sim_9101/r20260101/A0",

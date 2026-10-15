@@ -829,7 +829,6 @@ DOCB_ALL_MODULES = (
     "pyflightstream.workspace.flight_condition",
     "pyflightstream.workspace.fsi_setup",
     "pyflightstream.workspace.naming",
-    "pyflightstream.workspace.rename_groups",
     "pyflightstream.workspace.setup_inspection",
     "pyflightstream.workspace.setup_standards",
 )

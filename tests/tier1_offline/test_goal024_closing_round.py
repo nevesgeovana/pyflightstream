@@ -22,7 +22,6 @@ and a reader looking for what CLOSE-0210 established should find it in one place
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -242,7 +241,7 @@ def test_goal024_closing_round_a_simulation_not_collected_yet_writes_nothing_and
             row["outputs"] = []
             emptied += 1
     assert emptied, rows
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
 
     written = _post(workspace)
 
@@ -269,23 +268,3 @@ def test_goal024_closing_round_the_same_workspace_fully_collected_posts_that_sim
 
 
 # ------------------------------------------------------- the command says what next
-
-
-def test_goal024_closing_round_the_nothing_to_do_arm_of_rename_says_so_in_words(capsys, tmp_path):
-    """Nothing to do is a SUCCESS and says so, because this command is run twice.
-
-    The first writing printed a next step for this arm alone; the interface lens
-    asked for one on each. This asserts the arm a careful user reaches first: a
-    silent zero reads as "it did not run".
-    """
-    from pyflightstream.run.cli import main
-
-    root = tmp_path / "ws"
-    (root / "sims").mkdir(parents=True)
-    (root / "runs.json").write_text("[]", encoding="utf-8")
-
-    assert main(["rename", "--workspace", str(root)]) == 0
-
-    printed = capsys.readouterr().out
-    assert "nothing moved" in printed, printed
-    assert "0.21.0" in printed, printed

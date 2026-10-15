@@ -1,4 +1,144 @@
-"""P0410-REC: shared documents preserve every resolved record value."""
+"""N2/N3: append a run, resolve its definitions, and refuse unmigrated files."""
+
+import json
+
+import pytest
+
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
+
+
+def _record(run_id="run-1", **changes):
+    values = {
+        "run_id": run_id,
+        "sim_id": "1",
+        "fs_version_requested": "26.124",
+        "package_version": "0.41.0",
+        "script_sha256": "a" * 64,
+        "raw_flag": False,
+        "status": RunStatus.CONVERGED,
+        "solver_setup": {"fs_version": "26.124", "flags": {}},
+        "frame_motions": {},
+        "inventory": ["body"],
+    }
+    values.update(changes)
+    return RunRecord(**values)
+
+
+def _envelope(ws):
+    value = json.loads(ws.manifest_path.read_text(encoding="utf-8"))
+    assert isinstance(value, dict), "Manifest must be a schema-versioned envelope"
+    assert value["schema_version"] == 4
+    return value
+
+
+def test_p0410_rec_shared_definitions(tmp_path):
+    ws = CampaignWorkspace(tmp_path)
+    ws.append_record(_record())
+    original = _envelope(ws)
+    ws.append_record(_record("run-2"))
+    shared = _envelope(ws)
+    assert {"id", "point", "build", "status", "started_at", "finished_at", "run_folder"} <= shared[
+        "runs"
+    ][0].keys()
+    for registry, reference in (
+        ("solver_setups", "solver_setup_id"),
+        ("frames", "frames_id"),
+        ("geometries", "geometry_id"),
+    ):
+        assert len(shared[registry]) == 1
+        assert shared["runs"][0][reference] == shared["runs"][1][reference]
+    ws.append_record(_record("run-3", solver_setup={"fs_version": "26.125", "flags": {}}))
+    changed = _envelope(ws)
+    assert len(changed["solver_setups"]) == 2
+    old_id = original["runs"][0]["solver_setup_id"]
+    assert changed["solver_setups"][old_id] == original["solver_setups"][old_id]
+
+
+def test_p0410_rec_resolved_values(tmp_path):
+    ws = CampaignWorkspace(tmp_path)
+    expected = _record(
+        fs_version_reported="26.125",
+        velocity_requested_m_s=20,
+        walltime_s=100,
+        wall_time_s=90,
+        solver_run_time_s=80,
+        started_at="2026-10-14T10:01:02+00:00",
+        finished_at="2026-10-14T10:03:04+00:00",
+    )
+    ws.append_record(expected)
+    _envelope(ws)
+    assert ws.read_manifest()[0].model_dump() == expected.model_dump()
+
+
+def test_p0410_rec_artifact_order(tmp_path):
+    ws = CampaignWorkspace(tmp_path)
+    first, second = "sims/sim_1/loads.csv", "sims/sim_1/solver.log"
+    ws.append_record(
+        _record(
+            outputs=[first, second],
+            outputs_sha256={first: "b" * 64},
+            points_ran=[{"outputs": [second, first]}],
+        )
+    )
+    run = _envelope(ws)["runs"][0]
+    assert run["artifacts"] == [{"path": first, "sha256": "b" * 64}, {"path": second}]
+    assert "outputs" not in run["details"]
+    assert "outputs_sha256" not in run["details"]
+    assert run["details"]["points_ran"][0]["artifact_indices"] == [1, 0]
+    restored = ws.read_manifest()[0]
+    assert restored.outputs == [first, second]
+    assert restored.outputs_sha256 == {first: "b" * 64}
+    assert restored.points_ran[0]["outputs"] == [second, first]
+
+
+def test_p0410_rec_old_array_refused(tmp_path):
+    ws = CampaignWorkspace(tmp_path)
+    ws.manifest_path.write_text("[]", encoding="utf-8")
+    with pytest.raises(WorkspaceError) as caught:
+        ws.read_manifest()
+    assert "schema_version" in str(caught.value)
+    assert "pyfs-workspace migrate" in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    "status", [RunStatus.CONVERGED, RunStatus.RAN_MISSING_LOG, RunStatus.FAILED_EXECUTION]
+)
+def test_p0410_rec_status_one_write(tmp_path, monkeypatch, status):
+    ws = CampaignWorkspace(tmp_path)
+    ws.append_record(_record(status=RunStatus.SUBMITTED))
+    calls = []
+    replace = ws._replace_manifest
+
+    def counted(raw):
+        calls.append(1)
+        return replace(raw)
+
+    monkeypatch.setattr(ws, "_replace_manifest", counted)
+    ws.complete_submitted_record(_record(status=status))
+    assert len(calls) == 1
+    assert _envelope(ws)["runs"][0]["status"] == status
+    assert ws.read_manifest()[0].status == status
+
+
+@pytest.mark.parametrize("damage", ["digest", "reference", "artifact", "duplicate", "status"])
+def test_p0410_rec_corrupt_references_are_refused(tmp_path, damage):
+    ws = CampaignWorkspace(tmp_path)
+    ws.append_record(_record(outputs=["loads.csv"]))
+    doc = _envelope(ws)
+    run = doc["runs"][0]
+    if damage == "digest":
+        doc["solver_setups"][run["solver_setup_id"]]["fs_version"] = "other"
+    elif damage == "reference":
+        run["frames_id"] = "missing"
+    elif damage == "artifact":
+        run["artifact_indices"] = [-1]
+    elif damage == "duplicate":
+        doc["runs"].append(run)
+    else:
+        run["status"] = "unknown"
+    ws.manifest_path.write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="invalid schema_version=4"):
+        ws.read_manifest()
 
 
 def test_p0410_rec_distinct_invocations_and_unrecorded_fields_survive():
@@ -23,3 +163,32 @@ def test_p0410_rec_absent_executor_arguments_stay_absent():
 
     row = {"run_id": "run", "sim_id": "1", "status": "CONVERGED", "executor": {}}
     assert decode_document(encode_rows([row])) == [row]
+
+
+@pytest.mark.parametrize("transition", ["failed", "converged"])
+def test_p0410_rec_mark_transition_replaces_manifest_once(tmp_path, monkeypatch, transition):
+    from pyflightstream.run._mark_converged import mark_converged
+    from pyflightstream.run.records import mark_failed
+
+    ws = CampaignWorkspace(tmp_path)
+    initial = RunStatus.SUBMITTED if transition == "failed" else RunStatus.RAN_MISSING_LOG
+    ws.sim_dir("1").mkdir(parents=True, exist_ok=True)
+    (ws.sim_dir("1") / "loads.txt").write_text("reviewed loads", encoding="utf-8")
+    ws.append_record(_record(status=initial, outputs=["loads.txt"]))
+    _envelope(ws)
+    calls = []
+    original = CampaignWorkspace._replace_manifest
+
+    def counted(self, raw):
+        calls.append(self.manifest_path)
+        return original(self, raw)
+
+    monkeypatch.setattr(CampaignWorkspace, "_replace_manifest", counted)
+    if transition == "failed":
+        mark_failed(tmp_path, ["1"], reason="Reviewed failure", apply=True)
+    else:
+        mark_converged(tmp_path, ["1"], reason="Reviewed convergence", apply=True)
+    assert calls == [ws.manifest_path]
+    expected = RunStatus.FAILED_MARKED if transition == "failed" else RunStatus.CONVERGED
+    assert _envelope(ws)["runs"][0]["status"] == expected
+    assert ws.read_manifest()[0].status == expected

@@ -18,11 +18,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from pyflightstream.run.rename import rename_workspace
-from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
-from tests.tier1_offline.test_goal024_rename_command import _as_0_20, _ran, _reopened
+from pyflightstream.workspace import CampaignWorkspace
+from tests.tier1_offline.test_goal024_rename_command import _as_0_20, _ran
 
 
 def _tree(workspace: CampaignWorkspace) -> dict[str, bytes | None]:
@@ -43,78 +40,3 @@ def _old_workspace(tmp_path) -> tuple[CampaignWorkspace, Path]:
     # is alpha -2, the second is alpha 0.
     assert sorted(p.name for p in (sim / "datapoints").iterdir()) == ["DP-a+00.0", "DP-a-02.0"]
     return workspace, sim
-
-
-@pytest.mark.parametrize("apply", [True, False], ids=["apply", "dry-run"])
-def test_goal028_rename_destinations_an_occupied_folder_refuses_before_any_move(tmp_path, apply):
-    """The SECOND point's new folder is occupied: the first point must not have moved."""
-    workspace, sim = _old_workspace(tmp_path)
-    occupied = sim / "datapoints" / "DP-M200RE230AL+000"
-    occupied.mkdir()
-    (occupied / "kept.txt").write_text("evidence of something else", encoding="utf-8")
-    before = _tree(workspace)
-
-    with pytest.raises(WorkspaceError) as caught:
-        rename_workspace(_reopened(workspace), apply=apply)
-
-    assert _tree(workspace) == before, "a refused rename changed the workspace"
-    message = str(caught.value)
-    assert "DP-M200RE230AL+000" in message, message
-    assert "nothing was changed" in message, message
-
-
-@pytest.mark.parametrize("apply", [True, False], ids=["apply", "dry-run"])
-def test_goal028_rename_destinations_an_occupied_file_refuses_before_any_move(tmp_path, apply):
-    """A file of the second point already carries its new name: nothing moves.
-
-    This is the shape the review measured: the folder moved, and THEN the file
-    inside it met a name that was taken.
-    """
-    workspace, sim = _old_workspace(tmp_path)
-    taken = sim / "datapoints" / "DP-a+00.0" / "P3207-M200RE230AL+000_cp.txt"
-    taken.write_text("a file nothing of this record wrote", encoding="utf-8")
-    before = _tree(workspace)
-
-    with pytest.raises(WorkspaceError) as caught:
-        rename_workspace(_reopened(workspace), apply=apply)
-
-    assert _tree(workspace) == before, "a refused rename changed the workspace"
-    message = str(caught.value)
-    assert "P3207-M200RE230AL+000_cp.txt" in message, message
-    assert "nothing was changed" in message, message
-
-
-@pytest.mark.parametrize("apply", [True, False], ids=["apply", "dry-run"])
-def test_goal028_rename_destinations_an_occupied_script_refuses_before_any_move(tmp_path, apply):
-    """The script is the LAST path of a record to move, so it is the costliest to meet late."""
-    workspace, sim = _old_workspace(tmp_path)
-    taken = sim / "scripts" / "P3207-M200RE230AL+sweep.txt"
-    taken.write_text("a script nothing of this record wrote", encoding="utf-8")
-    before = _tree(workspace)
-
-    with pytest.raises(WorkspaceError) as caught:
-        rename_workspace(_reopened(workspace), apply=apply)
-
-    assert _tree(workspace) == before, "a refused rename changed the workspace"
-    assert "P3207-M200RE230AL+sweep.txt" in str(caught.value), str(caught.value)
-
-
-def test_goal028_rename_destinations_a_free_workspace_still_renames(tmp_path):
-    """THE CONTROL: the same workspace with nothing in the way is renamed whole.
-
-    A pre-check that refuses everything would pass the three tests above.
-    """
-    workspace, sim = _old_workspace(tmp_path)
-
-    report = rename_workspace(_reopened(workspace))
-
-    assert report.renamed_records == 1
-    assert sorted(p.name for p in (sim / "datapoints").iterdir()) == [
-        "DP-M200RE230AL+000",
-        "DP-M200RE230AL-020",
-    ]
-    assert (sim / "scripts" / "P3207-M200RE230AL+sweep.txt").is_file()
-    # AND A SECOND RUN IS QUIET: the destinations it finds occupied are its own
-    # work, already done, and not a collision.
-    again = rename_workspace(_reopened(workspace))
-    assert again.changes == [], again.lines()

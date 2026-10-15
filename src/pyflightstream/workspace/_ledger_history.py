@@ -27,6 +27,7 @@ from pyflightstream.workspace._script_comparison import (
     _Comparison,
     slashes,
 )
+from pyflightstream.workspace.record_document import decode_document
 
 if TYPE_CHECKING:
     from pyflightstream.workspace.ledger import Ledger
@@ -86,10 +87,12 @@ def _rows(payload: bytes, source: str) -> list[dict[str, Any]]:
         document = json.loads(payload)
     except (ValueError, UnicodeDecodeError) as error:
         return [{"source": source, "position": None, "run_id": None, "error": str(error)}]
-    if isinstance(document, dict):
-        document = document.get("runs", [document] if "run_id" in document else [])
-    if not isinstance(document, list):
-        return [{"source": source, "position": None, "run_id": None, "error": "not a list"}]
+    if isinstance(document, dict) and not {"schema_version", "runs", "run_id"} & document.keys():
+        return []
+    try:
+        document = decode_document(document, source=source)
+    except WorkspaceError as error:
+        return [{"source": source, "position": None, "run_id": None, "error": str(error)}]
     rows = []
     for position, row in enumerate(document, 1):
         if isinstance(row, dict) and "deleted_sim" in row:

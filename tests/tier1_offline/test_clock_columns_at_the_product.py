@@ -30,6 +30,8 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.post.products import NOT_APPLICABLE, write_campaign_products
+from pyflightstream.workspace.record_document import encode_rows as _encode_record_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_b01_frozen_solve import _post_workspace
 from tests.tier1_offline.test_goal028_series import WINDOW
 from tests.tier1_offline.test_post_products import LOADS
@@ -68,9 +70,9 @@ def _posted_rotor_campaign(tmp_path, clock_motion: str = "PUSHER") -> Path:
             LOADS.replace("Steady", "Unsteady"), encoding="utf-8"
         )
     runs = workspace.root / "runs.json"
-    recorded = json.loads(runs.read_text(encoding="utf-8"))
+    recorded = _read_record_rows(runs)
     recorded[0]["export_window"] = dict(WINDOW)
-    runs.write_text(json.dumps(recorded, indent=1), encoding="utf-8")
+    runs.write_text(json.dumps(_encode_record_rows(recorded), indent=1), encoding="utf-8")
     write_campaign_products(workspace, matrix_stem="products")
     return workspace.root / "post" / "products"
 

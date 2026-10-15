@@ -24,6 +24,7 @@ from pyflightstream.run.collect import collect_once
 from pyflightstream.run.records import mark_converged, mark_failed
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.naming import RunsManifestError
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.support_helpers import no_sleep as _run_1_collect___no_sleep
 from tests.support_helpers import no_sleep as _run_1_collect_logs___no_sleep
 from tests.tier1_offline.test_collect_stage import (
@@ -263,11 +264,11 @@ class TestRun1MarkConverged:
         The row's status was recomputed from its points alone, so a job-level FAILED_EXECUTION
         no point carries became CONVERGED once the points were.
         """
-        rows = json.loads(workspace.manifest_path.read_text("utf-8"))
+        rows = _read_record_rows(workspace.manifest_path)
         for row in rows:
             if row["sim_id"] == "7002":
                 row["status"] = "FAILED_EXECUTION"
-        workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        workspace._replace_manifest(rows)
         mark_converged(workspace.root, ["7002"], reason=_RUN_1_MARK_CONVERGED__REASON, apply=True)
         job = _run_1_mark_converged___job(workspace)
         assert [point["status"] for point in job["points_ran"]] == ["CONVERGED", "CONVERGED"]
@@ -283,13 +284,15 @@ class TestRun1MarkConverged:
             workspace.root,
             capsys,
         )
-        assert code == 2 and "not readable JSON" in said, said
-        rows = json.loads(good)
+        assert code == 2 and "cannot read run records" in said, said
+        from pyflightstream.workspace.record_document import decode_document
+
+        rows = decode_document(json.loads(good))
         for row in rows:
             if row["sim_id"] == "7002":
                 row["points_ran"][0]["status"] = "HALF_DONE"
                 run_id, other = row["run_id"], row["points_ran"][1]["tag"]
-        workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        workspace._replace_manifest(rows)
         argv = [
             "mark-converged",
             "--sims",
@@ -619,18 +622,17 @@ class TestRun2Collect:
         watch kept going by another waiting point refused it again each sweep
         and its outcome piled up in the report.
         """
-        import json
 
         from tests.tier1_offline.test_collect_stage import _submitted_workspace
         from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE, _write_profile
 
         workspace, _sim = _submitted_workspace(tmp_path, declared=("loads.txt",))
         _write_profile(workspace, LOG_TABLE)
-        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows = _read_record_rows(workspace.manifest_path)
         waiting = {**rows[0], "run_id": "camp/sim_9001/AL+020", "point_name": "AL+020"}
         declared = ["loads.txt", "P9001-AL+020_log.txt"]
         waiting["submission"] = {**rows[0]["submission"], "declared_outputs": declared}
-        workspace.manifest_path.write_text(json.dumps([rows[0], waiting], indent=2), "utf-8")
+        workspace._replace_manifest([rows[0], waiting])
         report = collect.collect_and_post(
             workspace, watch=True, rounds=3, interval=0, sleep=_run_2_collect___no_sleep
         )
@@ -687,16 +689,15 @@ class TestRun2Collect:
         collect of a submitted sweep stamped neither, so the post could not state
         the velocity convention of the job's sampled fields.
         """
-        import json
 
         from tests.tier1_offline.test_collect_stage import _submitted_sweep
         from tests.tier1_offline.test_goal028_hpc_collect import _loads
 
         workspace, sim = _submitted_sweep(tmp_path)
-        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows = _read_record_rows(workspace.manifest_path)
         rows[0]["fs_build"] = None
         rows[0]["fs_version_reported"] = None
-        workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        workspace._replace_manifest(rows)
         (sim / "AL+000.txt").write_text(_loads(0.0), encoding="utf-8")
         (sim / "AL+020.txt").write_text(_loads(2.0), encoding="utf-8")
         collect.collect_once(workspace, interval=0, sleep=_run_2_collect___no_sleep)

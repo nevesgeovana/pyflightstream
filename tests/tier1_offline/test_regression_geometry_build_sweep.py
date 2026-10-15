@@ -78,6 +78,8 @@ from pyflightstream.workspace._settings_file import read_workspace_settings
 from pyflightstream.workspace.cli import main
 from pyflightstream.workspace.hpc import read_hpc_profile
 from pyflightstream.workspace.matrix import resolve_matrix
+from pyflightstream.workspace.record_document import encode_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline._docs_site import (
     FUNCTIONAL_REQUIREMENTS as _SWEEP_1_CONTRACTS__FUNCTIONAL_REQUIREMENTS,
 )
@@ -1611,7 +1613,7 @@ class TestSweep1Cli:
             for sim in ("1", "2")
             for point in ("A0", "A2")
         ]
-        (tmp_path / "runs.json").write_text(json.dumps(rows), encoding="utf-8")
+        (tmp_path / "runs.json").write_text(json.dumps(encode_rows(rows)), encoding="utf-8")
         assert (
             cli.main(
                 [
@@ -1629,7 +1631,7 @@ class TestSweep1Cli:
             == 0
         )
         capsys.readouterr()
-        updated = json.loads((tmp_path / "runs.json").read_text(encoding="utf-8"))
+        updated = _read_record_rows(tmp_path / "runs.json")
         assert [row["status"] for row in updated] == [
             "CONVERGED",
             "FAILED_MARKED",

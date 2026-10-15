@@ -21,6 +21,7 @@ from pyflightstream.run import cli as matrix_cli
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace import storage as storage_module
 from pyflightstream.workspace.naming import ARCHIVE_DIR
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import StorageError
 
 REFUSAL = "have a run still SUBMITTED; collect it first"
@@ -65,7 +66,7 @@ def _workspace(tmp_path: Path) -> CampaignWorkspace:
 
 
 def _rows(workspace: CampaignWorkspace) -> list[dict]:
-    return json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    return _read_record_rows(workspace.manifest_path)
 
 
 def test_refused_without_force_with_the_same_text(tmp_path):

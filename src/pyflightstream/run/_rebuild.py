@@ -76,6 +76,7 @@ from pyflightstream.workspace.naming import (
     free_root_archive,
     resolve_manifest,
 )
+from pyflightstream.workspace.record_document import encode_rows
 
 #: Seconds a simulation folder must have been quiet before its job is taken as
 #: over. A folder written more recently stays SUBMITTED, since its job may
@@ -1062,7 +1063,7 @@ def rebuild(
         )
         try:
             with _textio.open_text(target, "x") as handle:
-                handle.write(json.dumps(written, indent=2) + "\n")
+                handle.write(json.dumps(encode_rows(written), indent=2) + "\n")
         except FileExistsError as error:
             raise RecordsError(
                 f"rebuild out (CLI: --out) {target.name}: the file appeared meanwhile; nothing "
@@ -1084,7 +1085,9 @@ def rebuild(
             kept.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(manifest, kept)
             entry["archived_as"] = _relative(base, kept)
-        _replace_bytes(manifest, (json.dumps([*rows, *fresh], indent=2) + "\n").encode("utf-8"))
+        _replace_bytes(
+            manifest, (json.dumps(encode_rows([*rows, *fresh]), indent=2) + "\n").encode("utf-8")
+        )
     entry.update(applied=True, written=DEFAULT_MANIFEST)
     return entry
 

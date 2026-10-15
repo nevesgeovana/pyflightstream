@@ -37,6 +37,7 @@ from pyflightstream.post.products import write_campaign_products
 from pyflightstream.run import Assessment, CampaignErrors
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_g06_actuator_disc import WING_PHY
 from tests.tier1_offline.test_goal024_point_name import _matrix
 from tests.tier1_offline.test_matrix_run import RECIPES, STUB_BODY, CountingStub, register
@@ -200,11 +201,11 @@ def test_a_steady_job_records_its_probe_points_and_the_build_that_ran(tmp_path):
 
 
 def _rewrite_row(workspace: CampaignWorkspace, **fields: object) -> None:
-    payload = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    payload = _read_record_rows(workspace.manifest_path)
     rows = payload["runs"] if isinstance(payload, dict) else payload
     (row,) = rows
     row.update(fields)
-    workspace.manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    workspace._replace_manifest(payload)
 
 
 @pytest.mark.requirement("FR-110")

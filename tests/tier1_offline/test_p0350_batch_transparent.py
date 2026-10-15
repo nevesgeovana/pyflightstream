@@ -11,7 +11,6 @@ control beside each refusal: the same workspace with the job's end record writte
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 
@@ -21,6 +20,7 @@ from pyflightstream.run import records
 from pyflightstream.run._continuation import queued_points
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
 from pyflightstream.workspace import storage as storage_module
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_goal035_storage import (
     _copied_paths,
     _record,
@@ -104,7 +104,7 @@ def test_delete_sims_removes_the_sim_inside_an_ended_batch_and_reports_the_empty
     storage_module.delete_sims(workspace.root, ["6002"], apply=True)
     assert not (folder / "sim_6002").exists()
     assert (folder / f"{SCRIPT}.txt").is_file(), "the job's own files are not the sim's to delete"
-    raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(workspace.manifest_path)
     assert {row.get("deleted_sim") for row in raw} >= {"6001", "6002"}
 
 

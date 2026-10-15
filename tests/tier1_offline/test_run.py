@@ -22,6 +22,7 @@ from pyflightstream.run import (
 from pyflightstream.run.collect import JOB_END_TAIL_LINES, collect_once
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import HpcProfile, InputArtifactError, read_hpc_profile
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_collect_stage import _no_sleep as _fr311_collect_job_ended___no_sleep
 from tests.tier1_offline.test_collect_stage import (
     _submitted_workspace as _fr311_collect_job_ended___submitted_workspace,
@@ -390,19 +391,18 @@ _FR311_COLLECT_JOB_ENDED__REAL_NAMES = ("FTS2013.o6708564", "FTS2013.e6708564", 
 
 def _fr311_collect_job_ended___workspace_of_sim_2013(tmp_path):
     """The shared fixture moved to simulation 2013, the one the real folder came from."""
-    import json
     import shutil
 
     workspace, work = _fr311_collect_job_ended___workspace(tmp_path)
     old = workspace.sim_dir("9001")
     new = old.parent / old.name.replace("9001", "2013")
     shutil.move(str(old), str(new))
-    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    rows = _read_record_rows(workspace.manifest_path)
     for row in rows:
         row["sim_id"] = "2013"
         row["run_id"] = row["run_id"].replace("9001", "2013")
         row["submission"]["descriptor"] = row["submission"]["descriptor"].replace("9001", "2013")
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    workspace._replace_manifest(rows)
     return workspace, new / "datapoints" / work.name
 
 

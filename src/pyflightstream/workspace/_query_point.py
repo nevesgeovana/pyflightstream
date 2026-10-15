@@ -22,6 +22,7 @@ from pyflightstream.workspace._query_files import (
     _text,
 )
 from pyflightstream.workspace._query_logs import _activity, _mentions, _post_rows
+from pyflightstream.workspace.record_document import read_rows
 
 if TYPE_CHECKING:
     from pyflightstream.workspace.ledger import Ledger
@@ -114,7 +115,7 @@ def _card(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
             ".err",
         }:
             evidence.append(_evidence(ledger, files[name]))
-    raw = _json(ledger.manifest, [])
+    raw = read_rows(ledger.manifest)
     outcome = _take(record, _OUTCOME)
     outcome["outside_tolerance"] = [
         c for c in record.get("conditions") or [] if c.get("within") is False

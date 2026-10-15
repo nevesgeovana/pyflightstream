@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import ast
 import difflib
+import hashlib
 import json
 import random
 import re
@@ -38,11 +39,13 @@ from pyflightstream.workspace.cli import fill_from_settings, withhold_defaults
 from pyflightstream.workspace.cli import main as workspace_main
 from pyflightstream.workspace.costs import select_cost_file
 from pyflightstream.workspace.hpc import resolve_hpc_profile, select_hpc_profile
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline._p0390_r03_scenario import (
     INSTALLED,
     V0380,
     BuildSolver,
     make_workspace,
+    normal,
     r10_outputs,
     untimed_csv,
 )
@@ -81,7 +84,7 @@ def plan_then_run(capsys, root: Path, *extra: str) -> tuple[int, str, str]:
 
 def records(root: Path) -> list[dict]:
     path = root / "runs.json"
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+    return _read_record_rows(path)
 
 
 def plan_json(root: Path) -> dict:
@@ -731,6 +734,23 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
+        if name == "tree/runs.json":
+            # N2 changes storage only. Compare the complete resolved evidence;
+            # every scientific product below retains its byte comparison.
+            root = tmp_path / "camp"
+            digests = {
+                hashlib.sha256(path.read_bytes()).hexdigest(): path.relative_to(root).as_posix()
+                for path in sorted(root.rglob("*"))
+                if path.is_file()
+            }
+            resolved = normal(
+                json.dumps(_read_record_rows(root / "runs.json"), indent=2), root, digests
+            )
+            before = captured[name].decode("utf-8")
+            assert json.loads(resolved.replace(": <S>", ': "<S>"')) == json.loads(
+                before.replace(": <S>", ': "<S>"')
+            ), name
+            continue
         if name.endswith(SETTINGS_TABLE_SUFFIX) or (
             name.startswith("tree/post/") and name.endswith(".csv")
         ):
@@ -1354,9 +1374,9 @@ def test_p0390_r03_a_quiet_collect_says_each_point_it_failed(tmp_path, capsys):
     seen = {}
     for level in ("normal", "quiet"):
         workspace, _sim = _submitted_workspace(tmp_path / level)
-        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows = _read_record_rows(workspace.manifest_path)
         rows[0]["submission"]["working_dir"] = "../wrong"
-        workspace.manifest_path.write_text(json.dumps(rows), encoding="utf-8")
+        workspace._replace_manifest(rows)
         argv = ["collect", "--workspace", str(workspace.root), "--interval", "0.001"]
         seen[level] = call(capsys, matrix_main, [*argv, "--log-level", level])
     count = "collected 0, failed 1, outstanding 0, unknown 0\n"

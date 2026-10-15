@@ -32,6 +32,8 @@ from pyflightstream.run import _rebuild as rebuild_module
 from pyflightstream.run import cli, records
 from pyflightstream.run.collect import collect_once
 from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
+from pyflightstream.workspace.record_document import encode_rows
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
 from tests.tier1_offline.test_post_superfile import _workspace
 
@@ -62,10 +64,10 @@ def _recorded(tmp_path: Path) -> CampaignWorkspace:
 
 def _without_one_point(workspace: CampaignWorkspace, name: str) -> str:
     """Write ``name`` beside runs.json holding every record but the alpha 0 point."""
-    raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    raw = _read_record_rows(workspace.manifest_path)
     kept = [row for row in raw if not str(row["run_id"]).endswith("AL+000BE+000")]
     assert len(kept) == len(raw) - 1
-    (workspace.root / name).write_text(json.dumps(kept, indent=1), encoding="utf-8")
+    (workspace.root / name).write_text(json.dumps(encode_rows(kept), indent=1), encoding="utf-8")
     return name
 
 
@@ -123,7 +125,7 @@ def test_p0320_runs_name_resolves_the_workspace_of_a_manifest(tmp_path):
     """P0320-RUNS-NAME at the library: which manifest, which products folder."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     root = workspace.root
-    (root / "runs-hpc.json").write_text("[]", encoding="utf-8")
+    (root / "runs-hpc.json").write_text(json.dumps(encode_rows([])), encoding="utf-8")
 
     plain = records.manifest_workspace(root)
     assert plain.manifest_path == root / "runs.json"
@@ -151,7 +153,7 @@ def test_p0320_runs_name_refuses_a_manifest_that_is_not_there(tmp_path, capsys):
 def test_p0320_runs_name_refuses_the_name_of_the_from_sims_folder(tmp_path):
     """P0320-POST-RUNS-APART: ``--runs sims.json`` is refused, its folder is --from-sims's."""
     workspace = CampaignWorkspace.init(tmp_path / "camp")
-    (workspace.root / "sims.json").write_text("[]", encoding="utf-8")
+    (workspace.root / "sims.json").write_text(json.dumps(encode_rows([])), encoding="utf-8")
     with pytest.raises(records.RunsManifestError, match="--from-sims"):
         records.manifest_workspace(workspace.root, "sims.json")
 
@@ -164,17 +166,17 @@ def test_p0320_runs_name_collect_completes_the_named_manifest(tmp_path):
     workspace, sim = _submitted_workspace(tmp_path)
     root = workspace.root
     workspace.manifest_path.replace(root / "runs-hpc.json")
-    (root / "runs.json").write_text("[]\n", encoding="utf-8")
+    workspace._replace_manifest([])
     (sim / "loads.txt").write_text("numbers", encoding="utf-8")
     (sim / "run_log.txt").write_text("log", encoding="utf-8")
 
     argv = ["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0.001"]
     cli.main(argv)
 
-    raw = json.loads((root / "runs-hpc.json").read_text(encoding="utf-8"))
+    raw = _read_record_rows(root / "runs-hpc.json")
     assert raw[0]["status"] != "SUBMITTED"
     assert raw[0]["outputs"]
-    assert (root / "runs.json").read_text(encoding="utf-8") == "[]\n"
+    assert _read_record_rows(root / "runs.json") == []
 
 
 def test_p0320_runs_name_collect_once_writes_only_the_named_manifest(tmp_path):

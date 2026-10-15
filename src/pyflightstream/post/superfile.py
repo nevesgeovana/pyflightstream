@@ -97,6 +97,7 @@ from pyflightstream.post._tables import (
 from pyflightstream.post._tables import _cell as _fixed_cell
 from pyflightstream.workspace import WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
+from pyflightstream.workspace.record_document import read_rows as _read_run_rows
 
 __all__ = [
     "REPORTS_DIR",
@@ -953,11 +954,7 @@ def union_the_workspace_knows(
     pols: set[str] = set()
     if raw_records is not None or manifest.is_file():
         try:
-            records = (
-                list(raw_records)
-                if raw_records is not None
-                else json.loads(manifest.read_text(encoding="utf-8"))
-            )
+            records = list(raw_records) if raw_records is not None else _read_run_rows(manifest)
         except (OSError, json.JSONDecodeError):
             records = []
         for record in records if isinstance(records, list) else []:
@@ -966,8 +963,10 @@ def union_the_workspace_knows(
             if matrix_stem and record.get("matrix_stem") != matrix_stem:
                 continue
             pols.add(str(record.get("sim_id")))
-            known |= set(record.get("flight_condition") or {})
-            known |= set(record.get("flight_condition_defaults") or {})
+            for field in ("flight_condition", "flight_condition_defaults"):
+                condition = record.get(field)
+                if isinstance(condition, Mapping):
+                    known |= set(condition)
             # THE RECORD'S OWN SCALARS, from the same tuple the writer loops.
             # Without this the union could not see a single one of them, and
             # a mutant that dropped one from the file passed the superset

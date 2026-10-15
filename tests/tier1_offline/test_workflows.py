@@ -145,6 +145,7 @@ from pyflightstream.script import (
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.support_helpers import saved_mesh_fixture as _saved_simulation
 from tests.tier1_offline._workflow_docs import MESH_DOCS, WORKFLOW_DOCS
 from tests.tier1_offline.test_fsm_saved_actions import (
@@ -7298,7 +7299,6 @@ class TestFr314CounterEverywhere:
         script without it is the same setup. The control is the same script with a
         scientific line changed, which is still refused.
         """
-        import json
 
         from pyflightstream._digest import file_sha256
         from tests.tier1_offline.test_g58_frame_recovery import _old_run, _resolve
@@ -7316,9 +7316,9 @@ class TestFr314CounterEverywhere:
         ), lines
         del lines[at : at + 3]
         script.write_text("\n".join(lines), encoding="utf-8")
-        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows = _read_record_rows(workspace.manifest_path)
         rows[0]["script_sha256"] = file_sha256(script)
-        workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+        workspace._replace_manifest(rows)
         result = _resolve(workspace, case)
         assert result["recovered_frame"] == shadow.loads_frame_record(), requirement
         changed = [
@@ -7327,7 +7327,7 @@ class TestFr314CounterEverywhere:
         assert changed != lines, "the control changes a scientific line"
         script.write_text("\n".join(changed), encoding="utf-8")
         rows[0]["script_sha256"] = file_sha256(script)
-        workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+        workspace._replace_manifest(rows)
         with pytest.raises(Exception, match="native setup changed"):
             _resolve(workspace, case)
 

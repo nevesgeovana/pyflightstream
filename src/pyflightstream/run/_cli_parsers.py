@@ -396,19 +396,6 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-#: The subcommand's own help, which is read BEFORE a file is named and so
-#: cannot know which stages will fire. It says both directions rather than
-#: one, because the single unconditional paragraph it replaces said only
-#: the frightening one.
-_HELP_NOTICE = (
-    "What an upgrade moves depends on the layout the file entered at. A file "
-    "at the v0.8.x layout crosses the REmi boundary and its numbers will "
-    "differ; a file whose SWEEP_TYPE column is folded keeps every run "
-    "identity, so a resume still finds its records. The command says which "
-    "applied to the file you named."
-)
-
-
 #: The commands that take ``--runs NAME``, the manifest they read (0.32.0).
 _RUNS_COMMANDS = ("post", "collect", "free-space", "delete-sims", "sync")
 
@@ -478,67 +465,7 @@ def _add_query_parsers(subparsers: Any) -> None:
 
 
 def _add_workspace_parsers(subparsers: Any) -> None:
-    """Add the subcommands that act on a matrix or a workspace: upgrade, rename, inventory."""
-    # FIRST, because it is the subcommand a user meets when a matrix they
-    # already have stops being readable. An independent review found the
-    # only migration path was a Python call, which a matrix user is
-    # precisely the person who does not write: the format broke and the
-    # remedy was addressed to somebody else.
-    upgrade = subparsers.add_parser(
-        "upgrade",
-        help=(
-            "convert a matrix written under an older layout to the current one "
-            "(what moves depends on the layout it entered at, see --help)"
-        ),
-        description=_HELP_NOTICE,
-    )
-    upgrade.add_argument("matrix", help="path of the run matrix to upgrade")
-    upgrade.add_argument(
-        "--in-place",
-        action="store_true",
-        help="rewrite the file; without it the upgraded matrix goes to standard output",
-    )
-    upgrade.add_argument(
-        "--inputs",
-        metavar="DIR",
-        default=None,
-        help=(
-            "the workspace inputs/ directory whose groups library moves to pproc "
-            "(inputs/groups/e001.toml becomes inputs/pproc/p001.toml under [groups]); "
-            "needs --in-place, because the matrix cells that name the files are "
-            "rewritten with them"
-        ),
-    )
-
-    rename = subparsers.add_parser(
-        "rename",
-        help="rename a workspace written under 0.20.x to the 0.21.0 point names",
-        description=(
-            "A point is named by its flight condition since 0.21.0, and a workspace "
-            "written before it carries the earlier tag in every run_id, folder and file. "
-            "This reads the matrices beside runs.json, works out the new name of every "
-            "record from its row and its recorded point, and moves ALL of it: the "
-            "datapoint folders, the scripts, the collected files, the manifest and the "
-            "plan. It prints every change and a second run makes none. It refuses, "
-            "before touching anything, a record whose row is gone, a record whose point "
-            "the matrix no longer holds, two records that would share a name, and a "
-            "SUBMITTED record whose folder would move: collect those first. See "
-            "docs/migrating-to-0.21.0.md."
-        ),
-    )
-    rename.add_argument(
-        "--workspace",
-        default=".",
-        help="managed campaign root carrying runs.json (default: the current directory)",
-    )
-    rename.add_argument(
-        "--dry-run",
-        dest="dry_run",
-        action="store_true",
-        help="print what would move and change nothing, which is the rehearsal to read "
-        "before the workspace is rewritten",
-    )
-
+    """Add the workspace inventory command."""
     add_inventory_parser(subparsers)
 
 

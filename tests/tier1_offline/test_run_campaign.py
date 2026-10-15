@@ -54,6 +54,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
 )
+from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -1781,7 +1782,7 @@ def _legacy_row() -> dict:
 def _workspace_with_legacy_row(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.root.mkdir(parents=True, exist_ok=True)
-    workspace.manifest_path.write_text(json.dumps([_legacy_row()], indent=2), encoding="utf-8")
+    workspace._replace_manifest([_legacy_row()])
     return workspace
 
 
@@ -2791,7 +2792,7 @@ def test_a_row_under_the_previous_manifest_stamp_still_reconstructs(tmp_path):
     rows = workspace.read_raw_manifest()
     assert len(rows) == 1
     rows[0]["manifest_schema"] = "pyfs-manifest/1"
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
 
     rebuilt = reconstruct(rows[0]["run_id"], workspace=workspace)
     assert rebuilt.argv and rebuilt.script_text
@@ -2799,7 +2800,7 @@ def test_a_row_under_the_previous_manifest_stamp_still_reconstructs(tmp_path):
     # THE CONTROL: a stamp outside the known set still denies, so this is
     # not "reconstruction stopped checking".
     rows[0]["manifest_schema"] = "pyfs-manifest/99"
-    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    workspace._replace_manifest(rows)
     with pytest.raises(WorkspaceError, match="pyfs-manifest/99"):
         reconstruct(rows[0]["run_id"], workspace=workspace)
 
@@ -3277,7 +3278,7 @@ def test_the_log_that_decided_the_verdict_reaches_the_run_record(tmp_path):
     assert records[0].log_file_used == "log_AL+000.txt", (
         "the log the verdict was read from did not survive the RunRecord boundary"
     )
-    written = json.loads((tmp_path / "camp" / "runs.json").read_text(encoding="utf-8"))
+    written = _read_record_rows(tmp_path / "camp" / "runs.json")
     rows = written["runs"] if isinstance(written, dict) else written
     assert rows[0]["log_file_used"] == "log_AL+000.txt", (
         "the manifest on disk, which is the reader the field names, does not carry it"
