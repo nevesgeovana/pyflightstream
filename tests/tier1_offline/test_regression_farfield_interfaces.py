@@ -974,7 +974,7 @@ class TestFfproofUpgrading:
             module, _, name = dotted.rpartition(".")
             if dotted in RETIRED_ATTRIBUTES:
                 message = RETIRED_ATTRIBUTES[dotted].new
-                if "ITACA" in message:
+                if "external Euler CFD tools" in message:
                     assert cell.startswith("removed") and "no supported replacement" in cell, (
                         old,
                         cell,
