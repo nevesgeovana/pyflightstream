@@ -230,6 +230,7 @@ class PointPlan:
     streamlines: int = 0
     farfield: dict[str, object] = field(default_factory=dict)
     fsi: dict[str, object] = field(default_factory=dict)
+    inflow_harmonics: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -1256,6 +1257,7 @@ def plan_campaign(
                     recorded_here,
                     fs_version=case_version,
                     inflow_fft=inflow_fft,
+                    write_products=write_plan,
                 )
             )
     _warn_on_relaxed_discs_naming_a_profile(campaign.sims)
@@ -1488,6 +1490,7 @@ def _plan_point(
     *,
     fs_version: str,
     inflow_fft: bool = False,
+    write_products: bool = True,
 ) -> PointPlan:
     """Judge one point in dry run: names, script build, manifest state.
 
@@ -1580,6 +1583,16 @@ def _plan_point(
         # is refused here, before any run can spend a seat on it.
         _refuse_an_import_count_nothing_logs(point_case, script, None)
         script.render()
+        if inflow_fft and write_products:
+            from pyflightstream.workspace._plan_products import write
+
+            base["inflow_harmonics"] = [
+                path.relative_to(workspace.root).as_posix()
+                for path in write(
+                    point_case,
+                    workspace.plan_dir(campaign.matrix_stem) / "inflow" / case.sim_id / stem,
+                )
+            ]
     except Exception as error:  # recipes are user code; any failure blocks the point
         return PointPlan(
             **base,

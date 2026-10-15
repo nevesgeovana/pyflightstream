@@ -291,4 +291,4 @@ def _the_guides_stage(workspace: object, **_options: object) -> list[Path]:
 
 register_post_stage(_the_guides_stage)
 
-from pyflightstream.post import _workspace_commands  # noqa: E402, F401
+from pyflightstream.post import _plan_inflow, _workspace_commands  # noqa: E402, F401

@@ -7,6 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- `plan --inflow-fft` writes per-point blade-view harmonic tables at the resolved
+  advance ratio, including variance shares and effective reduced frequency.
+
 - `pyfs-workspace geometry trailing-edge` extracts a mesh's trailing-edge midpoint
   file with explicit axis, hub and length unit.
 

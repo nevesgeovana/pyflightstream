@@ -70,20 +70,6 @@
    ]
   },
   {
-   "id": "RX-12",
-   "capability": "Blade-view harmonics map of a custom inflow over the advance ratio",
-   "reason": "routed later",
-   "node": "PFS-2140.004",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.post.inflow_tools.HarmonicsMap",
-    "pyflightstream.post.inflow_tools.InflowStationHarmonics",
-    "pyflightstream.post.inflow_tools.blade_view_harmonics",
-    "pyflightstream.post.inflow_tools.inflow_harmonics_map",
-    "pyflightstream.post.inflow_tools.write_inflow_harmonics"
-   ]
-  },
-  {
    "id": "RX-13",
    "capability": "Route-2 sector-offset calibration written from a recorded wheel point and sector point",
    "reason": "routed later",

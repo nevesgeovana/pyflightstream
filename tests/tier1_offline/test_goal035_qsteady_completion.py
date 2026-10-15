@@ -663,6 +663,29 @@ def test_the_plan_through_the_campaign_carries_the_inflow_harmonics(tmp_path):
     assert "inflow harmonics (per blade, nP): n_max 6" in summary
 
 
+def test_p0410_plan_writes_inflow_harmonic_tables(tmp_path):
+    import sys
+
+    from pyflightstream.cases import Campaign
+    from pyflightstream.run import plan_campaign
+    from pyflightstream.workspace import CampaignWorkspace
+
+    lobed = _ring_field(tmp_path, lambda t: 30.0 * (1.0 + 0.1 * math.cos(6 * t)))
+    case = _custom(_case(PASSAGE_POSITIONS="3"), lobed)
+    campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan_campaign(campaign, workspace, recipes={QSTEADY_ROTOR: build_script}, inflow_fft=True)
+    tables = list(workspace.plan_dir(campaign.matrix_stem).glob("inflow/**/inflow_harmonics.csv"))
+    assert len(tables) == 1
+    import csv
+
+    rows = list(csv.DictReader(tables[0].read_text().splitlines()))
+    assert rows
+    assert all(float(row["n95"]) == 6 for row in rows)
+
+
 # --------------------------------------- B: the validity after the post run --
 
 
