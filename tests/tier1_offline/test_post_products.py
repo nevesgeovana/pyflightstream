@@ -598,7 +598,12 @@ def _skipped_besides_the_axes(manifest) -> dict:
     }
 
 
-def test_p0410_rv2_unsteady_polar_keeps_structural_tip(tmp_path):
+@pytest.mark.parametrize(
+    "existing_tip",
+    [None, "tip_deflection_m_blade_1", "tip_twist_deg_blade_1"],
+    ids=["P0410-tip", "P0410-RV3-deflection-collision", "P0410-RV3-twist-collision"],
+)
+def test_p0410_rv2_unsteady_polar_keeps_structural_tip(tmp_path, existing_tip):
     import shutil
 
     import numpy as np
@@ -611,7 +616,10 @@ def test_p0410_rv2_unsteady_polar_keeps_structural_tip(tmp_path):
     seed = _unsteady_workspace(tmp_path / "seed", reductions=ROTOR_PLAN, recipe="unsteady")
     record = seed.read_manifest()[0]
     workspace = CampaignWorkspace.init(tmp_path / "target")
-    (workspace.inputs_dir / "pproc" / "p001.toml").write_text('[groups]\n"1" = "all"\n')
+    pproc_text = '[groups]\n"1" = "all"\n'
+    if existing_tip:
+        pproc_text += f'\n[names]\nCL_MRP_TOTAL = "{existing_tip}"\n'
+    (workspace.inputs_dir / "pproc" / "p001.toml").write_text(pproc_text)
     for relative in record.outputs:
         target = workspace.sim_dir(record.sim_id) / relative
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -644,6 +652,13 @@ def test_p0410_rv2_unsteady_polar_keeps_structural_tip(tmp_path):
     assert list(workspace.root.glob("post/**/structure/*_deflection.csv"))
     path = next(workspace.root.glob("post/**/polars/*_uns_avg.csv"))
     columns, rows = read_csv_table(path)
+    if existing_tip:
+        assert float(rows[0][existing_tip]) == pytest.approx(2.2)
+        assert len(columns) == len(set(columns))
+        manifest = _products_manifest(workspace)
+        relative = path.relative_to(workspace.products_dir(None)).as_posix()
+        assert existing_tip in manifest["skipped"][f"{relative}#structure"]
+        return
     assert "tip_deflection_m_blade_1" in columns
     assert float(rows[0]["tip_deflection_m_blade_1"]) == pytest.approx(0.008)
     assert float(rows[0]["tip_twist_deg_blade_1"]) == pytest.approx(0.0)

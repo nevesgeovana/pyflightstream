@@ -29,8 +29,8 @@ The library tree, created by ``CampaignWorkspace.init``:
   normalization and rotor description (SI units in the field
   names: m, m^2, deg). The id begins with ``r``.
 - ``inputs/setups/<id>.toml``: a named solver-setup preset, a free
-  key-value table for now; the loader keeps the raw table verbatim so
-  a later formal solver-setup model can consume it unchanged. The id
+  key-value table; the loader validates recognized solver settings and
+  keeps the raw values for later matrix binding. The id
   begins with ``s``.
 - ``inputs/pproc/<id>.toml``: the post-processing artifact (PFS-2029.07),
   six optional tables: ``[groups]`` maps a group name to the families it
@@ -122,6 +122,7 @@ from pyflightstream.cases import (
     PprocSpec,
     RawCommand,
     RotorBlock,
+    SolverSettings,
 )
 from pyflightstream.cases import InputKey as InputKey
 from pyflightstream.cases import MeshImport as MeshImport
@@ -625,10 +626,9 @@ class ReferenceArtifact(BaseModel):
 class SetupArtifact(BaseModel):
     """A named solver-setup preset (``inputs/setups/<id>.toml``).
 
-    The preset is a free key-value table for now: the file's top-level
-    TOML table is kept verbatim in :attr:`settings`, so the future
-    formal solver-setup model can consume the same raw table without a
-    file format change.
+    The file's solver fields are validated at read time with SolverSettings.
+    The raw values remain in :attr:`settings` alongside non-solver entries
+    for matrix binding, without inserting defaults or coercing stored values.
 
     Attributes
     ----------
@@ -1302,8 +1302,9 @@ def _the_run_types_that_read(word: str) -> list[str]:
 def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
     """Load the solver-setup preset one id names.
 
-    The file's top-level table is kept verbatim in
-    :attr:`SetupArtifact.settings`; see the module docstring for why.
+    Recognized solver fields are validated with SolverSettings before returning
+    the raw table in :attr:`SetupArtifact.settings`. Non-solver entries retain
+    their later matrix-binding validation.
 
     Parameters
     ----------
@@ -1321,7 +1322,7 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
     ------
     InputArtifactError
         Unknown id (the message lists the available ids) or invalid
-        TOML.
+        TOML or solver settings outside the model's declared bounds.
     """
     _check_id(artifact_id, "setup")
     directory = Path(inputs_dir) / "setups"
@@ -1330,6 +1331,14 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
         raise _miss("setup", artifact_id, directory)
     data = load_toml(path, "setup")
     refuse_empty_selections("setup", path, data)
+    try:
+        SolverSettings.model_validate(
+            {key: value for key, value in data.items() if key in SolverSettings.model_fields}
+        )
+    except ValidationError as error:
+        raise InputArtifactError(
+            f"setup preset {artifact_id!r} ({path}) does not fit the case solver settings: {error}"
+        ) from error
     # THE FRAMES TABLE IS NOT A SOLVER SETTING (PFS-2034.01): it leaves the
     # raw table here, so the loop that refuses a key naming no setting never
     # meets it, and it is validated as the list of records it is.

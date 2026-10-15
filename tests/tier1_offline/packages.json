@@ -136,6 +136,7 @@
       "tests/tier1_offline/test_p0390_rev38_arch.py",
       "tests/tier1_offline/test_p0390_taglen.py",
       "tests/tier1_offline/test_p0390_zeroarea.py",
+      "tests/tier1_offline/test_p0410_fx5_setup_bounds.py",
       "tests/tier1_offline/test_p0410_fx6_excel_help.py",
       "tests/tier1_offline/test_p0410_rec_manifest.py",
       "tests/tier1_offline/test_p0410_rec_migration.py",

@@ -84,6 +84,34 @@ def test_p0410_fx4_string_validation_names_field(value):
         AxisSpec.model_validate_strings(dict(start="0", stop="1", spacing=value))
 
 
+@pytest.mark.parametrize("route", ["mapping", "json"])
+@pytest.mark.parametrize("nested", [False, True], ids=["P0410-RV3-axis", "P0410-RV3-grid"])
+def test_p0410_rv3_probe_validation_preserves_explicit_strictness(route, nested):
+    axis = dict(start="0", stop=1.0, count=3)
+    model = PlanarProbeGrid if nested else AxisSpec
+    data = (
+        dict(
+            frame=dict(x_axis=(1.0, 0.0, 0.0), y_axis=(0.0, 1.0, 0.0)),
+            u=axis,
+            v=dict(start=0.0, stop=1.0, count=3),
+        )
+        if nested
+        else axis
+    )
+    # Default coercion still works; only an explicit strict request refuses strings.
+    assert model(**data)
+    with pytest.raises(ProbeGeometryError, match="start"):
+        if route == "mapping":
+            model.model_validate(data, strict=True)
+        else:
+            model.model_validate_json(json.dumps(data), strict=True)
+    axis["start"] = 0.0
+    if route == "mapping":
+        assert model.model_validate(data, strict=True)
+    else:
+        assert model.model_validate_json(json.dumps(data), strict=True)
+
+
 @pytest.mark.requirement("NFR-47")
 @pytest.mark.parametrize("field", ["frame", "u", "v", "refinement"], ids=lambda v: f"P0410-{v}")
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
