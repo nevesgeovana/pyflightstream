@@ -178,11 +178,9 @@ whether the strength is carried.
 
 **`[time_averaging]` makes the run export the surface at every step of its
 window, and the post averages those exports.** `SOLVER_TIME_AVERAGING` is never
-emitted: on 2026-09-19 licensed C01 measured it hanging FlightStream 26.124 in
-the position the package emitted it (no output was written before the
-termination at 240.5 seconds; receipts under `reports/pfs0250/`), and 26.123
-stops at it. The table is `last_iters` or `last_revs`, exactly one,
-positive, as before.
+emitted: FlightStream 26.124 hangs at that command in the tested workflow,
+and 26.123 stops at it. The table is `last_iters` or `last_revs`, exactly one,
+positive.
 
 - **The window.** Inclusive, 1-based time steps ending at the run's last time
  step: `last_iters` is a count of steps; `last_revs` uses the rotor clock and

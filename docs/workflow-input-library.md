@@ -164,12 +164,9 @@ knowing.
 3. **Anything else is REFUSED**, naming the key and listing what
  applies, so `max_threds` finds `max_threads`.
 
-Case 3 used to be a warning and a silent drop, and that is the defect
-this replaced. A preset asking for `SUBSONIC_PRANDTL_GLAUERT` ran
-`INCOMPRESSIBLE`; one asking for a turbulent boundary layer ran the
-solver's default. Those runs converge, export and publish numbers
-against a physics nobody selected. A refusal costs an edit; a silent
-drop costs a result.
+Refusing an unknown key prevents a preset from silently selecting the
+solver's default physics instead of the requested model. Correct the key
+before running the campaign.
 
 **Three keys of a preset select BOUNDARIES rather than set a number**, and all
 take FAMILY NAMES resolved against the geometry the run opens. You never write

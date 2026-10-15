@@ -214,10 +214,8 @@ detection instead, `[base_regions] detect = "auto"`
 registers the keys it reads (`Workflow.keys` in
 `pyflightstream.cases.workflows`, the wider types extending the
 narrower), and a row naming a run type is refused at `pyfs-matrix plan`
-for any key outside that vocabulary. Measured on 2026-09-08: a copy of
-the suite's own tour with `FOO_BAR: 1` appended to a row planned READY on
-every point, and the run would have spent a seat on a row stating
-something the script does not carry. The row
+for any key outside that vocabulary. For example, `FOO_BAR: 1` is refused
+because the workflow cannot emit it. The row
 
 ```text
 7007 | Wing | REFUSED | MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | r001 | s001 | p002 | 26.120 | 0 | 1 | steady | GEOMETRY: 10_WING.fsm / SYMMETRY: NONE / FOO_BAR: 1
@@ -330,12 +328,9 @@ be a rotor point, `ERP` or `ERP1` through `ERPn` by the naming convention,
 and a motion on a point declared `kind = "airframe"` is refused naming the
 point and its kind. A name outside the convention is refused when the file is
 read, whatever kind it declares, because the names are what say how many
-propulsors the campaign describes (measured 2026-09-08 on the tier-3
-workspace, which had named a hub `HUB`). The flat rotor row's
-own `ROTOR_ORIGIN` may name a point the same way; until then
-only a `MOTIONS` record could, and the one-rotor row demanded three numbers. A flat row renders
-exactly as before; a row with a `MOTIONS` list and a flat motion key beside
-it is refused, as is an unclosed brace or a record repeating a key.
+propulsors the campaign describes. The flat rotor row's `ROTOR_ORIGIN` may
+name a point the same way. A row with a `MOTIONS` list and a flat motion key
+beside it is refused, as is an unclosed brace or a record repeating a key.
 
 A point opens its geometry through a link: `sims/<sim>/inputs`
 is a directory junction on Windows and a symbolic link elsewhere, pointing at

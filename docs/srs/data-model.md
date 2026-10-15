@@ -28,14 +28,9 @@ Each command entry records:
 A version row's `args` inherits, per argument matched by NAME, every
 entry-level field it does not itself write.
 
-The reason is measured rather than aesthetic. Restating a whole argument
-to change one flag is how a second flag changes by accident: writing
-nineteen overrides in one pass lost a list separator and an entity
-citation, which is the same defect a test in this repository already
-named as the one this family had produced. A later measurement found the
-mechanism covers four kinds of field and only two were guarded, and that
-dropping two of the four changed what one command emits on two builds
-without failing a single test.
+A version override states only the fields it changes. This preserves the
+other grammar fields, including separators and entity citations, without
+duplicating them in each version row.
 
 Inheritance reads the RAW file, because that is the only place where
 "the row did not write this" is observable: on a parsed model an omitted
@@ -54,7 +49,7 @@ citation.
 An argument specification carries its type, its unit and its allowed
 tokens. Four further fields exist because the emitter would otherwise
 decide a PER-COMMAND fact by a per-family rule or by guessing from the
-argument's name. Each was added after that guess was measured wrong.
+argument's name. Each field states the command-specific contract explicitly.
 
 **`values` is the accepted vocabulary**: everything the manual page
 says the solver takes for that argument, in every spelling the page

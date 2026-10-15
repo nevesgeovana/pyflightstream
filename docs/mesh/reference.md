@@ -1033,8 +1033,7 @@ MAGNITUDE and the hand is `rpm_sign` on that rotor's own block, beside its
 `axis`. The [upgrading page](../upgrading.md#older-layouts)
 explains the historical row-sign convention. The argument that
 related them is kept here, because it is what a reader setting up a new
-rotor has to work out once, and it was measured on the
-isolated-rotor reference case (2026-09-01):
+rotor has to work out once. For the isolated-rotor reference case:
 
 * The frame is x aft, y starboard, z up. On a port propeller, +y is
  inboard.

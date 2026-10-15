@@ -244,13 +244,11 @@ raw-mesh row on the file route declares one among its outputs (a run type's
 default outputs do), and a row that declares none is refused when its script
 is built ([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 
-**Name your outputs per point.** The folders no longer collide, but the
-PRODUCTS do: a point's polar, plots and probe tables are named after the
-stem of its loads file, so two points sharing a name produce one table
-claiming both runs. That is refused at plan time, before anything runs,
-as it was before this release; what changed is the reason, not the rule.
-Two outputs of ONE point may not share a name either, and there the old
-reason still holds: they land in one folder under one base name.
+**Name your outputs per point.** Each point has its own folder, but its
+polar, plots and probe tables are named after the stem of its loads file.
+Two points sharing a name would produce one table claiming both runs, so
+that collision is refused at plan time. Two outputs of one point may not
+share a name either: they land in one folder under one base name.
 
 **The probe velocities are in the blade's frame.** The run holds the blades
 still and turns the free stream, so the probe velocities of a quasi-steady run

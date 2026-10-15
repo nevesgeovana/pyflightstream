@@ -134,8 +134,8 @@ them close the gap that made the capability unusable:
     condition) under `SYMMETRY: MIRROR` is refused at plan time, naming the
     cell, because a mirrored half model is a valid model of the full one
     only while the free stream lies in the symmetry plane, and the solver
-    was measured (26.120, 2026-09-09) running such a point at zero
-    sideslip whatever the script states, saying so only in its log. Sweep
+    on FlightStream 26.120 runs such a point at zero sideslip whatever
+    the script states, saying so only in its log. Sweep
     the sideslip on a full geometry with `SYMMETRY: NONE`. The other two
     the cell cannot enforce. The mode
     describes what you MESHED, so a row declaring it must have staged the

@@ -162,9 +162,9 @@ row that imports its trailing edges from a file holds every point to the count
 in that one log
 
 **A job that ended without its log.** `collect` waits
-for the solver log (`native_log`, or the declared `_log.txt`), and a job that
-died before writing it used to stay `SUBMITTED` for ever, looking like a job
-still running. The profile can name the files its scheduler writes when a job
+for the solver log (`native_log`, or the declared `_log.txt`). To distinguish a
+job that ended without that log from one still running, the profile can name
+the files its scheduler writes when a job
 ends, under `[log]`, as globs with the placeholders of `native_log`
 (`{sim}`, `{point}`); the scheduler's job id, which the package never learns,
 is matched by the glob:
