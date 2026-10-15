@@ -41,6 +41,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
+
 - Sampled-field warnings name only the velocity or rotation-timing conventions
   that lack evidence on the run's build.
 
@@ -327,6 +329,8 @@ message naming the record and missing input key, instead of raising KeyError. (F
   audits for both OBJ-only and FSM-plus-OBJ outputs.
 
 ### Fixed
+
+- Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
 
 - Trefftz-plane planning refuses a spacing that leaves fewer than three points on either axis, naming the spacing and half extents to adjust, before a solver run produces a plane that post cannot integrate.
 - The PDF release receipt builder reads the cheatsheet build log from the
@@ -684,6 +688,8 @@ archives remain available for recovery. (no requirement: preserve records during
   both.
 
 ### Fixed
+
+- Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
 
 - **A point submitted without a recorded list of its solver logs is still
   `RAN_MISSING_LOG` when its log is gone** (FR-413 R8). When a record carries no

@@ -613,6 +613,7 @@ def render_standard(standard: SetupStandard, fs_version: str) -> str:
         "# Unselected geometry-dependent values can retain saved/native state; unset is not OFF.",
         f"# Workflow: {standard.workflow}; baseline: {standard.baseline_code or 'combined'}.",
         "# Boundary lists use declared boundary labels or 1-based indices, not family selectors.",
+        "# Use the separate *_families keys for reference-family selectors.",
         "# Select relevant lifting surfaces explicitly; never use all on mixed geometry by habit.",
         "# Wing/Body labels and illustrative diameters must match your geometry before planning.",
         "",
