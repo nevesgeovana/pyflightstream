@@ -160,20 +160,30 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
     create = commands.add_parser("create", help="Create a new macro-free workbook")
-    create.add_argument("output", type=Path)
-    create.add_argument("--workspace", type=Path, required=True)
+    create.add_argument("output", type=Path, help="New .xlsx path; existing files are refused")
+    create.add_argument("--workspace", type=Path, required=True, help="Workspace root directory")
     preview = commands.add_parser("preview", help="Inspect changes without applying them")
-    preview.add_argument("workbook", type=Path)
-    preview.add_argument("--workspace", type=Path, required=True)
-    preview.add_argument("--direction", choices=("read", "write"), required=True)
-    preview.add_argument("--batch", type=Path, required=True)
-    preview.add_argument("--matrix", action="append", dest="matrices")
+    preview.add_argument("workbook", type=Path, help="Saved .xlsx workbook to synchronize")
+    preview.add_argument("--workspace", type=Path, required=True, help="Workspace root directory")
+    preview.add_argument(
+        "--direction",
+        choices=("read", "write"),
+        required=True,
+        help="read: matrices to workbook; write: workbook to matrices",
+    )
+    preview.add_argument("--batch", type=Path, required=True, help="New preview batch file path")
+    preview.add_argument(
+        "--matrix",
+        action="append",
+        dest="matrices",
+        help="Matrix file; repeat to select several; default: all on read, workbook rows on write",
+    )
     apply = commands.add_parser("apply", help="Apply one fresh reviewed batch")
-    apply.add_argument("batch", type=Path)
+    apply.add_argument("batch", type=Path, help="Reviewed preview batch file to apply")
     cancel = commands.add_parser("cancel", help="Cancel a preview without changing inputs")
-    cancel.add_argument("batch", type=Path)
+    cancel.add_argument("batch", type=Path, help="Preview batch file to cancel")
     check = commands.add_parser("check", help="Validate Runs and Dictionary")
-    check.add_argument("workbook", type=Path)
+    check.add_argument("workbook", type=Path, help="Saved .xlsx workbook to validate")
     args = parser.parse_args(argv)
     try:
         if args.action == "create":
