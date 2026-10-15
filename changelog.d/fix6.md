@@ -28,3 +28,6 @@
   retained exports. Compare the recorded windows, units and references;
   rerun the solver only when required exports are missing or inputs change.
   The definitions page links the release-by-release upgrading guidance.
+- PFS-2133.008, PFS-2141.003, PFS-2109.004: Public entry pages describe
+  current behavior, the cheatsheet states drift's per-side default names,
+  and redundant cheatsheet wording is shortened to fit its page.

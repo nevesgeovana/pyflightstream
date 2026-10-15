@@ -239,7 +239,7 @@ See the website's Upgrading page for supported workspace conversion.
 \vspace{-2pt}
 \begin{multicols}{3}
 
-\tool{pyfs-workspace}{the campaign tree, the custom free-stream fields of \texttt{inputs/freestreams/} and the disc profiles}
+\tool{pyfs-workspace}{campaign trees, free-stream fields and disc profiles}
 \sub{init [root]}{create or complete the campaign tree: \texttt{inputs/} with its library folders, \texttt{sims/}, \texttt{post/}, \texttt{archive/}; writes an \texttt{inputs/executables.toml} template when none exists. Default root: the current folder}
 \fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
@@ -252,7 +252,7 @@ See the website's Upgrading page for supported workspace conversion.
 \fl{--workspace DIR}, \fl{--wheel-run ID}, \fl{--sector-run ID}, \fl{--rotor NAME}, \fl{--matrix NAME}, \fl{--overwrite}.
 \sub{geometry trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}
 \fl{--axis X Y Z}, \fl{--hub X Y Z}, \fl{--unit UNIT}, \fl{--sections N}, \fl{--overwrite}.
-\sub{geometry}{build a body outside the run matrix, accept it, and the mesh tools of page 1 under their home. The commands below preview until \fl{--apply} where they say so}
+\sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}
 \sub{geometry build [TARGET]}{read \texttt{<name>.geometry.toml} (of the current folder, or of the folder or file TARGET) and print the script, the boundaries after each step and what would be written; with \fl{--apply} run the solver once with no solve, save the body, read it back and audit it}
 \begin{flags}
 \item \fl{--apply} run the solver and write the geometry \quad \fl{--overwrite} replace the outputs of an earlier build
@@ -363,7 +363,8 @@ See the website's Upgrading page for supported workspace conversion.
 \item \fl{--fs-versions A,B} \textbf{required}: baseline first
 \item \fl{--fs-exe VERSION=PATH} \textbf{required}, repeatable: one executable per version
 \item \fl{--workroot DIR} where the two sides are made (default \texttt{runs/drift}); a side that exists is refused
-\item \fl{--workspace}, \fl{--matrix}, \fl{--name}, \fl{--report-dir}, \fl{--label}: as in physics
+\item \fl{--name NAME} campaign name (default: \texttt{a\_<build>} and \texttt{b\_<build>} per side)
+\item \fl{--workspace}, \fl{--matrix}, \fl{--report-dir}, \fl{--label}: as in physics
 \end{flags}
 \sub{cases}{print the Tier 3 test matrix, one line per case id; nothing runs}
 \begin{flags}
