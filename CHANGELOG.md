@@ -47,6 +47,8 @@ FlightStream versions.
 
 ### Fixed
 
+- Setup reading refuses solver settings outside their declared model bounds, including output precision and stabilization strength, naming the setup file, field and bound.
+
 - Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
 
 - Sampled-field warnings name only the velocity or rotation-timing conventions
