@@ -248,8 +248,6 @@ MATURITY = {
     "pyflightstream.run.matrix": "stable",
     # Module path added after v0.30.0.
     "pyflightstream.run.records": "provisional",
-    # v0.30.0: run/rename.py
-    "pyflightstream.run.rename": "stable",
     # v0.30.0: script/__init__.py
     "pyflightstream.script": "stable",
     # v0.30.0: script/entities.py
@@ -316,10 +314,12 @@ MATURITY = {
     "pyflightstream.workspace.manifest": "provisional",
     # v0.30.0: workspace/matrix.py
     "pyflightstream.workspace.matrix": "stable",
+    # 0.41.0: explicit workspace migration and shared record definitions.
+    "pyflightstream.workspace.migrate": "provisional",
     # v0.30.0: workspace/naming.py
     "pyflightstream.workspace.naming": "stable",
-    # v0.30.0: workspace/rename_groups.py
-    "pyflightstream.workspace.rename_groups": "stable",
+    # 0.41.0: shared record definitions.
+    "pyflightstream.workspace.record_document": "provisional",
     # Module path added after v0.30.0.
     "pyflightstream.workspace.selections": "provisional",
     # v0.30.0: workspace/setup_inspection.py
