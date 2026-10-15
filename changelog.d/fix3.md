@@ -1,0 +1,1 @@
+- OPS-2003.09: The manual converter prints help successfully for `--help` and `-h`, without requiring conversion inputs or dependencies.

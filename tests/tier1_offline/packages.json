@@ -589,6 +589,7 @@
       "tests/tier1_offline/test_p0410_ci_triggers.py",
       "tests/tier1_offline/test_p0410_cl_fin_versions.py",
       "tests/tier1_offline/test_p0410_cl_fin_workflow_goldens.py",
+      "tests/tier1_offline/test_p0410_fx3_manual_help.py",
       "tests/tier1_offline/test_p0410_int1_migration_remedies.py",
       "tests/tier1_offline/test_p0410_pb2_contracts.py",
       "tests/tier1_offline/test_p0410_pb2_fft.py",
