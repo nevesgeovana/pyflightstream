@@ -20,7 +20,7 @@ def generator():
     return module
 
 
-@pytest.mark.parametrize("family", ["requirements"])
+@pytest.mark.parametrize("family", ["requirements", "library"])
 def test_p0410_canonical_graph_bytes_and_planted_drift(family, tmp_path):
     gen = generator()
     artifacts = gen.generate(ROOT, family)
@@ -56,3 +56,24 @@ def test_p0410_requirements_parent_and_status_are_source_driven(tmp_path):
     assert data["nodes"][1]["parent"] == "FR-1"
     page.write_text(page.read_text().replace("pending", "implemented"), encoding="utf-8")
     assert gen.generate(tmp_path, "requirements") != before
+
+
+def test_p0410_library_walker_includes_deferred_and_typing_edges():
+    gen = generator()
+    tree = gen.arch.Tree(
+        {
+            "__init__.py": "",
+            "post/__init__.py": "",
+            "versions.py": "",
+            "commands/__init__.py": "",
+            "post/sample.py": "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n"
+            "    import pyflightstream.versions\ndef f():\n    import pyflightstream.commands\n",
+        }
+    )
+    rows = {"post": 0, "commands": 5, "versions": 6}
+    data = gen.module_data(tree, rows)
+    edges = {(e["source"], e["target"], e["kind"]) for e in data["edges"]}
+    assert ("pyflightstream.post.sample", "pyflightstream.versions", "typing") in edges
+    assert ("pyflightstream.post.sample", "pyflightstream.commands", "deferred") in edges
+    changed = tree.with_changes({"post/sample.py": "import pyflightstream.versions\n"})
+    assert gen.module_data(changed, rows) != data

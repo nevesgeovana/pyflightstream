@@ -7,16 +7,88 @@ The SRS parser and architecture import walker remain the source readers.
 from __future__ import annotations
 
 import argparse
+import ast
 import html
 import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import arch_metrics as arch  # noqa: E402
 import gen_requirements_index as requirements  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-FAMILIES = ("requirements",)
+FAMILIES = ("requirements", "library")
+
+
+def layer_rows(root: Path) -> dict[str, float]:
+    """Read the existing overview and guard declarations, without importing tests."""
+    namespace: dict = {}
+    for relative, wanted in (
+        ("src/pyflightstream/overview.py", {"_CORE_LAYERS", "_BASE_LAYERS"}),
+        (
+            "tests/tier1_offline/test_conventions.py",
+            {"_UNDRAWN_FLOOR_MODULES", "_ROOT_UNIT_ROWS", "_LAYER_ROW"},
+        ),
+    ):
+        source = ast.parse((root / relative).read_text(encoding="utf-8"))
+        for node in source.body:
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                if node.target.id in wanted:
+                    assert node.value is not None
+                    namespace[node.target.id] = eval(
+                        compile(ast.Expression(node.value), relative, "eval"), namespace
+                    )
+    return namespace["_LAYER_ROW"]
+
+
+def module_data(tree, rows: dict[str, float]) -> dict:
+    """Project the architecture guard's AST imports, including deferred and typing."""
+    nodes = []
+    for name in sorted(tree.path_of):
+        unit = name.split(".")[1] if "." in name else "(root)"
+        if unit != "(root)" and unit not in rows:
+            raise ValueError(f"module has no architecture layer: {name}")
+        nodes.append({"id": name, "layer": rows.get(unit), "path": tree.path_of[name]})
+    edges = sorted(
+        {(imp.src, imp.target, imp.kind) for imp in tree.imports if imp.src != imp.target}
+    )
+    return {
+        "nodes": nodes,
+        "edges": [{"source": src, "target": target, "kind": kind} for src, target, kind in edges],
+    }
+
+
+def module_page(data: dict) -> str:
+    """Render the complete directed adjacency graph grouped by architecture rank."""
+    lines = [
+        "# Library module graph",
+        "",
+        "Each module below points to the modules it imports. Expand a module to inspect "
+        "its outgoing edges. Lower layer numbers are higher in the architecture; "
+        "the package initialization root is the named unranked exception.",
+        "",
+        "This is the architecture guard's AST walk, including deferred and "
+        "type-checking imports. Edges describe dependencies, not execution order. "
+        "[Machine-readable graph](library.json).",
+        "",
+    ]
+    ranks = sorted({n["layer"] for n in data["nodes"] if n["layer"] is not None}) + [None]
+    for rank in ranks:
+        lines.extend([f"## Layer {rank if rank is not None else 'unranked root'}", ""])
+        for node in data["nodes"]:
+            if node["layer"] != rank:
+                continue
+            name = node["id"]
+            lines.append(f'<details id="{name}"><summary><code>{name}</code></summary><ul>')
+            edges = [e for e in data["edges"] if e["source"] == name]
+            for edge in edges:
+                target = edge["target"]
+                lines.append(f'<li>&rarr; <a href="#{target}">{target}</a> ({edge["kind"]})</li>')
+            if not edges:
+                lines.append("<li>No package-internal outgoing imports.</li>")
+            lines.extend(["</ul></details>", ""])
+    return "\n".join(lines)
 
 
 def requirement_data(root: Path) -> dict:
@@ -65,10 +137,16 @@ def requirement_page(data: dict) -> str:
 
 def generate(root: Path, family: str) -> dict[str, bytes]:
     """Return deterministic artifact bytes for one family without writing."""
-    if family != "requirements":
+    if family == "requirements":
+        data = requirement_data(root)
+        page = requirement_page(data)
+    elif family == "library":
+        data = module_data(
+            arch.Tree(arch.load_sources(root / "src/pyflightstream")), layer_rows(root)
+        )
+        page = module_page(data)
+    else:
         raise ValueError(f"unknown graph family: {family}")
-    data = requirement_data(root)
-    page = requirement_page(data)
     return {
         f"docs/graphs/{family}.json": (json.dumps(data, indent=2) + "\n").encode(),
         f"docs/graphs/{family}.md": page.encode(),
