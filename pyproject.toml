@@ -113,10 +113,10 @@ dev = [
     # the edge would turn a guard into a collection error. Apache-2.0 and
     # BSD-2-Clause dual, MIT-compatible.
     "packaging",
-    # The coverage floor of NFR-16, enforced by the CI `coverage` job.
+    # The coverage floor is enforced by the release's frozen full suite.
     # Not in pytest's addopts: instrumentation costs about a third of the
     # suite's runtime and a developer running one test file does not need
-    # a whole-package number. The job passes --cov explicitly.
+    # a whole-package number. The suite-full receipt passes --cov explicitly.
     "pytest-cov",
     # Parallel tier 1: CI and the release gates run `pytest -n auto`, in place
     # of a serial run of about 36 minutes, the 0.33.0 release gate's serial
@@ -208,7 +208,9 @@ markers = [
 ]
 addopts = "-m 'not needs_flightstream'"
 
-# NFR-16, the test-coverage floor. The requirement states the rule and
+# The test-coverage floor, enforced by the release's frozen full suite.
+# The suite-full receipt passes --cov; push CI does not measure coverage.
+# The requirement states the rule and
 # deliberately does NOT state the number: it lives here, where the tool that
 # enforces it reads it, so raising the floor is one edit rather than two
 # statements drifting apart.
@@ -226,7 +228,7 @@ branch = true
 # The floor is set BELOW that, on purpose and twice over. It is a ratchet
 # against regression rather than a target to be gamed, so the measurement is
 # the fact and this is the promise; and the measurement above was taken on
-# Windows while the floor is enforced on Linux, where the Windows-only
+# Windows while the original CI floor ran on Linux, where the Windows-only
 # branches count as uncovered. Four points absorbs both. Raise it when the
 # suite earns it, in a commit that says so.
 fail_under = 87

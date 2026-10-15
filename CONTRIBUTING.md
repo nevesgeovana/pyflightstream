@@ -35,8 +35,12 @@ requiring a solver explicitly. Offline execution does not validate physics.
 
 CI runs on pushes and manual dispatch, skipping docs-only pushes and dry-run
 branches and cancelling superseded runs. Release requires concluded green main
-CI at its exact SHA; dispatch CI for a docs-only candidate. Branch coverage
-runs on the version tag against the built wheel. Docs deploy on version tags.
+CI at its exact SHA; dispatch CI for a docs-only candidate. Push CI does not
+measure coverage. Branch coverage is measured once for the release by the
+frozen full suite: the GeoverseArtifacts release tools run `make_receipts`
+`suite-full` with `--cov --cov-branch`. That run enforces the floor in
+`pyproject.toml` under `[tool.coverage.report]`; no coverage job belongs in
+the Release workflow. Docs deploy on version tags.
 
 ## Repository layout
 
