@@ -1,5 +1,9 @@
 # Phase B workspace routes
 
+- Direct-morphing structural products use the recorded applied station
+  displacements, with a matching configuration digest, instead of refusing
+  every direct-morphing point.
+
 - An explicit exploratory `[noise]` request writes compact loading-noise observer
   signals from recorded quasi-steady wheel loads, labelled as unvalidated.
 

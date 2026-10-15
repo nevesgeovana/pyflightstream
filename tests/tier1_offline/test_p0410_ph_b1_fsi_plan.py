@@ -243,7 +243,8 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
         planar_points(saved, pproc.probes[0], 1.0)
 
 
-def test_p0410_workspace_post_reports_structure(tmp_path):
+@pytest.mark.parametrize("morphing", ["mapped", "direct"])
+def test_p0410_workspace_post_reports_structure(tmp_path, morphing):
     import shutil
 
     import numpy as np
@@ -269,6 +270,8 @@ def test_p0410_workspace_post_reports_structure(tmp_path):
     work.mkdir()
     case = steady_wing_case(tmp_path)
     config = case.fsi
+    if morphing == "direct":
+        config = config.model_copy(update={"morphing": "direct", "wing": None})
     (work / "config.json").write_text(config.model_dump_json())
     layout = generate_node_layout(config)
     local = np.zeros((9, 3, 3))
@@ -280,6 +283,16 @@ def test_p0410_workspace_post_reports_structure(tmp_path):
             w + layout.te_offset_m[index] * theta,
         ]
     write_fsidisp(work / "FSIDisp.txt", flatten_blade_translations(layout, [local]))
+    if morphing == "direct":
+        from pyflightstream.fsi.config import config_sha256
+        from pyflightstream.fsi.state import FsiState, write_state_atomic
+
+        state = FsiState(
+            config_sha256=config_sha256(config),
+            station_displacements_m=flatten_blade_translations(layout, [local]).tolist(),
+        )
+        write_state_atomic(state, work / "state.json")
+        (work / "FSIDisp.txt").write_text("mesh vertex displacements are not station triads\n")
     workspace.append_record(
         original.model_copy(
             update={

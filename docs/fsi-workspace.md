@@ -7,8 +7,10 @@ admitted coupled points. Rows contain blade number, station radius in metres,
 deflection in metres and elastic twist in degrees. The decoder uses the
 recorded configuration's node ordering and embedding, undoing the wing or
 rotor frame before decoding each station's translations. The configuration
-digest must match the run's recorded input. Missing data and direct-morphing
-vertex files produce a named skip, not a fabricated station solution.
+digest must match the run's recorded input. Direct morphing uses the applied
+`station_displacements_m` stored in `state.json`, whose configuration digest
+must also match. It never decodes mesh-vertex rows as structural stations.
+An older direct state without these station rows produces a named skip.
 
 When present, the recorded `fsi_convergence_log.csv` is retained as
 `structure/<point>_history.csv`. Products record source digests. Keep the

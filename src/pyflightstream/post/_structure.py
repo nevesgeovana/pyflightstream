@@ -12,9 +12,10 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
-from pyflightstream.fsi.config import DIRECT_MORPHING, load_config
+from pyflightstream.fsi.config import DIRECT_MORPHING, config_sha256, load_config
 from pyflightstream.fsi.kinematics import decode_station_translations
 from pyflightstream.fsi.nodes import generate_node_layout, read_fsidisp, unflatten_translations
+from pyflightstream.fsi.state import load_state
 
 if TYPE_CHECKING:
     from pyflightstream.post._sim import SimContext
@@ -35,13 +36,20 @@ def structure_products(ctx: SimContext) -> None:
             if file_sha256(config_path) != record.inputs_sha256.get("config.json"):
                 raise ValueError("config.json differs from the coupled run's recorded input")
             config = load_config(config_path)
-            if config.morphing == DIRECT_MORPHING:
-                raise ValueError(
-                    "direct morphing displacements are mesh vertices, not station triads"
-                )
             layout = generate_node_layout(config)
-            source = folder / "FSIDisp.txt"
-            flat = read_fsidisp(source, expected_rows=layout.total_nodes)
+            if config.morphing == DIRECT_MORPHING:
+                source = folder / "state.json"
+                state = load_state(source)
+                if state.config_sha256 != config_sha256(config):
+                    raise ValueError(
+                        "direct station state does not match the recorded configuration"
+                    )
+                if state.station_displacements_m is None:
+                    raise ValueError("direct state has no recorded applied station displacements")
+                flat = np.asarray(state.station_displacements_m, dtype=float)
+            else:
+                source = folder / "FSIDisp.txt"
+                flat = read_fsidisp(source, expected_rows=layout.total_nodes)
             if not np.isfinite(flat).all():
                 raise ValueError("structural displacements contain non-finite values")
             rows = []
