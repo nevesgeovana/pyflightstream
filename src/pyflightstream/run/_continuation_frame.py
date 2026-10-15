@@ -309,7 +309,7 @@ def _by(request: RestartRequest) -> str:
     return f"by {request.value:g} {unit}"
 
 
-#: How a continuation recorded before 0.33.0, which states no request, is asked
+#: How a continuation recorded without a request is asked
 #: whether it answered one: :func:`recorded_requests` builds it from a workspace.
 Unstated = Callable[[RunRecord, RestartRequest], bool]
 
@@ -317,7 +317,7 @@ Unstated = Callable[[RunRecord, RestartRequest], bool]
 def _answered(request: RestartRequest, latest: RunRecord, unstated: Unstated | None) -> bool:
     """Whether the latest record is a completed continuation of this same request.
 
-    A continuation recorded before 0.33.0 states no request. It answered this
+    A continuation recorded without a request answered this
     one when it marched the steps this request asks of the run it continues
     (``unstated``, :func:`recorded_requests`), and where that cannot be read it
     is taken to answer it, so running an existing matrix again never adds
@@ -345,7 +345,7 @@ def _marched_steps(sim_dir: Path, record: RunRecord) -> int | None:
 
 
 def recorded_requests(workspace: CampaignWorkspace, records: Iterable[RunRecord]) -> Unstated:
-    """Return whether a continuation recorded before 0.33.0 answered a request (FR-96).
+    """Return whether a continuation with no recorded request answered one (FR-96).
 
     Such a record states no request, so it is read off what it did: it
     answered the request whose steps, asked of the run it continues, are the
@@ -409,9 +409,7 @@ def continuation_verdict(
         return ContinuationVerdict(True, None)
     if _answered(request, latest, unstated):
         before = (
-            ""
-            if latest.restart
-            else " (recorded before 0.33.0, it states no request and marched what this one asks)"
+            "" if latest.restart else " (recorded without a request, it marched what this one asks)"
         )
         return ContinuationVerdict(
             False,

@@ -351,8 +351,8 @@ def _resolve_code(
         else:
             remedy = (
                 f"put the artifact at inputs/{subdir}/{code}.toml, or fix the matrix "
-                "code. An id declares its kind with a leading letter since v0.8.0, so "
-                "a code written before that release resolves nothing until it is "
+                "code. An id declares its kind with a leading letter; a code without it "
+                "resolves nothing until it is "
                 "migrated; the library's own sentence follows and names the id it "
                 "expected"
             )
@@ -1231,7 +1231,7 @@ def _states_per_point(
 
 
 def _warn_pinned_states(mismatches: Iterable[str | None]) -> None:
-    """Warn each distinct pinned-state mismatch once (0.40.0); refuse nothing."""
+    """Warn each distinct pinned-state mismatch once; refuse nothing."""
     for message in dict.fromkeys(message for message in mismatches if message):
         warn(message, PyflightstreamWarning, stacklevel=2)
 
@@ -1245,7 +1245,7 @@ def _additional_pprocs(
     fs_version: str | None,
     campaign: str,
 ) -> dict[str, PprocArtifact]:
-    """Resolve and judge the additional pproc every row names (G12 of 0.27.0).
+    """Resolve and judge the additional pproc every row names (G12).
 
     AT PLAN, like the row's PPROC, and for the reason every refusal of this
     function lives here: the additional post runs after the seat is spent, so a
@@ -1670,7 +1670,7 @@ def _bind_states(binding: _Binding, row: MatrixRow, update: dict[str, object]) -
     # `tests/tier1_offline/test_flight_condition_resolution.py` fails on rather
     # than describing.
     if row.flight_condition or _derives_its_velocity(row):
-        # A SWEPT FLOW VARIABLE IS RESOLVED PER POINT (0.21.0). The row's
+        # A SWEPT FLOW VARIABLE IS RESOLVED PER POINT. The row's
         # own cell holds every value but the swept one, so on such a row
         # the row-level state is the FIRST point's and each point's own
         # rides on `point_states`. Resolving once would emit the first

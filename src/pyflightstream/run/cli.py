@@ -220,7 +220,7 @@ def _refused_campaign_file(argv: list[str] | None) -> bool:
     if not arguments or arguments[0] != "convert":
         return False
     print(
-        "Campaign-file conversion was removed; the matrix is the sole campaign "
+        "Campaign-file conversion is not supported; the matrix is the sole campaign "
         "declaration. Use pyfs-matrix plan <matrix> --workspace <workspace>. "
         "See docs/upgrading.md.",
         file=sys.stderr,
@@ -249,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     # FR-436: what the command line does not state, the workspace files may.
     args = parsed(parser, _storage_flag_form(argv))
-    # THE CONSOLE CONTRACT (0.32.0, FR-200 to FR-204): a titled opening block,
+    # THE CONSOLE CONTRACT (FR-200 to FR-204): a titled opening block,
     # the warnings at the end, a live log for a long command. `plan` keeps the
     # header and the warnings block of 0.31.0, after its header.
     with command_console(
@@ -606,7 +606,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    # THE SETTLE WAIT IS A NUMBER OF SECONDS ABOVE 0 (0.40.0, PFS-2081.28):
+    # THE SETTLE WAIT IS A NUMBER OF SECONDS ABOVE 0 (PFS-2081.28):
     # zero takes both observations at one instant, so nothing is ever seen to
     # settle, and a negative wait reached time.sleep mid-sweep. Checked here
     # rather than by the parser, so a value from pyfs.toml is held to it too.
@@ -640,7 +640,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         # `collect_and_post` decides. With --archive, a watch that posted on
         # every sweep would fill the archive with unchanged answers.
         #
-        # PER MATRIX, AND AS `post` DOES IT (0.24.0). This called `stage(ws)`:
+        # PER MATRIX, AND AS `post` DOES IT. This called `stage(ws)`:
         # no matrix, so the stage selected the records that name none and left
         # every named-matrix record out, which is every record a matrix run
         # writes, and the command exited 0 having written nothing. And no
@@ -1072,7 +1072,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 f"POL {change.old} -> {change.new}"
             )
     # THE WARNINGS ARE HELD while the plan is made and printed as one titled
-    # block after its header (0.31.0), because a reader could not tell what
+    # block after its header, because a reader could not tell what
     # the warnings were about when they arrived first, unannounced. They are released
     # on every path, a refusal included, and still reach stderr.
     held: list[warnings.WarningMessage] = []

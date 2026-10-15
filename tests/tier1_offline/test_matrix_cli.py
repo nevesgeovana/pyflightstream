@@ -69,7 +69,7 @@ def test_p0410_cl_fin_convert_refuses_before_reading_arguments(form, tmp_path, c
     }[form]
     assert main(argv) == 2
     captured = capsys.readouterr()
-    assert "conversion was removed" in captured.err
+    assert "conversion is not supported" in captured.err
     assert "pyfs-matrix plan" in captured.err
     assert captured.out == ""
     assert not target.exists()

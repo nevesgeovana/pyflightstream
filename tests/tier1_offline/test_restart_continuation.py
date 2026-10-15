@@ -803,7 +803,7 @@ class TestFr96ConvergedContinuation:
             run_id="rotor/sim_7001/r20260901-100000/x",
         )
         verdict = _fr96_converged_continuation___verdict("ADDITIONAL_REVS=3", old)
-        assert not verdict.pending and "recorded before 0.33.0" in verdict.said, verdict
+        assert not verdict.pending and "recorded without a request" in verdict.said, verdict
         capped = old.model_copy(update={"status": RunStatus.COMPLETED_MAX_ITER})
         assert not _fr96_converged_continuation___verdict("ADDITIONAL_REVS=3", capped).pending
 
@@ -826,7 +826,7 @@ class TestFr96ConvergedContinuation:
         assert again == [] and stub.invocations == [], [(r.run_id, r.status) for r in again]
         said = "".join(capsys.readouterr())
         assert "already continued by ADDITIONAL_REVS=1" in said, said
-        assert "recorded before 0.33.0, it states no request" in said, said
+        assert "recorded without a request" in said, said
         (entry,) = _fr96_converged_continuation___plan(
             workspace, _fr96_converged_continuation___restart(tmp_path, "ADDITIONAL_REVS=1")
         ).points

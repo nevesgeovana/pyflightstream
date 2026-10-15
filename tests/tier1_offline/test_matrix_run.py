@@ -2859,7 +2859,7 @@ def test_a_reference_code_refusal_never_prescribes_a_file_that_cannot_resolve(tm
     message = str(caught.value)
     assert "POL 7001" in message, "the refusal does not name the row"
     if code == "003":
-        assert "leading letter since v0.8.0" in message, (
+        assert "leading letter; a code without it" in message, (
             "a pre-v0.8.0 code is told to create a file that cannot resolve, with no "
             "mention of the migration the library's own sentence names"
         )

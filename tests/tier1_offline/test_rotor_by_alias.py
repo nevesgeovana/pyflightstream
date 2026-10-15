@@ -876,7 +876,9 @@ def test_a_motions_row_without_a_clock_is_refused_naming_what_it_could_choose(tm
         _clock_speed(case, views, speeds)
     said = str(refused.value)
     assert "LIFT_L1" in said and "PUSHER" in said, said
-    assert "before 0.15.0" in said, "the refusal does not say who is exempt"
+    assert "A row that states its rotor in the flat keys" in said, (
+        "the refusal does not say who is exempt"
+    )
 
 
 def test_a_row_stating_its_rotor_in_the_flat_keys_needs_no_clock(tmp_path):

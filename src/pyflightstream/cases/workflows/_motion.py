@@ -65,7 +65,7 @@ from ._vocabulary import (
 def rotor_machs(case: SimCase) -> list[RotorMach]:
     """Return the tip and helical Mach numbers of every rotor and disc a row turns.
 
-    Three row types carry them (0.30.0, M1): every ``unsteady_rotor`` and
+    Three row types carry them (M1): every ``unsteady_rotor`` and
     ``qsteady_rotor`` row,
     every ``steady`` row that states ``RPM``, and every row, of any run type,
     that names an actuator disc (``ACTUATOR``). Each rotor and each disc is
@@ -420,15 +420,15 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
                 "nothing in the row would say so. Write "
                 f"'{CLOCK_MOTION_VARIABLE}: <alias>' in the row's VAR_NAMES_VALUES "
                 f"cell, beside {MOTIONS_VARIABLE}, naming one of {stated}.\n\n"
-                "A row written before 0.15.0, which states its rotor in the flat keys "
+                "A row that states its rotor in the flat keys "
                 f"rather than in a {MOTIONS_VARIABLE} list, needs no key: it turns one "
                 "rotor and there is nothing to choose between."
             )
         if len(speeds) > 1:
             owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
             raise CampaignConfigError(
-                f"case {case.sim_id!r} states {len(speeds)} motions in the spelling of "
-                f"before 0.15.0 and no {CLOCK_MOTION_VARIABLE}, so the time step and the "
+                f"case {case.sim_id!r} states {len(speeds)} motions using flat rotor keys "
+                f"and no {CLOCK_MOTION_VARIABLE}, so the time step and the "
                 f"run length follow the FASTEST rotor, which is {owner!r} at "
                 f"{fastest.rpm:g} rev/min. That is the package's own arithmetic and not a "
                 f"decision the row wrote: name the motion that owns the clock with "
