@@ -306,7 +306,8 @@ def test_r2_no_factor_and_no_file_is_refused_by_both_routes(tmp_path, capsys):
     text = _refused(tmp_path, src)
     assert (
         f"{src}: no factor was given and no refinement file states one; give FACTOR "
-        "or write wing.refine.toml beside the mesh. Nothing was written."
+        f"or add a [families.<name>] factor table to {src.with_name('wing.refine.toml')}. "
+        "Nothing was written."
     ) == text
     code, _, err = _command(capsys, str(src))
     assert code == 2 and text in err and _left(tmp_path) == []

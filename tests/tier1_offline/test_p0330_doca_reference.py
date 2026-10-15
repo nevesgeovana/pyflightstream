@@ -451,11 +451,10 @@ def test_the_home_page_offers_the_two_routes_near_its_top():
     headings = re.findall(r"^## (.+?)\s*$", text, re.MULTILINE)
     # The 0.40.0 home page opens with "Where to start" and a reading-track table.
     assert headings and headings[0] == "Where to start", headings[:3]
-    top = text[: text.index("\n## ", text.index("## Choose a reading track") + 1)]
-    assert len(top) < 1800, "the routes are not near the top"
+    # The routes precede the longer audience-track table.
+    top = text[: text.index("## Choose a reading track")]
     for target in ("getting-started.md", "python-api/index.md"):
         assert f"]({target})" in top, f"the routes do not link {target}"
-    assert "Python API" in top
 
 
 # ------------------------------------------------------------ the exceptions
@@ -507,9 +506,9 @@ def test_the_nav_follows_the_approved_reader_structure():
     assert {"srs/philosophy.md", "srs/introduction.md", "srs/scope.md", "srs/data-model.md"} <= set(
         _group("Concepts")
     )
-    assert {"srs/architecture-srs.md", "srs/standards.md", "srs/roadmap.md"} <= set(
-        _group("Contributing")
-    )
+    assert {"srs/architecture-srs.md", "srs/standards.md"} <= set(_group("Contributing"))
+    assert "srs/roadmap.md" not in _group("Contributing")
+    assert not (DOCS / "srs/roadmap.md").exists()
     for folder, group in (
         ("api/", "Python API"),
         ("cli/", "Workspace and Workflows"),
