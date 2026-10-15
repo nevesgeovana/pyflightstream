@@ -119,13 +119,10 @@ def test_every_documentation_page_a_deck_cites_exists():
     ]
 
 
-def test_no_compiled_deck_carries_a_path_of_the_machine_that_built_it():
-    carriers = [
-        path.name
-        for path in sorted(GUIDE.glob("pyfts-*.pdf"))
-        if b"/PTEX.FileName" in path.read_bytes()
-    ]
-    assert not carriers, (
-        f"{carriers} carry the absolute path of an included figure (PTEX.FileName); "
-        "shared/preamble-slides.tex sets \\pdfsuppressptexinfo=-1, rebuild with the recipe"
-    )
+def test_guide_sources_suppress_machine_paths():
+    for source in (
+        SOURCES / "shared/preamble-slides.tex",
+        SOURCES / "04-cheatsheet/main.tex",
+        GUIDE / "pyflightstream_user_guide.tex",
+    ):
+        assert r"\pdfsuppressptexinfo=-1" in source.read_text(encoding="utf-8"), source

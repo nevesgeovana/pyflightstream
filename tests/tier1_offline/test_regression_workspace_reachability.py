@@ -644,7 +644,12 @@ def _reach_guard__load_register(path: Path = _REACH_GUARD__REGISTER_PATH) -> dic
 
 
 def _reach_guard___version(text: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in text.split("."))
+    match = re.fullmatch(r"(\d+\.\d+\.\d+)(?:\.dev(\d+))?", text)
+    if match is None:
+        raise ValueError(f"Invalid release version: {text!r}")
+    release = tuple(int(part) for part in match.group(1).split("."))
+    development = match.group(2)
+    return (*release, 1, 0) if development is None else (*release, 0, int(development))
 
 
 def _reach_guard__package_version(repo: Path = _REACH_GUARD__REPO) -> str:

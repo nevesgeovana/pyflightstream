@@ -508,7 +508,9 @@ class TestReviewR10PdfRecord:
         selected = tmp_path / "selected" if redirect else original
         guide = selected / "guide"
         guide.mkdir(parents=True)
-        record = guide / "pdf-release-record.json"
+        output = selected / "build" / "guides"
+        output.mkdir(parents=True)
+        record = output / "pdf-release-record.json"
         record.write_text(
             json.dumps({"cheatsheet_cut_approved": "existing approval"}), encoding="utf-8"
         )
@@ -534,13 +536,13 @@ class TestReviewR10PdfRecord:
                 target = selected / log_relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(raw)
-                (guide / "pyfts-guide-04-cheatsheet.pdf").write_bytes(b"fresh cheatsheet")
+                (output / "pyfts-guide-04-cheatsheet.pdf").write_bytes(b"fresh cheatsheet")
             else:
                 assert command == module.USER_GUIDE_BUILD
-                (guide / "pyflightstream_user_guide.log").write_bytes(
+                (output / "pyflightstream_user_guide.log").write_bytes(
                     b"Output written on pyflightstream_user_guide.pdf (95 pages, 3 bytes).\n"
                 )
-                (guide / "pyflightstream_user_guide.pdf").write_bytes(b"fresh user guide")
+                (output / "pyflightstream_user_guide.pdf").write_bytes(b"fresh user guide")
 
         monkeypatch.setattr(module, "_git", git)
         monkeypatch.setattr(module, "_first_line", lambda *args: "offline typesetter stand-in")
@@ -555,7 +557,7 @@ class TestReviewR10PdfRecord:
             "the receipt digests a log from another checkout"
         )
         assert receipt["page_count"] == 10
-        assert (guide / receipt["name"]).read_bytes() == b"fresh cheatsheet"
+        assert (selected / receipt["path"]).read_bytes() == b"fresh cheatsheet"
         assert (selected / receipt["build_log"]).read_bytes() == raw
         if redirect:
             assert b"99 pages" in stale.read_bytes()

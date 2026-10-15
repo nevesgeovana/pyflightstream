@@ -583,6 +583,7 @@
       "tests/tier1_offline/test_p0410_ci_docs.py",
       "tests/tier1_offline/test_p0410_ci_release_gate.py",
       "tests/tier1_offline/test_p0410_ci_triggers.py",
+      "tests/tier1_offline/test_p0410_cl_fin_versions.py",
       "tests/tier1_offline/test_p0410_cl_fin_workflow_goldens.py",
       "tests/tier1_offline/test_pfs2006_declined_induced_drag.py",
       "tests/tier1_offline/test_post_products.py",
