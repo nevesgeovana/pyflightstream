@@ -7,6 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
+- Located post-processing declarations accept `attach = "space" | "body"`.
+  Coupled rows refuse unmeasured body attachment and warn about surface taps
+  that remain at declared spatial locations.
+
 - `plan --inflow-fft` writes per-point blade-view harmonic tables at the resolved
   advance ratio, including variance shares and effective reduced frequency.
 

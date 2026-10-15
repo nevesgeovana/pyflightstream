@@ -544,7 +544,13 @@ def validated_family_selection(value: object) -> str | list[str]:
     )
 
 
-class SectionDistribution(BaseModel):
+class _LocatedSpec(BaseModel):
+    """An output's location is fixed in space unless body attachment is explicit."""
+
+    attach: Literal["space", "body"] = "space"
+
+
+class SectionDistribution(_LocatedSpec):
     """One surface-section distribution: families, frame and planes.
 
     Attributes
@@ -643,7 +649,7 @@ _VOLUME_SECTION_SHAPE_KEYS: dict[str, tuple[str, ...]] = {
 }
 
 
-class VolumeSectionSpec(BaseModel):
+class VolumeSectionSpec(_LocatedSpec):
     """A sampled flow plane, generated from explicit reference-frame probes.
 
     New runs export samples and post converts them to VTK or Tecplot. Existing
@@ -785,7 +791,7 @@ def global_frame_plot_declarations(pproc: object) -> tuple[ForcePlotGroup, ...]:
     )
 
 
-class ForcePlotGroup(BaseModel):
+class ForcePlotGroup(_LocatedSpec):
     """One group of unsteady force plots: a name, a frame and the families summed.
 
     THE FRAME DECIDES HOW MANY GROUPS THIS ENTRY IS (FR-65). One citing
@@ -1124,7 +1130,7 @@ class ProbeCircle(BaseModel):
         return self
 
 
-class ProbesSpec(BaseModel):
+class ProbesSpec(_LocatedSpec):
     """One ``[[probes]]`` entry: fluid plots along lines, in a frame, per parameter.
 
     Each line is sampled at ``points`` vertices from ``start`` to ``end``,
@@ -1647,7 +1653,7 @@ def _command_tokens(command: str, argument: str) -> dict[str, str]:
     return {token.casefold(): token for tokens in lists for token in tokens or ()}
 
 
-class SurfaceProbeSpec(BaseModel):
+class SurfaceProbeSpec(_LocatedSpec):
     """One surface property recorded at a named-frame point during an unsteady march."""
 
     model_config = ConfigDict(extra="forbid")
@@ -1705,7 +1711,7 @@ STREAMLINE_KINDS: dict[str, str] = {
 BROKEN_SINGLE_SEED = "NEW_OFF_BODY_STREAMLINE"
 
 
-class StreamlineLine(BaseModel):
+class StreamlineLine(_LocatedSpec):
     """A seed line of off-body streamlines, ``count`` of them from ``start`` to ``end``.
 
     Attributes
@@ -1755,7 +1761,7 @@ class StreamlineLine(BaseModel):
         return self
 
 
-class StreamlineTube(BaseModel):
+class StreamlineTube(_LocatedSpec):
     """A tube of off-body streamlines about one axis of a frame (``NEW_OFF_BODY_STREAMTUBE``).
 
     Attributes

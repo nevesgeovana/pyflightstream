@@ -14,6 +14,23 @@ from pyflightstream.workspace.fsi_setup import FsiSetupError, resolve_fsi_setup
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 
 
+@pytest.mark.parametrize("attachment", ["space", "body"])
+def test_p0410_plan_checks_section_attachment(tmp_path, attachment):
+    case = steady_wing_case(tmp_path)
+    declaration = case.pproc.model_dump()
+    declaration["sections"]["distributions"][0]["attach"] = attachment
+    case = case.model_copy(update={"pproc": PprocSpec.model_validate(declaration)})
+    campaign = Campaign(name="attached", fs_version="26.124", fs_exe=sys.executable, sims=[case])
+    plan = plan_campaign(
+        campaign, CampaignWorkspace.init(tmp_path / "workspace"), recipes=workflow_registry()
+    )
+    if attachment == "body":
+        assert all(point.status == "BLOCKED" for point in plan.points)
+        assert all("attach='body'" in point.error for point in plan.points)
+    else:
+        assert all(point.status == "READY" for point in plan.points), [p.error for p in plan.points]
+
+
 def test_p0410_workspace_stages_frozen_configuration(tmp_path):
     import numpy as np
 
