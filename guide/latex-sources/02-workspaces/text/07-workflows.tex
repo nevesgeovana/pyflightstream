@@ -254,8 +254,8 @@ component within 1.6\,\% of \(k = 24\). About 1.7 s per clocking.\par}
 \small \pyfs{plan}: four values per wheel point, the per cent of the span
 with \(k > 0.1\) and \(k\) minimum, maximum and mean; a \textbf{warning} when
 that per cent is above zero, never a refusal.\\[1mm]
-\code{<point>\_qsteady.json}: \(k\) min, max, mean, the span above 0.05 and
-0.1, the shares of thrust and torque from stations above 0.1; every product
+\code{<point>\_qsteady\_validity.json}: the post's \(k\) statistics and shares
+of thrust and torque from stations above 0.1; every product
 of the point carries them, the sections product \(k\) per station.
 \end{block}
 \end{column}
@@ -407,8 +407,7 @@ revolutions, the last averaged. Q: blades still, six clockings. RPT-089
 \end{column}
 \begin{column}{0.37\textwidth}
 \begin{ftsevidence}[The time step closes the axial gap]
-\scriptsize Same propeller, a later time-step study (not yet a numbered
-report): at 0\(^\circ\) and 3 revolutions the axial gap is 8.4\,\% at
+\scriptsize Same propeller, the time-step study in RPT-089, section 5: at 0\(^\circ\) and 3 revolutions the axial gap is 8.4\,\% at
 10\(^\circ\) per step, 6.6\,\% at 5\(^\circ\), 4.0\,\% at 2.5\(^\circ\); 3.9\,\%
 at 5\(^\circ\) and 6 revolutions. At 5\(^\circ\) incidence, 5\(^\circ\) steps,
 6 revolutions: \(F_x\) 3.6\,\%, \(F_z\) 11.7\,\%, \(M_z\) 8.2\,\% apart, the

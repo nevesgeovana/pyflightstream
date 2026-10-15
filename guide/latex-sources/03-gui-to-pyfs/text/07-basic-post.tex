@@ -84,12 +84,13 @@ Probe a surface property through an unsteady run & pproc table \code{[[surface\_
 \guisource{Basic post}
 \end{frame}
 
-\begin{frame}{Basic post: not yet}
+\begin{frame}{Basic post: additional routes and limits}
 \begin{itemize}\small
   \item Trace streamlines, on the surface or through the field (\code{GENERATE\_ALL\_SURFACE\_STREAMLINES}, \code{NEW\_OFF\_BODY\_STREAMLINE}, \code{EXPORT\_ALL\_SURFACE\_STREAMLINES}, \code{EXPORT\_ALL\_OFF\_BODY\_STREAMLINES}).
   \item Save a picture of the scene, coloured by a variable (\code{SET\_SCENE\_CONTOUR}, \code{SAVE\_SCENE\_AS\_IMAGE}).
   \item Export the surface pressures as structural loads (\code{EXPORT\_SOLVER\_ANALYSIS\_PLOAD\_BDF}, verified 26.120 to 26.124).
-  \item Import probe points from a file (\code{PROBE\_POINTS\_IMPORT}, verified 26.101 to 26.124).
+  \item Import probe points through \code{points\_file} in a pproc probe entry;
+        the workflow emits \code{PROBE\_POINTS\_IMPORT}.
   \item Animate a surface through an unsteady run (\code{UNSTEADY\_SOLVER\_ANIMATION}).
 \end{itemize}
 {\scriptsize \emph{except one}: one command of the line has no probe run on those builds; the page names it.\par}

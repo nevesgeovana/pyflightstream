@@ -21,13 +21,13 @@
         positions are averaged: \code{PASSAGE\_POSITIONS: k}, mandatory,
         \(k \ge 1\), at \(\theta_i = i\,(360^\circ/N)/k\), \(i = 0 \ldots
         k-1\), uniform over one blade passage.
-  \item Such a point's products are those of an unsteady point: the loads at
-        each position (\code{<point>\_qs<i>.txt}), and their average where an
-        unsteady point has its window average.
+  \item A wheel point keeps steady products at clocking zero. Its loads at
+        each position (\code{<point>\_qs<i>.txt}) supply the clocking mean;
+        sections retain all clockings. It has no unsteady time window.
 \end{itemize}
-\begin{takeaway}Uniform positions over one passage give an unbiased mean of a
-signal that repeats every passage [8]. Two positions settle thrust and
-torque; the in-plane forces and moments want six or more.\end{takeaway}
+\begin{takeaway}In the single-geometry study RPT-089, two positions settled
+thrust and torque; in-plane forces and moments needed six or more.
+Check clocking convergence for your own geometry.\end{takeaway}
 \end{frame}
 
 \begin{frame}{The validity parameter, carried by every product}

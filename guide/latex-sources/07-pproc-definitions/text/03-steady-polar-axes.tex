@@ -54,7 +54,9 @@ Half a turn about y. $\mathrm{CDB}=\mathrm{Cx}$ and $\mathrm{CLB}=\mathrm{Cz}$ o
   \item Wind-axis drag from the export's own vector equals the drag the
         solver integrates, including under sideslip.
   \item Recorded exports confirm this to their printed precision.
-  \item \code{CD0} and \code{CDI} state the solver's two integrals.
+  \item \code{CD0} and \code{CDI} state the solver's drag integrals.
+        On build 26.125, \code{CDV} and \code{CDP} also state the viscous
+        and pressure drag split when the export carries it.
 \end{itemize}
 \end{frame}
 

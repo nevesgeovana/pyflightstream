@@ -46,7 +46,9 @@ Create the tree once, stage each geometry under \file{inputs/geometries/}, write
 \hd{Commands}
 \begin{cmdblock}{pyfs-workspace init}{[root]}{Create or complete the tree: every \file{inputs/} folder, \file{sims/}, \file{post/}, \file{archive/}, an \file{inputs/executables.toml} template when none exists, and the generated guides. Safe to run again; the default root is the current folder.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-workspace migrate-geometries}{[root]}{Move a flat \file{inputs/geometries/} into one folder per geometry, the layout a new workspace uses.}
+\begin{cmdblock}{pyfs-workspace migrate}{[root]}{Preview the 0.38.0 workspace conversion (see Upgrading).}
+\opt{--workspace DIR}{the workspace root.}
+\opt{--apply}{apply the conversion with backups.}
 \end{cmdblock}
 \begin{cmdblock}{pyfs-matrix inventory}{<geometry>}{Write \file{<stem>.boundaries.toml} beside a saved simulation (from its mesh block) or an OBJ (from its groups), and name the solver actions a saved simulation keeps. Needs no executable.}
 \opt{--overwrite}{rewrite a saved simulation's sidecar that already exists.}
@@ -122,7 +124,7 @@ Each operation writes one file of \file{inputs/freestreams/}, named by \fl{--out
 \err{A bare stem in a GEOMETRY key is refused.}{name the file, extension included (\file{wing_clean.fsm}).}
 
 \hd{Where to read more}
-Documentation: \textit{The workspace and the workflow}, \textit{The input library and the solver presets}, \textit{Field operations}; guide 1, \textit{Workspaces}.
+Documentation: \textit{The workspace and the workflow}, \textit{The input library and the solver presets}, \textit{Field operations}; guide 2, \textit{Workspaces}.
 \foot
 \end{multicols}
 
@@ -184,17 +186,10 @@ The point name writes each flight-condition variable as a code and a fixed-width
 \end{tikzpicture}
 
 \vspace{2pt}
-Every command that takes a matrix reads it through this lookup: \cmd{pyfs-matrix upgrade}, \cmd{pyfs-matrix plan}, \cmd{pyfs-matrix inspect-setups}, \cmd{pyfs-matrix run}, \cmd{pyfs-matrix post}, \cmd{pyfs-matrix rebuild} and \cmd{pyfs-matrix rename}. \cmd{pyfs-matrix upgrade} takes no workspace and looks in the current folder.
+Matrix commands use this lookup, including \cmd{pyfs-matrix plan}, \cmd{pyfs-matrix inspect-setups}, \cmd{pyfs-matrix run}, \cmd{pyfs-matrix post} and \cmd{pyfs-matrix rebuild}.
 
 \hd{Commands}
-\begin{cmdblock}{pyfs-matrix upgrade}{<matrix>}{Convert a matrix written under an older layout to the current one.}
-\opt{--in-place}{rewrite the file (default: print to standard output).}
-\opt{--inputs DIR}{also move \file{inputs/groups/e001.toml} to \file{inputs/pproc/p001.toml} under \texttt{[groups]}; needs \fl{--in-place}.}
-\end{cmdblock}
-\begin{cmdblock}{pyfs-matrix rename}{}{Rename a workspace written under 0.20.x to the point names of 0.21.0 (folders, scripts, records, plan).}
-\opt{--workspace DIR}{the campaign root (default: current folder).}
-\opt{--dry-run}{print what would move and change nothing; read it first.}
-\end{cmdblock}
+Workspace conversion is documented on the website's Upgrading page.
 
 \columnbreak
 \hd{The optional workbook (the excel extra)}
@@ -225,7 +220,7 @@ Save and close the workbook first. A read imports matrices into its Runs sheet, 
 \err{A WALLTIME cell is a bare number.}{write its unit: \texttt{240m}, \texttt{4h}, \texttt{90s}, \texttt{1d}.}
 \err{A fact is stated in its column and as a key of \texttt{VAR\_NAMES\_VALUES}.}{refused naming both: keep one home for it.}
 \err{A row moved off LEGACY keeps an \texttt{FSM\_FILE} key.}{refused at plan naming the key: rename it to \texttt{GEOMETRY}.}
-\err{\fl{--inputs} without \fl{--in-place}.}{the matrix cells that name the files are rewritten with them: add \fl{--in-place}.}
+
 \foot
 \end{multicols}
 
@@ -504,7 +499,7 @@ For every \texttt{SUBMITTED} record, \cmd{pyfs-matrix collect} waits until the d
 \draw[arr] (sub) -- (col);
 \draw[thick,acc] (run.south) -- ++(0,-0.35) coordinate (a) -- (a -| col.south) coordinate (c) -- (col.south);
 \node[note,text width=2.7cm,align=center,anchor=north] at ($(a)!0.5!(c)+(0,-0.05)$) {a local point ends, or the collected outputs settle};
-\node[box,text width=3.3cm,fill=ok!12,draw=ok,align=left] (good) at (1.5,-2.25) {not failures: the numbers up to the end are real\\\pth{CONVERGED}\\\pth{COMPLETED_MAX_ITER}\\\pth{WALLTIME_REACHED}};
+\node[box,text width=3.3cm,fill=ok!12,draw=ok,align=left] (good) at (1.5,-2.25) {outputs may be usable\\\pth{CONVERGED}\\\pth{COMPLETED_MAX_ITER}\\\pth{MAX_ITER_REACHED}\\\pth{RAN_MISSING_LOG}\\\pth{WALLTIME_REACHED}};
 \node[box,text width=3.3cm,fill=bad!10,draw=bad,align=left] (bad) at (5.4,-2.25) {failures\\\pth{FAILED_EXECUTION}\\\pth{FAILED_SCRIPT}\\\pth{FAILED_INCOMPLETE_OUTPUT}\\\pth{FAILED_DIVERGED}};
 \draw[arr] (good.north |- a) -- (good.north);
 \draw[arr] (bad.north |- a) -- (bad.north);
@@ -528,7 +523,12 @@ All three accept \fl{--workspace}, \fl{--runs NAME}, \fl{--json}, \fl{--csv}, an
 \cmd{pyfs-matrix status} \fl{--additional} prints the additional register without deriving fields.
 They read running batch folders and compacted simulations in place, write nothing, never ask the scheduler.
 
-\texttt{COMPLETED\_MAX\_ITER} and \texttt{WALLTIME\_REACHED} are not failures (the numbers up to the cap are real); a reader asking whether a status begins with \texttt{FAILED} treats \texttt{FAILED\_MARKED} as one. A forced re-run archives the record and runs the point again.
+\pth{COMPLETED_MAX_ITER}: ended, not converged.
+\pth{MAX_ITER_REACHED}: steady cap, unsettled.
+\pth{RAN_MISSING_LOG}: outputs, no log evidence.
+\pth{WALLTIME_REACHED}: clock interruption.
+\pth{FAILED_MARKED}: a person's failure verdict.
+A forced re-run archives the record.
 
 \columnbreak
 \hd{Commands}
@@ -581,7 +581,7 @@ Collect reads the job's descriptor, log and end files in its folder and complete
 \end{multicols}
 
 % =====================================================================
-\stagepage{7}{Post and products}{The post builds the product tables from the records, with no solver and no seat: polars, sections, probe tables, per-step series and sampled fields, each with its provenance. A rebuild archives what it replaces.}
+\stagepage{7}{Post and products}{The post builds the product tables from the records, with no solver and no seat: polars, sections, probe tables, per-step series and sampled fields, each with its provenance. A rebuild replaces derived products without archiving them.}
 \begin{multicols}{3}
 \hd{What it is for}
 \cmd{pyfs-matrix run} and \cmd{pyfs-matrix collect} post on their own; \cmd{pyfs-matrix post} rebuilds by hand, from \file{runs.json}, under \file{post/<matrix>/}, the folder named after the matrix stem. Without a matrix it posts every matrix the manifest names. Nothing is refused and nothing lost: what is there moves to \file{archive/<stamp>/} first. Exit codes: 0 done; 2 refused, nothing written; 3 with \fl{--strict}, a product skipped by design.
@@ -651,7 +651,7 @@ Every table opens with \texttt{POL}. A polar table has one row per point: the re
 \err{An old product is gone after a rebuild.}{it is in \file{post/<matrix>/archive/<stamp>/}; \cmd{pyfs-matrix restore} \texttt{products} brings back \file{products.json}.}
 
 \hd{Where to read more}
-Guide 5 and the page \textit{Post-processing definitions}, the definition of record of every product; the pages \textit{Sampled fields} and \textit{Extracting more from a finished point}.
+Guide 7 and the page \textit{Post-processing definitions}, the definition of record of every product; the pages \textit{Sampled fields} and \textit{Extracting more from a finished point}.
 \foot
 \end{multicols}
 

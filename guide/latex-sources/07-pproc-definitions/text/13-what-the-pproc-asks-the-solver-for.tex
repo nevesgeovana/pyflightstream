@@ -13,6 +13,7 @@
 \code{CDI} & \code{CDI}      & \code{COEFFICIENTS} & \code{CDI\_<group>} \\
 \code{CDO} & \code{CDO}      & \code{COEFFICIENTS} & \code{CDO\_<group>} \\
 \code{CD}  & \code{CD}       & \code{COEFFICIENTS} & \code{CD\_<group>} \\
+\code{CDV/CDP} & \code{CDV/CDP} (26.125) & \code{COEFFICIENTS} & \code{CDV/CDP\_<group>} \\
 \code{FX}  & \code{FORCE\_X}  & \code{NEWTONS} & \code{FX\_<group>} \\
 \code{FY}  & \code{FORCE\_Y}  & \code{NEWTONS} & \code{FY\_<group>} \\
 \code{FZ}  & \code{FORCE\_Z}  & \code{NEWTONS} & \code{FZ\_<group>} \\
@@ -23,10 +24,9 @@
 \end{tabular}}
 \begin{itemize}\scriptsize
   \item Write the short name. The pproc refuses \code{FORCE\_X}.
-        Omitted \code{parameters} means all ten. There is no \code{CY}, \code{CM} or \code{CN} plot.
-  \item The solver also offers \code{KILO-NEWTONS}, \code{POUND-FORCE} and
-        \code{KILOGRAM-FORCE}. The package fixes one unit token per parameter.
-        The plots table rescales coefficient columns by $(\mathrm{VREF}/\mathrm{VINF})^2$.
+        Omitted \code{parameters} selects the supported defaults. There is no \code{CY}, \code{CM} or \code{CN} plot.
+  \item The package fixes the units shown above. Coefficient columns are
+        rescaled by $(\mathrm{VREF}/\mathrm{VINF})^2$.
   \item Global \code{MRP} loads \code{FX .. MZ} feed the unsteady polar and rotor table.
         With \code{MRP} available, the run adds \code{MRP\_TOTAL} if no MRP group plots all six,
         and \code{ROTOR\_<ALIAS>} if none plots all six over that rotor's families.
@@ -74,16 +74,19 @@
 
 \begin{frame}{The probe source follows the run type}
 \begin{itemize}\small
-  \item On an unsteady row, every \code{[[probes]]} entry uses fluid plots:
-        drawn lines and cited \code{points\_file} profiles alike.
+  \item On an unsteady row, \code{kind = "unsteady"} (the default) uses
+        fluid plots for drawn lines and \code{points\_file} profiles.
+        On 26.124 and 26.125, \code{kind = "normal"} samples probe points
+        once after the march; a row cannot mix the two kinds.
   \item Each vertex and selected parameter shares one plot counter.
         \code{probes/<point>\_probes.csv} holds both forms together,
         one row per probe and time step, from the plots history.
   \item A cited profile is read at plan: a count, then \code{X,Y,Z,TYPE}
         CSV rows. Types 0 and 1 become fixed fluid-plot vertices with the
         entry's frame and scale. Invalid profiles are refused before solving.
-  \item The unsteady path no longer imports or exports standard probe points.
-        Its default output list has seven files instead of eight.
+  \item The normal-probe route retains its probe-points export. Fluid-plot
+        probes retain the history export. Requested solver plot exports also
+        include their selected residual, load and section-Cp kinds.
 \end{itemize}
 \end{frame}
 
@@ -239,8 +242,9 @@ last_revs = 1.5 # OR last_iters = 54; exactly one, positive
         written from its VTK.
   \item An older record keeps the solver's window and its
         meaning. The matrix's plots-reduction window remains a separate choice.
-  \item A storage recipe's \code{[[prune\_step\_exports]]} keeps only each
-        point's last step; a post that needs a deleted step refuses, naming it
+  \item A storage recipe's \code{[[prune\_step\_exports]]} defaults to keeping
+        the last step. \code{keep\_last} and \code{delete\_steps} select other
+        retention policies; a post needing a deleted step refuses, naming it
         (Guide 2).
 \end{itemize}
 \end{frame}

@@ -44,22 +44,22 @@ carries a path.\end{takeaway}
 \midrule
 1, 2 Scope and matrix & one row of \code{matriz.fs} per study point or sweep:
   \code{DESCRIPTION}, \code{FLIGHT\_CONDITION}, \code{SWEEP\_VALUES},
-  \code{RUN} & 1 \\
+  \code{RUN} & 2 \\
 3, 4 Geometry and mesh & made outside the package; the file sits in
   \code{inputs/geometries/}, the row names it in \code{GEOMETRY};
-  \pyfs{pyfs-matrix inventory} reads its boundaries & 1, 2 \\
+  \pyfs{pyfs-matrix inventory} reads its boundaries & 2, 3 \\
 5 Boundary conditions & the trailing edge by file or by detection, base
   regions and wake nodes as keys; rotors and actuator discs in the
-  reference file & 2, 3 \\
+  reference file & 3, 5 \\
 6 Solver setup & \code{inputs/setups/s<id>.toml} (column \code{SET}); lengths,
   moment point and frames in \code{inputs/references/r<id>.toml} (\code{REF});
-  \code{SYMMETRY} and \code{WORKFLOW} on the row & 3, 4 \\
+  \code{SYMMETRY} and \code{WORKFLOW} on the row & 5, 6 \\
 7 Execution & \pyfs{plan}, \pyfs{run}, \pyfs{collect}; \code{FS\_BUILD},
-  \code{NCPUS}, \code{WALLTIME} on the row & 1, 7 \\
+  \code{NCPUS}, \code{WALLTIME} on the row & 2, 4 \\
 8 Output definition & \code{inputs/pproc/p<id>.toml} (\code{PPROC}): what the
-  run exports, declared before it runs & 4, 5 \\
+  run exports, declared before it runs & 6, 7 \\
 9, 10 Verification and analyses & \pyfs{post} writes \code{post/}: polars,
-  series, sections, probes, provenance; FSI couples a structure & 5, 6 \\
+  series, sections, probes, provenance; FSI couples a structure & 7, 8 \\
 \bottomrule
 \end{tabularx}}
 \end{frame}

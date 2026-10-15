@@ -20,8 +20,8 @@
         \code{REYNOLDS\_AVERAGED\_DRAG\_FORCES}, the flat-plate
         boundary-layer calculation toggle. No solver default is stated.
 \end{itemize}
-\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py};
-  \code{cases/workflows.py}; \code{script/helpers.py};
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix/};
+  \code{cases/workflows/}; \code{script/helpers.py};
   \code{commands/solver\_settings.yaml}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
@@ -42,8 +42,8 @@
         The workflow uses \code{DISABLE} if omitted, so a saved solver state
         is not loaded implicitly.
 \end{itemize}
-\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py};
-  \code{cases/workflows.py}; \code{script/helpers.py}, \code{initialize\_solver};
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix/};
+  \code{cases/workflows/}; \code{script/helpers.py}, \code{initialize\_solver};
   \code{commands/solver\_initialization.yaml}; \code{commands/file\_io.yaml}}
 \end{frame}
 
@@ -65,7 +65,7 @@
         with \code{SOLVER\_MINIMUM\_CP}. Omission uses the library's
         \code{-100}, overriding the solver default \code{-20}.
 \end{itemize}
-\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py},
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix/},
   \code{\_resolve\_stabilization}; \code{script/helpers.py};
   \code{commands/solver\_settings.yaml}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
@@ -87,8 +87,8 @@
         integration for induced drag. The helper notes advise against a
         blanket vorticity selection on mixed wing and bluff-body geometry.
 \end{itemize}
-\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py};
-  \code{cases/workflows.py}, \code{\_vorticity\_indices}, \code{\_axial\_separation\_indices};
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix/};
+  \code{cases/workflows/}, \code{\_vorticity\_indices}, \code{\_axial\_separation\_indices};
   \code{script/helpers.py}; \code{commands/solver\_settings.yaml}}
 \end{frame}
 
@@ -110,8 +110,8 @@
         True includes the whole wheel, false the meshed sector. If neither
         states it, no line is emitted.
 \end{itemize}
-\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py};
-  \code{cases/workflows.py}, \code{\_row\_symmetry\_loads};
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix/};
+  \code{cases/workflows/}, \code{\_row\_symmetry\_loads};
   \code{commands/runtime\_settings.yaml}; \code{commands/simulation\_controls.yaml};
   \code{commands/solver\_analysis.yaml}}
 \end{frame}

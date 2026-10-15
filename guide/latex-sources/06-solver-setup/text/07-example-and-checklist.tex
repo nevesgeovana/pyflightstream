@@ -24,7 +24,7 @@ reference_velocity_m_per_s = 40.0
 significant_digits = 7
 \end{lstlisting}
 \setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
-  \code{workspace/matrix.py}; \code{cases/workflows.py}; \code{script/helpers.py}}
+  \code{workspace/matrix/}; \code{cases/workflows/}; \code{script/helpers.py}}
 \end{frame}
 
 \begin{frame}[fragile]{Complete setup example: wake settings}
@@ -43,7 +43,7 @@ additional_wake_relaxation = false
 laminar_separation = true
 \end{lstlisting}
 \setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
-  \code{workspace/matrix.py}; \code{cases/workflows.py};
+  \code{workspace/matrix/}; \code{cases/workflows/};
   \code{commands/advanced\_settings.yaml}; \code{commands/unsteady\_solver.yaml}}
 \end{frame}
 
@@ -68,7 +68,7 @@ laminar_separation = true
         \code{raw\_commands} in the run record. A documented command is
         not a measured result on that build.
 \end{enumerate}
-\setupsources{\code{workspace/inputs.py}; \code{workspace/matrix.py};
-  \code{cases/workflows.py}; \code{script/solver\_setup.py};
+\setupsources{\code{workspace/inputs.py}; \code{workspace/matrix/};
+  \code{cases/workflows/}; \code{script/solver\_setup.py};
   also repository \code{docs/workspace-and-workflows.md}}
 \end{frame}

@@ -21,7 +21,7 @@
 \small The first is the count below the residual threshold required for convergence. The second is the pressure-coefficient floor. An omitted minimum Cp emits the library default \code{-100}; the solver default is \code{-20}.
 \par\vspace{2mm}{\scriptsize Manual references in the database: [3, p.344]; [3, p.345].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}, \code{\_PRESET\_ALIASES}; \code{cases/workflows/}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Drag and mesh-induced wake velocity}
@@ -43,7 +43,7 @@
 \small \code{reynolds\_averaged\_drag} switches the flat-plate boundary-layer calculations. For these toggles, the database gives no solver default; omission does not assert \code{DISABLE}.
 \par\vspace{2mm}{\scriptsize Manual references in the database: [3, p.344].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}, \code{\_PRESET\_ALIASES}; \code{cases/workflows/}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Farfield and unsteady pressure}
@@ -65,7 +65,7 @@
 \small The documented farfield layer range is \textbf{1 to 5}, solver default \textbf{3}; a value above 5 is refused, and every standard setup states \textbf{5}. The pressure toggle controls the unsteady Bernoulli and Kutta terms.
 \par\vspace{2mm}{\scriptsize Manual references in the database: [3, p.344].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}, \code{\_PRESET\_ALIASES}; \code{cases/workflows/}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Wake termination units}
@@ -84,10 +84,11 @@
 \par\vspace{3mm}
 \small \textbf{V}: verified on that build. \textbf{D}: documented, not verified on that build.
 \par\vspace{2mm}
-\small The command takes an integer time-step count. The revolutions key is converted using the rotor clock; it is not a second solver command. No numeric bound is declared on either model field.
+\small The command takes integer time steps; revolutions use the rotor clock.
+The alternative length form defaults to 4 rotor radii (row-clock slide).
 \par\vspace{2mm}{\scriptsize Manual references in the database: [3, p.344].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}, \code{\_PRESET\_ALIASES}; \code{cases/workflows/}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Wake induction and extra relaxation}
@@ -109,17 +110,24 @@
 \small The first switches wake-on-wake induced velocity computation. The second requests one additional wake relaxation iteration. Neither command has a stated solver default.
 \par\vspace{2mm}{\scriptsize Manual references in the database: [3, pp.344-345]; [3, p.345].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}, \code{\_PRESET\_ALIASES}; \code{cases/workflows/}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Wake termination and the row clock}
 \begin{itemize}\small
+  \item \code{wake\_termination\_length} states rotor radii (positive).
+        An unstated rotor termination uses 4 radii. Axial convection speed
+        converts that length to time steps; it is a model assumption, not
+        a measured native wake speed.
+  \item \code{wake\_termination\_thrust\_n} supplies the momentum-theory
+        convection estimate; \code{wake\_termination\_revolutions\_cap}
+        bounds the length conversion.
   \item \code{wake\_termination\_steps} supplies the integer directly.
         For \code{wake\_termination\_revolutions}, the workflow computes
         \code{round(revolutions * steps\_per\_revolution)} and converts to an integer.
-  \item Negative values count backwards from the end of the run, as the
-        model and workflow describe. State one unit, not both; the rotor
-        resolver refuses both together.
+  \item Negative steps or revolutions count backwards from the run's end.
+        State one of length, steps and revolutions;
+        the rotor resolver refuses combinations.
   \item Revolutions require a rotor speed and a clock. A steady row or
         a nonrotating unsteady row cannot convert them; use the run type's
         supported clock and the steps form where appropriate.
@@ -127,5 +135,5 @@
         after which a wake vortex filament edge that has lost all its
         strength is removed. It states no default.
 \end{itemize}
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}, \code{\_PRESET\_ALIASES}; \code{cases/workflows/}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
 \end{frame}

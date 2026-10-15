@@ -100,7 +100,7 @@ supported build; \code{[[raw]]} remains available. Phase: \code{init}.
 \small Laminar separation is a boundary-layer separation switch. The lift command selects bound-circulation lift instead of surface-pressure integration; the database does not identify every affected output quantity.
 \par\vspace{2mm}{\scriptsize Manual references: [3, p.345]; [3, p.344].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}; \code{cases/workflows/}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Setup output and field-grid toggles}
@@ -122,7 +122,7 @@ supported build; \code{[[raw]]} remains available. Phase: \code{init}.
 \small The print switch writes rotor-induced velocities to the log at every unsteady time step. The refinement note marks the field-grid option as transonic only; no subsonic behavior is established.
 \par\vspace{2mm}{\scriptsize Manual references: [3, p.345].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}; \code{cases/workflows/}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Setup wake factors}
@@ -145,7 +145,7 @@ supported build; \code{[[raw]]} remains available. Phase: \code{init}.
 \small The two factors are documented from 0 to 1. Jet decay length is in jet-wake diameters, with a documented minimum of 1.0: it is the distance to one tenth of the initial strength. These notes do not enforce the bounds.
 \par\vspace{2mm}{\scriptsize Manual references: [3, p.345]; [3, p.346].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}; \code{cases/workflows/}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Setup wake decay and jet induction}
@@ -167,7 +167,7 @@ supported build; \code{[[raw]]} remains available. Phase: \code{init}.
 \small The decay constant is in inverse metres, derived in the database from \code{19.1/L}, with \code{L} in metres. No fixed default is recorded. Jet-filament grid induction has evidence only on 26.101 and 26.120; it is refused on 26.123 and 26.124.
 \par\vspace{2mm}{\scriptsize Manual references: [4, p.346]; [3, p.346].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}; \code{cases/workflows/}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Build-limited wake commands}
@@ -189,7 +189,7 @@ supported build; \code{[[raw]]} remains available. Phase: \code{init}.
 \small Both are documented on 25.000, 25.100 and 26.000. The database records their removal from later documentation. Neither is available to emit on 26.123 or 26.124; \code{[[raw]]} does not bypass the build check.
 \par\vspace{2mm}{\scriptsize Manual references: [5, p.319]; [5, p.318].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}; \code{cases/workflows/}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Build-limited boundary-layer and vortex commands}
@@ -211,7 +211,7 @@ supported build; \code{[[raw]]} remains available. Phase: \code{init}.
 \small Both are documented on 25.000, 25.100 and 26.000 and refused on 26.123 and 26.124. The database gives no definition of the vortex normalization beyond the switch, so no numerical mechanism is asserted here.
 \par\vspace{2mm}{\scriptsize Manual references: [5, p.318].}
 
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}; \code{cases/workflows/}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
 \end{frame}
 
 \begin{frame}{Setup aeroelastic RBF choice}
@@ -232,5 +232,5 @@ multiquadric [12] has global support; the Wendland C2 [13] is compact. A
 coupled FSI row states its own choice: the multiquadric for a beam line of
 structural nodes (Guide 8).
 \end{block}
-\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}; \code{cases/workflows.py}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix/}; \code{cases/workflows/}, \code{\_settings}, \code{\_raw\_commands}; \code{script/solver\_setup.py}, \code{FLAG\_SPECS}; \code{commands/advanced\_settings.yaml}}
 \end{frame}

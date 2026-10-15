@@ -254,7 +254,7 @@ in. The platform files must carry the target's tag.
 $FTS/python/bin/python3.12 -m venv --copies $FTS/py-venv/(*@\envname@*)
 source $FTS/py-venv/(*@\envname@*)/bin/activate
 ls $FTS/pfs-wheels/(*@\envname@*) | wc -l      # the folder pip will read
-pip install --no-index --find-links $FTS/pfs-wheels/(*@\envname@*) "pyflightstream[fsi]"
+pip install --no-index --find-links $FTS/pfs-wheels/(*@\envname@*)-linux "pyflightstream[fsi]"
 python -c "import pyflightstream; print(pyflightstream.__version__)"
 pyfs-matrix --help
 \end{lstlisting}
