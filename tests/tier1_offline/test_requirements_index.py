@@ -20,6 +20,19 @@ REPO = Path(__file__).resolve().parents[2]
 GENERATOR = REPO / "scripts" / "gen_requirements_index.py"
 
 
+def test_p0420_register_uses_public_manual_identity():
+    pages = (REPO / "docs/unpublished/requirements").glob("*.md")
+    definitions = [
+        line
+        for page in pages
+        for line in page.read_text("utf-8").splitlines()
+        if line.startswith("| FR-909 |")
+    ]
+    assert len(definitions) == 1
+    assert "FSM-26.125" in definitions[0]
+    assert "SRC-" not in definitions[0]
+
+
 def test_p0410_pa2_owned_citations_use_stable_uids() -> None:
     """P0410-PA2: source, tests and authored SRS reject former child citations."""
     paths = subprocess.check_output(
