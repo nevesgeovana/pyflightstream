@@ -277,6 +277,7 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace.manifest",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",
+    "pyflightstream.workspace.record_document",
     # v0.23.0 item 14: the migration that moves a workspace's polar products
     # from the numbered group suffix onto the group's own name. PUBLIC
     # deliberately: a user holding products from an earlier release is who

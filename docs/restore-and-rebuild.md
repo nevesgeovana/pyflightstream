@@ -245,3 +245,8 @@ as a dictionary; `summary_lines` gives the lines the commands print.
 `collect_without_writing` is the read-only collection on its own, and
 `manifest_lock` holds the lease the workspace's writers hold around a
 manifest.
+
+The public `pyflightstream.workspace.record_document` module encodes resolved
+rows with `encode_rows`, validates and resolves documents with `decode_document`,
+and reads current manifests with `read_rows`. These functions preserve recorded
+evidence without consulting current workspace inputs.
