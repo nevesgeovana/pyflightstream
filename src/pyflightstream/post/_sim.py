@@ -662,8 +662,8 @@ def _group_polar(
     )
     write_csv_table(target, polar_table_columns(drags), full)
     append_tip_columns(ctx, target, group_runs)
-    # Retain the accepted tip fields and their row attribution before axes selection.
-    # Reading the written cells also preserves the polar's precision (FR-89).
+    # Retain accepted tip fields before axes selection. Keep the original base
+    # cells: the two writers have existing, distinct numeric formatting rules.
     columns, recorded_rows = read_csv_table(target)
     selected_axes(target, ctx.pproc.products.polar_axes)
     if ctx.drafts is not None:
@@ -676,7 +676,10 @@ def _group_polar(
                 group=group,
             ),
             columns,
-            [tuple(row[column] for column in columns) for row in recorded_rows],
+            [
+                (*values, *(row[column] for column in columns[len(values) :]))
+                for values, row in zip(full, recorded_rows, strict=True)
+            ],
             group_points,
         )
     entry: dict[str, object] = {"runs": group_runs, **({"kind": "instant"} if instant else {})}
