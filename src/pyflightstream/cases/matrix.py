@@ -26,18 +26,11 @@ lossless. The retired :func:`convert_matrix` refuses the native
 ``campaign.toml`` equivalent; ``REmi`` is stated in millions in the
 flight condition and converts to an absolute Reynolds number.
 
-WHAT THIS MODULE DOES NOT DO, and where the rest went. The run path
-needs the layer ABOVE this one: binding REF, SET, ENTRY and FS_BUILD to
-the workspace input library, then planning and executing. Both halves
-used to live here and paid for it with imports written inside the
-function bodies, which recorded an upward dependency while hiding it
-from every module-level reader. They moved on 2026-08-19 (OPS-2007.01,
-PFS-2009.05): :class:`pyflightstream.workspace.matrix.ResolvedMatrix`
-and :func:`pyflightstream.workspace.matrix.resolve_matrix` do the
-binding, and :func:`pyflightstream.run.matrix.plan_matrix` and
-:func:`pyflightstream.run.matrix.run_matrix` do the pre-flight and the
-execution. Nothing about the format, the flags or the records moved
-with them, and the ``pyfs-matrix`` command line kept its name.
+Binding REF, SET, ENTRY and FS_BUILD to workspace inputs belongs to
+:class:`pyflightstream.workspace.matrix.ResolvedMatrix` and
+:func:`pyflightstream.workspace.matrix.resolve_matrix`. Pre-flight and execution belong to
+:func:`pyflightstream.run.matrix.plan_matrix` and
+:func:`pyflightstream.run.matrix.run_matrix`.
 
 THE LAYOUT HAS BROKEN TWICE, and both breaks are recognised rather than
 merely refused.
@@ -588,7 +581,7 @@ def _parse_motions(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
 def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Read the cell's ``RAW`` list into one record per raw command (FR-67).
 
-    The design decision of 2026-09-10, EXTENDING the preset's ``[[raw]]`` table to
+    EXTENDING the preset's ``[[raw]]`` table to
     the row. A record states the line itself, ``COMMAND``, or a text file
     of the workspace holding lines, ``FILE``, and never both: the two are
     the same statement made twice and there would be no order between
@@ -685,19 +678,10 @@ def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
 def _refuse_the_packages_continuation_keys(variables: Mapping[str, str], pol: str) -> None:
     """Refuse a row that writes the two names the run path resolves for it.
 
-    FOUND BY THE ARCHITECT LENS of the release round, 2026-09-14.
-    ``RESTART_FROM`` and ``RESTART_ITERATIONS`` are how the run path hands a
-    resolved continuation to the builder, and they travel in the same free
-    variable namespace a user's ``VAR_NAMES_VALUES`` cell writes into. So a
-    row stating ``RESTART`` together with both of them reached
-    :func:`~pyflightstream.cases.workflows.continuation_of` with the facts
-    already present and built a continuation DIRECTLY, skipping
-    ``resolve_continuation`` entirely: no check that a recorded run exists,
-    no check that it stopped in a state a continuation may resume, no archive
-    of the outputs about to be replaced, and no stamped run id. The
-    continuation then overwrote the stopped run's outputs in place under the
-    predecessor's own run id, which is the collision the stamp exists to
-    prevent.
+    ``RESTART_FROM`` and ``RESTART_ITERATIONS`` carry resolved continuation facts to the builder.
+    User variables must not supply them directly: resolution verifies the recorded run and its
+    state, archives outputs and stamps a new run identifier before continuation can replace
+    outputs.
 
     REFUSED RATHER THAN RENAMED into the reserved ``matrix_`` namespace,
     which was the other way to close it. A rename is SILENT: the user who
@@ -725,16 +709,11 @@ def _refuse_the_packages_continuation_keys(variables: Mapping[str, str], pol: st
 def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
     """Take the ``ROTATE`` list out of the flat variables and read its records.
 
-    PFS-2034.02, the same grammar as ``MOTIONS`` (the decision of
-    2026-09-09: "the declaration stays as we do with motion; two braces
-    are two, in the order of the input"). Each record states ``ANGLE``
-    in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS`` (``FAMILIES`` is refused, naming
-    ``ALIAS``), and may
-    state ``AUX_FRAMES``; a key outside those five, a missing one, an
-    angle that is not a number and an axis token of another shape are
-    refused here, naming the cell, so a row is refused at plan time and
-    never at the solver. What the names RESOLVE to (the frame, the
-    families) is the builder's, which holds the geometry and the setup.
+    PFS-2034.02 uses the ``MOTIONS`` record grammar. Records are read in input order. Each states
+    ``ANGLE`` in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS``, and may state
+    ``AUX_FRAMES``. ``FAMILIES`` is refused with the ``ALIAS`` remedy. Unknown keys, missing
+    required keys, nonnumeric angles and invalid axis tokens are refused at plan time. The
+    builder resolves frame and family names against the geometry and setup.
     """
     text = variables.pop(ROTATE_VARIABLE, None)
     if text is None:
@@ -1197,18 +1176,8 @@ def _refuse_a_choice_that_belongs_to_the_invocation(row: MatrixRow) -> None:
     )
 
 
-#: The command-line spelling of the campaign default, named in the
-#: refusal below so the message points at the thing a user types rather
-#: than at the keyword the library takes.
-#:
-#: IT IS `--fs-version` AND NOT `--default-fs-version`, which is what
-#: this constant said until 2026-08-19. No `pyfs-*` tool defines the
-#: latter, so a user following the refusal exactly got `unrecognized
-#: arguments` from argparse. The library PARAMETER renamed to
-#: `default_fs_version` (PFS-2009.08.01) and the flag deliberately did
-#: not: `--fs-version` is a unification across `pyfs-qa` and
-#: `pyfs-manual` that the project kept, so renaming it here would have
-#: undone a decision as a side effect of a different item.
+#: The campaign default is spelled ``--fs-version`` on the command line. Refusals name this
+#: flag rather than the library parameter ``default_fs_version`` (PFS-2009.08.01).
 DEFAULT_VERSION_OPTION = "--fs-version"
 
 

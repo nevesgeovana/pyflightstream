@@ -36,8 +36,7 @@ __all__ = [
 
 #: The two selector words this release retires, each to its ledger entry.
 #: They are the two that decide what a BLADE is from a pattern over the
-#: family name; `all` and `each` guess nothing and stay (the design decision of
-#: 2026-09-10).
+#: family name; `all` and `each` guess nothing and stay .
 _SELECTORS_THAT_GUESS = {
     "airframe": ROW_AIRFRAME_SELECTOR,
     "blades": ROW_BLADES_SELECTOR,
@@ -113,7 +112,7 @@ def select_families(
     every-boundary form, which the caller spells as -1; as a list member it
     adds every surface of the inventory. A cited word is read as a
     ``[groups]`` member is: an exact boundary name of the inventory first,
-    then an ALIAS of the row's setup (the design decision of 2026-09-09),
+    then an ALIAS of the row's setup,
     then a family, and only then as one of the five selector words, as the
     bare string and as a list member. So an exact boundary wins over an
     alias of the same spelling, and ``airframe`` and ``blades`` are the
@@ -195,7 +194,7 @@ def select_families(
 
 
 #: The words a ``families`` entry EXPANDS rather than naming a set with,
-#: which an alias may not take (the interface lens of 2026-09-09): ``all``
+#: which an alias may not take : ``all``
 #: is the command's own every-boundary form and the two ``each`` words emit
 #: one entry per family. ``airframe`` and ``blades`` name a set and stay
 #: shadowable, which is what the design decision asked for.
@@ -208,9 +207,7 @@ _GROUP_SPELLING = re.compile(r"^g\d+$")
 def _check_aliases(value: dict[str, list[str]]) -> dict[str, list[str]]:
     """Refuse an alias table that names nothing, or takes a word the package reserves.
 
-    One home for the shape, carried by the type rather than spent at the
-    artifact's door (the architecture lens of 2026-09-09 measured the
-    rule enforced on one of the three models the value crosses).
+    The type validates the shape at every model boundary that carries this value.
     """
     for name, members in value.items():
         if not name.strip():
@@ -241,7 +238,7 @@ def _check_aliases(value: dict[str, list[str]]) -> dict[str, list[str]]:
     return value
 
 
-#: The boundary aliases a setup preset defines, the design decision of 2026-09-09:
+#: The boundary aliases a setup preset defines,
 #: a name to the boundary names or families it stands for. The type carries
 #: the shape, so the setup artifact, the case and the run record hold one
 #: rule between them rather than one validator at the artifact's door.
@@ -255,7 +252,7 @@ def resolve_alias(
 ) -> list[str] | None:
     """Resolve one cited name as an alias of the setup, or None when it is not one.
 
-    The design decision of 2026-09-09: an alias is a name the setup's
+    an alias is a name the setup's
     ``[aliases]`` table gives to a list of boundary names or families,
     and it is read wherever a boundary is cited, the exact spelling
     first and case folded second, as a family is. Each member resolves as
@@ -269,7 +266,7 @@ def resolve_alias(
     an empty list, and
     the caller says what that means for its key.
 
-    THE DESIGN OF 2026-09-10 ADDED ONE THING and it changes this
+    ADDED ONE THING and it changes this
     function's contract: a member may be ANOTHER ALIAS, and the reader
     follows it to the end. A member the inventory carries is that
     boundary first, whatever else shares its spelling, so the addition
@@ -324,7 +321,7 @@ def _resolve_alias_key(
 ) -> list[str]:
     """Resolve one alias to boundary names, following members that are aliases.
 
-    The design of 2026-09-10 (FR-59): a member may be a mesh family, a
+    (FR-59): a member may be a mesh family, a
     boundary name, or ANOTHER ALIAS, resolved to the end. A member that
     names an alias already on the path closes a ring, and a ring is
     refused naming BOTH SIDES rather than recursed into, because a reader
@@ -422,13 +419,13 @@ def alias_members_missing(
     the first half is the point: on a nested alias the declaring one is not
     the one the entry cited, and it is the table row the user has to edit.
     A message naming only the cited word sent a reader to the wrong line
-    (the interface lens of 2026-09-10).
+    .
 
     A token that names no alias, or an alias every member of which
     resolves, gives an empty list. A RING RAISES, exactly as
     :func:`resolve_alias` does and with the same message: a reporter that
     answered confidently for a file the resolver refuses is a second
-    reading of one file (the QA lens of 2026-09-10, measured). A token that
+    reading of one file . A token that
     is an exact boundary of the inventory is that boundary and not the alias
     of its spelling, so it gives an empty list (PFS-2104.029).
     """
@@ -495,7 +492,7 @@ def select_group_members(
 ) -> list[str]:
     """Resolve one ``[groups]`` entry's members against an inventory, in member order.
 
-    The design decisions of 2026-09-09 (PFS-2005.02). An EMPTY group is every
+    An EMPTY group is every
     name of the inventory. Otherwise each member is, tried in this order,
     an exact name of the inventory; an ALIAS of the row's setup
     (:func:`resolve_alias`), so ``airframe`` and ``blades`` are whatever

@@ -84,7 +84,7 @@ def reference_prose():
             def descriptions(value):
                 if isinstance(value, dict):
                     for key, child in value.items():
-                        if key in ("description", "note") and isinstance(child, str):
+                        if key in ("description", "note", "notes") and isinstance(child, str):
                             yield child
                         else:
                             yield from descriptions(child)
@@ -153,6 +153,11 @@ def test_p0420_docs_clean_dated_narration():
     ]
     assert not failures, failures
     assert not HISTORY.search(api_docstrings("src/pyflightstream/probes/geometry.py"))
+
+
+def test_p0420_docs_clean_generated_dated_narration():
+    failures = [path for path, text in reference_prose() if HISTORY.search(text)]
+    assert not failures, failures
 
 
 def test_p0420_docs_clean_history_guard_controls(monkeypatch):

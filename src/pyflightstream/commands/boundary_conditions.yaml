@@ -448,8 +448,7 @@ TRAILING_EDGES_IMPORT:
     tests/tier1_offline/goldens/absent_on_26123.txt already records, and the reading
     lives here.
 
-    THAT ENCODING IS NOW DECIDED rather than pending (decision of
-    2026-08-19, PFS-2026.04): no version row, plus this note and the
+    The encoding (PFS-2026.04) is: no version row, plus this note and the
     committed enumeration, and NO fifth member of the status set. A
     fifth member would be more expressive and would touch every consumer
     of the status, the census tables and the derived support levels

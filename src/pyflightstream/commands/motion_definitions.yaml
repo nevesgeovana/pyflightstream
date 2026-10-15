@@ -26,9 +26,7 @@ CREATE_NEW_MOTION:
       status: documented
       note: >-
         SRC-748 p.306 documents the February form, type EUCLIDEAN, in its
-        parameter table and its sample alike. Recorded until 2026-09-15 with
-        the 26.120 grammar, which put ROTARY in an edition that never names
-        it; re-read that day from the page.
+        parameter table and its sample alike.
       args:
         - name: type
           type: enum
@@ -37,8 +35,7 @@ CREATE_NEW_MOTION:
       status: documented
       note: >-
         SRC-747 p.305 documents the February form, type EUCLIDEAN, in its
-        parameter table and its sample alike. Recorded until 2026-09-15 with
-        the 26.120 grammar; re-read that day from the page.
+        parameter table and its sample alike.
       args:
         - name: type
           type: enum

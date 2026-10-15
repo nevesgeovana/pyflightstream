@@ -29,16 +29,7 @@ above so the change reads as a decision rather than as drift.
 name the same code a ``--workflow`` names, which is refused before
 anything is read.
 
-WHY IT LIVES IN THE RUN LAYER, since it used to sit under ``cases`` and
-the module path is the only thing about it that changed. A command line
-that plans a campaign is an ORCHESTRATION surface: ``plan`` composes the
-workspace input library with the campaign pre-flight, so it belongs at
-or above both, and it sat two layers below what it drove. That was
-invisible only because the imports were deferred into the function
-bodies. It moved with the matrix hoist rather than after it, because
-between the two the tree carries a module-level cases-to-run import and
-no commit can be green on its own (OPS-2007.01, and the lane's own
-determination of 2026-08-18).
+The command-line entry point belongs to the run layer because it binds planning and execution.
 
 The console entry point is unchanged: the command is still
 ``pyfs-matrix``, with the same subcommands and the same flags, so FR-44's contract is

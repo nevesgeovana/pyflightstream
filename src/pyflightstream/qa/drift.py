@@ -344,8 +344,8 @@ def write_drift_report(
         refused before the write rather than after it.
     UnknownVersionError, AmbiguousVersionAliasError
         When the run's version is not a registered build, or is a
-        vendor release name shared by several. NEW on 2026-08-18: the
-        stem's build key is resolved through the registry now, so
+        vendor release name shared by several. The stem's build key is resolved through the
+        registry, so
         these reach a direct Python caller where they did not before.
         ``pyfs-qa`` resolves first and never meets them.
     """

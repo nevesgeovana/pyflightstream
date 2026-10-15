@@ -329,7 +329,7 @@ def group_coefficients(
     the standard convention.
 
     ``empty_is_every`` is what an EMPTY member list means, and it is
-    False here on purpose (the interface lens of 2026-09-09). The reference
+    False here on purpose . The reference
     decision of that day is about the ARTIFACT: a ``[groups]`` entry
     written empty is every family, and the products stage passes True
     for it. A Python caller that built ``families`` by filtering and got
@@ -667,13 +667,7 @@ def polar_table_rows(
     the ratio twice has two sources for it and this function cannot know which
     is current.
 
-    ONE ASSEMBLY, TWO CONSUMERS, and that is why it is a function of its
-    own rather than three lines inside the writer below. The superfile of
-    FR-89 carries every column the polar table has, so it needs the same
-    values the table is written from; building them a second time beside
-    this one is exactly the shape that broke `legacy_products.py` on
-    2026-09-10, where a column inserted in one assembly reached the other
-    as a value under its neighbour's name.
+    The writer and superfile share this assembly so labels and values use the same column order.
 
     Parameters
     ----------
@@ -831,7 +825,7 @@ def group_polar_rows(
     """Return the coefficient rows of one group over the points of a polar, alpha ascending.
 
     This is the ARTIFACT's path, so an empty member list is every family
-    (the design decision of 2026-09-09) and the summer is asked for that reading.
+    and the summer is asked for that reading.
     A surface whose induced drag the point's record says the solver declined
     is `NA` in the sum (:func:`declined_induced_drag`, PFS-2006.03). Public
     (AD-13): the simulation stage and :func:`write_recorded_polar`

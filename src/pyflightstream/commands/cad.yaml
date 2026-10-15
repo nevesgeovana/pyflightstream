@@ -82,8 +82,7 @@ CAD_BODY_ROTATE:
     degrees too while the far-field and probe layers of this package
     work in radians.
 
-    AXIS takes the axis INDEX as well as the letter, and this entry
-    carried the letters alone until 2026-08-06. The parameter table
+    AXIS takes the axis INDEX as well as the letter. The parameter table
     names only X, Y or Z, in every edition, and the sample printed
     beneath that same table passes 2, also in every edition, so the
     stated value set refused the manual's own call. Two tables in this

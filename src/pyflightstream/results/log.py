@@ -309,8 +309,7 @@ class UnjudgeableSolve(FrozenSolve):
     frozen solve is therefore refused exactly as a frozen one is -- and so
     ``first_step`` is 1, which every window of the point ends at or after.
 
-    Created on 2026-09-22, when one such log ended a whole campaign post with an
-    exception instead of costing the steps it covers. ``steps`` names the time
+     ``steps`` names the time
     steps whose residual blocks could not be read; ``first_step`` is the first
     of them, so a reader that knows only ``FrozenSolve`` still refuses rather
     than accepts.
@@ -319,7 +318,7 @@ class UnjudgeableSolve(FrozenSolve):
     steps: tuple[int, ...] = ()
     #: The first step of a freeze confirmed in the blocks that WERE read, if any.
     #: A log can hold both kinds of evidence, and returning only one of them
-    #: published averages over the other (the push review, 2026-09-22).
+    #: published averages over the other .
     frozen_from: int | None = None
     detail: str = ""
 
@@ -402,8 +401,7 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
     #: which step it was. A log can hold two attempts, and a measured one does,
     #: so "the last unread step" is not "the previous block": comparing against
     #: the former marked a frozen step of the second attempt unread because a
-    #: step of the same number in the first could not be read (the closing
-    #: round, 2026-09-22).
+    #: step of the same number in the first could not be read .
     unread: int | None = None
     #: Whether ANY block of this log carried a residual page. A marker at the
     #: end with no page is a CUT only in a log that prints pages: a log whose

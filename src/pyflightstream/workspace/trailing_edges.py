@@ -1,14 +1,8 @@
 """Trailing-edge extraction from a blade surface mesh.
 
-THE ROTOR FRAME IS WHERE THE CRITERION IS COMPUTED, NOT WHERE THE
-COORDINATES LAND, and this line said otherwise until a review pass on
-2026-08-20 traced two public sentences back to it. The axis and the hub
-define the spanwise and tangential directions that decide which end of a
-section is aft; the points returned are SELECTED MESH VERTICES and the
-mid-points of MESH EDGES, never transformed, so they are in the mesh's
-own reference frame and length units. A reader who believed otherwise
-would apply an inverse transform before writing the points and mark the
-wrong edges, which is the failure this capability exists to remove.
+The rotor axis and hub define the spanwise and tangential directions used to identify the aft
+end of a section. Returned points are selected mesh vertices and mesh-edge midpoints,
+expressed in the mesh's own reference frame and length units.
 
 Pipeline role: workspace layer. It turns a surface mesh the user already
 has into the trailing-edge points file a geometry names: the mid-point of
@@ -26,16 +20,9 @@ one aftmost vertex each, consecutive ones are joined by the shortest path
 along mesh edges that are the aft ridge of both their faces, and each
 edge of that path contributes its mid-point.
 
-THE CRITERION IS NOT A CREASE, AND THAT IS THE WHOLE POINT (design note
-DD-27, decided 2026-08-20). The obvious implementation is a dihedral
-angle over face adjacency, which every mesh library offers and which
-this package already refuses in three places: marking wake edges from a
-file exists precisely BECAUSE auto detection is an angle criterion and
-"a strongly twisted blade has a trailing edge that is not a crease"
-(:mod:`pyflightstream.script.helpers`). An extraction built on adjacency
-angles would reimplement in Python the criterion this package moved off
-the solver to escape, and a campaign would gain a different threshold
-rather than a different capability.
+Extraction uses the section geometry rather than a dihedral-angle criterion. A strongly
+twisted blade can have a trailing edge that is not a crease; see
+:mod:`pyflightstream.script.helpers`.
 
 WHAT IS COMPUTED INSTEAD. Given a surface mesh, a rotor axis and a hub
 position:

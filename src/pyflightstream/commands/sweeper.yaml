@@ -48,8 +48,7 @@ SWEEPER_SET_AOA_SWEEP:
     either the value list inline or the path of a file holding it, and
     DISABLE takes nothing.
 
-    NOTHING ENFORCES THAT PAIRING, and this note said the sweep helper
-    did until 2026-08-06, which was false in a place a reader consults.
+    The emitter does not enforce that pairing.
     Both tails are declared optional because ArgSpec has `required` and
     no conditional, so the emitter accepts UNIFORM with no tail, UNIFORM
     with two numbers of three, DISABLE with a tail, and CUSTOM with both
@@ -152,10 +151,7 @@ SWEEPER_SET_MACH_SWEEP:
     "26.124": {status: documented, note: "SRC-752 p.365, the SRC-751 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "SRC-753 p.371, unchanged from SRC-752 p.365"}
   notes: >
-    Mach number axis of the sweeper, dimensionless. Absent from this
-    database until 2026-08-06 for the same reason the UNIFORM mode was:
-    the worked example the chapter was drafted from sweeps angle of
-    attack, side-slip and velocity, and never Mach. Its sample is the
+    Mach number axis of the sweeper, dimensionless.  Its sample is the
     one that settles what the third UNIFORM number means, since 0.05
     cannot be a number of steps. Whether a velocity sweep and a Mach
     sweep can be enabled together, and which wins, is not documented.

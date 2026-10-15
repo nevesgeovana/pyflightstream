@@ -207,7 +207,7 @@ _UNDEFAULTABLE_CANONICAL = {key.upper(): key for key in _UNDEFAULTABLE}
 #: cell does and for the same reason: ``MUPas``, ``ASMPS`` and ``TASmps``
 #: carry deliberate internal capitals that a user types from memory, and
 #: refusing ``mupas`` in a file while accepting it in a cell would teach
-#: two rules for one vocabulary. Found by an interface review, 2026-09-04.
+#: two rules for one vocabulary.
 _PIN_CANONICAL = {key.upper(): key for key in PINNED_KEYS}
 
 
@@ -225,16 +225,8 @@ def canonical_condition_defaults(
 ) -> dict[str, float]:
     """Judge a defaults table's VOCABULARY, and answer in canonical keys.
 
-    Separated from :func:`resolve_flight_condition` so the rule can fire
-    where the FILE is read rather than where a row is resolved, and it is
-    not a refactor for tidiness: the check used to run only under
-    ``if row.flight_condition``, so a setup pinning ``MACH`` was refused
-    or accepted depending on whether some OTHER row stated a condition.
-    An architecture review found it on 2026-09-04. Every matrix row does
-    state one today, because the reader refuses an empty cell, so the
-    defect was unreachable through the matrix; it was reachable through
-    any other caller, and a guarantee that rests on a distant invariant
-    is not a guarantee.
+    Validate pins when reading the file, independently of the rows that later resolve a flight
+    condition.
 
     Parameters
     ----------

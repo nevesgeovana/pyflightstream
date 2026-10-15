@@ -10,8 +10,7 @@ live as package data in ``qa/references/`` and change only through
 :func:`update_reference`, which demands a reason string; a reference
 update never shares a commit with code changes (SAD Section 11).
 
-WHERE THE CASES ARE STATED, (PFS-2031.17, the design decision B of
-2026-09-08 in design study 66): as rows of a run matrix in a campaign
+WHERE THE CASES ARE STATED, (PFS-2031.17): as rows of a run matrix in a campaign
 workspace, built by the package's own workflows, and nowhere in Python.
 ``tests/tier3_licensed/matriz_physics.fs`` states them: row 5001 is
 PHY-01, 5002 and 5003 are PHY-02, 5005 is PHY-05 and 5006 is PHY-06, each
@@ -601,15 +600,8 @@ class PhysicsCase:
         Earliest canonical identifier this case's command set has
         evidence for. None means every registered version.
 
-        A MINIMUM AND NOT AN ENUMERATION, since 2026-08-17, and the
-        difference is that an enumeration excludes the newest build every
-        time. The two unsteady cases were pinned to 26.120 alone, then to
-        a tuple naming 26.120, 26.121 and 26.122, and the pin's own
-        stated reason was a backfill owed for builds EARLIER than 26.120:
-        a minimum, written as a list. So every arriving build fell
-        outside it until somebody appended it by hand, which happened to
-        26.121 and 26.122 on 2026-08-11 and to 26.123 on 2026-08-17. The
-        intent is unchanged and the decay is gone.
+        A minimum build selects every registered build at or above the threshold, including later
+        registrations.
     """
 
     case_id: str
@@ -1147,7 +1139,7 @@ def registered_cases(*, include_smi: bool = False) -> dict[str, PhysicsCase]:
         Include the SMI class, whose geometry is local and never
         committed. The SMI cases join only when the caller can
         provide that root; they never run implicitly (CONTRIBUTING.md
-        invariant 5). Keyword-only since 2026-08-18: a bare ``True``
+        invariant 5). Keyword-only : a bare ``True``
         in a call read as nothing in particular.
 
     Returns
@@ -1231,14 +1223,9 @@ def physics_report_paths(
 ) -> tuple[Path, Path]:
     """Return where a physics report for one build WOULD be written.
 
-    The counterpart of :func:`pyflightstream.qa.compat.compat_report_paths`
-    for the ``PHY`` series, and it exists for the same reason: a caller
-    must be able to ask the question BEFORE it spends a licensed solver
-    seat. Compat had this helper from 2026-08-17 and physics did not, so
-    ``pyfs-qa physics`` had to rebuild the stem from the series prefix
-    and the build identifier itself. Two expressions that agree today are
-    not one rule, and the day this one changes the pre-flight inspects a
-    name nothing writes.
+    The counterpart of :func:`pyflightstream.qa.compat.compat_report_paths` for the ``PHY``
+    series. It computes report paths so callers can refuse an existing report before spending
+    a licensed solver seat.
 
     Parameters
     ----------
@@ -1319,8 +1306,8 @@ def write_physics_report(
         refused before the write rather than after it.
     UnknownVersionError, AmbiguousVersionAliasError
         When the run's version is not a registered build, or is a
-        vendor release name shared by several. NEW on 2026-08-18: the
-        stem's build key is resolved through the registry now, so
+        vendor release name shared by several. The stem's build key is resolved through the
+        registry, so
         these reach a direct Python caller where they did not before.
         ``pyfs-qa`` resolves first and never meets them.
     """

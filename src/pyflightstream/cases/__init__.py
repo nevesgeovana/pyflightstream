@@ -446,14 +446,9 @@ class SweepAxis(BaseModel):
     def _held_names_point_axes_the_sweep_does_not(self) -> SweepAxis:
         """Refuse a held coordinate that is not a point axis, or that is the swept one.
 
-        `held` is a channel straight into the point mapping, and the point
-        is read whole by more than the tag: a run record and a result
-        table both iterate it. So a `campaign.toml` writing
-        ``held = {mach = 0.2}`` would put a key nothing declares into
-        every record, where point naming ignores it and the table does
-        not. The matrix reader can only produce the two angles; this is
-        the OTHER door, and it was unguarded (the architecture lens,
-        2026-09-10).
+        ``held`` is read by point naming, run records and result tables. It accepts only the two
+        angles; an undeclared key such as ``mach`` is refused before it can enter records or
+        tables.
 
         A key equal to the swept axis is refused rather than shadowed.
         The merge order in :meth:`points` lets the sweep win, which keeps
@@ -589,7 +584,7 @@ FLAG_PHASES: tuple[str, ...] = ("control", "geometry", "setup")
 class CustomFlag(BaseModel):
     """One solver command a setup exposes to the matrix under a name (PFS-2035.20).
 
-    The design of 2026-09-10: a setup declares the FlightStream
+    a setup declares the FlightStream
     command and the word a row uses for it, and the row then states the
     VALUE. RAW states a whole line and every row citing that setup emits
     the same one; a flag states the command and lets the row sweep what
@@ -658,7 +653,7 @@ class CustomFlag(BaseModel):
 class RawCommand(BaseModel):
     """One solver command a setup artifact states verbatim (PFS-2033.01).
 
-    The design of 2026-09-09 (design/69): the user writes the command
+    (design/69): the user writes the command
     line as the solver reads it, arguments included, and names the phase
     it goes before; the builders emit it through the same emitter every
     curated helper uses, so the database's grammar, version, argument
@@ -721,7 +716,7 @@ class RawCommand(BaseModel):
 class FrameSpec(BaseModel):
     """One custom coordinate system the reference's ``[[frames]]`` defines (PFS-2034.01, FR-72).
 
-    The design of 2026-09-09 (design/69): the row's rotation names an
+    (design/69): the row's rotation names an
     axis as ``<frame>-<X|Y|Z>``, and the frame is one the setup defined
     here or one the package creates (``MRP``; ``ROTOR_MRP`` on the rotor
     run types). The origin is in the geometry's own frame, the solver's
@@ -997,12 +992,9 @@ class SimCase(BaseModel):
     #: FlightStream command the row may set by name. Bound by the
     #: workspace from the setup artifact, as the raw commands are.
     flags: list[CustomFlag] = Field(default_factory=list)
-    #: The boundary aliases the row's REFERENCE declares (FR-59, the reference
-    #: design of 2026-09-10; the setup's in legacy releases), a name to the
-    #: boundary names, families or other aliases it stands for; read by
-    #: every builder that resolves a cited boundary and carried on the
-    #: record for the products stage. Empty for a configuration defining
-    #: none, when none is declared.
+    #: The boundary aliases declared by the row's reference: each name maps to boundary names,
+    #: families or other aliases. Builders resolve these names and carry them on the record
+    #: for the products stage. Empty when the configuration declares none.
     aliases: BoundaryAliases = Field(default_factory=dict)
     #: The rotors the row's reference declares (FR-60), keyed by the word
     #: a motion record cites. A record naming one takes its hub, axis,
@@ -1230,7 +1222,7 @@ class Campaign(BaseModel):
         carries and which a whole workspace usually shares, and from
         ``DerivedFrom.matrix``, which is the path the conversion read; the
         word ``stem`` is in the name so the two are not one word on the
-        ``campaign.toml`` surface (the design decision of 2026-09-08).
+        ``campaign.toml`` surface.
 
     Notes
     -----
@@ -1292,16 +1284,9 @@ class Campaign(BaseModel):
     def _version_is_registered(cls, value: str) -> str:
         """Resolve the version and KEEP the answer (PFS-2009.04).
 
-        in legacy releases this resolved for the side effect and returned the
-        string as written, so a campaign built from a vendor name stored
-        the name. ``26.1`` named one build until 2026-08-04 and two
-        after it, and a campaign.toml holding it was refused on a
-        machine where nothing changed but the installed package, in a
-        file its owner never edited. The model holds the canonical
-        identifier; the alias is accepted at the door and goes no
-        further, so a converted matrix writes the build and not the
-        name, and ``pyfs-matrix plan`` reads the same build on the day a
-        second build claims the alias.
+        The model stores the canonical build identifier. An unambiguous vendor alias is resolved at
+        input, so a converted matrix continues to name the same build if another build later
+        shares that alias.
         """
         return resolve(value).canonical
 

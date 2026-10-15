@@ -318,21 +318,9 @@ def _take(row: dict[str, str], key: str, value: object, *, fixed: bool = False) 
     row[key] = _fixed_cell(value) if fixed else _free(value)
 
 
-#: The record's own scalar fields the superfile carries, in ONE home.
-#:
-#: THE WRITER LOOPS THIS AND THE UNION REQUIRES IT, which is the whole point
-#: of the constant. They were two lists until 2026-09-11: the writer named
-#: these seven and `union_the_workspace_knows` read only a record's
-#: `flight_condition`, `flight_condition_defaults`, `solver_setup.flags` and
-#: `reductions.rotors`, so NONE of these was visible to the superset check.
-#: The QA lens of the push review proved it with a surviving mutant: deleting
-#: `flight_condition_defaults_from` from the writer left all fifty post tests
-#: green, including the one whose name is the completeness claim.
-#:
-#: With one home there is no writer line to delete on its own. Removing a
-#: field is one visible edit to this tuple, and
-#: `test_every_record_scalar_is_carried_or_excluded_on_purpose` then refuses
-#: it unless the exclusion is written down beside it.
+#: The record scalar fields carried by a superfile have one home. The writer and completeness
+#: check both read this tuple, so excluding a field requires an explicit decision beside the
+#: shared definition.
 RECORD_SCALARS = (
     # FR-98, 0.17.0. The wall clock the ROW stated and the margin the SETUP
     # left for the exports, as THIS RUN used them. Both are facts about the

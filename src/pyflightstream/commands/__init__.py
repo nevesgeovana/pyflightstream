@@ -183,9 +183,7 @@ class VersionStatus(BaseModel):
         and stay cross-checkable against its own output, and a prose
         citation is not checkable at all.
 
-        It is now the OLDER of two ways a measured removal cites its
-        run. The harness gained a ``removed`` outcome on 2026-08-11
-        (RPT-026), so a removal it measures is promoted by
+        A measured removal is promoted by
         ``pyfs-qa apply-compat`` and cites the compat yaml through
         ``report`` like any other promoted status. This field survives
         for the removals recorded before that, and for nothing else.
@@ -361,12 +359,9 @@ class CommandEntry(BaseModel):
         ``CREATE_STRATFORD_BULK_SEPARATION`` accepted on 26.120, a build
         whose manual does not mention it.
 
-        Until 2026-08-06 such a command could not be recorded at all,
-        because every entry needed a page. That refused a fact the
-        repository holds evidence for, and pushed the user to
-        ``Script.raw()``, which is the one path with no validation. The
-        design decision of 2026-08-06: a committed report may stand in
-        for the page, and the entry says which report.
+        A committed probe report may support a command that the manual does not document. The entry
+        identifies that report, so the validating emitter can use the measured grammar without
+        requiring ``Script.raw()``.
 
         It does NOT relax the status rules. ``verified`` and ``broken``
         still come only from a compat report applied by
@@ -638,13 +633,10 @@ class CommandEntry(BaseModel):
         base release's evidence, and the alternative, every hotfix
         starting from nothing, is worse.
 
-        The flag exists because the last canonical digit does not decide
-        it. On 2026-08-04 the February 2026 build took index 26.100 and
-        the May build was appended as 26.101, putting two independent
-        vendor releases in a base-and-hotfix position; 26.101 inherited
-        eight February-only commands the May solver refuses, and the
-        emitter wrote them. The registry now states inheritance per
-        build and refuses a hotfix index that leaves it unstated.
+        Inheritance is stated per build, not derived from the last canonical digit. Independent
+        vendor
+        releases can occupy adjacent indices without sharing a command set. A hotfix index
+        that leaves inheritance unstated is refused.
 
         What was wrong was that the inheritance was INVISIBLE.
         :meth:`status_in` returns the base record with nothing saying it

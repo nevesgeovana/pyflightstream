@@ -26,8 +26,7 @@ Three steps of one ladder:
    tidy sweep table, one row per run; :func:`write_table` then writes
    the final csv.
 
-EVERY TABLE SAYS WHAT PRODUCED ITS NUMBERS (PFS-2014.05, the
-requirement of 2026-08-16). Each frame these functions build carries
+EVERY TABLE SAYS WHAT PRODUCED ITS NUMBERS (PFS-2014.05). Each frame these functions build carries
 ``data_origin`` and ``reduction``, and :func:`write_table` refuses to
 write one that does not. They are constant columns for a single parsed
 result and genuinely PER ROW in the sweep table, which is the one file
@@ -1385,13 +1384,8 @@ def _run_row(record: _ManifestRecord, loads: LoadsReport | None) -> dict[str, ob
 def _refuse_a_bare_root(workspace: object, caller: str) -> None:
     """Refuse a root path where a constructed workspace is required.
 
-    The replacement for the coercion helper this module carried until
-    2026-08-19 (OPS-2009.02.05). That helper built a
-    :class:`~pyflightstream.workspace.CampaignWorkspace` out of a path,
-    which needed an import of the layer ABOVE this one, deferred to call
-    time so it would not show at module level. The direction was the
-    same either way, so the coercion went and the refusal took its
-    place.
+    The caller supplies a workspace object. This results-layer helper refuses a path rather than
+    importing the higher workspace layer to construct one (OPS-2009.02.05).
 
     Duck-typed on the two methods the callers use, not on the class, so
     a test double or a subclass is accepted exactly as before and this

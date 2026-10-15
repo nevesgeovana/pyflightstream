@@ -481,14 +481,8 @@ def plan_matrix(
     are marked ALREADY_RECORDED, exactly what
     ``run_matrix(..., resume=True)`` would skip.
 
-    A point whose row names a build whose registry entry declares a
-    version of its own is pre-flighted under THAT version, read off the
-    registry with no executable bound (the residual PFS-2009.05 left,
-    closed 2026-09-09): a row on 26.123 in a matrix whose default is
-    26.120 used to be BLOCKED for a command 26.120 lacks and 26.123
-    carries, and would have run. A build whose entry declares no version
-    is pre-flighted under the default, which is what its scripts are
-    emitted under at run time too.
+    A row naming a build with its own registry version is pre-flighted under that version, even
+    when no executable is bound. The campaign default does not override the row's build.
 
     Parameters
     ----------
@@ -808,13 +802,8 @@ def _campaign_executor(
         The window setting is the one the campaign's own executor was
         built with, so a second build runs the same way the first does.
 
-        ON A CLUSTER EVERY BUILD SUBMITS, and this returned a LocalExecutor
-        for a row naming its own installation until 2026-09-13: a
-        multi-build matrix submitted its default-build rows and ran the
-        rest on the login node, or died at LocalExecutor's own refusal
-        about an executable path that does not exist on that machine, with
-        nothing in the message mentioning a cluster. Half-wired is harder
-        to see than not wired (the architect lens, round two).
+        On a cluster, every build submits through the scheduler, including rows that name their own
+        installation. A build override does not select local execution.
 
         ONE PROFILE SERVES EVERY BUILD, which is why the campaign's own
         submitting executor is reused rather than one built per build: the

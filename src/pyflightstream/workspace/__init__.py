@@ -413,7 +413,7 @@ LEGACY_SIM_OUTPUTS_DIR = "raw"
 
 #: The datapoint layout's two names are RE-EXPORTED here and defined in
 #: `naming.py`, which is where a name rendered from a point belongs and
-#: which already imports `point_tag` (the architecture lens, 2026-09-11).
+#: which already imports `point_tag` .
 
 
 #: The managed folders of one simulation. Three : ``parsed/``
@@ -570,13 +570,7 @@ def _same_file(one: Path, other: Path) -> bool:
 def _sha256(path: Path) -> str:
     """Return the sha256 of a file, through the package's one owner.
 
-    Kept as a name because this module's own call sites read better
-    with it, and it is now three characters of delegation rather than
-    a second implementation. The definition moved to
-    :mod:`pyflightstream._digest` on 2026-08-19: NFR-07 claims two runs
-    with the same inputs are recognisably the same run, and that claim
-    rested on a digest written in three places, one of which the run
-    layer reached across a layer boundary to borrow.
+    Delegates to :mod:`pyflightstream._digest`, the shared digest implementation.
     """
     return file_sha256(path)
 
@@ -1498,7 +1492,7 @@ class CampaignWorkspace:
             or remembered twice; the files then landed in a folder the
             assessor never looks in. A ``PointName`` refuses the prefix and
             an unportable token, and a bare ``str`` is refused by
-            :func:`datapoint_dir_name` (the interface lens, 2026-09-11).
+            :func:`datapoint_dir_name` .
         produced : sequence of str or Path
             Output files the run declared it would produce. Anywhere
             OUTSIDE this campaign root, which is where a solver working
@@ -1946,18 +1940,9 @@ class CampaignWorkspace:
     def _refuse_a_waiver_this_version_may_not_write(self, record: RunRecord) -> None:
         """Refuse, before any write, a waiver row this version may not write.
 
-        The read guard above is the LATE half and cannot be the only
-        one. Measured on 2026-08-19, before this method existed:
-        :meth:`append_record` accepted a record whose ``broken_commands``
-        entry carried no ``source_version``, wrote it stamped
-        ``pyfs-manifest/2``, and :meth:`read_manifest` then refused the
-        file it had just written. Nothing in this package migrates a
-        manifest, so that manifest had no route back, and the refusal
-        text advised reading it "with the pyflightstream version that
-        wrote it", which was this one. A writer that manufactures
-        evidence its own reader rejects is the defect; refusing the
-        record is the fix, and it costs a caller nothing, because the
-        row was never readable.
+        Validate records before writing them, so every manifest the writer creates is readable
+        by the
+        corresponding reader.
 
         Two arms, both scoped to records that actually carry a waiver.
 

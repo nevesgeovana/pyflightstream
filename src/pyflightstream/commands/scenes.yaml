@@ -117,10 +117,7 @@ CHANGE_SCENE_TO_PLOTS:
     "26.124": {status: documented, note: "SRC-752 p.361, the SRC-751 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "SRC-753 p.294, unchanged from SRC-752 p.361"}
   notes: >
-    Switches the active scene to the plots view. This entry predates the
-    rest of the chapter and carried a 26.120 row alone until 2026-08-08;
-    the other three editions document it on their own pages and now say
-    so.
+    Switches the active scene to the plots view. Each version row cites the page in its own manual edition.
 
 SAVE_SCENE_AS_IMAGE:
   layout: inline

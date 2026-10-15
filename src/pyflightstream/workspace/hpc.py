@@ -292,12 +292,8 @@ def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
 #: What a profile may ask the descriptor's walltime field to carry.
 WALLTIME_ARITHMETIC: frozenset[str] = frozenset({"wall", "seconds"})
 
-#: THE KEYS A PROFILE MAY CARRY, and the keys its ``[log]`` table may carry.
-#: Both sets are CLOSED, for the reason the flight-condition cell's set is
-#: closed: a mistyped or misplaced key costs a message rather than a job that
-#: aborts at EXPORT_LOG with a profile that looks right in the file. Measured
-#: by the interface lens, 2026-09-16: ``export_log`` written at the top level
-#: read as True, and ``native_logs`` read as absent.
+#: The allowed keys of a profile and its ``[log]`` table. Both sets are closed so mistyped or
+#: misplaced keys produce a refusal before a job runs.
 HPC_PROFILE_KEYS: frozenset[str] = frozenset(
     {
         "application_id",
@@ -339,11 +335,9 @@ def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
     What is refused here is narrower and is the mistake people actually make:
     a key this package reads, written where this package does not read it.
 
-    WHY IT IS THE LIKELY SPELLING, measured by the qa lens of the closing round
-    (2026-09-16): appending ``export_log = false`` to the END of a profile file
-    is, in TOML, writing it into the LAST TABLE, which in the documented example
-    is ``[submit]``. That was accepted in silence while the message beside it
-    told the user to move the key to the table that takes it.
+    In TOML, appending ``export_log = false`` at the end of a profile writes it into the last
+    table, which is ``[submit]`` in the documented example. A misplaced key is refused with
+    the correct table named.
     """
     for name, value in table.items():
         if str(name) == "log" or not isinstance(value, Mapping):

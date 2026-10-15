@@ -466,12 +466,7 @@ class PhaseSchedule(BaseModel):
         integrated total normal force between consecutive revolutions,
         below this fraction.
 
-        Until 2026-08-03 this criterion was documented here as
-        "revolution-averaged CT stability judged from the convergence
-        log" and was not judged by anything: the force was written to
-        the log and never compared, so phase 4 began on the twist
-        criterion alone and the prose above described an acceptance
-        model the driver did not implement (REV010-010).
+        Phase 4 begins only when both the force and twist criteria hold.
     recording_revolutions : float
         Phase 4 length [revolutions] recording theta(r, psi) per blade.
     """

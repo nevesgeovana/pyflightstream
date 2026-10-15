@@ -46,7 +46,7 @@ EXPORT_SOLVER_ANALYSIS_TECPLOT:
   notes: >
     Exports the Tecplot .dat file for all initialized boundaries, one
     FEPolygon zone in the reference frame with its values per node
-    (RPT-074). Since 0.28.0 no campaign workflow emits it: the surface
+    (RPT-074). No campaign workflow emits it: the surface
     Tecplot of a point is written by the package from the VTK export,
     cell-centred, in the reference frame (G45). A hand-written script
     still reaches it through helpers.export_results.

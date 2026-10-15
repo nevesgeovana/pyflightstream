@@ -84,34 +84,10 @@ class WorkspaceError(PyflightstreamError, RuntimeError):
 WorkspaceError.__module__ = "pyflightstream.workspace"
 
 
-#: Layout identifier of a manifest record. Bumped when a field is
-#: removed or changes meaning, never for an addition: a reader written
-#: against "1" keeps working when a field it does not know appears, and
-#: must refuse when the value is one it has never seen. Recorded on
-#: every row rather than once per file, because a manifest accumulates
-#: rows across package versions (PYFS-015).
-#:
-#: IT MOVED TO "2" ON 2026-08-19 (PFS-2012.03) and the reason is exactly
-#: the rule above rather than an exception to it. ``source_version`` of a
-#: ``broken_commands`` entry stopped being optional, so the ABSENCE of
-#: that key changed meaning: under "1" it meant "written before the field
-#: existed", and under "2" there is no row that may lack it. Two fields
-#: were ADDED in the same release, ``fs_version_source`` and
-#: ``velocity_requested_m_s``, and neither of them moved this constant,
-#: which is the half of the rule that is easy to lose.
-#:
-#: IT MOVED TO "3" ON 2026-09-08 (PFS-2022.01.05, OPS-2009.02.08), and
-#: the reason is the rule again, applied to a RENAME. The waiver list is
-#: written under ``waived_commands`` now and the key ``broken_commands``
-#: is no longer written, which is a removal by the rule's own words: a
-#: reader written against "2" that tolerates a key it does not know
-#: meets a row with no ``broken_commands`` and reads it as a run that
-#: waived nothing, while the waivers sit beside it under the new key.
-#: Absence changed meaning, exactly as it did for ``source_version``.
-#: The old key still READS under every stamp, warning from the
-#: deprecation ledger, which is the compatibility half and does not
-#: touch this constant. Two fields were ADDED in the same release,
-#: ``executor`` and ``export_window`` (PFS-2012.04), and moved nothing.
+#: Layout identifier recorded on every manifest row. It changes when a field is removed or
+#: changes meaning, never for an addition. Schema "1" permits an absent ``source_version`` in
+#: ``broken_commands`` entries; schema "2" requires it. Schema "3" writes ``waived_commands``
+#: instead of ``broken_commands``. The old key remains readable with a deprecation warning.
 MANIFEST_SCHEMA = "pyfs-manifest/3"
 
 #: Every stamp this version can still READ, newest last. The bump above
@@ -345,11 +321,8 @@ class RunRecord(BaseModel):
         guess which fields exist (PYFS-015).
 
         None means the row PREDATES the field and is not a claim that
-        it was written under the current schema. It defaulted to
-        :data:`MANIFEST_SCHEMA` until 2026-08-03, so reading a
-        historical manifest stamped every row in it with a positive
-        assertion about a layout that never described it, and appending
-        a new run wrote that assertion back to disk (REV010-014). "The
+        it was written under the current schema. Reading an older row does not stamp it with the
+        current schema (REV010-014). "The
         field is absent because the row is old" and "the row asserts
         the current schema" are different facts about the evidence.
     conditions : list of dict, optional
@@ -855,12 +828,8 @@ class RunRecord(BaseModel):
     #: the field existed, which the reader takes as the same thing, and
     #: which is why MANIFEST_SCHEMA does not move for it.
     raw_commands: list[RawCommand] = Field(default_factory=list)
-    #: The boundary aliases the row's setup defined (the design decision of
-    #: 2026-09-09), carried so the products stage resolves a group naming
-    #: one without opening the setup; empty for a setup defining none and
-    #: for every record written before the field existed, which is why
-    #: MANIFEST_SCHEMA does not move for it (ARCH-8 of the round of
-    #: 2026-09-09): an absent key reads as the empty table.
+    #: Boundary aliases carried by the record so products can resolve groups without reopening the
+    #: input artifact. An absent key reads as an empty table.
     aliases: BoundaryAliases = Field(default_factory=dict)
     conditions: list[dict] | None = None
 
@@ -1327,19 +1296,8 @@ class AdditionalRecord(BaseModel):
     surface_translations: list[dict[str, object]] | None = None
 
 
-#: `_is_link`, `_is_junction`, `_make_dir_link` and `_remove_link` moved to
-#: :mod:`pyflightstream.workspace._links` on 2026-09-28 (push review).
-#: The three this module still calls directly, `_is_link`, `_make_dir_link`
-#: and `_remove_link`, are imported back above under these same names, so
-#: every call site below is unchanged; `_is_junction` is used only inside
-#: `_links` itself and stays there unimported here. The move also removed
-#: the three PUBLIC wrapper
-#: functions (`is_link`, `make_dir_link`, `remove_link`) that used to live
-#: here only so `workspace/storage.py` could reach them without importing an
-#: underscore-private name out of a PUBLIC sibling module
-#: (`tests/tier1_offline/test_digest.py`'s layer-boundary guard); storage.py
-#: now imports the private names directly from the private `_links` module,
-#: which that guard exempts.
+#: Filesystem link operations share the implementation in
+#: :mod:`pyflightstream.workspace._links`.
 
 
 class _ManifestWorkspace(Protocol):

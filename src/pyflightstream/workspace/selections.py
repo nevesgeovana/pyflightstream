@@ -33,8 +33,8 @@ __all__ = [
 ]
 
 
-#: The table of a setup artifact that names groups of boundaries (the reference
-#: decision of 2026-09-09): ``[aliases]``, one key per alias, a list of
+#: The table of a setup artifact that names groups of boundaries : ``[aliases]``, one key per
+#: alias, a list of
 #: boundary names or families. Read by the documentation. Its home is here,
 #: beside the selection rule that reads it (AD-11); the setup
 #: reader of :mod:`pyflightstream.workspace.inputs` imports it from here.

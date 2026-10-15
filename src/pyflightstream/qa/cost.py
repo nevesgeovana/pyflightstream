@@ -161,12 +161,8 @@ COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 #:
 #: THE SET IS NAMED FOR THE ESTIMATOR'S QUESTION, "did this run reach an
 #: answer", and the field it fills is `excluded_count` rather than
-#: `failed_count`. It was the second name until 2026-09-13, and the only
-#: consumer of it is a line a user reads, which then told someone whose
-#: points were sitting in a queue that they had ended in a FAILED status.
-#: A comment saying the reclassification is "not as failures anywhere a
-#: user reads" stood two lines above the one place it was (the technical
-#: writing lens).
+#: `failed_count`. Queued and unfinished points are excluded from the estimate without being
+#: reported as failed.
 _EXCLUDED_STATUSES = COST_EXCLUDED_STATUSES
 
 #: Rendered when a point carries no sweep axes at all (a single-point

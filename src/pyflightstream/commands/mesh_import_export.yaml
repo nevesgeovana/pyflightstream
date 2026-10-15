@@ -135,8 +135,7 @@ DELETE_SURFACES:
     FOLLOWING page (SRC-740 p.316), which is why the sentinel cites that
     page and not the heading's. New in the 26.121 manual edition, where
     it replaces the SURFACE_DELETE keyword block and SURFACE_CLEARALL
-    of SRC-003 pp.312-313. Both of those are registered here since
-    2026-08-07, in mesh_operations.yaml, each carrying version rows for
+    of SRC-003 pp.312-313. Both are registered in mesh_operations.yaml, each carrying version rows for
     the three editions that document it and none after; no removal is
     recorded against either, because a removal in this database is a
     manual STATING one and no edition states it.
@@ -146,7 +145,7 @@ DELETE_SURFACES:
     two readings delete different surfaces, so the single-index form is
     registered and the multi-index form awaits a probe (RPT-014).
 
-    PROBE ROUND 1 OF 0.32.0, on 26.124: DELETE_SURFACES 3 on a mesh whose
+    PROBE ROUND 1 on 26.124: DELETE_SURFACES 3 on a mesh whose
     inventory was Body, Base, Blade1, Blade2 was accepted and left Body,
     Base, Blade2, with only the last surface moving, to index 3. So the
     single-index form runs and the surfaces after the deleted one are

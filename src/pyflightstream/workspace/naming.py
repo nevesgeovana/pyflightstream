@@ -399,15 +399,9 @@ def datapoint_name_of(folder: str) -> PointName | None:
         The checked name, or None when ``folder`` does not carry
         :data:`DATAPOINT_PREFIX` or what follows it is not a point name.
 
-    WHY NONE AND NOT A RAISE, which is the whole reason this is a function and
-    not two lines at the call site. The caller is a COLLECTOR reading a folder
-    name off disk, where anything can be written and a hand-made directory is
-    ordinary; `PointName` refuses what is not portable, and its refusal is a
-    `NamingTemplateError`, which is a ValueError and not a WorkspaceError. Fed
-    an unvalidated tag, the collector's sweep did not catch it and one folder
-    named `DP-a b` aborted the collection of every other point in the
-    workspace, measured 2026-09-16. A reader that answers "not a point's
-    folder" lets the caller refuse in its own vocabulary.
+    The collector reads arbitrary folder names from disk. Returning ``None`` for a name that is
+    not a point folder lets it continue examining other folders and report the refusal in its
+    own vocabulary.
     """
     if not folder.startswith(DATAPOINT_PREFIX):
         return None

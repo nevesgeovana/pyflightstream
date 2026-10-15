@@ -25,10 +25,7 @@ and the time increment printed in the loads file itself:
    hold across consecutive revolutions: the tip elastic twist change
    below ``tip_twist_tolerance_deg``, and the relative change of the
    integrated normal force below ``thrust_tolerance_fraction``
-   (FSI-R09). This docstring described the thrust half as "judged from
-   the same log downstream" until 2026-08-03, when a review measured
-   that nothing judged it anywhere and phase 4 began on twist alone
-   (REV010-010).
+   (FSI-R09).
 4. Recording: instantaneous loads, no relaxation (lambda = 1 by
    design: relaxing here would low-pass exactly the 1P amplitude and
    phase being measured), twist distributions recorded per step.
@@ -259,13 +256,9 @@ def _blade_densities(
     pure resampling; constant extrapolation covers the small root and
     tip margins the section distribution does not reach.
 
-    That last clause is a claim about how far ``numpy.interp``'s
-    endpoint extrapolation is allowed to reach, and until 2026-08-03
-    nothing enforced it: sections covering a fraction of the blade were
-    spread across all of it (REV010-008). The bound now lives at the
-    boundary where it can be checked against the section radii,
-    ``to_elastic_axis``, which refuses coverage worse than
-    ``_COVERAGE_MARGIN`` of span at either end.
+    ``to_elastic_axis`` checks section coverage at the boundary where the section radii are
+    available. It refuses uncovered span greater than ``_COVERAGE_MARGIN`` at either end,
+    limiting endpoint extrapolation.
     """
     order = np.argsort(ea_loads.radius_m)
     radii = ea_loads.radius_m[order]

@@ -90,9 +90,7 @@ FAMILY_FILE = "fsi_family_map.json"
 POST_FILE = "fsi_post.txt"
 CALLBACK_FILE = "fsi_callback.py"
 
-#: THE WORKFLOWS AND FSI IN THIS RELEASE (FSI-GUARD, owner decision of
-#: 2026-09-28: "vamos permitir o FSI para steady, qsteady e unsteady";
-#: unsteady_rotor refused while the rotor morph is in debug). Every workflow
+#: Supported FSI workflows and their refusal reasons. Every workflow
 #: is named with the state it is in: None accepts FSI, a sentence is the
 #: refusal. A workflow absent from the table accepts no FSI.
 #:

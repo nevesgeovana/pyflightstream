@@ -18,24 +18,15 @@ of using it: reading a new vendor manual, comparing it against the
 command database, reporting what a new release added. That work runs on
 the maintainer's machine against licensed material in ``_private/``.
 
-ITS OUTPUT WAS A DRAFT A PERSON REVIEWS AND NEVER A DATABASE WRITE, and
-that stopped being true on 2026-08-17. ``pyfs-manual register`` writes
-``documented`` version rows for the commands a new edition describes
-exactly as its predecessor did, which is the one write that carries no
-judgement: it copies nothing and asserts nothing beyond "these two
-editions say the same thing", and anything they do not it reports for a
-person to read. Everything else here is still a draft.
+``pyfs-manual register`` writes documented version rows for commands a manual supports. Other
+proposals remain drafts for review.
 
 The layer statement above is unchanged by it, and the split is why.
 :func:`~pyflightstream.utils.manual.insert_version_row` takes the text
 of a chapter file and returns the edited text; it opens nothing.
 
-THE IO LIVES IN :mod:`~pyflightstream.utils.database`, and this
-paragraph said ``cli`` until 2026-08-17, when the registration
-transaction was lifted out of the argument parser. That module reads and
-writes the chapter bytes, validates every edit against the command
-schema before any of them reaches the disk, and is the one importable
-home of a registration.
+The registration I/O lives in :mod:`~pyflightstream.utils.database`. It reads and writes
+chapter bytes and validates every edit against the command schema before writing any of them.
 
 SO THIS SUBPACKAGE HAS THREE POSITIONS, not the two the statement above
 enumerates: ``manual`` and ``errors`` at the bottom, and ``cli`` and

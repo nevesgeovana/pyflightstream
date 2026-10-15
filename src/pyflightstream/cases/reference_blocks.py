@@ -43,7 +43,7 @@ class CampaignConfigError(PyflightstreamError, ValueError):
     :class:`~pyflightstream.cases.matrix.MatrixError`, which is about
     the pipe-delimited run-matrix format specifically.
 
-    Added 2026-08-03 for FR-39, keeping ``ValueError`` as a second base.
+    Also inherits from ``ValueError``.
     """
 
 
@@ -81,13 +81,9 @@ ROTOR_BLADE_ROTATION_AXIS = "Z"
 class BladeDatum(BaseModel):
     """Where blade one sits, and the axis its azimuth is measured from (FR-60).
 
-    The decision of 2026-09-10, on the first reading of the use case: an
-    azimuth ALONE carries a hidden convention, zero at which axis, that
-    two people fill differently and nobody sees. So the datum is written
-    beside it: ``{ azimuth_deg = 45.0, zero = "X" }``, the zero being an
-    axis letter with an optional sign, refused when it is parallel to the
-    axis the rotor turns about, because an angle measured from that axis
-    locates nothing.
+    An azimuth needs a declared zero axis. The datum states both: ``{ azimuth_deg = 45.0, zero =
+    "X" }``. The zero is an axis letter with an optional sign and is refused when parallel to
+    the rotor axis, because an angle from that axis locates no radial direction.
 
     Attributes
     ----------
@@ -124,7 +120,7 @@ class BladeDatum(BaseModel):
 class RotorBlock(BaseModel):
     """One rotor, declared as one block of the reference artifact (FR-60).
 
-    The design of 2026-09-10. The block's NAME is an alias over
+    The block's NAME is an alias over
     everything the rotor owns, the union of :attr:`families_general` and
     :attr:`families_blades` in that order: what a row moves when it cites
     it, and what a group summing the rotor sums.
@@ -146,8 +142,7 @@ class RotorBlock(BaseModel):
         restatement of it: a reference file may leave it out and the
         reader fills it in from the name before the block is built;
         stated, it must equal the name, case folded, and a block whose two
-        names disagree is refused naming both. Whether the field is worth
-        keeping at all is an open question of 2026-09-10.
+        names disagree is refused naming both.
 
         IT IS REQUIRED ON THE MODEL even though a file may omit it,
         because everything downstream reads it as the rotor's identity:
@@ -460,7 +455,7 @@ def frame_basis_for_shaft(
 class AliasCycleError(PyflightstreamError, ValueError):
     """An alias resolves through itself, and both sides are named (FR-59).
 
-    The design of 2026-09-10 lets an alias name another alias, resolved to
+    lets an alias name another alias, resolved to
     the end. That is what makes a cycle possible, so the reader refuses one
     rather than recursing: the message names the alias that closed the ring
     and the member that closed it, because a reader holding only one of the

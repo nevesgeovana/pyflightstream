@@ -12,11 +12,8 @@ replaces: point these functions at the new manual and get the command
 list, each command's page and signature, and the difference against the
 database.
 
-WHAT THIS IS NOT FOR, and the distinction is the whole design. It does
-not write database ENTRIES, and read that word precisely, because since
-2026-08-17 the module does write into chapter files: `insert_version_row`
-splices one single-line VERSION ROW into an entry that already exists,
-and `pyfs-manual register` wrote 369 of them in one pass.
+This module does not create database entries. ``insert_version_row`` inserts a single version
+row into an existing entry; the registration transaction belongs to ``utils.database``.
 
 The line is between an entry and a row on it. An entry is grammar, and
 grammar is what the emitter validates other people's scripts against, so
@@ -97,17 +94,8 @@ enum rules, because a count whose sentence happens to spell two file
 formats ("Number of boundaries in the STL or OBJ import") is a
 count and not a choice.
 
-A SAMPLE THAT CROSSES A PAGE BREAK IS INVISIBLE, and the consequence is
-worth stating because it is silent. Pages are parsed one at a time, so
-a command whose ``Sample:`` banner ends a page and whose printed call
-begins the next one comes back with an empty sample.
-:func:`sample_contradiction` then answers None for it, which is one of
-its three documented silent cases and reads exactly like agreement.
-Measured on 2026-08-07: ``CAD_CREATE_REVOLVE_MESH_FROM_CCS`` in the
-February 2026 edition is such a command, and it is one of the two whose
-argument count the printed sample is what settles. Closing this means
-parsing with overlapping page windows
-(PLN-20260807-0900).
+Pages are parsed as a single stream so a sample that crosses a page break remains part of its
+command block.
 
 The rules and the ordering are held by ``tests/tier1_offline/test_utils_manual.py`` on
 synthetic fixtures; the percentages are not, and cannot be, since a
@@ -189,23 +177,9 @@ _INDEX_LINE = re.compile(r"^([A-Z][A-Z0-9_]{3,})\s+(\S.*?)\s*$")
 _SIGNATURE = re.compile(r"(?:^|\s)Function name:\s*([A-Z][A-Z0-9_]{2,})\s*(.*)$")
 _PLACEHOLDER = re.compile(r"<([^>]+)>")
 
-#: A signature heading that WRAPS: the line after it is placeholders and
-#: nothing else, so those placeholders belong to the signature above.
-#:
-#: Five commands do this, identically in all four registered editions,
-#: and the parser reported every one of them short until 2026-08-07:
-#: CAD_CREATE_AUTO_CROSS_SECTIONS and CREATE_NEW_CIRCLE_VOLUME_SECTION
-#: by one, CREATE_NEW_6DOF_SPRING_FORCE and
-#: CAD_CREATE_REVOLVE_MESH_FROM_CCS by one, and
-#: CREATE_NEW_RECTANGLE_VOLUME_SECTION by THREE. A short signature is
-#: the worst shape this module can produce, because the draft it feeds
-#: LOADS: the schema accepts an entry with fewer arguments, the emitter
-#: then accepts a call with fewer tokens, and the solver reads the line
-#: differently with nothing between the two to object.
-#:
-#: The rule is deliberately strict. A continuation line holds ONLY
-#: placeholders, so a following sentence, a parameter-table heading or a
-#: sample line cannot be absorbed into a signature.
+#: A wrapped signature continues onto a line containing only placeholders. The parser joins
+#: that line to the signature; a sentence, parameter heading or sample cannot become an
+#: argument.
 _WRAPPED_SIGNATURE = re.compile(r"^\s*(?:<[^>]+>\s*)+$")
 
 #: A parameter-table row of a command with no inline signature begins
@@ -357,11 +331,8 @@ def parse_signatures(
 
     Notes
     -----
-    THE PAGES ARE READ AS ONE STREAM, and they were read one at a time
-    until 2026-08-17. That is not a tidying: a command whose block runs
-    past the foot of its page had everything below the break silently
-    dropped, so its ``sample`` and its ``parameters`` were a TRUNCATION
-    of what the manual says, presented as what the manual says.
+    The pages are read as one stream, preserving samples and parameter tables across page
+    boundaries.
 
     It was found by comparing two editions of one manual, where the
     consequence is sharp. The vendor repaginated one chapter by a page,
@@ -492,11 +463,8 @@ def _parameters_after(
 def _sample_after(lines: list[str], start: int, name: str) -> tuple[str, ...]:
     """Lines of the sample block that follows a signature, comments dropped.
 
-    The search for the ``Sample`` heading STOPS at the next signature,
-    which it did not until 2026-08-17. Without that, a command whose own
-    entry carries no sample scanned on into the next command and returned
-    ITS sample: measured over one edition, eleven commands did, including
-    four scene-change commands all carrying `SAVE_SCENE_AS_IMAGE`'s.
+    The search for the ``Sample`` heading stops at the next signature. A command with no sample
+    therefore cannot borrow the next command's example.
     """
     for j in range(start + 1, min(start + 40, len(lines))):
         if lines[j].strip().startswith("Function name:"):
@@ -1719,13 +1687,8 @@ _FLOAT_SUFFIXES = (
 class TypeRule:
     """One rule of :func:`propose_type`, and its position in the order.
 
-    The rules were a chain of ``if`` statements until 2026-08-06, and
-    three consecutive review rounds each found one of them in the wrong
-    place: the openings below the enum rules, then the toggle pair above
-    the openings, then the dimension suffix below the enum rules. The
-    order is not incidental to what the function means, so it is a LIST
-    a reader sees at a glance and a test can walk, rather than a shape
-    recovered by reading control flow.
+    Rules form an ordered list. Their precedence is part of the inference contract and is visible
+    to both readers and tests.
 
     Attributes
     ----------
@@ -2467,17 +2430,8 @@ def insert_version_row(
 ) -> str:
     """Insert one single-line version row into a chapter file's text.
 
-    IT RENDERS THE ROW ITSELF and takes no pre-rendered YAML, which is
-    the correction of 2026-08-17 rather than a matter of taste. The first
-    version took the flow mapping as a string, so quoting and escaping
-    were the caller's problem and the library could not check what it had
-    been handed. Its one caller assembled that string by concatenation,
-    and the class closed by ``INC-20260811-1511-both`` came straight
-    back: measured on the day, a note carrying a backslash or a quote
-    character produced a chapter file YAML refuses, and a note carrying a
-    newline was written silently truncated. There is now no parameter
-    through which a hand-built mapping can enter, and
-    :func:`pyflightstream._yamlflow.flow_mapping` is what renders it.
+    The function renders its row through :func:`pyflightstream._yamlflow.flow_mapping`. It accepts
+    no pre-rendered YAML, so escaping and validation remain within the library.
 
     KEYWORD-ONLY after the text, for the reason the neighbouring
     :class:`Edition` is: ``command``, ``canonical``, ``status`` and

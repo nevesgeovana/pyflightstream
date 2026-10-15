@@ -506,9 +506,7 @@ def _a_named_frame(value: str) -> str:
 def _the_radius_is_a_rotors(value: object) -> object:
     """Refuse the spelling of the probe scale, naming the fix (FR-65).
 
-    It warned and rewrote itself until the instruction of
-    2026-09-10: this package has no stable release, so an old word is
-    refused with its replacement named rather than carried. See
+    A retired word is refused with its replacement named. See
     :mod:`pyflightstream._retired_names`.
     """
     if value == "propeller_radius":
@@ -520,7 +518,7 @@ def validated_family_selection(value: object) -> str | list[str]:
     """Accept one word, or a list of words; what a word IS is judged at build time.
 
     A bare word is one of the five selectors, an alias of the row's setup
-    or a family name (the reference p001 of 2026-09-09 writes ``families =
+    or a family name (for example, ``families =
     "Lifters"``), and :func:`select_families` reads it against the row's
     inventory and aliases; a word resolving to nothing is an entry the
     builder skips. The shape refused here is an empty word and an empty
@@ -583,7 +581,7 @@ class SectionDistribution(_LocatedSpec):
     families: Annotated[str | list[str], BeforeValidator(validated_family_selection)]
     frame: str = "MRP"
     planes: list[Plane] = Field(min_length=1)
-    #: FR-76, the decision of 2026-09-10. `count` and `plot_direction` may be
+    #: FR-76, `count` and `plot_direction` may be
     #: stated per entry and fall back to the artifact's; `include_symmetry` may
     #: NOT, and the asymmetry is deliberate, with a reason a reader can check: a plot
     #: direction is a property of the CUT, so two distributions can honestly
@@ -748,8 +746,8 @@ class VolumeSectionSpec(_LocatedSpec):
 
 
 #: The FRAME KINDS a post-processing entry may cite instead of a frame's
-#: name, and what each says the entry is ONE OF (FR-65, the design of
-#: 2026-09-10). They are not frames the script creates: they name the
+#: name, and what each says the entry is ONE OF (FR-65). They are not frames the script creates:
+#: they name the
 #: ROLE a frame plays for a rotor, and the expansion resolves each to that
 #: rotor's own `<ALIAS>_SMRP`, `<ALIAS>_RMRP` or `<ALIAS>_RMRP<k>`.
 #:
@@ -898,11 +896,8 @@ class ForcePlotGroup(_LocatedSpec):
     def _a_frame_that_expands_is_not_also_a_selector_that_expands(self) -> ForcePlotGroup:
         """One statement of how many, not two (FR-65).
 
-        The frame decides, so a selector that ALSO decides is a second
-        answer to one question. `each` in a rotor frame validated and was
-        then refused at build time by a message about families reaching no
-        rotor, which describes a different mistake: the model accepted
-        what the builder cannot emit (the architecture lens, 2026-09-10).
+        The frame determines the expansion. A rotor frame therefore refuses ``each`` rather than
+        accepting a selector the builder cannot emit.
         """
         if EXPANDING_FRAMES.get(self.frame.strip().upper()) and self.families in (
             "each",
@@ -1134,18 +1129,10 @@ class ProbeCircle(BaseModel):
 class ProbesSpec(_LocatedSpec):
     """One ``[[probes]]`` entry: fluid plots along lines, in a frame, per parameter.
 
-    Each line is sampled at ``points`` vertices from ``start`` to ``end``,
-    and every vertex gets one UNSTEADY_SOLVER_NEW_FLUID_PLOT per parameter,
-    named ``{parameter}{n}`` with n counting vertices across the lines in
-    the order written. ``scale`` says what the coordinates are in: metres,
-    or ROTOR radii, which is how the nine lines were laid out over the
-    disk of whichever rotor the reference named. The word was
-    ``propeller_radius`` in legacy releases and is REFUSED, naming
-    ``rotor_radius``: this release says ROTOR everywhere, because a lifter is not a
-    PROPELLER and an aircraft may carry eight of them. The word sweep of
-    2026-09-10 rewrote `propeller` here into `rotor` and left the sentence
-    arguing against the change it explains (the technical writing lens of
-    the release review).
+    Each line is sampled at ``points`` vertices from ``start`` to ``end``. Every vertex gets one
+    UNSTEADY_SOLVER_NEW_FLUID_PLOT per parameter, named ``{parameter}{n}``, with n counting
+    vertices across lines in input order. ``scale`` specifies metres or rotor radii.
+    ``propeller_radius`` is refused with the replacement ``rotor_radius``.
 
     Attributes
     ----------
@@ -1877,12 +1864,12 @@ class _NoiseSpec(BaseModel):
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
-    PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
+    PFS-2029.07.01, the groups artifact IS the
     home of post-processing and is renamed pproc. Twelve tables. ``groups``
     is exactly what the groups file held, a number to the families it
     aggregates, and the polar tables are written per group of it; a
     member is resolved by :func:`select_group_members`, and an empty
-    group is every family (the design decision of 2026-09-09); ``exports`` says which of
+    group is every family; ``exports`` says which of
     the export kinds a point writes, with VTK and CSV opt-in and the
     existing kinds enabled unless set to false (the per-panel
     ``force_distributions`` is opt-in too, and a steady point

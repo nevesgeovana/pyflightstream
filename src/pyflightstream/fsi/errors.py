@@ -9,15 +9,7 @@ would make the others import a sibling for its exceptions, and one
 defined in the package ``__init__`` would be a cycle for the modules
 that ``__init__`` imports.
 
-Why it exists at all, since the subpackage already had three exception
-classes. :class:`~pyflightstream.fsi.loads.UnitsError`,
-:class:`~pyflightstream.fsi.state.StaleLoadsError` and
-:class:`~pyflightstream.fsi.state.TwistIterationError` each name ONE
-condition. What the subpackage had no word for was the ordinary one: a
-shape, a count or a value that the coupling cannot use. Twenty-eight
-sites said that with a bare ``ValueError``, so ``except
-PyflightstreamError`` did not catch them and FR-39's first clause was
-false across the whole subpackage (architect and QA passes, 2026-08-03).
+The common FSI error base lets callers catch structural errors across the subpackage.
 """
 
 from __future__ import annotations

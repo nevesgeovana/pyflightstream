@@ -213,9 +213,8 @@ def resolve_build(
     table = load_toml(registry_path, "executables")
     _refuse_committed_acceptance(table, registry_path)
     overlay_path = registry_path.with_name(LOCAL_EXECUTABLES_FILE)
-    #: Which file each build id's entry came from, so a refusal about an
-    #: entry names the file the user has to edit (a review of 2026-09-08
-    #: found the overlay's own mistakes reported against the registry).
+    #: The source file of each build entry, used to direct a refusal to the file the user must
+    #: edit.
     source_of: dict[str, Path] = dict.fromkeys(table, registry_path)
     if overlay_path.is_file():
         for key, local in load_toml(overlay_path, "executables").items():

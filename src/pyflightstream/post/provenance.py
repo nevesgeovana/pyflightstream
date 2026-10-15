@@ -72,11 +72,7 @@ def product_archive_dir(path: Path, *, now: datetime | None = None) -> Path:
     product a rebuild archives lands under one folder name even though the
     folders themselves are per-product.
 
-    THIS DOCSTRING SAID ``post/<matrix>/archive/`` UNTIL 2026-09-13, which
-    is one archive for the whole rebuild "keeping whatever folders the
-    product sat in below the matrix". That is a different layout from the
-    one the body returns and from the one the tier-1 case asserts, and the
-    sentence read as a design nobody had built (the QA lens).
+
 
     Parameters
     ----------
@@ -318,8 +314,8 @@ def operator_agent(name: str | None) -> dict[str, object]:
 def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     """Build one run's PROV-JSON document from its record and the files it left.
 
-    W3C PROV, in the PROV-JSON serialization (the design decision of 2026-09-08,
-    design 68): the run record carried every fact a provenance document
+    W3C PROV, in the PROV-JSON serialization (design 68): the run record carried every fact a
+    provenance document
     needs and lacked a shape another tool reads without reading this
     package's docs. ENTITIES are each staged input (``inputs_sha256``), the
     script (``script_sha256``) and each collected output, every one with

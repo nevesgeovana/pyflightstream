@@ -109,10 +109,8 @@ class MalformedOutputError(PyflightstreamError, ValueError):
     fractional or negative count, and a token that is not a number all
     land here.
 
-    Added 2026-08-03 for FR-39: these conditions raised a bare
-    ``ValueError``, so ``except PyflightstreamError`` did not catch
-    them. It keeps ``ValueError`` as a second base, so an existing
-    ``except ValueError`` catches exactly what it caught before.
+    Also inherits from ``ValueError``, so callers can catch either the package error base or the
+    standard value-error base.
     """
 
 
@@ -335,13 +333,7 @@ def reject_trailing_export(text: str, *, what: str) -> None:
 
     Notes
     -----
-    This took a second positional argument, an offset just past the
-    first footer, until 2026-08-03. Only the module-private footer
-    regex could produce that value, so a public function required
-    reading the source to call it, and the offset froze an internal
-    convention into the public contract (architect and api-designer
-    passes). The function owns the whole rule now: it counts footers
-    itself.
+    The function owns the footer rule and counts footers itself; callers supply no parser offset.
     """
     if len(SOFTWARE_LINE.findall(text)) > 1:
         raise MalformedOutputError(
@@ -390,8 +382,7 @@ def parse_count(token: str, *, label: str, minimum: int = 0, counts: str = "iter
         this function, and the messages went on saying "this field
         counts iterations" about surface sections and probe points,
         which is a didactic-policy defect exactly where it matters
-        most, in the terminal a user is standing at (api-designer
-        pass, 2026-08-03).
+        most, in the terminal a user is standing at .
 
     Returns
     -------
@@ -740,8 +731,8 @@ def reduction_for_solver_mode(printed: str | None) -> str:
 #: The export has a parser and a tabular conversion in this package.
 EXPORT_PARSED = "parsed"
 
-#: A structured format deliberately outside the default set (the scoping of
-#: 2026-08-16): Tecplot, VTK and Nastran files are read by their own tools,
+#: A structured format deliberately outside the default set : Tecplot, VTK and Nastran files are
+#: read by their own tools,
 #: and flattening one to a table loses the structure that made it worth
 #: exporting. Converted only when the user names it in the optional
 #: variables.
@@ -791,14 +782,8 @@ class ExportConversion:
     note: str
 
 
-#: Every ``phase: export`` command of the database, classified. Measured
-#: against the live census on 2026-08-20: eighteen entries, ten parsed,
-#: five excluded, two that export nothing, one owed. It read four parsed
-#: and seven owed until that day, when the capture run of
-#: ``scripts/capture_export_corpus.py`` put six of the seven formats on
-#: disk and PFS-2014.02 wrote their parsers against the files. Twenty since
-#: 2026-09-24, when the two plot commands moved to the export phase on
-#: RPT-067's measurement: one more that exports nothing, one more owed.
+#: Every ``phase: export`` command in the database is classified by whether the package parses
+#: its output, deliberately excludes it, expects no file or still owes a parser.
 EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
     "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": ExportConversion(
         EXPORT_PARSED,

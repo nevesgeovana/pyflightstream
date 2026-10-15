@@ -47,7 +47,7 @@ class FarfieldInputError(PyflightstreamError, ValueError):
     the azimuthal sampling cannot resolve, a flux or moment call whose arrays
     do not agree on shape or frame, a station the lattice does not carry.
 
-    Added 2026-08-03 for FR-39, keeping ``ValueError`` as a second base.
+    Also inherits from ``ValueError``.
     """
 
 

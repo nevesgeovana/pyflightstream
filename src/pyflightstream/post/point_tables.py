@@ -429,7 +429,7 @@ def write_plots_table(
 #: states its points either in the reference's length unit or, where it says
 #: `scale = "rotor_radius"`, in rotor radii, which the builder resolves before
 #: it emits; no export and no artifact states a unit name, so no column here
-#: invents one (the technical writing lens asked, 2026-09-11).
+#: invents one .
 #: THE CONTEXT FOLLOWS THE SPINE AND PRECEDES THE FLUID COLUMNS, so the shape
 #: a reader learned -- where the point is, in which frame, at which
 #: step -- is still the first thing in the row, and the export's own columns
@@ -458,13 +458,8 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
     what those runs have always produced. Refusing them would take a
     product away from a campaign that already happened.
 
-    A FILE THAT IS THERE AND CANNOT BE READ IS A REFUSAL, which is the
-    other half and the one this docstring promised wrongly until
-    2026-09-11: it said an unrecognised file answers an empty mapping too,
-    twelve lines above the `raise` in this same function. The two states
-    are different and must not read alike, or a positions file this
-    release wrote and a crash truncated produces a table of empty
-    coordinates with nothing anywhere saying so.
+    An existing positions file that cannot be read is refused. A missing file and a malformed file
+    are distinct: a truncated file must not silently produce empty coordinates.
 
     Parameters
     ----------
@@ -755,13 +750,8 @@ def write_unsteady_probes_table(
     Parameters absent at a vertex are written as NA, so entries requesting
     different parameters retain their available histories in the same table.
 
-    A RECORDED VERTEX THE EXPORT CARRIES NO GROUP FOR IS NAMED IN ``notes``
-    and the others are kept, which is what the definitions page requires of
-    a probe with no recorded history: the profile and the reason are said,
-    the available histories stay. in legacy releases it was dropped in silence and
-    the caller cleared the point's skip because a table had been written, so
-    a reader held a short table with nothing anywhere to say it was short
-    (the independent review of GitHub main, 2026-09-20).
+    A recorded vertex whose group is absent from the export is named in ``notes``; the remaining
+    vertices are kept.
     """
     if not positions or not parameters:
         return None

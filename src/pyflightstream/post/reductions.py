@@ -6,7 +6,7 @@ rule it enforces is a rule about DESTINATIONS, and the average itself
 (:func:`pyflightstream.post.unsteady.blade_passage_average`) is pure and
 has none.
 
-THE FILE RULE OF 2026-08-16, absorbed from PFS-2015.03 into PFS-2015.01:
+THE FILE RULE (PFS-2015.01):
 
 * a reduction NEVER overwrites the file it came from;
 * the time series keeps its own dedicated file.

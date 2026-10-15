@@ -25,16 +25,8 @@ holds ``TypeError`` and ``RuntimeError`` sites, so being exhaustive
 today means catching :class:`PyflightstreamError` and those bases
 together.
 
-THE CATALOG HAS TWO ROOTS, not one root and one stray. Every exception
-descends from :class:`PyflightstreamError`, and every WARNING descends
-from :class:`~pyflightstream._errors.PyflightstreamWarning`, which
-parents :class:`~pyflightstream._errors.PyflightstreamDeprecationWarning`
-and :class:`~pyflightstream.results.VersionMismatchWarning`. So a caller
-selects every warning this package raises with one category, which is
-what the examples build's filter rests on. This paragraph named ONE
-catalogued warning and called it the single member outside the
-hierarchy; that stopped being true when the warning base arrived, and a
-review pass on 2026-08-20 found it still saying so.
+Every exception descends from :class:`PyflightstreamError`; every warning descends from
+:class:`PyflightstreamWarning`. The catalog presents both roots.
 
 Examples
 --------

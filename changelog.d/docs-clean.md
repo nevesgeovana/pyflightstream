@@ -9,3 +9,5 @@
   to its architectural decisions section.
 - Generated API docstrings and command descriptions state current behavior without
   package release narration. Evidence dates and executable example data remain intact.
+- Generated reference prose omits dated editing history; command-level notes follow
+  the same rule as per-build notes and descriptions.

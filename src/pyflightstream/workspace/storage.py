@@ -450,7 +450,7 @@ def _remove_sim_folder(folder: Path) -> list[str]:
     Every link or junction below the folder (its ``inputs`` into the geometry
     library first of all) is undone before the folder is removed, and the
     removal is refused if one is still there: deleting a simulation must
-    never delete the mesh it was linked to (fixed rule, 2026-09-28).
+    never delete the mesh it was linked to.
     Returns the links undone, relative to the folder.
     """
     undone: list[str] = []
@@ -1331,8 +1331,8 @@ def read_matrix_owners(root: Path) -> dict[str, str]:
     """Each matrix stem and the ONE workspace that owns it, from ``sync-workspaces.toml``.
 
     A workspace declares ``matrices = ["matriz", ...]`` in its table. A
-    matrix belongs to one workspace and one only; a workspace may own several
-    (fixed rule, 2026-09-28). A stem declared twice is refused, naming
+    matrix belongs to one workspace and one only; a workspace may own several.
+    A stem declared twice is refused, naming
     both workspaces.
     """
     path = root / SYNC_CONFIG

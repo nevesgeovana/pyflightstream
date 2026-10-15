@@ -758,9 +758,8 @@ def solver_settings(
     - ``minimum_cp`` unset emits ``SOLVER_MINIMUM_CP -100`` while the
       script carries no SOLVER_MINIMUM_CP yet: the
       solver's own default -20 (SRC-003 p.221) clips the suction peaks
-      of rotor blades, so -100 is the library default (design decision
-      of 2026-07-22, retiring the earlier reference-velocity
-      workaround); pass the flag to override. A re-emission call that
+      of rotor blades, so -100 is the library default ; pass the flag to override. A re-emission
+      call that
       omits it leaves the limiter already in the script as it is, where
       in legacy releases it wrote -100 over an earlier explicit value. The physics references
       were re-validated under this default, 30 of 30 metrics

@@ -254,10 +254,8 @@ class FsVersion:
         Whether this build's command evidence falls back to the record
         of the base release when it has none of its own. True for a
         genuine hotfix, which is what the last canonical digit was
-        introduced to index. It is NOT a property of the identifier: on
-        2026-08-04 the February 2026 build took index 26.100 and the May
-        build was appended as 26.101, which puts two independent vendor
-        releases in a base-and-hotfix position they do not stand in.
+        introduced to index. The identifier does not establish inheritance: independent vendor
+        releases can occupy adjacent indices.
         Their manuals are different documents (396 pages against 409)
         describing different command sets, so inheriting one from the
         other made the emitter write commands the later solver refuses.
@@ -387,11 +385,9 @@ def known_versions() -> tuple[FsVersion, ...]:
 def _inherits_base(entry: Mapping[str, object]) -> bool:
     """Read a build's inheritance flag, refusing a hotfix index that omits it.
 
-    A base release (last canonical digit zero) has nothing to inherit
-    from and needs no flag. A hotfix index must state one: whether a
-    build carries its base release's command evidence is a fact about
-    the two vendor builds, and the 2026-08-04 renumbering proved it is
-    not derivable from the identifier.
+    A base release (last canonical digit zero) has nothing to inherit from and needs no flag. A
+    hotfix index must state whether it carries its base release's command evidence; the
+    identifier alone cannot establish that relationship.
 
     Parameters
     ----------
@@ -458,9 +454,8 @@ def resolve(version: str | FsVersion) -> FsVersion:
     version : str or FsVersion
         Canonical identifier (``"26.120"``), a display alias that names
         exactly one registered build (``"26.0"``), or an already
-        resolved :class:`FsVersion`, returned unchanged. Note which
-        alias the example uses: ``"26.1"`` named one build until
-        2026-08-04 and now names two, so it raises
+        resolved :class:`FsVersion`, returned unchanged. The alias ``"26.1"`` names two builds,
+        so it raises
         :class:`AmbiguousVersionAliasError` like ``"26.12"`` does. An
         alias is unique only until the vendor ships the next build under
         the same release name, which is why the canonical identifier is

@@ -10,8 +10,7 @@ research workflow. Artifacts are TOML, never executable code:
 they are validated by pydantic models at load time and fail with a
 didactic message naming the file and the available ids.
 
-AN ID OF A CODED KIND DECLARES THAT KIND, since 2026-08-19
-(PFS-2009.01, PFS-2009.03). A reference id
+AN ID OF A CODED KIND DECLARES THAT KIND, (PFS-2009.01, PFS-2009.03). A reference id
 begins with ``r``, a setup id with ``s``, a pproc id with ``p`` (``e``
 in legacy releases, when the groups artifact became the post-processing
 artifact, PFS-2029.07), so ``r003``, ``s003`` and ``p003`` are three ids
@@ -537,8 +536,8 @@ class ReferenceArtifact(BaseModel):
     #: is a configuration no row may turn.
     body_axes: dict[str, str] = Field(default_factory=dict)
     rotor: RotorReference | None = None
-    #: The boundary aliases the ``[aliases]`` table declares (FR-59, the reference
-    #: design of 2026-09-10). They lived in the setup preset,
+    #: The boundary aliases the ``[aliases]`` table declares (FR-59). They lived in the setup
+    #: preset,
     #: which is per condition where this artifact is per configuration; a
     #: boundary name is not a solver setting. A member may be another
     #: alias, resolved to the end by
@@ -570,8 +569,7 @@ class ReferenceArtifact(BaseModel):
     #: (:meth:`CampaignWorkspace.reference_point`), which is the file every
     #: refusal names. The field exists so that a reference carrying its
     #: airframe point beside its rotors is READ rather than refused, which
-    #: is how a user writes one; which of the two files owns a named
-    #: point is the open question of 2026-09-10 and is not answered here.
+    #: is how a user writes one.
     points: dict[str, PointXyz] = Field(default_factory=dict)
     #: THE STUDY'S VOCABULARY (FR-980): the top-level ``[study]`` table that
     #: states no ``kind`` and one key, ``surfaces``. A setup or pproc name the
@@ -653,8 +651,8 @@ class SetupArtifact(BaseModel):
     #: so one preset serves a sweep over it. That is what leaves RAW to
     #: the particular case it is named for.
     flags: list[CustomFlag] = Field(default_factory=list)
-    #: The boundary aliases the ``[aliases]`` table defines (the design decision
-    #: of 2026-09-09): a name to the boundary names or families it stands
+    #: The boundary aliases the ``[aliases]`` table defines : a name to the boundary names or
+    #: families it stands
     #: for, read wherever a boundary is cited (a matrix cell, a pproc
     #: group, a families entry), a member the mesh lacks ignored; consumed
     #: out of ``settings`` by :func:`resolve_setup` the same way.
@@ -699,7 +697,7 @@ FLAGS_TABLE = "flags"
 class PprocArtifact(PprocSpec):
     """The post-processing artifact (``inputs/pproc/<id>.toml``).
 
-    PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
+    PFS-2029.07.01, the groups artifact IS the
     home of post-processing and is renamed. The file carries twelve tables,
     every one optional: ``[groups]`` maps each product name to one alias string;
     define several members in the reference's ``[aliases]`` table;
@@ -991,7 +989,7 @@ def _frame_of_a_rotor(spelling: str, rotors: Mapping[str, Any]) -> str | None:
 
 
 def _refuse_a_retired_spelling(data: Mapping[str, Any], path: Path) -> None:
-    """Refuse a reference that uses a word this package retired (decision of 2026-09-10).
+    """Refuse a reference that uses a word this package retired.
 
     A key this file no longer knows would otherwise reach a strict model
     and come back as "extra inputs are not permitted", which is true and
@@ -1064,7 +1062,7 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     * a table declaring ``kind = "rotor"`` is a rotor and goes to
       ``rotors``; the block's NAME becomes an alias over everything the
       rotor owns, the general families first, so a row citing it moves the
-      spinner with the blades (the wording of 2026-09-10);
+      spinner with the blades;
     * a table declaring ``kind = "actuator"`` is an actuator disc and goes to
       ``actuators`` (G06); its name may be no rotor's, alias's or frame's;
     * a table declaring any other point ``kind`` goes to ``points``;
@@ -1508,15 +1506,14 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     """Resolve the staged geometry file one ``GEOMETRY`` cell names.
 
     THE CELL CARRIES THE FILE NAME WITH ITS EXTENSION
-    (PFS-2029.09, the design decision of 2026-09-02, amending
+    (PFS-2029.09, amending
     PFS-2009.01): ``30_WB.fsm`` resolves to ``inputs/geometries/30_WB.fsm``
     and ``blade.v2.fsm`` to that one file, one reading and no other. What
     it buys is that the cell says what the file IS: a ``.fsm`` is a saved
     simulation with its boundary conditions in it, a mesh is not, and the
     workflow can tell the two apart before any seat is spent.
 
-    TWO LAYOUTS, THE FOLDER READ FIRST (PFS-2032.04, the reading of
-    2026-09-08, design 68 section A3). ``30_WB.fsm`` resolves to
+    TWO LAYOUTS, THE FOLDER READ FIRST (PFS-2032.04). ``30_WB.fsm`` resolves to
     ``geometries/30_WB/30_WB.fsm`` when that folder exists and to
     ``geometries/30_WB.fsm`` otherwise, so the cell does not change and
     no matrix written breaks. What the folder buys is a home

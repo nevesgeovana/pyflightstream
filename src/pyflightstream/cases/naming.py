@@ -307,13 +307,9 @@ def _name_order(case: _NamedCase, point: Mapping[str, float]) -> list[str]:
 def _as_a_number(case: _NamedCase, key: str, stated: object, where: str) -> float:
     """Return ``stated`` as a number, or raise the refusal this path promises.
 
-    ONE conversion for all four places a declared variable's value can come
-    from, so a fifth cannot be added past the refusal. The first writing wrapped
-    the `variables` branch alone and left the other three raising a bare
-    `ValueError` out of `float()` -- including `flight_condition`, which is where
-    a MATRIX CELL's value lands and is the branch the requirement is about
-    (measured by the closing round, 2026-09-16: a cell stating `MACH: fast` gave
-    `could not convert string to float: 'fast'`).
+    All four sources of declared variable values use this conversion, including
+    ``flight_condition``, where matrix-cell values arrive. Invalid numeric values receive the
+    same refusal regardless of their source.
     """
     try:
         return float(stated)  # type: ignore[arg-type]

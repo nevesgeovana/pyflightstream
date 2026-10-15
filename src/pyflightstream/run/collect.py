@@ -277,14 +277,9 @@ class CollectReport:
     collected: list[CollectOutcome] = field(default_factory=list)
     waiting: list[CollectOutcome] = field(default_factory=list)
     failed: list[CollectOutcome] = field(default_factory=list)
-    #: Points this stage cannot wait for, because their record names no
-    #: declared set. SEPARATE FROM `waiting`, and the separation is the whole
-    #: of it: UNKNOWN is a TERMINAL answer for that point, not a state a later
-    #: sweep changes. While it counted as outstanding, `--watch` in a workspace
-    #: holding one point submitted by the package could never reach its own stop
-    #: condition and swept forever, which is precisely the user the package's
-    #: release note told to expect this stage. Found by the interface lens of
-    #: the release round, 2026-09-14.
+    #: Points whose records declare no output set cannot be awaited by this stage. They are
+    #: reported separately from ``waiting``, so a caller can distinguish missing declarations
+    #: from outputs still in progress.
     unknown: list[CollectOutcome] = field(default_factory=list)
     discarded: list[RunRecord] = field(default_factory=list)
 
@@ -324,14 +319,8 @@ def _outcome_line(outcome: CollectOutcome) -> str:
 def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str | None]:
     """Judge a collected point from the files on disk, as a local run is judged.
 
-    THIS EXISTS BECAUSE THE DEFAULT WAS A LIE. Until it did, `collect_once`
-    with no assessor recorded every settled point ``CONVERGED``, whatever the
-    solver had done, while four separate documents said the stage "assesses
-    the run": the subcommand's own help, FR-99, the change log, and the
-    submitting executor's docstring. A diverged cluster job, a job the
-    scheduler killed after it had written its exports, and a clean run were
-    recorded identically and their products built from that. Two independent
-    review lenses found it in the same round, 2026-09-14.
+    The default assessor judges settled points from their evidence; a settled process alone does
+    not establish convergence.
 
     IT IS THE SAME JUDGEMENT THE LOCAL PATH MAKES, through the same class, so
     a point that ran here and a point that ran on a cluster are judged by one
@@ -1378,12 +1367,8 @@ def _recorded_name(record: RunRecord) -> PointName:
     itself names is the opposite of a guess, and it is the same folder
     :func:`_working_dir` already resolves to read the outputs from.
 
-    WHY THIS IS NOT A REFUSAL ANY MORE. Refusing here deadlocked a workspace with submitted
-    points, measured on a cluster 2026-09-16:
-    `rename` refuses a SUBMITTED record whose folder would move and says to
-    collect it first, and this said to rename first. Worse than the deadlock,
-    the refusal is caught by the sweep and written as FAILED_INCOMPLETE_OUTPUT,
-    so runs that had finished with every export on disk were stamped failed.
+    Collection remains available when workspace names differ from the current naming policy.
+    Submitted points must be collected before their folders can be renamed.
 
     Raises
     ------
