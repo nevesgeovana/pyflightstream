@@ -111,7 +111,7 @@ with `w` each station's strip, so the torque comes from the in-plane
 clocking's copy of one) `a` is the frame's shaft axis, the rotor's letter or
 `z` for a shaft stated as a vector, because every such frame is the hub frame
 turned about the shaft; in `MRP`, whose axes are the geometry's, `a` is
-`axis_vector` itself. See [the wheel migration](../upgrading.md#older-layouts) for the historical thrust and torque correction. The reading of an XZ cut rests on the FSI pilot records; the reading of an XY cut was measured on the 0.31.0 short licensed
+`axis_vector` itself. See [the wheel migration](../upgrading.md#older-layouts) for the historical thrust and torque correction. The reading of an XZ cut rests on the FSI pilot records; the reading of an XY cut was measured on the short licensed
 confirmation of a clocked wheel, where the strip integrals of `Fx`, `Fz` and
 `Fz Offset` over blade one matched the blade's force along the shaft, its
 in-plane force and its moment about the shaft to about 2 per cent. **A share
@@ -161,7 +161,7 @@ table; `NA` everywhere a thrust is not known at every clocking, or the point
 states no density or speed. `MU_ROTOR`, not `MU`: `MU` is the air's viscosity
 in every table's condition block. A sector's row reads `NA` in all six.
 
-**The sections of a wheel point** (0.31.0) hold EVERY clocking: the wheel
+**The sections of a wheel point** hold EVERY clocking: the wheel
 exports its section distributions at each clocking, created again in that
 clocking's pose in frames turned with the wheel (see the workspace page), and
 `sections/<point>_sections.csv` holds clocking 0's rows, then clocking 1's,

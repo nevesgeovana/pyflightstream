@@ -66,7 +66,7 @@ Optional extras, each gating one subsystem:
 |---|---|
 | `[fsi]` | The aeroelastic coupling loop (PyNiteFEA). Generating a blade's structural properties from its sections and a material (`pyflightstream.fsi.sections`) does not need it |
 | `[manual]` | Reading a vendor manual pdf for `pyfs-manual` (pypdf); maintainer tooling, no run path imports it |
-| `[geom]` | The spatial index behind containment culling for probe lattices (rtree, scipy). The mesh reader, trimesh, is NOT here: it became a runtime dependency in v0.8.0, because the trailing-edge extraction that reads a blade surface through it is on the default path of a rotor campaign |
+| `[geom]` | The spatial index behind containment culling for probe lattices (rtree, scipy). The mesh reader, trimesh, is NOT here: it is a runtime dependency because the trailing-edge extraction that reads a blade surface through it is on the default path of a rotor campaign |
 | `[plot]` | matplotlib, for the plotting examples only |
 | `[excel]` | Optional macro-free matrix workbook |
 

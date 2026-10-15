@@ -23,7 +23,7 @@ Read one row across. `POL` is the point of interest, and it becomes the
 simulation identifier (`sim_8001`). `FLIGHT_CONDITION` states the flow
 condition the row runs at, as comma-separated `KEY:value` pairs from a
 closed set; it is MANDATORY, and it replaced the `RE` and `MACH` columns
-at v0.9.0. What it means and which quantity gets solved for is
+in the matrix. What it means and which quantity gets solved for is
 [its own page](flight-conditions.md). The same cell says WHAT VARIES,
 and `SWEEP_VALUES` says over which values: `ALPHA:sweep` with `0.0,2.0`
 is an angle-of-attack sweep at zero and two degrees, so this one row is
@@ -268,7 +268,7 @@ The artifacts they name are worth reading in this order:
 `inputs/references/r006.toml` (the lengths, the aliases, one block per
 rotor), `inputs/setups/s002.toml` (how the solver runs) and
 `inputs/pproc/p005.toml` (what gets written down). `r004.toml` and
-`p003.toml` state the same aircraft in the vocabulary of 0.14.0, so the
+`p003.toml` state the same aircraft in the retired vocabulary, so the
 migration can be diffed rather than described.
 
 **A rotor named by alias.** The row says which rotor turns and how fast;

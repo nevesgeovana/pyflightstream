@@ -66,7 +66,7 @@ the decisions and the package derives the rest.
  tomorrow.
 
  **One exception, for a row whose reference declares no rotor at
- all**: the pre-0.15.0 spelling, which states `ROTOR_AXIS` and
+ all**: the retired spelling, which states `ROTOR_AXIS` and
  `MOVING_BOUNDARIES` rather than naming a block. Such a row has
  nowhere else to put the hand, so `RPM_SIGN: -1` beside the speed is
  the correct and only way to write it there. This is narrower than it
@@ -156,7 +156,7 @@ The solver log is always exported through the pproc `[exports]` table. `LOG_OUTP
   four. See [exports that begin after a threshold](#exports-that-begin-after-a-threshold)
   for the worked example and what the run leaves.
 
-**The plan states how fast each rotor's tip moves (0.30.0).** For every
+**The plan states how fast each rotor's tip moves.** For every
 point of an `unsteady_rotor` row, a `steady` row that states `RPM` and a
 row that names an actuator disc, `pyfs-matrix plan` prints the tip and
 helical Mach numbers of each rotor and disc, from the speed the run turns,
@@ -471,7 +471,7 @@ the after-threshold forms. The run record's `export_window` states the form
 `last_revolutions` for these), the value as written and the resolved
 `first_step`, which every reader of the window reads as before.
 
-**One file per sections distribution (0.25.0).** Post always writes
+**One file per sections distribution.** Post always writes
 `sections/<point>_sloads_<name>.csv` and `sections/<point>_cp_<name>.csv` for
 each `[[sections.distributions]]` entry with usable exports and recorded layout.
 The name is its `families` word or alias, or its list joined with `-`
@@ -495,7 +495,7 @@ as recorded and creates no surface section, and a continuation records the
 layout of the run it continues. Older layouts require an unambiguous match to their recorded pproc, read over the
 geometry's boundary names where the record carries them or its geometry hash
 recovers them, for a block recorded in a common frame; a block in a frame spelt
-like a rotor's is matched over the recorded cuts, as in 0.26.0. See the
+like a rotor's is matched over the recorded cuts, using the recorded layout. See the
 [sections definitions](post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250).
 
 **The stamped files as a series**. Thirty

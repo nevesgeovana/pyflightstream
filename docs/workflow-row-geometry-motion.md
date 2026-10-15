@@ -25,7 +25,7 @@ every run type; and a rotor's own
 `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>`).
 
 **`ALIAS` names what turns, and it is the same word a motion uses.** That
-is the whole of the 0.15.0 change here: after it, every surface of this
+means every surface of this
 package that names a group of boundaries names it by alias, and the
 reference is the one place a study says what its groups are.
 
@@ -45,7 +45,7 @@ created after it spins about the pitched axis and the blade loads a pproc
 entry reads in those frames stay in the blade's own axes, with nothing
 else to write. An alias that is not a rotor owns no frame and turns none.
 
-`FAMILIES` is the 0.14.0 spelling of `ALIAS` and is REFUSED naming `ALIAS` as the word to write. A record stating `ALIAS` and
+`FAMILIES` is the retired spelling of `ALIAS` and is REFUSED naming `ALIAS` as the word to write. A record stating `ALIAS` and
 `FAMILIES` both is refused for a second reason: one rotation turns ONE
 set.
 

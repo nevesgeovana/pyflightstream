@@ -42,7 +42,7 @@ The solver log is always exported through the pproc `[exports]` table. `LOG_OUTP
 ## Probes: unsteady or normal
 
 A pproc `[[probes]]` entry on this run type is an UNSTEADY probe unless it
-states `kind = "normal"` (0.37.0): one fluid plot per point and parameter,
+states `kind = "normal"`: one fluid plot per point and parameter,
 whose history the solver writes at every time step. A NORMAL probe is a probe
 point created after the time march, updated and exported once, so the probes
 table and any sampled field or reusable inflow hold the run's last time step.

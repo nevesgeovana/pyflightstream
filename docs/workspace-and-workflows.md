@@ -92,7 +92,7 @@ POL  | HIDDEN | RUN | AIRCRAFT  | CONFIGURATION | DESCRIPTION            | FLIGH
 file is the suite's proof that a legacy matrix with no geometry keys renders
 exactly the bytes it always did, so it deliberately names none of the
 three keys; run as it stands, it solves whatever the solver already has
-open, which is the defect v0.8.1 exists to remove.
+open.
 
 **EVERY** row needs the cell, not just the rotor one: a row that keeps
 none opens nothing and is told nothing. The fragment below is written for
@@ -168,7 +168,7 @@ worse than no page at all.
   unsteady run takes the same order, not yet measured there
   ([mesh inputs](mesh/reference.md#the-boundary-conditions-of-a-raw-mesh)).
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
-  nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
+  nothing.** That keeps each existing matrix rendering as it
   did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is
   refused at plan time naming the key, so rename the key
   to `GEOMETRY` when you move it.

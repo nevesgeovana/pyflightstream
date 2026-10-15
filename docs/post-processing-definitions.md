@@ -54,7 +54,7 @@ solver inputs must change; recomputing a reduction alone does not require one.
 
 <a id="per-distribution-sectional-loads-and-cp-0250"></a>
 
-[Per-distribution sectional loads and Cp (0.25.0)](definitions/the-sections-table-and-which-row-is-which.md#per-distribution-sectional-loads-and-cp-0250).
+[Per-distribution sectional loads and Cp](definitions/the-sections-table-and-which-row-is-which.md#per-distribution-sectional-loads-and-cp-0250).
 
 <a id="integrated-sectional-loads-since-0260"></a>
 
@@ -154,7 +154,7 @@ centers. The linked definition states the rule for every block.
 
 <a id="native-nodal-strength-in-0290"></a>
 
-[Native nodal strength in 0.29.0](definitions/native-surface-flow-exports.md#native-nodal-strength-in-0290).
+[Native nodal strength](definitions/native-surface-flow-exports.md#native-nodal-strength-in-0290).
 
 <a id="the-strength-is-asked-for-since-0300"></a>
 
@@ -178,7 +178,7 @@ centers. The linked definition states the rule for every block.
 
 <a id="historical-native-volume-exports-027x-and-028x"></a>
 
-[Historical native volume exports, 0.27.x and 0.28.x](definitions/a-volume-section.md#historical-native-volume-exports-027x-and-028x).
+[Historical native volume exports](definitions/a-volume-section.md#historical-native-volume-exports-027x-and-028x).
 
 <a id="durable-execution-activity"></a>
 

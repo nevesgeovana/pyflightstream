@@ -556,7 +556,7 @@ set in), `WRAPPER` and `GRAPHICS` (which differ between fresh imports), and
 another build or unit, 26.124 included, has no measured fresh import: only its
 saved actions are removed, every other block is kept, and the command says
 so. That the solver opens and runs a cleaned file is owed by the licensed
-round of 0.33.0.
+validation round.
 
 The file as it was is copied to `30_WB.fsm.bak-<stamp>` beside it first, and
 it is read again after the change: its boundary names and every block kept
@@ -1018,9 +1018,8 @@ neither. Two standing decisions bound any widening:
  as a conversion backend behind a project-owned adapter (decision
  D8, 2026-07-23): the adapter exposes only what the workflow needs,
  a license evidence card is committed at adoption time like every
- dependency, and validity checks stay with trimesh. That decision was
- re-tested in v0.8.0 when a mesh reader had to be chosen and it held:
- meshio was refused on the committed weight budget, at five new
+ dependency, and validity checks stay with trimesh. The dependency assessment
+ refused meshio on the committed weight budget, at five new
  distributions and 12.26 MiB against limits of one and five, one of them
  a syntax highlighter. Its route into this package is still through the
  adapter and still only if a workflow needs it.

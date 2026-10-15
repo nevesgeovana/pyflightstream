@@ -18,7 +18,7 @@ guided sequence and a precise reference.
 
 The PDFs are built from the sources in `guide/` and published as site downloads
 with each tagged release. Check the version printed in a guide before applying
-its examples to an installation; this source set accompanies 0.41.0. The website
+its examples to an installation. The website
 is the maintained source for technical details and code examples.
 
 Start with [a solver-free first success](getting-started.md#first-success-without-a-solver),

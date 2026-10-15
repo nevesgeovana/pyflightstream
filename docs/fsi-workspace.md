@@ -115,7 +115,9 @@ coincides with the reference (the rotor's hub frame, `SMRP`, at the origin).
 Anything else is refused, named, rather than converted. A sector turning at
 0 rev/min is refused: the route exists to apply the centrifugal loads.
 
-### Direct mesh morphing (0.37.0)
+<a id="direct-mesh-morphing-0370"></a>
+
+### Direct mesh morphing
 
 On a build that runs it (26.125), the sector can be coupled by the solver's
 direct mesh morphing instead of the structural-node import. The FSI input
@@ -152,7 +154,7 @@ Refused by the plan, each naming the remedy: `morphing = "direct_deflected"`; `"
 `unsteady_rotor` (the morph of the rotating blade lands at the azimuth it was
 imported at), on `steady` and `unsteady` (a fixed wing couples through its
 structural nodes), on a wheel, and on a build that does not run the command. Leaving `morphing` out, or stating
-`"mapped"`, is the route of 0.36.0, byte for byte.
+`"mapped"`, uses the mapped displacement route.
 
 ## Fixed-wing FSI
 
@@ -245,8 +247,7 @@ sections_m = [
   states it). Its row in `fsi_convergence_log.csv` states the phase
   `fixed_wing`.
 
-The convergence log `fsi_convergence_log.csv` of every route keeps the
-columns it had in 0.33.0 and ends with `tip_flap_signed_m` (0.34.0): the tip
+The convergence log `fsi_convergence_log.csv` of every route ends with `tip_flap_signed_m`: the tip
 flap deflection in metres with its sign, the sign the displacement file
 `FSIDisp.txt` carries, positive along the section's normal toward the
 suction side, so a wing bending down under its own weight reads negative.

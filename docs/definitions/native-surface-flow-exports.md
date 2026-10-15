@@ -2,7 +2,7 @@
 
 VTK (`.vtk`) and FEM CSV (`.csv`) are native solver surface exports; the
 Tecplot (`.dat`) is written by the package from the VTK ([below](#the-tecplot-surface-is-written-from-the-vtk-since-0280)). New Tecplot requests also retain the native nodal-strength source described in
-[the 0.29 amendment](#native-nodal-strength-in-0290). VTK and CSV
+[the native-source contract](#native-nodal-strength-in-0290). VTK and CSV
 are **off by default**. The pproc can request them and select VTK variables by
 their command-database names:
 
@@ -38,12 +38,12 @@ plan. Both formats also join the per-step `EXPORT_UNSTEADY_AFTER_REV` or
 
 ### The Tecplot surface is written from the VTK
 
-**Historical 0.28.x contract.** The following description applies to records
-without the native-source declaration. New 0.29.0 records follow
+**VTK-only contract.** The following description applies to records
+without the native-source declaration. Records declaring a native source follow
 [the amendment below](#native-nodal-strength-in-0290); historical outputs keep
 the meaning their recorded release gave them.
 
-**A 0.28.x campaign point does not request native Tecplot.** Where `[exports]`
+**A point without a native-source request does not request native Tecplot.** Where `[exports]`
 keeps `tecplot` (the default), the script exports the surface as VTK
 (`EXPORT_SOLVER_ANALYSIS_VTK`, every surface) and the package writes the `.dat`
 from it, at the name the solver's own Tecplot had, in the point's
@@ -56,7 +56,7 @@ outputs, because the `.dat` names it. Without `vtk_variables` it is the
 all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
 `<name>_wakes.vtk`.
 
-| | the solver's own Tecplot, to 0.27.x | the package's 0.28.x contract |
+| | the solver's own Tecplot | the package's VTK-only contract |
 |---|---|---|
 | zone | one FEPolygon zone, BLOCK packing | the same |
 | nodes | `X`, `Y`, `Z`, in the reference frame | the same nodes, in the reference frame; under mirror or periodic symmetry, followed by the images of the surface (below) |
@@ -137,7 +137,9 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
   surface export, `[exports] tecplot`, is written from the VTK.
 - **A record carrying native Tecplot** keeps that file and its recorded meaning: nothing reads it again.
 
-### Native nodal strength in 0.29.0
+<a id="native-nodal-strength-in-0290"></a>
+
+### Native nodal strength
 
 A new workspace Tecplot surface request retains both its VTK source and a
 native auxiliary `*_native_tecplot.dat`, including each requested STEP. The
@@ -149,7 +151,7 @@ from Cp, interpolate cell Cp to nodes, or treat equal counts as equal geometry.
 Both source hashes, the complete recorded loads frame, output hash and matching
 evidence accompany the mixed nodal/cell association. Each STEP uses its own
 source; missing or ambiguous evidence is named rather than filled from the
-final export. Historical records without that declaration keep the 0.28.x
+final export. Historical records without that declaration keep the
 VTK-only contract and its explicit missing-strength statement. See
 [surface translation](../surface-translation.md) for the exact source/association
 and recovery contract.
@@ -161,13 +163,13 @@ and recovery contract.
 **The native export is made only where the row's pproc sets
 `singularity_strength = true`.** The key is off by default. Off, the point
 exports no `*_native_tecplot.dat`, at the end of the run or at any step; its
-translation record names no native source; the `.dat` follows the 0.28.x
+translation record names no native source; the `.dat` follows the VTK-only
 contract above, every VTK variable cell-centred with `Singularity_strength` in
 `NOT_CARRIED` and `not_carried`; and the point is not
 `FAILED_INCOMPLETE_OUTPUT` for a native file it was never asked to write. The
 time-averaged surface below averages the VTK variables and states the strength
-not carried. On, every point and step is exported, matched and recorded exactly
-as in 0.29.0. `pyfs-matrix plan` states per row declaring a Tecplot surface
+not carried. On, every point and step is exported, matched and recorded under
+the native-source contract above. `pyfs-matrix plan` states per row declaring a Tecplot surface
 whether the strength is carried.
 
 <a id="the-time-averaged-surface-is-the-packages-since-0280"></a>
@@ -206,7 +208,7 @@ positive, as before.
  step weighs the same, and nothing is interpolated. The average is
  `blade_passage_average`, the package's one averaging routine, with the panels
  as its samples and the steps as its frames. Every physical cell field the VTK
- carries is averaged, `skin_friction_coeff.` (CF) included. In 0.29.0, available native
+ carries is averaged, `skin_friction_coeff.` (CF) included. Available native
  nodal strength is averaged separately from the cell fields using every
  selected STEP's matched source. Coordinate fields retain the last selected
  STEP; they are never averaged into a different geometry.
@@ -232,7 +234,7 @@ positive, as before.
 - **The product.** `surfaces/<point>_time_average.dat` under the matrix's
  products, written by the writer of every Tecplot (one FEPolygon zone, every
  VTK value per panel, cell-centred, in the reference frame, plus real nodal
- strength for 0.29.0 records declaring that source), and
+ strength for records declaring that source), and
  `surfaces/<point>_time_average.vtk` beside it where the pproc asks
  `[exports] vtk`. Its `DATASETAUXDATA` records say what it is an average of
  (`AVERAGE_OF`, `WINDOW`, `COORDINATES`, `TRANSLATION`, `SOURCE_FRAME` and
@@ -242,7 +244,7 @@ positive, as before.
  `coordinates_step`, and `location`, `frame` and `not_carried` as every
  translated Tecplot does. The frozen-solve rule of every average applies: a
  freeze inside the window warns, and `check_frozen` refuses.
-- **Native comparison limits in 0.29.0.** Native fields can retain a final
+- **Native comparison limits.** Native fields can retain a final
  instant even where the package computes their temporal mean. Those statistics
  are not equivalent. The measured WALLTIME discrepancy retains a named
  surface-average refusal; see [unsteady products](../unsteady-postprocessing.md)

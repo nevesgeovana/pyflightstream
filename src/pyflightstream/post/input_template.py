@@ -1,6 +1,6 @@
 """The input template, ``input_template.md``: one section per kind of input file.
 
-Written at the ROOT of a workspace's ``inputs`` folder since 0.28.0 (G47): one
+Written at the ROOT of a workspace's ``inputs`` folder: one
 section per kind of input file a user writes, the files of ``profiles/``
 among them, each with a complete example to copy. Every example is a file the
 package reads as it stands, which its test holds by writing each one where its
@@ -15,8 +15,7 @@ order; the page is rendered from it by :func:`input_template_markdown`.
 Size exemption: one data table of complete example files, each a literal the suite reads back.
 Its length is the examples' own text; a cut would part an example from its section.
 
-Every public name is re-exported, unchanged, by :mod:`pyflightstream.post.guides`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+Every public name is re-exported by :mod:`pyflightstream.post.guides`.
 """
 
 from __future__ import annotations

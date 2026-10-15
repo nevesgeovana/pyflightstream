@@ -19,8 +19,8 @@ steps per revolution all taken from THAT rotor. Two rotors at two speeds have
 two azimuths at one step, and a wing has none. A block that cuts the
 families of ONE blade of its rotor (the rotor's `families_blades`, blade `n`
 from 1, expanded through the aliases) states THAT blade's azimuth, `AZIMUTH`
-above placed `(n - 1) 360 / B` ahead (0.31.0,
-`pyflightstream.post.axes.placed_blade_azimuth_deg`, the one home), whatever
+above placed `(n - 1) 360 / B` ahead
+(`pyflightstream.post.axes.placed_blade_azimuth_deg`, the one home), whatever
 the sense of rotation: the sense turns the clock, not the blades' places on
 the disc. So the four blade blocks of a four-blade rotor read four azimuths a
 quarter turn apart, in the sections table and in the sections series alike.
@@ -82,7 +82,7 @@ values read `NA`.
 
 The recorded `sections_layout` assigns sections to blocks. New records also
 retain each block's pproc entry position and original `families` selection;
-editing the pproc cannot reassign those recorded blocks. For a 0.24.0 layout,
+editing the pproc cannot reassign those recorded blocks. For a historical layout without entry positions,
 the recorded pproc must match each block unambiguously by families, plane,
 frame and count. That match reads the geometry's boundary names
 where they are known, for a block recorded in a common frame (see *The
@@ -136,7 +136,7 @@ export skips that kind's split files; the other kind remains available.
 Set `integrate = true` beside `families`, `planes` and `count` in the desired
 `[[sections.distributions]]` entry. The default is `false`. Omitted or false,
 the sectional CSV holds the seven export columns and the context written by
-0.25.1, behind the `POL` column every table opens with, with no
+the current layout, behind the `POL` column every table opens with, with no
 additional column. This is a post-processing
 choice in the pproc, so it also applies when posting existing recorded exports.
 The current entry must match each recorded block uniquely by families, plane,
@@ -173,7 +173,7 @@ may be an expanding entry's emission, and the builder resolved that entry
 against the reference's rotor families, never over the names alone:
 `Blade1` on `RMRP` asks for the rotor owning Blade1, and `Blade` for every
 rotor with a Blade family. With no rotor definition in hand such a block is
-matched as without the names, below, as in 0.26.0. No block records which
+matched as without the names, below, using the recorded layout. No block records which
 entry emitted it, so a user's own frame spelt like a rotor's (`X_RMRP`) is
 read that way too, and two entries on it stay refused by name. A run that
 turned a rotor is matched as without the names in any frame unless the

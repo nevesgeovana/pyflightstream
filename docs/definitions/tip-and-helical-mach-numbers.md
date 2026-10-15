@@ -62,8 +62,8 @@ Where they appear:
  points as one job, so its job record keys the blocks one level up by the
  point's name, and each point read out of the job carries its own.
 - The rotor table carries `MTIP_<alias>` and `MHEL_<alias>` after its six
- coefficients (and before the four in-plane ones of 0.31.0), and
- `MADV_<alias>` as its last column (0.40.0), taken at that
+ coefficients (and before the four in-plane ones), and
+ `MADV_<alias>` as its last column, taken at that
  row's speed and `DIAMETER_<alias>` and at the point's resolved condition. A
  point whose condition does not resolve reads `NA` in both and keeps its row.
  A disc has no rotor table, and a steady row's record states no rotor speed

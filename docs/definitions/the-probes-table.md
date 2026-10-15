@@ -15,8 +15,7 @@ profiles.
   export never supplies this table.
 - **Steady:** both declaration forms use standard probe points, and the table
   contains the probe-points export. `STEP` is `NA`.
-- **Unsteady, normal probes** (`kind = "normal"` on every `[[probes]]` entry,
-  0.37.0): the probe points are created after the time march with the steady
+- **Unsteady, normal probes** (`kind = "normal"` on every `[[probes]]` entry): the probe points are created after the time march with the steady
   commands, updated and exported once. The table contains that probe-points
   export, laid out as the steady table, and `STEP` is the run's last time step
   as the run record states it: the step a stopped run stopped at, else the
@@ -31,7 +30,7 @@ Solver numbers whose three-digit exponent omits `E`, such as `0.2964-322`,
 are read as `0.2964E-322`. These printed values remain in their own columns;
 their small magnitude alone neither drops the export nor substitutes a missing value.
 
-An unsteady run recorded with 0.24.0 or earlier sampled cited profiles only at
+A historical unsteady run may have sampled cited profiles only at
 the final instant. Those probes have no recorded history: posting again skips
 them, names the profile and reason in `products.json`, and keeps the available
 drawn-probe histories. A new run is needed to obtain the cited profiles' history.

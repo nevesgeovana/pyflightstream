@@ -24,10 +24,12 @@ A new grid or a missing history cannot be reconstructed merely by posting old
 results. See [the workspace example](../pproc-artifact.md#a-volume-section)
 for input syntax and the measured-domain restrictions.
 
-### Historical native volume exports, 0.27.x and 0.28.x
+<a id="historical-native-volume-exports-027x-and-028x"></a>
+
+### Historical native volume exports
 
 The following contract is retained for old run records only. It is not the
-implementation of a new 0.29.0 workspace `[volume_section]` request.
+implementation of a new workspace `[volume_section]` request.
 
 A volume section is ONE flow-field plane through the solution, declared by the
 pproc's `[volume_section]` table and cut by every point of a

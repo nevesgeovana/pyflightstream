@@ -269,7 +269,7 @@ Bernoulli's relation exactly, as a field induced by surface and wake
 singularities does, `p0 = p0_inf` everywhere, `u* = u`, and the term is zero by
 construction: its value then measures how far the exported pressure and velocity
 depart from that relation. In a field that carries total-pressure loss the same
-integral is the profile drag (Betz, Maskell); no column of 0.40.0 names it a
+integral is the profile drag (Betz, Maskell); no output column names it a
 drag.
 
 **The plane's own lift, a check of the field.** From the same vorticity,

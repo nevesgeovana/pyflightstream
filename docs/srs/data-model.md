@@ -217,13 +217,13 @@ The managed folder tree of a campaign:
     pproc/           post-processing artifacts (named boundary groups and the product tables)
     profiles/        input profiles (e.g. actuator loading shapes)
     freestreams/     custom free-stream fields a row's FREESTREAM names: <stem>.txt or <stem>.dat
-    calibrations/    quasi-steady wheel calibrations a pproc's [qsteady_correction] names: <id>.toml (0.31.0)
+    calibrations/    quasi-steady wheel calibrations a pproc's [qsteady_correction] names: <id>.toml
     hpc/             how a cluster is asked to run a job; read on Linux
-    fsi/             structural configurations a row's FSI names: f<id>.toml (0.29.0)
+    fsi/             structural configurations a row's FSI names: f<id>.toml
     matrices/        run matrices kept inside the library; new files go here, and a
-                     matrix at the workspace root keeps its location (0.29.0)
-    management/      storage recipes a `pyfs-matrix free-space` call runs: m<id>.toml (0.30.0)
-    sync-workspaces.toml  the other workspaces `pyfs-matrix sync` brings runs and results from (0.30.0)
+                     matrix at the workspace root keeps its location
+    management/      storage recipes a `pyfs-matrix free-space` call runs: m<id>.toml
+    sync-workspaces.toml  the other workspaces `pyfs-matrix sync` brings runs and results from
     executables.toml the build-id to executable registry, with an
                      optional declared version per build
   pyfs.toml          shared workspace defaults
@@ -234,7 +234,7 @@ The managed folder tree of a campaign:
   post/              post-processing outputs
   archive/           archived simulations (zip)
   runs.json          the manifest
-  storage_management.json  the record of every storage and sync call (0.30.0)
+  storage_management.json  the record of every storage and sync call
 ```
 
 Optional operation-specific inputs also live under `inputs/costs/` (machine

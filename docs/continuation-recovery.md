@@ -9,7 +9,7 @@ Recovery requires the recorded original script and its SHA256, the saved
 simulation and its SHA256, every recorded native input identity and hash,
 the same point, recipe and FlightStream version, and the same native
 scientific commands. Comments and output serialization are excluded from
-the command comparison: 0.27 used native Tecplot, while current releases
+the command comparison: historical records may carry native Tecplot, while new runs
 translate VTK. Frame placement and loads-frame selection remain compared.
 
 A changed row reports the first differing native command or argument.
@@ -49,7 +49,7 @@ without a solver.
 For handwritten recipes, call resolve_continuation with the actual recipe
 callable, as the normal campaign runner does.
 
-## What a RESTART row continues (0.33.0)
+## What a RESTART row continues
 
 A row stating `RESTART` continues, point by point, the latest recorded run
 of each point:

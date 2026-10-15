@@ -1,10 +1,9 @@
 # What a run cost, and which build got slower
 
 Every campaign this package runs already records how long each point
-took. The manifest, `runs.json`, has carried `wall_time_s` per run since
-the v0.3 line, next to the vendor build string the solver reported and
-the sha256 of the executable that actually ran. What was missing was a
-way to ask the question those three fields exist to answer: **did the
+took. The manifest, `runs.json`, carries `wall_time_s` per run,
+the vendor build string the solver reported and
+the sha256 of the executable that actually ran. Those fields answer: **did the
 new build get slower on the same points?**
 
 That is what the cost view is for. It reads the manifest and nothing
@@ -42,6 +41,7 @@ points would otherwise look slower for having done more.
 ## From Python
 
 ```python
+from pyflightstream import __version__
 from pyflightstream.qa.cost import cost_view
 from pyflightstream.workspace import RunRecord, RunStatus
 
@@ -55,7 +55,7 @@ def run(run_id, alpha_deg, build, sha, seconds):
         fs_version_requested="26.120",
         fs_build=build,
         fs_exe_sha256=sha,
-        package_version="0.8.0",
+        package_version=__version__,
         script_sha256="0" * 64,
         raw_flag=False,
         status=RunStatus.CONVERGED,

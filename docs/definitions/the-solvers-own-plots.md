@@ -42,7 +42,7 @@ step. After an unsteady solve on 26.124 each file holds the series of the
 whole march, one row per INNER iteration (857 rows over 12 time steps), and the
 last plotted lift is the exported CL. A history per time step is the
 unsteady force plot, `<point>_plots.txt` through `[plots]`, as before. **The
-section Cp plot joins supported unsteady rows in 0.29.0**: it is saved once
+section Cp plot is supported for unsteady rows**: it is saved once
 after the march when the pproc declares section distributions, never by each
 per-STEP action. The earlier steady-only refusal applies to prior releases.
 A plot is not a sectional-load table; see [unsteady plots and averages](../unsteady-postprocessing.md)

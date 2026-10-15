@@ -71,7 +71,7 @@ its unit in its own spelling, deliberately. Five CONSTRAIN the state:
 | `dISA` | **Celsius, as a DELTA** | temperature, as an offset on the standard value |
 
 and five PIN it, each replacing what the standard atmosphere would
-otherwise supply, and each recorded on the run as pinned (v0.11.0):
+otherwise supply, and each recorded on the run as pinned:
 
 | Key | Unit | What it replaces |
 |---|---|---|
@@ -111,10 +111,10 @@ is both:
 | `ALPHA` | degrees | the incidence of the free stream |
 | `BETA` | degrees | the sideslip of the free stream |
 | `ADVANCE_RATIO` | dimensionless | the speed of every motion of the row that states none of its own |
-| `RPM` | rev/min, signed | the speed of every motion of the row that states none of its own (0.21.0) |
-| `roll_rate` | deg/s, signed | the roll rate of the aircraft, about the REF's moment point (0.21.0) |
-| `pitch_rate` | deg/s, signed | the pitch rate, about the same point (0.21.0) |
-| `yaw_rate` | deg/s, signed | the yaw rate, about the same point (0.21.0) |
+| `RPM` | rev/min, signed | the speed of every motion of the row that states none of its own |
+| `roll_rate` | deg/s, signed | the roll rate of the aircraft, about the REF's moment point |
+| `pitch_rate` | deg/s, signed | the pitch rate, about the same point |
+| `yaw_rate` | deg/s, signed | the yaw rate, about the same point |
 
 They are parsed here and NEVER handed to the resolver above: an angle
 constrains no fluid property, and asking the resolver about one would be
@@ -188,15 +188,12 @@ attitude is the one warm job it has always been.
 **An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
 over `-4,0,4` plans three runs named `AL-040BE+000`, `AL+000BE+000` and
 `AL+040BE+000`, which are the same three points the paired row it was
-upgraded from produced (`a-04.0_b+00.0` and its siblings, under the tag of
-0.20.x). The point's name ends the `run_id` in every manifest, so the
+upgraded from produced. The point's name ends the `run_id` in every manifest, so the
 converter is held to more than lossless content: it does not rename a run,
 and a `--resume` after an upgrade finds the records it already has.
 
 **Only the two ANGLES do that.** An `ADVANCE_RATIO` the row holds stays on
-the row and is read there, because the 0.20 point tag never carried one and
-putting it in would have renamed every run that has one, which is the same
-cost running the other way. The NAME of a point carries every
+the row and is read there; it is not part of the point mapping. The NAME of a point carries every
 variable the cell declares, held or swept, which is a different question
 from what the point MAPPING carries; see
 [How a point is named](workflow-run-matrix.md#how-a-point-is-named).
@@ -209,7 +206,7 @@ They are one relation, V = J x (RPM/60) x D, with D the diameter of the rotor
 * `RPM` with a velocity: the ratio is what the two work out to, as before.
 * `ADVANCE_RATIO` with a velocity: the speed is derived, n = V / (J D), as
   before.
-* **`RPM` with `ADVANCE_RATIO` and no velocity** (0.21.0): the VELOCITY is
+* **`RPM` with `ADVANCE_RATIO` and no velocity**: the VELOCITY is
   computed from them. This is the form a rotor study writes, where the rig
   states what the rotor does and the free stream follows. A row in this form
   naming no `CLOCK_MOTION` rotor with a diameter is refused by name, because
@@ -288,10 +285,9 @@ one axis at a time, on one half wing-body:
   increment, the damping of a NEGATIVE roll rate, and a positive rotation about
   z gave the left wing less lift, the response of a NEGATIVE yaw rate.
 
-**A row of 0.21.0 to 0.26.0 stating `roll_rate` or `yaw_rate` was solved at the
-opposite rate.** Those releases emitted all three rates with one sign of +1,
-right for pitch  and reversed for roll and yaw, so the
-coefficients of such a row are those of -p or -r. Such a point is found by its
+**Historical roll and yaw results need a sign check.** See the
+[upgrade guidance](upgrading.md#older-layouts) for affected releases. A script
+emitting all three rates with one sign of +1 gives coefficients of -p or -r. Such a point is found by its
 name, which carries the rate (`P` for roll, `R` for yaw), or by the script its
 run record names, whose free-stream line turns about `X` or `Z` with the sign
 of the rate the row states. A row stating `pitch_rate` is unaffected. The

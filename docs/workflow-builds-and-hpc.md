@@ -71,9 +71,8 @@ taken after it. It is also how a row asking for none of the features
 below runs on every build. Such a row, on a build
 that documents the actions, also registers the step counter alone, which
 counts the time steps and writes nothing else, so the progress bar of a
-local run  appears on every unsteady row; its script differs from
-the one 0.32.0 wrote by those three lines only, and its `march_strategy`
-stays `single_march`.  measured no effect from the counter on 26.124, build 8172026. The per-step history of
+local run appears on every unsteady row. Its `march_strategy`
+is `single_march`. Measurements found no effect from the counter on 26.124, build 8172026. The per-step history of
 the products stage comes from the plots table the solver writes, so the
 reductions and the series are built on every build.
 
@@ -228,7 +227,7 @@ export follows them at once.
 ## What the record's digests guard, and where that stops
 
 A run record names the bytes of every file its solver read, `inputs_sha256`
-beside `script_sha256`, and 0.27.0 holds the files the run writes to that. Before
+beside `script_sha256`, and protects those inputs from generated-file collisions. Before
 a single one is written, the run refuses: two files it would write on one path
 (names equal but for case, a path through a parent folder, a name Windows reads
 as another's alias such as a trailing dot, an 8.3 short name or a stream); a

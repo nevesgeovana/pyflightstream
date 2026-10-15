@@ -20,7 +20,7 @@ A steady polar row opens with `POL`, the polar, then `DESCRIPTION`, `GROUP`,
 the reference block `SREF, CREF, BREF, XMOM, YMOM, ZMOM`, the condition the
 twenty-four do not carry, and the twenty-four. Its super file opens with the
 same columns, in the fixed-width `legacy_polar` format too
-A 0.26.0 table carried the polar as `POLAR`, in the place `POL` has now; the
+A historical table may carry the polar as `POLAR`, in the place `POL` has now; the
 super file's union reads such a table's `POLAR` as `POL`
 
 The loads export states ONE force and ONE moment per surface, in the

@@ -82,7 +82,7 @@ the items it answers.
 | BRF-08 | The existing run-matrix workflow keeps working unchanged |
 | BRF-09 | Examples are percent-format `.py` scripts rendered in the docs; no committed notebooks |
 | BRF-10 | Clean-room command emitter; no AGPL-derived code |
-| BRF-11 | FSI: only an extension seam at v0.1; no structural solver inside the package at launch |
+| BRF-11 | FSI provides structural analysis and an experimental coupling interface; live coupled accuracy needs licensed validation |
 | BRF-12 | The failure modes of the predecessor scripts (silent skips, unverifiable runs, untested parsers) must be structurally impossible, not merely discouraged |
 | BRF-13 | Pre-solver definitions (auxiliary coordinate systems and similar) are ordered and enforced by the builder, not left to user discipline |
 | BRF-14 | All folder and file names in the repository are in English |

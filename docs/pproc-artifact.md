@@ -23,7 +23,7 @@ for the unsteady plots source, whose defaults omit the probe-points export.
 base_regions = ["Base"] # the boundaries that become base regions; [] = off
 singularity_strength = true # the Tecplot surface carries the nodal strength (off by default)
 
-[groups] # group NAME -> ONE alias, written as a string (0.24.0)
+[groups] # group NAME -> ONE alias, written as a string
 TOTAL = "all" # every family the geometry carries
 AIRFRAME = "airframe" # an alias of the row's reference, under its [aliases]
 ROTOR = "Blade" # a family is every member of it: Blade1, Blade2,...
@@ -199,7 +199,7 @@ The refusal arrives when the ROW is built, at `plan`, because whether
 reference the row cites. A `frame` is
 cited by NAME: `MRP`, the moment frame the reference artifact creates;
 `SMRP` and `RMRP`, a rotor's hub frame and its turning frame, and
-`LOCAL_AXIS`, one frame per blade (0.15.0, and see the next paragraph for
+`LOCAL_AXIS`, one frame per blade (see the next paragraph for
 what those three do to the entry); `<ALIAS>_SMRP`, `<ALIAS>_RMRP` and
 `<ALIAS>_RMRP<k>`, the same frames named for ONE rotor, which is how an
 entry says which rotor it is about on a row that turns nine; a frame the
@@ -256,8 +256,7 @@ three rows.
  `<ALIAS>_RMRP<k>` never double: they turn WITH the motion at every step
  of an unsteady run, so there is no single frame they turned from.
 
- `PROP_MRP<k>` and `RotorAxis<k>` are refused for an entry written
- against 0.14.0, and a record that names no alias still emits them, so
+ `PROP_MRP<k>` and `RotorAxis<k>` are refused for an entry using the retired frame names, and a record that names no alias still emits them, so
  a workspace may migrate its rows before its post-processing. The
  custom frames come from the REFERENCE now, not the preset, and a
  family of `families_general` gets no frame of its own: its local frame
@@ -278,13 +277,13 @@ TOTAL = "all"
 When no boundary or reference alias is named `all`, this selects EVERY FAMILY
 of the geometry: the polar sums every surface row, and a motion using this
 selection moves every boundary. Check for that collision before migrating;
-see [the 0.26.0 migration check](upgrading.md#older-layouts).
+see [the migration check](upgrading.md#older-layouts).
 A group value resolves first as a boundary name, then a reference alias from
 `[aliases]`, then a family label without its trailing number. Thus `"airframe"`
 selects the reference alias's members, while `"Blade"` can select `Blade1`
 through `Blade6`. Members absent from the geometry are left out.
 
-Historical syntax, retired at 0.26.0: `TOTAL = []` selected every family in the retired list syntax, and nonempty member lists and integer positions were also accepted.
+Retired syntax: `TOTAL = []` selected every family in the retired list syntax, and nonempty member lists and integer positions were also accepted.
 Current editable inputs refuse all group lists; use one alias string and name
 boundary members in the reference instead. `families = []` in a
 `[[plots.groups]]` or a `[[sections.distributions]]` entry is refused,
@@ -319,7 +318,7 @@ keyed by a NUMBER, as the example at the top of this section keys its four,
 still binds, and its files keep the numbered suffix: `"1"` writes `..._g01.csv`.
 That suffix survives only for a pproc that still numbers its groups, so the
 products of a workspace with numbered groups and the ones written beside them
-stay one convention. [Migrating to 0.23.0](upgrading.md#older-layouts) has the
+stay one convention. [Migration guidance](upgrading.md#older-layouts) has the
 command that renames products already written.
 
 **A GROUP IS ONE ALIAS, written as a string.** The key names the
@@ -362,7 +361,7 @@ steady point also saves the solver's residual and load plots
 (`_plot_residuals.txt`, `_plot_loads.txt`) and, where the artifact declares
 sections, its section Cp plot (`_plot_cp_sections.txt`); each is switched off
 with `false` (`plot_residuals`, `plot_loads`, `plot_sections_cp`). Unsteady
-rows save residual/load plots once after the march, and 0.29.0 also supports
+rows save residual/load plots once after the march, and also support
 the final section Cp plot when section distributions exist. A missing declared
 plot fails the point `FAILED_INCOMPLETE_OUTPUT` like any declared export. `force_distributions = true` opts a row of any run
 type into `_force_distributions.txt`, the per-panel force distribution of every
@@ -382,7 +381,7 @@ by default: the point exports the VTK alone, its `.dat` carries every VTK
 variable and states `Singularity_strength` as not carried, and the point is
 complete without the native file it was never asked to write.
 `singularity_strength = true` exports the native file and carries the strength,
-as 0.29.0 did for every surface. The value is a TOML boolean; `"true"` or `1` is
+for every surface. The value is a TOML boolean; `"true"` or `1` is
 refused. `pyfs-matrix plan` says on each row that declares a Tecplot surface
 whether its strength is carried. See
 [surface translation](surface-translation.md).
@@ -425,7 +424,7 @@ invent samples at the new positions.
 
 Product filenames, units, source and provenance are defined once in
 [the volume-section definition](post-processing-definitions.md#a-volume-section).
-That page also retains the native 0.27.x/0.28.x contract for historical records.
+That page also retains the native export contract for historical records.
 A saved FSM's existing native sections do not index the new probe grid. Direct
 native/custom section commands remain available under their command evidence,
 but callers must establish any indices inherited from the FSM themselves.
@@ -578,8 +577,8 @@ to format there.
 `settings/<matrix>_settings.csv` (one row per point, opening with `POL` and `RUN_ID`, the rest
 numeric) and `settings/<matrix>_settings.codebook.json` beside it,
 from the solver-setup snapshot of every recorded point. State
-`settings_codebook = false` to write neither; the products are then those of 0.36.0
-byte for byte. A point whose record holds no snapshot has no row and one INFO line in `post.log`
+`settings_codebook = false` to write neither; other products keep their bytes.
+A point whose record holds no snapshot has no row and one INFO line in `post.log`
 (not a skip); with no snapshot at all neither file is written. The encoding is the
 [settings codebook](settings-codebook.md#the-campaign-product) page.
 
@@ -609,8 +608,7 @@ table's own stem with the suffix `.dat`
 a second time. Off by default. **The format carries the group
 as a two-digit NUMBER on its fourth line.** A numbered group states its number;
 a NAMED group states its position in the `[groups]` table, counted from one,
-and the file's name carries the alias. In 0.23.0 a named group stopped the
-products stage here. The shape, read off a recorded file and pinned by the committed
+and the file's name carries the alias. The shape, read off a recorded file and pinned by the committed
 fixture `tests/tier1_offline/fixtures/custom_polar_format_sample.dat` (every
 value in it synthetic), is nine header lines and then one line per point:
 

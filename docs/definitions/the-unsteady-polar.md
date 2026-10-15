@@ -13,7 +13,7 @@
 - **The file is `polars/P<sim>_<name>_uns_avg.csv`**, one per simulation and one
   row per point. Every file under `post/` comes from a sweep, so the name says
   what the file IS, the average of the unsteady history, and carries the `P`
-  every per-point product carries. It was `<sim>_<name>_unsteady.csv` in 0.23.0.
+  every per-point product carries.
 - **The columns are ordered once:** plots, eighteen axis coefficients per MRP group, `[equations]` columns, super-file content, then `MESH_FACES`. The window columns and condition context identify the averaged interval and point.
 - **A row says it is an average.** Its `reduction` is `time_average` and its
   `reduction_window` is `averaging_window`, the window its `FIRST_STEP`,
@@ -52,7 +52,7 @@ as a health check.
 label carries which coefficient, and a label invented by the package does not
 fail loudly -- it writes `NA` down a whole column.
 
-**The `[names]` dictionary (0.24.0).** A downstream tool may read other names, so
+**The `[names]` dictionary.** A downstream tool may read other names, so
 the pproc may state a dictionary, from a plot column AS THE EXPORT PRINTS IT to
 the name the reader wants:
 

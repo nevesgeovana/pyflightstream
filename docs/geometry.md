@@ -279,8 +279,7 @@ body from a geometry instruction to create the current record format.
 ## From a geometry the row builds
 
 A row that names a CCS, IGES or STL file, or a mesh whose sidecar scales,
-renames or mirrors, still runs in 0.40.0 and is warned at plan with its
-replacement; 0.41.0 refuses it. The converter writes the instruction:
+renames or mirrors, needs conversion to a geometry instruction before running. The converter writes the instruction:
 
 ```text
 pyfs-workspace geometry from-sidecar wing.csv            # print it

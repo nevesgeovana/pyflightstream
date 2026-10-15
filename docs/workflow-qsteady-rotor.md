@@ -196,7 +196,7 @@ builds have since run on 26.124: a sector coupled with FSI  and a
 wheel at 5 deg clocked by rotating its surfaces inside one launch
 .
 
-**A missing output strands nothing** (0.27.0). A point one of whose
+**A missing output strands nothing**. A point one of whose
 declared outputs was not written is recorded `FAILED_INCOMPLETE_OUTPUT`, and
 every declared output it did write is still filed in its
 `datapoints/DP-<point>/`, listed in the record's `outputs` with its sha256 in

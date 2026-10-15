@@ -9,8 +9,8 @@ A
 table whose rows mix polars, the campaign sweep, carries each row's own. What a
 table states about all its rows is a column too, never a line before the
 header: the rotor table's rotor is its `ROTOR` column, right after `POL`. `POL`
-is the only column that states the polar: a steady polar table and its super
-file written by 0.26.0 opened with it as `POLAR`, and no table the post writes
+is the only column that states the polar: a historical steady polar table or
+super file may open with it as `POLAR`, and no table the post writes
 carries `POLAR`.
 Every other column keeps its name and its order after them. The solver's own
 files under `datapoints/DP-<point>/` are never rewritten, and the fixed-width

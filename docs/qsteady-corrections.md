@@ -2,7 +2,7 @@
 
 !!! warning "Not validated"
     Every route on this page is an OPTION, OFF by default, and NOT VALIDATED.
-    0.31.0 ships the machine that applies a correction; which route is
+    The package supplies the machinery that applies a correction; which route is
     recommended, and with which numbers, is a research question the package
     does not answer. A corrected product says so in its `products.json` entry
     (`"validation": "not validated"`).

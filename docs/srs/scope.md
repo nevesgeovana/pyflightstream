@@ -60,10 +60,7 @@ and are never silently dropped.
 
 ## Boundary notes
 
-- The FSI structural solver was out of scope at v0.1 (seam only) and
- entered in-package at M6 as the optional `[fsi]` extra; the
- requirement history records the amendment rather
- than rewriting it.
+- The FSI structural solver is available through the optional `[fsi]` extra.
 - Cluster submission is available through the run executor and explicit HPC
  profiles. It shares the campaign model with local execution; collection
  records the submitted job's observed results. A configured cluster and its
