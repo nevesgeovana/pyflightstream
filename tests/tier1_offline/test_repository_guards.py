@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 
 
@@ -121,6 +123,7 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     sdist-floor in the same change, which the checker refuses to run
     without.
     """
+    _assert_no_internal_lane_records()
     done = _run(
         str(TOOLS / "check_shipped_surface.py"),
         "--config",
@@ -143,6 +146,29 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     assert numbers["scanned"]
     assert numbers["undecodable"] == 0 and numbers["unreadable"] == 0, line
     _assert_exemption_policy(_shipped_surface_module().load_config(SHIPPED_SURFACE_CONFIG))
+
+
+def _assert_no_internal_lane_records() -> None:
+    tracked = subprocess.run(
+        ["git", "-C", str(REPO), "ls-files", "-z"],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=os.environ.copy(),
+    ).stdout.split("\0")
+    internal = [path for path in tracked if path.startswith("lanes/")]
+    assert not internal, f"internal lane records are tracked: {internal}"
+
+
+def test_p0420_internal_lane_records_control(monkeypatch) -> None:
+    """A planted tracked lane path must fail even without forbidden text."""
+
+    def tracked(*args, **kwargs):
+        return subprocess.CompletedProcess(args, 0, "README.md\0lanes/control.json\0", "")
+
+    monkeypatch.setattr(subprocess, "run", tracked)
+    with pytest.raises(AssertionError, match="lanes/control.json"):
+        _assert_no_internal_lane_records()
 
 
 def test_the_shipped_surface_guard_can_still_fail() -> None:
