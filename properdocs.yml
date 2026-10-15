@@ -240,7 +240,7 @@ nav:
       - Requirements tree: graphs/requirements.md
       - Library module graph: graphs/library.md
       - Matrix to products: graphs/data-flow.md
-      - Architecture rules: srs/architecture-srs.md
+      - Contributor rules: https://nevesgeovana.github.io/pyflightstream/architecture/#architectural-decisions
       - Test tiers: tiers.md
       - House conventions: conventions.md
       - Standards alignment: srs/standards.md
@@ -249,6 +249,7 @@ nav:
 exclude_docs: |
   /unpublished/
   /sister-itaca.md
+  /srs/architecture-srs.md
   /requirement-mapping.md
   /release-notes.md
 

@@ -4,3 +4,5 @@
   release numbers remain in upgrade guidance and the changelog.
 - Public rules and geometry-query docstrings omit dated editing history while
   retaining recorded timestamps and measurement evidence.
+- Concepts contains the single architecture page; Contributing links directly
+  to its architectural decisions section.

@@ -20,7 +20,7 @@ def published_pages():
     excluded = config["exclude_docs"].split()
     for path in [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]:
         relative = path.relative_to(ROOT).as_posix().removeprefix("docs/")
-        if any(
+        if relative != "srs/architecture-srs.md" and any(
             relative == entry.strip("/") or relative.startswith(entry.lstrip("/"))
             for entry in excluded
         ):
@@ -106,3 +106,28 @@ def test_p0420_docs_clean_history_guard_controls(monkeypatch):
             test_p0420_docs_clean_dated_narration()
     for text in ('"deleted_at": "2026-09-28T10:15:00+00:00"', "report_2026-09-27.md"):
         assert not HISTORY.search(text), text
+
+
+def nav_entries(items):
+    for item in items:
+        if isinstance(item, dict):
+            for title, target in item.items():
+                if isinstance(target, list):
+                    yield from nav_entries(target)
+                else:
+                    yield title, target
+
+
+def test_p0420_docs_clean_one_architecture_page():
+    config = yaml.safe_load((ROOT / "properdocs.yml").read_text(encoding="utf-8"))
+    entries = list(nav_entries(config["nav"]))
+    architecture = [(title, target) for title, target in entries if "architecture" in title.lower()]
+    assert architecture == [("Architecture", "architecture.md")], architecture
+    contributing = next(item["Contributing"] for item in config["nav"] if "Contributing" in item)
+    assert (
+        "Contributor rules",
+        config["site_url"] + "architecture/#architectural-decisions",
+    ) in list(nav_entries(contributing))
+    assert "/srs/architecture-srs.md" in config["exclude_docs"].split()
+    core = (ROOT / "docs/srs/architecture-srs.md").read_text(encoding="utf-8")
+    assert "## Architectural decisions" in core

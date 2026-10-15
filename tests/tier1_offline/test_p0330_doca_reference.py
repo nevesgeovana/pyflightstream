@@ -502,11 +502,19 @@ def test_the_nav_follows_the_approved_reader_structure():
     names = [next(iter(item)) for item in _nav()]
     assert names == GROUPS
     srs = sorted(p.relative_to(DOCS).as_posix() for p in (DOCS / "srs").glob("*.md"))
-    assert set(srs) == set(_group("Concepts") + _group("Contributing")) & set(srs)
+    # The architecture core generates the single Concepts page; contributor
+    # navigation links to its rules section instead of publishing the core twice.
+    assert set(srs) - {"srs/architecture-srs.md"} == set(
+        _group("Concepts") + _group("Contributing")
+    ) & set(srs)
     assert {"srs/philosophy.md", "srs/introduction.md", "srs/scope.md", "srs/data-model.md"} <= set(
         _group("Concepts")
     )
-    assert {"srs/architecture-srs.md", "srs/standards.md"} <= set(_group("Contributing"))
+    site_url = yaml.safe_load((REPO / "properdocs.yml").read_text(encoding="utf-8"))["site_url"]
+    assert {
+        site_url + "architecture/#architectural-decisions",
+        "srs/standards.md",
+    } <= set(_group("Contributing"))
     assert "srs/roadmap.md" not in _group("Contributing")
     assert not (DOCS / "srs/roadmap.md").exists()
     for folder, group in (

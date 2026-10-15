@@ -2,7 +2,9 @@
 
 This is the current architecture core. It describes dependency boundaries,
 the execution paths and the owners of persistent state. The public architecture
-page is generated from this chapter. API signatures and command options come
+page is generated from this chapter; Contributing links to its architectural
+decisions section. This source chapter is not published as a second page.
+API signatures and command options come
 from their generated references; historical release measurements remain in Git.
 
 ## The layered pipeline
