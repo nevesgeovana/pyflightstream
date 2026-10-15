@@ -43,6 +43,7 @@ def test_p0380_guards_a_failing_guard_exits_1_and_is_named(tmp_path, monkeypatch
     guards = _run_guards()
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
+    (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n", encoding="utf-8")
     (tests_dir / "test_green.py").write_text("def test_green():\n    assert True\n", "utf-8")
     (tests_dir / "test_red.py").write_text(
         "class TestRed:\n    def test_red(self):\n        assert False\n", "utf-8"
@@ -65,6 +66,7 @@ def test_p0380_guards_green_only_when_every_guard_ran_and_passed(tmp_path, monke
     guards = _run_guards()
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
+    (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n", encoding="utf-8")
     (tests_dir / "test_green.py").write_text("def test_green():\n    assert True\n", "utf-8")
     monkeypatch.setattr(guards, "ROOT", tmp_path)
     monkeypatch.setattr(guards, "GUARDS", ("tests/test_green.py",))
