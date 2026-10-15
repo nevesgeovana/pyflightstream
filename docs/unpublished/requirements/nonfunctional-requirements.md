@@ -151,12 +151,12 @@
 
     Evidence for the 0.40.0 amendment: `pyproject.toml` removes xarray;
     `farfield/fields.py`, `farfield/balances.py` and `farfield/quadrature.py`
-    use numpy arrays. `tests/tier1_offline/test_p0400_farfield_numpy.py` proves
-    the removal with `test_p0400_numpy_xarray_left_the_required_dependencies`,
-    `test_p0400_numpy_no_module_of_the_package_imports_xarray` and
-    `test_p0400_numpy_the_package_imports_with_xarray_blocked`, and checks the
+    use numpy arrays. `tests/tier1_offline/test_regression_farfield_numerics.py` proves
+    the removal with `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldNumpy::test_p0400_numpy_xarray_left_the_required_dependencies`,
+    `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldNumpy::test_p0400_numpy_no_module_of_the_package_imports_xarray` and
+    `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldNumpy::test_p0400_numpy_the_package_imports_with_xarray_blocked`, and checks the
     reductions against the 0.39.0 goldens with
-    `test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_bit`.
+    `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldNumpy::test_p0400_numpy_every_result_equals_the_xarray_implementation_to_the_last_bit`.
     `tests/tier1_offline/test_extras.py::test_the_requirement_that_calls_itself_the_home_of_record_names_the_shipped_set`
     checks this table against the declared runtime set. The ITACA migration
     remains future work.
