@@ -251,7 +251,7 @@ def _build_parser() -> argparse.ArgumentParser:
     drift.add_argument(
         "--name",
         default=None,
-        help="campaign name of both sides; without it the workspace directory's name",
+        help="campaign name of both sides; default: each side's a_<build> or b_<build> name",
     )
     drift.add_argument(
         "--workroot",
