@@ -25,7 +25,8 @@ def dry_run(workspace: Path) -> CampaignPlan:
     return plan_matrix(
         workspace / "matrix.fs",
         CampaignWorkspace(workspace),
-        name="mesh_refinement_campaign",
+        name=workspace.resolve().name,
+        name_from="directory",
         recipes={},
         recipe_registry=workflow_registry(),
     )

@@ -25,7 +25,8 @@ def dry_run(workspace: Path) -> CampaignPlan:
     return plan_matrix(
         workspace / "matrix.fs",
         CampaignWorkspace(workspace),
-        name="unsteady_isolated_propeller",
+        name=workspace.resolve().name,
+        name_from="directory",
         recipes={},
         recipe_registry=workflow_registry(),
     )
