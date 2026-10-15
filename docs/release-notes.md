@@ -1,6 +1,6 @@
 # Release notes
 
-## Preparing 0.41.0
+## 0.41.0 - 2026-10-15
 
 Python 3.12 or newer is required. The registered FlightStream builds are
 25.000, 25.100, 26.000, 26.100, 26.101 and 26.120 through 26.125. See
