@@ -595,7 +595,11 @@ def test_public_native_surface_example_preserves_association_and_provenance(tmp_
     import runpy
     from pathlib import Path
 
-    example = Path(__file__).resolve().parents[2] / "examples" / "surface_with_native_strength.py"
+    example = (
+        Path(__file__).resolve().parents[2]
+        / "docs/examples/_sources"
+        / "surface_with_native_strength.py"
+    )
     translate = runpy.run_path(str(example))["translate_with_native"]
     vtk = write_vtk_surface(tmp_path / "p.vtk", _vtk(), title="example")
     native = _native(tmp_path / "native.dat")

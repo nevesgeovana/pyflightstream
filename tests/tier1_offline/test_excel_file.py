@@ -281,7 +281,7 @@ def test_create_and_preview_do_not_automatically_synchronize(tmp_path: Path) -> 
 def test_public_saved_workbook_example(tmp_path: Path) -> None:
     import runpy
 
-    example = Path(__file__).parents[2] / "examples" / "excel_matrix_sync.py"
+    example = Path(__file__).parents[2] / "docs/examples/_sources" / "excel_matrix_sync.py"
     outputs = runpy.run_path(str(example))["demonstrate"](tmp_path)
     assert outputs["workbook"].is_file()
     assert "Saved Excel edit" in outputs["matrix"].read_text()

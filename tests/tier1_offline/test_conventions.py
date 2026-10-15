@@ -1029,7 +1029,7 @@ def test_every_collect_outputs_call_names_its_datapoint():
     # both runs, because CI checks the repo out and runs its tests against the
     # installed distribution.
     repo = Path(__file__).resolve().parents[2]
-    roots = [repo / "src", repo / "examples"]
+    roots = [repo / "src", repo / "examples", repo / "docs/examples/_sources"]
     missing = [str(p) for p in roots if not p.is_dir()]
     assert not missing, (
         f"{', '.join(missing)} is not there, so this check would pass by looking at "

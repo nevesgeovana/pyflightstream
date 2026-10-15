@@ -91,7 +91,7 @@ def test_cad_requires_conversion_table(tmp_path):
 def test_public_cad_example_emits_complete_workflow(tmp_path):
     import runpy
 
-    example = Path(__file__).resolve().parents[2] / "examples" / "cad_import.py"
+    example = Path(__file__).resolve().parents[2] / "docs/examples/_sources" / "cad_import.py"
     main = runpy.run_path(str(example))["cad_script"]
     text = main(tmp_path / "wing.igs", ("Wing",))
     assert "IMPORT_CAD MEDIUM TRUE 80" in text

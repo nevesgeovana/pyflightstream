@@ -149,6 +149,21 @@ def _current() -> dict[str, dict[str, dict]]:
 
 _GOLDEN_KEYS = [(p, k) for p, actions in sorted(_GOLDEN_0331.items()) for k in sorted(actions)]
 
+# RX-28 retires this whole command. Keep an explicit absence check for each
+# historical action; the remaining parser comparisons still apply unchanged.
+_REMOVED = {
+    ("pyfs-matrix", f"convert|{key}")
+    for key in (
+        "fs_exe|--fs-exe",
+        "fs_version|--fs-version",
+        "help|-h,--help",
+        "matrix|",
+        "name|--name",
+        "output|-o,--output",
+        "recipe|--recipe",
+    )
+}
+
 # Deliberate changes a later release made to a 0.33.1 action, each by its planning id:
 # (program, key) -> {field: (0.33.1 value, the value the release decided)}. Any other
 # difference, or a second field changed on an admitted action, still fails.
@@ -189,6 +204,9 @@ def test_a_0331_cli_action_exists_unchanged(program, key):
     # P0340-KILL-P1..P5: a changed default, a dropped choice or a dropped
     # option fails; an action the release adds is not in the golden and passes.
     current = _current()[program]
+    if (program, key) in _REMOVED:
+        assert key not in current, f"{program}: retired action {key!r} returned"
+        return
     moved_to, moved_fields = _MOVED.get((program, key), (key, {}))
     assert moved_to in current, f"{program}: the 0.33.1 action {key!r} is gone"
     want = dict(_GOLDEN_0331[program][key])

@@ -217,7 +217,9 @@ def test_public_custom_field_example_preserves_physical_vectors(tmp_path):
     import runpy
     from pathlib import Path
 
-    example = Path(__file__).resolve().parents[2] / "examples" / "prepare_custom_field.py"
+    example = (
+        Path(__file__).resolve().parents[2] / "docs/examples/_sources" / "prepare_custom_field.py"
+    )
     result = runpy.run_path(str(example))["demonstrate"](tmp_path)
     assert result["scale_from_source"] == 1000
     assert result["source_sha256"] != result["effective_sha256"]

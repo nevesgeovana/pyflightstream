@@ -225,7 +225,11 @@ def test_g58_documented_example_executes_without_a_solver(tmp_path, capsys):
     workspace, case, previous, _ = _old_run(tmp_path)
     case_file = tmp_path / "resolved-case.json"
     case_file.write_text(case.model_dump_json(), encoding="utf-8")
-    example = Path(__file__).resolve().parents[2] / "examples" / "continuation_frame_recovery.py"
+    example = (
+        Path(__file__).resolve().parents[2]
+        / "docs/examples/_sources"
+        / "continuation_frame_recovery.py"
+    )
     main = runpy.run_path(str(example))["main"]
     assert (
         main(

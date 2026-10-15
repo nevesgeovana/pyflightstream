@@ -1,4 +1,4 @@
-"""Tier 1: the pyfs-matrix command line (convert and plan, no run).
+"""Tier 1: the pyfs-matrix command line and retired conversion refusal.
 
 The module it lives in moved on 2026-08-19: `pyflightstream.cases.cli`
 became `pyflightstream.run.cli`, because a command line that plans a
@@ -10,12 +10,10 @@ same subcommands, same flags, same output, so the FR-44 contract is
 untouched and every assertion below is unchanged.
 """
 
-import tomllib
 from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import load_campaign
 from pyflightstream.run.cli import main
 from pyflightstream.workspace import CampaignWorkspace
 
@@ -59,54 +57,22 @@ def convert_args(*extra):
     ]
 
 
-def test_convert_prints_the_canonical_campaign_toml(capsys):
-    assert main(convert_args()) == 0
-    out = capsys.readouterr().out
-    data = tomllib.loads(out)
-    assert data["campaign"]["name"] == "matrix"
-    assert len(data["sim"]) == 6
-    assert data["sim"][0]["sim_id"] == "9001"
-
-
-@pytest.mark.requirement("FR-44")
-def test_convert_writes_a_loadable_file_with_output_option(tmp_path, capsys):
+@pytest.mark.parametrize("form", ["bare", "old-options", "malformed", "output"])
+def test_p0410_cl_fin_convert_refuses_before_reading_arguments(form, tmp_path, capsys):
+    """P0410-CL-FIN: retired conversion always names the matrix route and writes nothing."""
     target = tmp_path / "campaign.toml"
-    assert main(convert_args("-o", str(target))) == 0
-    assert str(target) in capsys.readouterr().out
-    campaign = load_campaign(target)
-    assert [sim.sim_id for sim in campaign.sims] == [
-        "9001",
-        "9002",
-        "9004",
-        "9005",
-        "9006",
-        "9008",
-    ]
-
-
-def test_convert_reports_an_unmapped_code_didactically(capsys):
-    # Only the 003 code is mapped; the 004 rows have no recipe.
-    argv = [
-        "convert",
-        str(FIXTURE),
-        "--name",
-        "matrix",
-        "--fs-version",
-        "26.120",
-        "--fs-exe",
-        "C:/fs.exe",
-        "--recipe",
-        "003=recipes.steady_polar:build",
-    ]
+    argv = {
+        "bare": ["convert"],
+        "old-options": convert_args(),
+        "malformed": ["convert", "absent.fs", "--recipe", "003"],
+        "output": convert_args("-o", str(target)),
+    }[form]
     assert main(argv) == 2
-    assert "no recipe" in capsys.readouterr().err
-
-
-def test_a_malformed_recipe_option_is_refused(capsys):
-    argv = convert_args()
-    argv[argv.index("003=recipes.steady_polar:build")] = "003"
-    assert main(argv) == 2
-    assert "CODE=module:function" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert "conversion was removed" in captured.err
+    assert "pyfs-matrix plan" in captured.err
+    assert captured.out == ""
+    assert not target.exists()
 
 
 def make_planned_workspace(tmp_path):
@@ -612,20 +578,3 @@ def test_an_illegal_directory_name_is_refused_naming_the_option(tmp_path, capsys
     assert caught.value.code == 2, "a refusal of this command line exits 2, like every other"
     err = capsys.readouterr().err
     assert "--name" in err and "my campaign" in err
-    # `convert` has no workspace to name a campaign after and still needs the option.
-    assert (
-        main(
-            [
-                "convert",
-                str(REGISTRY_FIXTURE),
-                "--fs-version",
-                "26.120",
-                "--fs-exe",
-                "fs.exe",
-                "--recipe",
-                "003=m:f",
-            ]
-        )
-        == 2
-    )
-    assert "--name" in capsys.readouterr().err
