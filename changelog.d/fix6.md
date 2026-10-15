@@ -15,3 +15,5 @@
   flat rotor keys. The refusal catalog no longer lists unused entries.
 - PFS-2116.049: Rotor-table documentation describes rejected rows, static
   rows, reference and flight velocities, and both vertical shaft directions.
+- PFS-2112.001: The overview guide describes build-specific validity and
+  the acoustics toolbox without categorically excluding acoustics.
