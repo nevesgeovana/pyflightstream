@@ -21,6 +21,10 @@ def _run_guards():
     return module
 
 
+def test_p0410_rv2_retained_guard_files_exist():
+    assert _run_guards().missing_guards() == []
+
+
 def test_p0380_guards_a_missing_guard_file_exits_2(monkeypatch, capsys):
     """P0380-GUARDS (FR-1188): a listed file not on disk makes the command exit 2, naming it."""
     guards = _run_guards()
