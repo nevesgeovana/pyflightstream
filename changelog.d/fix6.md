@@ -22,3 +22,9 @@
   blade-properties example instead of promising a shape-independent error.
 - OPS-2005.16.01: Versions, builds and evidence distinguishes command
   statuses from build support levels and links both definitions.
+- PFS-2128.002: Preserve existing products before reposting an older
+  workspace. Post applies the current strip integration, rotor averaging
+  windows, installed-frame transformations and coefficient precision to
+  retained exports. Compare the recorded windows, units and references;
+  rerun the solver only when required exports are missing or inputs change.
+  The definitions page links the release-by-release upgrading guidance.
