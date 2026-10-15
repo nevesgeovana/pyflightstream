@@ -10,22 +10,6 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
-   "id": "RX-05",
-   "capability": "Planar probe grids on a frame with per-axis distributions and refinement bands",
-   "reason": "routed later",
-   "node": "PFS-2140.001",
-   "release": "0.41.0",
-   "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
-   "names": [
-    "pyflightstream.probes.AxisSpec",
-    "pyflightstream.probes.FrameDefinition",
-    "pyflightstream.probes.GeometryGateReport",
-    "pyflightstream.probes.PlanarProbeGrid",
-    "pyflightstream.probes.PlannedProbes",
-    "pyflightstream.probes.RefinementBand"
-   ]
-  },
-  {
    "id": "RX-06",
    "capability": "Inside-the-body check of probe points against the surface mesh, and the surface mesh export it reads",
    "reason": "routed later",
@@ -34,7 +18,6 @@
    "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
    "names": [
     "pyflightstream.exceptions.SurfaceMeshExportError",
-    "pyflightstream.probes.geometry.apply_geometry_gate",
     "pyflightstream.run.export_surface_mesh"
    ]
   },

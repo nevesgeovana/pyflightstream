@@ -9,6 +9,10 @@ FlightStream versions.
 
 ### Changed
 
+- Planar probe grids are declared in `[[probes]]`, with reference-frame placement,
+  axis distributions and near-surface refinement checked during plan. Saved
+  simulations require a separate surface mesh export before this route plans.
+
 - Calculated FSI sections accept unit-chord airfoils or NACA four-digit contours.
 
 - Coupled plans report effective station properties, natural frequencies and

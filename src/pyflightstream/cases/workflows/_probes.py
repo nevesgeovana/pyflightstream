@@ -55,6 +55,7 @@ from ._frames import (
 from ._names import (
     _artifact_of,
 )
+from ._planar_probes import planar_points
 from ._rows import (
     _from_metres,
     _rotor_of,
@@ -626,7 +627,12 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             )
             return vertex
     if not (
-        probes.points_file or probes.lines or probes.rectangles or probes.circles or probes.lattices
+        probes.points_file
+        or probes.lines
+        or probes.rectangles
+        or probes.circles
+        or probes.lattices
+        or probes.grids
     ):
         return vertex
     probes = probes.model_copy(update={"frame": _the_probe_frame(case, probes.frame)})
@@ -761,6 +767,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         lattice += rectangle_points(rectangle, scale=scale)
     for circle in probes.circles:
         lattice += circle_points(circle, scale=scale)
+    lattice += planar_points(case, probes, native_per_m)
     # FR-459 R2 (0.40.0): the survey lattices, laid by `probes`. A steady entry
     # in the reference frame has the probes home emit them too
     # (`emit_declared_lattices`), placed and rounded as recorded here; in

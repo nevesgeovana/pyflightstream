@@ -825,6 +825,10 @@ def _mesh(case: SimCase) -> str | None:
     geometry = getattr(case, "geometry", None)
     if geometry and Path(str(geometry)).suffix.lower() in _MESH_SUFFIXES:
         return str(geometry)
+    if geometry and Path(str(geometry)).suffix.lower() == ".fsm":
+        exported = Path(str(geometry)).with_suffix(".surface.stl")
+        if exported.is_file():
+            return str(exported)
     return None
 
 

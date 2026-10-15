@@ -41,6 +41,7 @@ from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.reference_blocks import CampaignConfigError
 from pyflightstream.cases.selection import EVERY_FAMILY
 from pyflightstream.commands import CommandRegistry
+from pyflightstream.probes.planar import PlanarProbeGrid
 
 __all__ = [
     "DEFAULT_DRIFT_LIMIT_PCT",
@@ -1198,6 +1199,7 @@ class ProbesSpec(BaseModel):
     #: FR-459 R2 (0.40.0): a survey lattice is a shape like a rectangle, so it
     #: is a list beside them and not a `kind`, which names the sampling mode.
     lattices: list[LatticeShape] = Field(default_factory=list)
+    grids: list[PlanarProbeGrid] = Field(default_factory=list)
     #: FR-80: the name of a points file the USER wrote, under
     #: `inputs/profiles/`, cited instead of `lines`. The entry still
     #: states its `frame` and its `scale`, because a file of numbers says
@@ -1246,7 +1248,18 @@ class ProbesSpec(BaseModel):
             raise ValueError("field_formats must not repeat a format")
         if self.field_formats or self.reusable_inflow:
             self.parameters = list(dict.fromkeys([*self.parameters, "VX", "VY", "VZ"]))
-        drawn = len(self.lines) + len(self.rectangles) + len(self.circles) + len(self.lattices)
+        drawn = (
+            len(self.lines)
+            + len(self.rectangles)
+            + len(self.circles)
+            + len(self.lattices)
+            + len(self.grids)
+        )
+        if self.grids and (self.frame != "REFERENCE" or self.scale != "m"):
+            raise ValueError(
+                "grids use metre coordinates and explicit reference placement; "
+                'state frame="REFERENCE", scale="m".'
+            )
         if self.points_file and drawn:
             raise ValueError(
                 f"a probe entry in {self.frame or 'the rotor hub frame'} states both "

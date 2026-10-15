@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from pyflightstream.cases import Campaign
+from pyflightstream.cases import Campaign, PprocSpec
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run import plan_campaign
 from pyflightstream.workspace import CampaignWorkspace
@@ -68,3 +68,50 @@ def test_p0410_section_shapes_resolve_through_workspace(tmp_path, shape):
     )
     assert all(point.status == "READY" for point in plan.points), [p.error for p in plan.points]
     assert plan.points[0].fsi["station_properties"]["chord_m"] == [1.0, 1.0, 1.0]
+
+
+def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
+    from pyflightstream.script import Script
+
+    case = steady_wing_case(tmp_path).model_copy(update={"fsi": None})
+    declaration = {
+        "probes": [
+            {
+                "frame": "REFERENCE",
+                "scale": "m",
+                "parameters": ["VX"],
+                "grids": [
+                    {
+                        "frame": {"origin": [0, 0, 2], "x_axis": [1, 0, 0], "y_axis": [0, 1, 0]},
+                        "u": {"start": 0, "stop": 1, "count": 2},
+                        "v": {"start": 0, "stop": 1, "count": 2},
+                    }
+                ],
+            }
+        ]
+    }
+    try:
+        pproc = PprocSpec.model_validate(declaration)
+    except ValueError as error:
+        pproc = None
+        refusal = str(error)
+    assert pproc is not None, refusal
+    case = case.model_copy(update={"pproc": pproc})
+    campaign = Campaign(name="grid", fs_version="26.124", fs_exe=sys.executable, sims=[case])
+    plan = plan_campaign(
+        campaign, CampaignWorkspace.init(tmp_path / "workspace"), recipes=workflow_registry()
+    )
+    assert all(point.status == "READY" for point in plan.points), [p.error for p in plan.points]
+    script = Script("26.124")
+    workflow_registry()["steady"](case, script)
+    assert [list(point[1:4]) for point in script.probe_points] == [
+        [0.0, 0.0, 2.0],
+        [0.0, 1.0, 2.0],
+        [1.0, 0.0, 2.0],
+        [1.0, 1.0, 2.0],
+    ]
+    from pyflightstream.cases.workflows._planar_probes import planar_points
+
+    saved = case.model_copy(update={"geometry": str(tmp_path / "wing.fsm")})
+    with pytest.raises(ValueError, match="wing.surface.stl"):
+        planar_points(saved, pproc.probes[0], 1.0)
