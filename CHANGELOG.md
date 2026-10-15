@@ -9,6 +9,8 @@ FlightStream versions.
 
 ### Changed
 
+- Calculated FSI sections accept unit-chord airfoils or NACA four-digit contours.
+
 - Coupled plans report effective station properties, natural frequencies and
   rotational excitation warnings before a licensed run.
 

@@ -82,7 +82,11 @@ class SolidSections(BaseModel):
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     station_radii_m: list[float]
-    sections_m: list[list[list[float]]]
+    sections_m: list[list[list[float]]] | None = None
+    airfoil: list[list[float]] | None = None
+    naca: str | None = Field(default=None, pattern=r"^[0-9]{4}$")
+    chord_panels: int = Field(default=40, ge=4, le=512)
+    pitch_axis_chord_fraction: float = Field(default=0.25, ge=0.0, le=1.0)
     chord_m: list[float]
     geometric_pitch_deg: list[float]
     geometry_source: str = Field(min_length=1)
@@ -164,13 +168,44 @@ def _material(value: str | dict[str, Any] | None) -> Material:
 
 def _solid(spec: FsiSetupSpec, substance: Material) -> BladeProperties:
     # Numerical section construction is loaded only for the calculated branch.
-    from pyflightstream.fsi.sections import blade_properties_from_sections
+    from pyflightstream.fsi._airfoil import naca4_contour
+    from pyflightstream.fsi.sections import airfoil_section_contour, blade_properties_from_sections
 
     if spec.sections is None:
         raise FsiSetupError(
             "calculated mode needs [sections] with closed solid contours in metres."
         )
-    return blade_properties_from_sections(material=substance, **spec.sections.model_dump())
+    sections = spec.sections
+    if (
+        sum(value is not None for value in (sections.sections_m, sections.airfoil, sections.naca))
+        != 1
+    ):
+        raise FsiSetupError("[sections] needs exactly one of sections_m, airfoil or naca.")
+    contours = sections.sections_m
+    if contours is None:
+        unit_contour = sections.airfoil
+        if sections.naca is not None:
+            if sections.naca[:2] != "00" and sections.naca[1] == "0":
+                raise FsiSetupError("A cambered NACA section needs a nonzero camber position.")
+            if sections.naca[2:] == "00":
+                raise FsiSetupError("A solid NACA section needs positive thickness.")
+            unit_contour = naca4_contour(sections.naca, sections.chord_panels).tolist()
+        assert unit_contour is not None
+        contours = [
+            airfoil_section_contour(
+                unit_contour, chord, sections.pitch_axis_chord_fraction
+            ).tolist()
+            for chord in sections.chord_m
+        ]
+    return blade_properties_from_sections(
+        material=substance,
+        station_radii_m=sections.station_radii_m,
+        sections_m=contours,
+        chord_m=sections.chord_m,
+        geometric_pitch_deg=sections.geometric_pitch_deg,
+        geometry_source=sections.geometry_source,
+        torsion_grid_cells=sections.torsion_grid_cells,
+    )
 
 
 def _read_input(source: Path) -> bytes:

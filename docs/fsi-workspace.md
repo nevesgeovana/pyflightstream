@@ -2,6 +2,15 @@
 
 ## Structural quantities before a run
 
+Calculated `[sections]` accepts exactly one contour source: `sections_m`
+(a physical contour at each station), `airfoil` (one unit-chord contour),
+or `naca` (a four-digit designation such as `"0012"`). Airfoil and NACA
+contours are scaled by each station's `chord_m` and placed about
+`pitch_axis_chord_fraction` (default 0.25). `chord_panels` controls NACA
+panels per side (default 40). For example, replace `sections_m` in the
+calculated input with `naca = "0012"` to use the same symmetric section
+at every station. The workspace tests resolve and plan both contour forms.
+
 Run `pyfs-matrix plan matrix.fs --workspace . --fs-version 26.124` after
 selecting an FSI input. Each coupled point in `plan.json` has an `fsi` object:
 `station_properties`, `natural_frequencies_hz`, `mode_kinds`,

@@ -51,17 +51,6 @@
    ]
   },
   {
-   "id": "RX-09",
-   "capability": "Airfoil or NACA section contour as an FSI section input",
-   "reason": "routed later",
-   "node": "PFS-2140.002",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.fsi.sections.airfoil_section_contour",
-    "pyflightstream.qa.geometry.naca4_contour"
-   ]
-  },
-  {
    "id": "RX-10",
    "capability": "Structural outcome per station (deflection and elastic twist from the node translations) and the loads cross-check",
    "reason": "routed later",
