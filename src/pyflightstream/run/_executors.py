@@ -158,7 +158,7 @@ class ExecutionResult:
         activity's start and end. None for an executor that reports no
         clock, and the record keeps that rather than filling it.
     finished_at : str, optional
-        When the process ended, or was killed on timeout, the same way.
+        When the process ended, or was killed on timeout, the same way. [REF-03]
     """
 
     return_code: int | None
@@ -1562,7 +1562,7 @@ def _a_steady_coupled_script(script_path: Path) -> bool:
 
 
 def _utc_now() -> str:
-    """Return the clock reading a run record carries: ISO 8601, UTC, to the second."""
+    """Return the clock reading a run record carries: ISO 8601 [REF-03], UTC, to the second."""
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 

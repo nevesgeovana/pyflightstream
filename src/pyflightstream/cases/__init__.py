@@ -1121,7 +1121,7 @@ class DerivedFrom(BaseModel):
         the file is refused at load. The digest is a tamper check over
         the file text, not a same-inputs digest: it deliberately covers
         the executable path and the generation moment, because editing
-        either is exactly what it exists to catch.
+        either is exactly what it exists to catch. [REF-03]
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)

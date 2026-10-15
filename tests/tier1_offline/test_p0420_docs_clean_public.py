@@ -302,6 +302,35 @@ def nav_entries(items):
                     yield title, target
 
 
+def test_p0420_sweeps_reference_page_and_private_dataset_boundary():
+    path = ROOT / "docs/references.md"
+    assert path.is_file(), "The public reference register is missing"
+    text = path.read_text(encoding="utf-8")
+    ids = re.findall(r"^### (REF-\d+) \{ #REF-\d+ \}", text, re.MULTILINE)
+    assert ids == [f"REF-{number:02}" for number in range(1, 58) if number != 37]
+    for build in (
+        "25.000",
+        "25.100",
+        "26.000",
+        "26.100",
+        "26.101",
+        "26.120",
+        "26.121",
+        "26.122",
+        "26.123",
+        "26.124",
+        "26.125",
+    ):
+        assert f"**FSM-{build}**" in text
+    config = yaml.safe_load((ROOT / "properdocs.yml").read_text(encoding="utf-8"))
+    reference = next(item["Reference"] for item in config["nav"] if "Reference" in item)
+    assert ("References", "references.md") in list(nav_entries(reference))
+    for directory in ("docs", "guide", "src"):
+        for source in (ROOT / directory).rglob("*"):
+            if source.is_file() and source.suffix in (".md", ".tex", ".py", ".yaml"):
+                assert "XPROP" not in source.read_text(encoding="utf-8"), source
+
+
 def test_p0420_docs_clean_one_architecture_page():
     config = yaml.safe_load((ROOT / "properdocs.yml").read_text(encoding="utf-8"))
     entries = list(nav_entries(config["nav"]))

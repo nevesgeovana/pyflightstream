@@ -679,7 +679,7 @@ def resolve_flight_condition(
             "which is outside the range this atmosphere models: "
             f"{floor_ft} ft to {ceiling_ft} ft "
             f"({ISA.floor_altitude_m:g} m to {ISA.ceiling_altitude_m:g} m). "
-            "ISO 2533 continues above that ceiling with layers this package "
+            "ISO 2533 continues above that ceiling with layers this package [REF-01] "
             "does not implement, and extrapolating past it would be wrong in a "
             "way you could not see."
         )

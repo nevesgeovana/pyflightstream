@@ -332,7 +332,7 @@ def polygon_area_moments(contour_m: ArrayLike) -> PolygonMoments:
     Source: the vertex formulas obtained from Green's theorem for the
     moments of a simple polygon, C. Steger, "On the Calculation of
     Arbitrary Moments of Polygons", Technical Report FGBV-96-05,
-    Technische Universitaet Muenchen, 1996.
+    Technische Universitaet Muenchen, 1996. [REF-07]
 
     Parameters
     ----------
@@ -407,7 +407,7 @@ def torsion_constant(
     sections, S. P. Timoshenko and J. N. Goodier, "Theory of
     Elasticity", 3rd ed., McGraw-Hill, 1970, Chapter 10; the stencil,
     G. H. Shortley and R. Weller, "The numerical solution of Laplace's
-    equation", Journal of Applied Physics 9, 334-348, 1938.
+    equation", Journal of Applied Physics 9, 334-348, 1938. [REF-08], [REF-09]
 
     Parameters
     ----------
@@ -548,7 +548,7 @@ def thin_section_torsion_estimate(contour_m: ArrayLike, samples: int = 4096) -> 
 
     Source: the torsion of thin sections, J = (1/3) integral t^3 ds, in
     S. P. Timoshenko and J. N. Goodier, "Theory of Elasticity", 3rd
-    ed., McGraw-Hill, 1970, Chapter 10.
+    ed., McGraw-Hill, 1970, Chapter 10. [REF-08]
 
     Parameters
     ----------
@@ -654,7 +654,7 @@ def blade_properties_from_sections(
     "Theory of Elasticity", 3rd ed., McGraw-Hill, 1970, Chapter 10 for
     G J; the mass and the mass moments per unit length of a homogeneous
     section are its density times its area and its second moments of
-    area.
+    area. [REF-08]
 
     Parameters
     ----------

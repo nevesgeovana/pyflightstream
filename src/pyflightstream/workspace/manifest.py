@@ -473,7 +473,7 @@ class RunRecord(BaseModel):
         with the reason the row could not window it. None means the row
         carries no time history (a steady point) or the record predates
         the field; a products stage reading None writes no reduction and
-        records why. Adding it did not move :data:`MANIFEST_SCHEMA`.
+        records why. Adding it did not move :data:`MANIFEST_SCHEMA`. [REF-03]
 
         a row that names its rotors by alias also carries
         ``rotors`` (FR-68), alias to one block per rotor holding that

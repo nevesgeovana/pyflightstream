@@ -16,7 +16,7 @@ independently checked against the formulas implemented here. Read the
 formulas as transcribed from the coupling plan and believed correct,
 not as verified against the papers they come from. Every formula
 therefore lives in a small isolated function with the source in the
-docstring, so a later correction is a localized change.
+docstring, so a later correction is a localized change. [REF-05], [REF-06]
 
 All quantities are in SI in the rotating blade frame of
 :mod:`pyflightstream.fsi.config`.
@@ -160,7 +160,7 @@ def propeller_moment_distribution(
 
     Source: FSI Blade Coupling Plan rev. 2 (July 2026), propeller
     moment term after Houbolt and Brooks, NACA Report 1346 (primary
-    source not independently verified).
+    source not independently verified). [REF-06]
 
     Parameters
     ----------
@@ -206,7 +206,7 @@ def in_plane_softening_coefficients(cfg: FsiConfig) -> list[float]:
     equation after Houbolt and Brooks, NACA Report 1346 (primary source
     not independently verified). The tier-1 oracle test checks it
     against an independent hand integration on a synthetic blade: the
-    tip-flap increase the term gives agrees to 0.1 percentage point.
+    tip-flap increase the term gives agrees to 0.1 percentage point. [REF-06]
 
     Parameters
     ----------
@@ -240,7 +240,7 @@ def propeller_moment_twist_stiffness(
 
     Source: FSI Blade Coupling Plan rev. 2 (July 2026), derivative of
     the propeller moment term after Houbolt and Brooks, NACA Report
-    1346 (primary source not independently verified).
+    1346 (primary source not independently verified). [REF-06]
 
     Parameters
     ----------
@@ -632,7 +632,7 @@ def southwell_fit(
     Source: Southwell's linear frequency-rise approximation for
     rotating beams, as used in the FSI Blade Coupling Plan rev. 2
     (July 2026; after Bielawa, "Rotary Wing Structural Dynamics",
-    primary source not independently verified).
+    primary source not independently verified). [REF-05]
 
     Parameters
     ----------

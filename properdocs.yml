@@ -169,6 +169,7 @@ nav:
       - Python API reference: api/
       - Exceptions catalog: exceptions.md
   - Reference:
+      - References: references.md
       - Input files and keys:
           - Input glossary: inputs.md
           - Flight conditions: flight-conditions.md

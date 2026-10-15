@@ -317,7 +317,7 @@ class Ledger:
         first row), ``run_id`` (None when the row names none) and ``error``.
     notes : tuple of dict
         The rows that are notes rather than records: ``delete-sims`` notes and
-        refused continuations that never started.
+        refused continuations that never started. [REF-03]
     """
 
     root: Path

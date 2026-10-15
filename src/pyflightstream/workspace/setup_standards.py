@@ -732,7 +732,7 @@ def render_guidelines(fs_version: str) -> str:
         ),
         "",
         (
-            "Schlichting, Boundary-Layer Theory, 7th edition (1979), Chs. XVI-XVII "
+            "Schlichting, Boundary-Layer Theory, 7th edition (1979), Chs. XVI-XVII [REF-15] "
             "(printed pp.449-505 and 536-544) and Sec. XVIII.g (pp.572-575), "
             "explains why pressure gradient, surface roughness and free-stream turbulence "
             "affect transition. A transition prediction and a separation criterion describe "
@@ -765,7 +765,7 @@ def render_guidelines(fs_version: str) -> str:
             "overrides."
         ),
         "",
-        "The viscous interaction described by Ahuja, Hartfield and Ciliberti (2023), "
+        "The viscous interaction described by Ahuja, Hartfield and Ciliberti (2023), [REF-16] "
         "DOI 10.2514/6.2023-2455, pp. 2-4, "
         "uses boundary-layer displacement to modify the outer-flow boundary condition. Its "
         "streamline boundary-layer assumption limits strongly three-dimensional crossflow and "
@@ -774,12 +774,13 @@ def render_guidelines(fs_version: str) -> str:
         "Transition, laminar separation, turbulent separation and Valarezo maximum-lift limiting "
         "are separate choices. That paper does not establish a Valarezo command or its "
         "implementation.",
-        "Valarezo and Chin (1994), DOI 10.2514/3.46461, printed pp. 104-105, "
+        "Valarezo and Chin (1994), DOI 10.2514/3.46461, printed pp. 104-105, [REF-17] "
         "define an empirical pressure-difference limit dependent on Reynolds number and Mach "
         "number, applied at the first limiting span station. Geometry and configuration matter; "
         "one threshold is not universal. This is source evidence, not native "
         "implementation evidence.",
-        "Pibiri, Validation and modification of the Valarezo-Chin method for the prediction "
+        "[REF-18] Pibiri, Validation and modification of the Valarezo-Chin method "
+        "for the prediction "
         "of maximum lift, MSc thesis, Politecnico di Milano (academic year 2020/21), "
         "printed pp. 24-28 and 41-45, studies Re=6e6 and M=0.15. "
         "Its geometry corrections exclude laminar 6-series airfoils. Its fixed threshold 14 "
@@ -788,7 +789,8 @@ def render_guidelines(fs_version: str) -> str:
         "printing induced velocities adds diagnostics. Compare each effect at fixed "
         "mesh and time step.",
         "",
-        "DiMaggio, Simmons, Geuther, Hartfield and Ahuja, Transition Aero-Propulsive Analysis "
+        "[REF-19] DiMaggio, Simmons, Geuther, Hartfield and Ahuja, "
+        "Transition Aero-Propulsive Analysis "
         "of a Tilt-Wing eVTOL Aircraft Using a Surface-Vorticity Solver (AIAA SciTech 2025 "
         "manuscript, [NASA NTRS 20240014618](https://ntrs.nasa.gov/citations/20240014618)), "
         "PDF pp. 12-13, report better agreement at high-speed transition and offsets at "
@@ -799,7 +801,8 @@ def render_guidelines(fs_version: str) -> str:
         "L in metres. This is separate from geometry import or saved simulation length units.",
         "",
         (
-            "Hoeijmakers, in Ballmann, Eppler and Hackbusch (eds.), Panel Methods in Fluid "
+            "[REF-20] Hoeijmakers, in Ballmann, Eppler and Hackbusch (eds.), "
+            "Panel Methods in Fluid "
             "Mechanics with Emphasis on Aerodynamics (1988), DOI 10.1007/978-3-663-13997-3, "
             "printed pp.24-32, motivates wake deformation for closely interacting "
             "components and describes field-panel extensions for nonlinear compressibility. "
@@ -808,14 +811,15 @@ def render_guidelines(fs_version: str) -> str:
         ),
         "",
         (
-            "Pate and German, A Surface Vorticity Panel Method (2018), DOI "
+            "Pate and German, A Surface Vorticity Panel Method (2018), DOI [REF-21] "
             "10.2514/1.J057120, PDF pp.1-2 and 9, describes an incompressible formulation "
             "and explicitly refers elsewhere for the wake model. It therefore cannot "
             "establish a transonic or wake-setting recommendation by itself."
         ),
         "",
         (
-            "Sathe, Ahuja and Hartfield, Experimental Validation of Integral Boundary Layer "
+            "[REF-22] Sathe, Ahuja and Hartfield, Experimental Validation of "
+            "Integral Boundary Layer "
             "Coupled with a Surface Vorticity Solver (2023), DOI 10.2514/6.2023-4314, PDF "
             "pp.1-2 and 15-17, reports airfoil comparisons motivating a coupled/uncoupled "
             "study. The scoped source review does not establish three-dimensional rotor "

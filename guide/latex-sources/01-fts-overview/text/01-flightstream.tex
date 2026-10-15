@@ -33,13 +33,13 @@ that still allows design iteration.\end{takeaway}
 \begin{column}{0.54\textwidth}
 \begin{itemize}\small
   \item A \textbf{surface vorticity} panel solver: the potential-flow problem,
-        with vorticity carried on the surface mesh [7, 8]. It tolerates
+        with vorticity carried on the surface mesh [7, 8]. It tolerates [REF-21], [REF-27]
         unstructured, engineering-quality meshes and reads the common exchange
         formats [6, pp.~72-75].
   \item The core is \textbf{inviscid}. The rest is correction models on top of
         it: a boundary layer, with optional viscous coupling, for friction drag
         and decambering [6, pp.~204-211]; subsonic compressibility, chosen at
-        initialisation [6, pp.~218-221], [12].
+        initialisation [6, pp.~218-221], [12]. [REF-31]
   \item Steady, unsteady and rotating solutions, driven from a graphical
         interface or from a \textbf{script} of commands.
 \end{itemize}
@@ -111,10 +111,10 @@ installation behaves.
 \begin{column}{0.48\textwidth}
 \begin{block}{What it solves}
 \begin{itemize}\small
-  \item The integrated-circulation formulation, in full [7].
+  \item The integrated-circulation formulation, in full [7]. [REF-27]
   \item The surface vorticity panel method in the archival literature: the
-        reference to cite when someone asks what FlightStream solves [8].
-  \item The classical panel-method background: [9, 10].
+        reference to cite when someone asks what FlightStream solves [8]. [REF-21]
+  \item The classical panel-method background: [9, 10]. [REF-28], [REF-29]
 \end{itemize}
 \end{block}
 \end{column}
@@ -123,9 +123,9 @@ installation behaves.
 \begin{itemize}\small
   \item Stability and control of a vehicle against wind-tunnel data:
         derivatives agree acceptably, control effectiveness is overpredicted,
-        propellers off [13].
+        propellers off [13]. [REF-32]
   \item A high-lift wing with distributed propulsion, against experiment: the
-        closest published case to a powered airframe [14].
+        closest published case to a powered airframe [14]. [REF-33]
 \end{itemize}
 \end{block}
 \end{column}

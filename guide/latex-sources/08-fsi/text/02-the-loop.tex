@@ -69,7 +69,7 @@ own frame, or the wing's; the package never sees azimuth.\par}
         (\(\mu\,l\) and \((I_1 + I_2)\,l\)); every other degree of freedom is
         condensed out of the eigenproblem exactly.
   \item Static solves are linear, or P-Delta whenever axial tension is
-        present [6, 7].
+        present [6, 7]. [REF-08], [REF-52]
 \end{itemize}
 \end{column}
 \begin{column}{0.44\textwidth}
@@ -115,16 +115,16 @@ generated, exactly as written.
   \item \textbf{Tension.} The distributed axial force \(\mu\,\Omega^2 r\)
         makes the tension \(N(r)\) emerge in the solver, and P-Delta turns it
         into bending stiffness, with no manual correction terms: the
-        centrifugal stiffening of a rotating blade [8, 9, 10].
+        centrifugal stiffening of a rotating blade [8, 9, 10]. [REF-05], [REF-53], [REF-54]
   \item \textbf{Propeller moment.} \(-\Omega^2 (I_1 - I_2)\sin\theta\cos\theta\)
         drives each section toward flat pitch. It depends on the total pitch,
         geometric plus elastic, so each call re-solves the beam a few times
-        until the twist stops moving [9, 12].
+        until the twist stops moving [9, 12]. [REF-05], [REF-56]
   \item \textbf{In-plane softening.} The part of the flap deflection that
         lies in the plane of rotation feels the centrifugal field pulling it
         outward, a term \(\mu\,\Omega^2 \sin^2\beta\,w\), \(\beta\) the
         section's pitch, that lowers the stiffness; it is applied with the
-        tension [8, 9].
+        tension [8, 9]. [REF-05], [REF-53]
   \item \textbf{Not modelled: the trapeze effect.} A declared limitation;
         omitting it overpredicts the elastic twist, which is conservative.
 \end{itemize}
@@ -145,7 +145,7 @@ generated, exactly as written.
         still applies the centrifugal loads at the free-stream rotation's rpm.
   \item \textbf{Quasi-static.} The mean deformation is exact within the beam
         idealisation; the once-per-revolution content is trustworthy only well
-        below resonance, roughly \(n\,\Omega / \omega_n \le 0.3\) [12, 13].
+        below resonance, roughly \(n\,\Omega / \omega_n \le 0.3\) [12, 13]. [REF-34], [REF-56]
         The convergence log prints this boundary in its header.
 \end{itemize}
 \begin{alertblock}{The formulas are transcribed, not re-verified}
@@ -268,7 +268,7 @@ convergence judgement.\par
 \begin{column}{0.44\textwidth}
 \begin{block}{A radial basis function carries the nodes to the panels}
 \footnotesize The displacement known at the nodes is interpolated onto every
-aerodynamic panel [14, 15, 16]. A beam is a \textbf{line} of nodes: a
+aerodynamic panel [14, 15, 16]. A beam is a \textbf{line} of nodes: a [REF-44], [REF-45], [REF-47]
 compactly supported kernel reaches only the panels near it. The coupled row
 uses the \textbf{multiquadric} [14], whose support is global: on one beam line
 the measured maximum error reached 24.19 mm for the imposed bend.

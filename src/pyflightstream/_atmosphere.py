@@ -84,14 +84,14 @@ SOURCE OF THE CONSTANTS, cited rather than recalled. The atmosphere is
 ISO 2533:1975, published identically as ICAO Doc 7488/3, whose defining
 constants are reproduced in :data:`ISA` below. The viscosity law is
 Sutherland's, with the air coefficients of White, *Viscous Fluid Flow*,
-3rd ed., eq. (1-36).
+3rd ed., eq. (1-36). [REF-01], [REF-02]
 
 Every ATMOSPHERE constant is from ISO 2533 and every VISCOSITY constant
 from White. ``METRES_PER_FOOT`` is neither: it is the defining value of
 the international foot, exact by definition rather than by measurement.
 It is called out because an earlier version of this sentence said "every
 constant this module uses is in one of those two places", and its own
-module falsified that sixty lines below.
+module falsified that sixty lines below. [REF-01], [REF-02]
 
 ONE CITATION IS NOT CHECKABLE IN THIS REPOSITORY, and saying so is the
 honest form. No copy of White is committed here, so
@@ -109,7 +109,7 @@ which matters because the tropopause is where a cruise Reynolds number
 is actually formed. The difference propagates into every density solved
 on the ``REmi`` path. Which triplet belongs to that equation needs the
 book, and it is the domain-expert seat's call rather than this
-module's.
+module's. [REF-02]
 
 THE OPEN QUESTION HAS A MECHANICAL TRIGGER, which is worth stating so
 the arbiter knows the cost of each answer: ``tests/tier1_offline/test_atmosphere.py``
@@ -131,7 +131,7 @@ weather: it says what ISA defines at a pressure altitude, and nothing
 about any particular day. Above the ceiling in :data:`ISA` it refuses
 rather than extrapolating, because ISO 2533 continues with further
 layers this module does not implement and a silent extrapolation would
-be wrong in a way no caller could see.
+be wrong in a way no caller could see. [REF-01]
 """
 
 from __future__ import annotations
@@ -153,7 +153,7 @@ class AtmosphereError(PyflightstreamError, ValueError):
 
 @dataclass(frozen=True)
 class IsaConstants:
-    """Hold the defining constants of ISO 2533:1975, in one citable object.
+    """Hold the defining constants of ISO 2533:1975 [REF-01], in one citable object.
 
     Held as data rather than as module-level names so that a test can
     read the values it is checking out of the same object the physics
@@ -176,18 +176,18 @@ class IsaConstants:
     tropopause_altitude_m: float = 11000.0
     #: Temperature of the isothermal layer above the tropopause, K.
     tropopause_temperature_k: float = 216.65
-    #: The top of what this module models, m. ISO 2533 continues above
+    #: The top of what this module models, m. ISO 2533 continues above [REF-01]
     #: it with layers this module does not implement, so the ceiling is
     #: a refusal boundary rather than the end of the standard.
     ceiling_altitude_m: float = 20000.0
-    #: The bottom, m. ISO 2533 is defined from -2000 m.
+    #: The bottom, m. ISO 2533 is defined from -2000 m. [REF-01]
     floor_altitude_m: float = -2000.0
 
 
 #: The single instance every function here reads.
 ISA: Final = IsaConstants()
 
-#: Sutherland's law for air: White, *Viscous Fluid Flow*, 3rd ed.,
+#: Sutherland's law for air: White, *Viscous Fluid Flow*, 3rd ed., [REF-02]
 #: eq. (1-36). The reference viscosity is at the reference temperature,
 #: and S is the Sutherland constant of air.
 SUTHERLAND_REFERENCE_VISCOSITY_PA_S: Final = 1.716e-5
@@ -271,7 +271,7 @@ def standard_pressure(altitude_m: float) -> float:
         raise AtmosphereError(
             f"altitude {altitude_m} m is outside the range this atmosphere "
             f"models, {ISA.floor_altitude_m} m to {ISA.ceiling_altitude_m} m. "
-            "ISO 2533 continues above that ceiling with layers this module "
+            "ISO 2533 continues above that ceiling with layers this module [REF-01] "
             "does not implement, and extrapolating past it would be wrong in "
             "a way the caller could not see."
         )
