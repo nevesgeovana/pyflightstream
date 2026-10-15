@@ -90,6 +90,7 @@ __all__ = [
     "accept_geometries",
     "apply_geometry_build",
     "plan_geometry_build",
+    "plan_surface_mesh_export",
     "refuse_before_running",
 ]
 
@@ -276,6 +277,48 @@ def _version_of(root: Path, build_id: str) -> str:
             f"the build id {build_id!r} names no solver version this package knows, and "
             f"inputs/executables.toml declares none for it: {error}"
         ) from error
+
+
+def plan_surface_mesh_export(target: str, build: str | None) -> tuple[Path, Path, str, str]:
+    """Resolve a saved workspace body and the build, without creating files.
+
+    Parameters
+    ----------
+    target : str
+        Saved .fsm path under the workspace's inputs/geometries directory.
+        Export retains its simulation length units and reference frame.
+    build : str or None
+        Explicit build id, or None to read the sibling instruction's fs_build.
+
+    Returns
+    -------
+    tuple of Path, Path, str, str
+        Resolved body path, workspace root, build id and canonical solver version.
+
+    Raises
+    ------
+    InputArtifactError
+        The saved body, workspace location or build declaration is invalid.
+    """
+    source = Path(target).resolve()
+    if source.suffix.lower() != ".fsm" or not source.is_file():
+        raise _refuse(f"{source} is not a saved .fsm geometry; name an existing saved body")
+    library = next(
+        (p for p in source.parents if p.name == "geometries" and p.parent.name == "inputs"),
+        None,
+    )
+    if library is None:
+        raise _refuse(f"{source} is outside inputs/geometries; name a workspace geometry")
+    root = library.parent.parent
+    if not build:
+        instruction = source.with_suffix(INSTRUCTION_SUFFIX)
+        if instruction.is_file():
+            build = read_geometry_instruction(instruction).fs_build
+    if not build:
+        raise _refuse(
+            "surface mesh export needs build (CLI: --build) or fs_build in the body's instruction"
+        )
+    return source, root, build, _version_of(root, build)
 
 
 def _variant_instruction(instruction: GeometryInstruction, angle: float) -> GeometryInstruction:

@@ -761,6 +761,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "apply"): frozenset(
         {
+            "export-surface-mesh",
             "migrate",
             "build",
             "fill-interior",
@@ -774,6 +775,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-workspace", "overwrite"): frozenset(
         {
+            "export-surface-mesh",
             "calibrate",
             "trailing-edge",
             "build",
@@ -811,9 +813,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "rho"): frozenset({"profile"}),
     ("pyfs-workspace", "rpm"): frozenset({"profile"}),
     # The options of `pyfs-workspace geometry`; the feature tests prove their behavior.
-    ("pyfs-workspace", "target"): frozenset({"build"}),
-    ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar"}),
-    ("pyfs-workspace", "fs_exe"): frozenset({"build"}),
+    ("pyfs-workspace", "target"): frozenset({"build", "export-surface-mesh"}),
+    ("pyfs-workspace", "build"): frozenset({"build", "from-sidecar", "export-surface-mesh"}),
+    ("pyfs-workspace", "fs_exe"): frozenset({"build", "export-surface-mesh"}),
     ("pyfs-workspace", "png"): frozenset({"build"}),
     ("pyfs-workspace", "only"): frozenset({"build"}),
     ("pyfs-workspace", "parallel"): frozenset({"build"}),

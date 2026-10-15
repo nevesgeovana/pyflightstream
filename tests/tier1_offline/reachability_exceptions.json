@@ -10,18 +10,6 @@
  "classification": "the rows outside routed later were classified by the release session under the owner delegation of 2026-10-12",
  "rows": [
   {
-   "id": "RX-06",
-   "capability": "Inside-the-body check of probe points against the surface mesh, and the surface mesh export it reads",
-   "reason": "routed later",
-   "node": "PFS-2140.001",
-   "release": "0.41.0",
-   "decision": "owner 2026-10-13: Route in 0.41.0 (grids shape in [[probes]] with the gate at plan; a .fsm geometry needs a licensed mesh export)",
-   "names": [
-    "pyflightstream.exceptions.SurfaceMeshExportError",
-    "pyflightstream.run.export_surface_mesh"
-   ]
-  },
-  {
    "id": "RX-08",
    "capability": "Natural frequencies, Campbell diagram and Southwell fit of the configured blade (the n Omega / omega_n check before a coupled run)",
    "reason": "routed later",

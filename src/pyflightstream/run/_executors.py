@@ -1661,6 +1661,17 @@ class SurfaceMeshExportError(PyflightstreamError, RuntimeError):
     """
 
 
+def _surface_mesh_script(
+    fsm_path: Path, mesh_path: Path, version: str | FsVersion, file_type: str, surface: int
+) -> str:
+    """Render the same validated export for preview and execution."""
+    script = Script(version)
+    script.emit("OPEN", str(fsm_path.resolve()))
+    script.emit("EXPORT_SURFACE_MESH", file_type, surface, str(mesh_path.resolve()))
+    script.emit("CLOSE_FLIGHTSTREAM")
+    return script.render()
+
+
 def export_surface_mesh(
     fsm_path: str | Path,
     workdir: str | Path,
@@ -1736,12 +1747,9 @@ def export_surface_mesh(
     workdir.mkdir(parents=True, exist_ok=True)
     mesh_path = workdir / f"surface_mesh.{file_type.lower()}"
 
-    script = Script(version)
-    script.emit("OPEN", str(Path(fsm_path).resolve()))
-    script.emit("EXPORT_SURFACE_MESH", file_type, surface, str(mesh_path))
-    script.emit("CLOSE_FLIGHTSTREAM")
+    text = _surface_mesh_script(Path(fsm_path), mesh_path, version, file_type, surface)
     script_path = workdir / "export_surface_mesh.txt"
-    _textio.write_text(script_path, script.render())
+    _textio.write_text(script_path, text)
 
     result = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
     if result.failed or not mesh_path.is_file():

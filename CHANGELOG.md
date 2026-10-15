@@ -7,6 +7,10 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `pyfs-workspace geometry export-surface-mesh` previews or exports a saved body's surface to the mesh file probe planning reads; `--apply` runs the solver and `--overwrite` replaces an existing mesh after a successful export.
+
 ### Changed
 
 - `pyfs-matrix support [build]` reports evidence-derived build support without

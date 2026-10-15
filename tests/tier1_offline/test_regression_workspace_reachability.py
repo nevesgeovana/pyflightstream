@@ -53,10 +53,10 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # 278: the plan places and rounds lattices through emit_probe_points and write_probe_csv.
 # 277: field_formats "tecplot-points" writes through post.write_tecplot_points (RX-04 deleted).
 # 273: N3 removes five retired RX-19/RX-20 migration names; no new exception.
-_REACH_GUARD___REGISTER_CEILING = 224
+_REACH_GUARD___REGISTER_CEILING = 222
 
 
-_REACH_GUARD___REGISTER_DIGEST = "ebde97f72255f6bfd19aa5cc3b517f11148161b41e56f259015b7d3cd079a22c"
+_REACH_GUARD___REGISTER_DIGEST = "f133efa36c95c15d4e74da27d7e01a179a1eb71bd032663b60003e9cd234ef94"
 
 
 _REACH_GUARD__REASONS = (

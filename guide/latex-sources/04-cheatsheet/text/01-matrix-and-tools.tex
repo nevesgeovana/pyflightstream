@@ -250,6 +250,7 @@ See the website's Upgrading page for supported workspace conversion.
 \end{flags}
 \sub{calibrate <id>}{derive an unvalidated sector-offset calibration from recorded wheel and sector points}
 \fl{--workspace DIR}, \fl{--wheel-run ID}, \fl{--sector-run ID}, \fl{--rotor NAME}, \fl{--matrix NAME}, \fl{--overwrite}.
+\sub{geometry export-surface-mesh <FSM>}{preview the surface export of a saved workspace body; \fl{--apply} runs the licensed solver and writes \texttt{<stem>.surface.stl} beside it for probe planning; \fl{--build ID} selects the build, \fl{--fs-exe PATH} overrides its executable, and \fl{--overwrite} replaces an existing mesh only after a successful export}
 \sub{geometry trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}
 \fl{--axis X Y Z}, \fl{--hub X Y Z}, \fl{--unit UNIT}, \fl{--sections N}, \fl{--overwrite}.
 \sub{geometry}{build and accept bodies outside the run matrix; includes the mesh tools of page 1}

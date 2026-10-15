@@ -291,6 +291,36 @@ It never edits the sidecar or a matrix. It names the `translate` and `rotate`
 operations, which stay in the sidecar of the built mesh, and the `GEOMETRY`
 cell the rows should name after the build.
 
+## Export a saved body's surface for probes
+
+Probe planning reads a saved body's surface from `<stem>.surface.stl` beside
+its `.fsm` file. Export it once on the licensed machine before planning grids
+or checking points against that body. From the workspace root:
+
+```text
+pyfs-workspace geometry export-surface-mesh inputs/geometries/wing/wing.fsm --build 26.125
+pyfs-workspace geometry export-surface-mesh inputs/geometries/wing/wing.fsm --build 26.125 --apply
+```
+
+The first command prints the validated export script and destination without
+running the solver or writing files. The second opens the saved simulation,
+exports all surfaces, and closes the solver without solving. It writes
+`inputs/geometries/wing/wing.surface.stl`, in the simulation's units and
+reference frame, where the probe gate already looks. The geometry extra is
+needed for containment queries, not for this export.
+
+`--build` overrides `fs_build` in the saved body's sibling geometry instruction;
+without that instruction, supply `--build`. Executable lookup uses
+`inputs/executables.toml` and its local overlay; `--fs-exe PATH` overrides it.
+An existing mesh requires `--overwrite`. Export runs in a fresh
+`<stem>.surface-export/` folder (numbered on later attempts), retaining its
+script and logs. Only a successful export replaces the target, so a failed
+retry preserves the earlier mesh. Re-export after changing the saved body.
+
+Exit status is 0 for preview or successful export, 2 for invalid inputs or
+filesystem refusals, and 3 when the solver fails or writes no mesh. Planning
+itself never launches the solver.
+
 ## The other geometry verbs
 
 `pyfs-workspace geometry refine`, `audit`, `inventory` and `degenerate` take

@@ -29,7 +29,13 @@ from pyflightstream.run._cli_mesh import (
     add_inventory_parser,
     add_mesh_parsers,
 )
-from pyflightstream.run._executors import ExecutorConfigurationError, LocalExecutor
+from pyflightstream.run._executors import (
+    ExecutorConfigurationError,
+    LocalExecutor,
+    SurfaceMeshExportError,
+    _surface_mesh_script,
+    export_surface_mesh,
+)
 from pyflightstream.workspace._geometry_build import (
     GeometryBuildError,
     GeometryBuildPlan,
@@ -37,6 +43,7 @@ from pyflightstream.workspace._geometry_build import (
     accept_geometries,
     apply_geometry_build,
     plan_geometry_build,
+    plan_surface_mesh_export,
     refuse_before_running,
 )
 from pyflightstream.workspace._geometry_convert import (
@@ -66,7 +73,14 @@ PYFS_MATRIX_ALIASES = {
 }
 
 #: Every verb of the group.
-GEOMETRY_VERBS = ("build", "accept", "from-sidecar", "trailing-edge", *PYFS_MATRIX_ALIASES)
+GEOMETRY_VERBS = (
+    "build",
+    "accept",
+    "from-sidecar",
+    "trailing-edge",
+    "export-surface-mesh",
+    *PYFS_MATRIX_ALIASES,
+)
 
 #: How long one build may run; a build makes a body and solves nothing.
 _TIMEOUT_S = 1800.0
@@ -97,6 +111,21 @@ def add_geometry_commands(subparsers: Any) -> None:
         ),
     )
     verbs = geometry.add_subparsers(dest="geometry_command", required=True)
+    export = verbs.add_parser(
+        "export-surface-mesh",
+        help="preview a saved body's surface export for probes, or run it with --apply",
+        description=(
+            "Exports all surfaces of a saved workspace .fsm to <stem>.surface.stl beside it, "
+            "where probe planning reads them. Preview prints the script and target without "
+            "running or writing. --apply needs a licensed solver. Existing meshes require "
+            "--overwrite; a failed export preserves them. See docs/geometry.md."
+        ),
+    )
+    export.add_argument("target", metavar="FSM", help="saved file under inputs/geometries")
+    export.add_argument("--build", metavar="ID", help="build id, over the instruction's fs_build")
+    export.add_argument("--fs-exe", metavar="PATH", help="executable, over the registry")
+    export.add_argument("--apply", action="store_true", help="run the solver and export the mesh")
+    export.add_argument("--overwrite", action="store_true", help="replace an existing surface mesh")
     edge = verbs.add_parser("trailing-edge", help="extract trailing-edge midpoint coordinates")
     edge.add_argument("mesh")
     edge.add_argument("output")
@@ -330,6 +359,53 @@ def _cmd_build(args: argparse.Namespace) -> int:
     return status
 
 
+def _cmd_export_surface_mesh(args: argparse.Namespace) -> int:
+    try:
+        source, root, build, version_id = plan_surface_mesh_export(args.target, args.build)
+        target = source.with_suffix(".surface.stl")
+        work = source.with_suffix(".surface-export")
+        ordinal = 1
+        while work.exists():
+            ordinal += 1
+            work = source.with_suffix(f".surface-export.{ordinal}")
+        print(f"surface mesh of {source} on build {build} (FlightStream {version_id})")
+        print(f"exports to {work / 'surface_mesh.stl'}, then writes {target}")
+        print(_surface_mesh_script(source, work / "surface_mesh.stl", version_id, "STL", -1))
+        if not args.apply:
+            print("preview only: nothing was run and nothing was written; add --apply to export")
+            return 0
+        if target.exists() and not args.overwrite:
+            raise InputArtifactError(
+                f"{target} exists; use --overwrite to replace the surface mesh"
+            )
+        executable = (
+            Path(args.fs_exe) if args.fs_exe else resolve_build(root / "inputs", build).fs_exe
+        )
+        executor = LocalExecutor(executable)
+        work.mkdir()
+        exported = export_surface_mesh(
+            source,
+            work,
+            version=version_id,
+            executor=executor,
+            file_type="STL",
+            timeout_s=_TIMEOUT_S,
+        )
+        exported.replace(target)
+        # Keep the script and log as evidence; the next export needs a fresh directory.
+        print(f"wrote {target}; export script and logs kept in {work}")
+        return 0
+    except SurfaceMeshExportError as error:
+        print(
+            f"{error} Nothing promoted; inspect the export directory before retrying.",
+            file=sys.stderr,
+        )
+        return 3
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+
+
 def _cmd_accept(args: argparse.Namespace) -> int:
     names = [name.strip() for name in args.names.split(",") if name.strip()]
     try:
@@ -362,6 +438,8 @@ def _cmd_from_sidecar(args: argparse.Namespace) -> int:
 def run_geometry(args: argparse.Namespace) -> int:
     """Run the ``pyfs-workspace geometry`` verb ``args`` names and return its exit code."""
     verb = args.geometry_command
+    if verb == "export-surface-mesh":
+        return _cmd_export_surface_mesh(args)
     if verb == "trailing-edge":
         from pyflightstream.workspace.trailing_edges import write_trailing_edge_node_file
 
