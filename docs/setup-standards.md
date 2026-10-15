@@ -256,7 +256,8 @@ See [Boundary conditions and initialization actions](boundary-conditions.md)
 for the available actions, ordering and current evidence limits.
 
 `ROTOR_SHEDDING` is refused in matrix workflows because it has no effective
-native route there. CCS Relaxed_TE direction control remains deferred; the
+native route there. `CCS_SHEDDING` controls the shedding digit on the CCS
+file-import route; it is not a general rotor wake-direction switch. The
 standalone Python component helper remains available.
 
 ### Applying existing boundary declarations

@@ -10,3 +10,6 @@
   solver-free examples for separation assignments and requested/report binding.
 - PFS-2111.002: The Campbell example explains rotational harmonics and
   distinguishes them from blade-passing excitation.
+- PFS-2116.006, PFS-2116.017: Refusal guidance distinguishes CCS file-import
+  shedding from rotor wake direction and motion-record refusals from accepted
+  flat rotor keys. The refusal catalog no longer lists unused entries.

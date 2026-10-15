@@ -82,6 +82,7 @@
       "tests/tier1_offline/test_p0370_s2_short_wake.py",
       "tests/tier1_offline/test_p0370_s5_build_gate.py",
       "tests/tier1_offline/test_p0410_cl_ex_refusal.py",
+      "tests/tier1_offline/test_p0410_fx6_refusals.py",
       "tests/tier1_offline/test_periodic_native_zones.py",
       "tests/tier1_offline/test_reduce_by_rotor.py",
       "tests/tier1_offline/test_reference_normalization_setup.py",

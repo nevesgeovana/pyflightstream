@@ -1380,15 +1380,16 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         # command of a workflow applies it, so `_refuse_rotor_shedding` refuses
         # a row stating it on every build rather than build a wake the row did
         # not ask for. The key stays registered so the refusal names it; the
-        # functional route is 0.30.0 scope. The claims test varies it as absent
-        # against stated and asserts the refusal on every build.
+        # CCS file-import shedding uses its separate key. The claims test varies
+        # this key as absent against stated and asserts the refusal on every build.
         ROTOR_SHEDDING_VARIABLE: InputKey(
             "The direction the relaxed trailing edges of a rotor case shed their wake. "
-            "Refused in 0.29.0 on every build, since no workflow command applies it; "
-            "direction control for the relaxed wake is planned for 0.30.0. The Python "
+            "Refused on every build, since no workflow command applies it. "
+            "CCS_SHEDDING instead controls the shedding digit on the CCS file-import "
+            "route, not general rotor wake direction. The Python "
             "helper rotor_relaxed_trailing_edges still sets it in the component "
             "definition's specifications.",
-            "AXIAL or AZIMUTH; any value is refused in 0.29.0",
+            "AXIAL or AZIMUTH; any value is refused on the matrix route",
         ),
         MOVING_BOUNDARIES_VARIABLE: InputKey(
             "The boundaries a flat rotor row turns; a MOTIONS record names its rotor by "
