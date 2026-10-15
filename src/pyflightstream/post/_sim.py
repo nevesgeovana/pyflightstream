@@ -479,8 +479,8 @@ def _table_names(
     if any(record.sweep_name is None or record.point_name is None for record in recorded):
         raise ProductError(
             f"simulation {sim_id!r} holds records written before 0.21.0, which carry no "
-            "point name; run `pyfs-matrix rename` once, naming the workspace root as workspace "
-            "(CLI: --workspace), then post"
+            "point_name or sweep_name; those fields are required. See docs/upgrading.md "
+            "to reach the 0.38.0 format before running `pyfs-workspace migrate`."
         )
     table_name = str(recorded[0].sweep_name) if swept else str(recorded[0].point_name)
     # FR-89: the SUPERFILE is about the sweep the ROW DECLARES, which is the one

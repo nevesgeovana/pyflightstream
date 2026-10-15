@@ -28,8 +28,8 @@ Available placeholders:
 The default templates are ``{point}`` for per-point files and
 ``sim_{sim}`` for archives; the matrix command line names points by
 :data:`MATRIX_POINT_NAME`, ``P<sim>-<point name>``. A workspace written
-before 0.21.0 carries the old names and is renamed by
-``pyfs-matrix rename`` (docs/migrating-to-0.21.0.md).
+before 0.21.0 carries older names; see ``docs/upgrading.md`` for supported
+workspace formats and explicit migration.
 """
 
 from __future__ import annotations

@@ -28,12 +28,12 @@ at v0.9.0. What it means and which quantity gets solved for is
 and `SWEEP_VALUES` says over which values: `ALPHA:sweep` with `0.0,2.0`
 is an angle-of-attack sweep at zero and two degrees, so this one row is
 two runs. Exactly one key of the cell may carry the word `sweep`; every
-other key is a quantity the row HOLDS. `pyfs-matrix upgrade` folds a legacy `SWEEP_TYPE` column into this cell. `REF`, `SET` and `PPROC` are the
+other key is a quantity the row HOLDS. `REF`, `SET` and `PPROC` are the
 three identifiers that reach into the input library; `PPROC` names the post-processing artifact. `FS_BUILD` names the FlightStream
 build the row wants. `WORKFLOW` names the run type, and a row naming one
 needs nothing else to build its script; `LEGACY` means "none, use the
 recipe", as these two example rows declare, and such a row names its recipe code as the `RECIPE`
-key of its variables (`pyfs-matrix upgrade` moves a legacy `FS_SCRIPT` column here). The cell may
+key of its variables. The cell may
 carry the reference itself, `package.module:function`, and a row written so
 plans and runs with no `--recipe` option at all; a bare code such as `003`
 is still mapped by that option. A `LEGACY` row's recipe also
@@ -92,8 +92,7 @@ them close the gap that made the capability unusable:
   `inputs/geometries/` by its FILE NAME, extension included: with
   `wing_clean.fsm` staged, the cell reads `GEOMETRY: wing_clean.fsm`, and
   `blade.v2.fsm` reads one way and no other. A bare stem is refused
-  naming the files that carry it, and `pyfs-matrix upgrade` completes
-  every stem-only cell of an older matrix with `.fsm`. What the name buys is that the cell
+  naming the files that carry it. What the name buys is that the cell
   says what the file is: a `.fsm` is a saved simulation and is opened,
   and an `.obj` or `.stl` is a raw mesh and is imported.
   The workflow opens or imports the file first, before anything else,
@@ -184,8 +183,8 @@ placeholders are `{polar}` (`P<sim>-<name>`), `{point}` (the name),
 `{alpha}`, `{beta}`, `{mach}`, `{advance_ratio}`, `{sim}` and `{campaign}`,
 and inside an output name `{name}` is the rendered stem. The run record
 carries the name (`point_name`), the name of its sweep (`sweep_name`) and
-the template that named each point (`point_name_template`). A workspace may carry the old names; `pyfs-matrix rename` renames
-it, as [migrating to 0.21.0](upgrading.md#older-layouts) describes.
+the template that named each point (`point_name_template`). For older records,
+see [Upgrading](upgrading.md#older-layouts).
 
 ## Several matrices in one workspace
 

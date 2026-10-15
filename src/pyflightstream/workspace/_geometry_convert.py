@@ -285,7 +285,8 @@ def rows_for_built_geometries(
         raise InputArtifactError(
             f"{path} has no {' or '.join(missing)} column; "
             "rows (CLI: --rows) copies a row of a matrix "
-            f"at the current layout (`pyfs-matrix upgrade` converts one) ({GEOMETRY_PAGE})."
+            "at the current layout; see docs/upgrading.md for older formats and "
+            f"`pyfs-workspace migrate` ({GEOMETRY_PAGE})."
         )
     template = next((row for row in rows if row[0] == str(pol).strip()), None)
     if template is None:

@@ -1032,8 +1032,7 @@ neither. Two standing decisions bound any widening:
 The reference artifact refuses the retired fields `rotation`, `blade_travel`,
 `rpm_sign_installed` and `rpm_sign_isolated`. The speed a row states is a
 MAGNITUDE and the hand is `rpm_sign` on that rotor's own block, beside its
-`axis`. `pyfs-matrix upgrade --in-place --inputs <inputs dir>` strips the
-retired fields; the [migration record](../upgrading.md#older-layouts)
+`axis`. The [upgrading page](../upgrading.md#older-layouts)
 explains the historical row-sign convention. The argument that
 related them is kept here, because it is what a reader setting up a new
 rotor has to work out once, and it was measured on the

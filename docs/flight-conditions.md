@@ -108,10 +108,8 @@ would be, and `SWEEP_VALUES` holds its values:
 A row with no `sweep`, or with two, is refused naming the keys. Two swept
 variables were the paired `AL/BE` sweep, which retires with the
 `SWEEP_TYPE` column: a row that varies BOTH angles becomes one row per
-sideslip, and `pyfs-matrix upgrade` refuses it by name rather than
-inventing a POL for each new row. A paired row whose second axis held one
-value is not one of those: it varied one variable all along, and it
-converts with the same rows.
+sideslip with a distinct POL. Older layouts are refused; see
+[Upgrading](upgrading.md) before using a workspace from an earlier release.
 
 A script that WRITES a matrix should not repeat the literal `sweep`. The
 word is one constant, `pyflightstream.cases.matrix.SWEEP_WORD`, and that
@@ -480,38 +478,9 @@ campaign.
 
 <a id="upgrading-a-matrix-written-before-v090"></a>
 
-## Upgrading a legacy flight-condition matrix
+## Older matrix layouts
 
-The `RE` and `MACH` columns are gone. A file written under either older
-layout is recognised and refused naming its converter:
-
-```
-pyfs-matrix upgrade your_matrix.fs --in-place
-```
-
-Without `--in-place` the upgraded matrix goes to standard output, so you
-can diff before you overwrite. It needs no recipes, no version and no
-executable.
-
-**Read this before you upgrade a campaign you have already run.** The
-conversion is lossless as a FILE -- the values move across verbatim -- but
-it is **not neutral as a RESULT**. Under v0.8.x the `RE` column was
-recorded metadata that reached no emitted line, so a declared Reynolds
-number changed nothing about what the solver was asked to do. `REmi` is a constraint that solves for density. Every legacy row
-carried both `RE` and `MACH`, so every upgraded row now takes the
-solved-density branch and emits an explicit fluid state it never emitted
-before.
-
-Measured on this repository's own committed fixture, a row at `RE 4.38`,
-`MACH 0.1441` against a 1.2 m reference solves at 1.3319 kg/m3, **8.7
-percent above sea level**, where the same row previously emitted no fluid
-state at all. The numbers will differ, and they differ because the old
-behaviour was the defect this release fixes.
-
-**If you want the previous behaviour**, state the condition without
-`REmi` and let the Reynolds number be derived: `MACH:0.1441` alone
-resolves at the standard density for its altitude. Keep `REmi` when you
-meant it as a constraint.
+See [Upgrading](upgrading.md#older-layouts) for earlier formats.
 
 ## What this page does not cover
 

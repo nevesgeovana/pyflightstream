@@ -137,7 +137,7 @@ the decisions and the package derives the rest.
     diameter; and an axial velocity that is not positive (state
     `wake_termination_thrust_n` in the setup, or state `REVOLUTIONS`).
 
-The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` applies only to cases written in Python. A row declaring it is refused; use `pyfs-matrix upgrade <matrix> --in-place` to migrate the matrix.
+The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` applies only to cases written in Python. A row declaring it is refused; see [Upgrading](upgrading.md) for older matrices.
 
 * `EXPORT_UNSTEADY_AFTER_REV: <turns>` or `EXPORT_UNSTEADY_AFTER_ITER:
   <steps>`, at most one per row, is the step the PER-STEP exports begin
@@ -360,35 +360,7 @@ pyfs-matrix inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.t
 An `.obj` gets its sidecar from its groups the same way, and from the plan
 itself when it has none.
 
-A workspace using the retired artifact names moves in one command:
-
-```text
-pyfs-matrix upgrade matriz.fs --in-place --inputs inputs
-```
-
-which renames the column, drops `FS_SCRIPT`, moves `inputs/groups/e001.toml`
-to `inputs/pproc/p001.toml` under a `[groups]` header (the file's own lines,
-comments and all), and gives the cells that named it their `p`.
-
-**A workspace with a `SWEEP_TYPE` column moves with the same command**, which
-also folds `SWEEP_TYPE` into the flight condition: `AL` becomes
-`ALPHA:sweep`, `BE` becomes `BETA:sweep`, and a paired `AL/BE` whose second
-axis held one value becomes `ALPHA:sweep, BETA:<value>` with the same rows.
-Until you run it, `read_matrix` refuses the matrix with a message that
-names this command.
-
-Two things about that conversion are worth knowing before you run it:
-
-* **It does not rename a run.** A held angle is carried at every point, so
-  the point names that end every `run_id` in `runs.json` are the ones the
-  converted file plans under, and a `--resume` finds the records it has.
-  (The 0.21.0 point NAME is a separate move, made once by `pyfs-matrix
-  rename`; see [migrating to 0.21.0](upgrading.md#older-layouts).)
-
-* **It stops on a row that varies BOTH angles**, naming every such row.
- That row is one run per sideslip and each new row needs a POL of its
- own, which is run identity and not a converter's to invent. Split them
- by hand, giving each the POL you want, then run the command.
+See [Upgrading](upgrading.md#older-layouts) for retired artifact and matrix layouts.
 
 ## Normal probes on a rotor row
 

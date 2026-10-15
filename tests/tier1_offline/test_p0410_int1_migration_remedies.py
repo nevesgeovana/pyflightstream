@@ -44,3 +44,23 @@ def test_p0410_migration_instructions_have_one_page():
     page = (ROOT / "docs/upgrading.md").read_text(encoding="utf-8")
     assert "pyfs-workspace migrate /path/to/workspace --apply" in page
     assert "0.38.0" in page
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "src/pyflightstream/post/_sim.py",
+        "src/pyflightstream/workspace/_geometry_convert.py",
+        "src/pyflightstream/workspace/naming.py",
+        "docs/flight-conditions.md",
+        "docs/mesh/reference.md",
+        "docs/workflow-run-matrix.md",
+        "docs/workflow-unsteady.md",
+        "docs/workflow-unsteady-rotor.md",
+        "docs/release-notes.md",
+    ],
+)
+def test_p0410_old_layout_remedies_do_not_advertise_removed_commands(relative):
+    text = " ".join((ROOT / relative).read_text(encoding="utf-8").split())
+    for command in ("pyfs-matrix upgrade", "pyfs-matrix rename"):
+        assert command not in text

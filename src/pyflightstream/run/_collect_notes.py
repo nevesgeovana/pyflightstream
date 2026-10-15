@@ -166,8 +166,7 @@ def _datapoint_of(record: RunRecord) -> str | None:
     # edited `working_dir` naming ANOTHER point's folder was refused for a
     # record that carries a point name and accepted for one that does not --
     # this release's own records (the qa lens, FIX-0211). A 0.20.x record ends
-    # its `run_id` in the tag, which is what `pyfs-matrix rename` reads it by,
-    # so the record carries its own cross-check and only had to be asked.
+    # its `run_id` in the tag, so the record carries its own cross-check.
     tail = str(record.run_id).rsplit("/", 1)[-1]
     return str(ran_in) if tail in ("", str(ran_in)) else None
 

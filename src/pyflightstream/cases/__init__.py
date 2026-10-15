@@ -435,7 +435,7 @@ class SweepAxis(BaseModel):
     #: `a-04.0_b+00.0` in every manifest ever written here. At 0.15.0 the
     #: same row is written `ALPHA:sweep, BETA:0.0` and the held value
     #: reaches the solver off the row; if it did not also reach the POINT,
-    #: `pyfs-matrix upgrade` would rename every one of those runs to say
+    #: a layout conversion would rename every one of those runs to say
     #: what they always meant, and a resume would re-run them. Seats are
     #: the scarce thing here, so the converter is held to a stronger
     #: promise than lossless content: it does not rename a run.

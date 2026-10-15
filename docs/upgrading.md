@@ -401,3 +401,27 @@ package releases to reach 0.38.0 first. The retired input-id, geometry-folder,
 group-product, matrix-upgrade and point-rename helpers are not supplied by
 0.41.0. The migration command does not reorganise geometry folders or rename
 scientific products.
+
+### Historical flight-condition conversion
+
+The following concerns the older package releases used before reaching 0.38.0.
+
+**Read this before you upgrade a campaign you have already run.** The
+conversion is lossless as a FILE -- the values move across verbatim -- but
+it is **not neutral as a RESULT**. Under v0.8.x the `RE` column was
+recorded metadata that reached no emitted line, so a declared Reynolds
+number changed nothing about what the solver was asked to do. `REmi` is a constraint that solves for density. Every legacy row
+carried both `RE` and `MACH`, so every upgraded row now takes the
+solved-density branch and emits an explicit fluid state it never emitted
+before.
+
+Measured on this repository's own committed fixture, a row at `RE 4.38`,
+`MACH 0.1441` against a 1.2 m reference solves at 1.3319 kg/m3, **8.7
+percent above sea level**, where the same row previously emitted no fluid
+state at all. The numbers will differ, and they differ because the old
+behaviour was the defect this release fixes.
+
+**If you want the previous behaviour**, state the condition without
+`REmi` and let the Reynolds number be derived: `MACH:0.1441` alone
+resolves at the standard density for its altitude. Keep `REmi` when you
+meant it as a constraint.

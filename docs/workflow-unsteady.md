@@ -37,7 +37,7 @@ per row. The revolutions forms are refused here, having no rotor clock;
 the refusal names the iterations form. See [the last revolutions or the last
 steps of a run](workflow-unsteady-rotor.md#the-last-revolutions-or-the-last-steps-of-a-run).
 
-The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. Use `pyfs-matrix upgrade <matrix> --in-place` to migrate an older matrix.
+The solver log is always exported through the pproc `[exports]` table. `LOG_OUTPUT` is for cases written in Python; workflow rows refuse it. See [Upgrading](upgrading.md) for older matrices.
 
 ## Probes: unsteady or normal
 

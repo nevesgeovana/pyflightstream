@@ -367,7 +367,7 @@ def rotor_shedding_direction(case: SimCase) -> str | None:
     helper :func:`rotor_relaxed_trailing_edges`, which applies it to the
     specifications a component definition carries. A matrix row stating
     ``ROTOR_SHEDDING`` is refused in 0.29.0 by every matrix workflow,
-    since none applies it (see ``docs/migrating-to-0.29.0.md``);
+    since none applies it (see ``docs/upgrading.md``);
     direction control from the matrix is planned for 0.30.0.
 
     Parameters
@@ -435,7 +435,7 @@ def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -
     with the specifications its component definition carries, and they
     come back with the direction value set. A MATRIX ROW stating
     ``ROTOR_SHEDDING`` is refused in 0.29.0, because no workflow command
-    applies it (see ``docs/migrating-to-0.29.0.md``); direction control
+    applies it (see ``docs/upgrading.md``); direction control
     from the matrix is planned for 0.30.0. The library writes no
     component file, so the rendered text is returned for the caller to
     write where their geometry keeps it.

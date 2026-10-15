@@ -579,7 +579,7 @@ class RunRecord(BaseModel):
     #: folder and is the stem of its files (`pyflightstream.cases.point_name`);
     #: and the name of the whole sweep of its case, each swept field written
     #: `<code>+sweep`, which the polar tables and superfiles of the case carry.
-    #: None on a record written before 0.21.0, which `pyfs-matrix rename` names.
+    #: Required when posting; older records need explicit migration (docs/upgrading.md).
     point_name: str | None = None
     sweep_name: str | None = None
     fs_version_requested: str

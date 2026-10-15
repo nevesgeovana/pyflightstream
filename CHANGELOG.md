@@ -12,6 +12,8 @@ FlightStream versions.
 - Migration instructions live in `docs/upgrading.md`. Current help no longer
   recommends retired input-id, geometry-folder or group-product migration tools;
   geometry instructions name the folder they require.
+- Legacy-layout refusals name the required fields and the upgrading page;
+  workflow pages no longer recommend removed matrix upgrade or rename commands.
 
 - Run manifests use a versioned document with one status header,
   shared immutable solver/frame/geometry definitions and one ordered artifact
