@@ -397,6 +397,15 @@ class AirfoilSeparation(BaseModel):
         Mesh boundaries carrying the model, by 1-based index in
         geometry-tree order or by declared boundary label; ``"all"``
         selects every boundary (the -1 form of SRC-003 p.341).
+
+    Examples
+    --------
+    Define an assignment without running a solver. Pass it in the
+    ``airfoil_separation`` list of :func:`pyflightstream.script.helpers.solver_settings`.
+
+    >>> from pyflightstream.script.solver_setup import AirfoilSeparation
+    >>> assignment = AirfoilSeparation(name="WING", boundaries=[1, 2], valarezo_criterion=True)
+    >>> assert assignment.boundaries == [1, 2] and assignment.valarezo_criterion
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
