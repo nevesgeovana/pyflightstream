@@ -204,13 +204,14 @@ def test_a_tilted_rotor_resolves_its_load_on_its_own_normal(tmp_path):
     assert float(row["CN_PUSHER"]) < 490.0 / FORCE_SCALE - 0.01
 
 
-def test_an_axis_along_up_reads_na_and_is_said_once(tmp_path):
+@pytest.mark.parametrize("vertical", [1.0, -1.0], ids=["P0410-up", "P0410-down"])
+def test_p0410_a_vertical_axis_reads_na_and_is_said_once(tmp_path, vertical):
     # P0310-G8-TUNNEL
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         _columns, rows = _table(
             tmp_path,
-            _rotor((0.0, 0.0, 1.0), zero="X"),
+            _rotor((0.0, 0.0, vertical), zero="X"),
             _row("camp/sim_1/P1", Cz=0.5, Cx=0.1),
             _row("camp/sim_1/P2", Cz=0.4, Cy=0.1),
         )
@@ -221,7 +222,7 @@ def test_an_axis_along_up_reads_na_and_is_said_once(tmp_path):
     said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
     about = [text for text in said if "CN_PUSHER" in text]
     assert len(about) == 1, said
-    assert "P1-PUSHER_rotor.csv" in about[0] and "up direction" in about[0], about[0]
+    assert "P1-PUSHER_rotor.csv" in about[0] and "vertical axis (+z or -z)" in about[0], about[0]
     assert rotor_in_plane_axes((0.0, 0.0, -3.0)) is None
 
 

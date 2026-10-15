@@ -1,7 +1,6 @@
 """The rotor table: one coefficient table per rotor the reference declares.
 
-One of the product families of :mod:`pyflightstream.post` (AD-13, work
-package WP5 of 0.33.0), written by the post stage of
+One of the product families of :mod:`pyflightstream.post`, written by the post stage of
 :mod:`pyflightstream.post.products`, which re-exports every name here.
 
 ``polars/P<sim>-<sweep>_<ROTOR>_rotor.csv``: one row per point, the rotor's
@@ -10,8 +9,8 @@ loads in its own shaft frame (:class:`RotorShaftLoads`,
 with the in-plane ones (:func:`rotor_coefficients`,
 :data:`ROTOR_COEFFICIENT_COLUMNS`, :data:`ROTOR_IN_PLANE_COLUMNS`,
 :func:`rotor_coefficient_columns`), written by :func:`write_rotor_table`.
-The geometry comes from the reference file the matrix row names, not from
-the record, which keeps neither the shaft, the hub nor the diameter. An
+The geometry comes from the resolved reference definition retained with the
+run record, including the shaft, hub and diameter. An
 unsteady row reads the rotor's plot group, time-averaged over the row's
 window (the plan of :mod:`pyflightstream.post._rotor_plan` names the group a
 rotor's history is read from); a steady row reads its loads export.
@@ -169,10 +168,6 @@ def rotor_shaft_loads(
     analysis_frame: str | None = None,
 ) -> RotorShaftLoads:
     """Return one rotor's THRUST and TORQUE from the loads the run already left.
-
-    Item 6's missing half. `rotor_coefficients` has taken `thrust_n` and
-    `torque_nm` since this release opened and nothing computed them, so the
-    coefficients were a formula with an empty socket.
 
     NO RE-RUN IS NEEDED, which is what puts this inside the release's acceptance
     rule: an item that requires re-running the solver is not ready. Everything
@@ -746,7 +741,7 @@ def write_rotor_table(
     written_runs: list[str] | None = None,
     pol: str | int | None = None,
 ) -> Path | None:
-    """Write ONE rotor's coefficient table (items 6 and 18, and G16 of 0.27.0).
+    """Write one rotor's coefficient table from the admitted rows.
 
     ``left_out`` collects ``(run_id, reason)`` for every row this refuses, and
     ``written_runs`` collects the run id of every row it DID write. Both are
@@ -772,9 +767,9 @@ def write_rotor_table(
     all, because the diameters and speeds that normalise them are different
     numbers. The suffix is what makes the mistake impossible by accident.
 
-    Returns None without writing when no row states a speed, since every
-    coefficient here divides by one: there is no table to write rather than a
-    table of `NA`.
+    Return None without writing when no row survives validation. Refused rows
+    are named in ``left_out``. A valid static row is retained, with unavailable
+    coefficients written as ``NA``.
 
     Parameters
     ----------
@@ -785,8 +780,10 @@ def write_rotor_table(
         hub position.
     rows : sequence of mapping
         One mapping per run, holding its ``run_id``, ``rpm``, ``density``,
-        ``speed``, ``condition``, ``air``, ``surfaces``, ``aliases`` and
-        ``frame`` where it has them.
+        ``speed``, ``free_stream``, ``condition``, ``air``, ``surfaces``,
+        ``aliases`` and ``frame`` where it has them. ``speed`` is the reference
+        velocity used to dimensionalize loads; ``free_stream`` is the flight
+        speed used for advance ratio and efficiencies, defaulting to ``speed``.
     reference : ReferenceValues
         The reference lengths and moment point of the run.
     left_out : list of tuple of str, optional
@@ -800,7 +797,7 @@ def write_rotor_table(
     Returns
     -------
     Path or None
-        The file written, or None when no row states a speed.
+        The file written, or None when no row survives validation.
 
     Raises
     ------
@@ -972,7 +969,7 @@ def write_rotor_table(
             warn(
                 f"point={run_id or 'NA'} product={Path(path).name}: rotor {alias}'s axis "
                 f"{tuple(round(component, 6) for component in shaft)} lies along the "
-                "reference frame's up direction (+z), so it has no normal and no side "
+                "reference frame's vertical axis (+z or -z), so it has no normal and no side "
                 f"axis, and CN_{alias}, CS_{alias}, CMN_{alias} and CMS_{alias} read NA "
                 "on every row of this table.",
                 PyflightstreamWarning,

@@ -13,3 +13,5 @@
 - PFS-2116.006, PFS-2116.017: Refusal guidance distinguishes CCS file-import
   shedding from rotor wake direction and motion-record refusals from accepted
   flat rotor keys. The refusal catalog no longer lists unused entries.
+- PFS-2116.049: Rotor-table documentation describes rejected rows, static
+  rows, reference and flight velocities, and both vertical shaft directions.
