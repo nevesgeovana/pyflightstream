@@ -27,25 +27,12 @@ and are never silently dropped.
  The package is a library and a set of command-line tools. No
  graphical interface is planned or accepted.
 
-!!! nonrequirement "NREQ-02 No geometry generation or meshing (narrowed 2026-10-12)"
- The predecessor imported pre-built meshes; so does pyflightstream.
- Synthetic QA geometry generators exist for testing, not as a
- meshing product. Open-source meshers are reachable only as
- external tools through file exchange.
-
- NARROWED on 2026-10-12, recording what 0.38.0 and 0.39.0 shipped.
- Three capabilities derive a new mesh from an imported panel mesh
- and are in scope: `pyfs-matrix refine` refines or coarsens the
- families of an OBJ by a factor, remeshing a family whose grid is
- not recovered;
- `pyfs-matrix degenerate` derives the thin blade of a blade mesh
-and `pyfs-matrix audit-mesh` audits a mesh against its
- source. Each starts from a mesh the user imported; the
- first two write a new mesh beside it, and the audit writes its
- figures beside the mesh it reads. What stays excluded: a
- mesh built from CAD, from a parametric description or from
- nothing; a volume mesh; and any change to the imported source,
- which these commands never modify.
+!!! nonrequirement "NREQ-02 No general-purpose meshing product"
+ The package imports meshes, refines or coarsens panel meshes, derives thin
+ blades and audits meshes. Its geometry instruction route can ask FlightStream
+ to build a panel mesh from supported CAD or CCS inputs, subject to the target
+ build's command evidence. It is not a general-purpose volume mesher and does
+ not overwrite the imported source. See [geometry inputs](../cad-inputs.md).
 
 !!! nonrequirement "NREQ-03 No solver-accuracy claims"
  The physics regression matrix guards regressions of the pipeline
@@ -53,9 +40,11 @@ and `pyfs-matrix audit-mesh` audits a mesh against its
  FlightStream physics against nature, and the package makes no
  accuracy claims on the solver's behalf.
 
-!!! nonrequirement "NREQ-04 No FlightStream versions older than 26.0"
- The registry starts at 26.000. Supported versions are only ever
- added going forward, never dropped.
+!!! nonrequirement "NREQ-04 Only registered FlightStream builds"
+ The registry includes the 25 series as well as the 26 series. Its ordered
+ build list is authoritative; a version number alone does not establish
+ command availability or inherited evidence. Registered builds are retained,
+ and earlier builds may be added without renumbering existing identifiers.
 
 !!! nonrequirement "NREQ-05 No command family is excluded from the database (narrowed to nothing 2026-08-08, wording corrected 2026-08-18)"
  Every command a registered manual edition documents enters the
@@ -145,6 +134,7 @@ and `pyfs-matrix audit-mesh` audits a mesh against its
  entered in-package at M6 as the optional `[fsi]` extra; the
  requirement history records the amendment rather
  than rewriting it.
-- HPC execution remains deferred: the executor interface must
- allow it without changes to the campaign model, but no cluster
- submission ships today.
+- Cluster submission is available through the run executor and explicit HPC
+ profiles. It shares the campaign model with local execution; collection
+ records the submitted job's observed results. A configured cluster and its
+ scheduler remain external prerequisites.

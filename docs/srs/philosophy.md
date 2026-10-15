@@ -37,26 +37,27 @@ background.
 - Every public function has a numpydoc docstring stating units and
   reference frames.
 - Every module opens with a docstring stating its role in the
-  pipeline; the architecture overview is generated from those
-  docstrings, so it can never drift from the code.
+  pipeline. The public architecture page renders the current architecture
+  core; API documentation renders the module docstrings.
 - Error messages name the physical or version cause, not the internal
   symptom, and when a successor command exists the refusal suggests it.
 - The refusal comes at build time: what the solver would reject or
   silently ignore at run time fails while the script is being built,
   with the citation.
 
-## Silent failure is structurally impossible
+## Failures are reported at their owning boundary
 
-The predecessor toolchain's deepest defect was work that failed
-without anyone noticing (PP-5, PP-6). The design answer is structural:
+A reader must be able to distinguish failure, missing evidence and success.
+The package uses the following reporting boundaries:
 
-- Every campaign point terminates in a manifest status; there is no
-  code path that skips a point silently.
+- Execution and collection record point outcomes in the manifest. Planning
+  reports refused or excluded rows; post reports missing or refused products.
+  These contracts do not claim that every possible failure path is eliminated.
 - Output parsers locate data by anchors, never line offsets, and an
   output without its expected footer is an incomplete-output failure,
   not a shorter table.
-- Run identity lives in the manifest, never in folder names; names are
-  generated conveniences and are never parsed back.
+- Recorded run identity lives in the manifest. Rebuild may parse a folder
+  name as a recovery candidate, then checks the script and recovered evidence.
 - The escape hatch ([glossary](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/unpublished/requirements/index.md#glossary)) is `raw` emission: it
   exists, but it is recorded in the manifest, so no run silently depends
   on unvalidated commands.

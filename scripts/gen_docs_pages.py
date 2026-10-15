@@ -13,7 +13,6 @@ from pathlib import Path
 
 import mkdocs_gen_files
 
-from pyflightstream.overview import markdown_overview
 from pyflightstream.post.guides import input_glossary_markdown
 from pyflightstream.reference import (
     conventions_markdown,
@@ -66,10 +65,10 @@ for path, content in markdown_reference_pages().items():
     with mkdocs_gen_files.open(f"reference/{path}", "w") as page:
         page.write(content)
 
-# The architecture overview shares its rendering source with
-# pyflightstream.overview(): live module docstrings, read at build time.
+# The public architecture page and the SRS share one current core.
+architecture_core = Path(__file__).resolve().parents[1] / "docs/srs/architecture-srs.md"
 with mkdocs_gen_files.open("architecture.md", "w") as page:
-    page.write(markdown_overview())
+    page.write(architecture_core.read_text(encoding="utf-8").replace("](../", "]("))
 
 with mkdocs_gen_files.open("compatibility.md", "w") as page:
     page.write(markdown_compatibility_matrix())
