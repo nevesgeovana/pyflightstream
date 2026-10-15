@@ -50,8 +50,10 @@
         datum Z; \code{blade\_count} equal to its blades;
         \code{omega\_rad\_per\_s} equal to the row's free-stream rotation. A
         wing: \code{[config.wing]}, \(\Omega = 0\), \code{blade\_count = 1}.
-  \item \textbf{The pproc}: one XY distribution per blade, \code{LOCAL\_AXIS},
-        in blade order, \code{include\_symmetry = false}.
+  \item \textbf{The pproc}: a rotor uses one XY distribution per blade,
+        \code{LOCAL\_AXIS}, in blade order, \code{include\_symmetry = false}.
+        A wing uses its spanwise distribution in XZ in the wing frame;
+        follow the wing example rather than copying the blade shape.
   \item \textbf{Then} \code{pyfs-matrix plan}, where the refusals of this deck
         fire; after the run, \code{fsi-provenance.json} in the point's directory
         gives each factor's value and origin.

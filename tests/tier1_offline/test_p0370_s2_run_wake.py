@@ -431,3 +431,29 @@ def test_p0370_s2_the_averaging_window_reads_the_resolved_count():
     assert windows is not None
     assert windows["time_iterations"] == 176, (requirement, windows)
     assert windows["time_average"]["windows"] == [[168, 176]], (requirement, windows)
+
+
+def test_p0410_pc_wake_refusal_remedy_is_actionable_for_delta_time():
+    """PFS-2116.033: changing the run limit must leave a valid time-step pair."""
+    case = _at("0.0")
+    case.variables.pop("DELTA_THETA")
+    case.variables["DELTA_TIME"] = "0.0001"
+    with pytest.raises(CampaignConfigError) as refused:
+        rotor_time_stepping(case)
+    diagnostic = str(refused.value)
+
+    explicit_steps = case.model_copy(deep=True)
+    explicit_steps.variables.pop(KEY)
+    explicit_steps.variables["TIME_ITERATIONS"] = "72"
+    assert rotor_time_stepping(explicit_steps).time_iterations == 72
+
+    explicit_turns = case.model_copy(deep=True)
+    explicit_turns.variables.pop(KEY)
+    explicit_turns.variables.pop("DELTA_TIME")
+    explicit_turns.variables["DELTA_THETA"] = "10"
+    explicit_turns.variables["REVOLUTIONS"] = "2"
+    assert rotor_time_stepping(explicit_turns).time_iterations == 72
+
+    assert "TIME_ITERATIONS" in diagnostic or (
+        "REVOLUTIONS" in diagnostic and "DELTA_THETA" in diagnostic
+    ), diagnostic

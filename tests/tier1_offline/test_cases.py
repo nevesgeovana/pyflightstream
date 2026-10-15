@@ -7,14 +7,12 @@ from pyflightstream.cases import (
     ROTATION_OFFSET_KEY,
     ROTATION_SWEEP_KEY,
     Campaign,
-    CampaignConfigError,
     ReferenceData,
     SimCase,
     SolverSettings,
     SweepAxis,
     geometric_sweep_values,
     multiplied_sweep,
-    point_tag,
     resolve_recipe,
 )
 
@@ -57,14 +55,6 @@ def test_sweep_values_must_match_the_axis_type():
         SweepAxis(type="alpha", values=[[0.0, 1.0]])
     with pytest.raises(ValidationError, match="pairs"):
         SweepAxis(type="alpha_beta", values=[2.0])
-
-
-def test_point_tag_is_stable_and_signed():
-    assert point_tag({"alpha": 2.0, "beta": 0.0}) == "a+02.0_b+00.0"
-    assert point_tag({"alpha": -4.0}) == "a-04.0"
-    assert point_tag({"advance_ratio": 1.7}) == "j+01.7"
-    with pytest.raises(ValueError, match="no known axis"):
-        point_tag({"mystery": 1.0})
 
 
 def test_sim_case_rejects_unknown_fields():
@@ -203,11 +193,7 @@ def test_the_collision_is_refused_for_paired_and_propeller_sweeps_too():
 def test_points_a_tenth_apart_are_still_accepted():
     """The control: the guard must refuse only what actually collides."""
     sweep = SweepAxis(type="alpha", values=[1.0, 1.1, 1.2])
-    assert [point_tag(point) for point in sweep.points()] == [
-        "a+01.0",
-        "a+01.1",
-        "a+01.2",
-    ]
+    assert list(sweep.points()) == [{"alpha": 1.0}, {"alpha": 1.1}, {"alpha": 1.2}]
 
 
 def test_two_cases_sharing_a_sim_id_are_refused():
@@ -414,9 +400,9 @@ def test_no_tag_axis_is_geometric():
     crossed grid is N runs wearing one name, and that is why the limit is
     a refusal rather than a warning.
     """
-    assert point_tag({"alpha": 2.0, "beta": 0.0}) == "a+02.0_b+00.0"
-    with pytest.raises(CampaignConfigError, match="no known axis"):
-        point_tag({ROTATION_OFFSET_KEY: 5.0})
+    from pyflightstream.cases.naming import TAG_AXES
+
+    assert ROTATION_OFFSET_KEY not in TAG_AXES
 
 
 def test_multiplied_sweep_reports_only_the_multiplying_shape():
@@ -442,3 +428,12 @@ def test_geometric_sweep_values_reads_what_a_case_variable_can_hold():
     assert geometric_sweep_values(
         {ROTATION_SWEEP_KEY: "5.0", ROTATION_SWEEP_KEY.upper(): "7.5"}
     ) == ["5.0", "7.5"], "a second casing of the key is dropped instead of pooled"
+
+
+def test_p0410_pc_unused_point_tag_is_absent_from_both_public_surfaces() -> None:
+    """The clean cut removes the unused spelling from both import surfaces."""
+    import pyflightstream.cases as cases
+    import pyflightstream.cases.naming as naming
+
+    assert not hasattr(cases, "point_tag")
+    assert not hasattr(naming, "point_tag")

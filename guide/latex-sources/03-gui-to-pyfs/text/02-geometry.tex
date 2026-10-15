@@ -36,10 +36,12 @@ Name the configuration you loaded & row key \code{CONFIGURATION}, a label the sc
 \guisource{Geometry and mesh}
 \end{frame}
 
-\begin{frame}{Geometry and mesh: not yet}
+\begin{frame}{Geometry routes and remaining gaps}
 \begin{itemize}\small
   \item Import CAD and mesh it (\code{IMPORT\_CAD}, \code{CONVERT\_CAD\_TO\_MESH}).
-  \item Build a wing, a fuselage or a body of revolution from cross-section curves (\code{CCS\_IMPORT}, \code{CAD\_CREATE\_WING\_MESH\_FROM\_CCS}, \code{CAD\_CREATE\_FUSELAGE\_MESH\_FROM\_CCS}, \code{CAD\_CREATE\_REVOLVE\_MESH\_FROM\_CCS}).
+  \item CCS import is supported through the geometry route. See the website's
+        CCS geometry page for its inputs and supported operations; do not treat
+        every CAD construction command as the same capability.
   \item Wrap or unite meshes into one closed surface (\code{WRAPPER\_EXECUTE}, \code{BOOLEAN\_UNITE\_MESH}).
   \item Repair a surface: delete, combine, invert, cut by a plane, fill holes (\code{SURFACE\_DELETE}, \code{SURFACE\_COMBINE}, \code{SURFACE\_INVERT}, \code{SURFACE\_CUT\_BY\_PLANE}, \code{SURFACE\_AUTO\_HOLE\_FILL}, \code{DELETE\_DEGENERATE\_FACES}).
   \item Copy a surface around an axis or along a line (\code{SURFACE\_CIRCULAR\_COPY\_PASTE}, \code{SURFACE\_LINEAR\_COPY\_PASTE}).

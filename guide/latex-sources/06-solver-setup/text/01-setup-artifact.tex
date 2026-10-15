@@ -18,7 +18,7 @@
         Unknown does not mean disabled.
 \end{itemize}
 \setupsources{\code{workspace/inputs.py}, \code{SetupArtifact};
-  \code{workspace/matrix.py}, \code{\_solver\_from\_setup};
+  \code{workspace/matrix/}, \code{\_solver\_from\_setup};
   \code{script/solver\_setup.py}, \code{SolverSetup}; \code{script/helpers.py}}
 \end{frame}
 
@@ -39,7 +39,7 @@
         than the set of keys accepted in a setup file.
 \end{itemize}
 \setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
-  \code{cases/workflows.py}; \code{script/helpers.py}, \code{solver\_settings};
+  \code{cases/workflows/}; \code{script/helpers.py}, \code{solver\_settings};
   \code{script/solver\_setup.py}, \code{FLAG\_SPECS}}
 \end{frame}
 
@@ -55,16 +55,18 @@
 \code{unsteady\_delta\_theta\_deg} & Superseded by the row's \code{DELTA\_THETA}. \\
 \code{unsteady\_N\_revolutions} & Superseded by the row's \code{REVOLUTIONS}. \\
 \code{set\_base\_region\_trailing\_edges} & Boundary-selecting separation model: a recipe's job. \\
-\code{slipstream\_wake\_stabilization}, \code{wake\_layers} & No emitter in this package. \\
+\code{wake\_layers} & No emitter in this package. \\
 \bottomrule
 \end{tabularx}}
 \begin{itemize}\small
   \item Each warns by name and reason. A file may declare additional names
         with \code{recorded\_only = ["my\_setting"]}; these still warn.
+  \item \code{slipstream\_wake\_stabilization} emits a setup toggle; it is not
+        recorded-only.
   \item Do not use recorded-only to make a misspelled setting appear to work.
         \code{mesh\_order\_list} is refused outright: boundary order belongs
         to the geometry inventory.
 \end{itemize}
-\setupsources{\code{workspace/matrix.py}, \code{\_PRESET\_RECORDED\_ONLY},
+\setupsources{\code{workspace/matrix/}, \code{\_PRESET\_RECORDED\_ONLY},
   \code{\_PRESET\_RECORDED\_ONLY\_KEY}, \code{\_solver\_from\_setup}}
 \end{frame}

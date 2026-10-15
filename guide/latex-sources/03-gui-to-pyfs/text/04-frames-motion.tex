@@ -42,7 +42,8 @@ Rename or delete a disc & setup key \code{actuator\_operations}, each naming one
 
 \begin{frame}{Frames, motion and actuators: not yet}
 \begin{itemize}\small
-  \item Disable a disc, or change its wake (\code{DISABLE\_ACTUATOR}, \code{SET\_ACTUATOR\_WAKE\_TYPE}).
+  \item The actuator wake type is available through the actuator declaration.
+        Disabling a disc uses the raw command route where no workspace key is documented.
   \item Duplicate, mirror or delete a coordinate system (\code{DUPLICATE\_COORDINATE\_SYSTEM}, \code{MIRROR\_COORDINATE\_SYSTEM}, \code{DELETE\_COORDINATE\_SYSTEM}).
   \item A motion of six degrees of freedom, with its mass, forces and gravity (\code{CREATE\_NEW\_MOTION\_6DOF}, \code{SET\_MOTION\_MASS\_PROPERTIES}, \code{CREATE\_NEW\_6DOF\_EXTERNAL\_FORCE}, \code{SET\_MOTION\_GRAVITY}).
   \item A prescribed motion: a velocity, an acceleration, or a table in time (\code{CREATE\_NEW\_MOTION\_EUCLIDEAN}, \code{SET\_MOTION\_VELOCITY}, \code{SET\_MOTION\_ACCELERATION}, \code{CREATE\_NEW\_MOTION\_CUSTOM}, \code{SET\_MOTION\_CUSTOM\_TABLE}).

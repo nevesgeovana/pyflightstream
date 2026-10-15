@@ -23,7 +23,6 @@ import shutil
 import warnings
 from pathlib import Path
 
-from pyflightstream.cases import point_tag
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import (
@@ -87,6 +86,15 @@ def _polar_stem(sim_id: str, point: dict[str, float], mach: float) -> str:
     return stem
 
 
+def _legacy_point_tag(point: dict[str, float]) -> str:
+    """Encode a historical fixture's coordinates independently of current APIs."""
+    return "_".join(
+        f"{prefix}{point[axis]:+05.1f}"
+        for axis, prefix in (("alpha", "a"), ("beta", "b"), ("advance_ratio", "j"))
+        if axis in point
+    )
+
+
 def _as_0_20(workspace: CampaignWorkspace, mach: float) -> list[dict]:
     """Write the workspace back into the shape 0.20.1 left, and return its rows.
 
@@ -105,7 +113,7 @@ def _as_0_20(workspace: CampaignWorkspace, mach: float) -> list[dict]:
         for entry in ran:
             new_name = str(entry["tag"])
             point = dict(entry["point"])
-            old_tag = point_tag(point)
+            old_tag = _legacy_point_tag(point)
             old_stem = _polar_stem(sim_id, point, mach)
             new_stem = f"P{sim_id}-{new_name}"
             folder = sim / "datapoints" / f"DP-{new_name}"
@@ -220,7 +228,7 @@ def _as_0_20_library_default(workspace, mach: float) -> list[dict]:
         ran = row.get("points_ran") or [{"tag": row["point_name"], "point": row["point"]}]
         for entry in ran:
             new_name = str(entry["tag"])
-            old_tag = point_tag(dict(entry["point"]))
+            old_tag = _legacy_point_tag(dict(entry["point"]))
             new_stem = f"P{sim_id}-{new_name}"
             folder = sim / "datapoints" / f"DP-{new_name}"
             target = sim / "datapoints" / f"DP-{old_tag}"
@@ -234,7 +242,7 @@ def _as_0_20_library_default(workspace, mach: float) -> list[dict]:
             pairs += [(new_stem, old_tag), (new_name, old_tag)]
         script = sim / str(row["script_path"])
         job_stem = Path(str(row["script_path"])).stem
-        old_job_stem = point_tag(dict(row["point"])) + "_sweep"
+        old_job_stem = _legacy_point_tag(dict(row["point"])) + "_sweep"
         if script.is_file():
             script.rename(script.with_name(f"{old_job_stem}.txt"))
         pairs.append((job_stem, old_job_stem))

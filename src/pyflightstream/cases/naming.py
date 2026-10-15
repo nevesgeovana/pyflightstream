@@ -3,8 +3,7 @@
 Pipeline role: turns a case's flight condition into the name that ends its
 ``run_id``, names its datapoint folder and stems every file it writes
 (:func:`point_name`, :func:`sweep_name`, :func:`name_field` and the code table
-:data:`POINT_NAME_FIELDS`), keeps the 0.20 tag a recorded workspace is read by
-(:func:`point_tag`), and owns the one-sweep-per-case rule
+:data:`POINT_NAME_FIELDS`), and owns the one-sweep-per-case rule
 (:func:`multiplied_sweep`).
 
 The cut of AD-16 (0.34.0) moved these functions out of the package root, which
@@ -33,7 +32,6 @@ __all__ = [
     "SWEEP_NAME_VALUE",
     "name_field",
     "point_name",
-    "point_tag",
     "sweep_name",
 ]
 
@@ -419,43 +417,6 @@ def _swept_axes(sweep: _NamedSweep) -> tuple[str, ...]:
     return ("alpha", "beta") if sweep.type == "alpha_beta" else (sweep.type,)
 
 
-def point_tag(point: dict[str, float]) -> str:
-    """Return the 0.20.x file-name tag of one sweep point.
-
-    The tag encodes the point coordinates in a fixed axis order with
-    signed fixed-width values, for example ``a+02.0_b+00.0``. Until 0.20.x it
-    named the generated script and ended the ``run_id``; SINCE 0.21.0 NEITHER
-    IS TRUE, and :func:`point_name` is both. This is kept for the two readers
-    of a recorded workspace: `pyfs-matrix rename`, which maps a 0.20 record to
-    its new name with it, and anything reading a manifest written before the
-    rename.
-
-    Parameters
-    ----------
-    point : dict of str to float
-        Point coordinates as produced by :meth:`SweepAxis.points`.
-
-    Returns
-    -------
-    str
-        The tag, one signed fixed-width field per axis the point carries.
-
-    Raises
-    ------
-    CampaignConfigError
-        If the point carries none of ``alpha``, ``beta`` and ``advance_ratio``.
-
-    Examples
-    --------
-    >>> point_tag({"alpha": 2.0, "beta": 0.0})
-    'a+02.0_b+00.0'
-    """
-    parts = [f"{prefix}{point[axis]:+05.1f}" for axis, prefix in _TAG_PREFIXES if axis in point]
-    if not parts:
-        raise CampaignConfigError(f"point {point!r} has no known axis (alpha, beta, advance_ratio)")
-    return "_".join(parts)
-
-
 def geometric_sweep_values(variables: Mapping[str, object]) -> list[str]:
     """Return the angles a case's geometric sweep variable declares.
 
@@ -526,7 +487,7 @@ def multiplied_sweep(sweep: _NamedSweep, variables: Mapping[str, object]) -> lis
     one FIXED geometric offset (:data:`ROTATION_OFFSET_KEY`); a study OF
     the geometry is one case per geometry, each with its own ``sim_id``.
     Multiplication was rejected on identity rather than on taste. A run
-    is identified by :func:`point_tag`, whose axes are
+    is identified by :func:`point_name`, whose aerodynamic sweep axes are
     :data:`_TAG_PREFIXES`, and none of the three is geometric, so the
     three angles of a rotation sweep crossed with an eleven point alpha
     sweep are thirty three runs wearing eleven identities: each group of

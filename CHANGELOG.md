@@ -12,6 +12,9 @@ FlightStream versions.
 - `pyfs-matrix support [build]` reports evidence-derived build support without
   launching the solver; omit the build to list every registered version.
 
+- `--no-ignore-missing-families` explicitly disables missing-family tolerance.
+  It is mutually exclusive with `--ignore-missing-families`, including an
+  explicit false value; use exactly one form.
 - Migration instructions live in `docs/upgrading.md`. Current help no longer
   recommends retired input-id, geometry-folder or group-product migration tools;
   geometry instructions name the folder they require.
@@ -35,11 +38,23 @@ FlightStream versions.
 
 ### Removed
 
+- `cases.point_tag` and `cases.naming.point_tag`, the unused pre-0.21 naming
+  helper. Use `point_name(case, point)` for current workspace point names.
+
 - Authored campaign-file loading and matrix-to-campaign-file conversion, including
   `pyfs-matrix convert`. The matrix is the sole campaign declaration; use
   `pyfs-matrix plan` or the public `plan_matrix` API.
 
 ### Fixed
+
+- Generated setup headers distinguish boundary lists from the separate family-selector keys; legacy native volume-section output refusals point to probe sampling and post fields.
+
+- Sampled-field warnings name only the velocity or rotation-timing conventions
+  that lack evidence on the run's build.
+
+- Refinement refusals name the selected configuration file when no factor is
+  given. WALLTIME surface-average refusals describe the incomplete averaging
+  window rather than native solver averaging.
 
 - FR-124, FR-419: name the 0.40.0 polar, section and settings CSV format
   changes in the parity checker with bounded numeric comparisons.

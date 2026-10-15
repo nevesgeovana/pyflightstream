@@ -34,8 +34,9 @@
         disc's tip radius; \(V\) and \(a\) are the point's own resolved free
         stream and speed of sound. At \(V = 0\), \(M_\mathrm{hel} =
         M_\mathrm{tip}\).
-  \item The rotor table ends with \code{MTIP\_<alias>} and
-        \code{MHEL\_<alias>}; \code{plan.json} and the run record carry both
+  \item The rotor table includes \code{MTIP\_<alias>} and
+        \code{MHEL\_<alias>}, plus the in-plane coefficients
+        \code{CN}, \code{CS}, \code{CMN} and \code{CMS} for each alias; \code{plan.json} and the run record carry both
         under \code{rotor\_mach}. A point whose condition does not resolve
         reads \code{NA} in both and keeps its row.
   \item Both are geometric: \(V\) is the free stream alone, without the

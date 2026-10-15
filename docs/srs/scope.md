@@ -90,8 +90,7 @@ and are never silently dropped.
  nothing" read as a standing promise where the sweep was a dated
  measurement, and the two are not the same claim.
 
- The debt itself is listed in the evidence queue on the roadmap page,
- where a reader looking for what is owed will find it.
+ The command reference states the evidence currently available for each build.
 
  The wrapper chapter also cost the emitter one new capability, which
  is the kind of thing an excluded family hides: a keyword block whose

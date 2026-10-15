@@ -292,8 +292,9 @@ def _surface_export(
             raise CampaignConfigError(
                 f"case {case.sim_id!r} declares the volume-section output {name!r} and its "
                 "script cuts no volume section of its pproc, or a raw line deleted the one "
-                "it cut: the section is declared by the pproc's [volume_section] table on a "
-                "steady row, which also names the output"
+                "it cut. Remove the explicit legacy *_vsec output. Use the pproc's "
+                "[volume_section] probe sampling and post field generation instead; "
+                "the table no longer declares a native volume-section export."
             )
         verb = next(verb for each, _, verb, _ in EXPORT_KINDS if each == kind)
         script.emit(verb, own, name)

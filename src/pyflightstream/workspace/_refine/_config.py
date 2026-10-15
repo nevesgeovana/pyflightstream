@@ -527,7 +527,8 @@ def resolve_request(  # noqa: PLR0913 (the call's own keywords, one per command 
             raise _refuse(
                 str(mesh),
                 "no factor was given and no refinement file states one; give FACTOR "
-                f"or write {mesh.stem}.refine.toml beside the mesh",
+                f"or add a [families.<name>] factor table to "
+                f"{file if file is not None else mesh.with_name(mesh.stem + '.refine.toml')}",
             )
         specs = {n: s for n, s in stated_specs.items() if n in chosen}
         if not specs:

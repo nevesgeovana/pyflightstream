@@ -100,7 +100,7 @@
   \small
   \begin{description}
     \item[Part I] Why the library exists, how to install it, and the mental model: versions, the evidence-backed command database, and the layered architecture.
-    \item[Part II] Hands on: your first validated script in ten minutes, and the tour of the 26 curated helpers.
+    \item[Part II] Hands on: your first validated script in ten minutes, and a tour of the curated helpers.
     \item[Part III] The recipes: a literal step by step for every supported simulation type, from a single steady point to batch campaigns.
     \item[Part IV] Reading results, living with versions, the real solver pitfalls (all evidence backed), and where the quality assurance confidence comes from.
   \end{description}
@@ -363,7 +363,7 @@ resolve("26.12")           # Ambiguous: 26.120 to 26.125, six builds
     \midrule
     versions & canonical identifiers, ordering, aliases & \code{FsVersion}, \code{resolve}, \code{known\_versions} \\
     commands & per-version grammar and evidence & \code{CommandRegistry}, \code{CommandEntry} \\
-    script & validating emission, phase order, layouts, helpers & \code{Script}, 26 curated helpers \\
+    script & validating emission, phase order, layouts, helpers & \code{Script} and curated helpers \\
     results & parsing solver output into typed reports & \code{parse\_loads}, \code{parse\_residual\_history} \\
     cases & what to run: SIM model, sweeps, recipes & \code{Campaign}, \code{SimCase}, \code{SweepAxis} \\
     workspace & managed run workspace and manifest & \code{CampaignWorkspace}, \code{RunRecord} \\
@@ -506,7 +506,7 @@ if not result.failed:
     \end{itemize}
     \column{0.43\textwidth}
     \small
-    \begin{block}{The 26}
+    \begin{block}{Examples of curated helpers}
       free\_stream, atmosphere, solver\_settings, initialize\_solver, start\_solver, coordinate\_frame, sweep, analysis\_setup, export\_results, probe\_points, probe\_line, probes\_from\_file, export\_probes, actuator\_disc, rotary\_motion, unsteady\_solver, azimuth\_basis, blade\_frames, rotate\_surfaces, unsteady\_action, mark\_wake\_edges, parse\_relaxed\_trailing\_edge, resolve\_shedding\_direction, fluid\_fifth\_property, render\_wake\_edge\_node\_file, render\_actuator\_profile
     \end{block}
   \end{columns}
@@ -521,9 +521,11 @@ helpers.atmosphere(script, density=1.225, pressure=101325.0,
                    temperature=288.15, viscosity=1.7894e-05,
                    specific_heat_ratio=1.4)
 
+helpers.coordinate_frame(script, name="Propeller", label="prop",
+    origin=(0, 0, 0), x_axis=(1, 0, 0), y_axis=(0, 1, 0))
 helpers.free_stream(script)              # CONSTANT (default)
 helpers.free_stream(script, "ROTATION",  # hover / rotor frames
-                    frame=2, axis="X", rpm=2000.0)
+                    frame="prop", axis="X", rpm=2000.0)
 \end{lstlisting}
   \begin{block}{Which five properties, and which unit, depend on the build}
     The helper reads its script's version rather than making you look it up. Builds from 26.100 on take \code{specific\_heat\_ratio} and derive the sonic velocity; the three pre-26.100 editions take \code{sonic\_velocity} and have no specific-heat-ratio argument at all (SRC-749 p.286), so the call above is refused there and the refusal names the keyword that edition wants.
@@ -646,7 +648,7 @@ script.emit("CLOSE_FLIGHTSTREAM")
     \item Write, execute, parse (\code{LocalExecutor}, \code{parse\_loads}).
   \end{enumerate}
   \begin{alertblock}{Pitfalls}
-    Geometry and script paths absolute. EXPORT\_LOG needs an absolute path (relative fails silently). Verify \code{report.current\_iteration < report.requested\_iterations} to confirm convergence rather than iteration exhaustion.
+    Geometry and script paths absolute. EXPORT\_LOG needs an absolute path (relative fails silently). Use the recorded convergence assessment and status; an iteration count below the requested cap alone does not establish convergence.
   \end{alertblock}
 \end{frame}
 
@@ -727,12 +729,13 @@ helpers.initialize_solver(script, symmetry="MIRROR")
     \item Keep the FULL planform reference area, then request the symmetry loads explicitly:
   \end{enumerate}
 \begin{lstlisting}
-helpers.solver_settings(script, ref_area=full_planform_area, ...)
-helpers.analysis_setup(script, symmetry_loads=True,
-                       load_units="COEFFICIENTS")
+helpers.solver_settings(script, ref_area=full_planform_area)
+helpers.analysis_setup(script, symmetry_loads=True)
+helpers.start_solver(script)
+helpers.analysis_setup(script, load_units="COEFFICIENTS")
 \end{lstlisting}
   \begin{alertblock}{Pitfalls (all evidence backed)}
-    A nonzero sideslip under MIRROR is refused at plan time since 0.13.1: the solver was measured (26.120) running a mirrored half model at zero sideslip whatever the script states; sweep sideslip on a full geometry with SYMMETRY NONE. Initializing MIRROR with a full model diverges instantly (SRC-003 p.217, paraphrased). The post-MIRROR symmetry loads default was calibrated on the real solver as ENABLE, but emit it explicitly: with DISABLE the loads halve and a one-wing rolling moment appears. Expected equivalence versus the full model: $\Delta C_L \approx +0.0015$, $\Delta C_{Di} = 0.0$ (committed physics report).
+    Use MIRROR only for a half model at zero sideslip; sweep sideslip on a full model with SYMMETRY NONE. State symmetry loads explicitly, as above. The full and half models must use the same full-planform reference area when comparing coefficients (SRC-003 p.217; the PHY-02 symmetry-equivalence case). Do not treat a guide's example coefficient difference as an accuracy guarantee.
   \end{alertblock}
 \end{frame}
 
@@ -746,9 +749,8 @@ helpers.analysis_setup(script, symmetry_loads=True,
     \item Create a local coordinate system carrying the disc axis (frame index greater than 1):
   \end{enumerate}
 \begin{lstlisting}
-script.emit("CREATE_NEW_COORDINATE_SYSTEM")
-script.emit("SET_COORDINATE_SYSTEM_ORIGIN", 2, x, y, z)
-# orient axis as needed: SET_COORDINATE_SYSTEM_AXIS ...
+helpers.coordinate_frame(script, name="Propeller", label="prop",
+    origin=(x, y, z), x_axis=(1, 0, 0), y_axis=(0, 1, 0))
 \end{lstlisting}
   \begin{enumerate}
     \setcounter{enumi}{2}
@@ -756,7 +758,7 @@ script.emit("SET_COORDINATE_SYSTEM_ORIGIN", 2, x, y, z)
   \end{enumerate}
 \begin{lstlisting}
 disc = helpers.actuator_disc(script, "prop1",
-    frame=2, axis="X", offset=0.0,
+    frame="prop", axis="X", offset=0.0,
     r_tip=0.95, r_hub=0.15, rpm=2200.0,
     thrust=850.0, thrust_type="NEWTONS")   # ELLIPTICAL model
 \end{lstlisting}
@@ -769,7 +771,7 @@ disc = helpers.actuator_disc(script, "prop1",
   \end{enumerate}
 \begin{lstlisting}
 disc = helpers.actuator_disc(script, "prop1",
-    frame=2, axis="X", offset=0.0, r_tip=0.95, r_hub=0.15,
+    frame="prop", axis="X", offset=0.0, r_tip=0.95, r_hub=0.15,
     rpm=2200.0, profile="radial_thrust.txt", n_blades=6,
     swirl=0.8)   # fraction of swirl kept; below 1 mimics a stator (SRC-003 p.186)
 \end{lstlisting}
@@ -796,7 +798,7 @@ script.declare_existing(boundaries={   # the names the mesh carries
     "Blade1": 3, "Blade2": 4, "Blade3": 5,
     "Blade4": 6, "Blade5": 7, "Blade6": 8})
 motion = helpers.rotary_motion(script,
-    frame=2, axis="X", rpm=2200.0,
+    frame="prop", axis="X", rpm=2200.0,
     boundaries=["Blade1", "Blade2", "Blade3",
                 "Blade4", "Blade5", "Blade6"],
     wake_stabilization_blades=6)
@@ -938,7 +940,11 @@ records = run_matrix("study/matrix.fs", workspace,
   \end{tikzpicture}
   \end{center}
   \begin{itemize}
-    \item Every executed point lands in exactly one of six statuses; a silent skip is structurally impossible. The manifest (\code{runs.json}, append only, with staging hashes) is the run identity: names lie, hashes do not.
+    \item Each point has a recorded outcome. Distinguish \code{CONVERGED},
+        \code{COMPLETED\_MAX\_ITER}, \code{MAX\_ITER\_REACHED},
+        \code{RAN\_MISSING\_LOG}, \code{WALLTIME\_REACHED} and \code{SUBMITTED}
+        from the five \code{FAILED\_*} outcomes. The manifest is updated under
+        a writer lease; it is not append-only.
   \end{itemize}
 \end{frame}
 
@@ -1093,14 +1099,15 @@ samples = parse_residual_history(log_text)
 
 \begin{frame}[fragile]{Every product says what it is a file OF}
 \begin{lstlisting}
-POLAR,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM,YMOM,ZMOM,VINF,ALT,J,ALPHA,...
-PROBE,X,Y,Z,FRAME,STEP,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,...
-ITERATION,AZIMUTH,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,Offset,...
+POL,DESCRIPTION,GROUP,SREF,CREF,BREF,XMOM,YMOM,ZMOM,VINF,ALT,J,ALPHA,...
+POL,NAME,X,Y,Z,FRAME,STEP,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,...
+POL,STEP,FAMILY,PLANE,ROTOR,AZIMUTH,ALPHA,BETA,MACH,RE,VINF,ALT,J,SREF,CREF,BREF,Offset,...
 \end{lstlisting}
   \begin{itemize}
     \item From 0.23.0 every file the post stage writes carries the WHOLE flight condition and the reference lengths. Before it, the sections, probes and reduction tables carried no reference length at all.
     \item A coefficient beside no reference area is a number nobody can check, and a probe sample with no condition is a table about nowhere.
-    \item \code{\_sections} now leads with \code{ITERATION} and \code{AZIMUTH}: what varies down the table. It used to lead with the polar's NAME, which the file name already carries.
+    \item \code{\_sections} identifies the point with \code{POL}, then \code{STEP},
+        \code{FAMILY}, \code{PLANE}, \code{ROTOR} and \code{AZIMUTH}. It used to lead with the polar's NAME, which the file name already carries.
   \end{itemize}
 \end{frame}
 
@@ -1125,7 +1132,7 @@ CP = 2 pi CQ sign(n)   ETA = J CT / CP     ETAW = J CTW / CP
   \begin{itemize}
     \item \code{n} is signed revolutions per SECOND: its magnitude sets \code{J}, its rotation sign multiplies \code{CP}, and \code{CQ} keeps the torque sign about the fixed rotor axis. \code{CTW} is the rotor's force projected on the free stream, against it, over \code{rho n\textasciicircum{}2 D\textasciicircum{}4}. \code{ETAW} equals \code{ETA} when the shaft lies along the stream.
     \item Every column carries the rotor's ALIAS, because these make physical sense for ONE rotor and not for several summed: the diameters and speeds that normalise them are different numbers.
-    \item \code{ETA} and \code{ETAW} read \code{NA} on a static point, where both are 0/0. A figure of merit is the static measure and you define it.
+    \item At a static point the rotor coefficient columns other than \code{J} read \code{NA}; dimensional loads remain available. Do not interpret a missing coefficient as zero.
     \item The table names its alias in its \code{ROTOR} column, right after \code{POL}, on every row, so a script that has already loaded the file still knows which rotor and which polar it holds. From 0.23.0 to 0.26.x the alias stood alone on the first line, before the header; since 0.27.0 the first line of every table is its header and its first column the polar.
   \end{itemize}
 \end{frame}
@@ -1159,11 +1166,11 @@ averaging_span({"LAST_REVS_AVG": "0.5"}, last_step=1000, per_revolution=250.0)
   \end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Group names determine product filenames}
-Declare the physical group name in the pproc artifact before posting.
-The current workspace format uses named groups; the numeric-group conversion
-command from older releases is retired. See the single Upgrading page for
-the supported migration from the 0.38.0 workspace format.
+\begin{frame}{Groups have names}
+A product file carries its recorded group name. Use the website's Upgrading
+page for the supported workspace conversion; retired group-renaming helpers
+are not part of the public API. Rebuilding derived products does not archive
+the previous products.
 \end{frame}
 
 % =====================================================================
@@ -1255,7 +1262,7 @@ the supported migration from the 0.38.0 workspace format.
     CREATE\_BULK\_SEPARATION stops at its deprecated form & 26.120 & use the documented successor on a supported build (RPT-166) \\
     CREATE\_NEW\_6DOF\_EXTERNAL\_FORCE aborts the script & 26.124, 26.125 & leave external force entries out until new evidence clears the command (RPT-166) \\
     NEW\_OFF\_BODY\_STREAMTUBE aborts the script & 26.124, 26.125 & use probe lattices for off-body data (RPT-166) \\
-    CREATE\_FREE\_SURFACE\_TFI\_MESH aborts the script & 26.125 & the documented call raised a modal error naming a perimeter curve with no virtual curves assigned; what the free surface needs first is not measured, so leave it out of a script, and the builder refuses it meanwhile \\
+    CREATE\_FREE\_SURFACE\_TFI\_MESH aborts the script & 26.125 & refused after a modal perimeter-curve error; prerequisites remain unmeasured (\code{CMP-26125\_2026-10-05\_\allowbreak probe-campaign}) \\
     \bottomrule
   \end{tabular}
   \vspace{2mm}
@@ -1359,12 +1366,11 @@ pyfs-qa apply-compat     REPORT.yaml                  # promote statuses
 pyfs-qa physics          --workspace DIR [--resume]   # the workspace's physics matrix, reduced and reported
 pyfs-qa drift            --workspace DIR --fs-versions 26.101,26.120 --fs-exe 26.101=A.exe --fs-exe 26.120=B.exe
 pyfs-qa cases                                         # print the case registry
-pyfs-qa update-reference --case ... --reason "..."    # guarded write
-pyfs-qa cost             --workspace DIR              # what a run cost
+pyfs-qa update-reference PHY-01 --from-report report.yaml --reason "new measurement"
+pyfs-qa cost             DIR                          # reads existing timing records
 pyfs-workspace init      DIR                          # scaffold a workspace
 pyfs-workspace archive   DIR SIM_ID                   # zip one recorded simulation
-pyfs-workspace migrate-geometries DIR                 # flat library to one folder per geometry
-pyfs-matrix upgrade      matrix.fs --in-place         # older layout to current
+pyfs-workspace migrate   DIR [--apply]                # preview first; see Upgrading
 pyfs-matrix inspect-setups matrix.fs --workspace DIR # resolved setup and provenance
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
@@ -1374,7 +1380,6 @@ pyfs-matrix audit-mesh   mesh.obj [--against SRC.obj]  # judge a panel mesh, wri
 pyfs-matrix refine       mesh.obj 2 [--out DIR]       # refine or coarsen into a new level folder
 pyfs-matrix collect      --workspace DIR [--watch]    # waits for a submitted job's outputs
 pyfs-matrix post         matrix.fs --workspace DIR    # rebuilds the products, no solver
-pyfs-matrix rename       --workspace DIR [--dry-run]  # 0.20.x names to the 0.21.0 point names
 pyfs-matrix space-in-use --workspace DIR              # sizes: folders, sims, extensions
 pyfs-matrix free-space   m001 --workspace DIR [--apply]  # a storage recipe
 pyfs-matrix delete-sims  4001,2009 --workspace DIR [--apply]  # sims, products, records
@@ -1396,10 +1401,10 @@ pyfs-manual surface      --editions MANIFEST [--names]     # what changed betwee
 pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369
 pyfs-manual citations    --editions MANIFEST   # exits 1 if one does not hold
 pyfs-manual register  --editions MANIFEST --fs-version 26.123  # carries a build forward
-pyfs-manual draft     --editions MANIFEST --fs-version 26.123  # propose rows for review
+pyfs-manual draft --manual manual.pdf --source SRC-751 --chapter-pages 275-369 --fs-version 26.123
 \end{lstlisting}
   \begin{itemize}
-    \item The \code{pyfs-qa} tools (and \code{pyfs-fsi}) require a licensed machine and write dated report pairs (markdown plus YAML) under \code{reports/}; \code{pyfs-qa cases} runs nothing.
+    \item Only commands that launch FlightStream require its license. The \code{pyfs-qa cases} and \code{cost} readers, reference updates, and offline \code{pyfs-fsi} structural calculations do not launch it.
     \item \code{pyfs-workspace}, and \code{pyfs-matrix plan}, \code{collect} and \code{post}, run anywhere: they scaffold the workspace tree, pre-flight one without a solver, wait for a submitted job's outputs and rebuild the products. \code{collect} starts no solver and is not a pre-flight: it watches the WORKSPACE rather than the queue, which is why it needs neither a licence nor a scheduler. \code{pyfs-matrix run} STARTS THE SOLVER and needs a licensed machine like the \code{pyfs-qa} tools. There is no separate submit command: on Linux with a cluster profile in \code{inputs/hpc/}, \code{run} hands the job to the scheduler and returns, and the record reads SUBMITTED until \code{collect} completes it.
     \item As a user you consume the licensed results through the matrix; you only run the licensed tools when contributing evidence.
   \end{itemize}

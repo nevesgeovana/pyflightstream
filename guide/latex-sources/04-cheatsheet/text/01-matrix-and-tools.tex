@@ -48,6 +48,7 @@
 \item \fl{--overwrite} replace an existing level folder
 \end{flags}
 \sub{support [BUILD]}{print registered build support and its evidence; no solver is launched}
+See the website's Upgrading page for supported workspace conversion.
 
 \stage{2. PLAN (MANDATORY BEFORE RUN, NO SOLVER)}
 \sub{plan <matrix>}{bind the matrix to \texttt{inputs/}, pre-flight every point, write the receipt \texttt{run} requires (pinned to the matrix digest; edit the matrix, plan again). Alias: \cmd{inspect-setups}}
@@ -243,8 +244,10 @@
 \fl{--workspace DIR} names the root; the positional form is deprecated.
 \sub{archive <root> <sim\_id>}{zip one recorded simulation under \texttt{archive/} and remove its folder \texttt{sims/sim\_<sim\_id>/}; a simulation the manifest does not record is refused}
 \fl{--workspace DIR} names the root; the positional form is deprecated.
-\sub{migrate [root]}{preview conversion of the workspace format used since 0.38.0; preserve originals before applying}
-\fl{--workspace DIR} names the root; \fl{--apply} writes the previewed conversion.
+\sub{migrate [root]}{preview conversion of a workspace from the 0.38.0 format; see Upgrading for the format boundary}
+\begin{flags}
+\item \fl{--workspace DIR} the workspace root \quad \fl{--apply} apply the previewed conversion with backups
+\end{flags}
 \sub{calibrate <id>}{derive an unvalidated sector-offset calibration from recorded wheel and sector points}
 \fl{--workspace DIR}, \fl{--wheel-run ID}, \fl{--sector-run ID}, \fl{--rotor NAME}, \fl{--matrix NAME}, \fl{--overwrite}.
 \sub{geometry trailing-edge <mesh> <output>}{write mesh trailing-edge midpoint nodes}

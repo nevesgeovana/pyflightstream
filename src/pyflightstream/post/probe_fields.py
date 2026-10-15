@@ -528,18 +528,18 @@ _UNPROVEN_KEYS = ("measured_on_build", "run_build", "proven")
 
 def _unproven_warning(point_name, caveats):
     """Return the one warning of a point whose fields borrow another build's evidence."""
-    first = next(iter(caveats.values()))
-    timing = (
-        " The rotating-frame timing (rotation sense and STEP time origin) is likewise "
-        f"measured on build {caveats['rotation_timing']['measured_on_build']} only and "
-        "not proven on this run's build."
-        if "rotation_timing" in caveats
-        else ""
+    descriptions = {
+        "velocity_convention": "native velocity convention",
+        "rotation_timing": "rotating-frame timing (rotation sense and STEP time origin)",
+    }
+    details = " ".join(
+        f"The {descriptions[name]} was measured on build {proof['measured_on_build']} "
+        f"and is not proven on this run's build {proof['run_build']}."
+        for name, proof in caveats.items()
     )
     return (
-        f"point={point_name} product=fields/{point_name}: the native velocity convention "
-        f"of these fields was measured on build {first['measured_on_build']} and this run "
-        f"reports build {first['run_build']}; the fields are written with the measured "
-        f"convention, not proven for this build (FR-153).{timing} Measuring it on this "
-        "build lifts this warning: see 'A run on another build' in docs/sampled-fields.md"
+        f"point={point_name} product=fields/{point_name}: {details} "
+        "The fields use the measured conventions (FR-153). Measuring each unproven "
+        "convention on this build lifts this warning: see 'A run on another build' "
+        "in docs/sampled-fields.md"
     )

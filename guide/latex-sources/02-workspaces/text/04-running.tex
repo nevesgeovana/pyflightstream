@@ -56,7 +56,7 @@
         naming the point, when \(M_\mathrm{hel} \ge 1\): the tip is sonic or
         supersonic, where the linearised compressibility of a panel method
         stops holding [4, 12, 13]. A warning, never a refusal.
-  \item The rotor table ends with \code{MTIP\_<alias>} and
+  \item The rotor table includes \code{MTIP\_<alias>} and
         \code{MHEL\_<alias>}. Both are geometric: \(V\) is the free stream
         alone, without the rotor's own induced velocity.
 \end{itemize}
@@ -362,7 +362,8 @@ the inputs.\end{takeaway}
 \code{<stem>\_sloads.txt} & sectional loads  & \code{sections/} \\
 \code{<stem>\_probes.txt} & probe samples    & \code{probes/} \\
 \code{<stem>\_plots.txt}  & per-step plots (unsteady) & polar, rotor averages, reductions \\
-\code{<stem>\_cp.txt}, \code{<stem>.dat} & section pressures, Tecplot & nothing: a viewer \\
+\code{<stem>\_cp.txt} & section pressures & per-distribution Cp tables \\
+\code{<stem>.dat} & Tecplot surface & a viewer \\
 \code{<stem>\_log.txt}    & solver log       & \code{collect}; the first file to open \\
 \bottomrule
 \end{tabular}}
@@ -371,24 +372,26 @@ the inputs.\end{takeaway}
 \code{P6112-M200AL+020BE+000}; the name follows the declared condition keys.
 \end{frame}
 
-\begin{frame}{Eight states, and four are not failures}
+\begin{frame}{Read the recorded outcome, not just the iteration count}
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 {\ftstablesize
-\begin{tabular}{@{}ll@{}}
+\begin{tabularx}{\linewidth}{@{}lX@{}}
 \toprule
 \textbf{Not a failure} & \\
 \midrule
 \code{CONVERGED}           & reached its criterion \\
-\code{COMPLETED\_MAX\_ITER} & reached its cap \\
+\code{COMPLETED\_MAX\_ITER} & ended without a convergence claim \\
+\code{MAX\_ITER\_REACHED} & steady cap reached, residual unsettled \\
+\code{RAN\_MISSING\_LOG} & ran, log evidence missing \\
 \code{WALLTIME\_REACHED}    & clock stopped it \\
 \code{SUBMITTED}           & in the queue \\
 \bottomrule
-\end{tabular}}
+\end{tabularx}}
 \end{column}
 \begin{column}{0.48\textwidth}
 {\ftstablesize
-\begin{tabular}{@{}ll@{}}
+\begin{tabularx}{\linewidth}{@{}lX@{}}
 \toprule
 \textbf{Failure} & \\
 \midrule
@@ -396,8 +399,9 @@ the inputs.\end{takeaway}
 \code{FAILED\_EXECUTION}          & solver did not run \\
 \code{FAILED\_SCRIPT}             & script rejected \\
 \code{FAILED\_INCOMPLETE\_OUTPUT} & outputs missing \\
+\code{FAILED\_MARKED} & marked failed with a reason \\
 \bottomrule
-\end{tabular}}
+\end{tabularx}}
 \end{column}
 \end{columns}
 \vspace{3mm}

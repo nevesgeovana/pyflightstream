@@ -512,3 +512,23 @@ def test_g05_a_saved_simulation_whose_unit_is_not_read_is_refused_naming_the_key
     # THE CONTROL: the committed geometry, saved in metres, cuts the numbers as written.
     control = _lines(_steady(_pproc(**CIRCLE)).model_copy(update={"geometry": str(WING_PHY)}))
     assert sum(line.startswith("NEW_PROBE_POINT") for line in control) == 120
+
+
+def test_p0410_pc_obsolete_volume_export_refusal_offers_sampled_plane_remedy():
+    """PFS-2116.026: the remedy must match the plane the public pproc builds."""
+    case = _steady(_pproc(**RECTANGLE))
+    obsolete = case.model_copy(update={"outputs": ["P.txt", "P_vsec.vtk"]})
+    with pytest.raises(CampaignConfigError) as refused:
+        build_script(obsolete, Script("26.124"))
+    diagnostic = str(refused.value)
+    assert "P_vsec.vtk" in diagnostic
+    assert "probe" in diagnostic.lower(), diagnostic
+    assert "post" in diagnostic.lower(), diagnostic
+    assert "names its output" not in diagnostic.lower(), diagnostic
+
+    script = Script("26.124")
+    build_script(case, script)
+    commands = script.render().splitlines()
+    assert "EXPORT_PROBE_POINTS" in commands
+    assert not any(line.startswith("EXPORT_VOLUME_SECTION") for line in commands)
+    assert not any("_vsec" in name for name in case.outputs)

@@ -22,8 +22,9 @@ The user judges whether the history has settled afterwards, from the history.
         velocity residual, and the last prints both residuals exactly zero.
   \item Assessment names the first frozen step and count. Post reads the native
         log again, including for a record previously assessed successful.
-  \item An average whose window reaches the first frozen step is skipped with
-        its reason in \code{products.json}. An earlier stale product is archived.
+  \item An average whose window reaches a frozen step is written with a warning
+        by default. \code{--check-frozen} refuses the affected average instead;
+        the post log explains the decision.
   \item Windows wholly before the freeze, raw histories and explicitly instant
         products remain available. A frozen stretch requires a new solve.
 \end{itemize}

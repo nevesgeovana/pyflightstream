@@ -145,7 +145,6 @@ from pyflightstream.cases.naming import (
     multiplied_sweep,
     name_field,
     point_name,
-    point_tag,
     sweep_name,
 )
 from pyflightstream.cases.pproc import (
@@ -309,7 +308,6 @@ __all__ = [
     "SWEEP_NAME_VALUE",
     "name_field",
     "point_name",
-    "point_tag",
     "sweep_name",
     "resolve_recipe",
     "TEMPLATE_SETTINGS_LEFT_OUT",
@@ -453,7 +451,7 @@ class SweepAxis(BaseModel):
         is read whole by more than the tag: a run record and a result
         table both iterate it. So a `campaign.toml` writing
         ``held = {mach = 0.2}`` would put a key nothing declares into
-        every record, where `point_tag` ignores it and the table does
+        every record, where point naming ignores it and the table does
         not. The matrix reader can only produce the two angles; this is
         the OTHER door, and it was unguarded (the architecture lens,
         2026-09-10).

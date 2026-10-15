@@ -212,7 +212,10 @@ that cites its source, so a correction stays local.
   \code{FsiConfig.node\_offset\_chord\_fraction}}
 \end{frame}
 
-\begin{frame}{The driver: four phases, keyed on the step counter}
+\begin{frame}{The offline driver: four phases, keyed on the step counter}
+\scriptsize This schedule belongs to the standalone driver. The workspace
+routes allowed for FSI do not run this four-phase schedule or establish its
+convergence judgement.\par
 \relax % a body opening with a brace group would be read as the frame subtitle
 {\ftstablesize\renewcommand{\arraystretch}{1.2}
 \begin{tabularx}{\linewidth}{@{}P{0.23\linewidth}R@{}}
@@ -252,8 +255,9 @@ that cites its source, so a correction stays local.
         contours, the nodes lie on the camber line of each station, turned by
         its local twist, inside the blade or the wing; a node outside is
         refused at plan.
-  \item \textbf{The node frame.} On 26.124 a scripted node import stores the
-        reference frame whatever frame it names [2].
+  \item \textbf{The node frame.} Check the stored node coordinates and frame
+        in the probe evidence [2]; the requested frame alone does not prove
+        which frame the solver stored.
   \item \textbf{The surface by its boundary ID}: an OBJ import numbers its
         first boundary 2 and an STL 1; a list holding the tree position maps
         0 vertices, in silence [2].
@@ -267,8 +271,9 @@ that cites its source, so a correction stays local.
 aerodynamic panel [14, 15, 16]. A beam is a \textbf{line} of nodes: a
 compactly supported kernel reaches only the panels near it. The coupled row
 uses the \textbf{multiquadric} [14], whose support is global: on one beam line
-it delivered an imposed bend to 3 mm, where the compact kernel gave 64\,\% of
-it and the coupled run diverged [2].
+the measured maximum error reached 24.19 mm for the imposed bend.
+The compact kernel gave 64\,\% of the imposed bend and the coupled run
+ diverged [2]. These are measured cases, not a general accuracy bound.
 \end{block}
 \end{column}
 \end{columns}

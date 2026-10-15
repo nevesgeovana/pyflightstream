@@ -860,3 +860,60 @@ class TestFr153FieldBuildWarning:
                 },
             )
             assert resolved["state"] == "unknown"
+
+
+@pytest.mark.parametrize("rotating", [False, True], ids=["fixed-frame", "rotating-frame"])
+def test_p0410_pc_field_warning_names_only_unproven_conventions(tmp_path, rotating: bool) -> None:
+    """PFS-2116.048: velocity evidence and rotation evidence are distinct claims."""
+    entries, warned = _fr153_field_build_warning___point(
+        tmp_path, build=_FR153_FIELD_BUILD_WARNING__OTHER, rotating=rotating
+    )
+
+    assert entries
+    assert len(warned) == 1
+    diagnostic = warned[0].lower()
+    assert "velocity" in diagnostic, diagnostic
+    if rotating:
+        assert "rotating-frame timing" in diagnostic, diagnostic
+    else:
+        assert "rotating-frame timing" not in diagnostic, diagnostic
+    for entry in entries.values():
+        assert entry["velocity_convention"]["proven"] is False
+        if rotating:
+            assert entry["rotation_timing"]["proven"] is False
+
+
+def test_p0410_pc_timing_only_warning_does_not_discredit_proven_velocity(
+    tmp_path, monkeypatch
+) -> None:
+    """PFS-2116.048: unproven rotation timing cannot invalidate velocity evidence."""
+    import pyflightstream.post.field_frames as frames
+    import pyflightstream.post.probe_fields as fields
+
+    resolve_velocity = native_velocity_proof
+
+    def proven_velocity(motion_record, *, solver_identity, export_kind):
+        proof = resolve_velocity(
+            motion_record,
+            solver_identity={
+                **solver_identity,
+                "fs_build": _FR153_FIELD_BUILD_WARNING__MEASURED,
+            },
+            export_kind=export_kind,
+        )
+        return {**proof, "fs_build": solver_identity["fs_build"], "proven": True}
+
+    monkeypatch.setattr(frames, "native_velocity_proof", proven_velocity)
+    monkeypatch.setattr(fields, "native_velocity_proof", proven_velocity)
+    entries, warned = _fr153_field_build_warning___point(
+        tmp_path, build=_FR153_FIELD_BUILD_WARNING__OTHER, rotating=True
+    )
+
+    assert entries
+    for entry in entries.values():
+        assert entry["rotation_timing"]["proven"] is False
+        assert entry.get("velocity_convention", {}).get("proven", True) is True
+    assert len(warned) == 1
+    diagnostic = warned[0].lower()
+    assert "rotating-frame timing" in diagnostic, diagnostic
+    assert "native velocity convention" not in diagnostic, diagnostic

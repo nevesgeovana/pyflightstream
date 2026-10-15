@@ -785,3 +785,26 @@ class TestWorkspace2Remesh:
         done = refine_group(read_obj(obj), ["A"], set(), 1.0)
         assert done.info["edge_ratio_median"] is None
         json.dumps(done.info, allow_nan=False)
+
+
+def test_p0410_pc_refine_refusal_names_explicit_config(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PFS-2109.014: direct the user to the selected file without writing a level."""
+    from pyflightstream.run import cli
+    from tests.p0380_mesh_fixtures import sheet_with_strips, write_source
+
+    source = write_source(tmp_path / "src", "wing", sheet_with_strips(()))
+    config = tmp_path / "selected.toml"
+    config.write_text('[refine]\ntag = "trial"\n', encoding="utf-8")
+    before = {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+
+    code = cli.main(["refine", str(source), "--config", str(config)])
+
+    captured = capsys.readouterr()
+    diagnostic = captured.out + captured.err
+    assert code != 0
+    assert str(config) in diagnostic, diagnostic
+    assert "factor" in diagnostic.lower(), diagnostic
+    assert "Nothing was written." in diagnostic
+    assert {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()} == before

@@ -23,7 +23,7 @@
         the post names the unit.
 \end{itemize}
 \setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
-  \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py};
+  \code{workspace/matrix/}, \code{\_PRESET\_ALIASES}; \code{cases/workflows/};
   \code{commands/solver\_analysis.yaml}}
 \end{frame}
 
@@ -74,6 +74,6 @@ MACH:0.2, REmi:5.5, ALPHA:0, roll_rate:sweep | -40,0,40
 \small Roll and yaw were emitted with the opposite sign and solved at $-p$ or
 $-r$. Redo such points with \code{--force-rerun}; \code{--resume} skips them.
 \end{alertblock}
-\setupsources{\code{cases/workflows.py}, \code{FREESTREAM\_ROTATION\_SIGN};
-  \code{workspace/matrix.py}}
+\setupsources{\code{cases/workflows/}, \code{FREESTREAM\_ROTATION\_SIGN};
+  \code{workspace/matrix/}}
 \end{frame}

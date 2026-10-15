@@ -6,9 +6,10 @@
 \begin{itemize}\small
   \item \code{probes/<point>\_per\_blade\_<ALIAS>.csv} averages each blade
         over the last part of the run: the matrix row's averaging window.
-  \item Every blade shares that window. Each row states that blade's start
+  \item The blades of one rotor share its window; each rotor uses its own clock.
+        Each row states that blade's start
         and end azimuth.
-  \item The window is the one the unsteady plots and POLAR use, from
+  \item The rotor window follows
         \code{LAST\_REVS\_AVG} or \code{LAST\_ITERS\_AVG} on the matrix row.
   \item There is one row per blade.
 \end{itemize}
@@ -23,7 +24,7 @@
   \item Averaging from step one mixes the transient with the answer.
 \end{itemize}
 \begin{takeaway}
-The last shared window keeps the sampling time the same for every blade.
+The shared window compares blades of one rotor at the same times.
 \end{takeaway}
 \end{frame}
 

@@ -14,10 +14,10 @@
         (a matrix column or the \code{VAR\_NAMES\_VALUES} cell), a
         \emph{setup} key, a \emph{pproc} table, the \emph{reference}, or the
         \emph{sidecar} \code{<stem>.boundaries.toml} beside the geometry.
-  \item \textbf{Verified on}: the builds on which the command database
-        records a probe run of every command the key writes. \emph{none}: no
-        probe run, the command is still documented by its build's manual.
-        \emph{no command}: the step writes none.
+  \item \textbf{DB evidence}: builds covered by the database status,
+        including inherited evidence. Inherited status is not a probe run
+        on that build. Consult the command reference for direct evidence.
+        \emph{none}: no verified coverage; \emph{no command}: writes none.
   \item \textbf{not yet}: no key of its own. The raw route still takes it
         (last part).
 \end{itemize}

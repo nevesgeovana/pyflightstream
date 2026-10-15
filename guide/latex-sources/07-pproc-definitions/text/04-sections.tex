@@ -38,8 +38,8 @@ One name across every table \\
 \midrule
 \code{ROTOR} & Rotor whose blades those families are;
 \code{NA} for a surface no rotor owns \\
-\code{AZIMUTH} & Where blade one of that rotor is at \code{STEP}, in degrees,
-wrapped to one turn; \code{NA} without a rotor \\
+\code{AZIMUTH} & Where the block's own blade is at \code{STEP}, in degrees,
+wrapped to one turn; otherwise blade one of its rotor; \code{NA} without a rotor \\
 \bottomrule
 \end{tabular}}
 \end{frame}
@@ -57,6 +57,8 @@ wrapped to one turn; \code{NA} without a rotor \\
   \item The datum, the sense of rotation and the steps per revolution all
         come from \textbf{that rotor}.
   \item Sense is the sign of the rotor's speed.
+  \item For a block cutting only blade \(n\), add \((n-1)360/B\) to this
+        blade-one angle, regardless of the rotation sense; \(B\) is blade count.
   \item Two rotors at two speeds have two azimuths at the same step.
         A wing has none.
 \end{itemize}

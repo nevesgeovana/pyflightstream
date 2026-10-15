@@ -123,3 +123,23 @@ def test_repeated_generation_preserves_exact_bytes_and_modification_times(tmp_pa
     for name, (body, mtime) in snapshots.items():
         assert (directory / name).read_bytes() == body
         assert (directory / name).stat().st_mtime_ns == mtime
+
+
+def test_p0410_pc_generated_setup_header_preserves_family_selector_route(tmp_path):
+    """PFS-2116.015: generated guidance agrees with accepted typed selectors."""
+    workspace = make_planned_workspace(tmp_path)
+    argv = _workflow_plan_args(workspace, "--fs-version", "26.124", "--setup-standards")
+    assert main(argv) == 0
+    files = list((workspace.inputs_dir / "setups").glob("s9*.toml"))
+    assert files
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        settings = tomllib.loads(text)
+        settings["vorticity_drag_families"] = ["wing", "tail"]
+        parsed = SolverSettings.model_validate(settings)
+        assert parsed.vorticity_drag_families == ["wing", "tail"]
+        header = text.split("\n\n", 1)[0]
+        blanket_refusal = re.search(
+            r"boundary lists.*(?:never|not) family selectors", header, flags=re.IGNORECASE
+        )
+        assert blanket_refusal is None or "_families" in header, (path.name, header)

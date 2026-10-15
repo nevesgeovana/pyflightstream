@@ -16,5 +16,13 @@ guided sequence and a precise reference.
 | [8, FSI](https://nevesgeovana.github.io/pyflightstream/downloads/pyfts-guide-08-fsi.pdf) | Fluid-structure interaction: the loop, the structural input, calibration, refusals, examples and limits |
 | [9, An offline Python environment](https://nevesgeovana.github.io/pyflightstream/downloads/pyfts-guide-09-python-environment-offline.pdf) | Python, a virtual environment and the package on a machine with no internet, Windows and Linux |
 
-The PDFs are built from the sources in `guide/` and published as site downloads. The website is the
-maintained source for technical details and code examples.
+The PDFs are built from the sources in `guide/` and published as site downloads
+with each tagged release. Check the version printed in a guide before applying
+its examples to an installation; this source set accompanies 0.41.0. The website
+is the maintained source for technical details and code examples.
+
+Start with [a solver-free first success](getting-started.md#first-success-without-a-solver),
+then use Guide 2 for the workspace, Guide 5 for the
+[reference artifact](workflow-reference-artifact.md), Guide 6 for
+[setup standards](setup-standards.md), and Guide 7 alongside the
+[post-processing definitions](post-processing-definitions.md).
