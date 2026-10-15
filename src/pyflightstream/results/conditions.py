@@ -211,23 +211,14 @@ def bind_conditions(
     Parameters
     ----------
     requested : mapping of str to float
-        The point that was asked for, keyed by axis name. Keys the
-        `bindings` table does not know are ignored, because a campaign
-        may sweep an axis that the loads export does not print back.
+        The point that was asked for, keyed by axis name. Keys absent
+        from the `bindings` table are recorded as unbound rather than compared.
     reported : object
         A parsed report carrying the attributes named in `bindings`,
         in practice a :class:`~pyflightstream.results.LoadsReport`.
 
-        Typed loosely because the comparison is duck typed: any object
-        exposing the attributes in `bindings` can be compared, which is
-        what lets a test drive the table without constructing a parsed
-        report. NOT for a layering reason. An earlier version of this
-        docstring said this module "sits below the run layer and must
-        not import it back", which is false about `LoadsReport`: it
-        lives in :mod:`pyflightstream.results`, the SAME layer as this
-        module, so nothing about the layer rule requires `object` here
-        (architect pass, 2026-08-03). A wrong rationale propagates,
-        which is why it is corrected rather than deleted.
+        Any object exposing the attributes in `bindings` can be compared,
+        including a synthetic report for an offline check.
     bindings : tuple, optional
         The axis-to-attribute table; defaults to
         :data:`FIELD_BINDINGS`. Passed explicitly by tests so the
@@ -244,6 +235,18 @@ def bind_conditions(
     A requested value of None is treated as "not requested", which is
     the case for an optional field such as free-stream velocity that a
     campaign may leave to the recipe.
+
+    Examples
+    --------
+    Compare a synthetic report and distinguish a mismatch from an unprinted field:
+
+    >>> from types import SimpleNamespace
+    >>> from pyflightstream.results import bind_conditions
+    >>> requested = {"alpha": 2.0}
+    >>> binding = bind_conditions(requested, reported=SimpleNamespace(angle_of_attack_deg=3.0))
+    >>> assert binding.compared and not binding.mismatch_free
+    >>> missing = bind_conditions(requested, reported=SimpleNamespace())
+    >>> assert not missing.compared and missing.unprinted == ("alpha",)
     """
     checks: list[ConditionCheck] = []
     unprinted: list[str] = []

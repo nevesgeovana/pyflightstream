@@ -366,9 +366,9 @@ def rotor_shedding_direction(case: SimCase) -> str | None:
     workflow emits it. This function parses the value for the Python
     helper :func:`rotor_relaxed_trailing_edges`, which applies it to the
     specifications a component definition carries. A matrix row stating
-    ``ROTOR_SHEDDING`` is refused in 0.29.0 by every matrix workflow,
-    since none applies it (see ``docs/upgrading.md``);
-    direction control from the matrix is planned for 0.30.0.
+    ``ROTOR_SHEDDING`` is refused by every matrix workflow, since none applies
+    it. ``CCS_SHEDDING`` controls the shedding digit on the CCS file-import
+    route; it is not a general rotor wake-direction switch.
 
     Parameters
     ----------
@@ -430,13 +430,13 @@ def rotor_shedding_direction(case: SimCase) -> str | None:
 def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -> list[str]:
     """Restate a rotor case's relaxed trailing edges in the row's direction.
 
-    THIS IS THE ROUTE TO THE AZIMUTHAL OPTION in 0.29.0, from Python: a
+    From Python, a
     case whose variables carry ``ROTOR_SHEDDING: AZIMUTH`` is passed here
     with the specifications its component definition carries, and they
     come back with the direction value set. A MATRIX ROW stating
-    ``ROTOR_SHEDDING`` is refused in 0.29.0, because no workflow command
-    applies it (see ``docs/upgrading.md``); direction control
-    from the matrix is planned for 0.30.0. The library writes no
+    ``ROTOR_SHEDDING`` is refused because no workflow command applies it.
+    ``CCS_SHEDDING`` controls the shedding digit on the separate CCS file-import
+    route, not general rotor wake direction. This helper writes no
     component file, so the rendered text is returned for the caller to
     write where their geometry keeps it.
 

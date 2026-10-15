@@ -3,9 +3,7 @@
 <h1>Post-processing definitions</h1>
 
 **This page is the definition of record for every post-processing product this
-package writes.** It exists because the definitions kept being re-explained in
-conversation and re-derived from code, and a definition derived from code makes
-the code its own specification. Where this page and the code disagree, **this
+package writes.** Where this page and the code disagree, **this
 page is right and the code is a defect**.
 
 Every definition below states the requirement a product is built to. None of
@@ -13,10 +11,17 @@ them was inferred from an implementation.
 
 !!! note "For whoever maintains this package"
     Read this page before changing any reduction, any averaging window, or any
-    product's column set. A reduction whose meaning you reconstructed from
-    `cases/workflows/` is a reduction you are about to get subtly wrong: three of
-    the definitions below were implemented as a declared field with no caller,
-    which reads exactly like a finished feature.
+    product's column set. Test reductions against these definitions and their
+    analytic examples, including the stated window and reference quantities.
+
+## Recomputing products after an upgrade
+
+Read [Upgrading](upgrading.md) before comparing products from different package
+versions. Archive the existing products and their input records, then run post
+again to apply the current reductions to retained solver exports. Check the
+product's recorded window, units and reference quantities before comparing
+values. A solver rerun is needed when the required exports are absent or the
+solver inputs must change; recomputing a reduction alone does not require one.
 
 
 <a id="contents"></a>

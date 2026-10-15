@@ -10,6 +10,8 @@ from your workstation or a cluster. MIT licensed.
 
 This source tree contains 0.41.0; CHANGELOG.md describes its changes and the
 retained release history.
+Use the [upgrade guidance](https://nevesgeovana.github.io/pyflightstream/upgrading/)
+when moving an existing workspace to a newer package version.
 
 **Documentation: [nevesgeovana.github.io/pyflightstream](https://nevesgeovana.github.io/pyflightstream/)**
 

@@ -1682,10 +1682,11 @@ def _refuse_rotor_shedding(case: SimCase) -> None:
         # the fix, like every sibling refusal of a row.
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {ROTOR_SHEDDING_VARIABLE} as {stated!r}, and "
-            "0.29.0 refuses it in every matrix workflow: no workflow command applies the "
+            "every matrix workflow refuses it: no workflow command applies the "
             "wake direction of a relaxed trailing edge, so the run would shed a wake the "
             f"row did not ask for. Remove {ROTOR_SHEDDING_VARIABLE} from the row. "
-            "Direction control from the matrix is planned for 0.30.0; from Python, "
+            "CCS_SHEDDING controls the shedding digit on the CCS file-import route; "
+            "it is not a general rotor wake-direction switch. From Python, "
             "rotor_relaxed_trailing_edges sets the direction in the specifications of "
             "the component definition."
         )

@@ -785,8 +785,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     Returns
     -------
     int
-        0 on success. A usage error exits 2 through ``argparse``, and a
-        refusal from the library raises.
+        0 when the requested report or write completes. Citations returns 1
+        on findings; sweep returns 1 on unreachable commands only with
+        ``--fail-if-absent``. Missing manual dependencies return 2. Invalid
+        arguments and handled manual-reading refusals exit 2 through
+        ``argparse``. Unhandled exceptions propagate to the caller.
     """
     parser = _parser()
     args = parser.parse_args(argv)

@@ -562,11 +562,11 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     ),
     "ROTOR_AXIS": _rows(rotor_case, "ROTOR_AXIS", "X", "Z"),
     "ROTOR_ORIGIN": _rows(rotor_case, "ROTOR_ORIGIN", "0.1,0.2,0.3", "0.4,0.5,0.6"),
-    # Refused in 0.29.0 whatever its value: absent against stated.
+    # Refused whatever its value: absent against stated.
     "ROTOR_SHEDDING": Variation(
         lambda _: rotor_case(),
         lambda _: rotor_case(ROTOR_SHEDDING="AZIMUTH"),
-        refusal="0.29.0 refuses it in every matrix workflow",
+        refusal="every matrix workflow refuses it",
     ),
     "MOVING_BOUNDARIES": _rows(rotor_case, "MOVING_BOUNDARIES", "1", "1,2"),
     "MOTIONS": Variation(
@@ -1116,7 +1116,7 @@ def test_a_key_refused_in_this_release_is_refused_on_every_build(tmp_path, meani
     """A key refused whatever its value: its row says so, and every build refuses it.
 
     ``ROTOR_SHEDDING``, ``legacy_solver_model`` and ``sonic_velocity_m_per_s``
-    in 0.29.0: each variation is absent against stated, which the claims above
+    are checked absent against stated, which the claims above
     count as a difference; this holds what that difference is. Every build the
     run type covers refuses the stated case, in the key's own words wherever
     the case without the key builds, and where that case does not build (no
@@ -1132,7 +1132,7 @@ def test_a_key_refused_in_this_release_is_refused_on_every_build(tmp_path, meani
     }
     assert set(refused) == REFUSED_IN_THIS_RELEASE, sorted(refused)
     for (table, key), variation in refused.items():
-        assert "Refused in 0.29.0" in meanings[(table, key)], meanings[(table, key)]
+        assert "refused" in meanings[(table, key)].lower(), meanings[(table, key)]
         first, second = variation.first(tmp_path), variation.second(tmp_path)
         assert not _states(first, table, key) and _states(second, table, key)
         builds = covered_builds(WORKFLOWS[select_workflow(first)])

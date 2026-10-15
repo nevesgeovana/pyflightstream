@@ -640,100 +640,18 @@ def removed_names_hook(module: str) -> Callable[[str], object]:
     return refuse
 
 
-#: THE VOCABULARY THAT MOVED TO THE REFERENCE (FR-59 and FR-72, the design
-#: of 2026-09-10). Both tables were the setup preset's at 0.14.0, are read
-#: from it with a warning at 0.15.0, and stop being read at 0.17.0. Two
-#: releases rather than one because a workspace migrates its inputs by
-#: hand and the tables are shared by every row of a configuration.
-_MOVED_TO_THE_REFERENCE = (
-    "A boundary name and a coordinate system are properties of the "
-    "CONFIGURATION, and a preset is per condition."
-)
-SETUP_ALIASES_TABLE = DeprecatedParameter(
-    owner="the setup preset",
-    old="[aliases]",
-    new="the same table in the reference artifact",
-    deprecated_since="0.15.0",
-    removal_version="0.18.0",
-    extra=_MOVED_TO_THE_REFERENCE,
-)
-SETUP_FRAMES_TABLE = DeprecatedParameter(
-    owner="the setup preset",
-    old="[[frames]]",
-    new="the same table in the reference artifact",
-    deprecated_since="0.15.0",
-    removal_version="0.18.0",
-    extra=_MOVED_TO_THE_REFERENCE,
-)
-#: THE FIVE ROW KEYS AN ALIAS REPLACES (FR-61). The reference states each
-#: of them once, in the rotor's own block, so a row states the alias and
-#: nothing else about the rotor.
-_STATED_IN_THE_BLOCK = (
-    "The reference states it once, in the rotor's own block, and a row names the rotor by alias."
-)
+#: A motion record must name its rotor by alias. Flat rotor rows retain their
+#: accepted axis, origin, sign and blade-count keys; this refusal is conditional
+#: on MOVING_BOUNDARIES appearing inside a MOTIONS record.
 ROW_MOVING_BOUNDARIES = DeprecatedParameter(
-    owner="a motion record",
+    owner="a MOTIONS record",
     old="MOVING_BOUNDARIES",
     new="MOVING_BC_ALIAS",
     deprecated_since="0.15.0",
     removal_version="0.18.0",
-    extra=_STATED_IN_THE_BLOCK,
-)
-ROW_ROTOR_AXIS = DeprecatedParameter(
-    owner="a motion record",
-    old="ROTOR_AXIS",
-    new="the axis of the rotor the record names",
-    deprecated_since="0.15.0",
-    removal_version="0.18.0",
-    extra=_STATED_IN_THE_BLOCK,
-)
-ROW_ROTOR_ORIGIN = DeprecatedParameter(
-    owner="a motion record",
-    old="ROTOR_ORIGIN",
-    new="the hub of the rotor the record names",
-    deprecated_since="0.15.0",
-    removal_version="0.18.0",
-    extra=_STATED_IN_THE_BLOCK,
-)
-ROW_RPM_SIGN = DeprecatedParameter(
-    owner="a motion record",
-    old="RPM_SIGN",
-    new="the rpm_sign of the rotor the record names",
-    deprecated_since="0.15.0",
-    removal_version="0.18.0",
-    extra=_STATED_IN_THE_BLOCK,
-)
-ROW_BLADES = DeprecatedParameter(
-    owner="a motion record",
-    old="BLADES",
-    new="the length of that rotor's families_blades",
-    deprecated_since="0.15.0",
-    removal_version="0.18.0",
     extra=(
-        "The reference states the blade FAMILIES and the count is how many "
-        "there are, so a sector mesh carrying one blade of four still "
-        "reduces over four and no row states a number that can disagree "
-        "with the file it opens."
-    ),
-)
-#: A KEY BECOMING REQUIRED IS NOT A RENAME, and this is the first entry of
-#: that shape. `old` is the ABSENCE and `new` is the key, because what a
-#: reader needs is the sentence "you have until 0.17.0 to add this", which
-#: the ledger's own renderer produces from those two fields. Written here
-#: rather than only in the warning string, because a promise the deadline
-#: guard cannot see is a promise nothing keeps (the interface lens of the
-#: 0.15.0 release review).
-ROW_CLOCK_MOTION_ON_A_FLAT_ROW = DeprecatedParameter(
-    owner="a rotor row in the pre-0.15.0 spelling",
-    old="no CLOCK_MOTION, the clock following the fastest rotor",
-    new="CLOCK_MOTION naming the motion that owns the clock",
-    deprecated_since="0.15.0",
-    removal_version="0.18.0",
-    extra=(
-        "A row stating a MOTIONS list is refused without the key since "
-        "0.15.0. A flat-form row that turns more than one rotor is refused "
-        "without it as well, and a flat-form row turning ONE rotor needs no "
-        "key, because there is nothing to choose between."
+        "A MOTIONS record names a rotor alias from the reference. "
+        "Flat rotor row keys remain accepted."
     ),
 )
 ROW_ROTATE_FAMILIES = DeprecatedParameter(
@@ -795,30 +713,11 @@ ROW_BLADES_SELECTOR = DeprecatedParameter(
 #: the entry moves rather than staying here unspoken. Its home is
 #: :data:`pyflightstream._retired_names.PROBE_SCALE_PROPELLER_RADIUS`.
 
-#: THE 0.15.0 BATCH, WHICH IS NOT A SET OF PROMISES. Every entry below was
-#: written in 0.15.0 and 0.15.0 has not shipped, so nobody has a workspace
-#: that was told the old spelling would keep working. The decision of
-#: 2026-09-10 is that this release breaks them rather than carrying two
-#: vocabularies into a package with no stable version: a promise made
-#: inside an unreleased version was never a promise to anyone.
-#:
-#: The entries stay as objects because their `message()` is the sentence the
-#: REFUSALS print, and one home for a sentence is what this module is for.
-#: They are out of :data:`DEPRECATIONS` because that tuple is what the Tier 1
-#: deadline guard reads, and there is no shim left for it to watch expire.
-#:
-#: The 0.14.0 batch is deliberately NOT here. Those promises were published,
-#: they expire at 0.16.0 which is the next release anyway, and breaking them
-#: would break a workspace that upgraded on the strength of them.
+#: Live refusal messages for removed spellings, not unconditional bans on
+#: flat rotor row keys. These entries have callers; obsolete catalog-only
+#: entries are not promises or active refusals.
 REFUSED_IN_0_15_0: tuple[Deprecation, ...] = (
-    SETUP_ALIASES_TABLE,
-    SETUP_FRAMES_TABLE,
     ROW_MOVING_BOUNDARIES,
-    ROW_ROTOR_AXIS,
-    ROW_ROTOR_ORIGIN,
-    ROW_RPM_SIGN,
-    ROW_BLADES,
-    ROW_CLOCK_MOTION_ON_A_FLAT_ROW,
     ROW_ROTATE_FAMILIES,
     ROW_EACH_BLADE,
     ROW_AIRFRAME_SELECTOR,

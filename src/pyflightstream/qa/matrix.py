@@ -901,8 +901,9 @@ def drift_from_workspace(
     matrix : str
         The matrix file name at the root.
     name : str, optional
-        The campaign name of both sides; the workspace directory's name
-        when left out, as for the physics run.
+        The campaign name of both sides. When omitted, each side uses its own
+        directory name, ``a_<build>`` or ``b_<build>``, rather than the source
+        workspace's name.
     references_dir : str or Path, optional
         Alternative reference directory, used by tests; the diff itself
         needs no reference.

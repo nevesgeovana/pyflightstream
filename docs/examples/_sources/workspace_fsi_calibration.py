@@ -35,12 +35,19 @@ def run_example(workspace: Path) -> dict[str, object]:
     supplied_path = directory / "f_supplied.toml"
     if any(path.exists() for path in (calculated_path, supplied_path)):
         raise FileExistsError("Choose a destination without the example's two FSI inputs.")
+    template_lines = FSI_TEMPLATE.splitlines()
+    target = "bending_stiffness_n_m2 = 1.0"
+    if template_lines.count(target) != 1:
+        raise ValueError("FSI template must contain exactly one default bending calibration line.")
+    template_lines[template_lines.index(target)] = "bending_stiffness_n_m2 = 1.05"
     directory.mkdir(parents=True, exist_ok=True)
     calculated_path.write_text(
-        FSI_TEMPLATE.replace("bending_stiffness_n_m2 = 1.0", "bending_stiffness_n_m2 = 1.05"),
+        "\n".join(template_lines) + "\n",
         encoding="utf-8",
     )
-    base = resolve_fsi_setup(calculated_path).base
+    file_setup = resolve_fsi_setup(calculated_path)
+    base = file_setup.base
+    file_factor = file_setup.factors["bending_stiffness_n_m2"]
     # Use unscaled distributions. Reusing the effective properties here would
     # silently apply the calibration a second time when loading the supplied input.
     distributions = base.blade.model_dump(exclude={"provenance"})
@@ -48,7 +55,7 @@ def run_example(workspace: Path) -> dict[str, object]:
         "# Synthetic distributions computed from f_calculated; no native validation.",
         'mode = "supplied"',
         "[calibration]",
-        "bending_stiffness_n_m2 = 1.05",
+        f"bending_stiffness_n_m2 = {file_factor}",
         "[config]",
         "blade_count = 2",
         "omega_rad_per_s = 0.0",
@@ -78,8 +85,8 @@ def run_example(workspace: Path) -> dict[str, object]:
         "mode_equivalence": "verified for every supplied blade distribution",
         "base_EI_N_m2": base.blade.bending_stiffness_n_m2,
         "effective_EI_N_m2": calculated.effective.blade.bending_stiffness_n_m2,
-        "file_factor": 1.05,
-        "matrix_factor": 1.15,
+        "file_factor": file_factor,
+        "matrix_factor": calculated.factors["bending_stiffness_n_m2"],
         "factor_origin": calculated.origins["bending_stiffness_n_m2"],
         "input_sha256": {item.mode: item.source_sha256 for item in (calculated, supplied)},
         "solver_executed": False,

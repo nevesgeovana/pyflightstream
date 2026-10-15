@@ -201,6 +201,13 @@ def _decided_docs_2_tier3___isolated_program(tmp_path: Path, name: str) -> Path:
         shutil.copyfile(_DECIDED_DOCS_2_TIER3__REPO / "tests" / filename, tests / filename)
     target = scripts / f"{name}.py"
     shutil.copyfile(_DECIDED_DOCS_2_TIER3__TIER3 / target.name, target)
+    # Supply the package dependency independently of discovering the tests root.
+    # PYTHONPATH stays absent, and a missing entrypoint bootstrap still fails.
+    shutil.copytree(
+        _DECIDED_DOCS_2_TIER3__REPO / "src" / "pyflightstream",
+        scripts / "pyflightstream",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
     return target
 
 

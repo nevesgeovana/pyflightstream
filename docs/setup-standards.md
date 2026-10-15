@@ -1,5 +1,39 @@
 # Setup standards and guidance
 
+## Solver-free separation example
+
+Separation models assign named criteria to boundaries of a loaded model.
+This example renders an airfoil assignment without launching FlightStream.
+The boundary numbers are illustrative; use the IDs from your own mesh.
+`delete_separations="all"` erases existing assignments before creating the
+new ones. Omitting a family leaves it unchanged; an empty list is refused.
+
+```python
+from pyflightstream.script import Script, helpers
+from pyflightstream.script.solver_setup import AirfoilSeparation
+
+script = Script(version="26.121")
+helpers.solver_settings(
+    script,
+    delete_separations="all",
+    airfoil_separation=[
+        AirfoilSeparation(name="WING", boundaries=[1, 2], valarezo_criterion=True)
+    ],
+)
+commands = script.render()
+assert commands.index("DELETE_SEPARATION -1") < commands.index("CREATE_AIRFOIL_SEPARATION")
+assert "CREATE_AIRFOIL_SEPARATION WING 2 ENABLE" in commands
+print(commands)
+```
+
+`name` labels an assignment; `boundaries` selects surface IDs, and
+`valarezo_criterion` selects the airfoil criterion. Axial vortex, cylindrical
+bulk and Stratford bulk assignments have separate typed models. Rendering
+checks command availability for the selected build; it does not establish
+whether a separation model is physically appropriate for your flow.
+
+## Generate workspace standards
+
 Generate the guide and standard setup library while planning:
 
 ```console
@@ -222,7 +256,8 @@ See [Boundary conditions and initialization actions](boundary-conditions.md)
 for the available actions, ordering and current evidence limits.
 
 `ROTOR_SHEDDING` is refused in matrix workflows because it has no effective
-native route there. CCS Relaxed_TE direction control remains deferred; the
+native route there. `CCS_SHEDDING` controls the shedding digit on the CCS
+file-import route; it is not a general rotor wake-direction switch. The
 standalone Python component helper remains available.
 
 ### Applying existing boundary declarations
