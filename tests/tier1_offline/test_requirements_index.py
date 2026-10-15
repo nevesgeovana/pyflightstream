@@ -130,7 +130,8 @@ def test_p0420_writing_rules_controls_and_baseline():
     assert module.compare_baseline(counts, {"rules": {}})
 
 
-def test_p0420_writing_receipt_binds_committed_inputs(tmp_path, monkeypatch):
+@pytest.mark.parametrize("receipt_name", ["receipt.json", "receipt.log"])
+def test_p0420_writing_receipt_binds_committed_inputs(tmp_path, monkeypatch, receipt_name):
     from scripts import check_writing_rules as checker
 
     page = "docs/unpublished/requirements/inst.md"
@@ -163,7 +164,7 @@ def test_p0420_writing_receipt_binds_committed_inputs(tmp_path, monkeypatch):
     monkeypatch.setattr(checker, "git", git_fixture)
     baseline = tmp_path / "baseline.json"
     baseline.write_text(json.dumps({"rules": dict.fromkeys(checker.RULES, 0)}), "utf-8")
-    receipt_path = tmp_path / "receipt.json"
+    receipt_path = tmp_path / receipt_name
     assert (
         checker.main(
             ["--root", str(REPO), "--baseline", str(baseline), "--receipt", str(receipt_path)]
@@ -194,6 +195,10 @@ def test_p0420_writing_receipt_binds_committed_inputs(tmp_path, monkeypatch):
         == 1
     )
     assert json.loads(receipt_path.read_text("utf-8"))["exit_status"] == 1
+
+    baseline.write_bytes(b"")
+    with pytest.raises(json.JSONDecodeError):
+        checker.main(["--root", str(REPO), "--baseline", str(baseline)])
 
 
 @pytest.mark.skip(reason="Activate at S3 after content lanes bring W01/W02/W10 to zero")

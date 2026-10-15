@@ -261,7 +261,9 @@ def main(argv=None):
     findings = {row["uid"]: check(row) for row in rows}
     counts = {rule: sum(rule in found for found in findings.values()) for rule in RULES}
     baseline_bytes = args.baseline.read_bytes() if args.baseline else None
-    failures = compare_baseline(counts, json.loads(baseline_bytes)) if baseline_bytes else []
+    failures = (
+        compare_baseline(counts, json.loads(baseline_bytes)) if baseline_bytes is not None else []
+    )
     result = {"rules": counts, "controls": tested, "live_rows": len(rows), "failures": failures}
     log = json.dumps(result, indent=2) + "\n"
     print(log, end="")
@@ -275,7 +277,7 @@ def main(argv=None):
         if destination.is_relative_to(root):
             parser.error("receipt must be outside the measured tree")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        log_path = destination.with_suffix(".log")
+        log_path = destination.with_name(destination.name + ".log")
         log_bytes = log.encode("utf-8")
         log_path.write_bytes(log_bytes)
         receipt = {
