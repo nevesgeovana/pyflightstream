@@ -56,7 +56,8 @@ def test_p0410_fx2_dependency_detector_covers_every_fft_family(campaign):
 
     def changed_fit(*args, **kwargs):
         coefficients, *rest = original_fit(*args, **kwargs)
-        return (2 * coefficients, *rest)
+        offsets = np.arange(1, coefficients.size + 1).reshape(coefficients.shape)
+        return (2 * coefficients + offsets, *rest)
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(np.fft, "rfft", lambda *a, **k: 2 * original_fft(*a, **k))
@@ -68,6 +69,13 @@ def test_p0410_fx2_dependency_detector_covers_every_fft_family(campaign):
         assert sum(name.endswith("_spectrum.csv") for name in changed) == 3
     else:
         assert any(name.endswith("_harmonics.csv") for name in changed)
+        for name in changed:
+            key = (campaign, name)
+            for column in snapshot.NUMERIC_PRODUCTS[key]:
+                missing_column = dict(snapshot.NUMERIC_PRODUCTS)
+                missing_column[key] = tuple(c for c in missing_column[key] if c != column)
+                with pytest.raises(AssertionError, match="missing FFT column"):
+                    _dependency_contracts(campaign, before, after, missing_column)
     _numeric_rows(
         {key: snapshot.NUMERIC_PRODUCTS[key] for key in ((campaign, name) for name in changed)},
         snapshot.SNAPSHOT_DIR,
