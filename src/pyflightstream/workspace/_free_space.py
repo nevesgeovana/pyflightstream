@@ -475,3 +475,12 @@ def _check_step_values(path: Path, document: dict[str, Any], error: type[Excepti
                 f"{path}: post_archives keep_latest = {keep_latest!r}; write how many of the "
                 "newest archives to keep, a whole number 0 or more"
             )
+
+
+def human_bytes(count: float) -> str:
+    """``1536`` -> ``1.5 KB``; binary multiples, one decimal."""
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(count) < 1024 or unit == "TB":
+            return f"{count:.0f} {unit}" if unit == "B" else f"{count:.1f} {unit}"
+        count /= 1024
+    return f"{count:.1f} TB"  # pragma: no cover - the loop returns

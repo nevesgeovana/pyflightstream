@@ -6,10 +6,12 @@ from pathlib import Path
 def test_p0410_frame_probe_workspace_is_solver_free(tmp_path, monkeypatch):
     from lanes.ph_b1_licensed import prepare
 
+    from pyflightstream.run import LocalExecutor
+
     def forbidden(*args, **kwargs):
         raise AssertionError("probe preparation launched a licensed solver")
 
-    monkeypatch.setattr("pyflightstream.run.LocalExecutor.run_script", forbidden)
+    monkeypatch.setattr(LocalExecutor, "run_script", forbidden)
     prepared = prepare(tmp_path, Path("FlightStream_26124.exe"))
     assert set(prepared) == {"recut", "post_edit", "linked"}
     recut = prepared["recut"].read_text()

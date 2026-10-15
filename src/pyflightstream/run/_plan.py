@@ -1579,9 +1579,7 @@ def _plan_point(
     script = Script(version=fs_version)
     try:
         recipe(point_case, script)
-        structural_config = effective_fsi_config(point_case)
-        if structural_config is not None:
-            base["fsi"] = structural_assessment(structural_config)
+        base.update(_structural_facts(point_case))
         # G02: the plan knows no machine, so a log export the row turned off
         # is refused here, before any run can spend a seat on it.
         _refuse_an_import_count_nothing_logs(point_case, script, None)
@@ -1883,3 +1881,9 @@ def _staged_inputs_conflict(
             "archive the simulation and run it again as new evidence."
         )
     return None
+
+
+def _structural_facts(case: SimCase) -> dict[str, Any]:
+    """Report structural assessment only for a point carrying an FSI configuration."""
+    config = effective_fsi_config(case)
+    return {"fsi": structural_assessment(config)} if config is not None else {}

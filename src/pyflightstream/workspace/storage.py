@@ -88,6 +88,7 @@ from pyflightstream.workspace._free_space import (
 )
 from pyflightstream.workspace._free_space import COMPACTED_SUFFIX as COMPACTED_SUFFIX
 from pyflightstream.workspace._free_space import PRUNE_MODE as PRUNE_MODE
+from pyflightstream.workspace._free_space import human_bytes as human_bytes
 from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
 from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
@@ -164,15 +165,6 @@ def _stamp() -> str:
     # restore takes the newest by stamp, so a UTC stamp here sorted a storage
     # copy hours away from the copies made beside it.
     return _dt.datetime.now().strftime(ARCHIVE_STAMP)
-
-
-def human_bytes(count: float) -> str:
-    """``1536`` -> ``1.5 KB``; binary multiples, one decimal."""
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if abs(count) < 1024 or unit == "TB":
-            return f"{count:.0f} {unit}" if unit == "B" else f"{count:.1f} {unit}"
-        count /= 1024
-    return f"{count:.1f} TB"  # pragma: no cover - the loop returns
 
 
 def _workspace(root: str | Path) -> CampaignWorkspace:

@@ -7,18 +7,20 @@ ones, and the list is what EXISTS rather than what is planned
 Each says whether it is reached through this package or through its own
 module, which is stated rather than left to be discovered:
 
-* :mod:`pyflightstream.post._export_tables` writes declared solver tables;
+* :mod:`pyflightstream.post.point_tables` writes declared solver tables;
   reached by the workspace pipeline.
 * :mod:`pyflightstream.post._structure` writes structural response and tip columns;
   reached by the workspace pipeline.
-* :mod:`pyflightstream.post._plan_inflow` registers plan-time inflow maps;
+* :mod:`pyflightstream.post.inflow_tools` registers plan-time inflow maps;
   reached by the workspace pipeline.
-* :mod:`pyflightstream.post._workspace_commands` registers calibration commands;
+* :mod:`pyflightstream.post.corrections` registers calibration commands;
   reached by the workspace pipeline.
-* :mod:`pyflightstream.post._polar_axes` selects explicit polar axes;
+* :mod:`pyflightstream.post.polar` selects explicit polar axes;
   reached by the workspace pipeline.
 * :mod:`pyflightstream.post._noise_products` writes opt-in exploratory loading noise;
   reached by the workspace pipeline.
+* :mod:`pyflightstream.post._matrix_template` supplies the complete matrix example
+  and its explanation to the workspace input guide.
 * :mod:`pyflightstream.post.diagnostics` renders complete saved post logs as
   Markdown without executing stages or changing products. Its report renderer
   is re-exported here and registered through workspace for lower-layer
@@ -302,5 +304,5 @@ def _the_guides_stage(workspace: object, **_options: object) -> list[Path]:
 
 register_post_stage(_the_guides_stage)
 
-import pyflightstream.post._plan_inflow  # noqa: E402, F401
-import pyflightstream.post._workspace_commands  # noqa: E402, F401
+import pyflightstream.post.corrections  # noqa: E402, F401
+import pyflightstream.post.inflow_tools  # noqa: E402, F401

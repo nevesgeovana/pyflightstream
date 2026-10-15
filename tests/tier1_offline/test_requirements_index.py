@@ -362,10 +362,20 @@ def test_p0410_pa2_section_trefftz_names_a_sideslip_skip(sideslip):
     """P0410-PA2 (FR-1018): an inapplicable section analysis writes no result."""
     from types import SimpleNamespace
 
+    from pyflightstream.cases import PprocSpec
     from pyflightstream.exceptions import PyflightstreamWarning
-    from pyflightstream.post.farfield_products import _variant_a
+    from pyflightstream.post.farfield_products import farfield_products
 
-    context = SimpleNamespace(pproc=SimpleNamespace(farfield=None), skipped={})
+    context = SimpleNamespace(
+        pproc=PprocSpec.model_validate(
+            {"farfield": {"families": ["Wing"], "trefftz": {"variant": ["sections"]}}}
+        ),
+        skipped={},
+        farfield_super={},
+        sources={"P7": ["run7"]},
+        record_of={"P7": SimpleNamespace(recipe="steady", point={})},
+        matrix_row=SimpleNamespace(variables={}),
+    )
     point = SimpleNamespace(
         name="P7",
         state=SimpleNamespace(density_kg_m3=1.2),
@@ -374,7 +384,9 @@ def test_p0410_pa2_section_trefftz_names_a_sideslip_skip(sideslip):
         ),
     )
     with pytest.warns(PyflightstreamWarning, match="point=P7.*sideslip"):
-        assert _variant_a(context, point) == []
+        context.points = [point]
+        farfield_products(context)
+    assert context.farfield_super == {}
     assert len(context.skipped) == 1
     reason = next(iter(context.skipped.values()))
     assert "sideslip" in reason and "variants B and C" in reason

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from pyflightstream.cases import SimCase
 from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz, PprocArtifact
 from pyflightstream.workspace.manifest import WorkspaceError
@@ -514,3 +515,41 @@ _EXECUTABLES_TEMPLATE = """\
 # machine's real ones in executables.local.toml beside this file, which is
 # read over it for the same build ids and belongs in .gitignore.
 """
+
+
+_WRITERS: list[Callable[[SimCase, Path], list[Path]]] = []
+
+
+def register_plan_product_writer(writer: Callable[[SimCase, Path], list[Path]]) -> None:
+    """Register an optional plan-product writer once.
+
+    Parameters
+    ----------
+    writer : callable
+        Receives the resolved case and destination, and returns written paths.
+
+    Returns
+    -------
+    None
+        The callback is retained for subsequent plan requests.
+    """
+    if writer not in _WRITERS:
+        _WRITERS.append(writer)
+
+
+def write_plan_products(case: SimCase, folder: Path) -> list[Path]:
+    """Write the explicitly requested plan products.
+
+    Parameters
+    ----------
+    case : SimCase
+        Resolved workspace point.
+    folder : Path
+        Destination for products of this point.
+
+    Returns
+    -------
+    list[Path]
+        Paths written by the registered callbacks.
+    """
+    return [path for writer in _WRITERS for path in writer(case, folder)]

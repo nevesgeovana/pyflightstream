@@ -4,7 +4,8 @@ import pytest
 
 from pyflightstream import _deprecations
 from pyflightstream.cases import SimCase, SweepAxis
-from pyflightstream.cases.workflows._rows import _refuse_rotor_shedding
+from pyflightstream.cases.workflows import build_script
+from pyflightstream.script import Script
 
 
 def test_p0410_shedding_refusal_names_the_distinct_ccs_route():
@@ -16,7 +17,7 @@ def test_p0410_shedding_refusal_names_the_distinct_ccs_route():
         variables={"ROTOR_SHEDDING": "AZIMUTH"},
     )
     with pytest.raises(ValueError) as caught:
-        _refuse_rotor_shedding(case)
+        build_script(case, Script(version="26.124"))
     message = str(caught.value)
     assert "7001" in message and "AZIMUTH" in message
     assert "CCS_SHEDDING" in message

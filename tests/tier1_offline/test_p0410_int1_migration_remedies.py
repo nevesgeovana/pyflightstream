@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import InputArtifactError
-from pyflightstream.workspace._geometry_convert import _locate
+from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -15,7 +15,7 @@ def test_p0410_flat_geometry_refusal_names_the_required_folder(tmp_path):
     geometries.mkdir(parents=True)
     (geometries / "wing.fsm").write_text("fixture")
     with pytest.raises(InputArtifactError) as caught:
-        _locate("wing.fsm", tmp_path)
+        instruction_from_sidecar("wing.fsm", root=tmp_path)
     message = str(caught.value)
     assert "migrate-geometries" not in message
     assert "wing" in message

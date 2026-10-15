@@ -36,6 +36,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import pyflightstream._textio as _textio
 from pyflightstream._decimal import negated_text
@@ -46,6 +47,7 @@ from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     warn,
 )
+from pyflightstream.cases import SimCase
 from pyflightstream.cases.qsteady import (
     AZIMUTH_SAMPLES,
     HARMONIC_AMPLITUDE_FLOOR_DEG,
@@ -54,6 +56,8 @@ from pyflightstream.cases.qsteady import (
     harmonic_variance_shares,
     suggested_passage_positions,
 )
+from pyflightstream.cases.workflows import qsteady_inflow_map_inputs
+from pyflightstream.workspace import register_plan_product_writer
 
 __all__ = [
     "AZIMUTH_COLUMNS",
@@ -594,3 +598,14 @@ def write_inflow_harmonics(
     _textio.write_text(full, "\n".join(lines) + "\n")
     _textio.write_text(short, "\n".join(lines_j) + "\n")
     return full, short
+
+
+def _write(case: SimCase, folder: Path) -> list[Path]:
+    inputs = qsteady_inflow_map_inputs(case)
+    if inputs is None:
+        return []
+    result = inflow_harmonics_map(**cast(dict[str, Any], inputs))
+    return list(write_inflow_harmonics(folder, result, overwrite=True))
+
+
+register_plan_product_writer(_write)

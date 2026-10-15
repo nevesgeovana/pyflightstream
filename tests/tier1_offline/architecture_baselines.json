@@ -1,7 +1,7 @@
 {
  "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a and lowered on 2026-10-01 on the tree of rel/0-33 at f888d704 with WP4, WP5 and WP6 merged, and on 2026-10-01 on the tree of rel/0-34 with the wave 1 packages of 0.34.0 merged (RPT-123), and on 2026-10-02 on the tree of rel/0-34 with the wave 2 packages merged (RPT-124). Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today. Release 0.40.0 final-lane recount on 2026-10-13: recorded counts refreshed on the docsR base 1c1f23f3. Per-module growth, originating lanes and remaining rule failures are recorded in the release architecture report RPT-168. Rule thresholds, import restrictions, modules_at_freeze, SCC membership, literal and facade-definition allowlists remain unchanged. Integration lane integC at 266e255a records rfixAPI, rfixR5 and rfixR6 growth in RPT-173; precise safety-check growth and coupling are re-pinned, with all thresholds and mutation witnesses retained.",
  "module_code_lines": {
-  "post/input_template.py": 1455,
+  "post/input_template.py": 1421,
   "run/matrix.py": 1141,
   "workspace/storage.py": 1412
  },
@@ -52,18 +52,6 @@
    "statements": 29,
    "positional": 5
   },
-  "cases/_matrix_upgrade.py:_expand_to_nineteen": {
-   "complexity": 16,
-   "branches": 16,
-   "statements": 50,
-   "positional": 2
-  },
-  "cases/_matrix_upgrade.py:_fold_sweep_type": {
-   "complexity": 13,
-   "branches": 14,
-   "statements": 54,
-   "positional": 2
-  },
   "cases/_matrix_upgrade.py:rewrite_codes": {
    "complexity": 11,
    "branches": 10,
@@ -105,12 +93,6 @@
    "branches": 13,
    "statements": 35,
    "positional": 2
-  },
-  "cases/matrix.py:convert_matrix": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 29,
-   "positional": 1
   },
   "cases/mesh.py:BaseRegionOperation._arguments_match_operation": {
    "complexity": 15,
@@ -157,7 +139,7 @@
   "cases/workflows/_farfield.py:farfield_probes": {
    "complexity": 11,
    "branches": 10,
-   "statements": 31,
+   "statements": 27,
    "positional": 3
   },
   "cases/workflows/_frames.py:_rotations": {
@@ -241,7 +223,7 @@
   "cases/workflows/_probes.py:_emit_one_probe_table": {
    "complexity": 19,
    "branches": 18,
-   "statements": 38,
+   "statements": 36,
    "positional": 5
   },
   "cases/workflows/_qsteady_rotor.py:_blade_stations_from_the_mesh": {
@@ -556,12 +538,6 @@
    "statements": 36,
    "positional": 0
   },
-  "post/superfile.py:union_the_workspace_knows": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 29,
-   "positional": 3
-  },
   "post/surfaces.py:average_surface_exports": {
    "complexity": 13,
    "branches": 13,
@@ -874,16 +850,10 @@
    "statements": 68,
    "positional": 1
   },
-  "run/cli.py:_cmd_upgrade": {
+  "run/cli.py:main": {
    "complexity": 11,
    "branches": 10,
-   "statements": 23,
-   "positional": 1
-  },
-  "run/cli.py:main": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 23,
+   "statements": 21,
    "positional": 1
   },
   "run/collect.py:_complete": {
@@ -929,16 +899,10 @@
    "positional": 7
   },
   "run/records.py:restore": {
-   "complexity": 16,
-   "branches": 18,
-   "statements": 56,
+   "complexity": 14,
+   "branches": 16,
+   "statements": 51,
    "positional": 2
-  },
-  "run/rename.py:_rename_workspace_locked": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 32,
-   "positional": 1
   },
   "script/entities.py:EntityRegistry._reject_index": {
    "complexity": 5,
@@ -1097,9 +1061,9 @@
    "positional": 2
   },
   "workspace/fsi_setup.py:resolve_fsi_setup": {
-   "complexity": 15,
-   "branches": 15,
-   "statements": 49,
+   "complexity": 11,
+   "branches": 11,
+   "statements": 43,
    "positional": 1
   },
   "workspace/inputs.py:_split_reference_tables": {
@@ -1186,7 +1150,7 @@
  "private_test_names": {
   "pyflightstream._cli": 1,
   "pyflightstream._progress": 3,
-  "pyflightstream.cases.matrix": 19,
+  "pyflightstream.cases.matrix": 13,
   "pyflightstream.cases.qsteady": 1,
   "pyflightstream.cases.setup_surfaces": 1,
   "pyflightstream.cases.workflows._actuator": 2,
@@ -1261,11 +1225,10 @@
   "pyflightstream.run._rebuild_evidence": 1,
   "pyflightstream.run._rebuild_grouped": 1,
   "pyflightstream.run._solver_windows": 1,
-  "pyflightstream.run.cli": 11,
+  "pyflightstream.run.cli": 10,
   "pyflightstream.run.collect": 5,
   "pyflightstream.run.matrix": 7,
   "pyflightstream.run.records": 2,
-  "pyflightstream.run.rename": 3,
   "pyflightstream.script": 10,
   "pyflightstream.script.entities": 1,
   "pyflightstream.script.motion": 1,
@@ -1288,7 +1251,7 @@
   "pyflightstream.workspace.storage": 6,
   "pyflightstream.workspace.wake_edges": 1
  },
- "monkeypatch_targets": 150,
+ "monkeypatch_targets": 147,
  "monkeypatch_targets_by_module": {
   "pyflightstream._cli": 1,
   "pyflightstream._digest": 1,
@@ -1338,11 +1301,10 @@
   "pyflightstream.run._pending": 1,
   "pyflightstream.run._rebuild": 2,
   "pyflightstream.run._solver_windows": 2,
-  "pyflightstream.run.cli": 14,
+  "pyflightstream.run.cli": 13,
   "pyflightstream.run.collect": 3,
   "pyflightstream.run.matrix": 8,
   "pyflightstream.run.records": 3,
-  "pyflightstream.run.rename": 2,
   "pyflightstream.utils.cli": 1,
   "pyflightstream.utils.manual": 2,
   "pyflightstream.versions": 1,

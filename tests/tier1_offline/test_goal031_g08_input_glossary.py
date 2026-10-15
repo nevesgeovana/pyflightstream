@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
@@ -77,7 +78,6 @@ from pyflightstream.cases.pproc import (
     StreamlineLine,
     StreamlinesSpec,
     StreamlineTube,
-    _NoiseSpec,
 )
 from pyflightstream.cases.workflows import RATE_VARIABLES, RAW_VARIABLE, WORKFLOWS
 from pyflightstream.commands import CommandRegistry
@@ -185,7 +185,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[plots]`"): _fields(PlotsSpec),
         ("pproc", "`[[plots.groups]]`"): _fields(ForcePlotGroup),
         ("pproc", "`[[probes]]`"): _fields(ProbesSpec),
-        ("pproc", "`[noise]`"): _fields(_NoiseSpec),
+        ("pproc", "`[noise]`"): _fields(get_args(PprocSpec.model_fields["noise"].annotation)[0]),
         ("pproc", "`[[probes.grids]]`"): _fields(PlanarProbeGrid),
         ("pproc", "`[probes.grids.frame]`"): _fields(FrameDefinition),
         ("pproc", "`[probes.grids.u]`"): _fields(AxisSpec),
