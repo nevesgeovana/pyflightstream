@@ -3,7 +3,7 @@
 Pipeline role: diffs the same physics case set measured on two
 FlightStream versions, so a solver release cannot silently move the
 physics the research depends on. The case set is the Tier 3 registry of
-:mod:`pyflightstream.qa.physics`, and since 0.13.0 the two measurements
+:mod:`pyflightstream.qa.physics`, and the two measurements
 are two runs of the workspace's physics matrix under two registries,
 made by :func:`pyflightstream.qa.matrix.drift_from_workspace`
 (PFS-2031.17); this module owns the diff and the report and runs

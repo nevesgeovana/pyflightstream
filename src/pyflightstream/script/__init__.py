@@ -48,17 +48,16 @@ database arguments now, emitted comfortably through the curated
 helper layer in :mod:`pyflightstream.script.helpers` (SAD Section
 4.3).
 
-The 0.34 layout of the helpers (AD-17):
+The layout of the helpers (AD-17):
 :func:`pyflightstream.script.helpers.solver_settings` keeps its signature
 and its path and is the facade over per-family emitters in the private
 module ``script._settings``, which also holds the helpers that set up a
 run (the flow conditions, the unsteady solver, the solver initialization
 and start) and the toggle readers they share; the relaxed trailing edge
 is the private module ``script._relaxed_te``. Only the helpers import
-the two, and the helpers import every moved name, so each public path of
-0.33.0 is kept.
+the two, and the helpers import every moved name, so each public path is kept.
 
-In the 0.29 workflow, emitted surface operations and frame motions also
+In the workflow, emitted surface operations and frame motions also
 form a provenance ledger. Geometry facts and unknown trajectory details
 remain distinct; consumers may resolve timing only against exact measured
 executable/build evidence. A raw emission cannot silently acquire that
@@ -346,15 +345,15 @@ class Script:
         self._periodic_copies: int | None = None
         self._periodic_symmetry = False
         self._incidence: dict[str, float] = {}
-        #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
-        #: (0.24.0): its families BY NAME, its plane, its frame and its count.
+        #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order: its families BY
+        #: NAME, its plane, its frame and its count.
         #: Filled by the loop that emits the distribution, for the reason
         #: ``probe_points`` is. The script itself states surfaces by INDEX, so a
         #: sections table could not say which rows belong to which surface, and
         #: nothing at post can recover a name the script never wrote.
         self.section_blocks: list[dict[str, object]] = []
         #: THE FRAMES THE BUILDER CREATED, by the name a pproc entry cites (G12
-        #: of 0.27.0): ``MRP`` and a rotor's frames to an index or None, and
+        #: ``MRP`` and a rotor's frames to an index or None, and
         #: ``BLADE_AXIS`` to one index per blade family. Filled where the
         #: builder hands them to the init phase, for the reason
         #: ``section_blocks`` is filled by the loop that emits: the additional
@@ -383,7 +382,7 @@ class Script:
         # Saved-geometry metadata until a command sets the unit explicitly.
         self._opened_length_unit: str | None = None
         #: THE OPENED GEOMETRY'S BOUNDARY NAMES, in the solver's order, the
-        #: name at position ``i`` being boundary ``i`` (R03 of 0.27.0). Filled
+        #: name at position ``i`` being boundary ``i`` (R03). Filled
         #: where the workflow declares the inventory at OPEN, for the reason
         #: ``section_blocks`` is filled by the loop that emits: the names
         #: recorded cannot drift from the names the script was built over.
@@ -519,15 +518,15 @@ class Script:
         #: Native surface-property plot identities, separate from off-body velocity samples.
         self.surface_probe_layout: list[dict[str, object]] = []
         #: Surface averaging window emitted by the workflow, for run provenance.
-        #: Never set by a build since 0.28.0, which emits no SOLVER_TIME_AVERAGING;
+        #: Never set by a build which emits no SOLVER_TIME_AVERAGING;
         #: a continuation carries the one its stopped run recorded.
         self.surface_time_averaging: SurfaceAveragingWindow | None = None
-        #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25 of 0.28.0), set
+        #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25), set
         #: where the workflow resolves the pproc's ``[time_averaging]``. No
         #: command carries it: the run exports the surface at every step of it
         #: and the post averages those exports.
         self.surface_average_window: SurfaceAverageWindow | None = None
-        #: THE TECPLOT SURFACES THE PACKAGE WRITES FROM A VTK (G45 of 0.28.0), one
+        #: THE TECPLOT SURFACES THE PACKAGE WRITES FROM A VTK (G45), one
         #: per Tecplot output the script exports, filled by the workflow that
         #: emits the VTK in its place, for the reason ``section_blocks`` is
         #: filled by the loop that emits: ``vtk`` and ``dat``, the two names,
@@ -1023,7 +1022,7 @@ class Script:
 
     @property
     def loads_frame(self) -> int:
-        """The analysis loads frame, as far as THIS SCRIPT set it (G45 of 0.28.0).
+        """The analysis loads frame, as far as THIS SCRIPT set it (G45).
 
         The frame of the last ``SET_SOLVER_ANALYSIS_LOADS_FRAME`` emitted, or 1,
         the reference frame, while none has been. The solver writes the VTK
@@ -1041,7 +1040,7 @@ class Script:
 
     @property
     def sets_loads_frame(self) -> bool:
-        """Whether THIS SCRIPT emitted ``SET_SOLVER_ANALYSIS_LOADS_FRAME`` (G45 of 0.28.0).
+        """Whether THIS SCRIPT emitted ``SET_SOLVER_ANALYSIS_LOADS_FRAME`` (G45).
 
         While it has not, :attr:`loads_frame` is the solver's default, the
         reference frame, for a simulation the script builds. A simulation it
@@ -1059,7 +1058,7 @@ class Script:
 
     @property
     def periodic_copies(self) -> int | None:
-        """The copy count of the last ``INITIALIZE_SOLVER`` under PERIODIC symmetry (0.30.0).
+        """The copy count of the last ``INITIALIZE_SOLVER`` under PERIODIC symmetry.
 
         None until the script initializes, and for any other symmetry. The
         solver writes a periodic row's native Tecplot surface as one zone per
@@ -1238,7 +1237,7 @@ class Script:
 
         The public reading of the per-version view a builder needs
         before it emits (the phase of a command, its layout): a caller
-        outside this package read the private view until 0.14.0, and the
+        outside this package read the private view in legacy releases, and the
         architecture lens of REL-0140 asked for the door. Raises
         :class:`~pyflightstream.commands.CommandNotInVersionError` as
         :meth:`emit` would.

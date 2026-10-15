@@ -15,12 +15,12 @@ Available placeholders:
 - ``{sim}``: the ``sim_id`` of the case.
 - ``{point}``: the point name of :func:`pyflightstream.cases.point_name`, every
   variable the row's flight condition declares, in its order, for example
-  ``M144RE438AL+000BE+000J+080`` (0.21.0).
+  ``M144RE438AL+000BE+000J+080``.
 - ``{alpha}``, ``{beta}``: sweep angles in deg, compact (``2``, ``-3.5``).
 - ``{advance_ratio}``: rotor advance ratio J, dimensionless, compact.
 - ``{mach}``: free-stream Mach number of the case, compact.
 - ``{polar}``: the file stem of the point, ``P<sim>-<point name>``, so
-  ``P2001-M144RE438AL+000BE+000J+080`` (0.21.0; until 0.20.x it was
+  ``P2001-M144RE438AL+000BE+000J+080`` (in legacy releases it was
   ``POLAR-<sim>_M<mach*100>AL..BE..J..``).
 - ``{name}``, in OUTPUT names only: the rendered point stem, so every
   export hangs off the point's name whatever template produced it.
@@ -28,7 +28,7 @@ Available placeholders:
 The default templates are ``{point}`` for per-point files and
 ``sim_{sim}`` for archives; the matrix command line names points by
 :data:`MATRIX_POINT_NAME`, ``P<sim>-<point name>``. A workspace written
-before 0.21.0 carries older names; see ``docs/upgrading.md`` for supported
+in legacy releases carries older names; see ``docs/upgrading.md`` for supported
 workspace formats and explicit migration.
 """
 
@@ -89,7 +89,7 @@ _OUTPUT_PLACEHOLDERS = (*_POINT_PLACEHOLDERS, "name")
 _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
 
 #: The simulation subfolder holding ONE FOLDER PER DATAPOINT, which is
-#: where a campaign collects since 0.16.0 (FR-92). Every point of one case
+#: where a campaign collects (FR-92). Every point of one case
 #: used to collect into a single `outputs/`, so from the second point of a
 #: swept row onward that folder held two files that both read as loads
 #: tables and nothing in the filesystem said which point either belonged
@@ -102,13 +102,13 @@ SIM_DATAPOINTS_DIR = "datapoints"
 DATAPOINT_PREFIX = "DP-"
 
 #: The datapoint subfolder the additional post extracts into, one folder per
-#: pproc id (G12 of 0.27.0): ``datapoints/DP-<point>/additional/<pid>/``. Inside
+#: pproc id (G12): ``datapoints/DP-<point>/additional/<pid>/``. Inside
 #: the point's own folder, so an archive of the point (a continuation, a forced
 #: rerun) takes its extractions with it.
 ADDITIONAL_DIR = "additional"
 
 #: What every file of a point begins with, before its simulation id: the stem
-#: of a point is ``P<sim>-<point name>`` (0.21.0).
+#: of a point is ``P<sim>-<point name>``.
 POINT_FILE_PREFIX = "P"
 
 #: What a superfile begins with, in place of :data:`POINT_FILE_PREFIX`.
@@ -116,7 +116,7 @@ SUPER_FILE_PREFIX = "SUPER-"
 
 
 class PointName(str):
-    """A point's name, as :func:`pyflightstream.cases.point_name` wrote it (0.21.0).
+    """A point's name, as :func:`pyflightstream.cases.point_name` wrote it.
 
     A ``str`` that has been CHECKED: not empty, a portable file name, and not
     already carrying the ``DP-`` folder prefix. The datapoint folder is rendered
@@ -124,9 +124,9 @@ class PointName(str):
     prefix, or a tag of the earlier scheme, put files in a folder the assessor
     never looks in.
 
-    THE ONE SANCTIONED CALLER OF THE EARLIER SCHEME, since 0.21.1:
+    THE CALLER OF THE LEGACY NAMING SCHEME:
     :func:`datapoint_name_of` builds one of these from a folder that ALREADY
-    EXISTS under a pre-0.21.0 tag, for a collector that read that folder off the
+    EXISTS under a legacy tag, for a collector that read that folder off the
     record rather than recomputing it. The harm above is a name INVENTED in the
     old scheme, which files outputs where nothing looks; reading back a folder
     that is already there is its opposite. That function answers None rather
@@ -164,7 +164,7 @@ ARCHIVE_DIR = "archive"
 #: objects to, and to the SECOND: two rebuilds in one minute are two
 #: rebuilds.
 #:
-#: IT LIVES HERE AND NOT IN THE POST LAYER, since 0.18.0, because a
+#: IT LIVES HERE AND NOT IN THE POST LAYER, because a
 #: continuation archives a DATAPOINT under the same stamp and the workspace
 #: cannot import from post: dependencies flow downward and the layering
 #: guard carries no allowlist. A stamp format is a NAME, and names are this
@@ -174,7 +174,7 @@ ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
 
 #: The regular expression that matches a stamp :data:`ARCHIVE_STAMP` spells,
 #: for the readers that find an archive by its stamp (the run records'
-#: restore). One home beside the spelling, since 0.33.0 (AD-10).
+#: restore). One home beside the spelling (AD-10).
 ARCHIVE_STAMP_PATTERN = r"\d{8}-\d{6}"
 
 #: The manifest a workspace keeps its run records in, and the name
@@ -193,9 +193,9 @@ class RunsManifestError(PyflightstreamError, ValueError):
 def resolve_manifest(root: str | Path, runs: str | None = None) -> Path:
     """Return the manifest file a command reads in the workspace ``root``.
 
-    Since 0.33.0 (AD-09) this rule lives in the workspace layer, because it
+    This rule (AD-09) lives in the workspace layer, because it
     names a file of the workspace root; :mod:`pyflightstream.run.records`
-    re-exports it under the name it has had since 0.32.0, and
+    re-exports it under its public name and
     :mod:`pyflightstream.workspace.storage` calls it without reaching into
     the run layer above it.
 
@@ -245,7 +245,7 @@ def resolve_manifest(root: str | Path, runs: str | None = None) -> Path:
 
 
 def free_root_archive(base: Path, name: str, stamp: str) -> Path:
-    """Return the free archive path of a root file: ``archive/<stem>-<stamp>.json`` (0.32.0).
+    """Return the free archive path of a root file: ``archive/<stem>-<stamp>.json``.
 
     A second copy within one stamp is numbered ``.2``, ``.3``. This is the ONE
     home of the spelling: ``run.records.restore`` reads what it names and every
@@ -305,7 +305,7 @@ def free_matrix_archive(base: Path, stem: str, name: str, stamp: str) -> Path:
 
 
 def archive_previous(base: Path, path: Path, *, matrix: str | None = None) -> Path | None:
-    """Copy the file a writer is about to rewrite into the archive ``restore`` reads (0.32.0).
+    """Copy the file a writer is about to rewrite into the archive ``restore`` reads.
 
     ``matrix`` names the folder under ``post/`` for the kinds kept per matrix
     (``products.json``, ``plan.json``); a root kind (``storage_management.json``,
@@ -418,7 +418,7 @@ def datapoint_name_of(folder: str) -> PointName | None:
 
 
 def point_file_stem(sim: str, name: PointName) -> str:
-    """Return the stem of every file of one point: ``P<sim>-<point name>`` (0.21.0).
+    """Return the stem of every file of one point: ``P<sim>-<point name>``.
 
     Parameters
     ----------
@@ -504,7 +504,7 @@ def sweep_file_stem(sim: str, sweep: str, *, prefix: str = POINT_FILE_PREFIX) ->
 
 
 #: The point name the matrix command line uses unless told otherwise
-#: (PFS-2029.19.01): the file stem ``P<sim>-<point name>`` (0.21.0).
+#: (PFS-2029.19.01): the file stem ``P<sim>-<point name>``.
 MATRIX_POINT_NAME = "{polar}"
 
 
@@ -613,7 +613,7 @@ class NamingTemplate(BaseModel):
             Free-stream Mach number of the case for ``{mach}``; None when
             the case declares none. Where the sweep varies the Mach number
             the point carries its own under ``MACH``, and that one is
-            rendered (0.24.0): a placeholder describes the point being named.
+            rendered: a placeholder describes the point being named.
         advance_ratio : float, optional
             The case's advance ratio for ``{advance_ratio}`` when the sweep
             does not vary it.
@@ -888,7 +888,7 @@ _getuser = getpass.getuser
 def submitted_by() -> str | None:
     """Return the operator running this process, or None if the host names nobody.
 
-    v0.23.0 item 12: identify the user
+     identify the user
     who ran, transparently for Linux and Windows. One call, not a pair of
     `sys.platform` branches, which would be two paths that drift.
 

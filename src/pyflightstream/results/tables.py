@@ -49,7 +49,7 @@ The manifest is read only through the public API of
 :mod:`pyflightstream.workspace`, and this module imports that layer
 NOWHERE at runtime: :func:`parse_run_loads` and :func:`sweep_table` take
 a :class:`~pyflightstream.workspace.CampaignWorkspace` the caller has
-already constructed. Since 0.29.0 (GEO-060 B1) the module does not name
+already constructed. (GEO-060 B1) the module does not name
 the workspace layer even for the type checker: the annotations read two
 structural protocols defined HERE, :class:`_ManifestRecord` and
 :class:`_ManifestWorkspace`, which state the handful of attributes this
@@ -329,7 +329,7 @@ def to_table(result: object) -> pd.DataFrame:
     ``last_step`` on an unsteady export, which states the last time step
     only, and ``unknown`` where the file printed no solver mode to decide
     it by. ``time_average`` with ``not_printed`` is what files written
-    before 0.40.0 carry on an unsteady export.
+    in legacy releases carry on an unsteady export.
 
     Parameters
     ----------
@@ -626,7 +626,7 @@ def run_table(record: _ManifestRecord, *, loads: LoadsReport | None = None) -> p
     """Join one manifest record with its parsed loads into one wide row.
 
     The row carries the run identity and conditions from the manifest
-    (``POL`` first since 0.27.0, the polar the run belongs to under the
+    (``POL`` first, the polar the run belongs to under the
     name the run matrix gives its polar column, then ``run_id``,
     ``sim_id``, the ``data_origin`` and ``reduction`` pair
     of PFS-2014.05, the sweep point axes in their sweep units:
@@ -790,9 +790,9 @@ def superseded_by_a_continuation(records: Iterable[_ManifestRecord]) -> dict[str
     that same folder, and a record is never rewritten, so the stopped run's
     ``outputs`` go on naming files its continuation wrote. Read through that
     record, the point appears twice with the continuation's numbers. The
-    continuation states which run it continues (``continues``, since 0.24.0)
+    continuation states which run it continues (``continues``)
     and that statement is the ONLY thing read here: two runs that merely
-    resemble each other are both kept. A record written before 0.24.0 states
+    resemble each other are both kept. A record written in legacy releases states
     nothing and is never dropped.
 
     Parameters
@@ -856,7 +856,7 @@ def sweep_table(
         loads cannot be read for another reason (an output no longer on
         disk, an ambiguous, truncated or wrong-point spreadsheet) raises
         that error when True and, when False, keeps its NaN row and is
-        warned about by run id (0.40.0).
+        warned about by run id.
     matrix_stem : str, optional
         The stem of one run matrix of the workspace; the table then holds
         the records that name it and no other's (PFS-2031.04). A record
@@ -1309,7 +1309,7 @@ def _sectional_loads_frame(report: object) -> pd.DataFrame:
 def _sectional_loads_type() -> type | None:
     """Return the SectionalLoadsReport type.
 
-    Since 0.33.0 (AD-10) the parser and its report are defined in this row
+    (AD-10) the parser and its report are defined in this row
     (:mod:`pyflightstream.results.sectional_loads`), so the type is always
     there and this module reaches into ``fsi`` nowhere. The ``None`` of the
     signature is kept for the callers written when the type came with an

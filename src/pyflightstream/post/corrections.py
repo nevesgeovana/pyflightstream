@@ -1,4 +1,4 @@
-"""The quasi-steady wheel's corrected products and its diagnostic (0.31.0, P0310-CAL).
+"""The quasi-steady wheel's corrected products and its diagnostic (P0310-CAL).
 
 The one applicator of the correction routes a pproc's ``[qsteady_correction]``
 table names (:mod:`pyflightstream.cases.corrections`), run by the post stage

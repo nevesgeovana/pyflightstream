@@ -15,7 +15,7 @@ their bodies, which recorded the upward dependency without declaring it
 module-level ones. Nothing about the matrix format, the flags or the
 records moved with them.
 
-Since 0.27.0 it also carries the ADDITIONAL POST (G12):
+it also carries the ADDITIONAL POST (G12):
 :func:`plan_additional_post` and :func:`run_additional_post` reopen each
 recorded point's final saved simulation and extract a second pproc from it
 with no solve, choosing the executor as :func:`run_matrix` does.
@@ -26,7 +26,7 @@ one way, from here into the campaign loop.
 
 Size exemption: the plan, run and additional-post entry points share one resolved-matrix binding.
 Each binds the matrix rows to builds, executors and recipes the same way; parting the
-additional post from the run is a cut of its own, not the facade cut of 0.33.0 (AD-14).
+additional post from the run is a cut of its own, not the facade cut (AD-14).
 """
 
 from __future__ import annotations
@@ -162,7 +162,7 @@ def _refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> N
     rather than at the first descriptor after earlier rows spent the queue.
     ASKED OF WHATEVER EXECUTOR THE CAMPAIGN RUNS ON, the one the platform chose
     or one a caller passed, and it lived inside the platform's branch only
-    until the independent review of the 0.18.1 release measured a caller's own
+    until the independent review of the release measured a caller's own
     submitting executor submitting a first row before the refusal.
     """
     if not isinstance(executor, SubmittingExecutor):
@@ -530,7 +530,7 @@ def plan_matrix(
         max, mean and the per cent of the span above 0.1, ``n_max`` and the
         suggested ``PASSAGE_POSITIONS >= n_max / N + 1``, WARNED when the row
         states fewer. With it the reduced-frequency warning reads ``k_eff``.
-        The command line spells it ``--inflow-fft`` (0.30.0).
+        The command line spells it ``--inflow-fft``.
     name_from : str, optional
         Where the campaign name came from, ``option`` or ``directory``, recorded in the plan and
         the run records; None when the caller does not say.
@@ -557,7 +557,7 @@ def plan_matrix(
         (PFS-2009.08.03).
     pyflightstream.workspace.InputArtifactError
         A REF, SET or ENTRY code, or a ``GEOMETRY`` stem, that the input
-        library cannot resolve. The geometry half arrived with 0.8.1 and
+        library cannot resolve. The geometry half arrived with the package and
         raises through the same call; this list said REF, SET and ENTRY
         only until the review that noticed. An OBJ with no sidecar whose
         groups are not read, naming the line (G30): an OBJ with none is
@@ -568,7 +568,7 @@ def plan_matrix(
     -----
     pyflightstream.exceptions.PyflightstreamWarning
         Naming every ``LEGACY`` row whose OUTPUTS declare no ``.fsm``, so no
-        final saved simulation of it is collected or hashed (0.27.0). And
+        final saved simulation of it is collected or hashed. And
         naming every unsteady row stating ``ADDITIONAL_PPROC``, whose
         additional post extracts one instant, the last, and not the run's
         history (G12, RPT-062). And naming both lists when an OBJ's sidecar
@@ -662,11 +662,7 @@ def _row_versions(resolved: ResolvedMatrix, default: str | None = None) -> dict[
     registry entry declares, else ``default``, else the build id itself
     (PFS-2094.018: with no default, a bare-path row pre-flighted under the
     first row's build). A row naming no build is absent here and pre-flights
-    under the campaign default. One function for the two callers, because the first fix
-    (PFS-2009.05.01) reached ``plan_matrix`` alone and ``pyfs-matrix run``
-    kept refusing the row ``plan`` had said READY: pfs0130's row 1226 on
-    26.123, in a matrix whose default is 26.120, met exactly that on the
-    published 0.13.0 (PFS-2009.05.02).
+    under the campaign default. Planning and execution share this resolution.
     """
     versions: dict[str, str] = {}
     for case, build in zip(resolved.campaign.sims, resolved.row_builds, strict=True):
@@ -689,7 +685,7 @@ def _campaign_executor(
     """Choose the executor a bound matrix runs on, and the one for each other build.
 
     ONE CHOICE FOR EVERY COMMAND THAT LAUNCHES THE SOLVER OVER A MATRIX:
-    :func:`run_matrix` and the additional post of 0.27.0 (G12) both ask
+    :func:`run_matrix` and the additional post (G12) both ask
     here, so ``local`` and the cluster rule mean one thing whichever
     command a user typed. Split out of :func:`run_matrix` with no
     change of behaviour.
@@ -835,7 +831,7 @@ def _campaign_executor(
 
 
 def _exports_its_log_here(workspace: CampaignWorkspace) -> bool:
-    """Whether a run the local switch keeps on this cluster exports its solver log (0.27.0).
+    """Whether a run the local switch keeps on this cluster exports its solver log.
 
     The profile's ``export_log``, READ rather than counted: it is the one field
     of a profile a local run uses, because it states what the build on this
@@ -871,7 +867,7 @@ def _everything_recorded(
 ) -> tuple[list[str], ResolvedMatrix]:
     """Resolve ``force_rerun_all`` into the recorded ids to redo, and the run's simulations.
 
-    G44 of 0.28.0: redo the whole matrix with one switch. Every
+    G44: redo the whole matrix with one switch. Every
     recorded point of the matrix, or of the simulations ``sims`` names, is named
     to the forced re-run it already is point by point: a steady row recorded as
     one job is named by its job id, so it runs again as one job; every other
@@ -1011,14 +1007,14 @@ def run_matrix(
         switch because redoing a whole matrix over one wrong row spends a
         licensed seat per point. Refused together with ``resume``.
     force_rerun_all : bool
-        REDO every recorded point of the matrix (G44 of 0.28.0): each
+        REDO every recorded point of the matrix (G44): each
         recorded point, and each recorded steady job as a whole, is archived
         and runs again, with the count of points and jobs said before
         anything runs. Refused together with ``resume`` and with
         ``force_rerun``, and when nothing of the selection is recorded.
     progress_every : int
         How often a local unsteady point says its progress, in completed
-        time steps, read from the run's own step counter (G43 of 0.28.0);
+        time steps, read from the run's own step counter (G43);
         10 by default, 0 to say nothing.
     sims : sequence of str, optional
         The simulations to run, by their ids as the matrix spells them (leading
@@ -1049,7 +1045,7 @@ def run_matrix(
         writes ONE table either way. The command line spells it
         ``--sweep-csv``.
     local : bool
-        Keep the run on this machine (0.27.0): the cluster is not asked,
+        Keep the run on this machine: the cluster is not asked,
         so a Linux box carrying a submission profile runs the solver
         itself, as Windows does, and every point's executor entry says
         ``forced_local``. Refused beside a submitting ``executor``. The
@@ -1104,7 +1100,7 @@ def run_matrix(
         A REF, SET or ENTRY code, or a ``GEOMETRY`` stem, that the input
         library cannot resolve. Raised during resolution, before the
         pre-flight and before any executor is constructed. Documented on
-        the sibling :func:`plan_matrix` and not here until 0.8.1, which
+        the sibling :func:`plan_matrix` and not here in legacy releases, which
         read as a difference in behaviour where there is none: both call
         the same resolver on the same line, and a mistyped geometry stem
         is the commonest user mistake this release makes possible.
@@ -1787,7 +1783,7 @@ def _script_drift(
     since a continuation reopens and creates no frame.
 
     THE BOUNDARIES THE SAVED SIMULATION HOLDS ARE THE RECORD'S, never today's
-    file's. A record written since 0.27.0 states them; an older one states none,
+    file's. A record written states them; an older one states none,
     and they are read from the geometry file whose sha256 it carries
     (:meth:`~pyflightstream.workspace.CampaignWorkspace.recorded_inventory`),
     the point's record first and then the record of the run that started its
@@ -1893,7 +1889,7 @@ def run_additional_post(
     ------
     pyflightstream.run.ExecutorConfigurationError
         Where the executor chosen is a scheduler: the submitting half is not
-        built in 0.27.0, so the extraction is refused before anything is
+        built, so the extraction is refused before anything is
         written; pass ``local=True``.
     pyflightstream.cases.CampaignConfigError
         As :func:`plan_additional_post`.
@@ -2068,7 +2064,7 @@ _LOG_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log
 def _the_extraction_s_log(
     base: dict[str, object], names: list[str], sim_dir: Path, printed: str
 ) -> list[str]:
-    """Write an extraction's declared log from what the solver printed, or excuse it (0.27.0).
+    """Write an extraction's declared log from what the solver printed, or excuse it.
 
     On a machine that cannot export the log the extraction script carries no
     ``EXPORT_LOG``, as a run's does there. What the solver printed is written

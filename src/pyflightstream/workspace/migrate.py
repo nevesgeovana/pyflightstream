@@ -1,4 +1,4 @@
-"""Explicit copy-first migration of the workspace record format used since 0.38.0."""
+"""Explicit copy-first migration of the workspace record format."""
 
 from __future__ import annotations
 

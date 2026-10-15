@@ -42,13 +42,13 @@ determination of 2026-08-18).
 
 The console entry point is unchanged: the command is still
 ``pyfs-matrix``, with the same subcommands and the same flags, so FR-44's contract is
-untouched. The human output of ``plan`` is laid out in titled blocks since
-0.31.0; its exit codes and ``plan.json`` did not change. What moved is the dotted
+untouched. The human output of ``plan`` is laid out in titled blocks; its exit codes and
+``plan.json`` did not change. What moved is the dotted
 module path, which a user never writes.
 
 The dispatcher of every pyfs-matrix subcommand, each command's logic beside it.
-The argument parser is :mod:`pyflightstream.run._cli_parsers` (AD-14, built by family since 0.34.0
-(AD-18)) and the console printing of plan and storage is :mod:`pyflightstream.run._cli_print`; what
+The argument parser is :mod:`pyflightstream.run._cli_parsers` (AD-14, built by family (AD-18))
+and the console printing of plan and storage is :mod:`pyflightstream.run._cli_print`; what
 stays is the commands themselves, which share the workspace, matrix and records helpers.
 """
 
@@ -318,8 +318,8 @@ def main(argv: list[str] | None = None) -> int:
 #: Python call that a matrix user does not write, so it cannot assume
 #: that user read any of the three.
 #:
-#: IT IS ABOUT THE v0.8.x LAYOUT AND NOTHING ELSE, and saying so is the
-#: 0.15.0 release review's severity-one finding. It used to print on every
+#: IT IS ABOUT THE LAYOUT AND NOTHING ELSE, and saying so is the
+#: release review's severity-one finding. It used to print on every
 #: upgrade of every layout, so a user converting a 14-column file was told
 #: their RESULTS ARE NOT PRESERVED by the one surface they read at the
 #: moment of committing, while this release's own guarantee is the exact
@@ -346,7 +346,7 @@ _NO_STAGE_NOTICE = (
 )
 
 #: Printed when the fourth stage folded a SWEEP_TYPE cell, which is the
-#: 0.15.0 migration. It says the OPPOSITE of the notice above, and it is
+#: migration. It says the OPPOSITE of the notice above, and it is
 #: the sentence that stops a user re-running a campaign they still have.
 _SWEEP_NOTICE = (
     "The SWEEP_TYPE column is folded into FLIGHT_CONDITION. THIS DOES NOT "
@@ -376,7 +376,7 @@ def _refuse(message: str) -> NoReturn:
     raise SystemExit(2)
 
 
-#: The storage commands of 0.30.0 (`pyflightstream.workspace.storage`).
+#: The storage commands (`pyflightstream.workspace.storage`).
 _STORAGE_COMMANDS = ("space-in-use", "free-space", "delete-sims", "sync")
 
 
@@ -455,8 +455,8 @@ def _cmd_storage(args: argparse.Namespace) -> int:
         return 2
 
 
-#: The records commands of 0.32.0 (:mod:`pyflightstream.run.records`, package B1),
-#: and the read-only query verbs of 0.35.0 (:mod:`pyflightstream.run._cli_query`).
+#: The records commands (:mod:`pyflightstream.run.records`, package B1),
+#: and the read-only query verbs (:mod:`pyflightstream.run._cli_query`).
 _RECORDS_COMMANDS = ("restore", "rebuild", "mark-failed", "mark-converged", *QUERY_COMMANDS)
 
 
@@ -543,7 +543,7 @@ def _refuse_runs_manifest(args: argparse.Namespace) -> int | None:
 
 
 def _records_workspace(args: argparse.Namespace) -> CampaignWorkspace | None:
-    """Return the workspace post and collect read (0.32.0, B3); None after a refusal.
+    """Return the workspace post and collect read (B3); None after a refusal.
 
     runs.json, the manifest ``--runs NAME`` names, or, for ``post --from-sims``,
     records assembled in memory from sims/, each refusal of which is printed.
@@ -969,7 +969,7 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
 
     Shared by ``post`` and ``run`` (PFS-2031.16, PFS-2031.19): the surface
     that spent the seat says what it skipped too, rather than leaving it
-    for a later rebuild to discover. Since 0.29 every CLI surface, with or
+    for a later rebuild to discover. Every CLI surface, with or
     without ``--pproc-warnings``, names each skip with ``details:
     --diagnostics`` and prints ONE count line per matrix naming its
     manifest; the reasons stay in the manifest and the saved log, and

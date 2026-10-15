@@ -46,34 +46,34 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post.farfield_fields` samples the far-field probe
   values of one point (the Trefftz C plane and the survey lattice), and
   :mod:`pyflightstream.post.farfield_products` writes the Trefftz-plane and
-  balance tables of a simulation from them (0.40.0). Reached through their
+  balance tables of a simulation from them. Reached through their
   own modules;
 * :mod:`pyflightstream.post.streamlines` writes the off-body streamlines of
-  a point as a legacy VTK polydata file, from the solver's own export
-  (0.40.0). Reached through its own module;
+  a point as a legacy VTK polydata file, from the solver's own export. Reached through its own
+  module;
 * :mod:`pyflightstream.post.qsteady` tables a quasi-steady rotor's steady
   clockings and their average, and gives its sections the 1P reduced
-  frequency of each station (0.30.0). Reached through its own module;
+  frequency of each station. Reached through its own module;
 * :mod:`pyflightstream.post.harmonics` fits each blade station's 0P, 1P and 2P
-  load around the disc from the written sections (0.31.0). Reached through its
+  load around the disc from the written sections. Reached through its
   own module;
 * :mod:`pyflightstream.post.corrections` writes a quasi-steady wheel's
   corrected products beside the raw ones and its Theodorsen and Sears
-  diagnostic, none of it validated (0.31.0). Reached through its own module;
+  diagnostic, none of it validated. Reached through its own module;
 * :mod:`pyflightstream.post.acoustics` reads a point's acoustic signals
   export into one signal per observer and writes, per observer, the pressure
   against time, the spectrum, the overall sound pressure level and the
   blade-passage harmonics, and the directivity when the observers lie on an
-  arc (0.32.0). Reached through its own module;
+  arc. Reached through its own module;
 * :mod:`pyflightstream.post.disc_maps` tables a rotor's sectional load by
   radius and azimuth over the disc, from a quasi-steady wheel's clockings or
-  an unsteady rotor's last complete revolution (0.32.0). Reached through its
+  an unsteady rotor's last complete revolution. Reached through its
   own module;
 * :mod:`pyflightstream.post.inflow_tools` writes a product table in the
-  installed frame and the blade-view harmonics of a custom inflow (0.32.0).
+  installed frame and the blade-view harmonics of a custom inflow.
   Reached through its own module;
 * :mod:`pyflightstream.post.qsteady_noise` holds the exploratory
-  quasi-steady rotor noise model (0.32.0): a blade's load reconstructed
+  quasi-steady rotor noise model: a blade's load reconstructed
   against azimuth from a quasi-steady wheel's clockings and propagated to an
   observer by a compact loading-noise model, reached by explicit exploratory opt-in.
   Its report writer,
@@ -98,10 +98,10 @@ module, which is stated rather than left to be discovered:
   per recorded run (PFS-2012.08.01). Its other writers (the polar row, the
   rotor table, the per-blade table, the unsteady polar) and the header of an
   unsteady polar's axes are reached through :mod:`pyflightstream.post.products`
-  itself and are not re-exported here. Since 0.33.0 (AD-13) it is the campaign
+  itself and are not re-exported here. It is (AD-13) the campaign
   stage and the facade of the product FAMILIES, sibling modules each reached
   through its own module or through ``products``, which re-exports every name of
-  their ``__all__`` at its 0.32.0 path:
+  their ``__all__`` at its public path:
   :mod:`pyflightstream.post.polar` (the group polar and its rows),
   :mod:`pyflightstream.post.rotor_table` (one coefficient table per rotor),
   :mod:`pyflightstream.post.unsteady_polar` (the time-averaged polar of an
@@ -138,10 +138,10 @@ module, which is stated rather than left to be discovered:
   reads the generated ``WRITING-EQUATIONS.md`` first;
 * :mod:`pyflightstream.post.guides` writes the generated input guides beside
   a workspace's pproc artifacts: ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``,
-  and since 0.27.0 the input glossary ``INPUTS.md``, every key an input
-  artifact may state (G08); since 0.28.0 also the input template
+  and the input glossary ``INPUTS.md``, every key an input
+  artifact may state (G08); also the input template
   ``input_template.md`` at the root of ``inputs/``, a complete example of
-  every kind of input file (G47). Re-exported here. Since 0.33.0 (AD-11) it
+  every kind of input file (G47). Re-exported here. It (AD-11)
   writes the two pproc guides itself and re-exports the other two pages,
   :mod:`pyflightstream.post.glossary`, the input glossary with the parts the
   three pages share, and :mod:`pyflightstream.post.input_template`, the input
@@ -149,7 +149,7 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post._tables` is PRIVATE: the table primitives
   (the condition block, the CSV writer, the column renaming) the product
   modules share, so that no two of them import each other;
-* the PRIVATE modules of the post stage since 0.33.0 (AD-13), below the
+* the PRIVATE modules of the post stage (AD-13), below the
   families or between them and the campaign stage:
   :mod:`pyflightstream.post._stage` (the products layout, the verdict of a
   frozen solve, the names a file may carry, the post log records and the

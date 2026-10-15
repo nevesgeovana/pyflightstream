@@ -98,7 +98,7 @@ def setup_inspection_summary(records: Sequence[Mapping[str, Any]]) -> str:
     """Return a concise per-row view of the same records used by full inspection.
 
     A row declaring a Tecplot surface also says whether that surface carries
-    the nodal ``Singularity_strength`` (SS1 of 0.30.0).
+    the nodal ``Singularity_strength`` (SS1).
 
     Parameters
     ----------
@@ -123,7 +123,7 @@ def setup_inspection_summary(records: Sequence[Mapping[str, Any]]) -> str:
 
 
 def setup_inspection_block(records: Sequence[Mapping[str, Any]]) -> list[str]:
-    """Return the lines of the console block ``Solver setup per case`` (0.31.0).
+    """Return the lines of the console block ``Solver setup per case``.
 
     The facts of :func:`setup_inspection_summary`, laid out for a reader: one
     heading line per case, then its settings, its aliases and, on a row

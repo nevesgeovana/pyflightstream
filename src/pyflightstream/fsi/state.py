@@ -46,7 +46,7 @@ __all__ = [
     "write_state_atomic",
 ]
 
-#: The run-folder marker of a quasi-steady rotor sector (0.30.0). Its presence
+#: The run-folder marker of a quasi-steady rotor sector. Its presence
 #: says the run is a STEADY coupled run of a ROTATING structure, whose loads
 #: export carries no time increment; the driver then solves the rotating blade
 #: once per coupling iteration. A marker, as the frozen and config-change
@@ -58,7 +58,7 @@ QUASI_STEADY_ROTOR_FILE = "fsi_quasi_steady_rotor"
 
 #: The sectional loads export the solver writes into the run folder and the
 #: driver reads, and the displacement file the driver writes back. Their one
-#: home since 0.33.0 (AD-10), here for the same reason as the marker above:
+#: home (AD-10), here for the same reason as the marker above:
 #: the builder that stages the loads export and the dummy executable name them
 #: without the [fsi] extra.
 LOADS_FILE = "FS_SurfaceSection_Loads.txt"
@@ -245,7 +245,7 @@ class FsiState(BaseModel):
         None means the state predates the field and its creating
         configuration is unknown, which is different from matching.
 
-        RENAMED at 0.8.0, from ``config_hash``, so the field names the
+        RENAMED, from ``config_hash``, so the field names the
         algorithm that produced it as ``script_sha256`` and
         ``outputs_sha256`` already do. A ``state.json`` written by an
         earlier release carries the LEGACY KEY ``config_hash`` and is
@@ -300,7 +300,7 @@ def load_state(path: str | Path) -> FsiState:
     ----------
     path : str or Path
         State file written by :func:`write_state_atomic`, or by any
-        earlier release: a file carrying the pre-0.8.0 digest key is
+        earlier release: a file carrying the legacy digest key is
         migrated on load by :class:`FsiState`'s validation alias.
 
     Returns

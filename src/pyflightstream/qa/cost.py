@@ -6,8 +6,8 @@ seat: its whole input is the ``runs.json`` that FR-19 already requires
 every campaign to write, and its output is a table in which the same
 sweep points measured on two solver builds sit side by side.
 
-The gap it closes. FR-19 has recorded ``wall_time_s`` per run since the
-v0.3 line, beside the requested version, the reported version, the
+The gap it closes. FR-19 has recorded ``wall_time_s`` per run , beside the requested version,
+the reported version, the
 vendor build string and the sha256 of the executable that actually ran.
 Nothing read those five fields together, so the question "did the new
 build get slower" had a complete answer sitting in every campaign root
@@ -147,14 +147,14 @@ COST_VIEW_IDENTITY_COLUMNS = ("sim_id", "point")
 #:
 #: The FAILED_ prefix is the right default and it has the hole its own
 #: guard predicted: a terminal status named otherwise lands in "not
-#: failed" by silence. 0.17.0 added two such, and neither is a failure:
+#: failed" by silence. Two such outcomes are not failures:
 #:
 #: * WALLTIME_REACHED spent its whole wall clock and stopped short of the
 #:   answer, so fitting an estimate on it would teach the estimator that a
 #:   point costs exactly the clock it was given.
 #: * SUBMITTED has no wall time at all: the point is in a queue.
 #:
-#: 0.37.0 added a third (FR-413). RAN_MISSING_LOG has its outputs and no
+#: A third outcome is RAN_MISSING_LOG (FR-413). RAN_MISSING_LOG has its outputs and no
 #: solver log, so its wall time is not recorded (``wall_time_s`` is null)
 #: and whether it converged cannot be read: it carries no time to an
 #: answer either.

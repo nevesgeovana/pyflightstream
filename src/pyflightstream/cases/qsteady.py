@@ -1,4 +1,4 @@
-"""The quasi-steady rotor's own arithmetic (0.30.0): clocking, validity and the inflow.
+"""The quasi-steady rotor's own arithmetic: clocking, validity and the inflow.
 
 The ``qsteady_rotor`` run type solves an isolated rotor with its blades held
 still and the rotation carried by the free stream. Three questions it asks are
@@ -12,7 +12,7 @@ arithmetic and live here, below the builder that asks them:
 * whether a custom inflow varies with the radius alone (:func:`azimuthal_variation`),
   which is what a periodic sector can stand for;
 * the momentum-theory induced inflow of a rotor state
-  (:func:`glauert_induced_inflow`, 0.31.0), which the wheel's correction
+  (:func:`glauert_induced_inflow`), which the wheel's correction
   routes read.
 
 It also holds the point's quasi-steady record, ``<point>_qsteady.json``, as one
@@ -235,7 +235,7 @@ def strip_lengths(radii: Sequence[float]) -> tuple[float, ...]:
 
 
 #: The step of the induced inflow below which :func:`glauert_induced_inflow`
-#: has converged (0.31.0).
+#: has converged.
 INFLOW_TOLERANCE = 1e-10
 #: The Newton steps :func:`glauert_induced_inflow` takes before it says it did
 #: not converge.
@@ -250,7 +250,7 @@ def glauert_induced_inflow(
     tolerance: float = INFLOW_TOLERANCE,
     iterations: int | None = None,
 ) -> float | None:
-    """Return the momentum-theory induced inflow ``lambda_i`` of a rotor state, or None (0.31.0).
+    """Return the momentum-theory induced inflow ``lambda_i`` of a rotor state, or None.
 
     Glauert's relation for a rotor of thrust coefficient ``ct`` (rotor
     convention, ``T / (rho A (Omega R)^2)``), advance ratio ``mu`` and climb
@@ -729,7 +729,7 @@ POSITION_SUFFIX = "_qs"
 #: The file the run writes beside a quasi-steady point's exports: the case,
 #: the clockings and the validity of the quasi-steady assumption.
 RECORD_SUFFIX = "_qsteady.json"
-#: The file the POST writes beside it for a wheel point (0.30.0): the point's
+#: The file the POST writes beside it for a wheel point: the point's
 #: validity after the run, the shares of thrust and torque from the stations
 #: above k = 0.1 included. A file of its own because the run's record is a
 #: hashed input of the run (its digest is in the run record), never rewritten.
@@ -761,7 +761,7 @@ def position_loads_name(loads: str, index: int) -> str:
 
 
 def position_export_name(name: str, suffix: str, index: int) -> str:
-    """Return export ``name`` of clocking ``index``: the position before its kind's suffix (0.31.0).
+    """Return export ``name`` of clocking ``index``: the position before its kind's suffix.
 
     A wheel exports its section distributions at every clocking, and each
     clocking's file keeps the suffix that says which kind of export it is, so
@@ -886,7 +886,7 @@ _RECORD_KEYS: tuple[str, ...] = (
 #: The keys of one clocking of the record, in the order the file holds them.
 _CLOCKING_KEYS: tuple[str, ...] = ("index", "clocking_deg", "rotated_deg", "loads")
 #: The one key a clocking holds only where it applies, after :data:`_CLOCKING_KEYS`:
-#: the section exports of a wheel that cuts sections (0.31.0).
+#: the section exports of a wheel that cuts sections.
 _CLOCKING_OPTIONAL_KEYS: tuple[str, ...] = ("section_exports",)
 
 
@@ -908,11 +908,11 @@ class QsteadyClocking:
     ``clocking_deg`` is where blade one was turned to, in the sense of the
     rotation; ``rotated_deg`` is the signed angle the surfaces were rotated
     by; ``loads`` is the loads export that clocking's solve wrote.
-    ``section_exports`` (0.31.0) is, for a wheel that declares section
+    ``section_exports`` is, for a wheel that declares section
     distributions only, the file of each section export that clocking wrote,
     keyed by its export kind (``sectional_loads``, ``sections``,
     ``plot_sections_cp``); None for every other record, which then holds no
-    such key, so its file is the one 0.30.0 wrote.
+    such key.
     """
 
     index: int
@@ -1517,7 +1517,7 @@ def blade_inflow_angles(
     """Return the inflow angle and the relative speed one blade meets round one revolution.
 
     The reading :func:`blade_inflow_harmonics` takes at each radius, public
-    so the tools that go beyond ``n95`` (0.32.0, the per-harmonic shares and
+    so the tools that go beyond ``n95`` (the per-harmonic shares and
     the reduced frequency of :mod:`pyflightstream.post.inflow_tools`) read
     the field ONE way. At each of ``samples`` azimuths the TOTAL velocity is
     read, the velocity relative to the turning blade composed,

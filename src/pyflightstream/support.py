@@ -394,7 +394,7 @@ def support_table(*, registry: CommandRegistry | None = None) -> tuple[VersionSu
     by age: the ones whose manuals have been read but whose solvers have
     not been probed derive ``documented``, and the probed ones derive
     ``operational``. No tally is written here, because it moves with
-    every build registered. They came apart as recently as v0.5.0's own
+    every build registered. They came apart as recently as the package's own
     development, when 26.100 sat at ``verified`` behind both of its
     successors for want of database rows rather than for anything about
     the solver, and nothing prevents them coming apart again the moment a

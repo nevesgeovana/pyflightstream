@@ -1,7 +1,7 @@
 """The tables of one point: its sections, its plots and probes, and their reductions.
 
 One of the product families of :mod:`pyflightstream.post` (AD-13, work
-package WP5 of 0.33.0), written by the post stage of
+package WP5), written by the post stage of
 :mod:`pyflightstream.post.products`, which re-exports every name here:
 
 * the SECTIONS table of a point, ``sections/<point>_sections.csv``, the
@@ -20,7 +20,7 @@ package WP5 of 0.33.0), written by the post stage of
   table (:func:`write_per_blade_table`, :data:`PER_BLADE_COLUMNS`) and the
   phase-locked table (:func:`write_phase_locked_table`,
   :data:`PHASE_LOCKED_COLUMNS`);
-* the PER-REVOLUTION table (0.31.0): one row per complete revolution of the
+* the PER-REVOLUTION table: one row per complete revolution of the
   plots history (:func:`per_revolution_table`, :data:`PER_REVOLUTION_COLUMNS`),
   and the drift of each force or moment column between the last two
   revolutions (:func:`revolution_drift_pct`, :func:`is_force_or_moment_column`),
@@ -154,9 +154,9 @@ def write_sections_table(
     """Write one sections table from a sectional loads export.
 
     ``pol`` is the polar the point belongs to, the matrix row's POL: the first
-    column of every row since 0.27.0 (G16), `NA` where the caller states none.
+    column of every row (G16), `NA` where the caller states none.
 
-    ``layout`` is WHICH DISTRIBUTION EACH ROW BELONGS TO (0.24.0): the blocks the
+    ``layout`` is WHICH DISTRIBUTION EACH ROW BELONGS TO: the blocks the
     run's script created, in order, as the run record states them under
     ``sections_layout``. A pproc declares several distributions, the wing in XZ
     and each blade in its own frame, and the export concatenates them with no
@@ -177,7 +177,7 @@ def write_sections_table(
     file, the row's clock rotor turned from zero and unsigned, on wing rows too.
 
     ``condition`` is the POINT's condition as :func:`point_condition` assembles it,
-    and the stage always passes it (0.24.0): this family used to build its own
+    and the stage always passes it: this family used to build its own
     from the export's header, whose `Altitude (ft)` line the campaign never sets,
     so a row at 10000 ft printed `ALT 0.00000` beside a polar printing 10000.
     Without it the header is read, for a caller holding an export and no point.
@@ -186,10 +186,10 @@ def write_sections_table(
     ``azimuth_deg`` is where the blade was when it was; both lead the row
     because they are the only two things that vary down the file. They replace
     the `POINT` column, which carried the polar's NAME and therefore restated
-    the file name (v0.23.0 item 13). A run with no rotor states no azimuth and
+    the file name. A run with no rotor states no azimuth and
     the cell reads `NA`, which is not zero: zero is a real azimuth.
 
-    Since 0.26.0, write ``step=``; passing ``iteration=`` raises
+    Write ``step=``; passing ``iteration=`` raises
     :class:`ProductArgumentError` naming that replacement, even for ``None``.
 
     On a steady export, an omitted ``step`` is read from the header.
@@ -207,7 +207,7 @@ def write_sections_table(
     its condition, and the export's own seven, in the export's units.
 
     ``reference`` supplies the reference LENGTHS, which this table carried
-    none of until 0.23.0: a sectional force beside no area is a number nobody
+    none of in legacy releases: a sectional force beside no area is a number nobody
     can check. It is optional because a caller that genuinely holds no
     reference should write `NA` rather than be refused a product it can
     otherwise make, and a run's reference is recorded beside its outputs
@@ -226,7 +226,7 @@ def write_sections_table(
         Solver step the distribution was sampled at; read from the export's
         header on a steady export when omitted, ``NA`` on an unsteady one.
     iteration : object, optional
-        Removed in 0.26.0; passing any value raises.
+        Removed; passing any value raises.
     unsteady : bool, optional
         Whether the export is of an unsteady run, whose header counts inner
         iterations rather than time steps.
@@ -337,7 +337,7 @@ def write_plots_table(
     returns None.
 
     ``pol`` is the polar the point belongs to. It is the table's FIRST column
-    since 0.27.0 (G16), `NA` where the caller states none, and the export's own
+    (G16), `NA` where the caller states none, and the export's own
     header follows it unchanged; :func:`plots_table_series` reads every column
     AFTER it back as a plotted quantity.
 
@@ -418,9 +418,9 @@ def write_plots_table(
 #: keeps it and this note says which of the two things it counts.
 #:
 #: `STEP` carries `NA` on a steady row, which has one step: NOT APPLICABLE.
-#: It said `-` until 0.23.0, the glyph the PRINTED cost table still uses, and
+#: It said `-` in legacy releases, the glyph the PRINTED cost table still uses, and
 #: no product writes a second spelling any more. No spine cell is EVER blank
-#: now either: a run recorded before 0.16.0 leaves `NA` in the position and
+#: now either: a run recorded in legacy releases leaves `NA` in the position and
 #: frame columns, which is the one place `NA` stands for a value the package
 #: could not derive rather than a column that does not apply -- the exception
 #: named beside :data:`NOT_APPLICABLE` and in the change log.
@@ -431,12 +431,12 @@ def write_plots_table(
 #: it emits; no export and no artifact states a unit name, so no column here
 #: invents one (the technical writing lens asked, 2026-09-11).
 #: THE CONTEXT FOLLOWS THE SPINE AND PRECEDES THE FLUID COLUMNS, so the shape
-#: a reader learned at 0.16.0 -- where the point is, in which frame, at which
+#: a reader learned -- where the point is, in which frame, at which
 #: step -- is still the first thing in the row, and the export's own columns
 #: still arrive in the export's own order after it. Inserting the condition
 #: between them would have moved the fluid columns twice: once now and once
 #: whenever the condition grows.
-#: `POL` LEADS IT SINCE 0.27.0 (G16), as it leads every table the post writes.
+#: `POL` LEADS IT (G16), as it leads every table the post writes.
 PROBE_SPINE: tuple[str, ...] = (
     POLAR_ID_COLUMN,
     *PROBE_POSITION_COLUMNS,
@@ -454,7 +454,7 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
     name, so `MACH7` is vertex 7 here.
 
     A file THAT IS NOT THERE answers an empty mapping: every run recorded
-    before 0.16.0 names none, and a probe table without its positions is
+    in legacy releases names none, and a probe table without its positions is
     what those runs have always produced. Refusing them would take a
     product away from a campaign that already happened.
 
@@ -539,7 +539,7 @@ def _probe_spine(
     the point it sampled; the recorded position then supplies only the
     frame NAME, which no export carries at all.
 
-    THE STEP OF A STEADY ROW IS ``NA`` AND WAS ``-`` UNTIL 0.23.0. The rule is
+    THE STEP OF A STEADY ROW IS ``NA`` AND WAS ``-`` in legacy releases. The rule is
     one sentence -- where a value does not apply, the token is always ``NA`` --
     and the technical-writing lens had just measured why it matters:
     a steady probes row read ``FRAME=NA`` beside ``STEP=-``, two different
@@ -571,7 +571,7 @@ def write_probes_table(
     """Write one probe-points table from an EXPORT_PROBE_POINTS export (FR-87, FR-91).
 
     ``pol`` is the polar the point belongs to, the first column of every row
-    since 0.27.0 (G16); `NA` where the caller states none.
+    (G16); `NA` where the caller states none.
 
     The flow-field samples of a point that is not an unsteady history:
     one row per probe point, the export's own columns in its own order
@@ -605,9 +605,9 @@ def write_probes_table(
     positions : mapping, optional
         Vertex number to ``(x, y, z, frame)``, from
         :func:`read_probe_positions`. Absent for every run recorded
-        before 0.16.0, and the spine's position and frame cells then read
-        ``NA`` rather than the table being refused. They were EMPTY until
-        0.23.0; the producer still returns a blank there and the funnel in
+        in legacy releases, and the spine's position and frame cells then read
+        ``NA`` rather than the table being refused. They were EMPTY in legacy releases; the
+        producer still returns a blank there and the funnel in
         :mod:`pyflightstream.post._tables` renders it, so this says what the
         user opens rather than what the tuple carries.
     condition : mapping, optional
@@ -695,7 +695,7 @@ def write_unsteady_probes_table(
     """Write the probe table of an UNSTEADY row, from its plots table (FR-91).
 
     ``pol`` is the polar the point belongs to, the first column of every row
-    since 0.27.0 (G16); `NA` where the caller states none. The plots table it
+    (G16); `NA` where the caller states none. The plots table it
     reads carries its own `POL` first, which is read by name and never as a
     probe group.
 
@@ -758,7 +758,7 @@ def write_unsteady_probes_table(
     A RECORDED VERTEX THE EXPORT CARRIES NO GROUP FOR IS NAMED IN ``notes``
     and the others are kept, which is what the definitions page requires of
     a probe with no recorded history: the profile and the reason are said,
-    the available histories stay. Until 0.25.0 it was dropped in silence and
+    the available histories stay. in legacy releases it was dropped in silence and
     the caller cleared the point's skip because a table had been written, so
     a reader held a short table with nothing anywhere to say it was short
     (the independent review of GitHub main, 2026-09-20).
@@ -855,16 +855,16 @@ def write_reduction_table(
     """Write one reduction of a plots table: one row per window, the table's columns averaged.
 
     ``pol`` is the polar the point belongs to, the first column of every row
-    since 0.27.0 (G16) and the first of :data:`REDUCTION_COLUMNS`; `NA` where the
+    (G16) and the first of :data:`REDUCTION_COLUMNS`; `NA` where the
     caller states none.
 
-    THE CLOCK IS NOT AVERAGED (0.24.0). Every column of the plots table used to
+    THE CLOCK IS NOT AVERAGED. Every column of the plots table used to
     be, `Time-step` among them, so a row stated FIRST_STEP 1, LAST_STEP 8 and
     `Time-step 4.50000`: the mean of a counter, under the same contract as `CL`.
     ``rotor`` is the alias this reduction is cut for, `NA` for the time average.
 
     ``condition`` and ``reference`` are what the row is a reduction OF, and
-    this table carried neither until 0.23.0: a window of averaged coefficients
+    this table carried neither in legacy releases: a window of averaged coefficients
     with no angle of attack and no reference area beside it is a set of numbers
     about nothing. Both are optional, and what neither supplies reads `NA`
     rather than being invented.
@@ -962,8 +962,8 @@ def write_reduction_table(
     return write_csv_table(path, heading, rows)
 
 
-#: What a per-blade row states before the condition: the polar (first since 0.27.0,
-#: G16), which reduction, which rotor, which blade and its family, the ONE window
+#: What a per-blade row states before the condition: the polar first (G16),
+#: which reduction, which rotor, which blade and its family, the ONE window
 #: every blade shares, and where THAT blade was when the window opened and closed.
 PER_BLADE_COLUMNS: tuple[str, ...] = (
     POLAR_ID_COLUMN,
@@ -999,7 +999,7 @@ def write_per_blade_table(
     """Write the per-blade reduction: ONE ROW PER BLADE over the one shared window.
 
     ``pol`` is the polar the point belongs to, the first column of every row
-    since 0.27.0 (G16); `NA` where the caller states none.
+    (G16); `NA` where the caller states none.
 
     ``facts`` is what the run and the reference state of the rotor, as
     :func:`write_sections_table` takes it: its blade ``families`` in order, its
@@ -1013,7 +1013,7 @@ def write_per_blade_table(
     and last step, by the sections table's own formula; without the rotor's clock
     they read `NA`, and the averages are written all the same.
 
-    Until 0.24.0 this file was one row with the time average's shape under the
+    in legacy releases this file was one row with the time average's shape under the
     per-blade name.
 
     Parameters
@@ -1139,7 +1139,7 @@ def write_per_blade_table(
 
 
 #: What a row of the azimuthal phase-locked table states before the condition:
-#: the polar (first since 0.27.0, G16), which reduction and rotor, WHERE blade one
+#: the polar (first G16), which reduction and rotor, WHERE blade one
 #: is, the step of the last revolution
 #: that azimuth falls on, how many revolutions entered the mean, and the steps
 #: those revolutions span.
@@ -1178,7 +1178,7 @@ def write_phase_locked_table(
     """Write the phase-locked reduction a ``[phase_locked]`` table asks for: ONE ROW PER AZIMUTH.
 
     ``pol`` is the polar the point belongs to, the first column of every row
-    since 0.27.0 (G16); `NA` where the caller states none.
+    (G16); `NA` where the caller states none.
 
     Each row is an azimuthal position of the rotor's last revolution, and each
     value the mean of the samples AT that position across the last

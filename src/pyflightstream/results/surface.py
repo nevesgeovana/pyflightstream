@@ -1,4 +1,4 @@
-"""The surface solution: read from the solver's VTK, written as Tecplot (G45, 0.28.0).
+"""The surface solution: read from the solver's VTK, written as Tecplot (G45).
 
 Pipeline role: the ONE route to a Tecplot surface of a campaign point. The
 script exports the surface as VTK (``EXPORT_SOLVER_ANALYSIS_VTK``) and this
@@ -34,8 +34,8 @@ polygon on the left and no neighbour on the right, which is how the solver
 writes its own zone. ``Singularity_strength``, the panel strength the
 solver's Tecplot carries, is not in the VTK. A same-step native auxiliary export
 provides nodal values after a unique coordinate and topology match; the run
-exports it only where the row's pproc sets ``singularity_strength = true``
-(0.30.0). A run without it, by that key or by its release, declares this
+exports it only where the row's pproc sets ``singularity_strength = true``. A run without it, by
+that key or by its release, declares this
 variable not carried. The file
 names its source VTK and that file's sha256 in its ``DATASETAUXDATA``
 records.
@@ -853,11 +853,11 @@ def translate_vtk_surface(
     Native strength is read from the same point/step's auxiliary Tecplot export,
     never interpolated from Cp or substituted from the final step. A run without
     that auxiliary source, a legacy one or one whose pproc leaves
-    ``singularity_strength`` false (the default since 0.30.0), keeps an explicit
+    ``singularity_strength`` false (the default), keeps an explicit
     not-carried declaration.
 
-    ``periodic_copies`` is the copy count of a row under ``SYMMETRY PERIODIC``
-    (0.30.0). Its native export holds one zone per copy, and the VTK holds the
+    ``periodic_copies`` is the copy count of a row under ``SYMMETRY PERIODIC``. Its native
+    export holds one zone per copy, and the VTK holds the
     modelled surface first and then its images (RPT-080), so zone k is joined
     to the k-th copy of the VTK (``native_surface.attach_native_strength_by_copy``);
     a native file holding another number of

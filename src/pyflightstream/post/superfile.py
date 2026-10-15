@@ -1,14 +1,12 @@
 """FR-89: one derived file per polar and group that carries everything the workspace knows.
 
-Knowing what one simulation WAS and what it PRODUCED took six files until
-0.16.0: the polar table, the campaign sweep table, the matrix row, the setup,
-the reference and the unsteady plots, five of them in different shapes. The
-seventh feedback item of 2026-09-10 asked for one:
+A super file combines the polar table, campaign sweep table, matrix row, setup, reference and
+unsteady plots into one tabular view of a simulation and its products.
 
     post/<matrix>/polars/SUPER-0001-M150RE438AL+000BE+000J+sweep_g01.csv
 
 THE NAME FOLLOWS THE CONVENTION: the point file name with ``SUPER-`` in
-place of ``P`` (0.21.0; ``POLAR-`` until 0.20.x), so it is told apart at a
+place of ``P`` (``POLAR-`` in legacy releases), so it is told apart at a
 glance, the swept field written ``<code>+sweep``, and the group suffix at
 the end.
 
@@ -20,12 +18,8 @@ and it is why the COLUMN SET IS THE CAMPAIGN'S rather than the polar's: a
 steady polar's file carries the same header as the rotor's beside it, with
 `NA` cells where that run produced nothing.
 
-THOSE CELLS WERE EMPTY UNTIL 0.23.0, and this module is the reason they are
-not: the measurement behind the rule is a production super file of this very
-writer, 50 of whose 628 columns in one row were blank for one reason -- a key
-declared for the union of every run type, on a row whose run type does not
-have it. A blank cannot be told from a zero or from a value that went
-missing, and it broke the reader it was handed to.
+A value that does not apply is written as ``NA``. Zero is reserved for a measured or computed
+zero, so missing rotor quantities cannot be mistaken for zero loads.
 
 ITS COLUMN SET IS A SUPERSET of the union of what the workspace knows about
 that simulation, and the rule is a superset rather than a list because a list
@@ -148,16 +142,10 @@ _FARFIELD_COLUMN = re.compile(r"(CL_T|CDI_T|E_T)_[ABC]")
 
 
 def release_tag(version: str) -> str:
-    """Return the release tag of ``version``: ``0.16.0.dev0`` becomes ``0160``.
+    """Return the release tag of ``version`` by joining its three numeric components.
 
-    MEASURED FROM THE WORKSPACE NAMES ON DISK rather than invented here.
-    `GeoverseResearch/tools/fts_workspace/` holds `pfs030`, `pfs040`,
-    `pfs080`, `pfs0100`, `pfs0101`, `pfs0110`, `pfs0150` and `pfs0160`,
-    one per release since 0.3.0, and each is the three version numbers
-    written one after another with no separator: 0.10.1 is `0101` and
-    0.8.0 is `080`. The goal's own reports are named the same way, which
-    is why this function exists at all: the measurement this module
-    writes has to land where the arm that reads it looks.
+    Each release tag concatenates the three version components without separators. Development
+    suffixes do not enter the tag.
 
     Parameters
     ----------
@@ -176,6 +164,15 @@ def release_tag(version: str) -> str:
     ProductError
         If the version has no major, minor and patch, a part carries no digits,
         or the patch is followed by something other than a pre-release label.
+
+    Examples
+    --------
+    >>> release_tag("0.16.0.dev0")
+    '0160'
+    >>> release_tag("0.10.1")
+    '0101'
+    >>> release_tag("0.8.0")
+    '080'
     """
     parts = version.split(".")
     if len(parts) < 3:
@@ -203,7 +200,7 @@ def super_file_name(
     group: str | int,
     suffix: str = ".csv",
 ) -> str:
-    """``SUPER-<sim>-<sweep name>_<group>.csv`` (0.21.0), the group NAMED since 0.23.0.
+    """``SUPER-<sim>-<sweep name>_<group>.csv``, the group NAMED.
 
     ``<group>`` is the group's name, as in
     ``SUPER-0001-M150AL+000BE+000J+sweep_PUSHER.csv``, and ``g<NN>`` for a group
@@ -245,8 +242,8 @@ def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
     rule the format states: both workspaces that ran on the licensed
     machine on 2026-09-11, `pfs0160` and `pfs0160-extract`, hold their
     matrix at the workspace root under the stem every record names, so
-    `matrix_stem = "matriz"` is `<root>/matriz.fs`. Since 0.32.0
-    (P0320-MATRICES-HOME) `inputs/matrices/matriz.fs` is an equal home
+    `matrix_stem = "matriz"` is `<root>/matriz.fs`. (P0320-MATRICES-HOME)
+    `inputs/matrices/matriz.fs` is an equal home
     (:func:`pyflightstream.workspace.find_matrix`): one stem in both is read
     once when the bytes are the same, and refused when they differ, which
     here, as for a matrix kept elsewhere, is no rows; the post stage says
@@ -407,8 +404,8 @@ def superfile_row(
     key the record would have supplied. It does not need to: the header is
     the campaign's, and :func:`write_superfiles` unions the keys of every
     row and writes `NA` for a row that lacks one, so the file's columns are
-    the same whatever any single row knows. It wrote an EMPTY cell until
-    0.23.0, and this is the exact shape the rule was made for: a key declared
+    the same whatever any single row knows. It wrote an EMPTY cell in legacy releases, and this
+    is the exact shape the rule was made for: a key declared
     for the union of every run type, on a row whose run type does not have it.
 
     Borrowing another point's record was the alternative and it is the
@@ -806,7 +803,7 @@ def write_superfiles(
 
 #: The glob that finds every per-polar table when the union is built.
 #:
-#: IT IS A CONSTANT AND NOT A LITERAL since 0.23.0, because it is a TRAP. The
+#: IT IS A CONSTANT AND NOT A LITERAL because it is a TRAP. The
 #: union of FR-89 is a superset of what the workspace knows, and it is built by
 #: matching file names: a table this pattern misses does not fail, it simply is
 #: not there, and the superset assertion stays green over the smaller set. Item
@@ -816,24 +813,24 @@ def write_superfiles(
 #: the pattern itself rather than an outcome that is satisfied by nothing.
 POLAR_TABLE_GLOB = "P*-*_*.csv"
 
-#: The name a steady polar table gave the polar until 0.26.x, where
-#: :data:`~pyflightstream._tokens.POLAR_ID_COLUMN` stands since 0.27.0 (G16).
+#: The name a steady polar table gave the polar in legacy releases, where
+#: :data:`~pyflightstream._tokens.POLAR_ID_COLUMN` stands (G16).
 _POLAR_COLUMN_BEFORE_0270 = "POLAR"
 
 
 def _header(path: Path) -> set[str]:
     """Return the column names of one product table.
 
-    EVERY TABLE'S HEADER IS ITS FIRST LINE since 0.27.0 (G16), a rotor table's
-    included: its alias is the `ROTOR` column now. A rotor table written by
-    0.23.0 to 0.26.x still leads with the alias alone on its first line (NL-03),
+    EVERY TABLE'S HEADER IS ITS FIRST LINE (G16), a rotor table's
+    included: its alias is the `ROTOR` column now. A rotor table from
+    a legacy writer still leads with the alias alone on its first line (NL-03),
     and the polar glob matches it: read as a header, that line put the alias
     into the union as if it were a column and left the table's real columns
     out. So a rotor table's first line of ONE cell is the old title and is
     passed over; a header always holds more than one.
 
     THE POLAR IS `POL`, whatever release wrote the table. A steady polar table
-    written before 0.27.0 names it `POLAR` and has no `POL`; no super file
+    written in legacy releases names it `POLAR` and has no `POL`; no super file
     carries `POLAR` any more, so that name, read as written, would be a field
     the union demands and no super file could hold. It is read as `POL`.
     """
@@ -916,7 +913,7 @@ def union_the_workspace_knows(
 
     ``raw_records`` are the manifest's rows as written, when the caller read
     them from another manifest than ``runs.json`` or holds no manifest file
-    (0.32.0, ``post --runs NAME`` and ``post --from-sims``); None reads
+    (``post --runs NAME`` and ``post --from-sims``); None reads
     ``runs.json`` beside ``root``.
 
     Parameters

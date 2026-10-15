@@ -108,7 +108,7 @@ NEW_CCS_WING_CONTROL_SURFACE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.303, unchanged from SRC-750 p.303"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.303, the SRC-751 file, carried from 26.123. Run in licensed round 2 of 0.32.0 through the package route (RPT-097): the ten-argument PARAMETRIC form completed and its saved simulation differs from the wing without it, the REAL form ended FAILED_EXECUTION with no saved simulation. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.303, the SRC-751 file, carried from 26.123. Run in licensed round 2 through the package route (RPT-097): the ten-argument PARAMETRIC form completed and its saved simulation differs from the wing without it, the REAL form ended FAILED_EXECUTION with no saved simulation. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.308, read against SRC-752 p.303: the sample now passes all ten values, SPACE and AXIS included, the form 26.124 was measured to accept (RPT-097); the table differs in layout spacing only"}
   notes: >
     Creates a gapped control surface on a CCS wing component. V0 and

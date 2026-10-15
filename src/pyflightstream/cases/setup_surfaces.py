@@ -14,7 +14,7 @@ Two setup keys reach the solver here, each through a short hook in
     after a deleted one, so the inventory the script holds is rewritten
     to the surviving names at their new indices, and every later command
     and the run record's inventory read the new numbering. Licensed
-    probe round 1 of 0.32.0 on 26.124 (probe ``D1_delete_surfaces``):
+    probe round 1 on 26.124 (probe ``D1_delete_surfaces``):
     ``DELETE_SURFACES 3`` on a four-surface mesh (Body, Base, Blade1,
     Blade2) left Body, Base, Blade2, and only Blade2 moved, to index 3.
     A family is removed from its last member so no index shifts under

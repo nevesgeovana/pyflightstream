@@ -1,9 +1,7 @@
-"""The ONE home of every axis rotation a product makes (0.24.0).
+"""The ONE home of every axis rotation a product makes.
 
-Two copies of one rotation are how two published numbers come to disagree about
-which way the air is going: until 0.24.0 the polar row turned its coefficients
-inline and the rotor table built its own free-stream vector, and the second one
-carried two wrong signs into a published column. Both call this module now.
+All products use these rotations so their force and moment components share the same axis and
+sign conventions.
 
 THE CONVENTION. Direction-cosine matrices are
 PASSIVE and right-handed: ``C @ v`` gives the components of the SAME vector in
@@ -134,7 +132,7 @@ def clocked_blade_azimuth_deg(
 ) -> float | None:
     """Return where blade ``blade`` of a quasi-steady wheel is at clocking ``clocking``, or None.
 
-    A wheel of ``blades`` blades solved at ``positions`` clockings (0.31.0).
+    A wheel of ``blades`` blades solved at ``positions`` clockings.
     Blade n sits ``(n - 1) / N`` of a turn from blade one, right-handed about the
     shaft, as the builder places the blade frames; clocking i turns the whole
     wheel by ``theta_i = i * (360 / N) / k`` in the sense of the sign of ``rpm``,
@@ -203,7 +201,7 @@ def placed_blade_azimuth_deg(
     Blade n sits ``(n - 1) / N`` of a turn from blade one, right-handed about
     the shaft, whatever the sense of rotation, as the builder places the
     blade frames and as :func:`clocked_blade_azimuth_deg` and the per-blade
-    table place them (0.31.0). The turn is counted by
+    table place them. The turn is counted by
     :func:`blade_azimuth_deg`: the blade's place is step n - 1 of a revolution
     of N steps turned forwards. The harmonic product reads blade one's
     ``AZIMUTH`` of an unsteady sections series through here, so that a block
@@ -534,7 +532,7 @@ def polar_axis_coefficients(
 
 
 #: The reference frame's UP, in the export frame (x aft, y right, z up): the
-#: direction a rotor's normal axis N is taken from (0.31.0, G8).
+#: direction a rotor's normal axis N is taken from (G8).
 REFERENCE_UP: tuple[float, float, float] = (0.0, 0.0, 1.0)
 
 #: The length below which the part of UP square to a rotor's axis names no
@@ -636,14 +634,14 @@ def rotor_in_plane_loads(
 
 
 #: The cutting planes whose sectional loads export the package reads in the
-#: section frame's own axes (0.31.0): for each, the axes its ``Fx`` and ``Fz``
+#: section frame's own axes: for each, the axes its ``Fx`` and ``Fz``
 #: columns lie along and the axis its ``Offset`` is measured along. A cut in
 #: the frame's XZ plane states ``Fx`` along the frame's x, ``Fz`` along its z
 #: and ``Offset`` along its y, the normal (the pilot evidence of RPT-005 and
 #: RPT-006: the export's ``Fx`` of a blade cut in a blade frame whose x is the
 #: shaft matched the integrated axial force). A cut in the XY plane states
 #: ``Fx`` along the frame's x, ``Fz`` along its y and ``Offset`` along its z:
-#: measured on 26.124 (the 0.31.0 short confirmation of the clocked wheel, an
+#: measured on 26.124 (the short confirmation of the clocked wheel, an
 #: XY distribution over blade one in the rotor's hub frame whose x is the
 #: shaft), where the strip integrals of ``Fx``, ``Fz`` and ``Fz Offset``
 #: matched the blade's force along x, its force along y and its moment about x
@@ -737,7 +735,7 @@ def section_station_shaft_loads(
 def free_stream_on_rotor_axis(
     axis: Sequence[float], alpha_deg: float, beta_deg: float
 ) -> tuple[float, float] | None:
-    """Return ``(cos alpha_p, sin alpha_p)``: the flight direction on a rotor's axis (0.31.0).
+    """Return ``(cos alpha_p, sin alpha_p)``: the flight direction on a rotor's axis.
 
     ``alpha_p`` is the angle between the rotor's axis ``axis``, in the sense
     its thrust is counted positive, and the direction the free stream comes

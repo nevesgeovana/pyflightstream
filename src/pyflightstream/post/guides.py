@@ -4,12 +4,12 @@ The pproc guides are ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``. Three pages
 are written INTO the pproc input folder of a workspace, where whoever is
 writing a pproc artifact is already standing: every variable a product states
 with its definition; how to write a custom equation, a glossary entry, the
-phase-locked table and a group rename; and, since 0.27.0 (G08), every key an
+phase-locked table and a group rename; and (G08) every key an
 INPUT artifact may state, the matrix row, the setup, the pproc, the reference
 and the geometry sidecar, with what it sets, its unit or values, the run types
 or builds that accept it and the solver command it reaches.
 
-A fourth, since 0.28.0 (G47), at the ROOT of the ``inputs`` folder: the input
+A fourth (G47) at the ROOT of the ``inputs`` folder: the input
 template, one section per kind of input file a user writes, the files of
 ``profiles/`` among them, each with a complete example to copy. Every example
 is a file the package reads as it stands, which its test holds by writing each
@@ -43,8 +43,8 @@ versioned workspace. Only the names in :data:`PPROC_GUIDE_NAMES`,
 :data:`INPUT_GLOSSARY_NAME` and :data:`INPUT_TEMPLATE_NAME` are ever written;
 any other file of the folder is the user's.
 
-THREE MODULES SINCE 0.33.0 (AD-11). This one writes the two pproc guides and
-keeps every name of the three pages at its path of 0.32.0; the input glossary
+THREE MODULES (AD-11). This one writes the two pproc guides and
+keeps every name of the three pages at its public path; the input glossary
 and the parts the pages share are :mod:`pyflightstream.post.glossary`, and the
 input template is :mod:`pyflightstream.post.input_template`, which this module
 re-exports unchanged.

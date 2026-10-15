@@ -5,7 +5,7 @@ on top of the aerodynamic ones at every coupling call: the axial
 tension that stiffens bending (through P-Delta, FSI-R05), the
 propeller moment that twists the blade toward flat pitch (evaluated at
 the current total pitch and re-solved in a small inner iteration,
-FSI-R06 and FSI-R11), and, since 0.30.0, the in-plane centrifugal
+FSI-R06 and FSI-R11), and the in-plane centrifugal
 softening of the flap (:func:`in_plane_softening_coefficients`,
 re-solved in the same iteration). The frequency sweep of the Campbell
 diagram (Gate 1) also lives here.

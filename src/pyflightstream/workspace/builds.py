@@ -10,7 +10,7 @@ path bypasses the registry, and that override is the only way to run an
 unregistered build (the MANUAL mode of the run matrix).
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.workspace.inputs`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+its path (AD-11).
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ LOCAL_EXECUTABLES_FILE = "executables.local.toml"
 #: that looks correct and a run emitted under the campaign default, and
 #: the two look identical from the manifest (PFS-2009.05).
 #:
-#: ``accept_unregistered_build`` is the third since 0.39.0 (FR-998), and
+#: ``accept_unregistered_build`` is the third (FR-998), and
 #: it is read in this machine's overlay ONLY: there it accepts the installed
 #: build of that entry, the one this machine has, while in the committed
 #: registry it would carry one machine's acceptance to every machine, so it is

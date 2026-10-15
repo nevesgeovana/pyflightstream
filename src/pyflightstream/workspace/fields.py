@@ -716,7 +716,7 @@ def time_mean_fields(
 def fluctuation_report(
     fields: Sequence[StepField], *, tolerance_m: float = POSITION_TOLERANCE_M
 ) -> FluctuationReport:
-    """Return the per-probe fluctuation of per-step fields (0.32.0, P0320-INFLOW-FLUCTUATION).
+    """Return the per-probe fluctuation of per-step fields (P0320-INFLOW-FLUCTUATION).
 
     The steps must be consecutive integers (an evenly exported run's last
     ``K`` steps) and hold the same probes as the first step within
@@ -822,7 +822,7 @@ def fluctuation_extent(report: FluctuationReport) -> tuple[float, float]:
 
 
 def fill_interior(field: Field, *, r_body_m: float = DEFAULT_R_BODY_M) -> tuple[Field, int]:
-    """Fill the probes inside the body from the ray outside it (0.32.0, P0320-FILL-INTERIOR).
+    """Fill the probes inside the body from the ray outside it (P0320-FILL-INTERIOR).
 
     Every probe with ``r < r_body_m`` (``r`` the distance from the x axis,
     ``hypot(y, z)``) takes the velocity of the probe at ``r >= r_body_m`` with
@@ -968,7 +968,7 @@ def write_freestream(
     same refusals fire, so a preview says what ``apply`` would do.
 
     ``sidecars`` maps a suffix (``".fluctuation.csv"``) to the text of a file
-    written beside the field as ``<stem><suffix>`` (0.32.0): each is subject
+    written beside the field as ``<stem><suffix>``: each is subject
     to the same overwrite rule and is named in the record, with its sha256,
     under ``"sidecars"``.
 

@@ -1,4 +1,4 @@
-"""Workspace storage management and synchronisation (0.30.0).
+"""Workspace storage management and synchronisation.
 
 Five commands of ``pyfs-matrix`` live here, and every one of them writes one
 entry to ``storage_management.json`` at the workspace root, the provenance of
@@ -28,10 +28,10 @@ restored in place, automatically, by ``post``, ``collect`` and a continuation
 ``pyfs-storage/1`` that the standalone ``fts_sync.py`` script started, and a
 file that script began is continued, never rewritten.
 
-0.32.0 (package B2). ``sync`` names every ``sims/sim_*`` folder of both sides,
+package B2: ``sync`` names every ``sims/sim_*`` folder of both sides,
 recorded or not, and with ``restore`` (off by default) rebuilds the records of
 the folders no record carries through :func:`pyflightstream.run.records.rebuild`,
-which the run layer registers here (:func:`register_records_rebuild`, 0.33.0);
+which the run layer registers here (:func:`register_records_rebuild`);
 it copies each file to a temporary name and renames it in place, skips every
 folder named ``archive`` unless ``include_archives``, and holds the
 ``runs.json`` lease for the whole of its merge and copy (RST-6). A matrix is
@@ -1356,7 +1356,7 @@ def read_matrix_owners(root: Path) -> dict[str, str]:
 def _matrix_files(ws: Path) -> dict[str, Path]:
     """Return a workspace's matrices, one per stem, from the root or ``inputs/matrices/``.
 
-    0.32.0 (P0320-MATRICES-HOME, RST-1): the two homes are equal, so a stem
+    P0320-MATRICES-HOME, RST-1: the two homes are equal, so a stem
     held in both is read once when the two files hold the same bytes, and
     refused, naming both paths, when they differ (:func:`matrix_by_stem`).
     """
@@ -1576,7 +1576,7 @@ def _plan_points_without_record(
 ) -> dict[str, dict[str, Any]]:
     """Per matrix, the points the OTHER workspace planned that no merged record carries.
 
-    0.30.0. Each ``post/<stem>/plan.json`` of the other workspace lists the
+    Each ``post/<stem>/plan.json`` of the other workspace lists the
     points its plan called for; a point that no record of the merged
     ``runs.json`` carries (:func:`planned_points_without_record`) was never
     attempted there, or its record never reached main. A row of ten planned
@@ -1603,12 +1603,12 @@ def _plan_points_without_record(
 
 
 def sync_summary_lines(entry: Mapping[str, Any]) -> list[str]:
-    """Return the lines ``pyfs-matrix sync`` prints for what 0.32.0 added to an entry.
+    """Return the lines ``pyfs-matrix sync`` prints for a synchronization entry.
 
     The archive files and bytes skipped (P0320-SYNC-SKIP-ARCHIVES), the
     simulation folders of both sides and those no record carries
     (P0320-SYNC-ALL-FOLDERS), and what the restore did or would do
-    (P0320-SYNC-RESTORE-OPTIN). An entry written before 0.32.0 gives none.
+    (P0320-SYNC-RESTORE-OPTIN). An entry written in legacy releases gives none.
 
     Parameters
     ----------
@@ -1618,7 +1618,7 @@ def sync_summary_lines(entry: Mapping[str, Any]) -> list[str]:
     Returns
     -------
     list of str
-        The lines; none for an entry written before 0.32.0.
+        The lines; none for an entry written in legacy releases.
     """
     lines: list[str] = []
     skipped = entry.get("files", {}).get("archives_skipped")
@@ -1659,7 +1659,7 @@ def sync_summary_lines(entry: Mapping[str, Any]) -> list[str]:
 #: The rebuild of the records of simulation folders no record carries, which
 #: an applying ``sync --restore`` asks for (P0320-SYNC-RESTORE-OPTIN): the
 #: run records (:mod:`pyflightstream.run.records`), ABOVE this layer since
-#: 0.33.0 (AD-09), register it here when they load, the way the post
+#: AD-09: register it here when they load, the way the post
 #: registers its stages in :mod:`pyflightstream.workspace`, and the package
 #: root loads them. No import of this module points up at the run.
 _Rebuild = Callable[[Path, list[str]], dict[str, Any]]
@@ -1979,7 +1979,7 @@ def sync_workspaces(
     as a merge conflict and the owning workspace's copy is the one main
     keeps. Returns one recorded entry per source workspace.
 
-    0.32.0. Every ``sims/sim_*`` folder of both sides is compared, recorded or
+    Every ``sims/sim_*`` folder of both sides is compared, recorded or
     not, and each entry's ``sims`` names the folders no record carries.
     ``restore`` (CLI: ``--restore``), off by default, rebuilds their records
     through :func:`pyflightstream.run.records.rebuild` once an applying sync

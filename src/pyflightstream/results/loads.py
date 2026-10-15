@@ -8,7 +8,7 @@ columns are chosen by the run, so they are read from the file's header rather
 than pinned.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.results`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+its path (AD-11).
 """
 
 from __future__ import annotations

@@ -17,15 +17,15 @@ The managed layout under a user-chosen campaign root, created by
   point.
 - ``inputs/``: the reusable input-artifact library
   (:mod:`pyflightstream.workspace.inputs`): ``geometries/``,
-  ``references/``, ``setups/``, ``pproc/`` (``groups/`` until 0.11.0),
+  ``references/``, ``setups/``, ``pproc/`` (``groups/`` in legacy releases),
   ``profiles/``, plus the ``executables.toml`` build registry; artifacts
   are declarative TOML resolved by stable id.
 - ``sims/sim_<sim_id>/``: per-simulation folder with ``inputs/``
   (staged copies with recorded sha256), ``scripts/`` (generated script
   text per point), and ``outputs/`` (solver outputs as produced; the
-  folder was called ``raw/`` until 0.16.0, FR-84, and a workspace that
-  holds one is still read). Until
-  0.13.0 a fourth folder, ``parsed/``, was created here and written by
+  folder was called ``raw/`` in legacy releases, FR-84, and a workspace that
+  holds one is still read). in legacy releases a fourth folder, ``parsed/``, was created here
+  and written by
   nothing (PFS-2032.01): the typed extracts it was named for are built
   at campaign level under ``post/``, so a workspace made by an earlier
   release may still carry an empty ``parsed/`` per simulation, which is
@@ -45,12 +45,9 @@ Archiving and cleaning refuse to act when the manifest is missing or
 does not record the target simulation, so file management can never
 destroy an unrecorded run.
 
-This package was renamed from ``pyflightstream.files`` in v0.3.0. The
-old module name re-exported everything with a DeprecationWarning for
-one minor release and was REMOVED at v0.4.0, on the horizon its own
-deprecation entry recorded; importing it now raises ImportError.
+Use ``pyflightstream.workspace`` for the managed workspace API.
 
-The 0.29 workspace adds declarative FSI inputs under ``inputs/fsi/``
+The workspace adds declarative FSI inputs under ``inputs/fsi/``
 and matrix storage under ``inputs/matrices/``. Resolved inputs and explicit
 calibration overrides feed the existing coupling implementation; provenance
 distinguishes base properties from effective properties.
@@ -70,14 +67,14 @@ MATRIX/POL identities govern mapping. Saved-file hashes reject stale
 previews; recoverable originals and untouched workbook parts are retained.
 There is no background synchronization or macro execution.
 
-The 0.30 workspace manages its own disk and its other copies:
+The workspace manages its own disk and its other copies:
 :mod:`pyflightstream.workspace.storage` holds ``pyfs-matrix space-in-use``,
 ``free-space``, ``delete-sims`` and ``sync``, each previewing until applied
 and recorded in ``storage_management.json`` at the root. The directory
 links it and this module stage and remove are
 :mod:`pyflightstream.workspace._links`, private to both.
 
-The 0.31 workspace builds custom free-stream files out of other fields:
+The workspace builds custom free-stream files out of other fields:
 :mod:`pyflightstream.workspace.fields` mirrors, moves, subtracts and
 time-averages the fields of ``inputs/freestreams/``, previewing until applied
 and writing each result beside a provenance record
@@ -85,7 +82,7 @@ and writing each result beside a provenance record
 correction live under ``inputs/calibrations/``
 (:mod:`pyflightstream.cases.corrections`).
 
-The 0.32 workspace has two equal homes for its matrices, the root and
+The workspace has two equal homes for its matrices, the root and
 ``inputs/matrices/``: :func:`matrix_by_stem` and :func:`find_matrix` read one
 matrix per stem across both, once when the two files are identical, and the
 plan and ``sync`` refuse a stem whose two copies differ, naming both paths.
@@ -95,10 +92,10 @@ not, skips every folder named ``archive`` unless asked, holds the
 under a temporary name that is renamed in place once its digest matches.
 The long commands write a live log ``logs/<command>-<stamp>.log`` beside the
 activity log while they run. A manifest other than ``runs.json`` may sit in
-the root, read when a command names it (resolved since 0.33.0 by
+the root, read when a command names it (resolved by
 :func:`pyflightstream.workspace.naming.resolve_manifest`).
 
-The 0.33 workspace sits one row below the run layer: nothing of it imports
+The workspace sits one row below the run layer: nothing of it imports
 ``run``, at module level, inside a function or for the type checker. The
 rebuild of orphaned records that ``sync --restore`` asks for is registered
 with :mod:`pyflightstream.workspace.storage` by the run layer when it loads,
@@ -115,7 +112,7 @@ by name over both homes, which every command that takes a matrix reads;
 preset; and ``workspace._geometry_clean``, a geometry reduced to its meshes
 and boundary conditions and the plan warning that asks for it. A private
 module carries a 0.34 feature: ``workspace._degenerate``, the thin blade
-derived from a blade mesh and written beside it; since 0.38 its three names,
+derived from a blade mesh and written beside it;  its three names,
 :func:`derive_thin_blade`, :class:`ThinBlade` and :func:`thin_blade_path`, are
 offered here.
 
@@ -406,7 +403,7 @@ _SIM_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 #: is, and the second is what a reader opening a simulation folder wants.
 SIM_OUTPUTS_DIR = "outputs"
 
-#: The name that folder carried until 0.16.0. NOTHING WRITES HERE any
+#: The legacy name of that folder. NOTHING WRITES HERE any
 #: more and everything that reads a simulation folder still reads it, so
 #: a workspace recorded before the rename keeps every one of its points
 #: (FR-84). It is also still MANAGED: a declared output resolving into it
@@ -419,10 +416,10 @@ LEGACY_SIM_OUTPUTS_DIR = "raw"
 #: which already imports `point_tag` (the architecture lens, 2026-09-11).
 
 
-#: The managed folders of one simulation. Three since 0.13.0: ``parsed/``
+#: The managed folders of one simulation. Three : ``parsed/``
 #: was the fourth from the first release and nothing ever wrote there
 #: (PFS-2032.01), so it promised typed extracts that ``post/`` holds. The
-#: third of them is ``datapoints/`` since 0.16.0 and was ``outputs/``
+#: third of them is ``datapoints/`` and was ``outputs/``
 #: before it (FR-92); both older names are still READ and neither is
 #: created, for the reason ``parsed/`` was dropped.
 _SIM_SUBDIRS = ("inputs", "scripts", SIM_DATAPOINTS_DIR)
@@ -433,7 +430,7 @@ class MissingOutputsError(WorkspaceError):
 
     Raised by the workspace's ``collect_outputs`` after it has filed every
     declared output that exists, so a run that failed to write one file
-    never strands the others outside the point's folder (0.27.0). Measured on
+    never strands the others outside the point's folder. Measured on
     a cluster on 2026-09-24: one missing log made collection keep nothing, and
     every other export of the point lay uncollected in the simulation folder
     under a record naming no output at all.
@@ -489,7 +486,7 @@ def selected_sims(
 ) -> frozenset[str]:
     """Return the simulations ``sims`` names, each refused by name unless ``records`` hold it.
 
-    0.33.0 (FR-307): the one refusal of ``post --sims`` and ``collect --sims``,
+    FR-307: the one refusal of ``post --sims`` and ``collect --sims``,
     raised before either touches anything. ``records`` are the records the
     command may select from (one matrix's for the post), and ``scope`` says
     which in the refusal, for example ``"of matrix 'matriz'"``.
@@ -708,7 +705,7 @@ class CampaignWorkspace:
         rather than when a single id happens to resolve.
 
         That promise used to be worded "stays free of I/O", which stopped
-        being true in 0.8.1: the constructor normalises the root with
+        being true: the constructor normalises the root with
         :meth:`pathlib.Path.resolve`, which consults the working
         directory and the filesystem. The property the split actually
         rests on is the one stated above, and it is unchanged.
@@ -919,14 +916,14 @@ class CampaignWorkspace:
         return points[name]
 
     def engine_point(self, name: str) -> PointXyz:
-        """Refuse the 0.14.0 spelling of :meth:`rotor_point`, naming it.
+        """Refuse the spelling of :meth:`rotor_point`, naming it.
 
         IT IS KEPT SO THAT IT CAN REFUSE. Deleting the name outright gave a
         caller `AttributeError: 'CampaignWorkspace' object has no attribute
         'engine_point'`, which is true and says nothing about the rename;
         the retirement registry knows what the word became, so the method
         survives one release as the sentence that says so (the architecture,
-        interface and V&V lenses of the 0.15.0 release review, which all
+        interface and V&V lenses of the release review, which all
         reached this by different routes).
 
         Raises
@@ -1059,7 +1056,7 @@ class CampaignWorkspace:
         """Return the folder whose ``reports/`` receives a post's measurement reports.
 
         The root, for the products of ``runs.json``. A post of other records
-        (:class:`pyflightstream.run.records.ManifestWorkspace`, 0.32.0) keeps
+        (:class:`pyflightstream.run.records.ManifestWorkspace`) keeps
         its reports inside its own products folder, beside the default ones.
         """
         return self.root
@@ -1087,9 +1084,9 @@ class CampaignWorkspace:
 
         Creates ``inputs/``, ``scripts/`` and ``datapoints/``; existing
         folders are kept, so the call is idempotent, and a ``parsed/``
-        left by a release before 0.13.0 is kept with them
+        left by a legacy release is kept with them
         (PFS-2032.01), as are an ``outputs/`` and a ``raw/`` left by one
-        before 0.16.0 (FR-92). NEITHER OF THOSE TWO IS CREATED: a folder
+        in legacy releases (FR-92). NEITHER OF THOSE TWO IS CREATED: a folder
         this release does not write to would be an empty promise in
         every new simulation.
         """
@@ -1105,7 +1102,7 @@ class CampaignWorkspace:
         run to the exact input content (NFR-07).
 
         THROUGH A LINK, NOT A COPY (PFS-2029.17, the first sentence of
-        item #6). Until 0.11.0 every point carried a byte copy of the
+        item #6). in legacy releases every point carried a byte copy of the
         geometry it opened, and production meshes are the size that sends every
         .fsm to cloud storage rather than to git. When every source sits
         in the workspace's own geometry library, ``sims/<sim>/inputs`` is
@@ -1283,10 +1280,10 @@ class CampaignWorkspace:
     def recorded_inventory(self, record: RunRecord) -> tuple[str, ...] | None:
         """Return the boundary names of the geometry one record's run opened, or None.
 
-        A record written since 0.27.0 states them (:attr:`RunRecord.inventory`)
+        A record written states them (:attr:`RunRecord.inventory`)
         and they are returned as written, with nothing hashed. An older record
         states none, and they are read from the mesh block of the file whose
-        sha256 the record carries in ``inputs_sha256`` (R04 of 0.27.0): the
+        sha256 the record carries in ``inputs_sha256`` (R04): the
         simulation's own staged copy first, then the geometry library's file
         of that name, flat or in its own folder.
 
@@ -1376,7 +1373,7 @@ class CampaignWorkspace:
     #: told "this simulation's own collected outputs" does not.
     #:
     #: ``raw`` IS STILL HERE AND IS NOT WRITTEN (FR-84). It is the name
-    #: this folder carried until 0.16.0, and a workspace that holds one
+    #: this folder carried in legacy releases, and a workspace that holds one
     #: holds collected evidence in it; dropping it from this table would
     #: have made that evidence collectable OUT of the layout that owns
     #: it, which is the one thing these roles exist to refuse.
@@ -1479,7 +1476,7 @@ class CampaignWorkspace:
         ran_in_datapoint : bool
             Accept a declared output that is ALREADY in this point's own
             folder and record it without moving it. For a job that RAN in
-            that folder, which is a submitted point since 0.18.1, whose
+            that folder, which is a submitted point whose
             solver wrote its outputs where they are filed. Keyword-only and
             False by default, and the default is the guard: a caller who
             has not said the job ran there is refused a file sitting in a
@@ -1487,7 +1484,7 @@ class CampaignWorkspace:
             earlier run already collected.
         datapoint : PointName
             THE POINT these outputs belong to, by its checked name
-            (:class:`~pyflightstream.workspace.naming.PointName`, 0.21.0),
+            (:class:`~pyflightstream.workspace.naming.PointName`),
             whose folder under ``datapoints/`` this renders with
             :func:`datapoint_dir_name`. Required, with no default,
             because every collection this package makes is a
@@ -1514,7 +1511,7 @@ class CampaignWorkspace:
         list of str
             Collected names relative to the simulation folder
             (``"datapoints/DP-<point>/<name>"``), ready for
-            :attr:`RunRecord.outputs`. A record written before 0.16.0
+            :attr:`RunRecord.outputs`. A record written in legacy releases
             names ``"outputs/<name>"`` or ``"raw/<name>"`` and is read
             through unchanged, which is what keeps its point from being
             orphaned by a layout it predates.
@@ -1523,11 +1520,11 @@ class CampaignWorkspace:
         ------
         MissingOutputsError
             If a declared output does not exist, AFTER every declared output
-            that does has been filed (0.27.0): its ``collected`` lists them
+            that does has been filed: its ``collected`` lists them
             and its message names only the missing ones. The campaign loop
             records the point FAILED_INCOMPLETE_OUTPUT with those outputs,
-            never a silently shorter output set and never an empty one. Until
-            0.27.0 this refused before anything moved, and one missing log
+            never a silently shorter output set and never an empty one. in legacy releases this
+            refused before anything moved, and one missing log
             left every other export of the point uncollected in the solver's
             working directory, under a record naming no output at all. The
             refusals below are still asked first, over the outputs that
@@ -1555,14 +1552,14 @@ class CampaignWorkspace:
             FR-33e and neither takes an overwrite argument: the remedies
             are a per-point output name and an archived simulation.
 
-            THE SECOND ONE NARROWED AT 0.16.0 and that is the fix for
+            THE SECOND ONE NARROWED and that is the fix for
             the swept row, not a relaxation: the destination is now one
             datapoint rather than the whole simulation, so re-running a
             point still refuses to overwrite its own evidence, while the
             NEXT point of the same sweep never meets the previous
             point's files at all.
 
-            BOTH ARE PRE-SCANS SINCE 0.17.0 (PFS-2038.06, GEO-039-F07).
+            BOTH ARE PRE-SCANS (PFS-2038.06, GEO-039-F07).
             The second used to be asked immediately before each move, so
             a call whose third output landed on a held name refused with
             the first two already moved: sources gone, destinations
@@ -1751,7 +1748,7 @@ class CampaignWorkspace:
         collected : sequence of str
             Names as :meth:`collect_outputs` returned them, relative to
             the simulation folder (``"outputs/<name>"``, or ``"raw/<name>"``
-            on a record written before 0.16.0).
+            on a record written in legacy releases).
 
         Returns
         -------

@@ -3,7 +3,7 @@
 The glossary states every key an INPUT artifact may state, the matrix row, the
 setup, the pproc, the reference and the geometry sidecar, with what it sets,
 its unit or values, the run types or builds that accept it and the solver
-command it reaches (G08 of 0.27.0). It reads the registries the code uses: the
+command it reaches (G08). It reads the registries the code uses: the
 run types' key tables, the matrix columns, the flight-condition vocabulary, the
 preset tables, the export kinds, the sidecar readers' keys and the fields of
 every input model, and the meaning of a key is the code's too (a model field's
@@ -19,7 +19,7 @@ below :mod:`pyflightstream.post.input_template` and
 and this module imports neither.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.post.guides`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+its path (AD-11).
 """
 
 from __future__ import annotations
@@ -848,7 +848,7 @@ def _setup_tables() -> list[GlossaryTable]:
 
 
 #: The commands a kind reaches where they are not its own verb of
-#: :data:`~pyflightstream.cases.EXPORT_KINDS` (G45 of 0.28.0): a campaign's
+#: :data:`~pyflightstream.cases.EXPORT_KINDS` (G45): a campaign's
 #: Tecplot is written by the package from the VTK export, so the script reaches
 #: the VTK's two commands and never the solver's Tecplot.
 _KIND_COMMANDS: Mapping[str, tuple[str, ...]] = MappingProxyType(

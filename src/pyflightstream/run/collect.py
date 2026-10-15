@@ -28,7 +28,7 @@ signals that fail differently:
    the interval between two writes to one file looks finished for one poll.
 2b. OR THE SCHEDULER'S OWN LOG HAS BEEN COPIED TO THE DECLARED NAME, which
     is what happens on a machine whose HPC profile states ``export_log =
-    false`` and names a ``native_log`` (0.21.0). There `EXPORT_LOG` is not
+    false`` and names a ``native_log``. There `EXPORT_LOG` is not
     emitted at all, so the argument below does not hold: the copy is made
     BEFORE the settle condition is evaluated, and what settles is the copy.
 
@@ -49,10 +49,10 @@ session someone detaches.
 
 NO NINTH STATUS. A job the scheduler killed, or one whose outputs never
 arrive, takes a FAILED value with the scheduler and the descriptor named.
-0.17.0 already spent a status value on ``SUBMITTED`` and the board carries a
+the package already spent a status value on ``SUBMITTED`` and the board carries a
 node asking whether a seventh terminal status was worth amending a published
 vocabulary for; the answer to that question must not be that so was a ninth.
-0.37.0 adds one that is not a failure, RAN_MISSING_LOG (FR-413): every output of
+A non-failure outcome is RAN_MISSING_LOG (FR-413): every output of
 the point is present and its declared solver log is not, a run that ENDED with
 its outputs and whose log was deleted or never copied back. It is decided by
 :func:`pyflightstream.workspace._missing_log.point_absent_logs` before any rule
@@ -281,10 +281,10 @@ class CollectReport:
     #: declared set. SEPARATE FROM `waiting`, and the separation is the whole
     #: of it: UNKNOWN is a TERMINAL answer for that point, not a state a later
     #: sweep changes. While it counted as outstanding, `--watch` in a workspace
-    #: holding one point submitted by 0.17.0 could never reach its own stop
-    #: condition and swept forever, which is precisely the user 0.17.0's
+    #: holding one point submitted by the package could never reach its own stop
+    #: condition and swept forever, which is precisely the user the package's
     #: release note told to expect this stage. Found by the interface lens of
-    #: the 0.18.0 release round, 2026-09-14.
+    #: the release round, 2026-09-14.
     unknown: list[CollectOutcome] = field(default_factory=list)
     discarded: list[RunRecord] = field(default_factory=list)
 
@@ -377,7 +377,7 @@ def assessment_of_collected(record: RunRecord, sim_dir: Path) -> Assessment:
     iteration it reached, the residual it reached it at, the times the solver
     printed, and which file they were read from. On a cluster that is the whole
     of the evidence, because there is no process here to report on -- the
-    record was the only place those numbers could land, and until 0.21.0 they
+    record was the only place those numbers could land, and in legacy releases they
     landed nowhere.
 
     Parameters
@@ -404,7 +404,7 @@ def _sim_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
 def _working_dir(workspace: CampaignWorkspace, record: RunRecord) -> Path:
     """Return where the submitted job runs and writes its declared outputs.
 
-    Since 0.18.1 a submitted point runs in its own datapoint folder and its
+    A submitted point runs in its own datapoint folder and its
     submission block says so, relative to the simulation folder (GOAL-021
     item 3). A record written before that names none, and its job ran in the
     simulation folder, which is where the collector waits for it.
@@ -551,7 +551,7 @@ def _refuse_a_string(sims: object) -> None:
 
 
 def _run_label(record: RunRecord) -> str:
-    """Return a record as the collect progress line names it (0.32.0)."""
+    """Return a record as the collect progress line names it."""
     return record.run_id
 
 
@@ -569,7 +569,7 @@ def _records_after_grouped_jobs(
     sleep: Callable[[float], None],
     observer: Callable[[Iterable[Path]], dict[str, Stamp | None]],
 ) -> list[RunRecord]:
-    """Read the manifest after the prepare step of the grouped jobs (0.35.0, FR-367 to FR-370).
+    """Read the manifest after the prepare step of the grouped jobs (FR-367 to FR-370).
 
     Every point of a grouped job (``--batch``, ``--polar-sweep``) is copied or
     moved home and given its own log by
@@ -628,7 +628,7 @@ def collect_once(
         stage nothing tests, which is the reason the injection exists rather
         than a preference for injection.
     sims
-        0.33.0 (FR-307, ``collect --sims``): sweep only the SUBMITTED records
+        FR-307, ``collect --sims``: sweep only the SUBMITTED records
         of these simulations; every other record is left untouched and is not
         counted as outstanding. A simulation no record holds is refused by
         name before anything is swept. None sweeps every record.
@@ -791,7 +791,7 @@ def _job_log_name(
 ) -> str | None:
     """Name the one log a steady job's scheduler writes, where no point exports its own.
 
-    0.27.0. A steady row of several points is ONE job over one script, and on a
+    A steady row of several points is ONE job over one script, and on a
     machine whose HPC profile states ``export_log = false`` the script exports
     no log for any point: the scheduler writes one log of the whole job. So the
     job's log is filed once, under the job's script stem, and no point's
@@ -809,7 +809,7 @@ def _job_log_name(
     return f"{Path(record.script_path).stem}{LOG_SUFFIX}"
 
 
-#: What the package's own assessor read, stamped on the collected record (0.21.0).
+#: What the package's own assessor read, stamped on the collected record.
 _STAMPED_FIELDS: tuple[str, ...] = (
     "fs_version_reported",
     "fs_build",
@@ -844,8 +844,8 @@ def _judged(
     THE DEFAULT JUDGES. It used to be the literal CONVERGED with the assessor
     an option no caller passed, which meant the shipped command recorded every
     settled point as converged whatever the solver did; the fallback is the
-    same assessor the local path uses. WHAT THE LOG SAID RIDES WITH THE VERDICT
-    (0.21.0): a replaced assessor answers with the pair its interface defines,
+    same assessor the local path uses. WHAT THE LOG SAID RIDES WITH THE VERDICT: a replaced
+    assessor answers with the pair its interface defines,
     the package's own reads the log and everything it read is stamped.
 
     A POINT WHOSE LOG IS ABSENT (FR-413) is judged by its outputs alone: a
@@ -1120,7 +1120,7 @@ def _complete_sweep(
     job_log: Path | None = None,
     missing_logs: Sequence[str] = (),
 ) -> CollectOutcome:
-    """Collect, assess and finalise EACH point of a submitted sweep (0.24.0).
+    """Collect, assess and finalise EACH point of a submitted sweep.
 
     THE SHAPE IS THE LOCAL SWEEP'S, entry for entry: ``points_ran`` carries each
     point's tag, point, status, OUTPUTS, iterations and residual, the job's
@@ -1345,7 +1345,7 @@ def _collect_by_point(
     """File the declared outputs of a record that is ONE point under that point.
 
     ``work_dir`` is where the job wrote: the point's own datapoint folder for a
-    submitted point since 0.18.1, whose outputs are then collected in place,
+    submitted point whose outputs are then collected in place,
     and the simulation folder before that.
 
     A record written before the per-point mapping existed, and a record for a
@@ -1369,17 +1369,17 @@ def _collect_by_point(
 
 
 def _recorded_name(record: RunRecord) -> PointName:
-    """Return the point name the run recorded, where its outputs are filed (0.21.0).
+    """Return the point name the run recorded, where its outputs are filed.
 
-    A record written before 0.21.0 carries none. Its folder is then read off the
+    A record written in legacy releases carries none. Its folder is then read off the
     record's OWN submission block, which names the datapoint the job ran in, and
     never recomputed: a name recomputed now would file the outputs where no
     record of it points, and that is what this refuses. The folder the record
     itself names is the opposite of a guess, and it is the same folder
     :func:`_working_dir` already resolves to read the outputs from.
 
-    WHY THIS IS NOT A REFUSAL ANY MORE (0.21.1). Refusing here deadlocked a
-    0.20.x workspace with submitted points, measured on a cluster 2026-09-16:
+    WHY THIS IS NOT A REFUSAL ANY MORE. Refusing here deadlocked a workspace with submitted
+    points, measured on a cluster 2026-09-16:
     `rename` refuses a SUBMITTED record whose folder would move and says to
     collect it first, and this said to rename first. Worse than the deadlock,
     the refusal is caught by the sweep and written as FAILED_INCOMPLETE_OUTPUT,
@@ -1389,7 +1389,7 @@ def _recorded_name(record: RunRecord) -> PointName:
     ------
     WorkspaceError
         If the record carries neither a point name nor a working directory,
-        which is a record written before 0.18.1: its job ran in the simulation
+        which is a record written in legacy releases: its job ran in the simulation
         folder and no datapoint folder is named for it anywhere.
     """
     name = _datapoint_of(record)
@@ -1475,9 +1475,9 @@ def collect_and_post(
     workspace are rebuilt per matrix, so a caller that rebuilds them needs the
     second: the command line's own post called the stage with no matrix, and
     the stage then selected the records naming none, which left every
-    named-matrix record out and wrote nothing (0.24.0).
+    named-matrix record out and wrote nothing.
 
-    ``sims`` (0.33.0, FR-307) limits every sweep to the SUBMITTED records of
+    ``sims`` (FR-307) limits every sweep to the SUBMITTED records of
     those simulations (:func:`collect_once`) and the post to the same
     simulations: ``post`` is then called with the keyword ``sims`` too, and
     ``post_matrix`` with ``sims`` naming the ones of that matrix.

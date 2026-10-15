@@ -55,13 +55,13 @@ header that has moved means a build reordered the numbers, and a table
 read by position would publish one physical quantity under another
 one's label.
 
-THIS ROOT IS A FACADE since 0.33.0 (AD-11): the errors, the anchor primitives
+THIS ROOT IS A FACADE (AD-11): the errors, the anchor primitives
 and the code vocabularies are :mod:`pyflightstream.results.core`; the loads,
 probe-points and unsteady-plots parsers :mod:`pyflightstream.results.loads`;
 the solver log's :mod:`pyflightstream.results.log`; the export tables
-:mod:`pyflightstream.results.exports`. Every name keeps its 0.32.0 path here,
+:mod:`pyflightstream.results.exports`. Every name keeps its public path here,
 and no module of the layer imports this root. The sectional loads export's
-parser is :mod:`pyflightstream.results.sectional_loads` since 0.33.0 (AD-10):
+parser is :mod:`pyflightstream.results.sectional_loads` (AD-10):
 the structural side branch re-exports it, so the branch and this layer no
 longer import each other in a cycle.
 """

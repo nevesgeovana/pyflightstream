@@ -6,13 +6,13 @@ this module writes them as plain CSV, one header line and one row per
 record, so any spreadsheet or dataframe reads them with nothing else:
 
 * a POLAR table per boundary GROUP of the pproc artifact, under
-  ``polars/`` since 0.16.0 (FR-88): one row per point of the polar, the
+  ``polars/`` (FR-88): one row per point of the polar, the
   reference block and the coefficients of the group in body, stability
   and wind axes with the two drag parts;
-* the SUPERFILE of each polar and group beside it since 0.16.0 (FR-89),
+* the SUPERFILE of each polar and group beside it (FR-89),
   ``polars/SUPER-<sim>-<sweep name>_<group>.csv``, the polar table's own stem
   with ``SUPER-`` in place of ``P``; ``<group>`` is the group's NAME
-  (``_PUSHER``) since 0.23.0, and ``g<NN>`` for a group that is still numbered:
+  (``_PUSHER``) and ``g<NN>`` for a group that is still numbered:
   one row per CONVERGED point, written after the unsteady post-process so
   it holds no time series, and its column set is a SUPERSET of the union
   of everything the workspace knows about that simulation. The assembly
@@ -20,8 +20,8 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   blocks comes from;
 * a SECTIONS table per point, ``sections/<point>_sections.csv``: the
   sectional loads export re-tabled, when the run defined sections at all;
-* the FLOW-FIELD SAMPLES of a point under ``probes/`` since 0.16.0
-  (FR-87), whatever the run type was: ``probes/<point>_plots.csv``, the
+* the FLOW-FIELD SAMPLES of a point under ``probes/`` (FR-87), whatever the run type was:
+``probes/<point>_plots.csv``, the
   unsteady plots export re-tabled with its coefficient columns brought
   from the solver's reference velocity to the free stream, and
   ``probes/<point>_probes.csv``, the probe-points export of a steady row or the
@@ -31,12 +31,12 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   ``probes/<point>_phase_locked.csv`` and
   ``probes/<point>_per_blade.csv``,
   each a row per window with the window in solver steps and then the
-  plots table's own columns averaged over it. Since 0.15.0 a row that
+  plots table's own columns averaged over it. a row that
   NAMES ITS ROTORS reduces per rotor (FR-68), so the two passage files
   carry the rotor's alias, ``probes/<point>_per_blade_<ALIAS>.csv``, and
   their manifest entries carry a ``rotor`` field; the time average is one
   file whatever turns in the run. Raw is the plots table
-  itself and is written once. Since 0.24.0 the per-blade table is one row
+  itself and is written once. the per-blade table is one row
   PER BLADE over one shared window. The windows follow the MATRIX ROW as it
   stands (:mod:`pyflightstream.cases.windows`), and a record's own windows,
   resolved by the run stage
@@ -52,13 +52,13 @@ record, so any spreadsheet or dataframe reads them with nothing else:
   :func:`write_custom_polar_format` and read back by
   :func:`read_custom_polar_format`;
 * a PROVENANCE document per recorded run, under ``provenance/`` and
-  named by the point's own convention since 0.16.0 (FR-86)
+  named by the point's own convention (FR-86)
   (PFS-2012.08.01): W3C PROV in its PROV-JSON serialization, the staged
   inputs, the script and the outputs as entities with their sha256, the
   solver run as the activity with its start, end and argv, the package
   and the solver build as agents.
 
-THE AXIS COLUMNS COME FROM ONE VECTOR (0.24.0). The loads export states a force
+THE AXIS COLUMNS COME FROM ONE VECTOR. The loads export states a force
 ``(Cx, Cy, Cz)`` and a moment ``(CMx, CMy, CMz)`` in its own frame, x aft, y right,
 z up, and :mod:`pyflightstream.post.axes` turns that one pair into body, stability
 and wind axes, under sideslip too. So ``CDB`` is the ``Cx`` of the export and
@@ -67,22 +67,14 @@ the pitching moment by the chord, after the moment has turned as one vector.
 ``CD0`` and ``CDI`` stay the solver's own profile and induced drag. Values are
 written with at least six significant figures when five decimals lose precision.
 
-UNTIL 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as stability-axis
-forces and turned them back to body axes, and a point under sideslip was
-refused. The solver's ``CL`` sits between 0.10 and 0.25 per cent above the projection
-of its own vector on 27 of the 28 lifting recorded exports (lift above 0.05);
-one sits at 0.71 per cent. See ``tests/tier1_offline/fixtures/recorded_total_rows.csv``.
-So ``CLS`` and ``CLW`` of a table
-written before differ from one written now by that much, and its ``CDB`` and
-``CLB`` differ from the ``Cx`` and ``Cz`` printed in the same export. The 27 recorded polars that
-:func:`write_recorded_polar` regenerated as equal text on 2026-09-03 are
-therefore no longer equal text in those four columns.
+Polar rows rotate forces and moments into their declared axes using the shared axis
+transformations. Solver coefficients are not substituted for a differently defined frame.
 
-SINCE 0.33.0 (AD-13) THIS MODULE IS THE CAMPAIGN STAGE AND THE FACADE. The
+(AD-13) THIS MODULE IS THE CAMPAIGN STAGE AND THE FACADE. The
 families it wrote are sibling modules: :mod:`pyflightstream.post.polar`,
 :mod:`pyflightstream.post.rotor_table`, :mod:`pyflightstream.post.unsteady_polar`
 and :mod:`pyflightstream.post.point_tables`, each with an exact ``__all__`` that
-this module re-exports, so every name of its ``__all__`` and every 0.32.0 import
+this module re-exports, so every name of its ``__all__`` and every public import
 path is kept. One simulation's products are written by the private simulation
 stage (:mod:`pyflightstream.post._sim`) over one frozen ``SimContext``; what is
 left here is :func:`write_campaign_products`, which walks the campaign, writes
@@ -454,7 +446,7 @@ __all__ = [
 # published 0.14.0, where the old name still worked (the interface lens at
 # the release boundary, 2026-09-11).
 def __getattr__(name: str) -> object:
-    """Refuse the names removed at 0.16.0 through the one hook of ``_deprecations``."""
+    """Refuse the names removed through the one hook of ``_deprecations``."""
     from pyflightstream._deprecations import removed_names_hook
 
     return removed_names_hook(__name__)(name)
@@ -520,11 +512,11 @@ def write_campaign_products(
     ``archive=True`` a rebuild archives both files with the same stamp as
     the products; by default it overwrites them in place. See
     docs/post-processing-definitions.md for the sample and refusal rules.
-    Since 0.27.0 (G12) the products of the additional post's current
+    (G12) the products of the additional post's current
     extractions are written too, under ``additional/<pid>/``, from
     ``additional.json``; the stage still launches nothing.
 
-    ``sims`` (0.33.0, FR-307, ``pyfs-matrix post --sims``) limits the rebuild
+    ``sims`` (FR-307, ``pyfs-matrix post --sims``) limits the rebuild
     to those simulations of the matrix, IN PLACE: their files are archived and
     rewritten as a whole post does, every other simulation's files and
     ``products.json`` entries stay as they were, and the super files, whose
@@ -540,10 +532,10 @@ def write_campaign_products(
     overwrite : bool, default False
         Rebuild when the post log already exists; otherwise that is refused.
     archive : bool, default False
-        Since 0.35.0 (FR-397, P0350-ARCHIVE-OPT-IN) a rebuild overwrites the
+        (FR-397, P0350-ARCHIVE-OPT-IN) a rebuild overwrites the
         files in place and writes no ``archive/`` folder. True moves the files
         a rebuild replaces into the products archive, under one stamp, as
-        0.34.0 always did (``pyfs-matrix post --archive``).
+        the package always did (``pyfs-matrix post --archive``).
     archive_stamp : datetime.datetime, optional
         The stamp of the archive; the current time when omitted.
     matrix_stem : str, optional
@@ -760,24 +752,24 @@ def _campaign_products(
     ``post/products``, the historical place of a campaign authored in
     Python.
 
-    Since 0.16.0 it also writes the SUPERFILE of every polar and group
+    it also writes the SUPERFILE of every polar and group
     (FR-89), under ``polars/`` beside the polar table, and the measurement
     of what it wrote under ``reports/`` beside ``post/``. Both come last,
     after the plots tables of every point are on disk, because a superfile
     carries the unsteady post-process's own parameters and one row per
     converged point.
 
-    Since 0.27.0 (G12) it reads ``additional.json`` too and writes the
+    (G12) it reads ``additional.json`` too and writes the
     products of every current extraction of the additional post under
     ``additional/<pid>/``, each marked with the pproc, as additional, and with
     its extractions (:func:`_additional_products`).
 
-    Since 0.26.0 native logs are read tolerantly in both modes. Doubts warn
+    native logs are read tolerantly in both modes. Doubts warn
     in post.log by default; check_frozen=True refuses affected averages.
     Computable products of failed points remain available by default.
     The definition of record is docs/post-processing-definitions.md.
 
-    ``sims`` (0.33.0, FR-307), already validated by the caller, limits the
+    ``sims`` (FR-307), already validated by the caller, limits the
     rebuild to those simulations (:class:`_PartialPost`).
     """
     # ONE STAMP PER REBUILD, taken here and threaded to every archiver.
@@ -960,7 +952,7 @@ def _write_manifest(out: Path, manifest: Mapping[str, object]) -> None:
 
 
 def _sim_label(item: tuple[str, object]) -> str:
-    """Return a simulation as the post progress line names it (0.32.0)."""
+    """Return a simulation as the post progress line names it."""
     return f"sim_{item[0]}"
 
 

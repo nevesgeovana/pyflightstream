@@ -1,7 +1,7 @@
 """The polar: one row per point of a sweep, per boundary group, as a CSV table.
 
 One of the product families of :mod:`pyflightstream.post` (AD-13, work
-package WP5 of 0.33.0), written by the post stage of
+package WP5), written by the post stage of
 :mod:`pyflightstream.post.products`, which re-exports every name here.
 
 A POLAR table per boundary GROUP of the pproc artifact, under ``polars/``
@@ -82,9 +82,9 @@ __all__ = [
 ]
 
 #: WHY THE ADVANCE RATIO HAS A COLUMN AT ALL (FR-85), kept here beside its one
-#: user although the constant itself moved to `post._tables` at 0.23.0, where
+#: user although the constant itself moved to `post._tables`, where
 #: three modules can compose it. Measured on the reference ``0001_M15_g01.csv``,
-#: written by 0.15.0 for a three-value sweep of the advance ratio: the three
+#: written by the package for a three-value sweep of the advance ratio: the three
 #: rows carried identical ``ALPHA``, ``BETA``, ``MACH`` and ``RE`` and no column
 #: naming what was swept, so the only thing distinguishing the first row from
 #: the third was its POSITION in the file. A table whose rows are told apart by
@@ -110,9 +110,9 @@ _POLAR_CONDITION_COLUMNS: tuple[str, ...] = tuple(
 #: reference block, the condition the twenty-four do not carry, the
 #: twenty-four coefficients.
 #:
-#: `POL` FIRST SINCE 0.27.0 (G16), as in every table the post writes, under the
+#: `POL` FIRST (G16), as in every table the post writes, under the
 #: name the run matrix gives its polar column, and the ONLY column that states the
-#: polar. Until 0.26.x this table named it `POLAR`, in the same first place; the
+#: polar. in legacy releases this table named it `POLAR`, in the same first place; the
 #: polar stated twice, once under each name, is one value a reader has to choose
 #: between, so `POLAR` is gone from every table the post writes.
 POLAR_COLUMNS: tuple[str, ...] = (
@@ -241,15 +241,15 @@ class GroupCoefficients:
 
     ``force`` and ``moment`` are the VECTORS the export states in its own
     frame, ``(Cx, Cy, Cz)`` and ``(CMx, CMy, CMz)``, summed over the same
-    families. They are what :func:`polar_row` builds the axis columns from
-    since 0.24.0; the solver's own ``CL`` is between 0.10 and 0.25 per cent above the
+    families. They are what :func:`polar_row` builds the axis columns from; the solver's own
+    ``CL`` is between 0.10 and 0.25 per cent above the
     projection of that vector on 27 of the 28 lifting recorded exports (lift above
     0.05); one sits at 0.71 per cent. See
     ``tests/tier1_offline/fixtures/recorded_total_rows.csv``. A row built from one
     and printed beside the other did not agree with itself.
 
     NOTHING IN THE PACKAGE READS ``drag``, ``side``, ``lift``, ``roll``,
-    ``pitch`` OR ``yaw`` SINCE 0.24.0. They stay for a caller that wants the
+    ``pitch`` OR ``yaw``. They stay for a caller that wants the
     solver's own integrals, and they are the source of NO axis column of any
     product: ``lift`` is the solver's ``CL``, which a polar no longer prints.
     """
@@ -285,7 +285,7 @@ class PolarPoint:
     loads: LoadsReport
     loads_path: Path
     point: Mapping[str, float] | None = None
-    #: The state THIS point resolved to (0.24.0): its Mach, its row cell with the
+    #: The state THIS point resolved to: its Mach, its row cell with the
     #: swept value in place, its air. None on a caller that builds a point by
     #: hand, which then states the simulation's.
     state: PointState | None = None
@@ -427,10 +427,10 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     geometry numbers them: measured on 40 recorded exports of 11 geometries,
     four of them with several boundaries, every table in its inventory's order
     (``reports/probes/PFS-2006-03_2026-09-24_row-order.yaml``). Resolving the
-    index through the boundary names each run records since 0.27.0
-    (``RunRecord.inventory``, R03), rather than through the table's order, is
+    index through the boundary names each run records (``RunRecord.inventory``, R03), rather
+    than through the table's order, is
     the stronger reading; the record now exists, and reading the index
-    through it is not done here yet and is owed to 0.28.0. A list holding
+    through it is not done here yet and remains unimplemented. A list holding
     anything the table cannot place -- a label, a bool, an index out of
     range -- is read as every surface, because a false `NA` is loud and a
     false zero is a number a reader believes. The empty default, None and
@@ -473,14 +473,14 @@ def polar_row(
 ) -> tuple[float, ...]:
     """Return the twenty-four coefficient values of one polar row.
 
-    EVERY AXIS COLUMN COMES FROM ONE VECTOR (0.24.0): the force ``(Cx, Cy, Cz)`` and
+    EVERY AXIS COLUMN COMES FROM ONE VECTOR: the force ``(Cx, Cy, Cz)`` and
     the moment ``(CMx, CMy, CMz)`` the export states in its own frame, turned by
     :func:`pyflightstream.post.axes.polar_axis_coefficients`. So ``CDB`` IS the
     ``Cx`` of the export and ``CLB`` its ``Cz``, and the wind-axis drag of that
     vector is the ``CDi + CDo`` the solver integrates, which the recorded exports
     confirm to their printed precision, under sideslip too.
 
-    Until 0.24.0 the row took the solver's ``CL`` and ``CDi + CDo`` as
+    in legacy releases the row took the solver's ``CL`` and ``CDi + CDo`` as
     stability-axis forces and turned them BACK to body axes. The solver's ``CL``
     sits between 0.10 and 0.25 per cent above the projection of its own vector on
     27 of the 28 lifting recorded exports (lift above 0.05); one sits at 0.71 per cent.
@@ -579,7 +579,7 @@ def swept_polar_file_name(
     group: str | int,
     suffix: str = ".csv",
 ) -> str:
-    """``P<sim>-<name>_<group>.csv``, the group NAMED since 0.23.0 (FR-85).
+    """``P<sim>-<name>_<group>.csv``, the group NAMED (FR-85).
 
     ``name`` is the recorded sweep name, each swept field written
     ``<code>+sweep``, for a table over a sweep
@@ -587,8 +587,8 @@ def swept_polar_file_name(
     for a case whose sweep resolved to one point. The ``.dat`` of the custom
     format takes the same stem, which is what ``suffix`` is for.
 
-    A NUMBERED group still writes ``_g01``, because a workspace recorded before
-    0.23.0 holds those files and a pproc that still numbers its groups must keep
+    A NUMBERED group still writes ``_g01``, because a workspace recorded in legacy releases
+    holds those files and a pproc that still numbers its groups must keep
     producing the names beside them rather than a second era of its own.
 
     ``int(group)`` WAS UNCONDITIONAL HERE, which made item 14 unreachable: a
@@ -756,12 +756,7 @@ def write_polar_table(
     entirely, every row's cell reads `NA`, which is what a caller with no
     sweep point to offer should write.
 
-    IT WAS AN EMPTY CELL UNTIL 0.23.0, and the reasoning above is what
-    changed the token rather than what resisted it: arguing for a cell that
-    is not a zero is arguing for a DISTINGUISHABLE one, and a blank is not
-    distinguishable -- from a zero, from a value that went missing, or from
-    a column that never applied. This is the worked example the change log
-    uses, `...,0.00000,NA,-2.00000,...` on a steady row.
+    Inapplicable values use ``NA`` so a missing quantity cannot be mistaken for a measured zero.
 
     Parameters
     ----------
@@ -839,7 +834,7 @@ def group_polar_rows(
     (the design decision of 2026-09-09) and the summer is asked for that reading.
     A surface whose induced drag the point's record says the solver declined
     is `NA` in the sum (:func:`declined_induced_drag`, PFS-2006.03). Public
-    since 0.33.0 (AD-13): the simulation stage and :func:`write_recorded_polar`
+    (AD-13): the simulation stage and :func:`write_recorded_polar`
     build a group's rows through it, and so may a product over the polar rows.
 
     Parameters

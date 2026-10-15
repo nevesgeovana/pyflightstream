@@ -1,4 +1,4 @@
-"""The ledger: one read-only snapshot of a workspace's records (0.35.0).
+"""The ledger: one read-only snapshot of a workspace's records.
 
 Pipeline role: the reader under every query verb of ``pyfs-matrix`` (FR-379 to
 FR-385) and their Python mirror (FR-388). :func:`read_ledger` reads the run
@@ -171,9 +171,8 @@ SIMS_IDS_HELP = (
 def listed_sims(text: str) -> list[str]:
     """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
 
-    A space or a tab between ids separates them as a comma does, so one quoted value
-    ``"4001 2009"`` is two ids (0.39.0, owner decision P1); it was read as the single
-    id ``40012009`` before.
+    ``"4001 2009"`` selects two simulation ids. Selection separates whitespace-delimited ids
+    before matching records.
 
     Parameters
     ----------

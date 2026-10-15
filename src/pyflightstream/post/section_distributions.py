@@ -88,10 +88,10 @@ def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
 def _distributions(
     record: RunRecord, pproc: PprocSpec | None, inventory: Sequence[str] | None = None
 ) -> tuple[list[dict[str, object]], dict[int, str | list[str]]]:
-    """Resolve block ownership, refusing ambiguous pre-0.25.0 layouts.
+    """Resolve block ownership, refusing ambiguous legacy layouts.
 
-    ``inventory`` is the geometry's boundary names where they are known (R04
-    of 0.27.0). They settle a NAME and never cost a split: where they name
+    ``inventory`` is the geometry's boundary names where they are known (R04).
+    They settle a NAME and never cost a split: where they name
     no single owner, the cuts decide as before and the rows are kept.
     """
     if record.sections_layout is None:
@@ -226,8 +226,8 @@ def _with_the_layout_its_script_proves(
 ) -> RunRecord:
     """Return an in-memory layout proven by the hashed script and recorded inputs.
 
-    A run before 0.27.0 wrote no layout where its script created no
-    distribution, so the record reads as one written before 0.24.0. Its script
+    A run in legacy releases wrote no layout where its script created no
+    distribution, so the record reads as one written in legacy releases. Its script
     is on disk and its digest is in the record, so the question is answered
     by the script's own text and never guessed: a script whose bytes hash as
     recorded and that adds or removes no surface section created none, and the
@@ -435,7 +435,7 @@ def _matching_distributions(
     """Match current entries to recorded geometry, never to mutable positions.
 
     ``geometry`` is the geometry's boundary names in the solver's order,
-    recorded with the run since 0.27.0 or recovered by the geometry's hash
+    recorded with the run or recovered by the geometry's hash
     (R03 and R04). The names are read ONLY for a block recorded in a common
     frame, or where ``rotors`` holds the live rotor definitions; a block
     recorded in a frame spelt like a rotor's (``<alias>_RMRP``,
@@ -1045,16 +1045,16 @@ def _file_names(selections: Mapping[int, str | list[str]]) -> dict[int, str]:
 
 
 #: The export kind of each distribution product, as a wheel's record names a
-#: clocking's section exports (0.31.0).
+#: clocking's section exports.
 _RECORDED_KIND = {"sloads": "sectional_loads", "cp": "sections"}
 
 
 def _wheel_record(sim_dir: Path, record: RunRecord) -> QsteadyRecord | None:
-    """Return a quasi-steady WHEEL point's record of its clockings, or None (0.31.0).
+    """Return a quasi-steady WHEEL point's record of its clockings, or None.
 
     None for every other point, for a wheel of one clocking, and for a record
     that cannot be read, whose distributions are then tabled from the point's
-    own exports, as before 0.31.0; the sections table names the unreadable
+    own exports, as in legacy releases; the sections table names the unreadable
     record.
     """
     if record.recipe != QSTEADY_ROTOR:
@@ -1128,8 +1128,8 @@ def write_section_distributions(
     A bad or missing export skips its kind by name without costing the other
     kind. Layout counts must cover every section before any split is written.
 
-    A quasi-steady WHEEL point exports its distributions at every clocking
-    (0.31.0): each file then holds every clocking's rows, clocking 0 first,
+    A quasi-steady WHEEL point exports its distributions at every clocking: each file then holds
+    every clocking's rows, clocking 0 first,
     with a ``CLOCKING`` column after the export's own and ``AZIMUTH`` stating
     each block's blade at that clocking
     (:func:`pyflightstream.post.qsteady.wheel_block_identity`). A clocking whose
@@ -1204,7 +1204,7 @@ def write_section_distributions(
         Omitted, the record's own ``inventory`` is read, and None there leaves
         the match to the recorded cuts. With the names, a selection is read
         by the export builder's own expansion over them, for integration and
-        for the ownership of a layout recorded before 0.25.0, for a block
+        for the ownership of a layout recorded in legacy releases, for a block
         recorded in a common frame; integration also reads them in a rotor's
         frame when ``current_rotors`` holds the rotor definitions. A block in
         a frame spelt like a rotor's with no rotor definition, and names that

@@ -1,4 +1,4 @@
-"""The per-station harmonic product of a rotor point (0.31.0, P0310-HARMONICS).
+"""The per-station harmonic product of a rotor point (P0310-HARMONICS).
 
 For each rotor of a point, each blade station and each sectional load
 quantity of the sections export, the least-squares fit
@@ -13,8 +13,8 @@ as the WRITTEN sections table states it. The samples are:
   blade at its clocking (the wheel's premise is identical blades);
 * on an ``unsteady_rotor`` point, every blade at every step of the last
   complete revolution of that rotor, read from
-  ``series/<point>_sections_series.csv``, whose ``AZIMUTH`` is, since 0.31.0,
-  each block's own blade's (the writer places blade n through
+  ``series/<point>_sections_series.csv``, whose ``AZIMUTH`` is each block's own blade's (the
+  writer places blade n through
   :func:`pyflightstream.post.axes.placed_blade_azimuth_deg`).
 
 No azimuth is computed here: every angle is the table's own or comes from
@@ -145,9 +145,9 @@ class HarmonicRotor:
     that blade may state; a block is blade n's when every family it states
     is one of them, and a block of any other families is not a sample.
     ``azimuth_is_blade_one`` says what the table's ``AZIMUTH`` is: blade one's
-    (a table written before 0.31.0 states it for every block), so a block of
+    (a table written in legacy releases states it for every block), so a block of
     blade n is placed at its own blade, or the block's own blade's (a wheel's
-    sections table and, since 0.31.0, an unsteady sections series).
+    sections table and an unsteady sections series).
     """
 
     alias: str

@@ -1,4 +1,4 @@
-"""The quasi-steady rotor's products (0.30.0): its clockings, their average and its validity.
+"""The quasi-steady rotor's products: its clockings, their average and its validity.
 
 A ``qsteady_rotor`` point is one steady solve of a periodic sector, or the
 steady solves of a whole wheel at ``PASSAGE_POSITIONS`` clockings inside one
@@ -15,10 +15,10 @@ reader, which the product stage calls) and writes:
 * the AVERAGE table, ``polars/P<sim>-<ALIAS>_qs_avg.csv``: one row per point,
   the mean over its clockings, the shape of the unsteady time average;
 * for a WHEEL point, the loads its row of the rotor table is taken from: each
-  surface's mean over the clockings (0.31.0, :func:`mean_clocking_surfaces`);
+  surface's mean over the clockings (:func:`mean_clocking_surfaces`);
 * for a WHEEL point, every clocking's rows in the point's sections table, each
   with its ``CLOCKING`` and each blade's own ``AZIMUTH`` at that clocking
-  (0.31.0, :func:`add_clockings_to_sections`), the wheel exporting its section
+  (:func:`add_clockings_to_sections`), the wheel exporting its section
   distributions at every clocking;
 * the 1P reduced frequency of each station (``K_1P``) in the point's sections
   table, and the point's validity columns (:data:`VALIDITY_COLUMNS`) in all
@@ -28,7 +28,7 @@ reader, which the product stage calls) and writes:
   record (:func:`write_point_validity_file`), which carries the thrust and
   torque shares from the stations above k = 0.1;
 * for a WHEEL point, the rotor state its correction routes read
-  (:data:`STATE_COLUMNS`, 0.31.0, :func:`rotor_state`): the thrust
+  (:data:`STATE_COLUMNS`, :func:`rotor_state`): the thrust
   coefficient in the rotor and the propeller conventions, the advance ratio,
   the climb and induced inflows and the wake skew, from the mean loads over
   its clockings, beside the validity columns in the average table and in the
@@ -45,7 +45,7 @@ the point has one: its ``Chord`` at its ``Offset``, read as the radius of a
 distribution cut along the blade from the hub (a block of the rotor in the
 record's layout); the shares of thrust and torque from the stations above 0.1
 then take each station's sectional force projected on the rotor's axis in the
-frame its distribution was cut in (0.31.0, through
+frame its distribution was cut in (through
 :func:`pyflightstream.post.axes.section_station_shaft_loads`), and its moment
 about the axis, each per unit span, over the stations' strips. Else the
 plan's estimate from the mesh, with the shares ``NA``. The definitions page
@@ -136,7 +136,7 @@ VALIDITY_COLUMNS: tuple[str, ...] = (
     "TORQUE_PCT_K_GT_0_1",
     "K_1P_SOURCE",
 )
-#: A wheel point's rotor state (0.31.0), beside its validity in the average
+#: A wheel point's rotor state, beside its validity in the average
 #: table and in its validity file; the definitions page states each with its
 #: equation. ``MU_ROTOR`` and not ``MU``: ``MU`` is the air's viscosity in
 #: every table's condition block, and one name is one quantity in a folder.
@@ -150,7 +150,7 @@ STATE_COLUMNS: tuple[str, ...] = (
 )
 #: The column the sections table of a quasi-steady wheel point gains per station.
 STATION_COLUMN = "K_1P"
-#: The column a wheel point's sections table gains (0.31.0): the clocking each
+#: The column a wheel point's sections table gains: the clocking each
 #: row was cut at, ``i`` of ``theta_i``, 0 the point's own solve.
 CLOCKING_COLUMN = "CLOCKING"
 #: How far a station of a later clocking may sit from clocking 0's before the
@@ -245,7 +245,7 @@ def _rewrite(path: Path, columns: Sequence[str], rows: Sequence[Sequence[str]]) 
 class PointValidity:
     """The validity of one quasi-steady wheel point, as its products carry it.
 
-    ``notes`` (0.31.0) are what the post says about the values in its log, one
+    ``notes`` are what the post says about the values in its log, one
     line each: a share written ``NA`` and why.
     """
 
@@ -311,7 +311,7 @@ def write_point_validity_file(
     validity: PointValidity,
     state: RotorState | None = None,
 ) -> Path:
-    """Write a wheel point's validity after the run, beside its loads export (0.30.0).
+    """Write a wheel point's validity after the run, beside its loads export.
 
     ``<point>_qsteady_validity.json`` in the point's datapoint folder, next to
     the run's own ``<point>_qsteady.json``: the values of
@@ -321,7 +321,7 @@ def write_point_validity_file(
     ``sections`` after the run, ``mesh`` the plan's estimate, whose shares are
     null), and the plan's record as the run kept it. The run's record is a
     hashed input of the run and is never rewritten; this file is the post's,
-    rewritten by every post. Since 0.31.0 it carries the point's rotor state
+    rewritten by every post. it carries the point's rotor state
     (``rotor_state``, the values of :data:`STATE_COLUMNS`, null where not
     known or where ``state`` is not given).
 
@@ -367,10 +367,10 @@ def clocking_section_export(position: QsteadyClocking, kind: str) -> str | None:
     """Return a clocking's section export of ``kind`` as the point's record names it, or None.
 
     The record of a wheel that cuts sections names, per clocking, the file of
-    each section export the script wrote (``section_exports``, 0.31.0), keyed
+    each section export the script wrote (``section_exports``), keyed
     by the export kind (``sectional_loads``, ``sections``,
     ``plot_sections_cp``). None for a kind the clocking did not export and for
-    every record written before 0.31.0, whose wheel exported its sections at
+    every record written in legacy releases, whose wheel exported its sections at
     clocking 0 only.
 
     Parameters
@@ -395,7 +395,7 @@ def clocking_section_export(position: QsteadyClocking, kind: str) -> str | None:
 def wheel_block_identity(
     record: QsteadyRecord, families: Sequence[str], clocking: int
 ) -> tuple[str | None, float | None]:
-    """Return the ``ROTOR`` and ``AZIMUTH`` a wheel point's block of sections states (0.31.0).
+    """Return the ``ROTOR`` and ``AZIMUTH`` a wheel point's block of sections states.
 
     The rotor is the record's where it owns every family of the block, else
     None. A block of ONE blade states where THAT blade is at ``clocking``
@@ -472,7 +472,7 @@ def add_clockings_to_sections(
     *,
     tabled: Callable[[Path, str], Path | None],
 ) -> ClockedSections:
-    """Give a wheel point's sections table every clocking's rows (0.31.0).
+    """Give a wheel point's sections table every clocking's rows.
 
     ``path`` is the table written from the point's own sectional loads export,
     clocking 0. Each further clocking's export, named by the point's record
@@ -568,7 +568,7 @@ def add_clockings_to_sections(
 
 #: The frame a section distribution is cut in that states the GEOMETRY's
 #: axes: the moment reference frame the run creates, a translation of the
-#: reference frame whose axes it keeps (0.31.0, the shares' projection).
+#: reference frame whose axes it keeps (the shares' projection).
 GEOMETRY_SECTION_FRAMES = frozenset({"MRP"})
 
 #: The suffix a clocking's copy of a frame carries (``<frame>_QS<ii>``): the
@@ -637,7 +637,7 @@ def radius_from_the_hub(
 
 
 def shaft_in_section_frame(record: QsteadyRecord, frame: str) -> tuple[float, float, float] | None:
-    """Return the rotor's axis in the axes of section frame ``frame``, or None (0.31.0).
+    """Return the rotor's axis in the axes of section frame ``frame``, or None.
 
     A frame of the record's rotor, ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` or a
     blade's ``<ALIAS>_RMRP<k>``, and each clocking's copy of one
@@ -737,11 +737,11 @@ def add_reduced_frequency_to_sections(
     present (``FAMILY``), or over every rotor row where the layout names no
     family, so a wheel's six blades do not count one station six times, and
     over clocking 0's rows where the table holds every clocking
-    (:data:`CLOCKING_COLUMN`, 0.31.0), the point's own solve. The
+    (:data:`CLOCKING_COLUMN`), the point's own solve. The
     table is rewritten in place with ``K_1P`` and :data:`VALIDITY_COLUMNS`
     after its own columns; a row of no rotor reads ``NA`` in ``K_1P``.
 
-    THE SHARES ARE TAKEN ALONG THE ROTOR'S AXIS (0.31.0). Each station's
+    THE SHARES ARE TAKEN ALONG THE ROTOR'S AXIS. Each station's
     sectional force, the export's ``Fx`` and ``Fz`` in the axes of the frame
     its distribution was cut in (``layout``, the run's ``sections_layout``,
     read by ``FAMILY`` and ``PLANE``), is projected on the record's
@@ -749,7 +749,7 @@ def add_reduced_frequency_to_sections(
     :func:`pyflightstream.post.axes.section_station_shaft_loads`: the thrust
     per unit span is the force along the axis and the torque per unit span its
     moment about the axis, from the in-plane (tangential) component at the
-    station's ``Offset``. Until 0.31.0 the export's ``Fx`` was the thrust and
+    station's ``Offset``. in legacy releases the export's ``Fx`` was the thrust and
     ``Fz |Offset|`` the torque, which holds only for a frame whose x is the
     shaft. A caller holding no ``layout`` states that the sections are cut in
     the rotor's own frames. A share is ``NA``, with a line in
@@ -1012,10 +1012,10 @@ def clockings_of(
     (:func:`pyflightstream.post.products.rotor_shaft_loads`) at that export's
     reference velocity and the point's density.
 
-    Where blade one is at each clocking is the sections table's own reading
-    (0.31.0), :func:`~pyflightstream.post.axes.clocked_blade_azimuth_deg`:
+    Where blade one is at each clocking is the sections table's own reading,
+    :func:`~pyflightstream.post.axes.clocked_blade_azimuth_deg`:
     ``datum + sign(rpm) * theta_i``, so a left-hand wheel's clocking turns
-    blade one backwards here as it does there. Until 0.31.0 this added
+    blade one backwards here as it does there. in legacy releases this added
     ``theta_i`` unsigned, and the two tables of one left-hand wheel disagreed.
 
     Parameters
@@ -1097,7 +1097,7 @@ SURFACE_COMPONENTS: tuple[str, ...] = ("Cx", "Cy", "Cz", "CMx", "CMy", "CMz")
 
 @dataclass(frozen=True)
 class ClockingMean:
-    """A wheel point's surfaces, each the mean of its loads over the point's clockings (0.31.0).
+    """A wheel point's surfaces, each the mean of its loads over the point's clockings.
 
     ``surfaces`` holds the loads export's six components per surface, as
     coefficients by the point's own reference velocity, so the rotor table
@@ -1112,10 +1112,10 @@ class ClockingMean:
 def mean_clocking_surfaces(
     record: QsteadyRecord, folder: Path, *, speed_m_s: float
 ) -> ClockingMean | str:
-    """Return a wheel point's loads averaged over its clockings, or why they cannot be (0.31.0).
+    """Return a wheel point's loads averaged over its clockings, or why they cannot be.
 
     The rotor table of a quasi-steady WHEEL point is the mean over its k
-    clockings (0.31.0, P0310-ROTOR-MEAN), never clocking 0 alone.
+    clockings (P0310-ROTOR-MEAN), never clocking 0 alone.
     Each clocking's loads export, named by the point's record and read where
     the point's own sits, states every surface's force and moment as
     coefficients by that export's reference velocity; each is taken back to
@@ -1206,7 +1206,7 @@ def mean_clocking_surfaces(
 
 @dataclass(frozen=True)
 class RotorState:
-    """A wheel point's rotor state (0.31.0): the values of :data:`STATE_COLUMNS`.
+    """A wheel point's rotor state: the values of :data:`STATE_COLUMNS`.
 
     ``notes`` are what the post says about them in its log, one line each: a
     value written ``NA`` and why.
@@ -1229,7 +1229,7 @@ def rotor_state(
     alpha_deg: float,
     beta_deg: float,
 ) -> RotorState:
-    """Return a wheel point's rotor state from the mean thrust over its clockings (0.31.0).
+    """Return a wheel point's rotor state from the mean thrust over its clockings.
 
     ``T`` is the rotor's thrust along its axis, the mean over the clockings of
     ``THRUST_<alias>`` (the one average of the clockings tables, which is the
@@ -1356,7 +1356,7 @@ class WheelPoint:
     record: QsteadyRecord
     clockings: list[Clocking]
     validity: PointValidity
-    #: The rotor state of a wheel point (0.31.0), None where not taken.
+    #: The rotor state of a wheel point, None where not taken.
     state: RotorState | None = None
 
 

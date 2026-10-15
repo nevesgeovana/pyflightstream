@@ -1,4 +1,4 @@
-"""The surface averaged over a window by the package, from the per-step exports (G25, 0.28.0).
+"""The surface averaged over a window by the package, from the per-step exports (G25).
 
 Pipeline role: the product a pproc's ``[time_averaging]`` asks for. The run
 exports the surface as VTK at every step of the window (the per-step export
@@ -15,7 +15,7 @@ frame, as a point, RPT-074); every step weighs the same; nothing is
 interpolated. The steps must share one topology (the node and polygon counts and
 the nodes around every polygon), or the average is REFUSED by name; a step of
 the window that was not exported SKIPS the average by name, never a partial
-one, and one that ``free-space`` deleted (``prune_step_exports``, 0.30.0)
+one, and one that ``free-space`` deleted (``prune_step_exports``)
 REFUSES it naming the step and the storage call. The nodes of the averaged
 file are those of the window's LAST step: on a turning rotor the nodes move
 from step to step and their mean would be a surface nobody flew. The average
@@ -142,7 +142,7 @@ def average_surface_exports(
         A native nodal source for each selected STEP, matched geometrically
         and topologically before its separate temporal average.
     periodic_copies : int, optional
-        The copy count of a row under ``SYMMETRY PERIODIC`` (0.30.0), whose
+        The copy count of a row under ``SYMMETRY PERIODIC``, whose
         native export holds one zone per copy, joined copy by copy; None for
         the one-zone export of every other row.
 

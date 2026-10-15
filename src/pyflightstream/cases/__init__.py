@@ -17,7 +17,7 @@ emissions, usually through the curated helpers. Recipe references are
 ``"package.module:function"`` strings, replacing the historical
 import-by-number system (PP-7, FR-12).
 
-The 0.29 workflow keeps unit conversion at the command boundary. Physical
+The workflow keeps unit conversion at the command boundary. Physical
 metre-labelled inputs and explicitly SI reference normalizations use the
 shared :mod:`pyflightstream._lengths` floor; the direct Python reference
 API retains its native-unit default. Saved FSM units are decoded only for
@@ -31,19 +31,19 @@ and rotor sweep feed conservative spatial bounds, not a guarantee of
 interpolation support inside an unstructured field. These controls do not
 automatically rotate a field or accept a nonzero incidence beside it.
 
-The 0.30 quasi-steady rotor (the ``qsteady_rotor`` run type of
+The quasi-steady rotor (the ``qsteady_rotor`` run type of
 :mod:`pyflightstream.cases.workflows`) keeps its own arithmetic in
 :mod:`pyflightstream.cases.qsteady`: the clockings of a wheel, the 1P
 reduced frequency and its validity figures, and the harmonic content of a
 custom inflow as one blade meets it. The plan and the post both read it.
-The 0.31 correction routes of a wheel, the pproc's ``[qsteady_correction]``
+The correction routes of a wheel, the pproc's ``[qsteady_correction]``
 table and the calibration file it names, are
 :mod:`pyflightstream.cases.corrections`, which the plan validates and the
 post applies; none of them is validated.
 :mod:`pyflightstream.cases.fsi_workspace` states which workflows may couple
 and wires the fixed-wing and quasi-steady sector routes.
 
-The 0.32 modules of this layer: :mod:`pyflightstream.cases.acoustics` emits
+The modules of this layer: :mod:`pyflightstream.cases.acoustics` emits
 the solver's acoustic sources, observers and signals export on an unsteady
 row and states the contract of the export the post stage reads;
 :mod:`pyflightstream.cases.ccs_wing`, :mod:`pyflightstream.cases.ccs_fuselage`
@@ -54,7 +54,7 @@ the sidecar's ``[import.ccs]`` table in the private ``cases._ccs``; and
 renumbering the inventory as the solver does, and emits the slipstream wake
 stabilization of each rotor motion.
 
-The 0.33 layout of this layer: :mod:`pyflightstream.cases.workflows` is a
+The layout of this layer: :mod:`pyflightstream.cases.workflows` is a
 package. Its root keeps every public name and nothing else, and its private
 modules import one another only in a declared order, from the extraction
 script of a saved simulation and the run-type registry at the top, through
@@ -65,7 +65,7 @@ row's keys, the conventions and the row vocabulary at the bottom. The
 run-type table is one object created empty below the builders and filled by
 the registry when the package is imported. A new run type is a builder
 module and one registry entry; a row key is registered in the vocabulary and
-read by the row readers. Four private modules carry the 0.33 features of
+read by the row readers. Four private modules carry the features of
 this layer: ``cases._setup_keys`` (the setup keys of a preset and the
 command each reaches), ``cases._setup_link`` (the analysis settings of a
 setup: the loads selections, the moments model and its rotor link, the
@@ -76,9 +76,8 @@ unsteady march registers). The unit that names no length has one home, the
 floor :mod:`pyflightstream._lengths`, and the flag phases one home, this
 package.
 
-The 0.34 layout of this root (AD-16): the models it held moved to six public
-modules, and the root re-exports every name it exported, so each moved name
-has two paths that are one object. :mod:`pyflightstream.cases.pproc` holds the
+The models live in six public modules (AD-16), and the root re-exports them with the same object
+identity. :mod:`pyflightstream.cases.pproc` holds the
 exports vocabulary and the post-processing artifact;
 :mod:`pyflightstream.cases.reference_blocks` the rotor, actuator and blade
 blocks of a reference and the two errors of a case definition;
@@ -315,7 +314,7 @@ __all__ = [
 
 
 class InputKey(NamedTuple):
-    """One key of an input artifact, with what it means (G08 of 0.27.0).
+    """One key of an input artifact, with what it means (G08).
 
     The registries of keys that are not the fields of a model carry one of
     these per key, beside the key: the matrix columns, the row keys of the run
@@ -380,7 +379,7 @@ class SweepAxis(BaseModel):
         The axis that varies: ``alpha`` (angle of attack, deg), ``beta``
         (side slip, deg), ``alpha_beta`` (paired values), ``advance_ratio``
         (rotor advance ratio J, dimensionless), or any FLIGHT_CONDITION key
-        of :data:`POINT_AXIS_KEYS` since 0.21.0 (``MACH``, ``REmi``,
+        of :data:`POINT_AXIS_KEYS` (``MACH``, ``REmi``,
         ``ALTFT``, ``RPM``, ``pitch_rate`` and the rest), in the unit its key
         names. A flow variable that varies is RESOLVED PER POINT, and the
         state each point resolved to rides on :attr:`SimCase.point_states`.
@@ -392,7 +391,7 @@ class SweepAxis(BaseModel):
         swept axis and of the free stream, as ``values`` is. Merged into
         every point, so a row that sweeps the incidence at a fixed
         sideslip yields the same coordinates, and therefore the same run
-        identity, as the paired sweep that spelled it before 0.15.0.
+        identity, as an equivalent paired sweep.
         ONLY THE TWO ANGLES: an ``ADVANCE_RATIO`` the row holds stays on
         the row, because a point tag has never carried one and putting it
         there would rename every run that has one. Empty for a row that
@@ -403,7 +402,7 @@ class SweepAxis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     #: Every point axis, plus the paired ``alpha_beta`` of the matrices written
-    #: before 0.15.0. A member added to POINT_AXIS_KEYS is sweepable the day it
+    #: in legacy releases. A member added to POINT_AXIS_KEYS is sweepable the day it
     #: is added, which is what keeps the two from drifting apart.
     type: Literal[
         "alpha",
@@ -430,7 +429,7 @@ class SweepAxis(BaseModel):
     #: which the entry above states and does not explain.
     #: THE TAG IS IDENTITY. A row written `AL/BE` over `-4,0,4/0` swept the
     #: incidence and held the sideslip, and its points have been tagged
-    #: `a-04.0_b+00.0` in every manifest ever written here. At 0.15.0 the
+    #: `a-04.0_b+00.0` in the manifest. The
     #: same row is written `ALPHA:sweep, BETA:0.0` and the held value
     #: reaches the solver off the row; if it did not also reach the POINT,
     #: a layout conversion would rename every one of those runs to say
@@ -492,7 +491,7 @@ class SweepAxis(BaseModel):
     def _points_have_distinct_tags(self) -> SweepAxis:
         """Refuse a sweep whose points cannot be told apart by their names.
 
-        PYFS-003, and since 0.21.0 read on the POINT NAME. A point's name
+        PYFS-003 is checked on the POINT NAME. A point's name
         writes each axis at the digits of its code (alpha and beta to a tenth
         of a degree, the advance ratio to a hundredth), so alpha 1.01 and 1.04
         both write ``AL+010``. The name ENDS the ``run_id`` and names the
@@ -555,7 +554,7 @@ class SweepAxis(BaseModel):
 #: type also creates each rotor's ``<ALIAS>_SMRP`` and ``BladeAxis<k>``,
 #: one per record or blade family, refused by pattern below (the
 #: interface lens of REL-0140: a setup defining ROTOR_MRP1 was shadowed).
-#: `ROTOR_MRP` LEFT THIS TUPLE AT 0.15.0 with the frame itself. Reserving
+#: `ROTOR_MRP` LEFT THIS TUPLE with the frame itself. Reserving
 #: a name no builder creates refused a setup frame for colliding with
 #: nothing, which is a refusal a user cannot act on. A rotor's own frames
 #: are protected by the two-sided guard in `workspace.inputs`, which
@@ -583,7 +582,7 @@ RAW_PHASES: tuple[str, ...] = (
 #: declared `before = "export"` passed the model, passed the reader, and died
 #: later with a sentence about seams: two vocabularies for one field, and the
 #: earlier, cheaper refusal was the wrong one (the architecture lens of the
-#: 0.15.0 release review).
+#: release review).
 FLAG_PHASES: tuple[str, ...] = ("control", "geometry", "setup")
 
 
@@ -824,7 +823,7 @@ class SimCase(BaseModel):
     velocity : float, optional
         Free-stream velocity in m/s.
     freestream_profile : str, optional
-        The ABSOLUTE path of a custom free-stream file (G15 of 0.27.0): a
+        The ABSOLUTE path of a custom free-stream file (G15): a
         velocity field over the YZ plane of the global frame, in metres and
         metres per second, which the run writes as ``SET_FREESTREAM CUSTOM``
         in place of ``CONSTANT``. A ``.txt`` is the manual's STRUCTURED form
@@ -897,8 +896,7 @@ class SimCase(BaseModel):
         Solver build this case runs on, named as a key of the ``builds``
         mapping :func:`pyflightstream.run.run_campaign` takes. None, the
         default, means the campaign's own ``fs_exe`` and ``fs_version``,
-        which is what every campaign written before v0.8.0 says and what
-        a single-installation campaign keeps saying.
+        as used by a single-installation campaign.
 
         It exists because a campaign declares ONE installation while a
         study across two solver builds is a real question, and until
@@ -921,8 +919,8 @@ class SimCase(BaseModel):
     #: THE FREE STREAM'S OWN FILE (G15), beside the free-stream state whose
     #: uniformity it replaces: read where it lives, hashed into the run
     #: record's ``inputs_sha256``. An explicit SI declaration additionally
-    #: prepares and hashes a separate solver copy. None for every
-    #: case written before 0.27.0, which renders exactly what it rendered.
+    #: prepares and hashes a separate solver copy. None when the case declares no custom free
+    #: stream.
     freestream_profile: str | None = None
     #: Explicit custom-file units: SI means m and m/s; NATIVE means current
     #: simulation length units per second. Omitted preserves legacy bytes.
@@ -930,7 +928,7 @@ class SimCase(BaseModel):
     geometry: str | None = None
     sweep: SweepAxis
     flight_condition: dict[str, float] = Field(default_factory=dict)
-    #: 0.21.0: the canonical keys of the row's FLIGHT_CONDITION cell IN THE ORDER
+    #:  the canonical keys of the row's FLIGHT_CONDITION cell IN THE ORDER
     #: THE ROW WROTE THEM, the swept key included. The point name is written in
     #: this order (:func:`point_name`). Empty for a case authored without a cell.
     condition_order: list[str] = Field(default_factory=list)
@@ -939,7 +937,7 @@ class SimCase(BaseModel):
     #: by the workspace resolver and never by the matrix reader: a matrix
     #: converted without a workspace has no setup to read, and leaves it
     #: empty. Empty also means "the row stated everything it resolved
-    #: against", which is every case written before 0.12.0.
+    #: against", when no defaults were inherited.
     flight_condition_defaults: dict[str, float] = Field(default_factory=dict)
     #: WHERE those defaults came from, as the workspace named it, for
     #: example ``"setup 's001' (inputs/setups/s001.toml)"``. Empty when the
@@ -951,11 +949,11 @@ class SimCase(BaseModel):
     solver: SolverSettings = Field(default_factory=SolverSettings)
     fsi: FsiConfig | None = None
     fsi_provenance: dict[str, Any] = Field(default_factory=dict)
-    #: FR-462 (0.40.0): the external structural program an FSI input of mode
+    #: FR-462: the external structural program an FSI input of mode
     #: "external" names, resolved and hashed by the plan; None otherwise. A
     #: row couples a structure when this or ``fsi`` is set, never both.
     fsi_external: ExternalStructure | None = None
-    #: FR-461 (0.40.0): the body a row's SIXDOF key frees, and its provenance.
+    #: FR-461: the body a row's SIXDOF key frees, and its provenance.
     sixdof: SixDofSpec | None = None
     sixdof_provenance: dict[str, Any] = Field(default_factory=dict)
     recipe: str
@@ -968,18 +966,18 @@ class SimCase(BaseModel):
     variables: dict[str, str | float | int | bool] = Field(default_factory=dict)
     #: The rotor motions a row's ``MOTIONS`` list states (PFS-2029.11),
     #: one record each in cell order; empty for a row stating one rotor
-    #: flat, which is every row written before 0.11.0.
+    #: flat, when the row declares none.
     motions: list[dict[str, str]] = Field(default_factory=list)
     #: The rotations of the opened mesh a row's ``ROTATE`` list states
     #: (PFS-2034.02), one record each in cell order, applied in that order
     #: after every frame exists and before any motion; empty for a row
-    #: stating none, which is every row written before 0.14.0.
+    #: stating none, when the row declares none.
     rotations: list[dict[str, str]] = Field(default_factory=list)
     #: The translations of the opened mesh a row's ``TRANSLATE`` list states
     #: (FR-100, PFS-2034.06), one record each in cell order, applied in that
     #: order after every frame exists and before every rotation: DISTANCE in
     #: metres along one axis of the named frame. Empty for a row stating none,
-    #: which is every row written before 0.19.0.
+    #: when the row declares none.
     translations: list[dict[str, str]] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
     #: The post-processing specification the row's PPROC cell named, bound
@@ -989,8 +987,7 @@ class SimCase(BaseModel):
     pproc_id: str | None = None
     #: The custom coordinate systems the row's setup defines (PFS-2034.01),
     #: created after the package's own frames in the order written; empty
-    #: for a setup that defines none, which is every setup written before
-    #: 0.14.0.
+    #: for a setup that defines none, when the setup declares none.
     frames: list[FrameSpec] = Field(default_factory=list)
     #: The solver commands the row's setup states verbatim (PFS-2033.01),
     #: each emitted before the phase it names, in the order written; empty
@@ -1001,22 +998,21 @@ class SimCase(BaseModel):
     #: workspace from the setup artifact, as the raw commands are.
     flags: list[CustomFlag] = Field(default_factory=list)
     #: The boundary aliases the row's REFERENCE declares (FR-59, the reference
-    #: design of 2026-09-10; the setup's until 0.14.0), a name to the
+    #: design of 2026-09-10; the setup's in legacy releases), a name to the
     #: boundary names, families or other aliases it stands for; read by
     #: every builder that resolves a cited boundary and carried on the
     #: record for the products stage. Empty for a configuration defining
-    #: none, which is every one written before 0.14.0.
+    #: none, when none is declared.
     aliases: BoundaryAliases = Field(default_factory=dict)
     #: The rotors the row's reference declares (FR-60), keyed by the word
     #: a motion record cites. A record naming one takes its hub, axis,
     #: sign, blades and diameter from it and states none of them itself,
     #: which is what lets a row state nine rotors without repeating nine
-    #: hubs. Empty for a configuration with no rotor block, which is
-    #: every one written before 0.15.0.
+    #: hubs. Empty for a configuration with no rotor block, when none is declared.
     rotors: dict[str, RotorBlock] = Field(default_factory=dict)
     #: The actuator discs the row's reference declares (G06), keyed by the
     #: block's name, which is what a row's ``ACTUATOR`` names. Empty for a
-    #: configuration declaring none, which is every one written before 0.27.0;
+    #: configuration declaring none, when none is declared;
     #: a disc declared and not named by the row emits nothing.
     actuators: dict[str, ActuatorBlock] = Field(default_factory=dict)
     #: The ABSOLUTE path of the file a row's ``PROFILE`` names under the
@@ -1029,7 +1025,7 @@ class SimCase(BaseModel):
     #: Profiles named by individual ACTUATOR records, resolved by library stem.
     actuator_profiles: dict[str, str] = Field(default_factory=dict)
     #: The ABSOLUTE path of the file a row's ``ACOUSTIC_OBSERVERS_FILE`` names
-    #: under the workspace's ``inputs/acoustics/`` (0.32.0, FR-266), resolved and
+    #: under the workspace's ``inputs/acoustics/`` (FR-266), resolved and
     #: checked when the row binds; the builder parks the point's own copy, which
     #: the run writes and hashes. None for a row stating no such file.
     acoustic_observers_file: str | None = None
@@ -1054,7 +1050,7 @@ class SimCase(BaseModel):
     raw_mesh_conditions: RawMeshConditions | None = None
     point: dict[str, float] = Field(default_factory=dict)
     #: The state each point of a SWEPT FLOW VARIABLE resolved to, keyed by
-    #: :func:`point_state_key` (0.21.0). Empty on every row that sweeps an
+    #: :func:`point_state_key`. Empty on every row that sweeps an
     #: angle or a ratio, which resolve once for the whole row.
     point_states: dict[str, PointState] = Field(default_factory=dict)
     fs_build: str | None = None
@@ -1296,7 +1292,7 @@ class Campaign(BaseModel):
     def _version_is_registered(cls, value: str) -> str:
         """Resolve the version and KEEP the answer (PFS-2009.04).
 
-        Until 0.13.0 this resolved for the side effect and returned the
+        in legacy releases this resolved for the side effect and returned the
         string as written, so a campaign built from a vendor name stored
         the name. ``26.1`` named one build until 2026-08-04 and two
         after it, and a campaign.toml holding it was refused on a
@@ -1351,7 +1347,7 @@ def load_campaign(path: str | Path) -> Campaign:
     Raises
     ------
     CampaignConfigError
-        The matrix is the sole campaign declaration from 0.41.0.
+        The matrix is the sole campaign declaration.
         Ordinary Python Campaign and SimCase construction remains available.
     """
     raise CampaignConfigError(

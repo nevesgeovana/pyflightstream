@@ -71,11 +71,10 @@ on whether each file still hashes to what the record says. That is the
 collectable half of NFR-07's promise, and :func:`package_vcs_state`
 supplies the other end of it, recording which commit of this package
 ran.
-
-Since 0.32, :mod:`pyflightstream.run.records` holds the operations on the
+, :mod:`pyflightstream.run.records` holds the operations on the
 records themselves: which manifest a command reads (``runs.json``, or
 another file of the workspace root named by ``--runs``; resolved in
-:mod:`pyflightstream.workspace.naming` since 0.33.0), the exact restore
+:mod:`pyflightstream.workspace.naming` ), the exact restore
 of a records file from the workspace's archive (``pyfs-matrix restore``),
 and the rebuild of run records from the folders under ``sims/``
 (``pyfs-matrix rebuild``), which runs each row again in a throwaway copy
@@ -84,7 +83,7 @@ the one this version renders, completes it read-only and marks it
 ``REBUILT``. It also assembles the in-memory records of
 ``pyfs-matrix post --from-sims``.
 
-THIS ROOT IS A FACADE since 0.33.0 (AD-14): the definitions are in private
+THIS ROOT IS A FACADE (AD-14): the definitions are in private
 modules of the package, in this order from the top, each importing only the
 ones after it: :mod:`~pyflightstream.run._campaign` (the loop),
 ``_sweep`` (a steady row run as one job), ``_points`` (one point),
@@ -92,9 +91,9 @@ ones after it: :mod:`~pyflightstream.run._campaign` (the loop),
 plan, its cost and its receipt), ``_continuation``, ``_identity`` (the
 package and the solver build, and :func:`reconstruct`), ``_assessment``,
 ``_executors`` and ``_ids`` (the run ids and :class:`CampaignErrors`). Every
-name keeps its 0.32.0 path here.
+name keeps its public path here.
 
-The records family is cut the same way since 0.33.0 (AD-11):
+The records family is cut the same way (AD-11):
 :mod:`pyflightstream.run.records` keeps the restore and the mark-failed and
 re-exports the rest from ``_rebuild`` (the rebuild), ``_rebuild_evidence``
 (what a rebuild reads and compares), ``_assemble`` (the in-memory records of
@@ -102,8 +101,8 @@ re-exports the rest from ``_rebuild`` (the rebuild), ``_rebuild_evidence``
 their archives and lease), and it registers its rebuild with
 :mod:`pyflightstream.workspace.storage` when it loads, so the workspace row
 never imports this one. The ``pyfs-matrix`` argument parser, every
-subcommand, option and help text, is ``_cli_parsers``, built since 0.34.0
-by one ``_add_<family>_parsers`` function per family of subcommands
+subcommand, option and help text, is ``_cli_parsers``, built by one ``_add_<family>_parsers``
+function per family of subcommands
 (AD-18); the printing of ``plan`` and of the storage commands is
 ``_cli_print``; :mod:`pyflightstream.run.cli` keeps the commands.
 """

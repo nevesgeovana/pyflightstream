@@ -1,7 +1,7 @@
 """The containers the far-field core integrates: survey samples on a lattice or a plane.
 
-Pipeline role: the frozen numpy containers that replaced the xarray dataset of
-0.39.0 (FR-457). :class:`LatticeFields` carries the samples of a cylindrical
+Pipeline role: the frozen numpy containers that replaced the xarray dataset (FR-457).
+:class:`LatticeFields` carries the samples of a cylindrical
 survey lattice, shaped ``(station, ring, azimuth)``, in the shaft-aligned
 coordinates defined by :mod:`pyflightstream.probes.lattice`; :class:`PlaneFields`
 carries the samples of a rectangular far-field plane, shaped ``(y, z)``. Neither

@@ -1,9 +1,9 @@
-"""The disc maps of a rotor point: sectional load by radius and azimuth (0.32.0).
+"""The disc maps of a rotor point: sectional load by radius and azimuth.
 
 Pipeline role: the post row, where recorded exports become products.
 It tabulates the sectional load of a rotor over its disc, by radius and
 azimuth, from the WRITTEN sections of the point: every blade at every
-clocking of a quasi-steady wheel (``sections/<point>_sections.csv``, 0.31.0),
+clocking of a quasi-steady wheel (``sections/<point>_sections.csv``),
 or every blade at every step of the last complete revolution of an
 ``unsteady_rotor`` point (``series/<point>_sections_series.csv``).
 

@@ -1,6 +1,6 @@
 """Actuator-disc radial thrust profiles of ``inputs/profiles/``, built from loads or a shape.
 
-Pipeline role: prepares an INPUT (FR-347, 0.34.0). A matrix row loads an
+Pipeline role: prepares an INPUT (FR-347). A matrix row loads an
 actuator disc either by its net thrust (``ACTUATOR_THRUST``, the solver's
 native ELLIPTICAL model) or by a radial profile (``PROFILE: <stem>``, the
 CUSTOM model), a file of the workspace's ``inputs/profiles/`` named by its

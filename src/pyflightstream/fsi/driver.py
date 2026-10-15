@@ -45,13 +45,13 @@ The convergence log carries the config hash on every row (FSI-R15)
 and states the quasi-steady validity boundary in its header (DLV-007
 Section 4.1).
 
-A fixed wing (FSI-G of 0.30.0, a configuration stating ``wing``) has
+A fixed wing (FSI-G, a configuration stating ``wing``) has
 no revolution and no phase schedule: each call solves the clamped wing
 under its loads and its own weight
 (:func:`pyflightstream.fsi.wing.solve_wing_static`) and writes the
 relaxed displacement, steady or unsteady alike.
 
-A quasi-steady rotor sector (0.30.0, a run folder holding
+A quasi-steady rotor sector (a run folder holding
 :data:`QUASI_STEADY_ROTOR_FILE`) is steady too: its blade is held still
 and the free stream turns, so there is no revolution and no phase
 schedule, but its structure turns at the configured Omega. Each call
@@ -384,14 +384,8 @@ def _averaged_history(history: list[LoadSample]) -> tuple[np.ndarray, np.ndarray
 def _refuse_a_log_this_run_cannot_append_to(log_path: Path, state_path: Path) -> None:
     """Refuse a convergence log the rows of this call would not belong to.
 
-    Two cases, both before the call writes anything. A log with no
-    ``state.json`` beside it is a previous run's history in a folder being
-    reused (PFS-2011.02): the log APPENDS, so this run's rows would land
-    under the other run's with nothing separating them. A log whose column
-    line is not this package's is a run started by another release and
-    resumed by this one (FR-339): 0.33.0 wrote thirteen columns, so a row
-    of fourteen under that header would file its last value under no name
-    and the file would mix two layouts with nothing marking the switch.
+    A resumed coupling trace must use the expected column layout (FR-339). Mixing incompatible
+    trace layouts is refused rather than appending rows that a reader would misinterpret.
 
     Raises
     ------
@@ -499,7 +493,7 @@ def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
     ------
     FsiInputError
         If the staged map disagrees with the generated layout. It was a
-        bare ``ValueError`` until 0.40.0 (FR-39, PFS-2095.015);
+        a legacy bare ``ValueError`` (FR-39, PFS-2095.015);
         ``FsiInputError`` is one, so a handler of either still catches it.
     """
     layout = nodes.generate_node_layout(cfg)
@@ -981,7 +975,7 @@ def _mapped_displacements(layout: nodes.NodeOrderingMap, solutions: Sequence[Any
 
 
 def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
-    """One coupling call of a quasi-steady rotor sector (0.30.0).
+    """One coupling call of a quasi-steady rotor sector.
 
     The run is steady: the blade is held still and the free stream turns about
     the shaft at the rotor's speed, so the solver calls this once per coupling
@@ -1043,7 +1037,7 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
 
 
 def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
-    """One coupling call of a fixed wing, steady or unsteady (FSI-G of 0.30.0).
+    """One coupling call of a fixed wing, steady or unsteady (FSI-G).
 
     The call reads the loads of the solve before it, adds the wing's own
     weight (:func:`pyflightstream.fsi.wing.solve_wing_static`), solves the
@@ -1474,11 +1468,8 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         on every call after the first, and refusing that would refuse the
         normal case.
 
-        Also if the log's column line is not this release's: a run
-        started under 0.33.0 and resumed under 0.34.0 (FR-339).
-
-        Also if the loads export carries no time increment, so it comes
-        from a steady solve, or prints one that is not finite.
+        Also if the log's columns do not match the expected trace layout
+        (FR-339), or the loads export has no finite time increment.
 
         Also if the configuration asks for direct morphing on the
         unsteady rotor route or in a frozen replay: only the quasi-steady

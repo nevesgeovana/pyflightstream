@@ -262,7 +262,7 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
       status: documented
       note: >-
         SRC-752 p.338, the SRC-751 file, carried from 26.123. Run on 26.124
-        by the 0.32.0 licensed probe round 1 (probe W1_wake_stab_disable):
+        by the licensed probe round 1 (probe W1_wake_stab_disable):
         the arguments 1 DISABLE 1 after 1 ENABLE 1 were accepted and the two saved
         simulations differed; the status stays documented until a dated run
         report promotes it.

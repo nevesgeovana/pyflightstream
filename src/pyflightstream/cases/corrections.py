@@ -1,8 +1,8 @@
-"""The quasi-steady wheel's correction routes: the pproc's choice and the calibration file (0.31.0).
+"""The quasi-steady wheel's correction routes: the pproc's choice and the calibration file.
 
 A quasi-steady WHEEL solves every blade once per clocking and reads its
 unsteady content (0P, 1P) off the samples. Its loads carry no wake lag, so
-0.31.0 ships the MACHINE that applies a correction beside the raw products,
+The package ships the MACHINE that applies a correction beside the raw products,
 and no correction of its own: every route is OFF by default, NOT VALIDATED,
 and the choice of a recommended route and of its numbers is research's.
 
@@ -16,7 +16,7 @@ The routes, as the pproc's ``[qsteady_correction]`` table names them:
   (``source_run_id``).
 * The Theodorsen and Sears lift deficiency (route 1) is refused as a route and
   offered only as a DIAGNOSTIC (``diagnostic = "theodorsen"``): it is not
-  validated against the unsteady solver, so 0.31.0 writes it beside the
+  validated against the unsteady solver, so the package writes it beside the
   harmonics and applies it to nothing.
 * A skewed-wake or dynamic-inflow model (route 3: ``dynamic_inflow``,
   ``skewed_wake``, ``pitt_peters``, ``coleman``) is refused: its double counting

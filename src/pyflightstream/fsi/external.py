@@ -1,4 +1,4 @@
-"""The external structural program and the archiving step that calls it (FR-462, 0.40.0).
+"""The external structural program and the archiving step that calls it (FR-462).
 
 An FSI input with ``mode = "external"`` names a structural program of the
 user's own. The solver does not call it directly: its aeroelastic execution

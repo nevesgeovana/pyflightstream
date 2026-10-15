@@ -1,4 +1,4 @@
-"""The post-processing models: what a point exports and what the post reduces (0.34.0).
+"""The post-processing models: what a point exports and what the post reduces.
 
 Pipeline role: describes the pproc artifact. The exports vocabulary names every
 file a point can leave and the solver command that writes it
@@ -8,7 +8,7 @@ force and fluid plots, the probes, the products and the unsteady reductions a
 run asks for. The workflows read it to emit the exports and the post stage
 reads it to reduce them.
 
-The cut of AD-16 (0.34.0) moved these models out of the package root, which
+The cut of AD-16 moved these models out of the package root, which
 re-exports every one of them, so ``pyflightstream.cases.PprocSpec`` and
 ``pyflightstream.cases.pproc.PprocSpec`` are one class. This module imports
 :mod:`pyflightstream.cases.selection` for the family selectors and never the
@@ -90,12 +90,12 @@ __all__ = [
 #: would end with the sections kind's ``_cp.txt``, and no plot suffix ends with
 #: the unsteady kind's ``_plots.txt``.
 #:
-#: THE TECPLOT KIND'S VERB IS THE SOLVER'S, AND NO CAMPAIGN EMITS IT (G45 of
-#: 0.28.0): the script exports the VTK in its place and the package writes the
+#: THE TECPLOT KIND'S VERB IS THE SOLVER'S, AND NO CAMPAIGN EMITS IT (G45):
+#: the script exports the VTK in its place and the package writes the
 #: ``.dat`` from it (:func:`~pyflightstream.cases.workflows.tecplot_source`). The
 #: suffix is what the kind is, and it is unchanged.
 #:
-#: THE SOLVER'S OWN PLOTS (G04 of 0.27.0, RPT-067) are three kinds sharing one
+#: THE SOLVER'S OWN PLOTS (G04, RPT-067) are three kinds sharing one
 #: verb, ``SAVE_PLOT_TO_FILE``, which saves whichever plot ``SET_PLOT_TYPE``
 #: chose; :data:`PLOT_TYPES` names the plot each kind chooses. They sit after
 #: every other export and before the log, which is where RPT-067 ran them.
@@ -136,7 +136,7 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
 )
 
 #: THE KINDS A TABLE OR AN INPUT DECLARES, never the default export set nor
-#: ``[exports]`` (0.40.0): the streamlines of a pproc's ``[streamlines]``
+#: ``[exports]``: the streamlines of a pproc's ``[streamlines]``
 #: (FR-460) and the trajectory of a row's ``SIXDOF`` input (FR-461). Each is
 #: written once, where its command sits, and never by a per-step action.
 TABLE_DECLARED_KINDS: frozenset[str] = frozenset(
@@ -166,7 +166,7 @@ VOLUME_SECTION_KINDS: dict[str, str] = {
 }
 
 #: THE RELEASE EACH KIND ENTERED IN, for every kind younger than the first
-#: release that wrote run records' outputs this way (0.27.0). A RECORDED output
+#: release that wrote run records' outputs this way. A RECORDED output
 #: is read as the release that wrote the record read it: a record of an earlier
 #: release claims none of these suffixes, so its ``P_vsec.vtk`` is the surface
 #: VTK export it was when written, and upgrading the reader does not rewrite
@@ -196,12 +196,12 @@ PROBE_KINDS: tuple[str, ...] = get_args(ProbeKind)
 
 #: The kinds a pproc must switch ON: every other kind is on unless its
 #: ``[exports]`` entry says false. The surface fields and the per-panel force
-#: distribution (G10 of 0.27.0) grow with the mesh, so they are asked for
+#: distribution (G10) grow with the mesh, so they are asked for
 #: where they are wanted.
 OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv", "force_distributions")
 
 #: What each kind an ``[exports]`` table may name leaves, one sentence each,
-#: for the generated input glossary ``INPUTS.md`` (G08 of 0.27.0). The command
+#: for the generated input glossary ``INPUTS.md`` (G08). The command
 #: and the run types a kind is written on are read off :data:`EXPORT_KINDS`
 #: and the two tuples above, so this states what the file IS and nothing else.
 #: The two volume-section kinds are not here: ``[exports]`` cannot name them.
@@ -310,7 +310,7 @@ def classify_outputs(names: Sequence[str], *, package_version: str | None = None
         The ``package_version`` of the RUN RECORD the names come from. A
         record written by a release before a kind entered
         (:data:`EXPORT_KIND_SINCE`) is read without that kind, as its release
-        read it: a 0.26.0 record's ``P_vsec.vtk`` is its surface VTK export,
+        read it: a record's ``P_vsec.vtk`` is its surface VTK export,
         not a volume section. None, or a version that states no release,
         reads by the kinds of this release, as a name being declared now is.
 
@@ -431,12 +431,12 @@ DEFAULT_FORCE_PLOTS: tuple[str, ...] = tuple(
 #: The six components an axis rotation needs, as `FORCE_PLOT_PARAMETERS` spells them.
 AXES_PLOT_COMPONENTS: tuple[str, ...] = ("FX", "FY", "FZ", "MX", "MY", "MZ")
 #: The plot group an unsteady run ADDS when its pproc plots those six for no
-#: group in the global MRP frame (0.24.0): every boundary, in the MRP frame. The
+#: group in the global MRP frame: every boundary, in the MRP frame. The
 #: unsteady polar's axis coefficients are built from it; a rotor's own frame is
 #: not the geometry's axes. The plots are named `FX_MRP_TOTAL` and so on.
 AXES_PLOT_GROUP = "MRP_TOTAL"
-#: The prefix of the plot group an unsteady run ADDS for each rotor it turns
-#: (0.24.0): that rotor's own families, general and blades, in the global MRP
+#: The prefix of the plot group an unsteady run ADDS for each rotor it turns: that rotor's own
+#: families, general and blades, in the global MRP
 #: frame, named `ROTOR_<ALIAS>`. The rotor table of an unsteady point is the
 #: window average of that history. A prefix and not the bare alias, because a
 #: pproc may name a group of its own after the alias over OTHER families, and an
@@ -485,7 +485,7 @@ FAMILY_SELECTORS = ("all", "airframe", "blades", "each", "each_blade")
 #: take the rotor's own alias as their radical (``<ALIAS>_SMRP``,
 #: ``<ALIAS>_RMRP``, ``<ALIAS>_RMRP<k>``), which is what a reference
 #: declaring several rotors requires. The single ``PROP_MRP`` this tuple
-#: carried until 0.15.0 was the last of the one-propulsor assumption:
+#: carried in legacy releases was the last of the one-propulsor assumption:
 #: one reference, one rotor, one name that could stand for it.
 PPROC_FRAMES = ("MRP", "BLADE_AXIS")
 
@@ -504,7 +504,7 @@ def _a_named_frame(value: str) -> str:
 
 
 def _the_radius_is_a_rotors(value: object) -> object:
-    """Refuse the 0.14.0 spelling of the probe scale, naming the fix (FR-65).
+    """Refuse the spelling of the probe scale, naming the fix (FR-65).
 
     It warned and rewrote itself until the instruction of
     2026-09-10: this package has no stable release, so an old word is
@@ -591,7 +591,7 @@ class SectionDistribution(_LocatedSpec):
     #: artifact whose entries disagreed about it would be describing two cases.
     count: int | None = Field(default=None, ge=1)
     plot_direction: Literal[1, 2] | None = None
-    #: Since 0.26.0, append midpoint-strip integrals to this distribution's CSV.
+    #: append midpoint-strip integrals to this distribution's CSV.
     integrate: bool = False
 
     _frame_is_named = field_validator("frame")(_a_named_frame)
@@ -600,12 +600,8 @@ class SectionDistribution(_LocatedSpec):
     def _the_retired_selector_says_it_in_the_frame(self) -> SectionDistribution:
         """Refuse as the plot group does, because it is the same retirement.
 
-        The ledger promise said `each_blade` is read with a warning until
-        0.17.0, and the sections path gave none: a
-        distribution is the OTHER consumer of the same selector, and the reference
-        `p010.toml` writes one (the interface lens, 2026-09-10). A promise
-        kept on one of two paths is a false sentence on the page, not a
-        partial one.
+        The sections path refuses ``each_blade`` and names the supported selector. It does not
+        silently accept a selector that cannot be resolved.
         """
         if self.families == "each_blade":
             raise ValueError(
@@ -874,8 +870,8 @@ class ForcePlotGroup(_LocatedSpec):
         The builder names an emission with `str.format`, so a format spec or a
         conversion (`{family:.0}`, `{family!r}`, a nested spec) can make a name
         print anything, an automatic group's name among them, and the post stage
-        would then read another frame's history as the geometry's (release review
-        of 0.24.0). No plot name needs more than the bare placeholder.
+        would then read another frame's history as the geometry's.
+        No plot name needs more than the bare placeholder.
         """
         fields = [
             (field, spec, conversion)
@@ -959,7 +955,7 @@ class PlotsSpec(BaseModel):
 
 
 def _a_group_is_one_alias(value: object) -> object:
-    """Read one alias per group; since 0.26.0 a member list is refused.
+    """Read one alias per group; a member list is refused.
 
     The internal list is the normalized selection iterated by consumers.
     Declare several members under [aliases] in the reference and name that alias.
@@ -1002,7 +998,7 @@ def _a_group_is_one_alias(value: object) -> object:
 
 
 def _probes_are_a_list(value: object) -> object:
-    """Refuse the 0.15.0 `[probes]` table, naming the edit (FR-77).
+    """Refuse the `[probes]` table, naming the edit (FR-77).
 
     A table and an array of tables are one bracket apart in TOML and the
     difference is invisible until something reads it, so the refusal spells out
@@ -1144,12 +1140,12 @@ class ProbesSpec(_LocatedSpec):
     the order written. ``scale`` says what the coordinates are in: metres,
     or ROTOR radii, which is how the nine lines were laid out over the
     disk of whichever rotor the reference named. The word was
-    ``propeller_radius`` until 0.15.0 and is REFUSED, naming
+    ``propeller_radius`` in legacy releases and is REFUSED, naming
     ``rotor_radius``: this release says ROTOR everywhere, because a lifter is not a
     PROPELLER and an aircraft may carry eight of them. The word sweep of
     2026-09-10 rewrote `propeller` here into `rotor` and left the sentence
     arguing against the change it explains (the technical writing lens of
-    the 0.15.0 release review).
+    the release review).
 
     Attributes
     ----------
@@ -1185,17 +1181,12 @@ class ProbesSpec(_LocatedSpec):
     model_config = ConfigDict(extra="forbid")
 
     #: THE FRAME THE LINES ARE LAID OUT IN. Empty means the rotor's own
-    #: hub frame, which is what this defaulted to when there was one
-    #: package-level rotor frame to name; the builder resolves it, because
-    #: the name depends on the row's own rotor. It defaulted to the literal
-    #: `ROTOR_MRP` until 0.15.0 removed that frame, which refused every
-    #: artifact that had taken the default and told it to edit the
-    #: reference (the interface lens of the 0.15.0 release review).
+    #: hub frame. The builder resolves its name from the row's rotor.
     frame: str = ""
     parameters: list[str] = Field(default_factory=list)
     #: Optional sampled velocity products; each retains source units and topology.
     #: ``tecplot`` writes one single-point zone per sample, ``tecplot-points`` one
-    #: ordered POINT zone of all samples (FR-153, 0.40.0).
+    #: ordered POINT zone of all samples (FR-153).
     field_formats: list[Literal["vtk", "tecplot", "tecplot-points"]] = Field(default_factory=list)
     #: Write a six-column global YZ-plane profile suitable for custom inflow.
     reusable_inflow: bool = False
@@ -1207,7 +1198,7 @@ class ProbesSpec(_LocatedSpec):
     #: whatever the run type.
     rectangles: list[ProbeRectangle] = Field(default_factory=list)
     circles: list[ProbeCircle] = Field(default_factory=list)
-    #: FR-1072 (0.40.0): a survey lattice is a shape like a rectangle, so it
+    #: FR-1072: a survey lattice is a shape like a rectangle, so it
     #: is a list beside them and not a `kind`, which names the sampling mode.
     lattices: list[LatticeShape] = Field(default_factory=list)
     grids: list[PlanarProbeGrid] = Field(
@@ -1231,7 +1222,7 @@ class ProbesSpec(_LocatedSpec):
     #: Excluded from every dump, so no machine path reaches a record or a plan.
     resolved_points_file: str | None = Field(default=None, exclude=True)
     #: FR-417: how an unsteady row samples this entry. ``unsteady`` (the
-    #: default, the 0.36.0 behaviour) is one fluid plot per point and
+    #: default) is one fluid plot per point and
     #: parameter, a history at every time step; ``normal`` is probe points
     #: created after the time march with the steady commands, updated and
     #: exported once, so they hold the last time step. A steady row samples
@@ -1316,25 +1307,7 @@ class ProbesSpec(_LocatedSpec):
         return value
 
 
-#: The formats a super file can be written in (v0.23.0 item 7), including
-#: the custom polar format.
-#:
-#: IT LIVES HERE AND NOT WITH THE WRITER since the layer guard refused the
-#: alternative by name: `ProductsSpec` validates against this list, `cases`
-#: may not import `post`, and deferring the import into the validator body
-#: does not change its direction. A name two layers need belongs below both.
-#: `post.superfile` imports it, so every reader who found it there still
-#: does.
-#:
-#: `csv` is the default because adding a format may not change what an existing
-#: workspace writes. THE COLUMN SET IS THE SAME IN BOTH, which is the property
-#: that makes this a format rather than a second product: the super file's
-#: whole claim is that it carries everything the workspace knows about that
-#: simulation, and a format quietly carrying a different SET would break the
-#: claim while looking like a formatting option.
-#: `legacy_polar` LEFT THIS TUPLE FOR 0.23.0 AND IS BACK IN 0.24.0. That release
-#: moved the item out, so a pproc naming the format was refused by name rather
-#: than accepted and ignored; the writer stayed, and this release resumes from it.
+#: ``legacy_polar`` is the fixed-width compatibility format accepted by the product writer.
 SUPERFILE_FORMATS: tuple[str, ...] = ("csv", "legacy_polar")
 
 #: The families ``[products] installed_frame`` may name (FR-420): the probes table
@@ -1393,7 +1366,7 @@ class ProductsSpec(BaseModel):
     boundary_layer_velocity_profile: bool = False
     #: FR-419: the numeric settings table of the campaign and its legend. ON by
     #: default; ``false`` turns it off and
-    #: writes what 0.36.0 wrote.
+    #: omits the settings codebook.
     settings_codebook: bool = True
     polar_axes: Literal["wind", "stability"] | None = Field(
         default=None, description="Frame for the additional CD, CY and CL polar columns."
@@ -1429,7 +1402,7 @@ class ProductsSpec(BaseModel):
 
     #: Item 7. Which FORMAT the super file is written in: `csv` as before, or
     #: `legacy_polar`, the fixed-width form the existing tooling opens. The
-    #: writer took this argument from the first commit of 0.23.0 and the ONE
+    #: writer took this argument from the first commit and the ONE
     #: production call omitted it, so every campaign got `csv` and the second
     #: format was a constant nobody could select.
     #:
@@ -1464,7 +1437,7 @@ class ProductsSpec(BaseModel):
 
 
 #: The drift limit of a pproc that declares no ``[per_revolution]`` table, in
-#: per cent. ONE HOME (0.31.0 release review): the pproc model's default below
+#: per cent. ONE HOME (release review): the pproc model's default below
 #: and the post's fallback (``pyflightstream.post.products``, which imports it
 #: from here) read this one constant, so the two cannot disagree.
 DEFAULT_DRIFT_LIMIT_PCT = 1.0
@@ -1708,7 +1681,7 @@ class SurfaceProbeSpec(_LocatedSpec):
     _frame_is_named = field_validator("frame")(_a_named_frame)
 
 
-#: THE STREAMLINE KINDS (FR-460, 0.40.0): the surface friction lines and the
+#: THE STREAMLINE KINDS (FR-460): the surface friction lines and the
 #: off-body lines a ``[streamlines]`` table traces. Like the volume-section kinds
 #: they are not in the default export set and ``[exports]`` cannot name them: a
 #: point declares one only because its pproc traces it.
@@ -1911,20 +1884,20 @@ class PprocSpec(BaseModel):
     member is resolved by :func:`select_group_members`, and an empty
     group is every family (the design decision of 2026-09-09); ``exports`` says which of
     the export kinds a point writes, with VTK and CSV opt-in and the
-    existing kinds enabled unless set to false (since 0.27.0 the per-panel
+    existing kinds enabled unless set to false (the per-panel
     ``force_distributions`` is opt-in too, and a steady point
     also saves the solver's residual and load plots, and its section Cp plot
     where ``sections`` declares any: ``plot_residuals``, ``plot_loads`` and
     ``plot_sections_cp``); ``sections``, ``plots`` and
     ``probes`` are the solver definitions the builders emit before the solver runs; ``products``
-    says which post-processed files are written after it. Since 0.24.0
-    ``phase_locked`` gates and shapes the phase-locked reduction, ``equations``
+    says which post-processed files are written after it. ``phase_locked`` gates and shapes the
+    phase-locked reduction, ``equations``
     adds derived columns to the unsteady polar, ``glossary`` says what the
     user's own symbols mean, and ``names`` renames the unsteady polar's plot
     columns for a downstream tool. The four ship together, because the model
     forbids unknown keys and an artifact written for one of them is refused by
     an install that lacks it. ``time_averaging`` asks for time-averaged
-    surfaces, and since 0.27.0 ``volume_section`` declares the one flow-field
+    surfaces, and ``volume_section`` declares the one flow-field
     plane a steady point cuts and exports (G05).
 
     Attributes
@@ -1986,9 +1959,9 @@ class PprocSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    #: ONE ALIAS PER GROUP, written as a string since 0.24.0; held as a list of
+    #: ONE ALIAS PER GROUP, written as a string; held as a list of
     #: members because that is what every reader of it iterates. The list form
-    #: is refused since 0.26.0; write one alias as a string.
+    #: is refused; write one alias as a string.
     groups: Annotated[dict[str, list[int | str]], BeforeValidator(_a_group_is_one_alias)] = Field(
         default_factory=dict
     )
@@ -1998,12 +1971,12 @@ class PprocSpec(BaseModel):
     #: mean at each azimuth over the last ``last_revolutions_avg`` revolutions;
     #: a shorter run loses this reduction and nothing else.
     phase_locked: PhaseLockedSpec | None = None
-    #: ``[per_revolution]``, OPTIONAL (0.31.0): the drift limit, in per cent, above
+    #: ``[per_revolution]``, OPTIONAL: the drift limit, in per cent, above
     #: which the last revolution of a force or moment column is warned about in
     #: ``post.log``. The product itself is written for every unsteady rotor point
     #: whatever this table says; absent, the limit is 1 per cent.
     per_revolution: PerRevolutionSpec | None = None
-    #: ``[qsteady_correction]``, OPTIONAL (0.31.0): the correction route a
+    #: ``[qsteady_correction]``, OPTIONAL: the correction route a
     #: quasi-steady wheel's post applies, beside the raw products and never over
     #: them, and the diagnostic it writes; absent, no route and no diagnostic.
     #: No route is validated (:mod:`pyflightstream.cases.corrections`).
@@ -2016,7 +1989,7 @@ class PprocSpec(BaseModel):
     #: generated ``VARIABLES.md`` lists it beside the package's own.
     glossary: dict[str, str] = Field(default_factory=dict)
     #: ``[names]``: the dictionary from a plot column as the export prints it to
-    #: the name a reader's tool expects (0.24.0). It renames columns of the
+    #: the name a reader's tool expects. It renames columns of the
     #: unsteady polar and of the reductions and nothing else; absent, every name
     #: passes through as printed.
     names: dict[str, str] = Field(default_factory=dict)
@@ -2043,38 +2016,38 @@ class PprocSpec(BaseModel):
             )
         return spelled
 
-    #: 0.30.0 (SS1): whether a point's Tecplot surface carries the nodal
+    #: SS1: whether a point's Tecplot surface carries the nodal
     #: ``Singularity_strength``. The VTK does not hold it, so carrying it costs
     #: a second, native Tecplot export per point and per exported step
     #: (``<name>_native_tecplot.dat``). OFF by default: the script exports the
     #: VTK alone, and the ``.dat`` carries every VTK variable and declares
     #: ``Singularity_strength`` not carried. True exports the native file and
-    #: carries it, exactly as 0.29.0 did. A bool, and nothing a bool is read
+    #: carries it. A bool, and nothing a bool is read
     #: from: ``"true"`` or ``1`` is refused.
     singularity_strength: bool = Field(default=False, strict=True)
     #: Explicit opt-in to exploratory compact loading-noise products.
     noise: _NoiseSpec | None = None
 
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
-    #: G05 (0.27.0): ONE flow-field plane each point of a STEADY row cuts after
+    #: G05: ONE flow-field plane each point of a STEADY row cuts after
     #: its solve and exports to ``{name}_vsec.vtk`` or ``{name}_vsec.dat``.
     #: Absent, the default, nothing is cut, declared or exported. An unsteady
     #: row naming an artifact that declares it is refused by its builder.
     volume_section: VolumeSectionSpec | None = None
-    #: FR-460 (0.40.0): the streamlines each point traces after its solve, the
+    #: FR-460: the streamlines each point traces after its solve, the
     #: surface friction lines and the off-body lines and tubes. Absent, the
     #: default, nothing is traced, declared or exported.
     streamlines: StreamlinesSpec | None = None
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
     #: FR-77: a LIST, so one artifact probes several frames on one row. It was
-    #: a single table until 0.16.0 and a `[probes]` written that way is refused
+    #: a single table in the legacy format; a `[probes]` written that way is refused
     #: by `_probes_are_a_list` below, naming the edit.
     probes: Annotated[list[ProbesSpec], BeforeValidator(_probes_are_a_list)] = Field(
         default_factory=list
     )
     #: Native surface-property histories, separate from fluid samples and field products.
     surface_probes: list[SurfaceProbeSpec] = Field(default_factory=list)
-    #: FR-454 (0.40.0): the far-field family's table; absent, nothing changes.
+    #: FR-454: the far-field family's table; absent, nothing changes.
     farfield: FarfieldSpec | None = None
 
     @field_validator("surface_probes")

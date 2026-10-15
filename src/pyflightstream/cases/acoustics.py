@@ -11,7 +11,7 @@ packages code against:
 * :data:`ACOUSTIC_SIGNALS_SUFFIX`, the end of the name of the file a point's
   acoustic export is written to.
 
-WHAT A ROW STATES (0.32.0, FR-265 to FR-269). Five keys of the
+WHAT A ROW STATES (FR-265 to FR-269). Five keys of the
 ``VAR_NAMES_VALUES`` cell, registered on the two unsteady run types
 (``unsteady`` and ``unsteady_rotor``) and on no steady one:
 
@@ -954,7 +954,7 @@ def resolve_observers_file(
 def acoustic_section_leftovers(work_dir: Path, sim_dir: Path) -> str | None:
     """Return the refusal of a point whose section folder already holds a file, or None.
 
-    0.32.0 (E2, FR-268). The section's files are listed after the run from the
+    E2, FR-268: The section's files are listed after the run from the
     folder the solver writes into, so a file already there before the solver
     starts (an aborted run's, a hand copy) would be listed and hashed as this
     run's evidence, which is the defect a declared output is refused for when
@@ -997,7 +997,7 @@ def acoustic_section_leftovers(work_dir: Path, sim_dir: Path) -> str | None:
 def acoustic_section_outputs(sim_dir: Path, collected: Sequence[str]) -> list[str]:
     """Return the collected outputs with every file of the point's acoustic sections added.
 
-    0.32.0 (E2, FR-268). A section writes one VTK file per sample of the observer
+    E2, FR-268: A section writes one VTK file per sample of the observer
     time window into ``<point>_acoustic_section/``, a folder in the point's own
     datapoint folder, and how many files that is the solver decides, so they
     are not declared before the run: they are listed here, after the declared

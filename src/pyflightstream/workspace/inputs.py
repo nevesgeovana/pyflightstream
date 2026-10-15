@@ -11,9 +11,9 @@ they are validated by pydantic models at load time and fail with a
 didactic message naming the file and the available ids.
 
 AN ID OF A CODED KIND DECLARES THAT KIND, since 2026-08-19
-(PFS-2009.01, PFS-2009.03, a BREAK carried by v0.8.0). A reference id
+(PFS-2009.01, PFS-2009.03). A reference id
 begins with ``r``, a setup id with ``s``, a pproc id with ``p`` (``e``
-until 0.11.0, when the groups artifact became the post-processing
+in legacy releases, when the groups artifact became the post-processing
 artifact, PFS-2029.07), so ``r003``, ``s003`` and ``p003`` are three ids
 rather than one number meaning three files. Before that, the three
 folders each held a ``003.toml`` and a number mistyped between the REF,
@@ -42,16 +42,16 @@ The library tree, created by ``CampaignWorkspace.init``:
   registered by file name; the id is the stem. A geometry sits either
   directly in the folder (the flat layout) or in one subfolder named by
   its stem, ``geometries/30_WB/30_WB.fsm``, with its boundary inventory
-  and provenance record beside it (PFS-2032.04, since 0.13.0); the cell
+  and provenance record beside it (PFS-2032.04); the cell
   says ``30_WB.fsm`` in both cases, and the folder is read first.
 - ``inputs/profiles/``: input profile files (for example actuator
   thrust distributions), registered by file name.
 - ``inputs/freestreams/``: custom free-stream fields a row's
-  ``FREESTREAM`` names by stem (G15, since 0.27.0), ``<stem>.txt`` in the
+  ``FREESTREAM`` names by stem (G15), ``<stem>.txt`` in the
   manual's STRUCTURED form or ``<stem>.dat`` in its UNSTRUCTURED form; the
   matrix binding resolves them (``workspace.matrix``).
-- ``inputs/calibrations/``: the quasi-steady wheel's calibration files
-  (0.31.0), ``<id>.toml``, which a pproc's ``[qsteady_correction]`` table
+- ``inputs/calibrations/``: the quasi-steady wheel's calibration files, ``<id>.toml``, which a
+pproc's ``[qsteady_correction]`` table
   names by id (:mod:`pyflightstream.cases.corrections`); the plan validates
   the one a row's pproc names, and the post applies it.
 - ``inputs/executables.toml``: the build registry, mapping a
@@ -62,13 +62,13 @@ The library tree, created by ``CampaignWorkspace.init``:
   the FlightStream version the build's scripts are emitted under
   (:func:`resolve_build`).
 
-FIVE MODULES SINCE 0.33.0 (AD-11). The files beside a geometry (the
+FIVE MODULES (AD-11). The files beside a geometry (the
 boundary inventory, the provenance record, the raw-mesh sidecar and the
 layout migration) are :mod:`pyflightstream.workspace.sidecars`; the HPC
 profile is :mod:`pyflightstream.workspace.hpc`; the build registry is
 :mod:`pyflightstream.workspace.builds`; the rule on empty entity selections
 is :mod:`pyflightstream.workspace.selections`. This module resolves the
-artifacts and re-exports every name of the four at its 0.32.0 path, which
+artifacts and re-exports every name of the four at its public path, which
 its ``__all__`` lists.
 """
 
@@ -308,7 +308,7 @@ _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 #: profile by its stem, so a letter rule there would refuse a mesh for
 #: being called what it is called.
 #:
-#: ``p`` for pproc since 0.11.0: until then the artifact was the groups
+#: ``p`` for pproc : until then the artifact was the groups
 #: file under ``e``, after the ENTRY column that carried it, and
 #: Earlier packages migrated both the file and the cell.
 KIND_LETTERS = {"reference": "r", "setup": "s", "pproc": "p"}
@@ -332,7 +332,7 @@ KIND_COLUMNS = {"reference": "REF", "setup": "SET", "pproc": "PPROC"}
 _POINT_KIND_ENGINE_WORD = "engine"
 
 #: What a reference point may declare itself to be (PFS-2029.11.02).
-#: It was ``engine`` until 0.15.0; see :mod:`pyflightstream._retired_names`.
+#: It was ``engine`` in legacy releases; see :mod:`pyflightstream._retired_names`.
 #: The word sweep rewrote the OLD spelling here into the new one, which is
 #: the failure the comment above it was written to prevent, committed in
 #: the file that records it (the interface lens of the release review).
@@ -386,7 +386,7 @@ class RotorReference(BaseModel):
     Attributes
     ----------
     radius_m : float, optional
-        Rotor radius. Optional since 0.11.0 (PFS-2029.05): the diameter
+        Rotor radius. Optional (PFS-2029.05): the diameter
         at the artifact's root is the length the package reads, and a
         radius stated beside it must be half of it.
     hub_radius_m : float, optional
@@ -404,19 +404,8 @@ class RotorReference(BaseModel):
         are defined in and the frame a rotor row turns about unless it
         states ``ROTOR_ORIGIN``.
 
-    Notes
-    -----
-    THE FOUR ROTOR FACTS LEFT THIS BLOCK AT 0.11.0 (PFS-2029.08):
-    ``rotation``, ``blade_travel``, ``rpm_sign_installed`` and
-    ``rpm_sign_isolated`` were recorded here from 0.8.0 to 0.10.1 and read
-    by no builder, while what a script needs is stated elsewhere: the hand
-    is ``rpm_sign`` on a rotor block of the reference (or ``RPM_SIGN`` on a
-    row whose reference declares no rotor), ``RPM`` is a magnitude, and the
-    axis is ``ROTOR_AXIS``. A file still
-    carrying them is refused naming those row keys; the measured argument that related
-    the datasheet's sense of rotation to the sign about the rotor axis is
-    kept on ``docs/mesh-inputs.md``, where a reader setting up a new rotor
-    finds it.
+    Rotor motion belongs to the row, not the reference block (PFS-2029.08). The reference declares
+    geometry; the builder reads the row's motion declaration.
     """
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
@@ -448,8 +437,7 @@ class RotorReference(BaseModel):
         )
 
 
-#: The four facts a reference artifact's rotor block carried from 0.8.0
-#: to 0.10.1 and states no more (PFS-2029.08).
+#: The retired rotor motion keys are refused in reference artifacts (PFS-2029.08).
 ROTOR_FACT_KEYS: tuple[str, ...] = (
     "rotation",
     "blade_travel",
@@ -499,7 +487,7 @@ class ReferenceArtifact(BaseModel):
         IT LIVES HERE, BESIDE THE OTHER THREE LENGTHS, and not in
         :class:`RotorReference`, which is the natural-looking home
         and the wrong one. The rotor block is RECORDED metadata of which
-        this package reads one field, the position (0.11.0, the rotor hub
+        this package reads one field, the position (the rotor hub
         frame); the diameter is a DIVISOR of
         published numbers, exactly like the area and the chord. It sets
         the rotor speed a row asks for by advance ratio
@@ -541,7 +529,7 @@ class ReferenceArtifact(BaseModel):
     span_m: float = Field(gt=0.0)
     rotor_diameter_m: float | None = Field(default=None, gt=0.0)
     moment_point: PointXyz = Field(default_factory=PointXyz)
-    #: WHICH MODEL AXIS EACH BODY RATE TURNS ABOUT (0.21.0): ``roll``,
+    #: WHICH MODEL AXIS EACH BODY RATE TURNS ABOUT: ``roll``,
     #: ``pitch`` and ``yaw`` to ``X``, ``Y`` or ``Z``. A mesh is built in
     #: whatever orientation its author chose, so a row stating a body rate
     #: needs the configuration to say which axis is which; the values are
@@ -550,7 +538,7 @@ class ReferenceArtifact(BaseModel):
     body_axes: dict[str, str] = Field(default_factory=dict)
     rotor: RotorReference | None = None
     #: The boundary aliases the ``[aliases]`` table declares (FR-59, the reference
-    #: design of 2026-09-10). They lived in the setup preset at 0.14.0,
+    #: design of 2026-09-10). They lived in the setup preset,
     #: which is per condition where this artifact is per configuration; a
     #: boundary name is not a solver setting. A member may be another
     #: alias, resolved to the end by
@@ -560,7 +548,7 @@ class ReferenceArtifact(BaseModel):
     aliases: BoundaryAliases = Field(default_factory=dict)
     #: The custom coordinate systems the ``[[frames]]`` table defines
     #: (FR-72), in the order written. They lived in the setup preset at
-    #: 0.14.0; a coordinate system is geometric data, and the frames a
+    #: a coordinate system is geometric data, and the frames a
     #: rotor instantiates were always derived from this file.
     frames: list[FrameSpec] = Field(default_factory=list)
     #: One entry per rotor, keyed by the block's name, read out of every
@@ -589,7 +577,7 @@ class ReferenceArtifact(BaseModel):
     #: states no ``kind`` and one key, ``surfaces``. A setup or pproc name the
     #: vocabulary holds and a row's model lacks is skipped and said at plan; a
     #: name it does not hold is refused there. None for a reference declaring
-    #: none, which keeps the 0.38.0 reading of every name a row cites.
+    #: none, which keeps the reading of every name a row cites.
     study: StudyVocabulary | None = None
 
     @model_validator(mode="after")
@@ -644,7 +632,7 @@ class SetupArtifact(BaseModel):
     #: (PFS-2034.01), in the order written; consumed out of ``settings``
     #: by :func:`resolve_setup` so the solver-setting loop never sees them.
     #:
-    #: DEPRECATED SINCE 0.15.0 (FR-72): the table's home is the REFERENCE
+    #: DEPRECATED (FR-72): the table's home is the REFERENCE
     #: artifact, because a coordinate system is geometric data. A preset
     #: still stating it is REFUSED when a row binds it, naming the
     #: reference to move the table into. The field survives so that the
@@ -671,7 +659,7 @@ class SetupArtifact(BaseModel):
     #: group, a families entry), a member the mesh lacks ignored; consumed
     #: out of ``settings`` by :func:`resolve_setup` the same way.
     #:
-    #: DEPRECATED SINCE 0.15.0 (FR-59): the table's home is the REFERENCE
+    #: DEPRECATED (FR-59): the table's home is the REFERENCE
     #: artifact, which is per configuration where a preset is per
     #: condition. A preset still stating it is REFUSED when a row binds it,
     #: naming the reference to move the table into. The field survives so
@@ -694,12 +682,12 @@ class SetupArtifact(BaseModel):
 #: The table of a setup artifact that defines custom coordinate systems
 #: (PFS-2034.01): ``[[frames]]``, one entry per frame with ``name``,
 #: ``origin`` and optionally ``x_axis`` and ``y_axis``. The name is read
-#: by the goal checker of 0.14.0 and by the documentation; change it here
+#: by the goal checker and by the documentation; change it here
 #: and both follow.
 FRAMES_TABLE = "frames"
 #: The table of a setup artifact that states solver commands verbatim
 #: (PFS-2033.01): ``[[raw]]``, one entry per line with ``command`` and
-#: ``before``. Read by the goal checker of 0.14.0 and the documentation.
+#: ``before``. Read by the goal checker and the documentation.
 RAW_TABLE = "raw"
 
 #: The table a setup preset declares its custom flags in (PFS-2035.20).
@@ -716,18 +704,18 @@ class PprocArtifact(PprocSpec):
     every one optional: ``[groups]`` maps each product name to one alias string;
     define several members in the reference's ``[aliases]`` table;
     ``[exports]`` which of the export kinds a point writes, where the
-    loads table and the saved simulation cannot be switched off and, since
-    0.27.0, a steady point's solver plots (``plot_residuals``,
+    loads table and the saved simulation cannot be switched off and a steady point's solver
+    plots (``plot_residuals``,
     ``plot_loads``, ``plot_sections_cp``) can;
     ``[sections]``, ``[plots]`` and ``[[probes]]`` the solver definitions
     the builders emit; ``[products]`` the post-processed files written
-    after the run; since 0.24.0, ``[phase_locked]``, ``[equations]``,
+    after the run; ``[phase_locked]``, ``[equations]``,
     ``[glossary]`` and ``[names]``, which the post stage reads;
-    ``[time_averaging]`` the surface window; and, since 0.27.0,
-    ``[volume_section]``, the one flow-field plane a steady point cuts and
+    ``[time_averaging]`` the surface window; and ``[volume_section]``, the one flow-field plane
+    a steady point cuts and
     exports. Group aliases are stored
     verbatim and resolved by the script layer at emission time. Member lists,
-    including empty lists, were retired at 0.26.0. The
+    including empty lists, are refused. The
     shape is
     :class:`pyflightstream.cases.PprocSpec`; this class is the file.
 
@@ -1448,7 +1436,7 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     An old-shape groups file is told by its BARE LISTS: a group name to
     its members at the top level, with no ``[groups]`` table. The one
     top-level list the pproc shape itself defines, ``base_regions``, is
-    not that (PFS-2005.04): until 0.13.0 this reader refused the
+    not that (PFS-2005.04): in legacy releases this reader refused the
     documented off switch ``base_regions = []`` as an old-shape file,
     while the docs page showed exactly that form. TOML puts a top-level
     key BEFORE the first table header, so the line goes above
@@ -1490,7 +1478,7 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     return _validate(PprocArtifact, data, path, "pproc")
 
 
-#: The kind letter a groups id carried before 0.11.0, when the kind was
+#: The kind letter a groups id carried in legacy releases, when the kind was
 #: renamed pproc (PFS-2029.07): ``e`` for ENTRY, the column that named it.
 GROUPS_LETTER = "e"
 
@@ -1519,7 +1507,7 @@ def _resolve_file(inputs_dir: Path, kind: str, subdir: str, artifact_id: str) ->
 def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     """Resolve the staged geometry file one ``GEOMETRY`` cell names.
 
-    SINCE 0.11.0 THE CELL CARRIES THE FILE NAME WITH ITS EXTENSION
+    THE CELL CARRIES THE FILE NAME WITH ITS EXTENSION
     (PFS-2029.09, the design decision of 2026-09-02, amending
     PFS-2009.01): ``30_WB.fsm`` resolves to ``inputs/geometries/30_WB.fsm``
     and ``blade.v2.fsm`` to that one file, one reading and no other. What
@@ -1531,7 +1519,7 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     2026-09-08, design 68 section A3). ``30_WB.fsm`` resolves to
     ``geometries/30_WB/30_WB.fsm`` when that folder exists and to
     ``geometries/30_WB.fsm`` otherwise, so the cell does not change and
-    no matrix written since 0.11.0 breaks. What the folder buys is a home
+    no matrix written breaks. What the folder buys is a home
     for the files that belong to one geometry: its boundary inventory and
     its provenance record sit beside it, and a point staged from the
     folder shows that geometry's files and never the whole library
@@ -1696,7 +1684,7 @@ def rotor_integration_groups(
 ) -> dict[str, list[int | str]]:
     """Return the pproc's groups with one integration group per DECLARED rotor.
 
-    v0.23.0 item 15: an integration group is always created for each rotor that
+     an integration group is always created for each rotor that
     does not already have one.
 
     WHY IT IS CREATED RATHER THAN REQUIRED. The rotor table integrates thrust

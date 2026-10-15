@@ -8,7 +8,7 @@ means a build reordered the numbers, and a table read by position would
 publish one physical quantity under another one's label.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.results`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+its path (AD-11).
 """
 
 from __future__ import annotations

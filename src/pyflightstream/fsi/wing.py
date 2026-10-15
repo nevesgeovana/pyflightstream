@@ -1,7 +1,7 @@
 """The fixed wing's structural solve: aerodynamic loads plus its own weight (FSI-G).
 
 Pipeline role: the structural half of a coupled steady run and of a
-coupled unsteady run with nothing turning (0.30.0). The wing is one
+coupled unsteady run with nothing turning. The wing is one
 cantilever beam on its elastic axis, built by :mod:`pyflightstream.fsi.beam`
 from the same per-station distributions a blade uses
 (:class:`~pyflightstream.fsi.config.BladeProperties`, generated from the
@@ -12,7 +12,7 @@ clamped at its first station.
 The loads it solves under are the aerodynamic loads the solver exports,
 projected on the section axes (:func:`pyflightstream.fsi.loads.to_elastic_axis`),
 plus the wing's own weight: the running mass under gravity, applied as a
-distributed load (:func:`weight_loads`). The rule of 0.30.0:
+distributed load (:func:`weight_loads`). The rule:
 a wing at rest has no centrifugal load, it has its weight. So nothing of
 :mod:`pyflightstream.fsi.centrifugal` is reached from here: no tension, no
 propeller moment, no in-plane softening, and the solve is linear.

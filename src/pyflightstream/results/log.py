@@ -4,12 +4,12 @@ The residual history and the per-solve residuals (:func:`parse_residual_history`
 :func:`parse_residual_solves`), the frozen time steps of an unsteady solve
 (:func:`frozen_time_steps`), the run's wall times (:func:`parse_log_times`)
 and the trailing edges the solver reports it imported
-(:func:`imported_trailing_edges`); and, since 0.35.0, the cumulative log of a job that
+(:func:`imported_trailing_edges`); and the cumulative log of a job that
 ran several points cut into each point's own log (:func:`split_job_log`,
 :func:`point_log_text`).
 
-Every public name of 0.34.0 is re-exported, unchanged, by :mod:`pyflightstream.results`,
-its path of 0.32.0 (AD-11, since 0.33.0); the four names of 0.35.0 stay here, in the
+Every public name is re-exported, unchanged, by :mod:`pyflightstream.results`,
+its path (AD-11); the four names stay here, in the
 dev wheel, where the grouped collect reads them.
 """
 
@@ -220,8 +220,8 @@ def _residual_sample(row: list[str]) -> ResidualSample:
 def parse_residual_solves(text: str) -> list[list[ResidualSample]]:
     r"""Parse a solver log that holds several steady solves, one residual history each.
 
-    A quasi-steady rotor wheel is solved at each of its clockings in one run
-    (0.30.0): the solver is initialised again between them and each solve
+    A quasi-steady rotor wheel is solved at each of its clockings in one run: the solver is
+    initialised again between them and each solve
     prints its own residual table, its counter starting again at 1, so the
     one log the run exports holds every clocking's solve in the order the
     script ran them. :func:`parse_residual_history` refuses such a log, as it
@@ -408,9 +408,9 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
     #: Whether ANY block of this log carried a residual page. A marker at the
     #: end with no page is a CUT only in a log that prints pages: a log whose
     #: markers never carry one (progress lines only, or a steady history with
-    #: unsteady markers appended, the collect fixture of 0.21.0) was not cut, it
+    #: unsteady markers appended, the collect fixture) was not cut, it
     #: never had tables, and calling it cut failed the assessor (the suite arm
-    #: after the 0.26.0 post-log merge).
+    #: after the post-log merge).
     pages_seen = False
     for index, marker in enumerate(markers):
         step = int(marker[1])
@@ -477,7 +477,7 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
 
 @dataclass(frozen=True)
 class LogTimes:
-    """The times and the step count a solver log prints (0.21.0).
+    """The times and the step count a solver log prints.
 
     Every field is None where the log does not print it, so an absent line
     is never reported as a zero.
@@ -612,7 +612,7 @@ def imported_trailing_edges(log_text: str) -> dict[str, int]:
 
 
 #: The line the solver prints when one instance clears a solution to run the
-#: next point (0.35.0, FR-368). MEASURED on 26.124 build 8172026 (the
+#: next point (FR-368). MEASURED on 26.124 build 8172026 (the
 #: re-initialisation probes of 2026-10-02): printed by REMOVE_INITIALIZATION
 #: and by NEW_SIMULATION, so in the cumulative log of a job it opens every
 #: point but the first.
@@ -626,7 +626,7 @@ _INITIALIZATION_ECHO = "Following geometry is being initialized"
 
 @dataclass(frozen=True)
 class LogSegment:
-    """One point's run inside the cumulative log of a job (0.35.0, FR-368).
+    """One point's run inside the cumulative log of a job (FR-368).
 
     Attributes
     ----------

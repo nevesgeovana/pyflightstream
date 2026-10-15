@@ -50,7 +50,7 @@ manifest.
 
 The function, the two exports, the `FsiState` field, the
 `check_state_matches_config` keyword and the convergence-log column
-were all named for a hash rather than for its algorithm before 0.8.0;
+were all named for a hash rather than for its algorithm in legacy releases;
 they now say `sha256`, matching `RunRecord.script_sha256` and
 `outputs_sha256`. `FsiState` is the one place that still spells the
 retired name, in the alias that accepts it.
@@ -93,8 +93,7 @@ from pyflightstream.qa.geometry import naca4_contour
 sections = [airfoil_section_contour(naca4_contour("2412", 120), c) for c in chords]
 blade = blade_properties_from_sections(
     radii, sections, chords, pitches, material("ti-6al-4v-grade5-annealed"),
-    geometry_source="what the contours were built from", geometry_file=None,
-)
+    geometry_source="what the contours were built from", geometry_file=None,)
 ```
 
 `airfoil_section_contour` is the one conversion from airfoil

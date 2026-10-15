@@ -4,7 +4,7 @@ Pipeline role: per coupling call FlightStream's post-processing script
 exports ``FS_SurfaceSection_Loads.txt`` (sectional forces in Newtons
 and moments about the quarter chord); this module parses that file
 (through :mod:`pyflightstream.results.sectional_loads`, where the parser
-is defined since 0.33.0 and which this module re-exports), splits the
+is defined and which this module re-exports), splits the
 flat table into per-blade blocks, and transfers the moments
 from the pitch axis to the elastic axis, delivering the aerodynamic
 load set the beam solve consumes.

@@ -7,3 +7,5 @@
   retaining recorded timestamps and measurement evidence.
 - Concepts contains the single architecture page; Contributing links directly
   to its architectural decisions section.
+- Generated API docstrings and command descriptions state current behavior without
+  package release narration. Evidence dates and executable example data remain intact.

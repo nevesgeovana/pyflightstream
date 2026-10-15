@@ -319,18 +319,12 @@ def settings_table(
         columns are assigned densely from 1. Default None, which writes
         :data:`~pyflightstream.post.products.NOT_APPLICABLE`.
 
-        THE DEFAULT WROTE AN EMPTY CELL UNTIL 0.23.0, and this parameter's
-        stated reason -- "for a tool that cannot read an empty cell" -- was
-        the problem `NA` now solves for every product at once. So `fill` is
-        no longer the answer to a blank; it is the answer to a tool that
-        needs the column to stay NUMERIC, which `NA` does not satisfy and
-        999 does. A caller who passed it to avoid blanks can stop. The wide
-        form fills only an absent ``f<id>_kind``, never ``f<id>_value``.
+        Use ``fill`` when a tool requires numeric code columns rather than
+        ``NA``. The wide form fills only an absent ``f<id>_kind``, never
+        ``f<id>_value``.
     fill_values : bool, keyword-only
-        Ask for the VALUE columns to be filled too. Always REFUSED, and
-        the refusal names the flags whose legal range contains the fill:
-        a silent fill there would reintroduce the collision wearing an
-        option flag.
+        Ask for the VALUE columns to be filled too. Always refused, naming
+        the flags whose legal range contains the fill value.
 
     Returns
     -------
@@ -552,7 +546,7 @@ def read_settings_table(path: str | Path) -> list[Row]:
         The rows, with every cell that does not apply as None and every
         other cell of the codebook's columns as a number (a key column that
         ``write_settings_table`` was given, ``POL`` for one, stays text). A cell does not
-        apply when it reads `NA`, which is what this writer emits from 0.23.0; an
+        apply when it reads `NA`, which is what this writer emits; an
         EMPTY cell and the literal ``"NA"`` are both accepted and both come back
         as None, so a table written by any earlier release still reads.
 

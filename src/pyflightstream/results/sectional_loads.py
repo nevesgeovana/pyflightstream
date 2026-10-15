@@ -7,7 +7,7 @@ file must assert, and the table ``Offset, Chord, X_QC, Z_QC, Fx, Fz,
 Moment`` of line densities along the span, split into per-family blocks by
 the creation-order bookkeeping of the code that made the distributions.
 
-Why it lives here, since 0.33.0. It was defined in
+Why it lives here. It was defined in
 :mod:`pyflightstream.fsi.loads`, the coupling's module, while
 :mod:`pyflightstream.results.tables` tabulates the report it returns: the
 two modules then imported each other, the one cycle between the results row
@@ -453,7 +453,7 @@ def _row_values(row: Sequence[str], width: int) -> list[float]:
     rather than a concession: the solver terminates every data row with the
     separator (fixture FS_SurfaceSection_Loads_call0002.txt). Interior blanks
     are holes and are refused. Split out of :func:`parse_sectional_loads`
-    unchanged in 0.33.0, when the parser moved here (AD-10).
+    unchanged, when the parser moved here (AD-10).
     """
     cells = list(row)
     if cells and not cells[-1].strip():

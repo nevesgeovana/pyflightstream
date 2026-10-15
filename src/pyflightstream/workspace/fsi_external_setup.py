@@ -1,4 +1,4 @@
-"""Resolve an FSI input of ``mode = "external"`` to the program it names (FR-462, 0.40.0).
+"""Resolve an FSI input of ``mode = "external"`` to the program it names (FR-462).
 
 The input names a structural program of the user's own and its node file, both
 under the workspace's ``inputs/fsi/``, the files the program reads and writes,

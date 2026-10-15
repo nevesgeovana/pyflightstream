@@ -9,7 +9,7 @@ reads one into an :class:`HpcProfile`, refusing an unknown or misplaced key
 by name, and :func:`resolve_hpc_profile` finds the one a run names.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.workspace.inputs`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+its path (AD-11).
 """
 
 from __future__ import annotations
@@ -115,15 +115,16 @@ class HpcProfile:
     defaults: dict
     path: Path
     builds: dict = field(default_factory=dict)
-    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0). ``wall`` is the row's
+    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES. ``wall`` is the row's
     #: cell as written, which is what a scheduler taking ``4h`` wants; ``seconds``
-    #: is the whole clock in integer seconds, which is what this package wrote until 0.20.x and what
+    #: is the whole clock in integer seconds, which is what this package wrote in legacy
+    #: releases and what
     #: a scheduler with a numeric field wants. The arithmetic a particular
     #: cluster needs is configured here explicitly, and an
     #: unknown value is refused by name rather than silently taken as one of
     #: these two.
     walltime_arithmetic: str = "wall"
-    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0). Some machines abort at
+    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG. Some machines abort at
     #: ``EXPORT_LOG`` and write their own log beside the run instead, so the profile
     #: says it rather than the package assuming one shape of machine.
     export_log: bool = True
@@ -220,7 +221,7 @@ def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
 
 
 def select_hpc_profile(name: str | None) -> None:
-    """Select which profile :func:`resolve_hpc_profile` returns (0.35.0).
+    """Select which profile :func:`resolve_hpc_profile` returns.
 
     Parameters
     ----------

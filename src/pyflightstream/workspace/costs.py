@@ -453,7 +453,7 @@ def priced_rows(
     """Replace the fitted time of each cost row by the cost file's, when the workspace has one.
 
     FR-398. Without a cost file the rows come back as they are, which is what
-    keeps ``plan --cost`` byte-identical to 0.34.0. A point the file cannot
+    preserves the ``plan --cost`` output format. A point the file cannot
     answer for (a processor count outside its stated range) keeps no number
     and a warning names it.
 

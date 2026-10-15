@@ -1,7 +1,7 @@
 """The ``pyfs-workspace`` command line.
 
-Every subcommand accepts ``--workspace PATH`` (0.40.0,
-PFS-2089.004), defaulting to the current directory. For example,
+Every subcommand accepts ``--workspace PATH`` (PFS-2089.004), defaulting to the current
+directory. For example,
 ``pyfs-workspace init --workspace campaign`` creates the campaign tree there.
 ``init`` and ``migrate`` take the positional root, and naming
 two different folders is refused. ``archive SIM_ID --workspace ROOT`` names
@@ -22,16 +22,16 @@ already told the user to run it (OPS-2009.01.10): the collection
 refusal of a name already in a point's own ``datapoints/`` folder and
 the pre-run refusal of a
 declared output already in the simulation folder both say to archive
-the simulation and re-run, and until 0.13.0 the command they named was
+the simulation and re-run, and in legacy releases the command they named was
 not there. The refusal of a simulation the manifest does not record is
 ``archive_sim``'s own, printed to stderr with exit 2.
 
-``pyfs-workspace migrate <root>`` previews migration from the 0.38.0 record
+``pyfs-workspace migrate <root>`` previews migration from the record
 format; ``--apply`` backs up each rewritten file. See docs/upgrading.md.
 
 ``pyfs-workspace field mirror|move|subtract|time-mean`` builds a custom
 free-stream file of ``inputs/freestreams/`` out of other fields, through
-:mod:`pyflightstream.workspace.fields` (0.31.0): a field mirrored through a
+:mod:`pyflightstream.workspace.fields`: a field mirrored through a
 coordinate plane, moved so a source point lands on a target point, one
 field subtracted from another on the same grid (with a stated reference
 free stream), or the time mean of an unsteady run's per-step fields. Each
@@ -40,14 +40,14 @@ named by ``--workspace`` (the current directory by default), the file and its
 ``<stem>.provenance.json``, and never overwrites without ``--overwrite``; a
 refusal is printed to stderr with exit 2.
 
-0.32.0 adds ``field fill-interior`` (the probes inside the body radius
+``field fill-interior`` fills the interior probes (those inside the body radius
 ``--r-body``, 0.38 m by default, take the value of the nearest probe outside it
 on the same azimuth ray) and, on ``field time-mean``, ``--fluctuation`` (the
 per-probe population standard deviation of the averaged steps, written beside
 the mean as ``<stem>.fluctuation.csv`` and named in its provenance) and
 ``--fluctuation-only --last K`` (that report alone, no field).
 
-0.34.0 adds ``pyfs-workspace profile sections|uni|bp`` (FR-347), the radial
+``pyfs-workspace profile sections|uni|bp`` prepares (FR-347) the radial
 thrust profile of an actuator disc a row's ``PROFILE`` names, written into
 ``inputs/profiles/<stem>.csv`` with its provenance record through
 :mod:`pyflightstream.workspace.actuator_profiles`: from a POL's written
@@ -55,7 +55,7 @@ sections, or as the uniform or the Betz-Prandtl shape, scaled to a thrust or
 a CT. It previews and applies as the field operations do, and refuses an
 option of another shape rather than leave it unread.
 
-0.39.0 (FR-436) reads the workspace settings files ``pyfs.toml`` and
+The CLI reads the workspace settings files ``pyfs.toml`` and
 ``pyfs.local.toml`` through :mod:`pyflightstream.workspace._settings_file`,
 which owns their schema, the precedence and the provenance: this program
 takes their ``[log]`` console level only (FR-1000). The command-line side of the

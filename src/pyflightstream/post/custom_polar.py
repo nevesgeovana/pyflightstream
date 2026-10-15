@@ -156,7 +156,7 @@ def group_number(group: str | int, *, position: int | None = None) -> int:
     """Return the NUMBER line four of the fixed-width format states for a group.
 
     The format has room for two digits and nothing else, and it was written when
-    a group WAS a number. A group is named since 0.23.0, and ``int(group)`` on a
+    a group WAS a number. A group is named and ``int(group)`` on a
     name was a bare ``ValueError`` that no handler of the products stage catches:
     a pproc naming its groups and asking for this format stopped the whole stage.
     A named group states its 1-based POSITION in the ``[groups]`` table, which is

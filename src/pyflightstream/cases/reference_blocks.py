@@ -1,4 +1,4 @@
-"""The reference blocks of a geometry: rotors, actuator discs and blade datums (0.34.0).
+"""The reference blocks of a geometry: rotors, actuator discs and blade datums.
 
 Pipeline role: describes what the reference artifact declares about the moving
 parts of a geometry. A :class:`RotorBlock` names a rotor's families, axis,
@@ -9,8 +9,7 @@ emit. The two errors a case definition raises live here too:
 :class:`CampaignConfigError`, which every model of the package raises for a
 definition that cannot be used as written, and :class:`AliasCycleError`.
 
-The cut of AD-16 (0.34.0) moved these models out of the package root, which
-re-exports every one of them. This module is the floor of the six model
+The package root re-exports these models (AD-16). This module is the floor of the six model
 modules: it imports none of them and never the package root.
 """
 
@@ -48,24 +47,8 @@ class CampaignConfigError(PyflightstreamError, ValueError):
     """
 
 
-#: How closely a blade datum may lie along the shaft before its azimuth means
-#: nothing. It is compared against `|cos(angle between shaft and datum)|`,
-#: which is 1 when they are PARALLEL and 0 when they are square, so the
-#: number is `cos(5 degrees)` and the refusal fires ABOVE it: a datum within
-#: five degrees of the shaft is refused, and a datum at any other angle,
-#: however far from square, is accepted.
-#:
-#: IT WAS `cos(85 degrees)` UNTIL 0.23.0's RELEASE ROUND, which is the
-#: complement, and the complement refused every datum more than five degrees
-#: from SQUARE -- an ordinary installation at 30 degrees among them. Both
-#: datum tests of the day used a datum exactly square or one degree from
-#: parallel, and those two verdicts are the same under either reading, so
-#: nothing could tell them apart. The message made it worse by printing the
-#: angle from the shaft and then saying the datum "nearly lies along" it.
-#:
-#: The FIVE is a JUDGEMENT rather than a measurement and is written as one;
-#: what is not a judgement is that some bound must exist, because an axis that
-#: can point anywhere makes "nearly parallel" the ordinary case.
+#: The datum must be sufficiently separated from the shaft axis to define a stable radial
+#: direction.
 _DATUM_ALIGNMENT_LIMIT = 0.9961946980917455
 
 #: Below this, a vector has no length worth normalising and names no
@@ -90,21 +73,8 @@ AXIS_UNIT_VECTORS: dict[str, tuple[float, float, float]] = {
 
 _AXIS_TOKEN = re.compile(r"^[+-]?[XYZ]$")
 
-#: The axis a blade's azimuth is turned about, as the emitted command names it.
-#:
-#: IT IS A LETTER AND ALWAYS WILL BE, because the axis it names belongs to the
-#: HUB FRAME rather than to the geometry. `ROTATE_COORDINATE_SYSTEM` declares
-#: `rotation_axis` as an enum over X, Y, Z, 1, 2 and 3, and the blade frames are
-#: turned about the hub -- whose third axis IS the shaft, by construction of
-#: :func:`frame_basis_for_shaft`. So the shaft's direction rides on the FRAME
-#: and never on this argument, and a rotor installed at any pitch and toe emits
-#: the same letter as one installed square.
-#:
-#: The blade frame builder passed `rotor.axis` straight into that argument until
-#: 0.23.0's release round, and `axis` had just been widened to take three
-#: components -- so a rotor stating its installation vector emitted a PYTHON
-#: TUPLE where the solver expects one letter. Nothing caught it because every
-#: test of the item stopped at the basis and none emitted a script.
+#: The blade frame builder resolves a rotor's axis vector to a complete basis before emitting
+#: the coordinate frame.
 ROTOR_BLADE_ROTATION_AXIS = "Z"
 
 
@@ -165,7 +135,7 @@ class RotorBlock(BaseModel):
     package builds from it (the static and rotating moment reference
     points of the rotor), because then a rotor and a frame spell the
     same. PFS-2035.02 said a name ending in a digit is refused, which was
-    true of the frame names of 0.14.0 and would refuse the reference study
+    true of the frame names and would refuse the reference study
     under these: the number in ``<ALIAS>_RMRP<k>`` follows ``RMRP``, never
     the alias.
 
@@ -243,7 +213,7 @@ class RotorBlock(BaseModel):
     @field_validator("axis", mode="before")
     @classmethod
     def _an_axis(cls, value: object) -> object:
-        """Accept a LETTER or a three-component VECTOR (v0.23.0 item 19).
+        """Accept a LETTER or a three-component VECTOR.
 
         The letter keeps its exact meaning: `Z` IS the vector (0, 0, 1), so the
         old spelling is a special case of the new one and every reference
@@ -288,10 +258,9 @@ class RotorBlock(BaseModel):
     def axis_vector(self) -> tuple[float, float, float]:
         """The shaft direction as a UNIT vector, whichever way it was written.
 
-        Every frame the package builds for this rotor is built on this, rather
-        than on the geometry's own axes. Until 0.23.0 seven call sites created
-        a rotor's frames with `x_axis=(1,0,0)` and `y_axis=(0,1,0)`, which is
-        to assume the rotor is installed at zero pitch and zero toe.
+        Every frame the package builds for this rotor uses its declared axis rather than
+        assuming zero
+        pitch and toe.
         """
         stated = self.axis
         if isinstance(stated, str):
@@ -456,7 +425,7 @@ def frame_basis_for_shaft(
 ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
     """Return the ``x_axis`` and ``y_axis`` of a frame whose THIRD axis is ``shaft``.
 
-    v0.23.0 item 19. `coordinate_frame` completes a basis with the right-handed
+     `coordinate_frame` completes a basis with the right-handed
     cross product, so handing it two axes square to the shaft puts the shaft on
     the frame's third axis by construction rather than by arithmetic anyone has
     to check.

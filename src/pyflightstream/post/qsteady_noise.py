@@ -1,8 +1,8 @@
 """The quasi-steady rotor noise model (QS-NOISE, work package F): EXPLORATORY.
 
 Pipeline role: a library beside the post row, NOT wired into the post stage.
-QS-NOISE is exploratory: it carries no threshold and no gate, and 0.32.0
-does not wait on it. The module holds the model of route A of the 0.32.0 scope (GEO-066
+QS-NOISE is exploratory: it carries no threshold and no gate, and the package
+does not wait on it. The module holds the model of route A of the scope (GEO-066
 section 2.6 part 5): reconstruct a blade's load against azimuth from the loads
 a ``qsteady_rotor`` wheel wrote at its clockings, and propagate it to an
 observer by a compact tonal model. The comparison with the solver's own
@@ -26,7 +26,7 @@ every bracket taken at the emission time ``tau``. ``L`` is the force the
 surface exerts ON THE FLUID (the negative of the aerodynamic load a solver
 reports on the blade), ``r`` the distance from the source to the observer and
 ``rhat`` its direction, ``M`` the source velocity over ``c0``, ``L_r = L . rhat``,
-``Ldot_r = (dL/dtau) . rhat``, ``L_M = L . M``, ``M_r = M . rhat`` and
+``Ldot_r = (dL/dtau) . rhat``, ``L_M = L. M``, ``M_r = M. rhat`` and
 ``Mdot_r = (dM/dtau) . rhat``. The first term is the far field; the other two
 are the near field, which is kept because an observer a few radii away is
 inside it at the shaft harmonic.

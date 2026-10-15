@@ -13,7 +13,7 @@ and so refused) and its reason, and :func:`refuse_empty_selections` applies it
 to a setup or a pproc artifact before its model validates.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.workspace.inputs`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+its path (AD-11).
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ __all__ = [
 #: The table of a setup artifact that names groups of boundaries (the reference
 #: decision of 2026-09-09): ``[aliases]``, one key per alias, a list of
 #: boundary names or families. Read by the documentation. Its home is here,
-#: beside the selection rule that reads it, since 0.33.0 (AD-11); the setup
+#: beside the selection rule that reads it (AD-11); the setup
 #: reader of :mod:`pyflightstream.workspace.inputs` imports it from here.
 ALIASES_TABLE = "aliases"
 

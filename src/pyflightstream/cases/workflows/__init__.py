@@ -47,13 +47,8 @@ after it hashed those bytes into the record. What the builder does with
 it is open it, first, before anything else
 (:func:`_open_geometry`).
 
-Two of the three things this module reads off a row arrived at 0.8.1
-and both were absent rather than wrong. A case carrying a geometry
-rendered a script byte-identical to the same case without one, so
-nothing opened the mesh; and every workflow initialized under
-``SYMMETRY NONE`` with no cell able to say otherwise, so a periodic
-rotor sector was solved as a one-bladed rotor that converged and
-exported (PFS-2025.02.02, PFS-2025.02.03).
+The builders open the declared geometry before configuring the simulation and apply the row's
+symmetry declaration. A periodic rotor sector therefore keeps its declared periodicity.
 """
 
 from pyflightstream.cases._unsteady_actions import (

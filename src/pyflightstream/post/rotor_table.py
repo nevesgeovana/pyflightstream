@@ -73,7 +73,7 @@ __all__ = [
 ROTOR_COEFFICIENT_COLUMNS: tuple[str, ...] = ("J", "CT", "CQ", "CP", "ETA", "ETAW")
 
 
-#: The rotor's in-plane coefficients (0.31.0, G8), the LAST four columns of its
+#: The rotor's in-plane coefficients (G8), the LAST four columns of its
 #: table, after `MTIP_<alias>` and `MHEL_<alias>`: the force along the normal
 #: and side axes and the moment about them, in the rotor's `(T, S, N)` axes
 #: (:func:`pyflightstream.post.axes.rotor_in_plane_axes`).
@@ -149,7 +149,7 @@ class RotorShaftLoads:
     families_used: tuple[str, ...]
     #: The rotor's force in N and its moment about the HUB in N m, both in the
     #: loads frame's axes, of which the thrust and the torque are the shaft
-    #: components; None where those two are not a number (0.30.0, for the
+    #: components; None where those two are not a number (for the
     #: quasi-steady rotor's in-plane loads).
     force_n: tuple[float, float, float] | None = None
     moment_hub_nm: tuple[float, float, float] | None = None
@@ -381,12 +381,8 @@ def _force_along_the_stream(
 ) -> float:
     """Return the force along the free stream, in the SENSE of the shaft.
 
-    THE ROTATION IS `post.axes` AND NOTHING ELSE (0.24.0). Until then this
-    module built its own free-stream vector, `(ca cb, +sb, -sa cb)`, whose y and
-    z terms carried the opposite sign to its x term: on a recorded export at
-    alpha 4, beta 2 it projected the total force to -0.01058 where the export
-    states a drag of +0.03578. It had been derived and never scored against an
-    export. `tests/tier1_offline/test_goal028_axes_recorded_exports.py` scores it.
+    The rotation uses ``post.axes`` so the rotor table and polar share the same free-stream
+    direction and signs.
 
     THE SENSE IS THE SHAFT'S, so `ETAW` reduces to `ETA` when the shaft lies
     along the stream WHICHEVER WAY the reference points the rotor's axis. A
@@ -758,7 +754,7 @@ def write_rotor_table(
     THE FIRST LINE IS THE HEADER (G16). The table opens with `POL` and then
     `ROTOR`, the rotor's alias, on every row, because a script that has already
     LOADED the file no longer has its name -- it holds an array of numbers, and
-    the alias has to be inside the bytes. From 0.23.0 to 0.26.x the alias stood
+    the alias has to be inside the bytes. a legacy table places the alias
     alone on the first line instead, before the header, and no CSV reader took
     the file as written.
 

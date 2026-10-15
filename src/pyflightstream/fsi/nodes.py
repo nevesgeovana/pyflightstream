@@ -29,7 +29,7 @@ it, which keeps the scalar twist encoding dy = w + theta d exact
 (nose-up is the rotation about -Z for this geometry, and
 -theta z x (d toward-LE) = +theta d toward-suction). At Omega zero the
 embedding is the identity (``section_frame``), the frame of the wing
-case and of the dry-run node fixture. A fixed wing (FSI-G of 0.30.0)
+case and of the dry-run node fixture. A fixed wing (FSI-G)
 embeds in the package's reference frame, x aft, y right, z up
 (``wing_frame``): toward the leading edge is -x and toward the suction
 side +z, turned nose up by the station's pitch, the span along +y or -y

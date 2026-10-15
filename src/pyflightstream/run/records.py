@@ -1,13 +1,13 @@
 """The run records of a workspace: which manifest, its restore and its rebuild.
 
 Pipeline role: the run row, beside the manifest the run stage writes. It is
-the 0.32.0 home of three operations on the records of a campaign workspace
+the home of three operations on the records of a campaign workspace
 (work package B1; the packages that call it, B2 with the sync and B3 with the
 post and collect reading ``--runs``, code against the same signatures):
 
 * :func:`resolve_manifest` names the manifest file a command reads: the
   default ``runs.json``, or another file directly in the workspace root
-  (``pyfs-matrix post --runs NAME`` and its siblings). Since 0.33.0 it is
+  (``pyfs-matrix post --runs NAME`` and its siblings). it is
   defined in :mod:`pyflightstream.workspace.naming` and re-exported here
   (AD-09), so the storage layer below this one reads it without reaching up.
 * :func:`restore` brings a file of the records family back from the
@@ -53,9 +53,9 @@ records of ``post --from-sims`` in memory from the simulation folders, and
 a :class:`ManifestWorkspace`, whose products go to ``post/<matrix>@<label>/``
 beside the default ones and never over them.
 
-FIVE MODULES SINCE 0.33.0 (AD-11). This one holds :func:`restore` and
-:func:`mark_failed` and keeps every public name of the records family at its
-0.32.0 path. The record files, their archives, the lease and
+FIVE MODULES (AD-11). This one holds :func:`restore` and
+:func:`mark_failed` and keeps every public name of the records family at its public path. The
+record files, their archives, the lease and
 :class:`RecordsError` are :mod:`pyflightstream.run._record_files`; what a
 rebuild reads and compares is :mod:`pyflightstream.run._rebuild_evidence`;
 the rebuild itself is :mod:`pyflightstream.run._rebuild`; the assembly of
@@ -420,8 +420,8 @@ def restore(
     ``post/<matrix>/archive/<stamp>/products.json`` and ``.../plan.json``.
     Every restore that applies archives the file it replaces in these forms.
     The writers of the storage record, the products record, the plan receipt
-    and the additional-post record archive their file before rewriting it (0.32.0,
-    ``workspace.naming.archive_previous``, the one home of these names), so every
+    and the additional-post record archive their file before rewriting it
+    (``workspace.naming.archive_previous``, the one home of these names), so every
     kind has copies to bring back; ``products.json`` is archived rather than
     removed when a post rebuilds. A copy numbered within one stamp
     (``runs-<stamp>.2.json``) or labelled after it

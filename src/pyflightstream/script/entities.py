@@ -229,14 +229,8 @@ class EntityRegistry:
     def delete(self, kind: str, index: int) -> None:
         """Record the deletion of entity ``index`` and renumber the labels.
 
-        FlightStream renumbers the surviving entities of the kind: each
-        one above the deleted index takes the index below it, keeping its
-        name (RPT-021 section 3, measured on coordinate systems). So the
-        label of the deleted entity is dropped, and every label above it
-        moves down one with the entity it names. Until 0.40.0 the ledger
-        was not told which index went and dropped the TOP label instead,
-        so after deleting entity 1 of 2 the label of entity 1 resolved to
-        the survivor (PFS-2104.025).
+        Removing an entity updates the indices of the surviving entities. The ledger follows the
+        solver's numbering rather than retaining stale positions.
 
         Parameters
         ----------

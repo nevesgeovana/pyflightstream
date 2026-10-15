@@ -705,13 +705,8 @@ def manual_editions(
 ) -> tuple[SweptCommand, ...]:
     """Read every manual edition and report what none of them has an entry for.
 
-    Named for what it reads rather than for the motion of reading it.
-    This was ``sweep_editions`` until 0.13.0, and ``sweep`` is the
-    solver's own word for a parameter sweep (``SWEEPER_START``, the
-    ``sweep`` run type), so one word meant two things in one library
-    (PFS-2022.05). The old name warns and forwards until 0.15.0; the
-    ``pyfs-manual sweep`` subcommand keeps its name and its help says
-    what it reads.
+    ``sweep`` is the public manual-sweep entry point. The retired spelling is handled by the
+    package's deprecation policy (PFS-2022.05).
 
     The multi-edition form of :func:`coverage_against`, and it exists
     because the single-edition one answers a question no sweep asks. A
@@ -1214,35 +1209,7 @@ class RegistryLike(Protocol):
 #: total. The CLI names those builds on their own line instead.
 CITATION_REACH_OUTCOMES: tuple[str, ...] = ("no_note", "no_page", "removed", "checked")
 
-#: How each seen row ended, per edition, from the last
-#: :func:`stale_citations` run. It exists because a clean report is not
-#: a clean bill and the caller cannot tell the two apart from the
-#: findings alone.
-#:
-#: Each value holds the four :data:`CITATION_REACH_OUTCOMES` counts plus
-#: ``range_cited``. The fifth key is a SUBSET of ``checked``, not a
-#: fifth outcome: it counts the checked rows whose citation names a page
-#: span rather than a single page, and adding it to the other four would
-#: double-count every one of them.
-#:
-#: IT COUNTED TWO REASONS UNTIL 0.8.0 AND THE CHECK HAS FOUR, which is
-#: the defect this shape fixes: rows seen and rows checked were the only
-#: numbers kept, so the whole difference between them was printed as one
-#: unexplained gap and any account of it was the reader's guess.
-#:
-#: 26.120 is the build that makes the point, and its figure was written
-#: here as 18 of 381 before being measured again: it is ZERO of 381.
-#: 363 of those rows cite no page of their own, because that build is
-#: the flagship whose entries carry the citation at entry level, and the
-#: 18 that do cite a page are every one of them `removed` rows, which
-#: this check skips by design since their citation addresses an absence.
-#: Eighteen is the number of rows SKIPPED, not checked, and the two are
-#: easy to swap when neither is printed. With the outcomes separated the
-#: swap is not available, and the separation immediately corrected the
-#: 363: measured through the four on 2026-08-19 it is 359 rows carrying
-#: NO NOTE AT ALL and 4 carrying a note with no page of its own, beside
-#: the 18 removals. "Cite no page of their own" was one sentence for two
-#: populations, which is the same conflation one level down.
+#: The summary accounts for every failure reason reported by the manual check.
 citation_reach: dict[str, dict[str, int]] = {}
 
 
@@ -1915,9 +1882,8 @@ def propose_type(
 ) -> tuple[str | None, tuple[str, ...], str]:
     """Suggest an argument type from the manual's parameter table.
 
-    The two strings are KEYWORD-ONLY since 0.13.0 (PFS-2022.05), and a
-    positional call is refused rather than warned about since 0.15.0,
-    which is the release the ledger promised.
+    The two strings are KEYWORD-ONLY (PFS-2022.05), and a
+    positional call is refused rather than warned about which is the release the ledger promised.
     ``propose_type("AXIS", "the axis")`` and ``propose_type("the axis",
     "AXIS")`` are both well-typed and only one is right, and nothing at
     the call site said which.
@@ -1958,8 +1924,7 @@ def propose_type(
     Raises
     ------
     TypeError
-        A positional call, which Python itself refuses on this signature
-        since 0.15.0.
+        A positional call, which Python itself refuses on this signature.
     """
     text = description.strip()
     upper = placeholder.upper()

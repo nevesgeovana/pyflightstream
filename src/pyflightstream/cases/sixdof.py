@@ -1,4 +1,4 @@
-"""The 6DOF input a row names by its ``SIXDOF`` key (FR-461, 0.40.0).
+"""The 6DOF input a row names by its ``SIXDOF`` key (FR-461).
 
 A file ``inputs/sixdof/d<id>.toml`` states a body free to move under its
 loads: the moving families and the body frame, the mass and inertia, gravity,

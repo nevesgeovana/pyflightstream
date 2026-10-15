@@ -195,7 +195,7 @@ def read_field_rows(path: Path, *, form: str) -> tuple[str | None, list[list[flo
 def field_rows_in_metres(
     path: Path, *, form: str, source_units: str | None, native_unit: str | None
 ) -> tuple[str | None, list[list[float]]]:
-    """Return a custom field's rows in metres and metres per second (qsteady_rotor, 0.30.0).
+    """Return a custom field's rows in metres and metres per second (qsteady_rotor).
 
     ``SI`` and an undeclared file are read as the manual states the form, in
     metres and metres per second; ``NATIVE`` is converted from the simulation's

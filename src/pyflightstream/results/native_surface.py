@@ -9,7 +9,7 @@ frame instead and matches there (``_strength_in_loads_frame`` in
 allowed along the axes it was written in. Matching includes connectivity, not
 just equal node counts.
 
-ONE ZONE PER PERIODIC COPY (0.30.0). A row under ``SYMMETRY PERIODIC`` writes
+ONE ZONE PER PERIODIC COPY. A row under ``SYMMETRY PERIODIC`` writes
 its native Tecplot as one zone per copy, each zone a complete file of its own
 (``TITLE``, ``VARIABLES``, ``ZONE``, payload), the modelled sector first and
 then its images turned about the axis, measured on 26.124 (reports/RPT-087,
@@ -348,7 +348,7 @@ def read_native_tecplot_surface(source: str | Path) -> VtkSurface:
 def native_match_tolerance(points: np.ndarray, *, printed_digits: int | None = None) -> np.ndarray:
     """Return the per-axis match tolerance :func:`attach_native_strength` takes by default.
 
-    THE ONE HOME of the rule (0.29.1-tol): the whole-surface match, the
+    THE ONE HOME of the rule (the shared tolerance): the whole-surface match, the
     periodic-copy match and the time-averaged native strength all resolve it
     here. Per axis it is the largest of 1e-10, 1e-6 of the geometry's diagonal
     extent, and four single-precision epsilons of the largest coordinate

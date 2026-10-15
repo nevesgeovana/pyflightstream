@@ -3,7 +3,7 @@
 No new structural model lives here. Native deformation validity remains a
 separate gate; this adapter fixes configuration, ordering and callback wiring.
 
-THE PIECES A COUPLED ROUTE CALLS (FSI-1 of 0.30.0), each usable on its own
+THE PIECES A COUPLED ROUTE CALLS (FSI-1), each usable on its own
 so the rotor route and the fixed-wing route wire the same facts once:
 
 * :func:`fsi_workflow_refusal`, which workflows accept FSI in this release;
@@ -21,7 +21,7 @@ so the rotor route and the fixed-wing route wire the same facts once:
 * :func:`direct_morphing_refusal`, where the solver's direct mesh morphing
   (FR-341, route C, ``morphing = "direct"`` in the FSI input) is refused.
 
-THE ROUTES (0.30.0): :func:`wire_fixed_wing_fsi` couples a fixed wing on
+THE ROUTES: :func:`wire_fixed_wing_fsi` couples a fixed wing on
 ``steady`` and ``unsteady`` (FSI-G), :func:`wire_quasi_steady_sector_fsi`
 the blade of a ``qsteady_rotor`` periodic sector (steady, the blade held
 still, the structure turning at the speed the free stream turns), and
@@ -288,7 +288,7 @@ def aeroelastic_surface_ids(
 def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
     """Return the structural node layout, refused when a node is not inside the blade.
 
-    The rule of 0.30.0: the structural nodes sit inside the
+    The rule: the structural nodes sit inside the
     component. With the blade's sections in the configuration
     (``BladeProperties.section_contours_m``), the nodes are placed on
     each section's camber line and a node outside its section, or
@@ -467,7 +467,7 @@ def aeroelastic_post(
         Emits the updates the row's exports read beyond the sections and
         their loads (the probe points), after those two and before the first
         export: every update is an analysis command, which the phase order
-        refuses after an export (the L1 runs of 0.30.0, where a coupled row
+        refuses after an export (the L1 runs, where a coupled row
         with the default exports updated the sections a second time after
         this script's loads export and did not build).
 
@@ -951,7 +951,7 @@ def quasi_steady_fsi_config(case: SimCase, *, rpm: float, quiet: bool = False) -
     """Return the structure of a quasi-steady sector turning at the row's speed.
 
     On ``qsteady_rotor`` the structural solve applies the centrifugal loads
-    at the speed the free stream turns (0.30.0). So the
+    at the speed the free stream turns. So the
     configuration's ``omega_rad_per_s`` is TAKEN FROM THE ROW, ``|RPM| pi / 30``,
     the speed its ``SET_FREESTREAM ROTATION`` (or its rotating custom field)
     states, whatever the FSI input wrote; an input that states another non-zero
@@ -1048,7 +1048,7 @@ def wire_quasi_steady_sector_fsi(
     exports: Callable[[Script], None] | None,
     updates: Callable[[Script], None] | None = None,
 ) -> list[dict[str, object]]:
-    """Stage a quasi-steady sector's rotating blade and emit its coupling (0.30.0).
+    """Stage a quasi-steady sector's rotating blade and emit its coupling.
 
     THE ROUTE of the FSI study's test 2: the blade is held still, the free
     stream turns about the shaft at the rotor's speed, and the structure is
@@ -1193,7 +1193,7 @@ def wire_fixed_wing_fsi(
     exports: Callable[[Script], None] | None,
     updates: Callable[[Script], None] | None = None,
 ) -> list[dict[str, object]]:
-    """Stage the fixed wing's structure and emit its coupling (FSI-G of 0.30.0).
+    """Stage the fixed wing's structure and emit its coupling (FSI-G).
 
     The wing is one clamped beam fed by ONE section distribution of the
     row's pproc: over the wing's one family, on the XZ plane (sections

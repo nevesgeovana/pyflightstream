@@ -1,4 +1,4 @@
-"""The mesh models: how a geometry enters the solver and what its mesh declares (0.34.0).
+"""The mesh models: how a geometry enters the solver and what its mesh declares.
 
 Pipeline role: describes the geometry side of a case. :class:`MeshImport` and
 :class:`CadImportOptions` say how a mesh or a CAD file is imported;
@@ -7,8 +7,7 @@ how its trailing edges are found; :class:`RawMeshConditions` the boundary
 conditions a raw mesh's sidecar declares; and :class:`BaseRegionOperation` and
 :class:`PortBoundary` the base regions and the ports a setup declares.
 
-The cut of AD-16 (0.34.0) moved these models out of the package root, which
-re-exports every one of them. This module imports none of the other five model
+The package root re-exports these models (AD-16). This module imports none of the other five model
 modules and never the package root; :mod:`pyflightstream.cases.settings`
 imports it.
 """
@@ -228,7 +227,7 @@ class MeshImport(BaseModel):
     units: str
     #: Explicit CAD conversion; units must be FILE because IMPORT_CAD reads file metadata.
     cad: CadImportOptions | None = None
-    #: How a CCS file is lofted or imported by the solver's CCS commands (0.32.0).
+    #: How a CCS file is lofted or imported by the solver's CCS commands.
     ccs: CcsImportOptions | None = None
     operations: tuple[MeshOperation, ...] = ()
 
@@ -472,7 +471,7 @@ class PortBoundary(BaseModel):
 
 
 class RawMeshConditions(BaseModel):
-    """The boundary conditions a raw mesh's sidecar declares (G02, Q1 of 0.27.0).
+    """The boundary conditions a raw mesh's sidecar declares (G02, Q1).
 
     ``trailing_edges`` is required of every raw mesh a workflow imports,
     and the builder refuses one without it. ``wake_termination`` detects

@@ -1,4 +1,4 @@
-"""Resolve a row's ``SIXDOF: d<id>`` key to its 6DOF input (FR-461, 0.40.0).
+"""Resolve a row's ``SIXDOF: d<id>`` key to its 6DOF input (FR-461).
 
 The key names ``inputs/sixdof/d<id>.toml``, the way ``FSI: f<id>`` names
 ``inputs/fsi/f<id>.toml``: the plan reads it, validates it

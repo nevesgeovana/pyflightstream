@@ -1,4 +1,4 @@
-"""The solver settings, the flight-condition state and the reference data of a case (0.34.0).
+"""The solver settings, the flight-condition state and the reference data of a case.
 
 Pipeline role: describes how a case asks the solver to solve.
 :class:`SolverSettings` holds every solver setting a row or a setup states and
@@ -8,8 +8,7 @@ point, keyed by :func:`point_state_key`; :class:`ReferenceData` holds the
 reference quantities of the coefficients. The settings a release adds land
 here, beside the ones they extend.
 
-The cut of AD-16 (0.34.0) moved these models out of the package root, which
-re-exports every one of them. The settings read the mesh operations and the
+The package root re-exports these models (AD-16). The settings read the mesh operations and the
 port boundaries from :mod:`pyflightstream.cases.mesh`, in that direction only,
 and this module never imports the package root.
 """
@@ -109,7 +108,7 @@ class ReferenceData(BaseModel):
     #: and the rotor run turns about it. None when the reference declares
     #: no rotor.
     rotor_position_m: tuple[float, float, float] | None = None
-    #: WHICH MODEL AXIS EACH BODY RATE TURNS ABOUT (0.21.0), from the
+    #: WHICH MODEL AXIS EACH BODY RATE TURNS ABOUT, from the
     #: reference artifact's ``[body_axes]`` table: ``roll``, ``pitch`` and
     #: ``yaw`` to ``X``, ``Y`` or ``Z``. A mesh is built in whatever
     #: orientation its author chose, and a rotating free stream has to be
@@ -123,7 +122,7 @@ class ReferenceData(BaseModel):
     #: one setup and one pproc may cite across every model of the study. A
     #: name they hold and the row's model lacks is skipped and said; a name
     #: they do not hold is refused as a misspelling. None for a reference
-    #: declaring no ``[study]``, which keeps every cited name's 0.38.0 reading.
+    #: declaring no ``[study]``, which resolves names against the row geometry.
     study_surfaces: tuple[str, ...] | None = None
 
     @field_validator("body_axes")
@@ -454,7 +453,7 @@ class SolverSettings(BaseModel):
     crossflow_separation_mean_diameter: float | None = Field(default=None, gt=0)
     #: Whether the selected crossflow model assumes an axisymmetric body.
     crossflow_separation_axisymmetric: SolverToggle | None = None
-    #: Refused in 0.29.0 on every build: SET_SOLVER_MODEL, the flow-model command
+    #: Refused on every build: SET_SOLVER_MODEL, the flow-model command
     #: only the 25.000 edition documents, is removed from 25.100 onward, and no
     #: workflow can write its INITIALIZE_SOLVER for 25.000.
     #:
@@ -511,7 +510,7 @@ class SolverSettings(BaseModel):
             )
         return self
 
-    #: Refused in 0.29.0 on every build: SONIC_VELOCITY, a legacy explicit speed
+    #: Refused on every build: SONIC_VELOCITY, a legacy explicit speed
     #: of sound in metres per second, has no recorded evidence on any registered
     #: build, and 26.101 onward removed it (the solver warns and ignores it).
     #:
@@ -610,7 +609,7 @@ class SolverSettings(BaseModel):
     wake_termination_x_m: Annotated[
         float | Literal["DEFAULT"] | None, BeforeValidator(_an_end_plane)
     ] = None
-    #: The four settings the reference scripts state and 0.10.1 did not
+    #: The four settings the reference scripts state
     #: (FR-54, PFS-2030.03.*). Each is None unless a preset states it, so a
     #: preset that says nothing emits nothing and every earlier golden holds.
     #: symmetry_loads reaches SET_ANALYSIS_SYMMETRY_LOADS AS STATED, the reference
@@ -678,7 +677,7 @@ class SolverSettings(BaseModel):
     #: may carry an initialised solver, and loading it would start the run
     #: from a state the row never declared (PFS-2030.03.01).
     load_solver_initialization: SolverToggle | None = None
-    #: THE SELECTIONS OF THE LOADS ANALYSIS (G09 of 0.27.0), analysis-phase
+    #: THE SELECTIONS OF THE LOADS ANALYSIS (G09), analysis-phase
     #: commands the builders emit after ``START_SOLVER`` and before the exports,
     #: on a STEADY row only: set after the solve starts, a march's per-step
     #: exports would not see them (the shape RPT-064 measured for the loads
@@ -696,13 +695,13 @@ class SolverSettings(BaseModel):
     load_units: str | None = None
     #: SET_INVISCID_LOADS: the loads and moments without their viscous part.
     inviscid_loads: SolverToggle | None = None
-    #: SET_VORTICITY_LIFT_MODEL (G14 of 0.27.0): lift from the vorticity field
+    #: SET_VORTICITY_LIFT_MODEL (G14): lift from the vorticity field
     #: rather than from the integrated surface pressure, stated before the
     #: solver is initialised on every run type. None emits nothing. The command
     #: database decides the builds: 26.124 answers the name as an unrecognized
     #: command (RPT-068), so a row on it is refused at plan.
     vorticity_lift_model: SolverToggle | None = None
-    #: SET_UNSTEADY_VISCOUS_COUPLING_ITERATION (G14 of 0.27.0): the time step at
+    #: SET_UNSTEADY_VISCOUS_COUPLING_ITERATION (G14): the time step at
     #: which an unsteady run switches the viscous coupling on, stated before the
     #: solver is initialised. The unsteady run types only; documented by the
     #: 25.000, 25.100 and 26.000 editions alone, so the database refuses it on
@@ -805,7 +804,7 @@ class FluidState(BaseModel):
 
 
 class PointState(BaseModel):
-    """The flow state ONE point of a swept flight condition resolved to (0.21.0).
+    """The flow state ONE point of a swept flight condition resolved to.
 
     A row that sweeps a flow variable -- `MACH:sweep`, `REmi:sweep`, an
     altitude -- states a DIFFERENT condition at every point, and the condition

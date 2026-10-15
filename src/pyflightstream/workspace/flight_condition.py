@@ -69,7 +69,7 @@ ideal-gas density of the pressure and temperature. So density, pressure
 and temperature satisfy ``p = rho R T`` unless the writer pinned all
 three, and whichever two of them the solver reads it meets the same
 state. Pins are emitted as written: a writer who pins all three owns
-their agreement, and since 0.40.0 the plan and the post WARN when the
+their agreement, and the plan and the post WARN when the
 three disagree with ``p = rho R T`` by more than half a percent
 (:func:`pinned_state_mismatch`); nothing is refused or withheld.
 
@@ -336,7 +336,7 @@ class ResolvedCondition:
     #: interface review read this as ``viscosity_pa_s`` and got
     #: ``MUPas``. Empty for a
     #: condition that pins nothing, which is every condition written
-    #: before 0.11.0. What it answers is which quantities were pinned;
+    #: in legacy releases. What it answers is which quantities were pinned;
     #: :attr:`defaulted` answers where from.
     pinned: tuple[str, ...] = ()
     #: The pins that came from the DEFAULTS rather than from the row, with
@@ -366,7 +366,7 @@ def _ideal_gas_pressure(density: float, temperature: float) -> float:
 
 
 #: The relative mismatch ``|p - rho R T| / p`` above which a point that pins
-#: density, temperature and pressure all three is warned about (0.40.0, a
+#: density, temperature and pressure all three is warned about (a
 #: consistency diagnostic). Half a percent is
 #: above the rounding of a pin written to three or four significant figures
 #: and below any disagreement that moves a coefficient visibly.

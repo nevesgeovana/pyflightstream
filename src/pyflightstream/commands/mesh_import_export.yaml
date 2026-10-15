@@ -127,7 +127,7 @@ DELETE_SURFACES:
     "26.121": {status: documented}
     "26.122": {status: documented, note: "SRC-750 p.316, same grammar as 26.121"}
     "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.316, the SRC-751 file, carried from 26.123. Run on 26.124 by the 0.32.0 licensed probe round 1 (probe D1_delete_surfaces): the single-index form was accepted and the surfaces after the deleted one were renumbered; promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote."}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.316, the SRC-751 file, carried from 26.123. Run on 26.124 by the licensed probe round 1 (probe D1_delete_surfaces): the single-index form was accepted and the surfaces after the deleted one were renumbered; promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote."}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.322, unchanged from SRC-752 p.316"}
   notes: >
     Deletes a mesh surface by 1-based index. The parameter table states

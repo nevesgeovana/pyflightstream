@@ -159,7 +159,7 @@ class RunStatus(enum.StrEnum):
 
     CONVERGED = "CONVERGED"
     COMPLETED_MAX_ITER = "COMPLETED_MAX_ITER"
-    #: FR-434, 0.39.0: a STEADY point whose evidence (the solver log, else the
+    #: FR-434,  a STEADY point whose evidence (the solver log, else the
     #: loads footer) shows the iteration counter AT the iteration limit the run
     #: requested, with the residual not settled below the convergence limit.
     #: NOT A FAILURE, and a different statement from COMPLETED_MAX_ITER, which
@@ -170,7 +170,7 @@ class RunStatus(enum.StrEnum):
     #: reached, and ``residual_note`` words both. Every
     #: reader that treats COMPLETED_MAX_ITER as an ended run that is not a
     #: failure treats this value the same. A manifest holding it is refused by
-    #: a 0.38.0 reader, which the migration note states.
+    #: a reader, which the migration note states.
     MAX_ITER_REACHED = "MAX_ITER_REACHED"
     FAILED_EXECUTION = "FAILED_EXECUTION"
     FAILED_SCRIPT = "FAILED_SCRIPT"
@@ -198,7 +198,7 @@ class RunStatus(enum.StrEnum):
     #: delete-sims) treats it as a failure without learning a new name. The
     #: record keeps what it was in ``marked``.
     FAILED_MARKED = "FAILED_MARKED"
-    #: FR-413, 0.37.0: the point's outputs are all present and its declared
+    #: FR-413,  the point's outputs are all present and its declared
     #: solver log is absent (deleted after the run, or never copied back). NOT A
     #: FAILURE: the run ENDED with its outputs, which are collected and posted;
     #: what only the log carries (the residual history, the convergence verdict,
@@ -229,9 +229,9 @@ class ExecutorRecord(TypedDict):
     required: the entry is written whole or, on a point where no solver
     ran, not at all, and the row says ``None``. ``forced_local`` is
     present, and true, only on a point the run's local switch kept on a
-    machine that would otherwise have submitted (0.27.0); a record
-    written before it, or by a run that did not ask, has no key, and a
-    reader older than 0.27.0 refuses a manifest that carries one.
+    machine that would otherwise have submitted; a record
+    written before it, or by a run that did not ask, has no key, and a legacy reader refuses a
+    manifest that carries one.
     """
 
     class_name: str
@@ -386,7 +386,7 @@ class RunRecord(BaseModel):
     outputs_sha256 : dict of str to str
         Hash per collected output, keyed by the same relative name that
         appears in ``outputs``. Empty for a point that collected
-        nothing and for manifests written before v0.4.0. Inputs have
+        nothing and for manifests written in legacy releases. Inputs have
         carried a hash since the first manifest and outputs did not, so
         a record could name evidence that had since been edited,
         truncated or replaced with nothing to compare against
@@ -401,7 +401,7 @@ class RunRecord(BaseModel):
         targeted and ``source_version`` the build whose record is broken,
         which is the build the cited report was run on.
 
-        The key was ``broken_commands`` until 0.13.0 (PFS-2022.01.05,
+        The key was ``broken_commands`` in legacy releases (PFS-2022.01.05,
         OPS-2009.02.08), and read as the commands that broke in the run,
         which is the opposite of a waiver the recipe registered on
         purpose. A row written under the old key still reads, with a
@@ -421,7 +421,7 @@ class RunRecord(BaseModel):
     executor : ExecutorRecord or None
         Which executor ran the point and the argv it ran, read off the
         run rather than asserted (PFS-2012.04); None on a point where
-        no solver ran, and on every row written before 0.13.0. Adding
+        no solver ran, and on every row written in legacy releases. Adding
         it did not move :data:`MANIFEST_SCHEMA`.
     export_window : ExportThresholdRecord or None
         The export threshold the row states for its unsteady exports
@@ -439,7 +439,7 @@ class RunRecord(BaseModel):
         the built script: every solver flag with its effective value
         and provenance (explicit, default with citation, or unknown).
         None for scripts built without the curated ``solver_settings``
-        helper and for manifests written before v0.3.0.
+        helper and for manifests written in legacy releases.
     status : RunStatus
         Terminal status of the point.
     iterations : int, optional
@@ -453,21 +453,21 @@ class RunRecord(BaseModel):
         second, as the executor read its clock (PFS-2012.08.01); the
         provenance document the products stage writes states it as the
         run activity's start. None where no solver ran, where the
-        executor reports no clock, and on every row written before
-        0.13.0. Adding it did not move :data:`MANIFEST_SCHEMA`.
+        executor reports no clock, and on every row written in legacy releases. Adding it did
+        not move :data:`MANIFEST_SCHEMA`.
     finished_at : str, optional
         When the process ended, or was killed on timeout, the same way.
     outputs : list of str
         Collected output files, relative to the simulation folder
-        (for example ``"outputs/loads.txt"``; a record written before
-        0.16.0 names ``"raw/loads.txt"`` and is read unchanged, FR-84).
+        (for example ``"outputs/loads.txt"``; a record written in legacy releases names
+        ``"raw/loads.txt"`` and is read unchanged, FR-84).
     error : str, optional
         Error text for failed points.
     flight_condition_defaults : dict of str to float
         The fluid pins the row's SETUP artifact supplied, with the values
         used, for the keys the row did not state (PFS-2030.08). Empty
         means the row stated everything its resolution used, which is
-        every record written before 0.12.0; it is NOT a claim that the
+        every record written in legacy releases; it is NOT a claim that the
         setup carried no table. HOW TO READ THE PAIR: a pin in
         ``flight_condition`` and not here was stated by the ROW and
         overrode whatever the setup said, since a key the row states
@@ -479,8 +479,7 @@ class RunRecord(BaseModel):
     flight_condition_defaults_from : str
         Which setup supplied those pins, id and path, for example
         ``setup 's001' (inputs/setups/s001.toml)``. Empty when the row
-        inherited nothing, which includes every record written before
-        0.12.0.
+        inherited nothing, which includes every record written in legacy releases.
     matrix_stem : str, optional
         The stem of the run matrix the point came from, when the campaign
         was converted from one (PFS-2031.04). A workspace may hold several
@@ -503,7 +502,7 @@ class RunRecord(BaseModel):
         the field; a products stage reading None writes no reduction and
         records why. Adding it did not move :data:`MANIFEST_SCHEMA`.
 
-        SINCE 0.15.0 a row that names its rotors by alias also carries
+        a row that names its rotors by alias also carries
         ``rotors`` (FR-68), alias to one block per rotor holding that
         rotor's ``blades``, ``rpm``, ``steps_per_revolution``,
         ``period_steps`` and its own ``phase_locked`` and ``per_blade``;
@@ -541,7 +540,7 @@ class RunRecord(BaseModel):
         (PFS-2031.18), relative to the simulation folder; its sha256 is
         in ``inputs_sha256`` under the same name, because the program is
         an input of the run like the geometry. None for a row stating
-        neither key, which is every record written before 0.13.0.
+        neither key, which is every record written in legacy releases.
     action_script : str, optional
         The file the SCRIPT action points at and the program rewrites,
         relative to the simulation folder; ``inputs_sha256`` carries the
@@ -575,7 +574,7 @@ class RunRecord(BaseModel):
     run_id: str
     sim_id: str
     point: dict[str, float] = Field(default_factory=dict)
-    #: 0.21.0: the point's name, which ends the run_id, names its datapoint
+    #:  the point's name, which ends the run_id, names its datapoint
     #: folder and is the stem of its files (`pyflightstream.cases.point_name`);
     #: and the name of the whole sweep of its case, each swept field written
     #: `<code>+sweep`, which the polar tables and superfiles of the case carry.
@@ -620,7 +619,7 @@ class RunRecord(BaseModel):
     package_version: str
     package_commit: str | None = None
     package_dirty: bool | None = None
-    #: WHO SUBMITTED THE RUN, v0.23.0 item 12. Captured at RUN time because
+    #: WHO SUBMITTED THE RUN,  Captured at RUN time because
     #: that is the only moment it is knowable: it cannot be recovered
     #: afterwards, so every simulation that finished before this release
     #: carries None here and its provenance reads `NA`. Resolved by one
@@ -639,8 +638,8 @@ class RunRecord(BaseModel):
     #: it writes the number down before the solver goes away; without it
     #: `RESTART: {FINISH_PENDING}` has nothing to subtract from.
     stopped_at: StoppedStepRecord | None = None
-    #: The ``run_id`` of the run this record CONTINUES (0.24.0); None on a run
-    #: that continues nothing and on every record written before 0.24.0.
+    #: The ``run_id`` of the run this record CONTINUES; None on a run
+    #: that continues nothing and on every record written in legacy releases.
     #:
     #: A continuation archives the CONTENTS of the datapoint folder and writes
     #: into that same folder, and the stopped run's row is never rewritten, so
@@ -648,7 +647,7 @@ class RunRecord(BaseModel):
     #: what lets a reader tell a chain from two runs of one point and take the
     #: end of it; the continuation resolver knew the answer and nothing kept it.
     continues: str | None = None
-    #: FR-96 (0.33.0): the RESTART request a continuation answered, form and value.
+    #: FR-96: the RESTART request a continuation answered, form and value.
     restart: dict[str, Any] | None = None
     #: FR-98: the wall clock the ROW stated, in seconds, and the margin the
     #: SETUP stated, on a run that registered the watchdog. Both are written
@@ -656,7 +655,7 @@ class RunRecord(BaseModel):
     #: edited and the margin has a default, so a record that says only
     #: WALLTIME_REACHED cannot say what it reached. None on every run that
     #: states no wall clock, which is every steady row and every unsteady
-    #: row written before 0.17.0.
+    #: row written in legacy releases.
     #:
     #: FOUND BY THE FIRST REAL RUN OF pfs0170, not by a test: the run stage
     #: had written these two keys into the record since the watchdog landed
@@ -666,7 +665,7 @@ class RunRecord(BaseModel):
     walltime_margin_s: float | None = None
     #: GOAL-023: how an unsteady point was marched on its build, "actions" or
     #: "single_march"; None for a steady point and on every record written
-    #: before 0.20.0.
+    #: in legacy releases.
     march_strategy: MarchStrategy | None = None
     #: FR-99: what a SUBMITTED point was handed to, and where. The
     #: descriptor the scheduler was given, the profile that rendered it,
@@ -678,9 +677,9 @@ class RunRecord(BaseModel):
     #: queued point is a record that says nothing a user can act on.
     submission: dict | None = None
     #: FR-95: the JOB this record is. One steady row is one
-    #: job for all its points since 0.17.0, so a record is a job and not a
+    #: job for all its points so a record is a job and not a
     #: point, and this is what a submitted job is asked after by. None on a
-    #: record written before 0.17.0 and on any record whose job is one point,
+    #: record written in legacy releases and on any record whose job is one point,
     #: which is every unsteady point and every LEGACY row.
     job_id: str | None = None
     #: The points that job ran, IN THE ORDER IT RAN THEM, each with the tag
@@ -693,10 +692,10 @@ class RunRecord(BaseModel):
     #: a record that is one point.
     points_ran: list[dict] = Field(default_factory=list)
     #: The pproc artifact id the row named (PFS-2029.16); None on a
-    #: record written before 0.11.0 or by a campaign built without one.
+    #: record written in legacy releases or by a campaign built without one.
     pproc: str | None = None
     #: The naming template that rendered the point's stem and output names
-    #: (PFS-2029.19.01); None on a record written before 0.11.0.
+    #: (PFS-2029.19.01); None on a record written in legacy releases.
     point_name_template: str | None = None
     #: What the post stage needs to rebuild the products from the manifest
     #: alone (PFS-2029.15.03): the row's description, its Mach number and
@@ -711,20 +710,20 @@ class RunRecord(BaseModel):
     #: Where the boundary inventory came from, ``sidecar`` or ``mesh_block``
     #: (PFS-2029.06.03); None when the geometry declares none.
     inventory_source: str | None = None
-    #: THE BOUNDARY NAMES THE SCRIPT WAS BUILT OVER (R03 of 0.27.0), in the
+    #: THE BOUNDARY NAMES THE SCRIPT WAS BUILT OVER (R03), in the
     #: solver's order, the name at position ``i`` being boundary ``i``: what
     #: the builder read at OPEN from the source ``inventory_source`` names.
     #: The post reads a section distribution's selection over them, where
     #: the cuts alone cannot say what a family stem or ``all`` selected, for
     #: a block recorded in a common frame or with the rotor definitions in
     #: hand; in a rotor's frame the builder read the rotor families instead.
-    #: None on every record written before 0.27.0, which the post recovers
+    #: None on every record written in legacy releases, which the post recovers
     #: by the geometry's hash (:meth:`CampaignWorkspace.recorded_inventory`),
     #: and on a run that opened no geometry declaring names.
     #:
     #: Adding it did not move MANIFEST_SCHEMA. The key is ABSENT where the
     #: value is None, as ``forced_local`` of the executor entry is where
-    #: nothing was forced: a reader older than 0.27.0 refuses a record that
+    #: nothing was forced: a legacy reader refuses a record that
     #: carries a key it does not know, so only a record that has names to
     #: state writes one.
     inventory: list[str] | None = None
@@ -734,7 +733,7 @@ class RunRecord(BaseModel):
     #: only the geometry's bytes are hashed, so without it two runs of one
     #: mesh under two units would carry identical records. ABSENT where
     #: None, as ``inventory`` is, so a manifest of ``.fsm`` rows stays
-    #: readable by a reader older than 0.27.0.
+    #: readable by a legacy reader.
     mesh_import: dict[str, object] | None = None
     #: How the inputs were staged (PFS-2029.17): ``link``, a directory
     #: junction on Windows and a symbolic link elsewhere, at the geometry's
@@ -750,7 +749,7 @@ class RunRecord(BaseModel):
     #: the class docstring. A mapping rather than a model so the record
     #: carries exactly what the resolver wrote and a reader never guesses.
     reductions: dict[str, object] | None = None
-    #: 0.30.0 (M1): on a point of an ``unsteady_rotor`` row, a ``steady``
+    #: M1: on a point of an ``unsteady_rotor`` row, a ``steady``
     #: row stating ``RPM`` or a row naming an actuator disc, each rotor's and
     #: disc's tip and helical Mach numbers keyed by its alias or disc name,
     #: with the speed, the diameter, the free-stream speed and the speed of
@@ -759,24 +758,24 @@ class RunRecord(BaseModel):
     #: JOB record keys them one level up by the point's name, since one job
     #: runs several points, and :meth:`as_points` hands each point its own.
     #: ABSENT where None, as ``inventory`` is, so a manifest without such a
-    #: point stays readable by a reader older than 0.30.0.
+    #: point stays readable by a legacy reader.
     rotor_mach: dict[str, dict[str, object]] | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str
     inputs_sha256: dict[str, str] = Field(default_factory=dict)
     raw_flag: bool
-    #: 0.21.0: the run was told to accept an installed build other than the
+    #:  the run was told to accept an installed build other than the
     #: registered one (--accept-unregistered-build), so its compatibility was the
     #: user's responsibility; the build the solver printed is `fs_build`.
     accept_unregistered_build: bool = False
-    #: 0.39.0 (FR-998, FR-999): each value the invocation took from a workspace
+    #: FR-998, FR-999: each value the invocation took from a workspace
     #: settings file, and the file it came from (``pyfs.toml``, ``pyfs.local.toml``),
     #: with the acceptance of the build under ``accept_unregistered_build`` where a
     #: file, or the build's entry of ``inputs/executables.local.toml``, stated it.
     #: ABSENT where None, as ``inventory`` is: a value typed or left at the
     #: package default is recorded as before, so a workspace without the files
-    #: writes the records of 0.38.0.
+    #: writes the existing record format.
     settings_sources: dict[str, str] | None = None
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
     waived_commands: list[BrokenCommandRecord] = Field(default_factory=list)
@@ -798,10 +797,10 @@ class RunRecord(BaseModel):
         ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``,
         FR-435's ``skipped_names``, FR-436's ``settings_sources`` and FR-455's ``farfield_layout``.
 
-        R03 and G01 of 0.27.0, M1 and the L1 fixes of 0.30.0, FR-999 of FR-436 (0.39.0)
-        and FR-1047 of FR-455 (0.40.0).
+        R03 and G01, M1 and the L1 fixes, FR-999 of FR-436
+        and FR-1047 of FR-455.
 
-        The rule ``forced_local`` follows: a key a reader older than 0.27.0
+        The rule ``forced_local`` follows: a key a legacy reader
         does not know is written only where something was recorded, so a
         manifest of LEGACY or geometry-less records, which carry neither,
         stays readable by it.
@@ -824,30 +823,30 @@ class RunRecord(BaseModel):
     #: The unsteady export window as resolved for this run, keyed by the
     #: row key that stated it; None until a row key states one
     #: (PFS-2031.18), and on every row written before the field existed.
-    #: Since 0.14.0 it also carries the clock the counter program ran with
+    #: it also carries the clock the counter program ran with
     #: (PFS-2031.18.01): ``delta_time_s``, the solver time step in seconds,
     #: always; ``step_deg``, the azimuth per step in degrees, on the rotor
     #: run type alone, absent on a rotorless row. A record written before
     #: carries neither, and the series tables leave the time blank for it.
     export_window: ExportThresholdRecord | None = None
     #: Solver surface averaging as emitted, never re-derived from an edited pproc.
-    #: Only a record written before 0.28.0 carries one; none has since.
+    #: Only a record written in legacy releases carries one; none has since.
     surface_time_averaging: SurfaceAveragingWindow | None = None
-    #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25 of 0.28.0), as the
+    #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25), as the
     #: run resolved it from the pproc's ``[time_averaging]``: inclusive time
     #: steps, and the revolutions or iterations asked for. The run exports the
     #: surface at every step of it and the post averages those exports; the post
     #: reads this and never an edited pproc. None where the pproc states none and
-    #: on every record written before 0.28.0. Adding it did not move
+    #: on every record written in legacy releases. Adding it did not move
     #: MANIFEST_SCHEMA.
     surface_average_window: SurfaceAverageWindow | None = None
-    #: THE TECPLOT SURFACES THE PACKAGE WROTE FROM A VTK (G45 of 0.28.0), one per
+    #: THE TECPLOT SURFACES THE PACKAGE WROTE FROM A VTK (G45), one per
     #: Tecplot output of the point: ``vtk`` and ``dat``, the two names; ``frame``,
     #: the analysis loads frame the solver wrote the VTK in, as the script placed
     #: it (index, origin, axes); ``written``, the Tecplot files written, the end
     #: of the run's first and each step's after it; and ``problems``, one
     #: sentence per file that could not be written. None on every record written
-    #: before 0.28.0, whose Tecplot is the solver's own, per node, and on a point
+    #: in legacy releases, whose Tecplot is the solver's own, per node, and on a point
     #: that exports none. Adding it did not move MANIFEST_SCHEMA.
     surface_translations: list[dict[str, object]] | None = None
     #: The solver commands the row's setup stated verbatim and the script
@@ -866,21 +865,21 @@ class RunRecord(BaseModel):
     conditions: list[dict] | None = None
 
     log_file_used: str | None = None
-    #: 0.21.0: where a final residual overflowed its printed field and was read
-    #: from an earlier iteration, which column, iteration and value. 0.27.0: and
+    #:  where a final residual overflowed its printed field and was read
+    #: from an earlier iteration, which column, iteration and value.  and
     #: where the log a residual is read from came from, or why there is none,
     #: on a run the local switch kept on a cluster whose HPC profile states
     #: ``export_log = false``: the log is then the solver's captured output,
     #: written by this package, or absent because the solver printed nothing.
     #: An existing free-text field, so adding the sentence moved no schema.
     residual_note: str | None = None
-    #: 0.21.0: what the solver log prints about the run, beside the Python clock
+    #:  what the solver log prints about the run, beside the Python clock
     #: (wall_time_s): its run time and initialization time in seconds, and the
     #: time steps of an unsteady run. None where no log was read.
     solver_run_time_s: float | None = None
     solver_initialization_s: float | None = None
     time_steps: int | None = None
-    #: 0.30.0 (L1, RPT-091): a quasi-steady rotor wheel solved at several
+    #: L1, RPT-091: a quasi-steady rotor wheel solved at several
     #: clockings, one verdict per clocking read from that clocking's solve in
     #: the one log the run exports (``index``, ``clocking_deg``, ``status``,
     #: ``iterations``, ``residual``, and a ``note`` or ``error`` where there is
@@ -897,9 +896,9 @@ class RunRecord(BaseModel):
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None
-    #: FR-974 (0.39.0): the iteration limit the run requested, written ONLY for
+    #: FR-974: the iteration limit the run requested, written ONLY for
     #: ``MAX_ITER_REACHED`` (``iterations`` is the counter reached); absent from the
-    #: record of every other status, so a record keeps its 0.38.0 content.
+    #: record of every other status, so a record keeps its existing content.
     iterations_requested: int | None = None
     residual: float | None = None
     wall_time_s: float | None = None
@@ -912,13 +911,13 @@ class RunRecord(BaseModel):
     #: The file is per SIM and every point of the simulation writes the
     #: same bytes to it, because a probe layout is the artifact's and the
     #: row's rather than the sweep point's. Adding it did not move
-    #: MANIFEST_SCHEMA: a record written before 0.16.0 reads None here,
+    #: MANIFEST_SCHEMA: a record written in legacy releases reads None here,
     #: and a post stage meeting one writes the probe table without the
     #: position columns rather than refusing a run that already happened.
     probe_points_file: str | None = None
     #: Emitted sample IDs and field output contract; absent on older runs.
     probe_field_layout: list[dict] | None = None
-    #: 0.40.0 (FR-1047, PFS-2081.58): the far-field plane and lattice this
+    #: FR-1047, PFS-2081.58: the far-field plane and lattice this
     #: point's script laid or reused, ``{"shapes": [...]}``, each shape as
     #: :meth:`pyflightstream.cases.workflows.FarfieldShape.record` states it
     #: (kind, added or declared, the entry reused, the point count and the
@@ -926,7 +925,7 @@ class RunRecord(BaseModel):
     #: one level up, ``{"by_point": {<point name>: {"shapes": [...]}}}``, and
     #: :meth:`as_points` hands each point its own. Post matches every exported
     #: position to it before integrating. ABSENT where None, so a record of a
-    #: row without a far field keeps its 0.39.0 content.
+    #: row without a far field keeps its existing content.
     farfield_layout: dict[str, Any] | None = None
     #: Native surface-property declarations and plot names; absent on historical records.
     surface_probe_layout: list[dict] | None = None
@@ -937,12 +936,12 @@ class RunRecord(BaseModel):
     #: Explicit source-unit declaration, retained to refuse changed continuation semantics.
     freestream_units: str | None = None
     #: The section distributions this point's script created, in order, each
-    #: with its families by name, its plane, its frame and its count (0.24.0).
-    #: The EMPTY list where the script added or removed no surface section
-    #: (since 0.27.0), and on a continuation the layout of the run it continues,
+    #: with its families by name, its plane, its frame and its count.
+    #: The EMPTY list where the script added or removed no surface section, and on a
+    #: continuation the layout of the run it continues,
     #: whose saved simulation it reopens. None where the layout is not known:
-    #: every record written before 0.24.0, one whose script changed sections no
-    #: run type built (a LEGACY recipe's, a raw command's), and, before 0.27.0,
+    #: every record written in legacy releases, one whose script changed sections no
+    #: run type built (a LEGACY recipe's, a raw command's), and, in legacy releases,
     #: one whose script created none. Its sections table then states `NA` for
     #: the identity of a row rather than a guess.
     sections_layout: list[dict[str, object]] | None = None
@@ -954,7 +953,7 @@ class RunRecord(BaseModel):
     discarded_by: str | None = None
     #: The two files of a row stating an export threshold (PFS-2031.18),
     #: relative to the simulation folder, and the count the program
-    #: reached; None on every record written before 0.13.0 and on a row
+    #: reached; None on every record written in legacy releases and on a row
     #: stating no threshold. Adding them did not move MANIFEST_SCHEMA.
     action_program: str | None = None
     action_script: str | None = None
@@ -1031,7 +1030,7 @@ class RunRecord(BaseModel):
     def as_points(self) -> list[RunRecord]:
         """Return this record as one record per POINT.
 
-        THE MANIFEST STORES JOBS SINCE 0.17.0 and a steady matrix row is
+        THE MANIFEST STORES JOBS and a steady matrix row is
         one job over several points, so a consumer that reasons per point
         (the physics reduction, a per-point table, an assessor comparing
         angles) would see one point where three ran. Rather than have each
@@ -1095,11 +1094,11 @@ class RunRecord(BaseModel):
 
 
 #: The tag a JOB's run id ends with, where a point's run id ends with its
-#: point tag. Reused rather than invented: 0.16.0 already names the
+#: point tag. Reused rather than invented: the package already names the
 #: per-polar product tables by the point convention with the swept
 #: variable written literally as ``sweep``, so a reader has met this token
 #: and it reads correctly, naming a sweep rather than a point. Its home is
-#: here, beside the record it names, since 0.30.0: the run layer composes
+#: here, beside the record it names: the run layer composes
 #: the id and the workspace layer reads it (:func:`planned_points_without_record`).
 JOB_TAG = "sweep"
 
@@ -1107,7 +1106,7 @@ JOB_TAG = "sweep"
 def planned_points_without_record(
     planned: Iterable[str], rows: Iterable[Mapping[str, object]]
 ) -> list[str]:
-    """Return the planned run ids no record carries, in the order planned (0.30.0).
+    """Return the planned run ids no record carries, in the order planned.
 
     A planned point (``<campaign>/sim_<id>/<point>``, as ``plan.json`` lists it)
     is recorded by a record of its own id; by a record of the same campaign and
@@ -1168,14 +1167,14 @@ def planned_points_without_record(
     return missing
 
 
-#: THE EXTRACTION MANIFEST of the additional post (G12 of 0.27.0), a file of its
+#: THE EXTRACTION MANIFEST of the additional post (G12), a file of its
 #: own beside ``runs.json`` at the workspace root. NOT a row of ``runs.json``, for
 #: four reasons: the original run record must stay as it was written, so the
 #: manifest of runs is never opened for writing by an extraction; an extraction
 #: is not a run (no solve, no convergence verdict, no setup); every reader of
 #: ``runs.json`` takes a row there as a run of its point (a sweep-table row, a
 #: continuation's predecessor, a resume identity); and a row carrying keys a
-#: 0.26.0 reader does not know makes it refuse the WHOLE manifest, while this
+#: a legacy reader does not know makes it refuse the WHOLE manifest, while this
 #: file is simply unread by it.
 ADDITIONAL_MANIFEST = "additional.json"
 
@@ -1272,7 +1271,7 @@ class AdditionalRecord(BaseModel):
         The boundary names the saved simulation holds, in the solver's order.
     surface_translations : list of dict or None
         The Tecplot surfaces the package wrote from the extraction's VTK
-        (G45 of 0.28.0), as a run record states them.
+        (G45), as a run record states them.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1323,13 +1322,13 @@ class AdditionalRecord(BaseModel):
     leading_sections: int = 0
     frames: dict[str, int | dict[str, int] | None] = Field(default_factory=dict)
     inventory: list[str] | None = None
-    #: The Tecplot surfaces the extraction wrote from its VTK (G45 of 0.28.0), as
+    #: The Tecplot surfaces the extraction wrote from its VTK (G45), as
     #: :attr:`RunRecord.surface_translations` states them.
     surface_translations: list[dict[str, object]] | None = None
 
 
 #: `_is_link`, `_is_junction`, `_make_dir_link` and `_remove_link` moved to
-#: :mod:`pyflightstream.workspace._links` on 2026-09-28 (push review, 0.30.0).
+#: :mod:`pyflightstream.workspace._links` on 2026-09-28 (push review).
 #: The three this module still calls directly, `_is_link`, `_make_dir_link`
 #: and `_remove_link`, are imported back above under these same names, so
 #: every call site below is unchanged; `_is_junction` is used only inside

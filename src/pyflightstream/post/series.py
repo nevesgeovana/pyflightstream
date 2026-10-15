@@ -73,16 +73,16 @@ SERIES_KINDS: tuple[tuple[str, str | None], ...] = (
     ("probes", "_probes"),
 )
 #: The three columns every series table leads with, after `POL` (the polar, first
-#: in every table the post writes since 0.27.0). `STEP` since 0.24.0, the ONE
+#: in every table the post writes ). `STEP` the ONE
 #: name of the solver step across the package's tables; it was `step` here,
 #: `ITERATION` in the sections table and `STEP` in the probe table.
 SERIES_LEAD: tuple[str, ...] = ("STEP", "time_s", "azimuth_deg")
-#: What a SECTIONS series row leads with after `POL` (0.24.0): the step and its time, then
+#: What a SECTIONS series row leads with after `POL`: the step and its time, then
 #: which distribution the row belongs to and where THAT rotor's blade one is.
 #: `azimuth_deg`, the row clock's unwrapped angle, is not carried beside an
 #: `AZIMUTH` that means something else.
 SECTIONS_SERIES_LEAD: tuple[str, ...] = ("STEP", "time_s", "FAMILY", "PLANE", "ROTOR", "AZIMUTH")
-#: The column saying WHICH probe a probes series row is (0.24.0), numbered from
+#: The column saying WHICH probe a probes series row is, numbered from
 #: one in the export's own order, as the probe table numbers them.
 PROBE_COLUMN = "PROBE"
 #: Native paths retained in the loads-series entry; Cp is also split by distribution.
@@ -114,7 +114,7 @@ def stamped_exports(
     """Return the stamped files of ``stem`` in ``sim_dir``, by (suffix, extension) then step.
 
     ``more`` are further folders to look in, a later one winning a step two hold.
-    A SUBMITTED point runs in ``datapoints/DP-<tag>/`` since 0.18.1 and the solver
+    A SUBMITTED point runs in ``datapoints/DP-<tag>/`` and the solver
     stamps its per-step exports into its working directory, which collect does
     not move because they are not declared outputs; scanning the simulation
     folder alone found nothing of such a point.
@@ -199,10 +199,10 @@ _AUXDATA = re.compile(r'^DATASETAUXDATA\s+(?P<name>\w+)\s*=\s*"(?P<value>[^"]*)"
 
 
 def translated_surface(record: RunRecord | AdditionalRecord, path: Path) -> dict[str, object]:
-    """Say what a Tecplot surface the package wrote from a VTK is (G45 of 0.28.0).
+    """Say what a Tecplot surface the package wrote from a VTK is (G45).
 
     Empty for a ``.dat`` the solver wrote, which is every Tecplot of a record
-    written before 0.28.0: nothing about it changed. For one the run wrote from
+    written in legacy releases: nothing about it changed. For one the run wrote from
     its VTK, at the end of the run or stamped at a step: ``translated_from``,
     the VTK beside it; ``source_sha256``, that VTK's sha256 as the ``.dat``
     itself states it (``NA`` where the file cannot be read); ``location``
@@ -268,14 +268,14 @@ def translated_surface(record: RunRecord | AdditionalRecord, path: Path) -> dict
 def run_clock(record: RunRecord) -> tuple[float | None, float | None]:
     """Return (delta_time_s, step_deg) as the record states them, or what it lets one infer.
 
-    PUBLIC SINCE 0.23.0 ITEM 13, because the sections table needs the same
+    Public because the sections table needs the same
     answer. Reaching into a sibling module for an underscore-private name is
     the boundary this package already refuses for a helper, and the honest fix
     is to publish it: two functions computing one clock is how two products of
     the same point come to disagree about when it was sampled.
 
-    A record written since 0.14.0 carries both in its export window; one
-    written before carries neither, and its azimuth step is still known
+    A record with a declared clock carries both in its export window; one
+    without a declared clock carries neither, and its azimuth step is still known
     from the reductions plan's steps per revolution, while its time step
     is not known at all and the column is left unstated rather than guessed.
 
@@ -478,7 +478,7 @@ def write_point_series(
     """Write the series tables of one point from its stamped exports.
 
     ``condition`` and ``reference`` are the point's, as every other product of it
-    states them (0.24.0); without them the cells read `NA`. ``rotors`` is what
+    states them; without them the cells read `NA`. ``rotors`` is what
     the sections identity needs of each rotor, as
     :func:`~pyflightstream.post.products.write_sections_table` takes it.
 
@@ -486,12 +486,12 @@ def write_point_series(
     Tecplot, VTK and CSV files. Those files are listed, not rewritten, and
     are separate from the returned tables and their entries.
 
-    A KIND WITH NO STAMPED FILE IS NOT WRITTEN (0.24.0). It used to be a table of
+    A KIND WITH NO STAMPED FILE IS NOT WRITTEN. It used to be a table of
     a header and no row, recorded in the manifest as written; ``skipped``, when
     given, receives the reason under the table's own name.
 
-    A STEP OF THE WINDOW THAT ``free-space`` DELETED (``prune_step_exports``,
-    0.30.0) refuses that kind's table, naming the step and the storage call,
+    A STEP OF THE WINDOW THAT ``free-space`` DELETED (``prune_step_exports``) refuses that
+    kind's table, naming the step and the storage call,
     under the same name in ``skipped``, or as a
     :class:`~pyflightstream._errors.ProductError` when no ``skipped`` is given.
 
@@ -504,7 +504,7 @@ def write_point_series(
         The simulation folder, where the solver left the stamped files.
     record : RunRecord
         The point's run record; its ``export_window`` says which steps
-        exist and, since 0.14.0, the clock they were stepped with.
+        exist and the clock they were stepped with.
     stem : str
         The point's name, the loads spreadsheet's name without ``.txt``.
     out : Path

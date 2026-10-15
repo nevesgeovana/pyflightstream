@@ -2,7 +2,7 @@
 
 Pipeline role: keeps the established run-matrix workflow working
 unchanged, forever (BRF-08), and promotes the matrix to a first-class
-interface of the file-managed modality (v0.3 decision): reading a
+interface of the file-managed modality : reading a
 matrix and running it is one call,
 :func:`pyflightstream.run.matrix.run_matrix`. Cases are represented
 in memory by Campaign and SimCase; campaign files are refused. The layout is read as
@@ -42,17 +42,10 @@ with them, and the ``pyfs-matrix`` command line kept its name.
 THE LAYOUT HAS BROKEN TWICE, and both breaks are recognised rather than
 merely refused.
 
-At 0.8.0 it GREW BY ONE COLUMN (PFS-2025.01, PFS-2025.12). ``WORKFLOW``
-names the workflow type a row asks for. It is a column of its own rather
-than a pair inside ``VAR_NAMES_VALUES``, because that cell is where the
-free CASE DATA lives and a type competing with it would be
-indistinguishable from a user's own key.
+``WORKFLOW`` selects the registered builder (PFS-2025.01, PFS-2025.12).
 
-At 0.9.0 it LOST TWO AND GAINED ONE (PFS-2027.01). ``RE`` and ``MACH``
-were removed and ``FLIGHT_CONDITION`` replaced them, so a row states its
-whole flow condition in one place and which quantity is solved for
-follows from which keys it names. The cell is MANDATORY, exactly as the
-two columns it replaced were.
+``FLIGHT_CONDITION`` states the flow constraints (PFS-2027.01). The reader preserves the keys
+for resolution against the reference geometry in the workspace layer.
 
 :func:`read_matrix` refuses earlier layouts and names the current columns.
 Migration instructions are in docs/upgrading.md.
@@ -213,7 +206,7 @@ class MatrixRow:
     flight_condition : dict
         The FLIGHT_CONDITION cell, parsed to canonical key and float and
         kept in the units the KEYS name (PFS-2027.01). It replaced the
-        RE and MACH columns at 0.9.0: a run states its flow condition in
+        RE and MACH columns: a run states its flow condition in
         one place, and which quantity gets solved for follows from which
         keys are present rather than from which columns are mandatory.
         An empty cell is an empty mapping, not a refusal; a row that
@@ -267,7 +260,7 @@ class MatrixRow:
     #: each, in cell order (FR-67); empty for a row stating none. A record
     #: holds ``COMMAND`` or ``FILE``, never both, and ``BEFORE``.
     raw: list[dict[str, str]] = field(default_factory=list)
-    #: 0.21.0: the canonical keys of the FLIGHT_CONDITION cell in the order the
+    #:  the canonical keys of the FLIGHT_CONDITION cell in the order the
     #: row wrote them, the swept key included; the point name follows it.
     condition_order: list[str] = field(default_factory=list)
 
@@ -433,7 +426,7 @@ def _split_attitude(
 ) -> tuple[dict[str, float], dict[str, object]]:
     """Split a parsed cell into the FLOW STATE and the row's attitude (FR-69, FR-70).
 
-    The same cell carries both since 0.15.0, and they go to different
+    The same cell carries both and they go to different
     readers: the flow state is resolved into density, velocity and
     temperature, and the attitude is what the aircraft is doing in it.
     Handing an angle to the flow resolver would ask it about a key that
@@ -520,17 +513,9 @@ def _refuse_a_speed_and_a_ratio_over_a_velocity(
     )
 
 
-#: EVERY key of the cell, to the sweep axis each becomes (0.21.0). The rule
-#: always licensed any key; until 0.21.0 only the two angles and the ratio
-#: were implemented, and a row sweeping a Mach number was refused naming the
-#: three. It is built from :data:`pyflightstream.cases.POINT_AXIS_KEYS` and the
-#: cell's own vocabulary, so a variable that joins the cell is sweepable the
-#: day it joins and the two cannot drift apart.
-#:
-#: A key outside this map is still refused NAMING the set rather than accepted
-#: and silently ignored, which is the failure the ratio sweep had before 0.15.0
-#: (PFS-2035.06, measured 2026-09-10: the axis existed, the point carried it
-#: and nothing read it).
+#: Every flight-condition key maps to its sweep axis. This mapping is built from
+#: :data:`pyflightstream.cases.POINT_AXIS_KEYS` and the paired-angle axis, so every declared
+#: key is sweepable.
 _CONDITION_SWEEP_AXES = _condition_sweep_axes()
 
 #: The FLIGHT_CONDITION keys whose HELD value joins every point of the
@@ -543,7 +528,7 @@ _CONDITION_SWEEP_AXES = _condition_sweep_axes()
 
 #: ``MOTIONS_VARIABLE``, the one ``VAR_NAMES_VALUES`` key whose value is a
 #: LIST OF RECORDS (PFS-2029.11.01), is imported above from
-#: :mod:`pyflightstream.cases.workflows`, its home since 0.13.0 beside
+#: :mod:`pyflightstream.cases.workflows`, its home beside
 #: the other cell keys, so the rotor run type can register it
 #: (PFS-2008.02.01); this module keeps the published name and reads the
 #: list into :attr:`MatrixRow.motions`.
@@ -700,7 +685,7 @@ def _raw_records(variables: dict[str, str], pol: str) -> list[dict[str, str]]:
 def _refuse_the_packages_continuation_keys(variables: Mapping[str, str], pol: str) -> None:
     """Refuse a row that writes the two names the run path resolves for it.
 
-    FOUND BY THE ARCHITECT LENS of the 0.18.0 release round, 2026-09-14.
+    FOUND BY THE ARCHITECT LENS of the release round, 2026-09-14.
     ``RESTART_FROM`` and ``RESTART_ITERATIONS`` are how the run path hands a
     resolved continuation to the builder, and they travel in the same free
     variable namespace a user's ``VAR_NAMES_VALUES`` cell writes into. So a
@@ -743,8 +728,8 @@ def _parse_rotations(variables: dict[str, str], pol: str) -> list[dict[str, str]
     PFS-2034.02, the same grammar as ``MOTIONS`` (the decision of
     2026-09-09: "the declaration stays as we do with motion; two braces
     are two, in the order of the input"). Each record states ``ANGLE``
-    in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS`` (the
-    0.14.0 ``FAMILIES`` is refused, naming ``ALIAS``), and may
+    in degrees, ``AXIS`` as ``<frame>-<X|Y|Z>`` and ``ALIAS`` (``FAMILIES`` is refused, naming
+    ``ALIAS``), and may
     state ``AUX_FRAMES``; a key outside those five, a missing one, an
     angle that is not a number and an axis token of another shape are
     refused here, naming the cell, so a row is refused at plan time and
@@ -858,7 +843,7 @@ def _refuse_a_rotation_that_names_its_set_twice_or_not_at_all(
 ) -> None:
     """Refuse a rotation that names what it turns twice, or not at all (FR-71).
 
-    ``ALIAS`` since 0.15.0, ``FAMILIES`` before it, and never both: two
+    ``ALIAS`` and the retired ``FAMILIES`` spelling cannot coexist: two
     statements of what one rotation turns cannot both be obeyed, and
     picking one silently is how the wrong half of a study gets turned.
     Neither is a record that says how far to turn and about what, and

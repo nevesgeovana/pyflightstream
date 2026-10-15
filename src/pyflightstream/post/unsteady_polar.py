@@ -1,7 +1,7 @@
 """The unsteady polar: the plots history of each point, time-averaged over its window.
 
 One of the product families of :mod:`pyflightstream.post` (AD-13, work
-package WP5 of 0.33.0), written by the post stage of
+package WP5), written by the post stage of
 :mod:`pyflightstream.post.products`, which re-exports every name here.
 
 An unsteady simulation's polar comes from its plots and not from its loads
@@ -152,10 +152,10 @@ def write_unsteady_polar(
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
 
     ``pol`` is the simulation's polar, the matrix row's POL, the FIRST column of
-    every row since 0.27.0 (G16); `NA` where the caller states none. The super
+    every row (G16); `NA` where the caller states none. The super
     content's own `POL` cell is that same polar and is not written a second time.
 
-    THE PPROC'S ``[equations]`` ARE EVALUATED HERE (0.24.0), into columns named
+    THE PPROC'S ``[equations]`` ARE EVALUATED HERE, into columns named
     ``<NAME>_<alias>`` that follow the axis block and precede the super content.
     An expression reads the columns THAT ROW already holds, the window, the
     condition block, the moment point, the averaged plots, the axis coefficients
@@ -185,11 +185,11 @@ def write_unsteady_polar(
     THE WINDOW IS THE ROW'S, the one `last_revs_avg` or `last_iters_avg` states,
     and it is the same window `per_blade` and the time average use (item 16).
 
-    THE FILE SAYS IT IS AN AVERAGE, AND OVER WHAT (0.24.0). Each row opens with
+    THE FILE SAYS IT IS AN AVERAGE, AND OVER WHAT. Each row opens with
     `FIRST_STEP, LAST_STEP, STEPS`, the three columns the reductions beside it
     already use; the window used to be in `products.json` alone. Its `reduction`
     and `reduction_window` cells, which the super content carries over from the
-    sweep row, say so too: `time_average` over `averaging_window` (0.40.0), and
+    sweep row, say so too: `time_average` over `averaging_window`, and
     never the sweep row's `last_step`, which describes the native export. The moment point
     follows the reference lengths, because the plots carry `MX_/MY_/MZ_` columns
     and a moment states nothing without the point it is about.
@@ -205,7 +205,7 @@ def write_unsteady_polar(
     ``frozen`` carries native-log freeze evidence by point name. An affected
     averaging window is left out with its reason, including on a recorded success.
 
-    THE AXIS COEFFICIENTS FOLLOW THE PLOTS (0.24.0), from the plot variables of the
+    THE AXIS COEFFICIENTS FOLLOW THE PLOTS, from the plot variables of the
     GLOBAL MRP frame: the six components ``FX .. MZ`` of each plot group
     ``axes_groups`` names, which the caller reads off the pproc artifact (a plot's
     column states its group's NAME and never its frame, so the frame cannot be
@@ -480,7 +480,7 @@ def global_frame_plot_groups(
     A group counts when its frame is `MRP` and the artifact plots all of
     ``FX, FY, FZ, MX, MY, MZ``. Where the artifact declares none, the run adds one of
     its own over every boundary (:data:`pyflightstream.cases.AXES_PLOT_GROUP`), so
-    that name is what is looked for; a run made before 0.24.0 has no such columns
+    that name is what is looked for; a run without that group has no such columns
     and its polar says so. A template also suppresses that automatic group, but
     its unresolved names cannot supply an axes block; that block is a named skip.
 

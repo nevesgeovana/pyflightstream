@@ -10,7 +10,7 @@ displacement file back for the solver to deform the mesh. All exchange
 happens in the rotating blade frames; this package never handles
 azimuth or global-frame transforms (FSI-R02).
 
-Since 0.30.0 the same executable couples a fixed wing, one clamped
+the same executable couples a fixed wing, one clamped
 beam in the reference frame loaded by its own weight besides the
 aerodynamic loads (:mod:`pyflightstream.fsi.wing`).
 

@@ -16,15 +16,8 @@ geometry file (applied to each case's ``geometry``). Plain conversion
 never needs the library; resolution applies only when the matrix is
 about to be planned or run.
 
-THE GEOMETRY ARRIVED LAST AND IT IS WHY 0.8.1 EXISTS. The run layer had
-always done its half: :func:`pyflightstream.run._campaign._prepare_case` stages
-:attr:`pyflightstream.cases.SimCase.geometry`, hashes it into the
-record, and rewrites the field to the STAGED path before the builder is
-called. Nothing ever ASSIGNED that field from a matrix, so a row could
-not name a geometry at all, the value was prepared and read by nobody,
-and a workflow rendered a script with no ``OPEN`` in it. The script ran,
-against whatever the solver happened to have open, and the numbers were
-wrong with nothing said (PFS-2025.02.01).
+Geometry is resolved alongside the reference, setup and post-processing inputs, so the run
+layer receives a complete bound case.
 
 This module exists because the reader used to do the binding itself and
 paid for it with imports deferred to call time, which recorded an
@@ -333,7 +326,7 @@ __all__ = [
 #:
 #: It is a VARIABLE and not a column of its own, deliberately: the
 #: published column layout is a format and widening it again is a
-#: BREAK, which 0.8.0 has already spent once (PFS-2025.01). A key in the
+#: BREAK, which the package has already spent once (PFS-2025.01). A key in the
 #: free cell costs no format change, so every matrix written before this
 #: release reads at the same width and resolves exactly as it did.
 
@@ -369,10 +362,10 @@ def _pol_claims(
 
     EVERY ROW, ACTIVE OR NOT (PFS-2031.21). A row with RUN = 0 today is
     flipped to 1 tomorrow, and its POL already names a simulation folder; the
-    census of 0.13.0 read active rows only and let a sibling's RUN = 0 row
+    census read active rows only and let a sibling's RUN = 0 row
     share a POL in silence. And WHEREVER THE MATRIX LIVES: the simulation
     folders are the workspace's, so a matrix planned from outside the root is
-    held to the matrices inside it, where 0.13.0 returned without looking.
+    held to the matrices inside it, where the package returned without looking.
 
     A sibling that cannot be read is named as the problem rather than skipped,
     because a check that skips what it cannot read accepts the collision it
@@ -418,8 +411,8 @@ def _refuse_a_repeated_pol(path: str | Path, workspace: CampaignWorkspace) -> No
     write into one folder and a resume of either would find the other's points
     already recorded.
 
-    ONE MESSAGE NAMES THEM ALL. 0.13.0 named the first collision and counted
-    the rest, so a workspace with four repeats took four plans to clear.
+    A collision report names every conflicting simulation and the matrices containing it, so the
+    user can resolve the complete conflict.
     """
     matrix = Path(path)
     mine, siblings = _pol_claims(path, workspace)

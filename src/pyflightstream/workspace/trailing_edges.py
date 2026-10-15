@@ -181,7 +181,7 @@ class TrailingEdge:
     def write_node_file(self, path: str | Path, *, unit: str, overwrite: bool = False) -> Path:
         """Refuse: a list of section vertices marks nothing.
 
-        This wrote the extraction's vertices as the node list until 0.27.0.
+        This wrote the extraction's vertices as the node list in legacy releases.
         The wake-edge import matches an edge by its MID-POINT, and a file of
         the edges' end vertices marks nothing, in silence (RPT-061); the
         vertices here are one per section, not even consecutive mesh

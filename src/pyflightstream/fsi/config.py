@@ -52,7 +52,7 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 #: THE MORPHING ROUTES OF A COUPLED RUN (FR-341, route C), the values of
-#: :attr:`FsiConfig.morphing`. ``mapped`` is every route before 0.37.0: the
+#: :attr:`FsiConfig.morphing`. ``mapped`` is every route in legacy releases: the
 #: script imports the structural nodes and the solver interpolates the
 #: displacements written at them onto the surface. ``direct`` is the solver's
 #: direct mesh morphing with RIGID aerodynamic nodes: the solver writes the
@@ -602,14 +602,14 @@ class FsiConfig(BaseModel):
         imported into FlightStream, keeping a single source of truth
         for the FSIDisp ordering (FSI-R14).
     wing : FixedWing or None
-        The fixed wing this structure is (FSI-G of 0.30.0): its placement
+        The fixed wing this structure is (FSI-G): its placement
         in the reference frame and its own weight. None for a rotor blade,
         and then it is not serialised, for the reason given for
         ``BladeProperties.provenance``. A wing states ``omega_rad_per_s =
         0`` and ``blade_count = 1``.
     morphing : str
         How the solver moves the surface (FR-341): ``"mapped"`` (the
-        default, every release before 0.37.0) through the imported
+        default) through the imported
         structural nodes, or ``"direct"``, the solver's direct mesh morphing
         with RIGID aerodynamic nodes, where the structural program writes one
         displacement per surface vertex the solver lists. ``"direct"`` is
@@ -700,7 +700,7 @@ class FsiConfig(BaseModel):
     def _a_wing_does_not_turn(self) -> "FsiConfig":
         """Refuse a fixed wing that turns or holds a second structure.
 
-        The rule of 0.30.0: a wing at rest has no centrifugal
+        The rule: a wing at rest has no centrifugal
         load, it has its weight. A wing configuration stating a speed would
         hand the solve a centrifugal term it must not have, so it is
         refused here, where the configuration is read, and never reaches
@@ -828,8 +828,8 @@ def config_sha256(cfg: FsiConfig) -> str:
     ``outputs_sha256`` do: a reader meeting the value in a
     ``state.json`` or in a convergence-log row can tell what it is
     without opening this module, and the day the algorithm moves the
-    data can say so. Renamed at 0.8.0 off a name that said only "hash";
-    the persisted state still ACCEPTS the pre-0.8.0 key on load, and
+    data can say so. Renamed off a name that said only "hash";
+    the persisted state still ACCEPTS the legacy key on load, and
     :class:`pyflightstream.fsi.state.FsiState` is the one place that
     spells it, so the retired name has exactly one home.
 

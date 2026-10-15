@@ -762,7 +762,7 @@ def solver_settings(
       of 2026-07-22, retiring the earlier reference-velocity
       workaround); pass the flag to override. A re-emission call that
       omits it leaves the limiter already in the script as it is, where
-      before 0.40.0 it wrote -100 over an earlier explicit value. The physics references
+      in legacy releases it wrote -100 over an earlier explicit value. The physics references
       were re-validated under this default, 30 of 30 metrics
       bit-identical (report
       PHY-26120_2026-07-23_reseed-cp100-2026-07-23). On a
@@ -1261,11 +1261,10 @@ def analysis_setup(
     loads_frame : int or str, optional
         Coordinate system for evaluating loads and moments; index 1 is
         the reference frame, and created frames may be cited by their
-        creation label. Init phase since v0.27.0: set after
+        creation label. Init phase: set after
         START_SOLVER it reached the final export only (RPT-064).
     moments_model : str, optional
-        ``PRESSURE`` (solver default) or ``VORTICITY``. Init phase since
-        v0.27.0, with the loads frame.
+        ``PRESSURE`` (solver default) or ``VORTICITY``. Init phase with the loads frame.
     symmetry_loads : bool or 'ENABLE' or 'DISABLE', optional
         Include symmetry boundary loads; relevant to half-model runs.
     load_units : str, optional
@@ -1280,7 +1279,7 @@ def analysis_setup(
     inviscid_only : bool or 'ENABLE' or 'DISABLE', optional
         Restrict the analysis to inviscid loads and moments.
     vorticity_drag_boundaries : sequence of int or str, ``"all"``, or None
-        Deprecated here since v0.3.0: the induced-drag boundary
+        Deprecated here: the induced-drag boundary
         selection belongs to :func:`solver_settings` and leaves
         analysis_setup at v1.0.0, the release the ledger entry
         ``ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES`` records
@@ -2090,7 +2089,7 @@ def rotate_surfaces(
         :meth:`~pyflightstream.script.Script.emit_after_initialization`, on a
         solver already initialised, which must then be initialised again
         before it starts. The quasi-steady rotor clocks its wheel this way
-        between two steady solves (0.30.0).
+        between two steady solves.
 
     Raises
     ------

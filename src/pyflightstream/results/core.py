@@ -19,7 +19,7 @@ none of them, so the package root is a facade over leaves and no module of
 the layer imports the root.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.results`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+its path (AD-11).
 """
 
 from __future__ import annotations
@@ -510,8 +510,8 @@ DATA_ORIGIN_CODES: dict[str, int] = {"raw": 0, "reduced": 1}
 #: Which reduction produced them, on the same append-only rule.
 #: ``none`` is a direct integration the solver printed, ``time_average`` is
 #: an average over a window, ``unknown`` is a row whose mode was never
-#: printed at all, and ``last_step`` (0.40.0) is an unsteady export, which
-#: states the last time step only. Since 0.40.0 no solver export is stamped
+#: printed at all, and ``last_step`` is an unsteady export, which
+#: states the last time step only. No solver export is stamped
 #: ``time_average``; the unsteady polar's averaged row is, because the
 #: package averaged it over its window (``averaging_window`` below), and a
 #: file written before carries it on an unsteady export. ``unknown`` is
@@ -529,16 +529,16 @@ REDUCTION_CODES: dict[str, int] = {"none": 0, "time_average": 1, "unknown": 2, "
 #: integration, which averages over nothing. ``not_printed`` is an
 #: average the SOLVER took: the loads spreadsheet prints a solver mode
 #: and an iteration counter and no averaging window, so this package does
-#: not know the window and says so; nothing writes it since 0.40.0.
+#: not know the window and says so; nothing writes it.
 #: ``unknown`` is a row whose mode was
 #: never printed at all, so whether anything was averaged is itself
 #: unknown; it exists because mapping that row to ``not_printed`` would
 #: assert an average that may never have happened, which is the same
 #: false assertion :data:`REDUCTION_CODES` refuses for ``none``.
-#: ``last_time_step`` (0.40.0) goes with ``last_step``: the unsteady export
+#: ``last_time_step`` goes with ``last_step``: the unsteady export
 #: states the instant of the run's last time step, a window of one step.
 #:
-#: ``averaging_window`` (0.40.0) is the first token for a window THIS
+#: ``averaging_window`` is the first token for a window THIS
 #: PACKAGE computed: the averaging window of the definition of record
 #: (docs/definitions/the-averaging-window.md), whose bounds the same row
 #: states in ``FIRST_STEP``, ``LAST_STEP`` and ``STEPS``. It goes with
@@ -562,7 +562,7 @@ REDUCTION_COLUMN = "reduction"
 REDUCTION_WINDOW_COLUMN = "reduction_window"
 
 #: All three together, in the order they are written. The ARITY is data
-#: rather than a promise: it went from two to three at 0.8.0, and a
+#: rather than a promise: it went from two to three, and a
 #: consumer that unpacked the pair broke silently on the widening.
 PROVENANCE_COLUMNS: tuple[str, ...] = (
     DATA_ORIGIN_COLUMN,
@@ -598,7 +598,7 @@ def window_for_reduction(reduction: str) -> str:
     -----
     ``time_average`` maps to ``not_printed`` rather than to a window,
     because such an average would be the solver's and the spreadsheet
-    does not describe it; it is kept for files written before 0.40.0.
+    does not describe it; it is kept for files written in legacy releases.
     ``last_step`` maps to ``last_time_step``, the instant an unsteady
     export states. ``unknown`` maps to ``unknown``: a row whose solver
     mode never printed cannot be said to have been averaged at all.
@@ -713,7 +713,7 @@ def reduction_for_solver_mode(printed: str | None) -> str:
     -----
     An unsteady export states the last time step only, one instant of a
     cycle (docs/definitions/the-unsteady-polar.md); it was labelled
-    ``time_average`` until 0.40.0, a solver average no package run asks
+    ``time_average`` in legacy releases, a solver average no package run asks
     for.
     """
     if printed is None:

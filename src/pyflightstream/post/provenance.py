@@ -46,7 +46,7 @@ __all__ = [
 #: written, under the matrix's own post folder: ``archive/<day and hour>/``.
 #: One folder per rebuild, so a rebuild is one thing a reader can look at.
 #:
-#: BOTH NAMES MOVED DOWN TO THE NAMING MODULE AT 0.18.0 and are re-exported
+#: BOTH NAMES MOVED DOWN TO THE NAMING MODULE and are re-exported
 #: here under the spellings this layer has always used. A continuation
 #: archives a DATAPOINT under the same stamp, and the workspace layer cannot
 #: import from post: dependencies flow downward. A second copy of the format
@@ -218,7 +218,7 @@ def point_name_of(record: RunRecord) -> str | None:
     wrote, and that file's stem IS the convention every other generated
     file of the point carries. A record whose script is not named the way
     this package writes one answers None, and the caller keeps the run
-    id, which is what every document was named before 0.16.0.
+    id, which is what every document was named in legacy releases.
 
     Parameters
     ----------
@@ -246,7 +246,7 @@ def provenance_file_name(run_id: str, *, point_name: str | None = None) -> str:
     is the convention the script and every export of the same point carry
     and what lets a reader sort ``scripts/`` and ``provenance/`` side by
     side. ``<run id with '/' replaced by '_'>.prov.json`` otherwise, which
-    is what every document was named before 0.16.0.
+    is what every document was named in legacy releases.
 
     NOTHING RENAMES A RUN. The run id is unchanged: it keys the products
     manifest and it is a field inside the document, under
@@ -580,7 +580,7 @@ def run_provenance(
     is archived by default. With ``archive=False``, replacing it requires
     ``overwrite=True`` and keeps no copy; otherwise it is refused.
 
-    With ``sims`` (0.33.0, FR-307, ``post --sims``) only the records of those
+    With ``sims`` (FR-307, ``post --sims``) only the records of those
     simulations are written and returned; the names are still measured over
     every record given, so each document keeps the name a whole post gives it.
 

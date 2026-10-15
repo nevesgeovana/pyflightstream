@@ -1,18 +1,13 @@
-"""The ONE resolver of the averaging window, for the plan and for the post stage (0.24.0).
+"""The ONE resolver of the averaging window, for the plan and for the post stage.
 
 The window of an unsteady point is a MATRIX input: ``LAST_REVS_AVG`` on a row
 that turns a rotor, ``LAST_ITERS_AVG`` on one that does not. It is stated once
 and every unsteady product of the point is cut from it: the polar, the time
 average, the per-blade table, the phase-locked passages, the rotor table.
 
-Until 0.24.0 the arithmetic lived in three places. The plan derived the windows
-when the point EXECUTED and froze them into the run record; the post stage
-re-derived ONE of them, the polar's, from the matrix; and the reductions beside
-it kept reading the frozen ones. So an edit to the window moved the polar and
-left its neighbours behind, in one folder, with a manifest calling both "the
-row's window". A post-processing choice never needs a
-solver re-run, so the derivation has to be callable from BOTH sides, and it has
-to be the same code.
+The plan and post stage use the same window resolver. A post-processing choice does not
+require a solver rerun; all reductions must derive their windows consistently from the
+selected inputs.
 
 It lives in ``cases`` because ``post`` may import ``cases`` and never the
 reverse. It reads a mapping of row variables and a recorded plan and nothing
@@ -514,7 +509,7 @@ def replan(
 def march_end(plan: Mapping[str, object] | None, *, last_step: int) -> dict[str, object] | None:
     """Return the recorded ``plan`` with every window moved to end at ``last_step``.
 
-    A CONTINUATION RECORDS THE ROW'S CLOCK (FR-96, 0.33.0): its plan states the
+    A CONTINUATION RECORDS THE ROW'S CLOCK (FR-96): its plan states the
     row's ``time_iterations``, which is the last step of the run it continues
     and not of the march it extends. Every window here is the LAST part of the
     run (``LAST_REVS_AVG``, ``LAST_ITERS_AVG``, the last revolution, the passages

@@ -10,7 +10,7 @@ live as package data in ``qa/references/`` and change only through
 :func:`update_reference`, which demands a reason string; a reference
 update never shares a commit with code changes (SAD Section 11).
 
-WHERE THE CASES ARE STATED, since 0.13.0 (PFS-2031.17, the design decision B of
+WHERE THE CASES ARE STATED, (PFS-2031.17, the design decision B of
 2026-09-08 in design study 66): as rows of a run matrix in a campaign
 workspace, built by the package's own workflows, and nowhere in Python.
 ``tests/tier3_licensed/matriz_physics.fs`` states them: row 5001 is
@@ -19,7 +19,7 @@ row's preset written to emit exactly the lines the hand-built script
 emitted. :mod:`pyflightstream.qa.matrix` is the driver that runs that
 matrix through the run layer, reduces the records with the functions
 here and writes the report; ``pyfs-qa physics --workspace <root>`` is
-its command line. Until 0.13.0 this module built every case as a script
+its command line. in legacy releases this module built every case as a script
 in Python (``build_phy01_script`` and its siblings) and ran it itself;
 those builders retired with the decision, because two builders of one
 case drift apart and the diff of their scripts was the only thing that
@@ -41,7 +41,7 @@ PHY-06 is the time march of the static wing against its own steady polar.
 The SMI class (FR-27) is the local-only pair over the research
 simulation files, whose geometry never enters Git (CONTRIBUTING.md
 invariant 5). It keeps its script builder, its metric specifications and
-its references here, and has no runner since 0.13.0: it runs again when
+its references here, and has no runner: it runs again when
 it is a row of a private workspace, which is the next release's work.
 """
 
@@ -388,7 +388,7 @@ def _induced_name(total: Mapping[str, float]) -> str:
     return next((pair[0] for pair in DRAG_PAIRS if pair[0] in total), DRAG_PAIRS[0][0])
 
 
-#: Names 0.13.0 removed from this module (PFS-2031.17, the CHANGELOG entry
+#: Names the package removed from this module (PFS-2031.17, the CHANGELOG entry
 #: marks them BREAKS): each ran the physics cases through a recipe path
 #: that no longer exists, so no shim could answer for them. An import
 #: of one is refused with the release and the call that replaced it,
@@ -504,7 +504,7 @@ def phy05_metrics(point: PointResult) -> dict[str, float]:
     steps: the blade sector's lift (near zero, the loads balance around
     the disc), the axial force coefficient (negative, a net thrust), the
     viscous drag and the pitching moment. The tier-3 test carried this
-    selection inline until 0.13.0; it lives here so the driver and the
+    selection inline in legacy releases; it lives here so the driver and the
     test reduce the same way.
 
     Parameters
@@ -592,7 +592,7 @@ class PhysicsCase:
         Declared metrics with the default bands used at reference
         seeding time.
 
-        NO RUNNER, since 0.13.0. The entry used to carry the callable
+        NO RUNNER. The entry used to carry the callable
         that built and ran the case's scripts; a case is a row of the
         workspace matrix now, and :mod:`pyflightstream.qa.matrix` maps
         the row to the reduction by the case id the row's DESCRIPTION

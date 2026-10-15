@@ -1,4 +1,4 @@
-"""The streamline products of a point (FR-1083, 0.40.0).
+"""The streamline products of a point (FR-1083).
 
 A point whose pproc states ``[streamlines]`` leaves the solver's own export
 files, collected and hashed in its run record: ``<point>_slo.txt`` for the

@@ -15,7 +15,7 @@ It also holds the TOML reader of the input library's artifact files, which
 the artifact resolvers and the HPC profile reader share.
 
 Every public name is re-exported, unchanged, by :mod:`pyflightstream.workspace.inputs`,
-its path of 0.32.0 (AD-11, since 0.33.0).
+its path (AD-11).
 """
 
 from __future__ import annotations
@@ -111,7 +111,7 @@ INVENTORY_SUFFIX = ".boundaries.toml"
 PROVENANCE_SUFFIX = ".provenance.toml"
 #: The files that belong to a geometry and are never geometries themselves:
 #: the resolver leaves them out of what a cell could name and the layout
-#: migration moves them with their geometry (PFS-2032.05). Since 0.40.0 the
+#: migration moves them with their geometry (PFS-2032.05). the
 #: geometry stage's instruction and build record are two of them (FR-470, FR-471).
 SIDECAR_SUFFIXES = (INVENTORY_SUFFIX, PROVENANCE_SUFFIX, INSTRUCTION_SUFFIX, BUILD_RECORD_SUFFIX)
 #: The page ``init`` leaves in the geometry library saying where a mesh goes
@@ -142,13 +142,8 @@ def inventory_sidecar(geometry: str | Path) -> Path:
 def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     """Write ``<stem>.boundaries.toml`` beside a saved simulation.
 
-    THE ORDER IS READ, NEVER STATED (PFS-2029.06.02). Until 0.11.0 a
-    setup preset could carry ``mesh_order_list``, an order typed by hand
-    for one mesh into a file several meshes shared, and nothing checked
-    it against any of them. The sidecar is produced from the mesh block
-    of the file it sits beside, and a run whose sidecar disagrees with
-    the file is refused before the solver starts (:func:`read_inventory`
-    and the workflow builder), so the two cannot drift apart silently.
+    The surface order is read from the geometry (PFS-2029.06.02). A sidecar supplies declarations
+    by name; it does not override the order that the solver assigns to the imported surfaces.
 
     AN OBJ IS READ FROM ITS GROUPS (G30). It carries no mesh block, and
     its sidecar is written through :func:`ensure_inventory`, the function
@@ -834,7 +829,7 @@ RAW_MESH_CONDITION_TABLES = (TRAILING_EDGES_TABLE, WAKE_TERMINATION_TABLE, BASE_
 DETECT_EVERYWHERE = "auto"
 
 #: WHAT A GEOMETRY'S SIDECAR MAY HOLD AT ITS TOP LEVEL, each with what it
-#: sets, for the generated input glossary ``INPUTS.md`` (G08 of 0.27.0). The
+#: sets, for the generated input glossary ``INPUTS.md`` (G08). The
 #: tables' own keys are in the registries below, which are the ones their
 #: readers read, so a key a reader gains is a key the glossary states.
 GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {

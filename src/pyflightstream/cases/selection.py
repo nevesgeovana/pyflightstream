@@ -1,12 +1,11 @@
-"""The selection of families and aliases: which surfaces an entry names (0.34.0).
+"""The selection of families and aliases: which surfaces an entry names.
 
 Pipeline role: reads a selector word, an alias of the setup or a family name
 against a row's inventory. :func:`select_families` expands the selectors,
 :func:`resolve_alias` and :data:`BoundaryAliases` resolve the setup's aliases,
 and :func:`select_group_members` lists the members of a plot or loads group.
 
-The cut of AD-16 (0.34.0) moved these functions out of the package root, which
-re-exports every one of them. This module reads its errors from
+The package root re-exports these functions (AD-16). This module reads its errors from
 :mod:`pyflightstream.cases.reference_blocks` and never imports the package root.
 """
 
@@ -46,7 +45,7 @@ _SELECTORS_THAT_GUESS = {
 
 
 def warn_a_selector_that_guesses(word: str) -> NoReturn:
-    """Refuse a families selector deciding what a blade is: refused since 0.15.0.
+    """Refuse a families selector that decides what a blade is.
 
     The name is the one it was published under, when the selector still
     warned; it has refused since, and it never returns.
@@ -119,7 +118,7 @@ def select_families(
     bare string and as a list member. So an exact boundary wins over an
     alias of the same spelling, and ``airframe`` and ``blades`` are the
     setup's own where it defines them and refused as selectors where it
-    does not (since 0.15.0).
+    does not.
 
     Parameters
     ----------

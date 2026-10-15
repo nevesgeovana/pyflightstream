@@ -163,7 +163,7 @@ class ProductArgumentError(PyflightstreamError, TypeError):
     An argument misuse and not a datum, so the standard-library base is
     TypeError and not ValueError: `except TypeError` catches it exactly as it
     caught the bare raise this replaced. Beside ProductError below because the
-    same two layers name both (0.25.0, the `step=` / `iteration=` deprecation
+    same two layers name both (the `step=` / `iteration=` deprecation
     of `write_sections_table`).
     """
 
@@ -202,7 +202,7 @@ class FsiInputError(PyflightstreamError, ValueError):
     caught before; what changes is that ``except PyflightstreamError``
     now catches it too.
 
-    Defined here since 0.33.0 (AD-10) because TWO LAYERS name it: the
+    Defined here (AD-10) because TWO LAYERS name it: the
     coupling (``fsi``) and the sectional loads parser of the results row,
     which moved there so the results row imports nothing of ``fsi``. Import
     it from :mod:`pyflightstream.fsi.errors` or the catalog, as before.
@@ -210,15 +210,11 @@ class FsiInputError(PyflightstreamError, ValueError):
 
 
 class ContractNotImplementedError(PyflightstreamError, NotImplementedError):
-    """A 0.32.0 contract function whose body its work package has not filled yet.
+    """A contract function whose body its work package has not filled yet.
 
-    Defined here because FOUR LAYERS name it (``run``, ``cases``, ``post`` and
-    the floor): the 0.32.0 preparation step laid down each new module with its
-    public signatures first, so the packages built in parallel code against a
-    fixed contract, and every body not yet written refuses with this class and
-    the words "not implemented yet (0.32.0 contract)". The standard-library
-    base is NotImplementedError, a RuntimeError, so ``except RuntimeError``
-    catches it too.
+    Defined here because ``run``, ``cases``, ``post`` and floor modules use this exception for
+    unimplemented contracts. Its standard-library base is NotImplementedError, a RuntimeError,
+    so ``except RuntimeError`` catches it too.
     """
 
 

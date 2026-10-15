@@ -1,4 +1,4 @@
-"""The names of a point and of a sweep: the identity a run carries (0.34.0).
+"""The names of a point and of a sweep: the identity a run carries.
 
 Pipeline role: turns a case's flight condition into the name that ends its
 ``run_id``, names its datapoint folder and stems every file it writes
@@ -6,8 +6,7 @@ Pipeline role: turns a case's flight condition into the name that ends its
 :data:`POINT_NAME_FIELDS`), and owns the one-sweep-per-case rule
 (:func:`multiplied_sweep`).
 
-The cut of AD-16 (0.34.0) moved these functions out of the package root, which
-re-exports every one of them. They read a case and a sweep through the
+The package root re-exports these functions (AD-16). They read a case and a sweep through the
 attributes they use, stated as two protocols, so this module never imports the
 package root that defines :class:`~pyflightstream.cases.SimCase` and
 :class:`~pyflightstream.cases.SweepAxis`.
@@ -65,7 +64,7 @@ ROTATION_SWEEP_KEY = "angle_sweep_deg"
 
 @dataclass(frozen=True)
 class NameField:
-    """How one flight-condition variable is written in a point name (0.21.0).
+    """How one flight-condition variable is written in a point name.
 
     ``code`` then the value times ``scale``, rounded, zero-padded to
     ``width`` characters; a signed field counts its sign in the width.
@@ -123,7 +122,7 @@ POINT_NAME_FIELDS: dict[str, NameField] = {
 #: The point axes, by the name a sweep point uses, and the FLIGHT_CONDITION key
 #: each one is. THE THREE HISTORICAL AXES KEEP THEIR LOWER-CASE NAMES, which
 #: every manifest, product table and point mapping ever written here carries;
-#: the variables that became sweepable at 0.21.0 are named by their cell key,
+#: the sweepable variables are named by their cell key,
 #: so a reader of a row and a reader of a point read one vocabulary.
 #:
 #: THE ORDER IS THE NAME'S FALLBACK ORDER, used by a case with no cell: the
@@ -343,7 +342,7 @@ def _name_value(case: _NamedCase, point: Mapping[str, float], key: str) -> float
 
 
 def point_name(case: _NamedCase, point: Mapping[str, float]) -> str:
-    """Return the name of one point of a case: its identity, folder and file stem (0.21.0).
+    """Return the name of one point of a case: its identity, folder and file stem.
 
     Every variable the row's FLIGHT_CONDITION declares, in the order the row
     declares them, written as :data:`POINT_NAME_FIELDS` says, with the point's

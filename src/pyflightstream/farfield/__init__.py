@@ -11,7 +11,7 @@ step reads the exports, turns the vectors and calls this core.
 
 The equations are those of the definitions page, The far-field family. The
 names ``lattice_dataset``, ``rothalpy`` and ``irreversible_deficit`` were
-removed in 0.40.0 and refuse, naming what replaced them (FR-457, FR-458).
+removed and refuse, naming what replaced them (FR-457, FR-458).
 """
 
 from __future__ import annotations
@@ -125,7 +125,7 @@ __all__ = [
 
 
 def __getattr__(name: str) -> object:
-    """Refuse the names retired in 0.40.0, naming what replaced them."""
+    """Refuse the names retired, naming what replaced them."""
     entry = retired_attribute(__name__, name)
     if entry is not None:
         raise RetiredAttributeError(entry.message())

@@ -12,7 +12,7 @@ nothing is `broken`, not `verified`;
 ``reports/compat/`` and promotes database statuses from it. Tier 3 is
 here as well: the physics judge, reductions and references
 (:mod:`pyflightstream.qa.physics`), the version-comparison drift diff
-(:mod:`pyflightstream.qa.drift`), and since 0.13.0 the driver that reads
+(:mod:`pyflightstream.qa.drift`), and the driver that reads
 both out of a campaign workspace (:mod:`pyflightstream.qa.matrix`): the
 cases are rows of the workspace's physics matrix, run through the run
 layer over the workspace's synthetic library, so no research geometry is
@@ -23,7 +23,7 @@ a licensed seat is spent rather than after. The ``pyfs-qa`` CLI
 (:mod:`pyflightstream.qa.cli`) drives all three.
 
 The probe specification catalog (:mod:`pyflightstream.qa.specs`) is cut
-since 0.34.0 into private modules that register into one shared table:
+into private modules that register into one shared table:
 ``qa._spec_kit`` holds the instruments and the registry,
 ``qa._spec_catalog_b``, ``qa._spec_ccs_noise``, ``qa._spec_ccs_mesh`` and
 ``qa._spec_t1`` hold the entries, and ``qa.specs`` imports them all and
@@ -33,7 +33,7 @@ One member of this package spends no seat at all and reads no report:
 :mod:`pyflightstream.qa.cost` builds the wall-time cost view from
 campaign manifests alone, points down and solver builds across, so a
 build that got slower on the same points can be shown. FR-19 has
-recorded the field since the v0.3 line; this is what reads it.
+recorded the field; this is what reads it.
 """
 
 # ``qa.matrix`` (the physics driver over a campaign workspace, PFS-2031.17)

@@ -1,4 +1,4 @@
-"""The quasi-steady inflow tools: frame change and the blade-view harmonics (0.32.0).
+"""The quasi-steady inflow tools: frame change and the blade-view harmonics.
 
 Pipeline role: the post row, where recorded exports become products.
 It holds the inflow tools beyond the field operations of

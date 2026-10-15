@@ -5,8 +5,11 @@ The base exposes a deferred dependency, release narration and duplicate navigati
 """
 
 import ast
+import io
+import json
 import re
 import sys
+import tokenize
 from pathlib import Path
 
 import pytest
@@ -56,6 +59,52 @@ def api_docstrings(relative):
         if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
         if (doc := ast.get_docstring(node))
     )
+
+
+def reference_prose():
+    report = json.loads((ROOT / "lanes/docs-clean.json").read_text(encoding="utf-8"))
+    paths = sorted({path for item in report["items"] for path in item.get("needed_files", [])})
+    for relative in paths:
+        path = ROOT / relative
+        if not relative.startswith("src/"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        if path.suffix == ".py":
+            text = (
+                api_docstrings(relative)
+                + "\n"
+                + "\n".join(
+                    token.string
+                    for token in tokenize.generate_tokens(io.StringIO(text).readline)
+                    if token.type == tokenize.COMMENT and token.string.startswith("#:")
+                )
+            )
+        elif path.suffix == ".yaml":
+
+            def descriptions(value):
+                if isinstance(value, dict):
+                    for key, child in value.items():
+                        if key in ("description", "note") and isinstance(child, str):
+                            yield child
+                        else:
+                            yield from descriptions(child)
+                elif isinstance(value, list):
+                    for child in value:
+                        yield from descriptions(child)
+
+            text = "\n".join(descriptions(yaml.safe_load(text)))
+        # Example record values and executable examples are data, not narration.
+        text = "\n".join(
+            line
+            for line in text.splitlines()
+            if not re.search(r">>>|\.\.\.|(?:package_version|schema_version)\s*[=:]", line)
+        )
+        yield relative, text
+
+
+def test_p0420_docs_clean_generated_release_narration():
+    failures = [path for path, text in reference_prose() if RELEASE.search(text)]
+    assert not failures, failures
 
 
 def test_p0420_docs_clean_release_narration():
