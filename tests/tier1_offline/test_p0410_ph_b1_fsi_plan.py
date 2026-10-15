@@ -270,11 +270,18 @@ def test_p0410_planar_grid_reaches_workspace_plan(tmp_path):
         [1.0, 0.0, 2.0],
         [1.0, 1.0, 2.0],
     ]
-    from pyflightstream.cases.workflows._farfield import planar_points
+    from tests.tier1_offline.test_regression_geometry_build_sweep import _GEOMETRY_BUILD__WING_FSM
 
-    saved = case.model_copy(update={"geometry": str(tmp_path / "wing.fsm")})
+    (tmp_path / "wing.fsm").write_bytes(_GEOMETRY_BUILD__WING_FSM.read_bytes())
+    saved = case.model_copy(
+        update={
+            "geometry": str(tmp_path / "wing.fsm"),
+            "mesh_import": None,
+            "raw_mesh_conditions": None,
+        }
+    )
     with pytest.raises(ValueError, match="wing.surface.stl") as refusal:
-        planar_points(saved, pproc.probes[0], 1.0)
+        workflow_registry()["steady"](saved, Script("26.124"))
     assert "pyflightstream.run.export_surface_mesh" in str(refusal.value)
     assert "pyfs-workspace geometry export-surface-mesh" in str(refusal.value)
     assert "Planning does not launch the solver." in str(refusal.value)
