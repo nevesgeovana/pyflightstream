@@ -1321,12 +1321,12 @@
  "one_home_allowlist": [],
  "facade_lines": {
   "__init__.py": 9,
-  "cases/__init__.py": 1057,
-  "commands/__init__.py": 814,
+  "cases/__init__.py": 1039,
+  "commands/__init__.py": 806,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
   "script/__init__.py": 1652,
-  "workspace/__init__.py": 2008
+  "workspace/__init__.py": 1993
  },
  "facade_definitions": {
   "fsi/__init__.py": [
