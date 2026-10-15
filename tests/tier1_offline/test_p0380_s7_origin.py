@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from tests.tier1_offline._docs_site import REQUIREMENTS_DIR, requirement_rows
+from tests.tier1_offline._docs_site import REQUIREMENTS_DIR, requirement_rows, requirements_text
 
 SRS = Path(__file__).resolve().parents[2] / REQUIREMENTS_DIR
 
 
-PAGES = ("functional-requirements.md", "nonfunctional-requirements.md")
+PAGES = ("all-registers",)
 
 
 _QUOTE = re.compile(r'"([^"]*)"')
@@ -32,7 +32,7 @@ _PROFILE = re.compile(r"[\\/]Users[\\/]|/home/[A-Za-z]|%USER" + r"PROFILE%|~[\\/
 
 def read_page(name: str) -> str:
     """Return a page of the SRS with CRLF line ends folded to LF."""
-    return (SRS / name).read_bytes().decode("utf-8").replace("\r\n", "\n")
+    return requirements_text(Path(__file__).resolve().parents[2])
 
 
 def violation(origin: str) -> str | None:

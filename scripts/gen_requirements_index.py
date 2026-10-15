@@ -24,7 +24,14 @@ from typing import cast
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _requirements_paths import REQUIREMENTS_DIR, requirement_files, requirement_rows  # noqa: E402
+from _requirements_paths import (  # noqa: E402
+    REQUIREMENTS_DIR,
+    requirement_files,
+    requirement_rows,
+)
+from _requirements_paths import (
+    requirement_pages as source_pages,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 SRS = REPO / REQUIREMENTS_DIR
@@ -59,6 +66,23 @@ KNOWN_STATUSES = ("implemented", "pending", "deferred", "deprecated")
 # Compact authored rows keep identity separate from generated outline placement.
 TABLE_HEADER = "| UID | Parent | Area | Status | Statement | Code | Test |"
 AREAS = (
+    "INST",
+    "DEXP",
+    "SPCM",
+    "PHYS",
+    "PROC",
+    "DRED",
+    "TRST",
+    "OPER",
+    "QFSU",
+    "QPEFF",
+    "QCOMP",
+    "QUSA",
+    "QREL",
+    "QSEC",
+    "QMNT",
+    "QFLX",
+    "QSAF",
     "CMDS",
     "SCRP",
     "CAMP",
@@ -87,9 +111,25 @@ def _table_rows(page: Path, text: str) -> list[dict[str, str]]:
         area = record.get("area", record.get("hid", "").partition("-")[0])
         status, statement = record["status"], record["statement"]
         code, test = record["code"], record["test"]
-        if area not in AREAS or not statement:
+        if "level" in record and status != "retired":
+            if (
+                not re.fullmatch(r"N?FR-\d+", uid)
+                or record["level"] not in {"L1", "L2", "L3"}
+                or record["verification_method"]
+                not in {"test", "analysis", "inspection", "demonstration"}
+            ):
+                raise MalformedRequirementPageError(f"{page.name}: {uid} invalid S2 attributes")
+            if record["level"] == "L1" and (
+                code != "-" or test != "-" or record["verification_method"] != "analysis"
+            ):
+                raise MalformedRequirementPageError(f"{page.name}: {uid} invalid L1 verification")
+        if (area not in AREAS and status != "retired") or not statement:
             raise MalformedRequirementPageError(f"{page.name}: invalid area/statement")
-        if status != "retired" and (":" not in code or "::" not in test):
+        if (
+            status != "retired"
+            and record.get("level") != "L1"
+            and (":" not in code or "::" not in test)
+        ):
             raise MalformedRequirementPageError(f"{page.name}: {uid} needs code and test anchors")
         rows.append(
             {
@@ -106,6 +146,12 @@ def _table_rows(page: Path, text: str) -> list[dict[str, str]]:
                 ),
                 "evidence": "" if test == "-" else test,
                 "hid": "",
+                **({"authored_hid": record["hid"]} if "level" in record else {}),
+                **(
+                    {key: record[key] for key in ("level", "rationale", "derives_from")}
+                    if "level" in record
+                    else {}
+                ),
             }
         )
     return rows
@@ -141,6 +187,11 @@ def _hierarchy(rows: list[dict[str, str]]) -> None:
 
     for row in rows:
         assign(row)
+        if row["status"] != "retired" and "authored_hid" in row:
+            if row["authored_hid"] != row["hid"] or row["level"] != f"L{row['hid'].count('.') + 1}":
+                raise MalformedRequirementPageError(
+                    f"{row['id']}: authored HID/Level differs from tree"
+                )
 
 
 class MalformedRequirementPageError(Exception):
@@ -246,9 +297,9 @@ def collect(srs_dir: Path) -> list[dict[str, str]]:
     problems: list[str] = []
     seen: dict[str, str] = {}
     compact: list[dict[str, str]] = []
-    for page in sorted(srs_dir.glob("*.md")):
+    for page in source_pages(srs_dir):
         text = page.read_text(encoding="utf-8")
-        if TABLE_HEADER in text:
+        if TABLE_HEADER in text or "| UID | Parent | HID |" in text:
             compact.extend(_table_rows(page, text))
             continue
         matches = list(BOX.finditer(text))
@@ -477,7 +528,7 @@ def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
 
     problems = []
     for row in entries:
-        if "hid" not in row or row["status"] == "retired":
+        if "hid" not in row or row["status"] == "retired" or row.get("level") == "L1":
             continue
         module, _, symbol = row["code"].partition(":")
         paths = [

@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.extras import EXTRAS, MissingExtraError, missing_extra
-from tests.tier1_offline._docs_site import NONFUNCTIONAL_REQUIREMENTS
+from tests.tier1_offline._docs_site import requirements_text
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -378,7 +378,7 @@ def test_the_requirement_that_calls_itself_the_home_of_record_names_the_shipped_
     """NFR-06 names exactly the shipped runtime dependency set."""
     from tests.tier1_offline._docs_site import requirement_rows
 
-    srs = (REPO / NONFUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
+    srs = requirements_text(REPO)
     statement = requirement_rows(srs)["NFR-06"][4]
     stated = {name.lower() for name in re.findall(r"`([^`]+)`", statement)}
     assert stated, "NFR-06 must explicitly name its runtime dependencies"

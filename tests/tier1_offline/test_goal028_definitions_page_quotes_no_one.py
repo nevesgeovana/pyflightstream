@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS
+from tests.tier1_offline._docs_site import requirement_files
 from tests.tier1_offline._workflow_docs import DEFINITION_DOCS
 
 PAGE = DEFINITION_DOCS
@@ -32,7 +32,7 @@ def test_source_and_srs_state_requirements_without_personal_attribution():
         for path in (root / "src").rglob("*")
         if path.is_file() and path.suffix in {".py", ".md", ".yaml"}
     )
-    paths.append(root / FUNCTIONAL_REQUIREMENTS)
+    paths.extend(requirement_files(root))
     pattern = re.compile(
         r"\b(she|her|hers)\b|\b(?:owner|author)['?]s\b|"
         r"\b(?:owner|author)\s+(?:asked|decided|requested|wanted|settled)\b|"

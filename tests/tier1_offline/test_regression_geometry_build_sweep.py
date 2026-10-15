@@ -81,7 +81,7 @@ from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.record_document import encode_rows
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from tests.tier1_offline._docs_site import (
-    FUNCTIONAL_REQUIREMENTS as _SWEEP_1_CONTRACTS__FUNCTIONAL_REQUIREMENTS,
+    requirements_text,
 )
 from tests.tier1_offline.test_matrix_run import RECIPES as _RFIXG_RECORD__RECIPES
 from tests.tier1_offline.test_matrix_run import make_library as _rfixg_record__make_library
@@ -1928,7 +1928,7 @@ class TestSweep1Contracts:
     )
     def test_p0400_doc_contracts(text_needed):
         """P0400-SWEEP-DOC-CONTRACTS: requirements state tag, cost and placeholder rules."""
-        text = _SWEEP_1_CONTRACTS__FUNCTIONAL_REQUIREMENTS.read_text(encoding="utf-8")
+        text = requirements_text(Path(__file__).resolve().parents[2])
         assert text_needed in text
         if text_needed == "6 significant digits":
             assert "Distinct exact factors can round to the same short tag" in text

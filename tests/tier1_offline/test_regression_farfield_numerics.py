@@ -2231,10 +2231,9 @@ class TestRfixAEvidence:
 
     @staticmethod
     def test_p0400_rfixa_signed_wake_requirement_matches_the_edge_fixture():
-        text = (
-            Path(__file__).resolve().parents[2]
-            / "docs/unpublished/requirements/functional-requirements.md"
-        ).read_text(encoding="utf-8")
+        from tests.tier1_offline._docs_site import requirements_text
+
+        text = requirements_text(Path(__file__).resolve().parents[2])
         from tests.tier1_offline._docs_site import requirement_rows
 
         row = requirement_rows(text)["FR-1024"]
@@ -2245,10 +2244,9 @@ class TestRfixAEvidence:
 
     @staticmethod
     def test_p0400_rfixa_ledger_verification_names_the_nonlinear_post_oracle():
-        text = (
-            Path(__file__).resolve().parents[2]
-            / "docs/unpublished/requirements/functional-requirements.md"
-        ).read_text(encoding="utf-8")
+        from tests.tier1_offline._docs_site import requirements_text
+
+        text = requirements_text(Path(__file__).resolve().parents[2])
         from tests.tier1_offline._docs_site import requirement_rows
 
         rows = requirement_rows(text)

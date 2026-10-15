@@ -17,6 +17,9 @@ INDEX = REPO / "reports" / "requirements-index.json"
 
 def _marked() -> dict[str, list[str]]:
     """Return {requirement id: [test names]} from the marker decorators."""
+    from scripts._requirements_paths import migrated_uids
+
+    aliases = migrated_uids(REPO)
     found: dict[str, list[str]] = {}
     for path in sorted(TESTS.rglob("test_*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -35,7 +38,7 @@ def _marked() -> dict[str, list[str]]:
                     continue
                 for argument in decorator.args:
                     if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
-                        found.setdefault(argument.value, []).append(
+                        found.setdefault(aliases.get(argument.value, argument.value), []).append(
                             f"{path.relative_to(REPO).as_posix()}::{node.name}"
                         )
     return found

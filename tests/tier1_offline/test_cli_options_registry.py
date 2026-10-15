@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.options import option_context
-from tests.tier1_offline._docs_site import FUNCTIONAL_REQUIREMENTS, requirement_rows
+from tests.tier1_offline._docs_site import requirement_rows, requirements_text
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -892,7 +892,7 @@ def test_the_allowlist_names_only_options_that_exist():
 
 def test_the_registry_requirement_says_command_line_option():
     """The SRS sentence this test holds the scripts to (design/68, PFS-2022.06)."""
-    text = (REPO / FUNCTIONAL_REQUIREMENTS).read_text(encoding="utf-8")
+    text = requirements_text(REPO)
     statement = requirement_rows(text)["FR-40"][4]
     assert "every command-line option" in statement.lower(), (
         "FR-40 no longer says 'every command-line option'; this test enforces that sentence"

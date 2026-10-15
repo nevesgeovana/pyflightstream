@@ -6,6 +6,7 @@ their index are kept in the repository but off the published site, in
 location from here, so a later move changes one file.
 """
 
+import csv
 import re
 from pathlib import Path
 
@@ -50,6 +51,14 @@ def requirement_files(root: Path) -> tuple[Path, ...]:
     return (root / FUNCTIONAL_REQUIREMENTS, root / NONFUNCTIONAL_REQUIREMENTS)
 
 
+def requirement_pages(directory: Path) -> tuple[Path, ...]:
+    """Select the declared stage set, or historical pages for snapshot readers."""
+    current = tuple(directory / path.name for path in REQUIREMENT_FILES)
+    if any(path.exists() for path in current):
+        return current
+    return tuple(sorted(directory.glob("*.md")))
+
+
 def requirement_rows(text: str, path: str = "<text>") -> list[dict[str, str]]:
     """Read authored Markdown tables; reject malformed rows instead of dropping them.
 
@@ -90,6 +99,24 @@ def read_requirements(root: Path, *, live_only: bool = False) -> list[dict[str, 
     if len({row["uid"] for row in rows}) != len(rows):
         raise ValueError("duplicate requirement UID")
     return [row for row in rows if not live_only or row["status"] != "retired"]
+
+
+def requirements_text(root: Path) -> str:
+    """Read all authored sources for consumers that inspect prose and anchors."""
+    return "\n".join(path.read_text(encoding="utf-8") for path in requirement_files(root))
+
+
+def migrated_uids(root: Path) -> dict[str, str]:
+    """Resolve explicitly merged historical citations to their permanent targets."""
+    path = root / "docs/srs/uid-migration.csv"
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8") as source:
+        return {
+            row["uid"]: row["target"]
+            for row in csv.DictReader(source)
+            if row["destination"] == "merged" and row["target"]
+        }
 
 
 def absolute(root: Path, relative: Path) -> Path:

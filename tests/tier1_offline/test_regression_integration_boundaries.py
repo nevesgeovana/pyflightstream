@@ -541,7 +541,9 @@ class TestRfixBParity:
     def test_p0400_rfixb_parity_contract_names_only_the_sign_exception():
         """P0400-RFIXB-PARITY: FR-457 records the exception, platform and unverified outcome."""
         root = Path(__file__).resolve().parents[2]
-        text = (root / "docs/unpublished/requirements/functional-requirements.md").read_text()
+        from tests.tier1_offline._docs_site import requirements_text
+
+        text = requirements_text(root)
         from tests.tier1_offline._docs_site import requirement_rows
 
         row = requirement_rows(text)["FR-1064"]

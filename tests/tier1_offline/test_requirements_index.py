@@ -23,6 +23,191 @@ WORKSPACE_STATEMENT = (
 )
 
 
+def historical_requirements():
+    """Read the frozen migration population through the shared table parser."""
+    from scripts._requirements_paths import requirement_rows
+
+    historical = []
+    for name in ("functional-requirements", "nonfunctional-requirements"):
+        text = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(REPO),
+                "show",
+                f"6bad1dac664ef7b0959e683749f4b1f437af6033:docs/unpublished/requirements/{name}.md",
+            ],
+            encoding="utf-8",
+        )
+        historical.extend(requirement_rows(text))
+    return historical
+
+
+def test_p0420_stage_migration_preserves_historical_statements():
+    """P0420: every live historical row survives, with only approved UID changes."""
+    import csv
+
+    from scripts._requirements_paths import read_requirements
+
+    migration_path = REPO / "docs/srs/uid-migration.csv"
+    assert migration_path.exists(), "historical UID migration is missing"
+    migration = {r["uid"]: r for r in csv.DictReader(migration_path.open(encoding="utf-8"))}
+    current = {r["uid"]: r for r in read_requirements(REPO)}
+    historical = historical_requirements()
+    live = [r for r in historical if r["status"] != "retired"]
+    assert set(migration) == {r["uid"] for r in live}
+    lettered = [r["uid"] for r in live if r["uid"][-1].isalpha()]
+    expected = dict(
+        zip(
+            lettered,
+            [f"FR-{n}" for n in range(1204, 1225)] + [f"NFR-{n}" for n in range(50, 54)],
+            strict=True,
+        )
+    )
+    reserved = json.loads((REPO / "docs/srs/reserved-ids.json").read_text())["reserved_ids"]
+    assert len(reserved) == len(set(reserved))
+    assert set(reserved) == set(lettered) | {
+        r["uid"] for r in historical if r["status"] == "retired"
+    }
+    for old in historical:
+        uid = old["uid"]
+        target = expected.get(uid, uid)
+        row = current[target]
+        statement = old["statement"].replace("SRC-753", "FSM-26.125")
+        assert row["statement"] == statement, uid
+        assert row["status"] == old["status"], uid
+        if old["status"] == "retired":
+            continue
+        assert migration[uid]["destination"] == ("merged" if uid in expected else "kept")
+        assert (REPO / migration[uid]["file"]).exists()
+        if uid in expected:
+            assert migration[uid]["target"] == target
+            assert migration[uid]["new_uids"] == target
+            base = uid[:-1]
+            if uid != "FR-23a":
+                assert row["parent"] == base
+                assert row["hid"].startswith(current[base]["hid"] + ".")
+            else:
+                assert current[row["parent"]]["level"] == "L1"
+    for name in ("functional-requirements.md", "nonfunctional-requirements.md"):
+        assert not (REPO / "docs/unpublished/requirements" / name).exists()
+
+
+def validate_structure(rows, reserved, historical, migration):
+    """P0420 structural guard shared with planted controls."""
+    live = [r for r in rows if r["status"] != "retired"]
+    ids = {r["uid"] for r in live}
+    assert not ids & set(reserved), "reserved UID live"
+    assert set(historical) <= set(migration), "historical UID missing"
+    generator = _generator()
+    projected = []
+    for row in live:
+        assert re.fullmatch(r"N?FR-\d+", row["uid"]), "numeric UID"
+        assert row.get("level") in {"L1", "L2", "L3"}, "Level"
+        assert row.get("verification_method") in {
+            "test",
+            "analysis",
+            "inspection",
+            "demonstration",
+        }, "Verification method"
+        assert row["hid"].split("-")[0] in {
+            *RADICALS,
+            *"QFSU QPEFF QCOMP QUSA QREL QSEC QMNT QFLX QSAF".split(),
+        }, "HID radical"
+        projected.append(
+            {
+                "id": row["uid"],
+                "parent": "" if row["parent"] == "-" else row["parent"],
+                "area": row["hid"].split("-")[0],
+                "status": row["status"],
+                "hid": "",
+            }
+        )
+    generator._hierarchy(projected)
+    for row, generated in zip(live, projected, strict=True):
+        assert row["hid"] == generated["hid"], "generated HID"
+        assert row["level"] == f"L{row['hid'].count('.') + 1}", "tree Level"
+
+
+def test_p0420_structure_guard():
+    import csv
+
+    from scripts._requirements_paths import read_requirements
+
+    reserved = REPO / "docs/srs/reserved-ids.json"
+    assert reserved.exists(), "reserved UID list is missing"
+    migration = list(csv.DictReader((REPO / "docs/srs/uid-migration.csv").open(encoding="utf-8")))
+    validate_structure(
+        read_requirements(REPO),
+        json.loads(reserved.read_text())["reserved_ids"],
+        [r["uid"] for r in historical_requirements() if r["status"] != "retired"],
+        [r["uid"] for r in migration],
+    )
+
+
+def test_p0420_l1_rows_follow_the_approved_feature_statements():
+    import hashlib
+
+    from scripts._requirements_paths import read_requirements
+
+    rows = read_requirements(REPO, live_only=True)
+    by_id = {r["uid"]: r for r in rows}
+    features = sorted(
+        (r for r in rows if r.get("level") == "L1"), key=lambda r: int(r["uid"].split("-")[1])
+    )
+    assert [r["uid"] for r in features] == [f"FR-{n}" for n in range(3000, 3167)]
+    # S1 l1_statement column in authored order, UTF-8 joined by LF (no trailing LF).
+    assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
+        "319380d047be431a4cf1398d79559553302de88e9ab35a1524eb14a94e95a5e0"
+    )
+    for feature in features:
+        members = [
+            r
+            for r in rows
+            if r["parent"] == feature["uid"]
+            or by_id.get(r["parent"], {}).get("parent") == feature["uid"]
+        ]
+        assert feature["status"] == (
+            "implemented" if all(r["status"] == "implemented" for r in members) else "pending"
+        )
+        assert feature["verification_method"] == "analysis"
+        assert feature["code"] == feature["test"] == feature["parent"] == "-"
+
+
+@pytest.mark.parametrize(
+    "defect",
+    ["numeric", "radical", "hid", "verification", "level", "reserved", "migration"],
+    ids=lambda x: "P0420-" + x,
+)
+def test_p0420_structure_planted_controls(defect):
+    row = {
+        "uid": "FR-3000",
+        "parent": "-",
+        "hid": "INST-1",
+        "level": "L1",
+        "status": "pending",
+        "verification_method": "analysis",
+    }
+    validate_structure([row], [], ["FR-3000"], ["FR-3000"])
+    reserved, migration = [], ["FR-3000"]
+    if defect == "numeric":
+        row["uid"] = "FR-1a"
+    elif defect == "radical":
+        row["hid"] = "OTHER-1"
+    elif defect == "hid":
+        row["hid"] = "INST-2"
+    elif defect == "verification":
+        row["verification_method"] = "review"
+    elif defect == "level":
+        row.pop("level")
+    elif defect == "reserved":
+        reserved = ["FR-3000"]
+    else:
+        migration = []
+    with pytest.raises(AssertionError):
+        validate_structure([row], reserved, ["FR-3000"], migration)
+
+
 def validate_method(text):
     rows = [
         [cell.strip() for cell in line.strip("|").split("|")]
