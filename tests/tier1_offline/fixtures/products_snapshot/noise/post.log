@@ -3,7 +3,12 @@ workspace=<ROOT>
 matrix=None
 time=<TIME>
 check_frozen=False (refuse instead of warn)
-WARNING point=p product=acoustics: the record states no rotor with blades and speed: the blade-passage harmonics are NA
+WARNING point=p product=acoustics: observer 'PYFS_OBS1' rotor 'PROP': harmonic 3 at 60 Hz is outside what the record resolves, NA
+WARNING point=p product=acoustics: observer 'PYFS_OBS1' rotor 'PROP': harmonic 4 at 80 Hz is outside what the record resolves, NA
+WARNING point=p product=acoustics: observer 'Observer 2' rotor 'PROP': harmonic 3 at 60 Hz is outside what the record resolves, NA
+WARNING point=p product=acoustics: observer 'Observer 2' rotor 'PROP': harmonic 4 at 80 Hz is outside what the record resolves, NA
+WARNING point=p product=acoustics: observer 'Observer 3' rotor 'PROP': harmonic 3 at 60 Hz is outside what the record resolves, NA
+WARNING point=p product=acoustics: observer 'Observer 3' rotor 'PROP': harmonic 4 at 80 Hz is outside what the record resolves, NA
 WARNING point=campaign product=stage: sections/p_cp#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.
 WARNING point=campaign product=stage: sections/p_sloads#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.
 WARNING point=../../sims/sim_7010/p.vtk product=../../sims/sim_7010/p.vtk: the recorded vtk surface export is missing: <ROOT>/sims/sim_7010/p.vtk Remedy: restore the required data or correct the stated inputs and post again.

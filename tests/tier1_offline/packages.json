@@ -288,6 +288,7 @@
       "tests/tier1_offline/test_workspace_fsi_setup.py"
     ],
     "post": [
+      "tests/tier1_offline/test_p0410_fx2_fft.py",
       "tests/tier1_offline/test_additional_post.py",
       "tests/tier1_offline/test_azimuthal_interpolation_support.py",
       "tests/tier1_offline/test_b01_frozen_solve.py",

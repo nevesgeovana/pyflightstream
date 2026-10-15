@@ -90,16 +90,15 @@ HARMONICS_TEXT = SNAPSHOT_DIR / "unsteady_harmonics" / "AL-020_harmonics.csv"
 _FIT_COLUMNS = ("H0", "H1_AMP", "H1_PHASE_DEG", "H2_AMP", "H2_PHASE_DEG", "RESIDUAL_RMS")
 # P0400-NOISEFIX: campaign and full product path -> numeric columns. The text
 # copy lives beside that campaign's digests, under the product's basename.
-# New exceptions are FFT-derived only. acoustics.py writes three spectra and
-# p_acoustics_bpf.csv in noise; the latter currently holds NA for every FFT
-# value because the record states no rotor. Its metadata and NA stay exact.
+# Acoustic spectra and BPF, plus both harmonic-fit families, retain numeric rows.
+# The rotor clock resolves BPF in noise; out-of-band harmonics remain NA.
 # The other reduction products remain byte-exact: noise/p_acoustics_summary.csv
-# (time-step mean and pressure RMS), and wheel_harmonics/DP_harmonics.csv
-# (least squares and residual RMS, harmonics.py). Acoustic directivity uses
+# (time-step mean and pressure RMS). Acoustic directivity uses
 # centroid/circle fits and pressure RMS, but is absent from the snapshots
 # (noise has three observers, below the four-observer minimum).
 NUMERIC_PRODUCTS = {
     ("unsteady_harmonics", HARMONICS_PRODUCT): _FIT_COLUMNS,
+    ("wheel_harmonics", "products/sections/DP_harmonics.csv"): _FIT_COLUMNS,
     ("noise", "products/acoustics/p_01_PYFS_OBS1_spectrum.csv"): (
         "FREQUENCY_HZ",
         "AMPLITUDE_PA",
@@ -131,6 +130,7 @@ Builder = Callable[[Path, pytest.MonkeyPatch], Path]
         "p_01_PYFS_OBS1_spectrum.csv",
         "p_02_Observer_2_spectrum.csv",
         "p_03_Observer_3_spectrum.csv",
+        "p_acoustics_bpf.csv",
     ],
     ids=lambda base: f"P0400-noisefix-{base}",
 )
@@ -169,7 +169,7 @@ def test_p0400_noisefix_admits_only_fft_roundoff(base, change):
 
 @pytest.mark.parametrize("change", ["header", "observer", "harmonic", "na"])
 def test_p0400_noisefix_bpf_keeps_metadata_and_na_exact(change):
-    """P0400-NOISEFIX: the BPF snapshot has no rotor, so FFT cells remain NA."""
+    """P0400-NOISEFIX: BPF metadata and unresolved harmonic cells stay exact."""
     base = "p_acoustics_bpf.csv"
     name = f"products/acoustics/{base}"
     reference = (SNAPSHOT_DIR / "noise" / base).read_bytes()
@@ -179,7 +179,7 @@ def test_p0400_noisefix_bpf_keeps_metadata_and_na_exact(change):
         "header": (b"AMPLITUDE_PA", b"AMPLITUDE"),
         "observer": (b"PYFS_OBS1", b"another observer"),
         "harmonic": (b",1,", b",1.0,"),
-        "na": (b",NA,NA,NA,NA", b",NA,NA,0.0,NA"),
+        "na": (b",NA,NA,NA", b",NA,0.0,NA"),
     }[change]
     changed = reference.replace(before, after, 1)
     assert changed != reference
@@ -374,9 +374,9 @@ def _qsteady_correction(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
 
 
 def _noise(tmp: Path, mp: pytest.MonkeyPatch) -> Path:
-    from tests.tier1_offline.test_p0320_noise_post import _unsteady_rotor_workspace
+    from scripts.products_snapshot import noise_snapshot_workspace
 
-    return _post(_unsteady_rotor_workspace(tmp, listed=True), overwrite=True)
+    return _post(noise_snapshot_workspace(tmp, mp), overwrite=True)
 
 
 def _per_revolution(tmp: Path, mp: pytest.MonkeyPatch) -> Path:

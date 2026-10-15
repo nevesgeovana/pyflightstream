@@ -8,7 +8,47 @@
   {
    "point": "p",
    "product": "acoustics",
-   "message": "the record states no rotor with blades and speed: the blade-passage harmonics are NA",
+   "message": "observer 'PYFS_OBS1' rotor 'PROP': harmonic 3 at 60 Hz is outside what the record resolves, NA",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "p",
+   "product": "acoustics",
+   "message": "observer 'PYFS_OBS1' rotor 'PROP': harmonic 4 at 80 Hz is outside what the record resolves, NA",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "p",
+   "product": "acoustics",
+   "message": "observer 'Observer 2' rotor 'PROP': harmonic 3 at 60 Hz is outside what the record resolves, NA",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "p",
+   "product": "acoustics",
+   "message": "observer 'Observer 2' rotor 'PROP': harmonic 4 at 80 Hz is outside what the record resolves, NA",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "p",
+   "product": "acoustics",
+   "message": "observer 'Observer 3' rotor 'PROP': harmonic 3 at 60 Hz is outside what the record resolves, NA",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "p",
+   "product": "acoustics",
+   "message": "observer 'Observer 3' rotor 'PROP': harmonic 4 at 80 Hz is outside what the record resolves, NA",
    "remedy": null,
    "category": "postprocessing",
    "severity": "warning"
