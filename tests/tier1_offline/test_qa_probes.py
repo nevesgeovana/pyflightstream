@@ -280,6 +280,7 @@ def test_generated_script_wraps_target_between_sentinels(tmp_path):
 
 def test_p0420_p2_1a_duplicate_probe_registration_is_refused():
     """Registering PRINT twice must preserve the first command-effect specification."""
+    import os
     import subprocess
     import sys
 
@@ -296,7 +297,9 @@ else:
     raise AssertionError('duplicate catalog import replaced registered probes')
 assert specs.PROBE_SPECS['PRINT'] is original
 """
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=dict(os.environ)
+    )
     assert result.returncode == 0, result.stderr
 
 
