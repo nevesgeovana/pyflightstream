@@ -607,9 +607,10 @@ def _refuse_an_unsettled_blade(solved: Sequence[centrifugal.RotatingSolution]) -
         "describe a blade shape the structural model never settled on. They are "
         "NOT written: the solver would fly them and the run would continue as "
         "though they were a solution. The usual cause is a propeller moment "
-        "unusually strong for this blade stiffness; check the torsional "
-        "stiffness distribution against the inertia difference I1 - I2 of the "
-        "configuration (a centre of gravity offset does not enter this solve).",
+        "unusually strong for this blade stiffness; check torsion_stiffness_n_m2 "
+        "against inertia_major_kg_m - inertia_minor_kg_m, and mass_per_length "
+        "with geometric pitch for flap softening "
+        "(a centre of gravity offset does not enter this solve).",
         residuals_rad=residuals,
         tolerance_rad=twist_tolerance,
         inner_solves=inner_solves,

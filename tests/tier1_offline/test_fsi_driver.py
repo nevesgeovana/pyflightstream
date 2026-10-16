@@ -439,6 +439,8 @@ def test_an_unconverged_twist_iteration_is_not_written(tmp_path, monkeypatch):
 
     assert "did not converge" in str(caught.value)
     assert "blade 0" in str(caught.value)
+    assert "mass_per_length" in str(caught.value)
+    assert "pitch" in str(caught.value)
     assert caught.value.tolerance_rad > 0.0
     assert len(caught.value.residuals_rad) == cfg.blade_count
     assert all(r > caught.value.tolerance_rad for r in caught.value.residuals_rad)
