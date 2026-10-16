@@ -1479,7 +1479,7 @@ def _plan_point(
     run_id = _run_id(campaign, case, point)
     # A keyword bag for PointPlan: values differ by key, hence ``Any``.
     base: dict[str, Any] = {"run_id": run_id, "sim_id": case.sim_id, "point": dict(point)}
-    if case_error is not None or recipe is None:
+    if recipe is None:
         return PointPlan(
             **base,
             script_name=None,
@@ -1496,6 +1496,10 @@ def _plan_point(
     # rotors may still reach the speed of sound. Likewise record a quasi-steady
     # wheel's blade 1P reduced frequency and a rotor point's wake.
     base.update(_point_facts(point_case, inflow_fft=inflow_fft, fs_version=fs_version))
+    if case_error is not None:
+        return PointPlan(
+            **base, script_name=script_name, status=PlanStatus.BLOCKED, error=case_error
+        )
     # Resolve a continuation exactly as run does: its saved file and step count
     # come from the previous record, not the RESTART row. The builder needs
     # those resolved inputs to rehearse the script.
@@ -1545,16 +1549,15 @@ def _plan_point(
         # is refused here, before any run can spend a seat on it.
         _refuse_an_import_count_nothing_logs(point_case, script, None)
         script.render()
-        if inflow_fft and write_products:
-            from pyflightstream.workspace import write_plan_products
-
-            base["inflow_harmonics"] = [
-                path.relative_to(workspace.root).as_posix()
-                for path in write_plan_products(
-                    point_case,
-                    workspace.plan_dir(campaign.matrix_stem) / "inflow" / case.sim_id / stem,
-                )
-            ]
+        _inflow_plan_products(
+            base,
+            point_case,
+            workspace,
+            campaign.matrix_stem,
+            stem,
+            inflow_fft=inflow_fft,
+            write_products=write_products,
+        )
     except Exception as error:  # recipes are user code; any failure blocks the point
         return PointPlan(
             **base,
@@ -1608,6 +1611,21 @@ def _plan_point(
         raw=script.raw_flag,
         march_strategy=script.march_strategy,
     )
+
+
+def _inflow_plan_products(
+    base, case, workspace, matrix_stem, stem, *, inflow_fft, write_products
+) -> None:
+    """Write requested inflow diagnostics and attach their workspace-relative paths."""
+    if inflow_fft and write_products:
+        from pyflightstream.workspace import write_plan_products
+
+        base["inflow_harmonics"] = [
+            path.relative_to(workspace.root).as_posix()
+            for path in write_plan_products(
+                case, workspace.plan_dir(matrix_stem) / "inflow" / case.sim_id / stem
+            )
+        ]
 
 
 def _output_collision(
