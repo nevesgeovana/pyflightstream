@@ -1872,7 +1872,9 @@ class TestReach2Routes:
         export = lines.index("EXPORT_PROBE_POINTS")
         assert lines[export + 1] == "point_probes.txt" and lines.count("EXPORT_PROBE_POINTS") == 1
         assert update < export and lines.count("UPDATE_PROBE_POINTS") == 1
-        assert script._exported_paths["point_probes.txt"] == "emit_probe_export"
+        source = script._exported_paths["point_probes.txt"]
+        assert source.startswith("emit_probe_export (called at test_regression_qa_tools.py:")
+        assert source.endswith(")")
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
