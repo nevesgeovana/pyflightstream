@@ -171,6 +171,10 @@ class ManualCommand:
         caller passes and is never written into anything this module
         renders (invariant 1), which is why :func:`propose_type` returns
         a conclusion and a structural reason rather than a quotation.
+    description : str
+        The complete command block, ending at the next signature, with whitespace
+        normalized and page-number footers removed. Compared at runtime only;
+        renderers never reproduce this licensed text.
     """
 
     name: str
@@ -179,6 +183,8 @@ class ManualCommand:
     sample: tuple[str, ...] = ()
     section: str | None = None
     parameters: Mapping[str, str] = field(default_factory=dict)
+    #: Whitespace-normalized complete block, compared at runtime and never rendered.
+    description: str = ""
 
     @property
     def continuation_lines(self) -> tuple[str, ...]:
@@ -277,7 +283,9 @@ def parse_signatures(
             page_of.append(page)
 
     found: dict[str, ManualCommand] = {}
-    for i, line in enumerate(lines):
+    headings = [i for i, line in enumerate(lines) if _SIGNATURE.search(line.strip())]
+    for position, i in enumerate(headings):
+        line = lines[i]
         # search, not match: the pattern already requires the heading
         # to start a line or follow whitespace, and anchoring at
         # position zero as well would defeat the margin tolerance the
@@ -292,13 +300,16 @@ def parse_signatures(
         if i + 1 < len(lines) and _WRAPPED_SIGNATURE.match(lines[i + 1]):
             signature += " " + lines[i + 1].strip()
         placeholders = tuple(a.strip() for a in _PLACEHOLDER.findall(signature))
+        end = headings[position + 1] if position + 1 < len(headings) else len(lines)
+        block = lines[i:end]
         found[name] = ManualCommand(
             name=name,
             page=page_of[i],
             inline_args=placeholders,
-            sample=_sample_after(lines, i, name),
+            sample=_sample_after(block, 0, name),
             section=sections.get(name),
-            parameters=_parameters_after(lines, i, placeholders),
+            parameters=_parameters_after(block, 0, placeholders),
+            description=" ".join(" ".join(block).split()),
         )
     return found
 
@@ -337,7 +348,7 @@ def _parameters_after(
     # its own cannot borrow the following command's. Measured before the
     # stop existed: five commands compared a neighbour's parameter table.
     opening = None
-    for j in range(start + 1, min(start + 6, len(lines))):
+    for j in range(start + 1, len(lines)):
         if lines[j].strip().startswith("Function name:"):
             break
         if lines[j].strip().startswith("Function parameters"):
@@ -346,7 +357,7 @@ def _parameters_after(
     if opening is None:
         return {}
     block: list[str] = []
-    for k in range(opening + 1, min(opening + 40, len(lines))):
+    for k in range(opening + 1, len(lines)):
         candidate = lines[k].strip()
         if candidate.startswith(("Sample", "Function name:")):
             break
@@ -379,13 +390,13 @@ def _sample_after(lines: list[str], start: int, name: str) -> tuple[str, ...]:
     The search for the ``Sample`` heading stops at the next signature. A command with no sample
     therefore cannot borrow the next command's example.
     """
-    for j in range(start + 1, min(start + 40, len(lines))):
+    for j in range(start + 1, len(lines)):
         if lines[j].strip().startswith("Function name:"):
             return ()
         if not lines[j].strip().startswith("Sample"):
             continue
         block: list[str] = []
-        for k in range(j + 1, min(j + 16, len(lines))):
+        for k in range(j + 1, len(lines)):
             candidate = lines[k].strip()
             if candidate.startswith("Function name:"):
                 break
@@ -2143,8 +2154,8 @@ class EditionDelta:
         Page of the predecessor, where it did. None where the
         predecessor did not document it.
     differs_in : tuple of str
-        For ``changed`` only, which of ``args``, ``sample`` and
-        ``parameters`` moved. Empty for every other verdict, an
+        For ``changed`` only, which of ``args``, ``sample``,
+        ``parameters`` and ``description`` moved. Empty for every other verdict, an
         arrival included: an arrival differs in nothing, it is new. It
         names the FIELDS and never their content: the parameter prose
         is licensed manual text and is read at run time, never carried
@@ -2228,7 +2239,7 @@ def documentation_delta(
         documents that are not among these are not classified here; a
         caller reports them separately, because entering a new command
         is a different piece of work from carrying an existing one
-        forward.
+    forward.
 
     Returns
     -------
@@ -2260,6 +2271,7 @@ def documentation_delta(
                 ("args", old.inline_args == new.inline_args),
                 ("sample", old.sample == new.sample),
                 ("parameters", dict(old.parameters) == dict(new.parameters)),
+                ("description", old.description == new.description),
             )
             if not same
         )
