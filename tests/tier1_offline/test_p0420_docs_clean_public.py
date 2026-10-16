@@ -6,6 +6,7 @@ The base exposes a deferred dependency, release narration and duplicate navigati
 
 import ast
 import io
+import os
 import re
 import subprocess
 import sys
@@ -19,7 +20,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def tracked_texts():
-    paths = subprocess.check_output(["git", "-C", str(ROOT), "ls-files", "-z"])
+    paths = subprocess.check_output(
+        ["git", "-C", str(ROOT), "ls-files", "-z"], env=os.environ.copy()
+    )
     for name in paths.decode("utf-8").split("\0"):
         if name:
             yield name, (ROOT / name).read_bytes().decode("utf-8", errors="replace")
