@@ -198,6 +198,23 @@ def _hierarchy(rows: list[dict[str, str]]) -> None:
                 raise MalformedRequirementPageError(
                     f"{row['id']}: authored HID/Level differs from tree"
                 )
+    for row in rows:
+        if row.get("level") != "L1" or row["status"] == "retired":
+            continue
+        members = [
+            member
+            for member in rows
+            if member["status"] != "retired"
+            and member["area"] == row["area"]
+            and member["hid"].startswith(row["hid"] + ".")
+        ]
+        expected = (
+            "implemented"
+            if members and all(member["status"] == "implemented" for member in members)
+            else "pending"
+        )
+        if row["status"] != expected:
+            raise MalformedRequirementPageError(f"{row['id']}: L1 status must be {expected}")
 
 
 class MalformedRequirementPageError(Exception):

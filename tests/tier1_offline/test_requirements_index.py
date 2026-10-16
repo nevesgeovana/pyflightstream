@@ -234,6 +234,39 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
         assert feature["code"] == feature["test"] == feature["parent"] == "-"
 
 
+@pytest.mark.parametrize("status", ["pending", "implemented"], ids=lambda s: "P0420-empty-" + s)
+def test_p0420_s3_empty_feature_is_pending(status):
+    generator = _generator()
+    rows = [
+        {
+            "id": "FR-3000",
+            "parent": "",
+            "area": "INST",
+            "hid": "",
+            "level": "L1",
+            "authored_hid": "INST-1",
+            "status": status,
+        }
+    ]
+    if status == "pending":
+        generator._hierarchy(rows)
+    else:
+        with pytest.raises(generator.MalformedRequirementPageError, match="L1 status"):
+            generator._hierarchy(rows)
+
+
+@pytest.mark.parametrize(
+    "subject",
+    ["The library", "The library's workspace settings module"],
+    ids=["P0420-library", "P0420-named-component"],
+)
+def test_p0420_s3_writing_subjects_follow_authored_format(subject):
+    from scripts.check_writing_rules import check
+
+    assert "W07" not in check({"statement": subject + " shall record the result."})
+    assert "W07" in check({"statement": subject + " shall be recorded."})
+
+
 @pytest.mark.parametrize(
     "defect",
     ["numeric", "radical", "hid", "verification", "level", "reserved", "migration", "duplicate"],
