@@ -511,7 +511,7 @@ See [Upgrading](upgrading.md#older-layouts) for earlier formats.
 
 ## What this page does not cover
 
-The atmosphere model itself is ISO 2533:1975 with a Sutherland
+The atmosphere model itself is ISO 2533:1975 with a Sutherland [REF-01]
 viscosity law. The one fact you may hit is its RANGE: the model covers
 -2000 m to 20000 m, which is -6561 ft to 65616 ft, and an `ALTFT`
 outside that is refused naming the range rather than extrapolated. It is

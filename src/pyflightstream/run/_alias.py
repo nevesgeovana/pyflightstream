@@ -1,4 +1,4 @@
-"""The run id alias of a datapoint, ``<sim>_<index>`` (0.35.0, FR-395, P0350-RUN-ID-ALIAS).
+"""The run id alias of a datapoint, ``<sim>_<index>`` (FR-395, P0350-RUN-ID-ALIAS).
 
 A run id of a continuation is long and changes; the alias is short and stable. It is
 DERIVED and NEVER STORED, so no recorded file changes.
@@ -31,7 +31,7 @@ from typing import Any
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.workspace import JOB_TAG
 
-# kept importable at its 0.38.0 path (release parity)
+# Re-exported through this module for callers using this path.
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP as SIMS_IDS_HELP
 from pyflightstream.workspace.ledger import listed_sims
 
@@ -173,7 +173,7 @@ def alias_lines(
     ]
 
 
-#: The ``plan.json`` key holding each simulation's WHOLE sweep, in sweep order (0.40.0).
+#: The ``plan.json`` key holding each simulation's WHOLE sweep, in sweep order.
 #: A plan of a selection (``--sims``/``--points``) lists only the selected points
 #: under ``points``; an alias is numbered against the whole sweep, as ``run``
 #: numbers it, so the plan writes the whole sweep here as well.

@@ -3,9 +3,7 @@
 A point of a ``--batch`` job runs from ``sims/batch/<matrix>_b<ID>/sim_<id>/``
 and its script names its inputs and outputs there (FR-358); collect moves the
 simulation home once the job ended (FR-367). The rebuild renders the row as a
-point run alone, so until 0.37.0 it compared a script naming
-``sims/sim_<id>/`` with one naming the batch folder and refused every grouped
-simulation, and it never looked inside a batch folder at all. Here: where a
+point run alone; comparison must account for its batch paths. Here: where a
 simulation's folder is now (home, or still in its batch), which batch the
 executed script names, the rendered script read at that home, and the job
 entry a rebuilt record carries, read off the plan receipt that gated the run

@@ -21,8 +21,8 @@ The CCS source is emitted by the run's own emitter
 (:func:`pyflightstream.cases.ccs_wing.emit_ccs_geometry`), so the stage adds no
 second CCS emitter.
 
-THE EVIDENCE GATE (FR-1110). :data:`EVIDENCE_GATED` lists the commands the
-run did not emit before 0.40.0 and the lofts the stage now runs on every build;
+THE EVIDENCE GATE (FR-1110). :data:`EVIDENCE_GATED` lists the mesh operations,
+CAD commands, lofts and surface-mesh export that require per-build evidence;
 each one used and not ``verified`` on the build is named in
 :attr:`GeometryScript.awaiting_evidence`, and the build refuses to run the
 script there. The preview still renders it.
@@ -57,8 +57,8 @@ __all__ = [
 
 #: The commands a build runs only where a licensed probe verified them on the
 #: build: the mesh operations of FR-474, the CAD and CAD Create commands of
-#: FR-475, the CCS lofts and the surface-mesh export. Every other command the
-#: build emits is one the run already emitted before 0.40.0.
+#: FR-475, the CCS lofts and the surface-mesh export. Other commands follow the
+#: command registry's ordinary build checks.
 EVIDENCE_GATED: frozenset[str] = frozenset(
     {
         "EXPORT_SURFACE_MESH",
@@ -106,7 +106,7 @@ SIMULATION_UNIT = "METER"
 #: (a proposed reading the P1-1 probe confirms: the manual prints only the 1).
 _AXIS_INDEX = {"X": "1", "Y": "2", "Z": "3"}
 
-#: The mirror plane as SURFACE_MIRROR numbers it (SRC-003 p.311), the run's own table.
+#: The mirror plane as SURFACE_MIRROR numbers it (FSM-26.120 p.311), the run's own table.
 _MIRROR_PLANE_INDEX = {"YZ": 1, "XZ": 2, "XY": 3}
 
 _RAW_MESH_TYPES = {".obj": "OBJ", ".stl": "STL"}
@@ -451,7 +451,7 @@ def _emit_operation(
 def _emit_sidecar_operation(
     script: Script, operation: GeometryOperation, names: Sequence[str]
 ) -> None:
-    """Emit a scale, a rename or a mirror, the kinds the sidecar carried before 0.40.0."""
+    """Emit a sidecar's scale, rename or mirror operation."""
     op = operation.op
     if op == "scale":
         assert operation.factors is not None

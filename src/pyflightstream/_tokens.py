@@ -2,24 +2,14 @@
 
 Pipeline role: below every layer, imported by all of them. It imports nothing
 from this package, which is the whole reason it exists as a separate module --
-the same reason :mod:`pyflightstream._errors` exists, and the same shape that
-release 0.23.0 used to move ``ProductError`` out of ``post`` so that
-``workspace`` could ask for it without importing upward.
+the same reason :mod:`pyflightstream._errors` holds ``ProductError`` outside
+``post`` so that ``workspace`` can use it without importing upward.
 
-WHY A MODULE FOR ONE STRING. Because the alternative was measured and it was
-four strings. The CSV products wrote ``NA`` through a single funnel
-(:func:`pyflightstream.post._tables._cell`), and three report writers under
-``qa`` each wrote a bare ``"-"`` of their own for exactly the same idea -- a
-cell whose value does not exist. One package, one idea, two tokens, and a reader
-comparing a drift report against a polar had to know which convention each file
-followed.
+Writers of CSV products and QA reports share ``NA`` for a cell whose value
+does not exist. A reader comparing a drift report against a polar therefore
+uses the same missing-value convention.
 
-EVERYTHING CONVERGES ON ``NA``. It is a change to a file format users already
-read, and the second change in one release to those bytes, which is why it was
-a deliberate decision rather than a cleanup.
-
-WHAT DELIBERATELY DID NOT CONVERGE, because "everything" has an edge and an
-undocumented edge is the next defect:
+The write convention does not restrict these uses of a dash:
 
 - **The matrix's READ SET** (``cases.matrix.UNSTATED_CELLS``). Every existing
   matrix says "not stated" with a ``-``, so that spelling is still
@@ -27,11 +17,7 @@ undocumented edge is the next defect:
   campaigns it exists to run, which is the one thing the acceptance rule
   forbids: finished simulations already exist and must keep working.
 
-  THIS BULLET NAMED ``UNSTATED_CELL`` -- the WRITE token -- and that symbol DID
-  converge, in the same commit, one character away from the one that did not.
-  The QA lens of the closing round read the two side by side. In a file whose
-  whole subject is one token per idea, naming the wrong one of a pair is the
-  defect it exists against.
+  ``UNSTATED_CELL`` is the separate write token, ``NA``.
 - **Rule lines, separators and padding.** ``"-" * 120`` is a horizontal rule,
   not a value. A reader never mistakes one for a cell.
 - **Every READER still accepts ``-``**, and that is not an oversight. A product
@@ -53,12 +39,12 @@ NOT_APPLICABLE = "NA"
 
 #: The column naming the ADVANCE RATIO of a row.
 #:
-#: Shared by pproc validation and the product writers since 0.25.0 so reserved
+#: Shared by pproc validation and the product writers so reserved
 #: headings are checked without a cases-to-post import. The post modules retain
 #: their existing public spellings as re-exports.
 ADVANCE_RATIO_COLUMN = "J"
 
-#: The FIRST COLUMN of every table the post writes (G16, 0.27.0): the polar a
+#: The FIRST COLUMN of every table the post writes (G16): the polar a
 #: row comes from, spelled exactly as the run matrix spells its own polar
 #: column, the first column of ``cases.matrix``'s layout. One value per row, the
 #: POL of that row's point, so a reader filtering by polar needs no file name.
@@ -67,18 +53,17 @@ ADVANCE_RATIO_COLUMN = "J"
 POLAR_ID_COLUMN = "POL"
 
 #: The column saying which rotor a row is about. A rotor table carries it right
-#: after :data:`POLAR_ID_COLUMN` since 0.27.0; until then the alias stood alone
-#: on the table's first line, before the header, and no CSV reader took the file
-#: as written.
+#: after :data:`POLAR_ID_COLUMN`, in each row rather than on a separate line,
+#: so a CSV reader can read the file as written.
 ROTOR_ID_COLUMN = "ROTOR"
 
-#: The LAST column of the super file and of the unsteady polar (FR-348, 0.34.0):
+#: The LAST column of the super file and of the unsteady polar (FR-348):
 #: the face count of the geometry a row's run opened, as its boundary inventory
 #: states it, ``NA`` where the inventory states none for that geometry. Last so
-#: a reader that takes the columns of 0.33 by position keeps every one of them.
+#: positional readers keep the preceding columns at their declared positions.
 MESH_FACES_COLUMN = "MESH_FACES"
 
-#: What a text cell writes where it would have held the delimiter (G16, 0.27.0).
+#: What a text cell writes where it would have held the delimiter (G16).
 #:
 #: NO CELL OF A TABLE HOLDS A COMMA OR A DOUBLE QUOTE, and no cell is quoted, so
 #: a reader that splits each line on ``,`` -- `numpy.genfromtxt` does, and it
@@ -90,7 +75,7 @@ CELL_LIST_SEPARATOR = ";"
 
 
 def plain_cell(text: str) -> str:
-    """Return ``text`` as a table cell no reader has to unquote (G16, 0.27.0).
+    """Return ``text`` as a table cell no reader has to unquote (G16).
 
     A comma becomes :data:`CELL_LIST_SEPARATOR`, a double quote a single one, and
     a line break a space, so the cell holds neither the delimiter, nor the quote
@@ -127,9 +112,9 @@ FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
     "MACH",
     "RE",
     "VINF",
-    # 0.24.0: EVERY DIVISOR OF A COEFFICIENT. A coefficient is a force over
-    # `1/2 rho V^2 S`; until now a product stated the coefficient and the area and
-    # neither the density nor the velocity it was divided by. `VREF` is the
+    # EVERY DIVISOR OF A COEFFICIENT. A coefficient is a force over
+    # `1/2 rho V^2 S`; the product states the coefficient, area, density and
+    # velocity used for that normalization. `VREF` is the
     # export's REFERENCE velocity, which is what the solver normalises by and may
     # differ from the free stream beside it; `RHO`, `TEMP` and `MU` are the air
     # the run resolved for THAT point. The list is defined on the definitions
@@ -140,10 +125,10 @@ FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
     "TEMP",
     "MU",
     ADVANCE_RATIO_COLUMN,
-    # 0.25.1: WHAT THE CLOCK ROTOR RAN AT, beside what the row REQUESTED.
+    # WHAT THE CLOCK ROTOR RAN AT, beside what the row REQUESTED.
     # `J` is the request, so a row stating RPM and sweeping alpha reads NA in
     # every one of its rows while carrying the velocity and the speed that
-    # determine the ratio (measured on a real polar, 2026-09-22). These two are
+    # determine the ratio. These two are
     # the CLOCK rotor's -- the one CLOCK_MOTION names, or the only one the row
     # turns -- because a row may turn several and each has its own ratio; the
     # rotor table keeps `J_<alias>` per rotor.
@@ -154,8 +139,7 @@ FLIGHT_CONDITION_COLUMNS: tuple[str, ...] = (
 #: The reference LENGTHS every product states, by the companion rule: every
 #: file carries the reference lengths as well. A
 #: coefficient without the length it was normalised by is a number nobody can
-#: check, and two of the four product families carried no length at all until
-#: 0.23.0.
+#: check.
 #:
 #: THE MOMENT POINT IS NOT HERE. It rides with these three in the polar's own
 #: reference block, because a moment coefficient is meaningless without it; a
@@ -165,22 +149,20 @@ REFERENCE_LENGTH_COLUMNS: tuple[str, ...] = ("SREF", "CREF", "BREF")
 
 #: What a product family states when it carries none of the twenty-four: the
 #: whole condition and the lengths, in ONE tuple so a fifth family composes it
-#: rather than remembering it. A family that assembles its own list is a family
-#: that drifts from the other three, which is the state 0.23.0 item 5 repaired
-#: after three of four families could not say what they were files of.
+#: rather than remembering it. Sharing the list keeps the families' context
+#: columns consistent.
 CONTEXT_COLUMNS: tuple[str, ...] = (*FLIGHT_CONDITION_COLUMNS, *REFERENCE_LENGTH_COLUMNS)
 
 
 #: Fixed reduction headings, reserved during pproc validation and written in this order.
 REDUCTION_COLUMNS: tuple[str, ...] = (
-    # 0.27.0 (G16). THE POLAR FIRST, as in every table the post writes; reserved
+    # (G16). THE POLAR FIRST, as in every table the post writes; reserved
     # here with the rest, so a `[names]` entry cannot give a plot column its name.
     POLAR_ID_COLUMN,
     "REDUCTION",
-    # 0.24.0. THE ROTOR AS A COLUMN, `NA` on the time average. The alias lived in
-    # the file name alone, which does not decompose (both the reduction and the
-    # alias carry underscores), so two rotors' files were identical inside and
-    # could not be told apart once read into one table.
+    # THE ROTOR AS A COLUMN, `NA` on the time average. A reduction name and a
+    # rotor alias can both carry underscores, so the file name cannot reliably
+    # supply the alias. The column identifies each rotor when tables are combined.
     ROTOR_ID_COLUMN,
     "WINDOW",
     "FIRST_STEP",

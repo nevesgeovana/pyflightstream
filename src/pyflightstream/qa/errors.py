@@ -20,6 +20,6 @@ class QaEvidenceError(PyflightstreamError, ValueError):
     not comparable to it. The QA layer refuses rather than guessing,
     because its whole output is evidence.
 
-    Added 2026-08-03 for FR-39, keeping ``ValueError`` as a second base
-    so an existing ``except ValueError`` catches what it always did.
+    FR-39: ``ValueError`` is a second base so ``except ValueError`` also
+    catches this refusal.
     """

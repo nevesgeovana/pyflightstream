@@ -10,7 +10,7 @@ promotes ``documented`` statuses to ``verified``, ``broken`` or
 promoted entry; statuses are never hand-edited (CONTRIBUTING.md invariant 3),
 and the schema rejects any of those three without its report citation.
 A promotion writes every chapter it touches or none of them, and an
-older report can no longer revert a status a later run already moved.
+older report cannot revert a status established by a later run.
 """
 
 from __future__ import annotations
@@ -77,15 +77,9 @@ def compat_report_paths(
 ) -> tuple[Path, Path]:
     """Return where a compat report for one run WOULD be written.
 
-    Split out of :func:`write_compat_report` so a caller can ask the
-    question BEFORE it spends a licensed solver seat, which is the whole
-    reason this function exists. The refusal on an existing report is
-    right and its POSITION was wrong: on 2026-08-17 a full probe
-    campaign on 26.123 ran to completion, 111 commands over five
-    minutes of licensed solver, and then the write refused because a
-    report of that stem already existed. The verdicts lived only in the
-    process that was exiting, so a licence checkout was spent and
-    discarded on a collision knowable before the solver started.
+    Derive the paths before spending a licensed solver seat so a caller can
+    refuse an existing report stem before launching probes. The writer uses
+    the same paths, avoiding a late collision that would discard run results.
 
     Parameters
     ----------
@@ -151,10 +145,9 @@ def write_compat_report(
         refused before the write rather than after it.
     UnknownVersionError, AmbiguousVersionAliasError
         When the run's version is not a registered build, or is a
-        vendor release name shared by several. NEW on 2026-08-18:
-        the stem's build key is resolved through the registry now,
-        so these reach a direct Python caller where they did not
-        before. ``pyfs-qa`` resolves first and never meets them.
+        vendor release name shared by several. The stem's build key resolves
+        through the registry. ``pyfs-qa`` resolves first, so these errors
+        surface here only for direct callers.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -265,7 +258,7 @@ def _load_yaml(path: Path) -> Any:
     nothing about whether the database was written.
 
     The reader itself is :func:`pyflightstream.qa.reports.load_yaml`
-    since 0.40.0 (PFS-2102.010), shared with the physics evidence path.
+    (PFS-2102.010), shared with the physics evidence path.
     """
     return load_yaml(path, consequence="nothing was written")
 
@@ -334,7 +327,7 @@ PROMOTABLE_OUTCOMES = frozenset(ProbeOutcome) - {ProbeOutcome.UNPROBED}
 #: A per-edition manual page citation, as the database writes one. Used
 #: to recognise a row that an EDITION documents, which a measured
 #: removal contradicts rather than supersedes.
-_EDITION_PAGE = re.compile(r"SRC-\d+\s+pp?\.", re.IGNORECASE)
+_EDITION_PAGE = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)\s+pp?\.", re.IGNORECASE)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -418,13 +411,9 @@ def read_compat_reports(
     reports_dir = Path(reports_dir)
     index: dict[tuple[str, str], list[Judgment]] = {}
     if not reports_dir.is_dir():
-        # An ABSENT DEFAULT is the first-report case and yields an empty
-        # index. A path the caller TYPED is different, and the guard
-        # belongs here rather than in apply_compat, where it used to
-        # live: this function is exported, so the caller it protected
-        # was one of several. Reading a mistyped path as an empty index
-        # answers "nothing contradicts, promote it", which is a guard
-        # reading its own missing information as permission.
+        # An absent default is the first-report case and yields an empty index.
+        # An explicitly named missing path is refused here for every caller:
+        # missing evidence must not be interpreted as permission to promote.
         if not given:
             return {}
         hint = (
@@ -529,12 +518,9 @@ def contradicting_evidence(
 def resolve_commands_dir(repo_root: str | Path, commands_dir: str | Path | None = None) -> Path:
     """Return the command database a promotion writes, refusing one outside the repository.
 
-    PFS-2102.032, PFS-2088.016. The default used to be the installed
-    package's data, while the citation and the supersession index were
-    anchored on ``repo_root``; under a non-editable install, or from a
-    worktree whose editable install points at another checkout, the
-    promotions landed in a tree nobody named and the repository was
-    reported promoted.
+    PFS-2102.032, PFS-2088.016: anchor command data, citations and the
+    supersession index on repo_root so installed-package data or another
+    editable checkout cannot receive this repository's promotions.
 
     Parameters
     ----------
@@ -875,18 +861,12 @@ def _rewritten_flow_entry(
 ) -> str:
     """Rewrite one single-line version entry, KEEPING the keys it already has.
 
-    The first version of this rewrote the whole line from `status` and
-    `report`, which discarded every other key silently: the `note` that
-    carries a per-edition page citation, a `successor`, a `probe_ref`, an
-    inline `args` override. `_validate_chapter` re-parses the result and
-    passes, because what is left is well-formed YAML saying less.
+    Replace only the keys owned by promotion. Carry through note,
+    successor, probe_ref and inline args overrides: dropping them can
+    leave valid YAML while losing evidence or changing grammar.
 
-    That is the same loss the block form now refuses loudly, one shape
-    over, and the exposed population is not small: most rows of this
-    database carry a `note`, and those notes are the per-edition
-    citations the v0.5.0 backfill was written to record. One probe run on
-    an older build would have erased a chapter's worth with every guard
-    green.
+    Preserve notes just as for block-form rows: per-edition citations belong
+    to the existing evidence and must not disappear during promotion.
 
     Parameters
     ----------
@@ -964,14 +944,9 @@ def _rewritten_flow_entry(
                 "override or the measurement is wrong before promoting"
             )
 
-    # A row already verified on the strength of ANOTHER committed report
-    # keeps that citation: the incoming run corroborates it and does not
-    # replace it. Measured 2026-09-09 (the release review of 0.13.0): a
-    # workflow sweep whose effect line was the same run-level outcome for
-    # thirteen commands overwrote five rows whose probe reports carried a
-    # discriminating per-command effect, and the stronger evidence was then
-    # cited from nowhere. The caller sees the line unchanged and reports
-    # the row as corroborated rather than promoted.
+    # Keep a verified row's existing committed report when an incoming run
+    # corroborates it. A run-level outcome must not replace discriminating
+    # per-command evidence. Report this as corroborated, not promoted.
     if (
         status == ProbeOutcome.VERIFIED.value
         and existing.get("status") == ProbeOutcome.VERIFIED.value
@@ -1007,16 +982,9 @@ def _promoted_note(previous: object, detail: object, status: str) -> str:
     return note
 
 
-#: The renderer of a promoted value, which THIS MODULE NO LONGER OWNS.
-#: It lived here from the repair of `INC-20260811-1511-both` until
-#: 2026-08-17, and its docstring closed with "there is now no site",
-#: which was true of this module and became untrue of the package the day
-#: `pyfs-manual register` began writing the same chapter files from
-#: :mod:`pyflightstream.utils`. That subpackage sits BELOW this one and
-#: cannot import from here, so it built the mapping by concatenation and
-#: the class came back. The renderer moved to
-#: :mod:`pyflightstream._yamlflow`, below every layer, where both writers
-#: can reach it. The alias is kept so this module reads as it did.
+#: Shared promoted-value renderer from pyflightstream._yamlflow, below every
+#: layer so QA and manual-registration writers can both use it. Keep this
+#: alias for callers of this module.
 _flow_mapping = flow_mapping
 
 
@@ -1081,15 +1049,10 @@ def _rewrite_version_line(
             )
             return "\n".join(lines) + "\n"
 
-    # A version already recorded as a BLOCK rather than a one-line flow
-    # mapping is invisible to _VERSION_LINE, and inserting beside it
-    # writes the key twice. YAML keeps the last and drops the first
-    # silently, so on 2026-08-08 a promotion nearly erased a
-    # hand-authored per-version GRAMMAR (SOLVER_PROXIMAL_BOUNDARIES on
-    # 26.121). Refused rather than rewritten: the block carries a note
-    # and possibly an args override that this function has no way to
-    # preserve, and dropping either would be the same silent loss in a
-    # different place.
+    # Refuse an existing block-form version row: _VERSION_LINE sees only flow
+    # mappings, so inserting beside a block would duplicate its key and YAML
+    # would discard one. This writer cannot preserve a block's notes and grammar
+    # overrides while rewriting it.
     block = f'{" " * 4}"{canonical}":'
     for index in range(start, end):
         if lines[index].rstrip() == block:
@@ -1137,11 +1100,8 @@ def _validate_chapter(chapter_name: str, text: str, names: list[str]) -> None:
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as error:
-        # Outside the try until 2026-08-11, so an unparsable rewrite
-        # left this function raising a scanner error out of a
-        # promotion documented to raise QaEvidenceError, past the
-        # CLI trap. Reachable: one backslash in a solver message
-        # used to reach the note unescaped.
+        # Wrap an unparsable rewrite in QaEvidenceError so the CLI handles it
+        # through the promotion refusal contract.
         raise QaEvidenceError(
             f"{chapter_name}: the rewritten chapter does not parse as YAML "
             f"({error}). Nothing was written"

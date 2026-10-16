@@ -61,7 +61,7 @@ def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
     Emitted after the solve starts, it would reach the final export and not the
     per-step exports and plots an unsteady product is read from, which is the
     shape RPT-064 measured for the loads frame; moving it before the solve is not
-    measured. In 0.27.0 they are a steady row's.
+    measured. They are supported only on steady rows.
     """
     stated = [
         key
@@ -75,7 +75,7 @@ def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
         f"{', '.join(stated)}. The loads selections are applied after the solve starts, "
         "and on a march that reaches only the final export, not the step exports and "
         "plots the unsteady products are read from (RPT-064 measured this for the loads "
-        "frame); in 0.27.0 they are a steady row's. Drop the key from the preset this "
+        "frame); they are supported only on steady rows. Drop the key from the preset this "
         "row names, or give the row a preset of its own."
     )
 
@@ -97,7 +97,7 @@ def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
 def _refuse_sideslip_under_mirror(case: SimCase) -> None:
     """Refuse a nonzero sideslip under mirror symmetry, which the solver runs at zero.
 
-    MEASURED on 26.120 (pfs0130 row 4207, 2026-09-09): a script stating
+    MEASURED on 26.120 (pfs0130 row 4207): a script stating
     ``SOLVER_SET_SIDESLIP -4.0`` before ``INITIALIZE_SOLVER`` and
     ``SYMMETRY MIRROR`` after it ran to completion with the log reading
     "Symmetry is mirror." and then "Side-slip angle (Deg): .000", and the
@@ -182,18 +182,11 @@ def _settings(
 ) -> None:
     """Emit the solver settings, including the reference if the case has one.
 
-    THE REFERENCE REACHES THE SCRIPT HERE (PFS-2025.02.04), and until
-    0.9.0 it did not. A row's REF code resolved a reference artifact,
-    the artifact was bound onto the case, and no emitter ever read it:
-    measured across the 29 committed workflow goldens, not one carried a
-    ``REF_`` line. So a campaign declared its areas and lengths and the
-    coefficients came out against whatever the solver was defaulting to,
-    with nothing said.
+    THE REFERENCE REACHES THE SCRIPT HERE (PFS-2025.02.04). Emit the bound
+    reference's areas and lengths so coefficients use the declared scales
+    rather than the solver defaults.
 
-    The emitter one layer down has always taken these two arguments;
-    what was missing was the four lines that pass them. A case carrying
-    no reference emits neither, exactly as before, which is what keeps
-    every golden of a reference-less case byte identical.
+    A case carrying no reference emits neither argument.
 
     UNITS ARE NOT CONVERTED HERE. The reference artifact documents its
     own (area in square metres, length in metres) and the values are
@@ -209,24 +202,12 @@ def _settings(
     )
     solver = case.solver
     native_mach = _resolved_native_mach(case, script)
-    # THE PRESET'S OWN SETTINGS REACH THE SCRIPT HERE, and until this
-    # release ten of them did not: a preset asking for
-    # SUBSONIC_PRANDTL_GLAUERT and a turbulent boundary layer resolved
-    # onto a case that carried neither, so the run took the solver's
-    # defaults and said nothing. Every argument below is passed as the
-    # case carries it, so a case carrying None emits nothing for it and
-    # every script written before this release is byte identical.
-    #
-    # `wake_termination_revolutions` is deliberately absent: it is the
-    # one preset setting whose unit the emitter does not take, and the
-    # conversion needs the case's own clock, so the rotor builder does
-    # it (:func:`_wake_termination`) and the steady builder, which
-    # has no clock, cannot and does not.
-    # SIDESLIP, THE REFERENCE VELOCITY AND THE VORTICITY FAMILIES ARE ALWAYS
-    # STATED where the case can state them (PFS-2030.03.01, .03.03): the reference
-    # scripts set the sideslip even at zero and the reference velocity
-    # equal to the free stream, and a setting nobody states is a setting
-    # the solver defaults, which is the silence this release removes.
+    # Pass each bound preset setting to the emitter; None emits nothing.
+    # wake_termination_revolutions needs conversion using the case's clock
+    # and is handled by _wake_termination in the rotor builder, not here.
+    # The steady builder has no clock. State sideslip, reference velocity
+    # and vorticity families wherever the case supplies them
+    # (PFS-2030.03.01, .03.03), including zero sideslip.
     _refuse_sideslip_under_mirror(case)
     # BC commands retain their setup phase; late emission after solver_settings
     # would cross backwards from init and be refused by Script.
@@ -342,10 +323,9 @@ def _settings(
             ]
         script.emit("SOLVER_PROXIMAL_BOUNDARIES", len(indices), indices)
     _lift_and_coupling(case, script)
-    # SYMMETRY LOADS AS STATED, the design decision of 2026-09-02 (PFS-2028.05): an
+    # SYMMETRY LOADS AS STATED (PFS-2028.05): an
     # init-phase setting, emitted alone here as the helper asks; an absent
-    # key emits nothing, so a preset written before this release is silent
-    # exactly as it was.
+    # key emits nothing.
     symmetry_loads = row_symmetry_loads(case, solver.symmetry_loads)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
@@ -448,12 +428,8 @@ def _custom_flags(case: SimCase, script: Script, phase: str) -> None:
         name = flag.command
         try:
             spec = script.entry(name)
-            # `Phase.CONTROL.value` AND NOT `phase`. Reading the CURRENT
-            # phase here made the derived answer equal whatever seam was
-            # asking, so the skip below never fired and a control command
-            # went out at all three: 28 shipped commands declare phase
-            # control, so the triple emission was reachable rather than
-            # theoretical (the interface lens of the 0.15.0 release review).
+            # Use Phase.CONTROL.value so the skip below emits a control
+            # command at its own seam, not at every seam that asks.
             wanted = flag.before or (
                 Phase.CONTROL.value if spec.phase is Phase.CONTROL else spec.phase.value
             )
@@ -487,7 +463,7 @@ def _custom_flags(case: SimCase, script: Script, phase: str) -> None:
 def _raw_commands(case: SimCase, script: Script, phase: str) -> None:
     """Emit the setup's raw commands declared before ``phase``, in the order written.
 
-    PFS-2033.01, the design of 2026-09-09 (design/69). Each line is split
+    PFS-2033.01 (design/69). Each line is split
     on whitespace, its arguments coerced to the types the command's
     database entry declares, and emitted through :meth:`Script.emit`, so
     the line passes exactly the checks every curated emission passes: a

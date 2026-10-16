@@ -147,7 +147,7 @@ def add_storage_parsers(subparsers: Any) -> None:
         action="store_true",
         help="on a file conflict, archive main's copy and take the other's",
     )
-    # 0.32.0 (package B2): both off by default.
+    # Package B2: both off by default.
     sync.add_argument(
         "--restore",
         action="store_true",

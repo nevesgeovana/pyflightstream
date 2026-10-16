@@ -356,7 +356,7 @@ def test_p0320_ccs2_control_surface_is_declared_with_all_ten_arguments_before_th
     """P0320-CCS2-CONTROL-SURFACE: the ten-token form, SPACE and AXIS always written.
 
     Round 1 on 26.124 refused the eight-token line the manual's own sample prints
-    (``Review command syntax and arguments``); SRC-752 p.303 declares ten
+    (``Review command syntax and arguments``); FSM-26.124 p.303 declares ten
     parameters, so the route writes SPACE and AXIS on every declaration.
     """
     ccs = 'kind = "wing"\ncomponent = 1\n' + AILERON
@@ -617,11 +617,11 @@ def test_p0320_g35_the_file_route_refuses_a_stated_unit(tmp_path):
         _built(case)
 
 
-# --- G35: the relaxed trailing-edge specification, settled against SRC-752 p.85 ----------
+# --- G35: the relaxed trailing-edge specification, settled against FSM-26.124 p.85 ----------
 
 
 def test_p0320_g35_the_manuals_line_carries_three_values_before_the_direction():
-    """P0320-G35-SHEDDING: ``Relaxed_TE;u;v1;v2;direction`` (SRC-752 p.85), the defect fixed.
+    """P0320-G35-SHEDDING: ``Relaxed_TE;u;v1;v2;direction`` (FSM-26.124 p.85), the defect fixed.
 
     The helper read a four-number text as four leading values with no direction,
     so ``0.5;0.2;0.8;1`` (u, v1, v2 and the azimuth digit) was restated as

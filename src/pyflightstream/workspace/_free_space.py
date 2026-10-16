@@ -34,7 +34,7 @@ from pyflightstream.workspace.naming import ARCHIVE_DIR
 COMPACTED_SUFFIX = ".zip"
 _PROTECTED_SUFFIXES = (".fsm",)
 #: The recipe mode that deletes an unsteady point's per-step exports, all but
-#: the last step of each export (0.30.0).
+#: the last step of each export.
 PRUNE_MODE = "prune_step_exports"
 
 #: A step's simulation selection: ``(spec, records, present) -> sim ids``.
@@ -139,7 +139,7 @@ def _protected(workspace: CampaignWorkspace, sim_id: str, rows: list[dict[str, A
 
 
 def _sim_folder(sim: str) -> str:
-    """Return a simulation's folder as a progress line names it (0.32.0)."""
+    """Return a simulation's folder as a progress line names it."""
     return f"sims/sim_{sim}"
 
 
@@ -192,7 +192,7 @@ def _prune_step_exports(
     """Delete one simulation's per-step exports the table's ``spec`` selects (preview by default).
 
     ``spec`` is a ``[[prune_step_exports]]`` table: without ``keep_last`` or
-    ``delete_steps`` every step but the last of each export goes (0.30.0).
+    ``delete_steps`` every step but the last of each export goes.
 
     Returns one entry per point folder that has a step to delete: the runs it
     belongs to, the steps deleted, every file deleted with its step and size,
@@ -331,7 +331,7 @@ def _run_recipe(
     """
     root = workspace.root
     freed = 0
-    # PRUNE FIRST (0.30.0), so a recipe that prunes and then compacts prunes
+    # PRUNE FIRST, so a recipe that prunes and then compacts prunes
     # folders that are still folders: a compacted simulation is not read here.
     for spec in document.get(PRUNE_MODE, []):
         step: dict[str, Any] = {

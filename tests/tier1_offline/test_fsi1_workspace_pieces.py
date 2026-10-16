@@ -28,7 +28,7 @@ def test_unsteady_rotor_with_fsi_is_refused_as_in_debug(tmp_path):
     with pytest.raises(CampaignConfigError) as refused:
         build_script(case, script)
     assert (
-        "FSI on unsteady_rotor is still in debug on this release (the morph is applied "
+        "FSI on unsteady_rotor is still in debug (the morph is applied "
         "to the un-rotated blade, reported to the vendor)."
     ) in str(refused.value)
     assert "AEROELASTIC" not in script.render()

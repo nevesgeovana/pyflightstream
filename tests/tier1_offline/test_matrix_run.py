@@ -2859,7 +2859,7 @@ def test_a_reference_code_refusal_never_prescribes_a_file_that_cannot_resolve(tm
     message = str(caught.value)
     assert "POL 7001" in message, "the refusal does not name the row"
     if code == "003":
-        assert "leading letter since v0.8.0" in message, (
+        assert "leading letter; a code without it" in message, (
             "a pre-v0.8.0 code is told to create a file that cannot resolve, with no "
             "mention of the migration the library's own sentence names"
         )
@@ -4380,7 +4380,7 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     assert "inputs/setups/s002.toml" in message, message
     assert "vorticity_drag_boundaries" in message, message
     assert "SET_VORTICITY_DRAG_BOUNDARIES" in message, f"the command: {message}"
-    assert "SRC-003 p.202" in message, f"the manual's sentence: {message}"
+    assert "FSM-26.120 p.202" in message, f"the manual's sentence: {message}"
 
     # The control, so the check is not satisfied by refusing every list: a
     # group with members and a setup naming families plan READY.

@@ -12,14 +12,14 @@ can place a mesh, through the keyword-only `translation_m`, so two
 components can be meshed at a controlled gap without a solver transform
 command entering the measurement. The wing
 is written as ASCII STL, one of the mesh formats the IMPORT command
-accepts (SRC-003 p.307).
+accepts (FSM-26.120 p.307).
 
 Reference frame: chord along +X (leading edge at x = 0), span along
 +Y, thickness along +Z; all lengths in meters. A half wing spans
 0 <= y <= span/2 with an open root section lying in the XZ plane, the
 shape the solver's MIRROR symmetry expects: a face on the symmetry
 plane would duplicate itself into coincident faces (the tip-treatment
-caveat of SRC-003 p.386, paraphrased).
+caveat of FSM-26.120 p.386, paraphrased).
 """
 
 from __future__ import annotations
@@ -163,9 +163,7 @@ def mean_edge_length(triangles: np.ndarray) -> float:
     ``gap_m`` puts the two copies INSIDE each other. The two copies start
     COINCIDENT, so the upper copy's lower surface sits a full section
     thickness BELOW the lower copy's upper surface, and the translation
-    that opens a gap of ``gap_m`` is therefore ``thickness + gap_m``. The first
-    version of this example translated by ``gap_m + 0.2`` and printed
-    ``0.25``, while the real separation was 0.78 face lengths.
+    that opens a gap of ``gap_m`` is therefore ``thickness + gap_m``.
 
     >>> thickness = float(lower[:, :, 2].max() - lower[:, :, 2].min())
     >>> upper = wing_triangles(spec, translation_m=(0.0, 0.0, thickness + gap_m))
@@ -208,12 +206,8 @@ def wing_triangles(
         KEYWORD-ONLY, and NOT called ``offset_m``. Positionally it
         would have sat behind ``half``, so ``wing_triangles(spec, True,
         (0, 0, 0.5))`` would have been legal and would have read as
-        nothing in particular. ``half`` itself became keyword-only on
-        2026-08-18 for the same reason and in the same breaking window
-        this argument opened: a bare ``True`` in a call is a fact the
-        reader has to go and look up, and paying that debt in the window
-        already open costs nothing where paying it later is a second
-        break for the same callers. And ``offset_m`` already means a
+        nothing in particular. ``half`` is keyword-only for the same reason:
+        the parameter name explains the boolean at the call site. ``offset_m`` means a
         radial station along a blade elsewhere in this package, where it
         is a scalar rather than a 3-vector.
 
@@ -511,9 +505,7 @@ def generate_wing_stl(
         derived from the aerofoil and the half flag alone, so two
         translated copies of one wing, which is exactly what the
         proximity study writes, get the SAME solid name in two files.
-        On 2026-08-17 that made the loads parser refuse all sixteen
-        exports of a licensed run, and the numbers had to be read off
-        the files by hand.
+        Distinct names let the loads parser distinguish those bodies.
 
     Returns
     -------

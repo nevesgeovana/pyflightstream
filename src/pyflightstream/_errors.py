@@ -86,12 +86,10 @@ class PyflightstreamError(Exception):
     ...     print(type(error).__name__)
     UnknownVersionError
 
-    Every leaf keeps the standard-library base it already had, as a
-    second base, so code written before this class existed keeps
-    working unchanged: ``UnknownVersionError`` is still a
-    ``ValueError``, ``WorkspaceError`` still a ``RuntimeError``,
-    ``OptionError`` still a ``KeyError``. The addition is purely
-    widening; nothing that used to be caught stops being caught.
+    Every leaf also inherits its standard-library exception base:
+    ``UnknownVersionError`` is a ``ValueError``, ``WorkspaceError`` a
+    ``RuntimeError``, and ``OptionError`` a ``KeyError``. Callers can catch
+    either that specific standard-library category or the package base.
 
     Not a parent of :class:`~pyflightstream.results.VersionMismatchWarning`,
     which is a warning rather than an error. FR-39 asks for a base of

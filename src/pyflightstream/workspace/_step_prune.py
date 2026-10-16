@@ -1,7 +1,7 @@
 """Which per-step exports a ``[[prune_step_exports]]`` table keeps and which it deletes (FR-416).
 
 A recipe table may state ``keep_last = K`` (the last ``K`` steps of each
-export are kept, the default 1 being the 0.30.0 behaviour) or
+export are kept, default 1) or
 ``delete_steps = [A, B]`` (the steps from ``A`` to ``B`` inclusive are
 deleted, every other step kept), never both. This module holds the pieces of
 that choice that carry no file system action: the check of a table's keys
@@ -25,7 +25,7 @@ from typing import Any
 from pyflightstream.workspace.manifest import RunStatus
 
 #: The keys of a ``[[prune_step_exports]]`` table (FR-416): the selection of
-#: simulations of 0.30.0 and the two ways to say which steps go.
+#: simulations and the two ways to say which steps go.
 PRUNE_KEYS = ("sims", "status", "keep_last", "delete_steps")
 #: A per-step export: the solver stamps ``_iteration=<step>`` before the
 #: extension of every file an unsteady action exports at a step (RPT-041), the
@@ -120,7 +120,7 @@ def split_steps(spec: Mapping[str, Any], steps: Iterable[int]) -> tuple[list[int
 def selection_record(spec: Mapping[str, Any]) -> dict[str, Any]:
     """Return the selection a table stated, as the recorded step entry carries it.
 
-    A table that states neither key records neither: the entry is the one of 0.30.0.
+    A table that states neither key records neither.
     """
     return {key: spec[key] for key in ("keep_last", "delete_steps") if key in spec}
 
@@ -219,10 +219,9 @@ def table_problem(
 ) -> str | None:
     """Return what a step would refuse in one recipe table, or None.
 
-    Asked of the whole recipe before the first step touches a file (PFS-2096.028):
-    the steps used to check their own tables when reached, after an earlier one
-    had deleted. A key no table reads used to become the widest default
-    (PFS-2093.007), and a status string was read one character at a time
+    Validate the whole recipe before any step touches a file (PFS-2096.028).
+    Reject unknown keys instead of applying a broad default (PFS-2093.007),
+    and require a status sequence rather than iterating a string's characters
     (PFS-2097.020).
     """
     keys = _RECIPE_KEYS.get(table, PRUNE_KEYS)

@@ -153,12 +153,8 @@ def refuse_an_existing_product(
     """
     if not path.exists():
         return path
-    # THE TWO FLAGS ARE INDEPENDENT, and they were not: the guard read
-    # `not archive and overwrite`, so a caller asking for no archive with
-    # no overwrite, which is the documented do-not-archive request, fell
-    # through and archived anyway. One cell of a two-boolean truth table
-    # that no test named and no shipped path reached, which is exactly how
-    # it survived (the QA lens, 2026-09-13).
+    # Archive and overwrite are independent flags. A no-archive request
+    # must remain effective whether or not overwrite is also requested.
     if not archive:
         return path
     target = product_archive_dir(path, now=stamp)
@@ -289,10 +285,9 @@ def operator_agent(name: str | None) -> dict[str, object]:
     third agent the run was associated with, which another tool reads without
     being told anything about this package.
 
-    ``None`` is a run that ALREADY EXISTS. `submitted_by` is a RUN-time fact and
-    nobody recorded it for the simulations that already finished; it cannot be
-    recovered and none is invented. The field is PRESENT and reads `NA`, so a
-    reader tells a run that predates this release from a document that forgot.
+    ``None`` means the operator was not recorded. `submitted_by` is a RUN-time
+    fact that cannot be recovered afterward; no identity is invented. The
+    field remains present as `NA` so absence is explicit.
 
     Parameters
     ----------
@@ -392,18 +387,12 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         entity_id = f"pyfs:output/{name}"
         path = sim_dir / name
         recorded = record.outputs_sha256.get(name)
-        # A FILE THAT IS THERE AND CANNOT BE OPENED is recorded from the
-        # record, like one that is not there: a post never dies over a
-        # digest (the tech-writer lens of the v0.25.1 closing round, on a
-        # native log that `is_file()` and refuses to open).
+        # If a file cannot be opened, retain its recorded provenance as for
+        # an absent file; computing a digest must not abort the post stage.
         current = optional_file_sha256(path) if path.is_file() else None
-        # PFS-2038.01, GEO-039-F01. THE BYTES ON DISK MAY NOT BE THE BYTES
-        # THE RUN WROTE, and this document used to say they were: it
-        # preferred the current digest whenever the file existed and then
-        # bound that entity to the run through `wasGeneratedBy`. A file
-        # edited, repaired or re-exported after the run was therefore
-        # attributed to a run that never produced it. That is a false
-        # statement rather than a wrong number.
+        # PFS-2038.01, GEO-039-F01: bind wasGeneratedBy to the digest recorded
+        # by the run. Current bytes may have been edited, repaired or re-exported
+        # and must not be attributed to a run that did not produce them.
         changed = current is not None and recorded is not None and current != recorded
         if changed:
             # The ORIGINAL entity keeps the recorded digest and keeps the
@@ -504,7 +493,7 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             # PFS-2033.02: the setup's raw commands the script carried, or nothing.
             "pyfs:raw_commands": [entry.model_dump(mode="json") for entry in record.raw_commands]
             or None,
-            # The design decision of 2026-09-09: the setup's aliases the polar tables resolved by.
+            # The setup aliases used to resolve the polar tables.
             "pyfs:aliases": dict(record.aliases) or None,
         }
     )
@@ -518,7 +507,7 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
                 "pyfs:dirty": record.package_dirty,
             }
         ),
-        # THE OPERATOR, v0.23.0 item 12. Always present: a record that names
+        # THE OPERATOR (item 12). Always present: a record that names
         # nobody reads `NA`, so existing records remain usable and the absence
         # is visible rather than silent.
         operator_id: operator,

@@ -1,137 +1,43 @@
-"""The standard atmosphere, below every layer (PFS-2027.03).
+"""The standard atmosphere, below every pipeline layer (PFS-2027.03).
 
-Pipeline role: a FLOOR rather than a stage. It imports nothing from this
-package except the base exception, and several layers need it. Nothing
-flows THROUGH it, which is the distinction :mod:`pyflightstream.overview`
-draws between the two shapes; :mod:`pyflightstream._errors` is the other
-module of this kind and the precedent this one follows.
+This module computes atmospheric properties and imports only the package's
+base exception. Flight-condition resolution belongs to workspace, where a
+reference is available for Reynolds constraints. The script layer emits
+AIR_ALTITUDE or explicit fluid properties; this module emits no commands.
 
-WHY IT IS NOT IN ``utils``. That was asked directly, and the answer is
-the package's own declared architecture rather than a preference.
-``utils`` is a SIDE BRANCH in the layer table, "maintainer tooling
-outside the pipeline", and nothing in the pipeline imports it. Putting
-the atmosphere there would create the first pipeline-to-``utils``
-dependency, in the one module family whose position in the layer rule is
-undefined, and would answer that open question by accident in the
-direction nobody argued for.
+AIR_ALTITUDE has no ISA-deviation argument. Conditions carrying dISA and
+conditions solved from density therefore need explicit fluid properties.
+The command is recorded broken on builds 26.100, 26.101 and 26.120. Only the
+26.120 evidence quantifies the discrepancy: density 1.056 against 0.736
+expected, consistent with the 5000-foot rather than 5000-metre standard state
+(RPT-014, build 7012026). On 26.100 and 26.101 the probe records absence of
+the expected effect, not its cause. A static effect_note is not a per-run
+reading. The emitter refuses a broken command unless allow_broken is set;
+on 25.000 AIR_ALTITUDE takes a bare value in feet. Explicit properties avoid
+these build-dependent command limitations.
 
-WHY IT IS SEPARATE FROM THE RESOLUTION THAT USES IT. The split is the
-design and it pays for itself in testing. The physics here can be
-checked against published ISA tables with no case, no matrix and no
-script. The resolution of a flight condition -- deciding which unknown
-the given keys leave and refusing an under- or over-determined set --
-is placed with its caller in the workspace layer, downstream of
-reference binding, so that no layer below can resolve a Reynolds
-constraint before a reference exists to measure it against. In one
-module neither half is testable on its own.
+An ISA deviation changes temperature at unchanged pressure altitude and
+pressure. Density follows from the offset temperature. delta_isa_c is a
+temperature difference, with the same numerical value in Celsius and Kelvin.
+The model describes the standard atmosphere, not local weather, and refuses
+altitudes outside ISA's modeled layers instead of extrapolating.
 
-WHAT THIS MODULE DOES NOT DO. It does not emit. The script layer's
-``helpers.atmosphere`` is the emitter and stays one: it writes
-``AIR_ALTITUDE`` or the explicit fluid properties and computes nothing.
-It cannot serve this feature for two reasons, and they are not equally
-well evidenced, so they are stated separately.
+Atmosphere constants follow ISO 2533:1975, also published as ICAO Doc 7488/3
+[REF-01]. Sutherland's viscosity law uses the air coefficients attributed to
+White, Viscous Fluid Flow, third edition, equation (1-36) [REF-02].
+METRES_PER_FOOT is the exact defining value of the international foot.
 
-THE FIRST IS A FACT ABOUT THE GRAMMAR. ``AIR_ALTITUDE`` has no argument
-for an ISA deviation. So any condition carrying ``dISA`` must be emitted
-as explicit fluid properties computed on this side, and so must the
-solved-density path, which is not an atmosphere point at all. That one
-needs no probe: it is the command's own signature.
+The viscosity attribution has an unresolved limitation: the cited book is
+not available in this repository. The implemented reference temperature and
+Sutherland constant are 273.15 K and 110.4 K. A 273 K / 111 K triplet commonly
+attributed to the equation gives different results: about 0.0492 percent
+at sea level, 0.0536 percent at 300 K and 0.0164 percent at the tropopause.
+The difference propagates into density solved on the REmi path. Resolving
+which triplet belongs to the cited equation requires the source.
 
-THE SECOND IS WEAKER THAN AN EARLIER VERSION OF THIS DOCSTRING SAID, and
-the correction is worth keeping. ``AIR_ALTITUDE`` is recorded ``broken``
-on three supported builds, 26.100, 26.101 and 26.120. That count is
-exact. What those three rows RECORD is only that the command ran and the
-expected density was not observed. **Only 26.120 has a reading behind
-it**: 1.056 against the 0.736 expected, where 1.056 is the 5000-FOOT
-standard state and 0.736 the 5000-METRE one, seen twice on build 7012026
-(RPT-014). That reading is carried by ``CMP-26120_2026-07-21_full.yaml``
-and RPT-014 rather than by the 2026-08-08 row the command database
-cites, which carries the same boilerplate as the others. On 26.100 and
-26.101 the probe recorded absence and nothing more.
-
-This docstring previously said all three read their metres argument as
-feet, and cited the compat evidence for it. The evidence does not
-support that, which is weaker than refusing it and is what is true:
-``commands/boundary_conditions.yaml`` says in its own notes that the
-"reads ignored" sentence is the probe spec's STATIC ``effect_note``
-rather than a per-run reading, and proves it by pointing out that the
-same sentence appears in 26.121's row under outcome ``verified``.
-Whether those builds read every altitude in feet is an open question
-about three solvers and needs the density read back on 26.100 and 26.101
-as well.
-
-What survives is still enough to decide the design, which is why the
-conclusion did not move: a command that is ``broken`` on three of eleven
-registered builds is refused by the emitter unless a caller passes
-``allow_broken``, and on 25.000 it takes a bare value read in FEET. So
-computing here and emitting explicit properties is the more robust route
-across the supported range. That argument rests on the recorded STATUS,
-which is committed and dated, and not on a mechanism nobody measured.
-
-THE CONVENTION THAT IS WORTH WRITING DOWN. An ISA deviation moves
-temperature and leaves PRESSURE alone, so density follows from the
-offset temperature at the unchanged pressure altitude. That is the
-standard reading of "ISA+5". The other reading, shifting pressure too,
-is what a reader who has not met the convention will assume, which is
-why it is stated here and asserted in ``tests/tier1_offline/test_atmosphere.py``
-rather than left to be inferred from the arithmetic.
-
-``delta_isa_c`` is a DELTA in Celsius, and a temperature difference in
-Celsius and in Kelvin is the same number. So no conversion exists here
-to get wrong, and its absence is deliberate rather than an omission.
-
-SOURCE OF THE CONSTANTS, cited rather than recalled. The atmosphere is
-ISO 2533:1975, published identically as ICAO Doc 7488/3, whose defining
-constants are reproduced in :data:`ISA` below. The viscosity law is
-Sutherland's, with the air coefficients of White, *Viscous Fluid Flow*,
-3rd ed., eq. (1-36).
-
-Every ATMOSPHERE constant is from ISO 2533 and every VISCOSITY constant
-from White. ``METRES_PER_FOOT`` is neither: it is the defining value of
-the international foot, exact by definition rather than by measurement.
-It is called out because an earlier version of this sentence said "every
-constant this module uses is in one of those two places", and its own
-module falsified that sixty lines below.
-
-ONE CITATION IS NOT CHECKABLE IN THIS REPOSITORY, and saying so is the
-honest form. No copy of White is committed here, so
-``SUTHERLAND_REFERENCE_TEMPERATURE_K`` and ``SUTHERLAND_CONSTANT_K``
-rest on a page reference nobody in this tree can resolve. A V and V pass
-noted that the triplet as commonly printed with eq. (1-36) is 273 K and
-111 K, while 110.4 K is the classical Sutherland constant that
-circulates widely. MEASURED, rather than estimated: against this
-module's own reference viscosity the two readings differ by about
-0.0492 percent at sea level, 0.0536 percent at 300 K and 0.0164 percent
-at the tropopause, where the two forms come closest. That figure read
-"roughly 0.1 percent" until a release review recomputed it and found it
-about twice the sea-level spread and several times the tropopause one,
-which matters because the tropopause is where a cruise Reynolds number
-is actually formed. The difference propagates into every density solved
-on the ``REmi`` path. Which triplet belongs to that equation needs the
-book, and it is the domain-expert seat's call rather than this
-module's.
-
-THE OPEN QUESTION HAS A MECHANICAL TRIGGER, which is worth stating so
-the arbiter knows the cost of each answer: ``tests/tier1_offline/test_atmosphere.py``
-pins viscosity at three temperatures to ``rel=1e-4``, and the 273/111
-reading differs by 1.64e-4 at 216.65 K, 3.59e-4 at 255.65 K and 5.36e-4
-at 300 K. So resolving the citation the other way turns this file RED at
-ALL THREE of its points rather than passing silently, which is the right
-behaviour and is not an accident.
-
-This paragraph said "two of its three points" and quoted 5.8e-4 at 300 K
-until a round-two review pass caught it disagreeing with the sentence
-above it. Both were wrong in the direction that makes the open question
-look cheaper than it is: the tropopause point is the closest of the
-three and it still exceeds the tolerance by a factor of 1.6. Recomputed
-rather than re-remembered.
-
-WHAT THIS DOES NOT CLAIM. The model is the standard atmosphere, not the
-weather: it says what ISA defines at a pressure altitude, and nothing
-about any particular day. Above the ceiling in :data:`ISA` it refuses
-rather than extrapolating, because ISO 2533 continues with further
-layers this module does not implement and a silent extrapolation would
-be wrong in a way no caller could see.
+The atmosphere tests pin viscosity with rel=1e-4 at three temperatures.
+The alternative triplet differs by 1.64e-4 at 216.65 K, 3.59e-4 at 255.65 K
+and 5.36e-4 at 300 K, exceeding that tolerance at all three points.
 """
 
 from __future__ import annotations
@@ -153,7 +59,7 @@ class AtmosphereError(PyflightstreamError, ValueError):
 
 @dataclass(frozen=True)
 class IsaConstants:
-    """Hold the defining constants of ISO 2533:1975, in one citable object.
+    """Hold the defining constants of ISO 2533:1975 [REF-01], in one citable object.
 
     Held as data rather than as module-level names so that a test can
     read the values it is checking out of the same object the physics
@@ -176,18 +82,18 @@ class IsaConstants:
     tropopause_altitude_m: float = 11000.0
     #: Temperature of the isothermal layer above the tropopause, K.
     tropopause_temperature_k: float = 216.65
-    #: The top of what this module models, m. ISO 2533 continues above
+    #: The top of what this module models, m. ISO 2533 continues above [REF-01]
     #: it with layers this module does not implement, so the ceiling is
     #: a refusal boundary rather than the end of the standard.
     ceiling_altitude_m: float = 20000.0
-    #: The bottom, m. ISO 2533 is defined from -2000 m.
+    #: The bottom, m. ISO 2533 is defined from -2000 m. [REF-01]
     floor_altitude_m: float = -2000.0
 
 
 #: The single instance every function here reads.
 ISA: Final = IsaConstants()
 
-#: Sutherland's law for air: White, *Viscous Fluid Flow*, 3rd ed.,
+#: Sutherland's law for air: White, *Viscous Fluid Flow*, 3rd ed., [REF-02]
 #: eq. (1-36). The reference viscosity is at the reference temperature,
 #: and S is the Sutherland constant of air.
 SUTHERLAND_REFERENCE_VISCOSITY_PA_S: Final = 1.716e-5
@@ -271,7 +177,7 @@ def standard_pressure(altitude_m: float) -> float:
         raise AtmosphereError(
             f"altitude {altitude_m} m is outside the range this atmosphere "
             f"models, {ISA.floor_altitude_m} m to {ISA.ceiling_altitude_m} m. "
-            "ISO 2533 continues above that ceiling with layers this module "
+            "ISO 2533 continues above that ceiling with layers this module [REF-01] "
             "does not implement, and extrapolating past it would be wrong in "
             "a way the caller could not see."
         )

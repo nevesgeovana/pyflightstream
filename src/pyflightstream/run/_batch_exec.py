@@ -1,4 +1,4 @@
-"""The two adapters a grouped run hands to the per-point campaign loop (0.35.0).
+"""The two adapters a grouped run hands to the per-point campaign loop.
 
 Pipeline role: ``run --batch N`` and ``run --polar-sweep`` reuse the per-point
 run path unchanged and add only what is new around it (IMPL-0350 section 1).

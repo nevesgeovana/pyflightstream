@@ -13,7 +13,7 @@ not conditionality.
 One generated function per command was rejected in the SAD: it would
 reproduce the shape of the AGPL package, create a huge surface, and
 teach nothing. The curated workflows are: free stream and atmosphere,
-actuator disc (SRC-003 pp.323-324), rotary motion (pp.332-333), solver
+actuator disc (FSM-26.120 pp.323-324), rotary motion (pp.332-333), solver
 settings (pp.339-343), solver initialization (p.337), sweeps (p.406),
 analysis and export selection (pp.350-354), and probe management
 (pp.362-363).
@@ -52,7 +52,7 @@ exception. :func:`parse_relaxed_trailing_edge` and
 COMPONENT specification, the ``Relaxed_TE;u;v1;v2;direction`` line a CCS
 file writes where a component is defined; no command on any registered
 build takes its values, so they take no ``script`` and produce text
-(SRC-752 p.85).
+(FSM-26.124 p.85).
 """
 
 from __future__ import annotations
@@ -274,10 +274,10 @@ def actuator_disc(
     enable: Toggle = True,
     label: str | None = None,
 ) -> int:
-    """Create and configure one rotor actuator disc (SRC-003 pp.323-324).
+    """Create and configure one rotor actuator disc (FSM-26.120 pp.323-324).
 
     The disc is the linearized rotor slipstream surrogate
-    (SRC-003 pp.185-187). Exactly one thrust specification is taken:
+    (FSM-26.120 pp.185-187). Exactly one thrust specification is taken:
     a net ``thrust`` (ELLIPTICAL profile) or a radial force
     distribution file ``profile`` (CUSTOM profile, which also needs
     ``n_blades``).
@@ -306,7 +306,7 @@ def actuator_disc(
     thrust_type : str
         ``COEFFICIENT``, ``NEWTONS``, or ``POUNDS``. The manual
         recommends dimensional thrust because the coefficient
-        convention must match the solver formulation (SRC-003 p.187).
+        convention must match the solver formulation (FSM-26.120 p.187).
     profile : str, optional
         Path of the radial thrust profile file for the CUSTOM model, the
         path the command's next line names. Refused, before anything is
@@ -330,7 +330,7 @@ def actuator_disc(
     swirl : float, optional
         Fraction between 0 and 1 of the swirl velocity kept
         downstream; below 1 mimics a de-swirling stator
-        (SRC-003 p.186).
+        (FSM-26.120 p.186).
     wake_type : str, optional
         RIGID or RELAXED, as documented from 26.122; omitted emits no wake setter.
     enable : bool or 'ENABLE' or 'DISABLE'
@@ -357,12 +357,12 @@ def actuator_disc(
         raise CommandArgumentError(
             "actuator_disc takes exactly one thrust specification: a net thrust "
             "(ELLIPTICAL model) or a radial profile file (CUSTOM model) "
-            "(SRC-003 pp.185-187)"
+            "(FSM-26.120 pp.185-187)"
         )
     if profile is not None and n_blades is None:
         raise CommandArgumentError(
             "actuator_disc with a profile file needs n_blades, because the imported "
-            "radial distribution is per blade (SRC-003 pp.323-324)"
+            "radial distribution is per blade (FSM-26.120 pp.323-324)"
         )
     if profile_text is not None and profile is None:
         raise CommandArgumentError(
@@ -411,7 +411,7 @@ def actuator_disc(
     if swirl is not None and not 0.0 <= swirl <= 1.0:
         raise CommandArgumentError(
             f"actuator_disc swirl must lie between 0 and 1, got {swirl}: it is the "
-            "fraction of the swirl velocity kept downstream (SRC-003 p.186)"
+            "fraction of the swirl velocity kept downstream (FSM-26.120 p.186)"
         )
     if wake_type is not None:
         entry = script.entry("SET_ACTUATOR_WAKE_TYPE")
@@ -421,10 +421,8 @@ def actuator_disc(
                 f"actuator_disc wake_type {wake_type!r} is not one of {tuple(allowed)}"
             )
     subtype = "ELLIPTICAL" if thrust is not None else "CUSTOM"
-    # THE SOLVER'S OWN WORD, not this package's. The rotor-word sweep of
-    # 0.15.0 renamed this to ROTOR and the command database refused it:
-    # PROPELLER is the enum value CREATE_NEW_ACTUATOR accepts, and a
-    # vendor vocabulary is quoted rather than translated.
+    # PROPELLER is the CREATE_NEW_ACTUATOR enum value. Emit the solver's
+    # vocabulary exactly.
     script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype=subtype, name=name, label=label)
     index = script.num_actuators
     script.emit("SET_ACTUATOR_AXIS", index, frame, axis, offset)
@@ -468,10 +466,10 @@ def rotary_motion(
     wake_stabilization_blades: int | None = None,
     label: str | None = None,
 ) -> int:
-    """Create and configure one rotary motion (SRC-003 pp.332-333).
+    """Create and configure one rotary motion (FSM-26.120 pp.332-333).
 
     Rotary motion is the blade-resolved alternative to the actuator
-    disc surrogate (SRC-003 p.234); it requires the unsteady solver
+    disc surrogate (FSM-26.120 p.234); it requires the unsteady solver
     (see :func:`unsteady_solver`).
 
     ON A BUILD WITHOUT THE ROTARY TYPE THAT DOCUMENTS THE EUCLIDEAN ROTOR
@@ -480,7 +478,7 @@ def rotary_motion(
     motion whose angular velocity is the speed converted to rad/s along
     the axis, marked as a rotor whose slipstream convects along that axis.
     The manual's rotor tutorial has the reader convert the rotor speed to
-    radians per second for that field (SRC-741 p.394), and RPT-049
+    radians per second for that field (FSM-26.100 p.394), and RPT-049
     measured the same unit for the script command
     (:data:`pyflightstream.script.rotor_vocabulary.EUCLIDEAN_ROTOR_UNIT`).
     The caller writes the same arguments on every build. The vocabulary is
@@ -527,7 +525,7 @@ def rotary_motion(
     wake_stabilization_blades : int, optional
         Enables slipstream wake stabilization with this blade count,
         which is PER ROTOR and not a total across the motion
-        (SRC-003 p.333). The February 2026 build's grammar for that
+        (FSM-26.120 p.333). The February 2026 build's grammar for that
         command has two arguments and no blade count at all, and 25.100
         and 26.000 document no such command, so on a Euclidean build
         this argument is refused by name rather than emitted without the
@@ -568,7 +566,7 @@ def rotary_motion(
         raise CommandArgumentError(_unmarked_unit_refusal(script.version.canonical))
     if start_time is not None and not euclidean:
         # A semantic refusal, not a status: SET_MOTION_START_TIME runs on a
-        # 6DOF motion (verified 2026-10-12, RPT-166) and the solver declines
+        # 6DOF motion (RPT-166) and the solver declines
         # it for a ROTARY one, stopping the script (RPT-026). Refused before
         # anything is emitted, so the caller's script is left untouched.
         raise CommandArgumentError(
@@ -729,7 +727,7 @@ def solver_settings(
     """Set the solver flags, record their provenance, and return the snapshot.
 
     Single entry point for every command of the runtime_settings
-    (SRC-003 pp.339-340), solver_settings (pp.341-343), and
+    (FSM-26.120 pp.339-340), solver_settings (pp.341-343), and
     advanced_settings (pp.344-346) families. Only the provided flags
     are emitted (plus the library minimum-Cp default, below), so the
     helper serves both the initial setup and the re-emission between
@@ -747,7 +745,7 @@ def solver_settings(
       induced drag comes from surface vorticity integration. Omitting
       it leaves this script's selection as it stands: nothing, on the
       first settings call, which is the solver default of surface
-      pressure integration on every boundary (SRC-003 p.202); the
+      pressure integration on every boundary (FSM-26.120 p.202); the
       selection of the earlier call, on a second settings call of the
       same script, since the line it emitted stays in the script. The
       selection is an analysis-phase command, so when it is passed its
@@ -757,12 +755,10 @@ def solver_settings(
       ``script.emit("START_SOLVER")`` does not flush it.
     - ``minimum_cp`` unset emits ``SOLVER_MINIMUM_CP -100`` while the
       script carries no SOLVER_MINIMUM_CP yet: the
-      solver's own default -20 (SRC-003 p.221) clips the suction peaks
-      of rotor blades, so -100 is the library default ; pass the flag to override. A re-emission
-      call that
-      omits it leaves the limiter already in the script as it is, where
-      in legacy releases it wrote -100 over an earlier explicit value. The physics references
-      were re-validated under this default, 30 of 30 metrics
+      solver's own default -20 (FSM-26.120 p.221) clips the suction peaks
+      of rotor blades, so -100 is the library default; pass the flag to override.
+      A re-emission that omits it leaves the existing limiter unchanged.
+      The physics reference check found 30 of 30 metrics
       bit-identical (report
       PHY-26120_2026-07-23_reseed-cp100-2026-07-23). On a
       FlightStream version without the command nothing is emitted and
@@ -780,11 +776,11 @@ def solver_settings(
         trailing-edge condition, a wing for instance, and advises
         against bluff bodies such as a tubular fuselage: a bluff body
         placed on this list reports zero induced drag, which is why
-        ``"all"`` is unsafe on a mixed geometry (SRC-003 p.202). None (the
+        ``"all"`` is unsafe on a mixed geometry (FSM-26.120 p.202). None (the
         default) emits no selection command and leaves every boundary
         on the solver's own surface pressure integration, which the
         manual also prescribes for every component in ground effect
-        (SRC-003 p.202); an empty sequence is refused, because the
+        (FSM-26.120 p.202); an empty sequence is refused, because the
         solver default is expressed by omitting the argument, not by
         selecting nothing. A second settings call on the same script
         may omit the argument: the selection of the earlier call stays
@@ -794,13 +790,13 @@ def solver_settings(
     mode : str, optional
         Solver time regime: ``STEADY`` (SET_SOLVER_STEADY) or
         ``UNSTEADY`` (SET_SOLVER_UNSTEADY, physical time stepping,
-        SRC-003 p.341).
+        FSM-26.120 p.341).
     time_iterations : int, optional
         UNSTEADY only: number of physical time steps.
     delta_time : float, optional
         UNSTEADY only: physical time step in s. For rotary cases the
         manual recommends 8 to 12 degrees of blade rotation per step
-        and at least two full rotations (SRC-003 p.210).
+        and at least two full rotations (FSM-26.120 p.210).
     aoa : float, optional
         Angle of attack in deg, magnitude below 90.
     sideslip : float, optional
@@ -813,19 +809,19 @@ def solver_settings(
     ref_velocity : float, optional
         Reference velocity in native length units per second for normalization; for
         rotary or hover cases use the largest characteristic velocity,
-        such as the rotor tip speed (SRC-003 p.201).
+        such as the rotor tip speed (FSM-26.120 p.201).
     ref_mach : float, optional
         Reference Mach number.
     ref_area : float, optional
         Reference area S_ref in simulation length units squared
-        (Q*S_ref force normalization, SRC-003 p.223).
+        (Q*S_ref force normalization, FSM-26.120 p.223).
     ref_length : float, optional
         Reference length L_ref in simulation length units
-        (Q*S_ref*L_ref moment normalization, SRC-003 p.223).
+        (Q*S_ref*L_ref moment normalization, FSM-26.120 p.223).
     iterations : int, optional
         Solver iteration count.
     convergence : float, optional
-        Residual threshold declaring convergence (SRC-003 p.200).
+        Residual threshold declaring convergence (FSM-26.120 p.200).
     forced_iterations : bool or 'ENABLE' or 'DISABLE', optional
         Run the full iteration count regardless of convergence.
     max_threads : int, optional
@@ -833,20 +829,20 @@ def solver_settings(
     boundary_layer : str, optional
         ``LAMINAR``, ``TRANSITIONAL``, or ``TURBULENT``; the default
         transitional model is stated valid for chord Reynolds numbers
-        between 500000 and 1500000 (SRC-003 p.203).
+        between 500000 and 1500000 (FSM-26.120 p.203).
     viscous_coupling : bool or 'ENABLE' or 'DISABLE', optional
         Couple the semi-empirical boundary layer model to the
         potential flow solution (attached-flow viscosity only,
-        SRC-003 pp.207-208).
+        FSM-26.120 pp.207-208).
     surface_roughness : float, optional
         Surface roughness height in NANOMETRES, which is the manual's
         own unit and unlike every other length this helper takes
-        (SRC-003 p.341). Zero states a smooth surface, so there is no
+        (FSM-26.120 p.341). Zero states a smooth surface, so there is no
         separate toggle and the value carries the choice.
     thin_boundaries : sequence of int or str, ``"all"``, or None
         Boundaries the solver treats as thin, so both faces of a surface
         are resolved, by 1-based index or declared label
-        (SRC-003 p.343). Three states, and they are all distinct: None
+        (FSM-26.120 p.343). Three states, and they are all distinct: None
         leaves the solver's own list untouched, ``"all"`` emits
         SET_THIN_BOUNDARIES -1 and marks every mesh boundary thin, and
         the empty sequence emits DELETE_THIN_BOUNDARIES and erases the
@@ -858,15 +854,15 @@ def solver_settings(
         declared with declare_existing(boundaries=...) when one
         exists. The empty sequence emits
         DELETE_VISCOUS_EXCLUDED_BOUNDARIES, which is the solver's own
-        way of erasing the list (SRC-003 p.341); pass None, or omit the
+        way of erasing the list (FSM-26.120 p.341); pass None, or omit the
         flag, to leave the list as the script found it.
     bulk_separation : BulkSeparation or mapping, optional
         Bulk (bluff-body) flow-separation assignment
-        (CREATE_BULK_SEPARATION, SRC-003 p.342); see
+        (CREATE_BULK_SEPARATION, FSM-26.120 p.342); see
         :class:`~pyflightstream.script.solver_setup.BulkSeparation`.
         Documented on 26.101 and 26.120, and usable on 26.120 and
         26.121 only. The 26.101 grammar is three arguments
-        (SRC-725 p.341) and :class:`BulkSeparation` models the
+        (FSM-26.101 p.341) and :class:`BulkSeparation` models the
         four-argument form, so this keyword is REFUSED on that build
         with the three-argument emission named as the way through.
         26.121 is a hotfix of 26.120 and inherits the record, so the
@@ -877,25 +873,25 @@ def solver_settings(
         26.120 and 26.121. 26.100 has no named separation models at all.
     airfoil_separation : sequence of AirfoilSeparation or mapping, optional
         Airfoil (trailing-edge) separation assignments, one per
-        CREATE_AIRFOIL_SEPARATION emission (SRC-003 p.341).
+        CREATE_AIRFOIL_SEPARATION emission (FSM-26.120 p.341).
     axial_vortex_separation : sequence of AxialVortexSeparation or mapping, optional
         Axial vortex separation assignments for slender bodies
-        (CREATE_AXIAL_VORTEX_SEPARATION, SRC-003 p.342).
+        (CREATE_AXIAL_VORTEX_SEPARATION, FSM-26.120 p.342).
     cylindrical_bulk_separation : sequence of CylindricalBulkSeparation or mapping, optional
-        Cylindrical bulk separation assignments (SRC-740 p.345);
+        Cylindrical bulk separation assignments (FSM-26.121 p.345);
         documented on 26.121.
     stratford_bulk_separation : sequence of StratfordBulkSeparation or mapping, optional
-        Stratford bulk separation assignments (SRC-740 p.345);
+        Stratford bulk separation assignments (FSM-26.121 p.345);
         documented on 26.121.
     delete_separations : int or 'all', optional
         Delete one separation model by its 1-based creation index, or
         every one of them with ``"all"`` (DELETE_SEPARATION,
-        SRC-003 p.342). Emitted before the four assignment flags above,
+        FSM-26.120 p.342). Emitted before the four assignment flags above,
         so one call can clear what an opened simulation carried and then
         build its own models on a known-empty list.
     axial_separation_boundaries : sequence of int or str, or 'all', optional
         Boundaries on the axial flow separation list of 26.100
-        (SET_AXIAL_SEPARATION_BOUNDARIES, SRC-741 p.339). The empty
+        (SET_AXIAL_SEPARATION_BOUNDARIES, FSM-26.100 p.339). The empty
         sequence emits the matching DELETE. Documented for 26.100 alone
         and refused elsewhere; RPT-018 measured this command reported
         deprecated and then refused by the 26.101 and 26.121 solvers,
@@ -906,9 +902,9 @@ def solver_settings(
         this mechanism.
     valarezo_separation_boundaries : sequence of int or str, or 'all', optional
         Boundaries on the Valarezo maximum-lift criterion list of
-        26.100 (SRC-741 p.339). The empty sequence emits the erase,
+        26.100 (FSM-26.100 p.339). The empty sequence emits the erase,
         like every other boundary-list keyword. It was REFUSED for one
-        day: RPT-018 measured the name SRC-741 prints for that erase as
+        day: RPT-018 measured the name FSM-26.100 prints for that erase as
         unrecognised by the solver, and the working spelling could not
         be recorded until an entry was allowed to rest on a probe report
         instead of a manual page. It is recorded now, so the erase is
@@ -917,104 +913,103 @@ def solver_settings(
         :class:`~pyflightstream.script.solver_setup.AirfoilSeparation`.
     crossflow_separation_boundaries : sequence of int or str, or 'all', optional
         Boundaries on the cross-flow separation list of 26.100
-        (SRC-741 pp.339-340). The empty sequence emits the matching
+        (FSM-26.100 pp.339-340). The empty sequence emits the matching
         DELETE.
     crossflow_separation_diameter : float, optional
         Maximum diameter of the body carrying the 26.100 cross-flow
-        separation model, in simulation length units (SRC-741 p.339).
+        separation model, in simulation length units (FSM-26.100 p.339).
         One diameter applies to the whole list, unlike the later named
         models, which carry a diameter per assignment.
     crossflow_separation_axisymmetric : bool or 'ENABLE' or 'DISABLE', optional
         Axisymmetric vortex shedding for the 26.100 cross-flow
-        separation model (SRC-741 p.340).
+        separation model (FSM-26.100 p.340).
     laminar_separation : bool or 'ENABLE' or 'DISABLE', optional
-        Laminar boundary layer separation (SRC-003 p.345); the one
-        member of the separation family documented unchanged across the
-        four 26.1x editions. It carries no row for the three pre-26.100
-        builds, so it is refused there, and the phrase used to read "all
-        four editions" while eight are registered.
+        Laminar boundary layer separation (FSM-26.120 p.345); the one
+        separation-family member documented by FSM-26.100, FSM-26.101,
+        FSM-26.120 and FSM-26.121. It carries no row for the three
+        pre-26.100 builds, so it is refused there.
     convergence_iterations : int, optional
         Iterations the solver must stay below the convergence
-        threshold before convergence is declared (SRC-003 p.344).
+        threshold before convergence is declared (FSM-26.120 p.344).
     minimum_cp : float, optional
         Lower limiter on the pressure coefficient, dimensionless
-        (SRC-003 p.345); see the library-default note above.
+        (FSM-26.120 p.345); see the library-default note above.
     reynolds_averaged_drag : bool or 'ENABLE' or 'DISABLE', optional
         Toggle the Reynolds-averaged (flat plate) boundary layer
-        calculations (SRC-003 p.344).
+        calculations (FSM-26.120 p.344).
     mesh_induced_wake_velocity : bool or 'ENABLE' or 'DISABLE', optional
         Toggle the mesh-induced wake velocity computation
-        (SRC-003 p.344).
+        (FSM-26.120 p.344).
     farfield_layers : int, optional
         Far-field agglomeration layer count, integer between 1 and 5;
-        the solver default is 3 (SRC-003 p.344).
+        the solver default is 3 (FSM-26.120 p.344).
     unsteady_pressure_and_kutta : bool or 'ENABLE' or 'DISABLE', optional
         Toggle the unsteady Bernoulli and Kutta terms of the unsteady
-        solver (SRC-003 p.344).
+        solver (FSM-26.120 p.344).
     wake_termination_time_steps : int, optional
         Time steps after which a fully faded wake vortex filament edge
-        is removed (SRC-003 p.344).
+        is removed (FSM-26.120 p.344).
     wake_on_wake_induction : bool or 'ENABLE' or 'DISABLE', optional
         Toggle the wake-on-wake induced velocity computation
-        (SRC-003 pp.344-345).
+        (FSM-26.120 pp.344-345).
     additional_wake_relaxation : bool or 'ENABLE' or 'DISABLE', optional
         Perform one additional wake relaxation iteration
-        (SRC-003 p.345).
+        (FSM-26.120 p.345).
     aeroelastic_rbf_type : str, optional
         RBF mesh morphing algorithm of the aeroelastic coupling:
         ``WENDLAND_C2``, ``GAUSSIAN``, ``THIN_PLATE_SPLINE``,
         ``MULTI_QUADRATIC``, or ``INV_MULTI_QUADRATIC``
-        (SRC-003 p.345).
+        (FSM-26.120 p.345).
     kutta_joukowski_lift : bool or 'ENABLE' or 'DISABLE', optional
         Compute the inviscid lift from the bound circulation by the
         Kutta-Joukowski theorem instead of by integrating the surface
         pressure. Changes a reported coefficient, not the flow field
-        (SRC-003 p.344).
+        (FSM-26.120 p.344).
     print_rotor_induced_velocities : bool or 'ENABLE' or 'DISABLE', optional
         Write the rotor-induced velocities to the log at every time step
         of an unsteady run. A diagnostic whose output volume is
-        unbounded on a long run (SRC-003 p.345).
+        unbounded on a long run (FSM-26.120 p.345).
     adaptive_field_grid_refinement : bool or 'ENABLE' or 'DISABLE', optional
         Refine the field-source grid where the solution needs it. The
         manual marks this transonic only, so on a subsonic case it has
-        nothing to act on (SRC-003 p.345).
+        nothing to act on (FSM-26.120 p.345).
     jet_wake_filaments_grid_induction : bool or 'ENABLE' or 'DISABLE', optional
         Let the jet wake filaments induce velocity on the mesh
-        (SRC-003 p.346). NOT AVAILABLE ON 26.121, where passing this
+        (FSM-26.120 p.346). NOT AVAILABLE ON 26.121, where passing this
         raises rather than emitting: the build does not recognise the
-        command, measured against the solver on 2026-08-08 (RPT-021).
+        command (RPT-021).
         Documented by the 26.101 and 26.120 editions and by neither
         neighbour.
     rotor_induced_velocity_blending : float, optional
         Blending factor for wake stabilization, dimensionless, between 0
         and 1, solver default 0.25. Not available on 26.100
-        (SRC-003 p.345).
+        (FSM-26.120 p.345).
     wake_numerical_relaxation : float, optional
         Relaxation factor applied to the wake between iterations,
         dimensionless, between 0 and 1, solver default 0.15. Lowering it
         steadies a wake that will not settle, at the cost of iterations.
-        Not available on 26.100 (SRC-003 p.346).
+        Not available on 26.100 (FSM-26.120 p.346).
     jet_wake_decay_normalized_length : float, optional
         Distance at which a jet wake decays to a tenth of its initial
         strength, in MULTIPLES OF THE JET WAKE DIAMETER rather than in
         length units. Solver default 100.0 through 26.124 and 10.0 on
-        26.125 (SRC-753 p.358), minimum 1.0. The 26.125 snapshot records
+        26.125 (FSM-26.125 p.358), minimum 1.0. The 26.125 snapshot records
         an omitted value as unknown until version defaults have a structured
         database field. Not available
-        on 26.100 (SRC-003 p.346).
+        on 26.100 (FSM-26.120 p.346).
     solver_stabilization : float, optional
         Maximum level of stabilization applied to the main convergence,
         dimensionless, from 0 to 1. The manual states that 0 is the same
         as disabling it, so this is a strength and not a switch, and it
         takes intermediate values. Not available on 26.100
-        (SRC-003 p.346).
+        (FSM-26.120 p.346).
     disable_ref_velocity : bool, default False
         Make the solver reference velocity track the free-stream
         velocity instead of holding what `ref_velocity` last set. The
         command takes no argument, so False is the ABSENCE of the
         request rather than a way of asking for the opposite: the solver
         has no way to be told not to do this. Documented by the 26.121
-        edition alone (SRC-740 p.342). A bool only: a toggle word such
+        edition alone (FSM-26.121 p.342). A bool only: a toggle word such
         as 'DISABLE' is refused, because no line can say off.
     wake_decay_constant : float, optional
         Rate at which wake vorticity decays with distance, in units of
@@ -1026,18 +1021,18 @@ def solver_settings(
         length is the wing semi-span or largest fin for steady state,
         the blade radius for a rotor or rotor, and the larger of the
         two where both are present. Documented by the 26.121 edition
-        alone (SRC-740 p.346).
+        alone (FSM-26.121 p.346).
     solver_model : str, optional
         Flow model the solver runs, one of INCOMPRESSIBLE, SUBSONIC,
         TRANSONIC and LOW_ORDER_SUPERSONIC. Documented by the 25.000
-        edition alone (SRC-749 p.302), which is the last one to carry it
+        edition alone (FSM-25.000 p.302), which is the last one to carry it
         as a command: the 25.100 edition drops the command and gives
         INITIALIZE_SOLVER a SOLVER_MODEL argument in the same release.
         On any build from 25.100 on, set the model there instead.
     valarezo_criterion : bool or 'ENABLE' or 'DISABLE', optional
         Enable the Valarezo pressure-difference criterion for predicting
         the onset of separation. Documented by the three pre-26.100
-        editions (SRC-747 p.316) and by none after them.
+        editions (FSM-26.000 p.316) and by none after them.
     crossflow_separation_mean_diameter : float, optional
         Mean diameter of the body the cross-flow separation model
         applies to, strictly positive, in the simulation length units.
@@ -1053,27 +1048,27 @@ def solver_settings(
         in no release. Its 26.100 counterpart is
         `crossflow_separation_diameter`, the same physical quantity
         under a command the vendor named after it. Documented by the
-        three pre-26.100 editions (SRC-747 p.316).
+        three pre-26.100 editions (FSM-26.000 p.316).
     wake_relaxation : bool or 'ENABLE' or 'DISABLE', optional
         Enable relaxation of the wake geometry between solver
         iterations, which damps the wake movement and helps a case that
         oscillates rather than converging. Documented by the three
-        pre-26.100 editions (SRC-747 p.319).
+        pre-26.100 editions (FSM-26.000 p.319).
     wake_streamwise_agglomeration : bool or 'ENABLE' or 'DISABLE', optional
         Enable agglomeration of wake filament edges along the streamwise
         direction, trading wake resolution for fewer wake elements.
-        Documented by the three pre-26.100 editions (SRC-747 p.318).
+        Documented by the three pre-26.100 editions (FSM-26.000 p.318).
     adverse_gradient_boundary_layer : bool or 'ENABLE' or 'DISABLE', optional
         Enable the adverse-pressure-gradient treatment in the
         boundary-layer model, which lets the layer thicken approaching
         separation instead of following the flat-plate relation
         everywhere. Documented by the three pre-26.100 editions
-        (SRC-747 p.318).
+        (FSM-26.000 p.318).
     vortex_ring_normalization : bool or 'ENABLE' or 'DISABLE', optional
         Enable normalization of the vortex-ring strengths on the wake
         panels. The page gives the switch and no definition of what the
         normalization does, so nothing further is stated here.
-        Documented by the three pre-26.100 editions (SRC-747 p.318).
+        Documented by the three pre-26.100 editions (FSM-26.000 p.318).
 
     Returns
     -------
@@ -1100,8 +1095,8 @@ def solver_settings(
     SOLVER_SET_ITERATIONS 500
     SOLVER_MINIMUM_CP -100
     """
-    # The facade of AD-17: every keyword, exactly as received, goes to the
-    # family emitters of script._settings, which emit in the 0.33.0 order.
+    # AD-17 facade: pass each keyword unchanged to the ordered family
+    # emitters in script._settings.
     arguments = dict(locals())
     del arguments["script"]
     return _emit_solver_settings(script, arguments)
@@ -1119,13 +1114,13 @@ def sweep(
     start: Toggle = True,
     export_spreadsheet: str | None = None,
 ) -> None:
-    """Configure and run a Sweeper Toolbox sweep (SRC-003 pp.358-360).
+    """Configure and run a Sweeper Toolbox sweep (FSM-26.120 pp.358-360).
 
     Covers the CUSTOM mode only, which is a SUBSET of what the four
     sweep commands document, and the shape of the subset is an accident
     of how this chapter was first read rather than a design: the
     database and this helper were both written from the worked example
-    at SRC-003 p.406, which sweeps three axes in one mode. The
+    at FSM-26.120 p.406, which sweeps three axes in one mode. The
     reference pages give every axis the same grammar, so what is
     missing here is the UNIFORM mode on all axes, the file form on the
     two angle axes, the inline list form on velocity, and the Mach axis
@@ -1180,7 +1175,7 @@ def sweep(
     if aoa is None and beta is None and velocity_file is None:
         raise CommandArgumentError(
             "sweep needs at least one axis (aoa, beta, or velocity_file); a sweep "
-            "without values has nothing to run (SRC-003 pp.358-359)"
+            "without values has nothing to run (FSM-26.120 pp.358-359)"
         )
     clear_solution = _optional_toggle("sweep", "clear_solution", clear_solution)
     ref_velocity_same = _optional_toggle("sweep", "ref_velocity_same", ref_velocity_same)
@@ -1191,12 +1186,8 @@ def sweep(
         if values is not None:
             script.emit(command, "CUSTOM", values)
     if velocity_file is not None:
-        # BY NAME, not positionally. The velocity command used to declare
-        # `filename` as its only tail, so a path was the second positional;
-        # the 2026-08-06 redraft gave all four sweep axes the manual's real
-        # grammar, where the inline value list comes first and the path
-        # second. A positional path bound to `values` and raised, and no
-        # test covered this keyword, so the whole suite stayed green.
+        # Bind filename by name: the inline values list precedes it in the
+        # sweep command grammar, so a positional path would bind to values.
         script.emit("SWEEPER_SET_VELOCITY_SWEEP", "CUSTOM", filename=velocity_file)
     _emit_sweep_options(script, clear_solution, ref_velocity_same, post_run_script)
     if start:
@@ -1241,7 +1232,7 @@ def analysis_setup(
     inviscid_only: Toggle | None = None,
     vorticity_drag_boundaries: Sequence[int | str] | Literal["all"] | None = None,
 ) -> None:
-    """Select how loads and moments are analyzed (SRC-003 pp.350-351).
+    """Select how loads and moments are analyzed (FSM-26.120 pp.350-351).
 
     TWO GROUPS, TWO POSITIONS. ``symmetry_loads``, ``loads_frame`` and
     ``moments_model`` are init-phase settings and go in a call made
@@ -1272,7 +1263,7 @@ def analysis_setup(
     boundaries : sequence of int or str, optional
         Boundaries enabled in the analysis, by 1-based index or
         declared boundary label; boundaries not listed are disabled
-        (SRC-003 p.351). Indices are verified against the inventory
+        (FSM-26.120 p.351). Indices are verified against the inventory
         declared with declare_existing(boundaries=...) when one
         exists.
     inviscid_only : bool or 'ENABLE' or 'DISABLE', optional
@@ -1288,7 +1279,7 @@ def analysis_setup(
         drag comes from surface vorticity integration, by index or
         declared label; a bluff body without a user-defined
         trailing-edge condition reports zero induced drag when placed
-        on this list (SRC-003 p.202). The replacement is recorded in
+        on this list (FSM-26.120 p.202). The replacement is recorded in
         ``script.solver_setup``, which is the snapshot to serialize; a
         snapshot object returned by an earlier :func:`solver_settings`
         call is frozen and keeps the state of that call.
@@ -1401,7 +1392,7 @@ def export_results(
     vtk_wake: Toggle = False,
     force_distributions: str | None = None,
 ) -> None:
-    """Export the solver results that were requested (SRC-003 pp.352-354).
+    """Export the solver results that were requested (FSM-26.120 pp.352-354).
 
     Parameters
     ----------
@@ -1420,7 +1411,7 @@ def export_results(
     vtk_variables : sequence of str, ``"all"``, or None
         Variables selected before the VTK export; None keeps the
         current selection. ``CP`` is flagged for depreciation in favor
-        of ``CP_REFERENCE`` and ``CP_FREESTREAM`` (SRC-003 p.352); the
+        of ``CP_REFERENCE`` and ``CP_FREESTREAM`` (FSM-26.120 p.352); the
         helper warns when it is requested.
     vtk_wake : bool or 'ENABLE' or 'DISABLE'
         Include the wake in the VTK variable selection. Written only by
@@ -1441,7 +1432,7 @@ def export_results(
         raise CommandArgumentError(
             "export_results: vtk_wake=True includes the wake in the VTK variable "
             "selection, which only vtk_variables writes (SET_VTK_EXPORT_VARIABLES, "
-            "SRC-003 p.352), and vtk_variables is None, so nothing would carry it. "
+            "FSM-26.120 p.352), and vtk_variables is None, so nothing would carry it. "
             "Pass vtk_variables with it, 'all' for every variable, or drop vtk_wake"
         )
     # EVERY PATH OF THE CALL IS CHECKED BEFORE THE FIRST LINE (PFS-2093.004),
@@ -1496,7 +1487,7 @@ def _emit_vtk_variables(
         if any(variable.upper() == "CP" for variable in vtk_variables):
             warnings.warn(
                 "the CP export variable is flagged for depreciation; prefer "
-                "CP_REFERENCE or CP_FREESTREAM (SRC-003 p.352)",
+                "CP_REFERENCE or CP_FREESTREAM (FSM-26.120 p.352)",
                 PyflightstreamWarning,
                 stacklevel=3,
             )
@@ -1511,7 +1502,7 @@ def probe_points(
     *,
     kind: str = "VOLUME",
 ) -> None:
-    """Create individual probe points (SRC-003 p.362).
+    """Create individual probe points (FSM-26.120 p.362).
 
     Parameters
     ----------
@@ -1534,7 +1525,7 @@ def probe_line(
     start: tuple[float, float, float],
     end: tuple[float, float, float],
 ) -> None:
-    """Create a survey line of probe points (SRC-003 p.362).
+    """Create a survey line of probe points (FSM-26.120 p.362).
 
     Parameters
     ----------
@@ -1549,7 +1540,7 @@ def probe_line(
 
 
 def probes_from_file(script: Script, path: str, *, units: str, frame: int | str = 1) -> None:
-    """Import a probe lattice from a CSV file (SRC-003 pp.362-363).
+    """Import a probe lattice from a CSV file (FSM-26.120 pp.362-363).
 
     The file rows are X,Y,Z,TYPE with TYPE 0 for surface and 1 for
     volume probes; the first line holds the point count. This is the
@@ -1580,7 +1571,7 @@ def _caller_site(depth: int) -> str:
 
 
 def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
-    """Export the probe values, refreshing them first (SRC-003 pp.362-363).
+    """Export the probe values, refreshing them first (FSM-26.120 pp.362-363).
 
     Parameters
     ----------
@@ -1591,7 +1582,7 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
     update : bool or 'ENABLE' or 'DISABLE'
         Emit UPDATE_PROBE_POINTS first, so the export reflects the
         current solution; the manual instructs refreshing before
-        exporting (SRC-003 p.362).
+        exporting (FSM-26.120 p.362).
 
     Raises
     ------
@@ -1846,13 +1837,9 @@ def blade_frames(
         which way round the disc the blades are numbered and nothing
         else.
 
-        REQUIRED, with no default. It carried one on the branch that
-        added this function and never in a release, so no caller is
-        migrating: the default was removed before shipping because the
-        refusal below says there is no safe default to guess and the
-        signature was making one. A wrong sense renumbers the blades,
-        raises nothing, and every phase-locked reduction keyed to blade
-        index inherits it.
+        Required, with no safe default. A wrong sense silently renumbers
+        the blades and changes every phase-locked reduction keyed to
+        blade index.
     names : sequence of str, optional
         Display names of the created frames, one per blade; ``Blade1`` to
         ``BladeN`` by default.
@@ -2269,8 +2256,8 @@ def unsteady_action(
     index or physical time, and environment (RPT-030). An action that
     has to behave differently on different steps therefore needs state
     of its own, and the correctness of that route rests on the
-    invocation count being exactly the step count. MEASURED ON 26.123
-    (RPT-041, the script-action re-read probe, 2026-09-08): a SCRIPT
+    invocation count being exactly the step count. On 26.123
+    (RPT-041, the script-action re-read probe), a SCRIPT
     action's file is re-read on every
     invocation, the count is exactly the step count with nothing before
     the first step, the action gets no arguments and no solver-named
@@ -2379,7 +2366,7 @@ def mark_wake_edges(
     when the line carries a third token. The third token is required and
     had no measured effect on 26.124; that build receives the simulation's
     length unit. On 26.125 the third token is EDGE_TYPE 1 for mid-points
-    (SRC-753 p.329). :mod:`pyflightstream.script._build_forms` selects the form.
+    (FSM-26.125 p.329). :mod:`pyflightstream.script._build_forms` selects the form.
     The node file's text is parked on the script
     (:attr:`~pyflightstream.script.Script.pending_input_files`) and the
     run writes it before the solver starts, and the number of points is

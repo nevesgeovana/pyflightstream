@@ -121,8 +121,8 @@ class ResolvedMatrix:
         cells said, which is exactly what the warning it raises says
         will be recorded.
     additional_pprocs : dict of str to PprocArtifact
-        The additional pproc of every row stating ``ADDITIONAL_PPROC`` (G12 of
-        0.27.0), keyed by its id, resolved and judged at plan so a key the
+        The additional pproc of every row stating ``ADDITIONAL_PPROC`` (G12),
+        keyed by its id, resolved and judged at plan so a key the
         additional post could not honour is refused before the run spends a
         seat. Empty for a matrix whose rows state none. LAST, so a caller
         building this by position keeps working.
@@ -164,15 +164,15 @@ _PRESET_ALIASES = {
     "additional_wake_relaxation_iteration": "additional_wake_relaxation",
     "reynolds_averaged_drag_forces": "reynolds_averaged_drag",
     "unsteady_N_revolutions_wake": "wake_termination_revolutions",
-    # The settings the reference scripts state and 0.10.1 did not emit (FR-54).
+    # Settings stated by the reference scripts (FR-54).
     "reference_velocity_mps": "reference_velocity_m_per_s",
     "vorticity_drag_boundaries": "vorticity_drag_families",
     "set_vorticity_drag_boundaries": "vorticity_drag_families",
-    # The selections of the loads analysis (G09 of 0.27.0), by the command's name.
+    # The selections of the loads analysis (G09), by the command's name.
     "set_solver_analysis_boundaries": "analysis_families",
     "set_loads_and_moments_units": "load_units",
     "set_inviscid_loads": "inviscid_loads",
-    # G14 of 0.27.0, by the command's name.
+    # G14, keyed by command name.
     "set_vorticity_lift_model": "vorticity_lift_model",
     "set_unsteady_viscous_coupling_iteration": "unsteady_viscous_coupling_iteration",
 }
@@ -200,11 +200,9 @@ _PRESET_RECORDED_ONLY = {
         "is stated in the row's SYMMETRY key; a preset value would silently overrule "
         "the mesh it knows nothing about"
     ),
-    # `symmetry_loads` LEFT THIS TABLE on 2026-09-02, the design decision (PFS-2028.05)
-    # with the measurement in hand: the 0.10.1 reproduction of the reference isolated
-    # rotor reported loads six times the reference because the reference preset stated the
-    # symmetry loads off and nothing was emitted. A STATED key now reaches
-    # SET_ANALYSIS_SYMMETRY_LOADS as stated; an absent key still emits nothing.
+    # PFS-2028.05: a stated symmetry_loads key reaches
+    # SET_ANALYSIS_SYMMETRY_LOADS as stated; an absent key emits nothing.
+    # It must not be classified as recorded-only.
     "unsteady_delta_theta_deg": (
         "superseded by the row's DELTA_THETA, which is where the azimuthal step is "
         "stated now that the clock is derived from it"
@@ -237,17 +235,15 @@ _PRESET_RECORDED_ONLY_KEY = "recorded_only"
 _FLIGHT_CONDITION_TABLE = "flight_condition"
 
 #: The two preset tables above, read-only and public, for the generated
-#: input glossary ``INPUTS.md`` (G08 of 0.27.0): the solver's own spelling
+#: input glossary ``INPUTS.md`` (G08): the solver's own spelling
 #: to the field it names, and each recorded-only key to its reason.
 PRESET_ALIASES: Mapping[str, str] = MappingProxyType(_PRESET_ALIASES)
 PRESET_RECORDED_ONLY: Mapping[str, str] = MappingProxyType(_PRESET_RECORDED_ONLY)
 
-#: THE KEYS A PRESET MAY STATE THAT ARE NOT SOLVER SETTINGS, each with what it
-#: holds, for the same glossary. Every one of them is consumed before the loop
-#: that refuses a key naming no setting (:func:`_solver_from_setup`, and
-#: :func:`pyflightstream.workspace.inputs.resolve_setup` for the two tables).
-#: The tables a preset is refused for naming since 0.15.0, ``[[frames]]`` and
-#: ``[aliases]``, are not here: their home is the reference.
+#: Keys a preset may state that are not solver settings, with their meanings
+#: for the glossary. Consume them before _solver_from_setup's setting-key
+#: check; resolve_setup consumes the two tables. [[frames]] and [aliases]
+#: belong to the reference and are refused in a preset.
 PRESET_RESERVED_KEYS: Mapping[str, InputKey] = MappingProxyType(
     {
         _PRESET_RECORDED_ONLY_KEY: InputKey(
@@ -308,11 +304,8 @@ def _condition_defaults(setup: SetupArtifact, set_code: str) -> dict[str, float]
     so a key added to the pins is accepted here the day it is added
     there, with no second list to move.
 
-    IT CALLS IT HERE, once per setup, and that placement is the finding
-    of an architecture review on 2026-09-04 rather than a preference:
-    while the vocabulary was judged only inside the resolver, it ran once
-    per ROW THAT STATED A CONDITION, so one file was legal or illegal
-    depending on other rows' cells.
+    Validate vocabulary once per setup, independently of whether any row
+    states a condition. Other rows' cells must not determine file validity.
 
     Two exception classes leave this function, and the split is the one
     the rest of the package makes: a malformed FILE is an
@@ -388,12 +381,8 @@ def _match_settings(
     known = set(SolverSettings.model_fields)
     matched: dict[str, object] = {}
     if "mesh_order_list" in settings:
-        # PFS-2029.06.01. Until 0.11.0 the key was recorded-only: kept,
-        # warned about, never emitted. Recorded-only was the wrong answer
-        # for the one key whose value is CHECKABLE against the file it
-        # describes, because a preset several geometries share cannot
-        # state the order of any one of them, and a wrong order that is
-        # merely warned about is read as documentation by the next reader.
+        # PFS-2029.06.01: validate this declared order against the geometry. A
+        # shared preset cannot establish the ordering of each geometry it serves.
         raise InputArtifactError(
             f"setup preset {set_code!r} states mesh_order_list, which is the boundary "
             "order of one mesh and belongs beside that mesh, not in a preset several "
@@ -437,14 +426,9 @@ def _refuse_setup_keys(refused: list[str], set_code: str) -> None:
         == _FLIGHT_CONDITION_TABLE.rstrip("s")
     )
     if near_miss:
-        # A MISSPELLING OF THE TABLE MUST NOT BE ANSWERED BY THE GENERIC
-        # REFUSAL, and an interface review found why on 2026-09-04. That
-        # message calls the key a solver setting, which this table is
-        # explicitly not, and its closing sentence offers `recorded_only`
-        # as the remedy -- which would make the table legal, silent and
-        # INERT, four pinned fluid constants reaching no script, on a
-        # surface whose whole premise is that a silent drop costs a
-        # result.
+        # A misspelled flight-condition table needs a specific refusal. Calling it
+        # a solver setting and suggesting recorded_only would make its four pinned
+        # fluid constants silently inert.
         raise InputArtifactError(
             f"setup preset {set_code!r} states key(s) {', '.join(near_miss)}, which "
             f"look like the flight-condition table misspelled. That table is spelled "
@@ -467,13 +451,9 @@ def _refuse_setup_keys(refused: list[str], set_code: str) -> None:
             "(inputs/pproc/p001.toml, PFS-2029.07). Move the table there."
         )
     if refused:
-        # THE CONSUMED KEYS BELONG IN THE LIST. `stabilization`,
-        # `stabilization_strength` and the reserved `recorded_only` are
-        # all accepted and are all taken out of `settings` before this
-        # loop, so the first version of this message refused
-        # `stabilisation` with a list of "keys that apply" that did not
-        # contain the word its writer meant, which is the one case where
-        # the list is the whole value of the refusal.
+        # Include consumed keys in the diagnostic vocabulary: stabilization,
+        # stabilization_strength and recorded_only are accepted even though
+        # they have already been removed from settings before this loop.
         available = sorted(
             known
             | set(_PRESET_ALIASES)
@@ -516,46 +496,20 @@ def _warn_recorded_settings(recorded: list[str], set_code: str) -> None:
 
 
 def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
-    """Map one preset onto the case solver settings, refusing what it cannot.
+    """Map one preset onto solver settings, refusing unsupported keys.
 
-    Three outcomes per key, and the third is the change. A key that
-    names a :class:`~pyflightstream.cases.SolverSettings` field, or an
-    alias of one, APPLIES. A key declared recorded-only is kept in the
-    artifact and emits nothing, on the stated ground written beside it.
-    Anything else is REFUSED, naming the key and what is available.
-
-    UNTIL THIS RELEASE THE THIRD CASE WAS A WARNING AND A SILENT DROP,
-    and that is the defect this closes. A preset asking for
-    ``SUBSONIC_PRANDTL_GLAUERT`` ran INCOMPRESSIBLE and a preset asking
-    for a turbulent boundary layer ran the solver's default. Each of
-    those is a run that converges, exports and publishes numbers against
-    a physics nobody selected. A refusal costs an edit; a silent drop
-    costs a result.
-
-    ``NITER`` WAS IN THE SAME POSITION AND IS DELIBERATELY NOT OFFERED
-    as a third instance: the campaign that surfaced this states 500 and
-    the model default is 500, so both of its runs emitted the same line
-    and it cannot be demonstrated from them. An earlier version of this
-    docstring listed it beside the other two, which made an unmeasured
-    instance read like a measured one.
+    A SolverSettings field or alias applies. A key declared recorded-only
+    stays in the artifact and emits nothing, with its stated reason. Refuse
+    anything else by name and list available keys: silently dropping a physics
+    setting can produce converged results for a condition nobody selected.
     """
     settings = dict(setup.settings)
     _validate_setup_ports(settings, set_code)
     declared_names = _recorded_names(settings, set_code)
-    # THE PAIR IS CONSUMED BEFORE THE LOOP, so neither half reaches the
-    # recorded-only report. An earlier version left them in it, and the
-    # warning then told a user that a stabilization they had switched
-    # ON emitted nothing, while the strength was in fact reaching the
-    # script. A message that names the wrong outcome is worse than none.
-    # THE FLIGHT-CONDITION TABLE IS CONSUMED HERE, for the same reason
-    # the pair below it is: it is accepted, it is not a solver setting,
-    # and a key left in `settings` reaches the loop that refuses anything
-    # naming no setting this package can emit. `_condition_defaults`
-    # reads it from the artifact, so nothing is lost by dropping it.
-    # Its CONTENTS are read by `_condition_defaults` above, and the two
-    # are load-bearing on each other through this constant alone: delete
-    # this pop and a valid file is refused, delete that read and valid
-    # pins are silently ignored.
+    # Consume the stabilization pair before checking settings so emitted values
+    # are not reported as recorded-only. Consume the flight-condition table too:
+    # _condition_defaults reads its contents directly from the artifact, and the
+    # settings loop would otherwise refuse the accepted table name.
     settings.pop(_FLIGHT_CONDITION_TABLE, None)
     if "solver_stabilization" in settings and (
         "stabilization" in settings or "stabilization_strength" in settings

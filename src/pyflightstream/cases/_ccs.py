@@ -5,7 +5,7 @@ read. A matrix row names a CCS file (Component Cross-Section, the solver's
 parametric geometry format, which the manual says may carry the ``.ccs`` or the
 ``.csv`` extension) in its ``GEOMETRY`` cell, and the ``[import.ccs]`` table of
 the file's ``<stem>.boundaries.toml`` says how the solver makes a mesh of it
-(0.32.0, FR-240 to FR-244)::
+(FR-240 to FR-244)::
 
     boundaries = ["WING"]
 
@@ -102,7 +102,7 @@ _KIND_KEYS: dict[str, frozenset[str]] = {
 }
 
 #: The documented loft defaults: C2 chordwise and C0 spanwise on a wing, C2 in
-#: both directions on a fuselage and a body of revolution (SRC-752 p.83).
+#: both directions on a fuselage and a body of revolution (FSM-26.124 p.83).
 _LOFT_DEFAULTS: dict[str, tuple[str, str]] = {
     "wing": ("C2", "C0"),
     "fuselage": ("C2", "C2"),
@@ -123,7 +123,7 @@ def _one_token(value: str, what: str) -> str:
 class CcsControlSurface(BaseModel):
     """One gapped control surface of a CCS wing (CCS-2), ``[[import.ccs.control_surfaces]]``.
 
-    The ten parameters of ``NEW_CCS_WING_CONTROL_SURFACE`` (SRC-752 p.303),
+    The ten parameters of ``NEW_CCS_WING_CONTROL_SURFACE`` (FSM-26.124 p.303),
     every one written on the line: licensed round 1 on 26.124 refused the
     eight-token line the manual's sample prints, so SPACE and AXIS are never
     left out. The ranges are the manual's: the spanwise limits between 0 and 1
@@ -187,7 +187,7 @@ class CcsControlSurface(BaseModel):
         if self.v1 <= self.v0:
             raise ValueError(
                 f"v1 ({self.v1}) is not above v0 ({self.v0}); the outer spanwise limit "
-                "of a control surface lies beyond the inner one (SRC-752 p.303)"
+                "of a control surface lies beyond the inner one (FSM-26.124 p.303)"
             )
         if self.space == "PARAMETRIC" and not (0.0 <= self.v0 and self.v1 <= 1.0):
             raise ValueError(
@@ -222,7 +222,7 @@ class CcsSubdivisions(BaseModel):
 
 
 class CcsImportOptions(BaseModel):
-    """How a CCS file becomes a mesh: the ``[import.ccs]`` table of its sidecar (0.32.0).
+    """How a CCS file becomes a mesh: the ``[import.ccs]`` table of its sidecar.
 
     Attributes
     ----------
@@ -251,7 +251,7 @@ class CcsImportOptions(BaseModel):
     te_blend_length_pct : float or None
         The length a blended trailing edge is blended over, in per cent of
         the cross-section curve's length (a wing only, FR-423); None writes
-        nothing and the solver keeps its default, 10 per cent (SRC-753
+        nothing and the solver keeps its default, 10 per cent (FSM-26.125
         p.298). A build without ``SET_CCS_TE_BLEND_LENGTH`` refuses it.
     """
 

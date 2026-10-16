@@ -122,7 +122,7 @@ def read_actuator_profile(path: str | PathLike[str]) -> str:
 
 
 def _disc_rpm_from_the_advance_ratio(case: SimCase, name: str, block: ActuatorBlock) -> float:
-    """Return a disc's speed from the row's advance ratio, in rev/min (G20 of 0.28.0).
+    """Return a disc's speed from the row's advance ratio, in rev/min (G20).
 
     The rotors' rule, n = V / (J D), with the DISC's own diameter, twice its
     ``tip_radius_m``, never the reference's rotor diameter, which belongs to
@@ -471,7 +471,7 @@ def _solver_disc_speed(block: ActuatorBlock, rpm: float) -> float:
     a rotor of that sign turns. Measured on 26.124 (RPT-137), a disc handed
     ``+rpm`` swirled AGAINST a rotor of ``rpm_sign +1`` and a disc handed
     ``-rpm`` swirled with it, so the emitted speed is minus the hand times the
-    magnitude. 0.33.0 and earlier handed plus the hand. On another build the
+    magnitude. On another build the
     rule is the same and unmeasured.
     """
     return -block.rpm_sign * rpm

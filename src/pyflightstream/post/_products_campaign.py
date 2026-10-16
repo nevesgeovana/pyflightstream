@@ -138,20 +138,10 @@ def _admit_campaign_records(
     for record in records:
         if sims is not None and record.sim_id not in sims:
             continue  # FR-307: another simulation's records are not read.
-        # FR-95. ONE JOB IS SEVERAL POINTS, so the record is expanded
-        # before its status is read. A steady row is one job since 0.17.0
-        # and its record carries every point of the sweep; unexpanded, the
-        # product stage classified all of their outputs together, selected
-        # ONE loads file, and wrote a three-point polar with one row. And
-        # the aggregate status was the filter, so one failed point
-        # excluded every successful point of the same job.
-        #
-        # `as_points()` exists for exactly this and was called by the
-        # sweep table and the QA matrix and not here: a method built and
-        # not wired, in the one place nobody looked. Found by the
-        # independent Codex review of `main`, 2026-09-13 (GEO-047-C02).
-        # A record that is one point returns itself, so nothing written
-        # before 0.17.0 changes.
+        # FR-95: expand a multi-point job with as_points before checking status
+        # or classifying outputs. Each successful point contributes its own
+        # loads even if another point in the job failed. A single-point record
+        # returns itself.
         for point_record in record.as_points():
             if point_record.run_id in superseded:
                 continue
@@ -166,7 +156,7 @@ def _admit_campaign_records(
                     "withholds this run's products. Collect complete outputs or run the "
                     "point again to settle its status."
                 )
-    # 0.40.0: a fully pinned state at odds with p = rho R T is named in post.log.
+    # A fully pinned state at odds with p = rho R T is named in post.log.
     warn_pinned_states(point for points in by_sim.values() for point in points)
 
 
@@ -244,25 +234,18 @@ def _record_has_frozen_failure(
             PyflightstreamWarning,
             stacklevel=4,
         )
-    # THE READING THAT ADMITS A POINT IS NOT THE READING THAT REFUSES
-    # ITS AVERAGES, so it is not behind `check_frozen`: gating it
-    # excluded every frozen failure by default, the opposite of
-    # "nothing is refused unless asked" (the architect lens of the
-    # closing round, 2026-09-22). This opens a failed point's log to
-    # ask whether the failure was a freeze, and refuses nothing.
+    # Read a failed point's log for evidence of a freeze independently of
+    # check_frozen. This admission check withholds nothing; the optional
+    # averaging refusal is a separate decision.
     if point_record.status is RunStatus.FAILED_DIVERGED:
         kinds = classify_outputs(point_record.outputs)
         log_name = kinds.get("log")
         log_path = workspace.sim_dir(point_record.sim_id) / log_name if log_name else None
         if log_path is not None and log_path.is_file():
-            # A LOG THAT PROVES A FREEZE ADMITS ITS POINT, even when
-            # another block of it could not be read: excluding every
-            # UnjudgeableSolve removed the point's histories, instants
-            # and earlier averages before their own checks could run,
-            # against the preservation rule of the definitions page (the
-            # independent review of GitHub main, 2026-09-22). A log that
-            # proves NOTHING is not a freeze to post and stays out, as
-            # it did before; it no longer raises here either.
+            # A log proving a freeze admits the point even when another block is
+            # unreadable, preserving histories, instants and eligible averages for
+            # their own checks. A log proving no freeze remains excluded without
+            # raising here.
             verdict = _stage.freeze_of_log(log_path)
             frozen_failure = verdict is not None and (
                 not isinstance(verdict, UnjudgeableSolve) or verdict.frozen_from is not None
@@ -278,7 +261,7 @@ def _warn_unreadable_matrix(
     """Explain why post choices must fall back to the recorded matrix values."""
     if matrix_stem and not rows_of_the_matrix:
         # SAID, NOT SWALLOWED (PO-06). `matrix_rows` answers `{}` for a matrix that
-        # is in neither home, for one it cannot parse, and (0.32.0, RST-1) for a
+        # is in neither home, for one it cannot parse, and (RST-1) for a
         # stem held in both homes with different bytes, and every post-only
         # choice then falls back to the run records in silence: an edited window
         # does nothing and the rotor tables, which need the row's reference, are
@@ -320,8 +303,7 @@ def products_to_retire(
       The caller keeps files regenerated from surviving points or independent exports.
     * ``polars/<sim>#rotor_tables`` -- the rotor tables of ONE SIMULATION, whose
       files are ``polars/P<sim>-<alias>_rotor.csv`` and share no prefix with the
-      skip key at all. They were not retired until the independent review of
-      GitHub main found the stale file still current (2026-09-20); the previous
+      skip key at all. The previous
       manifest records each product's ``sim_id``, so the identity is read rather
       than parsed out of a name.
     """
@@ -359,7 +341,7 @@ def products_kept_after_pruning(
 ) -> dict[str, dict[str, object]]:
     """Return the previous products a refusal for a pruned step keeps, with their entries.
 
-    A PRODUCT MADE BEFORE ``free-space`` PRUNED ITS STEPS STAYS (0.30.0). The
+    A PRODUCT MADE BEFORE ``free-space`` PRUNED ITS STEPS STAYS. The
     refusal is about rebuilding it, not about the file already made from
     every step: that file stays in its folder and its previous entry stays in
     the manifest, marked ``kept_after_pruning`` with the refusal. A refusal
@@ -391,7 +373,7 @@ def _retire_campaign_products(
     archive: bool,
     archive_stamp: datetime,
 ) -> None:
-    # 0.30.0: what a previous post made from steps free-space has since
+    # What a previous post made from steps free-space has since
     # pruned stays, file and entry, and is therefore not retired below.
     """Retire campaign products."""
     for name, entry in products_kept_after_pruning(skipped, previous_products, out).items():

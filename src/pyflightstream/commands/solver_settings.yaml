@@ -1,22 +1,22 @@
-# Chapter: Scripting reference, Solver Settings (SRC-003 pp.341-343).
+# Chapter: Scripting reference, Solver Settings (FSM-26.120 pp.341-343).
 
 SET_SOLVER_STEADY:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-003 p.341"
+  manual_ref: "FSM-26.120 p.341"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.302, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.302, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.315, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, unchanged from SRC-750 p.346"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.346, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.353, unchanged from SRC-752 p.346"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
 
 SET_SOLVER_UNSTEADY:
   layout: keyword_block
@@ -27,23 +27,23 @@ SET_SOLVER_UNSTEADY:
     - name: delta_time
       type: float
       unit: "s"
-  manual_ref: "SRC-003 p.341"
+  manual_ref: "FSM-26.120 p.341"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.302, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.302, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.315, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, unchanged from SRC-750 p.346"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.346, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.353, unchanged from SRC-752 p.346"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
   notes: >
     Physical time stepping. For rotary cases the manual recommends 8
     to 12 degrees of blade rotation per time step and at least two
-    full rotations (SRC-003 p.210).
+    full rotations (FSM-26.120 p.210).
 
 SET_BOUNDARY_LAYER_TYPE:
   layout: inline
@@ -52,25 +52,25 @@ SET_BOUNDARY_LAYER_TYPE:
     - name: type
       type: enum
       values: [LAMINAR, TRANSITIONAL, TURBULENT]
-  manual_ref: "SRC-003 p.341"
+  manual_ref: "FSM-26.120 p.341"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.302, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.302, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.315, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
-    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.340, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, unchanged from SRC-750 p.346"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.346, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.353, unchanged from SRC-752 p.346"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
   default: TRANSITIONAL
-  default_ref: "SRC-003 p.203"
+  default_ref: "FSM-26.120 p.203"
   notes: >
     The default transitional-turbulent model is stated valid for chord
     Reynolds numbers between 500000 and 1500000; outside this range
-    select LAMINAR or TURBULENT explicitly (SRC-003 p.203).
+    select LAMINAR or TURBULENT explicitly (FSM-26.120 p.203).
 
 SET_SOLVER_VISCOUS_COUPLING:
   layout: inline
@@ -79,23 +79,23 @@ SET_SOLVER_VISCOUS_COUPLING:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.341"
+  manual_ref: "FSM-26.120 p.341"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.302, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.302, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.315, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
-    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.340, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, unchanged from SRC-750 p.346"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.346, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.358, unchanged from SRC-752 p.346"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.358, unchanged from FSM-26.124 p.346"}
   notes: >
     Couples the semi-empirical boundary layer model to the potential
     flow solution. Attached-flow viscosity only; stall capture also
-    needs a flow separation model assignment (SRC-003 pp.207-208).
+    needs a flow separation model assignment (FSM-26.120 pp.207-208).
 
 SET_VISCOUS_EXCLUDED_BOUNDARIES:
   layout: payload_lines
@@ -106,41 +106,41 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
     - name: boundary_indices
       type: int_list
       cites: boundaries
-  manual_ref: "SRC-003 p.341"
+  manual_ref: "FSM-26.120 p.341"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.303, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.303, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.315, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.346, unchanged from SRC-750 p.346"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.346, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.353, unchanged from SRC-752 p.346"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values. Documented
-    unchanged in the four editions read then; the three added on 2026-08-05 were
-    read from their own pages, not inherited.
+    unchanged in FSM-26.100, FSM-26.101, FSM-26.120 and FSM-26.121,
+    each from its own page rather than inherited evidence.
 
 DELETE_VISCOUS_EXCLUDED_BOUNDARIES:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-003 p.341"
+  manual_ref: "FSM-26.120 p.341"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.303, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.338"}
-    "26.101": {status: documented, note: "SRC-725 p.340"}
+    "25.000": {status: documented, note: "FSM-25.000 p.303, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.315, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.338"}
+    "26.101": {status: documented, note: "FSM-26.101 p.340"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.344"}
-    "26.123": {status: documented, note: "SRC-751 p.346, unchanged from SRC-750 p.346"}
-    "26.124": {status: documented, note: "SRC-752 p.346, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.353, unchanged from SRC-752 p.346"}
+    "26.121": {status: documented, note: "FSM-26.121 p.344"}
+    "26.123": {status: documented, note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
+    "26.124": {status: documented, note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
   notes: >
     Clears the viscous-exclusion list, restoring viscous coupling on
     every boundary. The helper spells the clear as an empty
@@ -166,20 +166,20 @@ CREATE_BULK_SEPARATION:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-003 p.342"
+  manual_ref: "FSM-26.120 p.342"
   versions:
     "26.101":
       status: documented
       note: >-
-        SRC-725 p.341 documents a three-argument form without
+        FSM-26.101 p.341 documents a three-argument form without
         SEPARATION_TYPE. The same page's sample blocks spell the
         command CREARE_BULK_SEPARATION while the function header
         spells CREATE_BULK_SEPARATION; a controlled 26.101 run
         (build 5012026, RPT-012) resolved the spelling: the solver
         accepts CREATE_BULK_SEPARATION and rejects CREARE as an
         unrecognized command, so CREARE is a manual typo and the
-        header spelling stands. That run was recorded as 26.100 before
-        the renumbering of 2026-08-04; the build is what identifies it.
+        header spelling stands. RPT-012 labels that run 26.100; its
+        build 5012026 identifies the canonical version as 26.101.
         Status stays documented pending an effect-asserting harness
         probe on 26.101
       args:
@@ -199,8 +199,8 @@ CREATE_BULK_SEPARATION:
       status: removed
       successor: CREATE_CYLINDRICAL_BULK_SEPARATION
       note: >-
-        SRC-740 does not print this name; it prints
-        CREATE_CYLINDRICAL_BULK_SEPARATION at SRC-740 pp.345-346 and in its
+        FSM-26.121 does not print this name; it prints
+        CREATE_CYLINDRICAL_BULK_SEPARATION at FSM-26.121 pp.345-346 and in its
         Script Index, the name the 26.120 solver's deprecation warning points
         to (RPT-166). A withdrawal by the edition's silence, not a run:
         the licensed seat refused 26.121 on 2026-10-12 with an expired
@@ -209,8 +209,8 @@ CREATE_BULK_SEPARATION:
       status: removed
       successor: CREATE_CYLINDRICAL_BULK_SEPARATION
       note: >-
-        SRC-750 does not print this name; it prints
-        CREATE_CYLINDRICAL_BULK_SEPARATION at SRC-750 p.347 and in its
+        FSM-26.122 does not print this name; it prints
+        CREATE_CYLINDRICAL_BULK_SEPARATION at FSM-26.122 p.347 and in its
         Script Index.
         A withdrawal by the edition's silence, not a run: the licensed
         seat refused 26.122 on 2026-10-12 with an expired licence. The
@@ -219,10 +219,10 @@ CREATE_BULK_SEPARATION:
     Assigns the bulk (bluff-body) flow-separation model to the listed
     boundaries. NUM_BOUNDARIES takes -1 for all mesh boundaries;
     otherwise the comma-separated indices follow on the next line
-    (SRC-003 p.342). The signature is version-sensitive: 26.12 inserts
+    (FSM-26.120 p.342). The signature is version-sensitive: 26.12 inserts
     SEPARATION_TYPE (CYLINDRICAL or FLAT_PLATE, matching the bulk
-    model sub-typing documented at SRC-003 p.207) as the second
-    argument, which the 26.1 grammar does not have (SRC-725 p.341).
+    model sub-typing documented at FSM-26.120 p.207) as the second
+    argument, which the 26.1 grammar does not have (FSM-26.101 p.341).
 
 # --- the named separation models of 26.101 and later -----------------------
 #
@@ -249,17 +249,17 @@ CREATE_AIRFOIL_SEPARATION:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-003 p.341"
+  manual_ref: "FSM-26.120 p.341"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.346, unchanged from SRC-750 p.346"}
-    "26.124": {status: documented, note: "SRC-752 p.346, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.344, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
+    "26.124": {status: documented, note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.353 replaces the third argument: SRC-752 p.346 took the
+        FSM-26.125 p.353 replaces the third argument: FSM-26.124 p.346 took the
         Valarezo criterion as ENABLE or DISABLE, and this edition takes the
         type of the leading edge instead, one of ROUNDED_UNSWEPT,
         ROUNDED_SWEPT, HIGH_LIFT or SHARP. The boundary count, its -1 form
@@ -276,7 +276,7 @@ CREATE_AIRFOIL_SEPARATION:
     boundaries, with the Valarezo maximum-lift criterion enabled or
     disabled per assignment. NUM_BOUNDARIES takes -1 for all mesh
     boundaries, in which case no index line follows; otherwise the
-    comma-separated indices are the next line (SRC-003 pp.341-342).
+    comma-separated indices are the next line (FSM-26.120 pp.341-342).
 
 CREATE_AXIAL_VORTEX_SEPARATION:
   layout: payload_lines
@@ -302,20 +302,20 @@ CREATE_AXIAL_VORTEX_SEPARATION:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-003 p.342"
+  manual_ref: "FSM-26.120 p.342"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.341, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.345, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.347, unchanged from SRC-750 p.347"}
-    "26.124": {status: documented, note: "SRC-752 p.347, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.354, unchanged from SRC-752 p.347"}
+    "26.121": {status: documented, note: "FSM-26.121 p.345, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.347, unchanged from FSM-26.122 p.347"}
+    "26.124": {status: documented, note: "FSM-26.124 p.347, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.354, unchanged from FSM-26.124 p.347"}
   notes: >
     Assigns the axial vortex separation model to a slender body. FRAME
     is the 1-based index of the coordinate system acting as the body
     axes, 1 being the reference frame, and BODY_AXIS names the body
     axis within it either as a letter or as its 1-based index
-    (SRC-003 p.342). Read the manual's second sample with care: it puts
+    (FSM-26.120 p.342). Read the manual's second sample with care: it puts
     -1 in the FRAME position rather than in NUM_BOUNDARIES, which
     contradicts the parameter table on the same page and is not a form
     this database records.
@@ -335,13 +335,13 @@ CREATE_CYLINDRICAL_BULK_SEPARATION:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-740 p.345"
+  manual_ref: "FSM-26.121 p.345"
   versions:
     "26.121": {status: documented}
-    "26.122": {status: documented, note: "SRC-750 p.347, same grammar as 26.121"}
-    "26.123": {status: documented, note: "SRC-751 p.347, unchanged from SRC-750 p.347"}
-    "26.124": {status: documented, note: "SRC-752 p.347, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.354, read against SRC-752 p.347: the parameter table differs in layout spacing only"}
+    "26.122": {status: documented, note: "FSM-26.122 p.347, same grammar as 26.121"}
+    "26.123": {status: documented, note: "FSM-26.123 p.347, unchanged from FSM-26.122 p.347"}
+    "26.124": {status: documented, note: "FSM-26.124 p.347, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.354, read against FSM-26.124 p.347: the parameter table differs in layout spacing only"}
   notes: >
     The cylindrical bulk separation model, split out of the
     SEPARATION_TYPE argument that CREATE_BULK_SEPARATION carried on
@@ -361,13 +361,13 @@ CREATE_STRATFORD_BULK_SEPARATION:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-740 p.345"
+  manual_ref: "FSM-26.121 p.345"
   versions:
     "26.121": {status: documented}
-    "26.122": {status: documented, note: "SRC-750 p.347, same grammar as 26.121"}
-    "26.123": {status: documented, note: "SRC-751 p.347, unchanged from SRC-750 p.347"}
-    "26.124": {status: documented, note: "SRC-752 p.347, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.354, unchanged from SRC-752 p.347"}
+    "26.122": {status: documented, note: "FSM-26.122 p.347, same grammar as 26.121"}
+    "26.123": {status: documented, note: "FSM-26.123 p.347, unchanged from FSM-26.122 p.347"}
+    "26.124": {status: documented, note: "FSM-26.124 p.347, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.354, unchanged from FSM-26.124 p.347"}
   notes: >
     The Stratford bulk separation model, which takes no diameter. As
     with the cylindrical command above, RPT-015 accepted it on 26.120
@@ -380,17 +380,17 @@ DELETE_SEPARATION:
   args:
     - name: index
       type: int
-  manual_ref: "SRC-003 p.342"
+  manual_ref: "FSM-26.120 p.342"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.341, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.348, unchanged from SRC-750 p.348"}
-    "26.124": {status: documented, note: "SRC-752 p.348, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.355, unchanged from SRC-752 p.348"}
+    "26.121": {status: documented, note: "FSM-26.121 p.346, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.348, unchanged from FSM-26.122 p.348"}
+    "26.124": {status: documented, note: "FSM-26.124 p.348, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
   notes: >
     Deletes one separation model by its 1-based index in the order the
-    models were created; -1 deletes every one of them (SRC-003 p.342).
+    models were created; -1 deletes every one of them (FSM-26.120 p.342).
     One command covers all separation types, which is the reason the
     26.100 generation needed a DELETE per mechanism and this one does
     not.
@@ -421,27 +421,27 @@ SET_AXIAL_SEPARATION_BOUNDARIES:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-741 p.339"
+  manual_ref: "FSM-26.100 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.303, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.317, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.316, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.303, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.317, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.316, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Adds boundaries to the axial flow separation list. NUM_BOUNDARIES
     takes -1 for all mesh boundaries, in which case the following line
     is ignored; otherwise the comma-separated indices are the next line
-    (SRC-741 p.339).
+    (FSM-26.100 p.339).
 
 DELETE_AXIAL_SEPARATION_BOUNDARIES:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-741 p.339"
+  manual_ref: "FSM-26.100 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.303, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.317, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.316, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.303, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.317, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.316, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Clears the axial flow separation list. Spelled as an empty
@@ -457,7 +457,7 @@ SET_VALAREZO_SEPARATION_BOUNDARIES:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-741 p.339"
+  manual_ref: "FSM-26.100 p.339"
   versions:
     "26.100": {status: documented}
   notes: >
@@ -471,14 +471,14 @@ DELETE_VALAREZO_CRITERION_BOUNDARIES:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-741 p.339"
+  manual_ref: "FSM-26.100 p.339"
   versions:
-    "26.100": {status: removed, report: "reports/compat/CMP-26100_2026-10-12_pfs2135-items.yaml", note: "SRC-741 p.339 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe (RPT-166): the solver refused the name as an unrecognised command, as RPT-018 found on 2026-08-05. The erase the build answers to is DELETE_VALAREZO_SEPARATION_BOUNDARIES, below"}
+    "26.100": {status: removed, report: "reports/compat/CMP-26100_2026-10-12_pfs2135-items.yaml", note: "FSM-26.100 p.339 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe (RPT-166): the solver refused the name as an unrecognised command, as RPT-018 found on 2026-08-05. The erase the build answers to is DELETE_VALAREZO_SEPARATION_BOUNDARIES, below"}
   notes: >
     The manual's own name for clearing the Valarezo list, which the
     solver does not answer to. The name it answers to is the entry
     directly below, recorded with a probe citation (PLN-20260805-1540). Both are kept: this one
-    because SRC-741 p.339 documents it and a reader of that page needs
+    because FSM-26.100 p.339 documents it and a reader of that page needs
     to find out here that it does not work, and the other because it is
     the one that runs.
 
@@ -498,7 +498,7 @@ DELETE_VALAREZO_SEPARATION_BOUNDARIES:
   notes: >
     The erase of the Valarezo maximum-lift criterion list that the
     February build accepts. Its documented sibling above,
-    DELETE_VALAREZO_CRITERION_BOUNDARIES, is the name SRC-741 p.339
+    DELETE_VALAREZO_CRITERION_BOUNDARIES, is the name FSM-26.100 p.339
     prints in a function header and the solver refuses as unrecognized,
     so the manual names one command and the solver answers to another.
     Recorded here rather than left to Script.raw(), which is the one
@@ -514,25 +514,25 @@ SET_CROSSFLOW_SEPARATION_BOUNDARIES:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-741 p.339"
+  manual_ref: "FSM-26.100 p.339"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.303, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.317, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.316, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.303, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.317, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.316, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Adds boundaries to the cross-flow separation list, with the -1 form
-    of the axial command above (SRC-741 pp.339-340).
+    of the axial command above (FSM-26.100 pp.339-340).
 
 DELETE_CROSSFLOW_SEPARATION_BOUNDARIES:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-741 p.340"
+  manual_ref: "FSM-26.100 p.340"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.304, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.317, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.316, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.304, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.317, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.316, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Clears the cross-flow separation list. Spelled as an empty
@@ -545,7 +545,7 @@ SET_CROSSFLOW_SEPARATION_DIAMETER:
     - name: diameter
       type: float
       unit: "simulation length units"
-  manual_ref: "SRC-741 p.339"
+  manual_ref: "FSM-26.100 p.339"
   versions:
     "26.100": {status: documented}
   notes: >
@@ -561,7 +561,7 @@ SET_CROSSFLOW_SEPARATION_AXISYMMETRIC:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-741 p.340"
+  manual_ref: "FSM-26.100 p.340"
   versions:
     "26.100": {status: documented}
   notes: >
@@ -569,7 +569,7 @@ SET_CROSSFLOW_SEPARATION_AXISYMMETRIC:
 
 # --- thin boundaries and surface roughness ----------------------------------
 #
-# The last three of the Solver Settings chapter, entered 2026-08-07. A
+# The last three commands of the Solver Settings chapter. A
 # fourth name appears absent and is not: the Script Index of every
 # edition spells CREATE_STRATFORD_BULK_SEPARATION as
 # CREATE_STARTFORD_BULK_SEPARATION, and the command is recorded above
@@ -584,18 +584,18 @@ SET_SURFACE_ROUGHNESS:
     - name: roughness_height
       type: float
       unit: "nm"
-  manual_ref: "SRC-003 p.341"
+  manual_ref: "FSM-26.120 p.341"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.302, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.316, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.315, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.338, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.340, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.302, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.316, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.315, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.338, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.340, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.344, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.346, unchanged from SRC-750 p.346"}
-    "26.124": {status: documented, note: "SRC-752 p.346, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.353, unchanged from SRC-752 p.346"}
+    "26.121": {status: documented, note: "FSM-26.121 p.344, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
+    "26.124": {status: documented, note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.353, unchanged from FSM-26.124 p.346"}
   notes: >
     Surface roughness height for the boundary layer model, in
     NANOMETRES, which the manual states and which is worth carrying
@@ -617,14 +617,14 @@ SET_THIN_BOUNDARIES:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-003 p.343"
+  manual_ref: "FSM-26.120 p.343"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.341, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.348, unchanged from SRC-750 p.348"}
-    "26.124": {status: documented, note: "SRC-752 p.348, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.355, unchanged from SRC-752 p.348"}
+    "26.121": {status: documented, note: "FSM-26.121 p.346, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.348, unchanged from FSM-26.122 p.348"}
+    "26.124": {status: documented, note: "FSM-26.124 p.348, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
   notes: >
     Marks boundaries as thin, so the solver treats both faces of a
     surface rather than one. The indices follow on the next line,
@@ -640,14 +640,14 @@ DELETE_THIN_BOUNDARIES:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-003 p.343"
+  manual_ref: "FSM-26.120 p.343"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.342, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.346, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.348, unchanged from SRC-750 p.348"}
-    "26.124": {status: documented, note: "SRC-752 p.348, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.355, unchanged from SRC-752 p.348"}
+    "26.121": {status: documented, note: "FSM-26.121 p.346, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.348, unchanged from FSM-26.122 p.348"}
+    "26.124": {status: documented, note: "FSM-26.124 p.348, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.355, unchanged from FSM-26.124 p.348"}
   notes: >
     Clears the thin boundary list entirely. It takes no argument, so
     there is no way to remove one boundary from the list: a script that
@@ -659,14 +659,14 @@ SOLVER_STABILIZATION:
   args:
     - name: value
       type: float
-  manual_ref: "SRC-003 p.346"
+  manual_ref: "FSM-26.120 p.346"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.345, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.345, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.121": {status: documented, note: "SRC-740 p.348, same grammar as 26.120"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
-    "26.124": {status: documented, note: "SRC-752 p.350, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.357, unchanged from SRC-752 p.350"}
+    "26.121": {status: documented, note: "FSM-26.121 p.348, same grammar as 26.120"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >
     Maximum level of stabilization applied to the main convergence,
     dimensionless, from 0 to 1. The manual states that 0 is the same as
@@ -675,36 +675,34 @@ SOLVER_STABILIZATION:
 
     Absent from the February 2026 edition, so no 26.100 row.
 
-    ITS SRC-740 PAGE BREAKS THE +3 RULE AND THE NOTE IS RIGHT ANYWAY.
-    Every SRC-003 page maps to SRC-740 plus three, which commands/_meta
+    ITS FSM-26.121 PAGE BREAKS THE +3 RULE AND THE NOTE IS RIGHT ANYWAY.
+    Every FSM-26.120 page maps to FSM-26.121 plus three, which commands/_meta
     states and about forty-five notes obey, so p.346 here should read
     p.349. It reads p.348 because it was MEASURED: the three commands
-    sharing SRC-003 p.346 split across two pages in the hotfix edition,
+    sharing FSM-26.120 p.346 split across two pages in the hotfix edition,
     this one landing on 348 and the other two on 349. A page shift is a
     rule about a document's average and not about a page boundary, so
-    the reading wins over the arithmetic. A 2026-08-08 review pass
-    reported this as a paste error from the arithmetic alone; it is not
-    one, and this paragraph exists so the next reader measures before
-    correcting it.
+    the reading wins over the arithmetic. Check the page before replacing
+    an individual citation with an average offset.
 
 DISABLE_SOLVER_REF_VELOCITY:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-740 p.342"
+  manual_ref: "FSM-26.121 p.342"
   versions:
     "26.121": {status: documented}
-    "26.122": {status: documented, note: "SRC-750 p.344, same grammar as 26.121"}
-    "26.123": {status: documented, note: "SRC-751 p.344, unchanged from SRC-750 p.344"}
-    "26.124": {status: documented, note: "SRC-752 p.344, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.351, unchanged from SRC-752 p.344"}
+    "26.122": {status: documented, note: "FSM-26.122 p.344, same grammar as 26.121"}
+    "26.123": {status: documented, note: "FSM-26.123 p.344, unchanged from FSM-26.122 p.344"}
+    "26.124": {status: documented, note: "FSM-26.124 p.344, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.351, unchanged from FSM-26.124 p.344"}
   notes: >
     Makes the solver reference velocity equal the free-stream velocity,
     which is what the manual's sample comment states, rather than
     holding whatever SOLVER_SET_REF_VELOCITY last set.
 
     DOCUMENTED BY THE 26.12 HOTFIX EDITION ALONE, so one version row, a
-    citation of SRC-740, and no probe. Both of those are worth weighing
+    citation of FSM-26.121, and no probe. Both of those are worth weighing
     before relying on it, since it reaches a public keyword of
     solver_settings.
 
@@ -723,7 +721,7 @@ SET_SOLVER_MODEL:
     - name: type
       type: enum
       values: ["INCOMPRESSIBLE", "SUBSONIC", "TRANSONIC", "LOW_ORDER_SUPERSONIC"]
-  manual_ref: "SRC-749 p.302"
+  manual_ref: "FSM-25.000 p.302"
   notes: >
     Selects the flow model the solver runs. A standalone command on
     25.000 alone, and the successor is not a guess: 25.100 stops
@@ -750,12 +748,12 @@ SET_SOLVER_MODEL:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.302, this edition documents it"
+      note: "FSM-25.000 p.302, this edition documents it"
     "25.100":
       status: removed
       successor: INITIALIZE_SOLVER
       note: >-
-        SRC-748 pp.271-347, the whole scripting reference of the
+        FSM-25.100 pp.271-347, the whole scripting reference of the
         25.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -765,7 +763,7 @@ SET_SOLVER_MODEL:
       status: removed
       successor: INITIALIZE_SOLVER
       note: >-
-        SRC-747 pp.270-346, the whole scripting reference of the
+        FSM-26.000 pp.270-346, the whole scripting reference of the
         26.000 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -775,7 +773,7 @@ SET_SOLVER_MODEL:
       status: removed
       successor: INITIALIZE_SOLVER
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -785,7 +783,7 @@ SET_SOLVER_MODEL:
       status: removed
       successor: INITIALIZE_SOLVER
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -795,7 +793,7 @@ SET_SOLVER_MODEL:
       status: removed
       successor: INITIALIZE_SOLVER
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -805,7 +803,7 @@ SET_SOLVER_MODEL:
       status: removed
       successor: INITIALIZE_SOLVER
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -819,7 +817,7 @@ VALAREZO_CRITERION:
     - name: mode
       type: enum
       values: ["ENABLE", "DISABLE"]
-  manual_ref: "SRC-747 p.316"
+  manual_ref: "FSM-26.000 p.316"
   notes: >
     Enables the Valarezo pressure-difference criterion for predicting
     the onset of separation. Documented by the three pre-26.100 editions
@@ -831,17 +829,17 @@ VALAREZO_CRITERION:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.303, this edition documents it"
+      note: "FSM-25.000 p.303, this edition documents it"
     "25.100":
       status: documented
-      note: "SRC-748 p.317, this edition documents it"
+      note: "FSM-25.100 p.317, this edition documents it"
     "26.000":
       status: documented
-      note: "SRC-747 p.316, this edition documents it"
+      note: "FSM-26.000 p.316, this edition documents it"
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -850,7 +848,7 @@ VALAREZO_CRITERION:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -859,7 +857,7 @@ VALAREZO_CRITERION:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -868,7 +866,7 @@ VALAREZO_CRITERION:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -881,7 +879,7 @@ SET_CROSSFLOW_SEPARATION_CP:
   args:
     - name: mean_diameter
       type: float
-  manual_ref: "SRC-747 p.316"
+  manual_ref: "FSM-26.000 p.316"
   notes: >
     Sets the mean diameter of the body the cross-flow separation model
     is applied to, which the model needs because the critical pressure
@@ -895,17 +893,17 @@ SET_CROSSFLOW_SEPARATION_CP:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.304, this edition documents it"
+      note: "FSM-25.000 p.304, this edition documents it"
     "25.100":
       status: documented
-      note: "SRC-748 p.317, this edition documents it"
+      note: "FSM-25.100 p.317, this edition documents it"
     "26.000":
       status: documented
-      note: "SRC-747 p.316, this edition documents it"
+      note: "FSM-26.000 p.316, this edition documents it"
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -914,7 +912,7 @@ SET_CROSSFLOW_SEPARATION_CP:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -923,7 +921,7 @@ SET_CROSSFLOW_SEPARATION_CP:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -932,7 +930,7 @@ SET_CROSSFLOW_SEPARATION_CP:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal

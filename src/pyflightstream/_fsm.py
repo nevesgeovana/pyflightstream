@@ -6,15 +6,11 @@ standard library, and it is a floor BY BEHAVIOUR rather than a declared
 row of the layer table, which is the same standing `_digest` has and
 which ``tests/tier1_offline/test_conventions.py`` records in those words.
 
-WHY IT EXISTS (PFS-2028.00). A run matrix used to cite a mesh boundary
-by its POSITION in one geometry's boundary order. Those positions are
-right for the file they were written against and mean different surfaces
-in any file whose order differs, and nothing said so: the run completed,
-exported, and reported loads for a rotor whose moving set was wrong.
-The instruction is that nowhere in this package should a user
-work with indices; a row names the mesh family and the package makes the
-link. The names are already in the geometry file, so this module is the
-package looking, instead of the user counting.
+WHY IT EXISTS (PFS-2028.00). A boundary position identifies a surface only
+within one geometry's boundary order. Another file can put a different
+surface at that position. A row therefore names the mesh family and this
+reader resolves its index from the geometry file, so a user need not count
+boundaries or risk selecting the wrong moving set.
 
 WHAT IT IS NOT. It is not a per-build line map, and it is not the thing
 :mod:`pyflightstream.qa.probes` warns against when it says a saved
@@ -35,12 +31,10 @@ THE EVIDENCE IS A COMMITTED REPORT AND NOT THIS PARAGRAPH:
 It states three measurements with their figures rather than describing
 them, and the strongest is the solver answering the question itself: the
 run log of the licensed 26.123 run lists that geometry's boundaries in
-exactly mesh-block order. A fourth measurement was reported by a review
-agent and EXCLUDED from the report, because the session writing it could
-not reproduce the reading. A claim resting only on a docstring is what a
-verification review refused here, correctly.
+exactly mesh-block order. Only the report's reproducible measurements
+support the index interpretation; this docstring is not independent evidence.
 
-TWO POSITIONAL READINGS OUTSIDE THE MESH BLOCK (0.27.0) are the line map
+TWO POSITIONAL READINGS OUTSIDE THE MESH BLOCK are the line map
 the paragraph above says the mesh reading is not, so each reads only the
 shape it was measured on and refuses every other. :func:`saved_length_unit`
 reads the first two lines of the global block, recognizing measured metre
@@ -58,12 +52,8 @@ from typing import TextIO
 
 from pyflightstream._errors import PyflightstreamError
 
-#: The CONSUMED surface, which is what this list is for. It carries
-#: every name another module imports and no name only this one uses,
-#: so `family_of` is deliberately absent and `resolve_family` is
-#: deliberately present. The first version omitted `resolve_family`
-#: while `cases/workflows.py` imported it, which would have let a
-#: later tidy-up of unexported names break the caller.
+#: Names consumed by other modules. Export resolve_family for workflow
+#: callers; family_of is used only within this module.
 __all__ = [
     "MESH_MARKER",
     "element_count",
@@ -145,9 +135,8 @@ def element_count(path: str | Path) -> int | None:
 
     The first line after :data:`MESH_MARKER`, which is the line
     :func:`boundary_names` steps over. It is here, beside that skip, because
-    the `.fsm` format has one reader: this one was written in the run layer
-    for FR-82's cost table and a second parser of one format is two sites for
-    the next format change (the architecture lens, 2026-09-11).
+    the `.fsm` format has one reader. FR-82's cost table uses this reader
+    rather than maintaining a second parser of the same format.
 
     THE NUMBER IS NOT TRUSTWORTHY TO THE UNIT, which is why
     :data:`_LINES_BEFORE_COUNT` skips it: one campaign geometry states 7848
@@ -202,14 +191,14 @@ def _block(path: str | Path, name: str) -> list[str] | None:
 
 
 #: THE HEAD OF THE GLOBAL BLOCK OF EVERY SAVED SIMULATION READ, and what it is
-#: read as (G05, G06 of 0.27.0): the two values its first two lines carry.
-#: Every save read on 2026-09-24, 1586 files of builds 26.100, 26.120, 26.121,
+#: read as (G05, G06): the two values its first two lines carry.
+#: The measured corpus of 1586 files of builds 26.100, 26.120, 26.121,
 #: 26.123 and 26.124 (none of 26.122), opens with these two
 #: and no other, among them the tier-3 geometries, which their preparation put
 #: in metres (``SET_SIMULATION_LENGTH_UNITS METER`` before the save), and the
 #: licensed saves made from them. 1.0 is a metre in metres, and 5 is METER's
 #: position in the unit list the manual prints for that command.
-#: RPT-070 subsequently measured the millimetre head on 26.124. Only these
+#: RPT-070 establishes the millimetre head on 26.124. Only these
 #: two paired encodings are decoded; the unit-list order alone is not evidence.
 _METRE_HEAD = (1.0, "5")
 
@@ -353,7 +342,7 @@ def saved_actuators(path: str | Path) -> tuple[str, ...] | None:
     the other two by a line of integers. Then the settings line (four
     integers), one number, and the ACTUATOR COUNT, each actuator a record of
     its name and fifteen lines (:data:`_ACTUATOR_RECORD`), and after them a
-    count again. Measured on 2026-09-24 over every save read, 1586 files of
+    count again. The measured corpus covers 1586 files of
     builds 26.100, 26.120, 26.121, 26.123 and 26.124, the tier-3 geometries
     and the licensed saves of their rows among them: every one walks to the
     end, 1584 carry no actuator, and the two carrying one are the 26.124 saves
@@ -432,7 +421,7 @@ def _saved_actions_in(lines: Sequence[str], where: str) -> tuple[int, tuple[Save
     WAS SAVED WITH, walked backwards from its last line: a count, then
     per action three lines, its name, its command or script file padded
     with spaces, and :data:`_ACTION_TAIL`, whose first number is the
-    length of the command without its padding. Measured on 2026-09-30:
+    length of the command without its padding. In the measured corpus,
     the ten tier-3 geometries end the block with the count ``0``, and a
     26.1 save that carried a walltime clock and a stop script ends it
     with ``2`` and two such records. A count that disagrees with the
@@ -539,10 +528,8 @@ def boundary_names(path: str | Path) -> tuple[str, ...] | None:
     try:
         handle = target.open(encoding="utf-8", errors="replace")
     except OSError as error:
-        # REPORTED BY NAME (PFS-2029.12). Until 0.11.0 this returned None
-        # in silence, so a file that could not be opened and a file
-        # carrying no mesh block read the same, and the user was later
-        # told their row cited an unknown label. The caller decides what
+        # REPORTED BY NAME (PFS-2029.12). An unreadable file is distinct
+        # from a readable file without a mesh block. The caller decides what
         # an unreadable file means for its run; this reader only says
         # which file and why.
         raise MeshReadError(f"{target.name}: cannot be read: {error}") from error
@@ -651,10 +638,10 @@ def names_of(token: str, names: Sequence[str], *, refuse_indexed: bool = True) -
     same rule expressed over a SEQUENCE of names, which is what a caller
     holds when it judges by the surface rows of a loads table rather
     than by a label-to-index map, and it is the one home both readers
-    call (the architecture lens of 2026-09-09 measured two).
+    call.
 
     An indexed token no name answers whose family the inventory carries (Blade3
-    over Blade1 and Blade2) is refused, since it once selected the whole family
+    over Blade1 and Blade2) is refused rather than selecting the whole family
     (PFS-2104.001). A caller that only asks whether the family is there, and
     decides the token's fate itself (the selection of PFS-2029.25, whose rule
     for a member of a list is FR-320's), passes ``refuse_indexed=False`` and
@@ -733,7 +720,7 @@ _EDGE_SLOT_ROWS = {2: (0, 1), 3: (1, 2), 4: (2, 0)}
 _FLAGS = frozenset({"T", "F"})
 
 #: Which of the per-face rows before the T/F rows names the face's boundary
-#: (0-based among them, 0.32.0). Measured on every saved simulation of the
+#: (0-based among them). Measured on every saved simulation of the
 #: tier-3 library: the seventh row holds each face's 1-based boundary
 #: number (1032 faces of ``Body`` and 24 of ``Base`` in the two-boundary
 #: body, three and four boundaries in the pusher and the twin).
@@ -1070,7 +1057,7 @@ def trailing_edge_midpoints(path: str | Path) -> tuple[tuple[float, float, float
 def boundary_vertices(
     path: str | Path,
 ) -> dict[str, tuple[tuple[float, float, float], ...]] | None:
-    """Return each boundary's vertices of a saved simulation, by the boundary's name (0.32.0).
+    """Return each boundary's vertices of a saved simulation, by the boundary's name.
 
     A boundary's vertices are those of the faces the block's boundary row
     assigns to it, each once, in the order the block stores them. A name

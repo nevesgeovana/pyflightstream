@@ -171,7 +171,7 @@ def make_entry(**overrides):
         "layout": "inline",
         "phase": "setup",
         "args": [{"name": "value", "type": "float", "unit": "m/s"}],
-        "manual_ref": "SRC-003 p.328",
+        "manual_ref": "FSM-26.120 p.328",
         "versions": {"26.120": {"status": "documented"}},
     }
     body.update(overrides)
@@ -268,7 +268,7 @@ def test_view_raises_for_absent_evidence_and_removed():
         registry.for_version("26.0")["SONIC_VELOCITY"]
     # MATCHED ON THE OPERATIVE CLAUSE, not on the substring that did not
     # change. The sentence used to claim every command a registered
-    # edition documents is recorded, which SRC-751 falsified by
+    # edition documents is recorded, which FSM-26.123 falsified by
     # documenting SET_OUTLET_TRAILING_EDGES: a 26.123 user copying that
     # name out of their own manual was told it was "usually a spelling
     # error". Reverting the correction left 421 tests green, because the
@@ -290,7 +290,7 @@ def test_a_machine_promoted_removal_cites_its_run_and_not_the_manual_page():
     """
     promoted = make_entry(
         name="SONIC_VELOCITY",
-        manual_ref="SRC-003 p.281",
+        manual_ref="FSM-26.120 p.281",
         versions={
             "26.100": {"status": "documented"},
             "26.120": {
@@ -305,7 +305,7 @@ def test_a_machine_promoted_removal_cites_its_run_and_not_the_manual_page():
         registry.for_version("26.120")["SONIC_VELOCITY"]
     message = str(caught.value)
     assert "CMP-26120_2026-08-11_full.yaml" in message, message
-    assert "SRC-003 p.281" not in message, message
+    assert "FSM-26.120 p.281" not in message, message
 
 
 def test_view_contains_and_iter():
@@ -387,18 +387,18 @@ def test_default_metadata_requires_its_citation():
     with pytest.raises(ValidationError, match="must carry its page citation"):
         make_entry(default=3)
     with pytest.raises(ValidationError, match="both travel together"):
-        make_entry(default_ref="SRC-003 p.344")
+        make_entry(default_ref="FSM-26.120 p.344")
     with pytest.raises(ValidationError, match="cite a source and page"):
         make_entry(default=3, default_ref="somewhere")
-    entry = make_entry(default=3, default_ref="SRC-003 p.344")
+    entry = make_entry(default=3, default_ref="FSM-26.120 p.344")
     assert entry.default == 3
 
 
 def test_enum_default_must_be_a_documented_token():
     enum_args = [{"name": "type", "type": "enum", "values": ["A", "B"]}]
     with pytest.raises(ValidationError, match="not one of the documented tokens"):
-        make_entry(args=enum_args, default="C", default_ref="SRC-003 p.203")
-    entry = make_entry(args=enum_args, default="B", default_ref="SRC-003 p.203")
+        make_entry(args=enum_args, default="C", default_ref="FSM-26.120 p.203")
+    entry = make_entry(args=enum_args, default="B", default_ref="FSM-26.120 p.203")
     assert entry.default == "B"
 
 
@@ -406,13 +406,13 @@ def test_seeded_defaults_carry_their_recorded_evidence():
     registry = CommandRegistry.load()
     minimum_cp = registry.commands["SOLVER_MINIMUM_CP"]
     assert minimum_cp.default == -20
-    assert minimum_cp.default_ref == "SRC-003 p.221"
+    assert minimum_cp.default_ref == "FSM-26.120 p.221"
     boundary_layer = registry.commands["SET_BOUNDARY_LAYER_TYPE"]
     assert boundary_layer.default == "TRANSITIONAL"
-    assert boundary_layer.default_ref == "SRC-003 p.203"
+    assert boundary_layer.default_ref == "FSM-26.120 p.203"
     farfield = registry.commands["SOLVER_SET_FARFIELD_LAYERS"]
     assert farfield.default == 3
-    assert farfield.default_ref == "SRC-003 p.344"
+    assert farfield.default_ref == "FSM-26.120 p.344"
 
 
 def test_hotfix_inherits_base_release_until_overridden():
@@ -891,7 +891,7 @@ def _registered_edition_ranges() -> dict[str, tuple[int, int, str]]:
     """Scripting-reference page range per manual source, from _meta.yaml."""
     from pyflightstream.versions import manual_editions
 
-    source_pattern = re.compile(r"SRC-\d{3}")
+    source_pattern = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)")
     range_pattern = re.compile(r"pp\.?\s*(\d+)\s*-\s*(\d+)")
     ranges: dict[str, tuple[int, int, str]] = {}
     for canonical, edition in manual_editions().items():
@@ -911,9 +911,9 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
     this guard is possible: the manual is licensed and absent from CI,
     but the database's disagreement with its own metadata is not.
 
-    It was wrong. On 2026-08-06 the registered SRC-003 range was
-    pp.286-371 against a measured pp.281-376, and SRC-740 was short by
-    the same five pages at each end. Twenty-two SRC-003 citations sat
+    It was wrong. On 2026-08-06 the registered FSM-26.120 range was
+    pp.286-371 against a measured pp.281-376, and FSM-26.121 was short by
+    the same five pages at each end. Twenty-two FSM-26.120 citations sat
     outside it, and the published manual-coverage page reported them as
     material beyond the reference chapter while listing ten real
     reference pages as uncited.
@@ -940,7 +940,7 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
     declared = {
         match.group(1)
         for text in manual_editions().values()
-        if (match := re.match(r"\s*(SRC-\d{3})\b", text))
+        if (match := re.match(r"\s*(FSM-(?:\d{2}\.\d{3}|TEST))\b", text))
     }
     assert declared, "no edition declares a source id; this guard would read nothing"
     # And the population is anchored on the REGISTRY, because both sides
@@ -965,7 +965,7 @@ def test_every_evidence_citation_falls_inside_its_edition_page_range():
         f"{sorted(declared)}; an edition whose range it cannot parse is an edition it "
         "silently stops checking"
     )
-    citation = re.compile(r"(SRC-\d{3})\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
+    citation = re.compile(r"(FSM-(?:\d{2}\.\d{3}|TEST))\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
     offenders = []
     # Counted SEPARATELY, and the reason is that counting them together
     # gave the floor about 163 counts of slack: the note citations alone
@@ -1028,7 +1028,7 @@ def test_an_inline_list_may_not_declare_a_separator_the_renderer_ignores():
             layout="inline",
             phase="geometry",
             args=[ArgSpec(name="values", type="float_list", separator="comma")],
-            manual_ref="SRC-003 p.300",
+            manual_ref="FSM-26.120 p.300",
             versions={"26.120": {"status": "documented"}},
         )
     accepted = CommandEntry(
@@ -1036,7 +1036,7 @@ def test_an_inline_list_may_not_declare_a_separator_the_renderer_ignores():
         layout="inline",
         phase="geometry",
         args=[ArgSpec(name="values", type="float_list", separator="space")],
-        manual_ref="SRC-003 p.300",
+        manual_ref="FSM-26.120 p.300",
         versions={"26.120": {"status": "documented"}},
     )
     assert accepted.args[0].separator == "space"
@@ -1055,7 +1055,7 @@ def test_a_non_inline_list_still_takes_the_separator_it_declares():
         layout="param_lines",
         phase="geometry",
         args=[ArgSpec(name="indices", type="int_list", separator="comma")],
-        manual_ref="SRC-003 p.300",
+        manual_ref="FSM-26.120 p.300",
         versions={"26.120": {"status": "documented"}},
     )
     assert entry.args[0].separator == "comma"
@@ -1078,8 +1078,8 @@ def test_a_version_grammar_override_carries_that_version_citation():
 
     assert february.args[0].values == ("EUCLIDEAN", "6DOF", "CUSTOM")
     assert current.args[0].values == ("ROTARY", "6DOF", "CUSTOM")
-    assert february.citation == "SRC-741 p.328, the 26.100 grammar"
-    assert current.citation == "SRC-003 p.332", (
+    assert february.citation == "FSM-26.100 p.328, the 26.100 grammar"
+    assert current.citation == "FSM-26.120 p.332", (
         "a version with no override must keep the entry citation untouched"
     )
 
@@ -1096,10 +1096,10 @@ def test_the_entry_citation_reaches_for_whichever_kind_the_entry_carries():
         layout="bare",
         phase="geometry",
         args=[],
-        manual_ref="SRC-003 p.300",
+        manual_ref="FSM-26.120 p.300",
         versions={"26.120": {"status": "documented"}},
     )
-    assert documented.citation == "SRC-003 p.300"
+    assert documented.citation == "FSM-26.120 p.300"
     probed = CommandEntry(
         name="X_CMD",
         layout="bare",
@@ -1187,7 +1187,7 @@ def test_an_entry_must_cite_exactly_one_kind_of_evidence():
     report = "reports/RPT-018_separation-family-across-builds_2026-08-05.md"
 
     with pytest.raises(ValidationError, match="cites both"):
-        CommandEntry(**common, manual_ref="SRC-003 p.300", probe_ref=report)
+        CommandEntry(**common, manual_ref="FSM-26.120 p.300", probe_ref=report)
     with pytest.raises(ValidationError, match="cites no evidence"):
         CommandEntry(**common)
     with pytest.raises(ValidationError, match="repository-relative path"):
@@ -1204,7 +1204,7 @@ def test_an_entry_must_cite_exactly_one_kind_of_evidence():
     "note",
     [
         "measured on the February build",
-        "SRC-741 p.320: the February build takes one token",
+        "FSM-26.100 p.320: the February build takes one token",
     ],
 )
 def test_a_probe_cited_entry_with_a_version_override_keeps_one_citation(note):
@@ -1432,11 +1432,11 @@ def test_every_declared_sentinel_and_length_is_reachable_from_the_database():
         if spec.all_sentinel is not None
     }
     assert sentinels == {
-        # Zero, stated on these two alone (SRC-003 p.309).
+        # Zero, stated on these two alone (FSM-26.120 p.309).
         ("TRANSLATE_SURFACE_IN_FRAME", "surface"),
         ("TRANSLATE_SURFACE_BY_FRAME", "surface"),
-        # Minus one, each stated on its own page: SRC-003 pp.307 and
-        # 310-311, SRC-741 p.305, and SRC-740 p.316 for DELETE_SURFACES,
+        # Minus one, each stated on its own page: FSM-26.120 pp.307 and
+        # 310-311, FSM-26.100 p.305, and FSM-26.121 p.316 for DELETE_SURFACES,
         # whose table on p.315 states none and whose sample states it.
         ("SURFACE_SCALE", "surface"),
         ("SURFACE_INVERT", "index"),
@@ -1516,7 +1516,7 @@ def test_no_chapter_file_records_a_version_twice():
 # pin it across the whole database.
 
 
-_NOTE_CITATION_IN_TEST = re.compile(r"SRC-\d{3}\s+pp?\.\s*\d+")
+_NOTE_CITATION_IN_TEST = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)\s+pp?\.\s*\d+")
 
 
 def _removed_rows():
@@ -1552,16 +1552,16 @@ MEASUREMENT_WORDINGS = (
 )
 
 READING_WORDINGS = (
-    "Withdrawn at SRC-003 p.328; no successor is documented",
-    "Absent from the 26.12 manual: the family no longer lists it (SRC-003 p.366)",
-    "No longer supported; the manual states the removal (SRC-725 p.327)",
+    "Withdrawn at FSM-26.120 p.328; no successor is documented",
+    "Absent from the 26.12 manual: the family no longer lists it (FSM-26.120 p.366)",
+    "No longer supported; the manual states the removal (FSM-26.101 p.327)",
     # The two live in the tree today, on SET_SONIC_VELOCITY. Both DESCRIBE
     # solver behaviour and neither claims to have watched it: they read a
     # page that says what the solver does. The pattern does not match
     # "warns" or "throws" and should not, since forcing a probe report
     # for a documented statement makes the honest form unwritable.
-    "Already deprecated in 26.1: the solver warns and ignores the value (SRC-725 p.327)",
-    "No longer supported; the solver throws a deprecation warning (SRC-003 p.328)",
+    "Already deprecated in 26.1: the solver warns and ignores the value (FSM-26.101 p.327)",
+    "No longer supported; the solver throws a deprecation warning (FSM-26.120 p.328)",
 )
 
 
@@ -1632,17 +1632,19 @@ def test_the_model_refuses_a_measured_removal_that_cites_no_run():
     with pytest.raises(ValidationError, match="requires a note"):
         VersionStatus(status=Status.REMOVED)
     with pytest.raises(ValidationError, match="not a repository-relative path"):
-        VersionStatus(status=Status.REMOVED, note="Withdrawn at SRC-003 p.1.", probe_ref="RPT-021")
+        VersionStatus(
+            status=Status.REMOVED, note="Withdrawn at FSM-26.120 p.1.", probe_ref="RPT-021"
+        )
     # And the three honest forms load.
     VersionStatus(
         status=Status.REMOVED,
         note="Measured 2026-08-08: the solver refuses it.",
         probe_ref="reports/RPT-021_chapter-questions-measured_2026-08-08.md",
     )
-    VersionStatus(status=Status.REMOVED, note="Withdrawn at SRC-003 p.328; no successor.")
+    VersionStatus(status=Status.REMOVED, note="Withdrawn at FSM-26.120 p.328; no successor.")
     VersionStatus(
         status=Status.REMOVED,
-        note="Stops being printed at SRC-003 pp.366-367; no successor in the family.",
+        note="Stops being printed at FSM-26.120 pp.366-367; no successor in the family.",
     )
 
 
@@ -1706,10 +1708,10 @@ def test_no_consumer_of_a_version_row_citation_prints_the_claim_without_it():
     "note",
     [
         # A count of a DOCUMENT, which is what the four 26.122 rows make.
-        "SRC-750 p.283, the edition does not print it; counted over the ten it adds.",
+        "FSM-26.122 p.283, the edition does not print it; counted over the ten it adds.",
         # A disclaimer, in the wordings this database uses for one.
-        "SRC-750 p.283, the edition does not print it; no probe has asked this build.",
-        "SRC-750 p.283, the edition does not print it; the successor is untested here.",
+        "FSM-26.122 p.283, the edition does not print it; no probe has asked this build.",
+        "FSM-26.122 p.283, the edition does not print it; the successor is untested here.",
     ],
 )
 def test_a_removed_note_that_claims_nothing_about_the_solver_loads(note):
@@ -1730,11 +1732,11 @@ def test_a_removed_note_that_claims_nothing_about_the_solver_loads(note):
 def test_a_removed_note_still_cannot_claim_a_measurement_without_a_run():
     """The other side, and the two the withdrawn pass would have let in."""
     for note in (
-        "Measured 2026-08-10: the solver refuses the name (SRC-003 p.1).",
-        "SRC-003 p.1, and a probe observed the abort.",
+        "Measured 2026-08-10: the solver refuses the name (FSM-26.120 p.1).",
+        "FSM-26.120 p.1, and a probe observed the abort.",
         # Both of these loaded while the negation pass was in place.
-        "SRC-750 p.1, the edition does not print it, and the solver was observed refusing it.",
-        "SRC-750 p.1, no page prints it; the solver was observed rejecting the name.",
+        "FSM-26.122 p.1, the edition does not print it, and the solver was observed refusing it.",
+        "FSM-26.122 p.1, no page prints it; the solver was observed rejecting the name.",
     ):
         with pytest.raises(ValueError, match="claims a measurement and cites no run"):
             VersionStatus(status=Status.REMOVED, note=note)
@@ -1757,7 +1759,7 @@ ACTION_CONTEXT_REPORT = "reports/RPT-030_what-an-unsteady-action-receives_2026-0
 def test_the_trailing_edge_import_records_the_index_over_reporting_its_own_body():
     """The newest edition contradicts itself about this command.
 
-    SRC-751 stops printing TRAILING_EDGES_IMPORT in the chapter body and
+    FSM-26.123 stops printing TRAILING_EDGES_IMPORT in the chapter body and
     still lists it in the Script Index. The recorded caution until now
     ran the other way, that the index UNDER-reports, which is why the
     surface is read from the body; this is the first instance of the
@@ -1791,12 +1793,12 @@ def test_the_trailing_edge_import_records_the_index_over_reporting_its_own_body(
     )
 
     notes = " ".join((entry.notes or "").split())
-    assert "SRC-751 p.323" in notes, (
+    assert "FSM-26.123 p.323" in notes, (
         "the entry does not record which page of the new edition was read and found "
         "not to print the command. p.323 is the page the block used to open on and "
         "the page the surviving neighbours still sit on"
     )
-    assert "SRC-751 p.390" in notes, (
+    assert "FSM-26.123 p.390" in notes, (
         "the entry does not record that the Script Index still lists the command. "
         "That half is the contradiction, and it is the direction the recorded "
         "caution did not have"
@@ -1806,7 +1808,7 @@ def test_the_trailing_edge_import_records_the_index_over_reporting_its_own_body(
 def test_the_outflow_rename_is_two_entries_and_the_old_name_teaches_the_new():
     """A rename with no transitional alias, modelled as two keys.
 
-    SRC-751 prints SET_OUTLET_TRAILING_EDGES where SRC-750 printed
+    FSM-26.123 prints SET_OUTLET_TRAILING_EDGES where FSM-26.122 printed
     SET_OUTFLOW_TRAILING_EDGES, same argument, same sample, same page.
     The old spelling appears nowhere in the new edition and the new
     spelling nowhere in the old one, so a script written last week stops
@@ -1842,7 +1844,7 @@ def test_the_outflow_rename_is_two_entries_and_the_old_name_teaches_the_new():
         "successor is the whole content of the refusal: the caller wants the line "
         "that works"
     )
-    assert "SRC-750 p.331" in message, (
+    assert "FSM-26.122 p.331" in message, (
         "the refusal cites no page. A removal read off a manual cites the page of "
         "the edition that DOCUMENTS the command, which is where a reader confirms "
         "the old name was real"
@@ -1858,7 +1860,7 @@ def test_the_outflow_rename_is_two_entries_and_the_old_name_teaches_the_new():
 def test_the_displacement_contours_arrive_with_the_output_group_they_report():
     """The four values and the parameter group are one reading, so one record.
 
-    SRC-751 adds FSI_dx, FSI_dy, FSI_dz and FSI_displacement to the
+    FSM-26.123 adds FSI_dx, FSI_dy, FSI_dz and FSI_displacement to the
     scene-contour enumeration and, on a different page, a displacement
     group in the solver output parameter list. The second is what the
     first draws, so recording the values without the group leaves the
@@ -1870,12 +1872,12 @@ def test_the_displacement_contours_arrive_with_the_output_group_they_report():
     """
     entry = CommandRegistry.load().commands["SET_SCENE_CONTOUR"]
     notes = " ".join((entry.notes or "").split())
-    assert "SRC-751 p.248" in notes, (
+    assert "FSM-26.123 p.248" in notes, (
         "the scene-contour entry does not cite the page that documents the output "
         "group its four new values draw. That page is the only statement of what a "
         "node displacement contour is"
     )
-    assert "SRC-751 p.355" in notes, (
+    assert "FSM-26.123 p.355" in notes, (
         "the entry does not cite the page the four values were read from"
     )
     row = entry.versions.get("26.123")
@@ -1896,7 +1898,7 @@ def test_the_displacement_contours_arrive_with_the_output_group_they_report():
 def test_the_outlet_chapter_records_the_exhaust_outflow_feature_and_its_defect():
     """A feature with no scripted route is still this database's business.
 
-    SRC-751 documents an outlet perimeter that can be marked as an
+    FSM-26.123 documents an outlet perimeter that can be marked as an
     exhaust outflow, the solver then shedding the wake there, and no
     command in the scripting reference is named for it. The chapter
     header is where a reader learns that, since there is no entry to
@@ -1911,7 +1913,7 @@ def test_the_outlet_chapter_records_the_exhaust_outflow_feature_and_its_defect()
     from pyflightstream.reference import _chapter_headers, _citation_pages
 
     header = _chapter_headers()["inlets_outlets"]
-    pages = _citation_pages(header).get("SRC-751", set())
+    pages = _citation_pages(header).get("FSM-26.123", set())
     assert {190, 191} <= pages, (
         "the inlets and outlets chapter header cites neither the exhaust-outflow "
         f"page nor the radial-meshing heading that now names outlets; it cites {sorted(pages)}. "
@@ -1921,7 +1923,7 @@ def test_the_outlet_chapter_records_the_exhaust_outflow_feature_and_its_defect()
 
     entry = CommandRegistry.load().commands["CREATE_NEW_OUTLET"]
     notes = " ".join((entry.notes or "").split())
-    assert "SRC-751 p.191" in notes, (
+    assert "FSM-26.123 p.191" in notes, (
         "CREATE_NEW_OUTLET does not cite the page whose defect it is supposed to "
         "record. The entry is where the note belongs: it is the command that makes "
         "the outlet the paragraph then tells you to mark"

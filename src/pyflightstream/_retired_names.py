@@ -8,8 +8,8 @@ keeps working, warns, and disappears at a stated release. A retirement is a
 REFUSAL: the old name stops working now, and the only thing owed to whoever
 typed it is a message that says what it became and why.
 
-The decision of 2026-09-10 settles both halves. The old vocabulary is not
-accepted: every rotor word is spelled one way. And a retired word does not
+The old vocabulary is not accepted: every rotor word is spelled one way.
+A retired word does not
 fail quietly, it raises with a message saying which name it became and how to
 correct it. This package has no stable release, so it owes no compatibility
 window for a word it chose badly; what it owes is a refusal a reader can act
@@ -46,8 +46,7 @@ class RetiredAttributeError(PyflightstreamError, AttributeError):
     package refusing something on purpose, so the one category the
     documentation tells callers to catch,
     :class:`~pyflightstream.exceptions.PyflightstreamError`, must reach it
-    too. A caller who wraps workspace work in that category was getting a
-    traceback rather than the sentence the registry wrote for the moment.
+    too. Both handlers receive the registry's actionable refusal message.
 
     This is not a new pattern, and the ORDER of the bases is the house's
     too: :class:`~pyflightstream.exceptions.MatrixError`,
@@ -67,16 +66,10 @@ class RetiredAttributeError(PyflightstreamError, AttributeError):
     :class:`~pyflightstream.exceptions.InputArtifactError`, which is
     already in the package category. Calling this class ``RetiredNameError``
     would promise a reader that ``except`` on it catches a retired
-    ``[propeller]`` table, and it does not (the interface and
-    technical-writing lenses of the 0.15.0 release review, which reached it
-    independently, and the architecture lens which measured the pydantic
-    reason).
+    ``[propeller]`` table, and it does not.
 
-    It carries no attributes of its own, and the honest reason is not that
-    the facts have a better home but that that home is CLOSED: they live on
-    the :class:`RetiredName` entry in this private module, which 0.15.0 does
-    not make public. Adding an attribute later is additive and breaks
-    nobody.
+    It carries no attributes of its own. The refusal facts live on the
+    :class:`RetiredName` entry in this private module and are not public fields.
 
     Examples
     --------
@@ -131,10 +124,8 @@ class RetiredName:
         ----------
         wrote : str, optional
             The spelling the user actually wrote, where several reach one
-            entry. Without it the message names `old`, and a user who wrote
-            `RotorAxis1` was told about `PROP_MRP`: a sentence asserting
-            they wrote something they did not (the interface lens of the
-            0.15.0 release review).
+            entry. Without it the message names `old`. Passing the actual
+            spelling keeps a refusal of `RotorAxis1` from naming `PROP_MRP`.
 
         Notes
         -----
@@ -204,13 +195,12 @@ WORKSPACE_ENGINE_POINT = RetiredName(
 #: reason: `PROP_MRP` and `ROTOR_MRP` were the ONE package-level rotor frame,
 #: which a reference declaring several rotors cannot have; `RotorAxis<k>` and
 #: the numbered `PROP_MRP<k>` were POSITIONAL, so a post-processing entry
-#: citing one silently followed the ORDER of the MOTIONS list. Giving both the
-#: rotor-word reason was a non-sequitur for the two that already said rotor
-#: (the interface lens of the 0.15.0 release review).
+#: citing one follows the ORDER of the MOTIONS list. These are distinct reasons
+#: for refusing a package-wide frame and a positional frame citation.
 _ONE_FRAME_FOR_SEVERAL_ROTORS = (
     "It was the package's ONE rotor frame, which is the one-propulsor "
-    "assumption spelled out: a reference declares a block per rotor since "
-    "0.15.0, and each rotor carries its own frames."
+    "assumption spelled out: a reference declares a block per rotor, "
+    "and each rotor carries its own frames."
 )
 _A_NAME_THAT_WAS_AN_INDEX = (
     "It read as a name and was an INDEX into the row's own MOTIONS list, so "
@@ -219,7 +209,7 @@ _A_NAME_THAT_WAS_AN_INDEX = (
     "with nothing saying so."
 )
 
-#: EVERY SPELLING A FRAME CITATION MAY CARRY FROM BEFORE 0.15.0, mapped to the
+#: Every retired frame-citation spelling, mapped to the
 #: retirement that explains it. A citation matching any of these is refused
 #: naming the shape to write, rather than falling through to "this run created
 #: no such frame", which is true and says nothing about the rename.
@@ -286,20 +276,19 @@ RETIRED: tuple[RetiredName, ...] = (
 )
 
 
-#: THE FAR FIELD LEFT XARRAY IN 0.40.0 (FR-457, FR-458), by the decision of
-#: 2026-10-12 to break directly: a shim keeping these names alive would need
-#: the dependency that left. They are Python ATTRIBUTES, not spellings in a
+#: The far field uses numpy (FR-457, FR-458). A shim for these xarray names
+#: would require an unsupported dependency. They are Python ATTRIBUTES, not spellings in a
 #: file, so they live here and not in :data:`RETIRED`, which the input readers
 #: match a file's text against; the module ``__getattr__`` of their owners asks
 #: :func:`retired_attribute` and raises :class:`RetiredAttributeError`.
 _THE_FAR_FIELD_IS_NUMPY = (
-    "The far field rests on numpy since v0.40.0 and xarray left the required "
-    "dependencies, so the xarray object this name dealt in has no shim."
+    "The far field rests on numpy and xarray is not a required dependency, "
+    "so the xarray object this name dealt in has no shim."
 )
 _LEFT_FOR_ITACA = (
     "It applies to an Euler CFD field, where total enthalpy and entropy exist, "
-    "and no FlightStream output carries either, so it left the package with no "
-    "deprecation release."
+    "and no FlightStream output carries either, so this package provides no "
+    "supported replacement."
 )
 RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.farfield.lattice_dataset": RetiredName(
@@ -335,7 +324,7 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.farfield.rothalpy": RetiredName(
         owner="pyflightstream.farfield",
         old="rothalpy",
-        new="ITACA, the sister library, where it was handed for evaluation",
+        new="external Euler CFD tools that provide total enthalpy and entropy",
         retired_in="0.40.0",
         why=_LEFT_FOR_ITACA,
         instead="Look in",
@@ -343,7 +332,7 @@ RETIRED_ATTRIBUTES: dict[str, RetiredName] = {
     "pyflightstream.farfield.irreversible_deficit": RetiredName(
         owner="pyflightstream.farfield",
         old="irreversible_deficit",
-        new="ITACA, the sister library, where it was handed for evaluation",
+        new="external Euler CFD tools that provide total enthalpy and entropy",
         retired_in="0.40.0",
         why=_LEFT_FOR_ITACA,
         instead="Look in",

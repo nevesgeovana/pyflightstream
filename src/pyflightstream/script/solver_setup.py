@@ -68,13 +68,10 @@ SNAPSHOT_FAMILIES = ("runtime_settings", "solver_settings", "advanced_settings")
 #: whether the caller made it or left the solver default in place.
 VORTICITY_COMMAND = "SET_VORTICITY_DRAG_BOUNDARIES"
 
-#: Minimum pressure coefficient (dimensionless Cp) the library emits
-#: whenever the caller does not pass ``minimum_cp``. The solver's own
-#: default is -20 (SRC-003 p.221), which clips the suction peaks of
-#: rotor blades; -100 is the library default of 2026-07-22,
-#: retiring the earlier reference-velocity workaround. The physics
-#: references were re-validated under this default on a licensed
-#: 26.120 machine: 30 of 30 metrics bit-identical, report
+#: Library minimum pressure coefficient, dimensionless Cp, when no
+#: minimum_cp override is supplied. The solver default -20 clips rotor
+#: blade suction peaks (FSM-26.120 p.221); the library uses -100.
+#: The 26.120 reference check found 30 of 30 metrics bit-identical:
 #: reports/physics/PHY-26120_2026-07-23_reseed-cp100-2026-07-23.
 LIBRARY_MINIMUM_CP = -100
 
@@ -82,7 +79,7 @@ _EXPLICIT: Literal["explicit"] = "explicit"
 _DEFAULT: Literal["default"] = "default"
 _UNKNOWN: Literal["unknown"] = "unknown"
 
-# The 26.125 evidence row contradicts the entry-level default (SRC-753
+# The 26.125 evidence row contradicts the entry-level default (FSM-26.125
 # p.358). Until version rows can carry structured defaults, suppress that
 # inherited value, including for builds inheriting this evidence row.
 _UNREPRESENTED_DEFAULTS = frozenset({("SET_JET_WAKE_DECAY_NORMALIZED_LENGTH", "26.125")})
@@ -129,22 +126,12 @@ class FlagSpec:
     kind: str
 
 
-#: Every snapshot flag, in the emission order of the curated helper.
-# The wake, rotor and lift-model knobs of the Advanced Settings chapter,
-# entered by the v0.5.0 sweep on 2026-08-08. Named for what they are
-# rather than for the day they landed: this tuple splices into an
-# order-bearing sequence, so the next reader's question is why they emit
-# HERE, and a date cannot answer it.
-#
-# They emit after the separation models and before the boundary lists
-# because they are solver knobs read at initialization and depend on
-# nothing the helper emits: any position among the scalars would do, and
-# this one keeps them beside the wake settings already there.
-#
-# Every command of a settings family is a snapshot flag, so entering the
-# chapter and leaving the model alone is not an option the tier-1 guard
-# allows; that is the guard working, and it is why these arrived with
-# the chapter rather than a release later.
+#: Snapshot flags in curated-helper emission order. Advanced wake, rotor
+#: and lift-model settings emit after separation models and before boundary
+#: lists. They are initialization scalars with no dependency on other
+#: helper emissions; this position groups them with wake settings.
+#: Every settings-family command must have a snapshot flag, enforced by
+#: the tier-1 database guard.
 _WAKE_AND_ROTOR_ADVANCED: tuple[FlagSpec, ...] = (
     FlagSpec("kutta_joukowski_lift", "KUTTA_JOUKOWSKI_LIFT_FORCES", "toggle"),
     FlagSpec("print_rotor_induced_velocities", "PRINT_ROTOR_INDUCED_VELOCITIES", "toggle"),
@@ -188,17 +175,11 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
     FlagSpec("thin_boundaries", "DELETE_THIN_BOUNDARIES", "boundary_list_clear"),
     FlagSpec("bulk_separation", "CREATE_BULK_SEPARATION", "bulk_separation"),
     *_WAKE_AND_ROTOR_ADVANCED,
-    # The last two settings-family commands of the v0.5.0 sweep, entered
-    # 2026-08-08 with the tail chapters.
+    # Settings-family commands from the tail chapters.
     FlagSpec("solver_stabilization", "SOLVER_STABILIZATION", "scalar"),
     FlagSpec("disable_ref_velocity", "DISABLE_SOLVER_REF_VELOCITY", "bare_request"),
-    # The seven settings-family commands only the pre-26.100 editions
-    # document, entered 2026-08-10 with those editions' own chapters.
-    # They carry flags for the same reason every other command of these
-    # families does, and the point is sharper here than usual: these are
-    # exactly the commands a script targeting an OLD build sets, so a
-    # snapshot silent about them would be least complete for the runs
-    # the older builds are registered to reproduce.
+    # Commands documented only by pre-26.100 editions also need snapshot
+    # flags so runs targeting those builds can reproduce their settings.
     FlagSpec("solver_model", "SET_SOLVER_MODEL", "enum"),
     FlagSpec("valarezo_criterion", "VALAREZO_CRITERION", "toggle"),
     FlagSpec("crossflow_separation_mean_diameter", "SET_CROSSFLOW_SEPARATION_CP", "scalar"),
@@ -255,7 +236,7 @@ FLAG_SPECS: tuple[FlagSpec, ...] = (
         "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
         "separation_boundaries_clear",
     ),
-    # The name SRC-741 p.339 prints and the solver does not answer to. It
+    # The name FSM-26.100 p.339 prints and the solver does not answer to. It
     # is in the database because the page documents it and a reader of
     # that page has to be able to find out here that it fails, and it
     # carries a flag because every command of a settings family does. The
@@ -311,11 +292,9 @@ _SELECTION_KINDS = ("boundary_list", "boundary_selection", "separation_boundarie
 def explicit_empty_selections(flags: Mapping[str, object]) -> list[tuple[str, str]]:
     """Return the flags marked explicit whose selection is the empty list.
 
-    PFS-2012.01. That record is one no ``solver_settings`` call writes,
-    so a snapshot carrying it was edited or written by hand, and
-    replaying it used to reach the helper's own refusal, which tells the
-    reader to omit an argument nobody wrote and sends them to the wrong
-    file. Both readers of a snapshot consult this: the manifest reader,
+    No ``solver_settings`` call writes such a record. Diagnose it at the
+    snapshot boundary, where the refusal can identify its stored source.
+    Both readers of a snapshot consult this: the manifest reader,
     which names the manifest and the run, and :func:`script_from_setup`
     through :meth:`SolverSetup.explicit_kwargs`, which names the flag.
 
@@ -325,9 +304,8 @@ def explicit_empty_selections(flags: Mapping[str, object]) -> list[tuple[str, st
         The snapshot's ``flags``, either :class:`FlagRecord` instances
         or the raw mappings of a manifest record. The raw form is
         accepted so a manifest is judged as it was written, without
-        first being validated against today's model: the reader that
-        refuses it must name the row rather than fail on a shape the
-        model has since outgrown.
+        first being validated against the model: the reader that
+        refuses it must identify the stored row.
 
     Returns
     -------
@@ -352,13 +330,13 @@ def explicit_empty_selections(flags: Mapping[str, object]) -> list[tuple[str, st
 
 
 class BulkSeparation(BaseModel):
-    """One bulk (bluff-body) flow-separation assignment (SRC-003 p.342).
+    """One bulk (bluff-body) flow-separation assignment (FSM-26.120 p.342).
 
     Bluff bodies shed their wake from a separation line rather than a
     trailing edge; the bulk model assigns that behavior to the listed
-    mesh boundaries (SRC-003 p.207). This is the 26.12 four-argument
+    mesh boundaries (FSM-26.120 p.207). This is the 26.12 four-argument
     grammar with SEPARATION_TYPE; the three-argument 26.1 form
-    (SRC-725 p.341) is not covered by the helper and needs direct
+    (FSM-26.101 p.341) is not covered by the helper and needs direct
     emission.
 
     Attributes
@@ -367,13 +345,13 @@ class BulkSeparation(BaseModel):
         Display name of the separation assignment in the interface.
     separation_type : str
         Bulk model sub-type, ``CYLINDRICAL`` or ``FLAT_PLATE``
-        (SRC-003 p.207).
+        (FSM-26.120 p.207).
     diameter : float
         Characteristic body diameter, in simulation length units.
     boundaries : list of int or str, or ``"all"``
         Mesh boundaries carrying the model, by 1-based index in
         geometry-tree order or by declared boundary label; ``"all"``
-        selects every boundary (the -1 form of SRC-003 p.342).
+        selects every boundary (the -1 form of FSM-26.120 p.342).
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -385,7 +363,7 @@ class BulkSeparation(BaseModel):
 
 
 class AirfoilSeparation(BaseModel):
-    """One airfoil (trailing-edge) separation assignment (SRC-003 p.341).
+    """One airfoil (trailing-edge) separation assignment (FSM-26.120 p.341).
 
     Attributes
     ----------
@@ -396,7 +374,7 @@ class AirfoilSeparation(BaseModel):
     boundaries : list of int or str, or ``"all"``
         Mesh boundaries carrying the model, by 1-based index in
         geometry-tree order or by declared boundary label; ``"all"``
-        selects every boundary (the -1 form of SRC-003 p.341).
+        selects every boundary (the -1 form of FSM-26.120 p.341).
 
     Examples
     --------
@@ -416,7 +394,7 @@ class AirfoilSeparation(BaseModel):
 
 
 class AxialVortexSeparation(BaseModel):
-    """One axial vortex separation assignment (SRC-003 p.342).
+    """One axial vortex separation assignment (FSM-26.120 p.342).
 
     Slender bodies at incidence shed a pair of vortices along the body
     axis; the model assigns that behavior to the listed boundaries.
@@ -429,7 +407,7 @@ class AxialVortexSeparation(BaseModel):
         Maximum body diameter, in simulation length units.
     frame : int or str
         Coordinate system acting as the body axes, by 1-based index (1
-        is the reference frame, SRC-003 p.342) or by the label a recipe
+        is the reference frame, FSM-26.120 p.342) or by the label a recipe
         declared for it, which the emitter resolves like every other
         frame citation in the library.
     body_axis : str
@@ -462,7 +440,7 @@ class AxialVortexSeparation(BaseModel):
 
 
 class CylindricalBulkSeparation(BaseModel):
-    """One cylindrical bulk separation assignment (SRC-740 p.345).
+    """One cylindrical bulk separation assignment (FSM-26.121 p.345).
 
     The 26.121 split of the CYLINDRICAL value that
     :class:`BulkSeparation` carried in its ``separation_type``
@@ -487,7 +465,7 @@ class CylindricalBulkSeparation(BaseModel):
 
 
 class StratfordBulkSeparation(BaseModel):
-    """One Stratford bulk separation assignment (SRC-740 p.345).
+    """One Stratford bulk separation assignment (FSM-26.121 p.345).
 
     Takes no diameter, which is the visible difference from
     :class:`CylindricalBulkSeparation`.
@@ -706,8 +684,8 @@ def _normalize(value: object) -> JsonValue:
 def _minimum_cp_evidence(entry: CommandEntry) -> str:
     """Compose the citation trail of the emitted library minimum-Cp."""
     return (
-        f"library default {LIBRARY_MINIMUM_CP} (design decision of 2026-07-22; physics "
-        "references re-validated under it, 30 of 30 metrics bit-identical, report "
+        f"library default {LIBRARY_MINIMUM_CP} (physics reference check: "
+        "30 of 30 metrics bit-identical, report "
         f"PHY-26120_2026-07-23_reseed-cp100-2026-07-23); solver default {entry.default} "
         f"({entry.default_ref})"
     )
@@ -777,7 +755,7 @@ def _family_record(
     elif spec.kind == "never_emitted":
         # The command is in a settings family, so it needs a flag, and no
         # helper path emits it: DELETE_VALAREZO_CRITERION_BOUNDARIES is
-        # the name SRC-741 documents and the solver does not answer to.
+        # the name FSM-26.100 documents and the solver does not answer to.
         # Falling to unknown is the honest record, and saying so here
         # rather than letting it reach the generic branch is what keeps
         # a reader from thinking the keyword was simply not passed.
@@ -931,7 +909,7 @@ def _vorticity_record(
     an absence of knowledge: the script places no boundary on the
     vorticity CDi list, and boundaries outside that list keep the
     surface pressure integration of the solver, a complete induced-drag
-    calculation (SRC-003 p.202). That case is recorded as a ``default``
+    calculation (FSM-26.120 p.202). That case is recorded as a ``default``
     carrying the empty selection, so a reader of the manifest sees that
     the script selected no boundary instead of an unexplained blank.
     The record describes the script, not the session: a simulation file
@@ -1001,12 +979,8 @@ def build_setup(
         snapshot is read from; the packaged one when omitted. The caller
         passes the database its Script was built with
         (:attr:`pyflightstream.script.Script.registry`), because the
-        snapshot describes THAT script: this function used to load the
-        packaged database unconditionally, so a script emitted against
-        another one got a provenance record whose per-version facts came
-        from a database no line of it was validated against
-        (PFS-2012.05). Omitting the argument is unchanged behaviour and
-        is why it is optional rather than required.
+        snapshot must describe the same per-version facts used to validate
+        that script (PFS-2012.05).
 
     Returns
     -------

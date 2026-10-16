@@ -1898,7 +1898,7 @@ def test_the_owed_tranche_is_the_boundary_layer_profile_and_the_plot_save():
     plot = owed["SAVE_PLOT_TO_FILE"].note
     assert "RPT-067" in plot and "never read as a coefficient source" in plot, plot
     note = owed["EXPORT_BL_VELOCITY_PROFILE"].note
-    assert "never been observed" in note
+    assert "no observed output file is available" in note
     assert "RPT-027" in note, "the note points at the report that measured the cause"
     assert "modal window" in note
     assert "1800" in note and "240" in note, "both bounded runs are named"

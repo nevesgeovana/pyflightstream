@@ -2,7 +2,7 @@
 
 Pipeline role: the entries of ``PROBE_SPECS`` for the commands the package's
 committed workflow goldens render (``tests/tier1_offline/goldens/workflows``)
-and for which ``pyfs-qa probe`` had no probe specification (FR-342, the T1
+with ``pyfs-qa probe`` specifications (FR-342, the T1
 item of PFS-2073.06): ``ROTATE_SURFACE`` and ``SURFACE_ROTATE`` (the rotation
 command by build) and ``SET_NEW_UNSTEADY_SOLVER_ACTION``. A build whose database
 does not hold a command never runs its entry: ``ROTATE_SURFACE`` and
@@ -10,9 +10,8 @@ does not hold a command never runs its entry: ``ROTATE_SURFACE`` and
 measures. Three more commands the goldens of the older builds render
 (``SONIC_VELOCITY``, ``SET_MOTION_ANGULAR_VELOCITY``, ``SET_MOTION_IS_ROTOR``)
 are in no database view of 26.120 or later, so no authorised run could judge
-them and they carry no entry. ``SET_WAKE_TERMINATION_TIME_STEPS`` joined in
-0.34.0, when the 4R default of FR-321 made every ``unsteady_rotor`` golden
-render it.
+them and they carry no entry. ``SET_WAKE_TERMINATION_TIME_STEPS`` is covered
+because the 4R default of FR-321 makes every ``unsteady_rotor`` golden render it.
 
 The module is imported by ``pyflightstream.qa.specs`` and registers into the
 shared registry of ``pyflightstream.qa._spec_kit``. Where no instrument reads

@@ -66,7 +66,7 @@ from pyflightstream.workspace._refine._geometry import (
     SHARED_LAYERS as SHARED_LAYERS,
 )
 
-# kept importable at its 0.38.0 path (release parity)
+# Preserve this public import path (release parity).
 from pyflightstream.workspace._refine._geometry import (
     dihedral_degrees as dihedral_degrees,
 )

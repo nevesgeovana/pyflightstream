@@ -7,7 +7,7 @@ cases layer writes scripts, the post layer writes products, the run layer
 writes records and the workspace layer writes inputs, and none of them may
 import another to get one write function.
 
-WHY THERE IS ONE ROUTE (NFR-32, 0.34.0). A file written in text mode
+WHY THERE IS ONE ROUTE (NFR-32). A file written in text mode
 without a stated line end gets CRLF on Windows and LF on Linux, so the same
 campaign posted on two platforms could give different bytes, and a byte
 snapshot could not be portable. Every function here writes with
@@ -169,9 +169,9 @@ def write_json(path: str | Path, payload: object, *, indent: int | None = 2, **d
 def lf(text: str) -> str:
     """Return ``text`` with every CRLF and every lone CR turned into LF.
 
-    This is the reading side of NFR-32: the parity script compares a 0.33.0 file
-    with a current one after this normalisation, and a reader that must accept a
-    file written by an older release applies it before splitting lines.
+    This is the reading side of NFR-32: the parity script compares files
+    after this normalisation. Readers apply it before splitting lines to
+    accept either line-ending convention.
     """
     return text.replace("\r\n", LINE_END).replace("\r", LINE_END)
 

@@ -1864,7 +1864,7 @@ def _sync_one(
             # RST-6: THE LEASE ON runs.json IS HELD FOR THE WHOLE OF THE MERGE AND THE
             # COPY, so a restore (which refuses while runs.json.lock is present), a
             # run, a collect or a second sync never writes into the workspace while
-            # this one does. It was held around the merge only. A copy that fails
+            # this one does. A copy that fails
             # after the records were merged is recorded with what was done (PFS-2096.027).
             with stage_progress("sync merge", total_files=len(other_rows)) as progress:
                 main_rows = _read_rows(manifest)
@@ -1904,7 +1904,7 @@ def _sync_one(
                     item = {"path": relative.as_posix(), "bytes": size, "sha256": digest}
                     (overwritten if kind == "overwrite" else copied).append(item)
                     progress.advance(files=1, bytes=size, current=relative.as_posix())
-            # THE MESH IS LINKED, NEVER COPIED (fixed rule, 2026-09-28): each
+            # THE MESH IS LINKED, NEVER COPIED: each
             # simulation folder sync brought gets its `inputs` link into main's own
             # geometry library, the way the other workspace's simulation had it.
             other_sims = other / "sims"
@@ -1917,7 +1917,7 @@ def _sync_one(
                         inputs_links[sim.name] = done
                 elif not (main.root / "sims" / sim.name / "inputs").exists():
                     inputs_links[sim.name] = "to link when applied"
-            # MATRICES (fixed rule, 2026-09-28): every difference is reported as
+            # MATRICES: every difference is reported as
             # a merge conflict, and the workspace that owns the matrix wins.
             entry["matrices"] = _sync_matrices(main, name, other, owners, apply=apply, stamp=stamp)
         entry["inputs_links"] = inputs_links
@@ -1930,7 +1930,7 @@ def _sync_one(
             entry["restore"]["sims"] = orphans
             if apply and orphans:
                 entry["restore"] = _restore_orphans(main.root, orphans)
-        # 0.30.0: what the other workspace planned and no merged record carries.
+        # What the other workspace planned and no merged record carries.
         entry["plan_points_without_record"] = _plan_points_without_record(other, merged)
         entry.update(
             {

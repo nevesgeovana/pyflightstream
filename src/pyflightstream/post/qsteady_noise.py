@@ -16,7 +16,7 @@ compact source (F. Farassat, "Derivation of Formulations 1 and 1A of
 Farassat", NASA/TM-2007-214853, 2007; K. S. Brentner and F. Farassat,
 "Modeling aerodynamically generated sound of helicopter rotors", Progress in
 Aerospace Sciences 39, 2003, the loading-noise equation of section 3), with
-the medium at rest:
+the medium at rest: [REF-10], [REF-11]
 
     4 pi p_L(x, t) = [ Ldot_r / (c0 r (1 - M_r)^2) ]
                    + [ (L_r - L_M) / (r^2 (1 - M_r)^2) ]
@@ -48,7 +48,7 @@ at rest, the far-field harmonic ``n`` (of the shaft frequency) of ``B``
 identical blades has the rms amplitude (Gutin 1936, in the form of
 M. E. Goldstein, Aeroacoustics, 1976, chapter 3, and of the compact steady
 limit of D. B. Hanson, "Helicoidal surface theory for harmonic noise of
-propellers in the far field", AIAA Journal 18, 1980)
+propellers in the far field", AIAA Journal 18, 1980) [REF-12], [REF-13], [REF-14]
 
     p_n = B n Omega / (2 sqrt(2) pi c0 r)
           | F_a cos(theta) J_n(n M_a sin(theta)) + F_t c0 / (Omega r_t) J_n(n M_t sin(theta)) |

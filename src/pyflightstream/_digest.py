@@ -6,16 +6,10 @@ separate module and is exactly why :mod:`pyflightstream._errors` does
 too: the workspace layer and the run layer both need this digest, and
 neither may import the other to get it.
 
-WHY IT IS A MODULE AND NOT THREE COPIES. NFR-07's claim is that two runs
-with the same inputs are recognisably the same run, and until 2026-08-18
-that claim rested on a definition written in three places:
-``workspace._sha256``, ``run._file_digest`` and, for text, an inline
-expression in ``run._recipe_digest`` and another in ``qa.probes``.
-Nothing stopped two of them diverging and nothing would have noticed if
-they had; the manifest would simply have said two identical runs were
-different, or two different runs the same. The run layer had already
-reached across a layer boundary to import ``workspace._sha256``, an
-underscore-private name, rather than write a fourth.
+ONE DEFINITION FOR EVERY CALLER. NFR-07 requires two runs with the same
+inputs to be recognisably the same run. Workspace, run and QA callers use
+this module's file and text digests so that their provenance records agree
+without importing a private helper across a layer boundary.
 
 THE TWO FILE FUNCTIONS DIFFER ONLY IN THEIR FAILURE POLICY, and that is
 why there are two rather than a flag. :func:`file_sha256` raises;
@@ -339,8 +333,8 @@ def text_sha256(text: str) -> str:
 def one_file_key(path: str | Path) -> str:
     """Return one key for every spelling of the file ``path`` names.
 
-    For the record's rule that one key of ``inputs_sha256`` is one file (G06 of
-    0.27.0): the real path, so a parent folder, a symbolic link or an existing
+    For the record's rule that one key of ``inputs_sha256`` is one file:
+    the real path, so a parent folder, a symbolic link or an existing
     8.3 short name folds into the file it names; each part without a trailing
     dot or space, which Windows drops; and case-folded, because a
     case-insensitive file system reads names equal but for case as one file.

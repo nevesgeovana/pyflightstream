@@ -1,4 +1,4 @@
-"""The streamlines a pproc artifact traces after the solve (FR-460, 0.40.0).
+"""The streamlines a pproc artifact traces after the solve (FR-460).
 
 :func:`_pproc_streamlines` emits the ``[streamlines]`` table of the row's pproc
 in the analysis phase, after the solve (after the march on an unsteady row)

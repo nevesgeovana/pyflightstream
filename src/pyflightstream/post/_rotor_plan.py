@@ -1,7 +1,7 @@
 """Where each rotor table's rows come from: the plan of one simulation's rotor tables.
 
-A private module of :mod:`pyflightstream.post` (AD-13, work package WP5 of
-0.33.0), between the simulation stage of :mod:`pyflightstream.post._sim` and
+A private module of :mod:`pyflightstream.post` (AD-13),
+between the simulation stage of :mod:`pyflightstream.post._sim` and
 the writer of :mod:`pyflightstream.post.rotor_table`. For each rotor the
 reference the matrix row names declares, :func:`_rotor_tables` plans one
 table: its destination, the rows of the points that can supply one, and the
@@ -56,22 +56,9 @@ if TYPE_CHECKING:
     from pyflightstream.workspace.inputs import ReferenceArtifact, RotorReference
 
 
-# `unsteady_window` WAS HERE AND IS DELETED, with item 16 landing through
-# `cases.workflows._reductions._averaging_window` and `_stated_window` below instead.
-#
-# IT NEVER HAD A CALLER. It was written to give a caller to a window function of
-# `post.unsteady` that had none (deleted in 0.24.0, CR-05: its rule discarded the
-# FIRST revolutions, the opposite of the shipped one) and reproduced that defect
-# exactly one level up; a closing round caught
-# the false docstring, a change-log entry was written saying it was NOT WIRED,
-# and then item 16 was built somewhere else entirely -- leaving a public-looking
-# function nothing reached and two contradictory entries in one release's Added
-# list. The architect lens of the release round found both.
-#
-# THE RULE IT HELD IS NOT LOST. The window is still the LAST revolutions or
-# iterations the row states and never the whole history; the derivation is
-# `cases.windows.averaging_span`, which `_matrix_window` below and the plan both
-# call, so a stage reaches it.
+# The window is the last revolutions or iterations the row states.
+# cases.windows.averaging_span supplies the shared derivation used by
+# _matrix_window and the plan.
 
 
 def _plot_name_can_emit(
@@ -86,11 +73,10 @@ def _plot_name_can_emit(
 ) -> bool:
     """Whether a declared plot name CAN occupy an automatic group's name.
 
-    CONSERVATIVE BY DECISION (release 0.24.0). The label a ``{family}`` group puts
+    The label a ``{family}`` group puts
     in its name is chosen by the script builder from the run's case and frames
-    (`cases.workflows.pproc_emissions`), which the post stage does not hold. Three
-    attempts to re-derive it here each let a rotor-frame or custom-frame history
-    pass as global loads. So any template that COULD produce the automatic name
+    (`cases.workflows.pproc_emissions`), which the post stage does not hold.
+    Any template that COULD produce the automatic name
     counts as producing it: a history that might be the wrong one is never read,
     and its table is skipped with the reason. New runs record the emitted names,
     frames and families; rotor tables read that record directly. This matcher
@@ -160,7 +146,7 @@ def rotor_plot_source(
 
     1. a group in the global ``MRP`` frame whose families are exactly the rotor's
        own, as the artifact declares it (``HUB_PUSHER`` is as good a name as any);
-    2. the group the run adds since 0.24.0, ``ROTOR_<ALIAS>``, also in ``MRP``.
+    2. the automatic group ``ROTOR_<ALIAS>``, also in ``MRP``.
 
     A GROUP THAT MERELY SHARES THE ALIAS'S NAME IS NOT ONE: an artifact may call a
     group ``PROP`` over the blades alone while the rotor ``PROP`` owns a spinner
@@ -245,21 +231,13 @@ def rotor_plot_source(
     if not (generated_is_declared and components_declared):
         candidates.append(generated)
     elif not candidates and refused is None and taken_by is not None:
-        # THE NAME IS TAKEN AND NOTHING ELSE CAN SERVE, which left the caller
-        # with no candidate at all and a message that named none. Measured on a
-        # real pproc declaring `ROTOR_{family}` in `SMRP`: the run wrote
-        # `FX_ROTOR_PUSHER` in the rotor's own frame, the automatic global-MRP
-        # plot of that name was therefore not added, and eight rotor tables were
-        # refused without a word a reader could act on (2026-09-22).
+        # When a user plot occupies the automatic global-MRP name and no other
+        # source is eligible, name that collision in the refusal so the user can
+        # identify the pproc entry to change.
         declared, declared_frame = taken_by
-        # WHICH COLLISION IT IS. A group in the rotor's own frame and a global
-        # group over the wrong families both take the name and both leave no
-        # source, but they are different mistakes and calling MRP "the rotor's
-        # own" misnames the second (the V&V lens at the push review).
-        # A ROTOR'S OWN FRAME IS NAMED FOR IT. The pproc writes the radical
-        # (`SMRP`, `RMRP`) and the run builds `<ALIAS>_SMRP`, `<ALIAS>_RMRP<k>`;
-        # both spellings reach here, and calling `PROP_SMRP` a family mismatch
-        # named the wrong cause (the closing round, 2026-09-22).
+        # Distinguish a rotor-frame collision from a global plot over the wrong
+        # families. Rotor frames may use the artifact radicals SMRP/RMRP or the
+        # emitted alias-qualified names; both identify the frame mismatch.
         radical = declared_frame.rsplit("_", 1)[-1].rstrip("0123456789")
         why = (
             f"in the frame {declared_frame}, which is the rotor's own"
@@ -377,24 +355,18 @@ def _rotor_tables(
     no point states a speed -- each of which is an ordinary campaign rather
     than a fault, so none of them refuses the simulation's other products.
 
-    EVERY ROW IS DIMENSIONALISED FROM ITS OWN POINT'S RECORD, and until the
-    independent review of 2026-09-18 not one of them was. The rotor speed, the
-    density, the velocity and the Mach were all read once off `records[0]` and
-    the SPEED WAS HOISTED OUT OF THE POINT LOOP, so every row of a sweep was
-    normalised by the FIRST point's state. On a J sweep from 0.5 to 1.0 -- the
-    one shape this table exists for -- the second point's `CT` came out 0.03125
-    where it is 0.125, a factor of four, and `J` came out 0.5 where it is 1.0.
+    EVERY ROW IS DIMENSIONALISED FROM ITS OWN POINT'S RECORD: rotor speed,
+    density, velocity and Mach vary across a sweep. Reusing the first
+    point's state would normalise later rows by the wrong operating point.
 
     IT IS THE WORST FORM OF WRONG because the row still LOOKS right:
     `point_condition` is per point, so `ALPHA` and `MACH` in the same row are
     that point's own and correct, sitting beside coefficients computed from a
     different point entirely.
 
-    THE PACKAGE ALREADY KNEW. The superfile writer sixty lines below resolves
-    each point through `by_run` and carries a comment, dated 2026-09-11, saying
-    in these words that a borrowed value is worse than a missing one because a
-    reader sees a missing cell and cannot see a wrong one. That is the rule; it
-    had one consumer and needed two.
+    Resolve each point through its own record, as the superfile writer does.
+    A missing value must stay missing: borrowing another point's value hides
+    the absence behind a plausible but wrong number.
     """
     skip_name = f"{POLARS_DIR}/{sim_id}#rotor_tables"
     if matrix_row is None:
@@ -442,13 +414,8 @@ def _rotor_tables(
     tables: list[tuple[Path, str, dict[str, object]]] = []
     for alias, rotor in rotors.items():
         rows: list[dict[str, object]] = []
-        # EVERY POINT THAT IS NOT A ROW, WITH ITS REASON AND ITS RUN ID. The
-        # first writing of this function dropped three kinds of point on a bare
-        # `continue`, leaving a table quietly shorter than the matrix while the
-        # manifest's `runs` list still named every point -- so the provenance
-        # said the row was there. The independent lens counted the sites. It is
-        # the same defect this release had already fixed for the unsteady polar,
-        # reintroduced three hours later by the fix for a different one.
+        # Record every omitted point with its reason and run id, so a shorter
+        # table cannot retain provenance claiming that all points contributed.
         left_out: list[tuple[str, str]] = []
         for point in points:
             row = _plan_rotor_row(ctx, point, alias, rotor, left_out=left_out)
@@ -743,13 +710,8 @@ def _rotor_history_groups(
         if not groups or not all(
             f"{part}_{name}" in columns for name in groups for part in _PLOT_COMPONENTS
         ):
-            # THE EXPLANATION TRAVELS WITH THIS REFUSAL TOO. A run that
-            # records its emitted plot groups reached here BEFORE the
-            # collision was explained, so a pproc taking the ROTOR_<ALIAS>
-            # name in the rotor's own frame got a generic sentence naming
-            # neither the group nor the remedy -- the very repair this
-            # release made, bypassed on the path a 0.24.0 run takes (the
-            # third independent reading, 2026-09-22).
+            # Explain name collisions on the recorded-plot path too, naming the
+            # conflicting group and remedy rather than only the absence of a source.
             said = (
                 f"recorded plot groups do not provide an exact, unambiguous MRP history "
                 f"of rotor {alias!r} with all six components {where}"
@@ -800,7 +762,7 @@ def _warn_rotor_advance_ratio(
     rpm: float,
 ) -> None:
     # BOTH ADVANCE RATIOS ARE IN THE ROW, and the stage says when they part
-    # (0.24.0, NL-09). `J` is what the row REQUESTED; `J_<alias>` is what this
+    # (NL-09). `J` is what the row REQUESTED; `J_<alias>` is what this
     # rotor RAN at, from its own speed and diameter, and it is the one every
     # coefficient of the table uses. On the rotor the row sweeps the two
     # should agree; on a second rotor of the row they are not expected to,
@@ -851,10 +813,9 @@ def _rotor_row_surfaces(
     carried = _rotor_surfaces_carried(rotor, surfaces, ctx.aliases)
     newtons, why_not, read_from = _averaged_rotor_newtons(ctx, point, str(alias), carried)
     if newtons is None and (ctx.windows or {}).get(point.name, ctx.window) is not None:
-        # A ROW THAT STATES A WINDOW NEVER GETS AN INSTANT (RI-01). The table
-        # used to fall back to the native export, the last time step, and
-        # write it beside averaged rows under one header. The unsteady polar
-        # beside it leaves such a point out and names it; so does this.
+        # RI-01: a row stating a window must not fall back to the native
+        # last-step export beside averaged rows. Omit the unavailable row and
+        # name the reason, as the unsteady polar does.
         left_out.append((run_id, f"{point.name}: {why_not}"))
         return None
     instant = True
@@ -886,7 +847,7 @@ def _rotor_row_surfaces(
             # sum the whole rotor once per blade.
             surfaces = {str(families[0]): averaged_surfaces}
             instant = False
-    # A QUASI-STEADY WHEEL'S ROW IS THE MEAN OF ITS k CLOCKINGS (0.31.0,
+    # A QUASI-STEADY WHEEL'S ROW IS THE MEAN OF ITS k CLOCKINGS (
     # P0310-ROTOR-MEAN), not clocking 0 alone:
     # each surface's loads averaged over the clockings' own exports, so
     # the statics below take every coefficient of the MEAN loads, never
@@ -926,7 +887,7 @@ def _plan_rotor_row(
         left_out.append((run_id, f"{point.name}: no run record resolves for this point"))
         return None
     rpm = _recorded_rotor_rpm(record, alias, len(ctx.rotors))
-    # A QUASI-STEADY ROTOR'S SPEED IS IN ITS OWN RECORD (L1 of 0.30.0,
+    # A QUASI-STEADY ROTOR'S SPEED IS IN ITS OWN RECORD (L1,
     # RPT-090 and RPT-091). The run is steady and plans no reductions, so
     # neither source above states it; the builder wrote the row's speed,
     # the one the free stream turns at, in the record beside the loads
@@ -934,11 +895,11 @@ def _plan_rotor_row(
     # its plan's. The loads (docs/post-processing-definitions.md, the
     # quasi-steady rotor): a sector's one solve, read as it stands, the
     # package never multiplying by the copies; a WHEEL's mean over its
-    # clockings (0.31.0, P0310-ROTOR-MEAN), below.
+    # clockings (P0310-ROTOR-MEAN), below.
     quasi: QsteadyRecord | None = None
     if getattr(record, "recipe", None) == QSTEADY_ROTOR:
         # A RECORD THAT CANNOT BE READ costs this point its row, named
-        # (0.31.0: one reader, one refusal, the caller decides).
+        # (one reader, one refusal, the caller decides).
         try:
             quasi = read_qsteady_record(point.loads_path)
         except QsteadyRecordError as error:
@@ -1007,7 +968,7 @@ def _plan_rotor_row(
         "surfaces": surfaces,
         "aliases": ctx.aliases,
         "instant": instant,
-        # 0.31.0: k, where the row is the mean of a wheel's clockings.
+        # k, where the row is the mean of a wheel's clockings.
         "clockings": clockings,
         "condition": point_condition(
             point,
@@ -1026,7 +987,7 @@ def _plan_rotor_row(
         "density": float(density),
         "speed": float(speed),
         "free_stream": (point.loads.freestream_velocity_m_s if point.loads is not None else None),
-        # 0.30.0 (M1): the free-stream speed and the speed of sound
+        # M1: the free-stream speed and the speed of sound
         # the point resolved to, for its tip and helical Mach numbers.
         "air": _free_stream_and_sound(record),
         # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE

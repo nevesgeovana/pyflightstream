@@ -1,11 +1,8 @@
 """The relaxed trailing-edge component specification, read and written (AD-17).
 
-A private module of the ``script`` package since 0.34.0: the block moved
-out of :mod:`pyflightstream.script.helpers` whole and unchanged (GOAL-039,
-work package WP9a), and every name below is still imported from
-``pyflightstream.script.helpers``, which is the public path. The pair
-emits nothing: it reads and writes the ``Relaxed_TE;u;v1;v2;direction``
-line a CCS file writes where a component is defined (SRC-752 p.85).
+The public import path is ``pyflightstream.script.helpers``. These helpers
+emit no commands: they read and write the ``Relaxed_TE;u;v1;v2;direction``
+line a CCS file writes where a component is defined (FSM-26.124 p.85).
 """
 
 from __future__ import annotations
@@ -27,14 +24,14 @@ from pyflightstream.script import CommandArgumentError
 # read and write the specification TEXT, and take no `script`.
 
 #: The keyword that opens the line in a CCS file: ``Relaxed_TE;u;v1;v2`` in
-#: the editions up to SRC-750 p.85, ``Relaxed_TE;u;v1;v2;direction`` from
-#: SRC-751 p.85 (SRC-752 p.85 unchanged). A specification may be written with
+#: the editions up to FSM-26.122 p.85, ``Relaxed_TE;u;v1;v2;direction`` from
+#: FSM-26.123 p.85 (FSM-26.124 p.85 unchanged). A specification may be written with
 #: it or without it, and renders the way it was written.
 RELAXED_TE_KEYWORD = "Relaxed_TE"
 
 #: VALUE count of the specification AFTER the keyword: three (``u``, ``v1``,
 #: ``v2``) in the form the earlier editions print, four once the shedding
-#: direction is stated. Settled against SRC-752 p.85 in 0.32.0 (FR-244): until
+#: direction is stated. Settled against FSM-26.124 p.85 in 0.32.0 (FR-244): until
 #: then the helper counted four leading values and a fifth for the direction,
 #: so the manual's ``0.5;0.2;0.8;1`` read as a line with no direction. The
 #: three-value form stays valid, so both counts are accepted and neither is
@@ -44,7 +41,7 @@ RELAXED_TE_FIELDS_WITH_DIRECTION = 4
 
 #: The direction the relaxed wake sheds, as the token this package takes
 #: mapped to the integer the specification's direction value carries
-#: (SRC-751 p.85). AXIAL is 0 AND is the default, which is what a
+#: (FSM-26.123 p.85). AXIAL is 0 AND is the default, which is what a
 #: three-value specification already means; AZIMUTH is 1 and is the new
 #: control, the one a rotor case wants.
 RELAXED_SHEDDING_DIRECTIONS: Mapping[str, int] = {"AXIAL": 0, "AZIMUTH": 1}
@@ -139,7 +136,7 @@ def resolve_shedding_direction(value: str | int, *, context: str) -> str:
             f"{value!r} is neither. The direction value of the relaxed trailing-edge "
             f"component specification takes {_shedding_vocabulary()}, the axial "
             "direction being the default and the one a three-value specification "
-            "already means (SRC-751 p.85). Write the integer or the word; there is "
+            "already means (FSM-26.123 p.85). Write the integer or the word; there is "
             "no third direction to fall back to, and shedding a rotor wake the wrong "
             "way round changes the induced velocity at every blade"
         )
@@ -152,7 +149,7 @@ class RelaxedTrailingEdge:
 
     The specification is the line a CCS file writes where a component is
     defined, not a script line: ``Relaxed_TE;u;v1;v2;direction``
-    (SRC-752 p.85). ``u`` is a chordwise or radial location and ``v1``,
+    (FSM-26.124 p.85). ``u`` is a chordwise or radial location and ``v1``,
     ``v2`` the spanwise or axial bounds; this package does not interpret
     them and carries them verbatim, because the edition that added the
     direction changed nothing about them. The keyword may be written or
@@ -215,7 +212,7 @@ class RelaxedTrailingEdge:
                 f"{len(self.fields)}: {self.fields!r}. The shedding direction is the "
                 "`direction` attribute and never a fourth entry here, so that rendering "
                 "can tell a specification that states the direction from one that leaves "
-                "it at the default (SRC-752 p.85)"
+                "it at the default (FSM-26.124 p.85)"
             )
         unwritable = [
             position
@@ -229,7 +226,7 @@ class RelaxedTrailingEdge:
                 f"the separator {_SEPARATOR!r}. Every value is written, and the "
                 "specification separates them with that character, so a blank value is "
                 "a separator too many and one holding it renders as two values, which "
-                "reads back as another specification (SRC-752 p.85)"
+                "reads back as another specification (FSM-26.124 p.85)"
             )
         if self.direction is not None:
             object.__setattr__(
@@ -247,7 +244,7 @@ class RelaxedTrailingEdge:
         str
             ``"AXIAL"`` or ``"AZIMUTH"``. A specification carrying three
             values reads as ``"AXIAL"``, because that is the direction's
-            documented default (SRC-751 p.85); use :attr:`direction` to
+            documented default (FSM-26.123 p.85); use :attr:`direction` to
             tell that case from one that wrote the 0.
         """
         return self.direction or DEFAULT_SHEDDING_DIRECTION
@@ -302,9 +299,9 @@ def parse_relaxed_trailing_edge(specification: str) -> RelaxedTrailingEdge:
     """Read one relaxed trailing-edge component specification.
 
     Accepts both shapes the editions print, with or without the leading
-    ``Relaxed_TE`` keyword: the three values of SRC-750 p.85 (``u``,
-    ``v1``, ``v2``) and the four of SRC-751 p.85, whose last value is the
-    direction the relaxed wake sheds (SRC-752 p.85 unchanged).
+    ``Relaxed_TE`` keyword: the three values of FSM-26.122 p.85 (``u``,
+    ``v1``, ``v2``) and the four of FSM-26.123 p.85, whose last value is the
+    direction the relaxed wake sheds (FSM-26.124 p.85 unchanged).
 
     Parameters
     ----------
@@ -339,7 +336,7 @@ def parse_relaxed_trailing_edge(specification: str) -> RelaxedTrailingEdge:
             "semicolon-separated field list as a component definition carries it, and "
             f"was given {type(specification).__name__} {specification!r}. This is a "
             "component-file field and not a command, so there is no emitter to convert "
-            "typed arguments for it (SRC-752 p.85)"
+            "typed arguments for it (FSM-26.124 p.85)"
         )
     fields = [field.strip() for field in specification.split(";")]
     keyword = fields[0].casefold() == RELAXED_TE_KEYWORD.casefold()
@@ -352,8 +349,8 @@ def parse_relaxed_trailing_edge(specification: str) -> RelaxedTrailingEdge:
             f"trailing-edge component specification carries "
             f"{RELAXED_TE_FIELDS_WITHOUT_DIRECTION} (u, a chordwise or radial location, "
             f"and v1, v2, two bounds) or {RELAXED_TE_FIELDS_WITH_DIRECTION}, the last "
-            "being the direction the relaxed wake sheds, which SRC-751 p.85 adds and "
-            "SRC-750 p.85 does not print (SRC-752 p.85: Relaxed_TE;u;v1;v2;direction)"
+            "being the direction the relaxed wake sheds, which FSM-26.123 p.85 adds and "
+            "FSM-26.122 p.85 does not print (FSM-26.124 p.85: Relaxed_TE;u;v1;v2;direction)"
         )
     blank = [position for position, field in enumerate(fields, start=1) if not field]
     if blank:
@@ -362,7 +359,7 @@ def parse_relaxed_trailing_edge(specification: str) -> RelaxedTrailingEdge:
             f"{', '.join(str(position) for position in blank)} blank. Every value of "
             "the specification is written, so a blank one is a separator too many "
             "rather than a value left at its default; the only value with a default is "
-            "the direction, and it is defaulted by leaving it OUT (SRC-752 p.85)"
+            "the direction, and it is defaulted by leaving it OUT (FSM-26.124 p.85)"
         )
     if len(fields) == RELAXED_TE_FIELDS_WITHOUT_DIRECTION:
         return RelaxedTrailingEdge(fields=tuple(fields), keyword=keyword)

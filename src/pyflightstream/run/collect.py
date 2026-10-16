@@ -70,16 +70,9 @@ from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# THE EXCEPTIONS COME FROM THE MODULES THAT DEFINE THEM, not from the
-# package's exception CATALOG. The catalog re-exports every public error of
-# the package, which means it imports `pyflightstream.post.products` and
-# `pyflightstream.post.writers`; `post` sits ABOVE `run` in the layer order,
-# so importing the catalog from here made this module depend upward at import
-# time. The layering guard did not see it, and the reason is worth recording:
-# the guard assigns rows from the core layer list, `exceptions` has no row, and
-# an unrowed module is not examined. So the guard's no-allowlist property is
-# weaker than it reads, because an unrowed module can be a conduit. Found by
-# the architect lens of the 0.18.0 release round, 2026-09-14.
+# Import exceptions from their defining modules. The public exception
+# catalog also imports post-processing modules above run in the layer order;
+# using it here would introduce an upward dependency.
 from typing import TYPE_CHECKING, Protocol
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
@@ -663,8 +656,7 @@ def collect_once(
                     state="UNKNOWN",
                     detail=(
                         "the record names no declared outputs, so nothing here knows what to "
-                        "wait for. A point submitted before 0.18.0 carries no such list and is "
-                        "completed by hand, which is what its release said it would be."
+                        "wait for. A point without that list must be completed by hand."
                     ),
                 )
             )
@@ -679,7 +671,7 @@ def collect_once(
             )
             continue
         # A STEADY JOB OF SEVERAL POINTS ON A MACHINE THAT EXPORTS NO LOG
-        # (0.27.0): its scheduler writes ONE log, the job's, and no point's log
+        #: its scheduler writes ONE log, the job's, and no point's log
         # ever arrives. The job is waited for by its points' other outputs and
         # by that one log, filed once under the job's name where the job ran;
         # waiting for a log per point was waiting forever.
@@ -708,9 +700,7 @@ def collect_once(
                 if stamp is None
             ]
             if missing:
-                # 0.21.0: THE FILES ARE NAMED, not only counted. "1 of 8 not there
-                # yet" sent a user looking through eight names to find the one
-                # that never comes, which on a cluster was the solver log.
+                # Name missing files so the user need not infer them from counts.
                 detail = (
                     f"{len(missing)} of {len(waited)} declared output(s) not there yet: "
                     + ", ".join(Path(n).name for n in missing)
@@ -761,7 +751,7 @@ def _refused(workspace: CampaignWorkspace, record: RunRecord, error: Exception) 
         "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
         "error": str(error),
     }
-    # WHAT WAS FILED IS LISTED (0.27.0): a missing output no longer strands
+    # WHAT WAS FILED IS LISTED: a missing output no longer strands
     # the others, and a record naming none of them would strand them anyway.
     if isinstance(error, MissingOutputsError):
         refused["outputs"] = list(error.collected)
@@ -811,13 +801,11 @@ _STAMPED_FIELDS: tuple[str, ...] = (
     "time_steps",
     # FR-434: the requested limit, set by the assessor only for MAX_ITER_REACHED.
     "iterations_requested",
-    # 0.30.0: a quasi-steady wheel's verdict per clocking.
+    # Record the quasi-steady wheel's verdict per clocking.
     "clocking_verdicts",
-    # 0.24.0: WHAT WAS COMPARED, as the local path records it. The verdict
-    # rests on these checks, and a record that kept the verdict and dropped the
-    # comparison could not say what the point was held to. Solver identity
-    # comes from the same point's loads export through the same assessor as the
-    # local path (FR-366).
+    # Record the comparison supporting the verdict, matching the local path.
+    # Solver identity comes from this point's loads export through the same
+    # assessor used locally (FR-366).
     "conditions",
 )
 
@@ -830,10 +818,8 @@ def _judged(
 ) -> tuple[RunStatus, str | None, dict[str, object]]:
     """Return one collected point's status, its error and the fields its assessment read.
 
-    THE DEFAULT JUDGES. It used to be the literal CONVERGED with the assessor
-    an option no caller passed, which meant the shipped command recorded every
-    settled point as converged whatever the solver did; the fallback is the
-    same assessor the local path uses. WHAT THE LOG SAID RIDES WITH THE VERDICT: a replaced
+    The default is the same assessor the local path uses. Record its log
+    evidence with the verdict. A replaced
     assessor answers with the pair its interface defines,
     the package's own reads the log and everything it read is stamped.
 
@@ -891,8 +877,8 @@ def _complete(
         return _complete_sweep(
             workspace, record, sim_dir, assessor, job_log=job_log, missing_logs=missing_logs
         )
-    # 0.30.0: a surface the package failed to translate from the sources the
-    # job wrote is the package's failure, not the solver's (`untranslated_surfaces`).
+    # A surface the package cannot translate from the job's exported sources
+    # is a package failure, not the solver's (untranslated_surfaces).
     untranslated: list[str] | None = None
     try:
         collected = _collect_by_point(workspace, record, names, _working_dir(workspace, record))
@@ -1135,13 +1121,12 @@ def _complete_sweep(
     ran_here = bool(submission.get("working_dir"))
     collected_by_tag: dict[str, list[str]] = {}
     refused: dict[str, str] = {}
-    # 0.30.0: a point whose only missing outputs are surfaces the package failed
-    # to translate keeps its assessment; the job's record says so, per point.
+    # A point missing only surfaces the package failed to translate keeps its
+    # assessment. Record that distinction per point on the job.
     job_warnings = list(record.warnings)
-    # 0.27.0: THE JOB'S ONE LOG, where the machine exports none per point
-    # (`_job_log_name`). No point is held to a log of its own, each is judged
-    # from its loads export, and the job's log is read for the one import count
-    # the job's script states. Every point, and the job, says where it is.
+    # Where the machine exports no per-point logs, use the shared job log
+    # (_job_log_name). Assess each point from its loads export; read the job log
+    # for the shared script's import count. Each point and the job name this log.
     job_note, job_log_text = job_log_note(job_log, sim_dir)
     for tag, owned in by_point.items():
         if job_log is not None:
@@ -1163,8 +1148,8 @@ def _complete_sweep(
                 )
             )
         except MissingOutputsError as error:
-            # Filed and listed, and the point still fails (0.27.0), unless all
-            # it misses is the package's own translation (0.30.0).
+            # Filed and listed, and the point still fails, unless all
+            # it misses is the package's own translation.
             collected_by_tag[tag] = list(error.collected)
             note_untranslated(tag, error, owned, record, job_warnings=job_warnings, refused=refused)
         except (WorkspaceError, CampaignConfigError) as error:
@@ -1290,8 +1275,8 @@ def _log_verdicts(
     )
 
     log_text = collected_solver_log(sim_dir, collected, log_file_used)
-    # 0.27.0: a point with no log of its own is held to the job's, which is
-    # the scheduler's on a machine that exports none (`_job_log_name`).
+    # Hold a point with no own log to the job log, supplied by the scheduler on
+    # a machine that exports none (_job_log_name).
     if log_text is None:
         log_text = job_log
     expected = (record.submission or {}).get("wake_edge_points")
@@ -1343,9 +1328,8 @@ def _collect_by_point(
     assessed and finalised point by point in :func:`_complete_sweep`.
     """
     submission = record.submission or {}
-    # IN PLACE ONLY WHERE THE RECORD SAYS THE JOB RAN IN ITS DATAPOINT FOLDER
-    # (the V&V lens, closing round): a record written before 0.18.1 names no
-    # working_dir, ran in the simulation folder, and asserts nothing.
+    # Collect in place only when the record says the job ran in its datapoint
+    # folder. A record without working_dir cannot establish that location.
     ran_here = bool(submission.get("working_dir"))
     collected = workspace.collect_outputs(
         record.sim_id,
@@ -1353,7 +1337,7 @@ def _collect_by_point(
         datapoint=_recorded_name(record),
         ran_in_datapoint=ran_here,
     )
-    # 0.32.0 (E2): an acoustic section's files, written where the job ran.
+    # E2: list acoustic section files where the job ran.
     return acoustic_section_outputs(workspace.sim_dir(record.sim_id), collected)
 
 
@@ -1380,12 +1364,9 @@ def _recorded_name(record: RunRecord) -> PointName:
     name = _datapoint_of(record)
     if name:
         return PointName(name)
-    # WHICH OF THE TWO ACTUALLY HELD, because this sentence is written into
-    # `record.error` on disk and a message that asserts an unchecked fact is
-    # worse than a vague one (the V&V lens, FIX-0211). `_datapoint_of` answers
-    # None for a record with no working directory AND for one whose working
-    # directory is not a datapoint folder, which is what a pre-0.18.1 job that
-    # ran in the simulation folder records.
+    # Distinguish a missing working directory from one outside a datapoint
+    # folder. _datapoint_of returns None for both; the persisted error must
+    # state only the condition actually established (FIX-0211).
     stated = str((record.submission or {}).get("working_dir") or "")
     where = (
         f"names its working directory as {stated!r}, which is not a datapoint folder"
@@ -1394,9 +1375,8 @@ def _recorded_name(record: RunRecord) -> PointName:
     )
     raise WorkspaceError(
         f"record {record.run_id!r} carries no point name and {where}, so nothing says "
-        "which folder its outputs belong in. That is a point submitted before 0.18.1: "
-        "its job ran in the simulation folder rather than in a datapoint folder of its "
-        "own. Set `submission.working_dir` on this record in runs.json to the "
+        "which folder its outputs belong in. Set `submission.working_dir` on this "
+        "record in runs.json to the "
         "`datapoints/DP-<folder>` its outputs are in, or re-run the point."
     )
 
@@ -1430,13 +1410,8 @@ def collect_and_post(
     sleep: Callable[[float], None] = time.sleep,
     post: _Post | None = None,
     post_matrix: _PostMatrix | None = None,
-    # NAMED, NOT PASSED THROUGH `**kwargs`. These are the two injection points
-    # of the primitive and they used to reach it as `object`, with a
-    # `type: ignore` recording that the checker had refused: on a module this
-    # package declares public BECAUSE A CRON IMPORTS IT, a caller had to read
-    # the source to learn that `assessor` was even a name. That is the case
-    # the interface charter names outright, and `assessor` is the parameter a
-    # serious caller most needs.
+    # Name and type the primitive's two injection points explicitly so callers
+    # of this public scheduled-collection interface can discover its assessor.
     observer: Callable[[Iterable[Path]], dict[str, Stamp | None]] = observe,
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None = None,
     sims: Collection[str] | None = None,

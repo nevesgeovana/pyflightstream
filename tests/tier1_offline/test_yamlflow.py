@@ -147,7 +147,7 @@ def test_insert_version_row_takes_no_pre_rendered_yaml():
 @pytest.mark.parametrize(
     "note",
     [
-        "SRC-751 p.290, unchanged from SRC-750 p.289",
+        "FSM-26.123 p.290, unchanged from FSM-26.122 p.289",
         "a path C:" + chr(92) + "temp" + chr(92) + "x",
         chr(92) + "q is not a valid escape",
         'the "quoted" edition',

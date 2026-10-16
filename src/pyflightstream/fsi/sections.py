@@ -139,12 +139,9 @@ _ON_CONTOUR_FRACTION = 1.0e-6
 #: largest extent are one vertex.
 _COINCIDENT_FRACTION = 1.0e-12
 
-#: Two directions whose angle has a sine below this are one line. A SINE AND
-#: NOT A LENGTH: the collinearity tests compared a cross product with the
-#: contour's extent squared, so the short panels a refined sharp trailing edge
-#: ends in, turning 16 degrees, read as an edge folding back (a NACA 0012 of
-#: 1500 points per side was refused; reading E34 of 0.28.0). A sine is the same
-#: at every scale.
+#: Directions with an angle sine below this threshold are collinear.
+#: Use a dimensionless sine so the criterion remains independent of panel
+#: length and accepts refined sharp trailing edges.
 _COLLINEAR_SINE = 1.0e-9
 
 #: Rows of the pair test in the simple-polygon check, per chunk; bounds its
@@ -332,7 +329,7 @@ def polygon_area_moments(contour_m: ArrayLike) -> PolygonMoments:
     Source: the vertex formulas obtained from Green's theorem for the
     moments of a simple polygon, C. Steger, "On the Calculation of
     Arbitrary Moments of Polygons", Technical Report FGBV-96-05,
-    Technische Universitaet Muenchen, 1996.
+    Technische Universitaet Muenchen, 1996. [REF-07]
 
     Parameters
     ----------
@@ -345,11 +342,9 @@ def polygon_area_moments(contour_m: ArrayLike) -> PolygonMoments:
         Area, centroid and second moments about the centroid.
     """
     polygon = _as_polygon(contour_m)
-    # SUMMED ABOUT THE VERTICES' MEAN, not the origin: the area and centroid
-    # sums are differences of products of the coordinates, so a section far
-    # from the origin loses its digits to cancellation before the recentring
-    # below can help (a 40 x 4 mm rectangle 10 km out came back with a flap
-    # moment 12,646 times too large; reading D33 of 0.28.0).
+    # Sum about the vertices' mean to avoid cancellation in coordinate
+    # products for sections far from the origin. Recentring only after the
+    # area and centroid sums cannot recover lost precision.
     anchor_x, anchor_z = (float(value) for value in polygon.mean(axis=0))
     x, z = polygon[:, 0] - anchor_x, polygon[:, 1] - anchor_z
     cross = x * np.roll(z, -1) - np.roll(x, -1) * z
@@ -407,7 +402,7 @@ def torsion_constant(
     sections, S. P. Timoshenko and J. N. Goodier, "Theory of
     Elasticity", 3rd ed., McGraw-Hill, 1970, Chapter 10; the stencil,
     G. H. Shortley and R. Weller, "The numerical solution of Laplace's
-    equation", Journal of Applied Physics 9, 334-348, 1938.
+    equation", Journal of Applied Physics 9, 334-348, 1938. [REF-08], [REF-09]
 
     Parameters
     ----------
@@ -548,7 +543,7 @@ def thin_section_torsion_estimate(contour_m: ArrayLike, samples: int = 4096) -> 
 
     Source: the torsion of thin sections, J = (1/3) integral t^3 ds, in
     S. P. Timoshenko and J. N. Goodier, "Theory of Elasticity", 3rd
-    ed., McGraw-Hill, 1970, Chapter 10.
+    ed., McGraw-Hill, 1970, Chapter 10. [REF-08]
 
     Parameters
     ----------
@@ -654,7 +649,7 @@ def blade_properties_from_sections(
     "Theory of Elasticity", 3rd ed., McGraw-Hill, 1970, Chapter 10 for
     G J; the mass and the mass moments per unit length of a homogeneous
     section are its density times its area and its second moments of
-    area.
+    area. [REF-08]
 
     Parameters
     ----------
@@ -836,12 +831,9 @@ def _as_polygon(contour_m: ArrayLike) -> _Floats:
     if twice_area < 0.0:
         points = points[::-1].copy()
         local = local[::-1].copy()
-    # A SIMPLE POLYGON VISITS EACH POINT ONCE. A contour that repeats a vertex,
-    # runs an edge back over the one before it, or touches another edge is not
-    # one, and the vertex formulas still return a number for it: the same
-    # rectangle listed three times came back with three times its mass and
-    # stiffness (reading D33 of 0.28.0), which a test for proper crossings alone
-    # let through.
+    # A simple polygon visits each vertex once and has no overlapping or
+    # touching edges. Reject these cases as well as proper crossings before
+    # applying area, mass and stiffness formulas.
     repeated = _first_repeated_vertex(local, merge)
     if repeated is not None:
         first, second = repeated

@@ -1,11 +1,10 @@
-# Chapter: Scripting reference, CAD Create (SRC-003 pp.289-305, the
+# Chapter: Scripting reference, CAD Create (FSM-26.120 pp.289-305, the
 # pages this file's own entries cite; the CCS component chapters that
 # sit between them are separate files).
 #
 # The pane that builds geometry inside FlightStream: curve construction,
 # cross-sections, and the lofted meshes made from them. The chapter is
-# COMPLETE as of 2026-08-07, 36 entries, with one exception recorded
-# rather than omitted: the mirror command, whose name the manual spells
+# recorded with one unresolved exception: the mirror command, whose name the manual spells
 # two ways and which waits for a probe (PLN-20260806-1200).
 #
 # It reads in one direction. The pane settings fix how curves are
@@ -30,18 +29,18 @@ CAD_CREATE_INITIALIZE:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.289"
+  manual_ref: "FSM-26.120 p.289"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.256, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.276, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.275, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.256, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.276, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.275, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.293, unchanged from SRC-750 p.293"}
-    "26.124": {status: documented, note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
+    "26.121": {status: documented, note: "FSM-26.121 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.293, unchanged from FSM-26.122 p.293"}
+    "26.124": {status: documented, note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
   notes: >
     Opens the CAD Create pane. Whether the commands below REQUIRE it
     first is not stated by the manual and is not asserted here; the
@@ -57,22 +56,22 @@ SET_CAD_CREATE_MERGE_TOLERANCE:
     - name: tolerance
       type: float
       unit: "percent of curve length"
-  manual_ref: "SRC-003 p.289"
+  manual_ref: "FSM-26.120 p.289"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.293, unchanged from SRC-750 p.293"}
-    "26.124": {status: documented, note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
+    "26.121": {status: documented, note: "FSM-26.121 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.293, unchanged from FSM-26.122 p.293"}
+    "26.124": {status: documented, note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
   default: 1.0
-  default_ref: "SRC-003 p.289"
+  default_ref: "FSM-26.120 p.289"
   notes: >
     How close two curve ends must be to merge, as a PERCENTAGE of the
     curve length rather than an absolute distance, so the same value
     behaves differently on a long curve and a short one. Greater than
-    zero (SRC-003 p.289).
+    zero (FSM-26.120 p.289).
 
 SET_CAD_CREATE_SPLINE_SEGMENTS:
   layout: inline
@@ -80,20 +79,20 @@ SET_CAD_CREATE_SPLINE_SEGMENTS:
   args:
     - name: num_pts
       type: int
-  manual_ref: "SRC-003 p.289"
+  manual_ref: "FSM-26.120 p.289"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.293, unchanged from SRC-750 p.293"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
+    "26.121": {status: documented, note: "FSM-26.121 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.293, unchanged from FSM-26.122 p.293"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
   default: 200
-  default_ref: "SRC-003 p.289"
+  default_ref: "FSM-26.120 p.289"
   notes: >
     Spline nodes used to discretize a curve. Integer greater than 10
-    (SRC-003 p.289); the lower bound is the manual's own and is not
+    (FSM-26.120 p.289); the lower bound is the manual's own and is not
     enforced here, because the database records grammar and the solver
     owns the range.
 
@@ -104,17 +103,17 @@ SET_CAD_CREATE_SPLINE_LOFT:
     - name: loft_type
       type: enum
       values: [C2, C0]
-  manual_ref: "SRC-003 p.289"
+  manual_ref: "FSM-26.120 p.289"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.293, unchanged from SRC-750 p.293"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
+    "26.121": {status: documented, note: "FSM-26.121 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.293, unchanged from FSM-26.122 p.293"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
   default: C2
-  default_ref: "SRC-003 p.289"
+  default_ref: "FSM-26.120 p.289"
   notes: >
     Continuity of the loft through a curve: C2 is curvature continuous
     and C0 is position continuous, so C0 admits a crease where C2
@@ -127,21 +126,21 @@ SET_CAD_CURVATURE_REFINEMENT:
   args:
     - name: num_pts_per_circle
       type: int
-  manual_ref: "SRC-003 p.289"
+  manual_ref: "FSM-26.120 p.289"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.283, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.288, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.283, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.288, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.292, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.293, unchanged from SRC-750 p.293"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.293, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.298, unchanged from SRC-752 p.293"}
+    "26.121": {status: documented, note: "FSM-26.121 p.292, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.293, unchanged from FSM-26.122 p.293"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.293, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.298, unchanged from FSM-26.124 p.293"}
   default: 80
-  default_ref: "SRC-003 p.289"
+  default_ref: "FSM-26.120 p.289"
   notes: >
     Subdivisions around a full circle, used as the reference for how
     finely a curved region is refined. It is the same quantity the
-    NUM_CURVATURE argument of the CAD import carries (SRC-003 p.286),
+    NUM_CURVATURE argument of the CAD import carries (FSM-26.120 p.286),
     and the two share the documented default of 80. That command is not
     in this database yet, so the comparison is to the manual page rather
     than to an entry.
@@ -181,19 +180,19 @@ CAD_CREATE_BOX:
       type: float
     - name: len_z
       type: float
-  manual_ref: "SRC-003 p.290"
+  manual_ref: "FSM-26.120 p.290"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.284, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.284, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.289, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.294, unchanged from SRC-750 p.294"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
+    "26.121": {status: documented, note: "FSM-26.121 p.293, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.294, unchanged from FSM-26.122 p.294"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.294, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
   notes: >
     X, Y and Z are the FIRST CORNER VERTEX rather than the centre, and
     the three lengths run from that corner along the frame's axes
-    (SRC-003 p.290). A box centred on a point is that point minus half
+    (FSM-26.120 p.290). A box centred on a point is that point minus half
     each length.
 
 CAD_CREATE_SPHERE:
@@ -211,15 +210,15 @@ CAD_CREATE_SPHERE:
       type: float
     - name: radius
       type: float
-  manual_ref: "SRC-003 p.290"
+  manual_ref: "FSM-26.120 p.290"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.284, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.284, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.289, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.294, unchanged from SRC-750 p.294"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
+    "26.121": {status: documented, note: "FSM-26.121 p.293, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.294, unchanged from FSM-26.122 p.294"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.294, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
   notes: >
     X, Y and Z are the CENTRE here, unlike the box above, which takes a
     corner. The two commands sit on one manual page and differ on this
@@ -245,20 +244,20 @@ CAD_CREATE_CYLINDER:
       type: float
     - name: len
       type: float
-  manual_ref: "SRC-003 p.290"
+  manual_ref: "FSM-26.120 p.290"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.284, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.284, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.289, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.294, unchanged from SRC-750 p.294"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
+    "26.121": {status: documented, note: "FSM-26.121 p.293, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.294, unchanged from FSM-26.122 p.294"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.294, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
   notes: >
     R1 and R2 are the radii at the two ends, so a cone is a cylinder
     with unequal radii and there is no separate cone command. The axis
     is not a choice: LEN runs along the X AXIS of the frame
-    (SRC-003 p.290), so a cylinder along another direction needs a
+    (FSM-26.120 p.290), so a cylinder along another direction needs a
     coordinate system oriented for it, which the phase note at the top
     of this file says cannot currently be created before it.
 
@@ -278,20 +277,20 @@ CAD_CREATE_SHEET:
       type: float
     - name: len2
       type: float
-  manual_ref: "SRC-003 p.290"
+  manual_ref: "FSM-26.120 p.290"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.284, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.289, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.284, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.289, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.293, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.294, unchanged from SRC-750 p.294"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.294, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.299, unchanged from SRC-752 p.294"}
+    "26.121": {status: documented, note: "FSM-26.121 p.293, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.294, unchanged from FSM-26.122 p.294"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.294, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.299, unchanged from FSM-26.124 p.294"}
   notes: >
     A flat rectangle in one plane of the frame. OFFSET moves it along
     that plane's normal and MAY BE NEGATIVE, which the manual states
     explicitly; zero puts the sheet exactly in the plane. LEN1 and LEN2
-    run along the plane's two directions (SRC-003 p.290). WHICH length
+    run along the plane's two directions (FSM-26.120 p.290). WHICH length
     goes with which direction is not stated on that page, so the order
     implied by the plane name is a reading and not a citation.
 
@@ -316,18 +315,18 @@ CAD_CREATE_CURVE_POINT:
       type: float
     - name: z
       type: float
-  manual_ref: "SRC-003 p.293"
+  manual_ref: "FSM-26.120 p.293"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.277, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.276, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.258, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.277, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.276, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.287, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.292, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.297, unchanged from SRC-750 p.297"}
-    "26.124": {status: documented, note: "SRC-752 p.297, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.302, unchanged from SRC-752 p.297"}
+    "26.121": {status: documented, note: "FSM-26.121 p.296, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.297, unchanged from FSM-26.122 p.297"}
+    "26.124": {status: documented, note: "FSM-26.124 p.297, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.302, unchanged from FSM-26.124 p.297"}
   notes: >
     A curve of one vertex. It is a curve rather than a point in the
     interface's own vocabulary, which is why it is selected, reordered
@@ -349,18 +348,18 @@ CAD_CREATE_CURVE_LINE:
       type: float
     - name: z2
       type: float
-  manual_ref: "SRC-003 p.293"
+  manual_ref: "FSM-26.120 p.293"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.277, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.276, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.258, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.277, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.276, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.287, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.292, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.297, unchanged from SRC-750 p.297"}
-    "26.124": {status: documented, note: "SRC-752 p.297, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.302, unchanged from SRC-752 p.297"}
+    "26.121": {status: documented, note: "FSM-26.121 p.296, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.297, unchanged from FSM-26.122 p.297"}
+    "26.124": {status: documented, note: "FSM-26.124 p.297, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.302, unchanged from FSM-26.124 p.297"}
   notes: >
     A straight curve between two vertices, given in order: the direction
     from the first to the second is the curve's own, which
@@ -388,22 +387,22 @@ CAD_CREATE_CURVE_ARC:
       type: float
     - name: z2
       type: float
-  manual_ref: "SRC-003 p.293"
+  manual_ref: "FSM-26.120 p.293"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.278, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.277, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.287, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.292, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.258, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.278, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.277, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.287, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.292, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.296, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.297, unchanged from SRC-750 p.297"}
-    "26.124": {status: documented, note: "SRC-752 p.297, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.302, unchanged from SRC-752 p.297"}
+    "26.121": {status: documented, note: "FSM-26.121 p.296, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.297, unchanged from FSM-26.122 p.297"}
+    "26.124": {status: documented, note: "FSM-26.124 p.297, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.302, unchanged from FSM-26.124 p.297"}
   notes: >
     NINE coordinates in three triples, and the FIRST is the arc's
     ORIGIN rather than a vertex on it: origin, then the two vertices the
-    arc runs between (SRC-003 p.293). The manual's own sample is a
+    arc runs between (FSM-26.120 p.293). The manual's own sample is a
     quarter circle of radius one about the coordinate origin, from
     (-1, 0, 0) to (0, 1, 0). Reading the first triple as a vertex draws
     a different arc that the solver accepts, so the order is worth
@@ -422,21 +421,21 @@ CAD_CREATE_CURVE_SELECT:
   args:
     - name: curve_index
       type: int
-  manual_ref: "SRC-003 p.294"
+  manual_ref: "FSM-26.120 p.294"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.258, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.278, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.277, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.258, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.278, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.277, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.298, unchanged from SRC-750 p.298"}
-    "26.124": {status: documented, note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
+    "26.121": {status: documented, note: "FSM-26.121 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.298, unchanged from FSM-26.122 p.298"}
+    "26.124": {status: documented, note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
   notes: >
     Adds one virtual curve to the selection by its 1-based creation
-    index; -1 selects every existing curve (SRC-003 p.294). Selection is
+    index; -1 selects every existing curve (FSM-26.120 p.294). Selection is
     what CAD_CREATE_CURVE_DELETE_SELECTED and the loft commands read, so
     it is state carried between lines rather than an argument.
 
@@ -446,21 +445,21 @@ CAD_CREATE_CURVE_UNSELECT:
   args:
     - name: curve_index
       type: int
-  manual_ref: "SRC-003 p.294"
+  manual_ref: "FSM-26.120 p.294"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.278, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.277, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.259, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.278, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.277, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.298, unchanged from SRC-750 p.298"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
+    "26.121": {status: documented, note: "FSM-26.121 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.298, unchanged from FSM-26.122 p.298"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
   notes: >
     Removes one curve from the selection; -1 removes every one
-    (SRC-003 p.294).
+    (FSM-26.120 p.294).
 
 CAD_CREATE_CURVE_REVERSE:
   layout: inline
@@ -468,20 +467,20 @@ CAD_CREATE_CURVE_REVERSE:
   args:
     - name: curve_index
       type: int
-  manual_ref: "SRC-003 p.294"
+  manual_ref: "FSM-26.120 p.294"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.278, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.277, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.259, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.278, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.277, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.298, unchanged from SRC-750 p.298"}
-    "26.124": {status: documented, note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
+    "26.121": {status: documented, note: "FSM-26.121 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.298, unchanged from FSM-26.122 p.298"}
+    "26.124": {status: documented, note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
   notes: >
-    Flips a curve's direction; -1 flips every one (SRC-003 p.294). It
+    Flips a curve's direction; -1 flips every one (FSM-26.120 p.294). It
     acts on the curve rather than on the selection, so it takes an index
     where the delete commands below take none.
 
@@ -489,18 +488,18 @@ CAD_CREATE_CURVE_DELETE_ALL:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.296"
+  manual_ref: "FSM-26.120 p.296"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.259, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.279, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.278, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.290, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.300, unchanged from SRC-750 p.300"}
-    "26.124": {status: documented, note: "SRC-752 p.300, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.305, unchanged from SRC-752 p.300"}
+    "26.121": {status: documented, note: "FSM-26.121 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.300, unchanged from FSM-26.122 p.300"}
+    "26.124": {status: documented, note: "FSM-26.124 p.300, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.305, unchanged from FSM-26.124 p.300"}
   notes: >
     Deletes every virtual curve, selected or not.
 
@@ -508,18 +507,18 @@ CAD_CREATE_CURVE_DELETE_SELECTED:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.296"
+  manual_ref: "FSM-26.120 p.296"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.291, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.259, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.279, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.278, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.291, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.300, unchanged from SRC-750 p.300"}
-    "26.124": {status: documented, note: "SRC-752 p.300, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.305, unchanged from SRC-752 p.300"}
+    "26.121": {status: documented, note: "FSM-26.121 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.300, unchanged from FSM-26.122 p.300"}
+    "26.124": {status: documented, note: "FSM-26.124 p.300, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.305, unchanged from FSM-26.124 p.300"}
   notes: >
     Deletes the curves currently selected, which is the state
     CAD_CREATE_CURVE_SELECT builds.
@@ -528,18 +527,18 @@ CAD_CREATE_CURVE_DELETE_UNSELECTED:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.296"
+  manual_ref: "FSM-26.120 p.296"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.259, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.291, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.259, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.279, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.278, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.291, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.300, unchanged from SRC-750 p.300"}
-    "26.124": {status: documented, note: "SRC-752 p.300, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.305, unchanged from SRC-752 p.300"}
+    "26.121": {status: documented, note: "FSM-26.121 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.300, unchanged from FSM-26.122 p.300"}
+    "26.124": {status: documented, note: "FSM-26.124 p.300, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.305, unchanged from FSM-26.124 p.300"}
   notes: >
     Deletes everything NOT selected, which is how a script keeps a
     subset: select what it wants, then delete the rest.
@@ -573,15 +572,15 @@ CAD_CREATE_ROTATE_CURVES:
     - name: retain_curve
       type: enum
       values: [RETAIN, DELETE]
-  manual_ref: "SRC-003 p.295"
+  manual_ref: "FSM-26.120 p.295"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.121": {status: documented, note: "FSM-26.121 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.299, unchanged from FSM-26.122 p.299"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
   notes: >
     Rotates the selected virtual curves about one axis of the given
     coordinate system. Frame 1 is the reference system, which the
@@ -607,15 +606,15 @@ CAD_CREATE_TRANSLATE_CURVES:
     - name: retain_curve
       type: enum
       values: [RETAIN, DELETE]
-  manual_ref: "SRC-003 p.295"
+  manual_ref: "FSM-26.120 p.295"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.121": {status: documented, note: "FSM-26.121 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.299, unchanged from FSM-26.122 p.299"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
   notes: >
     Translation vector for the selected virtual curves. It takes NO
     frame argument, unlike the rotation and the mirror, and the manual
@@ -632,15 +631,15 @@ CAD_CREATE_SCALE_CURVES:
     - name: retain_curve
       type: enum
       values: [RETAIN, DELETE]
-  manual_ref: "SRC-003 p.295"
+  manual_ref: "FSM-26.120 p.295"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.121": {status: documented, note: "FSM-26.121 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.299, unchanged from FSM-26.122 p.299"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
   notes: >
     ONE scale value for all three axes: the command has no per-axis
     form, so a non-uniform scaling is not available here. What the
@@ -668,15 +667,15 @@ CAD_CREATE_PROJECT_CURVE:
     - name: retain_curve
       type: enum
       values: [RETAIN, DELETE]
-  manual_ref: "SRC-003 pp.295-296"
+  manual_ref: "FSM-26.120 pp.295-296"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.290, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: documented, note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.121": {status: documented, note: "FSM-26.121 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.299, unchanged from FSM-26.122 p.299"}
+    "26.124": {status: documented, note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
   notes: >
     Projects ONE virtual curve, named by index rather than taken from
     the selection, onto a plane of the given coordinate system, along a
@@ -684,7 +683,7 @@ CAD_CREATE_PROJECT_CURVE:
 
     TWO FRAMES ARE IN PLAY AND THEY ARE NOT THE SAME ONE. The parameter
     table puts PLANE in the coordinate system FRAME names and NX, NY, NZ
-    in the GLOBAL reference system (SRC-003 p.296). Reading the
+    in the GLOBAL reference system (FSM-26.120 p.296). Reading the
     direction as being in FRAME projects along the wrong vector whenever
     FRAME is not the reference system, and the solver has no way to
     object: the result is a curve in the right plane and the wrong
@@ -712,19 +711,19 @@ CAD_CREATE_PROJECT_MULTI_CURVE:
     - name: retain_curve
       type: enum
       values: [RETAIN, DELETE]
-  manual_ref: "SRC-003 p.296"
+  manual_ref: "FSM-26.120 p.296"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.290, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.300, unchanged from SRC-750 p.300"}
-    "26.124": {status: documented, note: "SRC-752 p.300, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.305, unchanged from SRC-752 p.300"}
+    "26.121": {status: documented, note: "FSM-26.121 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.300, unchanged from FSM-26.122 p.300"}
+    "26.124": {status: documented, note: "FSM-26.124 p.300, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.305, unchanged from FSM-26.124 p.300"}
   notes: >
     THE TWO INDICES ARE NOT INTERCHANGEABLE. The FIRST curve is the one
     projected; the SECOND is a guide, used to hold the sweep angle along
-    both curves, and it is not itself projected (SRC-003 p.296).
+    both curves, and it is not itself projected (FSM-26.120 p.296).
     Swapping them projects the wrong curve, which is why the argument
     names carry the order.
 
@@ -743,15 +742,15 @@ CAD_CREATE_REORDER_CURVES:
     - name: sorting_direction
       type: enum
       values: ["+X", "+Y", "+Z", "-X", "-Y", "-Z"]
-  manual_ref: "SRC-003 p.296"
+  manual_ref: "FSM-26.120 p.296"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.290, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.295, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.290, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.295, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.299, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.300, unchanged from SRC-750 p.300"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.300, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.305, unchanged from SRC-752 p.300"}
+    "26.121": {status: documented, note: "FSM-26.121 p.299, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.300, unchanged from FSM-26.122 p.300"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.300, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.305, unchanged from FSM-26.124 p.300"}
   notes: >
     Sorts the selected curves along an axis, and the token is SIGNED:
     the six values are the three axes each way round, so a leading minus
@@ -769,15 +768,15 @@ CAD_CREATE_CONNECT_CURVES:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.294"
+  manual_ref: "FSM-26.120 p.294"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.298, unchanged from SRC-750 p.298"}
-    "26.124": {status: documented, note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
+    "26.121": {status: documented, note: "FSM-26.121 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.298, unchanged from FSM-26.122 p.298"}
+    "26.124": {status: documented, note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
   notes: >
     Joins the selected virtual curves into ONE curve. The manual gives
     it a sample and no parameter table, so what it does with curves that
@@ -787,15 +786,15 @@ CAD_CREATE_SELF_MEDIAN_FROM_CURVES:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.294"
+  manual_ref: "FSM-26.120 p.294"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.288, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.288, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.298, unchanged from SRC-750 p.298"}
-    "26.124": {status: documented, note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
+    "26.121": {status: documented, note: "FSM-26.121 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.298, unchanged from FSM-26.122 p.298"}
+    "26.124": {status: documented, note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
   notes: >
     Builds the median curve of each selected virtual curve, which is
     the camber line of a closed airfoil-like curve: the manual's own
@@ -809,18 +808,18 @@ CAD_CREATE_CURVE_EXPORT_CCS:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 pp.294-295"
+  manual_ref: "FSM-26.120 pp.294-295"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.260, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.279, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.278, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.293, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.260, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.279, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.278, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.293, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.297, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.298, unchanged from SRC-750 p.298"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.298, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.303, unchanged from SRC-752 p.298"}
+    "26.121": {status: documented, note: "FSM-26.121 p.297, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.298, unchanged from FSM-26.122 p.298"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.298, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.303, unchanged from FSM-26.124 p.298"}
   notes: >
     Writes the SELECTED virtual curves to a file, the command name on
     one line and the path on the next. CCS is the vendor's
@@ -862,24 +861,24 @@ CAD_CREATE_IMPORT_CURVE_TXT:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.291"
+  manual_ref: "FSM-26.120 p.291"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.256, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.276, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.275, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.285, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.256, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.276, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.275, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.285, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.290, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.295, unchanged from SRC-750 p.295"}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.295, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
-    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.300, unchanged from SRC-752 p.295 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.121": {status: documented, note: "FSM-26.121 p.294, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.295, unchanged from FSM-26.122 p.295"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.295, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.300, unchanged from FSM-26.124 p.295 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     Reads curve points from a text file. DIMENSIONS decides what the two
     arguments after it mean: under 2D the points are two-dimensional and
     are placed on PLANE of the coordinate system FRAME names, and under
     3D they carry their own three coordinates in FRAME and the manual
-    says PLANE is IGNORED (SRC-003 p.291).
+    says PLANE is IGNORED (FSM-26.120 p.291).
 
     Nothing enforces that. PLANE is required here because the schema has
     no conditional, so a 3D import must still pass one and the value is
@@ -911,20 +910,20 @@ CAD_CREATE_IMPORT_CURVE_CCS:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.291"
+  manual_ref: "FSM-26.120 p.291"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.285, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.285, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.290, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.295, unchanged from SRC-750 p.295"}
-    "26.124": {status: documented, note: "SRC-752 p.295, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.300, unchanged from SRC-752 p.295"}
+    "26.121": {status: documented, note: "FSM-26.121 p.294, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.295, unchanged from FSM-26.122 p.295"}
+    "26.124": {status: documented, note: "FSM-26.124 p.295, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.300, unchanged from FSM-26.124 p.295"}
   notes: >
     Reads cross-sections from a CCS file, which the manual says may
     carry either the .CCS or the .CSV extension, so the extension does
     not identify the format. COMPONENT_INDEX loads one component by its
-    index, and -1 loads every component at once (SRC-003 p.291); this is
+    index, and -1 loads every component at once (FSM-26.120 p.291); this is
     the same -1 convention the curve index commands use, on a different
     kind of index.
 
@@ -956,15 +955,15 @@ CAD_CREATE_IMPORT_CURVE_P3D:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 pp.291-292"
+  manual_ref: "FSM-26.120 pp.291-292"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.285, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.290, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.285, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.290, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.294, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.295, unchanged from SRC-750 p.295"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.295, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.300, unchanged from SRC-752 p.295"}
+    "26.121": {status: documented, note: "FSM-26.121 p.294, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.295, unchanged from FSM-26.122 p.295"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.295, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.300, unchanged from FSM-26.124 p.295"}
   notes: >
     Reads curves from a Plot3D structured grid. SWAP_DIRECTION chooses
     which way the walk over the grid's node data proceeds when building
@@ -997,18 +996,18 @@ CAD_CREATE_CROSS_SECTION:
       type: int
     - name: quadrant
       type: int
-  manual_ref: "SRC-003 pp.292-293"
+  manual_ref: "FSM-26.120 pp.292-293"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.257, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.277, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.276, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.286, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.257, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.277, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.276, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.286, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.291, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.296, unchanged from SRC-750 p.296"}
-    "26.124": {status: documented, note: "SRC-752 p.296, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.301, unchanged from SRC-752 p.296"}
+    "26.121": {status: documented, note: "FSM-26.121 p.295, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.296, unchanged from FSM-26.122 p.296"}
+    "26.124": {status: documented, note: "FSM-26.124 p.296, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.301, unchanged from FSM-26.124 p.296"}
   notes: >
     Slices one mesh body with a plane and writes the intersection as a
     virtual curve. OFFSET moves the plane along its own normal, in the
@@ -1017,7 +1016,7 @@ CAD_CREATE_CROSS_SECTION:
 
     QUADRANT IS 0 OR 1 TO 4, AND 1 TO 4 MEAN DIFFERENT AXES PER PLANE.
     Zero asks for no preferred quadrant. The other four are read from a
-    table the manual prints against the chosen PLANE (SRC-003 p.293): on
+    table the manual prints against the chosen PLANE (FSM-26.120 p.293): on
     YZ they are the positive and negative Y then the positive and
     negative Z; on XZ the positive and negative X then the positive and
     negative Z; on XY the positive and negative X then the positive and
@@ -1053,11 +1052,11 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
       values: [XY, XZ, YZ, NONE]
     - name: cad_mesh
       type: str
-  manual_ref: "SRC-003 p.292"
+  manual_ref: "FSM-26.120 p.292"
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.257, this edition's own grammar; see the note below"
+      note: "FSM-25.000 p.257, this edition's own grammar; see the note below"
       args:
         - name: frame
           type: int
@@ -1076,15 +1075,15 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
         - name: symmetry
           type: enum
           values: ["XY", "XZ", "YZ", "NONE"]
-    "25.100": {status: documented, note: "SRC-748 p.276, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.275, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.286, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.276, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.275, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.286, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.291, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.296, unchanged from SRC-750 p.296"}
-    "26.124": {status: documented, note: "SRC-752 p.296, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.301, unchanged from SRC-752 p.296"}
+    "26.121": {status: documented, note: "FSM-26.121 p.295, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.296, unchanged from FSM-26.122 p.296"}
+    "26.124": {status: documented, note: "FSM-26.124 p.296, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.301, unchanged from FSM-26.124 p.296"}
   notes: >
     Sweeps a body along an axis and writes a series of cross-section
     curves. EIGHT arguments, and the signature parser reports seven: the
@@ -1093,7 +1092,7 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
 
     GROWTH_SCHEME is a numbered choice of four and the numbers are the
     tokens: 1 uniform, 2 successive, 3 dual-successive, 4
-    reverse-successive (SRC-003 p.292). It is spelled as a closed set
+    reverse-successive (FSM-26.120 p.292). It is spelled as a closed set
     rather than as an integer because an out-of-range scheme would
     silently change the mesh, and it must be passed as a string
     (PLN-20260806-1130). GROWTH_RATE is the rate that scheme uses, and
@@ -1123,18 +1122,18 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
       type: int
     - name: body_index
       type: int
-  manual_ref: "SRC-003 p.292"
+  manual_ref: "FSM-26.120 p.292"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.257, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.277, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.276, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.286, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.291, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.257, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.277, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.276, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.286, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.291, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.295, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.296, unchanged from SRC-750 p.296"}
-    "26.124": {status: documented, note: "SRC-752 p.296, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.301, unchanged from SRC-752 p.296"}
+    "26.121": {status: documented, note: "FSM-26.121 p.295, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.296, unchanged from FSM-26.122 p.296"}
+    "26.124": {status: documented, note: "FSM-26.124 p.296, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.301, unchanged from FSM-26.124 p.296"}
   notes: >
     The annular counterpart of CAD_CREATE_AUTO_CROSS_SECTIONS, cutting
     around a body rather than along an axis, which is why it takes
@@ -1158,12 +1157,9 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
 # manual states; only TRUE is evidenced by a printed call, and which the
 # solver takes is a probe question.
 #
-# FALSE IS NOT AMONG THEM, and it was until the review of 2026-08-07.
-# No table and no sample carries it for CLOSE_ENDS in any edition: it is
-# the value set of MARK_TRAILING_EDGES, the argument two rows above on
-# the wing command, pasted across. That is the invented-token mistake
-# the CAD_MESH argument in this same file refuses by name, made in the
-# same commit that refused it.
+# FALSE is absent: no table or sample carries it for CLOSE_ENDS in any
+# edition. MARK_TRAILING_EDGES has a different vocabulary; its tokens
+# provide no evidence for CLOSE_ENDS.
 #
 # The three EXPORT_*_CCS_FILE siblings print a fourth, fifth and sixth
 # call passing TRUE against their own OPEN or CLOSED tables. They are
@@ -1192,20 +1188,20 @@ CAD_CREATE_WING_MESH_FROM_CCS:
     - name: loft_type_v
       type: enum
       values: [C2, C0]
-  manual_ref: "SRC-003 p.300"
+  manual_ref: "FSM-26.120 p.300"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.294, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.294, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.299, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.304, unchanged from SRC-750 p.304"}
-    "26.124": {status: documented, note: "SRC-752 p.304, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.303, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.304, unchanged from FSM-26.122 p.304"}
+    "26.124": {status: documented, note: "FSM-26.124 p.304, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
-        SRC-753 p.309 adds ROUNDED_BLEND to the trailing-edge geometries
-        SRC-752 p.304 listed, and its sample passes CLOSED for the end
+        FSM-26.125 p.309 adds ROUNDED_BLEND to the trailing-edge geometries
+        FSM-26.124 p.304 listed, and its sample passes CLOSED for the end
         closure; the rest of the grammar is unchanged
       args:
         - name: name
@@ -1244,15 +1240,15 @@ CAD_CREATE_FUSELAGE_MESH_FROM_CCS:
     - name: loft_type_v
       type: enum
       values: [C2, C0]
-  manual_ref: "SRC-003 p.302"
+  manual_ref: "FSM-26.120 p.302"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.297, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.301, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.301, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.305, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.306, unchanged from SRC-750 p.306"}
-    "26.124": {status: documented, note: "SRC-752 p.306, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.312, read against SRC-752 p.306: the parameter table differs in layout spacing only and the sample passes OPEN for the end closure, a token the entry already lists"}
+    "26.121": {status: documented, note: "FSM-26.121 p.305, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.306, unchanged from FSM-26.122 p.306"}
+    "26.124": {status: documented, note: "FSM-26.124 p.306, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.312, read against FSM-26.124 p.306: the parameter table differs in layout spacing only and the sample passes OPEN for the end closure, a token the entry already lists"}
   notes: >
     Lofts a fuselage mesh boundary from the CCS fuselage component. Here
     LOFT_TYPE_U is RADIAL and LOFT_TYPE_V is AXIAL, which is NOT what
@@ -1289,15 +1285,15 @@ CAD_CREATE_REVOLVE_MESH_FROM_CCS:
     - name: loft_type_v
       type: enum
       values: [C2, C0]
-  manual_ref: "SRC-003 p.305"
+  manual_ref: "FSM-26.120 p.305"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.300, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.304, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.300, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.304, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.308, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.309, unchanged from SRC-750 p.309"}
-    "26.124": {status: documented, note: "SRC-752 p.309, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.315, read against SRC-752 p.309: the sample passes CLOSED for the end closure, a token the entry already lists; the signature and table are unchanged"}
+    "26.121": {status: documented, note: "FSM-26.121 p.308, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.309, unchanged from FSM-26.122 p.309"}
+    "26.124": {status: documented, note: "FSM-26.124 p.309, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.315, read against FSM-26.124 p.309: the sample passes CLOSED for the end closure, a token the entry already lists; the signature and table are unchanged"}
   notes: >
     Lofts a body of revolution from the CCS revolve component. EIGHT
     arguments, and the signature parser reports seven for the same
@@ -1324,15 +1320,15 @@ CAD_CREATE_MIRROR_CURVES:
     - name: retain_curve
       type: enum
       values: [RETAIN, DELETE]
-  manual_ref: "SRC-003 p.295"
+  manual_ref: "FSM-26.120 p.295"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.289, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.294, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.289, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.294, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.298, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.299, unchanged from SRC-750 p.299"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.299, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.304, unchanged from SRC-752 p.299"}
+    "26.121": {status: documented, note: "FSM-26.121 p.298, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.299, unchanged from FSM-26.122 p.299"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.299, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.304, unchanged from FSM-26.124 p.299"}
   notes: >
     Mirrors the SELECTED virtual curves across a plane. It takes no
     curve index: which curves are mirrored comes from the selection made
@@ -1356,14 +1352,14 @@ SET_CCS_TE_BLEND_LENGTH:
     - name: blend_length
       type: float
       unit: "percent of cross-section curve length"
-  manual_ref: "SRC-753 p.298"
+  manual_ref: "FSM-26.125 p.298"
   versions:
-    "26.125": {status: documented, note: "SRC-753 p.298, the first edition to document it"}
+    "26.125": {status: documented, note: "FSM-26.125 p.298, the first edition to document it"}
   notes: >
     Sets the length over which a CCS cross-section's trailing edge is
     blended, as a percentage of the cross-section curve's total length;
     the page gives 10 per cent as the default. The CCS file description
-    (SRC-753 p.86, and SRC-752 p.85 before it) names this command as the
+    (FSM-26.125 p.86, and FSM-26.124 p.85 before it) names this command as the
     one that sets the blend of a rounded trailing edge, while no earlier
     edition gave it a script entry. First documented by the 26.125
     edition.

@@ -1,7 +1,7 @@
 """The products of the additional post: each current extraction, by the run's own builders.
 
-A private module of :mod:`pyflightstream.post` (AD-13, work package WP5 of
-0.33.0), called by the campaign stage of :mod:`pyflightstream.post.products`
+A private module of :mod:`pyflightstream.post` (AD-13),
+called by the campaign stage of :mod:`pyflightstream.post.products`
 (G12). The additional post re-opens a saved simulation with another pproc
 artifact and extracts what the run did not; its products are written under
 ``post/<matrix>/additional/<pid>/`` by the very simulation stage the run's

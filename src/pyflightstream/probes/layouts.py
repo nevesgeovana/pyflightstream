@@ -8,7 +8,7 @@ scripts were written with, so a script is byte-identical whichever module laid
 its points out. The survey lattice of a ``lattices`` entry and the far-field
 plane of Trefftz C are laid out here too, and so are the script lines and the
 import csv that create and export probes (NEW_PROBE_POINT / PROBE_POINTS_IMPORT,
-UPDATE_PROBE_POINTS, EXPORT_PROBE_POINTS; SRC-003 pp.362-363).
+UPDATE_PROBE_POINTS, EXPORT_PROBE_POINTS; FSM-26.120 pp.362-363).
 
 The shapes are read by attribute (an entry of the pproc artifact, or any object
 with the same fields), so this module imports nothing above it.
@@ -366,7 +366,7 @@ def emit_probe_points(
     scale: float = 1.0,
     decimals: int | None = None,
 ) -> int:
-    """Emit one NEW_PROBE_POINT line per lattice probe (SRC-003 p.362).
+    """Emit one NEW_PROBE_POINT line per lattice probe (FSM-26.120 p.362).
 
     Every probe is a VOLUME probe: the lattice samples the flow field,
     never the body surface. Emission is version-validated by the
@@ -427,7 +427,7 @@ def write_probe_csv(
 ) -> int:
     """Write the PROBE_POINTS_IMPORT csv for the whole lattice.
 
-    The documented format (SRC-003 pp.362-363) is the point count on
+    The documented format (FSM-26.120 pp.362-363) is the point count on
     the first line, then one ``X,Y,Z,TYPE`` row per probe with TYPE 1
     for volume probes. This is the practical path for the full ~20k
     point lattice, where one NEW_PROBE_POINT line per probe would be
@@ -473,7 +473,7 @@ def write_points_csv(points: np.ndarray, path: str | Path | TextIO) -> int:
 
     Shared by the cylindrical survey lattice, the planar grids and the
     far-field plane and lattice a steady row's plan adds: the
-    documented format (SRC-003 pp.362-363) is the point count on the
+    documented format (FSM-26.120 pp.362-363) is the point count on the
     first line, then one ``X,Y,Z,TYPE`` row per probe with TYPE 1 for
     volume probes. Rows follow the order of ``points``, which is the
     loading contract of the caller.
@@ -535,7 +535,7 @@ def emit_probe_import(
     path : str or pathlib.Path
         Csv path as the solver machine sees it.
     units : str
-        Length unit token of the csv coordinates (SRC-003 p.362). The
+        Length unit token of the csv coordinates (FSM-26.120 p.362). The
         csv that :func:`write_probe_csv` and :func:`write_points_csv`
         write is in the case's simulation length unit (the lattice is
         scaled by ``tip_radius``), so pass that unit's token; the
@@ -552,12 +552,12 @@ def emit_probe_import(
 
 
 def emit_probe_export(script: Script, path: str | Path, *, update: Toggle = True) -> None:
-    """Emit the post-solve probe refresh and export (SRC-003 pp.362-363).
+    """Emit the post-solve probe refresh and export (FSM-26.120 pp.362-363).
 
     UPDATE_PROBE_POINTS refreshes the probe values from the current
     solution and precedes the export by default; the exported file
     carries velocity components, both pressure coefficient forms, Mach
-    and the boundary layer state flags (SRC-003 p.249).
+    and the boundary layer state flags (FSM-26.120 p.249).
 
     Parameters
     ----------

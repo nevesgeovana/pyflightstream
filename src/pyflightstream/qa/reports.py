@@ -6,34 +6,13 @@ their output ``<SERIES>-<digits>_<date>[_label]`` and all refuse to
 overwrite one, because a report states what a solver did on a day and
 evidence supersedes evidence only through a new, dated report.
 
-WHY IT IS A MODULE AND NOT THREE COPIES, which is the correction of
-2026-08-17. The refusal was right in all three and its POSITION was wrong
-in all three: it fired at WRITE time, after the run. On 26.123 that cost
-a full probe campaign, 111 commands over five minutes of licensed solver,
-discarded on a collision knowable from the command line before anything
-started. The repair was made for the probe path alone and the other two
-kept the defect, so a physics or drift run could still spend the whole
-Tier 3 matrix and then die on an uncaught ``FileExistsError``.
+Pre-flight checks and writers share the naming rule, including the version
+key, so a collision can be refused before a licensed run starts. The CLI
+tests compare each writer's output path with the helper's predicted path.
 
-Three copies of one rule is why a repair could reach one of them.
-
-THE VERSION KEY IS DERIVED HERE TOO, which is the correction of 2026-08-18
-and is the half the first version left behind. The template lived here
-and the KEY did not, so the dot-stripping and the two-build join were
-each written twice: once in a writer to produce the name, once in the CLI
-to predict it. Two independent expressions agreeing today is not the same
-as one rule, and the day a series changes its key the pre-flight silently
-asks about a stem nobody writes, with every guard still green. That is
-the original defect, one field over: a licensed seat spent and then
-discarded. ``tests/tier1_offline/test_qa_cli.py`` now asserts each writer's own output
-path against the helper the CLI asks, rather than against a literal.
-
-The date is NOT defaulted here, deliberately. The caller resolves it once
-and passes the same value to this function and into the document body,
-so the stem and the body cannot disagree; a second default here is
-exactly the shape that wrote ``date: null`` under a dated file name
-(``INC-20260817-2210-pyflightstream``). ``tests/tier1_offline/test_qa_compat.py``
-guards that pairing on both sides.
+The caller resolves the date once and passes that value to the path helper
+and document body. This keeps the file name and its recorded date aligned;
+the compatibility-report tests check both representations.
 """
 
 from __future__ import annotations
@@ -75,31 +54,11 @@ def resolve_report_date(date: str | None = None) -> str:
 
     Notes
     -----
-    ONE HOME FOR THE DEFAULT, which is the correction of 2026-08-18 and
-    is the same repair as the build key beside it. ``date or
-    datetime.date.today().isoformat()`` was written TEN times: once in
-    each of the three series helpers, once in each of their three
-    writers, once in each of the three ``pyfs-qa`` subcommands, and once
-    in ``update_reference``. A rule written ten times is a rule that can
-    drift in nine places without anyone noticing.
-
-    The first version of this repair reached six of the ten and claimed
-    all of them, excusing the CLI with "``pyfs-qa`` is not exposed". That
-    excused nothing: whether a command line offers a date flag has
-    nothing to do with which expression computes today, and the three
-    subcommands went on spelling it themselves. All ten call this now.
-
-    WHAT IS STILL NOT CLOSED, stated because the sentence above used to
-    overclaim. A caller who asks a helper whether a report exists, spends
-    a licensed seat, and then calls a writer resolves today TWICE across
-    that window, and across midnight the two disagree. One home makes the
-    two calls agree on the RULE; it cannot make them agree on the ANSWER.
-    Closing that needs the writer to accept what the pre-flight already
-    computed, which is registered in
-    ``PLN-20260818-0300-the-preflight-answer-does-not-reach-the-writer``.
-    ``pyfs-qa`` itself is not exposed: each subcommand resolves once and
-    passes the value to both, which ``tests/tier1_offline/test_qa_cli.py`` pins by
-    replacing this function in the CLI's namespace.
+    Series helpers, writers, CLI subcommands and reference updates share
+    this default. Resolve once and pass the result to both pre-flight
+    and writer: independent calls can disagree across midnight. Each
+    ``pyfs-qa`` subcommand passes one resolved value to both; direct
+    Python callers must likewise retain the value across the run.
     """
     if date is None:
         return datetime.date.today().isoformat()
@@ -107,31 +66,12 @@ def resolve_report_date(date: str | None = None) -> str:
 
 
 def _validated_date(date: str) -> str:
-    """Return ``date`` unchanged, or refuse it as a report stem.
+    """Validate a report-stem date without supplying a default.
 
-    SEPARATE FROM :func:`resolve_report_date` because the two callers
-    need different halves. The resolver DEFAULTS and validates; the
-    primitive below must validate WITHOUT defaulting, since a `date=None`
-    reaching it is a caller error rather than a request for today, and
-    the module's whole reason for requiring the argument is that a second
-    default is what wrote ``date: null`` under a dated file name.
-
-    The first version of this validation lived only in the resolver, one
-    layer ABOVE the site it protects: `report_paths` is exported and its
-    own examples call it directly, so
-    ``report_paths(d, series="PHY", versions=["26.123"], date="17/08/2026")``
-    returned ``d/PHY-26123_17/08/2026.yaml``, a stem carrying path
-    separators. The pre-flight then tested a path under a directory that
-    does not exist, answered "no collision", and the licensed run
-    proceeded to a write that fails on a missing parent.
-
-    THE ROUND TRIP IS THE TEST, not `fromisoformat` alone. On Python 3.11
-    and later that function also accepts ``20260817`` and ``2026-W33-1``,
-    neither of which carries a separator, so nothing would fail until a
-    committed stem met the tier-1 walk in ``tests/tier1_offline/test_command_db.py``,
-    which is after the seat is spent. Comparing the parsed date's own
-    ``isoformat()`` against the input admits exactly ``YYYY-MM-DD``, which
-    is what the message promises.
+    report_paths is public, so validate at this boundary as well as in the
+    defaulting resolver. Require an ISO round trip to YYYY-MM-DD: Python's
+    fromisoformat also accepts compact and week-date forms that are not
+    valid report-stem dates. Refuse None and path-bearing date strings.
     """
     try:
         parsed = datetime.date.fromisoformat(date)
@@ -277,12 +217,9 @@ def report_paths(
 
     Examples
     --------
-    THE PRIMITIVE, with the series named explicitly. A caller with a
-    run in hand should ask its series' helper instead, and the two
-    examples below exist to show what that helper does rather than to
-    be copied; the first version of this block introduced them with
-    the sentence "ask with the series' own helper rather than with a
-    literal" and then demonstrated the literal.
+    These examples show the primitive with an explicit series. For a
+    run object, prefer its series-specific helper, which supplies that
+    value and delegates to this function.
 
     >>> from pyflightstream.qa import report_paths
     >>> yaml_path, md_path = report_paths(
@@ -336,16 +273,9 @@ def report_paths(
             "which would produce a stem no reader can trace back to a solver. "
             "Pass the canonical identifier the run used, for example ['26.123']."
         )
-    # RESOLVED, NOT TAKEN AS TYPED, which is the correction of 2026-08-18.
-    # Every writer resolves its version before naming anything, and the
-    # helpers did not, so a pre-flight asked with a vendor release name
-    # predicted a stem the writer would never produce: `version="26.0"`
-    # gave `PHY-260_<date>` against the writer's `PHY-26000_<date>`. That
-    # matters because `run_physics` and `probe_version` both invite a
-    # vendor name in their own Parameters blocks, so the caller doing it
-    # is the caller the documentation created. Resolving here also accepts
-    # an `FsVersion`, which those two entry points already take, and
-    # refuses an ambiguous alias BEFORE a seat is spent rather than after.
+    # Resolve versions before naming a report so pre-flight and writer use
+    # the same stem. Vendor alias 26.0 resolves to 26.000; FsVersion inputs
+    # are accepted too. Refuse ambiguous aliases before spending a seat.
     key = "-".join(_canonical(version) for version in versions)
     stem = f"{series}-{key}_{_validated_date(date)}"
     if label:
@@ -390,13 +320,10 @@ def refuse_existing_report(*paths: Path) -> None:
 
     Notes
     -----
-    The message names the two escapes a caller actually has, a
-    distinguishing label or another directory, and deliberately does NOT
-    name a date: it used to say "pick another date", which no ``pyfs-qa``
-    user can do because none of those CLIs has a date flag. It names
-    neither as a parameter of this function, because this function has
-    neither; a caller who did not come through :func:`report_paths` has
-    no ``label`` to pass. Each CLI re-words the remedy in its own flags.
+    The message suggests a distinguishing label or another directory.
+    These describe ways to choose a new stem, not parameters of this
+    function. Each CLI expresses the remedy using its own flags; the
+    QA CLIs do not expose a date flag.
     """
     for path in paths:
         if path.exists():

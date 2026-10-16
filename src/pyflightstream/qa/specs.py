@@ -75,7 +75,7 @@ from pyflightstream.qa._spec_kit import (  # noqa: E402
     sheet_matches,
 )
 
-# --- script controls (SRC-003 p.281), the pilot family -----------------
+# --- script controls (FSM-26.120 p.281), the pilot family -----------------
 
 
 def _run_script_target(script: Script, workdir: Path) -> None:
@@ -112,7 +112,7 @@ _spec(
 )
 
 
-# --- file io (SRC-003 pp.282-283) --------------------------------------
+# --- file io (FSM-26.120 pp.282-283) --------------------------------------
 
 
 def _open_reopen_target(script: Script, workdir: Path) -> None:
@@ -175,7 +175,7 @@ _spec(
 )
 
 
-# --- simulation controls (SRC-003 p.328) -------------------------------
+# --- simulation controls (FSM-26.120 p.328) -------------------------------
 
 
 def _units_epilogue(script: Script, workdir: Path) -> None:
@@ -201,7 +201,7 @@ _spec(
 )
 
 
-# --- coordinate systems (SRC-003 pp.329-331) ---------------------------
+# --- coordinate systems (FSM-26.120 pp.329-331) ---------------------------
 
 _spec(
     command="CREATE_NEW_COORDINATE_SYSTEM",
@@ -266,7 +266,7 @@ _spec(
 )
 
 
-# --- boundary conditions (SRC-003 pp.319-328) --------------------------
+# --- boundary conditions (FSM-26.120 pp.319-328) --------------------------
 
 
 def _detect_trailing_edges(script: Script, workdir: Path) -> None:
@@ -478,7 +478,7 @@ _spec(
 )
 
 
-# --- runtime settings (SRC-003 pp.339-343) -----------------------------
+# --- runtime settings (FSM-26.120 pp.339-343) -----------------------------
 
 
 def _sheet_setter(
@@ -578,7 +578,7 @@ _spec(
 )
 
 
-# --- advanced settings (SRC-003 pp.344-345) ----------------------------
+# --- advanced settings (FSM-26.120 pp.344-345) ----------------------------
 
 _spec(
     command="SET_SOLVER_CONVERGENCE_ITERATIONS",
@@ -602,7 +602,7 @@ _spec(
 )
 
 
-# --- solver settings (SRC-003 pp.339-343) ------------------------------
+# --- solver settings (FSM-26.120 pp.339-343) ------------------------------
 
 _spec(
     command="SET_SOLVER_STEADY",
@@ -647,7 +647,7 @@ _spec(
 )
 
 
-# --- solver initialization (SRC-003 p.337) -----------------------------
+# --- solver initialization (FSM-26.120 p.337) -----------------------------
 
 
 def _initialize_target(script: Script, workdir: Path) -> None:
@@ -695,7 +695,7 @@ _spec(
 )
 
 
-# --- solver analysis (SRC-003 pp.350-351) ------------------------------
+# --- solver analysis (FSM-26.120 pp.350-351) ------------------------------
 
 
 def _inviscid_effect(artifacts: ProbeArtifacts) -> bool | None:
@@ -728,14 +728,11 @@ _spec(
     assert_effect=_unobservable,
     effect_note="the vorticity-drag boundary list is not exposed by any instrument yet",
 )
-# THE LOADS FRAME AND THE MOMENTS MODEL ARE PROBED BEFORE THE SOLVE, where the
-# package emits them since 0.27.0 (B05): both are init-phase commands on the
-# evidence of RPT-064, where set after START_SOLVER the frame reached the final
-# export and none of the step exports written during the march. The SOLVER tier
-# ends at INITIALIZE_SOLVER, so the target lands where a workflow puts it, and
-# the frame's epilogue starts the solver BEFORE the sheet: the sheet then says
-# whether the frame survived the solve, which is what the step exports rest on,
-# rather than only whether the line was accepted.
+# Probe loads-frame and moments-model commands before the solve, in their
+# init phase. RPT-064 shows that a frame set after START_SOLVER reaches the
+# final export but not the step exports. The SOLVER tier ends at
+# INITIALIZE_SOLVER; the frame epilogue starts the solver before exporting
+# the sheet to check whether the setting survives the solve.
 _spec(
     command="SET_SOLVER_ANALYSIS_LOADS_FRAME",
     build_target=_emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", 2),
@@ -763,8 +760,7 @@ _spec(
     assert_effect=_unobservable,
     effect_note=(
         "the symmetry-loads toggle is not exposed by any instrument yet; probed "
-        "pre-solve since the 2026-07-21 phase correction (the in-solve monitors "
-        "consume it)"
+        "pre-solve because the in-solve monitors consume it"
     ),
 )
 _spec(
@@ -801,7 +797,7 @@ _spec(
 )
 
 
-# --- solver export (SRC-003 pp.352-354) --------------------------------
+# --- solver export (FSM-26.120 pp.352-354) --------------------------------
 
 
 def _export_spec(command: str, filename: str, *extra: object, note: str | None = None) -> None:
@@ -841,13 +837,12 @@ _spec(
 )
 
 
-# --- unsteady plots (SRC-003 pp.347-348), one coupled specification --------
+# --- unsteady plots (FSM-26.120 pp.347-348), one coupled specification --------
 #
-# WRITTEN FROM A MEASUREMENT, NOT FROM THE MANUAL (PFS-2015.02.01). The
-# three commands are coupled: a plot is defined in the setup phase, the
+# The three commands are coupled (PFS-2015.02.01): a plot is defined in the setup phase, the
 # solver runs unsteady, and the export writes one file carrying every
 # defined plot as a column, named for the plot. The tier-3 workspace
-# measured that coupling on 2026-09-08 through the `unsteady_rotor` and
+# demonstrates that coupling through the `unsteady_rotor` and
 # `unsteady` run types (rows 1011, 1020, 5005, 7001 and 7002 of
 # tests/tier3_licensed): the run record names `<point>_plots.txt`, the
 # file exists, its header carries `Solver mode: Unsteady` and a column per

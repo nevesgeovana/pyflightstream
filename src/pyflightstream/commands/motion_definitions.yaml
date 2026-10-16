@@ -1,10 +1,7 @@
-# Chapter: Scripting reference, Motion Definitions (SRC-003 pp.332-336).
+# Chapter: Scripting reference, Motion Definitions (FSM-26.120 pp.332-336).
 #
-# COMPLETE as of 2026-08-07. M1 drafted the rotary motion path and the
-# FSI seam commands (FR-23) and left the 6DOF family and the custom
-# motion tables for the cases that would exercise them; the 2026-08-07
-# sweep entered them from the manual instead, together with the five
-# February-only kinematic commands.
+# Includes rotary motion, the FSI seam (FR-23), 6DOF, custom motion
+# tables and the five kinematic commands specific to the February edition.
 #
 # THREE COORDINATE SYSTEMS APPEAR IN THIS CHAPTER AND NOTHING IN AN
 # ARGUMENT NAME SAYS WHICH. SET_MOTION_GRAVITY reads the REFERENCE
@@ -20,12 +17,12 @@ CREATE_NEW_MOTION:
     - name: type
       type: enum
       values: [ROTARY, 6DOF, CUSTOM]
-  manual_ref: "SRC-003 p.332"
+  manual_ref: "FSM-26.120 p.332"
   versions:
     "25.100":
       status: documented
       note: >-
-        SRC-748 p.306 documents the February form, type EUCLIDEAN, in its
+        FSM-25.100 p.306 documents the February form, type EUCLIDEAN, in its
         parameter table and its sample alike.
       args:
         - name: type
@@ -34,17 +31,17 @@ CREATE_NEW_MOTION:
     "26.000":
       status: documented
       note: >-
-        SRC-747 p.305 documents the February form, type EUCLIDEAN, in its
+        FSM-26.000 p.305 documents the February form, type EUCLIDEAN, in its
         parameter table and its sample alike.
       args:
         - name: type
           type: enum
           values: [EUCLIDEAN, 6DOF, CUSTOM]
-    "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.335, same grammar as 26.120"}
     "26.100":
       status: documented
       note: >-
-        SRC-741 p.328 documents the same one-argument signature with a
+        FSM-26.100 p.328 documents the same one-argument signature with a
         different first token: the February 2026 edition calls that
         motion type EUCLIDEAN, and its parameter table and its sample
         agree with each other on it.
@@ -52,22 +49,22 @@ CREATE_NEW_MOTION:
         - name: type
           type: enum
           values: [EUCLIDEAN, 6DOF, CUSTOM]
-    "26.101": {status: documented, note: "SRC-725 p.331, the first edition naming the type ROTARY"}
+    "26.101": {status: documented, note: "FSM-26.101 p.331, the first edition naming the type ROTARY"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.337, unchanged from SRC-750 p.337"}
-    "26.124": {status: documented, note: "SRC-752 p.337, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.344, unchanged from SRC-752 p.337"}
+    "26.123": {status: documented, note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
+    "26.124": {status: documented, note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337"}
   notes: >
     Rotary motion is the blade-resolved alternative to the actuator
-    disc surrogate (SRC-003 p.234); it requires the unsteady solver.
+    disc surrogate (FSM-26.120 p.234); it requires the unsteady solver.
 
     The February 2026 build, and 25.100 and 26.000 before it, call this
     motion type EUCLIDEAN and every later edition calls it ROTARY, which
     is why those three override the grammar above rather than sharing it. The rename is not a relabel of
     one capability: 26.100's Euclidean motion is a general rigid-body
     kinematic motion set by velocity, angular velocity and their
-    accelerations (SRC-741 pp.228, 329), and the later Rotary motion is
-    rotation alone, set by axis and RPM (SRC-725 p.234). Four commands
+    accelerations (FSM-26.100 pp.228, 329), and the later Rotary motion is
+    rotation alone, set by axis and RPM (FSM-26.101 p.234). Four commands
     that configure the February form
     (SET_MOTION_VELOCITY, SET_MOTION_ACCELERATION,
     SET_MOTION_ANGULAR_VELOCITY, SET_MOTION_ANGULAR_ACCELERATION) exist
@@ -89,18 +86,18 @@ SET_MOTION_BOUNDARIES:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-003 p.332"
+  manual_ref: "FSM-26.120 p.332"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.291, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.291, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.305, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.335, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.328, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.337, unchanged from SRC-750 p.337"}
-    "26.124": {status: documented, note: "SRC-752 p.337, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.344, unchanged from SRC-752 p.337"}
+    "26.123": {status: documented, note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
+    "26.124": {status: documented, note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337"}
   notes: >
     Assigns geometry boundaries to the motion; the comma-separated
     index line follows. NUM_BOUNDARIES -1 selects all boundaries and
@@ -119,18 +116,18 @@ SET_MOTION_MOVING_FRAMES:
       type: int_list
       cites: frames
       required: false
-  manual_ref: "SRC-003 p.332"
+  manual_ref: "FSM-26.120 p.332"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.291, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.335, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.291, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.305, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.335, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.328, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.337, unchanged from SRC-750 p.337"}
-    "26.124": {status: documented, note: "SRC-752 p.337, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.344, unchanged from SRC-752 p.337"}
+    "26.123": {status: documented, note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
+    "26.124": {status: documented, note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337"}
   notes: >
     Attaches user-defined local frames to the motion; -1 selects all
     local coordinate systems and takes no index line.
@@ -145,19 +142,19 @@ SET_MOTION_COORDINATE_SYSTEM:
     - name: coordinate_system_id
       type: int
       cites: frames
-  manual_ref: "SRC-003 p.332"
+  manual_ref: "FSM-26.120 p.332"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.292, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.305, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
-    "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.331, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.328, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.331, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.337, unchanged from SRC-750 p.337"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.337, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.344, unchanged from SRC-752 p.337"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.337, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.344, unchanged from FSM-26.124 p.337"}
 
 SET_MOTION_START_TIME:
   layout: inline
@@ -169,19 +166,19 @@ SET_MOTION_START_TIME:
     - name: start_time
       type: float
       unit: "s"
-  manual_ref: "SRC-003 p.332"
+  manual_ref: "FSM-26.120 p.332"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.306, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.305, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.328, same grammar as 26.120; never probed on this build, so the abort measured on 26.120 and 26.121 is not claimed here"}
+    "25.000": {status: documented, note: "FSM-25.000 p.292, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.306, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.305, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.328, same grammar as 26.120; never probed on this build, so the abort measured on 26.120 and 26.121 is not claimed here"}
     "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "measured 2026-10-12 on build #7012026 (RPT-166) on a 6DOF motion: the saved simulation changes across the command. The abort of 2026-08-08 was the solver refusing a start time for the ROTARY motion of that probe prelude (RPT-026), not a defect of the command"}
     "26.121": {status: broken, report: "reports/compat/CMP-26121_2026-08-08_full.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
-    "26.122": {status: documented, note: "SRC-750 p.337, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so neither the abort of 2026-08-08 nor the verified 26.120 run answers for it"}
-    "26.123": {status: documented, note: "SRC-751 p.337, unchanged from SRC-750 p.337"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "SRC-752 p.337; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "SRC-753 p.344; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
+    "26.122": {status: documented, note: "FSM-26.122 p.337, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so neither the abort of 2026-08-08 nor the verified 26.120 run answers for it"}
+    "26.123": {status: documented, note: "FSM-26.123 p.337, unchanged from FSM-26.122 p.337"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_pfs2135-items.yaml", note: "FSM-26.124 p.337; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_pfs2135-items.yaml", note: "FSM-26.125 p.344; measured 2026-10-12 on a 6DOF motion (RPT-166): the saved simulation changes across the command"}
   notes: >
     Start of the motion within the solver physical time; enables
     converging a steady base flow before the motion begins.
@@ -196,14 +193,14 @@ SET_MOTION_ROTOR_AXIS:
     - name: axis
       type: enum
       values: [X, Y, Z, "1", "2", "3"]
-  manual_ref: "SRC-003 p.333"
+  manual_ref: "FSM-26.120 p.333"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.336, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
-    "26.124": {status: documented, note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
+    "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
+    "26.124": {status: documented, note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
 
 SET_MOTION_ROTOR_RPM:
   layout: inline
@@ -215,14 +212,14 @@ SET_MOTION_ROTOR_RPM:
     - name: rpm
       type: float
       unit: "rev/min"
-  manual_ref: "SRC-003 p.333"
+  manual_ref: "FSM-26.120 p.333"
   versions:
-    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.336, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
-    "26.124": {status: documented, note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
+    "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
+    "26.124": {status: documented, note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
 
 SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
   layout: inline
@@ -236,12 +233,12 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
       values: [ENABLE, DISABLE]
     - name: num_blades
       type: int
-  manual_ref: "SRC-003 p.333"
+  manual_ref: "FSM-26.120 p.333"
   versions:
     "26.100":
       status: documented
       note: >-
-        SRC-741 pp.329-330 documents a TWO-argument form: the February
+        FSM-26.100 pp.329-330 documents a TWO-argument form: the February
         2026 edition has no NUM_BLADES, and the blade count arrives with
         the rotary motion in the May edition.
       args:
@@ -251,19 +248,19 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
         - name: wake_stabilization
           type: enum
           values: [ENABLE, DISABLE]
-    "26.101": {status: documented, note: "SRC-725 p.332, the first edition with NUM_BLADES"}
+    "26.101": {status: documented, note: "FSM-26.101 p.332, the first edition with NUM_BLADES"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
+    "26.121": {status: documented, note: "FSM-26.121 p.336, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
     "26.124":
       status: documented
       note: >-
-        SRC-752 p.338, the SRC-751 file, carried from 26.123. Run on 26.124
+        FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123. Run on 26.124
         by the licensed probe round 1 (probe W1_wake_stab_disable):
         the arguments 1 DISABLE 1 after 1 ENABLE 1 were accepted and the two saved
         simulations differed; the status stays documented until a dated run
         report promotes it.
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
   notes: >
     Stabilizes the slipstream wake of a rotor motion. NUM_BLADES is per
     PROPELLER rather than a total across the motion, which the manual
@@ -290,19 +287,19 @@ SET_MOTION_FSI_EXECUTABLE:
     - name: executable_path
       type: path
       own_line: true
-  manual_ref: "SRC-003 pp.335-336"
+  manual_ref: "FSM-26.120 pp.335-336"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.296, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
-    "26.122": {status: documented, note: "SRC-750 p.340, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so the removal measured on 26.120 does not answer for it"}
-    "26.100": {status: removed, report: "reports/compat/CMP-26100_2026-10-12_pfs2135-items.yaml", note: "SRC-741 p.332 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.101": {status: removed, report: "reports/compat/CMP-26101_2026-10-12_pfs2135-items.yaml", note: "SRC-725 pp.334-335 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.120": {status: removed, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "SRC-003 pp.335-336 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.340 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.347 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "25.000": {status: documented, note: "FSM-25.000 p.296, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.309, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.338, same grammar as 26.120"}
+    "26.122": {status: documented, note: "FSM-26.122 p.340, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so the removal measured on 26.120 does not answer for it"}
+    "26.100": {status: removed, report: "reports/compat/CMP-26100_2026-10-12_pfs2135-items.yaml", note: "FSM-26.100 p.332 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.101": {status: removed, report: "reports/compat/CMP-26101_2026-10-12_pfs2135-items.yaml", note: "FSM-26.101 pp.334-335 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.120": {status: removed, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "FSM-26.120 pp.335-336 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.123": {status: documented, note: "FSM-26.123 p.340, unchanged from FSM-26.122 p.340"}
+    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.340 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.347 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-A2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
   notes: >
     FSI seam (FR-23): FlightStream calls the external structural
     executable per coupling step; the executable path follows on the
@@ -311,7 +308,7 @@ SET_MOTION_FSI_EXECUTABLE:
     default interpolated loads file. Dry run finding (2026-07-21,
     reports/RPT-005): build 7012026 rejects this command as
     unrecognized despite the manual-exact grammar; the implemented
-    interface is the Aeroelastic Coupling Toolbox family (SRC-003
+    interface is the Aeroelastic Coupling Toolbox family (FSM-26.120
     pp.375-376, aeroelastic_coupling.yaml). Measured refused as an
     unrecognised command on 26.100, 26.101, 26.120, 26.124 and 26.125
     (RPT-166); the user's program reaches the coupling through
@@ -328,25 +325,25 @@ SET_MOTION_FSI_STRUCTURAL_NODES:
     - name: nodes_path
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.336"
+  manual_ref: "FSM-26.120 p.336"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.296, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.339, same grammar as 26.120"}
-    "26.122": {status: documented, note: "SRC-750 p.341, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so the removal measured on 26.120 does not answer for it"}
-    "26.100": {status: removed, report: "reports/compat/CMP-26100_2026-10-12_pfs2135-items.yaml", note: "SRC-741 p.332 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.101": {status: removed, report: "reports/compat/CMP-26101_2026-10-12_pfs2135-items.yaml", note: "SRC-725 p.335 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.120": {status: removed, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "SRC-003 pp.335-336 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.123": {status: documented, note: "SRC-751 p.341, unchanged from SRC-750 p.341"}
-    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.341 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
-    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.348 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "25.000": {status: documented, note: "FSM-25.000 p.296, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.309, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.339, same grammar as 26.120"}
+    "26.122": {status: documented, note: "FSM-26.122 p.341, same grammar as 26.120; not run on 26.122: the licensed seat refused the build on 2026-10-12 (licence expired), so the removal measured on 26.120 does not answer for it"}
+    "26.100": {status: removed, report: "reports/compat/CMP-26100_2026-10-12_pfs2135-items.yaml", note: "FSM-26.100 p.332 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.101": {status: removed, report: "reports/compat/CMP-26101_2026-10-12_pfs2135-items.yaml", note: "FSM-26.101 p.335 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.120": {status: removed, report: "reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml", note: "FSM-26.120 pp.335-336 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.123": {status: documented, note: "FSM-26.123 p.341, unchanged from FSM-26.122 p.341"}
+    "26.124": {status: removed, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.341 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
+    "26.125": {status: removed, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.348 documents the command; MEASURED REMOVED 2026-10-12 by the registered probe P5-2 (RPT-166): the solver refused the name as an unrecognised command, so the edition documents a command the build does not carry"}
   notes: >
     Imports the structural displacement node set; the file path
     follows on the line after the motion index. Dry run finding
     (2026-07-21, reports/RPT-005): build 7012026 rejects this command
     as unrecognized; the implemented import is
-    IMPORT_AEROELASTIC_STRUCTURAL_NODES (SRC-003 p.375,
+    IMPORT_AEROELASTIC_STRUCTURAL_NODES (FSM-26.120 p.375,
     aeroelastic_coupling.yaml). Measured refused as an unrecognised
     command on 26.100, 26.101, 26.120, 26.124 and 26.125 (RPT-166).
 
@@ -357,22 +354,22 @@ DELETE_MOTION:
     - name: motion_id
       type: int
       cites: motions
-  manual_ref: "SRC-003 p.336"
+  manual_ref: "FSM-26.120 p.336"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.296, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.339, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.333, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.335, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.296, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.309, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.339, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.333, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.335, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.341, unchanged from SRC-750 p.341"}
-    "26.124": {status: documented, note: "SRC-752 p.341, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.348, unchanged from SRC-752 p.341"}
+    "26.123": {status: documented, note: "FSM-26.123 p.341, unchanged from FSM-26.122 p.341"}
+    "26.124": {status: documented, note: "FSM-26.124 p.341, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.348, unchanged from FSM-26.124 p.341"}
 
 # --- the February 2026 kinematic family -------------------------------------
 #
-# SRC-741 documents a motion whose velocity, acceleration and their
+# FSM-26.100 documents a motion whose velocity, acceleration and their
 # angular counterparts are SET DIRECTLY, and no later edition carries
 # any of the five commands below. That is the same rename recorded on
 # CREATE_NEW_MOTION: February's EUCLIDEAN motion is a general rigid-body
@@ -397,11 +394,11 @@ SET_MOTION_VELOCITY:
       type: float
     - name: vz
       type: float
-  manual_ref: "SRC-741 p.329"
+  manual_ref: "FSM-26.100 p.329"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.292, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.306, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Velocity vector of a February 2026 Euclidean motion, in the MOTION
@@ -424,11 +421,11 @@ SET_MOTION_ACCELERATION:
       type: float
     - name: az
       type: float
-  manual_ref: "SRC-741 p.329"
+  manual_ref: "FSM-26.100 p.329"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.292, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.306, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Acceleration vector of a February 2026 Euclidean motion, in the
@@ -450,11 +447,11 @@ SET_MOTION_ANGULAR_VELOCITY:
       type: float
     - name: wz
       type: float
-  manual_ref: "SRC-741 p.329"
+  manual_ref: "FSM-26.100 p.329"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.292, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.292, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.306, same grammar as 26.100"}
     "26.100":
       status: documented
       note: >-
@@ -466,7 +463,7 @@ SET_MOTION_ANGULAR_VELOCITY:
     Angular velocity vector of a February 2026 Euclidean motion, in the
     motion definition coordinate system. The scripting page states no
     unit, and the sample's -450.5 settles nothing. The rotor tutorial of
-    the same manual gives RAD/S for the dialog field (SRC-741 p.394), and
+    the same manual gives RAD/S for the dialog field (FSM-26.100 p.394), and
     on 26.000 a rotor set this way in rad/s turned a blade exactly as a
     ROTARY motion at the same speed in rev/min turned it on 26.120, in the
     same sense (RPT-049). helpers.rotary_motion writes a rotor this way,
@@ -486,11 +483,11 @@ SET_MOTION_ANGULAR_ACCELERATION:
       type: float
     - name: waz
       type: float
-  manual_ref: "SRC-741 p.329"
+  manual_ref: "FSM-26.100 p.329"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.293, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.293, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.307, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.306, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Angular acceleration vector of a February 2026 Euclidean motion, in
@@ -509,14 +506,14 @@ SET_MOTION_IS_ROTOR:
     - name: axis
       type: enum
       values: [X, Y, Z]
-  manual_ref: "SRC-741 p.329"
+  manual_ref: "FSM-26.100 p.329"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.293, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.293, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.307, same grammar as 26.100"}
     "26.000":
       status: documented
       note: >-
-        SRC-747 p.306, same grammar as 26.100. Run 2026-09-15 outside the
+        FSM-26.000 p.306, same grammar as 26.100. Run 2026-09-15 outside the
         compatibility harness, so still documented: every two-argument form
         let the script go on to write its log, the form with the axis left out
         did not, and a blade marked this way turned as the 26.120 rotary
@@ -563,18 +560,18 @@ SET_MOTION_MASS_PROPERTIES:
       type: float
     - name: izx
       type: float
-  manual_ref: "SRC-003 p.333"
+  manual_ref: "FSM-26.120 p.333"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.293, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.293, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.307, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
+    "26.121": {status: documented, note: "FSM-26.121 p.336, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
   notes: >
     Mass and inertia tensor of a 6DOF body. MASS is in KILOGRAMS, which
     the manual states; the six inertia components are named as moments
@@ -598,18 +595,18 @@ SET_MOTION_GRAVITY:
       type: float
     - name: gz
       type: float
-  manual_ref: "SRC-003 p.333"
+  manual_ref: "FSM-26.120 p.333"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.294, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.294, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.307, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
+    "26.121": {status: documented, note: "FSM-26.121 p.336, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
   notes: >
     Gravity vector for a 6DOF motion, in the REFERENCE coordinate
     system. Its neighbours SET_MOTION_6DOF_INITIAL_VELOCITY and
@@ -634,18 +631,18 @@ SET_MOTION_CUSTOM_TABLE:
     - name: filename
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.333"
+  manual_ref: "FSM-26.120 p.333"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.293, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.307, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.306, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.332, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.293, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.307, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.306, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.332, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
-    "26.124": {status: documented, note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.345, unchanged from SRC-752 p.338"}
+    "26.121": {status: documented, note: "FSM-26.121 p.336, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.338, unchanged from FSM-26.122 p.338"}
+    "26.124": {status: documented, note: "FSM-26.124 p.338, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.345, unchanged from FSM-26.124 p.338"}
   notes: >
     Reads a motion from a table in a text file, the path on the line
     after the command.
@@ -674,18 +671,18 @@ SET_MOTION_6DOF_INITIAL_VELOCITY:
       type: float
     - name: vz
       type: float
-  manual_ref: "SRC-003 p.334"
+  manual_ref: "FSM-26.120 p.334"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.294, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.294, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.307, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.121": {status: documented, note: "FSM-26.121 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.339, unchanged from FSM-26.122 p.339"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
   notes: >
     Initial velocity of a 6DOF body, in the BODY coordinate system, not
     the reference one its gravity vector uses. No unit is stated.
@@ -703,18 +700,18 @@ SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY:
       type: float
     - name: wz
       type: float
-  manual_ref: "SRC-003 p.334"
+  manual_ref: "FSM-26.120 p.334"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.294, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.330, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.294, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.307, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.330, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.121": {status: documented, note: "FSM-26.121 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.339, unchanged from FSM-26.122 p.339"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
   notes: >
     Initial angular velocity of a 6DOF body, in the body coordinate
     system. The manual states no unit; the value is in radians per
@@ -733,18 +730,18 @@ SET_MOTION_6DOF_ACTIVE_VARIABLES:
       type: str_list
       separator: newline
       fixed_length: 6
-  manual_ref: "SRC-003 p.334"
+  manual_ref: "FSM-26.120 p.334"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.294, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.308, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.307, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.294, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.308, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.307, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.331, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.121": {status: documented, note: "FSM-26.121 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.339, unchanged from FSM-26.122 p.339"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
   notes: >
     Frees or locks each degree of freedom, one per line after the
     command: U, V and W are the velocity components and P, Q and R the
@@ -792,18 +789,18 @@ CREATE_NEW_6DOF_EXTERNAL_FORCE:
       type: float
     - name: fz
       type: float
-  manual_ref: "SRC-003 p.334"
+  manual_ref: "FSM-26.120 p.334"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.295, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.309, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.308, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.295, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.309, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.308, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.331, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
-    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.121": {status: documented, note: "FSM-26.121 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.339, unchanged from FSM-26.122 p.339"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166) Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
+    "26.125": {status: broken, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339 Probe: script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing) [...]"}
   notes: >
     A force applied at a point of the body for a window of time. Both
     the application point and the force vector are in the BODY frame.
@@ -826,18 +823,18 @@ CREATE_NEW_6DOF_CUSTOM_FORCE:
     - name: filename
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.335"
+  manual_ref: "FSM-26.120 p.335"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.295, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.309, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.308, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.295, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.309, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.308, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.331, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
+    "26.121": {status: documented, note: "FSM-26.121 p.338, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.340, unchanged from FSM-26.122 p.340"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.340, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
   notes: >
     A force profile read from a text file, the path on the following
     line. The two tokens use UNDERSCORES where the motion table's
@@ -872,18 +869,18 @@ CREATE_NEW_6DOF_SPRING_FORCE:
     - name: spring_rate
       type: float
       unit: "N/m"
-  manual_ref: "SRC-003 p.335"
+  manual_ref: "FSM-26.120 p.335"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.295, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.309, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.308, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.295, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.309, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.308, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.332, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
+    "26.121": {status: documented, note: "FSM-26.121 p.338, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.340, unchanged from FSM-26.122 p.340"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.340, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
   notes: >
     A spring attached to the body. ELEVEN arguments, and the manual's
     heading WRAPS with SPRING_RATE alone on the second line, which is
@@ -909,18 +906,18 @@ DELETE_6DOF_EXTERNAL_FORCE:
       cites: motions
     - name: force_id
       type: int
-  manual_ref: "SRC-003 p.335"
+  manual_ref: "FSM-26.120 p.335"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.296, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.296, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.309, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.332, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: documented, note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
+    "26.121": {status: documented, note: "FSM-26.121 p.338, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.340, unchanged from FSM-26.122 p.340"}
+    "26.124": {status: documented, note: "FSM-26.124 p.340, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
   notes: >
     Deletes one external force from a motion by index. The manual names
     no delete for the spring or the custom force, and this entry does
@@ -936,18 +933,18 @@ SET_6DOF_MOTION_SYMMETRY_LOADS:
     - name: symmetry_loads
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.334"
+  manual_ref: "FSM-26.120 p.334"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.294, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.309, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.308, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.331, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.333, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.294, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.309, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.308, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.331, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.333, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.337, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.339, unchanged from SRC-750 p.339"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.339, the SRC-751 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.346, unchanged from SRC-752 p.339"}
+    "26.121": {status: documented, note: "FSM-26.121 p.337, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.339, unchanged from FSM-26.122 p.339"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.339, the FSM-26.123 file, carried from 26.123; probed 2026-10-12 (RPT-166)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.346, unchanged from FSM-26.124 p.339"}
   notes: >
     Includes the loads on the symmetry boundary in a 6DOF motion, which
     the page's own sample comment describes as converting the motion
@@ -973,18 +970,18 @@ EXPORT_6DOF_TRAJECTORY:
     - name: filename
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.335"
+  manual_ref: "FSM-26.120 p.335"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.296, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.310, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.309, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.332, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.334, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.296, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.310, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.309, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.332, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.334, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.338, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.340, unchanged from SRC-750 p.340"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_6dof-after-march.yaml", note: "SRC-752 p.340, the SRC-751 file, carried from 26.123; after-march export verified by RPT-167"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_6dof-after-march.yaml", note: "SRC-753 p.347, unchanged from SRC-752 p.340"}
+    "26.121": {status: documented, note: "FSM-26.121 p.338, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.340, unchanged from FSM-26.122 p.340"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_6dof-after-march.yaml", note: "FSM-26.124 p.340, the FSM-26.123 file, carried from 26.123; after-march export verified by RPT-167"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_6dof-after-march.yaml", note: "FSM-26.125 p.347, unchanged from FSM-26.124 p.340"}
   notes: >
     Writes a motion's trajectory tables to a file, the path on the
     following line.
@@ -1005,7 +1002,7 @@ CREATE_NEW_MOTION_EUCLIDEAN:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-749 p.291"
+  manual_ref: "FSM-25.000 p.291"
   notes: >
     Creates a Euclidean motion definition. On 25.000 each motion type is
     its own bare command, and 26.100 replaces all four with
@@ -1018,12 +1015,12 @@ CREATE_NEW_MOTION_EUCLIDEAN:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.291, this edition documents it"
+      note: "FSM-25.000 p.291, this edition documents it"
     "25.100":
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-748 pp.271-347, the whole scripting reference of the
+        FSM-25.100 pp.271-347, the whole scripting reference of the
         25.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1033,7 +1030,7 @@ CREATE_NEW_MOTION_EUCLIDEAN:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-747 pp.270-346, the whole scripting reference of the
+        FSM-26.000 pp.270-346, the whole scripting reference of the
         26.000 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1043,7 +1040,7 @@ CREATE_NEW_MOTION_EUCLIDEAN:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1053,7 +1050,7 @@ CREATE_NEW_MOTION_EUCLIDEAN:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1063,7 +1060,7 @@ CREATE_NEW_MOTION_EUCLIDEAN:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1073,7 +1070,7 @@ CREATE_NEW_MOTION_EUCLIDEAN:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1084,7 +1081,7 @@ CREATE_NEW_MOTION_CUSTOM:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-749 p.291"
+  manual_ref: "FSM-25.000 p.291"
   notes: >
     Creates a custom motion definition, whose position history comes
     from a file rather than from a rule. One of the four type-specific
@@ -1092,12 +1089,12 @@ CREATE_NEW_MOTION_CUSTOM:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.291, this edition documents it"
+      note: "FSM-25.000 p.291, this edition documents it"
     "25.100":
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-748 pp.271-347, the whole scripting reference of the
+        FSM-25.100 pp.271-347, the whole scripting reference of the
         25.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1107,7 +1104,7 @@ CREATE_NEW_MOTION_CUSTOM:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-747 pp.270-346, the whole scripting reference of the
+        FSM-26.000 pp.270-346, the whole scripting reference of the
         26.000 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1117,7 +1114,7 @@ CREATE_NEW_MOTION_CUSTOM:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1127,7 +1124,7 @@ CREATE_NEW_MOTION_CUSTOM:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1137,7 +1134,7 @@ CREATE_NEW_MOTION_CUSTOM:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1147,7 +1144,7 @@ CREATE_NEW_MOTION_CUSTOM:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1158,7 +1155,7 @@ CREATE_NEW_MOTION_6DOF:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-749 p.291"
+  manual_ref: "FSM-25.000 p.291"
   notes: >
     Creates a six-degree-of-freedom motion definition, where the
     trajectory is solved from the aerodynamic loads rather than
@@ -1167,12 +1164,12 @@ CREATE_NEW_MOTION_6DOF:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.291, this edition documents it"
+      note: "FSM-25.000 p.291, this edition documents it"
     "25.100":
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-748 pp.271-347, the whole scripting reference of the
+        FSM-25.100 pp.271-347, the whole scripting reference of the
         25.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1182,7 +1179,7 @@ CREATE_NEW_MOTION_6DOF:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-747 pp.270-346, the whole scripting reference of the
+        FSM-26.000 pp.270-346, the whole scripting reference of the
         26.000 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1192,7 +1189,7 @@ CREATE_NEW_MOTION_6DOF:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1202,7 +1199,7 @@ CREATE_NEW_MOTION_6DOF:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1212,7 +1209,7 @@ CREATE_NEW_MOTION_6DOF:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1222,7 +1219,7 @@ CREATE_NEW_MOTION_6DOF:
       status: removed
       successor: CREATE_NEW_MOTION
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1233,7 +1230,7 @@ CREATE_NEW_MOTION_FSI:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-749 p.291"
+  manual_ref: "FSM-25.000 p.291"
   notes: >
     Creates a fluid-structure-interaction motion definition, where the
     surface deflects under the aerodynamic loads and the deflection
@@ -1248,11 +1245,11 @@ CREATE_NEW_MOTION_FSI:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.291, this edition documents it"
+      note: "FSM-25.000 p.291, this edition documents it"
     "25.100":
       status: removed
       note: >-
-        SRC-748 pp.271-347, the whole scripting reference of the
+        FSM-25.100 pp.271-347, the whole scripting reference of the
         25.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1261,7 +1258,7 @@ CREATE_NEW_MOTION_FSI:
     "26.000":
       status: removed
       note: >-
-        SRC-747 pp.270-346, the whole scripting reference of the
+        FSM-26.000 pp.270-346, the whole scripting reference of the
         26.000 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1270,7 +1267,7 @@ CREATE_NEW_MOTION_FSI:
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1279,7 +1276,7 @@ CREATE_NEW_MOTION_FSI:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1288,7 +1285,7 @@ CREATE_NEW_MOTION_FSI:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -1297,7 +1294,7 @@ CREATE_NEW_MOTION_FSI:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal

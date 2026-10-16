@@ -83,7 +83,7 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
         # rather than in the code. The base grammar carries a units
         # TOKEN and so states no unit on the value; this edition takes
         # no token and its page states the value is in feet on the
-        # parameter row itself (SRC-749 p.286). Same call, factor of
+        # parameter row itself (FSM-25.000 p.286). Same call, factor of
         # 3.28, which is why the helper refuses silence on this build.
         "25.000": {"names": ("value",), "unit:value": "ft"},
     },
@@ -191,7 +191,7 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
                 "BL_TRANSITION_MARKER",
             )
         },
-        # 0.25.0 F05: SRC-750/751 p.352; 26.124 carries 26.123 (RPT-050).
+        # 0.25.0 F05: FSM-26.122/751 p.352; 26.124 carries 26.123 (RPT-050).
         "26.122": {
             "enum:parameter": (
                 "CP_FREE",
@@ -210,7 +210,7 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
                 "BL_TRANSITION_MARKER",
             )
         },
-        # 0.25.0 F05: SRC-750/751 p.352; 26.124 carries 26.123 (RPT-050).
+        # 0.25.0 F05: FSM-26.122/751 p.352; 26.124 carries 26.123 (RPT-050).
         "26.123": {
             "enum:parameter": (
                 "CP_FREE",
@@ -229,7 +229,7 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
                 "BL_TRANSITION_MARKER",
             )
         },
-        # 0.25.0 F05: SRC-750/751 p.352; 26.124 carries 26.123 (RPT-050).
+        # 0.25.0 F05: FSM-26.122/751 p.352; 26.124 carries 26.123 (RPT-050).
         "26.124": {
             "enum:parameter": (
                 "CP_FREE",
@@ -251,7 +251,7 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
     },
     "SET_SCENE_CONTOUR": {
         # The only value delta in this table that GREW rather than shrank
-        # or renamed. SRC-751 p.355 appends four displacement values to
+        # or renamed. FSM-26.123 p.355 appends four displacement values to
         # the 32 the four earlier editions print, and prints them mixed
         # case in a table whose other 32 are lower case, so the whole
         # list is restated here: a per-version override merges argument
@@ -300,13 +300,13 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
     },
 }
 # 26.124 STATES THE SAME SET_SCENE_CONTOUR GRAMMAR AS 26.123 BECAUSE IT CARRIES THE
-# SAME MANUAL: its package's user guide is byte-identical to SRC-751, so the
-# pages read twice for 26.123 are the pages of 26.124 (SRC-752, 2026-09-14).
+# SAME MANUAL: its package's user guide is byte-identical to FSM-26.123, so the
+# pages read twice for 26.123 are the pages of 26.124 (FSM-26.124, 2026-09-14).
 PER_VERSION_GRAMMAR["SET_SCENE_CONTOUR"]["26.124"] = PER_VERSION_GRAMMAR["SET_SCENE_CONTOUR"][
     "26.123"
 ]
 # 26.124 STATES ITS OWN WAKE-EDGE IMPORT GRAMMAR BECAUSE THE BUILD WAS RUN, not because
-# its page changed: SRC-752 p.323 still prints the two-value line, and the build refuses
+# its page changed: FSM-26.124 p.323 still prints the two-value line, and the build refuses
 # that line as a syntax error and reads the node list from the path on the next line only
 # when the command line carries a third token (RPT-061). The one override here whose
 # difference comes from a run rather than from a page.
@@ -359,7 +359,7 @@ PER_VERSION_OPTIONAL: dict[tuple[str, str], tuple[str, ...]] = {
 }
 
 # 26.125 (item S10): THE EDITION READ AGAINST 26.124's, page against page
-# (SRC-753 against SRC-752, `pyfs-manual register`). Thirty-seven commands
+# (FSM-26.125 against FSM-26.124, `pyfs-manual register`). Thirty-seven commands
 # read differently; these are the ones whose GRAMMAR moved, each a row of its
 # own, and the commands whose text moved without a grammar change carry a
 # plain row with the reading in its note. Two new delta forms arrive with
@@ -833,7 +833,7 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # 960 since 2026-09-14: the same override carried to 26.124, whose manual
     # is the 26.123 file, adds the same argument once more.
     # 976 since 2026-09-15: CREATE_NEW_MOTION gains the EUCLIDEAN override on
-    # 25.100 and 26.000, whose pages name that type (SRC-748 p.306, SRC-747
+    # 25.100 and 26.000, whose pages name that type (FSM-25.100 p.306, FSM-26.000
     # p.305), one argument each.
     # 0.25.0 F05: three fluid-plot overrides (26.122, 26.123, 26.124).
     # 0.27.0 G02: the IMPORT_WAKE_EDGES_FROM_FILE 26.124 override (RPT-061) carries

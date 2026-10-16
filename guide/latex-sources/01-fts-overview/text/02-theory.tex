@@ -4,7 +4,7 @@
 %
 % Part 2: the theory a user needs to justify the boundary-condition and setup
 % choices, steady, unsteady and rotating, and nothing more. Manual pages are
-% those of build 26121 [6]; the physics is in [7-12, 15-17].
+% those of build 26121 [6]; the physics is in [7-12, 15-17]. [REF-21], [REF-27], [REF-28], [REF-29], [REF-30], [REF-31], [REF-34], [REF-35], [REF-36]
 
 \section{How a panel solver works}
 
@@ -15,7 +15,7 @@
   \item Assumptions: \textbf{incompressible, irrotational, inviscid}. The
         velocity derives from a potential, \(\mathbf{V} = \nabla\phi\), and
         mass conservation becomes the Laplace equation,
-        \(\nabla^2\phi = 0\) [9, 10].
+        \(\nabla^2\phi = 0\) [9, 10]. [REF-28], [REF-29]
   \item The equation is \textbf{linear}: elementary solutions superpose, and
         the flow about a body is assembled from them.
   \item Two conditions close it: \textbf{flow tangency} on the surface, and
@@ -42,9 +42,9 @@ friction drag, which lives in a boundary layer it does not model.
 \begin{itemize}\small
   \item A classic panel method gives each surface panel a source or doublet
         strength, enforces tangency at one point per panel, and solves a
-        dense linear system [9, 10].
+        dense linear system [9, 10]. [REF-28], [REF-29]
   \item FlightStream carries \textbf{vorticity} on the surface mesh instead
-        [7, 8]. Degenerate faces are removed in preprocessing, and
+        [7, 8]. Degenerate faces are removed in preprocessing, and [REF-21], [REF-27]
         flow-aligned quadrilaterals are preferred on lifting surfaces
         [6, pp.~75, 156].
   \item Whatever the singularity: \textbf{surface resolution drives the
@@ -63,7 +63,7 @@ the circulation, integrate the pressures.\end{takeaway}
 \begin{itemize}\small
   \item Potential flow alone \textbf{does not fix lift}: any circulation
         satisfies the equations. The physical statement that selects the real
-        solution is smooth flow leaving a sharp trailing edge [10, 11].
+        solution is smooth flow leaving a sharp trailing edge [10, 11]. [REF-29], [REF-30]
   \item In the solver, \textbf{marking a trailing edge} is that statement:
         wake filaments are shed from marked edges, and an unmarked edge sheds
         nothing at all [6, p.~165].
@@ -130,7 +130,7 @@ governs every stage after it. Part 3 places it in the geometry stage.
   \item \textbf{Correction models}: friction drag by the boundary layer,
         decoupled by default, coupled through transpiration for nonlinear
         decambering [6, pp.~204-211]; subcritical Mach effects by
-        Prandtl-Glauert [6, pp.~218-221], [12].
+        Prandtl-Glauert [6, pp.~218-221], [12]. [REF-31]
   \item \textbf{Not captured} under any setting: deep stall, buffet, shock
         stall.
 \end{itemize}
@@ -147,7 +147,7 @@ in the output says where that ends.\end{takeaway}
 \begin{itemize}\small
   \item \textbf{Kelvin}: in inviscid flow the circulation of a material
         contour is conserved. When the bound circulation changes, an equal and
-        opposite vortex is shed into the wake [10].
+        opposite vortex is shed into the wake [10]. [REF-29]
   \item The \textbf{starting vortex} is the canonical picture: a wing set
         impulsively in motion leaves behind a vortex that mirrors the
         circulation it gains.
@@ -167,7 +167,7 @@ in the output says where that ends.\end{takeaway}
         times the step: \textbf{the step sets the wake resolution} as the panel
         size sets the surface resolution. Choose it from a physical time the
         geometry has, for example the chord's convective time \(t_c = c/V\).
-  \item The judge is the \textbf{reduced frequency} [15, 10]:
+  \item The judge is the \textbf{reduced frequency} [15, 10]: [REF-29], [REF-34]
         \[ k = \frac{\omega c}{2 V_\infty}. \]
         At low \(k\) the flow adjusts quasi-statically; as \(k\) grows, wake
         memory and phase lag become the answer.
@@ -181,7 +181,7 @@ steady points.\end{takeaway}
 \begin{itemize}\small
   \item Each blade section sees the sum of \(\Omega r\) and the free stream;
         the inflow angle \(\varphi = \arctan\big(V_\infty / (\Omega r)\big)\)
-        varies along the radius, which is why blades are twisted [16, 17].
+        varies along the radius, which is why blades are twisted [16, 17]. [REF-35], [REF-36]
   \item Blade geometry and section loads live in the \textbf{rotating} frame;
         the wake, the airframe and the performance numbers in the
         \textbf{inertial} one. Name the frame when you report a number.
@@ -198,7 +198,7 @@ steady points.\end{takeaway}
 J &= \frac{V_\infty}{nD}, & C_T &= \frac{T}{\rho n^2 D^4}, \\
 C_P &= \frac{P}{\rho n^3 D^5}, & \eta &= \frac{J C_T}{C_P}
 \end{align*}
-{\small \(n\) in revolutions per second, \(D\) the diameter [16, 17]. At
+{\small \(n\) in revolutions per second, \(D\) the diameter [16, 17]. At [REF-35], [REF-36]
 fixed \(J\) the non-dimensional picture is fixed; the rotation rate alone only
 rescales the Reynolds and tip Mach numbers.\par}
 \vspace{1mm}

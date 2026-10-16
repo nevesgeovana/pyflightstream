@@ -4,7 +4,7 @@ The activity log (``logs/activity.log`` and its JSON twin) records every stage
 of a workspace; :func:`workspace_activity` and :func:`activity_stage` write it
 and say a stage's ``started`` and ``finished`` lines on stderr.
 
-Since 0.32.0 (work package A, FR-200 to FR-205) this module also holds the
+For FR-200 to FR-205, this module also holds the
 console of one command-line invocation. :func:`command_console` opens it: the
 command's titled opening block on stderr, its warnings held and printed
 together at the end, and for a long command a live log
@@ -51,7 +51,7 @@ from pyflightstream._errors import PyflightstreamWarning
 
 _ACTIVE: ContextVar[Path | None] = ContextVar("pyfs_activity", default=None)
 
-#: The commands that keep a live log while they run (0.32.0, FR-203): the
+#: The commands that keep a live log while they run (FR-203): the
 #: long ones, whose work can run for minutes between two lines of their own.
 LIVE_LOG_COMMANDS = ("sync", "restore", "free-space", "delete-sims", "collect", "post")
 
@@ -148,7 +148,7 @@ class _Terminal:
 
 
 #: Set by a console script for the length of one invocation, and by nothing
-#: else: a Python caller sees every line exactly as before (0.30.0 clean log).
+#: else: a Python caller sees every activity line without console filtering.
 _TERMINAL: ContextVar[_Terminal | None] = ContextVar("pyfs_terminal", default=None)
 
 
@@ -424,7 +424,7 @@ def workspace_activity(stage: str, argument: str = "workspace", *, verbose_only:
     """Log one stage without changing its result.
 
     With ``verbose_only`` the stage's ``started`` and ``finished`` lines reach
-    the console of a command only under ``--verbose`` (0.31.0): a stage that
+    the console of a command only under ``--verbose``: a stage that
     runs once per point whether or not it has anything to do is otherwise noise.
     The activity log records it either way, a Python caller outside a command
     sees the lines as before, and a stage that raises is always said.
@@ -477,7 +477,7 @@ def workspace_activity(stage: str, argument: str = "workspace", *, verbose_only:
                     **context,
                 )
                 # A RETURNED FAILURE IS SAID EVEN WHERE THE STAGE IS KEPT OFF A
-                # TERSE CONSOLE (ARCH2-B1, 0.32.0): `verbose_only` hides a stage
+                # TERSE CONSOLE (ARCH2-B1): `verbose_only` hides a stage
                 # that has nothing to say, and a failure is something to say. A
                 # raised one always was; a returned one vanished.
                 if not quiet or (failed and hidden and not asked_quiet):
@@ -543,8 +543,8 @@ def activity_stage(stage: str, **details: object) -> Iterator[dict[str, object]]
 class StageProgress:
     """The progress of one stage of a long command, as :func:`stage_progress` hands it.
 
-    The 0.32.0 contract of work package A, which the sync (B2) and the
-    records commands (B3) call: a stage announces its totals when it knows
+    The sync and records commands use this contract: a stage announces its
+    totals when it knows
     them, and advances by the files and bytes it finished and the file it is
     on. Inside a console command each :meth:`advance` shows the stage's line
     (FR-202): redrawn in place on a terminal at most every
@@ -667,7 +667,7 @@ class StageProgress:
 def stage_progress(
     name: str, *, total_files: int | None = None, total_bytes: int | None = None
 ) -> Iterator[StageProgress]:
-    """Show the progress of one stage of a long command (0.32.0 contract, package A).
+    """Show the progress of one stage of a long command.
 
     Yields a :class:`StageProgress` whose ``advance`` the stage calls as it
     works, and closes with one line saying what was done, or where the stage
@@ -915,7 +915,7 @@ def command_console(
     header: bool = False,
     hold: bool = True,
 ) -> Iterator[None]:
-    """Open the console of one command (0.32.0 console contract, FR-200 to FR-204).
+    """Open the console of one command (FR-200 to FR-204).
 
     Prints the titled opening block on stderr: ``<program> <command>``, then
     what the command is for (``what``), the workspace and, with ``live_log``,

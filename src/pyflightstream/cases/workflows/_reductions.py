@@ -93,7 +93,7 @@ class ExportWindow:
     #: The azimuthal step the clock was stated with, where it was; None
     #: where the row stated the seconds directly. Carried so that a
     #: revolution is counted from the ANGLE rather than from the emitted
-    #: step, which is rounded to the reference precision since 2026-09-04.
+    #: step, which is rounded to the reference precision.
     delta_theta_deg: float | None = None
 
     @property
@@ -106,11 +106,10 @@ class ExportWindow:
         and one step lasts ``delta_time_s`` seconds, so a revolution is
         ``60 / (rpm * delta_time_s)`` steps.
 
-        THE ANGLE FIRST, and a review lens is why. The emitted step is
-        rounded to the reference precision since 2026-09-04, so counting a
-        revolution from the seconds answered 36.0238 where the run
-        resolves 36, and a one-revolution window then recorded 359.77
-        degrees instead of 360.
+        Use the angle first. The emitted step is rounded to the reference
+        precision, so deriving revolutions from seconds can yield 36.0238
+        steps where the run resolves 36, or a one-revolution window of
+        359.77 degrees instead of 360.
         """
         if self.delta_theta_deg:
             return 360.0 / self.delta_theta_deg
@@ -428,7 +427,7 @@ def _blade_count(case: SimCase) -> int | None:
     blades halved its passage and its per-blade table. A row ``BLADES`` that
     disagrees with the block is refused, naming both.
 
-    PFS-2015.04.01, found by the reproduction of 2026-09-09: an isolated
+    PFS-2015.04.01: an isolated
     rotor meshed as one blade and stated as ``PERIODIC_COPIES: 6``, with no
     block and no ``BLADES``, is a six-bladed rotor. The copies are the count
     only where nothing else states it.
@@ -466,8 +465,7 @@ def _no_blade_count(case: SimCase) -> str:
     sentence through `reduction_windows`; `reduction_plan`, which is a
     public name no caller in the package uses, still can, so the sentence
     says which row it is about rather than prescribing a key that on a
-    transition row would be a number that is now two numbers (the
-    interface lens, 2026-09-10).
+    transition row would need a separate value for each rotor.
     """
     turning, _lost = _the_rotors_the_row_turns(case)
     if turning:
@@ -580,9 +578,8 @@ def phase_locked_gate(
 ) -> dict[str, object] | None:
     """Return the SKIP a short run's phase-locked reduction carries, or None.
 
-    Item 9. `PhaseLockedSpec.generated_for` held the comparison and had NO
-    CALLER, so a pproc declaring `min_revolutions` got a phase-locked reduction
-    whatever the row actually turned.
+    Item 9. Apply `PhaseLockedSpec.generated_for` to the revolutions the row
+    actually turns before generating a phase-locked reduction.
 
     THE RULE HAS TWO HALVES and the second is the one a wiring gets wrong: if
     the matrix row reaches the minimum number of revolutions, the phase-locked
@@ -592,9 +589,8 @@ def phase_locked_gate(
     turn long enough is taking a product away from a campaign that already
     happened.
 
-    ABSENT IS NOT ZERO. A pproc saying nothing about `phase_locked` got one
-    before this release and gets one now, so the gate changes nothing for a
-    workspace that does not use it.
+    A pproc saying nothing about `phase_locked` receives a phase-locked
+    reduction without a declared minimum-revolution gate.
 
     Parameters
     ----------
@@ -656,23 +652,13 @@ def _the_passages_of_one_rotor(
     itself: the file is written, the columns are right, and the average is
     over the wrong window.
 
-    The blade count is the length of the rotor's ``families_blades``,
-    which is where this release already reads it for the frames and for
-    the sector's copies, so the three cannot give different answers.
+    The blade count comes through the rotor's motion view, sharing the
+    model's count with the flat path, frames and sector copies.
     """
-    # ONE BLADE COUNT, READ THROUGH THE VIEW. `_motion_view` sets the
-    # view's BLADES from `rotor.blade_count`, which is the model's own
-    # declared rule for the number, so `_blade_count` answers here exactly
-    # what it answers for the flat keys and the two cannot give different
-    # numbers for one rotor. Opening `len(block.families_blades)` here
-    # instead was a second home for a rule the model already states, and
-    # it disagreed with the flat path wherever a row wrote `BLADES` or
-    # `PERIODIC_COPIES` of its own (the architecture lens, 2026-09-10).
-    #
-    # THE COUNT IS NEVER NONE HERE and that is not defensive coding: the
-    # view always carries BLADES, and the model refuses a rotor block
-    # whose `families_blades` is empty, both measured 2026-09-10 while
-    # writing a case for the empty branch that could not be built.
+    # Read the blade count through the motion view: _motion_view sets BLADES
+    # from rotor.blade_count, sharing the model's rule with the flat path.
+    # The count cannot be None: the view carries BLADES and the model refuses
+    # a rotor block with empty families_blades.
     blades = _blade_count(view) or 0
     entry: dict[str, object] = {"blades": blades, "rpm": speed.rpm}
     # WHERE BLADE ONE SITS, carried into the record because the PRODUCTS stage
@@ -684,7 +670,7 @@ def _the_passages_of_one_rotor(
     block = (case.rotors or {}).get(alias)
     if block is not None:
         entry["blade1_azimuth_deg"] = float(block.blade1.azimuth_deg)
-        # AND WHICH FAMILIES ITS BLADES ARE, IN ITS OWN ORDER (0.24.0), for the
+        # AND WHICH FAMILIES ITS BLADES ARE, IN ITS OWN ORDER, for the
         # same reason: the per-blade reduction is one row per blade, a blade's
         # plots are the ones named for its family, and the products stage
         # reaches the reference only through a matrix it may not have.
@@ -761,11 +747,9 @@ def _the_passages_of_one_rotor(
             "shared by every blade"
         )
     else:
-        # A ROW WRITTEN BEFORE THIS RELEASE STATES NO COUNT OF REVOLUTIONS, so it
-        # keeps the answer it has always had: this rotor's own last complete
-        # revolution. Falling back to the ROW'S span instead would impose one
-        # rotor's turn on the other, which is the defect FR-68 exists against and
-        # which a test in this file refused when I tried it.
+        # Without a stated revolution count, use this rotor's own last complete
+        # revolution. The row's span could impose another rotor's turn on it
+        # and violate FR-68.
         if last_step < own_steps:
             entry["per_blade"] = {
                 "skipped": (
@@ -823,10 +807,9 @@ def _stated_blade_steps(case: SimCase, per_revolution: float) -> int | None:
     A count of ITERATIONS is already in steps and is the same number for every
     rotor, which is the honest reading of what such a row asked for.
 
-    None where the row states neither, so the caller falls back to the answer a
-    matrix written before this release has always had.
+    None where the row states neither, so the caller uses its default window.
     """
-    # ONE ARITHMETIC, in `cases.windows`, which the post stage calls too (0.24.0).
+    # ONE ARITHMETIC, in `cases.windows`, which the post stage calls too.
     stated = {
         key: value
         for key in (LAST_REVS_AVG_VARIABLE, LAST_ITERS_AVG_VARIABLE)
@@ -944,11 +927,8 @@ def _named_rotors_plan(
         )
         for alias, view, speed in turning
     }
-    # A ROTOR THAT COULD NOT BE RESOLVED IS A SKIP, NOT AN ABSENCE. It
-    # used to be dropped silently, so the rotor appeared in neither the
-    # products nor the skipped list of the manifest and simply vanished
-    # (the architecture lens, 2026-09-10). This shape is the one the
-    # products stage already knows how to record.
+    # Record an unresolved rotor as a skip, preserving it and its reason
+    # in the shape the products stage records in the manifest.
     for named, reason in lost.items():
         rotors.setdefault(
             named,
@@ -959,20 +939,10 @@ def _named_rotors_plan(
             },
         )
     plan[ROTORS_KEY] = rotors
-    # A ROW THAT NAMES ITS ROTORS REDUCES PER ROTOR, AND ONLY PER
-    # ROTOR. The flat passage keys carry the pointer, one rotor or
-    # nine, and that uniformity is the whole of the interface lens's
-    # finding of 2026-09-10: gating the rotor's name on there being
-    # MORE THAN ONE made the rotor count a file-naming input, so the
-    # day a second rotor is added every script pointing at
-    # `<point>_per_blade.csv` stops finding its input and the stale
-    # file from the one-rotor run stays on disk beside a record that
-    # calls it skipped. It is also what FR-68's own sentence says,
-    # unconditionally: "the reduction files name the rotor".
-    #
-    # A ROW STATING NO MOTION IS UNTOUCHED, which is FR-68's other
-    # sentence and what keeps every workspace written before 0.15.0,
-    # and every golden, reducing into exactly the files it always did.
+    # A row naming its rotors reduces per rotor (FR-68). The reduction files
+    # name the rotor even when there is only one, so adding another rotor
+    # does not rename existing products. The flat passage keys carry the
+    # pointer. A row stating no motion uses the flat reduction files.
     named = ", ".join(rotors)
     try:
         plan["blades"] = _blade_count(case)
@@ -1050,26 +1020,11 @@ def _flat_row_passages(
         span=span,
         period=per_revolution / blades,
     )
-    # One window per blade over the LAST complete revolution, contiguous
-    # and ending at the run's last step: :meth:`ReductionPlan.blade_windows`.
-    # ITEM 8: ONE WINDOW, not one per blade. What this replaces is the list
-    # that stood here -- blade k over `last_step - (blades - k) * period`
-    # onwards -- so blade 1 came from one stretch of the history and blade 4
-    # from another, and any difference between two blades mixed a real
-    # azimuthal difference with a difference in WHEN they were sampled.
-    #
-    # ITEM 16 ON THIS PATH TOO: the window is the ROW'S, the same one the POLAR
-    # and the time average use, and not a second derivation. Deriving the last
-    # complete revolution here agreed with the row only when the row asked for
-    # exactly one, and disagreed the moment it asked for half or for three.
-    # THE ROW'S OWN COUNT OF REVOLUTIONS, in this row's steps; see the note on
-    # the per-rotor path for why the window is read as a COUNT rather than as a
-    # range. A row stating `last_revs_avg` gets exactly that many turns.
-    #
-    # A ROW WRITTEN BEFORE THIS RELEASE KEEPS THE ANSWER IT HAS ALWAYS HAD: its
-    # last complete revolution. That is the whole migration for `per_blade` --
-    # existing matrices produce the same windows they did, and only a row
-    # that states the new key moves.
+    # Use one shared window for every blade so blade comparisons sample
+    # the same time interval (item 8). Read the row's requested revolution
+    # count, as for the polar and time average (item 16). With no count,
+    # use the last complete revolution; with last_revs_avg, use that many
+    # turns in this rotor's steps.
     wanted = _stated_blade_steps(case, per_revolution or 0.0)
     if wanted is not None:
         blade_span: tuple[int, int] | None = (max(span[1] - wanted + 1, 1), span[1])
@@ -1169,12 +1124,9 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     rotor = case.recipe == "unsteady_rotor"
     try:
         if rotor:
-            # THE CLOCK MOTION'S SPEED where the row states its speeds in
-            # MOTIONS, which `_optional_rotor_speed` resolves; `rotor_speed`
-            # alone asks the ROW, and a 0.15.0 transition row carries no RPM
-            # of its own, so every reduction of the point was skipped
-            # (FR-64, FR-68). Falling through to `rotor_speed` keeps the
-            # refusal a row with no speed anywhere has always been given.
+            # Use the clock motion's speed for MOTIONS rows (FR-64, FR-68), resolved
+            # by _optional_rotor_speed. Fall through to rotor_speed for its refusal
+            # when the row states no speed anywhere.
             clock = _optional_rotor_speed(case)
             stepping = rotor_time_stepping(
                 case, speed=clock if clock is not None else rotor_speed(case)
@@ -1218,7 +1170,7 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     if not rotor:
         return plan
 
-    # THE SPEED OF A ROW THAT STATES ITS ROTOR WITH FLAT KEYS (0.24.0). It plans no
+    # THE SPEED OF A ROW THAT STATES ITS ROTOR WITH FLAT KEYS. It plans no
     # per-rotor block, and the rotor table read a rotor's speed from that block
     # alone, so such a row never got its table although the clock above was
     # computed from this very number. Signed, as a block's is. A row whose speed
@@ -1228,11 +1180,9 @@ def reduction_windows(case: SimCase) -> dict[str, object] | None:
     except CampaignConfigError:
         pass
 
-    # ONE BLOCK PER ROTOR THE ROW TURNS (FR-68), each over its OWN blade
-    # passage. A row turning one rotor also gets a block, so the products
-    # may name it, and the flat keys below stay exactly what they were: a
-    # row that states no motion, which is every row written before 0.15.0,
-    # reduces as it always did.
+    # One block per rotor the row turns (FR-68), each over its own blade
+    # passage, including a single rotor. The flat keys below serve rows
+    # that state no motion.
     turning, lost = _the_rotors_the_row_turns(case)
     if turning or lost:
         return _named_rotors_plan(

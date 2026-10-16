@@ -1,4 +1,4 @@
-# Unsteady Solver chapter (SRC-003 pp.347-348): per-time-step
+# Unsteady Solver chapter (FSM-26.120 pp.347-348): per-time-step
 # monitoring plots and their export. SET_SOLVER_UNSTEADY itself lives
 # in solver_settings.yaml with the other solver mode selectors.
 
@@ -23,22 +23,22 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-003 p.347"
+  manual_ref: "FSM-26.120 p.347"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.350, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.308, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.321, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.320, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.350, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123"}
+    "26.123": {status: documented, note: "FSM-26.123 p.352, unchanged from FSM-26.122 p.352"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.352, the FSM-26.123 file, carried from 26.123"}
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
-        SRC-753 p.359 lists CDP and CDV among the parameters where SRC-752
+        FSM-26.125 p.359 lists CDP and CDV among the parameters where FSM-26.124
         p.352 listed CDI and CDO, as the edition renames the drag split of
         its loads table to pressure drag and viscous and separation drag
         (the 26.125 entry of manual_editions in _meta.yaml). The 26.125
@@ -74,18 +74,18 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
       type: str
     - name: vertex
       type: str
-  manual_ref: "SRC-003 p.347"
+  manual_ref: "FSM-26.120 p.347"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.308, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.321, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.320, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121":
       status: documented
       note: >
-        SRC-740 p.350 extends PARAMETER with the six boundary-layer
+        FSM-26.121 p.350 extends PARAMETER with the six boundary-layer
         values, so the 26.121 grammar differs from the 26.120 one in
         its enum alone; the args override below carries it.
       args:
@@ -103,7 +103,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
           type: str
     "26.122":
       status: documented
-      note: "SRC-750 p.352 lists the six BL parameters as in SRC-740 p.350."
+      note: "FSM-26.122 p.352 lists the six BL parameters as in FSM-26.121 p.350."
       args:
         - name: frame
         - name: parameter
@@ -114,7 +114,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
         - name: vertex
     "26.123":
       status: documented
-      note: "SRC-751 p.352 lists the six BL parameters as in SRC-740 p.350."
+      note: "FSM-26.123 p.352 lists the six BL parameters as in FSM-26.121 p.350."
       args:
         - name: frame
         - name: parameter
@@ -127,7 +127,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
       status: verified
       report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml"
       note: >
-        SRC-752 p.352, the SRC-751 file, carried from 26.123.
+        FSM-26.124 p.352, the FSM-26.123 file, carried from 26.123.
         The six BL parameters are documented there; the report does not
         verify each parameter.
       args:
@@ -141,7 +141,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
-      note: "SRC-753 p.359, unchanged from SRC-752 p.352; the argument list is the one SRC-752 prints, carried with the text"
+      note: "FSM-26.125 p.359, unchanged from FSM-26.124 p.352; the argument list is the one FSM-26.124 prints, carried with the text"
       args:
         - name: frame
         - name: parameter
@@ -155,7 +155,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
     VERTEX takes the three coordinates preformatted on one line
     (X, then Y, then Z). The manual documents FRAME as the system the
     plot's VALUES are computed in and says nothing about which frame
-    the vertex is read in (SRC-003 p.347), so this entry does not say
+    the vertex is read in (FSM-26.120 p.347), so this entry does not say
     either; the 26.121 surface probe states it and this command does
     not. The typed triple validation
     lives in the caller, the same preformatted-token convention as the
@@ -165,18 +165,18 @@ UNSTEADY_SOLVER_DELETE_ALL_PLOTS:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-003 p.347"
+  manual_ref: "FSM-26.120 p.347"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.351, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.308, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.321, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.320, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.351, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
-    "26.124": {status: documented, note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.360, unchanged from SRC-752 p.353"}
+    "26.123": {status: documented, note: "FSM-26.123 p.353, unchanged from FSM-26.122 p.353"}
+    "26.124": {status: documented, note: "FSM-26.124 p.353, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.360, unchanged from FSM-26.124 p.353"}
   notes: >
     Removes every unsteady solver plot, force and fluid alike, in one
     call; there is no documented per-plot delete. Found missing from
@@ -190,18 +190,18 @@ UNSTEADY_SOLVER_EXPORT_PLOTS:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 p.347"
+  manual_ref: "FSM-26.120 p.347"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.308, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.350, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.346, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.308, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.321, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.320, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.350, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.343, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.352, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.359, unchanged from SRC-752 p.352"}
+    "26.123": {status: documented, note: "FSM-26.123 p.352, unchanged from FSM-26.122 p.352"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.352, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.359, unchanged from FSM-26.124 p.352"}
   notes: >
     Exports every unsteady solver plot (force and fluid) with one
     column per plot and one row per time step.
@@ -228,13 +228,13 @@ NEW_UNSTEADY_SOLVER_SURFACE_PROBE:
     - name: z
       type: float
       unit: length units of the named coordinate system
-  manual_ref: "SRC-740 p.350"
+  manual_ref: "FSM-26.121 p.350"
   versions:
     "26.121": {status: documented}
-    "26.122": {status: documented, note: "SRC-750 p.352, same grammar as 26.121"}
-    "26.123": {status: documented, note: "SRC-751 p.352, unchanged from SRC-750 p.352"}
-    "26.124": {status: documented, note: "SRC-752 p.352, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.359, unchanged from SRC-752 p.352"}
+    "26.122": {status: documented, note: "FSM-26.122 p.352, same grammar as 26.121"}
+    "26.123": {status: documented, note: "FSM-26.123 p.352, unchanged from FSM-26.122 p.352"}
+    "26.124": {status: documented, note: "FSM-26.124 p.352, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.359, unchanged from FSM-26.124 p.352"}
   notes: >
     Samples one surface property per solver time step at a fixed
     vertex, the surface counterpart of UNSTEADY_SOLVER_NEW_FLUID_PLOT.
@@ -272,18 +272,18 @@ UNSTEADY_SOLVER_ANIMATION:
       values: [VTK, DAT, VTK2D]
       required: false
       joins_previous: true
-  manual_ref: "SRC-003 pp.347-348"
+  manual_ref: "FSM-26.120 pp.347-348"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.309, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.321, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.320, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 pp.343-344, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.346-347, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.309, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.321, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.320, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 pp.343-344, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.346-347, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 pp.351-352, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.353, unchanged from SRC-750 p.353"}
-    "26.124": {status: documented, note: "SRC-752 p.353, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.360, unchanged from SRC-752 p.353"}
+    "26.121": {status: documented, note: "FSM-26.121 pp.351-352, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.353, unchanged from FSM-26.122 p.353"}
+    "26.124": {status: documented, note: "FSM-26.124 p.353, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.360, unchanged from FSM-26.124 p.353"}
   notes: >
     Writes an output file every so many time steps of an unsteady run,
     which is how an animation is produced.
@@ -309,7 +309,7 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
   args:
     - name: num_iteration
       type: int
-  manual_ref: "SRC-747 p.321"
+  manual_ref: "FSM-26.000 p.321"
   notes: >
     Sets the unsteady time-stepping iteration at which the viscous
     coupling switches on, so the early steps run inviscid and the
@@ -322,17 +322,17 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.309, this edition documents it"
+      note: "FSM-25.000 p.309, this edition documents it"
     "25.100":
       status: documented
-      note: "SRC-748 p.322, this edition documents it"
+      note: "FSM-25.100 p.322, this edition documents it"
     "26.000":
       status: documented
-      note: "SRC-747 p.321, this edition documents it"
+      note: "FSM-26.000 p.321, this edition documents it"
     "26.100":
       status: removed
       note: >-
-        SRC-741 pp.275-369, the whole scripting reference of the
+        FSM-26.100 pp.275-369, the whole scripting reference of the
         26.100 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -341,7 +341,7 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
     "26.101":
       status: removed
       note: >-
-        SRC-725 pp.280-375, the whole scripting reference of the
+        FSM-26.101 pp.280-375, the whole scripting reference of the
         26.101 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -350,7 +350,7 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
     "26.120":
       status: removed
       note: >-
-        SRC-003 pp.281-376, the whole scripting reference of the
+        FSM-26.120 pp.281-376, the whole scripting reference of the
         26.120 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -359,7 +359,7 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
     "26.121":
       status: removed
       note: >-
-        SRC-740 pp.284-379, the whole scripting reference of the
+        FSM-26.121 pp.284-379, the whole scripting reference of the
         26.121 edition, does not print this command. That is a
         fact about the document rather than a measurement of the
         solver, which is the weakest of the three ways a removal
@@ -386,12 +386,12 @@ SOLVER_TIME_AVERAGING:
       type: int
     - name: ending_iteration
       type: int
-  manual_ref: "SRC-750 p.353"
+  manual_ref: "FSM-26.122 p.353"
   notes: >
     Averages the surface flow properties over a window of unsteady
     time iterations, given as the first and last iteration to
     include. First documented by the 26.122 edition.
-    UNVERIFIED: SRC-750 p.353 names each bound an unsteady time iteration
+    UNVERIFIED: FSM-26.122 p.353 names each bound an unsteady time iteration
     without explicitly distinguishing time steps from inner iterations.
     The pproc conversion uses inclusive time steps; the C01 hang on
     2026-09-19 prevented verification of the bounds. The export header
@@ -408,14 +408,14 @@ SOLVER_TIME_AVERAGING:
       status: verified
       report: "reports/compat/CMP-26122_2026-09-25_time-averaging.yaml"
       note: >
-        SRC-750 p.353 documents the command. Measured 2026-09-25 on FlightStream
+        FSM-26.122 p.353 documents the command. Measured 2026-09-25 on FlightStream
         26.122 (build 8092026) by the licensed probe T21 (RPT-079): ENABLE 7 12,
         just before INITIALIZE_SOLVER on a 12-step unsteady point, ran and made
         the final surface the uniform mean of the run's per-step surfaces over
         TIME STEPS 7 to 12 inclusive, to 1e-13 in Cp, Vx and speed; the skin
         friction is not averaged (the last step's). Folded in by hand: the
         promotion cannot rewrite a block that carries a note.
-    "26.123": {status: removed, report: "reports/compat/CMP-26123_2026-09-25_time-averaging.yaml", note: "SRC-751 p.353 documents the command; MEASURED REMOVED 2026-09-25 on FlightStream 26.123 (build 8112026) by the licensed probe T21 (RPT-079): the line SOLVER_TIME_AVERAGING ENABLE 7 12 was refused as an unrecognized command and the script stopped there, while the same line, byte for byte, ran on 26.122. The edition documents a command the build does not carry."}
+    "26.123": {status: removed, report: "reports/compat/CMP-26123_2026-09-25_time-averaging.yaml", note: "FSM-26.123 p.353 documents the command; MEASURED REMOVED 2026-09-25 on FlightStream 26.123 (build 8112026) by the licensed probe T21 (RPT-079): the line SOLVER_TIME_AVERAGING ENABLE 7 12 was refused as an unrecognized command and the script stopped there, while the same line, byte for byte, ran on 26.122. The edition documents a command the build does not carry."}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE hangs the solver both in INIT before INITIALIZE_SOLVER and [...]"}
 
 SET_NEW_UNSTEADY_SOLVER_ACTION:
@@ -430,7 +430,7 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
     - name: filename
       type: path
       own_line: true
-  manual_ref: "SRC-750 p.353"
+  manual_ref: "FSM-26.122 p.353"
   notes: >
     Registers an action the solver runs after each unsteady time
     step, either a FlightStream script or a shell command. First
@@ -450,9 +450,9 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
     arguments appended to the script or the shell command, the working
     directory the command is run from, whether the time-step index or
     the physical time is reachable from inside it, and any environment
-    the solver sets. The scripting pages, SRC-750 p.353 and
-    SRC-751 p.353, describe TYPE, NAME and FILENAME and stop. The
-    user-interface pages, SRC-750 p.212 and SRC-751 p.212, are the only
+    the solver sets. The scripting pages, FSM-26.122 p.353 and
+    FSM-26.123 p.353, describe TYPE, NAME and FILENAME and stop. The
+    user-interface pages, FSM-26.122 p.212 and FSM-26.123 p.212, are the only
     other place the feature is described at all; they say the actions
     run after each time step, that several may be registered, that they
     execute in creation order and that the order cannot be changed
@@ -484,19 +484,19 @@ SET_NEW_UNSTEADY_SOLVER_ACTION:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.353, the first edition to document it"
+      note: "FSM-26.122 p.353, the first edition to document it"
     "26.123":
       status: documented
       note: >-
-        SRC-751 p.353, unchanged from SRC-750 p.353. Run on 2026-09-08 as
+        FSM-26.123 p.353, unchanged from FSM-26.122 p.353. Run on 2026-09-08 as
         tests/tier3_licensed/matriz_actions.fs row 6001, eight time steps
         (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-041_script-action-reread-on-26123_2026-09-08.md):
         SCRIPT action file re-read on every invocation: YES; eight
         invocations for eight steps, none before the first; no arguments,
         no solver-named environment, working directory the simulation
         folder; exports from an action script are stamped _iteration=N.
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "SRC-752 p.353, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.360, unchanged from SRC-752 p.353"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_t1-probe.yaml", note: "FSM-26.124 p.353, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.360, unchanged from FSM-26.124 p.353"}
 
 ENABLE_SOLVER_TIME_AVERAGING:
   layout: inline
@@ -506,16 +506,16 @@ ENABLE_SOLVER_TIME_AVERAGING:
       type: int
     - name: ending_iteration
       type: int
-  manual_ref: "SRC-753 p.360"
+  manual_ref: "FSM-26.125 p.360"
   versions:
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.360, the first edition to document it"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.360, the first edition to document it"}
   notes: >
     Turns on the time averaging of the surface flow properties over a
     window of unsteady time iterations, from the first iteration of the
     window to its last, both counted in the solver's own time steps.
     First documented by the 26.125 edition, where it stands in the place
-    SOLVER_TIME_AVERAGING held in SRC-752 (p.353): that command took the
-    toggle and the window together, and SRC-753 no longer prints it.
+    SOLVER_TIME_AVERAGING held in FSM-26.124 (p.353): that command took the
+    toggle and the window together, and FSM-26.125 no longer prints it.
 
     WARNED WHERE NO RUN VERIFIED IT. Its predecessor hung 26.124 (C01,
     recorded on that command's own 26.124 row). This is another command of
@@ -527,9 +527,9 @@ DISABLE_SOLVER_TIME_AVERAGING:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-753 p.360"
+  manual_ref: "FSM-26.125 p.360"
   versions:
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.360, the first edition to document it"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.360, the first edition to document it"}
   notes: >
     Turns the time averaging of the surface flow properties off. It
     takes no argument. First documented by the 26.125 edition, beside

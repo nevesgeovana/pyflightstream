@@ -34,9 +34,9 @@ __all__ = [
 ]
 
 
-#: The two selector words this release retires, each to its ledger entry.
+#: The two retired selector words, each mapped to its ledger entry.
 #: They are the two that decide what a BLADE is from a pattern over the
-#: family name; `all` and `each` guess nothing and stay .
+#: family name; `all` and `each` guess nothing and remain supported.
 _SELECTORS_THAT_GUESS = {
     "airframe": ROW_AIRFRAME_SELECTOR,
     "blades": ROW_BLADES_SELECTOR,
@@ -49,10 +49,7 @@ def warn_a_selector_that_guesses(word: str) -> NoReturn:
     The name is the one it was published under, when the selector still
     warned; it has refused since, and it never returns.
     """
-    # NO PREFIX. The ledger entry already opens with its owner, so
-    # prefixing "a families cell" produced "a families cell: families =
-    # 'airframe' of a families cell was renamed to ..." (the interface lens
-    # of 2026-09-10).
+    # The ledger entry already names its owner, so no prefix is needed.
     raise CampaignConfigError(refusal_text(_SELECTORS_THAT_GUESS[word]))
 
 
@@ -154,29 +151,24 @@ def select_families(
             return [aliased] if aliased else []
         if selection == "all":
             return [[]]
-        # THE ALIAS WAS TRIED FIRST, six lines up, so reaching here means
-        # the word was read AS A SELECTOR and no alias of that name
-        # resolved. That is the only case the retirement is about: a
-        # reference that declares `airframe` keeps working unchanged, which
-        # is what every one of the reference rows does (the design decision of 2026-09-10).
+        # The alias lookup has already failed, so this word is a selector.
+        # A reference that declares an airframe alias uses that alias instead
+        # of reaching this retired-selector refusal.
         if selection in _SELECTORS_THAT_GUESS:
             warn_a_selector_that_guesses(selection)
         if selection == "each":
             return [[name] for name in inventory]
         if selection == "each_blade":
             return [[name] for name in blades]
-        # A bare word outside the five and the aliases was read as a family
-        # above (the reference p001 of 2026-09-09); one the inventory lacks is
-        # an empty result.
+        # A bare word outside the selectors and aliases resolves as a family;
+        # one absent from the inventory produces an empty result.
         return []
     chosen: list[str] = []
     alone = len(selection) == 1
     for item in selection:
-        # A list member resolves as the bare word does, family fallback
-        # included (the interface lens of 2026-09-09: the same word selected
-        # six blades written alone and nothing written in a list). Only a
-        # numbered member the geometry lacks differs: one of several selects
-        # nothing and the caller's rule for a lacked name decides (FR-320).
+        # A list member uses the bare-word family fallback. A numbered member
+        # absent from the geometry selects nothing; the caller then decides
+        # whether to warn, skip or refuse it (FR-320).
         resolved = _resolve_token(str(item), inventory, aliases, strict=strict, alone=alone)
         if resolved is not None:
             names = resolved
@@ -252,7 +244,7 @@ def resolve_alias(
 ) -> list[str] | None:
     """Resolve one cited name as an alias of the setup, or None when it is not one.
 
-    an alias is a name the setup's
+    An alias is a name the setup's
     ``[aliases]`` table gives to a list of boundary names or families,
     and it is read wherever a boundary is cited, the exact spelling
     first and case folded second, as a family is. Each member resolves as
@@ -266,11 +258,9 @@ def resolve_alias(
     an empty list, and
     the caller says what that means for its key.
 
-    ADDED ONE THING and it changes this
-    function's contract: a member may be ANOTHER ALIAS, and the reader
+    A member may be another alias, and the reader
     follows it to the end. A member the inventory carries is that
-    boundary first, whatever else shares its spelling, so the addition
-    cannot change what an existing file resolves to.
+    boundary first, whatever else shares its spelling.
 
     Parameters
     ----------
@@ -359,23 +349,15 @@ def _resolve_token(
     means the token is none of the three, and the caller reads it as a
     selector word or as nothing.
     """
-    # THE INVENTORY IS ASKED FIRST, and it has to be. A token that names a
-    # boundary the mesh carries is that boundary, whatever else shares its
-    # spelling. Without this order an alias `wing` whose member is the family
-    # `Wing` resolves to ITSELF, because an alias is matched case folded, and
-    # the reader reports a cycle over a file that has none (measured
-    # 2026-09-10 against
-    # test_the_refusal_cites_the_word_the_artifact_writes_not_the_alias_members).
+    # Ask the inventory first: a token naming a boundary is that boundary,
+    # regardless of an alias with the same spelling. This keeps wing = ["Wing"]
+    # from becoming a false cycle through case-folded alias lookup.
     if token in inventory:
         return [token]
     nested = _alias_key(token, aliases) if aliases else None
-    # A MEMBER THAT NAMES ITS OWN ALIAS IS NOT A RING, it is the 0.14.0 case of
-    # an alias resolving to nothing: `wing = ["Wing"]` over a mesh whose wing
-    # was renamed matches the alias itself when names are folded, and that
-    # file has no ring in it. It falls through to the FAMILY reading, which
-    # finds the wings of a mesh that has them and nothing of one whose wing
-    # was renamed. A ring needs two distinct aliases, and that is what is
-    # refused below.
+    # A member naming its own alias is not a cycle. Resolve it as a family:
+    # wing = ["Wing"] selects the mesh's wing family, or nothing when absent.
+    # A cycle requires two distinct aliases and is refused below.
     if seen and nested == seen[-1]:
         nested = None
     if nested is not None and nested in seen:
@@ -387,14 +369,11 @@ def _resolve_token(
         )
     if nested is not None and aliases is not None:
         return _resolve_alias_key(nested, inventory, aliases, seen=seen)
-    # THE REFUSAL IS FOR A WORD CITED ALONE (the decision of 2026-10-12 on
-    # PFS-2029.25). Refusing an absent numbered name by its exact spelling was
-    # decided for the boundary a matrix cell cites. A MEMBER of a list, a group or an alias is
-    # one name among several that one file gives every model of a study, and a
-    # member the geometry lacks is ignored (the alias decision of 2026-09-09)
-    # and then warned about or refused by the caller's own rule (FR-320,
-    # FR-435): a sector row lacking four blades plans READY. Either way a
-    # numbered name selects that exact name and never its numbered siblings.
+    # Refuse an absent numbered name cited alone (PFS-2029.25). In a list,
+    # group or alias it is one member among several shared across a study's
+    # models, so an absent member is ignored here and then warned about or
+    # refused by the caller (FR-320, FR-435). A numbered name selects only
+    # that exact name, never its numbered siblings.
     if not alone:
         return _literal_names(token, inventory) or None
     return _family_names(token, inventory, strict=strict) or None
@@ -418,14 +397,13 @@ def alias_members_missing(
     Each pair is ``(the alias that DECLARES the member, the member)``, and
     the first half is the point: on a nested alias the declaring one is not
     the one the entry cited, and it is the table row the user has to edit.
-    A message naming only the cited word sent a reader to the wrong line
-    .
+    Naming the declaring alias directs the reader to the table row to edit.
 
     A token that names no alias, or an alias every member of which
     resolves, gives an empty list. A RING RAISES, exactly as
     :func:`resolve_alias` does and with the same message: a reporter that
     answered confidently for a file the resolver refuses is a second
-    reading of one file . A token that
+    reading of one file. A token that
     is an exact boundary of the inventory is that boundary and not the alias
     of its spelling, so it gives an empty list (PFS-2104.029).
     """
@@ -536,17 +514,16 @@ def select_group_members(
         token = str(member)
         names = _resolve_token(token, inventory, aliases, strict=strict, alone=alone) or []
         if not names and token == EVERY_FAMILY:
-            # THE WORD THE DEPRECATION TELLS AN EMPTY GROUP'S OWNER TO WRITE (0.24.0).
+            # THE WORD THE DEPRECATION TELLS AN EMPTY GROUP'S OWNER TO WRITE.
             # A group is ONE alias as a string, an empty list was every family, and
             # its replacement is `"all"`; it selected nothing, so following the
             # package's own advice cost the polar of the whole configuration. An
             # alias, a boundary or a family of that name is tried first and wins.
             names = list(inventory)
         elif names and token == EVERY_FAMILY:
-            # AND WHEN ONE DOES WIN, IT IS SAID (release review of 0.24.0, API-B9): a
-            # geometry with a surface or a family called `all` turns the word that
-            # means every surface into that one surface, and a polar of one surface
-            # under the configuration's group name is a number nobody asked for.
+            # Warn when a geometry surface or family wins over a selector such as all.
+            # Otherwise a configuration group could contain only that surface without
+            # telling the caller that the selector was shadowed.
             warn(
                 f'the group member "{EVERY_FAMILY}" selected {names}, a surface, family '
                 "or alias of that name, and NOT every surface of the geometry. Rename "

@@ -159,7 +159,7 @@ _ONE_FREE_STREAM = (
     "custom free stream."
 )
 
-#: THE FIELD IS THE FLOW'S DIRECTION, MEASURED (T14, 0.27.0). On FlightStream
+#: THE FIELD IS THE FLOW'S DIRECTION, MEASURED (T14). On FlightStream
 #: 26.124 a uniform field of the row's own speed loaded as the CONSTANT free
 #: stream at 0 deg, and at 4 deg it loaded near its own 0 deg self and far from
 #: the CONSTANT free stream at 4 deg: ``SOLVER_SET_AOA`` does not turn a custom
@@ -529,13 +529,12 @@ def _free_stream(
     the reference declares it in ``[body_axes]`` and a reference declaring none
     is a configuration no row may turn.
 
-    Every rate zero, or no rate at all, emits CONSTANT: a row written before
-    this release renders exactly what it rendered before.
+    Every rate zero, or no rate at all, emits CONSTANT.
 
     The rotation is emitted with the sign of its body axis in the geometry's
     frame, ``FREESTREAM_ROTATION_SIGN``: roll and yaw are NEGATED and pitch is
     not, because forward is -x and down is -z of a frame that points aft and
-    up (G13, 0.27.0; RPT-052 and RPT-060 measured the sense on 26.124).
+    up (G13; RPT-052 and RPT-060 measured the sense on 26.124).
     """
     if custom is not None:
         from ..freestream import prepare_field
@@ -641,10 +640,8 @@ def _fluid(case: SimCase, script: Script) -> None:
     point in the first place. Emitting the state we computed says
     exactly what will be solved.
 
-    A case carrying no resolved state emits NOTHING here, which is what
-    keeps every case written before 0.9.0, and every hand-written
-    campaign that sets no fluid, rendering exactly what it rendered
-    before.
+    A case carrying no resolved state emits NOTHING here; a campaign that
+    sets no fluid leaves the solver's fluid state untouched.
     """
     fluid = case.fluid
     if fluid is None:
@@ -672,8 +669,7 @@ def _wake_termination(case: SimCase, stepping: TimeStepping) -> int | None:
     none keeps 4 radii. The conversion needs the case's clock and its rotor,
     which is why it happens at build time, in
     :func:`pyflightstream.cases.workflows._freestream.wake_termination_of`. Two of
-    the three keys can only disagree, and are refused (FR-322, which the
-    refusal of 0.33.0 for revolutions beside steps joins). Returns None where
+    the three keys can only disagree, and are refused (FR-322). Returns None where
     a default cannot be converted, so such a case emits nothing.
     """
     return wake_termination_of(case, stepping).steps
@@ -682,12 +678,8 @@ def _wake_termination(case: SimCase, stepping: TimeStepping) -> int | None:
 def _refuse_wake_termination_without_a_clock(case: SimCase) -> None:
     """Refuse a wake termination on a run type that has no clock to convert it.
 
-    THE STEADY BUILDER USED TO DROP THIS SILENTLY. A preset stating
-    ``unsteady_N_revolutions_wake`` resolved onto a steady case,
-    validated, reached no emitted line, and said nothing, which is
-    exactly the defect this release closes one layer up for a preset key
-    that maps to no field at all. A key that maps to a field and still
-    reaches no script is the same wrong answer with a longer path to it.
+    A steady case cannot emit ``unsteady_N_revolutions_wake``. Refuse the
+    preset rather than accepting a field that reaches no script line.
 
     Revolutions cannot be converted here rather than merely being
     unused: a steady run has no time step and no rotor speed, so there
@@ -714,12 +706,9 @@ _DECIMAL = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)$")
 def _log_position_shape(text: str) -> str:
     """Classify a LOG_OUTPUT cell that is not a whole number.
 
-    THE FIRST VERSION ASKED `float(text)`, which is wider than the
-    message it selected: `nan`, `inf` and `1e3` all parse, so their
-    users were told the value "takes no decimal point" about
-    characters containing no decimal point. A refusal whose whole job is
-    to point at the cell someone typed cannot be wrong about what they
-    typed.
+    Distinguish decimal syntax from other non-integer forms so the refusal
+    describes the actual cell. float parsing alone also accepts nan, inf
+    and exponent notation, which need a different explanation.
     """
     if _DECIMAL.match(text):
         return "decimal"
@@ -797,7 +786,7 @@ def _finish_custom_field_coverage(case: SimCase, script: Script) -> None:
 
 
 #: The wake length a rotor row keeps when nothing states its termination, in
-#: rotor radii (FR-583): the recommendation of 2026-10-01, kept for
+#: rotor radii (FR-583), chosen for
 #: its computational cost; any length may be stated instead.
 DEFAULT_WAKE_LENGTH_R = 4.0
 
@@ -1075,7 +1064,7 @@ def wake_termination_of(case: SimCase, stepping: TimeStepping | None = None) -> 
     WakeTermination
         The steps the script emits and what they came from. A row stating no
         termination gets the 4R default (FR-583); a default with no rotor
-        radius known converts nothing and emits nothing, as before 0.34.0.
+        radius known converts nothing and emits nothing.
 
     Raises
     ------
@@ -1145,8 +1134,8 @@ def settings_with_the_wake(case: SimCase, script: Script, stepping: TimeStepping
 def wake_end_plane(case: SimCase, script: Script) -> str:
     """Return the ``wake_termination_x`` argument of ``INITIALIZE_SOLVER`` (FR-324).
 
-    ``DEFAULT`` where the setup states no plane, so the script is the one
-    0.33.0 wrote (FR-597); else the stated X in metres, written in the
+    ``DEFAULT`` where the setup states no plane (FR-597); else the stated X
+    in metres, written in the
     simulation's length unit as every length this package hands the solver.
     """
     plane = case.solver.wake_termination_x_m

@@ -12,13 +12,10 @@ Scalars are ``(n,)`` arrays; a ``(n, 3)`` array is written as a
 vector field. Field units are whatever the caller sampled; the
 writers never rescale.
 
-EVERY FILE CARRIES WHAT PRODUCED IT (PFS-2012.11, the requirement of
-2026-08-16). A flow-visualization file used to hold coordinates, field
-blocks and a title string, so the settings that produced the numbers had
-to be recovered by joining the file back to the campaign's ``runs.json``
-through a run identifier the file did not carry either. A file that
-needs another file is the opposite of self-contained: separate the two
-and the numbers survive while their meaning does not.
+EVERY FILE CARRIES WHAT PRODUCED IT (PFS-2012.11). Coordinates, field
+blocks and a title alone cannot identify the settings that produced the
+numbers. Carry that context with the export so it remains interpretable
+apart from the campaign's ``runs.json``.
 
 Neither format has a place for a sixty-five-flag record, so the record
 goes BESIDE the file, named after it, as
@@ -238,9 +235,7 @@ def _refuse_existing(destination: Path, overwrite: bool) -> None:
     """Refuse a destination that already exists (PFS-2011.02)."""
     if destination.exists() and not overwrite:
         raise OutputExistsError(
-            f"{destination} already exists. This writer replaced it silently before "
-            "v0.8.0, which is the shape PYFS-005 records: one point of a run "
-            "overwrote another's output while the run record listed both complete. "
+            f"{destination} already exists. "
             "Pass overwrite=True to replace it deliberately, or write under a name "
             "that carries the point."
         )

@@ -188,7 +188,7 @@ def _print_sync(entry: dict[str, Any]) -> None:
     )
     for conflict in files["conflicts"][:20]:
         print(f"    CONFLICT file {conflict}")
-    # 0.32.0 (package B2): archives skipped, the sims/ folders, the restore.
+    # Package B2: archives skipped, the sims/ folders, the restore.
     for line in sync_summary_lines(entry):
         print(line)
     for sim, what in entry.get("inputs_links", {}).items():
@@ -205,7 +205,7 @@ def _print_sync(entry: dict[str, Any]) -> None:
         print(f"  matrix {item['matrix']}: {verb} ({item['path']})")
     for item in matrices.get("not_copied", []):
         print(f"  matrix {item['matrix']}: not copied, {item['reason']}")
-    # 0.30.0: the points the other workspace planned that no merged record carries.
+    # The other workspace's planned points that no merged record carries.
     for stem, plan in entry.get("plan_points_without_record", {}).items():
         if "error" in plan:
             print(f"  plan {stem}: {plan['error']}")
@@ -232,7 +232,7 @@ def _print_plan(
     cost: bool,
     rows: Sequence[Mapping[str, Any]] = (),
 ) -> None:
-    """Print a plan as titled blocks, a blank line between two (0.31.0).
+    """Print a plan as titled blocks, a blank line between two.
 
     STDOUT carries every block but the warnings, as it carried the summary
     before; the warnings stay on stderr, held until the header is out so they
@@ -334,8 +334,7 @@ def _plan_blocks(
     elif cost:
         # A FLAG THE USER PASSED MUST ANSWER. `point_costs` returns nothing
         # when no planned point resolves to a case, and printing nothing is
-        # indistinguishable from not having passed the flag at all (the
-        # interface lens, 2026-09-11).
+        # indistinguishable from not having passed the flag at all.
         costs = wrap(
             "no cost row: none of the planned points resolved to a case of this "
             "matrix, so there is nothing to table. The plan above still stands.",

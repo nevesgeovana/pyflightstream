@@ -1,107 +1,31 @@
-"""Read a FlightStream manual and report what the command database is missing.
+"""Read FlightStream manuals and compare their command coverage.
 
-Pipeline role: maintainer utility, outside the run pipeline. Imports
-nothing ABOVE the bottom layer (its own errors module, and
-``pyflightstream.extras`` lazily for the optional pdf dependency), so it
-can be used from any layer.
+Maintainer tooling at the bottom layer: dependencies are its errors module
+and the optional PDF extra, loaded lazily. It extracts command names,
+pages, signatures and differences against the database.
 
-WHAT THIS IS FOR. When the vendor ships a build, its manual documents
-some commands the database does not have and, less obviously, sometimes
-stops documenting ones it does. Finding that by reading is the work this
-replaces: point these functions at the new manual and get the command
-list, each command's page and signature, and the difference against the
-database.
+Grammar proposals are drafts requiring human review (CONTRIBUTING.md
+invariant 3). A variable-length list, keyword block or alternative sample
+form cannot be reduced reliably to one inline signature. Database argument
+names can also differ from the manual's placeholders. Each proposal states
+why it was made; an unknown type is None and renders as ???, which the
+schema refuses.
 
-This module does not create database entries. ``insert_version_row`` inserts a single version
-row into an existing entry; the registration transaction belongs to ``utils.database``.
+Parameter tables supply type proposals. Counting and indexing rules run
+before enum rules, and enum rules read only the sentence introducing the
+set. sample_contradiction checks each proposal against the printed sample;
+render_entry discards a contradicted type. Agreement between two readings
+of the same parameter table is not independent validation.
 
-The line is between an entry and a row on it. An entry is grammar, and
-grammar is what the emitter validates other people's scripts against, so
-inventing one is the thing the evidence rules exist to prevent (CONTRIBUTING.md
-invariant 3). A version row is a statement that a build's own edition
-documents an already-authored command identically to the edition before
-it, carrying the page of each. That is exactly what invariant 3 asks a
-`documented` status to rest on, a manual page, and the row is written
-only where two editions PARSE THE SAME, never where they differ; a
-command the new edition describes differently is reported and left for a
-person. The measurement below is about the DRAFTING half, which proposes
-entries and still writes nothing.
+This module can draft entries and insert a version row into an existing
+entry. The registration transaction belongs to utils.database. It carries
+a documented row forward only when two editions parse identically, citing
+both pages; differences require a person's reading.
 
-Measured on 2026-08-04 against the 147
-entries the database then held, authored by hand from these same manuals
-over several weeks, it reproduced 77 percent of their argument lists.
-The other 23 percent are not parser bugs to be fixed later; they are
-places where the entry encodes a JUDGEMENT the manual does not state:
-
-* a variable-length list is one ``int_list`` argument in the database and
-  N separate lines in the manual's sample;
-* a keyword block (``EDIT_COORDINATE_SYSTEM``) has no inline signature at
-  all, and its arguments are keyword lines;
-* some commands document ALTERNATIVE forms in one sample block
-  (``SET_FREESTREAM`` shows both a constant and a custom profile), so
-  there is no single argument list to read;
-* the manual names arguments ``value`` and ``enable / disable`` where the
-  database names them ``layers`` and ``mode``, and the database is the
-  better document for it.
-
-So the drafter's output is a DRAFT and a coverage report for a person
-to work from, and every proposal carries why it was proposed. A tool
-that wrote ENTRIES directly would be inventing grammar the emitter then
-uses to validate other people's scripts, which is the one thing the
-evidence rules exist to prevent (CONTRIBUTING.md invariant 3). Carrying a
-version row forward between two editions that parse identically invents
-no grammar, which is why that one is written and this one is not.
-
-RELIABILITY, measured rather than asserted, and every number below is a
-measurement of one day against one corpus rather than a standing
-property. On 2026-08-04, against the 34 entries then citing a page of
-the edition being scanned, the signature scan found 33 and put 30 on the
-exact cited page; against the 147 entries then recorded it reproduced 77
-percent of argument counts.
-
-Argument TYPES are read from a third source, the manual's own parameter
-table, which :func:`propose_type` reads and the signature and sample do
-not carry. Measured on 2026-08-05 against 148 arguments whose type this
-repository authored by hand: **57 percent agreed, 43 percent proposed
-nothing, and none disagreed.** The second number and the third are the
-design. A rule that cannot read a type returns None and the draft writes
-``???``, which the schema refuses, so more than two fifths of a tranche
-are still a person's work; what the tool must never do is propose a type
-that is wrong, because that one loads.
-
-**That last measurement was not independent, and on 2026-08-06 the
-property it certified turned out to be false.** Read what it compared:
-proposals against types a person had authored FROM THE SAME PARAMETER
-TABLE. Where the table is wrong, the tool and the reader read one source
-and agree with each other about it, and the agreement measures their
-common source rather than either of them. Checking the proposals against
-the manual's own printed SAMPLE instead found 19 positions across seven
-commands, in this database and in the tool's output alike, where the
-declared token set refuses the token the sample passes.
-:func:`sample_contradiction` is that second reading, and
-:func:`render_entry` now discards a type the sample contradicts rather
-than writing it, which turns a proposal that would have loaded into a
-``???`` that cannot. The lesson generalises past this module: a
-validation set drawn from the thing being validated measures nothing.
-
-The corpus is the other reason to distrust these numbers, since it is
-not a sample of the manual: it is the commands somebody chose to write
-first. Reading the drafts of the CAD chapter, which nobody has written,
-found the rule that reads a token LIST taking words out of the sentences
-after the one that lists them, so a threshold with two values drafted
-three. It reads one sentence now. The counting openings run before both
-enum rules, because a count whose sentence happens to spell two file
-formats ("Number of boundaries in the STL or OBJ import") is a
-count and not a choice.
-
-Pages are parsed as a single stream so a sample that crosses a page break remains part of its
-command block.
-
-The rules and the ordering are held by ``tests/tier1_offline/test_utils_manual.py`` on
-synthetic fixtures; the percentages are not, and cannot be, since a
-fixture set is not a corpus. The manual itself is licensed, lives in
-``_private/`` and never enters Git, so the fixtures imitate its SHAPE and
-carry none of its text (invariant 1).
+Pages form one stream so command samples can cross page boundaries. Tests
+use synthetic fixtures reproducing layout without licensed manual text.
+They check rules and ordering, not population-wide accuracy; the licensed
+manuals remain under _private/ and never enter Git (invariant 1).
 """
 
 from __future__ import annotations
@@ -161,19 +85,9 @@ __all__ = [
 #: line cannot pass for a command name.
 _INDEX_LINE = re.compile(r"^([A-Z][A-Z0-9_]{3,})\s+(\S.*?)\s*$")
 
-#: The scripting reference introduces each command the same way, and the
-#: placeholders after the name are its inline arguments in order.
-#:
-#: NOT anchored at the start of the line, and the difference is a
-#: margin. Under layout extraction a glyph sitting in the left margin
-#: keeps its column, so the line reads as that glyph, a run of spaces,
-#: then the heading; anchored, the match fails and the command is
-#: invisible. Measured on 2026-08-10 across the six pdf editions in the
-#: manifest at that hour, which was before 25.000's conversion and
-#: before 26.122 was registered the same day: the
-#: tolerant form finds exactly what the anchored one finds and nothing
-#: more, so it costs no precision, and it recovers two commands of 272
-#: in a pdf converted from a compiled help archive.
+#: Command headings introduce inline argument placeholders in order.
+#: Do not anchor the pattern to the line start: layout extraction can
+#: preserve a margin glyph before the heading.
 _SIGNATURE = re.compile(r"(?:^|\s)Function name:\s*([A-Z][A-Z0-9_]{2,})\s*(.*)$")
 _PLACEHOLDER = re.compile(r"<([^>]+)>")
 
@@ -280,8 +194,7 @@ def parse_script_index(pages: Mapping[int, str]) -> dict[str, str]:
 
     The index is the authoritative command list: it is the vendor's
     enumeration rather than a heuristic over headings, which is why it
-    is preferred over scanning the chapter. Measured on 2026-08-04, 142
-    of the 147 commands this database then recorded appeared in one.
+    is preferred over scanning the chapter.
 
     Parameters
     ----------
@@ -593,10 +506,8 @@ class Edition:
     """One manual to read, and where its two chapters sit in it.
 
     A registered FlightStream build and the pdf that documents it. The
-    page ranges are per edition because they MOVE: the scripting
-    reference of the four editions registered on 2026-08-08 starts on
-    four different pages, so a single range shared by all of them reads
-    the wrong pages of three.
+    page ranges are per edition because scripting-reference pagination
+    differs between manuals.
 
     KEYWORD-ONLY, and that is about ``chapter`` and ``index``
     specifically. They are two page ranges of the same type, so
@@ -624,7 +535,7 @@ class Edition:
         one. It supplies the section label only, so an edition without
         one is swept with its commands unlabelled rather than skipped.
     source : str or None
-        Citation id of this edition, for example ``"SRC-741"``, as a
+        Citation id of this edition, for example ``"FSM-26.100"``, as a
         ``manual_ref`` would spell it.
     """
 
@@ -673,8 +584,8 @@ def manual_editions(
 ) -> tuple[SweptCommand, ...]:
     """Read every manual edition and report what none of them has an entry for.
 
-    ``sweep`` is the public manual-sweep entry point. The retired spelling is handled by the
-    package's deprecation policy (PFS-2022.05).
+    ``manual_editions`` is the public Python API; ``pyfs-manual sweep``
+    is the CLI subcommand that calls it.
 
     The multi-edition form of :func:`coverage_against`, and it exists
     because the single-edition one answers a question no sweep asks. A
@@ -951,11 +862,7 @@ def unreachable_commands(
     :func:`manual_editions` compares the manuals against the set of entry
     NAMES, so an entry that exists but carries no row for one edition is
     invisible to it: the sweep reports zero absent while that build's
-    emitter refuses a command the caller's own manual documents. That is
-    not a hypothetical. On 2026-08-10 the sweep reported zero across
-    eight editions while three editions could not emit
-    ``EXPORT_ALL_SURFACE_STREAMLINES``, whose two family siblings on the
-    same manual pages did carry the rows.
+    emitter refuses a command the caller's own manual documents.
 
     Reachability, not row presence, is the measure, because a genuine
     hotfix inherits its base release's records: 26.122 carries twenty
@@ -1026,13 +933,8 @@ def unreachable_commands(
         try:
             view = recorded.for_version(edition.label)
         except Exception as unresolved:  # noqa: BLE001 - the types live a layer above
-            # TWO refusals reach here and the first version of this
-            # matched the wording of one. A label the registry cannot
-            # turn into exactly one build is either unregistered or an
-            # ALIAS naming several, and the alias is the likelier of the
-            # two in this workflow: a maintainer holding a new manual
-            # writes the name the pdf prints, which is the vendor name.
-            # That raised out of the CLI.
+            # An unresolved label can be unregistered or an ambiguous vendor alias.
+            # Handle both so the coverage report identifies the missing build.
             if type(unresolved).__name__ not in _UNRESOLVED_LABEL:
                 raise
             unmeasured.append(edition.label)
@@ -1152,9 +1054,7 @@ class RegistryLike(Protocol):
     Both attributes, because the two checks need different halves:
     :func:`stale_citations` walks ``commands`` and
     :func:`unreachable_commands` also asks ``for_version`` what a build
-    can emit. An earlier version of this docstring named both checks
-    while declaring only the first one's half, so the protocol would not
-    have typed the function it claimed to cover.
+    can emit. The protocol therefore requires both attributes.
     """
 
     @property
@@ -1189,14 +1089,9 @@ def stale_citations(
 ) -> tuple[StaleCitation, ...]:
     """Check every version row's page citation against the manual it names.
 
-    A citation is written once, from a reading, and then nothing looks
-    at it again. That is how ten rows came to cite a document that had
-    moved underneath them: the 25.000 manual is a conversion of a help
-    archive, the conversion was corrected to strip a generator footer,
-    the correction shifted the document by five pages, and the rows
-    written from the earlier conversion kept its numbers. Every one of
-    the ten pointed at a real page of a real manual, which is why
-    nothing looked wrong.
+    Check that cited pages still match the manual's command locations.
+    A regenerated conversion can shift pagination while leaving a cited
+    page number valid but pointing to the wrong command.
 
     Parameters
     ----------
@@ -1257,7 +1152,7 @@ def stale_citations(
     sits on the second.
 
     The SOURCE is checked too, where the manifest records one: a note
-    citing SRC-003 on a row keyed to the edition SRC-740 was reading a
+    citing FSM-26.120 on a row keyed to the edition FSM-26.121 was reading a
     different document, and page numbers between those two differ by a
     uniform three, so a coincidence is cheap.
     """
@@ -1363,14 +1258,14 @@ def stale_citations(
 
 
 #: A page citation inside a version-row note, source and page together,
-#: for example "SRC-749 p.286" or "SRC-741 pp.312-313". The source is
+#: for example "FSM-25.000 p.286" or "FSM-26.100 pp.312-313". The source is
 #: captured because a page number alone checks half a citation: a note
 #: naming another edition's source would otherwise be read against this
-#: edition's pdf, and between SRC-003 and SRC-740 the pages differ by a
+#: edition's pdf, and between FSM-26.120 and FSM-26.121 the pages differ by a
 #: uniform three, so a coincidence is cheap. The optional second page is
 #: captured because a span is satisfied by any page in it, and 26
 #: shipped rows cite one.
-_CITED_PAGE = re.compile(r"\b(SRC-\d{3})\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
+_CITED_PAGE = re.compile(r"\b(FSM-(?:\d{2}\.\d{3}|TEST))\s+pp?\.\s*(\d+)(?:\s*-\s*(\d+))?")
 
 #: What an edition row may hold, and what each key is for. Kept as data
 #: so the refusals can print it rather than restate it in prose.
@@ -1379,7 +1274,7 @@ _MANIFEST_KEYS = {
     "manual": "path of the manual pdf",
     "chapter": "FIRST-LAST pages of the scripting reference",
     "index": "FIRST-LAST pages of the Script Index, optional",
-    "source": "citation id, for example SRC-740, optional",
+    "source": "citation id, for example FSM-26.121, optional",
 }
 _MANIFEST_REQUIRED = ("label", "manual", "chapter")
 
@@ -1423,7 +1318,7 @@ def _edition_from_row(row: dict, where: str, known: str) -> Edition:
     if "source" in row and (not isinstance(source, str) or not source.strip()):
         raise ManualDraftError(
             f"{where}: source {source!r} parsed as {type(source).__name__}, not as a "
-            'citation id; write it (source: "SRC-751") or leave the key out'
+            'citation id; write it (source: "FSM-26.123") or leave the key out'
         )
     # Ranges before existence: both are checked before any manual is
     # opened, which is the point, and within a row a malformed page
@@ -1484,16 +1379,14 @@ def read_edition_manifest(path: str | Path) -> tuple[Edition, ...]:
         range that is not
         ``FIRST-LAST`` with FIRST no greater than LAST. Every check names
         the offending row, because a manifest is edited rarely and by
-        hand, and EVERY row is checked before any manual is opened: a
-        typo in the fourth row used to surface after three manuals had
-        been parsed.
+        hand. Check every row before opening any manual.
 
     Examples
     --------
     A manifest with one edition, as it would be written by hand::
 
         - label: "26.121"
-          source: SRC-740
+          source: FSM-26.121
           manual: _private/manual/user-manual-26121.pdf
           chapter: 284-379
           index: 380-386
@@ -1520,14 +1413,10 @@ def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]
     without a pdf and without the optional dependency: everything else in
     this module takes text.
 
-    The range is keyword-only and validated, both for the same reason. A
-    swapped pair of one-based page numbers used to return an empty
-    mapping, and ``coverage_against`` reads an empty mapping as a manual
-    that documents nothing: every database command lands under
-    "recorded here but not in this manual" and none under "absent",
-    which is a confident, clean-looking answer produced by a typo. A
-    ``first`` of zero indexed the pdf at -1 and keyed the manual's LAST
-    page as page 0, so a drafted entry cited ``p.0``.
+    Require a valid, keyword-only range of one-based page numbers.
+    Reversed bounds must not produce an empty mapping that coverage
+    would interpret as a manual documenting no commands; zero must not
+    index the last PDF page or produce a p.0 citation.
 
     Parameters
     ----------
@@ -1575,15 +1464,9 @@ def read_pdf_pages(path: str | Path, *, first: int, last: int) -> dict[int, str]
             "the page count is also the cheapest sign that this is the wrong edition: "
             "the registered manuals run between roughly 350 and 415 pages."
         )
-    # LAYOUT mode, not the default. The default reconstructs a page as a
-    # flowing string and, on some renderers, joins what were separate
-    # visual lines: a sample block and the signature heading after it
-    # come back as ONE line, and a parser that anchors on the start of a
-    # line then sees neither. Measured on 2026-08-10 across all six pdf
-    # editions this repository reads: the two modes find exactly the same
-    # commands, 274, 276, 344, 363, 363 and 364, so nothing is traded
-    # away. On a pdf converted from a compiled help archive the default
-    # found 58 commands of 272 and layout found 270.
+    # Use layout extraction to preserve visual lines. Flowing extraction can
+    # join a sample block and the next signature heading, hiding both from
+    # line-oriented parsing.
     return {
         i + 1: (reader.pages[i].extract_text(extraction_mode="layout") or "")
         for i in range(first - 1, last)
@@ -1719,8 +1602,7 @@ def _read_opening(_placeholder: str, text: str) -> tuple[str, tuple[str, ...]] |
     people's scripts.
 
     A leading article is stripped, because "The number of boundaries"
-    and "Number of boundaries" are the same statement and only the
-    second one used to be read.
+    and "Number of boundaries" carry the same meaning.
     """
     lowered = _ARTICLE.sub("", text.lower(), count=1)
     for openings, proposed, _reason in _TYPE_BY_OPENING:
@@ -1845,16 +1727,13 @@ def propose_type(
 ) -> tuple[str | None, tuple[str, ...], str]:
     """Suggest an argument type from the manual's parameter table.
 
-    The two strings are KEYWORD-ONLY (PFS-2022.05), and a
-    positional call is refused rather than warned about which is the release the ledger promised.
-    ``propose_type("AXIS", "the axis")`` and ``propose_type("the axis",
-    "AXIS")`` are both well-typed and only one is right, and nothing at
-    the call site said which.
+    Both strings are keyword-only (PFS-2022.05). A positional Python
+    call raises TypeError; naming placeholder and description prevents
+    accidentally exchanging two otherwise valid strings.
 
-    The third source, after the signature line and the sample block, and
-    the only one that says anything about a TYPE. It answered 57 percent
-    of the 148 arguments measured on 2026-08-05 and proposed nothing for
-    the rest, where the caller writes ``???`` rather than a guess.
+    The parameter table supplies type information absent from signatures
+    and samples. An unknown type remains unresolved so the caller can
+    write ``???`` rather than invent a type.
 
     The rules are tried in a stated order and the order is load-bearing.
     A counting or indexing opening decides before either enum rule,
@@ -1924,10 +1803,7 @@ def sample_contradiction(
     belongs to a different argument. All four mean the proposal must not
     be written, which is the only decision this function makes.
 
-    Measured on 2026-08-06 across the four registered editions, 195
-    enumeration positions in this database had a printed sample to check
-    against and 19 of them, spanning seven commands, declared a value set
-    that refuses the token the sample passes. ``CAD_BODY_ROTATE`` has a
+    A parameter table can disagree with its sample. ``CAD_BODY_ROTATE`` has a
     parameter table naming the three axis letters and a sample calling it
     with the index ``2``, on the same page, in every edition; three
     ``SWEEPER_SET_*_SWEEP`` commands omit a mode their own samples use.
@@ -2035,7 +1911,7 @@ def render_entry(
     command : ManualCommand
         Parsed entry, from :func:`parse_signatures`.
     source : str
-        Manual source id for the citation, for example ``"SRC-741"``.
+        Manual source id for the citation, for example ``"FSM-26.100"``.
     versions : mapping of str to str
         Canonical version to status. Only ``documented`` is meaningful
         from a manual: ``verified`` and ``broken`` need a committed probe
@@ -2149,7 +2025,7 @@ def render_chapter(
     commands : iterable of ManualCommand
         The entries to render.
     source : str
-        Manual source id for the citation, for example ``SRC-741``.
+        Manual source id for the citation, for example ``FSM-26.100``.
     versions : mapping of str to str
         Canonical version to status, as :func:`render_entry` takes it.
 
@@ -2183,12 +2059,8 @@ def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
         Output of :func:`render_chapter`.
     path : str or Path, keyword-only
         Destination. Point it at a scratch file to review before moving
-        anything into ``src/pyflightstream/commands/``. Keyword-only,
-        and it used to be the leading positional beside ``body``: two
-        adjacent arguments of the same kind, where swapping them and
-        taking the default ``write=False`` returned a well-formed dry
-        run reporting zero entries drafted, with the whole chapter body
-        printed back as the path it would have written to.
+        anything into ``src/pyflightstream/commands/``. Keyword-only to
+        prevent exchanging the destination with the chapter body.
     write : bool, keyword-only
         False, the default, writes nothing. True writes ``body`` to
         ``path``, replacing it.
@@ -2217,24 +2089,11 @@ def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
 
 
 class EditionVerdict(enum.StrEnum):
-    """What one edition does with one command, against its predecessor.
+    """Closed vocabulary for one command's relationship to a predecessor edition.
 
-    A CLOSED VOCABULARY rather than a bare string, which is how the
-    twelve other judgement sets in this package are written
-    (:class:`~pyflightstream.qa.probes.ProbeOutcome`,
-    :class:`~pyflightstream.commands.Status` and the rest). The cost of
-    the bare string was concrete: the caller decided what to WRITE by
-    comparing against three string literals, so a typo in any of them
-    evaluated false in silence and dropped commands from the write set
-    with nothing raising.
-
-    FIVE VALUES, NOT THREE. The first version returned three and its
-    caller recovered the missing two out of band, by re-testing
-    membership in the predecessor's parse, which it could only do
-    because it still held that mapping; a second consumer could not,
-    and an arrival rendered as ``p.None -> p.290`` in an
-    engineer-facing report because it was reported as a change with no
-    previous page.
+    Five values distinguish unchanged, changed, arrived, dropped and absent
+    commands. Callers can decide which rows to write without rechecking the
+    predecessor mapping or reconstructing missing distinctions.
     """
 
     #: Both editions parse to the same record, so the new edition's page
@@ -2381,13 +2240,9 @@ def documentation_delta(
         new = current.get(name)
         old = previous.get(name)
         if new is None:
-            # DROPPED and ABSENT are separated here rather than by the
-            # caller. They used to share one verdict, and the register
-            # command recovered the difference by re-testing membership
-            # in `previous`, which it could do only because it still held
-            # that mapping. A command the predecessor documented and this
-            # edition does not is the vendor breaking a script silently;
-            # a command neither documents says nothing at all.
+            # Distinguish a command documented by the predecessor but dropped by
+            # this edition from one documented by neither. The first identifies a
+            # compatibility gap; the second carries no such evidence.
             deltas.append(
                 EditionDelta(
                     name=name,
@@ -2443,12 +2298,9 @@ def insert_version_row(
     entry, so inserting by order would reorder files this has no
     business reordering.
 
-    EVERY OTHER BYTE IS UNTOUCHED, INCLUDING THE LINE ENDINGS. The first
-    version of this function said so and did not do it: it rejoined with
-    a bare line feed, so a CRLF chapter file came back LF from end to end
-    and the diff was the whole file. One chapter file in this repository
-    is CRLF on disk, and it escaped only because the one entry it holds
-    was the one command the caller refused to write.
+    Preserve all bytes outside the inserted row, including each line's
+    existing terminator. In particular, do not normalize CRLF chapters
+    to LF while inserting a version row.
 
     Parameters
     ----------
@@ -2465,7 +2317,7 @@ def insert_version_row(
         the caller's to obey (CONTRIBUTING.md invariant 3).
     note : str
         Provenance of the row, quoted and escaped on the way in. A
-        citation, for example ``"SRC-751 p.290, unchanged from SRC-750
+        citation, for example ``"FSM-26.123 p.290, unchanged from FSM-26.122
         p.289"``.
 
     Returns
@@ -2512,18 +2364,9 @@ def insert_version_row(
     except StopIteration:
         raise ManualDraftError(f"{command} has no versions block") from None
 
-    # The LAST NON-BLANK, NON-COMMENT line of the block, so the new row
-    # lands against the rows rather than after a trailing blank that
-    # separates entries or under a comment that explains the row above.
-    #
-    # A COMMENT DOES NOT END THE BLOCK, whatever its indentation, and
-    # that is the correction rather than a nicety. The first version
-    # stopped at the first line not indented four spaces, so a comment at
-    # column zero inside a versions block hid every row below it from the
-    # duplicate scan: the function would write a SECOND key for a build
-    # already recorded, YAML would keep the last and drop the other, and
-    # the run would exit 0. That is precisely the silent loss the refusal
-    # below exists to prevent, arriving through the scan instead.
+    # Insert after the last nonblank, noncomment line of the versions block.
+    # Comments do not end the block regardless of indentation; scan past
+    # them to detect every existing build key and prevent duplicates.
     last_content = versions_at
     block_rows = []
     for i in range(versions_at + 1, end):

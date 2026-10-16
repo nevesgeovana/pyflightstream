@@ -24,7 +24,7 @@ from pyflightstream.script import CommandArgumentError, Script, helpers
 
 VERSION = "26.000"
 
-#: keyword -> the command the solver reads it through (SRC-003 pp.344-346, SRC-740).
+#: keyword -> the command the solver reads it through (FSM-26.120 pp.344-346, FSM-26.121).
 FIVE = {
     "valarezo_criterion": "VALAREZO_CRITERION",
     "wake_relaxation": "SET_WAKE_RELAXATION",

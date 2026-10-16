@@ -1,7 +1,7 @@
 """The probe catalog, sixth part: the commands the 26.125 manual documents first (FR-423).
 
 Pipeline role: the entries of ``PROBE_SPECS`` for twelve of the thirteen commands the
-26.125 edition of the manual (SRC-753) is the first to document, so the probe
+26.125 edition of the manual (FSM-26.125) is the first to document, so the probe
 campaign of 26.125 judges each of them. No other build carries a row for any
 of them, so on every other build these entries never run.
 
@@ -14,8 +14,8 @@ not a command that failed. The two exceptions are measured shapes: the CCS
 curve assignment, judged by the loft after it naming its component in the saved
 simulation, and the free-surface export, judged by the file it writes.
 
-SET_DIRECT_AEROELASTIC_MESH_MORPHING, the thirteenth, is entered and probed by
-item S6 of 0.37.0 (FR-341), which measured it on 26.124 (RPT-154), so it has no
+SET_DIRECT_AEROELASTIC_MESH_MORPHING, the thirteenth, is probed under
+FR-341, with evidence on 26.124 (RPT-154), so it has no
 entry here.
 
 The module is imported by ``pyflightstream.qa.specs`` and registers into the
@@ -56,7 +56,7 @@ _HANG_GUARD_S = 60.0
 
 #: The free surface every free-surface probe creates first: half a metre above
 #: the reference plane, two metres either side of the origin in X, two wide,
-#: and a coarse grid (SRC-753 p.338).
+#: and a coarse grid (FSM-26.125 p.338).
 _FREE_SURFACE = _emit("CREATE_FREE_SURFACE_TFI_MESH", 0.5, -1.0, 3.0, 2.0, 20, 10)
 _FREE_SURFACE_VTK = "free_surface.vtk"
 
@@ -95,7 +95,7 @@ def _blend_loft(name: str) -> Callable[[Script, Path], None]:
     return _emit("CAD_CREATE_WING_MESH_FROM_CCS", name, "TRUE", "BLEND", "TRUE", "C2", "C0")
 
 
-# --- the unsteady solver: the averaging pair (SRC-753 p.360) ---------------------
+# --- the unsteady solver: the averaging pair (FSM-26.125 p.360) ---------------------
 
 _spec(
     command="ENABLE_SOLVER_TIME_AVERAGING",
@@ -125,7 +125,7 @@ _spec(
     timeout_s=_HANG_GUARD_S,
 )
 
-# --- the sweeper and the stability toolbox (SRC-753 pp.372, 384) -----------------
+# --- the sweeper and the stability toolbox (FSM-26.125 pp.372, 384) -----------------
 
 _spec(
     command="RESET_SOLVER_SWEEPER",
@@ -148,7 +148,7 @@ _spec(
     effect_note="the saved simulation moves across the angle step; a still file records unprobed",
 )
 
-# --- the aeroelastic coupling toolbox (SRC-753 p.390) ----------------------------
+# --- the aeroelastic coupling toolbox (FSM-26.125 p.390) ----------------------------
 
 _spec(
     command="SET_AEROELASTIC_CONVERGENCE_THRESHOLD",
@@ -162,7 +162,7 @@ _spec(
     ),
 )
 
-# --- free surfaces (SRC-753 p.338) ----------------------------------------------
+# --- free surfaces (FSM-26.125 p.338) ----------------------------------------------
 
 _spec(
     command="CREATE_FREE_SURFACE_TFI_MESH",
@@ -195,7 +195,7 @@ _spec(
     ),
 )
 
-# --- the CCS chapters (SRC-753 pp.298, 307, 311, 314) ------------------------------
+# --- the CCS chapters (FSM-26.125 pp.298, 307, 311, 314) ------------------------------
 
 _spec(
     command="ASSIGN_SELECTED_CURVES_TO_CCS_WING",

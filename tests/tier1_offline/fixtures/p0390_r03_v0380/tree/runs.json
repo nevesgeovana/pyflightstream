@@ -138,7 +138,7 @@
           "provenance": "default",
           "value": -100,
           "emitted": true,
-          "evidence": "library default -100 (design decision of 2026-07-22; physics references re-validated under it, 30 of 30 metrics bit-identical, report PHY-26120_2026-07-23_reseed-cp100-2026-07-23); solver default -20 (SRC-003 p.221)"
+          "evidence": "library default -100 (design decision of 2026-07-22; physics references re-validated under it, 30 of 30 metrics bit-identical, report PHY-26120_2026-07-23_reseed-cp100-2026-07-23); solver default -20 (FSM-26.120 p.221)"
         },
         "REYNOLDS_AVERAGED_DRAG_FORCES": {
           "command": "REYNOLDS_AVERAGED_DRAG_FORCES",
@@ -162,7 +162,7 @@
           "provenance": "default",
           "value": 3,
           "emitted": false,
-          "evidence": "SRC-003 p.344"
+          "evidence": "FSM-26.120 p.344"
         },
         "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA": {
           "command": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA",
@@ -242,7 +242,7 @@
           "provenance": "default",
           "value": 0.25,
           "emitted": false,
-          "evidence": "SRC-003 p.345"
+          "evidence": "FSM-26.120 p.345"
         },
         "SET_WAKE_NUMERICAL_RELAXATION": {
           "command": "SET_WAKE_NUMERICAL_RELAXATION",
@@ -250,7 +250,7 @@
           "provenance": "default",
           "value": 0.15,
           "emitted": false,
-          "evidence": "SRC-003 p.346"
+          "evidence": "FSM-26.120 p.346"
         },
         "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH": {
           "command": "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH",
@@ -258,7 +258,7 @@
           "provenance": "default",
           "value": 100.0,
           "emitted": false,
-          "evidence": "SRC-003 p.346"
+          "evidence": "FSM-26.120 p.346"
         },
         "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION": {
           "command": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
@@ -426,7 +426,7 @@
           "provenance": "default",
           "value": "TRANSITIONAL",
           "emitted": false,
-          "evidence": "SRC-003 p.203"
+          "evidence": "FSM-26.120 p.203"
         },
         "SET_SOLVER_VISCOUS_COUPLING": {
           "command": "SET_SOLVER_VISCOUS_COUPLING",
@@ -642,7 +642,7 @@
           "provenance": "default",
           "value": [],
           "emitted": false,
-          "evidence": "the script emits no selection, so it places no boundary on the vorticity CDi list; boundaries outside that list use the solver's surface pressure integration (SRC-003 p.202). A simulation file opened by the script may carry a selection of its own"
+          "evidence": "the script emits no selection, so it places no boundary on the vorticity CDi list; boundaries outside that list use the solver's surface pressure integration (FSM-26.120 p.202). A simulation file opened by the script may carry a selection of its own"
         }
       }
     },

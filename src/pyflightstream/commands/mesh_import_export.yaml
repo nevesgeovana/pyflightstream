@@ -1,4 +1,4 @@
-# Chapter: Mesh Import / Export (SRC-003 pp.307-308).
+# Chapter: Mesh Import / Export (FSM-26.120 pp.307-308).
 
 IMPORT:
   layout: keyword_block
@@ -15,22 +15,22 @@ IMPORT:
     - name: clear
       type: bool
       required: false
-  manual_ref: "SRC-003 p.307"
+  manual_ref: "FSM-26.120 p.307"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.261, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.281, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.280, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.302, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.306, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.261, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.281, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.280, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.302, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.306, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.311, unchanged from SRC-750 p.311"}
-    "26.124": {status: documented, note: "SRC-752 p.311, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.310, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.311, unchanged from FSM-26.122 p.311"}
+    "26.124": {status: documented, note: "FSM-26.124 p.311, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.317 adds two file types, NX_NAS_DAT and NAS, to the eleven
-        SRC-752 p.311 listed; the rest of the grammar is unchanged
+        FSM-26.125 p.317 adds two file types, NX_NAS_DAT and NAS, to the eleven
+        FSM-26.124 p.311 listed; the rest of the grammar is unchanged
       args:
         - name: units
         - name: file_type
@@ -41,7 +41,7 @@ IMPORT:
     Imports a surface mesh into the simulation as a KEY VALUE block:
     length units of the mesh file, one of eleven mesh formats, and the
     file path. The optional bare CLEAR keyword deletes every existing
-    geometry boundary before the import (SRC-003 p.307).
+    geometry boundary before the import (FSM-26.120 p.307).
 
 CCS_IMPORT:
   layout: keyword_block
@@ -58,23 +58,23 @@ CCS_IMPORT:
       values: [ENABLE, DISABLE]
     - name: file
       type: path
-  manual_ref: "SRC-003 p.307"
+  manual_ref: "FSM-26.120 p.307"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.262, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.281, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.280, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.302, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.306, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.262, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.281, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.280, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.302, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.306, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.311, unchanged from SRC-750 p.311"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.311, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.317, unchanged from SRC-752 p.311"}
+    "26.121": {status: documented, note: "FSM-26.121 p.310, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.311, unchanged from FSM-26.122 p.311"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.311, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
   notes: >
     Imports a Component Cross-Section (CCS) geometry file. The toggles
     control hole-filling at component ends, whether the simulation
     properties stored in the file are applied, and whether existing
-    geometry boundaries are deleted first (SRC-003 p.307).
+    geometry boundaries are deleted first (FSM-26.120 p.307).
 
 EXPORT_SURFACE_MESH:
   layout: inline
@@ -90,22 +90,22 @@ EXPORT_SURFACE_MESH:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 pp.307-308"
+  manual_ref: "FSM-26.120 pp.307-308"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.262, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.281, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.280, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.310, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.302, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.306-307, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.262, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.281, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.280, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.310, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.302, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.306-307, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.311, unchanged from SRC-750 p.311"}
-    "26.124": {status: documented, note: "SRC-752 p.311, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.317, unchanged from SRC-752 p.311"}
+    "26.123": {status: documented, note: "FSM-26.123 p.311, unchanged from FSM-26.122 p.311"}
+    "26.124": {status: documented, note: "FSM-26.124 p.311, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.317, unchanged from FSM-26.124 p.311"}
   notes: >
     Exports one geometry surface (first surface is index 1) or all
     surfaces (-1) to STL, TRI, or OBJ; the destination path follows on
-    the next line (SRC-003 pp.307-308).
+    the next line (FSM-26.120 pp.307-308).
     The OBJ uses the simulation length unit in force at export. Set
     SET_SIMULATION_LENGTH_UNITS before exporting to avoid depending on
     the fresh simulation's default (RPT-170, 26.124 and 26.125).
@@ -122,20 +122,20 @@ DELETE_SURFACES:
       type: int
       cites: boundaries
       all_sentinel: -1
-  manual_ref: "SRC-740 pp.315-316"
+  manual_ref: "FSM-26.121 pp.315-316"
   versions:
     "26.121": {status: documented}
-    "26.122": {status: documented, note: "SRC-750 p.316, same grammar as 26.121"}
-    "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.316, the SRC-751 file, carried from 26.123. Run on 26.124 by the licensed probe round 1 (probe D1_delete_surfaces): the single-index form was accepted and the surfaces after the deleted one were renumbered; promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote."}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.322, unchanged from SRC-752 p.316"}
+    "26.122": {status: documented, note: "FSM-26.122 p.316, same grammar as 26.121"}
+    "26.123": {status: documented, note: "FSM-26.123 p.316, unchanged from FSM-26.122 p.316"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.316, the FSM-26.123 file, carried from 26.123. Run on 26.124 by the licensed probe round 1 (probe D1_delete_surfaces): the single-index form was accepted and the surfaces after the deleted one were renumbered; promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote."}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.322, unchanged from FSM-26.124 p.316"}
   notes: >
     Deletes a mesh surface by 1-based index. The parameter table states
     no all-form; the sample passing -1 for every surface is on the
-    FOLLOWING page (SRC-740 p.316), which is why the sentinel cites that
+    FOLLOWING page (FSM-26.121 p.316), which is why the sentinel cites that
     page and not the heading's. New in the 26.121 manual edition, where
     it replaces the SURFACE_DELETE keyword block and SURFACE_CLEARALL
-    of SRC-003 pp.312-313. Both are registered in mesh_operations.yaml, each carrying version rows for
+    of FSM-26.120 pp.312-313. Both are registered in mesh_operations.yaml, each carrying version rows for
     the three editions that document it and none after; no removal is
     recorded against either, because a removal in this database is a
     manual STATING one and no edition states it.

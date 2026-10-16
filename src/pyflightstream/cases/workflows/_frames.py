@@ -133,9 +133,7 @@ def _flat_rotor_frames(case: SimCase, index: int | None) -> dict[str, int | None
     """Name the flat row's rotor frame the way every other rotor frame is named.
 
     Returns the one entry ``{"<ALIAS>_SMRP": index}``, or nothing when the
-    row turns no rotor. It replaces the literal ``ROTOR_MRP`` key that
-    every frame table carried at 0.14.0, when one reference meant one
-    propulsor and one name could stand for it.
+    row turns no rotor. The rotor alias identifies the propulsor in the frame name.
     """
     return {_the_flat_frame_name(case): index}
 
@@ -143,21 +141,14 @@ def _flat_rotor_frames(case: SimCase, index: int | None) -> dict[str, int | None
 def _hub_basis(block: RotorBlock | None) -> tuple[tuple[float, ...], tuple[float, ...]]:
     """Return the hub frame's first two axes, square to the rotor's shaft.
 
-    A row that turns no declared rotor keeps the geometry's own axes, which is
-    what every frame used before 0.23.0 and is still right when there is no
-    shaft to align to.
+    A row that turns no declared rotor keeps the geometry's own axes because
+    there is no shaft to align to.
     """
     if block is None or isinstance(block.axis, str):
-        # THE LETTER PATH IS UNTOUCHED, and this branch is the whole of the
-        # promise that a reference written before 0.23.0 emits the same script.
-        #
-        # IT WAS NOT ENOUGH TO DERIVE THE BASIS AND CHECK IT MATCHED. The first
-        # writing sent every rotor through `frame_basis_for_shaft`, reasoning
-        # that an untilted shaft returns exactly (1,0,0) and (0,1,0). That is
-        # true only when the blade datum is X: a rotor with `axis = Z` and
-        # `zero = Y` yields x=(0,1,0), y=(-1,0,0), which is the same disk
-        # turned a quarter. 27 tier-1 cases failed on it, which is the suite
-        # catching a claim this session had already written down as proved.
+        # A letter axis retains the geometry's basis. Deriving the basis of
+        # an untilted shaft gives (1,0,0) and (0,1,0) only for blade datum X:
+        # `axis = Z`, `zero = Y` yields x=(0,1,0), y=(-1,0,0), rotating the disk
+        # a quarter turn. This branch preserves the letter-axis convention.
         return (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
     datum = AXIS_UNIT_VECTORS[block.blade1.zero.lstrip("+-")]
     # THE SIGN IS KEPT: it reverses the direction the azimuth is measured FROM
@@ -170,12 +161,10 @@ def _hub_basis(block: RotorBlock | None) -> tuple[tuple[float, ...], tuple[float
 def _rotor_frame(case: SimCase, script: Script) -> int | None:
     """Create the hub frame of the rotor a flat row turns, named for its alias.
 
-    THERE IS NO GLOBAL ROTOR FRAME since 0.15.0 (decision of 2026-09-10). A
+    THERE IS NO GLOBAL ROTOR FRAME. A
     reference declares one block per rotor and every frame takes that
     rotor's alias as its radical, so the frame this creates is
-    ``<ALIAS>_SMRP``, the same name a MOTIONS record's hub carries. One
-    rotor named two ways was the 0.14.0 shape, and it only worked because
-    a reference described one propulsor.
+    ``<ALIAS>_SMRP``, the same name a MOTIONS record's hub carries.
 
     A row stating ROTOR_ORIGIN still overrides the block's hub.
     """
@@ -191,12 +180,9 @@ def _rotor_frame(case: SimCase, script: Script) -> int | None:
         )
     else:
         return None
-    # ON THE SHAFT, not on the geometry's axes (v0.23.0 item 19). This built
-    # the hub frame with the identity orientation, which assumes the rotor is
-    # installed at zero pitch and zero toe; a mesh that already carries its
-    # pitch and toe got a frame that does not match the hardware. For a rotor
-    # whose axis is a LETTER the basis below is exactly (1,0,0) and (0,1,0),
-    # so every reference written before this release emits the same script.
+    # The hub frame follows the shaft, including its installed pitch and toe.
+    # For a rotor whose axis is a LETTER the basis below is exactly (1,0,0)
+    # and (0,1,0), preserving the geometry-axis convention.
     x_axis, y_axis = _hub_basis(block)
     return helpers.coordinate_frame(
         script,
@@ -226,9 +212,8 @@ def _refuse_a_retired_frame(case: SimCase, name: str, what: str) -> None:
 
     Without this the citation falls through to "this run created no such
     frame", which is true, names the frames that DO exist, and says nothing
-    about the rename: a user holding a 0.14.0 post-processing artifact is
-    told their frame is missing rather than that it was replaced by a shape
-    (the interface lens of the 0.15.0 release review).
+    about the required shape: an artifact using a global rotor frame needs
+    the rotor alias in its frame name.
 
     Raises
     ------
@@ -257,7 +242,7 @@ def _pproc_frame(
     one returned.
     """
     # THE RETIREMENT IS ASKED FIRST, before the generic answer. A citation
-    # written in the vocabulary 0.15.0 removed deserves the rename, not a
+    # written in the retired vocabulary needs the replacement name before a
     # list of the frames that happen to exist.
     _refuse_a_retired_frame(case, name, f"{what} of the pproc artifact {case.pproc_id!r}")
     found = frames.get(name)
@@ -266,10 +251,10 @@ def _pproc_frame(
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} cites frame "
                 f"{name!r} for {what} over families {list(families)}, and that frame is "
-                "one per blade. Since 0.15.0 the FRAME says how an entry expands, so "
+                "one per blade. The FRAME says how an entry expands, so "
                 'write frame = "LOCAL_AXIS" over the rotor or the alias you want and it '
                 "is one emission per blade, each in that blade's own axes. The spelling "
-                'this replaced, families = "each_blade", is refused since 0.15.0 '
+                'families = "each_blade" is refused '
                 f"(blades with an axis frame here: {', '.join(found)})."
             )
         return found[families[0]]
@@ -282,8 +267,8 @@ def _pproc_frame(
             "rotor's own frames need that rotor declared in the reference AND moved by "
             "this row, because a row places the frames of the rotors its motions name; "
             "and BLADE_AXIS needs the multirotor run type with a geometry carrying "
-            "blade families (PFS-2029.11.03). There is no package-level rotor frame "
-            "since 0.15.0: each rotor carries <ALIAS>_SMRP, <ALIAS>_RMRP and "
+            "blade families (PFS-2029.11.03). There is no package-level rotor frame: "
+            "each rotor carries <ALIAS>_SMRP, <ALIAS>_RMRP and "
             "<ALIAS>_RMRP<k>."
         )
     return found
@@ -292,7 +277,7 @@ def _pproc_frame(
 def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
     """Create the custom frames the row's setup defines, returning name to index.
 
-    PFS-2034.01, the design of 2026-09-09 (design/69). Emitted after the
+    PFS-2034.01 (design/69). Emitted after the
     package's own frame (MRP) so their indices stay what the reference
     scripts numbered them, and before any motion, so a rotor whose axis
     frame is one of these turns about a frame that exists. A setup that
@@ -323,7 +308,7 @@ def _rotations(
 ) -> dict[str, int]:
     """Rotate the mesh families the row's ``ROTATE`` records name, in the order written.
 
-    PFS-2034.02, the design of 2026-09-09 (design/69). Each record is one
+    PFS-2034.02 (design/69). Each record is one
     rotation of the named families about the named axis of the named
     frame, emitted after every frame exists and before any motion is
     created, so a rotor whose axis frame is among the auxiliaries turns
@@ -352,7 +337,7 @@ def _rotations(
     frames = {name: index for name, index in named.items() if index is not None}
     labels = script.entities.labels("boundaries")
     #: The aliases whose `<ALIAS>_SMRP_ORIGINAL` this row has already kept.
-    #: ONE PER ALIAS is the decision of 2026-09-10 (DEC-010), so a row that
+    #: ONE PER ALIAS (DEC-010), so a row that
     #: rotates one alias twice keeps the state before the FIRST rotation.
     kept: set[str] = set()
     for record in case.rotations:
@@ -419,10 +404,8 @@ def _rotations(
         # WHAT ACTUALLY TURNS, BY INDEX AND ONCE EACH. One frame has more
         # than one name -- a rotor's hub is `<ALIAS>_SMRP` and `ROTOR_MRP<k>`
         # at the same index, and `<ALIAS>_RMRP` is both a frame the alias
-        # owns and a FOLLOWER of the hub -- so a list keyed on names turned
-        # the same frame twice and a row asking for three degrees got six.
-        # Measured on the release's own recommended spelling (the interface
-        # lens, 2026-09-10).
+        # owns and a FOLLOWER of the hub -- so deduplicate by index to avoid
+        # applying the same rotation twice.
         turning: list[int] = []
         for aux_name, aux in zip(aux_names, aux_frames, strict=True):
             for index in (aux, *((followers or {}).get(aux_name, ()))):
@@ -430,12 +413,9 @@ def _rotations(
                     turning.append(index)
         # ONE ADVISORY PER FRAME, and the question is whether the FRAME
         # turned rather than whether its name was typed. A rotor's hub has
-        # two names in `spinning`, the alias one and the 0.14.0 one, at one
-        # index, so a name-keyed walk both warned twice about one frame and
-        # warned at all about a frame the alias had just turned: the
-        # release's own recommended row was told the axis stayed where it
-        # was, and told to fix it with a key the same release retires (all
-        # three lenses, 2026-09-10).
+        # two names in `spinning`, the alias and the legacy name, at one
+        # index. An index-keyed walk avoids duplicate advisories and recognises
+        # a frame turned under either name.
         for axis_index, (spun_about, spun) in _axes_the_blades_spin_about(spinning, frames).items():
             turned_blades = sorted(set(boundaries) & set(spun))
             if not turned_blades or axis_index in turning:
@@ -470,12 +450,9 @@ def _rotations(
 def _the_copies_kept(frames: Mapping[str, int]) -> dict[str, int]:
     """Return the ``<ALIAS>_SMRP_ORIGINAL`` copies a transform kept, by name (FR-71, FR-100).
 
-    RETURNED TO THE BUILDER, which is the half that was missing. The copy
-    was written into the transform's OWN mapping, a copy of the builder's,
-    so the post-processing that asks whether a hub was moved never saw it
-    and an entry naming a rotated hub was emitted once: the doubling FR-71
-    states was reached by its unit tests, which hand the copy in, and by no
-    rendered script (measured 2026-09-14, GOAL-022).
+    RETURNED TO THE BUILDER so post-processing can see the preserved hub
+    frames in the transform's mapping. An entry naming a rotated hub then
+    reaches both emissions required by FR-71.
     """
     return {name: index for name, index in frames.items() if name.endswith(ORIGINAL_FRAME_SUFFIX)}
 
@@ -502,9 +479,9 @@ def _translations(
     the hub now is.
 
     THE SURFACE MOVES BY THE MANUAL'S OWN COMMAND, in the frame it names
-    (SRC-751 p.313), one line per boundary of the alias. A FRAME MOVES TO AN
+    (FSM-26.123 p.313), one line per boundary of the alias. A FRAME MOVES TO AN
     ABSOLUTE ORIGIN: the manual leaves the axes of
-    ``TRANSLATE_COORDINATE_SYSTEM``'s vector unstated (SRC-751 pp.335-336)
+    ``TRANSLATE_COORDINATE_SYSTEM``'s vector unstated (FSM-26.123 pp.335-336)
     and states ``SET_COORDINATE_SYSTEM_ORIGIN``'s origin in the reference
     (p.334), so the new origin is computed from where the script placed the
     frame (:attr:`Script.frame_placements`) plus the distance along the AXIS
@@ -736,8 +713,7 @@ def _axes_the_blades_spin_about(
     both ``<ALIAS>_SMRP`` and ``ROTOR_MRP<k>`` at one index. The advisory
     that reads it is about a FRAME, so it walks indices, and the name it
     reports is the alias one where there is one, because that is the name
-    the user can act on: the alias carries the frame, and the 0.14.0
-    spelling is the key this release retires.
+    the user can act on: the alias carries the frame.
     """
     best: dict[int, tuple[str, Sequence[int]]] = {}
     for name, spun in (spinning or {}).items():
@@ -753,7 +729,7 @@ def _axes_the_blades_spin_about(
 def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
     """Return the token(s) a rotation record turns, from ALIAS or FAMILIES (FR-71).
 
-    ``ALIAS`` since 0.15.0, ``FAMILIES`` before it, and the two are
+    ``ALIAS`` or the legacy ``FAMILIES`` key; the two are
     refused together by the reader; a case authored in Python meets the
     same sentence here. The alias is returned AS A TOKEN rather than
     expanded, because `_resolve_token` already puts the row's aliases
@@ -776,7 +752,7 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
             # one a `FAMILIES` migration produces: the old key took a list
             # and this one does not, so the refusal that merely lists the
             # declared words reads as a bug to the person who just wrote two
-            # of them (the interface lens, 2026-09-10).
+            # of them.
             parts = [part.strip() for part in token.split(",") if part.strip()]
             folded = {name.casefold() for name in declared}
             if len(parts) > 1 and all(part.casefold() in folded for part in parts):
@@ -805,11 +781,9 @@ def _what_the_rotation_turns(case: SimCase, record: Mapping[str, str]) -> str:
             "is how a motion names a set too."
         )
     # THE RECORD'S OWN TEXT IS IN THE MESSAGE, and that is not decoration.
-    # Built from the case id and the ledger alone, two records of one row
-    # produced a byte-identical message at an identical warning-registry
-    # key, so Python's default filter dropped the second and a row
-    # migrating record by record was told about one of them (measured by
-    # the quality lens, 2026-09-10: 1 warning where 2 were due).
+    # The case id and ledger alone cannot distinguish two records of one row.
+    # Including the record prevents Python's default warning filter from
+    # suppressing the second record's migration warning.
     written = " / ".join(f"{key}: {value}" for key, value in record.items())
     words = sorted({*case.aliases, *case.rotors})
     raise CampaignConfigError(
@@ -835,9 +809,8 @@ def _keep_the_frame_this_alias_turns_from(
 ) -> None:
     """Create ``<ALIAS>_SMRP_ORIGINAL`` once per alias, before its first turn (FR-71).
 
-    ONCE PER ALIAS AND NOT ONCE PER RECORD, which is the decision of
-    2026-09-10 (DEC-010). The discriminator was a row that
-    rotates one alias TWICE: per record would also keep the state BETWEEN
+    ONCE PER ALIAS AND NOT ONCE PER RECORD (DEC-010). When a row
+    rotates one alias TWICE, per record would also keep the state BETWEEN
     the two rotations, and that reading is not wanted, so a second
     rotation of the same alias adds nothing and the copy still names the
     state before the row touched anything.
@@ -926,11 +899,8 @@ def _frames_the_alias_owns(
     if radical is None:
         return []
     # THE HUB, THEN EVERYTHING ROTATING, and the second half is a prefix
-    # scan because `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>` share it. Naming
-    # `<ALIAS>_RMRP` in the seed as well READ as load-bearing and was not:
-    # a hostile pass mutated it away and every case stayed green, and the
-    # measurement said why, so the redundancy is gone rather than
-    # explained (2026-09-10).
+    # scan because `<ALIAS>_RMRP` and `<ALIAS>_RMRP<k>` share it. The prefix
+    # scan includes the rotating hub itself as well as its blade frames.
     owned = [f"{radical}_SMRP"]
     owned += sorted(name for name in frames if name.startswith(f"{radical}_RMRP"))
     return [name for name in owned if name in frames]
@@ -980,10 +950,9 @@ def _the_blade_frames_under_their_rotors_names(
     A flat row creates ``BladeAxis<k>``, one per blade family, and that is
     the name in its script and in every golden. A post-processing entry
     citing ``LOCAL_AXIS`` expands to ``<ALIAS>_RMRP<k>``, because that is
-    what a rotor's blade frame is called since 0.15.0. Registering the same
+    the rotor's blade-frame name. Registering the same
     index under both names is what lets one artifact serve both row shapes;
-    without it the entry resolved on a MOTIONS row and reached nothing
-    here, with no refusal, which is the silence FR-65 exists against.
+    without it a flat row's entry would reach no frame (FR-65).
     """
     named: dict[str, int] = {}
     for alias, block in case.rotors.items():
@@ -1107,13 +1076,9 @@ def _rotor_blade_frames(
             script,
             name=f"{stem}{number}" if stem else f"{radical}_RMRP{number}",
             origin=origin,
-            # ON THE SHAFT SINCE 0.23.0 ITEM 19, and the identity before it.
-            # A rotor installed at pitch and toe got blade frames built on the
-            # GEOMETRY's axes, so turning about that frame's third axis turned
-            # about global Z -- and the comment justifying the letter below had
-            # a premise the code did not meet. `_hub_basis` returns the literal
-            # identity for a rotor stating a LETTER, so every reference written
-            # before this release emits exactly the same two axes.
+            # The blade frames follow the installed shaft's pitch and toe.
+            # `_hub_basis` returns the identity for a rotor stating a LETTER,
+            # retaining the geometry axes for that convention.
             x_axis=_hub_basis(rotor)[0],
             y_axis=_hub_basis(rotor)[1],
             label=f"blade_axis:{family}",
@@ -1122,24 +1087,10 @@ def _rotor_blade_frames(
             "ROTATE_COORDINATE_SYSTEM",
             frame=index,
             rotation_frame=hub,
-            # A LETTER, NEVER A TUPLE: `rotation_axis` is an ENUM over
-            # X, Y, Z, 1, 2, 3, and `rotor.axis` takes three components since
-            # item 19, so passing it emitted a Python tuple into an enum field.
-            #
-            # WHICH letter depends on what the frame IS, and getting this wrong
-            # is a defect I shipped for one commit. `_hub_basis` returns the
-            # LITERAL IDENTITY for a rotor stating a letter -- measured, for X,
-            # Y and Z alike -- so that frame's third axis is global Z whatever
-            # the rotor turns about, and naming `Z` there would turn an X-axis
-            # rotor's blades about the wrong axis. The letter path keeps the
-            # rotor's own letter, which is byte for byte what it emitted before
-            # this release.
-            #
-            # Only a rotor stating a VECTOR gets a frame built on its shaft, and
-            # there the shaft IS the third axis by construction, so `Z` of that
-            # frame is the shaft. The premise has to be met before the
-            # conclusion is written down -- which is the same defect the V&V
-            # lens found in `_motion_view`, reproduced here one screen away.
+            # rotation_axis is an enum over X, Y, Z, 1, 2, 3. A letter shaft
+            # keeps that letter because _hub_basis returns the identity for that
+            # path. A vector shaft uses Z of its shaft-aligned hub frame. Never
+            # pass the three-component rotor.axis tuple into the enum field.
             rotation_axis=(
                 rotor.axis if isinstance(rotor.axis, str) else ROTOR_BLADE_ROTATION_AXIS
             ),

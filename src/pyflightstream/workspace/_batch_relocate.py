@@ -1,11 +1,11 @@
-"""Copy and move the points of a batch from its job folder to their simulations (0.35.0).
+"""Copy and move the points of a batch from its job folder to their simulations.
 
 Pipeline role: below :mod:`pyflightstream.run._batch_collect`, which decides
 WHEN a point is copied (it settled while the job runs) and when the rest of a
 simulation is moved (the job ended); this module only does it, file by file,
 and reports what it did.
 
-Two rules carry the whole module (FR-367, recorded 2026-10-02):
+Two rules carry the whole module (FR-367):
 
 - **A copy never writes under the batch folder.** :func:`copy_point` reads
   ``sims/batch/<label>/sim_<id>/`` and writes only under ``sims/sim_<id>/``;

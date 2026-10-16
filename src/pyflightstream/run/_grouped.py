@@ -1,6 +1,6 @@
 """The dispatch and the shared helpers of the grouped run modes.
 
-Pipeline role: ``run --batch N`` and ``run --polar-sweep`` (0.35.0) run several
+Pipeline role: ``run --batch N`` and ``run --polar-sweep`` run several
 points as one solver job. The command line chooses between the per-point
 functions it always called and the grouped ones through :func:`runner_for` and
 :func:`planner_for`; the grouped functions are imported only when a grouped mode
@@ -123,8 +123,8 @@ def refuse_grouped_options(
     if not given:
         return None
     return (
-        f"a grouped run (--batch, --polar-sweep) does not take {', '.join(given)} "
-        "in this release; run the points one by one for that."
+        f"a grouped run (--batch, --polar-sweep) does not take {', '.join(given)}"
+        "; run the points one by one for that."
     )
 
 

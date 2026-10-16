@@ -63,7 +63,7 @@ from ._vocabulary import (
 def surface_time_averaging(case: SimCase) -> SurfaceAverageWindow | None:
     """Resolve the pproc's surface window on the same clock as LAST_REVS_AVG.
 
-    Since 0.28.0 (G25) it is the window the PACKAGE averages the per-step surface
+    It is the window the PACKAGE averages the per-step surface
     exports over: its first step is where the per-step exports begin, and the
     post averages every step of it. None where the pproc states no
     ``[time_averaging]``.
@@ -113,7 +113,7 @@ def surface_time_averaging(case: SimCase) -> SurfaceAverageWindow | None:
 
 
 def tecplot_source(tecplot: str, kinds: Mapping[str, str]) -> str:
-    """Return the VTK a point's Tecplot surface is written from (G45 of 0.28.0).
+    """Return the VTK a point's Tecplot surface is written from (G45).
 
     ONE VTK EXPORT PER POINT FEEDS BOTH: where the outputs name a VTK, the
     Tecplot is written from that very file; otherwise the script exports one
@@ -178,7 +178,7 @@ def with_tecplot_source(outputs: Sequence[str], *, singularity_strength: bool = 
 
     The VTK supplies panel values and is always a source. The native Tecplot
     supplies nodal strength and is one only where ``singularity_strength``
-    says the row's pproc asks for it (SS1 of 0.30.0): a point is never
+    says the row's pproc asks for it (SS1): a point is never
     incomplete for a native file it was never asked to write. The sources are
     waited for, filed and hashed, including at each exported step. Calling
     this on an already expanded output list is idempotent.
@@ -234,7 +234,7 @@ def _export_surface_vtk(script: Script, case: SimCase, name: str) -> None:
                 f"{script.version.canonical}; select variables supported by this build"
             )
     if wants_wake(case):
-        # FR-1046 (0.40.0): Trefftz B reads <name>_wakes.vtk, which the
+        # FR-1046: Trefftz B reads <name>_wakes.vtk, which the
         # wake switch in the variable selection writes.
         helpers.export_results(script, vtk=name, vtk_variables=variables or "all", vtk_wake=True)
         return
@@ -259,7 +259,7 @@ def _surface_export(
 
     The package writes the requested Tecplot from VTK panel values and, where
     the row's pproc sets ``singularity_strength = true``, native nodal strength
-    (G53, SS1 of 0.30.0). Only then is the separate native export emitted, and
+    (G53, SS1). Only then is the separate native export emitted, and
     it is retained as provenance. ``kinds`` contains every public export, by
     kind.
     """
@@ -361,7 +361,7 @@ def _export_block(
     PFS-2029.14.01 and PFS-2029.18. The names come from the row's outputs
     (rendered by the workspace) and each is paired with its verb by suffix,
     so a row that declares the full set of FR-51 gets every kind and a row
-    written before this release, declaring a loads table and a log, gets
+    declaring only a loads table and a log gets
     exactly what it declared. UPDATE_ALL_SURFACE_SECTIONS,
     COMPUTE_SURFACE_SECTIONAL_LOADS and UPDATE_PROBE_POINTS precede the
     exports whenever a section, sectional-loads or probe export is asked
@@ -408,7 +408,7 @@ def _export_block(
             "point would be recorded FAILED_INCOMPLETE_OUTPUT after the solve. Declare the "
             "log among the row's outputs, or leave the pproc artifact's [exports] log on."
         )
-    # ASKED ONCE, FOR BOTH ROUTES TO THE LOG (0.24.0). The machine's
+    # ASKED ONCE, FOR BOTH ROUTES TO THE LOG. The machine's
     # `export_log = false` was read inside `_export_log` alone, the route of a
     # row that names its log through LOG_OUTPUT. A row whose outputs carry a
     # `_log.txt` name is exported by suffix in the loop below, which asked
@@ -476,7 +476,7 @@ def _record_surface_translation(script: Script, case: SimCase, kinds: dict[str, 
         {
             "vtk": tecplot_source(kinds["tecplot"], kinds),
             "dat": kinds["tecplot"],
-            # SS1 of 0.30.0: named only where the pproc asks for the
+            # SS1: named only where the pproc asks for the
             # strength, so a row without it translates as a record with no
             # native source always has: every VTK variable, the strength
             # declared not carried.
@@ -486,7 +486,7 @@ def _record_surface_translation(script: Script, case: SimCase, kinds: dict[str, 
                 else {}
             ),
             "frame": script.loads_frame_record(),
-            # 0.30.0: a periodic row's native Tecplot holds one zone per
+            # A periodic row's native Tecplot holds one zone per
             # copy, and the translation reads it by this count. Stated only
             # for such a row, so every other record is unchanged.
             **(
@@ -509,10 +509,8 @@ def _exports_its_log(case: SimCase) -> bool:
     """Say whether the SCRIPT writes the solver log for this run.
 
     THROUGH `read_a_choice`, which is the one place both readers ask and which
-    REFUSES a word it does not know. The first writing carried a word list of
-    its own and read anything outside it as True, so `EXPORT_LOG: flase` would
-    have put the command back into the script on the one machine that aborts at
-    it, after the queue wait (the architecture lens, 2026-09-16).
+    REFUSES a word it does not know. In particular, `EXPORT_LOG: flase` must
+    not enable the command on a machine that aborts at it after the queue wait.
     """
     stated = _variable(case, EXPORT_LOG_VARIABLE)
     if stated is None:

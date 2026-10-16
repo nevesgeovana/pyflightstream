@@ -1,4 +1,4 @@
-"""The effective record of a datapoint: the rules every reader of the records shares (0.35.0).
+"""The effective record of a datapoint: the rules every reader of the records shares.
 
 Pipeline role: the workspace-layer home of the rules that choose, for each
 datapoint, the ONE record that states its present outcome (FR-381). The run
@@ -25,9 +25,7 @@ The rules, each from its one home:
 5. **A ``delete-sims`` row is a note**: it is not a record, and the reader of
    the raw rows passes it over before anything here sees it.
 
-Rules 3 and 4 lived in ``run/_continuation_frame.py`` until 0.35.0, where the
-workspace layer could not reach them; they moved down unchanged and the run
-layer imports them back.
+The workspace and run layers share these rules through this module.
 """
 
 from __future__ import annotations

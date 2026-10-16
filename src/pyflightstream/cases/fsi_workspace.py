@@ -6,7 +6,7 @@ separate gate; this adapter fixes configuration, ordering and callback wiring.
 THE PIECES A COUPLED ROUTE CALLS (FSI-1), each usable on its own
 so the rotor route and the fixed-wing route wire the same facts once:
 
-* :func:`fsi_workflow_refusal`, which workflows accept FSI in this release;
+* :func:`fsi_workflow_refusal`, which workflows accept FSI;
 * :func:`aeroelastic_surface_ids`, the boundary ID the solver stores, which
   the Aeroelastic toolbox matches against and which is not the tree
   position for an OBJ import;
@@ -26,7 +26,7 @@ THE ROUTES: :func:`wire_fixed_wing_fsi` couples a fixed wing on
 the blade of a ``qsteady_rotor`` periodic sector (steady, the blade held
 still, the structure turning at the speed the free stream turns), and
 :func:`wire_workspace_fsi` the rotor's blades on ``unsteady_rotor``, refused
-in this release; all three stage and emit through one helper.
+by the workflow gate; all three stage and emit through one helper.
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ CALLBACK_FILE = "fsi_callback.py"
 #: refusal. A workflow absent from the table accepts no FSI.
 #:
 #: ``steady`` and ``unsteady`` (no rotor motion): ACCEPTED, the fixed-wing
-#: structural route of this release (FSI-G, :func:`wire_fixed_wing_fsi`),
+#: structural route (FSI-G, :func:`wire_fixed_wing_fsi`),
 #: required because fixed-wing coupling is the basic FSI case.
 #:
 #: ``unsteady_rotor``: refused. On 26.124 the morph of a mapped rotating
@@ -109,7 +109,7 @@ CALLBACK_FILE = "fsi_callback.py"
 #: refused by its builder: several clockings averaged are not the state of
 #: one structure.
 FSI_ROTOR_IN_DEBUG = (
-    "FSI on unsteady_rotor is still in debug on this release (the morph is applied "
+    "FSI on unsteady_rotor is still in debug (the morph is applied "
     "to the un-rotated blade, reported to the vendor)."
 )
 FSI_WORKFLOW_STATE: Mapping[str, str | None] = MappingProxyType(
@@ -199,7 +199,7 @@ def direct_morphing_refusal(
 
 
 def fsi_workflow_refusal(workflow: str) -> str | None:
-    """Return why FSI is refused on a workflow in this release, or None.
+    """Return why FSI is refused on a workflow, or None.
 
     Parameters
     ----------
@@ -229,8 +229,8 @@ def fsi_workflow_refusal(workflow: str) -> str | None:
 #: Aeroelastic toolbox's surface list hold. A script cites a boundary by its
 #: position in the geometry tree; ``SET_MOTION_BOUNDARIES`` is converted to
 #: the ID by the solver, ``ASSIGN_AEROELASTIC_SURFACES`` is stored as written
-#: and matched against the ID. Measured on 26.124 (probe evidence of
-#: 2026-09-28, a census of 3825 saved simulations and a mapped-blade probe):
+#: and matched against the ID. The 26.124 evidence covers a census of
+#: 3825 saved simulations and a mapped-blade probe:
 #: an OBJ import numbers its boundaries from 2 (``2:Blade1;3:S;4:N``), an STL
 #: import from 1. The ID is the position plus this offset. A surface list
 #: holding the position of an OBJ blade points at a boundary that does not
@@ -324,7 +324,7 @@ def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
 #: MULTI_QUADRATIC delivered the bend to 0.003 m at the leading edge (tip
 #: 0.4007 for 0.4); WENDLAND_C2 delivered 64 % of it at the leading edge and
 #: 1.4 % at the trailing edge, a nose-up shear of up to 14 deg, and the
-#: coupled run diverged from its third step. Probe evidence of 2026-09-28.
+#: coupled run diverged from its third step in the licensed probe.
 BEAM_LINE_RBF_TYPE = "MULTI_QUADRATIC"
 
 
@@ -365,8 +365,8 @@ def emit_aeroelastic_rbf_type(case: SimCase, script: Script) -> None:
 #: and frame stored 1 (Reference) in field 1 of the node-block line of the
 #: saved ``$AEROELASTIC$`` block, the line after the working directory and
 #: the execution command (``1,0,0,<nodes>,1``). A one-field patch of the
-#: saved text is kept through OPEN, initialisation and the run. Probe
-#: evidence of 2026-09-28.
+#: saved text is kept through OPEN, initialisation and the run in the
+#: licensed probe.
 _AEROELASTIC_START = b"$AEROELASTIC_START$"
 _NODE_BLOCK_LINE = 5  # lines after the start marker: header, flags, directory, command
 _NODE_BLOCK = re.compile(rb"(\d+),(\d+),(\d+),(\d+),(\d+)")
@@ -429,8 +429,8 @@ def patch_structural_node_frame(saved: bytes, frame_index: int, *, node_count: i
 #: ``EXECUTE_AEROELASTIC_ANALYSIS`` returns at once: a line after it runs at
 #: solver iteration 0 while the analysis goes on, a ``CLOSE_FLIGHTSTREAM``
 #: after it ends the analysis, and with neither the process never exits by
-#: itself. The analysis prints this line when it ends (26.124, probe evidence
-#: of 2026-09-28; the recorded steady replay of GOAL-033 ends the same way).
+#: itself. The analysis prints this line when it ends in the 26.124 probe;
+#: the recorded steady replay of GOAL-033 ends the same way.
 STEADY_AEROELASTIC_COMPLETION = "Aeroelastic solver run time"
 
 
@@ -659,7 +659,7 @@ def validate_workspace_fsi(
     """Refuse cases whose initial state cannot establish the coupling ordering.
 
     The workflow is judged first (:func:`fsi_workflow_refusal`), so a row
-    FSI is refused on in this release hears why before any other check.
+    FSI is refused on hears why before any other check.
 
     Parameters
     ----------
@@ -851,8 +851,8 @@ def wire_workspace_fsi(
 
 #: The cap on a steady coupled run's coupling iterations (FSI-G). The solver
 #: stops the loop itself once its displacement residual falls below the
-#: convergence it was given (26.124: 2 of 20 for a fixed displacement, probe
-#: evidence of 2026-09-28); a relaxed update closes (1 - lambda) of the
+#: convergence it was given (26.124 probe: 2 of 20 for a fixed displacement);
+#: a relaxed update closes (1 - lambda) of the
 #: remaining gap per call at the configured relaxation, so the cap leaves
 #: room for the default 0.4 to settle.
 STEADY_AEROELASTIC_ITERATIONS = 50

@@ -30,7 +30,7 @@ grammar of the latest documented version in ``args`` and overrides it
 per version through ``versions.<v>.args``; the per-version view
 resolves the override, so the script builder binds and renders the
 grammar of its target version (the four-versus-three argument forms of
-CREATE_BULK_SEPARATION, SRC-003 p.342 versus SRC-725 p.341, are the
+CREATE_BULK_SEPARATION, FSM-26.120 p.342 versus FSM-26.101 p.341, are the
 motivating case).
 """
 
@@ -87,7 +87,7 @@ CommandDatabaseError.__module__ = "pyflightstream.commands"
 CommandNotInVersionError.__module__ = "pyflightstream.commands"
 ArgSpec.__module__ = "pyflightstream.commands"
 
-_MANUAL_REF_PATTERN = re.compile(r"^SRC-\d{3} pp?\.\d+")
+_MANUAL_REF_PATTERN = re.compile(r"^FSM-(?:\d{2}\.\d{3}|TEST) pp?\.\d+")
 _PROBE_REF_PATTERN = re.compile(
     r"^(?:GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/)?reports/[\w./-]+\.md$"
 )
@@ -98,31 +98,15 @@ _PROBE_REF_PATTERN = re.compile(
 # rules it already had, while the cost of a false positive is a refused
 # load. Widen it when a new wording appears rather than loosening it.
 _MEASURED_CLAIM = re.compile(r"\b(measured|probed|observed|the solver (?:answers|refuses))\b", re.I)
-# A NEGATION PASS WAS TRIED HERE ON 2026-08-10 AND WITHDRAWN THE SAME
-# DAY, which is worth the lines because the reasoning that produced it
-# was sound and the mechanism was not. Four rows had been written saying
-# "measured over the ten commands this edition documents", a count of a
-# DOCUMENT, and the closed list above cannot tell that from a claim
-# about the solver, so it refused them. The pass subtracted negated
-# phrases before matching.
-#
-# Measured, it let genuine claims through. Its window spanned the
-# sentence, so an opening clause like "the edition does not print it"
-# reached forward and the subtraction removed the negator, the claim
-# word and everything between: "...does not print it, and the solver
-# was observed refusing it on 26.121" became a note with no claim in it
-# and loaded. It also refused honest disclaimers whose negator fell
-# after the claim word or beyond the window.
-#
-# The rows were reworded instead. A count of a document says counted, a
-# claim about the solver says measured, and the guard stays a closed
-# list of affirmative wordings with no cleverness in it. Widen that list
-# when a new wording appears; do not teach it to read English.
+# Keep affirmative claim detection a closed vocabulary. Negation subtraction
+# can erase a real solver claim in a later clause, or reject a disclaimer
+# whose negator follows the claim word. Document counts say counted; solver
+# observations say measured. Extend the explicit wording list when needed.
 
 
 #: A source-and-page citation as this database writes one, for pulling
 #: the edition's own page out of a per-version note.
-_NOTE_CITATION = re.compile(r"SRC-\d{3}\s+pp?\.\s*\d+(?:\s*-\s*\d+)?")
+_NOTE_CITATION = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)\s+pp?\.\s*\d+(?:\s*-\s*\d+)?")
 
 
 def _override_citation(entry: CommandEntry, source: str, note: str | None) -> str:
@@ -346,7 +330,7 @@ class CommandEntry(BaseModel):
     manual_ref : str, optional
         Manual page citation of an entry an edition documents, exclusive
         with ``probe_ref`` and required unless that is given; for
-        example ``"SRC-003 p.352"``. Paraphrase evidence only; manual
+        example ``"FSM-26.120 p.352"``. Paraphrase evidence only; manual
         text is never reproduced.
     probe_ref : str, optional
         Repository-relative path of a committed probe report, for the
@@ -354,7 +338,7 @@ class CommandEntry(BaseModel):
         It stands where ``manual_ref`` would, and it exists because that
         command is real: RPT-018 measured
         ``DELETE_VALAREZO_SEPARATION_BOUNDARIES`` accepted on 26.100
-        while the name SRC-741 documents for the same erase is
+        while the name FSM-26.100 documents for the same erase is
         unrecognised, and RPT-015 measured
         ``CREATE_STRATFORD_BULK_SEPARATION`` accepted on 26.120, a build
         whose manual does not mention it.
@@ -385,7 +369,7 @@ class CommandEntry(BaseModel):
         unknown; a flag without this field stays honestly unknown.
     default_ref : str, optional
         Manual page citation of ``default``, for example
-        ``"SRC-003 p.221"``; required whenever ``default`` is set.
+        ``"FSM-26.120 p.221"``; required whenever ``default`` is set.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -432,13 +416,10 @@ class CommandEntry(BaseModel):
     def _a_version_override_states_only_its_difference(cls, data: dict) -> dict:
         """Fill an override argument's unstated fields from the base one.
 
-        A per-version ``args`` override replaces the whole argument list,
-        so before this validator existed a row that changed one field had
-        to restate every other field of every argument. That is how a
-        second field changes by accident: the 26.121 override of
-        ``SOLVER_PROXIMAL_BOUNDARIES`` was written with a comma separator
-        while every other build writes one boundary index per line, and
-        the emitted line was wrong for that build alone.
+        A per-version ``args`` override replaces the whole argument list.
+        Inherit unchanged fields explicitly so that changing one field does
+        not accidentally change another, such as the separator between
+        boundary indices in ``SOLVER_PROXIMAL_BOUNDARIES``.
 
         A field is inherited only when the row's mapping does not carry
         the KEY, which is why this runs on the raw YAML rather than on
@@ -473,18 +454,10 @@ class CommandEntry(BaseModel):
             override = row.get("args") if isinstance(row, dict) else None
             if not isinstance(override, list):
                 continue
-            # A NEW list of NEW dicts. The aliasing hazard is what this
-            # is for: `setdefault` shared a mutable value such as an
-            # enum's `values` list between the base row and every
-            # override inheriting it, so a later edit of one changed all
-            # of them.
-            #
-            # It still REBINDS `row["args"]`, so the caller's mapping is
-            # written to and the earlier wording here, claiming no write
-            # at all, described code that does not exist. Contained on
-            # the load path, which builds its mapping fresh per file,
-            # and stated rather than left for the next reader to
-            # measure.
+            # A new list of new dictionaries prevents mutable argument values from
+            # being shared between the base and overrides. The operation does rebind
+            # row["args"] in the caller's mapping; the load path creates that mapping
+            # fresh for each chapter file.
             filled = []
             for arg in override:
                 if not isinstance(arg, dict):
@@ -502,7 +475,7 @@ class CommandEntry(BaseModel):
     def _manual_ref_cites_a_page(cls, value: str) -> str:
         if value and not _MANUAL_REF_PATTERN.match(value):
             raise ValueError(
-                f"manual_ref {value!r} must cite a source and page, for example 'SRC-003 p.352'"
+                f"manual_ref {value!r} must cite a source and page, for example 'FSM-26.120 p.352'"
             )
         return value
 
@@ -510,12 +483,9 @@ class CommandEntry(BaseModel):
     def _every_entry_cites_exactly_one_kind_of_evidence(self) -> CommandEntry:
         """Refuse an entry with no citation, or with two of them.
 
-        The citation is what makes an entry a record rather than an
-        assertion, so the requirement did not weaken when ``probe_ref``
-        was added: it widened by exactly one admissible KIND. Carrying
-        both would leave a reader unable to say which one the entry
-        rests on, and carrying neither is what the original required
-        field prevented.
+        An entry rests on exactly one evidence kind: a manual page or a
+        probe report. Carrying both leaves the evidence basis ambiguous;
+        carrying neither leaves the entry unsupported.
         """
         if self.manual_ref and self.probe_ref:
             raise CommandDatabaseError(
@@ -595,7 +565,7 @@ class CommandEntry(BaseModel):
         if self.default_ref is not None and not _MANUAL_REF_PATTERN.match(self.default_ref):
             raise ValueError(
                 f"{self.name}: default_ref {self.default_ref!r} must cite a source and "
-                "page, for example 'SRC-003 p.221'"
+                "page, for example 'FSM-26.120 p.221'"
             )
         if (
             isinstance(self.default, str)
@@ -638,19 +608,13 @@ class CommandEntry(BaseModel):
         releases can occupy adjacent indices without sharing a command set. A hotfix index
         that leaves inheritance unstated is refused.
 
-        What was wrong was that the inheritance was INVISIBLE.
-        :meth:`status_in` returns the base record with nothing saying it
-        did, so a caller cannot tell a command probed on this build from
-        one merely assumed to behave like its base. When 26.121 was
-        registered, most of the database answered for it by inheritance,
-        each record carrying a citation to a report run on 26.120, and
-        the published compatibility matrix showed the column as fully
-        covered. The count is deliberately not written here: it moves
-        with every probe run, the matrix generates it in an ``Of which
-        inherited`` column, and ``tests/tier1_offline/test_evidence_provenance.py``
-        measures it where a wrong number can fail. A hotfix had already
-        been measured changing a command's behaviour, so the assumption
-        was known to be falsifiable (PLN-20260802-2016).
+        Inheritance must be visible to a reader. :meth:`status_in` returns
+        only the record; this accessor also names the source build and whether
+        the record is inherited. The compatibility matrix derives its
+        ``Of which inherited`` count from those fields, and
+        ``tests/tier1_offline/test_evidence_provenance.py`` verifies that count.
+        A hotfix may change a command's behavior, so inherited evidence is
+        an explicit assumption rather than a measurement of that hotfix.
 
         This is the accessor to prefer when the answer is shown to a
         person or written into a report. :meth:`status_in` stays for
@@ -722,13 +686,8 @@ class VersionView:
         """Return the entry for ``name`` or explain why it is unavailable."""
         entry = self._registry.commands.get(name)
         if entry is None:
-            # "NEARLY every" and not "every", corrected 2026-08-17. The
-            # stronger sentence became false the moment SRC-751 was
-            # registered: that edition documents SET_OUTLET_TRAILING_EDGES
-            # and the database does not carry it, so a 26.123 user copying
-            # the name out of their own manual was told it was "usually a
-            # spelling error". That is the failure NREQ-05's reversal was
-            # written about, reinstated by a sentence nobody moved.
+            # Say nearly every command: a manual can document a name absent from
+            # the database, so an unknown name is not necessarily a spelling error.
             raise CommandNotInVersionError(
                 f"{name} is not in the command database. Nearly every command a "
                 "registered manual edition documents is recorded, so this is "
@@ -738,25 +697,13 @@ class VersionView:
                 "of those. An entry rests on a manual page or on a committed "
                 "probe report; CONTRIBUTING says how to add one."
             )
-        # evidence_in, not status_in: these refusals are read by a person
-        # and this one asserted a fact about the requested build while
-        # citing a record recorded for another. SONIC_VELOCITY is the
-        # measured case: removed on 26.100 and 26.120, no 26.121 record,
-        # so the message said "removed in FlightStream 26.121" and cited
-        # an SRC-003 page which, on the 26.121 edition, addresses a
-        # different page entirely (V&V pass, 2026-08-03).
+        # Use evidence_in for a human-facing refusal so the message distinguishes
+        # the requested build from the build that supplied inherited evidence.
         evidence = entry.evidence_in(self.version)
         if evidence is None:
-            # Listed by REACHABILITY and not by direct row, because the
-            # point of the list is to tell the caller which builds would
-            # work and a hotfix reaches its base release's records. Built
-            # from `entry.versions` it hid exactly the newest build: on
-            # 2026-08-10 a caller refused on an older build was shown
-            # four builds and never told that 26.122, which carries
-            # twenty direct rows and reaches 375, would serve them.
-            # Inherited rows are marked, since a caller weighing a
-            # switch should see which answer was measured on the build
-            # they would move to and which was carried forward.
+            # List reachable evidence, including a hotfix's inherited base records.
+            # Mark inherited rows so a caller considering another build can distinguish
+            # direct measurements from assumptions carried from its base.
             reachable = []
             for candidate in known_versions():
                 found = entry.evidence_in(candidate)
@@ -771,11 +718,8 @@ class VersionView:
             )
         record = evidence.record
         if record.status is Status.REMOVED:
-            # A note is mandatory for `removed`, so this reads the note
-            # and nothing else. The trailing full stop comes off because
-            # the citation is appended after a comma, and the shipped
-            # message read "...off the hotfix edition's silence., SRC-003
-            # p.346" (release review, 2026-08-09).
+            # A removed row requires a note. Strip its final full stop before
+            # appending a comma and the citation, avoiding doubled punctuation.
             reason = " ".join(record.note.split()).rstrip(".")
             successor = (
                 f"Use {record.successor} instead."

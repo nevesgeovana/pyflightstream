@@ -88,13 +88,8 @@ _POINT_PLACEHOLDERS = (
 _OUTPUT_PLACEHOLDERS = (*_POINT_PLACEHOLDERS, "name")
 _ARCHIVE_PLACEHOLDERS = ("campaign", "sim")
 
-#: The simulation subfolder holding ONE FOLDER PER DATAPOINT, which is
-#: where a campaign collects (FR-92). Every point of one case
-#: used to collect into a single `outputs/`, so from the second point of a
-#: swept row onward that folder held two files that both read as loads
-#: tables and nothing in the filesystem said which point either belonged
-#: to. The layout answers it now: a point's evidence is what is in its own
-#: folder, and the question "which of these is mine" cannot be asked.
+#: The simulation subfolder holding one folder per datapoint (FR-92).
+#: Each point's collected evidence belongs in its own folder.
 SIM_DATAPOINTS_DIR = "datapoints"
 
 #: What every datapoint folder name begins with, so a reader scanning
@@ -469,9 +464,9 @@ def group_token(group: str | int) -> str:
         return f"g{int(token):02d}"
     if _NUMBERED_GROUP.match(token):
         raise ProductError(
-            f"the polar group is named {token!r}, which is the shape this release "
-            "replaced; a file named after it could not be told from the numbered "
-            "form it supersedes, and the rename of existing products needs that "
+            f"the polar group is named {token!r}, which has a legacy numbered "
+            "shape; a file named after it could not be distinguished from a numbered "
+            "product, and the rename of existing products needs that "
             "difference. Choose a name for the group"
         )
     return token
@@ -666,19 +661,9 @@ class NamingTemplate(BaseModel):
         str
             The rendered output name.
         """
-        # PYFS-005. Containment is checked FIRST and unconditionally.
-        #
-        # This function used to return `name` untouched whenever it held no
-        # brace, on the reasoning that a name with no placeholder has nothing
-        # to render. True, and irrelevant: the check it skipped was not about
-        # placeholders. A declared output of "../outside.txt" holds no brace,
-        # so it took the early return, never reached any validation, resolved
-        # OUTSIDE the simulation folder, and was then collected with
-        # shutil.move, which does not copy. The file was not read, it was
-        # taken, and the run recorded it as its own evidence.
-        #
-        # An early return that also skips a check the slow path performs is
-        # the shape to distrust here, so the check moved ahead of it.
+        # PYFS-005: check containment first, even for names without placeholders.
+        # A literal ../outside.txt must not bypass validation and be moved into the
+        # simulation as though it were this run's evidence.
         _check_output_containment(name)
         if "{" not in name and "}" not in name:
             return name
@@ -761,7 +746,7 @@ def _values(
             values[axis] = float(point[axis])
     if advance_ratio is not None and "advance_ratio" not in values:
         values["advance_ratio"] = float(advance_ratio)
-    # THE POINT'S OWN MACH NUMBER WINS (0.24.0). `mach` arrives from the
+    # THE POINT'S OWN MACH NUMBER WINS. `mach` arrives from the
     # simulation-level case, which on a Mach sweep is the row's FIRST point, so
     # `{mach}_{point}` rendered `0.1_M100...` and then `0.1_M200...`: a name
     # contradicting itself. A placeholder describes the point being named, the

@@ -1,4 +1,4 @@
-"""The read-only query verbs of ``pyfs-matrix`` (0.35.0): ``status``.
+"""The read-only query verbs of ``pyfs-matrix``: ``status``.
 
 Pipeline role: the command side of :mod:`pyflightstream.workspace.ledger`.
 :func:`run_query` is what :mod:`pyflightstream.run.cli` dispatches a query verb
@@ -59,7 +59,7 @@ _PLAN_STATES = {
 
 
 def add_query_parsers(subparsers: Any) -> None:
-    """Register the read-only query verbs of 0.35.0: ``status`` (FR-379 to FR-385).
+    """Register the read-only query verbs: ``status`` (FR-379 to FR-385).
 
     Parameters
     ----------

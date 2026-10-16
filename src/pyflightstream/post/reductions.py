@@ -62,7 +62,7 @@ def _refuse_a_source(destination: Path, sources: tuple[Path, ...]) -> None:
         raise WorkspaceError(
             f"{destination} is a file this reduction was READ from, so writing it would "
             "replace the history with its own summary. A reduction never overwrites the "
-            "file it came from (file rule of 2026-08-16): write the average under a "
+            "file it came from: write the average under a "
             "name of its own, beside the series."
         )
 
@@ -188,8 +188,8 @@ def write_reduction(
     if not series_path.is_file():
         raise WorkspaceError(
             f"{series_path} does not exist, so this average would be written with no "
-            "history beside it. The time series keeps its own dedicated file (file "
-            "rule of 2026-08-16): write it with write_series first, then the reduction."
+            "history beside it. The time series keeps its own dedicated file: "
+            "write it with write_series first, then the reduction."
         )
     if series_path.resolve().parent != destination.resolve().parent:
         raise WorkspaceError(

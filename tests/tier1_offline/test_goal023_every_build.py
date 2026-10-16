@@ -369,7 +369,7 @@ def test_goal023_transparent_one_row_plans_on_every_build_with_only_the_build_ch
 #:
 #: OWNER: the 25.000 edition's INITIALIZE_SOLVER takes five settings no later
 #: edition exposes and no edition gives a default for (load frame, proximity
-#: avoidance, stabilization, its strength, fast multipole; SRC-749 p.303), so
+#: avoidance, stabilization, its strength, fast multipole; FSM-25.000 p.303), so
 #: choosing them is a numerical decision that is the owner's (GOAL-023 arm 4).
 #: 26.100 rotor rows are refused again at 0.40.0 until the angular-velocity
 #: unit is measured; the rev/min decision disagrees with the manual (RPT-051).

@@ -14,10 +14,7 @@ is deleted together with the shim in the release that reaches that
 version. The Tier 1 guard fails the suite when a shim survives past its
 promise, so a release cannot ship an expired shim unnoticed.
 
-SIX KINDS OF PROMISE, since 0.25.0 (PFS-2021.07.01). The ledger held
-module shims only until then, and three live promises of other shapes
-sat outside it in a comment, where nothing enforced them: the dataclass
-was too narrow, and the comment said so. A promise now has a home
+SIX KINDS OF PROMISE (PFS-2021.07.01). A promise has a home
 whatever it renames: a module (:class:`DeprecatedModule`), a parameter
 of a function or an attribute of a class (:class:`DeprecatedParameter`),
 a command-line flag (:class:`DeprecatedFlag`), a key of the run manifest
@@ -88,9 +85,8 @@ def refusal_text(entry: Deprecation) -> str:
 
     The entry's own :meth:`message` says "will be removed in vX; use Y",
     which is the right sentence for a shim that still works. Every entry
-    of :data:`REFUSED_IN_0_15_0` no longer works, so its message would
-    tell a reader they have until 0.17.0 to make a change the package has
-    already stopped accepting.
+    of :data:`REFUSED_IN_0_15_0` is refused, so a future removal promise
+    would misrepresent a spelling the package does not accept.
 
     Parameters
     ----------
@@ -448,39 +444,15 @@ def expired_promise(entry: Deprecation, project_version: str) -> str | None:
 #: deadline guard imports each of these to check the shim still exists,
 #: which is a check only a module admits.
 #:
-#: It is empty since v0.4.0, when ``pyflightstream.files`` and
-#: ``pyflightstream.cases.matrix_legacy`` were deleted on the horizon
-#: their own entries recorded. Empty means that no module shim is live,
-#: and nothing more: the promises of the other four kinds live in
+#: Empty means that no module shim is live. Promises of the other kinds live in
 #: :data:`DEPRECATIONS` below.
 DEPRECATED_MODULES: tuple[DeprecatedModule, ...] = ()
 
-# THE RENAME OF THE WAIVED-COMMAND SURFACE (PFS-2022.01.05 and
-# OPS-2009.02.08). The entries a run manifest holds under that key are
-# WAIVERS, commands the database records broken that a recipe emitted
-# anyway under `Script.allow_broken`; a reader met `broken_commands` and
-# read it as the commands that broke, which is the opposite claim. The
-# key and the property of the same name on three objects moved to
-# `waived_commands` in 0.13.0.
-#
-# THE THREE PROPERTIES WERE REMOVED AT 0.15.0, on their promise. The KEY
-# was not: its entry, and the reason it moved to 0.16.0, are below with
-# the rest of the live promises. This comment introduced a statement that
-# was deleted from under it and is kept as history rather than as a claim.
-
-#: The two promises made before the ledger could hold them, registered
-#: on 2026-09-09 (PFS-2021.02). Each warned "in a future release" and
-#: carried no removal version, which NFR-20's policy forbids from 1.0
-#: and which no test could hold to a date before it. THE DECISION,
-#: taken in the session's seat under the delegation recorded for
-#: 2026-09-08: BOTH STAY UNTIL 1.0.0. Removing either earlier buys
-#: nothing (each shim is a keyword that forwards to its replacement)
-#: and would cost a caller outside this package a release they were
-#: never told about; 1.0.0 is the first release at which the policy
-#: binds and a removal is announced by the major version itself.
+#: The forwarding keyword shims below have a removal deadline of 1.0.0
+#: (PFS-2021.02, NFR-20). Until that deadline, each forwards to its replacement.
 #:
-#: The selection ``analysis_setup(vorticity_drag_boundaries=)`` moved
-#: to ``solver_settings`` in v0.3.0 rather than changing its name, so
+#: The selection ``analysis_setup(vorticity_drag_boundaries=)`` belongs
+#: to ``solver_settings`` rather than having a different parameter name, so
 #: the "renamed to" of the shared sentence is read as "moved to"; the
 #: ``extra`` says so.
 ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES = DeprecatedParameter(
@@ -491,12 +463,12 @@ ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES = DeprecatedParameter(
     removal_version="1.0.0",
     extra=(
         "The induced-drag boundary selection is a parameter of solver_settings "
-        "since v0.3.0 and analysis_setup only forwards it."
+        "and analysis_setup only forwards it."
     ),
 )
 
 #: ``fs_version=`` is the former spelling of ``default_fs_version=`` on
-#: the two matrix entry points (PFS-2009.08.01, v0.8.0). One row per
+#: the two matrix entry points (PFS-2009.08.01). One row per
 #: entry point, because the warning names the call the user made. The
 #: ``pyfs-matrix --fs-version`` flag is NOT deprecated and keeps its
 #: spelling, which is worth stating because the two look like one
@@ -528,49 +500,9 @@ MATRIX_FS_VERSION: dict[str, DeprecatedParameter] = {
     entry.owner: entry for entry in (PLAN_MATRIX_FS_VERSION, RUN_MATRIX_FS_VERSION)
 }
 
-# THREE SHIPPED NAMES MEASURED ON 2026-09-09 (PFS-2022.05), two renamed
-# then and one deliberately left. The first two were REMOVED AT 0.15.0 on
-# their promise, so their rows are gone from this file; what follows is
-# the history of the decision, not a live claim about the tree:
-#
-# * `pyflightstream.utils.sweep_editions` read the vendor manuals, and
-#   `sweep` is the solver's own word for a parameter sweep
-#   (`SWEEPER_START`, the `sweep` run type). It became `manual_editions`
-#   at 0.13.0, warned and forwarded, and is gone at 0.15.0. The
-#   `pyfs-manual sweep` subcommand keeps its name (a subcommand rename
-#   costs every documented invocation) and its help says what it reads;
-# * `propose_type(placeholder, description)` took two adjacent strings
-#   positionally and nothing at the call site said which was which. Both
-#   are keyword-only from 0.13.0; the positional call warned until
-#   0.15.0 and the signature refuses it now;
-#: * ``probe_ref`` is NOT renamed. It is a committed YAML key of the
-#:   command database, on the entry and on the version row, and the
-#:   Python attribute is the key itself (pydantic models, no alias), so
-#:   there is no Python-side name to move without touching every
-#:   chapter that carries the key and every reader of a committed
-#:   file. The two meanings (a probe report on the entry, the removal
-#:   evidence on a version row) are stated in the field docstrings of
-#:   ``pyflightstream.commands``, which is where a reader of the key
-#:   meets them.
-#: The polar format's five public names carried a prefix from 0.13.0 that
-#: named no resolvable antecedent; since 0.14.0 they are spelled ``custom``
-#: (the CHANGELOG entry of 0.14.0 names the finding). The old names warned
-#: and forwarded until 0.16.0 and are now
-#: gone; a module asked for one raises AttributeError.
-#: KEPT ON TIME AT 0.16.0, all five of them, on 2026-09-11. The pproc key
-#: `her_polar_format` and the four module names are gone, and the nine
-#: committed artifacts that still stated the key were migrated in the same
-#: change. The FORMAT is untouched: only the spelling that named a person
-#: rather than the thing was ever deprecated, and `custom_polar_format`
-#: writes exactly what `her_polar_format` wrote.
-
-#: FR-08. The five names of the polar format that 0.14.0 deprecated and
-#: 0.16.0 removed, old spelling to new. A module asked for one of these
-#: raised a BARE AttributeError until the release panel read it on
-#: 2026-09-11: the hooks that were meant to answer carried a docstring
-#: promising a warning over a body that did what no hook does. The users
-#: this most fails are the ones upgrading from a PUBLISHED 0.14.0, where
-#: the promise was real and where the old name still worked.
+#: FR-08. The polar-format names removed in 0.16.0, old spelling to replacement.
+#: A request for one raises AttributeError with the replacement and the removal
+#: version. The custom polar format retains the same output representation.
 REMOVED_AT_0_16_0: dict[str, str] = {
     "HerPolarTable": "CustomPolarTable",
     "her_polar_file_name": "custom_polar_file_name",
@@ -591,9 +523,8 @@ def removed_name_refusal(module: str, name: str) -> str:
     """
     replacement = REMOVED_AT_0_16_0[name]
     return (
-        f"{name} was removed in v0.16.0; write {replacement} instead. It was "
-        f"renamed in v0.14.0, warned through v0.15.0, and the removal is that "
-        f"promise kept on time. THE FORMAT IS UNCHANGED: {replacement} writes "
+        f"{name} was removed in v0.16.0; write {replacement} instead. "
+        f"THE FORMAT IS UNCHANGED: {replacement} writes "
         f"exactly what {name} wrote, and only the spelling that named a person "
         f"rather than the thing was ever deprecated. In a pproc artifact the "
         f"same rename applies to the [products] key her_polar_format, which is "
@@ -604,13 +535,12 @@ def removed_name_refusal(module: str, name: str) -> str:
 def removed_names_hook(module: str) -> Callable[[str], object]:
     """Return the module ``__getattr__`` that refuses the names removed at 0.16.0.
 
-    The polar format's names carried a possessive prefix before 0.14.0, are
-    spelled ``custom`` since, and were removed at 0.16.0 on their promise.
+    The polar format uses ``custom`` names; the removed names are refused.
     :mod:`pyflightstream.post` and :mod:`pyflightstream.post.products` each
-    answer for themselves with this hook, one definition since 0.33.0
-    (AD-10), rather than one routing through the other: a from-import asks a
+    answer for themselves with this shared hook (AD-10), rather than one
+    routing through the other: a from-import asks a
     package twice (``hasattr`` before the import opcode's own lookup), and
-    routing answered twice for it. Every other missing name gets the
+    routing would answer twice for it. Every other missing name gets the
     ``AttributeError`` Python raises with no hook at all.
 
     Parameters
@@ -628,7 +558,7 @@ def removed_names_hook(module: str) -> Callable[[str], object]:
     def refuse(name: str) -> object:
         if name in REMOVED_AT_0_16_0:
             raise AttributeError(removed_name_refusal(module, name))
-        # The names retired in 0.40.0 (FR-457) answer through the same hook,
+        # Retired names (FR-457) answer through the same hook,
         # naming their replacement, rather than a second hook per module.
         from pyflightstream._retired_names import RetiredAttributeError, retired_attribute
 
@@ -661,7 +591,7 @@ ROW_ROTATE_FAMILIES = DeprecatedParameter(
     deprecated_since="0.15.0",
     removal_version="0.18.0",
     extra=(
-        "A rotation and a motion cite a set the same way since 0.15.0, so "
+        "A rotation and a motion cite a set the same way, so "
         "the reference is the one place a study says what its groups are. "
         "A record listing families is a record that has to be edited when "
         "the mesh is renamed, and the alias is what stops that."
@@ -674,7 +604,7 @@ ROW_EACH_BLADE = DeprecatedParameter(
     deprecated_since="0.15.0",
     removal_version="0.18.0",
     extra=(
-        "The FRAME decides how an entry expands since 0.15.0, and a blade's "
+        "The FRAME decides how an entry expands, and a blade's "
         "own axes are one per blade, so the selector that said so is a "
         "second statement of one fact."
     ),
@@ -699,18 +629,12 @@ ROW_BLADES_SELECTOR = DeprecatedParameter(
     deprecated_since="0.15.0",
     removal_version="0.18.0",
     extra=(
-        "Same pattern, same guess, and since 0.15.0 there is a better "
-        "answer for a rotor: its block lists families_blades, so naming the "
+        "A rotor's block lists families_blades, so naming the "
         "rotor in a frame that expands per blade gives one emission per "
         "blade with no pattern in it."
     ),
 )
-#: `ROW_PROBE_SCALE` STOOD HERE AND IS STRUCK. It promised that
-#: `scale = "propeller_radius"` would keep working with a warning until
-#: 0.17.0, and the instruction of 2026-09-10 is that this package
-#: accepts no old nomenclature at all: the word is REFUSED now, with the
-#: replacement named. A promise nothing keeps is worse than no promise, so
-#: the entry moves rather than staying here unspoken. Its home is
+#: `scale = "propeller_radius"` is refused with its replacement named by
 #: :data:`pyflightstream._retired_names.PROBE_SCALE_PROPELLER_RADIUS`.
 
 #: Live refusal messages for removed spellings, not unconditional bans on
@@ -726,10 +650,6 @@ REFUSED_IN_0_15_0: tuple[Deprecation, ...] = (
 
 #: Every live promise of every kind, one entry each; the Tier 1 deadline
 #: guard judges each of these through :func:`expired_promise`.
-#: The polar format's four former Python names, each to the ledger entry
-#: that promises its removal; read by the two shims that serve them (the
-#: architecture lens of 2026-09-09: the mapping was private to one module
-#: and its sibling reached into it).
 
 INFLOW_STATION_HARMONICS = DeprecatedFunction(
     function="pyflightstream.post.inflow_tools.StationHarmonics",

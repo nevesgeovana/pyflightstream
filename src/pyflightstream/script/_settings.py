@@ -1,21 +1,14 @@
 """The solver settings, emitted by family behind ``solver_settings`` (AD-17).
 
-A private module of the ``script`` package since 0.34.0 (GOAL-039, work
-package WP9a). :func:`pyflightstream.script.helpers.solver_settings`
-keeps its signature, its defaults, its docstring and its public path, and
-hands the arguments it received, unchanged, to
-:func:`emit_solver_settings`, which runs the call in the three steps the
-0.33.0 function ran inline:
+:func:`pyflightstream.script.helpers.solver_settings` passes its arguments
+unchanged to :func:`emit_solver_settings`, which performs three steps:
 
 1. every ARGUMENT refusal, on an untouched script
    (:func:`_read_arguments`): the bare labels and the boundary lists, the
    separation erase, the assignment models, the toggles, the time regime,
    the bulk model and the build it is written for, and the induced-drag
-   selection, in that order, so the first refusal of a call is the one
-   0.33.0 raised;
-2. one emitter per family of settings, called in the order the 0.33.0
-   function emitted, so the emitted lines and their order are
-   byte-identical: the time regime, the runtime settings
+   selection, in that order;
+2. one emitter per family of settings, in order: the time regime, runtime settings
    (:data:`RUNTIME_FAMILY`), the boundary layer
    (:data:`BOUNDARY_LAYER_FAMILY`), separation (:data:`SEPARATION_FAMILY`
    and the assignment models), convergence (:data:`CONVERGENCE_FAMILY` and
@@ -29,14 +22,13 @@ hands the arguments it received, unchanged, to
 A later setup key of the solver chapters lands as a row of its family's
 table, without growing the facade.
 
-The other helpers that set up a run moved here with it, unchanged apart
-from type annotations, and are still imported from
-``pyflightstream.script.helpers``, their public path: the flow conditions
+Other run-setup helpers use the public import path
+``pyflightstream.script.helpers``: the flow conditions
 (:func:`free_stream`, :func:`fluid_fifth_property`, :func:`atmosphere`),
 the time regime alone (:func:`unsteady_solver`), and the solver
 initialization (:func:`initialize_solver`, which carries the wake
-termination plane, and :func:`start_solver`). So did the toggle readers
-the helpers share (:func:`_read`, :func:`_optional_toggle`,
+termination plane, and :func:`start_solver`). Shared toggle readers
+(:func:`_read`, :func:`_optional_toggle`,
 :func:`_toggle`), which a private module may offer to every helper and
 the public :mod:`pyflightstream.script.toggles` may not. The deferred
 induced-drag selection has one home here too: ``solver_settings`` records
@@ -88,7 +80,7 @@ class Row(NamedTuple):
     erase: str = ""
 
 
-#: The runtime settings and the main solver controls (SRC-003 pp.339-341).
+#: The runtime settings and the main solver controls (FSM-26.120 pp.339-341).
 RUNTIME_FAMILY = (
     Row("aoa", "SOLVER_SET_AOA"),
     Row("sideslip", "SOLVER_SET_SIDESLIP"),
@@ -104,7 +96,7 @@ RUNTIME_FAMILY = (
     Row("forced_iterations", "SOLVER_SET_FORCED_ITERATIONS", "toggle"),
 )
 
-#: The boundary layer, viscous coupling and thin boundaries (SRC-003
+#: The boundary layer, viscous coupling and thin boundaries (FSM-26.120
 #: pp.341-343). An empty list is the erase: the solver has a command for
 #: it, and the count 0 with an empty index line would ask the parser to
 #: read a line that carries nothing.
@@ -121,7 +113,7 @@ BOUNDARY_LAYER_FAMILY = (
     Row("thin_boundaries", "SET_THIN_BOUNDARIES", "list", "DELETE_THIN_BOUNDARIES"),
 )
 
-#: The boundary lists of the 26.100 separation family (SRC-741
+#: The boundary lists of the 26.100 separation family (FSM-26.100
 #: pp.339-340), the order the snapshot and the refusals read them in.
 SEPARATION_LISTS = (
     Row(
@@ -168,9 +160,9 @@ ASSIGNMENT_COMMANDS = (
 #: library default (:func:`_emit_minimum_cp`).
 CONVERGENCE_FAMILY = (Row("convergence_iterations", "SET_SOLVER_CONVERGENCE_ITERATIONS"),)
 
-#: The advanced settings (SRC-003 pp.344-346), then the commands of the
-#: 26.121 edition (SRC-740) and of the three pre-26.100 editions
-#: (SRC-747, SRC-749), in the order 0.33.0 emitted them.
+#: The advanced settings (FSM-26.120 pp.344-346), then the commands of the
+#: 26.121 edition (FSM-26.121) and of the three pre-26.100 editions
+#: (FSM-26.000, FSM-25.000), in the order 0.33.0 emitted them.
 ADVANCED_FAMILY = (
     Row("reynolds_averaged_drag", "REYNOLDS_AVERAGED_DRAG_FORCES", "toggle"),
     Row("mesh_induced_wake_velocity", "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY", "toggle"),
@@ -204,14 +196,10 @@ ADVANCED_FAMILY = (
     Row("vortex_ring_normalization", "SOLVER_VORTEX_RING_NORMALIZATION", "toggle"),
 )
 
-#: The toggles read before the first emission, in the order they are read,
-#: so a value in neither vocabulary refuses on an untouched script and the
-#: snapshot records booleans whichever vocabulary the caller wrote. The five
-#: toggle rows of ADVANCED_FAMILY that 0.33.0 left out (valarezo_criterion,
-#: wake_relaxation, wake_streamwise_agglomeration,
-#: adverse_gradient_boundary_layer and vortex_ring_normalization) are the
-#: last five: FR-349 (0.34.0) reads them too, so 'DISABLE' writes DISABLE
-#: and the snapshot records a boolean.
+#: Read toggles before emission in the declared order. Invalid values
+#: refuse on an untouched script; the snapshot records booleans for either
+#: accepted input vocabulary. The last five rows cover the advanced-family
+#: toggles required by FR-349, including explicit DISABLE values.
 READ_TOGGLES = (
     "forced_iterations",
     "viscous_coupling",
@@ -278,7 +266,7 @@ def _flush_pending_vorticity(script: Script) -> None:
 
     :func:`pyflightstream.script.helpers.solver_settings` records the
     selection it was given but cannot emit it in place:
-    SET_VORTICITY_DRAG_BOUNDARIES is an analysis-phase command (SRC-003
+    SET_VORTICITY_DRAG_BOUNDARIES is an analysis-phase command (FSM-26.120
     p.350) and the settings are emitted in the init phase, before the
     solver starts. The selection is therefore flushed by
     :func:`start_solver`, by :func:`pyflightstream.script.helpers.sweep`
@@ -325,11 +313,9 @@ def _as_selection(value: object) -> object:
     """Return a boundary selection as a list, leaving None and ``"all"`` alone.
 
     One materialisation, read by both the emission and the snapshot.
-    They used to decide emptiness by two different tests over the same
-    value, length on one side and equality with ``[]`` on the other, so
-    an empty tuple emitted the erase and recorded the setter. A caller
-    may also hand in any iterable, and an emptiness check must not
-    consume it.
+    Both use the same emptiness result, including for empty tuples.
+    Materialize an iterable once so checking it does not consume values
+    needed by emission or the snapshot.
 
     Parameters
     ----------
@@ -354,7 +340,7 @@ def _separation_arguments(model: object) -> dict[str, Any]:
     same way for each command: the fields of the model in declaration
     order, with ``boundaries`` expanded into the count-plus-index-line
     grammar. ``"all"`` becomes the count -1 and no index line, which is
-    the documented way of naming every mesh boundary (SRC-003 p.341).
+    the documented way of naming every mesh boundary (FSM-26.120 p.341).
 
     Parameters
     ----------
@@ -395,7 +381,7 @@ def _separation_arguments(model: object) -> dict[str, Any]:
                 f"solver_settings: the separation assignment {name!r} selects no "
                 "boundary, which would emit the count 0 followed by an empty index "
                 "line. Give it the boundaries it applies to, or 'all' for every mesh "
-                "boundary (the -1 form of SRC-003 p.341); to create no assignment at "
+                "boundary (the -1 form of FSM-26.120 p.341); to create no assignment at "
                 "all, leave it out of the sequence."
             )
         arguments["num_boundaries"] = len(boundaries)
@@ -408,7 +394,7 @@ def _reject_empty_selection(helper: str, argument: str, value: list[object]) -> 
 
     An empty sequence would emit SET_VORTICITY_DRAG_BOUNDARIES naming
     no boundary, which is not how the solver default is expressed: the
-    default is the command never being emitted at all (SRC-003 p.202).
+    default is the command never being emitted at all (FSM-26.120 p.202).
     The realistic way to reach an empty sequence is a selection filter
     that matched nothing, so the message names that diagnosis too.
     """
@@ -417,7 +403,7 @@ def _reject_empty_selection(helper: str, argument: str, value: list[object]) -> 
     raise CommandArgumentError(
         f"{helper}: {argument} is an empty sequence, which would emit a selection "
         "command naming no boundary. Omit the argument (or pass None) to leave every "
-        "boundary on the solver default, surface pressure integration (SRC-003 "
+        "boundary on the solver default, surface pressure integration (FSM-26.120 "
         "p.202); if the list was computed, the selection filter matched no boundary."
     )
 
@@ -466,14 +452,14 @@ def _wake_termination_token(value: object) -> str:
     raise CommandArgumentError(
         f"initialize_solver: wake_termination_x is {value!r}, and it takes DEFAULT, "
         "for the solver's own wake termination, or the finite X location of the "
-        "termination in the reference frame (SRC-003 p.337). NaN, an infinity or "
+        "termination in the reference frame (FSM-26.120 p.337). NaN, an infinity or "
         "any other word would reach the solver as text it cannot read"
     )
 
 
 # --- The flow conditions: the free stream and the fluid properties.
 
-#: The free-stream definitions :func:`free_stream` writes (SRC-003 p.322).
+#: The free-stream definitions :func:`free_stream` writes (FSM-26.120 p.322).
 FREE_STREAM_KINDS = ("CONSTANT", "ROTATION", "CUSTOM")
 
 
@@ -487,7 +473,7 @@ def free_stream(
     profile: str | None = None,
     filetype: str | None = None,
 ) -> None:
-    """Set the free-stream velocity definition (SRC-003 p.322).
+    """Set the free-stream velocity definition (FSM-26.120 p.322).
 
     Parameters
     ----------
@@ -533,7 +519,7 @@ def free_stream(
         # (PFS-2097.016).
         raise CommandArgumentError(
             f"free_stream: kind {kind!r} is not a free-stream definition; SET_FREESTREAM "
-            f"takes {', '.join(FREE_STREAM_KINDS)} (SRC-003 p.322)"
+            f"takes {', '.join(FREE_STREAM_KINDS)} (FSM-26.120 p.322)"
         )
     rotation_given = [frame is not None, axis is not None, rpm is not None]
     custom_given = [profile is not None, filetype is not None]
@@ -542,21 +528,21 @@ def free_stream(
             raise CommandArgumentError(
                 "SET_FREESTREAM ROTATION takes exactly frame, axis, and rpm: the rotating "
                 "free stream needs the axis frame, the axis, and the angular velocity "
-                "(SRC-003 p.322)"
+                "(FSM-26.120 p.322)"
             )
         script.emit("SET_FREESTREAM", upper, frame=frame, axis=axis, angular_velocity=rpm)
     elif upper == "CUSTOM":
         if not all(custom_given) or any(rotation_given):
             raise CommandArgumentError(
                 "SET_FREESTREAM CUSTOM takes exactly filetype and profile: the imported "
-                "velocity profile needs its file structure and path (SRC-003 p.322)"
+                "velocity profile needs its file structure and path (FSM-26.120 p.322)"
             )
         script.emit("SET_FREESTREAM", upper, filetype=filetype, filename=profile)
     else:
         if any(rotation_given) or any(custom_given):
             raise CommandArgumentError(
                 "SET_FREESTREAM CONSTANT takes no further input; the free-stream magnitude "
-                "is a solver setting (SOLVER_SET_VELOCITY, SRC-003 p.339)"
+                "is a solver setting (SOLVER_SET_VELOCITY, FSM-26.120 p.339)"
             )
         script.emit("SET_FREESTREAM", upper)
 
@@ -604,7 +590,7 @@ def atmosphere(
     specific_heat_ratio: float | None = None,
     sonic_velocity: float | None = None,
 ) -> None:
-    """Set the working fluid state (SRC-003 p.328).
+    """Set the working fluid state (FSM-26.120 p.328).
 
     Either from a standard-atmosphere altitude (AIR_ALTITUDE) or from
     the five explicit fluid properties (FLUID_PROPERTIES); the two
@@ -616,13 +602,10 @@ def atmosphere(
     temperature and specific heat ratio and take
     ``specific_heat_ratio``; the three pre-26.100 editions take
     ``sonic_velocity`` and have no specific-heat-ratio argument at all
-    (SRC-749 p.286).
+    (FSM-25.000 p.286).
 
-    Before 2026-08-10 the helper only knew the newer form, and entering
-    the older grammar closed both doors at once on those builds: passing
-    the five was refused by the binder for a keyword the edition does not
-    have, and omitting one was refused by this helper, which quoted a
-    page of a different edition at a caller who was not reading it.
+    Validate against the target edition's grammar so required arguments
+    and accepted keywords agree with the page that governs this build.
 
     Parameters
     ----------
@@ -635,7 +618,7 @@ def atmosphere(
         ``METERS`` or ``FEET``, defaulting to ``METERS`` on the builds
         that take a units token. THE 25.000 BUILD TAKES NONE AND READS
         THE BARE NUMBER IN FEET, which its page states on the parameter
-        row itself (SRC-749 p.286); the token arrives with the second
+        row itself (FSM-25.000 p.286); the token arrives with the second
         argument at 25.100. So the same call is metres on seven builds
         and feet on one, a factor of 3.28 apart, and on that build this
         helper REQUIRES ``FEET`` rather than assuming it: a caller who
@@ -687,12 +670,12 @@ def atmosphere(
             raise CommandArgumentError(
                 "atmosphere takes either an altitude or the five explicit fluid "
                 "properties, not both: AIR_ALTITUDE already sets the whole standard "
-                "atmosphere state (SRC-003 p.328)"
+                "atmosphere state (FSM-26.120 p.328)"
             )
         takes_units = "units" in {arg.name for arg in script._view["AIR_ALTITUDE"].args}
         if not takes_units:
             # THAT BUILD READS THE BARE NUMBER IN FEET and its page says
-            # so on the parameter row (SRC-749 p.286). The units token
+            # so on the parameter row (FSM-25.000 p.286). The units token
             # arrives with the second argument at 25.100, so the same
             # call means two things a factor of 3.28 apart across that
             # boundary, and neither the number nor a default can say
@@ -709,7 +692,7 @@ def atmosphere(
                 raise CommandArgumentError(
                     f"atmosphere: FlightStream {script.version.canonical} takes "
                     "AIR_ALTITUDE with a bare value and reads it in FEET "
-                    "(SRC-749 p.286), while every later build takes a units token "
+                    "(FSM-25.000 p.286), while every later build takes a units token "
                     "and this helper defaults that to METERS. Pass "
                     "altitude_units='FEET' to say you meant feet; the same call "
                     "without it means metres on the other seven builds, which is "
@@ -720,7 +703,7 @@ def atmosphere(
                     f"atmosphere: FlightStream {script.version.canonical} reads "
                     f"AIR_ALTITUDE in FEET and takes no units token, so "
                     f"{altitude_units!r} cannot be emitted or honoured "
-                    "(SRC-749 p.286). Convert the value, or set the fluid state "
+                    "(FSM-25.000 p.286). Convert the value, or set the fluid state "
                     "through the five explicit properties instead"
                 )
             script.emit("AIR_ALTITUDE", altitude)
@@ -735,7 +718,7 @@ def atmosphere(
             f"atmosphere: altitude_units is {altitude_units!r} and no altitude is given. "
             "It is the unit of the standard-atmosphere altitude (AIR_ALTITUDE) and has "
             "no meaning for the five explicit fluid properties, which FLUID_PROPERTIES "
-            "takes in SI units and with no unit token (SRC-003 p.328). Drop "
+            "takes in SI units and with no unit token (FSM-26.120 p.328). Drop "
             "altitude_units, or pass the altitude it qualifies"
         )
     if unwanted is not None:
@@ -763,15 +746,15 @@ def atmosphere(
     )
 
 
-# --- The solver settings (SRC-003 pp.339-346).
+# --- The solver settings (FSM-26.120 pp.339-346).
 
 
 def unsteady_solver(script: Script, *, time_iterations: int, delta_time: float) -> None:
-    """Select unsteady physical time stepping (SRC-003 p.341).
+    """Select unsteady physical time stepping (FSM-26.120 p.341).
 
     For rotary cases the manual recommends 8 to 12 degrees of blade
     rotation per time step and at least two full rotations
-    (SRC-003 p.210).
+    (FSM-26.120 p.210).
 
     Parameters
     ----------
@@ -922,7 +905,7 @@ def _carry_earlier_records(
 
 
 def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
-    """Run every argument refusal before the first emission, in 0.33.0's order.
+    """Run argument refusals in their declared order before the first emission.
 
     Normalizes ``values`` in place to what the emitters and the snapshot
     read: the boundary lists as lists, the separation erase, the validated
@@ -1007,27 +990,24 @@ def _read_delete_separations(value: object) -> int | Literal["all"] | None:
                 "solver_settings: delete_separations takes the 1-based index of one "
                 f"separation model or the string 'all', got {value!r}; "
                 "the manual's -1 form for every model is spelled 'all' here "
-                "(SRC-003 p.342)"
+                "(FSM-26.120 p.342)"
             )
         return "all"
     if not isinstance(value, int) or isinstance(value, bool):
-        # The first repair split str from EVERYTHING ELSE and let the
-        # rest fall into a `< 1` comparison, so a list raised
-        # "'<' not supported between instances of 'list' and 'int'".
-        # bool is an int in Python and is not an index, so it is
-        # named here rather than accepted as 1 or refused as 0.
+        # Refuse non-index types before numeric comparison. bool is an int
+        # in Python but is not a valid index.
         raise CommandArgumentError(
             "solver_settings: delete_separations takes the 1-based index of one "
             f"separation model or the string 'all', got {type(value).__name__} "
             f"{value!r}. The solver deletes one model by index or every "
-            "model at once; there is no multi-index form (SRC-003 p.342)"
+            "model at once; there is no multi-index form (FSM-26.120 p.342)"
         )
     if value < 1:
         raise CommandArgumentError(
             "solver_settings: delete_separations takes the 1-based index of one "
             f"separation model or the string 'all', got {value!r}; the "
             "solver numbers the models in creation order, and the manual's -1 form "
-            "for every model is spelled 'all' here (SRC-003 p.342)"
+            "for every model is spelled 'all' here (FSM-26.120 p.342)"
         )
     return value
 
@@ -1055,7 +1035,7 @@ def _read_assignments(argument: str, model_type: Any, given: Any) -> list[Any]:
             "models, which emits nothing. It is not the erase, unlike the empty "
             "sequence of a boundary-list keyword in this same call: the solver "
             "deletes separation models by index or all at once "
-            "(DELETE_SEPARATION, SRC-003 p.342), so pass delete_separations='all' "
+            "(DELETE_SEPARATION, FSM-26.120 p.342), so pass delete_separations='all' "
             f"or an index. Omit {argument} to leave the models as the script found "
             "them."
         )
@@ -1094,20 +1074,20 @@ def _read_time_regime(values: dict[str, Any]) -> None:
     if upper_mode is not None and upper_mode not in ("STEADY", "UNSTEADY"):
         raise CommandArgumentError(
             f"solver_settings mode takes STEADY or UNSTEADY, got {mode!r}: the solver "
-            "time regime is one of the two (SRC-003 p.341)"
+            "time regime is one of the two (FSM-26.120 p.341)"
         )
     time_iterations, delta_time = values["time_iterations"], values["delta_time"]
     if upper_mode == "UNSTEADY" and (time_iterations is None or delta_time is None):
         raise CommandArgumentError(
             "solver_settings mode='UNSTEADY' needs both time_iterations and delta_time: "
             "physical time stepping is defined by the step count and the step size "
-            "(SRC-003 p.341)"
+            "(FSM-26.120 p.341)"
         )
     if upper_mode != "UNSTEADY" and (time_iterations is not None or delta_time is not None):
         raise CommandArgumentError(
             "solver_settings: time_iterations and delta_time belong to the unsteady "
             "solver; pass mode='UNSTEADY' with them, or drop them for a steady run "
-            "(SRC-003 p.341)"
+            "(FSM-26.120 p.341)"
         )
     values["mode"] = upper_mode
 
@@ -1121,14 +1101,14 @@ def _read_bulk(bulk_separation: object) -> BulkSeparation | None:
     except ValidationError as error:
         raise CommandArgumentError(
             "solver_settings: bulk_separation takes a BulkSeparation (name, "
-            f"separation_type, diameter, boundaries; SRC-003 p.342): {error}"
+            f"separation_type, diameter, boundaries; FSM-26.120 p.342): {error}"
         ) from error
 
 
 def _refuse_bulk_form_the_build_lacks(script: Script, rendered: dict[str, Any] | None) -> None:
     """Refuse the four-argument bulk model on a build that documents three.
 
-    The 26.101 grammar drops SEPARATION_TYPE (SRC-725 p.341) and
+    The 26.101 grammar drops SEPARATION_TYPE (FSM-26.101 p.341) and
     BulkSeparation requires it, so the model cannot express that form.
     Refused HERE, naming the version and its own manual page: the binder's
     generic message says "CREATE_BULK_SEPARATION has no argument
@@ -1147,8 +1127,8 @@ def _refuse_bulk_form_the_build_lacks(script: Script, rendered: dict[str, Any] |
             "solver_settings: bulk_separation carries separation_type, which "
             f"FlightStream {script.version.canonical} does not take: that edition "
             "documents the three-argument form, name, count and diameter "
-            "(SRC-725 p.341), and the four-argument form with CYLINDRICAL or "
-            "FLAT_PLATE arrived in 26.12 (SRC-003 p.342). BulkSeparation models "
+            "(FSM-26.101 p.341), and the four-argument form with CYLINDRICAL or "
+            "FLAT_PLATE arrived in 26.12 (FSM-26.120 p.342). BulkSeparation models "
             "the four-argument form, so emit the three-argument one with "
             "Script.emit('CREATE_BULK_SEPARATION', name=..., num_boundaries=..., "
             "diameter=...). Read RPT-015 first: every documented form of this "
@@ -1205,7 +1185,7 @@ def _emit_family(script: Script, values: Mapping[str, Any], family: tuple[Row, .
             script.emit(row.command, value)
         elif value == "all":
             # -1 names every mesh boundary and takes no index line
-            # (SRC-003 p.343).
+            # (FSM-26.120 p.343).
             script.emit(row.command, -1)
         elif len(value) == 0:
             script.emit(row.erase)
@@ -1218,16 +1198,14 @@ def _emit_separation_models(script: Script, values: Mapping[str, Any], prepared:
 
     The erase precedes every create, which is what FLAG_SPECS says the
     order is for: one call can clear the models an opened simulation
-    carried and then build its own on a known-empty list. It used to sit
-    after CREATE_BULK_SEPARATION, so passing both keywords created the
-    bulk model and deleted it, while the snapshot recorded it as emitted.
+    carried and then build its own on a known-empty list. This keeps the
+    emitted models and the recorded snapshot aligned.
     """
     delete_separations = values["delete_separations"]
     if delete_separations is not None:
         script.emit("DELETE_SEPARATION", -1 if delete_separations == "all" else delete_separations)
     if prepared.bulk is not None:
-        # Through the same renderer as the other four assignment models,
-        # since 2026-08-06, so the no-boundary refusal reaches it too.
+        # Use the assignment-model renderer so the no-boundary refusal applies.
         script.emit("CREATE_BULK_SEPARATION", **prepared.bulk)
     for argument, command in ASSIGNMENT_COMMANDS:
         for arguments in prepared.models[argument]:
@@ -1251,21 +1229,21 @@ def _emit_minimum_cp(script: Script, minimum_cp: object, *, already: bool) -> bo
     return False
 
 
-# --- The solver initialization (SRC-003 p.337) and the solver start.
+# --- The solver initialization (FSM-26.120 p.337) and the solver start.
 
 
 def start_solver(script: Script) -> None:
     """Start the solver and land the deferred induced-drag selection.
 
-    Emits START_SOLVER (SRC-003 p.338) and then the
+    Emits START_SOLVER (FSM-26.120 p.338) and then the
     SET_VORTICITY_DRAG_BOUNDARIES emission that
     :func:`solver_settings` recorded, if any: the selection is an
-    analysis-phase command (SRC-003 p.350) that cannot precede the
+    analysis-phase command (FSM-26.120 p.350) that cannot precede the
     exec phase, so pairing it with the solver start is what makes a
     selection built during the settings call actually reach the
     script. When no selection was passed nothing is flushed and the
     solver default applies, which is surface pressure integration on
-    every boundary (SRC-003 p.202).
+    every boundary (FSM-26.120 p.202).
 
     Parameters
     ----------
@@ -1295,7 +1273,7 @@ def initialize_solver(
     periodic_copies: int | None = None,
     wall_collision_avoidance: Toggle | None = None,
 ) -> None:
-    """Initialize the solver, covering the extended forms (SRC-003 p.337).
+    """Initialize the solver, covering the extended forms (FSM-26.120 p.337).
 
     Parameters
     ----------
@@ -1319,7 +1297,7 @@ def initialize_solver(
     symmetry : str
         ``NONE``, ``MIRROR``, or ``PERIODIC``. Initializing MIRROR
         with a full (non-half) model diverges instantly
-        (SRC-003 p.217).
+        (FSM-26.120 p.217).
     periodic_copies : int, optional
         Number of periodic copies; required with PERIODIC symmetry
         and forbidden otherwise.
@@ -1334,7 +1312,7 @@ def initialize_solver(
         symmetry SYMMETRY_TYPE with its own token set and has no
         SOLVER_MODEL, so the defaults here would bind two names it does
         not carry. Refused at entry, before anything is emitted, and the
-        message points at ``script.emit`` (SRC-749 p.298).
+        message points at ``script.emit`` (FSM-25.000 p.298).
 
     Examples
     --------
@@ -1350,14 +1328,14 @@ def initialize_solver(
     # no SOLVER_MODEL, spells symmetry SYMMETRY_TYPE with a different
     # token set, and requires five more this helper has no parameter
     # for. The defaults below would bind two of them, so a bare call
-    # died on a name the caller never wrote (SRC-749 p.298).
+    # died on a name the caller never wrote (FSM-25.000 p.298).
     if "solver_model" not in {arg.name for arg in script._view["INITIALIZE_SOLVER"].args}:
         raise CommandArgumentError(
             f"initialize_solver cannot express the INITIALIZE_SOLVER grammar of "
             f"FlightStream {script.version.canonical}: that edition takes ten "
             "arguments, spells symmetry SYMMETRY_TYPE with its own token set, and "
             "has no SOLVER_MODEL, so this helper's parameters do not map onto it "
-            "(SRC-749 p.298). Emit the command directly with "
+            "(FSM-25.000 p.298). Emit the command directly with "
             "script.emit('INITIALIZE_SOLVER', ...), which validates against that "
             "build's own grammar"
         )
@@ -1365,12 +1343,12 @@ def initialize_solver(
         raise CommandArgumentError(
             "INITIALIZE_SOLVER: PERIODIC symmetry appends the number of copies, so "
             "periodic_copies is required with PERIODIC and forbidden otherwise "
-            "(SRC-003 p.337)"
+            "(FSM-26.120 p.337)"
         )
     if periodic_copies is not None and periodic_copies < 1:
         raise CommandArgumentError(
             f"INITIALIZE_SOLVER: periodic_copies must be a positive count, got "
-            f"{periodic_copies} (SRC-003 p.337)"
+            f"{periodic_copies} (FSM-26.120 p.337)"
         )
     wall_collision_avoidance = _optional_toggle(
         "initialize_solver", "wall_collision_avoidance", wall_collision_avoidance
@@ -1400,7 +1378,7 @@ def initialize_solver(
                 "initialize_solver: surfaces lists -1, which selects every boundary "
                 "and is not one surface of the per-surface list. Pass surfaces='all' "
                 "to initialize every boundary, or list the surfaces by index or label "
-                "(SRC-003 p.337)"
+                "(FSM-26.120 p.337)"
             )
         arguments["surfaces"] = len(resolved)
         arguments["surface_toggles"] = [

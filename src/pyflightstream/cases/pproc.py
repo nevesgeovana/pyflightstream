@@ -34,7 +34,7 @@ from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS
 from pyflightstream._tokens import REDUCTION_COLUMNS
 
-# The quasi-steady wheel's correction choice (0.31.0), a table of the pproc; its
+# The quasi-steady wheel's correction choice, a table of the pproc; its
 # module imports only the floor, so the package may import it while it loads.
 from pyflightstream.cases._farfield_spec import FarfieldSpec, LatticeShape
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
@@ -111,7 +111,7 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
         "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS",
         False,
     ),
-    # G05 (0.27.0): the pproc's ONE volume section, in the format its table
+    # G05: the pproc's ONE volume section, in the format its table
     # names. `_vsec` is the only thing telling the file from a surface export
     # of the same extension, so it is claimed first (the longest suffix).
     ("volume_section_vtk", "_vsec.vtk", "EXPORT_VOLUME_SECTION_VTK", False),
@@ -123,13 +123,13 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("plot_residuals", "_plot_residuals.txt", "SAVE_PLOT_TO_FILE", False),
     ("plot_loads", "_plot_loads.txt", "SAVE_PLOT_TO_FILE", False),
     ("plot_sections_cp", "_plot_cp_sections.txt", "SAVE_PLOT_TO_FILE", False),
-    # FR-460 (0.40.0): the traced streamlines, declared only by a pproc's
+    # FR-460: the traced streamlines, declared only by a pproc's
     # [streamlines] table. Both exports are exports like the others: the traces
     # are generated in the analysis phase, and their export commands are
     # export-phase commands.
     ("streamlines_surface", "_sls.txt", "EXPORT_ALL_SURFACE_STREAMLINES", False),
     ("streamlines_off_body", "_slo.txt", "EXPORT_ALL_OFF_BODY_STREAMLINES", False),
-    # FR-461 (0.40.0): a free body's trajectory, declared only by a row's SIXDOF
+    # FR-461: a free body's trajectory, declared only by a row's SIXDOF
     # input. Its command is a setup command, emitted with the motion it names.
     ("trajectory_6dof", "_trajectory_6dof.txt", "EXPORT_6DOF_TRAJECTORY", True),
     ("log", "_log.txt", "EXPORT_LOG", False),
@@ -341,7 +341,7 @@ def classify_outputs(names: Sequence[str], *, package_version: str | None = None
         # Older records keep their historical suffix interpretation.
         if (release is None or release >= (0, 29)) and lowered.endswith("_native_tecplot.dat"):
             continue
-        # 0.32.0 (E2): an acoustic export or section file is never a surface export.
+        # E2: an acoustic export or section file is never a surface export.
         if (release is None or release >= (0, 32)) and is_acoustic_output(name):
             continue
         for kind, suffix, _, _ in by_length:
@@ -408,7 +408,7 @@ FORCE_PLOT_PARAMETERS: dict[str, tuple[str, str]] = {
     "CL": ("CL", "COEFFICIENTS"),
     "CDI": ("CDI", "COEFFICIENTS"),
     "CDO": ("CDO", "COEFFICIENTS"),
-    # The pressure and viscous drag split the 26.125 manual names (FR-423, SRC-753
+    # The pressure and viscous drag split the 26.125 manual names (FR-423, FSM-26.125
     # p.359); 26.125 also ran CDI and CDO (RPT-160), and no earlier build has these.
     "CDP": ("CDP", "COEFFICIENTS"),
     "CDV": ("CDV", "COEFFICIENTS"),
@@ -443,7 +443,7 @@ AXES_PLOT_GROUP = "MRP_TOTAL"
 #: expanding frame names its emissions `<alias>` in the rotor's own axes.
 ROTOR_PLOT_GROUP_PREFIX = "ROTOR_"
 
-#: Fluid parameters documented across builds (SRC-003 p.347, SRC-751 p.352).
+#: Fluid parameters documented across builds (FSM-26.120 p.347, FSM-26.123 p.352).
 #: The pproc has no build; the workflow checks the run's command-database enum.
 FLUID_PLOT_PARAMETERS = (
     "CP_FREE",
@@ -637,7 +637,7 @@ class SectionsSpec(BaseModel):
 #: both create commands take them. They are the values the verified create
 #: probes sent (``qa/specs.py``, the volume-section specs, verified on 26.120
 #: to 26.124); with ``NONE`` the manual reads no prism layer, and what the other
-#: three then mean is the manual's (SRC-003 p.366). A pproc cannot state them:
+#: three then mean is the manual's (FSM-26.120 p.366). A pproc cannot state them:
 #: a value no run has sent is not one this package offers.
 VOLUME_SECTION_PRISMS: tuple[str, float, int, float] = ("NONE", 0.1, 1, 1.2)
 
@@ -1003,7 +1003,7 @@ def _probes_are_a_list(value: object) -> object:
     """
     if isinstance(value, Mapping):
         raise ValueError(
-            "`[probes]` is a LIST of tables since 0.16.0, so that one artifact can "
+            "`[probes]` is a LIST of tables, so that one artifact can "
             "probe several frames on one row, as `[[plots.groups]]` and "
             "`[[sections.distributions]]` already do. Write `[[probes]]` instead of "
             "`[probes]`, once per frame you are sampling in; everything inside the "
@@ -1424,7 +1424,7 @@ class ProductsSpec(BaseModel):
 
 
 #: The drift limit of a pproc that declares no ``[per_revolution]`` table, in
-#: per cent. ONE HOME (release review): the pproc model's default below
+#: per cent. The pproc model's default below
 #: and the post's fallback (``pyflightstream.post.products``, which imports it
 #: from here) read this one constant, so the two cannot disagree.
 DEFAULT_DRIFT_LIMIT_PCT = 1.0
@@ -2231,7 +2231,7 @@ class PprocSpec(BaseModel):
                 "the loads table cannot be deselected: it is the export this package "
                 "judges a run by"
             )
-        # G11 (0.27.0): a point's final state is a guarantee, not a choice.
+        # G11: a point's final state is a guarantee, not a choice.
         # `false` here was the one route by which a row naming a run type left
         # no .fsm, and nothing said so.
         if not value.get("simulation", True):
@@ -2244,7 +2244,7 @@ class PprocSpec(BaseModel):
 
     @model_validator(mode="after")
     def _a_sections_plot_needs_sections(self) -> PprocSpec:
-        # G04 (0.27.0): the section Cp plot is on by default only where the
+        # G04: the section Cp plot is on by default only where the
         # artifact declares sections; an explicit true without them would save
         # the plot of no section, so it is refused naming the table it needs.
         if self.exports.get("plot_sections_cp") and not self.sections.distributions:

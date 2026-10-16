@@ -295,7 +295,7 @@ class Script:
         self.march_strategy: MarchStrategy | None = None
         self._phase_index: int | None = None
         self._phase_setter: tuple[str, int] | None = None
-        # THE ONE DOOR PAST THE INIT PHASE (G02 of 0.27.0), for
+        # THE ONE DOOR PAST THE INIT PHASE (G02), for
         # :meth:`emit_after_initialization`: the line of the last
         # INITIALIZE_SOLVER, None before the first; the command that passed
         # the door and waits for the solver to initialise again, with its
@@ -339,7 +339,7 @@ class Script:
         # the reference frame).
         self._loads_frame: int = _REFERENCE_PLACEMENT_INDEX
         self._sets_loads_frame: bool = False
-        # THE COPIES A PERIODIC INITIALIZATION STANDS FOR (0.30.0), read through
+        # THE COPIES A PERIODIC INITIALIZATION STANDS FOR, read through
         # :attr:`periodic_copies`; the solver's surface exports hold one zone
         # per copy, so the run needs the count to read them.
         self._periodic_copies: int | None = None
@@ -374,10 +374,9 @@ class Script:
         # HOW MANY VOLUME SECTIONS THIS SCRIPT HAS CUT AND NOT DELETED (G05),
         # read through :attr:`volume_sections`; filled by :meth:`emit`.
         self._volume_sections: int = 0
-        # THE SIMULATION'S LENGTH UNIT, as far as THIS SCRIPT set it (G05, G06
-        # of 0.27.0), read through :attr:`simulation_length_unit`. Filled by
-        # :meth:`emit` for the reason ``_frame_placements`` is: the unit
-        # recorded cannot drift from the unit emitted.
+        # Simulation length unit set by this script, exposed through
+        # simulation_length_unit. emit updates this alongside frame placements
+        # so the recorded unit agrees with the emitted unit.
         self._simulation_length_unit: str | None = None
         # Saved-geometry metadata until a command sets the unit explicitly.
         self._opened_length_unit: str | None = None
@@ -699,7 +698,7 @@ class Script:
         command's own. That is stated here and passed explicitly,
         because the emitter has no per-kind default: a command's
         all-form comes from its own argument, and six surface commands
-        state none at all (SRC-003 pp.309-313). Passing -1 to
+        state none at all (FSM-26.120 pp.309-313). Passing -1 to
         :meth:`emit` for one of those is still refused, and correctly;
         it is this generic entry point that accepts it.
 
@@ -1395,13 +1394,9 @@ class Script:
         the record once the block is accepted, so an emission refused by a
         later check leaves no waiver in the manifest (PFS-2103.035).
         """
-        # evidence_in, not status_in. A hotfix build inherits its base
-        # release's record, and this is one of the two places where the
-        # answer is written into a PERMANENT run record rather than a
-        # page that can be regenerated: BrokenCommandUse.version used to
-        # name the requested build while the cited report had been run
-        # on another one. The refusal message had the same defect, and
-        # it is the sentence a user reads before deciding to waive.
+        # Use evidence_in to record the source build alongside its report. A
+        # hotfix can inherit evidence from its base release; the waiver record
+        # and refusal must identify that source, not just the requested build.
         evidence = entry.evidence_in(self.version)
         if evidence is None or evidence.record.status is not Status.BROKEN:
             return None
@@ -1496,21 +1491,10 @@ class Script:
                 count_value = bound[spec.name]
             elif spec.is_list and isinstance(count_value, int):
                 if spec.name not in bound:
-                    # An OPTIONAL payload list, omitted, under a count
-                    # that was given. The comparison below never ran here
-                    # because it needs the list, so the one shape it
-                    # exists to prevent walked straight through: a count
-                    # line with no payload under it means the solver
-                    # reads the FOLLOWING COMMANDS as data, silently and
-                    # without a syntax error, which is the failure this
-                    # method's own history is made of.
-                    #
-                    # -1 is the exemption, on the same reading as below:
-                    # the documented all-entities count takes no payload
-                    # by definition. SOLVER_PROXIMAL_BOUNDARIES on 26.121
-                    # is the live case, and it is the newest build that
-                    # made the list optional, so before this the newest
-                    # build was the loosest (release review, 2026-08-09).
+                    # An omitted optional list must agree with its explicit count. A
+                    # positive count without payload makes the solver consume following
+                    # commands as data. Only -1, the documented all-entities form, needs
+                    # no payload; SOLVER_PROXIMAL_BOUNDARIES on 26.121 permits that form.
                     if count_value != -1:
                         raise CommandArgumentError(
                             f"{entry.name}: the declared count is {count_value} and no "
@@ -1534,10 +1518,8 @@ class Script:
                         f"the {spec.name!r} values to select every entity, or state "
                         f"their count to select those ({entry.citation})"
                     )
-                # Only -1 is exempt, being the documented all-entities
-                # count. `>= 0` let EVERY negative through, so a count
-                # of -2 silently disabled the comparison and the list
-                # went unchecked (2026-08-07 QA pass).
+                # Only -1 is exempt as the documented all-entities count. Other
+                # negative counts must not bypass the payload-length comparison.
                 if count_value != -1 and count_value != len(bound[spec.name]):
                     raise CommandArgumentError(
                         f"{entry.name}: the declared count is {count_value} but "
@@ -1713,13 +1695,9 @@ class Script:
                     all_sentinel=spec.all_sentinel,
                 )
             elif kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
-                # Each item carries the SAME sentinel as the scalar form
-                # would. This branch used to hardcode `item != -1`, which
-                # was the per-kind rule the 2026-08-07 review removed
-                # from the scalar path and left standing here: a list of
-                # frames or motions has no documented -1 form at all, and
-                # a list-valued surface selection stating zero could not
-                # be expressed.
+                # Each item uses the argument's declared sentinel, just like a scalar.
+                # Frames and motions have no documented -1 form; surface selections
+                # may instead declare zero.
                 for item in value:
                     self.entities.check_index(
                         kind,
@@ -1812,14 +1790,14 @@ class Script:
         for spec, value in provided:
             if spec.on_command_line:
                 # The leading arguments of a keyword block that sit on the
-                # command's own line (WRAPPER_EDIT_LOCAL_CONTROL, SRC-003
+                # command's own line (WRAPPER_EDIT_LOCAL_CONTROL, FSM-26.120
                 # p.314). The schema holds them to the leading positions,
                 # so lines[0] is still the command name here.
                 lines[0] += f" {self._format_scalar(value)}"
             elif spec.is_list:
                 lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
             elif spec.type is ArgType.BOOL:
-                # Presence keyword (SRC-003 p.307): True is the bare keyword
+                # Presence keyword (FSM-26.120 p.307): True is the bare keyword
                 # line, False emits nothing.
                 if value:
                     lines.append(spec.name.upper())

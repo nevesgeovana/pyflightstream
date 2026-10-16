@@ -523,9 +523,9 @@ STOP:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
-    "26.120": {status: documented, note: "SRC-741 p.358 documents it on this edition"}
+    "26.120": {status: documented, note: "FSM-26.100 p.358 documents it on this edition"}
 """
 
 
@@ -625,7 +625,7 @@ class TestQaCompat:
         row = yaml.safe_load((commands_dir / "script_controls.yaml").read_text(encoding="utf-8"))
         entry = row["STOP"]["versions"]["26.120"]
         assert entry["status"] == "broken"
-        assert "SRC-741 p.358" in entry["note"], entry["note"]
+        assert "FSM-26.100 p.358" in entry["note"], entry["note"]
         assert "no halt observed" in entry["note"], entry["note"]
         apply_compat(report, repo_root=tmp_path, commands_dir=commands_dir)
         again = yaml.safe_load((commands_dir / "script_controls.yaml").read_text(encoding="utf-8"))

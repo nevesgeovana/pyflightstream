@@ -4,7 +4,7 @@ date: '2026-10-05'
 package_version: 0.35.1
 fs_exe: Flightstream_26125.exe
 fs_exe_sha256: withheld; build 10052026
-executor: GatedExecutor, -hidden -script (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023)
+executor: GatedExecutor, -hidden -script (as run; mechanism FSM-26.120 pp.279-280; argument spelling RPT-023)
 solver_identity:
 - 'Simcenter Flightstream 2612, build #10052026'
 summary:
@@ -1430,7 +1430,7 @@ commands:
     detail: 'the command ran without a script abort or logged error, but its effect is not observable
       with the current instruments; asserted effect: a fuselage lofted after a relaxed trailing edge has
       a different mesh. The instrument read: reference 1975 vertices 1896 faces; variant 1975 vertices
-      1896 faces. Re-probed the same day with the form SRC-753 prints; the first pass emitted the three-token
+      1896 faces. Re-probed the same day with the form FSM-26.125 prints; the first pass emitted the three-token
       line of 26.124 (no DIRECTION) and the script aborted at it'
     signals:
       sentinel_before: true
@@ -1448,7 +1448,7 @@ commands:
       four geometries agree. The instrument read: reference 1975 vertices 1896 faces; variant 1975 vertices
       1896 faces; control 1975 vertices 1896 faces; restored 1975 vertices 1896 faces; saved mesh state:
       reference read, variant read, control read, restored read; control equals modified: False; restored
-      equals reference: False. Re-probed the same day with the form SRC-753 prints; the first pass did
+      equals reference: False. Re-probed the same day with the form FSM-26.125 prints; the first pass did
       not reach it, its precondition having aborted'
     signals:
       sentinel_before: true
@@ -1582,7 +1582,7 @@ commands:
     detail: 'the command ran without a script abort or logged error, but its effect is not observable
       with the current instruments; asserted effect: a revolve lofted after a relaxed trailing edge has
       a different mesh. The instrument read: reference 4584 vertices 4661 faces; variant 4584 vertices
-      4661 faces. Re-probed the same day with the form SRC-753 prints; the first pass emitted the three-token
+      4661 faces. Re-probed the same day with the form FSM-26.125 prints; the first pass emitted the three-token
       line of 26.124 (no DIRECTION) and the script aborted at it'
     signals:
       sentinel_before: true
@@ -1600,7 +1600,7 @@ commands:
       four geometries agree. The instrument read: reference 4584 vertices 4661 faces; variant 4584 vertices
       4661 faces; control 4584 vertices 4661 faces; restored 4584 vertices 4661 faces; saved mesh state:
       reference read, variant read, control read, restored read; control equals modified: False; restored
-      equals reference: False. Re-probed the same day with the form SRC-753 prints; the first pass did
+      equals reference: False. Re-probed the same day with the form FSM-26.125 prints; the first pass did
       not reach it, its precondition having aborted'
     signals:
       sentinel_before: true
@@ -1615,7 +1615,7 @@ commands:
     detail: 'script processing continued past the command, no error between the sentinels, and the effect
       was observed: the CCS file the command names exists and is not empty, written from the six arguments
       of the signature heading. The instrument read: revolve_export.csv written, 5526 bytes, 9 lines,
-      first line ''Aircraft;CCS''. Re-probed the same day with the form SRC-753 prints; the first pass
+      first line ''Aircraft;CCS''. Re-probed the same day with the form FSM-26.125 prints; the first pass
       emitted the six-placeholder form of the page heading and the script aborted at it'
     signals:
       sentinel_before: true
@@ -1750,7 +1750,7 @@ commands:
     detail: 'script processing continued past the command, no error between the sentinels, and the effect
       was observed: a wing lofted after a morphing surface has a different mesh. The instrument read:
       reference 4484 vertices 4366 faces; variant 3925 vertices 3750 faces. Re-probed the same day with
-      the form SRC-753 prints; the first pass emitted the seven-argument line of 26.124 (no SPACE, AXIS)
+      the form FSM-26.125 prints; the first pass emitted the seven-argument line of 26.124 (no SPACE, AXIS)
       and the script aborted at it'
     signals:
       sentinel_before: true
@@ -1765,7 +1765,7 @@ commands:
     detail: 'script processing continued past the command, no error between the sentinels, and the effect
       was observed: a wing lofted after a flap cove has a different mesh. The instrument read: reference
       4484 vertices 4366 faces; variant 3561 vertices 3358 faces. Re-probed the same day with the form
-      SRC-753 prints; the first pass emitted the six-argument line of 26.124 (no SPACE, AXIS) and the
+      FSM-26.125 prints; the first pass emitted the six-argument line of 26.124 (no SPACE, AXIS) and the
       script aborted at it'
     signals:
       sentinel_before: true

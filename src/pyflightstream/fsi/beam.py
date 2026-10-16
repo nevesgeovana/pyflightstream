@@ -641,7 +641,7 @@ def _condense_massless(
     by construction of the lumped (w, theta) mass matrix.
 
     Source: R. J. Guyan, "Reduction of stiffness and mass matrices",
-    AIAA Journal 3(2), 1965, p.380.
+    AIAA Journal 3(2), 1965, p.380. [REF-04]
     """
     kmm = stiffness[np.ix_(master_rows, master_rows)]
     kms = stiffness[np.ix_(master_rows, slave_rows)]

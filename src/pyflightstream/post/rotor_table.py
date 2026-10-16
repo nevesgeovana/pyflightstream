@@ -80,13 +80,9 @@ ROTOR_COEFFICIENT_COLUMNS: tuple[str, ...] = ("J", "CT", "CQ", "CP", "ETA", "ETA
 ROTOR_IN_PLANE_COLUMNS: tuple[str, ...] = ("CN", "CS", "CMN", "CMS")
 
 
-# `rotor_table_alias_line` WAS HERE, and 0.27.0 (G16) retired it with the line it
-# wrote. From 0.23.0 (item 18) a rotor table opened with its alias alone on the
-# first line, because a script that has LOADED the file no longer has its name
-# and the alias has to be inside the bytes. That reason stands; the form did not:
-# a line before the header is a file no CSV reader takes as written. The alias is
-# the `ROTOR` column now, right after `POL`, on every row, so a loaded table still
-# knows which rotor and which polar it holds, and its first line is the header.
+# The rotor alias is the ROTOR column after POL on every row. The first
+# line is the CSV header, so a loaded table retains rotor identity without
+# a non-tabular preamble.
 
 
 def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
@@ -129,8 +125,7 @@ class RotorShaftLoads:
     that same stream; it is kept because it is a fact a reader of the table may
     want, and it is NO LONGER what `ETAW` is computed from.
 
-    WHY BOTH, AND WHY THE ANGLE IS NOT ENOUGH. `ETAW` was formerly
-    `ETA * cos(theta)`, and that was wrong. A cosine projects the SHAFT direction
+    WHY BOTH, AND WHY THE ANGLE IS NOT ENOUGH. A cosine projects the SHAFT direction
     and therefore keeps only the thrust that lies along the shaft --
     it discards every component of the rotor's force that does not, which on an
     installed rotor is exactly the part the definition keeps. The definition:
@@ -315,34 +310,12 @@ def rotor_shaft_loads(
         thrust_n=sum(a * b for a, b in zip(newtons, shaft, strict=True)),
         torque_nm=sum(a * b for a, b in zip(about_hub, shaft, strict=True)),
         shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
-        # THE WIND-AXIS FORCE `Fx_W`, WITH THE ROUND TRIP COLLAPSED.
-        # The definition starts from the force in the ROTOR frame and carries
-        # it to the body frame by the TRANSPOSE of the rotor-to-body rotation.
-        # `newtons` is that force in the frame THE EXPORT STATES, which is checked
-        # against `GEOMETRY_ANALYSIS_FRAMES` above and refuses the whole row when
-        # it is not the geometry's. THIS COMMENT SAID "which the export states in
-        # the geometry frame", flatly, and the correction of that very sentence
-        # is twenty lines below it in the same function -- the false claim and
-        # its retraction shipped together, and the false one is what the
-        # identity argument rests on. The QA lens of the closing round found it.
-        # so resolving it into the rotor frame and straight back out is `R^T R`,
-        # the identity, for any orthonormal `R`. Writing the two rotations would
-        # give the same number with two more places to make a sign error.
-        #
-        # What remains is the second rotation: body axes to WIND axes, by alpha
-        # and beta, taking the X component. That is exactly the dot product of
-        # the body-frame force with the free-stream unit vector, which
-        # `post.axes` builds and `_shaft_angle` uses for the angle.
-        # `NA` WHERE THE EXPORT IS NOT IN THE GEOMETRY FRAME. The body-to-wind
-        # rotation assumes the force is stated in the geometry's own axes; a
-        # campaign that sets `analysis_setup(loads_frame=...)` states it in a
-        # created coordinate system instead, and rotating THAT by alpha and beta
-        # yields a plausible efficiency of nothing. The V&V lens of the release
-        # round found the field parsed, carried on `LoadsReport`, and read by
-        # nobody -- while a comment asserted the geometry frame as a property of
-        # the EXPORT. It is a property of the campaign's setup, and this is the
-        # witness. An absent label means the export stated none.
-        # The frame was settled above, for the whole row rather than this column.
+        # Compute wind-axis Fx_W from geometry-frame force. The rotor-to-body
+        # round trip cancels as R^T R for orthonormal R, so only the body-to-wind
+        # rotation remains: dot the force with the free-stream unit vector.
+        # The export frame is checked for the whole row above; a nongeometry
+        # frame cannot be rotated by alpha and beta as though it were geometry
+        # axes. An absent label does not establish a frame.
         wind_force_n=_force_along_the_stream(newtons, shaft, alpha_deg, beta_deg),
         families_used=tuple(used),
     )
@@ -471,9 +444,8 @@ def rotor_coefficients(
     of merit, which the package does not choose: a user who runs a static
     point defines one.
 
-    `ETAW` IS DEFINED AS A ROTATION CHAIN, NOT A COSINE. It was formerly
-    implemented as the thrust component along the free stream -- `ETA` times the
-    cosine of the shaft angle -- and that form was wrong. The definition is:
+    `ETAW` IS DEFINED AS A ROTATION CHAIN. Multiplying ETA by the cosine of
+    the shaft angle would omit off-shaft forces. The definition is:
 
         [Fx_rotor_axis Fy_rotor_axis Fz_rotor_axis]
             * R^T(rotor axes -> airframe body axes)
@@ -482,7 +454,7 @@ def rotor_coefficients(
     with BOTH alpha and beta applied by the AIAA axis convention, and
     `ETAW` remaining a dimensionless efficiency.
 
-    WHY THE COSINE WAS WRONG AND NOT MERELY IMPRECISE. A cosine of the shaft
+    WHY A COSINE IS INSUFFICIENT. A cosine of the shaft
     angle projects the SHAFT and keeps only what lies along it, so every
     component of the rotor's force that is off the shaft is discarded -- which
     on an installed rotor is exactly the part the rotation chain preserves. It is a
@@ -533,32 +505,11 @@ def rotor_coefficients(
             "the rotor is not turning, so it has no thrust or torque coefficient: "
             "every one of them divides by the square of its speed"
         )
-    # `rps` IS SIGNED AND THE SIGN IS THE SENSE OF ROTATION. Both halves of that
-    # sentence are load-bearing and one of them was got wrong on 2026-09-18.
-    #
-    # THE RATE NORMALISES. `J = V/(n D)` would go NEGATIVE for a rotor flying
-    # forwards and `CT` is quadratic anyway, so the magnitude is what divides.
-    #
-    # THE SIGN REACHES THE POWER, AND ONLY THE POWER. `CP` is a normalised
-    # POWER and power is `P = Q * omega`: reverse a rotor AND its torque and the
-    # shaft power is UNCHANGED, because both factors flipped. Writing
-    # `CP = 2 pi CQ` against a magnitude rate therefore flips `CP`, `ETA` and
-    # `ETAW` for a counter-rotating rotor whose torque is the signed projection
-    # on a FIXED axis -- which is what `rotor_shaft_loads` returns.
-    #
-    #     CP = P / (rho |n|^3 D^5) = 2 pi Q n / (rho |n|^3 D^5)
-    #        = 2 pi CQ * sign(n)
-    #
-    # MEASURED, by the independent lens over the first fix: at T=10, V=5,
-    # rho=D=1, reversing +600 rpm with +2 N m to -600 with -2 N m held
-    # `Q*omega` at +125.664 and flipped the returned `CP` from +0.125664 to
-    # -0.125664, and `ETA` with it.
-    #
-    # `CQ` KEEPS ITS OWN SIGN and is not touched: it is the torque about the
-    # rotor's fixed axis, so its sign says which way the shaft is loaded, and
-    # taking its magnitude would erase the difference between driving and
-    # braking. That distinction is real and the estate does not get to lose it
-    # for tidiness.
+    # rps carries the rotation sense. Its magnitude normalises J, CT and CQ.
+    # Power is Q times omega: reversing both torque and rotation preserves
+    # shaft power, so CP = 2 pi CQ * sign(n), with magnitude-rate normalisation
+    # P / (rho |n|^3 D^5). CQ retains the signed torque about the fixed shaft
+    # axis, distinguishing driving from braking.
     rate = abs(rps)
     sense = 1.0 if rps > 0 else -1.0
     advance_ratio = speed_m_s / (rate * diameter_m)
@@ -571,7 +522,7 @@ def rotor_coefficients(
         "CQ": torque_coefficient,
         "CP": power_coefficient,
     }
-    # 0.31.0 (G8): THE IN-PLANE SET, by the same `rho n^2 D^4` and `D^5` as
+    # G8: THE IN-PLANE SET, by the same `rho n^2 D^4` and `D^5` as
     # `CT` and `CQ`, with the magnitude of the rate: a side force is not a
     # power, so the sense of rotation does not enter it.
     stated_in_plane = (
@@ -741,9 +692,8 @@ def write_rotor_table(
 
     ``left_out`` collects ``(run_id, reason)`` for every row this refuses, and
     ``written_runs`` collects the run id of every row it DID write. Both are
-    out-parameters because the caller owns the manifest: a row dropped here
-    used to leave the table shorter with the provenance still naming its run,
-    so the file claimed a point it does not contain.
+    out-parameters because the caller owns the manifest and must distinguish
+    omitted rows from the runs contributing to the written table.
 
     ``pol`` is the polar the rows come from, the matrix row's POL, written in
     the first column of every row; `NA` where the caller states none.
@@ -802,14 +752,10 @@ def write_rotor_table(
         ``ValueError``).
     """
     alias = str(getattr(rotor, "alias", "") or "")
-    # 0.24.0: THE SPEED AND THE DIAMETER THE COEFFICIENTS DIVIDED BY, beside them.
-    # Every coefficient here is over `rho n^2 D^4` or `D^5`; `RHO` is in the shared
-    # block, and the rotor's own `n` and `D` were stated nowhere in the file.
-    # 0.27.0 (G16): the polar and the rotor lead, and every column after them
-    # keeps its name and its order.
-    # 0.30.0 (M1): the tip and helical Mach numbers LAST, so every column
-    # before them keeps its position.
-    # 0.31.0 (G8): the four in-plane coefficients after them, last again.
+    # State speed and diameter beside coefficients normalised by rho n^2 D^4
+    # or D^5; RHO is in the shared block. POL and ROTOR lead (G16), followed
+    # by the coefficient and condition columns, then tip and helical Mach
+    # (M1) and the four in-plane coefficients (G8).
     columns = (
         POLAR_ID_COLUMN,
         ROTOR_ID_COLUMN,
@@ -823,7 +769,7 @@ def write_rotor_table(
         f"MADV_{alias}",
     )
     diameter = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
-    # 0.31.0 (G8): the rotor's (T, S, N) axes are the same for every row, so
+    # G8: the rotor's (T, S, N) axes are the same for every row, so
     # an axis along the reference frame's up, which has no normal and no side
     # axis, is said once for the table and its four in-plane columns read NA.
     shaft = _unit(getattr(rotor, "axis_vector", (0.0, 0.0, 1.0)))
@@ -831,11 +777,8 @@ def write_rotor_table(
     in_plane_said = False
 
     written: list[tuple[object, ...]] = []
-    # THE TWO OUT-PARAMETERS, normalised once so every `continue` below can
-    # report without checking for None. A row refused here is a point of the
-    # matrix that the table does not contain, and the manifest has to be able
-    # to say so: both of these paths were bare `continue`s, counted by the
-    # independent lens of 2026-09-18.
+    # Normalise both out-parameters once so each skipped row reports its
+    # reason and each written row reports its run to the manifest.
     refused = [] if left_out is None else left_out
     emitted = [] if written_runs is None else written_runs
     unangled: list[str] = []
@@ -849,28 +792,16 @@ def write_rotor_table(
         # to refuse. A row stating a speed that is not a number states no
         # speed, and there is no table to write for it.
         rpm = _row_number(row, "rpm")
-        # A NEGATIVE RPM IS A DIRECTION, NOT A STOPPED ROTOR, and this read
-        # `rpm <= 0.0` until the independent review of 2026-09-18. The plan
-        # records the speed SIGNED -- `rpm=_rpm_sign(case) * stated` in
-        # `cases.workflows` -- precisely so the sense of rotation survives, and
-        # the same module divides by `abs(self.rpm)` where it needs a RATE. So
-        # every counter-rotating rotor lost its ENTIRE table here, with no
-        # product and no skip line saying why it was absent. On a
-        # contra-rotating pair that is half the aircraft, silently.
-        #
-        # `rate` IS THE MAGNITUDE because a coefficient divides by revolutions
-        # per second, which has no sign: `CT = T / (rho n^2 D^4)` is quadratic
-        # in `n` and `J = V / (n D)` would go negative for a rotor flying
-        # forwards. The SIGN stays on the torque, which is where it is physical
-        # and where the export already put it.
+        # Negative RPM identifies rotation direction, not a stopped rotor.
+        # Use the magnitude for rate normalisation: CT is quadratic in n and
+        # J = V / (n D) must not change sign for a forward-flying counter-rotor.
+        # Keep signed torque and rotation for the power calculation.
         rate = abs(rpm)
-        # THIS ROW'S OWN AIR AND ITS OWN VELOCITY. These were one pair of
-        # arguments for the WHOLE table until 2026-09-18, read off the first
-        # point of the sweep, so every row but the first was normalised by
-        # another point's state -- see `_rotor_tables`.
+        # Normalise with this point's air and velocity, never another point
+        # of the sweep's state; see _rotor_tables.
         density_kg_m3 = _row_number(row, "density")
         speed_m_s = _row_number(row, "speed")
-        # THE ADVANCE RATIO IS THE FREE STREAM'S (0.24.0). `speed` is the export's
+        # THE ADVANCE RATIO IS THE FREE STREAM'S. `speed` is the export's
         # REFERENCE velocity, which is right for taking a coefficient back to
         # Newtons and wrong for `J = V / (n D)`, a ratio of the flight speed. The
         # two are equal in every campaign recorded so far; a row that states no
@@ -950,7 +881,7 @@ def write_rotor_table(
             # wind-axis force both existed for a few minutes without this line,
             # and `ETAW` would have gone on being the cosine it was.
             wind_force_n=loads.wind_force_n,
-            # 0.31.0 (G8): the same force and hub moment the thrust and the
+            # G8: the same force and hub moment the thrust and the
             # torque are turned from, resolved on the rotor's normal and side
             # axes; None (NA) where they are not a number or the axes are
             # undefined.
@@ -981,7 +912,7 @@ def write_rotor_table(
             )
         stated_condition = row.get("condition")
         condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}
-        # 0.30.0 (M1): `NA` where the point's air did not resolve, never a guess.
+        # M1: `NA` where the point's air did not resolve, never a guess.
         machs, madv = _mach_cells(row.get("air"), rpm, diameter, angles, shaft)
         written.append(
             (
@@ -1020,10 +951,7 @@ def write_rotor_table(
         scratch = Path(scratch_dir) / "rows.csv"
         write_csv_table(scratch, columns, written)
         table = scratch.read_bytes()
-    # ONE WRITE, AND NOTHING BEFORE THE HEADER (G16). Until 0.27.0 the alias was
-    # written alone on the first line and the table appended after it, through a
-    # text-mode write that ended its lines the platform's way; the alias is the
-    # `ROTOR` column now, so the file is the funnel's bytes, line ends included,
-    # as every other table's is.
+    # G16: write once through the shared CSV funnel, starting with the header.
+    # ROTOR carries the alias in each row; line endings match every product.
     target.write_bytes(table)
     return target

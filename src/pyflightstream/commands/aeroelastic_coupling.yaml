@@ -1,7 +1,7 @@
-# Aeroelastic Coupling Toolbox scripting commands (SRC-003 pp.375-376;
+# Aeroelastic Coupling Toolbox scripting commands (FSM-26.120 pp.375-376;
 # new in 26.1 per the release notes). This is the command family the
 # solver actually implements for FSI coupling: the SET_MOTION_FSI pair
-# of the motion chapter (SRC-003 pp.335-336) is rejected as
+# of the motion chapter (FSM-26.120 pp.335-336) is rejected as
 # unrecognized by build 7012026 (WP1 dry run evidence,
 # GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-005_fsi-dry-run_2026-07-21.md). All eleven commands of
 # this family were exercised successfully in that dry run on 26.120;
@@ -14,12 +14,12 @@
 # attached to a rotary motion definition; a motionless boundary morphs
 # correctly with the same command sequence. Two-way rotor FSI is
 # therefore blocked in this build (candidate solver defect; the
-# documented workflow at SRC-003 p.273 names rotors). A malformed
+# documented workflow at FSM-26.120 p.273 names rotors). A malformed
 # FSIDisp.txt crashes the solver (access violation) instead of
 # raising an error.
 #
 # THE 26.123 EDITION DOCUMENTS AN INTERNAL CONVERGENCE CRITERION FOR THIS
-# LOOP, AND NAMES NO COMMAND THAT SETS IT (SRC-751 p.277).
+# LOOP, AND NAMES NO COMMAND THAT SETS IT (FSM-26.123 p.277).
 #
 # What that page adds, in this repository's terms rather than its own:
 # the coupling loop has a stopping test of its OWN, separate from the
@@ -40,7 +40,7 @@
 # mapping is UNVERIFIED and no entry is added here for it. The nearest
 # candidate is SOLVER_SET_CONVERGENCE, and it is NOT the same thing:
 # its own note scopes it to the surface velocity and pressure residual
-# (SRC-003 p.200). THAT SEARCH RAN on 2026-08-19 and found nothing:
+# (FSM-26.120 p.200). THAT SEARCH RAN on 2026-08-19 and found nothing:
 # GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-031_the-search-for-the-coupling-tolerance-command_2026-08-19.md
 # reads the whole scripting reference of the newest edition and its
 # Script Index, rejects nine candidates with a reason each, and records
@@ -57,18 +57,18 @@ EXECUTE_AEROELASTIC_ANALYSIS:
   layout: bare
   phase: exec
   args: []
-  manual_ref: "SRC-003 p.375"
+  manual_ref: "FSM-26.120 p.375"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
-    "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092, RPT-093)"}
-    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
+    "26.121": {status: documented, note: "FSM-26.121 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.382, unchanged from FSM-26.122 p.382"}
+    "26.124": {status: documented, note: "FSM-26.124 p.382, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092, RPT-093)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.388, unchanged from FSM-26.124 p.382"}
   notes: >
     Runs the steady-state aeroelastic analysis. For unsteady coupling
     the manual instructs the regular solver execution with
-    SET_AEROELASTIC_COUPLING_IN_UNSTEADY enabled instead (SRC-003
+    SET_AEROELASTIC_COUPLING_IN_UNSTEADY enabled instead (FSM-26.120
     p.275).
 
 ASSIGN_AEROELASTIC_SURFACES:
@@ -81,14 +81,14 @@ ASSIGN_AEROELASTIC_SURFACES:
       type: int_list
       separator: newline
       required: false
-  manual_ref: "SRC-003 p.375"
+  manual_ref: "FSM-26.120 p.375"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
-    "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-090, RPT-092, RPT-093)"}
-    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
+    "26.121": {status: documented, note: "FSM-26.121 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.382, unchanged from FSM-26.122 p.382"}
+    "26.124": {status: documented, note: "FSM-26.124 p.382, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-090, RPT-092, RPT-093)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.388, unchanged from FSM-26.124 p.382"}
   notes: >
     Mesh boundaries whose deflections the toolbox interpolates; one
     index per line after the count, -1 selects all boundaries with no
@@ -118,14 +118,14 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
       cites: frames
       separator: newline
       required: false
-  manual_ref: "SRC-003 p.375"
+  manual_ref: "FSM-26.120 p.375"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
-    "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
-    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
+    "26.121": {status: documented, note: "FSM-26.121 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.382, unchanged from FSM-26.122 p.382"}
+    "26.124": {status: documented, note: "FSM-26.124 p.382, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.388, unchanged from FSM-26.124 p.382"}
   notes: >
     Links user-defined coordinate systems for the aeroelastic
     interpolation, one index per line after the count.
@@ -139,15 +139,14 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
     system refused, or the reference frame refused among the indices.
     The sample settles nothing, passing a count of 3 and the indices 2,
     3 and 4, which satisfies both. The three editions that carry this
-    chapter word it identically (SRC-725 p.374, SRC-003 p.375, SRC-740
+    chapter word it identically (FSM-26.101 p.374, FSM-26.120 p.375, FSM-26.121
     p.378); the February 2026 edition has no Aeroelastic Coupling
     Toolbox at all, its scripting reference ending at the Acoustics
-    Toolbox (SRC-741 p.369), so no edition disagrees and none settles
+    Toolbox (FSM-26.100 p.369), so no edition disagrees and none settles
     it.
 
-    Nothing is enforced here for that reason. This entry previously
-    asserted the index reading as fact, which was an interpretation
-    presented as a citation; PLN-20260808-1100 carries the probe.
+    Nothing is enforced here for that reason. The index reading is an
+    interpretation, not an established fact; PLN-20260808-1100 carries the probe.
 
 IMPORT_AEROELASTIC_STRUCTURAL_NODES:
   layout: inline
@@ -162,17 +161,17 @@ IMPORT_AEROELASTIC_STRUCTURAL_NODES:
     - name: nodes_path
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.375"
+  manual_ref: "FSM-26.120 p.375"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
-    "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092, RPT-093)"}
-    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
+    "26.121": {status: documented, note: "FSM-26.121 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.382, unchanged from FSM-26.122 p.382"}
+    "26.124": {status: documented, note: "FSM-26.124 p.382, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092, RPT-093)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.388, unchanged from FSM-26.124 p.382"}
   notes: >
     Imports the structural node list; the file is three comma
-    separated columns X,Y,Z per node (SRC-003 p.274), interpreted in
+    separated columns X,Y,Z per node (FSM-26.120 p.274), interpreted in
     the given coordinate system. The node order fixes the FSIDisp.txt
     displacement order.
 
@@ -180,14 +179,14 @@ DELETE_AEROELASTIC_STRUCTURAL_NODES:
   layout: bare
   phase: init
   args: []
-  manual_ref: "SRC-003 p.375"
+  manual_ref: "FSM-26.120 p.375"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
-    "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
-    "26.125": {status: documented, note: "SRC-753 p.388, unchanged from SRC-752 p.382"}
+    "26.121": {status: documented, note: "FSM-26.121 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.382, unchanged from FSM-26.122 p.382"}
+    "26.124": {status: documented, note: "FSM-26.124 p.382, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.388, unchanged from FSM-26.124 p.382"}
   notes: Deletes all imported structural nodes.
 
 SET_AEROELASTIC_WORKING_DIRECTORY:
@@ -197,18 +196,18 @@ SET_AEROELASTIC_WORKING_DIRECTORY:
     - name: directory_path
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.375"
+  manual_ref: "FSM-26.120 p.375"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.374, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.374, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.378, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.382, unchanged from SRC-750 p.382"}
-    "26.124": {status: documented, note: "SRC-752 p.382, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
-    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.382"}
+    "26.121": {status: documented, note: "FSM-26.121 p.378, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.382, unchanged from FSM-26.122 p.382"}
+    "26.124": {status: documented, note: "FSM-26.124 p.382, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.389, unchanged from FSM-26.124 p.382"}
   notes: >
     Runtime folder of the coupling: FlightStream writes FSIDisp.txt
     and the loads exports there and executes the runtime command
-    there (SRC-003 pp.274-275). The dry run confirmed it is the
+    there (FSM-26.120 pp.274-275). The dry run confirmed it is the
     working directory of the external executable's process.
 
 SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
@@ -218,18 +217,18 @@ SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
     - name: script_path
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.376"
+  manual_ref: "FSM-26.120 p.376"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.375, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.375, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
-    "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
-    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
+    "26.121": {status: documented, note: "FSM-26.121 p.379, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.383, unchanged from FSM-26.122 p.383"}
+    "26.124": {status: documented, note: "FSM-26.124 p.383, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
   notes: >
     FlightStream script executed between FSI iterations, before the
     external executable; the documented mechanism for exporting the
-    aerodynamic forces the executable consumes (SRC-003 p.275), for
+    aerodynamic forces the executable consumes (FSM-26.120 p.275), for
     example the surface section loads export.
 
 SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
@@ -239,14 +238,14 @@ SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
     - name: command
       type: str
       own_line: true
-  manual_ref: "SRC-003 p.376"
+  manual_ref: "FSM-26.120 p.376"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.375, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.375, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
+    "26.121": {status: documented, note: "FSM-26.121 p.379, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.383, unchanged from FSM-26.122 p.383"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-12_gap-probes.yaml", note: "FSM-26.124 p.383, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-12_gap-probes.yaml", note: "FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
   notes: >
     Full command executed per coupling iteration in the working
     directory. The dry run observed a bare invocation: no arguments
@@ -258,17 +257,17 @@ SET_AEROELASTIC_ITERATIONS:
   args:
     - name: num_iterations
       type: int
-  manual_ref: "SRC-003 p.376"
+  manual_ref: "FSM-26.120 p.376"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.375, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.375, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
-    "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
-    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
+    "26.121": {status: documented, note: "FSM-26.121 p.379, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.383, unchanged from FSM-26.122 p.383"}
+    "26.124": {status: documented, note: "FSM-26.124 p.383, the FSM-26.123 file, carried from 26.123; run on 26.124 in the package's coupled scripts (RPT-092)"}
+    "26.125": {status: documented, note: "FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
   notes: >
     Two-way coupling iterations: the total count in steady mode, the
-    count per time step in unsteady mode (SRC-003 p.275).
+    count per time step in unsteady mode (FSM-26.120 p.275).
 
 SET_AEROELASTIC_COUPLING_IN_UNSTEADY:
   layout: inline
@@ -277,14 +276,14 @@ SET_AEROELASTIC_COUPLING_IN_UNSTEADY:
     - name: state
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.376"
+  manual_ref: "FSM-26.120 p.376"
   versions:
-    "26.101": {status: documented, note: "SRC-725 p.375, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.375, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.379, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.383, unchanged from SRC-750 p.383"}
-    "26.124": {status: documented, note: "SRC-752 p.383, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.389, unchanged from SRC-752 p.383"}
+    "26.121": {status: documented, note: "FSM-26.121 p.379, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.383, unchanged from FSM-26.122 p.383"}
+    "26.124": {status: documented, note: "FSM-26.124 p.383, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.389, unchanged from FSM-26.124 p.383"}
   notes: >
     Toggles the FSI execution inside the unsteady solver; with ENABLE
     the coupling runs on the regular solver start.
@@ -295,9 +294,9 @@ SET_AEROELASTIC_CONVERGENCE_THRESHOLD:
   args:
     - name: threshold
       type: float
-  manual_ref: "SRC-753 p.390"
+  manual_ref: "FSM-26.125 p.390"
   versions:
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.390, the first edition to document it"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.390, the first edition to document it"}
   notes: >
     Sets the convergence threshold of an aeroelastic coupling run. The
     page gives 1E-3 as the default and prints 1E-05 in its sample. First
@@ -313,7 +312,7 @@ SET_DIRECT_AEROELASTIC_MESH_MORPHING:
     - name: aerodynamic_nodes
       type: enum
       values: [RIGID, DEFLECTED]
-  manual_ref: "SRC-753 p.388"
+  manual_ref: "FSM-26.125 p.388"
   versions:
     "26.124":
       status: removed
@@ -322,11 +321,11 @@ SET_DIRECT_AEROELASTIC_MESH_MORPHING:
         Probed 2026-10-05 on build 8172026: the solver answered every
         SET_DIRECT_AEROELASTIC_MESH_MORPHING line of four probe arms as an
         unrecognised command, and no direct-mode call followed.
-    "26.125": {status: documented, note: "SRC-753 p.388, the Aeroelastic Coupling Toolbox page; the licensed run of FR-341 (RPT-155) is the evidence a promotion through pyfs-qa apply-compat would cite, and none is recorded yet"}
+    "26.125": {status: documented, note: "FSM-26.125 p.388, the Aeroelastic Coupling Toolbox page; the licensed run of FR-341 (RPT-155) is the evidence a promotion through pyfs-qa apply-compat would cite, and none is recorded yet"}
   notes: >
     Direct mesh morphing of the aeroelastic coupling, in place of the
     structural-node import: the solver lists the surface vertices of the
     coupled boundaries in the given coordinate system and morphs each by
     one displacement the structural program writes back per listed vertex.
     The node type says whether the listed vertices are the undeformed
-    (RIGID) or the currently deflected (DEFLECTED) ones (SRC-753 p.388).
+    (RIGID) or the currently deflected (DEFLECTED) ones (FSM-26.125 p.388).

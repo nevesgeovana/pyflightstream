@@ -111,7 +111,7 @@ from pyflightstream.workspace.naming import (
 def _job_rotor_mach(
     case: SimCase, points: Sequence[Mapping[str, float]]
 ) -> dict[str, dict[str, object]] | None:
-    """Return a steady job's rotor and disc Mach numbers, keyed by point name (0.30.0, M1)."""
+    """Return a steady job's rotor and disc Mach numbers, keyed by point name (M1)."""
     by_point: dict[str, dict[str, object]] = {}
     for point in points:
         machs = rotor_machs(case_at_point(case, point))
@@ -241,11 +241,8 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
         "run_id": run_id,
         "sim_id": job.case.sim_id,
         "point": dict(job.points[0]),
-        # A JOB'S NAME IS ITS SWEEP'S, and it is written to `point_name` as
-        # well: the field is what every reader of a record takes the name
-        # from, collect included, so a job record that left it empty would
-        # be refused as written before 0.21.0 while being one of this
-        # version's own. The points it ran carry their own names.
+        # Store the sweep name in point_name, the field read by collectors and
+        # other record readers. Each point retains its own name.
         "point_name": sweep_name(job.case),
         "sweep_name": sweep_name(job.case),
         "job_id": run_id,
@@ -254,8 +251,7 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,
         "package_dirty": package_dirty,
-        # v0.23.0 item 12. CAPTURED HERE because this is the only moment it
-        # is knowable: who submitted a run cannot be recovered afterwards.
+        # Capture the submitting user now; that identity cannot be recovered later.
         "submitted_by": submitted_by(),
         "recipe": job.case.recipe,
         # A JOB'S RECIPE IS THE RUN TYPE, which has no user function behind
@@ -306,10 +302,8 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
         # the same as leaving the field out.
         "script_sha256": "",
         "raw_flag": False,
-        # 0.30.0 (M1): each point's rotors and discs, keyed by the POINT'S NAME
-        # on a job record, because the numbers move with the point;
-        # `RunRecord.as_points` hands each point its own. None where no point
-        # carries any.
+        # M1: key each point's rotor and disc values by its name on the job record.
+        # RunRecord.as_points gives each point its own values; None if none exist.
         "rotor_mach": _job_rotor_mach(job.case, job.points),
     }
     if job.progress is not None:
@@ -362,7 +356,7 @@ def _prepare_sweep_script(job: _SweepJob) -> RunRecord | None:
 def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     """Write sweep script."""
     job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
-    # FR-1047 (0.40.0, PFS-2081.58): each point's far-field plane turns with its
+    # FR-1047 (PFS-2081.58): each point's far-field plane turns with its
     # attitude, so the layouts are keyed by point name, as the rotor Mach numbers are.
     by_point = {
         point_name(job.case, point): {"shapes": laid["shapes"]}
@@ -381,16 +375,12 @@ def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     setup = job.script.solver_setup
     if setup is not None:
         job.base["solver_setup"] = setup.model_dump(mode="json")
-    # R03 of 0.27.0: the names the script was built over, as the point path
-    # records them; the post reads a section selection over them.
+    # R03: record the script's names for post-processing section selections.
     if job.script.boundary_inventory is not None:
         job.base["inventory"] = list(job.script.boundary_inventory)
-    # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE, recorded as the
-    # point path records them (0.27.0). The one-job path recorded no layout
-    # since 0.24.0, so the post refused the per-distribution split of every
-    # steady row of several points. The builder creates the distributions
-    # once, for every point of the job, so one layout is every point's; the
-    # empty one where the job creates none (`_sections_layout`).
+    # Record the surface layout as on the point path. The builder creates
+    # distributions once per job, so all points share this layout, including an
+    # empty layout when the job creates none (_sections_layout).
     layout = _sections_layout(job.script)
     if layout is not None:
         job.base["sections_layout"] = layout
@@ -402,7 +392,7 @@ def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     # A per-polar product table is named by the point name with the swept
     # variable written literally as `sweep`, and a job's script is about
     # exactly the same thing, so it is named the same way:
-    # P5001-M090AL+sweepBE+000 (0.21.0).
+    # P5001-M090AL+sweepBE+000.
     job_stem = sweep_file_stem(job.case.sim_id, sweep_name(job.case))
     job.rendered = job.script.render()
     job.script_path, script_sha = job.workspace.write_script(
@@ -412,15 +402,9 @@ def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     job.base["script_sha256"] = script_sha
     job.base["raw_flag"] = job.script.raw_flag
     job.base["march_strategy"] = job.script.march_strategy
-    # FR-91 ON THE SWEEP PATH, which lost it. The point path writes where the
-    # script put its probe points and names the file on the record; the one-job
-    # path did neither, so a steady row of several points with a volume section
-    # recorded no positions, its probe table read FRAME NA, and the post refused
-    # every point's sampled field as differing from its recorded frame (row 5007
-    # of the licensed matrix, 0.29.0). The layout is the row's and the builder
-    # records it once for the whole job, so one file serves every point, as it
-    # does for the points of a row run one by one. A collision with a user's
-    # file is this job's failure, recorded as the point path records it.
+    # FR-91: write probe positions and name the file on the record. The row's
+    # layout serves every point in this job. A collision with a user's file is
+    # a recorded job failure, matching the point path's refusal.
     try:
         job.probe_points_file = _write_probe_points(
             job.sim_dir, job.case.sim_id, job.script.probe_points
@@ -434,19 +418,9 @@ def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     if job.probe_points_file is not None:
         job.base["probe_points_file"] = job.probe_points_file
 
-    # PYFS-006 ON THE SWEEP PATH, which lost it. `_execute_point` refuses
-    # declared outputs that already exist in the simulation folder before
-    # the solver runs, because collection asks only whether a declared
-    # output EXISTS and cannot tell a file this solver wrote from one that
-    # was already there. The sweep path started the solver without it, so
-    # after an interrupted run a leftover export was collected and
-    # assessed as fresh evidence, and its digest recorded as this run's.
-    # Found by the independent Codex review of `main`, 2026-09-13
-    # (GEO-047-C03).
-    #
-    # EVERY POINT'S OUTPUTS, checked before the shared script runs,
-    # because one script writes all of them and a refusal after it has
-    # started is a refusal that spent the seat.
+    # PYFS-006: refuse every point's existing declared outputs before launching
+    # the shared script. Collection checks existence and cannot distinguish
+    # stale exports from this solver's evidence (GEO-047-C03).
     return None
 
 
@@ -474,14 +448,10 @@ def _run_sweep_solver(job: _SweepJob) -> RunRecord | None:
             ),
         )
 
-    # FR-99. THE JOB'S values, not a point's: a steady row is ONE job, so
-    # the descriptor names the sweep and carries the row's clock and
-    # processor count. `bind_submission_values` reads them off the case
-    # and a local executor has no such method and is handed nothing.
-    # G02, and PFS-2031.13 on this path too: the files the script parked are
-    # written before the solver starts, and the data files' digests join the
-    # job's inputs. This path wrote none of them until 0.27.0. One that
-    # shares its name with another input is refused here, before the job.
+    # FR-99: bind submission values from the job's row: sweep name, walltime
+    # and processor count. A local executor has no binding method.
+    # Write parked script and data files before launch and include their digests
+    # in the job inputs (G02, PFS-2031.13). Refuse input filename collisions.
     try:
         written = _pending._write_pending_files(
             job.script,
@@ -556,20 +526,9 @@ def _run_sweep_solver(job: _SweepJob) -> RunRecord | None:
             submission={
                 **submitted,
                 "declared_outputs": [name for _, _, pc in job.point_cases for name in pc.outputs],
-                # AND THE SAME SET SPLIT BY POINT, because the two questions
-                # are different. The flat list above is what the COLLECTOR
-                # WAITS FOR: the whole sweep is one job and one script, so the
-                # job is finished when all of it has landed. This mapping is
-                # what the collector FILES BY: each point's evidence belongs
-                # alone in its own datapoint folder, which is the rule
-                # `collect_outputs` states and the rule the local sweep pays
-                # two passes to honour. Without it the collector had only the
-                # first point's tag to hand and filed every point's exports
-                # under it, reintroducing on the cluster path the defect the
-                # local path carries a comment about: an assessor reading a
-                # sibling point's file and reporting the run against the wrong
-                # incidence. Found by the interface lens of the 0.18.0 release
-                # round, 2026-09-14.
+                # Record both the whole-job expected outputs and the same set by point.
+                # The collector waits for the whole sweep, then files each point's evidence
+                # in its own datapoint folder, matching local collection.
                 "declared_by_point": {
                     point_name(job.case, point): [str(name) for name in pc.outputs]
                     for point, _, pc in job.point_cases
@@ -631,17 +590,15 @@ def _collect_sweep_outputs(job: _SweepJob) -> RunRecord | None:
     job.error_lines = []
     job.collected_by_tag = {}
     job.failed_tags = {}
-    # 0.30.0: a point whose only missing outputs are surfaces the package failed
-    # to translate keeps its assessment; the job's record says so, per point.
+    # A point missing only surfaces the package failed to translate keeps its
+    # assessment. Record that distinction per point on the job.
     job.job_warnings = []
     #: What each assessed point read as the solver's build and version.
     job.reported = []
-    # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, run locally, no point's
-    # declared log is written and none is missing. What the solver printed is
-    # the whole job's and no single point's, and a job log judged as a point's
-    # would end at the last point's iteration; so each point is judged from its
-    # loads export, the job's record says why, and the printed output is read
-    # for the trailing-edge count the one script imported, as a job's is.
+    # On a machine that cannot export logs, a local job's printed output belongs
+    # to the whole job, not one point. Assess each point from its loads export
+    # and record why it lacks a log. Read the job output for the trailing-edge
+    # count imported by the shared script.
     job.cannot_log = isinstance(job.executor, LocalExecutor) and not job.executor.export_log
     job.printed = job.result.captured_output() if job.cannot_log else ""
     # G45: EVERY POINT'S TECPLOT FROM ITS VTK, where the job wrote them, before
@@ -670,8 +627,8 @@ def _collect_sweep_outputs(job: _SweepJob) -> RunRecord | None:
                 datapoint=PointName(tag),
             )
         except MissingOutputsError as exc:
-            # FILED, LISTED AND HASHED, and the point still fails (0.27.0),
-            # unless all it misses is the package's own translation (0.30.0).
+            # FILED, LISTED AND HASHED, and the point still fails,
+            # unless all it misses is the package's own translation.
             job.collected_by_tag[tag] = exc.collected
             owned = [
                 entry
@@ -755,13 +712,8 @@ def _assess_sweep_points(job: _SweepJob) -> RunRecord | None:
         job.ran.append(ran_entry)
         if str(status).startswith("FAILED"):
             job.error_lines.append(f"{tag}: {error or status}")
-        # THE WORST, BY A STATED ORDER, and it was the LAST failing point
-        # until 2026-09-13: each failure simply overwrote the variable, so
-        # a sweep whose first point DIVERGED and whose third left an
-        # incomplete output recorded the third, and a reader triaging by
-        # status was pointed at the wrong point (the QA lens). `points_ran`
-        # carried each point's own status either way, so nothing was lost;
-        # what was wrong was the job's headline.
+        # Use the worst point status according to the stated order as the job's
+        # headline. points_ran retains each point's own status.
         job.worst = worse_of(job.worst, status)
     return None
 

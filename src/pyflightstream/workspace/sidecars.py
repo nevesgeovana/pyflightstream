@@ -466,26 +466,16 @@ def _toml_string(name: str) -> str:
     return json.dumps(name, ensure_ascii=False)
 
 
-# --- the face count of the mesh, taken with the inventory (FR-348) -------------------
-#
-# A run's cost grows with the faces of its mesh, and until 0.34.0 no product said
-# how many a run had. The count is taken where the mesh is already read, WHEN THE
-# INVENTORY IS TAKEN, and written beside the `boundaries` list:
-#
+# Face counts taken with the mesh inventory (FR-348).
+# Count while reading the mesh and write beside boundaries:
 #     mesh_faces = 1056
 #     boundary_faces = [1032, 24]
-#     mesh_sha256 = "<the sha256 of the file the faces were counted in>"
-#
-# `boundary_faces` is the count of each boundary in the order of the list, written
-# only where the reader gives it. THE POST ONLY CARRIES IT, AND NEVER COUNTS: the
-# super file and the unsteady polar take `mesh_faces` from the inventory of the
-# geometry a row's run opened WHENEVER THE INVENTORY STATES THE FIELD (the decision of
-# 2026-10-01, "ele só puxa de lá se o campo existir"; `recorded_mesh_faces`), and an
-# inventory taken before this release gives NA. Where the inventory's `mesh_sha256`
-# is not the sha256 the run recorded for the file, the post WARNS naming both and
-# still carries the count: a warning, never a refusal. A count that cannot be taken
-# is not written, and the inventory is written as it was before: the count is an
-# addition to the inventory and never a reason to refuse one.
+#     mesh_sha256 = "<sha256 of the counted file>"
+# boundary_faces follows boundary order and is written only when available.
+# Post-processing carries recorded_mesh_faces into the superfile and
+# unsteady polar; it does not recount. A missing field gives NA. A digest
+# mismatch warns with both digests but still carries the count. An
+# unavailable count is omitted and never prevents writing the inventory.
 
 #: The key of the inventory that states the geometry's face count.
 MESH_FACES_KEY = "mesh_faces"

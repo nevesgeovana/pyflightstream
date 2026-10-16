@@ -3,25 +3,16 @@
 Pipeline role: the workspace layer, beside :func:`resolve_matrix`, which
 is where a matrix row is bound to the input library.
 
-WHY IT IS HERE, stated as what it actually is rather than as an import
-dependency. An architect pass found the earlier wording of this
-paragraph unsupportable: it claimed the module could not descend to the
-floor because it needs the exception catalog and the reference artifact,
-and NEITHER is true of the code. This module's whole package import
-surface is :mod:`pyflightstream._atmosphere` and
-:mod:`pyflightstream._errors`, which is byte for byte a floor module's
-surface; the reference length arrives as a plain float parameter and
-this module never reaches an artifact; and the exception runs the other
-way, since :class:`FlightConditionError` is DEFINED here and the public
-catalog imports it FROM here.
+The resolver imports :mod:`pyflightstream._atmosphere` and
+:mod:`pyflightstream._errors`. Reference length arrives as a float; the
+module does not read artifacts. It defines :class:`FlightConditionError`,
+which the public exception catalog re-exports.
 
-The real reason is CALL-SITE DISCIPLINE, which is a weaker claim and the
-true one. The resolver is placed with its only caller, downstream of
+The resolver is placed with its caller, downstream of
 reference binding, so that no layer below the workspace can resolve a
 Reynolds constraint before a reference exists to measure it against.
 That guarantee is structural rather than asserted: a caller in a lower
-layer cannot import this module at all. Moving the resolver to the floor
-would be defensible on imports and would give up exactly that.
+layer cannot import this module.
 
 The physics/resolution split is a separate and independent argument, and
 it stands: the physics can be checked against published tables with no
@@ -621,17 +612,10 @@ def resolve_flight_condition(
         for key, value in supplied.items()
         if key not in stated and not (key == "RHOkgm3" and DENSITY_KEY in stated)
     }
-    # THE ROW WINS, KEY BY KEY, AND THE COMPREHENSION ABOVE IS WHERE IT
-    # WINS, not this merge. The two mappings are disjoint by
-    # construction, since a key the row states never enters `defaulted`,
-    # so swapping the order below changes no outcome: measured
-    # 2026-09-04 by a mutation that survived the whole suite. It is
-    # written in the order that reads correctly anyway, and the
-    # disjointness is asserted in the tests rather than left to this
-    # paragraph. Everything from here down reads the merged mapping;
-    # `stated` survives untouched into the record, which is what keeps
-    # the resolution recomputable from the row plus the file the origin
-    # names.
+    # The row wins key by key in the comprehension above: stated keys never
+    # enter defaulted, so the two mappings are disjoint. Retain stated unchanged
+    # in the record so resolution can be reproduced from the row and the file
+    # named by origin; subsequent calculations use the merged mapping.
     effective = {**defaulted, **stated}
 
     given_velocity = [key for key in VELOCITY_KEYS if key in effective]
@@ -679,7 +663,7 @@ def resolve_flight_condition(
             "which is outside the range this atmosphere models: "
             f"{floor_ft} ft to {ceiling_ft} ft "
             f"({ISA.floor_altitude_m:g} m to {ISA.ceiling_altitude_m:g} m). "
-            "ISO 2533 continues above that ceiling with layers this package "
+            "ISO 2533 continues above that ceiling with layers this package [REF-01] "
             "does not implement, and extrapolating past it would be wrong in a "
             "way you could not see."
         )

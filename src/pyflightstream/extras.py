@@ -1,26 +1,10 @@
-"""Optional extras: what each one installs, and one refusal for all of them.
+"""Optional extras, their distributions and a shared missing-extra refusal.
 
-Pipeline role: cross-cutting support module, deliberately import-light.
-It imports nothing but the package base exception, so every gated
-module can raise from it without the refusal itself needing the thing
-that is missing.
-
-An extra is a promise with two halves: the distribution set
-``pyproject.toml`` installs under that name, and the message a user
-sees when they reach the gated code without it. The two halves used to
-live apart, and the second was three different exception types with
-three hand-written strings: ``ModuleNotFoundError`` in
-:mod:`pyflightstream.fsi.beam`, a bespoke class in
-:mod:`pyflightstream.probes.geometry`, and a bare ``ImportError`` in
-:mod:`pyflightstream.results.tables`. A caller who wanted to handle
-"an extra is missing" had to know all three, and nothing checked that
-the remedy each one printed was the remedy that works (review finding
-PYFS-025).
-
-:class:`MissingExtraError` is that one type, and its ``remedy`` is
-BUILT from the extra's name rather than typed, so a message can no
-longer name an extra that does not exist or spell an install command
-that does not work.
+Import-light support below every gated module: only the package base
+exception is required. MissingExtraError gives callers one exception type
+and constructs the remedy from the registered extra name. Tests compare
+that registry with pyproject.toml so the suggested install command names
+the distributions the gated code needs.
 """
 
 from __future__ import annotations
@@ -29,24 +13,11 @@ from pyflightstream._errors import PyflightstreamError
 
 __all__ = ["EXTRAS", "MissingExtraError", "UnknownExtraError", "missing_extra"]
 
-#: The optional extras of this package, and the distributions each one
-#: installs. Kept beside the refusal that cites them, and asserted
-#: against ``pyproject.toml`` in tests/tier1_offline/test_extras.py so the two cannot
-#: drift: an extra renamed in packaging and not here would print an
-#: install command that fails.
-#:
-#: ``dev`` is deliberately absent. It gates no runtime code path, so
-#: there is nothing for a user to reach without it.
-#:
-#: ``trimesh`` LEFT ``geom`` on 2026-08-19 and is a runtime dependency
-#: now (design note DD-27). What stays behind the extra is the SPATIAL
-#: INDEX, ``scipy`` and ``rtree``, which trimesh's containment and
-#: distance-to-surface queries go through; reading vertices and faces
-#: needs neither, which is what lets the trailing-edge extraction run on
-#: a base install. The move is recorded here because the refusal the
-#: geometry gate raises names this extra, and a refusal that told a
-#: reader to install ``[geom]`` to obtain a distribution they already
-#: have is the exact failure this module exists to prevent.
+#: Optional runtime extras, checked against pyproject.toml by test_extras.py.
+#: dev gates no runtime path and is absent. trimesh is a base dependency;
+#: geom supplies scipy and rtree for containment and distance queries.
+#: Reading vertices and faces, including trailing-edge extraction, needs
+#: neither spatial-index dependency.
 EXTRAS: dict[str, tuple[str, ...]] = {
     "excel": ("XlsxWriter",),
     "fsi": ("PyNiteFEA",),
@@ -64,7 +35,7 @@ class UnknownExtraError(PyflightstreamError, ValueError):
     fails, which is worse than the missing dependency it was trying to
     explain.
 
-    Added 2026-08-03 for FR-39, keeping ``ValueError`` as a second base.
+    Also a ``ValueError`` for callers handling that exception family (FR-39).
     """
 
 

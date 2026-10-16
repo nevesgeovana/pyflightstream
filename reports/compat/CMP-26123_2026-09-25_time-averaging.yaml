@@ -24,7 +24,7 @@ commands:
       "Unrecognized command in script ... at line 379", and the script stopped there
       (return code 0 after 0.97 s, no export written), while the unchanged control ran to
       the end in 12.2 s. The 26.123 edition of the manual documents the command
-      (SRC-751 p.353); this build does not accept it.
+      (FSM-26.123 p.353); this build does not accept it.
     signals:
       sentinel_before: true
       sentinel_after: false

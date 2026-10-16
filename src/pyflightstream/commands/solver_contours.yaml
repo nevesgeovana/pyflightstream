@@ -1,13 +1,7 @@
-# Chapter: Scripting reference, Solver Contours (SRC-003 pp.349-350).
+# Chapter: Scripting reference, Solver Contours (FSM-26.120 pp.349-350).
 #
-# COMPLETE as of 2026-08-08, entered from the four editions registered
-# THEN, in
-# one pass. The one command of the chapter, with the same 32 values in
-# all four. It said 33 until 2026-08-19, in this line and twice in the
-# entry's own notes, and 32 is what the list has always held: the count
-# was written by hand and never recounted. The fifth edition read here
-# adds four more, so the entry now states two counts and each names its
-# builds.
+# One command, with 32 values in FSM-26.100, FSM-26.101, FSM-26.120 and
+# FSM-26.121. The entry states each vocabulary count with its builds.
 
 SET_SCENE_CONTOUR:
   layout: inline
@@ -48,16 +42,16 @@ SET_SCENE_CONTOUR:
         - source_strength
         - stabilization
         - proximity
-  manual_ref: "SRC-003 pp.349-350"
+  manual_ref: "FSM-26.120 pp.349-350"
   versions:
-    "26.000": {status: documented, note: "SRC-747 p.322, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 pp.345-346, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.348-349, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.322, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 pp.345-346, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.348-349, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 pp.352-353, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 pp.352-353, same grammar as 26.120"}
     "26.123":
       status: documented
-      note: "SRC-751 p.355, four contour values added"
+      note: "FSM-26.123 p.355, four contour values added"
       args:
         - name: variable
           type: enum
@@ -100,7 +94,7 @@ SET_SCENE_CONTOUR:
             - FSI_displacement
     "26.124":
       status: documented
-      note: "SRC-752 p.355, the SRC-751 file, carried from 26.123; not run on 26.124"
+      note: "FSM-26.124 p.355, the FSM-26.123 file, carried from 26.123; not run on 26.124"
       args:
         - name: variable
           type: enum
@@ -143,7 +137,7 @@ SET_SCENE_CONTOUR:
             - FSI_displacement
     "26.125":
       status: documented
-      note: "SRC-753 p.362, unchanged from SRC-752 p.355; the argument list is the one SRC-752 prints, carried with the text"
+      note: "FSM-26.125 p.362, unchanged from FSM-26.124 p.355; the argument list is the one FSM-26.124 prints, carried with the text"
       args:
         - name: variable
           type: enum
@@ -193,7 +187,7 @@ SET_SCENE_CONTOUR:
     case, and they are recorded as printed.
 
     THE 26.123 ADDITIONS BREAK THAT AND ARE ALSO RECORDED AS PRINTED.
-    SRC-751 p.355 appends four values spelled FSI_dx, FSI_dy, FSI_dz
+    FSM-26.123 p.355 appends four values spelled FSI_dx, FSI_dy, FSI_dz
     and FSI_displacement, mixed case, to the same table whose other
     thirty-two are lower case. So the paragraph above stops holding for
     the command and holds only for the four editions it names; the rule
@@ -209,7 +203,7 @@ SET_SCENE_CONTOUR:
 
     WHAT THE FOUR DRAW IS DOCUMENTED ON A DIFFERENT PAGE, and citing
     only p.355 would leave a reader with four tokens and no statement
-    of what they mean. SRC-751 p.248 lists a group of FSI displacement
+    of what they mean. FSM-26.123 p.248 lists a group of FSI displacement
     output parameters in the solver's own parameter list: mesh node
     displacement in X, Y and Z, and the magnitude of that displacement.
     Those four are what these four contour values draw, one for one.

@@ -2,7 +2,7 @@
 
 Two of them, and neither changes the solver's status: the missing-action
 diagnostic, and the Tecplot surfaces the package failed to write from sources
-the solver did write (0.30.0).
+the solver did write.
 """
 
 from collections.abc import Mapping, Sequence
@@ -39,11 +39,11 @@ def untranslated_surfaces(
     """Say which missing outputs are only surfaces the package failed to translate.
 
     A declared Tecplot surface is written by the PACKAGE from the VTK (and the
-    native Tecplot) the solver exported (G45 of 0.28.0), so a ``.dat`` that is
+    native Tecplot) the solver exported (G45), so a ``.dat`` that is
     missing after a translation failed is not an output the solver failed to
     produce: the solve completed, and demoting it to FAILED_INCOMPLETE_OUTPUT
-    records a post-processing failure as the solver's (measured on 0.29.0 with
-    a periodic row, 2026-09-28). The point keeps the solver's status and the
+    records a post-processing failure as the solver's. The point keeps the
+    solver's status and the
     record carries these sentences in ``warnings``.
 
     Parameters

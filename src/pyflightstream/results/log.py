@@ -8,9 +8,9 @@ and the trailing edges the solver reports it imported
 ran several points cut into each point's own log (:func:`split_job_log`,
 :func:`point_log_text`).
 
-Every public name is re-exported, unchanged, by :mod:`pyflightstream.results`,
-its path (AD-11); the four names stay here, in the
-dev wheel, where the grouped collect reads them.
+Residual, timing and trailing-edge helpers are re-exported by
+:mod:`pyflightstream.results` (AD-11). Job-log splitting helpers are
+accessed through this module by grouped collection.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     """Parse the residual table of an exported solver log.
 
     The log's iteration table carries the velocity and pressure
-    residuals the convergence threshold applies to (SRC-003 p.200);
+    residuals the convergence threshold applies to (FSM-26.120 p.200);
     the final row is the convergence evidence of the run.
 
     Parameters
@@ -159,29 +159,13 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
 
 
 def _residual_rows(clean: str) -> list[tuple[list[str], bool]]:
-    """Return the residual table's rows, each with whether it opens a page.
+    """Return every residual row with whether it opens a page.
 
-    EVERY PAGE, AND NOT ONLY THE FIRST. ``EXPORT_LOG`` prints this table in
-    pages, each repeating the ``Iteration`` header and closing with a dashed
-    line, and ``delimited_table`` returns the FIRST table it finds, by
-    construction and by its own docstring. So a run longer than its first
-    page was judged on the residual it held at that page's end, and
-    published that row's number as its iteration count.
-
-    MEASURED on the runs of 2026-09-11, which is where this was found: a
-    206-row log parsed 100 rows and reported a last velocity residual of
-    1.26e-5 where the file's last row reads 1.35e-6; a 1294-row log parsed
-    81. Every point of every recorded campaign in this estate reports an
-    iteration count equal to a page boundary rather than a real stop, and
-    the convergence verdict of every long run was read from the wrong row.
-
-    The counter carries ACROSS pages, measured across an unsteady log's
-    time-step boundary at 1144 to 1145, so joining them leaves the monotonic
-    guard of :func:`parse_residual_history` NO WEAKER. Not "exactly as
-    strict", which is what the first writing claimed and which the
-    verification lens refuted: before this, a page after the first was never
-    read at all, so the guard could not have refused anything in it. It is
-    now STRICTER, and it applies to rows it never saw.
+    EXPORT_LOG repeats the Iteration header and closing dashed rule on
+    each page. Read every page so the final row represents the final state.
+    The iteration counter continues across pages, including unsteady
+    time-step boundaries; parse_residual_history checks monotonicity
+    across the joined sequence.
     """
     pages = RESIDUAL_PAGE.split(clean)
     rows: list[tuple[list[str], bool]] = []
@@ -191,8 +175,7 @@ def _residual_rows(clean: str) -> list[tuple[list[str], bool]]:
         table = delimited_table("Iteration" + page, "Iteration", delimiter=None)
         rows.extend((row, at == 0) for at, row in enumerate(table))
     if not rows:
-        # No page at all is the same error the single-table read raised, and
-        # it is raised from the same place so the message does not change.
+        # Use the table parser's diagnostic when no residual page is found.
         table = delimited_table(clean, "Iteration", delimiter=None)
         rows = [(row, at == 0) for at, row in enumerate(table)]
     return rows
@@ -434,15 +417,9 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
         except (IncompleteOutputError, MalformedOutputError):
             if unjudged is None:
                 raise
-            # A FROZEN STEP NEXT TO AN UNREAD ONE IS A FREEZE NOBODY CAN RULE OUT.
-            # A freeze needs two consecutive frozen steps, so a step that froze
-            # with its neighbour unreadable would otherwise vanish: measured on
-            # the 2413 fixture, whose freeze at 60 disappeared the moment block
-            # 61 could not be read. BOTH DIRECTIONS AND ONLY ACROSS CONSECUTIVE
-            # STEPS: the predecessor here, the successor at the frozen branch
-            # below, and neither across a gap in the printed step numbers, since
-            # steps that are not consecutive cannot form the pair (the push
-            # review, three lenses, 2026-09-22).
+            # A frozen step beside an unreadable step can be an unjudgeable freeze.
+            # Check predecessor and successor only when their printed step numbers
+            # are consecutive; a gap cannot establish the required pair.
             if streak >= 1 and previous == step - 1:
                 unjudged.append(previous)
             unjudged.append(step)
@@ -610,8 +587,7 @@ def imported_trailing_edges(log_text: str) -> dict[str, int]:
 
 
 #: The line the solver prints when one instance clears a solution to run the
-#: next point (FR-368). MEASURED on 26.124 build 8172026 (the
-#: re-initialisation probes of 2026-10-02): printed by REMOVE_INITIALIZATION
+#: next point (FR-368). On 26.124 build 8172026, printed by REMOVE_INITIALIZATION
 #: and by NEW_SIMULATION, so in the cumulative log of a job it opens every
 #: point but the first.
 RESTART_MARKER = "Solution cleared. Initialization removed."
@@ -717,7 +693,7 @@ def point_log_text(text: str, segment: LogSegment, *, polar_start: LogSegment) -
     initialisation echo, and they are put in front of the point's segment so
     its log reads as the log of the point run alone (the trailing-edge import
     count is judged per point). The process banner with the build is printed
-    once per job (MEASURED, 2026-10-02), so a point of a later polar does not
+    once per job, so a point of a later polar does not
     carry it; nothing of the package reads it off a log.
 
     Parameters

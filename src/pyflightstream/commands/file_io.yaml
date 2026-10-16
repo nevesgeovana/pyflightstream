@@ -1,4 +1,4 @@
-# Chapter: Scripting, Opening, Closing and Saving (SRC-003 p.282) and
+# Chapter: Scripting, Opening, Closing and Saving (FSM-26.120 p.282) and
 # Output Status (p.283).
 
 OPEN:
@@ -11,11 +11,11 @@ OPEN:
       type: enum
       values: [ENABLE, DISABLE]
       required: false
-  manual_ref: "SRC-003 p.282"
+  manual_ref: "FSM-26.120 p.282"
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.253, this edition's own grammar; see the note below"
+      note: "FSM-25.000 p.253, this edition's own grammar; see the note below"
       args:
         - name: filename
           type: path
@@ -27,16 +27,16 @@ OPEN:
           type: enum
           values: ["ENABLE", "DISABLE"]
           required: false
-    "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.272, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.286, unchanged from SRC-750 p.286"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.286, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.291, unchanged from SRC-752 p.286"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.286, unchanged from FSM-26.122 p.286"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.286, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
   notes: >
     Opens an existing simulation (.fsm) file. The optional
     LOAD_SOLVER_INITIALIZATION ENABLE line loads the solver
@@ -48,19 +48,19 @@ SAVEAS:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 p.282"
+  manual_ref: "FSM-26.120 p.282"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.253, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.253, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.272, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.286, unchanged from SRC-750 p.286"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.286, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.291, unchanged from SRC-752 p.286"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.286, unchanged from FSM-26.122 p.286"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.286, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
   notes: >
     Saves the current simulation to the given .fsm path.
 
@@ -68,37 +68,37 @@ NEW_SIMULATION:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-003 p.282"
+  manual_ref: "FSM-26.120 p.282"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.253, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.253, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.272, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.286, unchanged from SRC-750 p.286"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.286, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.291, unchanged from SRC-752 p.286"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.286, unchanged from FSM-26.122 p.286"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.286, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
 
 CLOSE_FLIGHTSTREAM:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.282"
+  manual_ref: "FSM-26.120 p.282"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.337, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.272, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.271, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.337, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.272, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.271, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.286, unchanged from SRC-750 p.286"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.286, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.291, unchanged from SRC-752 p.286"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.286, unchanged from FSM-26.122 p.286"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.286, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.291, unchanged from FSM-26.124 p.286"}
   notes: >
     Closes FlightStream and exits; the natural last command of a
     headless batch script.
@@ -109,19 +109,19 @@ EXPORT_LOG:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 p.283"
+  manual_ref: "FSM-26.120 p.283"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.336, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.273, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.272, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.336, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.273, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.272, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.287, unchanged from SRC-750 p.287"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.287, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.292, unchanged from SRC-752 p.287"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.287, unchanged from FSM-26.122 p.287"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.287, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.292, unchanged from FSM-26.124 p.287"}
   notes: >
     Exports the log window messages to a text file; the probe harness
     reads it for sentinel markers and error patterns.
@@ -132,18 +132,18 @@ OUTPUT_SETTINGS_AND_STATUS:
   args:
     - name: filename
       type: path
-  manual_ref: "SRC-003 p.283"
+  manual_ref: "FSM-26.120 p.283"
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.273, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.272, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.273, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.272, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_full.yaml"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.287, unchanged from SRC-750 p.287"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.287, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.292, unchanged from SRC-752 p.287"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.287, unchanged from FSM-26.122 p.287"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.287, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.292, unchanged from FSM-26.124 p.287"}
   notes: >
     Writes the fluid properties and solver status to a file.
 
@@ -151,18 +151,18 @@ CLEAR_LOG:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.283"
+  manual_ref: "FSM-26.120 p.283"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.336, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.273, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.272, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.277, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.282, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.336, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.273, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.272, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.277, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.282, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.286, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.287, unchanged from SRC-750 p.287"}
-    "26.124": {status: documented, note: "SRC-752 p.287, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.292, unchanged from SRC-752 p.287"}
+    "26.121": {status: documented, note: "FSM-26.121 p.286, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.287, unchanged from FSM-26.122 p.287"}
+    "26.124": {status: documented, note: "FSM-26.124 p.287, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.292, unchanged from FSM-26.124 p.287"}
   notes: >
     Empties the log window. Phase control, as EXPORT_LOG is: it acts on
     the application's output rather than on the simulation.
@@ -181,15 +181,15 @@ OUTPUT_SURFACE_INDICES:
       type: path
       own_line: true
       required: false
-  manual_ref: "SRC-003 p.283"
+  manual_ref: "FSM-26.120 p.283"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.277, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.282, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.277, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.282, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.286, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.287, unchanged from SRC-750 p.287"}
-    "26.124": {status: documented, note: "SRC-752 p.287, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.292, unchanged from SRC-752 p.287"}
+    "26.121": {status: documented, note: "FSM-26.121 p.286, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.287, unchanged from FSM-26.122 p.287"}
+    "26.124": {status: documented, note: "FSM-26.124 p.287, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.292, unchanged from FSM-26.124 p.287"}
   notes: >
     Writes the name and index of every mesh boundary, to a file if a
     path follows and to the log window if none does. The manual states

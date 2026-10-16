@@ -3,12 +3,10 @@
 A ``families`` entry of a pproc artifact names families, and a family the
 opened geometry does not carry is left out of that row's emission, which is
 how one artifact serves a sector and a whole wheel, or a wing-body and an
-isolated rotor (FR-73, the default skip). Until 0.32.0 the skip said nothing
-whenever the entry still emitted something: a section distribution over
-``Blade1`` to ``Blade5`` emitted one blade on a sector row whose mesh carries
-``Blade1`` alone and five on the wheel row, every row planned READY, and the
-plan named no family, no blade and no skip. A MISSPELLED family in a list
-beside a good one vanished the same way.
+isolated rotor (FR-73, the default skip). For example, a section distribution
+over ``Blade1`` to ``Blade5`` emits one blade on a sector carrying only
+``Blade1`` and five on a whole-wheel row. The plan names every skipped family,
+including a misspelling beside a valid member.
 
 The skip stays the default and is never a refusal. What this module adds is
 the sentence: while a campaign is planned, whatever ``--ignore-missing-families``
@@ -43,7 +41,7 @@ skip is noted for the build (:func:`collecting_the_study_skips`), so the run
 records it on the point (``skipped_names``), and a plan says it once per
 artifact, key and name, naming every row that lacks it
 (:func:`saying_the_study_skips`, :func:`noting_the_study_skips`). A reference
-declaring no vocabulary keeps the 0.38.0 reading of every name.
+declaring no vocabulary uses the ordinary family-selection rules.
 """
 
 from __future__ import annotations
@@ -131,8 +129,8 @@ def names_no_boundary_answers(
     answers with the alias that DECLARES each absent member, because on a
     nested alias that is the table row a user edits; any other word is judged
     on its own, because a list aggregates into one set that is non-empty as
-    soon as ONE member resolves and a misspelled member beside a good one
-    passed in silence (the QA lens of 2026-09-10). A word that names no set
+    soon as ONE member resolves; judging each member prevents a misspelling
+    beside a valid member from passing unnoticed. A word that names no set
     is never reported. Each pair appears once, in the order the entry cites it.
 
     Examples
@@ -150,7 +148,7 @@ def names_no_boundary_answers(
         if token.strip().casefold() in WORDS_THAT_NAME_NO_SET:
             continue
         # THE FAMILY ANSWERS FIRST (FR-578, FR-579). A numbered member whose
-        # family the mesh carries selects its exact name only since 0.40.0
+        # family the mesh carries selects its exact name only
         # (PFS-2029.25), so it selects nothing on a sector, and it is still not
         # refused here: the plan's warning names it. Asked first, it also keeps
         # the cited-alone refusal of the selector out of this reader.
@@ -578,7 +576,7 @@ def judge_a_name_the_model_lacks(case: SimCase, kind: str, key: str, token: str)
     bool
         True when the name is skipped; False when the reference declares no
         vocabulary and the run did not ask for the refusal, so the caller reads
-        the name as 0.38.0 did (FR-981).
+        the name using its ordinary selection rule (FR-981).
 
     Raises
     ------
@@ -608,8 +606,8 @@ def skips_a_name_the_model_lacks(
     The one classification every covered key routes through. A name that
     selects some boundary of ``inventory`` through the row's names
     (:func:`names_a_row_can_cite`), and the words that name no set (``all``,
-    ``each``, ``each_blade``), are not judged: the caller reads them as 0.38.0
-    did. Every other name is judged by :func:`judge_a_name_the_model_lacks`.
+    ``each``, ``each_blade``), are not judged: the caller uses its ordinary
+    selection rule. Every other name is judged by :func:`judge_a_name_the_model_lacks`.
 
     Parameters
     ----------
@@ -629,8 +627,8 @@ def skips_a_name_the_model_lacks(
     Returns
     -------
     bool
-        True when the name is skipped; False when the caller reads it as on
-        0.38.0.
+        True when the name is skipped; False when the caller applies its
+        ordinary selection rule.
 
     Raises
     ------

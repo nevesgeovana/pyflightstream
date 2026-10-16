@@ -1,4 +1,4 @@
-"""The 6DOF motion a row's ``SIXDOF`` key frees (FR-461, 0.40.0).
+"""The 6DOF motion a row's ``SIXDOF`` key frees (FR-461).
 
 :func:`_sixdof_motion` emits one 6DOF motion of the input's families about its
 body frame, in the setup phase, after the frames and before the solver is
@@ -141,7 +141,7 @@ def _sixdof_motion(
     script.emit("SET_MOTION_MASS_PROPERTIES", motion, spec.mass.mass_kg, *spec.mass.inertia_kg_m2)
     script.emit("SET_MOTION_GRAVITY", motion, *spec.gravity.vector_reference_m_per_s2)
     script.emit("SET_MOTION_6DOF_INITIAL_VELOCITY", motion, *spec.initial.velocity_body_m_per_s)
-    # RPT-169 (6DOF initial angular velocity, 2026-10-13) measured rad/s for
+    # RPT-169 (6DOF initial angular velocity) measured rad/s for
     # this command on 26.124 and 26.125; convert the caller's stated deg/s.
     script.emit(
         "SET_MOTION_6DOF_INITIAL_ANGULAR_VELOCITY",

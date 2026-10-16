@@ -1,4 +1,4 @@
-"""The prepare step of ``collect`` for the points of a grouped job (0.35.0).
+"""The prepare step of ``collect`` for the points of a grouped job.
 
 Pipeline role: called by :func:`pyflightstream.run.collect.collect_once`
 before its per-record loop, and nowhere else. For every SUBMITTED record
@@ -12,7 +12,7 @@ point that ran alone, and the existing loop completes it unchanged.
 
 A RECORD WITH NO JOB ENTRY IS NOT LOOKED AT. A workspace holding none returns
 from :func:`prepare_grouped_points` with its records as given, no observation
-taken and no sleep spent, so the default mode's ``collect`` is the 0.34.0 one;
+taken and no sleep spent;
 :func:`clock_stop_update` returns ``{}`` for such a record for the same reason.
 
 Semantics, each a test (IMPL-0350 section 4.9): FR-367 (copy while running,

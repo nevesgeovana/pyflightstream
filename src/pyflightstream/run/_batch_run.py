@@ -1,4 +1,4 @@
-"""The grouped run: ``run --batch N`` and ``run --polar-sweep`` (0.35.0).
+"""The grouped run: ``run --batch N`` and ``run --polar-sweep``.
 
 Pipeline role: the grouped modes reuse the per-point run path unchanged and add
 only what is new around it (IMPL-0350 section 1). :func:`run_grouped_matrix`
@@ -80,7 +80,7 @@ from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace._batches import GroupedJob, GroupingReceipt, job_of
 from pyflightstream.workspace.hpc import HpcProfile, resolve_hpc_profile
 
-# Kept importable from here as in 0.39.0 (release parity, api).
+# Re-exported through this public import path.
 from pyflightstream.workspace.inputs import hpc_profiles as hpc_profiles
 from pyflightstream.workspace.inputs import read_hpc_profile as read_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
@@ -286,7 +286,7 @@ def _job_root(job: GroupedJob, root: Path, profile: HpcProfile | None, submits: 
     """Return the root a job's script names its paths from (reading 3)."""
     work_dir = (root / job.dir).as_posix().rstrip("/")
     template = profile.job_root if submits and profile is not None else DEFAULT_JOB_ROOT
-    # ONE MEANING PER PLACEHOLDER (0.40.0), the meaning of :func:`job_values`:
+    # ONE MEANING PER PLACEHOLDER, the meaning of :func:`job_values`:
     # ``{sim}`` is the job's first simulation, ``{batch}`` the job's label.
     first = job.sims[0] if job.sims else job.label
     return PurePath(template.format(work_dir=work_dir, batch=job.label, sim=first))

@@ -128,7 +128,7 @@ POLAR_COLUMNS: tuple[str, ...] = (
 #: (FR-423), in the order the twenty-four place them: the profile or viscous part,
 #: then the induced or pressure part. Up to 26.124 the loads table prints
 #: ``CDi, CDo`` and the polar writes ``CD0, CDI``; 26.125 prints ``CDp, CDv``
-#: (SRC-753 pp.227, 229) and the polar writes ``CDV, CDP`` in the same two
+#: (FSM-26.125 pp.227, 229) and the polar writes ``CDV, CDP`` in the same two
 #: places. Each pair is carried under its own names: nothing here says the two
 #: splits measure the same quantities. A table holding rows of both builds
 #: carries both pairs, the absent one ``NA`` in each row.
@@ -389,8 +389,8 @@ def group_coefficients(
         # NOT COMPUTED IS NOT ZERO (PFS-2006.03): the printed 0.0 of a declined
         # surface stays in the parsed table, and no sum made here takes it.
         cdi = math.nan if family in declined else row[induced_key]
-        # THE TOTAL DRAG IS THE SUM OF THE SPLIT ON EITHER BUILD: SRC-752 p.227
-        # states it of CDi and CDo, SRC-753 p.229 of CDp and CDv (FR-423).
+        # THE TOTAL DRAG IS THE SUM OF THE SPLIT ON EITHER BUILD: FSM-26.124 p.227
+        # states it of CDi and CDo, FSM-26.125 p.229 of CDp and CDv (FR-423).
         drag += cdi + row[profile_key]
         side += row["Cy"]
         lift += row["CL"]
@@ -415,7 +415,7 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
 
     PFS-2006.03, FR-22a. A boundary on the vorticity induced-drag list
     (``SET_VORTICITY_DRAG_BOUNDARIES``) without a defined trailing edge is not
-    computed, and the export prints its ``CDi`` as zero (SRC-003 p.202). A
+    computed, and the export prints its ``CDi`` as zero (FSM-26.120 p.202). A
     surface is declined when ``selection`` puts it on that list AND its printed
     ``CDi`` is exactly ``0.0``. The list is what decides, not the zero: a body
     left off it is integrated by surface pressure and can print a real zero.
@@ -591,12 +591,9 @@ def swept_polar_file_name(
     holds those files and a pproc that still numbers its groups must keep
     producing the names beside them rather than a second era of its own.
 
-    ``int(group)`` WAS UNCONDITIONAL HERE, which made item 14 unreachable: a
-    named group raised a bare `ValueError` inside the products stage -- not even
-    a `ProductError`, so `except PyflightstreamError` did not catch it and the
-    refusal carried no file, no group and no fix. The matrix binder refused the
-    same pproc one stage earlier, so the feature this release is named for was
-    refused at BOTH ends.
+    Groups may be names as well as numbers (item 14). Preserve the named
+    form instead of forcing integer conversion and raising an uncontextualised
+    ValueError outside the product-refusal handling.
 
     Parameters
     ----------
@@ -883,7 +880,7 @@ def group_polar_rows(
                 coefficients,
                 cref_m=reference.cref_m,
                 bref_m=reference.bref_m,
-                # AS THE POINT FLEW IT. A sideslip was a refusal until 0.24.0.
+                # Transform using the sideslip the point flew at.
                 beta_deg=point.beta_deg,
             )
         )
@@ -984,12 +981,9 @@ def write_recorded_polar(
             target = write_sections_table(
                 out / SECTIONS_DIR / f"{point.name}_sections.csv",
                 sloads.read_text(encoding="utf-8", errors="replace"),
-                # NO `point=` SINCE 0.23.0 ITEM 13: the polar's name is the
-                # FILE's name and a column spent restating it told no row
-                # from another. The iteration and the azimuth are read from
-                # the export where it states them and are `NA` where it does
-                # not, which is the honest answer for a steady distribution
-                # and for a run that recorded no clock.
+                # The filename identifies the polar. Read iteration and azimuth from
+                # the export where stated, otherwise write NA, including steady
+                # distributions and records with no clock.
                 mach=mach,
                 # ITEM 5. This path rebuilds from a bare folder of recorded
                 # loads files and reaches no run record, so the advance ratio

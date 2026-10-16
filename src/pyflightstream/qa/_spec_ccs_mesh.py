@@ -315,7 +315,7 @@ def _family_settings(family: _Family) -> None:
 
 def _relaxed_trailing_edges(family: _Family) -> None:
     name = family.name
-    # 26.125 prints a fourth token, DIRECTION (SRC-753 pp.312, 315); 0 is axial.
+    # 26.125 prints a fourth token, DIRECTION (FSM-26.125 pp.312, 315); 0 is axial.
     relaxed = _emit_full(f"NEW_CCS_{name}_RELAXED_TE", 0.5, 0.2, 0.8, tail=(("direction", "0"),))
     _set_chapter(
         family,

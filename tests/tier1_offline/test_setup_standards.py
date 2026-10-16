@@ -502,7 +502,7 @@ def test_inspection_resolves_symmetry_override_and_keeps_invalid_rows_inspectabl
 
 def test_every_generated_standard_states_five_farfield_layers():
     # Owner rule of 2026-09-19: farfield_layers = 5 in the setup of every run.
-    # The command database documents 1..5 (SRC-003 p.344); no study may vary it.
+    # The command database documents 1..5 (FSM-26.120 p.344); no study may vary it.
     from pyflightstream.workspace.setup_standards import render_standard, setup_standards
 
     for standard in setup_standards():

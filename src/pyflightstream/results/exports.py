@@ -59,13 +59,13 @@ __all__ = [
 ]
 
 
-# --- the six exports PFS-2014.02 owed a parser -----------------------------
+# --- observed export formats (PFS-2014.02) --------------------------------
 #
 # Every format below is written against an OBSERVED file. The capture script
-# `scripts/capture_export_corpus.py` put a coarse generated NACA 0012 wing
-# through a licensed 26.123 solve on 2026-08-20 and committed one small file
-# per format under `tests/tier1_offline/fixtures/`; two earlier 26.120 captures sit beside
-# them. Nothing here is written from the manual alone, and the one format
+# `scripts/capture_export_corpus.py` captures a coarse generated NACA 0012 wing
+# through a licensed 26.123 solve. One small file per format and two 26.120
+# captures are under `tests/tier1_offline/fixtures/`.
+# Nothing here is written from the manual alone, and the one format
 # that has never been observed keeps its `owed` verdict rather than a parser
 # guessed from its page (see EXPORT_BL_VELOCITY_PROFILE in
 # :data:`EXPORT_CONVERSIONS`).
@@ -530,7 +530,7 @@ def parse_force_distributions(
     GROUNDING. Written against two observed exports, both committed:
     ``force_distributions_26.123.txt`` (96 panel rows, build 8112026) and
     ``force_distributions_26.120.txt`` (build 7012026). The database
-    entry is ``verified`` on 26.120 through 26.123 (SRC-003 pp.353-354).
+    entry is ``verified`` on 26.120 through 26.123 (FSM-26.120 pp.353-354).
 
     AN EMPTY DISTRIBUTION IS RETURNED, NOT REFUSED, and the 26.120
     fixture is why the question came up: it is a complete file, footer
@@ -682,7 +682,7 @@ def parse_off_body_streamlines(
     GROUNDING. Written against ``off_body_streamlines_26.123.txt``, an
     observed export of build 8112026: three streamlines of thirty points
     each. The database entry is ``verified`` on 26.120 through 26.123
-    (SRC-003 p.369).
+    (FSM-26.120 p.369).
 
     THE BARE INTEGER IS NOT ASSERTED TO BE THE ROW COUNT, and this is a
     measurement rather than a caution. Every one of the three streamlines
@@ -927,7 +927,7 @@ def parse_surface_sections(
     ``surface_sections_26.120.txt`` (build 7012026,
     ``EXPORT_SURFACE_SECTIONS``, one section of zero edges). The database
     entries are ``verified`` on 26.120 through 26.123 for the all-sections
-    command and ``documented`` for the single-section one (SRC-003 p.365).
+    command and ``documented`` for the single-section one (FSM-26.120 p.365).
 
     A SECTION OF ZERO EDGES IS A REAL FILE and is returned as a section
     with no rows. The 26.120 fixture is one: its cutting plane was laid
@@ -1144,7 +1144,7 @@ def parse_sweep_spreadsheet(
     GROUNDING. Written against ``sweeper_spreadsheet_26.123.txt``, an
     observed export of build 8112026 holding a three-point angle sweep.
     The database entry is ``verified`` on 26.101 through 26.123
-    (SRC-003 p.359).
+    (FSM-26.120 p.359).
 
     Parameters
     ----------
@@ -1245,11 +1245,11 @@ def parse_solver_analysis_csv(text: str, *, field: str | None = None) -> SolverA
     labelled on a guess is worse than a column labelled ``column_3``.
 
     WHAT IS SETTLED, and how. The observed export is
-    ``solver_analysis_26.123.csv``, written by the capture run of
-    2026-08-20 on a generated NACA 0012 wing of chord 1 m and span 8 m,
+    ``solver_analysis_26.123.csv``, from a generated NACA 0012 wing
+    of chord 1 m and span 8 m,
     called as ``EXPORT_SOLVER_ANALYSIS_CSV <path> CP-FREESTREAM PASCALS
     1 -1`` (the arguments the database names filename, format, units,
-    frame and surfaces; SRC-003 p.353).
+    frame and surfaces; FSM-26.120 p.353).
 
     - Column 1 is X. Its 86 rows take exactly seven values, and they are
       the seven cosine-spaced chordwise node stations of that mesh

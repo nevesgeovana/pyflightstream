@@ -478,15 +478,10 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         builds=builds,
         application_id=str(table["application_id"]),
         descriptor_format=fmt,
-        # THE DEFAULT FOLLOWS THE FORMAT, not the word yaml. A profile
-        # stating format = "json" and no name used to write JSON into a
-        # file called submit.yaml: two fields of one artifact, one
-        # silently overriding the other's meaning, and the person
-        # debugging a rejected submission opens the file and cannot tell
-        # which of the two is authoritative (the interface lens,
-        # 2026-09-13). An explicit `name` still wins.
+        # Derive the default filename from the declared format so JSON receives
+        # a .json name. An explicit name takes precedence.
         descriptor_name=str(descriptor.get("name") or f"submit.{'txt' if fmt == 'text' else fmt}"),
-        # A TOML boolean stays a boolean, so the descriptor writes it bare (0.35.0).
+        # A TOML boolean stays a boolean, so the descriptor writes it bare.
         fields={str(k): v if isinstance(v, bool) else str(v) for k, v in fields.items()},
         submit=tuple(str(part) for part in submit),
         defaults=dict(table.get("defaults") or {}),

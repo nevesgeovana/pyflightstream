@@ -56,17 +56,9 @@ module reads. A ``TYPE_CHECKING`` import never executes, but it still
 records an upward dependency in the type checker's graph, and the
 matrix reader was held to the same rule (OPS-2007.02.02).
 
-That is a CHANGE, and the reason it is worth a paragraph. Both
-functions used to accept a bare root path as well, coerced by a helper
-that imported the workspace layer inside its own body. Deferring an
-import to call time hides its direction from every module-level reader
-without changing it: results sits BELOW run/workspace, so the coercion
-was the parsing layer reaching up for a constructor. AD-01 allows a
-documented exception and the alternative was to delete it; deleting it
-is what happened (OPS-2009.02.05), because a layering guard whose
-permitted set is empty cannot go green while one convenience import
-stands. Callers pass ``CampaignWorkspace(root)`` instead of ``root``,
-which is one line and is what every shipped example already did.
+Callers construct ``CampaignWorkspace(root)`` and pass that object.
+Constructing a workspace from a bare path here would introduce an upward
+dependency from the parsing layer into the execution layer (AD-01).
 """
 
 from __future__ import annotations
@@ -98,7 +90,7 @@ from pyflightstream.results.core import (
     window_for_reduction,
 )
 
-# Kept importable from here as in 0.39.0 (release parity, api).
+# Re-export for callers using the results.tables path.
 from pyflightstream.results.core import IncompleteOutputError as IncompleteOutputError
 from pyflightstream.results.exports import (
     FORCE_DISTRIBUTION_COLUMNS,
@@ -179,16 +171,10 @@ class _ManifestWorkspace(Protocol):
     def read_manifest(self) -> Sequence[_ManifestRecord]: ...
 
 
-#: The statuses of a run that FINISHED WITHOUT FAILING, and so owed a
-#: coefficient table. Named by value, because this layer imports the
-#: workspace layer nowhere at runtime; a tier-1 test holds the tuple to the
-#: enum, so a status added there cannot be silently left out here.
-#:
-#: IT IS AN ALLOW-LIST, AND IT USED TO BE A PREFIX TEST. Success was decided
-#: by `not status.startswith("FAILED")`, and `SUBMITTED` does not begin with
-#: FAILED, so a point still in a scheduler's queue was counted as a run that
-#: should have produced coefficients and then complained about for not
-#: having them, on every successful cluster submission (PFS-2010.01.03).
+#: Statuses of completed, nonfailed runs that owe a coefficient table.
+#: Use an explicit allow-list so queued or submitted work owes no output.
+#: The tier-1 test compares these values with the workspace enum without
+#: introducing an upward runtime import.
 _RAN_TO_OUTPUTS = (
     "CONVERGED",
     "COMPLETED_MAX_ITER",
@@ -197,11 +183,9 @@ _RAN_TO_OUTPUTS = (
     "RAN_MISSING_LOG",
 )
 
-# Fixed identity and outcome columns of one run row, in output order;
-# sweep point axes are inserted after sim_id and must not collide.
-# `POL` LEADS SINCE 0.27.0 (G16): the polar each row comes from, under the
-# name the run matrix gives its polar column, first in every table the
-# campaign's post folder holds. The sweep MIXES polars, so it is per row.
+# Identity and outcome columns in output order. POL identifies the polar
+# for each row because a sweep can mix polars. Insert sweep point axes
+# after sim_id and refuse collisions with fixed columns.
 _RUN_IDENTITY_COLUMNS = (POLAR_ID_COLUMN, "run_id", "sim_id")
 _RUN_OUTCOME_COLUMNS = (
     "fs_version_requested",
@@ -470,7 +454,7 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
             f"{target} already exists and overwrite=False; write under a name that "
             "carries the point, or pass overwrite=True to replace it deliberately"
         )
-    # NO CELL HOLDS A COMMA OR A DOUBLE QUOTE (G16, 0.27.0), and nothing is
+    # NO CELL HOLDS A COMMA OR A DOUBLE QUOTE (G16), and nothing is
     # quoted: a reader that splits each line on `,` (`numpy.genfromtxt` does, and
     # honours no CSV quoting) reads every row to the header's count. The campaign
     # sweep table is written here, beside the products that `post._tables` writes
@@ -598,7 +582,7 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
                 f"{len(pairs)} row(s) pair reduction {reduction!r} with reduction_window "
                 f"{window!r}, which contradicts itself: {why}. {_WRITTEN_PAIRS}"
             )
-    # `last_step` and `last_time_step` (0.40.0) state one fact, the instant
+    # `last_step` and `last_time_step` state one fact, the instant
     # of an unsteady export's last time step, so each goes with the other
     # and with nothing else.
     lone = frame[
@@ -617,7 +601,7 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
 _WRITTEN_PAIRS = (
     "The pairs this package writes are none with not_applicable, last_step with "
     "last_time_step, and unknown with unknown; time_average with not_printed is what "
-    "a file written before 0.40.0 carries on an unsteady export"
+    "a legacy file can carry on an unsteady export"
 )
 
 
@@ -901,13 +885,10 @@ def sweep_table(
     import pandas as pd
 
     _refuse_a_bare_root(workspace, "sweep_table")
-    # ONE ROW PER POINT, and the manifest stores JOBS since 0.17.0. A
-    # steady matrix row is one job over several points, so a table built
-    # straight off the records would report one row where three points ran
-    # and would carry the job's aggregate status for all of them. The
-    # record expands itself; one that is a single point returns itself.
+    # Expand manifest jobs into points: a steady job can hold several
+    # points, each needing its own row and status. A single point returns itself.
     records = [point for record in workspace.read_manifest() for point in record.as_points()]
-    # THE END OF A CONTINUATION CHAIN, AND NOT EVERY LINK OF IT (0.24.0). The
+    # THE END OF A CONTINUATION CHAIN, AND NOT EVERY LINK OF IT. The
     # stopped run's record still names the files its continuation wrote, so its
     # row carried the continuation's coefficients under another run id.
     superseded = superseded_by_a_continuation(records)
@@ -943,10 +924,8 @@ def sweep_table(
         except LoadsNotFoundError:
             loads = None  # the row keeps identity and status, coefficients stay NaN
         except (PyflightstreamError, OSError, ValueError) as error:
-            # ONE RECORD'S FAILURE IS THAT RECORD'S (PFS-2095.025): an output
-            # archived away, an ambiguous or truncated spreadsheet, a wrong
-            # point. It used to end the whole table, and the callers that
-            # tolerate that wrote no sweep at all for every other point.
+            # Keep an unreadable, ambiguous or wrong-point output local to its
+            # record so other points can still appear in the sweep table.
             if require_loads:
                 raise
             warn(
@@ -1139,7 +1118,7 @@ def _pinned_frame_columns(
             f"the {what} names columns {list(printed)}, and this table pins "
             f"{list(expected)}. The layout of this export is fixed by the solver, so a "
             "table built from a different one would carry each value under the label of "
-            "whatever used to sit in its position"
+            "a different column in that position"
         )
     return list(expected)
 
@@ -1339,14 +1318,9 @@ def _run_row(record: _ManifestRecord, loads: LoadsReport | None) -> dict[str, ob
     row[DATA_ORIGIN_COLUMN] = "raw"
     reduction = "unknown" if loads is None else reduction_for_solver_mode(loads.solver_mode)
     row[REDUCTION_COLUMN] = reduction
-    # AND OVER WHAT WINDOW (PFS-2014.03). A steady point averages over
-    # nothing; an unsteady point's coefficients are its last time step,
-    # `last_time_step`, which this column says rather than leaving blank
-    # (it said `not_printed`, a solver average, until 0.40.0). A row whose loads never
-    # parsed reduces to `unknown` and takes the window of the same name:
-    # this line used to hard-code `not_printed` for that branch, which
-    # asserted a solver average on the one row class where nothing at all
-    # was measured.
+    # A steady point has no averaging window. An unsteady export uses
+    # last_time_step; a row without parsed loads uses unknown for both
+    # reduction and window.
     row[REDUCTION_WINDOW_COLUMN] = window_for_reduction(reduction)
     reserved = set(_RUN_IDENTITY_COLUMNS + _RUN_OUTCOME_COLUMNS + PROVENANCE_COLUMNS)
     reserved.update(("frame", "force_units", "moment_units"))
@@ -1414,9 +1388,8 @@ def _refuse_a_bare_root(workspace: object, caller: str) -> None:
         return
     raise MalformedOutputError(
         f"{caller}() needs a constructed CampaignWorkspace and got "
-        f"{type(workspace).__name__}. Until v0.8.0 it also accepted the campaign "
-        "root as a path and built the workspace itself, which made the results "
-        "layer import the execution layer above it; that convenience is gone. "
+        f"{type(workspace).__name__}. The results layer does not construct "
+        "workspaces from paths. "
         "Write: from pyflightstream.workspace import CampaignWorkspace, then "
         f"{caller}(CampaignWorkspace(root), ...). The workspace is what knows "
         "where the manifest and the simulation folders are, so constructing it "
@@ -1477,17 +1450,10 @@ def _check_point_printback(record: _ManifestRecord, report: LoadsReport, name: s
     not the evidence of this run; exporting one uniquely named
     spreadsheet per point avoids the overwrite.
     """
-    # REV010-001. This comparison used to live here and ONLY here, which is
-    # why a wrong-point export could be recorded CONVERGED and contradicted
-    # afterwards by a helper the manifest never consults. It is now the
-    # shared bind_conditions, called by the assessor before the status is
-    # decided and by this reader afterwards, so the two can never disagree
-    # about what counts as the same point.
-    # The REQUESTED velocity joins the axes the reader weighs, so the
-    # reader and the assessor compare the same set (OPS-2009.01.13).
-    # `setdefault` and not assignment: the point's own value wins over
-    # the case default, which is the precedence the run layer applies,
-    # and a plain assignment would reverse it silently.
+    # Share bind_conditions with the assessor so both compare the same
+    # operating point. Include requested velocity alongside point axes.
+    # Use setdefault so the point's value takes precedence over the case
+    # default, matching run-layer resolution.
     requested = dict(record.point)
     if record.velocity_requested_m_s is not None:
         requested.setdefault("velocity", record.velocity_requested_m_s)

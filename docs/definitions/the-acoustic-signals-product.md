@@ -6,7 +6,7 @@ A point whose record lists acoustic signals gets, under
 `Observer: <name>`, a line `Position: x,y,z` (Fortran-style numbers such as
 `.00,10.0,.00`), a line `Columns: Observer time (sec), PL (Pa), PT (Pa), PO (Pa)`
 and one row per sample (measured on build 26.124, probe A1). The manual pages of
-the toolbox (SRC-003 pp.374 and 380) do not define the three pressure columns;
+the toolbox (FSM-26.120 pp.374 and 380) do not define the three pressure columns;
 the probe shows `PO = PL + PT` in every row, and the package reads `PO` as the
 overall pressure and calls PL the loading part and PT the thickness part, which is
 the customary split and not a vendor statement. The unit of the position is not in

@@ -65,7 +65,7 @@ from ._vocabulary import (
 def rotor_machs(case: SimCase) -> list[RotorMach]:
     """Return the tip and helical Mach numbers of every rotor and disc a row turns.
 
-    Three row types carry them (0.30.0, M1): every ``unsteady_rotor`` and
+    Three row types carry them (M1): every ``unsteady_rotor`` and
     ``qsteady_rotor`` row,
     every ``steady`` row that states ``RPM``, and every row, of any run type,
     that names an actuator disc (``ACTUATOR``). Each rotor and each disc is
@@ -252,69 +252,18 @@ def _disc_axis(case: SimCase, frame: str, letter: str) -> tuple[float, float, fl
 def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:
     """Return the rotor speed where the row states one, and None where it does not.
 
-    A window stated in STEPS needs no rotor speed, and refusing a case
-    that never asked for one would break every such row.
+    A window stated in STEPS needs no rotor speed. Resolved motions take
+    precedence over flat RPM or advance ratio: their views carry each rotor's
+    own diameter (FR-63), and the clock motion owns the row's step, length
+    and revolution window (FR-64).
 
-    A ROW STATING ITS SPEEDS IN MOTIONS STATES ONE HERE TOO, through the
-    motion that owns the clock (FR-64). Without that, a 0.15.0 transition
-    row reduced over NOTHING: the row itself carries no `RPM` because each
-    rotor carries its own, so this returned None and every reduction of
-    the point, the time average included, was skipped with "states no
-    rotor speed" (measured on a two rotor row, 2026-09-10). The clock
-    motion is the right one and not merely an available one: the row's
-    step and the row's length are already ITS, which is what FR-64
-    settled, so the window they cut is its revolutions.
+    A MOTIONS list with a resolved speed requires CLOCK_MOTION, even for one
+    motion and even beside a flat RPM. With no resolved motion, the flat
+    branch answers the row's stated ratio or RPM, or returns None. Records
+    that cannot resolve are kept in the lost list by _the_rotors_the_row_turns.
 
-    THE BLAST RADIUS IS FOUR CALL SITES, not one, and saying so is the
-    point of this paragraph: `rotor_time_stepping`, `ExportWindow.from_case`
-    and the unsteady builder all reach here, so each of them now resolves a
-    clock speed for a MOTIONS-only row where it previously got None. That
-    is FR-64's intent and it is a change a reader of the reduction diff
-    alone would not see (the architecture lens, 2026-09-10).
-    THE MOTIONS ARE ASKED FIRST, and the order is the whole fix of
-    2026-09-11. The two questions were asked the other way round -- does the
-    row state a ratio or an rpm, and only then, does the row turn rotors --
-    so a row that does BOTH took the flat branch, which resolves J against
-    the configuration's single `rotor_diameter`. That length is exactly what
-    FR-63 moved into each rotor block, because one configuration turning two
-    sizes of rotor has no one diameter to put there, so the flat branch
-    could not answer and the branch that could was never reached. Measured
-    on the reference row 6002: `time_average`, `phase_locked` and
-    `per_blade` all skipped, each naming a key the reference is right not to
-    carry, while the SCRIPT for the same point built correctly at 36 steps.
-    A motion view carries the row's own variables plus its record's, so it
-    answers everything the row could answer and one thing more: the rotor's
-    own diameter.
-
-    IT IS NOT STRICTLY WIDER, AND THIS PARAGRAPH ONCE SAID IT WAS. Measured
-    on 2026-09-11 over four row shapes:
-
-        two motions each stating RPM, no CLOCK_MOTION  ->  REFUSED
-        one motion stating RPM, no CLOCK_MOTION        ->  REFUSED
-        one motion stating none, no CLOCK_MOTION       ->  the flat branch
-        no motions at all                              ->  the flat branch
-
-    So the shape that changed is not about HOW MANY rotors turn. A row whose
-    motion records RESOLVE to a speed, and which names no `CLOCK_MOTION`, is
-    now REFUSED by `_clock_speed` naming the key it wants, where a flat `RPM`
-    used to answer it. A record that resolves to nothing still reaches the
-    flat branch, because `_the_rotors_the_row_turns` puts it in its lost list
-    and leaves `turning` empty.
-
-    THAT REFUSAL IS THE POINT RATHER THAN A COST, and it is `_clock_speed`'s
-    own rule reaching a row that had been getting past it. FR-64 settled that
-    ANY row stating a `MOTIONS` list must say which motion owns the clock, in
-    those words, because `DELTA_THETA` bounds a blade's travel per step and a
-    list is where a row has something to choose between. A flat `RPM` beside
-    that list was a back door past the question, and the clock such a row got
-    was whichever number it happened to carry, with nothing saying so.
-
-    TWO CALLERS DO NOT CATCH THE REFUSAL (`ExportWindow.from_case` and
-    `rotor_time_stepping`) and two do (`time_steps_of`, `reduction_windows`),
-    so on that shape the first two now refuse where they used to answer and
-    the last two report a blank. The architecture lens named the shape and the
-    measurement above sharpened it; the claim of strict widening was mine and
-    it was wrong.
+    ExportWindow.from_case and rotor_time_stepping propagate the clock
+    refusal; time_steps_of and reduction_windows catch it and report a blank.
     """
     turning, _lost = _the_rotors_the_row_turns(case)
     if turning:
@@ -331,27 +280,14 @@ def _the_rotors_the_row_turns(
 ) -> tuple[list[tuple[str, SimCase, RotorSpeed]], dict[str, str]]:
     """Return the rotors the row's motions turn, and the ones that could not (FR-68).
 
-    The first is one ``(alias, motion view, speed)`` per rotor, where the
-    ALIAS IS THE REFERENCE'S OWN SPELLING and never the record's token.
-    `_rotor_of` resolves a token stripped and case folded, so a record
-    writing ``" pusher "`` reaches every rotor path in this module and then
-    failed an exact-match subscript one layer down, raising a `KeyError`
-    out of `reduction_windows`, whose own docstring says it never raises
-    for a row the builder would refuse (the architecture lens, 2026-09-10).
-    One resolution, carried forward.
+    The first list contains one (alias, motion view, speed) per resolved rotor.
+    The alias uses the reference's spelling after stripping and case folding
+    the record's token, so downstream exact lookups use the resolved name.
 
-    THE SECOND IS THE DROP-OUTS, alias to reason, and it exists because
-    the first writing simply lost them. A record this cannot resolve got
-    no entry, so the rotor appeared in neither the products nor the
-    skipped list of the manifest: it vanished. That is exactly what this
-    module refuses to do everywhere else, where "a reduction the row
-    cannot window is recorded as skipped with the reason, never guessed".
-    Among the reasons swallowed is a record stating a retired key beside
-    its alias, which FR-61 goes to the trouble of refusing loudly.
-
-    Both are empty for a row that states no motion record, which is every
-    row written before 0.15.0 and every steady row, so a caller that finds
-    nothing here behaves exactly as it did.
+    The second mapping preserves unresolved records and their refusal reasons,
+    including retired keys (FR-61). A reduction that cannot be windowed is
+    recorded as skipped with its reason. Both collections are empty for a row
+    that states no motion record.
     """
     turning: list[tuple[str, SimCase, RotorSpeed]] = []
     lost: dict[str, str] = {}
@@ -374,37 +310,21 @@ def _the_rotors_the_row_turns(
 def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[RotorSpeed]):
     """Return the speed that owns the row's clock (FR-64).
 
-    The design of 2026-09-10: ``CLOCK_MOTION`` names a motion the same row
-    states, and the time step and the run length are that motion's. A row
-    without the key keeps the arithmetic of 0.14.0, the FASTEST rotor,
-    and says so in a warning naming the motion it assumed, because that
-    was an inference nobody had written down: ``DELTA_THETA`` bounds a
-    blade's travel per step, so the fastest rotor bounds the step, and a
-    length in REVOLUTIONS is then counted in ITS revolutions while the
-    others turn fewer.
+    CLOCK_MOTION names a motion stated by this row. Its speed determines the
+    time step and run length. A MOTIONS list requires that key. A flat row
+    without it uses the fastest rotor and warns if several speeds compete.
+    DELTA_THETA bounds blade travel per step; a length in REVOLUTIONS then
+    counts the clock rotor's revolutions while slower rotors turn fewer.
     """
     fastest = max(speeds, key=lambda each: abs(each.rpm))
     named = _variable(case, CLOCK_MOTION_VARIABLE)
     if named is None:
-        # REQUIRED ON ANY ROW THAT STATES A `MOTIONS` LIST, in either
-        # spelling, which is the decision of 2026-09-10 (DEC-010) and then
-        # its correction the same day, when the scope had been drawn
-        # narrower to protect rows written at 0.14.0. A 0.x release is not
-        # bound to the rows of the release before it, and a list of several
-        # motions has something to choose between whatever spelling names
-        # them.
-        #
-        # THE FLAT PRE-0.15.0 FORM IS STILL EXEMPT, and that exemption was
-        # measured rather than assumed: it turns ONE rotor, so there is
-        # nothing to choose between, and a reference case written that way
-        # is what an acceptance arm runs. Refusing it would have cost the
-        # comparison to buy a key that decides nothing.
+        # A MOTIONS list requires CLOCK_MOTION in either spelling (DEC-010).
+        # The flat form is exempt: it turns one rotor and has no clock to choose.
         if case.motions:
             owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
-            # THE NAMES THE ACCEPTER WILL TAKE, and only those. A record
-            # that names neither key contributed the literal `?` to this
-            # list, so a case authored in Python could be asked to name one
-            # of `?` (the interface lens of 2026-09-10).
+            # List only names the accepter can resolve; a record with neither key
+            # must not contribute a placeholder as a supposed clock choice.
             offered = [
                 str(record.get(MOVING_BC_ALIAS_VARIABLE) or record.get(MOVING_BOUNDARIES_VARIABLE))
                 for record in case.motions
@@ -420,15 +340,15 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
                 "nothing in the row would say so. Write "
                 f"'{CLOCK_MOTION_VARIABLE}: <alias>' in the row's VAR_NAMES_VALUES "
                 f"cell, beside {MOTIONS_VARIABLE}, naming one of {stated}.\n\n"
-                "A row written before 0.15.0, which states its rotor in the flat keys "
+                "A row that states its rotor in the flat keys "
                 f"rather than in a {MOTIONS_VARIABLE} list, needs no key: it turns one "
                 "rotor and there is nothing to choose between."
             )
         if len(speeds) > 1:
             owner = _variable(views[speeds.index(fastest)], MOVING_BOUNDARIES_VARIABLE)
             raise CampaignConfigError(
-                f"case {case.sim_id!r} states {len(speeds)} motions in the spelling of "
-                f"before 0.15.0 and no {CLOCK_MOTION_VARIABLE}, so the time step and the "
+                f"case {case.sim_id!r} states {len(speeds)} motions using flat rotor keys "
+                f"and no {CLOCK_MOTION_VARIABLE}, so the time step and the "
                 f"run length follow the FASTEST rotor, which is {owner!r} at "
                 f"{fastest.rpm:g} rev/min. That is the package's own arithmetic and not a "
                 f"decision the row wrote: name the motion that owns the clock with "
@@ -443,14 +363,9 @@ def _clock_speed(case: SimCase, views: Sequence[SimCase], speeds: Sequence[Rotor
         if owner.casefold() == token.casefold():
             return speed
     stated = ", ".join(str(_variable(view, MOVING_BOUNDARIES_VARIABLE) or "") for view in views)
-    # A MOTION THAT WAS REFUSED IS NOT A MOTION THAT IS ABSENT, and this
-    # sentence said it was. `_the_rotors_the_row_turns` drops a record it
-    # cannot resolve into its lost list with the reason, and the reason is
-    # what the user has to read: a row naming its clock and then stating
-    # that rotor's speed in a form the package refuses was told the row
-    # does not turn it, which sends the user to the key that is right.
-    # 0.22.0 made this reachable on a correct row, because a rotor's hand
-    # written into its number is now refused (GOAL-025).
+    # An unresolved motion retains its reason in the lost list. Report that
+    # reason when it is the named clock, rather than claiming the rotor is
+    # absent and directing the user to a valid alias key (GOAL-025).
     refused = _the_rotors_the_row_turns(case)[1] if case.motions else {}
     if refused:
         why = "; ".join(f"{alias}: {reason}" for alias, reason in sorted(refused.items()))
@@ -478,37 +393,17 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
     variables: dict[str, str | float | int | bool] = {
         key: value for key, value in case.variables.items() if key not in _MOTION_RECORD_KEYS
     }
-    # FR-70: THE ROW'S RATIO REACHES A RECORD THAT STATES NO SPEED, and
-    # nothing else of the row's rotor keys does. `_MOTION_RECORD_KEYS`
-    # strips every key a record may carry, which is right for the four
-    # that describe ONE rotor and wrong for this one, which the row
-    # states for ALL of them: stripped, the condition's ratio reached no
-    # motion at all, which is the behaviour FR-70 exists to give (the
-    # architecture lens of 2026-09-10).
-    # A SWEPT RATIO IS THE POINT'S, NOT THE ROW'S, and that is the half a
-    # variable lookup could not reach. `split_attitude` deliberately keeps
-    # the swept key OUT of the variables, because its value is what varies
-    # and the row states only the word; so a row writing
-    # `ADVANCE_RATIO: sweep` had no ratio in its variables and the
-    # condition's ratio reached no motion at all. Measured on the reference
-    # matriz_transicao.fs: 9 of 16 points blocked on "states no rotor
-    # speed", which is the sentence this line removes.
+    # FR-70: the row's ratio reaches each record that states no speed. Other
+    # rotor keys describe one rotor and are stripped by _MOTION_RECORD_KEYS.
+    # A swept ratio comes from the point: split_attitude leaves that key out
+    # of the variables because the row states the sweep rather than a value.
     row_ratio = case.variables.get(ADVANCE_RATIO_VARIABLE)
     if row_ratio is None:
         row_ratio = case.point.get("advance_ratio")
-    # AND THE ROW'S SPEED, since 0.21.0, by the same rule and for the same
-    # reason: RPM is a key of FLIGHT_CONDITION now, the row states it for ALL
-    # its motions, and `_MOTION_RECORD_KEYS` strips it as though it described
-    # one rotor. A record stating a speed of its own still wins, which is what
-    # "MOTIONS wins" means; a swept speed is the POINT's.
-    # FROM THE CELL AND NOT FROM THE FLAT KEY. `RPM` in VAR_NAMES_VALUES is
-    # the pre-0.15.0 spelling of ONE rotor's speed and has never reached a
-    # motion record: a row whose records resolve to a speed must name its
-    # CLOCK_MOTION, and letting the flat key through would answer that
-    # question by arithmetic instead (FR-64, pinned by
-    # test_reduce_by_rotor.py::test_a_row_turning_several_rotors_still_has_to_name_its_clock).
-    # The cell's RPM is the row's statement for ALL its motions, which is what
-    # `condition_order` distinguishes: it lists the keys the CELL declared.
+    # The FLIGHT_CONDITION cell's RPM applies to all motions. A record's own
+    # speed wins; a swept speed is the point's. condition_order identifies
+    # keys declared by the cell. The flat RPM key describes one rotor and
+    # must not bypass a MOTIONS row's CLOCK_MOTION requirement (FR-64).
     row_rpm = case.variables.get(RPM_VARIABLE) if RPM_VARIABLE in case.condition_order else None
     if row_rpm is None:
         row_rpm = case.point.get(RPM_VARIABLE)
@@ -529,52 +424,23 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # the row's variables, so filling them here makes the whole rotor
         # path read the reference without one of those readers changing.
         variables[MOVING_BOUNDARIES_VARIABLE] = rotor.alias
-        # THE FRAME'S OWN THIRD AXIS WHEN THE ROTOR STATES A VECTOR, and the
-        # letter itself when it states a letter. A row variable is a STRING, so
-        # a three-component shaft cannot be written here at all -- which the
-        # type checker is what surfaced, and the answer it forced is better than
-        # a serialisation would have been. `_hub_basis` builds the hub frame with
-        # the shaft as its third axis, so the motion turns about `Z` OF THAT
-        # FRAME and the direction is carried by the frame rather than by this
-        # cell. A rotor stating a LETTER keeps the identity frame and the letter,
-        # so every reference written before 0.23.0 emits what it always did.
+        # For a vector shaft, _hub_basis makes the shaft the hub frame's third
+        # axis, so the motion uses Z of that frame. A row variable holds a string,
+        # not a vector. A letter shaft retains the identity frame and that letter.
         variables[ROTOR_AXIS_VARIABLE] = rotor.axis if isinstance(rotor.axis, str) else "Z"
         variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
         variables[BLADES_VARIABLE] = str(rotor.blade_count)
-        # THE ROTOR'S HAND IS THE REFERENCE'S, ALWAYS, and it reaches every
-        # speed form. The RPM a row states
-        # is a MAGNITUDE and the sign comes from the reference, which already
-        # says the axis, the origin and the blade count -- the row says how
-        # fast, the block says which way, and the two cannot contradict each
-        # other because neither states what the other does.
-        #
-        # UNTIL 0.21.1 THIS WAS FILLED ONLY WHEN THE ROW STATED NO SPEED,
-        # because 0.21.0 let the speed come from the cell and filling it beside
-        # a stated RPM made every such row refuse itself through the old
-        # "states RPM and RPM_SIGN" guard. That traded a loud refusal for a
-        # SILENT WRONG SIGN: measured on a four-blade propeller whose full
-        # wheel turned backwards while the same rotor as a sector, stating a
-        # ratio, turned correctly. A rotor turning the wrong way converges and
-        # reports numbers, which is why this is the worse of the two.
-        #
-        # AND IT IS REFUSED WHETHER OR NOT IT AGREES, which the first writing
-        # got wrong by refusing only a disagreement. A row that agrees today is
-        # a row that says nothing when the REFERENCE is corrected tomorrow: the
-        # block flips, the row keeps the old hand, and the two disagree with
-        # nobody to notice -- which is the shape of the defect this whole
-        # change exists to close. One home for the hand, and the refusal is
-        # about where the key goes rather than about its value.
+        # The reference owns the rotor's hand for every speed form. The row
+        # states a magnitude; the reference states axis, origin, blade count and
+        # hand. Refuse a row-level hand even when it agrees, so a later reference
+        # correction cannot leave a second, conflicting declaration.
         stated_hand = _variable(case, RPM_SIGN_VARIABLE)
         if stated_hand is not None:
             _refuse_a_row_restating_the_hand(case, rotor, stated_hand)
-        # THE VIEW CARRIES THE ALIAS, NOT THE ANSWER. Writing the block's sign
-        # into the variables put the hand in two shapes -- a resolved number
-        # here, a declared block everywhere else -- and `_rpm_sign` could no
-        # longer tell a hand the package had filled from one a USER had written,
-        # because a view sets `motions` empty and so reads as a flat row. It
-        # carries the alias instead and every shape resolves the block the one
-        # way, which is the same one-home argument this release makes about the
-        # reference (the architect and qa lenses, FIX-0220).
+        # The view carries the rotor alias, not a copied sign. A view has no
+        # motions and reads as a flat row; copying the sign into its variables
+        # would make _rpm_sign unable to distinguish package-resolved hand from
+        # a user declaration. The alias resolves the reference's single value.
         variables[MOVING_BC_ALIAS_VARIABLE] = rotor.alias
         # THE DIAMETER IS THIS ROTOR'S (FR-63). It is the reason one ratio
         # written once can govern rotors of different sizes: n = V/(J D)
@@ -592,13 +458,10 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
 
 
 def _warn_a_record_still_naming_its_boundaries(case: SimCase, record: Mapping[str, str]) -> None:
-    """Warn from the ledger for a record that names its rotor the 0.14.0 way (FR-61).
+    """Warn from the ledger for a record using MOVING_BOUNDARIES (FR-61).
 
-    THE PROMISE WAS REGISTERED AND NEVER SPOKEN: `ROW_MOVING_BOUNDARIES`
-    sat in the ledger with a removal version and nothing called its
-    `message()`, so the deprecation it announces was invisible to the user
-    it is for, and a record stating `MOVING_BOUNDARIES` was accepted in
-    silence (the technical writing lens of 2026-09-10).
+    ROW_MOVING_BOUNDARIES owns the removal version and migration message.
+    Every record stating the key receives that deprecation message.
 
     The text is the LEDGER ENTRY'S OWN, so the release it names is the one
     the deadline guard enforces rather than a second copy that nothing

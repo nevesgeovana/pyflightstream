@@ -12,9 +12,9 @@ just equal node counts.
 ONE ZONE PER PERIODIC COPY. A row under ``SYMMETRY PERIODIC`` writes
 its native Tecplot as one zone per copy, each zone a complete file of its own
 (``TITLE``, ``VARIABLES``, ``ZONE``, payload), the modelled sector first and
-then its images turned about the axis, measured on 26.124 (reports/RPT-087,
-a six-copy sector, 2026-09-28: six zones of 5961 nodes, zone k equal to the k-th block of the VTK
-to 1e-13 m). The VTK route already carries the images after the real surface
+then its images turned about the axis. The 26.124 evidence (reports/RPT-087)
+is a six-copy sector: six zones of 5961 nodes, zone k equal to the k-th block of the VTK
+to 1e-13 m. The VTK route carries the images after the real surface
 (RPT-080), so the reading chosen is the VTK's: zone k joins the k-th copy of
 the VTK, the real surface first, then the images. Each copy is matched on its
 own, because the copies of a sector share the nodes of their seams (378

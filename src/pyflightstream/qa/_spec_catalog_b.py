@@ -44,7 +44,7 @@ from pyflightstream.qa._spec_kit import (  # noqa: E402
     sheet_matches,
 )
 
-# --- probe points (SRC-003 pp.362-363) ---------------------------------
+# --- probe points (FSM-26.120 pp.362-363) ---------------------------------
 
 _spec(
     command="NEW_PROBE_POINT",
@@ -65,7 +65,7 @@ _spec(
 
 
 def _probe_import_target(script: Script, workdir: Path) -> None:
-    # Lattice format per the curated helper evidence (SRC-003
+    # Lattice format per the curated helper evidence (FSM-26.120
     # pp.362-363): first line the count, then X,Y,Z,TYPE rows.
     lattice = workdir / "lattice.csv"
     _textio.write_text(lattice, "2\n0.8765,0.1,0.2,1\n0.7654,0.3,0.4,1\n")
@@ -107,7 +107,7 @@ _spec(
 )
 
 
-# --- streamlines (SRC-003 pp.360-361) ----------------------------------
+# --- streamlines (FSM-26.120 pp.360-361) ----------------------------------
 
 
 def _streamline_epilogue(script: Script, workdir: Path) -> None:
@@ -188,7 +188,7 @@ _spec(
 )
 
 
-# --- surface sections (SRC-003 pp.357-359) -----------------------------
+# --- surface sections (FSM-26.120 pp.357-359) -----------------------------
 
 _CREATE_SECTION = _emit("CREATE_NEW_SURFACE_SECTION", 1, "XZ", 0.05, "1", "DISABLE", -1)
 
@@ -275,7 +275,7 @@ _spec(
 )
 
 
-# --- volume sections (SRC-003 pp.355-356) ------------------------------
+# --- volume sections (FSM-26.120 pp.355-356) ------------------------------
 
 _CREATE_RECT_VSECTION = _emit(
     "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
@@ -414,7 +414,7 @@ _spec(
 )
 
 
-# --- actuators (SRC-003 pp.323-324) ------------------------------------
+# --- actuators (FSM-26.120 pp.323-324) ------------------------------------
 
 _ACTUATOR_PRELUDE = _seq(
     _emit("CREATE_NEW_COORDINATE_SYSTEM"),
@@ -511,7 +511,7 @@ _spec(
 )
 
 
-# --- motion definitions (SRC-003 pp.332-336) ---------------------------
+# --- motion definitions (FSM-26.120 pp.332-336) ---------------------------
 
 _MOTION_PRELUDE = _emit("CREATE_NEW_MOTION", "ROTARY")
 
@@ -584,10 +584,10 @@ _spec(
     effect_note=("the saved simulation carries the motion frame binding"),
 )
 # PFS-2135.066. The start time is judged on the saved simulation across the
-# command: the 0.40.0 gap probes measured that a 6DOF setter's value moves a
+# command: the gap probes measure a 6DOF setter's value moving a
 # line of the saved file on 26.124 and 26.125 (gravity -9.81 written into the
-# motion record), so "stored in binary form, no instrument" no longer holds for
-# this family, and a probe that cannot fail could not refute the old aborts.
+# motion record). Saved-state differences therefore provide an instrument
+# for this family, capable of distinguishing acceptance from an abort.
 _spec(
     command="SET_MOTION_START_TIME",
     build_target=_emit("SET_MOTION_START_TIME", 1, 0.05),
@@ -620,7 +620,7 @@ _spec(
     assert_effect=fsm_changed(),
     effect_note=(
         "DISABLE after ENABLE changes the saved simulation, which stores the key "
-        "(the one-line difference of the 0.32.0 round 1, RPT-096)"
+        "(the one-line difference measured by RPT-096)"
     ),
 )
 _motion_setter(
@@ -630,7 +630,7 @@ _motion_setter(
 )
 
 
-# --- sweeper toolbox (SRC-003 p.406) -----------------------------------
+# --- sweeper toolbox (FSM-26.120 p.406) -----------------------------------
 
 _SWEEP_AOA_PRELUDE = _emit("SWEEPER_SET_AOA_SWEEP", "CUSTOM", [2.0])
 
@@ -733,7 +733,7 @@ _spec(
 )
 
 
-# --- separation models (SRC-003 p.342, SRC-741 p.339) -----------------------
+# --- separation models (FSM-26.120 p.342, FSM-26.100 p.339) -----------------------
 #
 # PFS-2135.060 and .061: two entries whose records rest on ad-hoc runs (RPT-015,
 # RPT-018), which promote nothing. The bulk model names itself, so its effect is

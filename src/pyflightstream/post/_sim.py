@@ -1,11 +1,9 @@
 """The post of one simulation: one resolved context, then the product families in order.
 
-A private module of :mod:`pyflightstream.post` (AD-13, work package WP5 of
-0.33.0). Until 0.33.0 one function of 1183 lines, twelve parameters and
-seventy-seven locals wrote every product of a simulation; it is now a first
-part that RESOLVES what the simulation's records state into one frozen
+A private module of :mod:`pyflightstream.post` (AD-13). The first part
+RESOLVES what the simulation's records state into one frozen
 :class:`SimContext`, and the steps that each write one family from it, called
-in the order the manifest has always had:
+in manifest order:
 
 1. :func:`_group_polars`: the polar of each boundary group, its custom-format
    twin and the superfile rows (:mod:`pyflightstream.post.polar`);
@@ -229,7 +227,7 @@ class SimContext:
     ] = field(default_factory=dict)
     plots_tables: dict[str, Path] = field(default_factory=dict)
     qsteady_validity_of: dict[str, _qsteady.PointValidity] = field(default_factory=dict)
-    #: FR-1062 (0.40.0): per point, the far-field cells of its super-file row.
+    #: FR-1062: per point, the far-field cells of its super-file row.
     farfield_super: dict[str, dict[str, str]] = field(default_factory=dict)
     #: The columns of an installed-frame copy already named as unplaced (FR-898), so each
     #: is named once for the simulation.
@@ -473,15 +471,13 @@ def _table_names(
     # case whose sweep resolved to one point is named for the point
     # it has.
     swept = swept_axes([point.point or {} for point in points])
-    # 0.21.0: THE NAMES ARE THE ONES THE RUN RECORDED. A record written before
-    # 0.21.0 carries none, and naming its tables by a recomputed name would
-    # set them beside files of another scheme.
-    # Only contributors name the table. A skipped record can still name outputs,
-    # but its failed export cannot rename the surviving points' polar.
+    # Use recorded point and sweep names; recomputing absent names could
+    # place tables beside files of another naming scheme. Only contributing
+    # points name the table: a failed export cannot rename surviving products.
     recorded = [record_of[point.name] for point in points]
     if any(record.sweep_name is None or record.point_name is None for record in recorded):
         raise ProductError(
-            f"simulation {sim_id!r} holds records written before 0.21.0, which carry no "
+            f"simulation {sim_id!r} holds records with no "
             "point_name or sweep_name; those fields are required. See docs/upgrading.md "
             "to reach the 0.38.0 format before running `pyfs-workspace migrate`."
         )
@@ -745,21 +741,16 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
     record = ctx.record_of[point.name]
     relative = f"{SECTIONS_DIR}/{point.name}_sections.csv"
     target = ctx.target(ctx.out / relative)
-    # ONE EXPORT, ONE PRODUCT (MT-01). A `ProductError` here used to leave
-    # this function after the polars were already on disk: the caller then
-    # recorded the whole SIMULATION as skipped, so the manifest disowned
-    # files it had just written and a stale super file stayed beside a
-    # fresh polar. The probe reader below has worked this way since 0.16.0.
+    # MT-01: scope ProductError to this export's product. Products already
+    # written for the simulation must retain their manifest entries when
+    # another export is unreadable.
     try:
         done = write_sections_table(
             target,
             sloads_path.read_text(encoding="utf-8", errors="replace"),
-            # NO `point=` SINCE 0.23.0 ITEM 13: the polar's name is the
-            # FILE's name and a column spent restating it told no row
-            # from another. The iteration and the azimuth are read from
-            # the export where it states them and are `NA` where it does
-            # not, which is the honest answer for a steady distribution
-            # and for a run that recorded no clock.
+            # The filename identifies the polar. Read iteration and azimuth from
+            # the export where stated, otherwise write NA, including a steady
+            # distribution or a run with no recorded clock.
             mach=_mach_of(point, ctx.mach),
             # ITEM 5 WIRED HERE. A section is a distribution along a chord,
             # and a number beside no reference length is a number nobody can
@@ -768,7 +759,7 @@ def _sections_products(ctx: SimContext, point: PolarPoint, sloads_path: Path | N
             advance_ratio=_advance_ratio_of(point),
             condition=ctx.condition(point),
             # WHICH ROWS ARE WHICH SURFACE, and where THAT rotor's blade one
-            # is (0.24.0). The layout is the point's own record's, and so is
+            # is. The layout is the point's own record's, and so is
             # each rotor's speed: an RPM sweep turns a different angle per
             # step at each point.
             # THE TIME STEP OF AN UNSTEADY POINT, from its record. The export's
@@ -811,11 +802,9 @@ def _retire_unwritten(ctx: SimContext, relative: str, target: Path, reason: str)
 def _sections_cut_products(ctx: SimContext, point: PolarPoint, done: Path) -> None:
     """Carry a written sections table on: the wheel's validity, its harmonics and maps."""
     record = ctx.record_of[point.name]
-    # 0.30.0: A QUASI-STEADY WHEEL POINT'S SECTIONS carry the 1P reduced
-    # frequency of each station and the point's validity, and the point
-    # keeps that validity for its clockings tables below. 0.31.0: and
-    # every clocking's rows, each tabled by this same writer with this
-    # point's layout and condition.
+    # A quasi-steady wheel's sections carry each station's 1P reduced
+    # frequency and the point's validity. Preserve that validity for the
+    # clocking tables; use this writer, layout and condition for every clocking.
     ctx.qsteady_validity_of.update(
         _qsteady_sections(
             done,
@@ -837,17 +826,17 @@ def _sections_cut_products(ctx: SimContext, point: PolarPoint, done: Path) -> No
         done,
         {
             "runs": ctx.sources[point.name],
-            # ONE PHOTOGRAPH, AND THE MANIFEST SAYS SO (0.24.0). On an
+            # ONE PHOTOGRAPH, AND THE MANIFEST SAYS SO. On an
             # unsteady point this table is the distribution at the step its
             # `STEP` column states and not an average over the window; the
             # history is `series/<point>_sections_series.csv`.
             "kind": "instant",
         },
     )
-    # 0.31.0 (P0310-HARMONICS): A QUASI-STEADY WHEEL'S PER-STATION
+    # P0310-HARMONICS: A QUASI-STEADY WHEEL'S PER-STATION
     # HARMONICS, fitted over every blade at every clocking of the
     # table just written, read back as a user holds it.
-    # 0.32.0 (P0320-G5-DISC-MAP): the same rows mapped over the disc.
+    # P0320-G5-DISC-MAP: the same rows mapped over the disc.
     wheel_maps: list[tuple[Path, dict[str, object]]] = []
     harmonics = _wheel_harmonics(
         done,
@@ -919,15 +908,9 @@ def _probes_products(
     if (unsteady and not normal) or probes_path is None or not probes_path.is_file():
         return
     target = ctx.target(ctx.out / probe_relative)
-    # A SKIP AND NOT THE SIMULATION'S WHOLE STAGE, which is where
-    # this reader differs from the sections and plots readers
-    # beside it (PFS-2031.16). Those have read their export since
-    # the stage existed, so a file they cannot parse is news; the
-    # probe export was collected and never read until 0.16.0, so
-    # every workspace already recorded holds files this reader
-    # meets for the first time, and letting one of them cost a
-    # simulation its polar would be a rename taking a product
-    # away.
+    # PFS-2031.16: an unreadable probe export is a skip of its product,
+    # not of the simulation's whole stage. Preserve its independent polar
+    # and other readable products.
     try:
         done = write_probes_table(
             target,
@@ -1134,12 +1117,9 @@ def _rotor_table_products(ctx: SimContext) -> None:
 def _rotor_table(ctx: SimContext, target_path: Path, alias: str, plan: dict[str, object]) -> None:
     """Write one rotor's table and say which points it holds and what it averages."""
     destination = ctx.target(target_path)
-    # THE PLAN'S OWN REJECTIONS PLUS THE WRITER'S, IN ONE LIST. Both halves
-    # dropped points on a bare `continue` until 2026-09-18, so a table came
-    # back shorter than the matrix with the manifest still naming every run.
-    # NARROWED, not ignored. The plan is a `dict[str, object]` the planner
-    # assembles, so its values arrive as `object` and `list(...)` on one is
-    # a claim the checker is right to refuse.
+    # Combine the planner's and writer's rejections in one list so every
+    # omitted point is named. Narrow values from the planner's object-typed
+    # dictionary before treating them as lists.
     stated_left_out = plan.get("left_out")
     rotor_left_out: list[tuple[str, str]] = (
         list(stated_left_out) if isinstance(stated_left_out, list) else []
@@ -1179,7 +1159,7 @@ def _rotor_table_source(
     ctx: SimContext, plan: Mapping[str, object], rotor_runs: Sequence[str]
 ) -> dict[str, object]:
     """Return what a rotor table's rows are: an average, an instant, a mean, a steady run."""
-    # 0.31.0: THE k OF EVERY WRITTEN ROW THAT IS A WHEEL'S MEAN, for the entry.
+    # THE k OF EVERY WRITTEN ROW THAT IS A WHEEL'S MEAN, for the entry.
     stated_rows = plan.get("rows")
     clockings_of_run = {
         str(row.get("run_id")): row["clockings"]
@@ -1214,7 +1194,7 @@ def _rotor_table_source(
             "kind": "instant",
         }
     # A QUASI-STEADY WHEEL'S ROWS ARE THE MEAN OF ITS k CLOCKINGS
-    # (0.31.0), and the entry says so with the k: one number where
+    # , and the entry says so with the k: one number where
     # every row has the same, else each run's.
     if clockings_of_run:
         ks = set(clockings_of_run.values())
@@ -1232,7 +1212,7 @@ def _rotor_table_source(
 
 def _qsteady_rotor_products(ctx: SimContext) -> None:
     """Write the quasi-steady rotor's clockings, their average, and the correction route."""
-    # 0.30.0: THE QUASI-STEADY ROTOR'S CLOCKINGS AND THEIR AVERAGE, one pair of
+    # THE QUASI-STEADY ROTOR'S CLOCKINGS AND THEIR AVERAGE, one pair of
     # tables per simulation, from the record each point's run wrote beside its
     # loads export.
     for target_path, entry in _qsteady_products(
@@ -1247,7 +1227,7 @@ def _qsteady_rotor_products(ctx: SimContext) -> None:
         skipped=ctx.skipped,
     ):
         ctx.add(target_path, entry)
-    # 0.31.0 (P0310-CAL): THE QUASI-STEADY WHEEL'S CORRECTION ROUTE AND ITS
+    # P0310-CAL: THE QUASI-STEADY WHEEL'S CORRECTION ROUTE AND ITS
     # DIAGNOSTIC, each corrected product a new file beside its raw one, read back
     # from the files written above and never written over them. Off by default.
     for target_path, entry in _qsteady_corrections(
@@ -1295,10 +1275,8 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
         )
         return ctx.target(ctx.out / POLARS_DIR / unsteady_name)
 
-    # THE FILE 0.23.0 WROTE UNDER THE OLD NAME IS ARCHIVED, NOT LEFT BESIDE THIS
-    # ONE. A rebuild moves what it is about to replace, and it replaces by
-    # PATH: a product whose name changed would otherwise stay in the folder,
-    # stale, under a name the manifest no longer knows.
+    # Archive a replaced product under its legacy name too. Replacement
+    # by the new path alone would leave a stale file outside the manifest.
     former = ctx.out / POLARS_DIR / f"{ctx.sim_id}_{ctx.table_name}_unsteady.csv"
     if former.is_file():
         ctx.target(former)
@@ -1396,7 +1374,7 @@ def _say_what_the_unsteady_polar_left(
     if equation_notes:
         ctx.skipped[f"{relative}#equations"] = "; ".join(equation_notes)
         warn(f"{relative}: " + "; ".join(equation_notes), PyflightstreamWarning, stacklevel=2)
-    # A BLOCK THAT IS NOT WRITTEN IS SAID (0.24.0), under the file's own name
+    # A BLOCK THAT IS NOT WRITTEN IS SAID, under the file's own name
     # with a marker, so it is never mistaken for the file being absent.
     if notes:
         ctx.skipped[f"{relative}#axes"] = "; ".join(notes)
@@ -1428,33 +1406,28 @@ def _superfile_drafts(ctx: SimContext) -> None:
                 polar_columns=columns,
                 polar_values=polar_values,
                 matrix_row=ctx.matrix_row,
-                # NO FALLBACK TO ANOTHER POINT'S RECORD. This read
-                # `by_run.get(run_id, records[0])` until 2026-09-11, so a run id
-                # that did not resolve silently took an ARBITRARY other point of
-                # the same simulation and wrote ITS flight condition into this
-                # row; a reader sees a missing cell and cannot see a wrong one.
-                # `sources` and `by_run` are built from the same records, so the
-                # branch is not shown reachable; what the right thing is, is
-                # pinned by
-                # `test_a_point_whose_record_is_missing_borrows_no_other_points_values`.
+                # Never borrow another point's flight condition when a run id cannot
+                # resolve. Sources and by_run share records, but the missing-record
+                # contract is still pinned by
+                # test_a_point_whose_record_is_missing_borrows_no_other_points_values.
                 record=by_run.get((ctx.sources.get(point.name) or [""])[0]),
                 sweep_row=(ctx.sweep_rows or {}).get((ctx.sources.get(point.name) or [""])[0]),
                 plots_row=last_step.get(point.name),
-                # 0.37.0: each rotor's diameter beside its speed, and the row's
+                # Each rotor's diameter beside its speed, and the row's
                 # own speed where the plan states none (FR-89).
                 rotors=getattr(ctx.live, "rotors", None),
                 own_speeds=row_rotor_speeds(ctx.record_of.get(point.name), point.loads_path),
             )
             for point, polar_values in zip(group_points, full, strict=True)
         ]
-        # 0.30.0: A QUASI-STEADY WHEEL POINT'S ROW CARRIES ITS VALIDITY, the
+        # A QUASI-STEADY WHEEL POINT'S ROW CARRIES ITS VALIDITY, the
         # columns its clockings tables carry, after every key the row holds.
         for point, row in zip(group_points, wide, strict=True):
             for validity_column, validity_cell in _qsteady_super_cells(
                 point, ctx.record_of.get(point.name), ctx.qsteady_validity_of
             ).items():
                 row.setdefault(validity_column, validity_cell)
-            # FR-1062 (0.40.0): the far-field TOTAL cells, after every other key.
+            # FR-1062: the far-field TOTAL cells, after every other key.
             for farfield_column, farfield_cell in ctx.farfield_super.get(point.name, {}).items():
                 row.setdefault(farfield_column, farfield_cell)
             # FR-348: from the inventory only, and placed last by the writer.
@@ -1491,7 +1464,7 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
     _qsteady_rotor_products,
     noise_products,
     _unsteady_polar_products,
-    # FR-456 (0.40.0): the far-field family, before the superfile reads the rows.
+    # FR-456: the far-field family, before the superfile reads the rows.
     farfield_products,
     _superfile_drafts,
 )
@@ -1500,8 +1473,7 @@ _STEPS: tuple[Callable[[SimContext], None], ...] = (
 def _normal_probes(ctx: SimContext, record: RunRecord, legacy_profiles: bool) -> bool:
     """Whether an unsteady point sampled its pproc's probes as NORMAL probe points (FR-417).
 
-    A record written before 0.25.0 sampled its profiles as an instant of its own
-    and is read as it always was (``legacy_profiles``).
+    A record with ``legacy_profiles`` treats its profiles as a separate instant.
     """
     return (
         record.recipe in ("unsteady", "unsteady_rotor")
@@ -1550,7 +1522,7 @@ def _setup_content(
     file and the unsteady polar cannot drift in what they call the setup. The
     face count of the point's geometry is added as the super file adds it (FR-348).
     Each rotor's diameter, from the rotor blocks of ``live``, the reference the
-    row cites today, sits beside its speed as in the super file (FR-89, 0.37.0).
+    row cites today, sits beside its speed as in the super file (FR-89).
     """
     by_run = {record.run_id: record for record in records}
     content: dict[str, dict[str, str]] = {}

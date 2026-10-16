@@ -68,17 +68,9 @@ longer import each other in a cycle.
 
 from __future__ import annotations
 
-# A FACADE since 0.33.0 (AD-11): every name below is defined in a leaf module
-# and none of the leaves imports this root, so the package-init cycle of
-# 0.32.0 (this root importing `surface` and `tables` at its foot while both
-# imported it at their top) is gone, and the import order is free.
-#
-# The operating-point binding is part of the public face of this layer
-# too, so it is re-exported beside the tabular names rather than being
-# reachable only as pyflightstream.results.conditions (api-designer and
-# architect passes, 2026-08-03). The surface solution (G45 of 0.28.0) is the
-# VTK the solver exports, read, and the Tecplot the package writes from it.
-# The tabular views (pandas) build on the parsers.
+# Public facade (AD-11): names are defined in leaf modules that do not
+# import this root. Re-export operating-point bindings beside tabular
+# views and surface readers. Tabular views build on the parsers.
 from pyflightstream.results.conditions import (
     FIELD_BINDINGS,
     ConditionBinding,

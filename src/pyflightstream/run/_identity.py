@@ -225,7 +225,7 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
     if not record.script_path:
         raise WorkspaceError(
             f"run {record.run_id!r} records no script path, so its script cannot "
-            "be found. Records written before v0.4.0 predate the field; the run "
+            "be found. Without that field, the run "
             "is not reconstructable from the manifest alone."
         )
     script = sim / record.script_path
@@ -271,7 +271,7 @@ def _paths_a_script_names(script_text: str, work_dir: Path) -> list[Path]:
     """Return every path a script names on a line of its own, as the solver resolves it.
 
     A command that reads a file names it on the line after the command, by
-    absolute path since 0.18.1; a relative one is resolved against the folder
+    absolute path; a relative one is resolved against the folder
     the run ran in, as the solver resolves it. A line holding whitespace is a
     command with its arguments unless it is an absolute path.
     """
@@ -332,11 +332,8 @@ def package_vcs_state() -> tuple[str | None, bool | None]:
     """Return the commit this package's code came from, and whether it is dirty.
 
     PYFS-017. ``package_version`` reads the installed distribution's
-    metadata, which is a static string in ``pyproject.toml``: at the
-    time the review measured it, 28 commits and 85 files past the
-    ``v0.3.0`` tag, every run still recorded ``0.3.0``. A campaign run
-    from a development tree was therefore indistinguishable, in its own
-    manifest, from one run against the release.
+    metadata, a static string in ``pyproject.toml``. Git identity distinguishes
+    a development tree from the release named by that metadata.
 
     Two of the three clauses that finding asks for are a versioning
     scheme change (a dev version carrying the sha, and a guard refusing
@@ -399,7 +396,7 @@ _BUILD_LINE = re.compile(r"build\s*#?\s*(?P<build>\d+)", re.IGNORECASE)
 
 
 #: The command-line flag that accepts an installed build other than the registered
-#: one (0.21.0), named once so the refusal, the warning and the parser agree.
+#: one, named once so the refusal, the warning and the parser agree.
 ACCEPT_UNREGISTERED_BUILD_FLAG = "--accept-unregistered-build"
 
 
@@ -434,7 +431,7 @@ def check_solver_identity(
     is nothing to compare, so no solver process is spent.
 
     On a machine that cannot export the log (an executor whose HPC profile
-    states ``export_log = false``, 0.27.0) the sentinel script exports none and
+    states ``export_log = false``) the sentinel script exports none and
     the build is read from what the solver printed; a build it did not print
     is warned about, naming the profile, and never refused.
 
@@ -488,7 +485,7 @@ def check_solver_identity(
     log_path = workdir / "preflight_log.txt"
     if log_path.exists():
         log_path.unlink()
-    # 0.27.0: A MACHINE THAT ABORTS AT EXPORT_LOG IS NOT ASKED TO EXPORT ONE HERE
+    # A MACHINE THAT ABORTS AT EXPORT_LOG IS NOT ASKED TO EXPORT ONE HERE
     # EITHER. Its HPC profile says so (`export_log = false`), and the build is
     # read from what the solver printed instead; a build it did not print is a
     # warning naming the profile, never a refusal.
@@ -553,7 +550,7 @@ def check_solver_identity(
         return
     installed = found.group("build")
     if installed != version.build:
-        # Since 0.21.0, a build that EXISTS and is
+        # A build that EXISTS and is
         # not the registered one may be accepted on request, and then its
         # compatibility is the user's responsibility. It is warned, and every
         # record of the run says the acceptance was made.
@@ -762,14 +759,9 @@ def _check_scheduled_builds(
 ) -> None:
     """Confirm every installation that still has work, before any of it runs.
 
-    ONE CHECK PER BUILD, and ALL OF THEM before the first point of ANY
-    build executes. The check used to fire at the first point of each
-    build in turn, which is one process per installation and correct
-    about cost, but it meant a campaign whose SECOND build is
-    misconfigured ran every point of the first one and refused
-    afterwards. Those licensed seats are gone by the time the message
-    arrives, and saving them is the whole reason a pre-flight exists
-    (PFS-2009.09.02).
+    Check every build before the first point executes, using one process per
+    installation. A misconfigured build must be refused before another build
+    consumes licensed solver time (PFS-2009.09.02).
 
     THE LAZINESS IS KEPT, which is the constraint that makes this
     subtle. Only builds with points still PENDING are asked, so a resume

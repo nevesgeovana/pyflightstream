@@ -1,7 +1,9 @@
-# Chapter: Scripting reference, Acoustics Toolbox (SRC-003 pp.373-374).
+# Chapter: Scripting reference, Acoustics Toolbox (FSM-26.120 pp.373-374).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Every signature is identical across the four.
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Every signature is identical across the four.
 #
 # WHAT THIS TOOLBOX IS, because the phase assignments are not obvious
 # from the names. It computes the acoustic signal an unsteady solution
@@ -34,18 +36,18 @@ ACOUSTIC_SOURCES:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.373"
+  manual_ref: "FSM-26.120 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.333, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.346, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.345, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.380, the SRC-751 file, carried from 26.123; run on 26.124 in licensed rounds 1 and 3 through the release harness (RPT-096, RPT-098): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.386, unchanged from SRC-752 p.380"}
+    "26.121": {status: documented, note: "FSM-26.121 p.376, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.380, unchanged from FSM-26.122 p.380"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.380, the FSM-26.123 file, carried from 26.123; run on 26.124 in licensed rounds 1 and 3 through the release harness (RPT-096, RPT-098): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.386, unchanged from FSM-26.124 p.380"}
   notes: >
     Turns on the computation of acoustic sources during unsteady solver
     runs.
@@ -76,18 +78,18 @@ CREATE_NEW_ACOUSTIC_OBSERVER:
     - name: z
       type: float
       unit: "simulation length units"
-  manual_ref: "SRC-003 p.373"
+  manual_ref: "FSM-26.120 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.333, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.346, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.345, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.380, the SRC-751 file, carried from 26.123; run on 26.124 in licensed round 1 through the release harness (RPT-096): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.386, unchanged from SRC-752 p.380"}
+    "26.121": {status: documented, note: "FSM-26.121 p.376, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.380, unchanged from FSM-26.122 p.380"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.380, the FSM-26.123 file, carried from 26.123; run on 26.124 in licensed round 1 through the release harness (RPT-096): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.386, unchanged from FSM-26.124 p.380"}
   notes: >
     Appends one observer point at which the signal will be computed.
     THE COORDINATES ARE IN THE REFERENCE COORDINATE SYSTEM and the
@@ -102,18 +104,18 @@ ACOUSTIC_OBSERVERS_IMPORT:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.373"
+  manual_ref: "FSM-26.120 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.333, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.346, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.345, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.380, the SRC-751 file, carried from 26.123; run on 26.124 in licensed round 1 through the release harness (RPT-096): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.386, unchanged from SRC-752 p.380"}
+    "26.121": {status: documented, note: "FSM-26.121 p.376, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.380, unchanged from FSM-26.122 p.380"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.380, the FSM-26.123 file, carried from 26.123; run on 26.124 in licensed round 1 through the release harness (RPT-096): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.386, unchanged from FSM-26.124 p.380"}
   notes: >
     Reads observer locations from a CSV text file whose path follows on
     the next line. The manual describes the file's own format, a count
@@ -130,18 +132,18 @@ DELETE_ACOUSTIC_OBSERVER:
   args:
     - name: observer_index
       type: int
-  manual_ref: "SRC-003 p.373"
+  manual_ref: "FSM-26.120 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.333, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.333, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.346, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.345, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.380, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.386, unchanged from SRC-752 p.380"}
+    "26.121": {status: documented, note: "FSM-26.121 p.376, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.380, unchanged from FSM-26.122 p.380"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.380, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.386, unchanged from FSM-26.124 p.380"}
   notes: >
     Deletes one observer by index. The manual defines the index as the
     observer's position in the application's own tree, which is a
@@ -155,18 +157,18 @@ DELETE_ALL_ACOUSTIC_OBSERVERS:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-003 p.373"
+  manual_ref: "FSM-26.120 p.373"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.368, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.372, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.334, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.346, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.345, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.368, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.372, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.376, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.380, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.386, unchanged from SRC-752 p.380"}
+    "26.121": {status: documented, note: "FSM-26.121 p.376, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.380, unchanged from FSM-26.122 p.380"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.380, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.386, unchanged from FSM-26.124 p.380"}
   notes: >
     Deletes every observer. A separate command rather than a sentinel
     value of the one above, which is why that one offers no all-form.
@@ -183,18 +185,18 @@ SET_ACOUSTIC_OBSERVER_TIME:
       unit: "s"
     - name: time_steps
       type: int
-  manual_ref: "SRC-003 pp.373-374"
+  manual_ref: "FSM-26.120 pp.373-374"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.346, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.345, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 pp.368-369, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.372-373, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.334, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.346, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.345, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 pp.368-369, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.372-373, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 pp.376-377, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.380, unchanged from SRC-750 p.380"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.380, the SRC-751 file, carried from 26.123; run on 26.124 in licensed round 1 through the release harness (RPT-096): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.386, unchanged from SRC-752 p.380"}
+    "26.121": {status: documented, note: "FSM-26.121 pp.376-377, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.380, unchanged from FSM-26.122 p.380"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.380, the FSM-26.123 file, carried from 26.123; run on 26.124 in licensed round 1 through the release harness (RPT-096): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.386, unchanged from FSM-26.124 p.380"}
   notes: >
     Time window of the observer signal and how many steps it is sampled
     at. This is the OBSERVER's time axis and not the solver's: an
@@ -206,18 +208,18 @@ COMPUTE_ACOUSTIC_SIGNALS:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.374"
+  manual_ref: "FSM-26.120 p.374"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.347, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.346, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.334, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.347, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.369, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.373, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.381, unchanged from SRC-750 p.381"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.381, the SRC-751 file, carried from 26.123; accepted on 26.124, its effect not isolated (reports/compat/CMP-26124_2026-09-30_acoustics.yaml); its effect observed by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.387, unchanged from SRC-752 p.381"}
+    "26.121": {status: documented, note: "FSM-26.121 p.377, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.381, unchanged from FSM-26.122 p.381"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.381, the FSM-26.123 file, carried from 26.123; accepted on 26.124, its effect not isolated (reports/compat/CMP-26124_2026-09-30_acoustics.yaml); its effect observed by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.387, unchanged from FSM-26.124 p.381"}
   notes: >
     Computes the signal at every observer, from the acoustic sources
     recorded during the unsteady run. The one command in the chapter
@@ -230,18 +232,18 @@ EXPORT_ACOUSTIC_SIGNALS:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.374"
+  manual_ref: "FSM-26.120 p.374"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.347, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.346, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.334, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.347, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.369, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.373, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.381, unchanged from SRC-750 p.381"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.381, the SRC-751 file, carried from 26.123; run on 26.124 in licensed rounds 1 and 3 through the release harness (RPT-096, RPT-098): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.387, unchanged from SRC-752 p.381"}
+    "26.121": {status: documented, note: "FSM-26.121 p.377, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.381, unchanged from FSM-26.122 p.381"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.381, the FSM-26.123 file, carried from 26.123; run on 26.124 in licensed rounds 1 and 3 through the release harness (RPT-096, RPT-098): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.387, unchanged from FSM-26.124 p.381"}
   notes: >
     Writes the computed signals at every observer to one file, the path
     on the next line. There is no per-observer export.
@@ -271,18 +273,18 @@ CREATE_ACOUSTIC_SECTION:
       unit: "simulation length units"
     - name: storage_path
       type: path
-  manual_ref: "SRC-003 p.374"
+  manual_ref: "FSM-26.120 p.374"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.334, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.347, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.346, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.369, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.373, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.334, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.347, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.346, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.369, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.373, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.377, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.381, unchanged from SRC-750 p.381"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.381, the SRC-751 file, carried from 26.123; run on 26.124 in licensed round 1 through the release harness (RPT-096): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.387, unchanged from SRC-752 p.381"}
+    "26.121": {status: documented, note: "FSM-26.121 p.377, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.381, unchanged from FSM-26.122 p.381"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.381, the FSM-26.123 file, carried from 26.123; run on 26.124 in licensed round 1 through the release harness (RPT-096): accepted, its effect read in the exported signals. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.387, unchanged from FSM-26.124 p.381"}
   notes: >
     Builds an annular grid of observers in a plane and exports the
     signal at each of them, which is how a directivity pattern is

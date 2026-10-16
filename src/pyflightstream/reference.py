@@ -62,15 +62,10 @@ code { font-family: ui-monospace, monospace; }
 # House conventions (PLN-032): single home, rendered by both layers.
 # ---------------------------------------------------------------------------
 
-#: The naming and nomenclature conventions of the package, one
-#: (title, text) pair per rule. This tuple is the single home of the
-#: conventions: ``help()`` renders it as a section, the docs site page
-#: ``conventions.md`` IS generated from :func:`conventions_markdown` by
-#: ``scripts/gen_docs_pages.py`` (this comment said the wiring was
-#: still owed until 2026-08-19, when a reviewer pass read the script),
-#: and the
-#: tier 1 adherence audit (``tests/tier1_offline/test_conventions.py``) enforces the
-#: mechanical rules against the code.
+#: Naming and nomenclature conventions, one title/text pair per rule.
+#: help() renders them, scripts/gen_docs_pages.py generates conventions.md
+#: from conventions_markdown, and test_conventions.py audits their
+#: mechanical requirements against the code.
 CONVENTIONS: tuple[tuple[str, str], ...] = (
     (
         "Units ride the names",
@@ -311,10 +306,8 @@ def _version_records(entry: CommandEntry) -> list[tuple[str, VersionStatus]]:
 def _citation_label(entry: CommandEntry) -> str:
     """Name the KIND of evidence an entry rests on, for a rendered page.
 
-    An entry cites a manual page or a committed probe report, never both,
-    and the page used to label every citation "Manual" and then print an
-    empty string for the one entry resting on a report. Naming the kind
-    is what makes the two distinguishable to a reader.
+    An entry cites either a manual page or a committed probe report.
+    Label the citation by its evidence kind.
     """
     return "Manual" if entry.manual_ref else "Probe report"
 
@@ -322,16 +315,9 @@ def _citation_label(entry: CommandEntry) -> str:
 def _evidence_text(record: VersionStatus) -> str:
     """Return the evidence citation of one per-version record.
 
-    Both citation fields are printed, and the reason both are read here
-    rather than one is the defect this function has already had once. A
-    citation added to the model and consumed at a single call site
-    leaves every other consumer rendering the CLAIM without the evidence
-    for it, which reads as an unsupported assertion on the page a person
-    actually looks at. ``probe_ref`` on a version row arrived at v0.5.0
-    and this was the surface it did not reach: the one row using it
-    rendered "the 26.121 solver answers the name with an unrecognised
-    command error" beside the manual page of an edition that DOCUMENTS
-    the command, with the run that measured it named nowhere.
+    Render both report and probe_ref alongside the note, so every
+    version-specific claim carries its evidence even when a manual
+    documents a command that a probe finds unavailable.
     """
     parts = []
     if record.report:
@@ -378,10 +364,10 @@ def _chapter_title(chapter: str) -> str:
     return chapter.replace("_", " ").capitalize()
 
 
-# Manual citations as the database writes them: "SRC-003 p.341",
-# "SRC-003 pp.344-346". Page numbers only, never manual text.
-_CITATION_PATTERN = re.compile(r"SRC-(\d{3})\s+pp?\.\s?(\d+)(?:\s*-\s*(\d+))?")
-_EDITION_SOURCE_PATTERN = re.compile(r"SRC-\d{3}")
+# Manual citations as the database writes them: "FSM-26.120 p.341",
+# "FSM-26.120 pp.344-346". Page numbers only, never manual text.
+_CITATION_PATTERN = re.compile(r"(FSM-(?:\d{2}\.\d{3}|TEST))\s+pp?\.\s?(\d+)(?:\s*-\s*(\d+))?")
+_EDITION_SOURCE_PATTERN = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)")
 _EDITION_RANGE_PATTERN = re.compile(r"pp\.?\s*(\d+)\s*-\s*(\d+)")
 
 
@@ -417,7 +403,7 @@ def _citation_pages(text: str) -> dict[str, set[int]]:
     """Return the manual pages cited in ``text``, keyed by source id."""
     pages: dict[str, set[int]] = {}
     for match in _CITATION_PATTERN.finditer(text):
-        source = f"SRC-{match.group(1)}"
+        source = match.group(1)
         start = int(match.group(2))
         end = int(match.group(3) or start)
         pages.setdefault(source, set()).update(range(start, end + 1))
@@ -434,11 +420,8 @@ def _database_cited_pages() -> dict[str, set[int]]:
     A ``removed`` row's note is NOT credited, and the exclusion is what
     keeps this report meaning anything. That note cites the edition the
     absence was read from, and an absence is read across a whole
-    chapter: the rows entered on 2026-08-10 cite ranges like
-    ``pp.275-369``. Credited, one such note marks every page of an
-    edition as cited, and the section it feeds went from a page-by-page
-    gap listing to "every page is cited" for that edition in a single
-    change. The question this report answers is which pages somebody has
+    chapter, with ranges like ``pp.275-369``. Crediting such a note
+    would falsely mark the whole chapter as covered. This report asks which pages somebody has
     drafted a command FROM, and a note saying a command is not on any of
     them is not an answer to it.
 
@@ -446,7 +429,7 @@ def _database_cited_pages() -> dict[str, set[int]]:
     -------
     dict of str to set of int
         Cited page numbers keyed by source id (for example
-        ``"SRC-003"``).
+        ``"FSM-26.120"``).
     """
     pages: dict[str, set[int]] = {}
 
@@ -1136,10 +1119,8 @@ def markdown_build_table() -> str:
     two differ wherever the vendor has shipped more than one build under
     one release name, which is most of the 26 series: those builds ship
     under one alias and their binaries print one release name, so
-    neither string separates them. The members are not written out
-    here, and the sentence saying so used to be followed by a list of
-    them; the rendered page computes the tally, which is the only copy
-    that cannot go stale. A table
+    neither string separates them. The rendered page computes the
+    membership and tally from the registry. A table
     keyed on the alias would offer a 26.12 owner a name their solver
     never prints, they would match one of the rows that does print
     "26.1", and they would leave with the identifier of a different

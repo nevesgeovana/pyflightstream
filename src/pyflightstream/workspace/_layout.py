@@ -255,7 +255,7 @@ def expand_group(
     ------
     InputArtifactError
         If the group is written EMPTY, which means every family the
-        geometry carries (the design decision of 2026-09-09) and leaves this
+        geometry carries and leaves this
         expansion no positions to number; if the descriptor declares no
         group of that name (the message
         lists the ones it does declare), if a member is a boundary label
@@ -270,7 +270,7 @@ def expand_group(
     >>> expand_group(artifact, "Blade", "prop", boundaries={"Blade1": 3})
     {'Blade1': 3}
 
-    Since 0.26.0, a list is refused with the one-alias line to write:
+    A list is refused with the one-alias line to write:
 
     >>> PprocArtifact(groups={"Blade": ["Blade1"]})  # doctest: +ELLIPSIS
     Traceback (most recent call last):
@@ -281,7 +281,7 @@ def expand_group(
     if members == []:
         raise InputArtifactError(
             f"group {name!r} of the group artifact {artifact_id!r} is written empty, which "
-            "means every family the geometry carries (the design decision of 2026-09-09); this "
+            "means every family the geometry carries; this "
             "expansion numbers members by their position in the list and has none to "
             "number. Write the members, or use the group on the campaign path, where "
             "the polar table and the motion resolve it against the file.",
@@ -317,13 +317,9 @@ def expand_group(
                 kind="group",
                 artifact_id=artifact_id,
             )
-        # A LABEL MEMBER IS THE POINT, not an error to be reported
-        # (PFS-2028.00). This function used to refuse one and tell the
-        # user, in these words, to "declare the group with indices",
-        # which is the package instructing a user to work with positions
-        # in the one artifact that already holds the names. What a label
-        # genuinely needs is an inventory to resolve against, so that is
-        # what is asked for, and only its absence refuses.
+        # Resolve label members against the supplied inventory (PFS-2028.00).
+        # Refuse a missing inventory instead of asking users to replace names with
+        # indices.
         if boundaries is None:
             raise InputArtifactError(
                 f"group {name!r} of the group artifact {artifact_id!r} names its "

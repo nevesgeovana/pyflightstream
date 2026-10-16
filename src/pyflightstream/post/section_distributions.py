@@ -92,7 +92,7 @@ def _distributions(
 
     ``inventory`` is the geometry's boundary names where they are known (R04).
     They settle a NAME and never cost a split: where they name
-    no single owner, the cuts decide as before and the rows are kept.
+    no single owner, the cuts decide and the rows are kept.
     """
     if record.sections_layout is None:
         raise ProductError(
@@ -368,15 +368,10 @@ def _geometry_that_settles(
 ) -> Sequence[str] | None:
     """Return the geometry's names where they can settle a selection, else None."""
     if geometry is not None and boundary_labels(list(geometry))[1]:
-        # A NAME TWO BOUNDARIES CARRY SETTLES NOTHING (the pre-push read of
-        # block 3, both lenses). The builder leaves such a name out of its
-        # label map (`_inventory(script)` in cases/workflows/_names.py), so the names
-        # left no longer say what `all` or a stem selected: over them an `all`
-        # block read as the one uniquely named boundary, a `Wing` request
-        # integrated a block that covered every boundary, and a legacy split
-        # was named after Wing. No block is attributed on such names'
-        # authority; the match goes as if no geometry were given, over the
-        # recorded cuts alone, as before 0.27.0.
+        # Ambiguous boundary names cannot establish ownership. The builder
+        # omits them from its label map, so that map cannot reconstruct all or
+        # a family stem. Match using the recorded cuts without attributing a
+        # block on incomplete name evidence.
         geometry = None
     recorded_frame = str(block.get("frame", ""))
     if (
@@ -387,25 +382,13 @@ def _geometry_that_settles(
             or recorded_frame.strip().upper() in EXPANDING_WORDS
         )
     ):
-        # THE NAMES SETTLE A SELECTION ONLY ON A COMMON FRAME, or where the
-        # rotor definitions are in hand (the reading of GitHub main after
-        # block 3, P1 and P2). A block's recorded frame says which readings
-        # could have emitted it. On a common frame only an entry citing that
-        # frame literally, or the frame whose `_ORIGINAL` twin it is, could
-        # have, and the builder read every such entry by its common expansion
-        # over the names. A frame spelt like a rotor's (`<alias>_RMRP`, `_RMRP<n>`,
-        # `_SMRP`, `_SMRP_ORIGINAL`) may hold an expanding entry's emission,
-        # which the builder resolves against the reference's rotor families
-        # and never over the names alone: `Blade1` on RMRP asks for the rotor
-        # owning Blade1 and `Blade` for every rotor with a Blade family, so
-        # over the names the one integrated another rotor's block and the
-        # other lost it to an entry that emitted nothing. No block records
-        # which entry it came from, so a user's own `X_RMRP` is read the same
-        # way, as in 0.26.0: refused by name. Only the live rotor definitions
-        # give the builder's own reading there (`pproc_emissions`, below).
-        # Decided PER CALL because every entry is matched against this one
-        # block, and one call over two inventories would let the names of the
-        # one make an entry of the other falsely unique.
+        # Geometry names settle a selection only on a common frame, or with
+        # the rotor definitions available. Common-frame entries expand over
+        # names; rotor-frame entries expand through reference rotor families.
+        # A custom frame matching a rotor-name shape is equally ambiguous without
+        # those definitions. Use pproc_emissions for the builder's reading when
+        # the definitions exist. Decide per call, keeping this block's inventory
+        # separate from any other inventory.
         geometry = None
     if (
         geometry is not None
@@ -417,7 +400,7 @@ def _geometry_that_settles(
         # rotor's families, which no name of the geometry states. So a rotor
         # `Prop` beside boundaries Prop1 and Prop2 is not the stem `Prop` at
         # export, whatever the names say, and with no rotor definition in hand
-        # nothing here can tell which reading ran. The match is 0.26.0's.
+        # nothing here can tell which reading ran; match the recorded cuts.
         geometry = None
     return geometry
 
@@ -965,7 +948,7 @@ def _matching_distributions(
         # cover; applying one made a combined entry a possible owner of a
         # smaller block beside it and refused the split, losing both files.
         if exact is not None and not strict:
-            # BY ELIMINATION, over the geometry's own names (R04 of 0.27.0):
+            # BY ELIMINATION, over the geometry's own names (R04):
             # the recorded pproc emitted this block, and every entry the
             # builder's reading excludes did not, so where exactly one entry
             # remains possible on the block's frame kind, plane and count
@@ -1286,7 +1269,7 @@ def write_section_distributions(
                     )
             files = [(current, path) for current, path in files if current in expected]
             present = {current for current, _ in files}
-            # A STEP FREE-SPACE DELETED REFUSES THE KIND BY NAME (0.30.0), where a
+            # A STEP FREE-SPACE DELETED REFUSES THE KIND BY NAME, where a
             # step never exported is a per-step skip and the table is written.
             pruned = pruned_step_refusal(
                 sim_dir,
@@ -1318,7 +1301,7 @@ def write_section_distributions(
                 sim_dir / f"{stem}_{kind}.txt",
             )
             files = [(step, end)] if end.is_file() else []
-        # 0.31.0: A WHEEL'S FURTHER CLOCKINGS, named by the point's record, after
+        # A WHEEL'S FURTHER CLOCKINGS, named by the point's record, after
         # clocking 0 and in their order; the clocking each file is of.
         clocking_of = _clocking_exports(
             wheel, files, step=step, kind=kind, stem=stem, relatives=relatives, skipped=skipped
@@ -1442,7 +1425,7 @@ def write_section_distributions(
                     output_rows = [
                         (*row, *extra) for row, extra in zip(rows[k], integrated[k], strict=True)
                     ]
-            # THE POLAR FIRST (G16, 0.27.0), the run record's own: every row of
+            # THE POLAR FIRST (G16), the run record's own: every row of
             # a distribution file is a row of this one point.
             done = write_csv_table(
                 target(out / relative),

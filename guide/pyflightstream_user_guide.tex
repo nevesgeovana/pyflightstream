@@ -117,7 +117,7 @@
   \begin{columns}[T]
     \column{0.55\textwidth}
     \begin{itemize}
-      \item FlightStream is scripted through ASCII command files: one command grammar per line, executed top to bottom (SRC-003 p.279).
+      \item FlightStream is scripted through ASCII command files: one command grammar per line, executed top to bottom (FSM-26.120 p.279).
       \item The solver moves fast, with intermediate hotfix builds consolidating user requests into stable releases; the command set evolves from version to version with it.
       \item In script mode, failures can be quiet: a missing script file exits with code 0 and produces nothing; an invalid argument may be ignored.
       \item Research campaigns need hundreds of runs across solver versions, with reproducible provenance.
@@ -478,7 +478,7 @@ if not result.failed:
     print(report.total["CL"], report.total["CDi"])
 \end{lstlisting}
   \begin{itemize}
-    \item \code{LocalExecutor} runs the documented headless invocation (\code{-hidden -script}, SRC-003 pp.279-280 and RPT-023) with the working directory set for you. One dash, not two: the 25 series does not accept the two-dash spelling and does not say so, it waits for a user instead.
+    \item \code{LocalExecutor} runs the documented headless invocation (\code{-hidden -script}, FSM-26.120 pp.279-280 and RPT-023) with the working directory set for you. One dash, not two: the 25 series does not accept the two-dash spelling and does not say so, it waits for a user instead.
   \end{itemize}
 \end{frame}
 
@@ -528,11 +528,11 @@ helpers.free_stream(script, "ROTATION",  # hover / rotor frames
                     frame="prop", axis="X", rpm=2000.0)
 \end{lstlisting}
   \begin{block}{Which five properties, and which unit, depend on the build}
-    The helper reads its script's version rather than making you look it up. Builds from 26.100 on take \code{specific\_heat\_ratio} and derive the sonic velocity; the three pre-26.100 editions take \code{sonic\_velocity} and have no specific-heat-ratio argument at all (SRC-749 p.286), so the call above is refused there and the refusal names the keyword that edition wants.
+    The helper reads its script's version rather than making you look it up. Builds from 26.100 on take \code{specific\_heat\_ratio} and derive the sonic velocity; the three pre-26.100 editions take \code{sonic\_velocity} and have no specific-heat-ratio argument at all (FSM-25.000 p.286), so the call above is refused there and the refusal names the keyword that edition wants.
     The altitude form carries the sharper trap. 25.000 takes AIR\_ALTITUDE with a bare value and reads it in FEET; every later build takes a units token, which this helper defaults to METERS. Same call, factor of 3.28. So on 25.000 it REQUIRES \code{altitude\_units="FEET"} and refuses silence, that being the one omission which would change the physics without changing how the script looks.
   \end{block}
   \begin{alertblock}{Why explicit properties}
-    \small The altitude form (AIR\_ALTITUDE, SRC-003 p.328) is recorded broken on 26.100, 26.101 and 26.120: the probe passed 5000 with a METERS token and the expected 0.736 kg/m$^3$ was not observed, with no error. ONE of the three has a reading behind it, 26.120, where 1.056 kg/m$^3$ was seen twice, the 5000 ft standard state and 43\% high. On the other two the probe recorded only the absence; the 1.056 sentence appears in all three reports because it is the probe spec's own expectation, and it appears in 26.121's PASSING row too. So the units-ignored reading is a hypothesis with one measurement, registered as PLN-20260810-2000, and this page does not state it as three. The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121, and the 2026-08-08 run extended the finding backwards: the two earlier builds carry it too. The 2026-08-11 run on 26.122 passes as well (\code{CMP-26122\_2026-08-11\_full}), so the altitude form is measured to work on both hotfix builds and to fail on the three base releases it has been probed on. Three variables separate the 26.120 and 26.121 runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On the base releases, use FLUID\_PROPERTIES.
+    \small The altitude form (AIR\_ALTITUDE, FSM-26.120 p.328) is recorded broken on 26.100, 26.101 and 26.120: the probe passed 5000 with a METERS token and the expected 0.736 kg/m$^3$ was not observed, with no error. ONE of the three has a reading behind it, 26.120, where 1.056 kg/m$^3$ was seen twice, the 5000 ft standard state and 43\% high. On the other two the probe recorded only the absence; the 1.056 sentence appears in all three reports because it is the probe spec's own expectation, and it appears in 26.121's PASSING row too. So the units-ignored reading is a hypothesis with one measurement, registered as PLN-20260810-2000, and this page does not state it as three. The measurement is at ONE altitude, so what this page claims is that the METERS argument read as ignored there, and no more. The same probe passes on 26.121, and the 2026-08-08 run extended the finding backwards: the two earlier builds carry it too. The 2026-08-11 run on 26.122 passes as well (\code{CMP-26122\_2026-08-11\_full}), so the altitude form is measured to work on both hotfix builds and to fail on the three base releases it has been probed on. Three variables separate the 26.120 and 26.121 runs (build, probe harness, session file), so RPT-014 declines to credit the vendor build alone and so does this page: it is the strongest candidate for a vendor fix, and it is still a candidate. On the base releases, use FLUID\_PROPERTIES.
   \end{alertblock}
 \end{frame}
 
@@ -552,8 +552,8 @@ helpers.solver_settings(script,
   \begin{itemize}
     \item \code{solver\_settings} emits only what you pass, so it serves both the initial setup and re-emission between campaign points.
     \item Every flag argument takes a Python bool or the solver's own \code{ENABLE} and \code{DISABLE} (any case): a setup carried over from the solver speaks that vocabulary. The helper resolves it before emitting anything, and refuses a word in neither vocabulary naming the helper and the argument, so \code{'DISABLE'} can never reach the script as ENABLE.
-    \item Add \code{vorticity\_drag\_boundaries=[...]} to compute the induced drag of the lifting boundaries from the surface vorticity integration. Omitted on the first settings call, no command is emitted and every boundary keeps the solver's surface pressure integration (SRC-003 p.202); omitted on a later settings call of the same script, the selection of the earlier call stands. The snapshot records the effective choice either way.
-    \item Reference area and length set the coefficient normalization ($Q\,S_{ref}$ forces, $Q\,S_{ref}\,L_{ref}$ moments; SRC-003 p.223).
+    \item Add \code{vorticity\_drag\_boundaries=[...]} to compute the induced drag of the lifting boundaries from the surface vorticity integration. Omitted on the first settings call, no command is emitted and every boundary keeps the solver's surface pressure integration (FSM-26.120 p.202); omitted on a later settings call of the same script, the selection of the earlier call stands. The snapshot records the effective choice either way.
+    \item Reference area and length set the coefficient normalization ($Q\,S_{ref}$ forces, $Q\,S_{ref}\,L_{ref}$ moments; FSM-26.120 p.223).
   \end{itemize}
 \end{frame}
 
@@ -568,7 +568,7 @@ helpers.export_results(script,
 \end{lstlisting}
   \begin{itemize}
     \item The induced-drag boundary selection belongs to \code{solver\_settings} since v0.3.0 (the \code{analysis\_setup} keyword still works and warns); the emission lands at the first curated call that reaches the analysis phase (\code{start\_solver}, \code{sweep}, \code{analysis\_setup}, or \code{export\_results}), so a raw \code{script.emit("START\_SOLVER")} does not flush it.
-    \item The plain \code{CP} export variable is flagged for depreciation (SRC-003 p.352); the helper warns and this guide uses \code{CP\_REFERENCE}.
+    \item The plain \code{CP} export variable is flagged for depreciation (FSM-26.120 p.352); the helper warns and this guide uses \code{CP\_REFERENCE}.
   \end{itemize}
 \end{frame}
 
@@ -586,7 +586,7 @@ helpers.export_probes(script, "probes_out.txt", update=True)
 \end{lstlisting}
   \begin{itemize}
     \item Probes are the flow-field window: velocities and pressures at chosen points, refreshed against the current solution before export.
-    \item The file form takes X,Y,Z,TYPE rows (0 surface, 1 off body), for whole survey lattices (SRC-003 pp.362-363).
+    \item The file form takes X,Y,Z,TYPE rows (0 surface, 1 off body), for whole survey lattices (FSM-26.120 pp.362-363).
   \end{itemize}
 \end{frame}
 
@@ -708,7 +708,7 @@ helpers.sweep(script,
     export_spreadsheet="sweep_results.txt")
 \end{lstlisting}
   \begin{alertblock}{Pitfalls}
-    The Sweeper chapter was redrafted from its reference pages (SRC-003 pp.358-360) on 2026-08-06, replacing entries first read from the worked example at p.406. That example exercises two of the three sweep modes and three of the four axes, so the earlier entries were missing the UNIFORM mode, the Mach axis, and the inline value list on the velocity axis. What the database still does not enforce is which tail each mode takes: the emitter accepts UNIFORM with no numbers, or DISABLE with numbers, and the solver is the first thing to object. For evidence-critical campaigns, prefer one script per point.
+    The Sweeper chapter was redrafted from its reference pages (FSM-26.120 pp.358-360) on 2026-08-06, replacing entries first read from the worked example at p.406. That example exercises two of the three sweep modes and three of the four axes, so the earlier entries were missing the UNIFORM mode, the Mach axis, and the inline value list on the velocity axis. What the database still does not enforce is which tail each mode takes: the emitter accepts UNIFORM with no numbers, or DISABLE with numbers, and the solver is the first thing to object. For evidence-critical campaigns, prefer one script per point.
   \end{alertblock}
 \end{frame}
 
@@ -716,7 +716,7 @@ helpers.sweep(script,
 \subsection{Recipe 3: half model with mirror symmetry}
 
 \begin{frame}[fragile,allowframebreaks]{Recipe 3: half model with MIRROR symmetry}
-  \textbf{Prerequisites:} a true half geometry with an open root section lying in the symmetry plane. A face on the symmetry plane duplicates itself into coincident faces (SRC-003 p.386, paraphrased).
+  \textbf{Prerequisites:} a true half geometry with an open root section lying in the symmetry plane. A face on the symmetry plane duplicates itself into coincident faces (FSM-26.120 p.386, paraphrased).
   \begin{enumerate}
     \item Import the half mesh; same skeleton as recipe 1.
     \item Initialize with mirror symmetry:
@@ -735,7 +735,7 @@ helpers.start_solver(script)
 helpers.analysis_setup(script, load_units="COEFFICIENTS")
 \end{lstlisting}
   \begin{alertblock}{Pitfalls (all evidence backed)}
-    Use MIRROR only for a half model at zero sideslip; sweep sideslip on a full model with SYMMETRY NONE. State symmetry loads explicitly, as above. The full and half models must use the same full-planform reference area when comparing coefficients (SRC-003 p.217; the PHY-02 symmetry-equivalence case). Do not treat a guide's example coefficient difference as an accuracy guarantee.
+    Use MIRROR only for a half model at zero sideslip; sweep sideslip on a full model with SYMMETRY NONE. State symmetry loads explicitly, as above. The full and half models must use the same full-planform reference area when comparing coefficients (FSM-26.120 p.217; the PHY-02 symmetry-equivalence case). Do not treat a guide's example coefficient difference as an accuracy guarantee.
   \end{alertblock}
 \end{frame}
 
@@ -743,7 +743,7 @@ helpers.analysis_setup(script, load_units="COEFFICIENTS")
 \subsection{Recipe 4: actuator disc propulsion}
 
 \begin{frame}[fragile]{Recipe 4: steady installed propulsion with an actuator disc (1/2)}
-  \textbf{Concept:} the disc is the linearized propeller slipstream surrogate (SRC-003 pp.185-187); steady, cheap, no blade geometry.
+  \textbf{Concept:} the disc is the linearized propeller slipstream surrogate (FSM-26.120 pp.185-187); steady, cheap, no blade geometry.
   \begin{enumerate}
     \item Build the airframe skeleton as in recipe 1, up to the fluid state.
     \item Create a local coordinate system carrying the disc axis (frame index greater than 1):
@@ -773,14 +773,14 @@ disc = helpers.actuator_disc(script, "prop1",
 disc = helpers.actuator_disc(script, "prop1",
     frame="prop", axis="X", offset=0.0, r_tip=0.95, r_hub=0.15,
     rpm=2200.0, profile="radial_thrust.txt", n_blades=6,
-    swirl=0.8)   # fraction of swirl kept; below 1 mimics a stator (SRC-003 p.186)
+    swirl=0.8)   # fraction of swirl kept; below 1 mimics a stator (FSM-26.120 p.186)
 \end{lstlisting}
   \begin{enumerate}
     \setcounter{enumi}{4}
     \item Initialize, set solver settings, START\_SOLVER, analyze, export: identical to recipe 1.
   \end{enumerate}
   \begin{alertblock}{Pitfalls}
-    Exactly one thrust specification: net thrust or profile, never both. The manual recommends dimensional thrust over the coefficient form, because the coefficient convention must match the solver formulation (SRC-003 p.187). The helper enforces both rules with cited errors. The profile file is rows \code{r,F} with no header and no final newline: 26.124 reads a final newline as one point more and refuses the file in a dialog (RPT-070). Pass the file's text as \code{profile\_text} and the helper puts it in that form, through \code{render\_actuator\_profile}, for the run to write where \code{profile} names; a matrix row's run does this for you.
+    Exactly one thrust specification: net thrust or profile, never both. The manual recommends dimensional thrust over the coefficient form, because the coefficient convention must match the solver formulation (FSM-26.120 p.187). The helper enforces both rules with cited errors. The profile file is rows \code{r,F} with no header and no final newline: 26.124 reads a final newline as one point more and refuses the file in a dialog (RPT-070). Pass the file's text as \code{profile\_text} and the helper puts it in that form, through \code{render\_actuator\_profile}, for the run to write where \code{profile} names; a matrix row's run does this for you.
   \end{alertblock}
 \end{frame}
 
@@ -788,7 +788,7 @@ disc = helpers.actuator_disc(script, "prop1",
 \subsection{Recipe 5: unsteady with resolved rotating blades}
 
 \begin{frame}[fragile,allowframebreaks]{Recipe 5: unsteady rotary motion (1/2)}
-  \textbf{Concept:} the blade-resolved alternative to the actuator disc (SRC-003 p.234): the blade geometry physically rotates through unsteady time stepping. Costlier, richer.
+  \textbf{Concept:} the blade-resolved alternative to the actuator disc (FSM-26.120 p.234): the blade geometry physically rotates through unsteady time stepping. Costlier, richer.
   \begin{enumerate}
     \item Import the full geometry including blades. Their names come with the mesh, and naming them is preferred to counting them: a position is right for one file's boundary order and means another surface in a file that orders them differently.
     \item Create the rotation frame (as in recipe 4), then the motion:
@@ -805,7 +805,7 @@ motion = helpers.rotary_motion(script,
 \end{lstlisting}
   \begin{enumerate}
     \setcounter{enumi}{2}
-    \item Select the unsteady solver with the time step sized from the manual guidance: 8 to 12 degrees of blade rotation per step, at least two full rotations (SRC-003 p.210).
+    \item Select the unsteady solver with the time step sized from the manual guidance: 8 to 12 degrees of blade rotation per step, at least two full rotations (FSM-26.120 p.210).
   \end{enumerate}
 \begin{lstlisting}
 # 2200 rpm = 13200 deg/s; 10 deg/step -> dt = 7.58e-4 s
@@ -818,7 +818,7 @@ helpers.unsteady_solver(script, time_iterations=72,
 \begin{frame}[fragile,allowframebreaks]{Recipe 5: unsteady rotary motion (2/2)}
   \begin{enumerate}
     \setcounter{enumi}{3}
-    \item For rotor-dominated velocity scales, normalize with the tip speed instead of the free stream (SRC-003 p.201):
+    \item For rotor-dominated velocity scales, normalize with the tip speed instead of the free stream (FSM-26.120 p.201):
   \end{enumerate}
 \begin{lstlisting}
 tip_speed = 2200.0 / 60.0 * 2 * 3.14159 * r_tip
@@ -1281,8 +1281,8 @@ the previous products.
     \item \textbf{A command line the build does not know is a hang, not an error.} Give a 25.x build the two-dash spelling and it starts, checks out its licence, receives no script and waits; windowless with the streams redirected, the Fortran runtime then opens a modal dialog nobody can answer. A clean licence checkout is not evidence that a run reached the script (RPT-023).
     \item \textbf{Relative paths resolve against the solver working directory.} Imported geometry: absolute. EXPORT\_LOG: absolute, or it fails silently.
     \item \textbf{The hidden solver idles after STOP.} A headless session that hits STOP does not exit; the executor's timeout is your safety net, and the log pair is the halt evidence.
-    \item \textbf{Zero induced drag is not always good news.} A boundary without a user-defined trailing-edge condition, a bluff body such as a tubular fuselage or a pod, reports zero induced drag once it is placed on the vorticity CDi list; left off the list it keeps the surface pressure integration instead (SRC-003 p.202). This is why \code{vorticity\_drag\_boundaries="all"} is unsafe on a mixed geometry.
-    \item \textbf{The transitional boundary layer model has a validity window.} Stated valid for chord Reynolds numbers between 500000 and 1500000 (SRC-003 p.203); outside it, select LAMINAR or TURBULENT explicitly.
+    \item \textbf{Zero induced drag is not always good news.} A boundary without a user-defined trailing-edge condition, a bluff body such as a tubular fuselage or a pod, reports zero induced drag once it is placed on the vorticity CDi list; left off the list it keeps the surface pressure integration instead (FSM-26.120 p.202). This is why \code{vorticity\_drag\_boundaries="all"} is unsafe on a mixed geometry.
+    \item \textbf{The transitional boundary layer model has a validity window.} Stated valid for chord Reynolds numbers between 500000 and 1500000 (FSM-26.120 p.203); outside it, select LAMINAR or TURBULENT explicitly.
   \end{itemize}
 \end{frame}
 
@@ -1398,10 +1398,10 @@ pyfs-fsi init-dummy      --node-count N [--dir DIR]   # dummy config for a dry r
 pyfs-fsi step            [--dir DIR]                  # one coupling step
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition
 pyfs-manual surface      --editions MANIFEST [--names]     # what changed between builds
-pyfs-manual coverage     --manual ... --source SRC-741 --chapter-pages 275-369
+pyfs-manual coverage     --manual ... --source FSM-26.100 --chapter-pages 275-369
 pyfs-manual citations    --editions MANIFEST   # exits 1 if one does not hold
 pyfs-manual register  --editions MANIFEST --fs-version 26.123  # carries a build forward
-pyfs-manual draft --manual manual.pdf --source SRC-751 --chapter-pages 275-369 --fs-version 26.123
+pyfs-manual draft --manual manual.pdf --source FSM-26.123 --chapter-pages 275-369 --fs-version 26.123
 \end{lstlisting}
   \begin{itemize}
     \item Only commands that launch FlightStream require its license. The \code{pyfs-qa cases} and \code{cost} readers, reference updates, and offline \code{pyfs-fsi} structural calculations do not launch it.

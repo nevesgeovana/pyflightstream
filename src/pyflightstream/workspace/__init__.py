@@ -142,10 +142,8 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-# `typing.TypedDict` directly: pydantic cannot build a schema from it
-# below 3.12, and this import branched on the interpreter while the floor
-# was 3.11. The floor follows SPEC 0 since 0.13.0 (PFS-2024.07) and is
-# 3.12, so the branch went with the leg.
+# Use typing.TypedDict directly: the supported Python floor is 3.12
+# (SPEC 0, PFS-2024.07), where pydantic can build its schema.
 from typing import Any as Any
 from typing import NotRequired as NotRequired
 from typing import TypedDict as TypedDict
@@ -277,12 +275,11 @@ from ._layout import write_plan_products as write_plan_products
 from .fsi_setup import structural_assessment as structural_assessment
 
 __all__ = [
-    # 0.31.0 (P0310-POL-CENSUS): the one definition of where a workspace's
-    # matrices are, read by `sync`, the storage layer and the plan's census.
+    # P0310-POL-CENSUS: shared matrix discovery for sync, storage and plan census.
     "MATRIX_FOLDERS",
     "matrix_files",
-    # 0.32.0 (P0320-MATRICES-HOME, RST-1): one matrix per stem across the two
-    # homes, identical bytes read once and different bytes refused.
+    # P0320-MATRICES-HOME, RST-1: one matrix per stem across both homes;
+    # read identical bytes once and refuse differing bytes.
     "find_matrix",
     "matrix_by_stem",
     # DECLARED, not merely importable. All three were imported into this
@@ -339,7 +336,7 @@ __all__ = [
     "resolve_build",
     "post_diagnostics",
     "post_stages",
-    # 0.33.0 (FR-307): the one refusal of `post --sims` and `collect --sims`.
+    # FR-307: shared refusal for post --sims and collect --sims.
     "selected_sims",
     "register_input_guide",
     "register_post_diagnostics",
@@ -348,14 +345,13 @@ __all__ = [
     "write_input_guides",
     "trailing_edge_midpoints",
     "write_trailing_edge_node_file",
-    # 0.38.0 (FR-426): the audit of a panel mesh, alone or against its source.
+    # FR-426: audit a panel mesh alone or against its source.
     "MeshAudit",
     "audit_mesh",
     "RefinedMesh",
     "refine_mesh",
 ]
-# 0.38.0 (FR-429): the thin blade of 0.34 is public. One appended line, because the module
-# sits at the 1000 code lines the size lens allows.
+# FR-429: public thin-blade derivation.
 __all__ += ["ThinBlade", "derive_thin_blade", "thin_blade_path"]
 __all__ += ["missing_log_warning"]
 
@@ -430,10 +426,7 @@ class MissingOutputsError(WorkspaceError):
 
     Raised by the workspace's ``collect_outputs`` after it has filed every
     declared output that exists, so a run that failed to write one file
-    never strands the others outside the point's folder. Measured on
-    a cluster on 2026-09-24: one missing log made collection keep nothing, and
-    every other export of the point lay uncollected in the simulation folder
-    under a record naming no output at all.
+    never strands the others outside the point's folder.
 
     A :class:`WorkspaceError`, so a caller that caught that still catches
     this; a caller that records the point reads what was filed from
@@ -601,24 +594,11 @@ class CampaignWorkspace:
     """
 
     def __init__(self, root: str | Path, naming: NamingTemplate | None = None):
-        # RESOLVED ONCE, AT THE ROOT, because every path this class hands
-        # out is derived from it and one of them crosses a process
-        # boundary. The solver runs with its working directory set to the
-        # simulation folder, and it is handed the script's path and reads
-        # the geometry path the script names. Under a relative root those
-        # were spelled from the CALLER's directory and re-resolved from
-        # the solver's, one level too deep: `pyfs-matrix run` defaults
-        # --workspace to "." (run/cli.py), so the shipped default
-        # invocation failed on every row with a FileNotFoundError naming a
-        # script that was sitting right there.
-        #
-        # Resolving at each boundary instead was the alternative and was
-        # rejected: it is three call sites today, it is a new one every
-        # time something else is handed to the solver, and the property a
-        # reader needs ("a managed path is absolute") cannot be stated
-        # anywhere. Nothing downstream is affected: `record.script_path`
-        # is stored relative to the simulation directory and stays
-        # relative, so manifests written before this release still read.
+        # Resolve the root once so all managed paths are absolute, including paths
+        # passed to a solver running in a different working directory. Script and
+        # geometry paths must not be reinterpreted relative to that directory.
+        # record.script_path remains relative to the simulation directory in the
+        # manifest; this does not change its stored representation.
         self.root = Path(root).resolve()
         self.naming = naming if naming is not None else NamingTemplate()
         #: How each simulation's inputs were staged this session (PFS-2029.17):
@@ -698,11 +678,9 @@ class CampaignWorkspace:
         the questions that are worth asking once, when the library opens,
         rather than when a single id happens to resolve.
 
-        That promise used to be worded "stays free of I/O", which stopped
-        being true: the constructor normalises the root with
+        The constructor normalises the root with
         :meth:`pathlib.Path.resolve`, which consults the working
-        directory and the filesystem. The property the split actually
-        rests on is the one stated above, and it is unchanged.
+        directory and the filesystem without reading campaign contents.
 
         Parameters
         ----------
@@ -912,13 +890,8 @@ class CampaignWorkspace:
     def engine_point(self, name: str) -> PointXyz:
         """Refuse the spelling of :meth:`rotor_point`, naming it.
 
-        IT IS KEPT SO THAT IT CAN REFUSE. Deleting the name outright gave a
-        caller `AttributeError: 'CampaignWorkspace' object has no attribute
-        'engine_point'`, which is true and says nothing about the rename;
-        the retirement registry knows what the word became, so the method
-        survives one release as the sentence that says so (the architecture,
-        interface and V&V lenses of the release review, which all
-        reached this by different routes).
+        The retirement registry supplies a refusal naming rotor_point so
+        callers receive the replacement instead of a bare missing-attribute error.
 
         Raises
         ------
@@ -1017,17 +990,11 @@ class CampaignWorkspace:
         """
         return resolve_build(self.inputs_dir, build_id, override=override)
 
-    # --- Where a matrix's derived files land (PFS-2031.04) --------------------
-    #
-    # ONE HOME FOR THE RULE. A campaign converted from a run matrix keeps its
-    # plan, its sweep tables and its products under ``post/<matrix stem>/``,
-    # so several matrices of one workspace keep their own. A campaign with
-    # no matrix (authored in Python, loaded from a file, or recorded before
-    # 0.13.0) keeps the historical places, which are three and not one:
-    # ``plan.json`` in the root, the run's sweep table under ``post/``, the
-    # products under ``post/products/``. The three methods say which; a
-    # caller spelling the rule itself is the defect a review found five
-    # times over on 2026-09-08.
+    # Where a matrix's derived files land (PFS-2031.04).
+    # A matrix campaign keeps its plan, sweep tables and products under
+    # post/<matrix stem>/. A campaign with no matrix uses plan.json in the
+    # root, the sweep table under post/ and products under post/products/.
+    # Use these methods so all callers share those rules.
 
     def plan_dir(self, matrix_stem: str | None) -> Path:
         """Where ``plan.json`` lands: ``post/<matrix stem>/``, or the root without a matrix."""
@@ -1077,12 +1044,9 @@ class CampaignWorkspace:
         """Create the managed subfolders of one simulation and return its path.
 
         Creates ``inputs/``, ``scripts/`` and ``datapoints/``; existing
-        folders are kept, so the call is idempotent, and a ``parsed/``
-        left by a legacy release is kept with them
-        (PFS-2032.01), as are an ``outputs/`` and a ``raw/`` left by one
-        in legacy releases (FR-92). NEITHER OF THOSE TWO IS CREATED: a folder
-        this release does not write to would be an empty promise in
-        every new simulation.
+        folders are kept, so the call is idempotent. Existing legacy
+        ``parsed/`` (PFS-2032.01), ``outputs/`` and ``raw/`` (FR-92) folders
+        are retained but not created.
         """
         sim = self.sim_dir(sim_id)
         for name in (n for n in _SIM_SUBDIRS if not _is_link(sim / n)):  # PFS-2095.056
@@ -1361,27 +1325,16 @@ class CampaignWorkspace:
         _textio.write_text(target, text)
         return target, _sha256(target)
 
-    #: What each managed subdirectory of a simulation folder IS, so a
-    #: refusal can name the role rather than only the folder. A reader
-    #: who is told "outputs/" has to know what it holds; a reader who is
-    #: told "this simulation's own collected outputs" does not.
-    #:
-    #: ``raw`` IS STILL HERE AND IS NOT WRITTEN (FR-84). It is the name
-    #: this folder carried in legacy releases, and a workspace that holds one
-    #: holds collected evidence in it; dropping it from this table would
-    #: have made that evidence collectable OUT of the layout that owns
-    #: it, which is the one thing these roles exist to refuse.
+    #: Protect every managed subdirectory from collection as a fresh source.
+    #: Include raw (FR-84), a legacy evidence folder the package does not write:
+    #: its existing contents still belong to this simulation.
     _SUBDIR_ROLES = {
         "inputs": "this simulation's staged input artifacts",
         "scripts": "this simulation's generated solver scripts",
         SIM_DATAPOINTS_DIR: "this simulation's datapoints, one folder each",
-        SIM_OUTPUTS_DIR: (
-            "this simulation's own collected outputs, under the single folder they "
-            "shared before 0.16.0"
-        ),
+        SIM_OUTPUTS_DIR: ("this simulation's own collected outputs in a shared simulation folder"),
         LEGACY_SIM_OUTPUTS_DIR: (
-            "this simulation's own collected outputs, under the name that folder "
-            "carried before 0.16.0"
+            "this simulation's own collected outputs in the legacy raw folder"
         ),
     }
 
@@ -1553,13 +1506,9 @@ class CampaignWorkspace:
             NEXT point of the same sweep never meets the previous
             point's files at all.
 
-            BOTH ARE PRE-SCANS (PFS-2038.06, GEO-039-F07).
-            The second used to be asked immediately before each move, so
-            a call whose third output landed on a held name refused with
-            the first two already moved: sources gone, destinations
-            written, no manifest record, and a recovery to do by hand.
-            Nothing that succeeded before refuses now; what changed is
-            that a refusal leaves every byte on both sides where it was.
+            Both are pre-scans (PFS-2038.06, GEO-039-F07). A refusal must
+            leave sources and destinations untouched rather than moving
+            some outputs before discovering a later collision.
 
         Notes
         -----
@@ -1593,40 +1542,21 @@ class CampaignWorkspace:
                 expanded.append(wake)
                 named.add(wake.resolve())
         produced = expanded
-        # A MISSING OUTPUT STRANDS NOTHING (0.27.0). What is missing is named
-        # at the end, after every output that exists has been filed: refusing
-        # here, before anything moved, left every other export of a point
-        # whose log never came lying in the working directory under a record
-        # naming no output, and the post then skipped the point as having none
-        # (measured on a cluster, 2026-09-24). Every refusal below is asked of
-        # the outputs that EXIST and still moves nothing.
+        # File all existing outputs before reporting missing ones. Run every
+        # refusal below against existing outputs before moving any of them.
         missing = [str(path) for path in produced if not Path(path).is_file()]
         produced = [path for path in produced if Path(path).is_file()]
-        # PFS-2011.01 and PFS-2011.03, which are one piece of work. The
-        # rule is on RESOLVED paths and never on the declared string,
-        # which is what separates it from `_check_output_containment` in
-        # `naming.py`: that one refuses any ABSOLUTE path, and every
-        # production caller here passes absolute paths, so reusing it
-        # would refuse the normal case. What is uncovered is a DIRECT
-        # caller of this method.
+        # PFS-2011.01 and PFS-2011.03: validate resolved paths before the collision
+        # pre-scan or any move. naming._check_output_containment rejects absolute
+        # paths, while production callers here supply them; this check also serves
+        # direct callers.
         #
-        # Detected before the collision pre-scan and therefore before any
-        # move, so a refusal leaves every source exactly where it was.
-        #
-        # AN OUTPUT ALREADY IN ITS OWN DATAPOINT FOLDER IS COLLECTED IN PLACE,
-        # WHEN THE CALLER SAYS THE JOB RAN THERE (GOAL-021 item 3). A submitted
-        # point runs IN that folder, so its solver writes where the outputs are
-        # filed, and moving a file onto itself is not collection. OPT-IN, and
-        # the first writing was not: accepted for any caller, it let a direct
-        # call claim a file an EARLIER run had already collected there, which
-        # `test_collect_refuses_a_source_inside_a_managed_subdirectory` exists
-        # to refuse. Any other managed folder is refused either way.
-        #
-        # AND BENEATH IT (the independent review of the 0.18.1 release): a job
-        # that runs in its datapoint folder writes a declared `out/loads.txt`
-        # into `DP-<tag>/out/`, which is still this point's own and is moved
-        # up into the folder like any output. Its `archive/` is not: that is
-        # evidence of an earlier run, and is refused like any managed folder.
+        # Collect in place only when the caller explicitly says the job ran in its
+        # datapoint folder (GOAL-021). Otherwise a direct call could claim evidence
+        # already collected by an earlier run. A declared subdirectory such as
+        # DP-<tag>/out/ also belongs to this point and its output is moved up.
+        # archive/ contains earlier evidence and remains forbidden, as do all other
+        # managed folders.
         own = (sim / folder).resolve()
         kept: set[str] = set()
         beneath: set[str] = set()
@@ -1646,16 +1576,9 @@ class CampaignWorkspace:
             trespass = self._output_trespass(sim, Path(path))
             if trespass is not None:
                 raise WorkspaceError(trespass)
-        # FR-33e, first shape, and PYFS-005 is the incident behind it.
-        # Collection MOVES, so two declared outputs whose base names agree used
-        # to land on one file in outputs/: both moves ran, only the second content
-        # survived, and the manifest recorded the same name twice as though two
-        # artifacts existed. A campaign then carried a record naming evidence
-        # that had been overwritten by other evidence, with nothing anywhere
-        # saying so.
-        #
-        # Detected before any move rather than during, so a refusal leaves
-        # every source where it was instead of half-collecting.
+        # FR-33e, PYFS-005: refuse declared outputs with identical base names before
+        # any move. Collection must not overwrite one output with another or record
+        # one filename twice as separate evidence.
         destinations: dict[str, list[str]] = {}
         for path in produced:
             destinations.setdefault(collection_name(path), []).append(str(path))
@@ -1729,11 +1652,8 @@ class CampaignWorkspace:
     def output_digests(self, sim_id: str, collected: Sequence[str]) -> dict[str, str]:
         """Return the sha256 of each collected output, keyed by its name.
 
-        The manifest has recorded a hash per staged INPUT since the first
-        version and none per collected output, so a record could name
-        evidence that had been edited, truncated or replaced since the
-        run and nothing compared (PYFS-006). This is what
-        :attr:`RunRecord.outputs_sha256` carries.
+        :attr:`RunRecord.outputs_sha256` carries these hashes so collected
+        evidence can be checked for edits, truncation or replacement (PYFS-006).
 
         Parameters
         ----------
@@ -1809,7 +1729,7 @@ class CampaignWorkspace:
         """
         records = []
         for entry in self.read_raw_manifest():
-            # A NOTE, NOT A RECORD (0.30.0): `delete-sims` leaves one row per
+            # A NOTE, NOT A RECORD: `delete-sims` leaves one row per
             # deleted simulation saying its id belonged to one; the full
             # mention is in storage_management.json (workspace.storage).
             if entry.get("deleted_sim") is not None:
@@ -1904,18 +1824,13 @@ class CampaignWorkspace:
             if (entry.get("source_version") or "").strip():
                 continue
             stamp = record.manifest_schema or "no stamp at all"
-            # A row carrying requested_version is from the layout written
-            # before 2026-08-04, the only one this package ever wrote
-            # without source_version, and it is not the empty-handed case
-            # the rest of this message assumes: the build is IN the row,
-            # under a key that has since been renamed. Sending its owner
-            # away to find what they already have is why this branch
-            # exists rather than one message for every row.
+            # requested_version identifies the layout with the source build in version
+            # and the target build in requested_version. Explain this mapping because
+            # the row already carries the build; it need not be recovered elsewhere.
             if "requested_version" in entry:
                 relabel = (
-                    " This row carries requested_version, which only the layout "
-                    "written before 2026-08-04 had, so the build is already in it "
-                    "and nothing has to be recovered: there, version held the "
+                    " This row carries requested_version, so its build is already "
+                    "recorded and nothing has to be recovered: in that layout, version held the "
                     "record's source build and requested_version held the build the "
                     "script targeted, which are this layout's source_version and "
                     "version in that order."
@@ -1962,16 +1877,13 @@ class CampaignWorkspace:
         today under the old stamp makes that inference wrong for the
         whole file.
 
-        WHAT THIS DOES NOT GUARD, stated because the scope is narrower
-        than the sentence "every manifest this release writes is
-        stamped" would be: a record carrying NO waiver may still be
+        A record carrying NO waiver may still be
         appended unstamped, and several callers do exactly that.
         :attr:`RunRecord.manifest_schema` is optional so that a row which
         never carried it stays honest about that (REV010-014), and the
         run layer stamps every record it builds, which
         ``tests/tier1_offline/test_run_campaign.py`` measures separately. Requiring a
-        stamp on every append is a wider public break than this item
-        carries evidence for.
+        stamp on every append is outside this validation's scope.
 
         Parameters
         ----------
@@ -2082,10 +1994,9 @@ class CampaignWorkspace:
         run identity (PP-6).
 
         Existing rows are carried across AS THEY WERE WRITTEN.
-        REV010-014: this used to re-serialize the validated models, so
-        appending one run rewrote every older row with more than twenty
-        defaulted fields and a manifest_schema it had never carried.
-        Historical evidence is not this method's to edit; migrating a
+        REV010-014: do not re-serialize existing rows through validated models,
+        which would add defaulted fields and a manifest_schema not recorded
+        by their writer. Historical evidence is not this method's to edit; migrating a
         manifest is a separate, deliberate, auditable act.
 
         Raises

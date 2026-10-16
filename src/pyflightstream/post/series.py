@@ -486,8 +486,7 @@ def write_point_series(
     Tecplot, VTK and CSV files. Those files are listed, not rewritten, and
     are separate from the returned tables and their entries.
 
-    A KIND WITH NO STAMPED FILE IS NOT WRITTEN. It used to be a table of
-    a header and no row, recorded in the manifest as written; ``skipped``, when
+    A KIND WITH NO STAMPED FILE IS NOT WRITTEN. ``skipped``, when
     given, receives the reason under the table's own name.
 
     A STEP OF THE WINDOW THAT ``free-space`` DELETED (``prune_step_exports``) refuses that
@@ -587,7 +586,7 @@ def write_point_series(
     for kind, suffix in SERIES_KINDS:
         files = stamped.get((suffix or "", "txt"), {})
         relative = f"{SERIES_DIR}/{stem}_{kind}_series.csv"
-        # A STEP FREE-SPACE DELETED IS A REFUSAL, NAMED (0.30.0), never the
+        # A STEP FREE-SPACE DELETED IS A REFUSAL, NAMED, never the
         # silent gap a series of the steps that remain would be. A step that
         # was never exported keeps the rule it always had.
         pruned = pruned_step_refusal(
@@ -619,14 +618,9 @@ def write_point_series(
             files, steps, delta, step_deg, context, layout=record.sections_layout, rotors=rotors
         )
         path = out / relative
-        # THE TARGET DECIDES, AND DECIDES ALONE. Until 2026-09-14 the products
-        # stage accepted `archive` and never passed it here, so a rebuild
-        # archived every product but these, which it rewrote in place:
-        # measured on a rotor campaign rebuilt twice, four folders gained
-        # archive/ and series/ did not. The overwrite gate is skipped when a
-        # target is given, because running both split one rebuild in two
-        # (the API, QA and architecture lenses): archive=False with
-        # overwrite=False rewrote every other product and then refused these.
+        # An explicit target owns the archive and overwrite policy. Skip the
+        # separate overwrite gate when a target is provided so the series follows
+        # the same rebuild policy as the other products.
         if target is not None:
             path = target(path)
         elif path.exists() and not overwrite:
@@ -635,7 +629,7 @@ def write_point_series(
                 "manifest, or a target that decides what becomes of it (the products stage "
                 "passes one that archives it first)"
             )
-        # THE POLAR FIRST (G16, 0.27.0), the run record's own: every row of a
+        # THE POLAR FIRST (G16), the run record's own: every row of a
         # series is a step of this one point.
         done = write_csv_table(
             path, (POLAR_ID_COLUMN, *columns), [(record.sim_id, *row) for row in rows]

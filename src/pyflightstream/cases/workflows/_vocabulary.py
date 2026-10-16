@@ -51,25 +51,15 @@ from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 #: the field wins.
 WORKFLOW_KEY = "matrix_workflow"
 
-#: The workflow name a row written before the ``WORKFLOW`` column asks
-#: for: the established matrix behaviour, whose builder is the user's own
-#: recipe. It is deliberately NOT in :data:`WORKFLOWS`; it means "no
-#: workflow", which is what keeps every matrix written before v0.8.0
-#: running exactly as it always ran.
+#: The workflow name for a row without a WORKFLOW choice: its builder is
+#: the user's recipe. Deliberately absent from WORKFLOWS because it means
+#: no registered workflow.
 _LEGACY = "LEGACY"
 
-#: The geometry a row names, as a library id: the STEM of a file staged
-#: under ``inputs/geometries/``, never a path and never a file name.
-#:
-#: Defined HERE, beside the other cell keys, and re-exported from
-#: :mod:`pyflightstream.workspace.matrix`, which is where the resolver
-#: that reads the cell lives and where the published import path stays.
-#: It was defined THERE until 0.8.1 and the move is not tidying: a cell
-#: key that a refusal in this module cannot name is a refusal that has to
-#: describe the value some other way, and this one described an internal
-#: staged path, so the user read back a string they had never typed.
-#: Free because the name is new in this release and had no published
-#: contract to keep.
+#: The geometry's library id: the stem of a file staged under
+#: inputs/geometries, never a path or filename. Defined beside the cell
+#: keys so refusals can name the input. Re-exported from workspace.matrix,
+#: the published import path and home of its resolver.
 GEOMETRY_VARIABLE = "GEOMETRY"
 
 #: Free case variables a workflow reads off the row. Each is a KEY of the
@@ -87,12 +77,12 @@ ROTOR_ORIGIN_POINT_KEY = "ROTOR_ORIGIN_POINT"
 #: (PFS-2029.11.01): ``MOTIONS: {A: 1 / B: x}, {A: 2 / B: y}``. Each
 #: record holds the keys one rotor motion is stated with; a row with the
 #: list states no flat motion key beside it. Defined HERE, beside the
-#: other cell keys, since 0.13.0, so the rotor run type can register it;
+#: other cell keys, so the rotor run type can register it;
 #: :mod:`pyflightstream.cases.matrix`, whose reader consumes the list
 #: into :attr:`~pyflightstream.cases.SimCase.motions`, re-exports it.
 MOTIONS_VARIABLE = "MOTIONS"
-#: The row's ROTATION of the opened mesh (PFS-2034.02, the design of
-#: 2026-09-09, design/69): a list of records like ``MOTIONS``, each one
+#: The row's ROTATION of the opened mesh (PFS-2034.02, design/69):
+#: a list of records like ``MOTIONS``, each one
 #: rotation, in the order written, ``ROTATE: {ANGLE: 3 / AXIS: NAC-Y /
 #: ALIAS: PUSHER}, {...}``. ``AXIS`` names a
 #: frame the setup defines or the package creates and one of its axes;
@@ -109,31 +99,22 @@ ROTATE_VARIABLE = "ROTATE"
 SWEEP_WORD = "sweep"
 
 #: The keys a rotation record carries. ``ANGLE`` and ``AXIS`` are always
-#: stated; WHAT IT TURNS is stated once, as ``ALIAS`` since 0.15.0 or as
-#: ``FAMILIES`` before it.
+#: stated; WHAT IT TURNS is stated once, as ``ALIAS`` or the legacy
+#: ``FAMILIES`` key.
 ROTATION_RECORD_KEYS = ("ANGLE", "AXIS")
 
-#: The word a rotation turns (FR-71, the design of 2026-09-10). A rotation
-#: and a motion cite a set THE SAME WAY, which is the whole point of the
-#: rename: after it, every surface of this package that names a group of
-#: boundaries names it by alias, and the reference is the one place a
-#: study says what its groups are.
+#: The alias a rotation turns (FR-71). Rotations and motions cite groups
+#: by alias; the reference owns the study's group definitions.
 ROTATION_ALIAS_KEY = "ALIAS"
 
-#: The 0.14.0 spelling, REFUSED since 0.15.0 naming ``ALIAS``. It
-#: named the boundaries INLINE, which is the thing the alias replaces: a
-#: row listing families is a row that has to be edited when the mesh is
-#: renamed, and there are as many of those rows as there are studies.
+#: The inline-family spelling, refused with guidance to use ALIAS.
+#: Declaring group membership in the reference avoids editing every row
+#: when the mesh's family names change.
 ROTATION_FAMILIES_KEY = "FAMILIES"
 
-#: What the alias makes unnecessary rather than what it forbids. Every
-#: frame an alias OWNS turns with its boundaries since 0.15.0, so a record
-#: no longer lists them; a record still listing them is read SILENTLY and
-#: the frames it names turn as they did, and a frame the alias already
-#: carries is not turned twice for having been named twice. This comment
-#: said "read with a warning until 0.17.0" until a review round asked
-#: where that warning was: there is none, and no ledger entry behind it
-#: either (2026-09-10).
+#: An alias's frames turn with its boundaries. Explicit AUX_FRAMES are
+#: read silently and turn too; a frame also owned by the alias turns only
+#: once. There is no deprecation warning for this key.
 ROTATION_OPTIONAL_KEYS = ("AUX_FRAMES",)
 
 #: The row's mesh translation variable (FR-100, PFS-2034.06), with the
@@ -155,38 +136,29 @@ TRANSLATION_ALIAS_KEY = ROTATION_ALIAS_KEY
 TRANSLATION_OPTIONAL_KEYS = ROTATION_OPTIONAL_KEYS
 #: The direction a rotor case's relaxed trailing edges shed their wake:
 #: AXIAL (0) or AZIMUTH (1), the second being what 26.123 adds and what a
-#: rotor case wants (SRC-751 p.85). Absent means the row asks for nothing
+#: rotor case wants (FSM-26.123 p.85). Absent means the row asks for nothing
 #: and every specification stays exactly as it was written.
 ROTOR_SHEDDING_VARIABLE = "ROTOR_SHEDDING"
 BLADES_VARIABLE = "BLADES"
 MOVING_BOUNDARIES_VARIABLE = "MOVING_BOUNDARIES"
-#: The word a motion record uses to name its rotor since 0.15.0 (FR-61,
-#: the design of 2026-09-10): an ALIAS the reference declares as a rotor
-#: block, and the only rotor identity a row carries. The hub, the axis,
-#: the sign, the blade count and the diameter come from that block, so a
-#: row states which rotors turn and at what operating point and nothing
-#: else about them. It replaces :data:`MOVING_BOUNDARIES_VARIABLE` and the
-#: four keys beside it, which are REFUSED since 0.15.0 naming their
-#: replacements, and refused a second way in the same record as this one.
+#: The alias identifying a motion's rotor block (FR-61). That block owns
+#: the hub, axis, hand, blade count and diameter; the row states which
+#: rotors turn and their operating points. MOVING_BOUNDARIES and the four
+#: inline rotor keys are refused with replacement guidance, including when
+#: stated beside this alias.
 MOVING_BC_ALIAS_VARIABLE = "MOVING_BC_ALIAS"
-#: The motion that owns the row's clock (FR-64, the design of 2026-09-10).
-#: It names a motion the same row states, and the time step and the run
-#: length are that motion's. A row without it keeps the arithmetic of
-#: 0.14.0, the fastest rotor, with a warning naming the motion assumed;
-#: the key becomes required at 0.17.0. `rotor_speed` is what a one-rotor
-#: row resolves; on a row of several, `_clock_speed` is which of them the
-#: clock follows. FR-64 also asks for `rotor_speed` to be renamed
-#: `rotor_speed_ref` at the call site, and that half is NOT done: the
-#: requirement says so rather than this comment naming a symbol the tree
-#: does not carry (the technical writing lens of 2026-09-10).
+#: The motion owning the row's clock (FR-64): its speed determines the
+#: time step and run length. A MOTIONS list requires this key; a flat row
+#: uses the fastest rotor and warns when several speeds compete.
+#: _clock_speed resolves the choice; rotor_speed resolves a rotor's speed.
 CLOCK_MOTION_VARIABLE = "CLOCK_MOTION"
 #: Whether the solver reports the loads of the meshed sector or of the
-#: whole wheel (FR-66, the design decision of 2026-09-10). A preset key promoted
-#: to a row key, because one preset serves a sector row and a full-wheel
+#: whole wheel (FR-66). A row key as well as a preset key, because one
+#: preset serves a sector row and a full-wheel
 #: row; a row stating it overrides the preset and warns naming both.
 SYMMETRY_LOADS_VARIABLE = "SYMMETRY_LOADS"
-#: The two angles that fix the attitude of a point (FR-69, the rule of
-#: 2026-09-10). They are keys of the FLIGHT_CONDITION cell, stated on
+#: The two angles that fix the attitude of a point (FR-69).
+#: They are keys of the FLIGHT_CONDITION cell, stated on
 #: every row, so that no run reaches the solver at an angle nobody wrote;
 #: the swept one carries the word `sweep` instead of a number and is the
 #: point's, and the other is read from here. They are the row's own keys
@@ -253,8 +225,7 @@ REVOLUTIONS_VARIABLE = "REVOLUTIONS"
 #: and :data:`REVOLUTIONS_VARIABLE`.
 RUN_WAKE_LENGTH_R_VARIABLE = "RUN_WAKE_LENGTH_R"
 #: WHICH of the row's OUTPUTS is the solver log, by 1-based position.
-#: Absent means no log is exported, which is what
-#: every workflow did before this release. A log is what turns an
+#: Absent means no log is exported. A log is what turns an
 #: unsteady run from "reached the end of its time loop" into a
 #: residual verdict, because the iteration counter of a time loop
 #: that always runs to its prescribed end judges nothing.
@@ -282,7 +253,7 @@ LAST_REVS_AVG_VARIABLE = "LAST_REVS_AVG"
 LAST_ITERS_AVG_VARIABLE = (
     "LAST_ITERS_AVG"  #: The step the per-step exports BEGIN on, stated in revolutions of the
 )
-#: rotor or in time iterations (PFS-2031.18, the design of 2026-09-08,
+#: rotor or in time iterations (PFS-2031.18,
 #: GeoversePlan design 67). A row states at most one. From that step to
 #: the end of the run the solver exports every per-step kind of the row's
 #: output set after each time step, each file stamped ``_iteration=N`` by
@@ -291,8 +262,7 @@ LAST_ITERS_AVG_VARIABLE = (
 #: are accepted on both unsteady types and refused on a steady row, which
 #: has no time loop for an action to run in.
 #:
-#: This is the "after N" form that supersedes the degrees-backwards window
-#: of PFS-2025.08 for the mid-run exports; the averaging window is separate,
+#: This is the "after N" form for mid-run exports; the averaging window is separate,
 #: the averaging window of the reductions.
 EXPORT_UNSTEADY_AFTER_REV_VARIABLE = "EXPORT_UNSTEADY_AFTER_REV"
 EXPORT_UNSTEADY_AFTER_ITER_VARIABLE = "EXPORT_UNSTEADY_AFTER_ITER"
@@ -318,12 +288,11 @@ EXPORT_THRESHOLD_VARIABLES: tuple[str, ...] = (
 #: ``PERIODIC``, while 25.000 spells the argument differently and offers
 #: its own set
 #: (:func:`accepted_symmetry`). Absent means the row asks for nothing and
-#: ``NONE`` is emitted, which is what every workflow emitted before
-#: 0.8.1 and the only thing any of them could emit.
+#: ``NONE`` is emitted.
 #:
 #: ``MIRROR`` CARRIES A CAUTION THIS KEY CANNOT ENFORCE: initializing a
 #: mirrored solution with the FULL model loaded diverges immediately,
-#: because the model is then its own mirror image (SRC-003 p.217). The
+#: because the model is then its own mirror image (FSM-26.120 p.217). The
 #: mode describes what was MESHED, so a row declaring it must have
 #: staged the half. Nothing here can check that, which is why it is
 #: written where the mode is chosen rather than only in the helper.
@@ -335,15 +304,13 @@ EXPORT_THRESHOLD_VARIABLES: tuple[str, ...] = (
 #: row nor the setup states it, the run takes the solver's own default,
 #: calibrated as ENABLE on a licensed 26.120.
 #:
-#: THIS KEY IS WHY 0.8.1 IS A DEFECT RELEASE AND NOT A FEATURE ONE. A
-#: periodic sector solved under ``SYMMETRY NONE`` is not a failed run: it
+#: A periodic sector solved under ``SYMMETRY NONE`` is not a failed run: it
 #: is a ONE-BLADED ROTOR that converges, exports, and reports thrust and
-#: torque a reader has no way to tell from the sector's. Two of the three
-#: rows of the study this was measured on are periodic sectors, and
-#: until this key existed no matrix cell could say so (PFS-2025.02.03).
+#: torque a reader has no way to tell from the sector's. The matrix must
+#: state the meshed symmetry (PFS-2025.02.03).
 SYMMETRY_VARIABLE = "SYMMETRY"
 
-#: THE QUASI-STEADY ROTOR (0.30.0): the run type that solves an isolated,
+#: THE QUASI-STEADY ROTOR: the run type that solves an isolated,
 #: axisymmetric rotor with its blades held still and the rotation carried by
 #: the free stream, and the key that says in how many clockings its wheel is
 #: solved. A row states the count ``k``, one or more; the run solves the wheel
@@ -358,14 +325,9 @@ PASSAGE_POSITIONS_VARIABLE = "PASSAGE_POSITIONS"
 #: an unsteady one by its recipe.
 STEADY_RUN_TYPES: tuple[str, ...] = ("steady", QSTEADY_ROTOR)
 
-#: FR-93, one of the six columns of 0.17.0: the processor count, ONE
-#: number for every platform since
-#: v0.17.0. It reaches ``SET_MAX_PARALLEL_THREADS`` as the solver's
-#: thread count AND, on a submitting run, the scheduler's ``ncpus``. It
-#: is one key because it is one number: while it lived in the setup as
-#: ``max_parallel_threads`` and a cluster descriptor carried its own
-#: ``ncpus``, a job could reserve forty-eight processors and solve on
-#: eight with nothing noticing.
+#: FR-93: one processor count for every platform. It reaches both
+#: SET_MAX_PARALLEL_THREADS and the submitting scheduler's ncpus, so the
+#: reserved processors agree with the solver's thread count.
 NCPUS_VARIABLE = "NCPUS"
 
 #: FR-93 as a column and FR-98 as a behaviour: the wall clock a row asks
@@ -379,7 +341,7 @@ WALLTIME_VARIABLE = "WALLTIME"
 #: a grouped run (--batch, --polar-sweep) replaces by the estimate of its job.
 WALLTIME_BEST = "BEST"
 
-#: The grouped-run layout and file names (0.35.0). One home for each literal.
+#: The grouped-run layout and file names. One home for each literal.
 BATCH_DIR = "batch"  # sims/batch/
 FULL_POLAR_STEM = "FULL-POLAR"  # sims/sim_<id>/FULL-POLAR.txt
 BATCH_STEM_PREFIX = "BATCH-"  # BATCH-<first sim>-<last sim>.txt
@@ -438,7 +400,7 @@ ACTUATOR_KEYS: tuple[str, ...] = (
 #: sharing a name with an output written to the same folder.
 ACTUATOR_PROFILE_COPY_SUFFIX = ".actuator_profile.txt"
 
-#: G15 (0.27.0): THE CUSTOM FREE STREAM OF A ROW. The stem of a file of the
+#: G15: THE CUSTOM FREE STREAM OF A ROW. The stem of a file of the
 #: workspace's ``inputs/freestreams/``, a velocity field over the YZ plane of
 #: the GLOBAL frame that the run writes as ``SET_FREESTREAM CUSTOM`` in place of
 #: ``CONSTANT``. The workspace resolves it to the absolute path on
@@ -460,7 +422,7 @@ FREESTREAM_FORMS: Mapping[str, str] = MappingProxyType(
     {".txt": "STRUCTURED", ".dat": "UNSTRUCTURED"}
 )
 
-#: G12 (0.27.0): THE ADDITIONAL POST OF A ROW. One pproc id, read by
+#: G12: THE ADDITIONAL POST OF A ROW. One pproc id, read by
 #: ``pyfs-matrix post --additional-pproc`` and by NO builder: the post reopens
 #: each point's final saved simulation and runs that pproc's extractions over
 #: it with no solve. So a row stating it renders the bytes it renders without
@@ -492,15 +454,13 @@ _NOT_EXTRACTED_KINDS: tuple[str, ...] = (
 
 #: How many periodic copies the sector stands for, dimensionless count.
 #: Required with ``SYMMETRY: PERIODIC`` and forbidden otherwise, which is
-#: the command's own rule (SRC-003 p.337) and is enforced by
+#: the command's own rule (FSM-26.120 p.337) and is enforced by
 #: :func:`pyflightstream.script.helpers.initialize_solver`; a
 #: four-bladed rotor modelled as one 90 degree sector declares 4.
 PERIODIC_COPIES_VARIABLE = "PERIODIC_COPIES"
 
-#: The cell key whose value is a LIST OF RECORDS, each one raw solver
-#: command line the row states, or one file of them (FR-67, the design decision of
-#: 2026-09-10, "a linha ganha um jeito de passar comando bruto, mantendo a
-#: feature original preservada").
+#: The row's raw solver commands (FR-67): a list of records, each stating
+#: one command line or one file of command lines.
 RAW_VARIABLE = "RAW"
 
 #: The two forms a raw record takes, and exactly one of them is written:
@@ -512,15 +472,9 @@ RAW_FILE_KEY = "FILE"
 #: before, spelled as the preset's `[[raw]]` table spells it.
 RAW_BEFORE_KEY = "BEFORE"
 
-#: The sentence on ``docs/mesh-inputs.md`` that the geometry refusals send
-#: a blocked user to, quoted VERBATIM so the two cannot drift.
-#:
-#: The refusal once quoted "A workflow opens route 1 only" while the
-#: page said "A WORKFLOW TAKES ROUTE 1 ONLY". Both were written in the
-#: same commit and neither was wrong on its own; only together were they
-#: useless, because a user who does what the message says, opens the page
-#: and searches for the phrase, finds nothing. Spelled here rather than
-#: inline so a tier 1 guard can assert the page still contains it.
+#: The sentence on docs/mesh-inputs.md quoted verbatim by geometry
+#: refusals. A tier-1 guard checks that the page contains it so a reader
+#: following the refusal can find the cited guidance.
 _MESH_PAGE_ANCHOR = "A RAW MESH STATES ITS UNITS"
 #: The phrase of the same page that opens a raw mesh's boundary conditions
 #: (G02), quoted by every refusal about them, for the same reason.
@@ -568,7 +522,7 @@ _IMPORT_COMMANDS: Mapping[str, str] = MappingProxyType(
     }
 )
 
-#: ``SURFACE_MIRROR``'s plane is an INDEX and not letters (SRC-003 p.311).
+#: ``SURFACE_MIRROR``'s plane is an INDEX and not letters (FSM-26.120 p.311).
 _MIRROR_PLANES: Mapping[str, int] = MappingProxyType({"YZ": 1, "XZ": 2, "XY": 3})
 
 #: The frame every import operation acts in: the reference, the one frame
@@ -576,24 +530,17 @@ _MIRROR_PLANES: Mapping[str, int] = MappingProxyType({"YZ": 1, "XZ": 2, "XY": 3}
 _IMPORT_FRAME = 1
 
 
-# --- PFS-2015.04: the windows the run record carries for the products stage ---
-#
-# The reductions reach the campaign products through the workflow (the rule
-# of 2026-09-08): the run stage resolves the windows off the ROW, where the
-# clock and the blade count are stated, writes them on the run record, and
-# the products stage reads the record alone, as it reads everything else.
-# This is the consumer :meth:`ExportWindow.record` waited for since 0.8.1.
+# PFS-2015.04: workflow reduction windows connect run and products.
+# The run stage resolves them from the row's clock and blade count,
+# records them, and the products stage reads that record.
 
 #: The three reductions the products stage writes beside the plots table,
 #: in the order they are written. Raw is the plots table itself.
 REDUCTION_NAMES: tuple[str, ...] = ("time_average", "phase_locked", "per_blade")
 
-#: The run record key under which a row's PER-ROTOR reduction windows live
-#: (FR-68), alias to that rotor's block. A NAME AND NOT A LITERAL, because
-#: the key spans two layers: this module writes it and
-#: :mod:`pyflightstream.post.products` reads it, and a string typed twice
-#: in two layers is a contract nothing states (the architecture lens,
-#: 2026-09-10).
+#: The run-record key for per-rotor reduction windows (FR-68), mapping
+#: each alias to its block. Shared by the cases writer and post.products
+#: reader so the cross-layer key has one definition.
 ROTORS_KEY = "rotors"
 
 #: The reductions that are PER ROTOR, and therefore the ones a per-rotor
@@ -602,11 +549,11 @@ ROTORS_KEY = "rotors"
 PER_ROTOR_REDUCTIONS: tuple[str, ...] = ("phase_locked", "per_blade")
 
 #: The plan key under which a row stating its rotor with flat keys records the
-#: speed it turned at, rev/min, signed (0.24.0).
+#: speed it turned at, rev/min, signed.
 FLAT_RPM_KEY = "rpm"
 
 #: The plan key under which a rotor's blade families are recorded, in the rotor's
-#: own order (0.24.0). A name and not a literal for the reason `ROTORS_KEY` is.
+#: own order. A name and not a literal for the reason `ROTORS_KEY` is.
 BLADE_FAMILIES_KEY = "blade_families"
 
 #: The two run types whose points carry a time history, and therefore the
@@ -626,7 +573,7 @@ RATE_VARIABLES: tuple[tuple[str, str], ...] = (
 _DEG_PER_S_TO_RPM = 60.0 / 360.0
 
 #: THE SIGN OF THE EMITTED ROTATION, PER BODY AXIS, relative to the rate the
-#: row states (G13, 0.27.0). The row's rates are FLIGHT MECHANICS: positive p
+#: row states (G13). The row's rates are FLIGHT MECHANICS: positive p
 #: is right wing down, q nose up, r nose right, about body axes that point
 #: forward, right and down. The solver turns the free stream as a RIGHT-HAND
 #: rotation about the frame axis it is given, and the geometry's frame is x
@@ -645,9 +592,7 @@ _DEG_PER_S_TO_RPM = 60.0 / 360.0
 #: positive rotation about x gave the meshed left wing MORE lift and a positive
 #: rolling increment, the damping of -p, and a positive rotation about z gave
 #: it LESS lift, the response of -r. Both reports and their evidence are under
-#: reports/. Until 0.27.0 one sign of +1 served all three axes, so a row of
-#: 0.21.0 to 0.26.0 stating roll_rate or yaw_rate was solved at the opposite
-#: rate.
+#: reports/.
 #:
 #: A configuration whose [body_axes] permutes the axes turns about the axis it
 #: declares with its rate's sign here; no probe has measured such a mesh.
@@ -668,10 +613,10 @@ Frames = Mapping[str, int | None | Mapping[str, int]]
 
 #: The row variable the command line writes its choice into, so the reader
 #: can honour it without the cases layer knowing a command line exists
-#: (PFS-2035.13, the design of 2026-09-10).
+#: (PFS-2035.13).
 IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 
-#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0).
+#: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG.
 #: Written onto the case by the RUN layer from the HPC profile's
 #: ``[log]`` table, exactly as IGNORE_MISSING_FAMILIES is written from the
 #: command line, and for the same reason: the builders read the case and know
@@ -680,10 +625,7 @@ IGNORE_MISSING_FAMILIES_VARIABLE = "IGNORE_MISSING_FAMILIES"
 #: so a run on any other machine renders byte for byte what it rendered before.
 EXPORT_LOG_VARIABLE = "EXPORT_LOG"
 
-#: The words that mean yes and the words that mean no, in the ONE place
-#: both readers ask. The command line and the row variable used to carry a
-#: copy each, in two layers, with nothing asserting the two agreed (the
-#: architecture lens of 2026-09-10).
+#: The words meaning yes and no, shared by command-line and row readers.
 CHOICE_WORDS: Mapping[str, bool] = MappingProxyType(
     {"true": True, "yes": True, "1": True, "false": False, "no": False, "0": False}
 )
@@ -743,10 +685,10 @@ def read_a_choice(word: object, *, context: str) -> bool:
 #: unread key rather than this item's business, and the reduction plan
 #: reads it for a per-blade split that a rotorless run simply never asks
 #: for.
-#: ADVANCE_RATIO is NOT in this list since 0.11.0 (PFS-2029.19): the reference
+#: ADVANCE_RATIO is NOT in this list (PFS-2029.19): the reference
 #: unsteady wing-body runs stated the advance ratio of the rotor they
 #: did not mesh, because it set the azimuthal step and named the point
-#: (POLAR-3224_..._J+130); since 0.21.0 the name keeps that field when the
+#: (POLAR-3224_..._J+130); the name keeps that field when the
 #: flight condition declares it. The keys that
 #: would turn something are still refused.
 ROTORLESS_REFUSED_KEYS: tuple[str, ...] = (
@@ -760,8 +702,7 @@ ROTORLESS_REFUSED_KEYS: tuple[str, ...] = (
 
 # --- PFS-2031.18: exports that begin after a threshold the row states --------
 #
-# THE DESIGN OF 2026-09-08, written down as GeoversePlan design 67 and
-# built here as it was drawn. The solver hands an unsteady action nothing
+# GeoversePlan design 67. The solver hands an unsteady action nothing
 # about where it is in the run (RPT-041 finding 4), so the run type
 # registers TWO actions, in this order: a COMMAND_LINE running a Python
 # program the run layer writes, which counts its own invocations in a
@@ -804,12 +745,12 @@ WALLTIME_MARGIN_DEFAULT_S = 1200
 #: by the row's outputs, which the pproc artifact's export set rendered;
 #: nothing here retypes a verb or a suffix.
 WHOLE_RUN_EXPORT_KINDS: tuple[str, ...] = ("simulation", "plots", "log")
-#: The kinds saved ONCE, at the end of the run, and never per step (G10 of
-#: 0.27.0): the per-panel force distribution is the size of the mesh, and a
+#: The kinds saved ONCE, at the end of the run, and never per step (G10):
+#: the per-panel force distribution is the size of the mesh, and a
 #: stamped per-step copy is a file nothing lists (``post.series`` reads the
 #: stamped sections, sectional loads and probes). The wall clock's rescue is
 #: the end of the run, so it keeps them, as it keeps the whole-run kinds.
-#: The solver's residual and load plots join them (G26 of 0.28.0): each is the
+#: The solver's residual and load plots join them (G26): each is the
 #: series of the whole march, one row per inner iteration (RPT-076), so a
 #: per-step save would write the same growing file at every step.
 END_OF_RUN_EXPORT_KINDS: tuple[str, ...] = (
@@ -842,10 +783,8 @@ RESTART_FORMS = (
 #: early or holds a node for a day.
 WALLTIME_UNITS: dict[str, float] = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}
 
-#: The same four, glossed and in magnitude order, for a refusal to quote. The
-#: bare letters read `d, h, m, s`, which leaves `m` and `d` to the reader in the
-#: one message whose subject is an ambiguity that cost a node-day (the interface
-#: lens, 2026-09-16).
+#: The same four units, glossed and in magnitude order, for refusal text
+#: that makes the meanings of m and d explicit.
 WALLTIME_UNITS_GLOSS = "s (seconds), m (minutes), h (hours), d (days)"
 
 
@@ -857,25 +796,11 @@ WALLTIME_UNITS_GLOSS = "s (seconds), m (minutes), h (hours), d (days)"
 RESTART_FROM_VARIABLE = "RESTART_FROM"
 RESTART_ITERATIONS_VARIABLE = "RESTART_ITERATIONS"
 
-#: The two names above are the PACKAGE'S to set and never a row's, and this
-#: is the tuple the refusal walks.
-#:
-#: WHY A ROW MUST NOT STATE THEM, found by the architect lens of the 0.18.0
-#: release round on 2026-09-14. They travel in the same free-variable
-#: namespace a user's `VAR_NAMES_VALUES` cell writes into, so a row stating
-#: `RESTART` together with both of these reached `continuation_of` with the
-#: facts already present and built a continuation DIRECTLY, skipping
-#: `resolve_continuation` entirely: no check that a recorded run exists, no
-#: check that its status is continuable, no archive of the outputs about to
-#: be replaced, and no stamped run id. The continuation then overwrote the
-#: stopped run's outputs in place, under the predecessor's own run id, which
-#: is exactly the collision the stamp was introduced to prevent.
-#:
-#: THE REFUSAL IS HERE rather than a rename into the reserved `matrix_`
-#: namespace because the rename would be silent: a user who had written the
-#: key would find it ignored rather than refused, and the shape of this
-#: mistake is somebody copying a name out of a manifest or a generated script
-#: and reasonably expecting it to work.
+#: These two keys are package-owned and forbidden in VAR_NAMES_VALUES.
+#: User-supplied continuation facts could bypass resolve_continuation's
+#: record, status, archive and run-id checks and overwrite stopped outputs.
+#: Refuse the keys explicitly so names copied from a manifest or generated
+#: script cannot silently be ignored or accepted as continuation authority.
 RESERVED_CONTINUATION_VARIABLES = (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
@@ -888,7 +813,7 @@ RESERVED_CONTINUATION_VARIABLES = (
 #:
 #: ``OPEN`` IS DELIBERATELY ABSENT FROM EVERY ``commands`` TUPLE BELOW,
 #: and this note is here so the absence is not read as an oversight and
-#: quietly "fixed". Both builders emit it since 0.8.1, but only for a
+#: quietly "fixed". Builders emit it only for a
 #: case that names a geometry, and :class:`Workflow` states the rule
 #: this follows: a command that is only SOMETIMES emitted must not be
 #: listed, because :func:`covered_builds` derives coverage from this
@@ -910,7 +835,7 @@ RESERVED_CONTINUATION_VARIABLES = (
 #: ``ADVANCE_RATIO`` is registered on all three because the point NAME
 #: reads it on every case (``J<J*100>``, PFS-2029.19) and the export
 #: names carry it into the script. ``LOG_OUTPUT`` is read by every
-#: export block and refused on a matrix row by the reader since 0.11.0,
+#: export block and refused on a matrix row by the reader,
 #: so it is reachable from Python alone, like ``VELOCITY``.
 _STEADY_KEYS: tuple[str, ...] = (
     "FSI",
@@ -921,12 +846,9 @@ _STEADY_KEYS: tuple[str, ...] = (
     # reports the sector's loads or the wheel's is a per-row choice
     # wherever a mirrored or periodic mesh is opened, not a rotor matter.
     SYMMETRY_LOADS_VARIABLE,
-    # FR-69: the two angles the FLIGHT_CONDITION cell states and the
-    # matrix reader puts on the case. They are registered because the key
-    # guard refuses ANY variable no run type reads, so a row stating the
-    # incidence it is not sweeping would reach its builder and be refused
-    # as a key of no run type (the architecture lens of 2026-09-10). They
-    # belong to every run type: every point has an attitude.
+    # FR-69: the matrix reader places both FLIGHT_CONDITION angles on the
+    # case. Every run type registers them because every point has an attitude
+    # and the key guard checks unswept angles too.
     ALPHA_VARIABLE,
     BETA_VARIABLE,
     # PFS-2035.13: the command line writes this one onto the case, so it
@@ -934,8 +856,8 @@ _STEADY_KEYS: tuple[str, ...] = (
     # are, and it is refused in a matrix CELL by the reader, so it stays a
     # choice of the invocation and never becomes a property of the row.
     IGNORE_MISSING_FAMILIES_VARIABLE,
-    # 0.21.0: the HPC profile's [log] table reaches the builder this way, on
-    # every run type because every run type exports a log.
+    # The HPC profile's log table reaches every builder here, because every
+    # run type exports a log.
     EXPORT_LOG_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
     BASE_REGIONS_VARIABLE,
@@ -943,16 +865,14 @@ _STEADY_KEYS: tuple[str, ...] = (
     TRANSLATE_VARIABLE,
     VELOCITY_VARIABLE,
     ADVANCE_RATIO_VARIABLE,
-    # THE THREE BODY RATES (0.21.0), on every run type for the same reason as
+    # THE THREE BODY RATES, on every run type for the same reason as
     # the two angles: they are what the aircraft is doing in the flow, the
     # cell states them, and the free stream of every run type is written from
     # them. A row that states none renders as it always did.
     *(key for key, _ in RATE_VARIABLES),
     LOG_OUTPUT_VARIABLE,
-    # The three columns of 0.17.0 that EVERY row answers, registered on
-    # every run type for that reason. NCPUS and WALLTIME are resources
-    # and CONFIGURATION is a label; none of them is conditional on the
-    # run type, which is exactly the rule that made them columns.
+    # Every row answers these columns: NCPUS and WALLTIME are resources,
+    # and CONFIGURATION is a label. Register them on every run type.
     NCPUS_VARIABLE,
     WALLTIME_VARIABLE,
     CONFIGURATION_VARIABLE,
@@ -965,7 +885,7 @@ _STEADY_KEYS: tuple[str, ...] = (
     # on an unsteady or rotor row is not measured; the docs say so.
     FREESTREAM_VARIABLE,
     FREESTREAM_UNITS_VARIABLE,
-    # G35 (0.32.0, FR-244): the direction of a CCS file's Relaxed_TE shedding
+    # G35 (FR-244): the direction of a CCS file's Relaxed_TE shedding
     # lines, on every run type because every run type opens its geometry
     # through `_open_geometry`.
     CCS_SHEDDING_VARIABLE,
@@ -997,9 +917,9 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
     # Unsteady's alone: only a run that marches in time can be continued
     # from where the clock stopped it.
     RESTART_VARIABLE,
-    # 0.32.0 (E2): the acoustic toolbox, whose signals only a march records.
+    # E2: the acoustic toolbox, whose signals only a march records.
     *_acoustics.ACOUSTIC_KEYS,
-    # 0.40.0 (FR-461): a body free to move, the unsteady run type's ALONE; the
+    # FR-461: a body free to move, the unsteady run type's ALONE; the
     # rotor run type below leaves it out (a free body with a rotor turning is
     # outside the route).
     SIXDOF_VARIABLE,
@@ -1025,7 +945,7 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     # FR-422: the run length from a target wake length, a rotor's radii.
     RUN_WAKE_LENGTH_R_VARIABLE,
 )
-#: THE QUASI-STEADY ROTOR'S VOCABULARY (0.30.0): what a steady row reads, the
+#: THE QUASI-STEADY ROTOR'S VOCABULARY: what a steady row reads, the
 #: rotor's speed, and the count of clockings. Not ``COLD_START``, which only a
 #: steady sweep run as one job reads, and every quasi-steady point is its own
 #: job; not ``MOTIONS`` or the flat rotor keys, since the one rotor the
@@ -1039,7 +959,7 @@ _QSTEADY_ROTOR_KEYS: tuple[str, ...] = (
 
 #: WHAT EACH ROW KEY SETS, one entry per key the three tables above register
 #: and one for ``RAW``, which the matrix reader takes out of the cell before a
-#: run type sees it (G08 of 0.27.0). The generated input glossary,
+#: run type sees it (G08). The generated input glossary,
 #: ``INPUTS.md``, reads the run types that accept a key off the tables above
 #: and the builds off the command's own evidence; this states the meaning, the
 #: unit or the values, and the command, and says where a key is written when
@@ -1081,13 +1001,13 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         ),
         GEOMETRY_VARIABLE: InputKey(
             "The geometry the row opens, a file of inputs/geometries/; written in the "
-            "GEOMETRY column since 0.17.0.",
+            "GEOMETRY column.",
             "a file name with its extension",
             "OPEN, IMPORT",
         ),
         SYMMETRY_VARIABLE: InputKey(
             "The symmetry the solver is initialized under, which states what was "
-            "meshed; written in the SYMMETRY column since 0.17.0.",
+            "meshed; written in the SYMMETRY column.",
             "NONE, MIRROR or PERIODIC, as the build's database spells them; absent is NONE",
             "INITIALIZE_SOLVER",
         ),
@@ -1375,7 +1295,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "three coordinates, comma separated, or a rotor point of inputs/reference_points.toml",
             "CREATE_NEW_COORDINATE_SYSTEM",
         ),
-        # REGISTERED AND REFUSED IN 0.29.0 (G35, interim refusal): the direction
+        # REGISTERED AND REFUSED (G35, interim refusal): the direction
         # is a field of the relaxed trailing-edge component definition and no
         # command of a workflow applies it, so `_refuse_rotor_shedding` refuses
         # a row stating it on every build rather than build a wake the row did

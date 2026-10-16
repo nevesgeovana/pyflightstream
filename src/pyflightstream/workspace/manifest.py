@@ -146,7 +146,8 @@ class RunStatus(enum.StrEnum):
     #: reached, and ``residual_note`` words both. Every
     #: reader that treats COMPLETED_MAX_ITER as an ended run that is not a
     #: failure treats this value the same. A manifest holding it is refused by
-    #: a reader, which the migration note states.
+    #: an older reader that does not recognise this status; upgrade that reader
+    #: before sharing the manifest, as the migration note states.
     MAX_ITER_REACHED = "MAX_ITER_REACHED"
     FAILED_EXECUTION = "FAILED_EXECUTION"
     FAILED_SCRIPT = "FAILED_SCRIPT"
@@ -473,7 +474,7 @@ class RunRecord(BaseModel):
         with the reason the row could not window it. None means the row
         carries no time history (a steady point) or the record predates
         the field; a products stage reading None writes no reduction and
-        records why. Adding it did not move :data:`MANIFEST_SCHEMA`.
+        records why. Adding it did not move :data:`MANIFEST_SCHEMA`. [REF-03]
 
         a row that names its rotors by alias also carries
         ``rotors`` (FR-68), alias to one block per rotor holding that
@@ -592,12 +593,9 @@ class RunRecord(BaseModel):
     package_version: str
     package_commit: str | None = None
     package_dirty: bool | None = None
-    #: WHO SUBMITTED THE RUN,  Captured at RUN time because
-    #: that is the only moment it is knowable: it cannot be recovered
-    #: afterwards, so every simulation that finished before this release
-    #: carries None here and its provenance reads `NA`. Resolved by one
-    #: standard-library call that answers on Windows and on the cluster
-    #: alike, so the two platforms stay one code path.
+    #: Submitting user, captured at run time because it cannot be recovered
+    #: afterwards. An unrecorded identity remains None and reads as NA. The
+    #: standard-library lookup serves both Windows and cluster execution.
     submitted_by: str | None = None
     manifest_schema: str | None = None
     fs_exe: str | None = None
@@ -661,7 +659,7 @@ class RunRecord(BaseModel):
     #: THE ORDER IS RECORDED BECAUSE IT IS PART OF THE RESULT. A warm sweep
     #: begins each point from the previous point's converged solution, so
     #: the same three alphas run in another order are not the same three
-    #: numbers, and nothing recorded the order before this release. Empty on
+    #: numbers. Empty on
     #: a record that is one point.
     points_ran: list[dict] = Field(default_factory=list)
     #: The pproc artifact id the row named (PFS-2029.16); None on a
@@ -1030,7 +1028,7 @@ class RunRecord(BaseModel):
                 self.model_copy(
                     update={
                         "run_id": f"{self.run_id.rsplit('/', 1)[0]}/{tag}",
-                        # 0.21.0: the entry's tag is the point name the job
+                        # The entry's tag is the point name the job
                         # recorded, and a per-point record carries it as such.
                         "point_name": tag or None,
                         "point": dict(entry.get("point") or {}),
@@ -1047,14 +1045,14 @@ class RunRecord(BaseModel):
                             "iterations_requested", self.iterations_requested
                         ),
                         "points_ran": [],
-                        # 0.30.0 (M1): a job keys its Mach numbers by point name.
+                        # M1: a job keys its Mach numbers by point name.
                         "rotor_mach": (self.rotor_mach or {}).get(tag) or None,
-                        # 0.40.0 (FR-1047): a job keys its far-field layouts by point name.
+                        # FR-1047: a job keys its far-field layouts by point name.
                         "farfield_layout": ((self.farfield_layout or {}).get("by_point") or {}).get(
                             tag
                         )
                         or None,
-                        # 0.37.0 (FR-414): a person's verdict on one point of the job.
+                        # FR-414: a person's verdict on one point of the job.
                         "marked": entry.get("marked") or self.marked,
                     }
                 )
@@ -1521,10 +1519,9 @@ def append_record(workspace: _ManifestWorkspace, record: RunRecord) -> None:
     run identity (PP-6).
 
     Existing rows are carried across AS THEY WERE WRITTEN.
-    REV010-014: this used to re-serialize the validated models, so
-    appending one run rewrote every older row with more than twenty
-    defaulted fields and a manifest_schema it had never carried.
-    Historical evidence is not this method's to edit; migrating a
+    REV010-014: do not re-serialize existing rows through validated models,
+    which would add defaults and a manifest_schema not recorded by their
+    writer. Historical evidence is not this method's to edit; migrating a
     manifest is a separate, deliberate, auditable act.
 
     Parameters

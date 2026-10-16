@@ -1134,10 +1134,8 @@ def _translate_pair(
                 copies=copies,
                 previous_artifacts=previous_artifacts,
             )
-        # No native source, the default since 0.30.0: the header
-        # the translation wrote must name this VTK and this frame,
-        # or the file is not this translation's and is preserved
-        # as the native branch preserves it, never recorded written.
+        # Without a native source, require the translation header to name this
+        # VTK and frame. Preserve a file belonging to another translation.
         aux = _translation_auxdata(where / other)
         if not (
             aux.get("SOURCE_VTK_SHA256") == file_sha256(where / one)
@@ -1231,9 +1229,8 @@ def _translate_surface_exports(
         previous_artifacts = translation.get("artifacts", {})
         previous_artifacts = previous_artifacts if isinstance(previous_artifacts, Mapping) else {}
         native_base = translation.get("native_tecplot")
-        # 0.30.0: the copy count of a periodic row, which its native export
-        # holds one zone each of; absent on every other row and every record
-        # written before 0.30.0.
+        # Periodic copy count, with one native-export zone per copy; absent
+        # for other rows and records that do not carry periodic-copy metadata.
         copies = translation.get("periodic_copies")
         copies = copies if isinstance(copies, int) and not isinstance(copies, bool) else None
         for one, other in pairs:

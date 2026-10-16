@@ -1,11 +1,8 @@
 """The one lookup of a run matrix by name over the workspace's two homes (FR-310).
 
 A workspace keeps a run matrix at its root or under ``inputs/matrices/``
-(:data:`pyflightstream.workspace.MATRIX_FOLDERS`), and since 0.32.0 the
-restore, the post, the plan's census and the sync found it in both. The
-other commands read the path as given, or the root alone, so a matrix one
-command accepted was one another could not find. Every command that takes a
-matrix, or looks one up by its name or stem, now asks :func:`matrix_path`,
+(:data:`pyflightstream.workspace.MATRIX_FOLDERS`). Every command that takes a
+matrix, or looks one up by its name or stem, asks :func:`matrix_path`,
 which asks :func:`pyflightstream.workspace.find_matrix`: one rule, one home.
 
 THE RULE (FR-521 to FR-523). A value that names its folder (``inputs/m.fs``,
@@ -18,13 +15,10 @@ from outside the workspace is read as it always was. Only ``*.fs`` files are
 matrices of a home (:func:`pyflightstream.workspace.matrix_files`), so a
 name with another suffix is never found there and is read as given.
 
-A BARE NAME IN A HOME AND IN THE WORKING DIRECTORY. Until 0.32.0 a bare name
-was read from the working directory. Since 0.37.0 (FR-411) the workspace's
-file is the matrix of every command, ``rebuild`` included: a same-named file
+A bare name in a home and in the working directory (FR-411): the workspace's
+file is the matrix of every command, ``rebuild`` included. A same-named file
 in the working directory is never read, and when its bytes differ a WARNING
-names both and says which one was read. 0.32.0 to 0.36.0 refused the command
-there, which told a user whose matrix was in ``inputs/matrices/`` alone that it
-was in two places.
+names both and says which one was read.
 
 This module imports the package root and the root does not import it, so the
 two form no cycle; its callers import it by its own path.
@@ -72,8 +66,8 @@ MATRIX_ARGUMENTS: frozenset[tuple[str, str]] = frozenset(
         ("run", "matrix"),
         ("post", "matrix"),
         ("rebuild", "matrix"),
-        # 0.35.0: `status --matrix` reads the matrix of either home by its stem
-        # (FR-736); the resolved path is read back as the stem it names.
+        # FR-736: status --matrix accepts a stem in either matrix home and reads
+        # the resolved path back as its stem.
         ("status", "matrix"),
     }
 )

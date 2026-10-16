@@ -119,7 +119,7 @@ class Overheads:
     basis: str
 
 
-#: The overheads measured on a synthetic geometry (the figure of 2026-10-02).
+#: The overheads measured on a synthetic geometry; the basis records the measurement.
 MEASURED_OVERHEADS = Overheads(
     start_s=2.0,
     reinit_s=0.08,

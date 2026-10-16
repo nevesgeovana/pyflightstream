@@ -1,8 +1,7 @@
 """The probe catalog, third part: CCS, noise, surface removal and the arity probes.
 
-Pipeline role: the entries of ``PROBE_SPECS`` for the commands the 0.32.0
-licensed rounds ran through the release harness and not through
-``pyfs-qa probe`` (the CCS lofts, the acoustic chain, ``DELETE_SURFACES``),
+Pipeline role: ``PROBE_SPECS`` entries for CCS lofts, the acoustic chain,
+``DELETE_SURFACES``,
 for the three commands PFS-2001.05 names, and for the two CCS export
 commands whose arity PFS-2003.06 asks (FR-333, FR-334, FR-335). The module
 is imported by ``pyflightstream.qa.specs`` and registers into the shared
@@ -133,7 +132,7 @@ def _ccs_select(script: Script, workdir: Path) -> None:
 
 #: The component kind of each component of the probe file, for the curve
 #: assignment 26.125 asks for before a component gets a control surface, a
-#: refinement zone or a trailing edge (FR-423, SRC-753 pp.307, 311, 314).
+#: refinement zone or a trailing edge (FR-423, FSM-26.125 pp.307, 311, 314).
 _COMPONENT_KINDS = {1: "wing", 2: "fuselage", 3: "revolution"}
 
 
@@ -528,7 +527,7 @@ def _export_revolve(script: Script, workdir: Path) -> None:
     """Emit the revolve export in the form its build's grammar states.
 
     26.125 states the revolve loft's form, the one the page's sample prints
-    (SRC-753 p.315), after the heading's six-placeholder form aborted on 26.124
+    (FSM-26.125 p.315), after the heading's six-placeholder form aborted on 26.124
     and 26.125; earlier builds keep the heading's form.
     """
     names = [

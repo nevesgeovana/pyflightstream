@@ -1,7 +1,7 @@
 """Tier 1: FlightStream 26.125 is a supported build (FR-423).
 
 The version registry knows it, every command of the database carries a 26.125
-row read from its manual (SRC-753) or a documented reason for none, the
+row read from its manual (FSM-26.125) or a documented reason for none, the
 thirteen commands the edition adds are entered and reachable, and the emitter
 writes each request in the form 26.125 documents while every 26.124 script
 stays as it was.
@@ -30,7 +30,7 @@ from pyflightstream.support import minimal_workflow, version_support
 from pyflightstream.versions import known_versions, manual_editions, resolve
 from tests.tier1_offline.test_workflows import steady_case, unsteady_case
 
-#: Twelve of the thirteen commands SRC-753 is the first edition to document; the
+#: Twelve of the thirteen commands FSM-26.125 is the first edition to document; the
 #: thirteenth, SET_DIRECT_AEROELASTIC_MESH_MORPHING, is item S6's.
 NEW_IN_26125 = (
     "ASSIGN_SELECTED_CURVES_TO_CCS_FUSELAGE",
@@ -50,7 +50,7 @@ NEW_IN_26125 = (
 #: The compat report of the 26.125 probe campaign (2026-10-05).
 CAMPAIGN = "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
 
-#: The four commands SRC-753 stops printing, absent on 26.125.
+#: The four commands FSM-26.125 stops printing, absent on 26.125.
 DROPPED_BY_26125 = (
     "AUTO_DETECT_BASE_REGIONS",
     "AUTO_DETECT_TRAILING_EDGES",
@@ -91,7 +91,7 @@ def test_the_registry_knows_26125_with_its_printed_release_and_build():
     assert known_versions()[-1].canonical == "26.125"
     assert (version.build, version.prints, version.alias) == ("10052026", "2612", "26.12")
     assert version.inherits_base is False
-    assert manual_editions()["26.125"].startswith("SRC-753")
+    assert manual_editions()["26.125"].startswith("FSM-26.125")
 
 
 @pytest.mark.requirement("FR-423")
@@ -101,8 +101,8 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
     380 documented rows, including the direct morphing command item S6
     enters, and the removed row of
     the renamed SET_OUTFLOW_TRAILING_EDGES. Every command without a row is one
-    SRC-753 stopped printing, named in the edition's registration, or one
-    neither SRC-752 nor SRC-753 prints and 26.124 does not answer either.
+    FSM-26.125 stopped printing, named in the edition's registration, or one
+    neither FSM-26.124 nor FSM-26.125 prints and 26.124 does not answer either.
     """
     registry = CommandRegistry.load()
     rows = {
@@ -135,14 +135,14 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
 
 @pytest.mark.requirement("FR-423")
 def test_the_new_commands_are_entered_on_26125_alone_with_a_probe_each():
-    """P0370-S10-NEW-COMMANDS (FR-423): one entry, one SRC-753 page, one probe spec each."""
+    """P0370-S10-NEW-COMMANDS (FR-423): one entry, one FSM-26.125 page, one probe spec each."""
     registry = CommandRegistry.load()
     for name in NEW_IN_26125:
         entry = registry.commands[name]
         assert set(entry.versions) == {"26.125"}, name
         row = entry.versions["26.125"]
         assert row.status is Status.DOCUMENTED or row.report.endswith(CAMPAIGN), name
-        assert entry.manual_ref.startswith("SRC-753 p."), name
+        assert entry.manual_ref.startswith("FSM-26.125 p."), name
         assert name in PROBE_SPECS, name
     with pytest.raises(CommandNotInVersionError):
         Script("26.124").emit("RESET_SOLVER_SWEEPER")
@@ -203,7 +203,7 @@ def test_the_minimal_workflow_builds_on_26125_and_names_no_missing_link():
 
 @pytest.mark.requirement("FR-423")
 def test_the_wake_edge_import_writes_edge_type_one_on_26125_and_the_unit_on_26124():
-    """P0370-S10-WAKE-TOKEN (FR-423): SRC-753 p.329 names the third token EDGE_TYPE."""
+    """P0370-S10-WAKE-TOKEN (FR-423): FSM-26.125 p.329 names the third token EDGE_TYPE."""
     points = [(1.0, -3.75, 0.0), (1.0, -3.25, 0.0)]
     rendered = {}
     for build in ("26.124", "26.125"):

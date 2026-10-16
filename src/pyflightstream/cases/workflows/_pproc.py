@@ -103,10 +103,8 @@ def pproc_emissions(
     * ``each``: one per family in the common frame the entry names.
     """
     # THE FRAME SELECTS THIS PATH, not the entry's arity. `each_blade` is
-    # also one per blade, and it expands through the FAMILY selector as it
-    # did at 0.14.0, over whatever frame the entry names; taking the rotor
-    # path for it would ask a 0.14.0 artifact for rotors its reference
-    # never declared.
+    # also one per blade, and expands through the FAMILY selector over the
+    # entry's frame. That path needs no declared rotor in the reference.
     kind = EXPANDING_FRAMES.get(frame.strip().upper())
     if kind is None:
         return [
@@ -198,13 +196,9 @@ def pproc_emissions(
     kept = [emission for emission in emissions if emission[0] in placed]
     dropped = [emission[0] for emission in emissions if emission[0] not in placed]
     if dropped:
-        # ONE WARNING PER ENTRY AND IT NAMES WHAT WENT, because the first
-        # writing warned only when EVERY emission was unplaced: a row
-        # turning the lifters and not the pusher dropped the pusher's
-        # emissions in silence, which is the very row FR-65's paragraph is
-        # about (the QA lens, 2026-09-10). A partly working entry is the
-        # harder case to notice, not the easier one, because the products
-        # do contain a plot by that name.
+        # Warn once per entry and name every unplaced emission (FR-65), even
+        # when other emissions of the same entry produce a plot. A partly
+        # populated plot must not hide an absent rotor's emissions.
         missing = (
             "none of those frames"
             if not kept
@@ -264,7 +258,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
             # second plot overwrites the first under one file name and the
             # study loses the half it asked for. The suffix is the frame's
             # own, so a reader who sees the file knows which frame it is in
-            # without opening it (the rule of 2026-09-10, FR-71).
+            # without opening it (FR-71).
             if frame_name.endswith(ORIGINAL_FRAME_SUFFIX):
                 name = f"{name}{ORIGINAL_FRAME_SUFFIX}"
             indices = [script.resolve_boundary(f, context="pproc plot") for f in families]
@@ -301,7 +295,7 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
                     )
     _plot_each_rotors_own_history(case, script, frames, inventory, emitted)
     # THE SIX COMPONENTS IN THE GLOBAL FRAME, ADDED WHERE THE ARTIFACT PLOTS THEM FOR
-    # NO GROUP OF IT (0.24.0). The unsteady polar's axis coefficients are built from
+    # NO GROUP OF IT. The unsteady polar's axis coefficients are built from
     # the forces and moments of the whole configuration in the MRP frame; a rotor's
     # own frame is not the geometry's axes. An artifact that plots them already is
     # left exactly as it is, so its script does not change by a byte.
@@ -347,7 +341,7 @@ _GLOBAL_FRAME = "MRP"
 def _plot_each_rotors_own_history(
     case: SimCase, script: Script, frames: Frames, inventory: Sequence[str], emitted: set[str]
 ) -> None:
-    """Plot the six components of each rotor the row turns, over ITS families, in MRP (0.24.0).
+    """Plot the six components of each rotor the row turns, over ITS families, in MRP.
 
     The rotor table of an unsteady point is the window average of that history.
     It was looked for under a name no run printed, so every unsteady rotor table
@@ -392,9 +386,9 @@ def _plot_each_rotors_own_history(
                 declared = True
         if declared:
             continue
-        # G42 of 0.28.0: THE NAME IS TAKEN, SAID BEFORE THE SEAT IS SPENT. A pproc
+        # G42: THE NAME IS TAKEN, SAID BEFORE THE SEAT IS SPENT. A pproc
         # group named like the automatic one (`ROTOR_{family}` in a rotor's own
-        # frame, the package's own sample once) emits these names first; the run
+        # frame) emits these names first; the run
         # keeps that group and writes no global-frame history for the rotor, so
         # the post cannot write its table. A warning, never a refusal or a rename.
         taken = [
@@ -460,13 +454,9 @@ def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:
     being left out as the reference driver left them out, and an entry resolving
     to none is skipped.
 
-    WHERE THIS IS EMITTED IS NOT THIS DOCSTRING'S TO STATE, and the sentence
-    that used to state it here said the OPPOSITE of what the caller does: it
-    read "emitted before the solver is initialised", which is the pre-FR-83
-    station, and gave the reasoning FR-83 refutes. The station is the caller's
-    fact and the call site owns it, with its measurement: `_script_tail` emits
-    this between `INITIALIZE_SOLVER` and `START_SOLVER`, which is where the reference
-    recorded scripts put it.
+    The caller owns the emission station and its evidence (FR-83).
+    `_script_tail` places this between `INITIALIZE_SOLVER` and `START_SOLVER`,
+    matching the reference recorded scripts.
     """
     pproc = case.pproc
     if pproc is None or not pproc.sections.distributions:
@@ -493,7 +483,7 @@ def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]
             if not indices:
                 indices = list(range(1, len(inventory) + 1))
-            # THE SYMMETRY SWITCH IS WRITTEN ONLY WHERE THE BUILD HAS IT (0.21.0).
+            # THE SYMMETRY SWITCH IS WRITTEN ONLY WHERE THE BUILD HAS IT.
             # The builds before 26.120 take no INCLUDE_SYMMETRY, and writing
             # `DISABLE` there refused every section distribution on them even
             # though a distribution that excludes the symmetry copy is exactly
@@ -556,16 +546,12 @@ def row_outputs(case: SimCase, workflow: str) -> list[str]:
     """Return the outputs a matrix row naming a run type declares, over its geometry.
 
     The pproc artifact's :meth:`~pyflightstream.cases.PprocSpec.outputs` for
-    the row's run type, with ONE RULE FOR THE SECTION Cp PLOT AND ITS EXPORT
-    (0.33.1): the plot is left out where no section distribution of the
-    artifact cuts a family the row's geometry carries, which is where
-    :func:`_pproc_sections` leaves every entry out. The builders export what a
-    row declares, so the export goes with the declaration. Until this, a body
-    row citing an artifact whose distributions cut a wing declared the plot and
-    exported it, the solver wrote no file with no section to plot, and every
-    point was recorded FAILED_INCOMPLETE_OUTPUT for it. Every other output is
-    the artifact's, unchanged, and so is the plot where any section is cut or
-    the geometry's inventory is not known.
+    the row's run type, with one rule for the section Cp plot and its export:
+    omit both where no section distribution cuts a family in the row's geometry.
+    This is where :func:`_pproc_sections` omits every entry. Declaring that plot
+    without a section would require a file the solver cannot write and produce
+    FAILED_INCOMPLETE_OUTPUT. Every other output is the artifact's, and the plot
+    remains where any section is cut or the geometry's inventory is unknown.
 
     Parameters
     ----------
@@ -592,7 +578,7 @@ def row_outputs(case: SimCase, workflow: str) -> list[str]:
     names = pproc.outputs(unsteady)
     plot = classify_outputs(names).get("plot_sections_cp")
     if plot is None or case.inventory is None or _cuts_a_section(case, pproc, case.inventory):
-        # FR-1046 (0.40.0): the exports the far field reads; none without [farfield].
+        # FR-1046: the exports the far field reads; none without [farfield].
         return farfield_outputs(case, workflow, names + trajectory)
     return farfield_outputs(case, workflow, [name for name in names if name != plot] + trajectory)
 

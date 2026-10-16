@@ -143,7 +143,7 @@ def test_goal021_inputs_absolute_a_probe_survey_the_user_cited(tmp_path):
     )
     profiles = workspace.inputs_dir / "profiles"
     profiles.mkdir(parents=True, exist_ok=True)
-    # The import file format of the manual (SRC-003 p.362): the count, then
+    # The import file format of the manual (FSM-26.120 p.362): the count, then
     # X,Y,Z,TYPE. The one-line placeholder this held was never read before F01.
     (profiles / "disk_survey.txt").write_text("1\n0.0,0.0,0.0,1\n", encoding="utf-8")
     _run(workspace, _rotor_row(tmp_path))

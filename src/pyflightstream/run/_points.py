@@ -153,9 +153,8 @@ def _sections_layout(script: Script) -> list[dict[str, object]] | None:
     The builder's blocks where it created distributions. THE EMPTY LAYOUT where
     the rendered script adds or removes no surface section at all, which is
     every steady point of a pproc declaring no distribution: its sections
-    exports state none, and a record saying nothing read as one written
-    before 0.24.0, so the post refused the split and advised a new run that
-    recorded nothing again. None where the script changes sections the builder
+    exports state none. An empty layout distinguishes that known absence from
+    an unrecorded layout. None where the script changes sections the builder
     did not describe (a LEGACY recipe's or a raw command's), whose split the
     post refuses rather than guesses.
     """
@@ -170,11 +169,10 @@ def _sections_layout(script: Script) -> list[dict[str, object]] | None:
 class _PointProgress:
     """How far one point's (or one job's) path got, for a failure it could not record.
 
-    0.30.0. The run path writes a script, its input files and its state before
+    The run path writes a script, its input files and its state before
     the solver starts, and a workspace on a network share can refuse any one of
-    those writes with an ``OSError``. That escaped the loop, ended the run and
-    left every later planned point with no record. The caller now catches it
-    and records the point from what this holds.
+    those writes with an ``OSError``. The caller catches it and records the
+    point from what this holds, allowing later planned points to proceed.
     """
 
     #: The record fields as the path had built them, None before they exist.
@@ -186,7 +184,7 @@ class _PointProgress:
 
 
 def _unwritable(error: OSError, where: str) -> str:
-    """Say which write failed and what the run did about it (0.30.0)."""
+    """Say which write failed and what the run did about it."""
     return (
         f"{type(error).__name__}: {error}, {where}. A file of this point could not be "
         "written (a workspace on a network share that refuses a write is one cause), so "
@@ -198,7 +196,7 @@ def _unwritable(error: OSError, where: str) -> str:
 def _bare_record(
     campaign: Campaign, case: SimCase, point: Mapping[str, float], run_id: str, canonical: str
 ) -> dict[str, object]:
-    """Return the fields a record of a point that never built its own can state (0.30.0)."""
+    """Return the fields a record of a point that never built its own can state."""
     return {
         "run_id": run_id,
         "sim_id": case.sim_id,
@@ -215,7 +213,7 @@ def _bare_record(
 def _record_of_an_unwritable_point(
     progress: _PointProgress, error: OSError, *, fallback: dict[str, object]
 ) -> RunRecord:
-    """Record one point whose run raised an ``OSError`` (0.30.0).
+    """Record one point whose run raised an ``OSError``.
 
     FAILED_SCRIPT when the solver was not started, the status of a point whose
     script could not be built, and here it could not be written;
@@ -240,7 +238,7 @@ def _record_of_an_unwritable_point(
 class _LocalLog:
     """What a local run on a machine that cannot export its log did about the log.
 
-    0.27.0. Such a machine's scheduler writes the log of a SUBMITTED job, and
+    Such a machine's scheduler writes the log of a SUBMITTED job, and
     `collect` copies it to the declared name; a run kept local has no
     scheduler, so the declared log is written from what the executor captured
     of the solver, or, when it captured nothing, excused: the machine cannot
@@ -283,7 +281,7 @@ _NO_LOCAL_LOG_NOTE = (
 def _the_local_log(
     executor: object, logs: Sequence[str], work_dir: Path, result: ExecutionResult
 ) -> _LocalLog:
-    """Write a local point's declared log from the solver's output, or excuse it (0.27.0).
+    """Write a local point's declared log from the solver's output, or excuse it.
 
     Only on a local executor whose machine cannot export the log; on any other
     run nothing is written and nothing is excused. ``logs`` are the point's
@@ -392,7 +390,7 @@ def _execute_point(
 ) -> RunRecord:
     """Take one point from sweep coordinates to its manifest record.
 
-    ``progress`` is filled as the point goes (0.30.0): the record fields as
+    ``progress`` is filled as the point goes: the record fields as
     they stand, and whether the solver was started, so a caller that catches
     an ``OSError`` this raises records the point from them rather than
     leaving it with no record.
@@ -460,7 +458,7 @@ def waived_record(script: Script) -> list[dict[str, Any]]:
 def _prepare_point_script(job: _PointJob) -> RunRecord | None:
     """Prepare point script."""
     package_commit, package_dirty = package_vcs_state()
-    # THE STATE OF THIS POINT, NOT OF THE ROW (0.24.0). Every state field below
+    # THE STATE OF THIS POINT, NOT OF THE ROW. Every state field below
     # read `case.*`, the simulation-level case, while the point's own case went
     # to the script alone. On a row sweeping a flow variable each point therefore
     # ran at its own Mach, velocity and density and RECORDED the first point's,
@@ -484,8 +482,7 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,
         "package_dirty": package_dirty,
-        # v0.23.0 item 12. CAPTURED HERE because this is the only moment it
-        # is knowable: who submitted a run cannot be recovered afterwards.
+        # Capture who submitted the run here; it cannot be recovered afterwards.
         "submitted_by": submitted_by(),
         "recipe": job.case.recipe,
         "recipe_sha256": _recipe_digest(job.recipe),
@@ -516,26 +513,14 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
         if job.case.mesh_import is None
         else job.case.mesh_import.model_dump(mode="json", exclude_none=True),
         "motions": [dict(record) for record in job.case.motions],
-        # The windows of every reduction the products stage will write for
-        # this point (PFS-2015.04), resolved off the row HERE, where the
-        # clock and the blade count are stated, so the stage reads the
-        # record alone as it reads everything else. None for a steady row.
-        # THE POINT-BEARING CASE, and this line read `reduction_windows(case)`
-        # until 2026-09-11. `case` here is the SIM-level case and its `point` is
-        # empty: `point_case` is built two hundred lines below, after the names
-        # are rendered. So a row sweeping its advance ratio asked the planner a
-        # question about a case that did not know which point it was, and the
-        # planner correctly answered that no rotor speed was stated. Every
-        # unsteady reduction of every swept-ratio point was skipped, four of
-        # four on the licensed runs of 2026-09-11.
-        #
-        # The unit case for that fix passed while this path still failed,
-        # because the case it builds carries its point and this one did not.
+        # Record reduction windows (PFS-2015.04) from a point-bearing case, where
+        # the clock and blade count are resolved. The SIM-level case has no point
+        # and cannot resolve speed for a swept advance ratio. Products read these
+        # recorded windows alone. None for a steady row.
         "reductions": reduction_windows(case_at_point(job.case, job.point)),
-        # 0.30.0 (M1): each rotor's tip and helical Mach numbers at THIS point,
-        # from the point's own resolved state; None (and absent from the file)
-        # where rotor_machs covers nothing: a row turning no rotor at a stated
-        # speed and naming no actuator disc.
+        # M1: each rotor's tip and helical Mach numbers from this point's resolved
+        # state. None, and absent from the file, when rotor_machs covers nothing: a
+        # row turning no rotor at a stated speed and naming no actuator disc.
         "rotor_mach": {mach.alias: mach.record() for mach in rotor_machs(at_point)} or None,
         # How the geometry was staged (PFS-2029.17), read off the workspace
         # that staged it, so the record says link or copy and why.
@@ -563,7 +548,7 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
         "waived_commands": [],
         # PFS-2033.02: the setup's raw commands, as the script carried them.
         "raw_commands": [entry.model_dump(mode="json") for entry in job.case.raw_commands],
-        # The design decision of 2026-09-09: the setup's aliases, for the products stage.
+        # Record the setup's aliases for the products stage.
         "aliases": {name: list(members) for name, members in job.case.aliases.items()},
         # PFS-2012.04: how the solver was called, read off the executor
         # and its result once the point has run, and None on the four
@@ -586,15 +571,10 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
         error: str | None = job.preparation_error or "recipe resolution failed"
         return RunRecord(**job.base, status=RunStatus.FAILED_SCRIPT, error=error)
 
-    # A POINT ALREADY IN A QUEUE IS NOT SUBMITTED AGAIN, and it is refused
-    # BEFORE ANY OF ITS FILES IS WRITTEN (the independent review of the
-    # 0.18.1 release). A submitted point runs in its datapoint folder, which
-    # carries no campaign name, so the same point submitted under another
-    # campaign landed in the queued job's folder and rewrote its script,
-    # descriptor, action files and clock while the stale-output check
-    # passed, because the queued job had written nothing yet. The guard is
-    # per simulation AND point: different points of one row still submit
-    # together, which is the refusal that was lifted and stays lifted.
+    # Refuse a point already in a queue before writing any files. Its datapoint
+    # folder carries no campaign name, so another campaign naming this point
+    # would rewrite a queued job's script, descriptor, actions and clock. Check
+    # per simulation AND point so distinct points of one row can submit together.
     queued = _queued_record_of_point(
         job.workspace, job.case.sim_id, point_name(job.case, job.point)
     )
@@ -646,16 +626,15 @@ def _prepare_point_script(job: _PointJob) -> RunRecord | None:
             status=RunStatus.FAILED_SCRIPT,
             error=f"{type(exc).__name__}: {exc}",
         )
-    # Provenance (decision 4 of 2026-07-22): a script built through the
-    # curated solver_settings helper carries the snapshot of every
-    # solver flag's effective value; record it with the run.
+    # Record the snapshot of effective solver flags carried by a script built
+    # through the curated solver_settings helper.
     return None
 
 
 def _retain_point_provenance(job: _PointJob) -> RunRecord | None:
     """Retain point provenance."""
     job.base["probe_field_layout"] = list(job.script.probe_field_layout) or None
-    # FR-1047 (0.40.0, PFS-2081.58): the far-field probes this script laid or
+    # FR-1047 (PFS-2081.58): the far-field probes this script laid or
     # reused, so post integrates exactly them; one point, so its last layout.
     if job.script.farfield_layout:
         job.base["farfield_layout"] = {"shapes": job.script.farfield_layout[-1]["shapes"]}
@@ -711,15 +690,11 @@ def _retain_point_provenance(job: _PointJob) -> RunRecord | None:
         job.script.surface_average_window = job.predecessor.surface_average_window
     job.base["surface_time_averaging"] = job.script.surface_time_averaging
     job.base["surface_average_window"] = job.script.surface_average_window
-    # G45. WHAT THE RUN WRITES FROM THE VTK, and the loads frame the solver
-    # writes it in. A continuation's is the saved simulation's, which the run it
-    # continues placed and recorded; one that recorded none cannot be undone,
-    # and the point is refused before the solver starts rather than after.
-    # A CONTINUATION THAT SETS NO LOADS FRAME OF ITS OWN INHERITS IT WHOLE: its
-    # script reopens the saved simulation and passes no moment point, so its
-    # ledger still reports the reference frame at the origin it starts from,
-    # which is placed and is not the frame the solver writes the VTK in
-    # (reading C32 of 0.28.0).
+    # G45: translate VTK in the analysis loads frame the solver writes. A
+    # continuation inherits the saved simulation's recorded frame. Refuse an
+    # unprovable placement before launching. If the continuation sets no loads
+    # frame, inherit it whole: its ledger's default origin does not describe the
+    # frame retained by the reopened simulation.
     return None
 
 
@@ -745,7 +720,7 @@ def _retain_point_translations(job: _PointJob) -> RunRecord | None:
                     f"the Tecplot surface of this continuation is written by the package from "
                     f"the VTK the solver exports in the analysis loads frame (RPT-074), and "
                     f"the run it continues, {job.continues!r}, recorded no placement of that "
-                    "frame: it was recorded before 0.28.0 or exported no Tecplot. Set "
+                    "frame. Set "
                     "tecplot = false under the pproc's [exports] to continue it without one."
                 ),
             )
@@ -765,18 +740,10 @@ def _write_point_script(job: _PointJob) -> RunRecord | None:
     job.script_path, job.script_sha = job.workspace.write_script(
         job.case.sim_id, f"{job.stem}.txt", job.rendered
     )
-    # FR-91. WHERE THIS SCRIPT PUT ITS PROBE POINTS, written next to the
-    # script that placed them. An unsteady plots export numbers its columns
-    # `MACH7`, `VELOCITY7` and never says where vertex 7 is, so this file is
-    # the only thing that can place a point of that table.
-    #
-    # A COLLISION HERE IS THIS POINT'S FAILURE AND NOT THE CAMPAIGN'S. The
-    # refusal was the one statement in this function that escaped the loop,
-    # so a single row whose name collides with a points file the user wrote
-    # aborted a campaign whose earlier points had already spent the licence
-    # (the interface lens at the release boundary, 2026-09-11). Every other
-    # build failure around it records the point and carries on, and a seat
-    # is the scarce thing here.
+    # FR-91: write probe-point positions beside the script that places them.
+    # An unsteady plots table names columns such as MACH7 and VELOCITY7 but does
+    # not locate vertex 7. Refuse a filename collision as this point's failure
+    # and continue the campaign, as with other build failures.
     try:
         job.probe_points_file = _write_probe_points(
             job.sim_dir, job.case.sim_id, job.script.probe_points
@@ -791,7 +758,7 @@ def _write_point_script(job: _PointJob) -> RunRecord | None:
         job.base["probe_points_file"] = job.probe_points_file
     if job.script.plot_groups and isinstance(job.base.get("reductions"), dict):
         job.base["reductions"]["plot_groups"] = [dict(group) for group in job.script.plot_groups]
-    # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE (0.24.0), recorded
+    # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE, recorded
     # beside the script that created the distributions, and the empty layout
     # where it created none (`_sections_layout`). A CONTINUATION CREATES NONE
     # AND REOPENS THOSE OF THE RUN IT CONTINUES, whose saved simulation carries
@@ -808,41 +775,20 @@ def _write_point_script(job: _PointJob) -> RunRecord | None:
         layout = _sections_layout(job.script)
     if layout is not None:
         job.base["sections_layout"] = [dict(block) for block in layout]
-    # R03 of 0.27.0: the names the script was built over, beside the layout
-    # whose selections the post reads over them.
+    # R03: record the script's names beside the layout whose selections use them.
     if job.script.boundary_inventory is not None:
         job.base["inventory"] = list(job.script.boundary_inventory)
-    # PFS-2031.13. The child script of a SCRIPT action is parked on the
-    # script by helpers.unsteady_action and written HERE, before the
-    # solver starts, where the registration line names it: a relative
-    # path lands in the solver's working directory, the point's own
-    # datapoint folder since 0.27.0, an absolute one where it says. Until this existed the
-    # helper promised a writer that did not exist, and a SCRIPT action
-    # registered through it named a file that was never there.
+    # PFS-2031.13: write SCRIPT-action child scripts and command input files
+    # before launch, where the rendered script names them. Relative paths use
+    # the solver's working directory; absolute paths remain absolute. Refuse
+    # input filename collisions and record the input digests (G02).
     #
-    # GOAL-021 ITEM 3, PFS-2010.01.02: A SUBMITTED POINT RUNS IN ITS OWN
-    # DATAPOINT FOLDER, `sims/sim_<id>/datapoints/DP-<tag>/`, the folder its
-    # outputs are filed under since 0.16.0 (FR-92). Every file below that
-    # was written to the working directory follows it: the action programs,
-    # the clock and its state, and the scheduler's descriptor. That removes
-    # the reason a second submitted point of a row was refused, which was
-    # that all of them rewrote those files under a job still in a queue.
-    #
-    # A LOCAL POINT RUNS THERE TOO, since 0.27.0, so every output is WRITTEN
-    # where it is filed rather than moved there by collection. It ran in the
-    # simulation folder until then, and a point whose run or collection failed
-    # left its exports there, the per-step ones included, in the folder every
-    # point of the row shares (measured on a cluster, 2026-09-24). The script
-    # is unchanged: its exports are named relative to the working directory,
-    # the form measured on 26.124, and every input it reads is named by
-    # absolute path since 0.18.1, which is what makes the working directory
-    # free to move at all (GOAL-021 item 2). The files it parks, the action
-    # program, the clock and the trailing-edge node file, are written relative
-    # to this folder below, as they are for a submitted point. The steady job
-    # of several points keeps the simulation folder (`_execute_sweep`).
-    # G02: and the data files a command reads, the trailing-edge node file,
-    # whose digests join the inputs the record states; one that shares its
-    # name with another input is refused here, before the solver starts.
+    # Local and submitted points use sims/sim_<id>/datapoints/DP-<tag>/ for their
+    # outputs, action programs, clock, state and scheduler descriptor (FR-92).
+    # This keeps queued points from rewriting each other's files. Exports are
+    # relative, as measured on 26.124; inputs use absolute paths (GOAL-021).
+    # A steady job containing several points uses the simulation folder instead
+    # (_execute_sweep).
     return None
 
 
@@ -914,24 +860,12 @@ def _write_point_pending_files(job: _PointJob) -> RunRecord | None:
     # probe measured not to work.
     job.base["waived_commands"] = waived_record(job.script)
 
-    # PYFS-006. Every point of a case ran in the same simulation folder until
-    # 0.27.0, and collection asks only whether the declared output EXISTS, never
-    # whether this run produced it. A file left there by anything else, a
-    # point that failed after the solver wrote, a hand copy, an aborted
-    # sweep, was collected as this point's evidence and the point was
-    # published CONVERGED from a solver that wrote nothing at all. The
-    # measurement is in the commit message; the record was
-    # indistinguishable from a real one.
-    #
-    # Refused before the solver runs rather than reconciled afterwards. A
-    # baseline hash comparison would also work and is strictly weaker: it
-    # cannot tell a rewritten identical file from an untouched one, and it
-    # spends solver time before saying so. The script is already written,
-    # so the refused point still records the script it would have run.
-    # IN THE WORKING DIRECTORY, which is the point's datapoint folder, for a
-    # submitted point and, since 0.27.0, for a local one: a file an earlier run
-    # of the point left there is exactly what this refuses to collect as the
-    # new run's evidence.
+    # PYFS-006: refuse existing declared outputs before launch. Collection
+    # checks existence, which alone cannot prove this run wrote a file. A hash
+    # comparison cannot distinguish identical rewrites from untouched files and
+    # would spend solver time before refusal. The script is already written, so
+    # the refused point records what it would have run. Check the datapoint
+    # working directory for both local and submitted points.
     return None
 
 
@@ -952,7 +886,7 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
                 "the leftover, then re-run."
             ),
         )
-    # 0.32.0 (E2): a section's files are listed after the run, so one already there is refused.
+    # E2: section files are listed after the run, so refuse any already present.
     leftover = acoustic_section_leftovers(job.work_dir, job.sim_dir)
     if leftover is not None:
         return RunRecord(**job.base, status=RunStatus.FAILED_INCOMPLETE_OUTPUT, error=leftover)
@@ -983,10 +917,8 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
         return RunRecord(
             **job.base, status=RunStatus.FAILED_SCRIPT, error=f"{type(exc).__name__}: {exc}"
         )
-    # PYFS-015. The invocation is the half of a run that lived only in the
-    # executor's code: which flags, which directory, which effective
-    # timeout. Reproducing a run from its record used to mean re-deriving
-    # all three from a class that may have changed since.
+    # PYFS-015: record invocation flags, working directory and effective timeout
+    # so reproducing a run does not require re-deriving them from executor code.
     job.base["argv"] = list(job.result.argv)
     job.base["cwd"] = job.result.cwd
     job.base["timeout_s"] = job.result.timeout_s
@@ -1019,9 +951,8 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
     # sent-and-refused, so the failure record needs no new vocabulary.
     submitted = _submission_record(job.executor)
     if job.result.failed:
-        # One composer, never a chain here: the timeout branch used to
-        # discard every captured channel, and the timeout branch is the
-        # one a pre-script failure takes (INC-20260809-2230).
+        # Use the shared diagnostic composer, including all captured channels on
+        # timeout: standard output may hold pre-script evidence (INC-20260809-2230).
         error = job.result.diagnosis()
         return RunRecord(
             **job.base,
@@ -1044,14 +975,10 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
             status=RunStatus.SUBMITTED,
             wall_time_s=None,
             outputs=[],
-            # FR-99, 0.18.0. WHAT THE COLLECTOR WILL WAIT FOR, recorded at
-            # the moment of submission. It is on the RECORD and not re-read
-            # off the matrix later, because a matrix edited between the
-            # submission and the collection is exactly the shape that made
-            # a recorded flight condition read back as a different number
-            # in a regenerated product (GEO-039-F02). `outputs` stays empty
-            # because a submitted point has collected nothing; these are
-            # what it was BUILT to write.
+            # FR-99: record the collector's expected outputs at submission. Reading an
+            # edited matrix later could substitute different conditions (GEO-039-F02).
+            # outputs remains empty because the submitted point has collected nothing;
+            # these names describe what it was built to write.
             submission={
                 **submitted,
                 "declared_outputs": list(job.point_case.outputs),
@@ -1085,15 +1012,14 @@ def _collect_point_outputs(job: _PointJob) -> RunRecord | None:
             job.work_dir,
             job.base["surface_translations"],  # type: ignore[arg-type]
         )
-    # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, the declared log is
-    # written from what the solver printed, or, with nothing printed, excused:
-    # the machine cannot write one locally, which is not an output the run
-    # failed to produce. Nothing happens here on any other run.
+    # On a machine that cannot export the log, write it from captured solver
+    # output, or excuse it when nothing was captured: the machine cannot write
+    # one locally. Other runs need no special handling here.
     job.local_log = _the_local_log(
         job.executor, _local_logs(job.point_case, job.rendered), job.work_dir, job.result
     )
-    # 0.30.0: what the package's own post-processing of an output could not
-    # write, where the solver wrote its sources (`untranslated_surfaces`).
+    # Record outputs the package's post-processing could not write despite
+    # the solver writing their sources (untranslated_surfaces).
     job.post_warnings = []
     try:
         job.collected = job.workspace.collect_outputs(
@@ -1103,19 +1029,13 @@ def _collect_point_outputs(job: _PointJob) -> RunRecord | None:
                 for name in job.point_case.outputs
                 if name != job.local_log.excused
             ],
-            # FR-92. THE POINT'S OWN FOLDER, always, steady or unsteady.
-            # Every point of one case collected into one `outputs/` until
-            # 0.16.0, so from the second point of a swept row onward that
-            # folder held two files that both read as loads tables and
-            # nothing in the layout said which point either belonged to.
-            # The point's checked NAME is passed and the folder is rendered
-            # there, so a caller cannot name a folder the assessor will not read.
+            # FR-92: collect in the point's own folder, steady or unsteady. Pass the
+            # checked point name so collection and assessment render the same folder.
             datapoint=PointName(point_name(job.case, job.point)),
-            # 0.27.0: every point runs in that folder, so its outputs are
-            # filed where the solver wrote them.
+            # Every point runs in its collection folder; outputs are already filed.
             ran_in_datapoint=True,
         )
-        # 0.32.0 (E2): an acoustic section's files, listed where the solver wrote them.
+        # E2: list acoustic section files where the solver wrote them.
         job.collected = acoustic_section_outputs(
             job.workspace.sim_dir(job.case.sim_id), job.collected
         )
@@ -1124,16 +1044,15 @@ def _collect_point_outputs(job: _PointJob) -> RunRecord | None:
             job.workspace.sim_dir(job.case.sim_id), exc.collected
         )
         # A COMPLETED SOLVE IS NOT DEMOTED BY THE PACKAGE'S OWN POST-PROCESSING
-        # (0.30.0). A Tecplot the package failed to write from the VTK the
+        # . A Tecplot the package failed to write from the VTK the
         # solver did write is not a missing solver output: the point is
         # assessed as any other and the failure is a warning on the record.
         untranslated = untranslated_surfaces(
             job.base.get("surface_translations"), exc.missing, exc.collected
         )
         if untranslated is None:
-            # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names
-            # only what is missing (0.27.0). An empty record here left a point's
-            # exports out of every product (measured on a cluster, 2026-09-24).
+            # File, list and hash every written output so products can use it.
+            # The error names only missing outputs.
             return RunRecord(
                 **job.base,
                 status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
@@ -1150,14 +1069,9 @@ def _collect_point_outputs(job: _PointJob) -> RunRecord | None:
                 f"{point_name(job.case, job.point)}: {line}", PyflightstreamWarning, stacklevel=2
             )
     except (WorkspaceError, CampaignConfigError) as exc:
-        # BOTH, because collection can refuse for two reasons and only one of
-        # them used to be caught. `collect_outputs` renders the point's folder
-        # name, so a point naming no known axis raises CampaignConfigError from
-        # `point_tag`, and that is not a WorkspaceError: uncaught it would abort
-        # the campaign HERE, after the solver has run, instead of costing this
-        # point (the architecture lens, 2026-09-11). Unreachable through
-        # `sweep.points()`, which yields only points keyed by a known axis, and
-        # caught anyway: the thing this costs is a licensed seat.
+        # Catch both collection refusals as this point's failure. collect_outputs
+        # can raise WorkspaceError or CampaignConfigError when point_tag cannot
+        # render an unknown axis. Neither should abort the campaign after launch.
         return RunRecord(
             **job.base,
             status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
@@ -1184,7 +1098,7 @@ def _assess_point_record(job: _PointJob) -> RunRecord:
     # G02. A run that imported trailing edges is held to the count the solver
     # logged, over any status that is not already a failure.
     # The log is found by the name the assessor read it under, else by the name
-    # a local run on a machine that cannot export one wrote it under (0.27.0):
+    # a local run on a machine that cannot export one wrote it under:
     # the solver's printed output need not read as a residual history to carry
     # the count.
     named_log = assessment.log_file_used or (
@@ -1230,7 +1144,7 @@ def _assess_point_record(job: _PointJob) -> RunRecord:
         job.base.get("export_window"),
         assessment.time_steps,
     )
-    # 0.31.0: what the judgment did without (an unreadable quasi-steady record).
+    # Record what the judgment lacked: an unreadable quasi-steady record.
     for line in assessment.warnings or []:
         warnings.warn(
             f"{point_name(job.case, job.point)}: {line}", PyflightstreamWarning, stacklevel=2

@@ -69,7 +69,7 @@ def test_solver_settings_empty_vorticity_selection_names_the_two_drag_methods():
     with pytest.raises(
         CommandArgumentError,
         match=r"vorticity_drag_boundaries is an empty sequence.*Omit the argument "
-        r"\(or pass None\).*surface pressure integration \(SRC-003 p\.202\).*"
+        r"\(or pass None\).*surface pressure integration \(FSM-26\.120 p\.202\).*"
         r"selection filter matched no boundary",
     ):
         helpers.solver_settings(script, vorticity_drag_boundaries=[])
@@ -91,7 +91,7 @@ def test_solver_settings_mode_refusal_names_both_regimes():
     with pytest.raises(
         CommandArgumentError,
         match=r"mode takes STEADY or UNSTEADY, got 'CRUISE': the solver time regime "
-        r"is one of the two \(SRC-003 p\.341\)",
+        r"is one of the two \(FSM-26\.120 p\.341\)",
     ):
         helpers.solver_settings(script, mode="CRUISE")
 
@@ -103,7 +103,7 @@ def test_unsteady_without_time_stepping_names_both_missing_parameters():
         CommandArgumentError,
         match=r"mode='UNSTEADY' needs both time_iterations and delta_time: physical "
         r"time stepping is defined by the step count and the step size "
-        r"\(SRC-003 p\.341\)",
+        r"\(FSM-26\.120 p\.341\)",
     ):
         helpers.solver_settings(script, mode="UNSTEADY")
 

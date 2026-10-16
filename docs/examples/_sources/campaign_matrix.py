@@ -131,13 +131,13 @@ def steady(case: SimCase, script) -> None:
         # Every boundary of this clean wing carries a trailing edge, so
         # the vorticity integration applies to all of them. On a mixed
         # geometry, list the lifting boundaries instead: a bluff body on
-        # this list reports zero induced drag (SRC-003 p.202), and
+        # this list reports zero induced drag (FSM-26.120 p.202), and
         # omitting the argument keeps the solver's pressure integration.
         vorticity_drag_boundaries="all",
         # NANOMETRES, unlike every other length this helper takes.
         # A polished metal skin is a few hundred nm; passing 0.5
         # thinking millimetres would be a half-nanometre surface, and
-        # zero states a smooth wall outright (SRC-003 p.341).
+        # zero states a smooth wall outright (FSM-26.120 p.341).
         surface_roughness=800.0,
         aoa=case.point["alpha"],
         velocity=case.velocity,

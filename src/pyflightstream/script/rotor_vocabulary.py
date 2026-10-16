@@ -38,8 +38,8 @@ __all__ = [
 ]
 
 #: The commands a rotor is written with on a build whose motion type is
-#: EUCLIDEAN: the angular velocity vector and the rotor mark (SRC-741 p.329,
-#: SRC-747 p.306, SRC-748 p.307). No registered build documents both these
+#: EUCLIDEAN: the angular velocity vector and the rotor mark (FSM-26.100 p.329,
+#: FSM-26.000 p.306, FSM-25.100 p.307). No registered build documents both these
 #: and SET_MOTION_ROTOR_RPM.
 EUCLIDEAN_ROTOR_COMMANDS = ("SET_MOTION_ANGULAR_VELOCITY", "SET_MOTION_IS_ROTOR")
 
@@ -109,7 +109,7 @@ def unmarked_euclidean_rotor(view: VersionView) -> bool:
 #: The unit SET_MOTION_ANGULAR_VELOCITY takes on a build where
 #: :func:`euclidean_rotor` holds. Its scripting page states none; the rotor
 #: tutorial of the same manual states rad/s for the dialog field the command
-#: sets (SRC-741 p.394), and RPT-049 measured it on 26.000.
+#: sets (FSM-26.100 p.394), and RPT-049 measured it on 26.000.
 EUCLIDEAN_ROTOR_UNIT = "rad/s"
 
 #: The unit SET_MOTION_ANGULAR_VELOCITY is written in on a build where

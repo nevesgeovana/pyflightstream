@@ -90,7 +90,7 @@ def refuse_two_threshold_keys(case: SimCase, stated: dict[str, str]) -> None:
         return
     names = list(stated)
     if not any(key in _LAST_KEYS for key in names):
-        # Only the 0.13.0 keys: the refusal text of every earlier release, byte for byte.
+        # The refusal names only the keys available on this path.
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {EXPORT_UNSTEADY_AFTER_REV_VARIABLE} and "
             f"{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE} both. The per-step exports begin at "

@@ -120,7 +120,7 @@ def write_if_different(path: Path, text: str) -> bool:
     return True
 
 
-# --- the input glossary, INPUTS.md (G08 of 0.27.0) ---------------------------
+# --- the input glossary, INPUTS.md (G08) ---------------------------
 
 #: The input glossary's file name. It is written beside ``VARIABLES.md``: the
 #: page of what the inputs mean next to the page of what the products mean.
@@ -202,12 +202,12 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         ("SurfaceProbeSpec", "parameter"): "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
         ("SurfaceProbeSpec", "frame"): "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
         ("SurfaceProbeSpec", "point_m"): "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
-        # G25 of 0.28.0: the window's steps are exported through the unsteady
+        # G25: the window's steps are exported through the unsteady
         # solver actions and averaged by the package; SOLVER_TIME_AVERAGING is
         # never emitted.
         ("PprocSpec", "time_averaging"): "SET_NEW_UNSTEADY_SOLVER_ACTION",
         ("PprocSpec", "vtk_variables"): "SET_VTK_EXPORT_VARIABLES",
-        # SS1 of 0.30.0: true adds the native Tecplot export the strength is read from.
+        # SS1: true adds the native Tecplot export the strength is read from.
         ("PprocSpec", "singularity_strength"): "EXPORT_SOLVER_ANALYSIS_TECPLOT",
         ("PprocSpec", "base_regions"): "DETECT_BASE_REGIONS_BY_SURFACE",
         ("VolumeSectionSpec", "format"): (

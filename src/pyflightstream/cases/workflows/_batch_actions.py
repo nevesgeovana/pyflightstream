@@ -1,6 +1,6 @@
 """The action programs of a grouped job: one counter and one clock for many points (FR-B5a, FR-B19).
 
-A grouped job (``--batch`` or ``--polar-sweep``, 0.35.0) runs several points
+A grouped job (``--batch`` or ``--polar-sweep``) runs several points
 in ONE solver instance. The unsteady actions are registered ONCE per instance
 (MEASURED, DESIGN-0350 Test 2: the actions survive ``REMOVE_INITIALIZATION``
 and ``NEW_SIMULATION``, and a second registration runs every action twice per

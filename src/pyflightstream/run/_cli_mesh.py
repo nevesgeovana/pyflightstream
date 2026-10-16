@@ -1,9 +1,8 @@
 """The geometry verbs: ``refine``, ``audit-mesh``, ``inventory`` and ``degenerate``.
 
-Since 0.40.0 (FR-477) they are also the verbs of ``pyfs-workspace geometry``
+They are also the verbs of ``pyfs-workspace geometry`` (FR-477)
 (:mod:`pyflightstream.run._cli_geometry`), which copies these parsers and calls
-these handlers; ``inventory`` and ``degenerate`` moved here from
-:mod:`pyflightstream.run.cli` and :mod:`pyflightstream.run._cli_parsers` so that
+these handlers. ``inventory`` and ``degenerate`` live here so that
 both commands reach them without importing the ``pyfs-matrix`` dispatcher.
 
 Pipeline role: the command side of the panel-mesh audit of
@@ -436,7 +435,7 @@ def add_degenerate_parser(subparsers: Any) -> None:
         "--kind",
         choices=["thin-blade"],
         default="thin-blade",
-        help="the degenerate geometry to derive; thin-blade is the one kind of 0.34.0 "
+        help="the degenerate geometry to derive; thin-blade is the supported kind "
         "(default: %(default)s)",
     )
     degenerate.add_argument(
@@ -534,7 +533,7 @@ def run_inventory(args: argparse.Namespace) -> int:
 
 
 #: The commands that act on one geometry file: `inventory` and `degenerate` (FR-330),
-#: and `audit-mesh` (0.38.0, FR-426), whose parser names its handler in ``mesh_command``.
+#: and `audit-mesh` (FR-426), whose parser names its handler in ``mesh_command``.
 GEOMETRY_COMMANDS = ("inventory", "degenerate", "audit-mesh", "refine")
 
 

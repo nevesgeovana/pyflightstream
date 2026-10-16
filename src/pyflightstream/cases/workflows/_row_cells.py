@@ -133,7 +133,7 @@ def walltime_margin_s(case: SimCase) -> float:
 def row_walltime_text(case: SimCase) -> str | None:
     """Return the wall clock the ROW states, AS WRITTEN, or None.
 
-    What a descriptor carries by default (0.21.0): the scheduler's field takes
+    What a descriptor carries by default: the scheduler's field takes
     the cell's own text, so a profile writing `#SBATCH --time={walltime}` gets
     `4h` where the row wrote `4h`.
     """
@@ -179,9 +179,9 @@ def row_walltime_s(case: SimCase) -> float | None:
     an HPC profile: on a cluster it is what the job asks the scheduler for,
     and anywhere at all it is what this watchdog counts down to.
 
-    THE CELL CARRIES ITS UNIT since 0.21.0, and a bare number is refused by
-    name. It read as SECONDS here and as minutes on the cluster it was written
-    for, and neither reading is visible in the file: the same `240` is four
+    THE CELL CARRIES ITS UNIT, and a bare number is refused by
+    name. Seconds here and minutes on a cluster can give different meanings
+    to the same number: `240` is four
     minutes to this watchdog and four hours to the scheduler.
     """
     stated = row_walltime_text(case)

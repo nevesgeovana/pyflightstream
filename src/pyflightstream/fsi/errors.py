@@ -14,9 +14,8 @@ The common FSI error base lets callers catch structural errors across the subpac
 
 from __future__ import annotations
 
-# Defined in the package floor since 0.33.0 (AD-10): the sectional loads
-# parser of the results row raises it too, and a type two layers name lives
-# below both. This module keeps its name and its public path.
+# Defined below both FSI and results (AD-10), since the sectional-loads
+# parser also raises it. Re-export here for the public FSI import path.
 from pyflightstream._errors import FsiInputError
 
 __all__ = ["FsiInputError"]

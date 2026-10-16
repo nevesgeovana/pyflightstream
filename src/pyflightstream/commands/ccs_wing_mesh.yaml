@@ -1,8 +1,6 @@
-# Chapter: Scripting reference, CCS Wing Mesh (SRC-003 pp.298-300).
+# Chapter: Scripting reference, CCS Wing Mesh (FSM-26.120 pp.298-300).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. The page range used to read pp.297-299 and was wrong by one at
-# each end; p.297 carries no signature heading at all.
+# The signature headings occupy pp.298-300; p.297 has none.
 #
 # CCS is the vendor's parametric wing definition: a wing is described by
 # curves and a mesh is lofted from them, so everything here configures a
@@ -18,10 +16,8 @@
 # is nothing to exempt. The -1 lives in the notes, and the day zones
 # become tracked is the day it moves.
 #
-# And NEW_CCS_WING_FLAP_COVE reached the database only because a page was
-# read rather than the index. It carries a Function name heading in every
-# edition and NO Script Index row, so the index-driven coverage sweep
-# reported it as covered forever. The sweep now walks chapter bodies
+# NEW_CCS_WING_FLAP_COVE carries a Function name heading in every
+# edition but no Script Index row. Coverage walks chapter bodies
 # (PLN-20260808-1200).
 
 NEW_CCS_WING_CONTROL_SURFACE:
@@ -54,12 +50,12 @@ NEW_CCS_WING_CONTROL_SURFACE:
       type: enum
       values: [X, Y, Z]
       required: false
-  manual_ref: "SRC-003 p.299"
+  manual_ref: "FSM-26.120 p.299"
   versions:
     "26.100":
       status: documented
       note: >-
-        SRC-741 p.293: eight-argument form, as 26.101 below; the SPACE
+        FSM-26.100 p.293: eight-argument form, as 26.101 below; the SPACE
         and AXIS parameters arrive with 26.120
       args:
         - name: name
@@ -83,7 +79,7 @@ NEW_CCS_WING_CONTROL_SURFACE:
     "26.101":
       status: documented
       note: >-
-        SRC-725 p.298: eight-argument form; the SPACE and AXIS
+        FSM-26.101 p.298: eight-argument form; the SPACE and AXIS
         parameters do not exist in 26.1, so spanwise placement is
         parametric only
       args:
@@ -106,10 +102,10 @@ NEW_CCS_WING_CONTROL_SURFACE:
           type: float
           unit: "percent of span"
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.303, unchanged from SRC-750 p.303"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.303, the SRC-751 file, carried from 26.123. Run in licensed round 2 through the package route (RPT-097): the ten-argument PARAMETRIC form completed and its saved simulation differs from the wing without it, the REAL form ended FAILED_EXECUTION with no saved simulation. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.308, read against SRC-752 p.303: the sample now passes all ten values, SPACE and AXIS included, the form 26.124 was measured to accept (RPT-097); the table differs in layout spacing only"}
+    "26.121": {status: documented, note: "FSM-26.121 p.302, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.303, unchanged from FSM-26.122 p.303"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.303, the FSM-26.123 file, carried from 26.123. Run in licensed round 2 through the package route (RPT-097): the ten-argument PARAMETRIC form completed and its saved simulation differs from the wing without it, the REAL form ended FAILED_EXECUTION with no saved simulation. Promoted by the pyfs-qa probe run CMP-26124_2026-10-02_qa-promote"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.308, read against FSM-26.124 p.303: the sample now passes all ten values, SPACE and AXIS included, the form 26.124 was measured to accept (RPT-097); the table differs in layout spacing only"}
   notes: >
     Creates a gapped control surface on a CCS wing component. V0 and
     V1 are the spanwise limits, U0 and U1 the chordwise depths from
@@ -118,12 +114,11 @@ NEW_CCS_WING_CONTROL_SURFACE:
     deflection, and SLOT_GAP a percentage of span. The SPACE and AXIS
     pair exists only from 26.12: SPACE selects REAL or PARAMETRIC
     interpretation of the spanwise coordinates, and AXIS names the
-    Reference-frame axis used when SPACE is REAL (SRC-003 p.299). The
-    26.1 grammar has neither parameter (SRC-725 p.298).
+    Reference-frame axis used when SPACE is REAL (FSM-26.120 p.299). The
+    26.1 grammar has neither parameter (FSM-26.101 p.298).
 
     Calling that pair OPTIONAL is this repository's READING and not the
-    manual's statement, and the word was corrected on 2026-08-06 from
-    one that implied otherwise. SRC-003 p.299 and SRC-740 p.302 both
+    manual's statement. FSM-26.120 p.299 and FSM-26.121 p.302 both
     declare ten placeholders and ten parameter rows, and both still
     print an EIGHT token sample, so either the pair is omissible or the
     sample was left unrevised when the pair was added. The permissive
@@ -153,15 +148,15 @@ DEFAULT_CCS_WING_MESH_SETTINGS:
     - name: direction
       type: enum
       values: [CHORD, SPAN]
-  manual_ref: "SRC-003 p.298"
+  manual_ref: "FSM-26.120 p.298"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.302, unchanged from SRC-750 p.302"}
-    "26.124": {status: documented, note: "SRC-752 p.302, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.307, unchanged from SRC-752 p.302"}
+    "26.121": {status: documented, note: "FSM-26.121 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.302, unchanged from FSM-26.122 p.302"}
+    "26.124": {status: documented, note: "FSM-26.124 p.302, the FSM-26.123 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.307, unchanged from FSM-26.124 p.302"}
   notes: >
     Resets every mesh setting of one direction to the vendor default. The
     reset is per DIRECTION and not per component, so resetting the
@@ -177,15 +172,15 @@ CCS_WING_MESH_SUBDIVISIONS:
       values: [CHORD, SPAN]
     - name: num_pts
       type: int
-  manual_ref: "SRC-003 p.298"
+  manual_ref: "FSM-26.120 p.298"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.302, unchanged from SRC-750 p.302"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.302, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.307, unchanged from SRC-752 p.302"}
+    "26.121": {status: documented, note: "FSM-26.121 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.302, unchanged from FSM-26.122 p.302"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.302, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.307, unchanged from FSM-26.124 p.302"}
   notes: >
     Number of grid subdivisions along the named direction. This is the
     node count of the lofted mesh in that direction rather than a
@@ -201,15 +196,15 @@ CCS_WING_MESH_GROWTH_SCHEME:
     - name: scheme
       type: enum
       values: [NONE, DUAL-SIDED, SUCCESSIVE, REVERSE]
-  manual_ref: "SRC-003 p.298"
+  manual_ref: "FSM-26.120 p.298"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.302, unchanged from SRC-750 p.302"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.302, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.307, unchanged from SRC-752 p.302"}
+    "26.121": {status: documented, note: "FSM-26.121 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.302, unchanged from FSM-26.122 p.302"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.302, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.307, unchanged from FSM-26.124 p.302"}
   notes: >
     How grid nodes cluster along the direction. DUAL-SIDED clusters
     toward both ends, SUCCESSIVE and REVERSE toward one, NONE spaces
@@ -226,15 +221,15 @@ CCS_WING_MESH_GROWTH_RATE:
       values: [CHORD, SPAN]
     - name: rate
       type: float
-  manual_ref: "SRC-003 p.298"
+  manual_ref: "FSM-26.120 p.298"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.302, unchanged from SRC-750 p.302"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.302, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.307, unchanged from SRC-752 p.302"}
+    "26.121": {status: documented, note: "FSM-26.121 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.302, unchanged from FSM-26.122 p.302"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.302, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.307, unchanged from FSM-26.124 p.302"}
   notes: >
     Clustering rate for the scheme chosen on the same direction. The
     manual states it must be greater than zero and this database does not
@@ -250,15 +245,15 @@ CCS_WING_MESH_PERIODICITY:
       values: [CHORD, SPAN]
     - name: periodicity
       type: int
-  manual_ref: "SRC-003 p.298"
+  manual_ref: "FSM-26.120 p.298"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.302, unchanged from SRC-750 p.302"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "SRC-752 p.302, the SRC-751 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.307, unchanged from SRC-752 p.302"}
+    "26.121": {status: documented, note: "FSM-26.121 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.302, unchanged from FSM-26.122 p.302"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "FSM-26.124 p.302, the FSM-26.123 file, carried from 26.123; probed on 26.124 by pyfs-qa (CMP-26124_2026-10-02_qa-promote)"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.307, unchanged from FSM-26.124 p.302"}
   notes: >
     Number of self-repeating periods of the clustering pattern along the
     direction. The manual states it must be greater than zero and that a
@@ -278,15 +273,15 @@ NEW_CCS_WING_REFINEMENT_ZONE:
       type: float
     - name: num_pts
       type: int
-  manual_ref: "SRC-003 pp.298-299"
+  manual_ref: "FSM-26.120 pp.298-299"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.292, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.297, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.292, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.297, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.301, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.302, unchanged from SRC-750 p.302"}
-    "26.124": {status: documented, note: "SRC-752 p.302, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.307, read against SRC-752 p.302: the parameter table differs in layout spacing only"}
+    "26.121": {status: documented, note: "FSM-26.121 p.301, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.302, unchanged from FSM-26.122 p.302"}
+    "26.124": {status: documented, note: "FSM-26.124 p.302, the FSM-26.123 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.307, read against FSM-26.124 p.302: the parameter table differs in layout spacing only"}
   notes: >
     Inserts extra spanwise nodes between two parametric limits. V0 and V1
     are spanwise parametric values between 0 and 1 with V1 greater than
@@ -299,15 +294,15 @@ DELETE_CCS_WING_REFINEMENT_ZONES:
   args:
     - name: zone_index
       type: int
-  manual_ref: "SRC-003 p.299"
+  manual_ref: "FSM-26.120 p.299"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.293, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.293, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.298, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.303, unchanged from SRC-750 p.303"}
-    "26.124": {status: documented, note: "SRC-752 p.303, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.308, unchanged from SRC-752 p.303"}
+    "26.121": {status: documented, note: "FSM-26.121 p.302, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.303, unchanged from FSM-26.122 p.303"}
+    "26.124": {status: documented, note: "FSM-26.124 p.303, the FSM-26.123 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.308, unchanged from FSM-26.124 p.303"}
   notes: >
     Deletes one spanwise refinement zone by index, or every one at -1,
     which the manual states and the sample passes.
@@ -339,21 +334,21 @@ NEW_CCS_WING_MORPHING_SURFACE:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-003 p.299"
+  manual_ref: "FSM-26.120 p.299"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.293, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.293, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.298, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.303, unchanged from SRC-750 p.303"}
+    "26.121": {status: documented, note: "FSM-26.121 p.302, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.303, unchanged from FSM-26.122 p.303"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
-        SRC-753 p.308 adds SPACE (REAL or PARAMETRIC spanwise coordinates)
+        FSM-26.125 p.308 adds SPACE (REAL or PARAMETRIC spanwise coordinates)
         and AXIS (the reference axis a REAL span is measured along) after the
-        seven arguments of SRC-752 p.303, as the control surface already
+        seven arguments of FSM-26.124 p.303, as the control surface already
         takes them.
         The line without the added arguments aborted the script on 26.125 and
         the line with them ran (CMP-26125_2026-10-05_probe-campaign, re-probed
@@ -402,21 +397,21 @@ NEW_CCS_WING_FLAP_COVE:
     - name: cove_type
       type: enum
       values: ["1", "2"]
-  manual_ref: "SRC-003 pp.299-300"
+  manual_ref: "FSM-26.120 pp.299-300"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.293, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.298, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.293, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.298, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.303, unchanged from SRC-750 p.303"}
+    "26.121": {status: documented, note: "FSM-26.121 p.302, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.303, unchanged from FSM-26.122 p.303"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "script processing aborted at the command: the log exported before it exists, the one after it never appeared (END sentinel missing)"}
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
-        SRC-753 p.309 adds SPACE (REAL or PARAMETRIC spanwise coordinates)
+        FSM-26.125 p.309 adds SPACE (REAL or PARAMETRIC spanwise coordinates)
         and AXIS (the reference axis a REAL span is measured along) after the
-        six arguments of SRC-752 p.303, as the control surface already takes
+        six arguments of FSM-26.124 p.303, as the control surface already takes
         them.
         The line without the added arguments aborted the script on 26.125 and
         the line with them ran (CMP-26125_2026-10-05_probe-campaign, re-probed
@@ -445,10 +440,8 @@ NEW_CCS_WING_FLAP_COVE:
     commands above, which are inner and outer chordwise depths. Four
     arguments spelled almost alike mean two different things on one page.
 
-    ENTERED ON 2026-08-08 AND NOT BY THE COVERAGE SWEEP. This command has
-    a signature heading in the four editions read then and no Script Index row, so
-    the index-driven sweep reported it as covered indefinitely; it was
-    found by reading the page (PLN-20260808-1200).
+    This command has a signature heading in the four cited editions but no
+    Script Index row. Coverage must read the chapter body (PLN-20260808-1200).
 
 DELETE_CCS_WING_CONTROL_SURFACE:
   layout: inline
@@ -456,15 +449,15 @@ DELETE_CCS_WING_CONTROL_SURFACE:
   args:
     - name: control_index
       type: int
-  manual_ref: "SRC-003 p.300"
+  manual_ref: "FSM-26.120 p.300"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.294, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.294, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.299, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.304, unchanged from SRC-750 p.304"}
-    "26.124": {status: documented, note: "SRC-752 p.304, the SRC-751 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.309, unchanged from SRC-752 p.304"}
+    "26.121": {status: documented, note: "FSM-26.121 p.303, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.304, unchanged from FSM-26.122 p.304"}
+    "26.124": {status: documented, note: "FSM-26.124 p.304, the FSM-26.123 file, carried from 26.123; run on 26.124 by CMP-26124_2026-10-02_qa-promote and not judged, see RPT-126, section 7"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.309, unchanged from FSM-26.124 p.304"}
   notes: >
     Deletes one control surface by index, or every one at -1. As on
     DELETE_CCS_WING_REFINEMENT_ZONES above, the -1 is recorded rather
@@ -499,20 +492,20 @@ EXPORT_WING_CCS_FILE:
     - name: file
       type: path
       own_line: true
-  manual_ref: "SRC-003 p.300"
+  manual_ref: "FSM-26.120 p.300"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.294, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.299, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.294, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.299, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.303, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.304, unchanged from SRC-750 p.304"}
+    "26.121": {status: documented, note: "FSM-26.121 p.303, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.304, unchanged from FSM-26.122 p.304"}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-10-02_qa-promote.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the CCS file the command names [...]"}
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
-        SRC-753 p.309 adds ROUNDED_BLEND to the trailing-edge geometries
-        SRC-752 p.304 listed, and its sample passes OPEN for the end closure;
+        FSM-26.125 p.309 adds ROUNDED_BLEND to the trailing-edge geometries
+        FSM-26.124 p.304 listed, and its sample passes OPEN for the end closure;
         the rest of the grammar is unchanged
       args:
         - name: name
@@ -542,9 +535,9 @@ ASSIGN_SELECTED_CURVES_TO_CCS_WING:
   layout: bare
   phase: geometry
   args: []
-  manual_ref: "SRC-753 p.307"
+  manual_ref: "FSM-26.125 p.307"
   versions:
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.307, the first edition to document it"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.307, the first edition to document it"}
   notes: >
     Assigns the selected curves to the CCS wing component. The page asks
     for it before any command that adds a control surface, a refinement

@@ -1,4 +1,4 @@
-# Chapter: Scripting reference, Solver Analysis (SRC-003 pp.350-351).
+# Chapter: Scripting reference, Solver Analysis (FSM-26.120 pp.350-351).
 
 SET_VORTICITY_DRAG_BOUNDARIES:
   layout: payload_lines
@@ -10,28 +10,28 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       type: int_list
       cites: boundaries
       required: false
-  manual_ref: "SRC-003 p.350"
+  manual_ref: "FSM-26.120 p.350"
   # PFS-2006.01: no boundary on the list, the command never emitted; the
   # solver-setup snapshot reads both fields rather than restating them.
   default: []
-  default_ref: "SRC-003 p.202"
+  default_ref: "FSM-26.120 p.202"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.311, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.324, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.323, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
-    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.346, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.349, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.356, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.365, unchanged from SRC-752 p.356"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
   notes: >
     Boundaries whose induced drag is computed from surface vorticity
     circulation integration; -1 selects all boundaries. Boundaries
     without trailing-edge boundary conditions on this list report zero
-    induced drag (SRC-003 p.202);
+    induced drag (FSM-26.120 p.202);
     bluff bodies belong to surface-pressure integration instead. The
     results layer reports the solver's per-surface and total rows as
     printed, and every group sum the post makes writes NA for a boundary
@@ -39,25 +39,25 @@ SET_VORTICITY_DRAG_BOUNDARIES:
     (PFS-2006.03). Boundaries left off the list, including every boundary
     when the command is never emitted, use that surface-pressure
     integration, which the manual also prescribes for all components
-    in ground effect (SRC-003 p.202): not emitting this command is a
+    in ground effect (FSM-26.120 p.202): not emitting this command is a
     valid drag setup, not a missing one.
 
 DELETE_VORTICITY_DRAG_BOUNDARIES:
   layout: bare
   phase: analysis
   args: []
-  manual_ref: "SRC-003 p.350"
+  manual_ref: "FSM-26.120 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.311, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.324, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.323, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.353, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.349, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.346, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
-    "26.124": {status: documented, note: "SRC-752 p.356, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.365, unchanged from SRC-752 p.356"}
+    "26.123": {status: documented, note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
+    "26.124": {status: documented, note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
 
 SET_SOLVER_ANALYSIS_LOADS_FRAME:
   layout: inline
@@ -66,19 +66,19 @@ SET_SOLVER_ANALYSIS_LOADS_FRAME:
     - name: load_frame
       type: int
       cites: frames
-  manual_ref: "SRC-003 p.350"
+  manual_ref: "FSM-26.120 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.311, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.324, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.323, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.346, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.349, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.356, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.365, unchanged from SRC-752 p.356"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
   notes: >
     Coordinate system used for evaluating aerodynamic loads and
     moments; index 1 is the reference frame. Phase init on measured
@@ -95,19 +95,19 @@ SET_ANALYSIS_MOMENTS_MODEL:
     - name: model
       type: enum
       values: [PRESSURE, VORTICITY]
-  manual_ref: "SRC-003 p.350"
+  manual_ref: "FSM-26.120 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.311, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.324, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.323, same grammar as 26.120"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
-    "26.100": {status: documented, note: "SRC-741 p.342, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.344, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.342, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.344, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.350, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.357, unchanged from SRC-752 p.350"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >
     PRESSURE is the solver default. Phase init with the loads frame
     (RPT-064, 26.124, 2026-09-24): the package emits the two together,
@@ -121,18 +121,18 @@ SET_ANALYSIS_SYMMETRY_LOADS:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.350"
+  manual_ref: "FSM-26.120 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.311, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.324, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.323, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.353, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.346, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.349, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
-    "26.124": {status: documented, note: "SRC-752 p.356, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.365, unchanged from SRC-752 p.356"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
+    "26.124": {status: documented, note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
   notes: >
     Includes the loads of symmetry boundaries in the analysis; relevant
     to half-model and periodic runs. Phase init on empirical evidence
@@ -152,19 +152,19 @@ SET_LOADS_AND_MOMENTS_UNITS:
       type: enum
       values: [COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE,
                KILOGRAM-FORCE]
-  manual_ref: "SRC-003 pp.350-351"
+  manual_ref: "FSM-26.120 pp.350-351"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.312, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.324, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.323, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.346, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.356, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.365, unchanged from SRC-752 p.356"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
 
 SET_SOLVER_ANALYSIS_BOUNDARIES:
   layout: payload_lines
@@ -175,21 +175,21 @@ SET_SOLVER_ANALYSIS_BOUNDARIES:
     - name: boundary_indices
       type: int_list
       cites: boundaries
-  manual_ref: "SRC-003 p.351"
+  manual_ref: "FSM-26.120 p.351"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.325, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.324, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.354, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.347, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.350, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.312, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.325, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.324, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.354, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.347, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.350, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.357, unchanged from SRC-750 p.357"}
-    "26.124": {status: documented, note: "SRC-752 p.357, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.366, unchanged from SRC-752 p.357"}
+    "26.123": {status: documented, note: "FSM-26.123 p.357, unchanged from FSM-26.122 p.357"}
+    "26.124": {status: documented, note: "FSM-26.124 p.357, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.366, unchanged from FSM-26.124 p.357"}
   notes: >
     Enables the listed boundaries in the analysis tab; boundaries not
-    listed are disabled in the analysis (SRC-003 p.351).
+    listed are disabled in the analysis (FSM-26.120 p.351).
 
 SET_INVISCID_LOADS:
   layout: inline
@@ -198,18 +198,18 @@ SET_INVISCID_LOADS:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.351"
+  manual_ref: "FSM-26.120 p.351"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.325, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.324, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.347, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.341, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.343, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.312, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.325, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.324, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.347, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.349, unchanged from SRC-750 p.349"}
-    "26.124": {status: documented, note: "SRC-752 p.349, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.356, unchanged from SRC-752 p.349"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
+    "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}
   notes: >
     Restricts the analysis to inviscid loads and moments only.
 
@@ -220,16 +220,16 @@ SET_VORTICITY_LIFT_MODEL:
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
-  manual_ref: "SRC-003 p.350"
+  manual_ref: "FSM-26.120 p.350"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.312, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.323, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.346, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.349, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.312, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.324, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.323, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.346, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.349, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
+    "26.121": {status: documented, note: "FSM-26.121 p.353, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
     "26.124":
       status: removed
       probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-068_two-documented-setup-commands-are-unrecognized-on-26124_2026-09-24.md"
@@ -241,7 +241,7 @@ SET_VORTICITY_LIFT_MODEL:
         this build still prints the command. Whether the model moved under
         another name, and whether the builds before 26.124 answer it, is not
         measured
-    "26.125": {status: documented, note: "SRC-753 p.365, unchanged from SRC-752 p.356; 26.124 answered it as an unrecognized command (its removed row), and 26.125 has not run it"}
+    "26.125": {status: documented, note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356; 26.124 answered it as an unrecognized command (its removed row), and 26.125 has not run it"}
   notes: >
     Computes lift from the vorticity field rather than by integrating
     surface pressure.

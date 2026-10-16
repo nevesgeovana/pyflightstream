@@ -88,17 +88,10 @@ from pydantic import (
     model_validator,
 )
 
-# InputArtifactError is DEFINED in `_errors`, below every layer, and
-# re-exported here and from `pyflightstream.workspace`, which is the name
-# a user catches and the one every docstring in this module names. It
-# moved there on 2026-08-19 (OPS-2007.02.01) because the layers that bind
-# a run matrix to this library catch it too, and reaching up for the type
-# alone is what the five call-time imports of `cases/matrix.py` were.
-# Nothing about the class changed: same two bases, same three attributes,
-# same public spelling.
-# The names below are imported only because 0.32.0 offered them from this
-# module, which had no __all__; each keeps importing from here (a release
-# does everything the previous one did, as scripts/check_parity.py checks).
+# InputArtifactError is defined in _errors below all layers and re-exported
+# here and from workspace. Matrix-binding layers can catch it without an
+# upward dependency. The other imports below preserve public import paths
+# checked by scripts/check_parity.py.
 from pyflightstream._digest import aliased_name_fault as aliased_name_fault
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import InputArtifactError
@@ -330,11 +323,8 @@ KIND_COLUMNS = {"reference": "REF", "setup": "SET", "pproc": "PPROC"}
 #: alike from a suite that only writes correct files.
 _POINT_KIND_ENGINE_WORD = "engine"
 
-#: What a reference point may declare itself to be (PFS-2029.11.02).
-#: It was ``engine`` in legacy releases; see :mod:`pyflightstream._retired_names`.
-#: The word sweep rewrote the OLD spelling here into the new one, which is
-#: the failure the comment above it was written to prevent, committed in
-#: the file that records it (the interface lens of the release review).
+#: Allowed reference-point kinds (PFS-2029.11.02). The retired spelling
+#: engine is handled by pyflightstream._retired_names.
 POINT_KINDS = ("rotor", "airframe")
 
 
@@ -427,7 +417,7 @@ class RotorReference(BaseModel):
             return data
         raise ValueError(
             f"the rotor block states {', '.join(found)}, which the reference artifact "
-            "carried until 0.11.0 and no builder read. What a script needs is stated "
+            "cannot supply to a builder. What a script needs is stated "
             "elsewhere: the hand is rpm_sign on a rotor block of the reference (or RPM_SIGN "
             "on a row whose reference declares no rotor); RPM is a magnitude; and the axis "
             "is ROTOR_AXIS (PFS-2029.08). Drop the key(s), or "
@@ -1083,11 +1073,8 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
         if not isinstance(value, dict):
             continue
         if "kind" not in value:
-            # A BLOCK THAT FORGOT ITS `kind` LINE is the likeliest mistake a
-            # hand-written rotor makes, and without this it falls through to
-            # a strict model and reads as "extra inputs are not permitted",
-            # which says nothing about rotors. The rotor-only keys are what
-            # identify it (the interface lens of 2026-09-10).
+            # Identify a missing rotor kind from rotor-only keys and give a rotor
+            # remedy instead of the generic extra-inputs refusal.
             wanted = sorted(key for key in _ROTOR_ONLY_KEYS if key in value)
             if wanted:
                 raise InputArtifactError(
@@ -1098,11 +1085,9 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                     "quantity.",
                     kind="reference",
                 )
-            # The same for an actuator disc that forgot its kind (G06). A TABLE
-            # OF THE MODEL'S OWN is no such disc: `hub_radius_m` is a key of
-            # `[rotor]` as well as of a disc, and this guard refused the
-            # documented `[rotor]` as a disc with no kind until 0.28.0 (found
-            # by the input template's test, G47). The model judges its tables.
+            # Likewise identify an actuator disc missing kind (G06), excluding the
+            # model's own tables: hub_radius_m is also valid under [rotor]. Let the
+            # model validate those tables (G47).
             disc = sorted(key for key in _ACTUATOR_ONLY_KEYS if key in value)
             if disc and name not in ReferenceArtifact.model_fields:
                 raise InputArtifactError(
@@ -1123,9 +1108,7 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
             continue
         block = rest.pop(name)
         stated = block.get("alias")
-        # CASE FOLDED, as every other alias comparison in this package is:
-        # `alias = "pusher"` under [PUSHER] names one word and was refused
-        # for its spelling alone (the interface lens of 2026-09-10).
+        # Compare aliases without case, so pusher under [PUSHER] names one alias.
         if stated is not None and str(stated).casefold() != name.casefold():
             raise InputArtifactError(
                 f"the reference artifact {path} declares the rotor {name!r} and states "
@@ -1147,19 +1130,9 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
         block.setdefault("alias", name)
         rotors[name] = block
         members = [*block.get("families_general", []), *block.get("families_blades", [])]
-        # THE ROTOR'S NAME IS AN ALIAS OVER WHAT IT OWNS, and a hand-written
-        # [aliases] entry of the same name would SHADOW that silently, which
-        # is the design's central claim quietly reversed. Refused naming
-        # both places rather than resolved by precedence.
-        # CASE FOLDED, as every other alias comparison in this package is
-        # and as the `alias =` check twenty-five lines above already was.
-        # Exact-case here let `[PUSHER]` and `pusher = [...]` both stand, so
-        # the returned table carried TWO keys for one word, one holding the
-        # rotor's real membership and one holding the hand-written list, and
-        # which of them moved was decided downstream by whichever the reader
-        # folded to first (the architecture lens of the 0.15.0 release
-        # review). The existing case spelled the alias exactly like the
-        # block, which is the one spelling the guard did catch.
+        # The rotor's name is an alias over its own members. Refuse a handwritten
+        # alias of the same name rather than silently shadowing either membership.
+        # Compare without case, as for the alias= check above.
         shadow = next((key for key in aliases if key.casefold() == name.casefold()), None)
         if shadow is not None and list(aliases[shadow]) != members:
             raise InputArtifactError(
@@ -1174,11 +1147,8 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
         if shadow is not None:
             del aliases[shadow]
         aliases[name] = members
-    # THE COLLISION IS TWO SIDED, and the guard above closes one side. A
-    # rotor may not be named after its frames; a FRAME or an ALIAS may not
-    # be named after a rotor's frames either, and until this ran the guard
-    # sat on one side of the same shadowing the interface lens of REL-0140
-    # had already found once (the interface lens of 2026-09-10).
+    # Check both sides: a rotor cannot take its frames' names, and neither a
+    # frame nor an alias can take the names of a rotor's frames.
     for spelling, what in [(frame.get("name", ""), FRAMES_TABLE) for frame in frames] + [
         (name, ALIASES_TABLE) for name in aliases
     ]:
@@ -1192,17 +1162,9 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                 kind="reference",
             )
     if aliases:
-        # THE RING IS CAUGHT WHERE THE FILE IS NAMED, which is here and not
-        # in the resolver. `resolve_alias` raises AliasCycleError naming both
-        # sides of the ring and nothing else, and nobody catches it, so a
-        # workspace with several references gave a user a chain and no file
-        # to open (the interface lens of the 0.15.0 release review). Every
-        # other refusal on this path names its artifact.
-        #
-        # Resolving each alias against an EMPTY inventory is deliberate and
-        # is what makes this cheap: a ring is a property of the table alone,
-        # so no geometry is needed to find one, and a member that resolves to
-        # nothing here is the ordinary case this package is built around.
+        # Catch AliasCycleError here, where the artifact path is known, so the
+        # refusal names both the cycle and its file. Resolve against an empty
+        # inventory: cycles depend only on the alias table, not geometry members.
         from pyflightstream.cases import AliasCycleError, resolve_alias
 
         for name in aliases:
@@ -1379,8 +1341,8 @@ def resolve_setup(inputs_dir: Path, artifact_id: str) -> SetupArtifact:
                 "means whichever record was read last."
             )
         seen[word] = str(entry.get("command"))
-    # THE ALIASES TABLE IS NOT A SOLVER SETTING (the design decision of 2026-09-09):
-    # a name to the boundaries it stands for, read wherever a boundary is cited.
+    # Aliases map names to boundaries wherever a boundary is cited; they are
+    # not solver settings.
     aliases = data.pop(ALIASES_TABLE, {})
     if not isinstance(aliases, dict) or not all(isinstance(v, list) for v in aliases.values()):
         bad = (
@@ -1447,18 +1409,9 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     if not path.is_file():
         raise _miss("pproc", artifact_id, directory)
     data = load_toml(path, "pproc")
-    # THE TOP-LEVEL LISTS THE PPROC SHAPE ITSELF DEFINES, and every other
-    # top-level list is a group of the pre-0.11.0 artifact. `probes` joined
-    # this set at 0.16.0 (FR-77), when `[probes]` became `[[probes]]` so that
-    # one artifact can sample several frames on one row: an array of tables IS
-    # a top-level list, so without this line every migrated artifact is refused
-    # as an old-shape groups file, naming a migration that would not help.
-    #
-    # READ FROM THE MODEL SINCE 0.28.0, and not kept as a tuple: `vtk_variables`,
-    # a top-level list of the model since 0.25.0, was missing from the tuple, so
-    # every file stating it was refused as an old-shape groups file (found by
-    # the input template's test, G47). A field of the model is never a group,
-    # whatever its type, and the model judges it.
+    # A model field is never a legacy top-level group, whatever its type. Read
+    # PprocArtifact.model_fields rather than duplicating its list-valued fields,
+    # including probes and vtk_variables; let the model validate their contents.
     own_keys = PprocArtifact.model_fields
     bare = sorted(
         key for key, value in data.items() if isinstance(value, list) and key not in own_keys
@@ -1466,7 +1419,7 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     if bare:
         raise InputArtifactError(
             f"the pproc artifact {path} carries group(s) {', '.join(bare)} at the top "
-            "level, which is the shape the groups artifact had before 0.11.0. A pproc "
+            "level, which is a legacy groups-artifact shape. A pproc "
             "file holds its groups under a [groups] table, beside [exports], "
             "[sections], [plots], [[probes]] and [products]; "
             "this format predates 0.38.0. Use an older package to reach 0.38.0, "
@@ -1579,7 +1532,7 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
         candidates = [f for f in staged if PurePath(f).stem == name]
         if candidates:
             raise InputArtifactError(
-                f"geometry {name!r} is a bare stem, and since 0.11.0 the GEOMETRY cell "
+                f"geometry {name!r} is a bare stem, and the GEOMETRY cell "
                 f"carries the file name with its extension: write GEOMETRY: "
                 f"{' or GEOMETRY: '.join(candidates)} (the file(s) under {directory} "
                 "carrying that stem). This layout predates 0.38.0; see docs/upgrading.md.",
@@ -1728,7 +1681,7 @@ def rotor_integration_groups(
     resolved: dict[str, list[int | str]] = {
         name: list(members) for name, members in declared.items()
     }
-    # A GROUP THAT NAMES A ROTOR IS THAT ROTOR'S FAMILIES (0.24.0). A group is one
+    # A GROUP THAT NAMES A ROTOR IS THAT ROTOR'S FAMILIES. A group is one
     # alias, and a rotor's alias is the one name for its families, so
     # `PUSHER = "PUSHER"` and `PROP = "PUSHER"` both mean the rotor. Expanded
     # here, before the agreement check below, which would otherwise read the

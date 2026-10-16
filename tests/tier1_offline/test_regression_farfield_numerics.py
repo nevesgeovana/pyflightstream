@@ -664,11 +664,11 @@ class TestFarfieldNumpy:
     @pytest.mark.requirement("FR-458")
     @pytest.mark.parametrize("name", ["rothalpy", "irreversible_deficit"])
     def test_p0400_rothalpy_the_two_functions_left_for_itaca(name):
-        """P0400-ROTHALPY (FR-458): each name refuses with the release and ITACA named."""
+        """P0400-ROTHALPY (FR-458): each name refuses with the release and external tools named."""
         with pytest.raises(RetiredAttributeError) as caught:
             getattr(ff, name)
         message = str(caught.value)
-        assert "ITACA" in message and "v0.40.0" in message
+        assert "external Euler CFD tools" in message and "v0.40.0" in message
         assert name not in ff.__all__
         assert not hasattr(sys.modules["pyflightstream.farfield.balances"], name)
 

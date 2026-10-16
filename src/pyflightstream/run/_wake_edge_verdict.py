@@ -1,6 +1,6 @@
 """The verdicts on a run read off the solver's own log, whatever the assessor said.
 
-G02 of 0.27.0 (RPT-061, RPT-065): a run that imported trailing edges is held to
+G02 (RPT-061, RPT-065): a run that imported trailing edges is held to
 the count the solver logged. G06: a run whose solver could not use the radial
 thrust profile of its actuator disc is held to the line the solver logged about
 it. Private to the run layer: the point path and the collect path both apply
@@ -168,12 +168,10 @@ def collected_solver_log(folder: Path, collected: Sequence[str], named: str | No
     file it read (``log_file_used``), and that file is read. An assessor a
     caller passes answers with a status and need not name anything, so the log
     is then found as the package's own assessor finds it: the one collected
-    output that parses as a residual history. Until this, a caller's assessor
-    left a collected log unread, and a point whose log carried every imported
-    edge was recorded FAILED_INCOMPLETE_OUTPUT with the remedy to export the
-    log it had exported (the qa lens, 2026-09-24).
+    output that parses as a residual history. This keeps imported-edge
+    validation independent of whether the assessor names its log.
 
-    THE LOG OF A STEADY JOB IS CUMULATIVE (0.33.1). A steady row's points run
+    THE LOG OF A STEADY JOB IS CUMULATIVE. A steady row's points run
     in one solver session, and each point's ``EXPORT_LOG`` writes the session's
     log so far: point k's log holds k solves, the counter starting again at 1
     for each. The content rule above reads one solve only, so from point 2 on
@@ -287,12 +285,11 @@ def collected_log_texts(
     was recorded CONVERGED where the same bytes under ``run_log.txt`` were
     FAILED_SCRIPT.
 
-    AND, SINCE THE RELEASE READING OF 0.27.0, EVERY COLLECTED TEXT OUTPUT. The
+    Read every collected text output too. The
     four sentences are the solver's own and appear in nothing but its log, and
     a log can be written under a name no rule above sees: a SCRIPT action's
     child script exporting it each step, which the solver files as
-    ``<name>_iteration=<step>.txt``. Naming the logs one route at a time left
-    each next route unread, so every collected output whose suffix is ``.txt``
+    ``<name>_iteration=<step>.txt``. Read every output whose suffix is ``.txt``
     or ``.log`` is read, besides a declared log of another suffix; reading a
     point's text outputs costs less than a CONVERGED point whose disc did not
     read its file.

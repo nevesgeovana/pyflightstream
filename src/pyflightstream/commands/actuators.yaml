@@ -1,6 +1,6 @@
-# Chapter: Scripting reference, Actuators (SRC-003 pp.323-324).
+# Chapter: Scripting reference, Actuators (FSM-26.120 pp.323-324).
 # Actuator discs are the linearized propeller slipstream surrogate
-# (SRC-003 pp.185-187); they are defined before solver initialization.
+# (FSM-26.120 pp.185-187); they are defined before solver initialization.
 
 CREATE_NEW_ACTUATOR:
   layout: inline
@@ -15,24 +15,24 @@ CREATE_NEW_ACTUATOR:
       required: false
     - name: name
       type: str
-  manual_ref: "SRC-003 p.323"
+  manual_ref: "FSM-26.120 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.280, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.297, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.296, same grammar as 26.120"}
     "26.100": {status: verified, report: "reports/compat/CMP-26100_2026-08-08_enableactuator.yaml"}
-    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.322, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.327, unchanged from SRC-750 p.327"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.327, the SRC-751 file, carried from 26.123"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.327, unchanged from FSM-26.122 p.327"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.327, the FSM-26.123 file, carried from 26.123"}
     "26.125":
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-
-        SRC-753 p.333 adds GENERIC to the thrust-profile models a propeller
-        takes, beside CUSTOM and ELLIPTICAL of SRC-752 p.327; the rest of the
+        FSM-26.125 p.333 adds GENERIC to the thrust-profile models a propeller
+        takes, beside CUSTOM and ELLIPTICAL of FSM-26.124 p.327; the rest of the
         grammar is unchanged
       args:
         - name: type
@@ -42,7 +42,7 @@ CREATE_NEW_ACTUATOR:
   notes: >
     SUBTYPE selects the thrust profile model and applies only to the
     PROPELLER type. CUSTOM imports a radial force distribution;
-    ELLIPTICAL is specified by net thrust and RPM (SRC-003 p.185).
+    ELLIPTICAL is specified by net thrust and RPM (FSM-26.120 p.185).
 
 SET_ACTUATOR_NAME:
   layout: inline
@@ -53,19 +53,19 @@ SET_ACTUATOR_NAME:
       cites: actuators
     - name: name
       type: str
-  manual_ref: "SRC-003 p.323"
+  manual_ref: "FSM-26.120 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.280, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.297, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.296, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.322, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.318, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.327, unchanged from SRC-750 p.327"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.327, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.333, unchanged from SRC-752 p.327"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.327, unchanged from FSM-26.122 p.327"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.327, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.333, unchanged from FSM-26.124 p.327"}
 
 SET_ACTUATOR_AXIS:
   layout: inline
@@ -83,19 +83,19 @@ SET_ACTUATOR_AXIS:
     - name: offset
       type: float
       unit: "simulation length units"
-  manual_ref: "SRC-003 p.323"
+  manual_ref: "FSM-26.120 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.280, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.297, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.296, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.318, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.327, unchanged from SRC-750 p.327"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.327, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.333, unchanged from SRC-752 p.327"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.327, unchanged from FSM-26.122 p.327"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.327, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.333, unchanged from FSM-26.124 p.327"}
   notes: >
     Places the actuator disc on an axis of a local coordinate system
     (frame index greater than 1); the frame must exist before this
@@ -115,19 +115,19 @@ SET_ACTUATOR_RADIUS:
     - name: r_hub
       type: float
       unit: "simulation length units"
-  manual_ref: "SRC-003 p.323"
+  manual_ref: "FSM-26.120 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.280, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.280, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.297, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.296, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.318, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.327, unchanged from SRC-750 p.327"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.327, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.333, unchanged from SRC-752 p.327"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.327, unchanged from FSM-26.122 p.327"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.327, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.333, unchanged from FSM-26.124 p.327"}
 
 SET_PROP_ACTUATOR_RPM:
   layout: inline
@@ -139,19 +139,19 @@ SET_PROP_ACTUATOR_RPM:
     - name: rpm
       type: float
       unit: "rev/min"
-  manual_ref: "SRC-003 p.323"
+  manual_ref: "FSM-26.120 p.323"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.297, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.296, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.318, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.281, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.297, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.296, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.318, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.327, unchanged from SRC-750 p.327"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.327, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.333, unchanged from SRC-752 p.327"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.327, unchanged from FSM-26.122 p.327"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.327, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.333, unchanged from FSM-26.124 p.327"}
   notes: >
     Sign selects the rotation direction about the actuator axis.
 
@@ -170,11 +170,11 @@ SET_PROP_ACTUATOR_PROFILE:
     - name: file_name
       type: path
       own_line: true
-  manual_ref: "SRC-003 pp.323-324"
+  manual_ref: "FSM-26.120 pp.323-324"
   versions:
     "25.000":
       status: documented
-      note: "SRC-749 p.281, this edition's own grammar; see the note below"
+      note: "FSM-25.000 p.281, this edition's own grammar; see the note below"
       args:
         - name: actuator_index
           type: int
@@ -186,7 +186,7 @@ SET_PROP_ACTUATOR_PROFILE:
           own_line: true
     "25.100":
       status: documented
-      note: "SRC-748 p.298, this edition's own grammar; see the note below"
+      note: "FSM-25.100 p.298, this edition's own grammar; see the note below"
       args:
         - name: actuator_index
           type: int
@@ -196,14 +196,14 @@ SET_PROP_ACTUATOR_PROFILE:
         - name: file_name
           type: path
           own_line: true
-    "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.326, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.297, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.326, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.319, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.327, unchanged from SRC-750 p.327"}
-    "26.124": {status: documented, note: "SRC-752 p.327, the SRC-751 file, carried from 26.123; ran on 26.124 under a licensed probe (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md): eleven rows r,F ending in a final newline were read as twelve points, the log said the solver failed to read the custom radial thrust profile file, and a modal dialog refused the file and held the run until a person closed it; a count or a header line first was read as one point more and every value read as zero; CR LF line ends, a space or tab separator and a dimensional radius changed nothing; the same eleven rows with NO final newline were read as eleven points, with no dialog and no refusal logged, and the saved simulation carries the radii and forces"}
-    "26.125": {status: documented, note: "SRC-753 p.333, unchanged from SRC-752 p.327"}
+    "26.123": {status: documented, note: "FSM-26.123 p.327, unchanged from FSM-26.122 p.327"}
+    "26.124": {status: documented, note: "FSM-26.124 p.327, the FSM-26.123 file, carried from 26.123; ran on 26.124 under a licensed probe (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md): eleven rows r,F ending in a final newline were read as twelve points, the log said the solver failed to read the custom radial thrust profile file, and a modal dialog refused the file and held the run until a person closed it; a count or a header line first was read as one point more and every value read as zero; CR LF line ends, a space or tab separator and a dimensional radius changed nothing; the same eleven rows with NO final newline were read as eleven points, with no dialog and no refusal logged, and the saved simulation carries the radii and forces"}
+    "26.125": {status: documented, note: "FSM-26.125 p.333, unchanged from FSM-26.124 p.327"}
   notes: >
     Imports a custom radial thrust profile; the TXT file path follows
     on the line after the inline arguments. UNITS_TYPE gives the force
@@ -226,22 +226,22 @@ SET_PROP_ACTUATOR_THRUST:
     - name: thrust_type
       type: enum
       values: [COEFFICIENT, NEWTONS, POUNDS]
-  manual_ref: "SRC-003 p.324"
+  manual_ref: "FSM-26.120 p.324"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.327, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.281, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.298, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.297, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.327, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.319, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.323, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.328, unchanged from SRC-750 p.328"}
-    "26.124": {status: documented, note: "SRC-752 p.328, the SRC-751 file, carried from 26.123; it ran on 26.124 without abort or logged error in reports/compat/CMP-26124_2026-09-14_full-sim.yaml, its effect not observable there (unprobed), so it stays documented"}
-    "26.125": {status: documented, note: "SRC-753 p.334, unchanged from SRC-752 p.328"}
+    "26.123": {status: documented, note: "FSM-26.123 p.328, unchanged from FSM-26.122 p.328"}
+    "26.124": {status: documented, note: "FSM-26.124 p.328, the FSM-26.123 file, carried from 26.123; it ran on 26.124 without abort or logged error in reports/compat/CMP-26124_2026-09-14_full-sim.yaml, its effect not observable there (unprobed), so it stays documented"}
+    "26.125": {status: documented, note: "FSM-26.125 p.334, unchanged from FSM-26.124 p.328"}
   notes: >
     Net thrust of the disc. The manual warns to verify that the
     coefficient convention matches the solver formulation and
-    recommends dimensional thrust to avoid ambiguity (SRC-003 p.187).
+    recommends dimensional thrust to avoid ambiguity (FSM-26.120 p.187).
 
 SET_PROP_ACTUATOR_SWIRL:
   layout: inline
@@ -252,23 +252,23 @@ SET_PROP_ACTUATOR_SWIRL:
       cites: actuators
     - name: swirl_factor
       type: float
-  manual_ref: "SRC-003 p.324"
+  manual_ref: "FSM-26.120 p.324"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.281, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.298, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.297, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.319, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.323, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.328, unchanged from SRC-750 p.328"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.328, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.334, unchanged from SRC-752 p.328"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.328, unchanged from FSM-26.122 p.328"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.328, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.334, unchanged from FSM-26.124 p.328"}
   notes: >
     Fraction between 0 and 1 of the swirl velocity kept downstream;
     values below 1 mimic a stator de-swirling the slipstream
-    (SRC-003 p.186).
+    (FSM-26.120 p.186).
 
 ENABLE_ACTUATOR:
   layout: inline
@@ -277,28 +277,28 @@ ENABLE_ACTUATOR:
     - name: actuator_index
       type: int
       cites: actuators
-  manual_ref: "SRC-003 p.324"
+  manual_ref: "FSM-26.120 p.324"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.281, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.327, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.281, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.298, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.297, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.327, same grammar as 26.120"}
     "26.100":
       status: documented
       note: >-
-        SRC-741 p.319 prints the heading with NO placeholder and a
+        FSM-26.100 p.319 prints the heading with NO placeholder and a
         parameter table reading N/A, while its own sample passes an
         index. The one-argument form is recorded and was MEASURED on
         this build: reports/compat/CMP-26100_2026-08-08_enableactuator
         records the solver accepting it without abort or logged error.
-    "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.323, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.328, unchanged from SRC-750 p.328"}
-    "26.124": {status: documented, note: "SRC-752 p.328, the SRC-751 file, carried from 26.123; it ran on 26.124 without abort or logged error in reports/compat/CMP-26124_2026-09-14_full-sim.yaml, its effect not observable there (unprobed), so it stays documented"}
-    "26.125": {status: documented, note: "SRC-753 p.334, unchanged from SRC-752 p.328"}
+    "26.123": {status: documented, note: "FSM-26.123 p.328, unchanged from FSM-26.122 p.328"}
+    "26.124": {status: documented, note: "FSM-26.124 p.328, the FSM-26.123 file, carried from 26.123; it ran on 26.124 without abort or logged error in reports/compat/CMP-26124_2026-09-14_full-sim.yaml, its effect not observable there (unprobed), so it stays documented"}
+    "26.125": {status: documented, note: "FSM-26.125 p.334, unchanged from FSM-26.124 p.328"}
   notes: >
     FEBRUARY 2026 IS THE ONE EDITION WHOSE HEADING AND SAMPLE DISAGREE
-    ABOUT WHETHER THIS COMMAND TAKES AN ARGUMENT. SRC-741 p.319 prints
+    ABOUT WHETHER THIS COMMAND TAKES AN ARGUMENT. FSM-26.100 p.319 prints
     the bare name and a parameter table of N/A, and the sample beneath
     it passes an actuator index. Every later edition documents
     ACTUATOR_INDEX in the heading and the table.
@@ -326,19 +326,19 @@ DELETE_ACTUATOR:
     - name: actuator_index
       type: int
       cites: actuators
-  manual_ref: "SRC-003 p.324"
+  manual_ref: "FSM-26.120 p.324"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.282, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.319, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.282, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.298, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.297, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.323, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.319, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.328, unchanged from SRC-750 p.328"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.328, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.334, unchanged from SRC-752 p.328"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.328, unchanged from FSM-26.122 p.328"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.328, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.334, unchanged from FSM-26.124 p.328"}
 
 DISABLE_ACTUATOR:
   layout: inline
@@ -347,11 +347,11 @@ DISABLE_ACTUATOR:
     - name: actuator_index
       type: int
       cites: actuators
-  manual_ref: "SRC-741 p.319"
+  manual_ref: "FSM-26.100 p.319"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.282, same grammar as 26.100"}
-    "25.100": {status: documented, note: "SRC-748 p.298, same grammar as 26.100"}
-    "26.000": {status: documented, note: "SRC-747 p.297, same grammar as 26.100"}
+    "25.000": {status: documented, note: "FSM-25.000 p.282, same grammar as 26.100"}
+    "25.100": {status: documented, note: "FSM-25.100 p.298, same grammar as 26.100"}
+    "26.000": {status: documented, note: "FSM-26.000 p.297, same grammar as 26.100"}
     "26.100": {status: documented}
   notes: >
     Disables an actuator disc without deleting it, the counterpart of
@@ -359,7 +359,7 @@ DISABLE_ACTUATOR:
 
     DOCUMENTED BY THE FEBRUARY 2026 EDITION ALONE. No later edition
     prints it anywhere, which is why the entry carries one version row
-    and cites SRC-741 rather than the flagship. It is the mirror image
+    and cites FSM-26.100 rather than the flagship. It is the mirror image
     of SET_WAKE_DECAY_CONSTANT, which exists in the newest edition only.
 
     Its page prints the heading with NO placeholder and a parameter
@@ -381,7 +381,7 @@ SET_ACTUATOR_WAKE_TYPE:
     - name: type
       type: enum
       values: [RIGID, RELAXED]
-  manual_ref: "SRC-750 p.328"
+  manual_ref: "FSM-26.122 p.328"
   notes: >
     Chooses whether a propeller actuator's wake holds its prescribed
     shape or relaxes onto the local flow. First documented by the
@@ -395,7 +395,7 @@ SET_ACTUATOR_WAKE_TYPE:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.328, the first edition to document it"
-    "26.123": {status: documented, note: "SRC-751 p.328, unchanged from SRC-750 p.328"}
-    "26.124": {status: documented, note: "SRC-752 p.328, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.334, unchanged from SRC-752 p.328"}
+      note: "FSM-26.122 p.328, the first edition to document it"
+    "26.123": {status: documented, note: "FSM-26.123 p.328, unchanged from FSM-26.122 p.328"}
+    "26.124": {status: documented, note: "FSM-26.124 p.328, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.334, unchanged from FSM-26.124 p.328"}

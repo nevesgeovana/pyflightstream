@@ -52,7 +52,7 @@ from pyflightstream.utils.manual import (
 #: from the table opening, so in principle a vendor change past that line
 #: truncates identically in both editions and compares EQUAL, which is
 #: the page-local defect arriving through a different door. Measured over
-#: SRC-751 on 2026-08-17: exactly ONE command's table span exceeds the
+#: FSM-26.123 on 2026-08-17: exactly ONE command's table span exceeds the
 #: window, `DELETE_BL_VELOCITY_PROFILE` at 71 lines, and everything past
 #: line 40 of it is the next chapter heading and the next command's
 #: signature, because that command documents no sample block and the scan

@@ -144,17 +144,17 @@ def test_provenance_markers_and_default_evidence():
     assert minimum_cp.provenance == "default"
     assert minimum_cp.value == LIBRARY_MINIMUM_CP
     assert minimum_cp.emitted
-    assert "SRC-003 p.221" in minimum_cp.evidence
+    assert "FSM-26.120 p.221" in minimum_cp.evidence
     assert "reseed-cp100" in minimum_cp.evidence
     boundary_layer = flags["SET_BOUNDARY_LAYER_TYPE"]
     assert boundary_layer.provenance == "default"
     assert boundary_layer.value == "TRANSITIONAL"
     assert not boundary_layer.emitted
-    assert boundary_layer.evidence == "SRC-003 p.203"
+    assert boundary_layer.evidence == "FSM-26.120 p.203"
     farfield = flags["SOLVER_SET_FARFIELD_LAYERS"]
     assert farfield.provenance == "default"
     assert farfield.value == 3
-    assert farfield.evidence == "SRC-003 p.344"
+    assert farfield.evidence == "FSM-26.120 p.344"
     unknown = flags["SET_WAKE_ON_WAKE_INDUCTION"]
     assert unknown.provenance == "unknown"
     assert unknown.value is None and unknown.evidence is None and not unknown.emitted
@@ -182,7 +182,7 @@ def test_defaults_of_commands_absent_from_the_version_stay_unknown():
     # LAMINAR_SEPARATION is recorded there.
     #
     # This test named SET_BOUNDARY_LAYER_TYPE until 2026-08-07, when the
-    # review found the May edition documents that command (SRC-725 p.340)
+    # review found the May edition documents that command (FSM-26.101 p.340)
     # and the entry had no row for it. The command became emittable on
     # 26.101 and the assertion turned green in the wrong direction: a
     # default WAS now claimed there, correctly. The two named above are
@@ -216,7 +216,7 @@ def test_defaults_of_commands_absent_from_the_version_stay_unknown():
 
 
 def test_an_unset_selection_emits_nothing_and_leaves_the_solver_default():
-    # SRC-003 p.202: boundaries outside the vorticity CDi list use the
+    # FSM-26.120 p.202: boundaries outside the vorticity CDi list use the
     # solver's surface pressure integration, a complete drag calculation.
     # Omitting the selection must therefore build a valid script, not a
     # refusal (the legacy reproduction path leaves the list unset).
@@ -229,7 +229,7 @@ def test_an_unset_selection_emits_nothing_and_leaves_the_solver_default():
     record = setup.flags[VORTICITY_COMMAND]
     assert record.provenance == "default"
     assert record.value == [] and not record.emitted
-    assert "SRC-003 p.202" in record.evidence
+    assert "FSM-26.120 p.202" in record.evidence
     # The snapshot stays total, with the flag counted as a default.
     counts = setup.provenance_counts()
     assert counts["explicit"] == 2  # aoa and velocity
@@ -246,24 +246,24 @@ def test_an_unset_selection_emits_nothing_and_leaves_the_solver_default():
 def test_the_unset_selection_reads_its_default_and_citation_from_the_command_entry():
     """PFS-2006.01: the default and its citation live in the command entry, not in code.
 
-    The empty selection and "SRC-003 p.202" were restated in the snapshot's
+    The empty selection and "FSM-26.120 p.202" were restated in the snapshot's
     Python while the entry carried neither, so no validator could see them.
     The entry now records both, and the record reads them: a registry whose
     entry cites another page is cited in the record, the literal is not.
     """
     registry = CommandRegistry.load()
     entry = registry.commands[VORTICITY_COMMAND]
-    assert entry.default == () and entry.default_ref == "SRC-003 p.202"
+    assert entry.default == () and entry.default_ref == "FSM-26.120 p.202"
     moved = CommandRegistry(
         commands={
             **registry.commands,
-            VORTICITY_COMMAND: entry.model_copy(update={"default_ref": "SRC-752 p.202"}),
+            VORTICITY_COMMAND: entry.model_copy(update={"default_ref": "FSM-26.124 p.202"}),
         }
     )
     setup = helpers.solver_settings(Script(version="26.120", registry=moved), aoa=3.0)
     record = setup.flags[VORTICITY_COMMAND]
     assert record.provenance == "default" and record.value == [] and not record.emitted
-    assert "SRC-752 p.202" in record.evidence and "SRC-003 p.202" not in record.evidence
+    assert "FSM-26.124 p.202" in record.evidence and "FSM-26.120 p.202" not in record.evidence
 
 
 def test_an_unset_selection_stays_unknown_without_the_command_in_the_version(monkeypatch):
@@ -854,7 +854,7 @@ def test_the_valarezo_erase_emits_the_name_the_solver_answers_to():
     helpers.solver_settings(script, valarezo_separation_boundaries=[])
     assert "DELETE_VALAREZO_SEPARATION_BOUNDARIES" in script.render()
     # The documented name stays in the database, because a reader of
-    # SRC-741 p.339 has to be able to find out here that it fails, and it
+    # FSM-26.100 p.339 has to be able to find out here that it fails, and it
     # is never emitted.
     assert "CRITERION" not in script.render()
 
@@ -1283,7 +1283,7 @@ def test_bulk_separation_is_refused_on_a_build_whose_grammar_drops_the_type():
     Added in round four with no test, which is why round five found it:
     the message it exists to replace is the binder's generic one, which
     names an argument the caller never typed and cites the 26.120 manual
-    page to somebody whose grammar is documented at SRC-725 p.341.
+    page to somebody whose grammar is documented at FSM-26.101 p.341.
     """
     script = Script(version="26.101")
     with pytest.raises(CommandArgumentError, match="does not take") as caught:
@@ -1294,7 +1294,7 @@ def test_bulk_separation_is_refused_on_a_build_whose_grammar_drops_the_type():
         )
     message = str(caught.value)
     assert "26.101" in message, "the refusal must name the build the caller is on"
-    assert "SRC-725 p.341" in message, "and the page where their own grammar lives"
+    assert "FSM-26.101 p.341" in message, "and the page where their own grammar lives"
     assert "Script.emit" in message, "and the way through"
     assert script.render() == "\n", "a refusal must leave the caller's script untouched"
 
@@ -1337,7 +1337,7 @@ def test_the_all_boundaries_thin_form_is_reachable_and_the_three_states_differ()
     Until 2026-08-07 the helper refused ``"all"`` and its refusal
     recommended ``["all"]``, which then failed again as an unknown
     boundary label. The command's own -1 form marks every mesh boundary
-    thin and takes no index line (SRC-003 p.343).
+    thin and takes no index line (FSM-26.120 p.343).
     """
     everything = Script(version="26.120")
     everything.declare_existing(boundaries=6)
@@ -1369,7 +1369,7 @@ def test_the_thin_boundary_keyword_names_the_build_that_lacks_the_command():
     emitter. That is fine, and it is exactly what must not be swallowed
     or downgraded by a later helper change: the message has to name the
     build and what evidence does exist. Surface roughness is the
-    control, because that command IS in February (SRC-741 p.338) and
+    control, because that command IS in February (FSM-26.100 p.338) and
     must go on emitting there.
     """
     february = Script(version="26.100")

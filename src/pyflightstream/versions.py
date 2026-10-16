@@ -231,8 +231,7 @@ class FsVersion:
         report records one. It is the only thing that tells two builds
         of one minor release apart at run time, because every build of
         one release prints the same version string. Which builds those
-        are is not listed here: the generated build page computes it,
-        and a hand-written list has gone stale on every registration.
+        are is computed by the generated build page from the registry.
         Registered from committed evidence, never guessed.
     prints : str or None
         Release name this version's solver PRINTS, which is not the
@@ -241,9 +240,7 @@ class FsVersion:
         the name the binary states about itself, and the two differ
         wherever the vendor has reused a release name, which the 26.12
         family is: those builds ship under one alias and print one
-        release name, so neither string separates them. No tally appears
-        here, and this sentence used to carry one anyway, which went
-        stale twice. A reader holding an
+        release name, so neither string separates them. A reader holding an
         install has only the printed name, so a table that offers them
         the alias to match on sends the 26.12 owner to a 26.1 row and
         hands them the wrong identifier, which is the exact failure the
@@ -253,17 +250,15 @@ class FsVersion:
     inherits_base : bool
         Whether this build's command evidence falls back to the record
         of the base release when it has none of its own. True for a
-        genuine hotfix, which is what the last canonical digit was
-        introduced to index. The identifier does not establish inheritance: independent vendor
+        genuine hotfix. The identifier does not establish inheritance: independent vendor
         releases can occupy adjacent indices.
         Their manuals are different documents (396 pages against 409)
         describing different command sets, so inheriting one from the
-        other made the emitter write commands the later solver refuses.
+        other can expose commands the target solver refuses.
         The registry states this per build rather than deriving it, and
         a hotfix index that does not state it is refused BY THIS CLASS,
-        not only by the registry loader, because the silent default is
-        what was wrong and a loader-only refusal leaves it on every
-        object a caller builds. A base release needs no flag: it has
+        not only by the registry loader, so caller-built objects must
+        also state their inheritance. A base release needs no flag: it has
         nothing to inherit from, so the field settles to True and is
         inert there.
     """
@@ -278,15 +273,9 @@ class FsVersion:
     def __post_init__(self) -> None:
         """Reject an identifier off the scheme, or a hotfix that states no descent.
 
-        The second check is here and not only in the registry loader,
-        which is where it was first written. A loader-only refusal left
-        the VALUE OBJECT carrying ``inherits_base = True`` by default,
-        so a hand-built ``FsVersion(canonical="26.101", ...)`` inherited
-        the February commands and ``Script`` accepts an ``FsVersion`` in
-        its documented signature: the original defect was reachable
-        through the public surface while the attribute docstring said the
-        silent default had been removed. A class that documents a refusal
-        it does not perform is the shape this repository keeps finding.
+        Validate caller-built objects as well as registry-loaded ones:
+        Script accepts FsVersion directly, so a hotfix must state its
+        inheritance at construction.
         """
         if not _CANONICAL_PATTERN.match(self.canonical):
             raise UnknownVersionError(
@@ -494,15 +483,10 @@ def resolve(version: str | FsVersion) -> FsVersion:
     ('26.124', '8172026')
     """
     if isinstance(version, FsVersion):
-        # Reconcile against the registry rather than hand the caller's
-        # object back. The registry is the authority for `index`, `build`
-        # and `inherits_base`, all of which are facts about a vendor
-        # build rather than about the identifier, and an FsVersion is
-        # freely constructible. Returning it unreconciled let a
-        # hand-built 26.101 declare inherits_base=True and inherit the
-        # February commands, which is the defect two rounds of fixes were
-        # about; the constructor refusal added in the second round
-        # rejects SILENCE, and this rejects a wrong statement.
+        # Reconcile caller-built FsVersion objects against the registry's
+        # authoritative index, build and inherits_base values. Constructor
+        # validation requires explicit descent but cannot verify a caller's
+        # assertion about a vendor build.
         return _reconciled(version)
     registered = known_versions()
     for entry in registered:

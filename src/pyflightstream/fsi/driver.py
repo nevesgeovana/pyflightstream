@@ -124,7 +124,7 @@ FROZEN_FILE = "fsi_frozen_displacements.txt"
 # configuration (REV010-009). A marker rather than a flag, because the
 # executable is invoked bare; see the call site in coupling_step.
 ALLOW_CONFIG_CHANGE_FILE = "fsi_allow_config_change"
-# QUASI_STEADY_ROTOR_FILE (0.30.0) lives in pyflightstream.fsi.state, which
+# QUASI_STEADY_ROTOR_FILE lives in pyflightstream.fsi.state, which
 # is import-light, because the builder that stages it must import without
 # the [fsi] extra; re-exported here because the driver is what reads it.
 
@@ -401,12 +401,12 @@ def _refuse_a_log_this_run_cannot_append_to(log_path: Path, state_path: Path) ->
         found = next((line.rstrip("\r\n") for line in handle if not line.startswith("#")), "")
     if found and found != columns:
         raise FsiInputError(
-            f"{log_path} was started under the columns {found!r}, and this release "
-            f"writes {columns!r} (FR-339 added tip_flap_signed_m as the last one). "
+            f"{log_path} was started under the columns {found!r}, but the driver "
+            f"requires {columns!r}, including tip_flap_signed_m (FR-339). "
             "Appending would put rows of one layout under the header of another. Move "
             f"{log_path.name} aside to resume this run (its rows so far stay in the moved "
-            "file, and the resumed rows start a new log with this release's header), or "
-            "resume it under the release that started it."
+            "file, and the resumed rows start a new log with the required header), or "
+            "resume it with a compatible driver."
         )
 
 
@@ -485,9 +485,8 @@ def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
     Raises
     ------
     FsiInputError
-        If the staged map disagrees with the generated layout. It was a
-        a legacy bare ``ValueError`` (FR-39, PFS-2095.015);
-        ``FsiInputError`` is one, so a handler of either still catches it.
+        If the staged map disagrees with the generated layout.
+        ``FsiInputError`` is a ``ValueError`` subclass (FR-39).
     """
     layout = nodes.generate_node_layout(cfg)
     map_path = run_dir / cfg.node_map_file
@@ -1169,19 +1168,11 @@ def _record_the_revolution(
     if phase != 3 or len(state.revolution_history) < 2:
         return
     last, previous_rev = state.revolution_history[-1], state.revolution_history[-2]
-    # REV010-010. BOTH criteria, which is what this package's own
-    # configuration docstring has said since the field existed:
-    # structural twist constant AND the integrated normal force
-    # stable between consecutive revolutions. The force compared is
-    # the one SAMPLED at the revolution-completing call rather than
-    # a mean over the revolution; the two coincide only when the
-    # steps per revolution divide evenly, and where they do not the
-    # sampled azimuth drifts and 1P content can read as an unsettled
-    # thrust (V and V pass, 2026-08-03). Only the first was tested, so the workflow could
-    # promote itself to its final recording phase while the
-    # aerodynamic loading was still oscillating materially, and the
-    # recording it then made would be of a state it had declared
-    # converged rather than one that was.
+    # Require both stable structural twist and stable integrated normal
+    # force between consecutive revolutions. Force is sampled at the
+    # revolution-completing call, not averaged. When steps per revolution do
+    # not divide evenly, the sampled azimuth drifts and 1P content can appear
+    # as unsettled thrust.
     verdict = _phase3_verdict(cfg, previous_rev, last)
     if verdict.converged:
         state.phase = 4
@@ -1285,13 +1276,9 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
     if solved is None or relaxation is None:
         written = np.zeros((call.layout.total_nodes, 3))
     else:
-        # PYFS-013. Refused HERE, before the write, because the write is the
-        # irreversible act. The driver used to take result.solution and never
-        # look at result.twist_residual_rad, so an iterate that was still
-        # moving when the solve budget ran out was applied exactly like a
-        # converged one, and the only trace was a logger.warning that nobody
-        # reads in a batch run. One home for the refusal, shared with the
-        # quasi-steady rotor's steady call.
+        # Refuse an unconverged structural result before writing displacements.
+        # Share this check with the quasi-steady rotor call so a residual above
+        # tolerance cannot be applied as a converged solution.
         _refuse_an_unsettled_blade(solved)
         solutions = tuple(result.solution for result in solved)
         computed = _computed_displacements(run_dir, cfg, call.layout, solutions)
@@ -1354,13 +1341,9 @@ def _hold_the_state_to_the_config(run_dir: Path, cfg: FsiConfig, state: FsiState
     frozen-run branch, because a frozen run replays the same arrays and
     inherits the same mismatch.
 
-    PFS-2094.001: when the marker carried the run across a configuration
-    change, the state is restamped with the new identity and the transition
-    is logged, so the decision covers that one change. The stamp used to be
-    written only on a state that had none, so the state kept the OLD digest:
-    removing the marker made the next call refuse again, and leaving it let
-    every later edit through unrecorded, while the log rows already carried
-    the new digest.
+    When the marker permits a configuration change, restamp the state
+    with the new identity and log the transition (PFS-2094.001). Each
+    accepted change then has its own recorded identity.
     """
     identity = config_sha256(cfg)
     check_state_matches_config(
@@ -1373,14 +1356,9 @@ def _hold_the_state_to_the_config(run_dir: Path, cfg: FsiConfig, state: FsiState
         # row, which is what made the omission easy to miss: the value
         # existed and simply was not consulted where it decides anything.
         config_sha256=identity,
-        # A RUN-FOLDER MARKER rather than a keyword a caller passes, because
-        # there is no caller to pass it: FlightStream invokes this executable
-        # bare, coupling_step takes only the directory, and pyfs-fsi exposes
-        # no such flag. The refusal message named allow_config_change=True,
-        # which the user who meets it in pyfs_fsi_error.log has nowhere to
-        # put (api-designer pass, 2026-08-03). The precedent is FROZEN_FILE:
-        # a marker file is how this driver already takes a per-run decision
-        # from a bare invocation.
+        # Use a run-folder marker for this decision: FlightStream invokes the
+        # executable without arguments, coupling_step takes the directory and
+        # pyfs-fsi exposes no configuration-change flag.
         allow_config_change=(run_dir / ALLOW_CONFIG_CHANGE_FILE).is_file(),
     )
     if state.config_sha256 == identity:

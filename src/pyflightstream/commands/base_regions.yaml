@@ -1,8 +1,10 @@
-# Chapter: Scripting reference, Base Regions (SRC-003 pp.317-318, plus
+# Chapter: Scripting reference, Base Regions (FSM-26.120 pp.317-318, plus
 # p.284 for the bending angle).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Every signature is identical across the four.
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Every signature is identical across the four.
 #
 # A base region is a blunt aft-facing surface where the flow separates
 # and a panel method has no pressure to compute, so one is imposed. The
@@ -35,18 +37,18 @@ CREATE_NEW_BASE_REGION:
       values: [EMPIRICAL, AXISYMMETRIC, USER, CUSTOM]
     - name: cp
       type: float
-  manual_ref: "SRC-003 p.317"
+  manual_ref: "FSM-26.120 p.317"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.274, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
-    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.327, unchanged from SRC-752 p.321"}
+    "26.121": {status: documented, note: "FSM-26.121 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.321, unchanged from FSM-26.122 p.321"}
+    "26.124": {status: documented, note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
   notes: >
     Marks one mesh boundary as a base region and gives it a pressure
     model. No all-form is stated, so -1 is not accepted here;
@@ -85,18 +87,18 @@ SET_BASE_REGION_CP:
     - name: cp
       type: float
       required: false
-  manual_ref: "SRC-003 pp.317-318"
+  manual_ref: "FSM-26.120 pp.317-318"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.275, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 pp.312-313, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 pp.316-317, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.275, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 pp.312-313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 pp.316-317, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 pp.320-321, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
-    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.327, unchanged from SRC-752 p.321"}
+    "26.121": {status: documented, note: "FSM-26.121 pp.320-321, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.321, unchanged from FSM-26.122 p.321"}
+    "26.124": {status: documented, note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
   notes: >
     Changes the pressure model of a base region that already exists.
 
@@ -104,11 +106,10 @@ SET_BASE_REGION_CP:
     CREATE_NEW_BASE_REGION, two commands apart on the same page, in all
     four editions.
 
-    MEASURED 2026-08-08 (RPT-021): this command takes CUSTOM and REFUSES
+    RPT-021 measures this command taking CUSTOM and REFUSING
     USER, while the creator takes either. So the asymmetry is real
-    rather than a documentation slip, and this entry's three tokens are
-    now a measurement instead of a reading. The creator gained CUSTOM
-    from the same run.
+    rather than a documentation slip. This entry's three tokens and the
+    creator's acceptance of CUSTOM rest on the same measurement.
 
     CP IS OPTIONAL, and unusually the manual proves it rather than
     stating it: the page prints TWO samples for this command, one
@@ -129,18 +130,18 @@ SET_BASE_REGION_BENDING_ANGLE:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-003 p.284"
+  manual_ref: "FSM-26.120 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.255, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.255, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.274, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.273, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.278, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.288, unchanged from SRC-750 p.288"}
-    "26.124": {status: documented, note: "SRC-752 p.288, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.293, read against SRC-752 p.288: the sample no longer carries the chapter heading the reader took from the next page; the grammar is unchanged"}
+    "26.121": {status: documented, note: "FSM-26.121 p.287, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.288, unchanged from FSM-26.122 p.288"}
+    "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.293, read against FSM-26.124 p.288: the sample no longer carries the chapter heading the reader took from the next page; the grammar is unchanged"}
   notes: >
     Threshold on how far a surface may bend away from the aft-facing
     direction and still be detected as part of a base region, which is
@@ -165,17 +166,17 @@ AUTO_DETECT_BASE_REGIONS:
   layout: bare
   phase: setup
   args: []
-  manual_ref: "SRC-003 p.317"
+  manual_ref: "FSM-26.120 p.317"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.274, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
-    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.321, unchanged from FSM-26.122 p.321"}
+    "26.124": {status: documented, note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
   notes: >
     Marks every base region the detector finds over the whole geometry,
     using the bending angle above. Takes nothing, so which boundaries it
@@ -188,21 +189,21 @@ DETECT_BASE_REGIONS_BY_SURFACE:
     - name: boundary_index
       type: int
       cites: boundaries
-  manual_ref: "SRC-003 p.317"
+  manual_ref: "FSM-26.120 p.317"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.274, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
-    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.121": {status: documented, note: "FSM-26.121 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.321, unchanged from FSM-26.122 p.321"}
+    "26.124": {status: documented, note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125":
       status: documented
       note: >-
-        SRC-753 p.327 adds -1, every boundary, to the boundary index SRC-752
+        FSM-26.125 p.327 adds -1, every boundary, to the boundary index FSM-26.124
         p.321 took as positive only, and its second sample passes it
       args:
         - name: boundary_index
@@ -219,18 +220,18 @@ SET_BASE_REGION_TRAILING_EDGES:
   args:
     - name: base_region_boundary
       type: int
-  manual_ref: "SRC-003 p.317"
+  manual_ref: "FSM-26.120 p.317"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.274, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
-    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.327, unchanged from SRC-752 p.321"}
+    "26.121": {status: documented, note: "FSM-26.121 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.321, unchanged from FSM-26.122 p.321"}
+    "26.124": {status: documented, note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
   notes: >
     Marks the rim of a base region as a trailing edge, which is what
     lets the wake leave the body there. The manual documents -1 for
@@ -246,18 +247,18 @@ DELETE_BASE_REGION:
   args:
     - name: base_region_boundary
       type: int
-  manual_ref: "SRC-003 p.317"
+  manual_ref: "FSM-26.120 p.317"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.274, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.291, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.290, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.312, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.316, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.274, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.291, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.290, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.312, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.316, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.320, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.321, unchanged from SRC-750 p.321"}
-    "26.124": {status: documented, note: "SRC-752 p.321, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.327, unchanged from SRC-752 p.321"}
+    "26.121": {status: documented, note: "FSM-26.121 p.320, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.321, unchanged from FSM-26.122 p.321"}
+    "26.124": {status: documented, note: "FSM-26.124 p.321, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.327, unchanged from FSM-26.124 p.321"}
   notes: >
     Unmarks one base region. NO ALL-FORM IS STATED HERE, unlike the two
     neighbouring commands that take the same kind of index and document
@@ -271,17 +272,17 @@ SELECT_BASE_REGION_FACES:
   args:
     - name: base_index
       type: int
-  manual_ref: "SRC-003 p.318"
+  manual_ref: "FSM-26.120 p.318"
   versions:
-    "25.100": {status: documented, note: "SRC-748 p.292, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.291, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.313, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.317, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.292, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.291, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.317, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.321, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.322, unchanged from SRC-750 p.322"}
-    "26.124": {status: documented, note: "SRC-752 p.322, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.328, unchanged from SRC-752 p.322"}
+    "26.121": {status: documented, note: "FSM-26.121 p.321, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.322, unchanged from FSM-26.122 p.322"}
+    "26.124": {status: documented, note: "FSM-26.124 p.322, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.328, unchanged from FSM-26.124 p.322"}
   notes: >
     Selects the mesh faces of a base region, or of all of them with -1,
     which the sample passes. Selection is application state rather than
@@ -304,15 +305,15 @@ REMESH_BASE_REGION:
       values: ["1", "2"]
     - name: growth_rate
       type: float
-  manual_ref: "SRC-003 p.318"
+  manual_ref: "FSM-26.120 p.318"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.313, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.317, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.313, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.317, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.321, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.322, unchanged from SRC-750 p.322"}
-    "26.124": {status: documented, note: "SRC-752 p.322, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.328, unchanged from SRC-752 p.322"}
+    "26.121": {status: documented, note: "FSM-26.121 p.321, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.322, unchanged from FSM-26.122 p.322"}
+    "26.124": {status: documented, note: "FSM-26.124 p.322, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.328, unchanged from FSM-26.124 p.322"}
   notes: >
     Rebuilds a base region's faces as a radial distribution, which a
     detected base region does not have: it inherits whatever the import
@@ -336,7 +337,7 @@ SET_OUTFLOW_TRAILING_EDGES:
   args:
     - name: base_region_boundary
       type: int
-  manual_ref: "SRC-750 p.331"
+  manual_ref: "FSM-26.122 p.331"
   notes: >
     Marks the trailing edges of a base region as outflow edges,
     which is how a jet or duct exit gets a wake that leaves the body
@@ -360,12 +361,12 @@ SET_OUTFLOW_TRAILING_EDGES:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.331, the first edition to document it"
+      note: "FSM-26.122 p.331, the first edition to document it"
     "26.123":
       status: removed
       successor: SET_OUTLET_TRAILING_EDGES
       note: >-
-        SRC-751 p.331 prints SET_OUTLET_TRAILING_EDGES in this
+        FSM-26.123 p.331 prints SET_OUTLET_TRAILING_EDGES in this
         command's place, in the chapter body and in the Script Index
         alike, and this spelling appears nowhere in that edition. A
         count over the document rather than a statement about the
@@ -373,11 +374,11 @@ SET_OUTFLOW_TRAILING_EDGES:
     "26.124":
       status: removed
       successor: SET_OUTLET_TRAILING_EDGES
-      note: "SRC-752 p.331, the SRC-751 file, carried from 26.123; not run on 26.124"
+      note: "FSM-26.124 p.331, the FSM-26.123 file, carried from 26.123; not run on 26.124"
     "26.125":
       status: removed
       successor: SET_OUTLET_TRAILING_EDGES
-      note: "SRC-753 p.337 prints SET_OUTLET_TRAILING_EDGES in this place, as SRC-751 and SRC-752 did; not run on 26.125"
+      note: "FSM-26.125 p.337 prints SET_OUTLET_TRAILING_EDGES in this place, as FSM-26.123 and FSM-26.124 did; not run on 26.125"
 
 SET_OUTLET_TRAILING_EDGES:
   layout: inline
@@ -385,7 +386,7 @@ SET_OUTLET_TRAILING_EDGES:
   args:
     - name: base_region_boundary
       type: int
-  manual_ref: "SRC-751 p.331"
+  manual_ref: "FSM-26.123 p.331"
   notes: >
     Marks the trailing edges of a base region as outlet edges. The
     26.123 spelling of what the 26.122 edition calls
@@ -406,8 +407,8 @@ SET_OUTLET_TRAILING_EDGES:
   versions:
     "26.123":
       status: documented
-      note: "SRC-751 p.331, the first edition to print this spelling"
+      note: "FSM-26.123 p.331, the first edition to print this spelling"
     "26.124":
       status: documented
-      note: "SRC-752 p.331, the SRC-751 file, carried from 26.123; not run on 26.124"
-    "26.125": {status: documented, note: "SRC-753 p.337, read against SRC-752 p.331: the placeholder is renamed INDEX and the table describes it as the positive index of the outlet boundary whose edges are marked, while the sample still passes -1; the grammar is unchanged"}
+      note: "FSM-26.124 p.331, the FSM-26.123 file, carried from 26.123; not run on 26.124"
+    "26.125": {status: documented, note: "FSM-26.125 p.337, read against FSM-26.124 p.331: the placeholder is renamed INDEX and the table describes it as the positive index of the outlet boundary whose edges are marked, while the sample still passes -1; the grammar is unchanged"}

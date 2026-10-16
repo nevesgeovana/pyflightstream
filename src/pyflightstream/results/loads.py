@@ -50,8 +50,8 @@ __all__ = [
 
 #: THE TWO DRAG SPLITS A LOADS SPREADSHEET PRINTS, each under the names the
 #: solver wrote (FR-423). Up to 26.124 the split is ``CDi, CDo``, induced and
-#: skin friction drag (SRC-752 pp.225, 227); 26.125 prints ``CDp, CDv`` in the
-#: same two positions, pressure drag and viscous and separation drag (SRC-753
+#: skin friction drag (FSM-26.124 pp.225, 227); 26.125 prints ``CDp, CDv`` in the
+#: same two positions, pressure drag and viscous and separation drag (FSM-26.125
 #: pp.227, 229). The parsed report keeps whichever pair the header printed;
 #: nothing here says the two pairs measure the same quantities.
 DRAG_PAIRS: tuple[tuple[str, str], ...] = (("CDi", "CDo"), ("CDp", "CDv"))
@@ -95,7 +95,7 @@ class LoadsReport:
     """Typed content of one aerodynamic loads spreadsheet.
 
     The spreadsheet is the primary quantitative output of a run
-    (EXPORT_SOLVER_ANALYSIS_SPREADSHEET, SRC-003 p.352). Coefficients
+    (EXPORT_SOLVER_ANALYSIS_SPREADSHEET, FSM-26.120 p.352). Coefficients
     are expressed in the analysis frame named by ``frame``; forces
     follow ``force_units`` and moments ``moment_units``.
 
@@ -172,14 +172,8 @@ class LoadsReport:
         ]
 
 
-#: The tokens the solver prints for a boolean flag in an export footer,
-#: observed on 26.120 and 26.121. Enumerated rather than sniffed: the
-#: reading used to be ``token.upper().startswith("T")``, which mapped
-#: every unrecognised token to False in silence, so a footer printing
-#: "yes" or a label that matched the wrong line reported the flag OFF
-#: with the same confidence as a real F (PYFS-009). A flag read wrongly
-#: as off is worse than an unreadable one, because a run then carries a
-#: setting it did not have.
+#: Boolean footer tokens observed on 26.120 and 26.121. Enumerate them
+#: so an unrecognized spelling is refused rather than silently read as off.
 _TRUE_TOKENS = frozenset({"T", "TRUE"})
 _FALSE_TOKENS = frozenset({"F", "FALSE"})
 
@@ -196,8 +190,8 @@ def _parse_solver_flag(token: str | None, label: str) -> bool | None:
     raise ValueError(
         f"{label} printed {token!r}, which is not one of the tokens the solver "
         f"uses for this flag ({', '.join(sorted(_TRUE_TOKENS | _FALSE_TOKENS))}). "
-        "An unrecognised token used to read as off, so a run carried a setting it "
-        "did not have; if this is a real solver spelling, add it here with the "
+        "An unrecognised token cannot establish whether the flag is on or off; "
+        "if this is a real solver spelling, add it here with the "
         "export that printed it"
     )
 
@@ -276,11 +270,8 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
     # THE COLUMNS AS PRINTED, the 26.125 drag split ``CDp, CDv`` included
     # (FR-423, :data:`DRAG_PAIRS`).
     columns = [cell.strip() for cell in header_cells.split(",") if cell.strip()]
-    # PYFS-009, now shared with the probe parser (REV010-003). A repeated
-    # column name used to build the row dict with the later value winning,
-    # so a header naming CL twice lost CDi ENTIRELY and published CDi's
-    # number under CL. Every coefficient downstream then read a plausible
-    # value from the wrong column, and nothing anywhere said so.
+    # Reject duplicate columns before constructing row dictionaries. A repeated
+    # name would overwrite a value and mislabel coefficients (PYFS-009).
     reject_duplicate_columns(columns, what="loads")
     rows = delimited_table(text, "Surface,")
     surfaces: dict[str, dict[str, float]] = {}
@@ -296,24 +287,22 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
             column: parse_number(value) for column, value in zip(columns, values, strict=True)
         }
         if name.lower() == "total":
-            # PYFS-009. A second Total row used to overwrite the first in
-            # silence, so a concatenated or double-exported file published
-            # whichever total came last as though it were the only one.
+            # Refuse duplicate totals: a concatenated or repeated export does not
+            # identify one authoritative total.
             if total is not None:
                 raise MalformedOutputError(
                     "the loads table holds more than one Total row, so which total the "
                     "run produced is not determined by the file. Two exports were "
-                    "concatenated, or the table was written twice; the second used to "
-                    "replace the first without a word"
+                    "concatenated, or the table was written twice; neither total can "
+                    "be selected unambiguously"
                 )
             total = parsed
         else:
             if name in surfaces:
                 raise MalformedOutputError(
                     f"the loads table names the surface {name!r} more than once, so "
-                    "its coefficients are not determined by the file: the later row "
-                    "used to replace the earlier and the report carried one surface "
-                    "where the solver reported two"
+                    "its coefficients are not determined by the file: duplicate rows "
+                    "cannot be reduced to one unambiguous surface"
                 )
             surfaces[name] = parsed
     if total is None:
@@ -379,7 +368,7 @@ def _optional_number(text: str, label: str) -> float | None:
 
 @dataclass(frozen=True)
 class ProbePointsReport:
-    """Parsed EXPORT_PROBE_POINTS output (SRC-003 pp.362-363, p.249).
+    """Parsed EXPORT_PROBE_POINTS output (FSM-26.120 pp.362-363, p.249).
 
     Rows follow the probe creation order: the 26.120 round-trip
     evidence (reports/RPT-004) shows the solver preserves the count
@@ -520,7 +509,7 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     # the opening and closing dashed lines with nothing between them
     # (the solver's own file is committed as the fixture
     # tests/tier1_offline/fixtures/probe_points_zero_26.123.txt, step 4 of
-    # the tier-3 actions row 6002 on 26.123, 2026-09-09; every stamped
+    # the tier-3 actions row 6002 on 26.123; every stamped
     # probes file of the reference rows 1226 and 5913 carries the same
     # shape, read off the reference workspace and not committed; PFS-2031.18.01):
     # a complete table of no rows, which the
@@ -567,7 +556,7 @@ class UnsteadyPlotsReport:
     than physical time.
 
     GROUNDING, and read it before trusting a column: the shape comes
-    from the command's manual paraphrase (SRC-003 p.347, one column per
+    from the command's manual paraphrase (FSM-26.120 p.347, one column per
     plot and one row per time step) and from no observed export. The
     database entry stays at ``documented`` and the committed fixture
     says SYNTHETIC in its own header.
@@ -665,7 +654,7 @@ def parse_unsteady_plots(text: str) -> UnsteadyPlotsReport:
     dashed rule closes the table or the text ends.
 
     WHAT IS EVIDENCE HERE AND WHAT IS NOT. The row and column meaning
-    is the manual's (SRC-003 p.347, paraphrased in the database entry
+    is the manual's (FSM-26.120 p.347, paraphrased in the database entry
     for ``UNSTEADY_SOLVER_EXPORT_PLOTS``: one column per plot, one row
     per time step). The DELIMITER is not documented anywhere and no
     export of this command has been read: a comma is assumed because

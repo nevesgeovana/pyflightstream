@@ -51,15 +51,12 @@ _GEOMETRY_PAIR = re.compile(rb"(^|/)(\s*GEOMETRY\s*:\s*)([^/|\s]+)")
 
 #: The SWEEP_TYPE codes the fold above knows, to the FLIGHT_CONDITION key
 #: each becomes. FROZEN WITH THE LAYOUT IT CONVERTS and it does not grow.
-#: It read "built from the reader's own code table so the two cannot
-#: drift" until 0.15.0, which was true while the reader had a code table;
-#: that table went with the column, so there is nothing left to agree
-#: with and a comment promising the agreement would tell the next
-#: maintainer they may add a code in one place and be safe.
+#: The current reader has no corresponding code table: it reads the explicit
+#: condition keys, so this conversion table is independent of that reader.
 _SWEEP_CODE_KEYS = {"AL": "ALPHA", "BE": "BETA"}
 
 
-#: The two free-cell keys that BECAME columns at 0.17.0, so the upgrade
+#: The two free-cell keys that have dedicated columns, so the upgrade
 #: must move them out of the cell rather than leave one fact in two homes.
 _KEYS_THAT_BECAME_COLUMNS = ("GEOMETRY", "SYMMETRY")
 

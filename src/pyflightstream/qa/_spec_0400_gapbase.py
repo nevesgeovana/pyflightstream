@@ -1,4 +1,4 @@
-"""The base of the 0.40.0 command-gap instruments: readers of saved states and exports.
+"""The base of the command-gap instruments: readers of saved states and exports.
 
 Pipeline role: the lowest layer under ``pyflightstream.qa._spec_0400_gapkit``, which
 imports every name here back. The callable aliases, the probe wing and the readers of

@@ -1,9 +1,7 @@
 # Chapter: Scripting reference, Boundary Layer Transition Trips
-# (SRC-003 p.327).
+# (FSM-26.120 p.327).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass, and complete is a strange word for it: the chapter is ONE
-# COMMAND AND IT IS A DELETE.
+# This chapter contains one documented command: a delete.
 #
 # A transition trip forces the boundary layer from laminar to turbulent
 # at a chosen line, which is how a wind-tunnel trip strip or a
@@ -14,8 +12,7 @@
 #
 # Stated as a chapter fact rather than left to be discovered, because the
 # natural reading of a delete command is that a create command is
-# somewhere nearby, and the sweep of 2026-08-08 read all four editions
-# and found none.
+# somewhere nearby; none is documented in the four cited editions.
 
 DELETE_TRANSITION_TRIP:
   layout: inline
@@ -23,18 +20,18 @@ DELETE_TRANSITION_TRIP:
   args:
     - name: transition_trip_index
       type: int
-  manual_ref: "SRC-003 p.327"
+  manual_ref: "FSM-26.120 p.327"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.285, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.301, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.300, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.323, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.326, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.285, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.301, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.300, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.323, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.326, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.330, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.332, unchanged from SRC-750 p.332"}
-    "26.124": {status: documented, note: "SRC-752 p.332, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.339, unchanged from SRC-752 p.332"}
+    "26.121": {status: documented, note: "FSM-26.121 p.330, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.332, unchanged from FSM-26.122 p.332"}
+    "26.124": {status: documented, note: "FSM-26.124 p.332, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.339, unchanged from FSM-26.124 p.332"}
   notes: >
     Deletes one set of boundary-layer transition trip edges by its
     1-based index. The manual requires an index greater than zero and

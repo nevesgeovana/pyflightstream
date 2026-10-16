@@ -73,7 +73,7 @@ from ._vocabulary import (
     RESTART_VARIABLE,
 )
 
-# --- G12 (0.27.0): the additional post over a saved simulation ----------------
+# --- G12: the additional post over a saved simulation ----------------
 
 
 def refuse_what_a_saved_point_cannot_give(pproc: PprocSpec, *, pproc_id: str, where: str) -> None:

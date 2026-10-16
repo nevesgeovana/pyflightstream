@@ -108,10 +108,7 @@ def _configuration_comment(case: SimCase, script: Script) -> None:
     sentence warns against. This is one of the two places it reaches; the
     other is the custom polar file's title line.
 
-    IT WENT NOWHERE UNTIL 2026-09-13. The requirement said it reached both
-    and the constant had two occurrences in the package, its definition
-    and a key list, so the release shipped a column that configured
-    nothing and labelled nothing either (the V&V lens, round two).
+    The column must reach both the script configuration and its label.
 
     Emitted FIRST, before the OPEN, because a comment is not a command and
     the phase guard does not see it; a reader opening the script meets the
@@ -129,13 +126,9 @@ def _configuration_comment(case: SimCase, script: Script) -> None:
 def _open_geometry(case: SimCase, script: Script) -> None:
     """Open the case's geometry, before anything else is emitted.
 
-    THE BUG THIS CLOSES, stated once because it is the whole reason for
-    the 0.8.1 patch. A case carrying a geometry and the same case with
-    the geometry absent rendered BYTE-IDENTICAL scripts: no ``OPEN``, no
-    ``NEW_SIMULATION``, no import of any kind. The run layer had already
-    staged the file and hashed it into the record, so the manifest named
-    a mesh the script never opened, and the solver solved whatever it
-    happened to have in memory.
+    The script must open or import the geometry staged and hashed by the
+    run layer. Otherwise the manifest would name a mesh the solver never
+    reads, and the solver could solve whatever it has in memory.
 
     Emitted FIRST, and not merely early: ``OPEN`` replaces the whole
     simulation state, so a coordinate system, a motion or a solver
@@ -154,7 +147,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     the pairing between the digest a record publishes and the bytes the
     solver actually read, and would break it silently.
 
-    A RAW MESH IS IMPORTED rather than opened, since 0.27.0 (G01): an
+    A RAW MESH IS IMPORTED rather than opened (G01): an
     ``.obj`` or ``.stl`` whose sidecar states its unit becomes a new
     simulation holding that file, in metres (:func:`_import_mesh`). What
     follows the open or the import is the same for both.
@@ -196,7 +189,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         _import_cad(case, script)
         _raw_mesh_boundary_conditions(case, script)
     elif suffix.lower() in CCS_FORMATS:
-        # 0.32.0 PACKAGE C (FR-240 to FR-244): the solver makes the mesh from the
+        # FR-240 to FR-244: the solver makes the mesh from the
         # CCS file by the route its [import.ccs] table names (cases/ccs_wing.py).
         emit_ccs_geometry(script, case)
         _geometry_simulation_controls(case, script, default_unit=SIMULATION_LENGTH_UNIT)
@@ -1093,7 +1086,7 @@ def _the_operations_the_model_reaches(
     (``skipped_regions``), or of a ``create`` entry, renumbers every base
     region after it, so it is refused where an entry addresses a region by an
     index other than ``all``. With no vocabulary every entry is kept and a
-    name the model lacks is refused where it is resolved, as on 0.38.0, unless
+    name the model lacks is refused where it is resolved, unless
     the run asked for the refusal (FR-988). A ``boundary`` is classified against
     the model as its geometry opened it, before ``delete_surfaces``.
     """
@@ -1145,7 +1138,7 @@ def _refuse_a_renumbering_skip(case: SimCase, skipped: Sequence[tuple[str, str]]
 def _a_base_region_the_study_skips(case: SimCase, script: Script, name: str) -> bool:
     """Whether a pproc ``base_regions`` name the model lacks is skipped (FR-982).
 
-    A row's own ``BASE_REGIONS`` keeps the 0.38.0 refusal (FR-979), and so does a
+    A row's own ``BASE_REGIONS`` refuses an absent name (FR-979), and so does a
     reference declaring no vocabulary at the default flag (FR-981); the study
     refuses a name it does not hold, and a run that asked for the refusal
     refuses every one under the pproc key, with or without a vocabulary (FR-984,
@@ -1225,7 +1218,7 @@ def _declare_boundaries(
     ADD to a total this package had already set, because the count form
     accumulates. Declared here, the inventory and the opened file are the
     same file by construction, and a script this package did not open a
-    geometry into is left exactly as it was before this release.
+    geometry into receives no inventory declaration here.
 
     Parameters
     ----------
@@ -1262,7 +1255,7 @@ def _declare_boundaries(
         warn(
             f"case {case.sim_id!r}: {unreadable} No boundary names are declared for "
             "this run, so a row naming one is refused and a row citing positions is "
-            "read exactly as it was before this release.",
+            "read by those positions.",
             PyflightstreamWarning,
             stacklevel=2,
         )
@@ -1292,12 +1285,12 @@ def _declare_boundaries(
 def _declare_inventory(case: SimCase, script: Script, names: Sequence[str]) -> None:
     """Declare boundary names onto the script, the name at position i being boundary i.
 
-    The tail of :func:`_declare_boundaries`, split out at 0.27.0 (G12) so the
+    The tail of :func:`_declare_boundaries` (G12), shared so the
     additional post declares the inventory a saved simulation holds by the
     same rule the run declared it by, and every label resolves as it did in
     the run.
     """
-    # R03 of 0.27.0: the run record carries these names, so the post reads a
+    # R03: the run record carries these names, so the post reads a
     # selection over the geometry the script was built over rather than over
     # the cuts alone. Every name, duplicates included: position i is boundary i.
     script.boundary_inventory = tuple(names)
@@ -1356,7 +1349,7 @@ def accepted_symmetry(script: Script) -> tuple[str, ...] | None:
         ``None`` where that build's ``INITIALIZE_SOLVER`` declares no
         argument called ``symmetry`` at all, which is a real case and
         not a failure: FlightStream 25.000 spells it ``SYMMETRY_TYPE``
-        with its own token set (SRC-749 p.298). ``None`` is what sends a
+        with its own token set (FSM-25.000 p.298). ``None`` is what sends a
         row on to
         :func:`pyflightstream.script.helpers.initialize_solver`, whose
         refusal already names that edition and its remedy.

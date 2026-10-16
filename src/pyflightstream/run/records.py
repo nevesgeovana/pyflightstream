@@ -77,9 +77,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-# The names below are imported only because 0.32.0 offered them from this
-# module, which had no __all__; each keeps importing from here (a release
-# does everything the previous one did, as scripts/check_parity.py checks).
+# Re-export these names to preserve their public import paths, as checked
+# by scripts/check_parity.py.
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._errors import PyflightstreamWarning as PyflightstreamWarning
@@ -99,9 +98,8 @@ from pyflightstream.cases.windows import stated_key as stated_key
 from pyflightstream.results import parse_loads as parse_loads
 from pyflightstream.results import parse_unsteady_plots as parse_unsteady_plots
 
-# Since 0.33.0 (AD-11) the rebuild, what it reads, the assembly and the record
-# files are private modules of this package; every public name of them keeps
-# its 0.32.0 path here.
+# AD-11: rebuild, evidence, assembly and record-file implementations are
+# private modules. Their public names are re-exported here.
 from pyflightstream.run._alias import _row_tags, row_selected
 from pyflightstream.run._assemble import APART_MARK as APART_MARK
 from pyflightstream.run._assemble import ASSEMBLED_NOTE as ASSEMBLED_NOTE
@@ -139,7 +137,7 @@ from pyflightstream.run._record_files import (
     mark_runs_failed as mark_runs_failed,
 )
 
-# More of the names 0.32.0 offered from this module, kept for the same reason.
+# Additional public re-exports covered by the same parity check.
 from pyflightstream.workspace import AdditionalRecord as AdditionalRecord
 from pyflightstream.workspace import CampaignWorkspace as CampaignWorkspace
 from pyflightstream.workspace import RunRecord as RunRecord
@@ -160,9 +158,8 @@ from pyflightstream.workspace.naming import (
     free_root_archive,
 )
 
-# Since 0.33.0 (AD-09) the manifest-name rule lives in the workspace layer,
-# which names the files of a workspace root; its 0.32.0 path is kept here,
-# as is the archive stamp's, which run._record_files writes (AD-11).
+# AD-09: manifest naming belongs to the workspace layer. Re-export that
+# rule and the archive stamp written by run._record_files here (AD-11).
 from pyflightstream.workspace.naming import ARCHIVE_STAMP as ARCHIVE_STAMP
 from pyflightstream.workspace.naming import DEFAULT_MANIFEST as DEFAULT_MANIFEST
 from pyflightstream.workspace.naming import PointName as PointName

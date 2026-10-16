@@ -238,13 +238,8 @@ class TimeStepping:
     def record(self) -> dict[str, object]:
         """Return the stated form and every form derived from it.
 
-        NOTHING IN THIS PACKAGE CONSUMES THIS YET, and that is said here
-        rather than left to be discovered: it is the record SHAPE, and
-        the run record does not carry the rotor decisions today. Its
-        sibling :meth:`ExportWindow.record` has stood in the same
-        position since 0.8.1. What the method is for is that when a
-        record does carry them, there is one place that decides what
-        "them" means.
+        This defines the record shape. No package consumer uses it, and
+        the run record does not carry these rotor decisions.
 
         ``rpm`` IS INCLUDED although it is an input rather than a
         derived form. ``steps_per_revolution`` below is computed FROM
@@ -271,10 +266,8 @@ def time_steps_of(case: SimCase) -> int | None:
     the fit behind it needs the same number for a point already RECORDED, so
     it is one function rather than two readings of one fact.
 
-    BOTH UNSTEADY RUN TYPES RESOLVE ONE. The first writing asked
-    :func:`unsteady_time_stepping` for the ``unsteady`` recipe alone, so a
-    ROTOR row -- the row whose cost anyone actually wants to know -- reported
-    nothing. A rotor row states its azimuthal step and its revolutions rather
+    BOTH UNSTEADY RUN TYPES RESOLVE ONE. A rotor row states its azimuthal
+    step and its revolutions rather
     than a count: ``DELTA_THETA`` 15 over ``REVOLUTIONS`` 1.5 is 36 steps, and
     :func:`rotor_time_stepping` is what turns the one into the other.
 
@@ -426,17 +419,11 @@ def rotor_time_stepping(case: SimCase, *, speed: RotorSpeed | None = None) -> Ti
         )
     resolved = _turning_speed(case, speed)
     # One revolution lasts 60/rpm seconds, so one degree lasts 1/(6 rpm)
-    # seconds. The magnitude is what sets the clock: a rotor turning the
-    # other way takes the same time to sweep the same angle.
-    #
-    # DERIVED AND NOT ROUNDED. The reference scripts state 0.00352 where
-    # this gives 0.0035223250952, and that is the reference tooling's rounding of the
-    # same derivation rather than a different clock: the correction of
-    # 2026-09-04, after a session had read the rounded value as the number
-    # to emit. Rounding here would end a run at an azimuth nobody chose,
-    # which is what stating the revolutions exists to prevent; a comparison
-    # against a file the user rounded belongs in that comparison rather than in
-    # the number this package emits.
+    # seconds. Magnitude sets the clock regardless of rotation direction.
+    # Keep the derived precision: the reference scripts' 0.00352 is a rounded
+    # form of 0.0035223250952. Rounding the emitted step would end the run at
+    # an unstated azimuth; any tolerance for a rounded reference file belongs
+    # in the comparison.
     delta_time_s = theta / (6.0 * abs(resolved.rpm))
     exact_steps = revolutions * 360.0 / theta
     steps = int(round(exact_steps))
@@ -610,24 +597,18 @@ def _run_wake_stepping(case: SimCase, speed: RotorSpeed | None) -> TimeStepping:
 def unsteady_time_stepping(case: SimCase) -> TimeStepping:
     """Resolve the physical clock of a run that turns nothing.
 
-    THE SECONDS AND THE COUNT, OR THE ANGULAR PAIR WITH A SPEED BESIDE IT
-    (the design decision of 2026-09-04). A degree of rotation has a duration only
+    THE SECONDS AND THE COUNT, OR THE ANGULAR PAIR WITH A SPEED BESIDE IT.
+    A degree of rotation has a duration only
     against a rotor speed, and this run type meshes nothing that turns, so
-    the pair was refused here outright until a row of the reference
-    campaign showed the case it exists for: a wing-body in a rotor's
+    the angular pair needs a stated speed, as for a wing-body in a rotor's
     slipstream, whose step is an azimuthal step of that rotor and
     whose row states its advance ratio. A row stating the pair and a speed
     is resolved exactly as the rotor type resolves it; a row stating the
-    pair and no speed is refused as before, naming the two keys that
+    pair and no speed is refused, naming the two keys that
     would make it resolvable.
 
-    IT IS A SEPARATE FUNCTION AND :func:`rotor_time_stepping` IS NOT
-    TOUCHED. Extracting the shape checks the two share would save about
-    ten lines and put an edit into the resolver that feeds fifteen
-    committed goldens and the whole rotor clock surface. Inside a patch
-    carrying a priority-zero item, "provably zero changed lines in the
-    rotor resolver" is worth more than the ten lines. That is a
-    deliberate choice for this release and it should be revisited.
+    This resolver handles unsteady non-rotor rows independently of
+    :func:`rotor_time_stepping`.
 
     Parameters
     ----------
@@ -655,16 +636,11 @@ def unsteady_time_stepping(case: SimCase) -> TimeStepping:
         if (value := _variable(case, key)) is not None
     }
     if angular:
-        # THE DECISION OF 2026-09-04, and the evidence is the reference campaign.
-        # This run type meshes nothing that turns, and until now the
-        # azimuthal pair was refused here on the ground that there was no
-        # rotor speed to divide by. The reference unsteady wing-body row states one:
-        # POLAR-3224 is the wing-body in a rotor's slipstream at an
-        # advance ratio of 1.3, its description is UNS_WB_DTHETA20deg_REV8p0,
-        # and its recorded DELTA_TIME of 0.00388 is twenty degrees at that
-        # rotor's speed. So the row that states a speed takes the
-        # azimuthal clock, and the row that states none is refused as
-        # before, naming what would make it resolvable.
+        # A row stating rotor speed can use an azimuthal clock without meshing
+        # the rotor: reference POLAR-3224 is a wing-body in a rotor's slipstream
+        # at advance ratio 1.3, described as UNS_WB_DTHETA20deg_REV8p0. Its
+        # recorded DELTA_TIME 0.00388 is twenty degrees at that rotor's speed.
+        # Without a speed, refuse the angular pair and name the keys it needs.
         speed = _optional_rotor_speed(case)
         if speed is None or speed.rpm == 0.0:
             raise CampaignConfigError(

@@ -134,7 +134,7 @@ def test_steady_polar_matches_the_golden():
 
 def test_removed_command_raises_with_citation():
     script = Script(version="26.120")
-    with pytest.raises(CommandNotInVersionError, match=r"SRC-003 p\.328"):
+    with pytest.raises(CommandNotInVersionError, match=r"FSM-26\.120 p\.328"):
         script.emit("SONIC_VELOCITY", 340.0)
 
 
@@ -253,7 +253,7 @@ def test_enum_membership_and_case_normalization():
 
 def test_argument_type_errors_cite_the_manual():
     script = Script(version="26.120")
-    with pytest.raises(CommandArgumentError, match=r"SRC-003 p\.339"):
+    with pytest.raises(CommandArgumentError, match=r"FSM-26\.120 p\.339"):
         script.emit("SOLVER_SET_ITERATIONS", "many")
     with pytest.raises(CommandArgumentError, match="requires argument"):
         script.emit("SET_TRAILING_EDGE_TYPE", 1)
@@ -349,7 +349,7 @@ def test_two_scripts_do_not_share_state():
 
 
 def test_unsteady_monitoring_commands_render_the_manual_grammar():
-    # 2026-07-21 case-reproduction backfill (SRC-003 pp.344-348, 355): the
+    # 2026-07-21 case-reproduction backfill (FSM-26.120 pp.344-348, 355): the
     # unsteady plot blocks render exactly as the manual samples.
     script = Script(version="26.120")
     script.emit("NEW_SIMULATION")
@@ -380,7 +380,7 @@ def test_unsteady_monitoring_commands_render_the_manual_grammar():
 
 
 def test_bulk_separation_renders_the_grammar_of_its_target_version():
-    # 26.1 versus 26.12 manual delta (SRC-725 p.341 / SRC-003 p.342):
+    # 26.1 versus 26.12 manual delta (FSM-26.101 p.341 / FSM-26.120 p.342):
     # 26.12 inserts SEPARATION_TYPE as the second argument.
     later = Script(version="26.120")
     # Broken on 26.120 since 2026-10-12 (RPT-166); the waiver keeps this a test
@@ -413,7 +413,7 @@ def test_volume_section_boundary_layer_is_removed_at_26120():
     earlier = Script(version="26.101")
     earlier.emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
     assert "VOLUME_SECTION_BOUNDARY_LAYER 2 DISABLE" in earlier.render()
-    with pytest.raises(CommandNotInVersionError, match=r"SRC-725 p\.365"):
+    with pytest.raises(CommandNotInVersionError, match=r"FSM-26\.101 p\.365"):
         Script(version="26.120").emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
 
 
@@ -455,7 +455,7 @@ def test_ccs_control_surface_space_axis_pair_is_26120_only():
 
 def test_probe_family_is_available_in_26100():
     # TSR evidence: the probe family grammar is unchanged between 26.1
-    # and 26.12 (SRC-725 pp.361-362 / SRC-003 pp.362-363).
+    # and 26.12 (FSM-26.101 pp.361-362 / FSM-26.120 pp.362-363).
     script = Script(version="26.101")
     script.emit("NEW_PROBE_POINT", "VOLUME", 1.0, 0.5, 0.0)
     script.emit("UPDATE_PROBE_POINTS")
@@ -774,7 +774,7 @@ def test_the_two_commands_that_escaped_the_count_check_now_refuse(command, kwarg
     message = str(caught.value)
     assert "the declared count is 2" in message, message
     assert list_arg in message, message
-    assert "SRC-003" in message, message
+    assert "FSM-26.120" in message, message
 
 
 # --- FR-48: a command a probe measured broken is refused at emission ----
@@ -861,7 +861,7 @@ def test_the_broken_refusal_names_its_evidence_and_the_way_through():
     message = str(caught.value)
     assert "26.120" in message, message
     assert "reports/compat/CMP-26120_2026-08-08_full.yaml" in message, message
-    assert "SRC-003 p.328" in message, message
+    assert "FSM-26.120 p.328" in message, message
     assert "allow_broken" in message, message
 
 
@@ -1208,7 +1208,7 @@ def test_the_cad_create_settings_record_the_default_the_manual_states(command, e
     entry = CommandRegistry.load().commands[command]
     assert entry.default == expected_default
     assert entry.default_ref, f"{command} records a default with no citation"
-    assert entry.default_ref.startswith("SRC-")
+    assert entry.default_ref.startswith("FSM-")
 
 
 def test_the_loft_type_takes_the_two_documented_tokens_and_no_other():
@@ -1453,7 +1453,7 @@ def test_every_cad_command_is_available_on_every_registered_build():
     """
     registry = CommandRegistry.load()
     # SET_CCS_TE_BLEND_LENGTH is the one member that arrives LATER, with the
-    # 26.125 edition (FR-423, SRC-753 p.298); it is pinned to that build here
+    # 26.125 edition (FR-423, FSM-26.125 p.298); it is pinned to that build here
     # and kept out of the chapter the claim below is about.
     later = {"SET_CCS_TE_BLEND_LENGTH"}
     assert set(registry.commands["SET_CCS_TE_BLEND_LENGTH"].versions) == {"26.125"}
@@ -1858,7 +1858,7 @@ def test_the_all_surfaces_sentinel_is_zero_on_the_two_translations():
 def test_the_mirror_plane_is_an_index_and_refuses_a_plane_name():
     """The one plane argument in the database that is not a letter pair.
 
-    SRC-003 p.311 gives 1 for YZ, 2 for XZ and 3 for XY. Every
+    FSM-26.120 p.311 gives 1 for YZ, 2 for XZ and 3 for XY. Every
     neighbouring command spells a plane with letters, so passing XZ here
     is the natural mistake and it must not silently become something
     else.
@@ -1903,7 +1903,7 @@ def test_the_renamed_selection_command_is_recorded_once_per_edition():
         "26.123",
         # 26.124 carries the 26.123 manual itself, so its row was carried on that identity.
         "26.124",
-        # 26.125 reads it unchanged in its own edition (SRC-753, FR-423).
+        # 26.125 reads it unchanged in its own edition (FSM-26.125, FR-423).
         "26.125",
     ]
     Script(version="26.100").emit("SELECT_GEOMETRY_BY_ID", 2)
@@ -1919,7 +1919,7 @@ def test_the_two_surface_deletes_stop_at_the_edition_that_replaced_them():
 
     Six editions document the pair and the seventh documents the
     replacement instead. Neither is `removed`: this database promotes to
-    that status only when a manual STATES a removal, and SRC-740 states
+    that status only when a manual STATES a removal, and FSM-26.121 states
     nothing, it simply stops printing them.
 
     "Three editions" here meant the three registered when it was
@@ -2500,7 +2500,7 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     # a count of sections to create rather than a citation of one,
     # a mesh VERTEX (the tracker counts boundaries, not nodes),
     # a plane selector whose 1, 2, 3 name YZ, XZ, XY rather than an
-    # object (SRC-003 p.311), and a force index within a motion.
+    # object (FSM-26.120 p.311), and a force index within a motion.
     ("CAD_CREATE_AUTO_CROSS_SECTIONS", "sections"),
     ("CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS", "sections"),
     ("SELECT_MESH_NODE", "node_id"),
@@ -2605,12 +2605,12 @@ def test_an_index_argument_whose_name_suggests_a_citation_resolves_to_one():
     claimed here.
 
     Running it found five the review did not, each then read on its own
-    page before being declared: DELETE_SURFACES (SRC-740 p.315) and the
-    two surface-section commands (SRC-003 p.364, where SURFACES is a
+    page before being declared: DELETE_SURFACES (FSM-26.121 p.315) and the
+    two surface-section commands (FSM-26.120 p.364, where SURFACES is a
     count of geometry surfaces followed by their indices) cite mesh
-    boundaries; ROTATE_COORDINATE_SYSTEM's ROTATION_FRAME (SRC-003
+    boundaries; ROTATE_COORDINATE_SYSTEM's ROTATION_FRAME (FSM-26.120
     p.330) and IMPORT_AEROELASTIC_STRUCTURAL_NODES's
-    STRUCTURAL_COORDINATE_SYSTEM (SRC-003 p.375) cite local coordinate
+    STRUCTURAL_COORDINATE_SYSTEM (FSM-26.120 p.375) cite local coordinate
     systems, both stating 1 as the reference system.
     """
     from pyflightstream.commands import ArgType
@@ -2705,7 +2705,7 @@ def test_a_command_with_no_documented_all_form_refuses_minus_one():
     was introduced to fix, and the 2026-08-07 API pass found it a third
     time, in the commit whose changelog entry claimed it closed.
 
-    SRC-003 pp.309-313 were read command by command. Six boundary
+    FSM-26.120 pp.309-313 were read command by command. Six boundary
     indices in this chapter state no all-form and each is asserted here;
     the ones that do state one are asserted in the sentinel test above,
     so neither half can be satisfied by a rule that simply says yes or
@@ -2772,7 +2772,7 @@ def test_the_refusal_never_offers_an_all_form_the_page_does_not_state():
     with pytest.raises(ScriptReferenceError) as caught:
         loud.emit("SURFACE_INVERT", 0)
     assert "-1 selecting all boundaries" in str(caught.value), (
-        "SURFACE_INVERT does state one (SRC-003 p.310), so its refusal must name it"
+        "SURFACE_INVERT does state one (FSM-26.120 p.310), so its refusal must name it"
     )
 
 
@@ -2810,7 +2810,7 @@ def test_no_golden_carries_a_carriage_return():
 def test_the_rotate_all_form_takes_no_index_line():
     """The one all-form in the chapter carried on a COUNT, not an index.
 
-    SRC-003 p.309 states -1 in SURFACE_ROTATE's count row selects every
+    FSM-26.120 p.309 states -1 in SURFACE_ROTATE's count row selects every
     surface for rotation, and the index line then has nothing to list.
     The list argument was required, so the documented call was refused
     outright; supplying an empty list instead emitted a stray blank line
@@ -2897,7 +2897,7 @@ def test_the_ccs_wing_chapter_emits_on_every_registered_build(version):
 
 
 def test_the_gapped_control_surface_has_two_arities_and_the_earlier_one_refuses_the_axis():
-    """SPACE and AXIS arrive at 26.120 (SRC-003 p.299).
+    """SPACE and AXIS arrive at 26.120 (FSM-26.120 p.299).
 
     Before that the spanwise limits are parametric only, so the two
     trailing arguments name a capability the older builds do not have,
@@ -2956,7 +2956,7 @@ def test_the_gapped_control_surface_has_two_arities_and_the_earlier_one_refuses_
 def test_the_flap_cove_type_is_an_index_and_refuses_a_word():
     """One numbered shape argument among a family of tokens.
 
-    SRC-003 p.300 gives 1 for a blended Bezier cove and 2 for a
+    FSM-26.120 p.300 gives 1 for a blended Bezier cove and 2 for a
     rectangular one, while every neighbouring shape argument in the
     family is spelled as a word, so BEZIER is the natural mistake.
     """
@@ -3287,7 +3287,7 @@ def test_on_command_line_must_lead_and_needs_a_keyword_block():
             layout="keyword_block",
             phase="geometry",
             args=[keyword, leading],
-            manual_ref="SRC-003 p.1",
+            manual_ref="FSM-26.120 p.1",
             versions={"26.120": {"status": "documented"}},
         )
     with pytest.raises(ValidationError, match="only a keyword_block needs"):
@@ -3297,7 +3297,7 @@ def test_on_command_line_must_lead_and_needs_a_keyword_block():
             layout="inline",
             phase="geometry",
             args=[leading],
-            manual_ref="SRC-003 p.1",
+            manual_ref="FSM-26.120 p.1",
             versions={"26.120": {"status": "documented"}},
         )
 
@@ -3404,7 +3404,7 @@ def test_the_bending_angle_is_read_from_the_page_that_documents_it():
     """
     entry = CommandRegistry.load().commands["SET_BASE_REGION_BENDING_ANGLE"]
     assert [spec.name for spec in entry.args] == ["angle"]
-    assert entry.manual_ref == "SRC-003 p.284"
+    assert entry.manual_ref == "FSM-26.120 p.284"
     script = Script(version="26.120")
     script.emit("SET_BASE_REGION_BENDING_ANGLE", 25.0)
     assert "SET_BASE_REGION_BENDING_ANGLE 25.0" in script.render()
@@ -3473,7 +3473,7 @@ def test_the_wake_decay_constant_exists_in_the_hotfix_series_alone():
     """
     entry = CommandRegistry.load().commands["SET_WAKE_DECAY_CONSTANT"]
     assert set(entry.versions) == {"26.121", "26.122", "26.123", "26.124", "26.125"}
-    assert entry.manual_ref.startswith("SRC-740"), (
+    assert entry.manual_ref.startswith("FSM-26.121"), (
         "a command the flagship edition does not document cites the edition that does"
     )
     assert entry.args[0].unit == "1/m", (
@@ -4001,7 +4001,7 @@ def test_the_wake_edge_import_takes_no_path_and_the_entry_says_so():
     )
 
     notes = " ".join((entry.notes or "").split())
-    for citation in ("SRC-750 p.324", "SRC-751 p.323"):
+    for citation in ("FSM-26.122 p.324", "FSM-26.123 p.323"):
         assert citation in notes, (
             f"the entry does not cite {citation}. BOTH editions were read for this "
             "question and both are silent; citing one leaves the next reader to "
@@ -4051,7 +4051,7 @@ def test_the_wake_edge_tolerance_carries_a_unit_and_the_vendors_own_default():
 def test_the_displacement_contours_emit_on_the_edition_that_prints_them():
     """Four values one edition adds, refused everywhere else.
 
-    SRC-751 appends FSI_dx, FSI_dy, FSI_dz and FSI_displacement to the
+    FSM-26.123 appends FSI_dx, FSI_dy, FSI_dz and FSI_displacement to the
     scene-contour enumeration. A value set is per version here, so the
     26.123 row restates the whole list: the pre-parse fill merges
     argument KEYS and never merges list items, so a row stating only the

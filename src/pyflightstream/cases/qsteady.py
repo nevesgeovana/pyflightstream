@@ -598,7 +598,7 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
 #: swirl velocities, and still be read as the same flow: a fraction of the
 #: field's largest speed. 0.1 per cent: a field extracted from another solution
 #: and interpolated onto rings carries round-off and interpolation noise far
-#: above 1e-6 of its speed (the first writing refused such fields), while a
+#: above 1e-6 of its speed, while a
 #: real azimuthal variation, a crossflow of an angle of attack of a degree or a
 #: wake deficit, is well above it.
 AXISYMMETRY_SPEED_TOLERANCE = 1e-3
@@ -846,16 +846,11 @@ def record_file_name(loads: str) -> str:
     return str(path.with_name(f"{path.stem}{RECORD_SUFFIX}"))
 
 
-# --- the point's quasi-steady record (0.31.0): one type, one reader, one refusal ----
-#
-# ``<point>_qsteady.json`` is written by the builder and read by the run (which
-# judges a wheel's one solver log clocking by clocking) and by the post (the
-# rotor table's speed, the clockings and average tables, the validity). Until
-# 0.31.0 it had no type and two readers with two failure contracts: the post's
-# raised on a file it could not read and the run's returned None on the same
-# file. Its one type and its one reader live here, beside the name of the file,
-# and every failure is one refusal, :class:`QsteadyRecordError`; each caller
-# decides what the point loses.
+# The point's quasi-steady record has one type, reader and refusal.
+# The builder writes <point>_qsteady.json; the run reads it to judge each
+# clocking's solver log, and post-processing reads speed, clockings,
+# average tables and validity. Every read failure is QsteadyRecordError,
+# and each caller decides what the point loses.
 
 #: The one schema of the record this package writes and reads.
 RECORD_SCHEMA_VERSION = 1
@@ -1235,7 +1230,7 @@ def read_qsteady_record(loads_path: Path) -> QsteadyRecord:
         raise QsteadyRecordError(f"the quasi-steady record {path} {error}") from None
 
 
-# --- the harmonic content of a custom inflow (0.30.0, ``plan --inflow-fft``) ----
+# --- the harmonic content of a custom inflow (``plan --inflow-fft``) ----
 #
 # WHAT nP COUNTS. The harmonic order n of this section is the number of times
 # ONE BLADE meets a perturbation of the inflow in one revolution, read in the
@@ -1254,8 +1249,8 @@ AZIMUTH_SAMPLES = 360
 HARMONIC_VARIANCE_SHARE = 0.95
 #: The smallest harmonic of the blade's angle-of-attack perturbation that is
 #: counted, in degrees of amplitude. A harmonic below it is not counted, and a
-#: perturbation with none above it is a constant (``n95`` 0). Measured on
-#: 2026-09-29 on fields the blade meets as constant (radial profiles of 5 and
+#: perturbation with none above it is a constant (``n95`` 0). For the measured
+#: fields the blade meets as constant (radial profiles of 5 and
 #: 20 % over the span on rings every 0.05 m with 72 per ring, on a 0.05 m
 #: Cartesian grid and on 30 rings, and a uniform field with a relative noise of
 #: 1e-6, at 1200 rev/min and 20 m/s), the sampling leaves at most 8.5e-5 deg, so

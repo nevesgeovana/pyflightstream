@@ -182,12 +182,9 @@ class ConditionBinding:
     def mismatch_free(self) -> bool:
         """True when no comparable field disagrees.
 
-        NAMED FOR WHAT IT MEASURES, deliberately. This was `matched`,
-        which returns True for a binding that compared nothing, so a
-        caller writing the obvious ``if binding.matched:`` re-created
-        REV010-001 at the API level (api-designer pass, 2026-08-03).
-        Ask :attr:`compared` alongside it, or read :attr:`mismatches`
-        directly, which is what both real consumers do.
+        This is True even when no fields were compared. Check
+        :attr:`compared` alongside it, or inspect :attr:`mismatches`
+        directly, to distinguish agreement from missing comparisons.
         """
         return not self.mismatches
 
@@ -251,10 +248,8 @@ def bind_conditions(
     checks: list[ConditionCheck] = []
     unprinted: list[str] = []
     known = {axis for axis, _, _, _ in bindings}
-    # A requested axis this table does not know is UNBOUND, not absent.
-    # The loop below iterates the table rather than the request, so such an
-    # axis used to be dropped with no trace and a sweep over it recorded a
-    # binding that looked complete (QA pass, 2026-08-03).
+    # A requested axis unknown to this table is unbound. Record it explicitly
+    # because the loop below iterates table fields rather than requested axes.
     unbound = tuple(
         sorted(axis for axis, value in requested.items() if axis not in known and value is not None)
     )

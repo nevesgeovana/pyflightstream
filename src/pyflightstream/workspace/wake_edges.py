@@ -41,7 +41,7 @@ one place that layout is written.
 The two defaults are the vendor's own numbers rather than this
 package's taste: the manual page prints a sample call passing
 VORTEX_SHEDDING and 0.0001, and states the same number as the parameter
-default in its own table (SRC-750 p.324, SRC-751 p.323).
+default in its own table (FSM-26.122 p.324, FSM-26.123 p.323).
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ TRAILING_EDGE_DETECTION_COMMAND = "AUTO_DETECT_TRAILING_EDGES"
 DEFAULT_EDGE_TYPE = "VORTEX_SHEDDING"
 
 #: The tolerance the manual's parameter table states as the default and
-#: the printed sample call passes (SRC-750 p.324, SRC-751 p.323). It is
+#: the printed sample call passes (FSM-26.122 p.324, FSM-26.123 p.323). It is
 #: recorded here rather than invented, so nobody has to reverse engineer
 #: where it came from.
 DEFAULT_TOLERANCE = 0.0001
@@ -247,11 +247,8 @@ def evidence_notice(canonical: str) -> str:
             f"having been measured by a run outside the compatibility harness on {measured}"
         )
     else:
-        # PRECISE, because the loose wording was wrong. The command IS
-        # named by the compat runs that reached its builds; each records
-        # it unprobed for want of a probe specification. What no row of
-        # it cites is a report, which is what this sentence claims and
-        # all it claims.
+        # Compat rows name this command as unprobed when no probe specification
+        # exists. The refusal concerns the absence of a cited report.
         standing = "cites no probe report on any build, every row it has being read off a page"
 
     if detection_verified:
@@ -374,7 +371,7 @@ class WakeEdgeImport(BaseModel):
 #: OTHER is absent on purpose: it names no scale, so nothing can be
 #: converted to or from it. Every other recorded token has an entry, which
 #: ``tests/tier1_offline/test_wake_edges.py`` holds against the record. The
-#: table is the floor's (:mod:`pyflightstream._lengths`, since 0.27.0), which
+#: table is the floor's (:mod:`pyflightstream._lengths`), which
 #: the cases layer converts the actuator disc and the volume section with.
 _METRES_PER_UNIT: Mapping[str, Fraction] = METRES_PER_UNIT
 
@@ -457,10 +454,8 @@ def _coordinates(nodes: object) -> numpy.ndarray:
     try:
         array = numpy.asarray(nodes, dtype=float)
     except (TypeError, ValueError) as error:
-        # Found by the adversarial pass: a string, a ragged list or an
-        # object array reached numpy and left a bare ValueError on a
-        # public name, which is the one exception shape this repository
-        # refuses (FR-39). The cause is named rather than re-worded.
+        # Wrap invalid numpy inputs, including strings, ragged lists and object
+        # arrays, in the package's public refusal class (FR-39), naming the cause.
         raise InputArtifactError(
             "the node list could not be read as an array of coordinates: "
             f"{error}. It is an (n, 3) array of numbers, or any nested sequence "

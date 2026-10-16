@@ -466,8 +466,8 @@ def _row_values(row: Sequence[str], width: int) -> list[float]:
     if not all(cell.strip() for cell in cells):
         raise FsiInputError(
             f"a sectional loads row has an empty field ({','.join(cells)!r}), so a "
-            "column is missing rather than zero. A blank used to be dropped before "
-            "the count, which shifted every value after it one column left"
+            "column is missing rather than zero. Dropping it would shift every "
+            "following value one column left"
         )
     return [parse_number(cell) for cell in cells]
 

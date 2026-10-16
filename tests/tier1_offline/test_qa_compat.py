@@ -39,7 +39,7 @@ STOP:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
     "26.120": {status: documented}
 
@@ -49,7 +49,7 @@ PRINT:
   args:
     - name: message
       type: str
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
     "26.120": {status: documented}
 
@@ -59,7 +59,7 @@ RUN_SCRIPT:
   args:
     - name: script_path
       type: path
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
     "26.120": {status: documented}
 """
@@ -316,7 +316,7 @@ def _fake_chapter(commands_dir, versions: str) -> None:
         "  layout: bare\n"
         "  phase: control\n"
         "  args: []\n"
-        '  manual_ref: "SRC-003 p.281"\n'
+        '  manual_ref: "FSM-26.120 p.281"\n'
         "  versions:\n" + versions,
         encoding="utf-8",
     )
@@ -416,7 +416,7 @@ def test_apply_compat_still_refuses_a_block_with_no_line_to_pattern_on(tmp_path)
         "  layout: bare\n"
         "  phase: control\n"
         "  args: []\n"
-        '  manual_ref: "SRC-003 p.281"\n'
+        '  manual_ref: "FSM-26.120 p.281"\n'
         "  versions:\n"
         '    "26.120":\n'
         "      status: documented\n",
@@ -597,9 +597,9 @@ PRINT:
   args:
     - name: message
       type: str
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
-    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.278, same grammar as 26.120"}
     "26.120": {status: documented, note: "carried through untouched"}
 """
 
@@ -613,7 +613,7 @@ PRINT:
   args:
     - name: message
       type: str
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
     "26.120": {status: removed, note: "Measured: solver refuses it.", probe_ref: "reports/R.md"}
 """
@@ -655,7 +655,7 @@ def test_a_promotion_keeps_the_keys_it_does_not_own(tmp_path):
         "the promoted row lost its note, which is a manual page citation, and no guard "
         "downstream can tell it was ever there"
     )
-    assert "SRC-741 p.278" in text, "a row this run never probed was rewritten"
+    assert "FSM-26.100 p.278" in text, "a row this run never probed was rewritten"
     promoted = yaml.safe_load(text)["PRINT"]["versions"]["26.120"]
     assert promoted["status"] == "verified"
     assert promoted["report"].endswith(".yaml")
@@ -872,7 +872,7 @@ PRINT:
   args:
     - name: message
       type: str
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
     "26.120": {status: documented}
 
@@ -880,9 +880,9 @@ STOP:
   layout: bare
   phase: control
   args: []
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
-    "26.120": {status: documented, note: "SRC-741 p.358, this edition's own grammar"}
+    "26.120": {status: documented, note: "FSM-26.100 p.358, this edition's own grammar"}
 
 RUN_SCRIPT:
   layout: param_lines
@@ -890,7 +890,7 @@ RUN_SCRIPT:
   args:
     - name: script_path
       type: path
-  manual_ref: "SRC-003 p.281"
+  manual_ref: "FSM-26.120 p.281"
   versions:
     "26.120": {status: documented, note: "carried", args: [{name: script_path, type: path}]}
 """
@@ -1102,7 +1102,7 @@ def test_a_refusal_in_the_second_chapter_leaves_the_first_untouched(tmp_path):
         "  args:\n"
         "    - name: message\n"
         "      type: str\n"
-        '  manual_ref: "SRC-003 p.281"\n'
+        '  manual_ref: "FSM-26.120 p.281"\n'
         "  versions:\n"
         '    "26.120": {status: documented}\n',
         encoding="utf-8",
@@ -1112,9 +1112,9 @@ def test_a_refusal_in_the_second_chapter_leaves_the_first_untouched(tmp_path):
         "  layout: bare\n"
         "  phase: control\n"
         "  args: []\n"
-        '  manual_ref: "SRC-003 p.281"\n'
+        '  manual_ref: "FSM-26.120 p.281"\n'
         "  versions:\n"
-        '    "26.120": {status: documented, note: "SRC-741 p.358, this edition"}\n',
+        '    "26.120": {status: documented, note: "FSM-26.100 p.358, this edition"}\n',
         encoding="utf-8",
     )
     before = (commands_dir / "a_first.yaml").read_text(encoding="utf-8")

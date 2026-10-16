@@ -136,7 +136,7 @@ class ExecutionResult:
     log_text : str or None
         Content of ``FlightStreamLog.txt`` from the execution
         directory when the solver wrote one (hidden-mode abnormal
-        termination, SRC-003 p.280); None otherwise.
+        termination, FSM-26.120 p.280); None otherwise.
     stdout : str
         Captured standard output of the process.
     stderr : str
@@ -158,7 +158,7 @@ class ExecutionResult:
         activity's start and end. None for an executor that reports no
         clock, and the record keeps that rather than filling it.
     finished_at : str, optional
-        When the process ended, or was killed on timeout, the same way.
+        When the process ended, or was killed on timeout, the same way. [REF-03]
     """
 
     return_code: int | None
@@ -179,7 +179,7 @@ class ExecutionResult:
         return self.timed_out or self.return_code != 0
 
     def captured_output(self) -> str:
-        """Return what the solver printed, as a scheduler's job log holds it (0.27.0).
+        """Return what the solver printed, as a scheduler's job log holds it.
 
         Standard output, then standard error, one after the other. The text a
         run writes as the declared log on a machine whose HPC profile states
@@ -196,38 +196,17 @@ class ExecutionResult:
     def diagnosis(self) -> str:
         """Say what happened, from every channel this run captured.
 
-        Single home of the sentence a refusal quotes when a solver run
-        goes wrong. Every caller that needs one calls this; none builds
-        its own, and a tier 1 AST guard enforces that.
-
-        WHY THIS EXISTS, because the reason is the whole design. Four
-        sites independently composed
-        ``log_text or stderr or f"return code {return_code}"``, and all
-        four omitted the same field: STDOUT, which the executor captures
-        on every run and which nothing in the package read. On
-        2026-08-09 a build was handed a command-line spelling it does
-        not accept; it started, printed its banner, checked out its
-        licence successfully, received no script and waited. The harness
-        saw a timeout, no exported log and an empty stderr, and told the
-        operator that the environment was unusable and that the licence
-        checkout was one of three candidate causes, while holding
-        unprinted the line saying the checkout had SUCCEEDED. About a
-        dozen licensed solver launches went into the licence hypothesis
-        (RPT-023, INC-20260809-2230).
-
-        The lesson generalises past that spelling: everything the
-        harness reads is written by the solver AFTER it accepts a
-        script, so every failure BEFORE that point looks identical.
-        Standard output is the only channel that carries pre-script
-        evidence, and it is the one the four chains dropped.
+        Every caller uses this diagnostic; a tier 1 AST guard enforces that.
+        Standard output carries pre-script evidence, including successful licence
+        checkout when an unrecognised script argument leaves the solver waiting
+        without an exported log or standard error (RPT-023). Include it so a
+        timeout does not hide the evidence needed to distinguish those outcomes.
 
         Returns
         -------
         str
-            One line naming the outcome, then whichever captured
-            channels are non-empty, most specific first. Never empty:
-            with nothing captured it still reports the outcome, which
-            is more than "return code None" said.
+            One line naming the outcome, then each non-empty captured channel,
+            most specific first. With nothing captured, still report the outcome.
         """
         parts: list[str] = []
         if self.timed_out:
@@ -251,8 +230,7 @@ class Executor(Protocol):
     """Anything that can run one rendered script to completion.
 
     Implementations must be interchangeable without touching the
-    campaign model (FR-15): :class:`LocalExecutor` today, an HPC
-    submission executor later.
+    campaign model (FR-15), whether executing locally or submitting to HPC.
     """
 
     def run_script(
@@ -266,12 +244,8 @@ class Executor(Protocol):
 class SolverBuild:
     """One solver installation a campaign may send some of its cases to.
 
-    A campaign declares ONE ``fs_version`` and ONE ``fs_exe``, which is
-    the right shape for the ordinary case and makes a study ACROSS two
-    solver builds unstatable: the run matrix refused a second FS_BUILD
-    value outright rather than record a falsehood, because the manifest
-    would have said every point ran on the campaign's executable. This
-    is the shape that lets a campaign say otherwise, one case at a time,
+    A campaign declares ONE ``fs_version`` and ONE ``fs_exe`` by default.
+    For a study across solver builds, this class selects the build per case
     through :attr:`pyflightstream.cases.SimCase.fs_build` and the
     ``builds`` mapping of :func:`run_campaign` and :func:`plan_campaign`.
 
@@ -303,34 +277,21 @@ class SolverBuild:
 
 #: Command-line argument that names the script file, one dash.
 #:
-#: Read this together with :func:`describe_invocation`, which is what
-#: every report prints; the two must not be restated apart.
+#: Read this together with :func:`describe_invocation`, which every report
+#: prints; its spelling must agree with this value.
 #:
-#: The vendor spells this argument two ways and the difference is not
-#: cosmetic. The 25.0 edition documents ``-script`` on its command-line
-#: inputs topic and the 26.12 edition documents ``--script`` at SRC-003
-#: pp.279-280. Note the asymmetry in what can be CITED: the 26.12
-#: edition has a source id and a page, and the 25.0 edition has neither,
-#: because that install ships a compiled help archive with topics rather
-#: than pages and no source id has been allocated for it
-#: (PLN-20260809-2350). So the spelling used here rests on the
-#: measurement, RPT-023, and not on a page reference.
+#: The vendor documents two spellings: the 25.0 command-line inputs topic
+#: uses ``-script`` and FSM-26.120 pp.279-280 uses ``--script``. The spelling
+#: here rests on the measurement RPT-023: one dash works on all seven
+#: registered builds tested, while two dashes fail on 25.000 and 25.100.
 #:
-#: A build that does not recognise the
-#: spelling it is given does not refuse it, it starts, checks out its
-#: licence, receives no script, and waits for a user. Under ``-hidden``
-#: with the standard streams redirected there is no console for it to
-#: report on, so the Fortran runtime raises severe(30) on ``CONOUT$``
-#: and opens a modal dialog that no timeout can answer. That is a hang
-#: with a clean licence checkout and an empty log, which is how it was
-#: misread for a day as a licence-seat problem.
-#:
-#: One dash is used for every build because it is the only spelling
-#: measured to work on all of them: the seven registered builds were
-#: swept with both spellings on 2026-08-09 and two dashes failed on
-#: 25.000 and 25.100 (RPT-023). A future build that drops the one-dash
-#: spelling fails its probe baseline loudly rather than silently, since
-#: the baseline asserts the sentinel reached the exported log.
+#: An unrecognised spelling does not cause a refusal: the solver starts,
+#: checks out its licence, receives no script and waits for a user. Under
+#: ``-hidden`` with redirected streams, the Fortran runtime raises
+#: severe(30) on ``CONOUT$`` and opens a modal dialog. A timeout cannot
+#: answer that dialog. This is a hang with a clean licence checkout and
+#: an empty log. The probe baseline asserts that the sentinel reaches the
+#: exported log, so an unsupported spelling fails that baseline loudly.
 SCRIPT_ARGUMENT = "-script"
 
 
@@ -373,9 +334,7 @@ def describe_invocation(
 
     Single home of the sentence every report prints about how the
     solver was called, so the script argument it names is the one
-    :func:`LocalExecutor._argv` passes rather than a copy of it. Six
-    copies of that sentence used to sit in the report writers, where
-    nothing would have noticed them disagreeing with the code (NFR-11).
+    :func:`LocalExecutor._argv` passes (NFR-11).
 
     READ FROM THE RUN WHEN A RECORD IS GIVEN (PFS-2012.04), asserted
     otherwise, and the two sentences differ by construction so a reader
@@ -413,12 +372,12 @@ def describe_invocation(
         ``executor`` field of a compat, drift, or physics report.
     """
     # The two citations are split because they answer different halves
-    # and one of them does NOT support the spelling beside it: SRC-003
+    # and one of them does NOT support the spelling beside it: FSM-26.120
     # documents the mechanism and the windowless flag, and documents the
     # script argument with TWO dashes. Printing that page beside one
     # dash, as this string did when it was first written, cites a page
     # for a claim it denies. RPT-023 is what carries the spelling.
-    citation = "mechanism SRC-003 pp.279-280; argument spelling RPT-023"
+    citation = "mechanism FSM-26.120 pp.279-280; argument spelling RPT-023"
     if record is None:
         flags = f"-hidden {SCRIPT_ARGUMENT}" if hidden else SCRIPT_ARGUMENT
         if markdown:
@@ -470,7 +429,7 @@ def _numeric_field(template: object, values: Mapping[str, object]) -> bool:
     if isinstance(template, bool):
         # A TOML boolean in the profile (``driveg = true``) is a boolean the
         # scheduler reads, written bare and lower case: quoted, the cluster
-        # reads the string "true" or "True" and not the switch (0.35.0).
+        # reads the string "true" or "True" and not the switch.
         return True
     text = str(template).strip()
     if not (text.startswith("{") and text.endswith("}") and text.count("{") == 1):
@@ -743,12 +702,11 @@ def bind_submission_values(executor, case, point_case) -> None:
     ncpus = row_ncpus(point_case, case.solver.max_threads)
     if ncpus is not None:
         values["ncpus"] = ncpus
-    # WHAT THE SCHEDULER'S FIELD CARRIES IS THE PROFILE'S TO SAY (0.21.0).
-    # The default is the row's cell AS WRITTEN, so a profile writing
-    # `--time={walltime}` gets `4h` where the row wrote `4h`; a profile stating
-    # `walltime_arithmetic = "seconds"` gets the integer seconds this package
-    # wrote until 0.20.x. Neither touches the watchdog: `walltime_s` below is
-    # the deadline the clock counts down to, whatever the descriptor carries.
+    # The profile determines the scheduler's walltime representation.
+    # The default is the row's cell AS WRITTEN: `--time={walltime}` receives
+    # `4h` for a row stating `4h`. With `walltime_arithmetic = "seconds"`,
+    # it receives integer seconds. Neither changes the watchdog: `walltime_s`
+    # is the deadline the clock counts down to.
     walltime = row_walltime_s(point_case)
     written = row_walltime_text(point_case)
     if walltime is not None and written is not None:
@@ -759,13 +717,10 @@ def bind_submission_values(executor, case, point_case) -> None:
         # whose comment wants the other needs no second run to get it.
         values["walltime_s"] = int(walltime)
         values["walltime_written"] = written
-    # C07. THE POINT'S MAPPING IS REBUILT, never merged into the last
-    # point's. One executor serves the whole campaign, so updating meant a
-    # row that resolves neither a processor count nor a wall clock kept the
-    # PREVIOUS row's and submitted resources it never asked for, which also
-    # bypassed the refusal the omission above exists to produce. Both of
-    # these were written by this session earlier today and found by the
-    # independent Codex review of `main`, 2026-09-13.
+    # C07. Rebuild each point's mapping instead of merging it into the previous
+    # point's. One executor serves the campaign; retaining another row's
+    # processor count or walltime would submit unrequested resources and bypass
+    # the refusal for missing values.
     executor.bind_point(values, replace=True)
 
 
@@ -779,20 +734,14 @@ def _submission_record(executor) -> dict | None:
 class SubmittingExecutor:
     """Hands a script to a scheduler and does NOT wait for it (FR-15, FR-99).
 
-    THE DESIGN OF 2026-09-08, built as it was drawn. A blocking executor
-    that polls the cluster holds a laptop for the night the cluster was
-    bought to save; a tool outside the workflow is a run nothing records.
-    So this returns as soon as the scheduler has taken the job and the
+    Return as soon as the scheduler has taken the job and the
     record is written SUBMITTED.
 
-    SINCE 0.18.0 A COLLECT STAGE COMPLETES IT. `pyfs-matrix collect`
+    A collect stage completes it. `pyfs-matrix collect`
     watches the workspace for the outputs this point declared, waits until
     every one of them is present AND settled, then collects, assesses and
     rewrites this record with what the run actually did (FR-99,
-    `run/collect.py`). Until 0.18.0 a SUBMITTED record was completed BY
-    HAND, and this docstring said `collect` completes it in the present
-    tense a release before it did, in the one capability whose failure
-    mode is an unattended job nobody collects (the V&V lens, round two).
+    `run/collect.py`).
 
     THE DESCRIPTOR IS WRITTEN WHETHER OR NOT IT IS SUBMITTED, which is the
     predecessor's shape and worth keeping: a descriptor you can read
@@ -800,19 +749,10 @@ class SubmittingExecutor:
     """
 
     def __init__(self, profile: HpcProfile, *, values: Mapping[str, object], submit: bool = True):
-        # TYPED AND REFUSED HERE, because this is where it is knowable. Reading
-        # the profile's cluster fields through `isinstance` downstream turns a
-        # profile of another shape into None, and None is the OLD DEFAULTS --
-        # EXPORT_LOG left in the script, the walltime as written -- so the
-        # failure would look exactly like success on the one machine the fields
-        # exist for (the qa lens of the closing round, 2026-09-16).
-        #
-        # THE PACKAGE'S OWN ERROR, not a bare TypeError: this class is exported
-        # and `test_exceptions_catalog` refuses a bare stdlib type from an
-        # exported name. `ExecutorConfigurationError` is the one whose docstring
-        # already says it is raised at CONSTRUCTION TIME so a misconfiguration
-        # surfaces before a campaign starts rather than at its first point,
-        # which is exactly this.
+        # Validate the typed profile at construction, before a campaign starts.
+        # Missing cluster fields must not silently select default log or walltime
+        # behaviour. ExecutorConfigurationError is the public configuration refusal
+        # required by test_exceptions_catalog.
         if not isinstance(profile, HpcProfile):
             raise ExecutorConfigurationError(
                 "a submitting executor takes an HpcProfile, and this is a "
@@ -1087,8 +1027,8 @@ def _unsubmitted(
     )
 
 
-#: G43 of 0.28.0: how often an unsteady run's progress is said, in completed time
-#: steps, by default. `pyfs-matrix run --progress-every N` sets it; 0 says nothing.
+#: Time steps between unsteady progress reports by default.
+#: `pyfs-matrix run --progress-every N` sets it; 0 says nothing.
 PROGRESS_EVERY_DEFAULT = 10
 
 
@@ -1301,7 +1241,7 @@ def _run_with_progress(
                     say_line(f"[solver] could not persist modal diagnostic: {log_error}")
                 say_line(diagnostic.rstrip())
                 return process.returncode or 1, out or "", (err or "") + "\n" + diagnostic, False
-            # A WINDOW THAT ASKS NOTHING IS SPARED AND SAID (0.30.0): the GUI's
+            # A WINDOW THAT ASKS NOTHING IS SPARED AND SAID: the GUI's
             # startup splash of a HIDDEN 0 row. Written once per description
             # into the point's own folder; a failure to write it changes nothing.
             try:
@@ -1330,7 +1270,7 @@ def _run_with_progress(
 
 
 class LocalExecutor:
-    """Runs FlightStream as a local subprocess (SRC-003 pp.279-280).
+    """Runs FlightStream as a local subprocess (FSM-26.120 pp.279-280).
 
     Parameters
     ----------
@@ -1340,20 +1280,20 @@ class LocalExecutor:
     hidden : bool
         Pass the ``-hidden`` flag for a windowless run; this is the
         batch mode that writes ``FlightStreamLog.txt`` on abnormal
-        termination (SRC-003 p.280). Disable only for local debugging
+        termination (FSM-26.120 p.280). Disable only for local debugging
         with the interface visible.
     forced_local : bool
         Keyword only. Whether the local switch kept this run on a machine
-        that would otherwise have submitted (``pyfs-matrix run --local``,
-        0.27.0): a cluster carrying a profile. Recorded on every point's
+        that would otherwise have submitted (``pyfs-matrix run --local``):
+        a cluster carrying a profile. Recorded on every point's
         executor entry; it changes nothing about how the solver is called.
     export_log : bool
         Keyword only. Whether the scripts this executor runs export the
         solver log. False on a run the local switch kept on a cluster whose
         HPC profile states ``export_log = false``: that machine's build aborts
         at ``EXPORT_LOG`` whether the job is submitted or run where it is, so
-        the profile's decision is the MACHINE's (0.27.0, measured on a cluster
-        2026-09-24). No scheduler writes the log of a local run, so the run
+        the profile's decision applies to the machine. No scheduler writes
+        the log of a local run, so the run
         writes the declared log from what this executor captured of the
         solver, its standard output then its standard error; with nothing
         captured the point is judged from its loads export and its record says
@@ -1470,9 +1410,8 @@ class LocalExecutor:
         return_code: int | None = None
         stdout = ""
         stderr = ""
-        # G43 of 0.28.0: an unsteady point that carries its step counter says how
-        # far it is every `progress_every` steps while it runs; every other run is
-        # waited on exactly as before.
+        # An unsteady point carrying its step counter reports progress every
+        # `progress_every` steps; other runs wait without progress reports.
         total = (
             _counter_total_steps(Path(working_dir) / UNSTEADY_ACTION_PROGRAM)
             if getattr(self, "progress_every", 0) > 0
@@ -1551,7 +1490,7 @@ def _file_stamp(path: Path) -> tuple[int, int] | None:
 
 
 def _a_steady_coupled_script(script_path: Path) -> bool:
-    """Whether the script at this path is a steady coupled run's (FSI-G of 0.30.0)."""
+    """Whether the script at this path is a steady coupled run's (FSI-G)."""
     from pyflightstream.cases.fsi_workspace import is_steady_aeroelastic_script
 
     try:
@@ -1562,7 +1501,7 @@ def _a_steady_coupled_script(script_path: Path) -> bool:
 
 
 def _utc_now() -> str:
-    """Return the clock reading a run record carries: ISO 8601, UTC, to the second."""
+    """Return the clock reading a run record carries: ISO 8601 [REF-03], UTC, to the second."""
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
@@ -1603,10 +1542,8 @@ def _profile_of(executor: object) -> HpcProfile | None:
 
     ONE `getattr`, and it asks the question that is genuinely open -- whether
     this executor submits at all -- rather than asking each field whether it
-    exists. Reading `export_log` or `walltime_arithmetic` with a default hid
-    the model from the type checker exactly where the cluster features live,
-    and a renamed field would have returned the default in silence (the
-    architecture lens, 2026-09-16).
+    exists. Read `export_log` and `walltime_arithmetic` through the typed
+    model so a renamed field cannot return a default in silence.
     """
     profile = getattr(executor, "profile", None)
     return profile if isinstance(profile, HpcProfile) else None
@@ -1617,9 +1554,9 @@ def _machine_exports_log(executor: object) -> bool:
 
     The profile's ``export_log`` for an executor submitting through one, and a
     local executor's own ``export_log``, which is False on a run the local
-    switch kept on a cluster whose profile turns the export off (0.27.0): the
-    build there aborts at ``EXPORT_LOG`` whether the job is submitted or not,
-    and until 0.27.0 only a submitted job was spared it. True for any other
+    switch kept on a cluster whose profile turns the export off: the
+    build there aborts at ``EXPORT_LOG`` whether the job is submitted or not.
+    True for any other
     executor.
     """
     profile = _profile_of(executor)
@@ -1631,7 +1568,7 @@ def _machine_exports_log(executor: object) -> bool:
 
 
 def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
-    """Return the case as the EXECUTOR's machine writes its log (0.21.0).
+    """Return the case as the EXECUTOR's machine writes its log.
 
     Some clusters abort at ``EXPORT_LOG`` and write their own log beside the
     run; their HPC profile says so, and the builders read the CASE and know
@@ -1640,11 +1577,9 @@ def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     side is ever written: a run on any other machine, or through any other
     executor, renders byte for byte what it rendered before.
 
-    THE MACHINE'S DECISION, submitted or not (0.27.0): a run the local switch
+    THE MACHINE'S DECISION, submitted or not: a run the local switch
     keeps on such a cluster carries it on its local executor, because the build
-    that aborts at ``EXPORT_LOG`` is the same build either way. Read through
-    the profile alone, a point run there with ``--local`` stopped at
-    ``EXPORT_LOG`` after every other export (measured on a cluster, 2026-09-24).
+    that aborts at ``EXPORT_LOG`` is the same build either way.
     """
     if _machine_exports_log(executor):
         return case
@@ -1657,7 +1592,7 @@ class SurfaceMeshExportError(PyflightstreamError, RuntimeError):
     Raised by :func:`export_surface_mesh` when the solver run failed
     or finished without writing the requested mesh file; the message
     carries the process outcome and the captured log excerpt, because
-    hidden-mode failures are otherwise silent (SRC-003 p.280).
+    hidden-mode failures are otherwise silent (FSM-26.120 p.280).
     """
 
 
@@ -1688,7 +1623,7 @@ def export_surface_mesh(
     Builds and runs the minimal version-validated script (OPEN the
     simulation, EXPORT_SURFACE_MESH, close), so the probe planner's
     geometry gate can test candidate probes against the real body when
-    no mesh file exists yet (SRC-003 pp.282, 307-308). When a mesh
+    no mesh file exists yet (FSM-26.120 pp.282, 307-308). When a mesh
     file already exists, skip this and hand it to the gate directly.
 
     Parameters
@@ -1708,7 +1643,7 @@ def export_surface_mesh(
         FlightStream executable path (explicit input, never guessed),
         read only when no ``executor`` is given.
     file_type : str
-        Export format token, one of STL, TRI, OBJ (SRC-003 p.307);
+        Export format token, one of STL, TRI, OBJ (FSM-26.120 p.307);
         OBJ is the geometry gate default.
     surface : int
         Surface index to export; -1 exports all geometry surfaces.
@@ -1734,15 +1669,10 @@ def export_surface_mesh(
                 "executor or the explicit fs_exe path"
             )
         executor = LocalExecutor(fs_exe)
-    # RESOLVED, for the reason `CampaignWorkspace.__init__` carries at
-    # length: this function has no workspace to inherit an absolute root
-    # from, and it hands the solver three things spelled from HERE while
-    # the solver runs THERE. Two of them, the simulation it opens and the
-    # mesh it writes, become script text, which no chokepoint downstream
-    # can fix; the third is the argv, which `_argv` also resolves. A
-    # relative `workdir` used to write the mesh one level below the
-    # directory this then checks, and report a run that did everything
-    # right as "the mesh was not written".
+    # Resolve workdir before deriving simulation, mesh and argv paths: this
+    # function has no workspace from which to inherit an absolute root, and the
+    # solver may run elsewhere. Paths embedded in script text cannot be
+    # corrected by a downstream argv resolver.
     workdir = Path(workdir).resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     mesh_path = workdir / f"surface_mesh.{file_type.lower()}"

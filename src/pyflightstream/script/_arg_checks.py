@@ -77,14 +77,9 @@ def _reject_line_break(entry: CommandEntry, spec: ArgSpec, value: str) -> None:
     """Refuse a value that would become more than one script line."""
     if _is_one_line(value):
         return
-    # Split the SAME way the guard decides, with splitlines, so the message
-    # describes the value the check actually saw. An earlier version
-    # partitioned on "\n", which is only two of the nine terminators
-    # splitlines recognizes: for CR, VT, FF, FS, NEL and the two Unicode
-    # separators it found nothing, so it reported "the value ends with a line
-    # break" (false) and offered the WHOLE injected string back as the safe
-    # prefix. A didactic refusal that misnames its own cause is worse than a
-    # terse one, and it was wrong on seven of the nine cases the guard covers.
+    # Use splitlines for both validation and the diagnostic so every
+    # recognized line terminator yields the same safe prefix. Splitting
+    # only on newline would miss CR, VT, FF, FS, NEL and Unicode separators.
     parts = value.splitlines()
     first = parts[0] if parts else ""
     injected = next((part.strip() for part in parts[1:] if part.strip()), "")
@@ -152,9 +147,7 @@ def _match_enum(entry: CommandEntry, spec: ArgSpec, value: object) -> str:
     A string matches case-insensitively. An integer matches the member
     it prints as, so a caller transcribing ``CAD_BODY_ROTATE 1 2 15.0``
     off the manual page passes two integers and a float rather than
-    one integer, one quoted digit and a float (PFS-2003.04). Until
-    0.13.0 the refusal listed ``2`` among the accepted values and then
-    rejected the integer 2, naming no remedy. A bool is not an integer
+    one integer, one quoted digit and a float (PFS-2003.04). A bool is not an integer
     here: ``True`` prints as ``True``, never as ``1``.
     """
     values = spec.values or ()

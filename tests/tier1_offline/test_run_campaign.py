@@ -164,7 +164,7 @@ def test_dry_run_records_every_point_end_to_end(tmp_path):
         "emitted": True,
         "evidence": setup["flags"]["SOLVER_MINIMUM_CP"]["evidence"],
     }
-    assert "SRC-003 p.221" in setup["flags"]["SOLVER_MINIMUM_CP"]["evidence"]
+    assert "FSM-26.120 p.221" in setup["flags"]["SOLVER_MINIMUM_CP"]["evidence"]
     reloaded = workspace.read_manifest()
     assert reloaded[0].solver_setup == setup
     sim = tmp_path / "camp" / "sims" / "sim_9001"

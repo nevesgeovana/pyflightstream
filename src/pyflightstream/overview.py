@@ -63,15 +63,10 @@ ul { margin: 0.4rem 0 0.8rem 1.2rem; }
 .toc a { margin-right: 0.8rem; }
 """
 
-# The layered pipeline, one tuple per dependency level, bottom layer
-# last. Every module imports only modules of the rows below its own;
-# the CONTRIBUTING.md layout rule (versions <- commands <- script/results <-
-# cases <- workspace <- run <- post/qa) is the authority for the core
-# stack. The `files` shim that used to sit beside `workspace` here was
-# removed at v0.4.0 on the horizon its ledger entry recorded. Since
-# 0.33.0 (AD-09, P0330-WP1) `run` and `workspace` are two rows, `run`
-# above: the run imports the workspace and nothing of the workspace
-# imports the run, at module level or inside a function.
+# Dependency layers, bottom layer last. CONTRIBUTING.md governs the
+# core stack: versions, commands, script/results, cases, workspace, run,
+# post/qa. Modules import only lower rows; run imports workspace, and
+# workspace does not import run at module or function scope.
 _CORE_LAYERS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("post", "qa"), "engineering data | probe and regression evidence"),
     (("run",), "headless execution"),

@@ -1,7 +1,7 @@
 """The post stage's shared vocabulary: layout, verdicts, names, plans and the log.
 
 A private module below every product family of :mod:`pyflightstream.post`
-(AD-13, work package WP5 of 0.33.0). The families
+(AD-13). The families
 (:mod:`~pyflightstream.post.polar`, :mod:`~pyflightstream.post.rotor_table`,
 :mod:`~pyflightstream.post.unsteady_polar`, :mod:`~pyflightstream.post.point_tables`)
 and the private stage modules each read what is here, and nothing here reads
@@ -199,39 +199,21 @@ _POST_LOG = "post.log"
 _POST_LOG_JSON = "post.log.json"
 
 
-#: The folder under a matrix's products where the per-polar tables and
-#: their ``.dat`` companions land (FR-88).
-#:
-#: WHY THEY MOVED. Measured in the reference workspace recorded after
-#: running 0.15.0: `post/matriz/` held the polar tables LOOSE at its top
-#: level beside `sections/`, `plots/` and `provenance/`, so the same
-#: folder read as a directory and as a drawer at once. Every other family
-#: of file already had a directory and this one did not.
-#:
-#: THE CAMPAIGN-LEVEL FILES DO NOT MOVE HERE, and that is the half a
-#: check for an empty top level would not see: `products.json` and
-#: `campaign_sweep.csv` are about the CAMPAIGN rather than about one
-#: polar's sweep, so sweeping them in would be wrong in exactly the way
-#: that passes a shallower test.
+#: The matrix's per-polar CSV and .dat folder (FR-88). Campaign-level
+#: products.json and campaign_sweep.csv stay at the campaign level because
+#: they describe more than one polar.
 POLARS_DIR = "polars"
 
 
 #: The folder of the per-point sections tables, under the products folder. One
 #: constant like its siblings, so the writer of the recorded tables and the
-#: stage cannot spell the folder two ways (0.24.0).
+#: stage cannot spell the folder two ways.
 SECTIONS_DIR = "sections"
 
 
-#: The folder under a matrix's products where the FLOW-FIELD SAMPLES of a
-#: point land, whatever the run type was (FR-87).
-#:
-#: IT WAS ``plots`` UNTIL 0.16.0, after the solver verb that produced the
-#: file rather than after what the file holds. THE GENERICITY IS THE
-#: REQUIREMENT and not a side effect of the rename: a reader of a
-#: finished campaign should not have to know whether a row was steady or
-#: unsteady to know where the flow-field samples are, so the unsteady
-#: plots table, its reductions and the probe-points table of any row all
-#: land here.
+#: The matrix folder for point flow-field samples (FR-87), independent
+#: of run type: unsteady plots, their reductions and probe-point tables
+#: all belong here.
 PROBES_DIR = "probes"
 
 
@@ -263,7 +245,7 @@ def _a_name_a_file_may_carry(alias: str) -> str:
     A ROTOR'S ALIAS IS UNCONSTRAINED by the model: `RotorBlock.alias` is a
     string with no pattern, so a slash, a colon, a star or a trailing dot
     can reach a path, and a slash writes outside the folder the manifest
-    keys the file under (the architecture lens, 2026-09-10). This package
+    keys the file under. This package
     already sanitises an identifier before it becomes a file name, in
     `provenance_file_name` below, and the precedent is followed rather than
     argued with.
@@ -289,13 +271,8 @@ def _refuse_aliases_a_file_name_cannot_tell_apart(
     one file left, carrying the second rotor's identity. Silent
     replacement of a derived result is the worst failure class here.
 
-    WHAT IS NOT TAKEN is the review's other option, a collision-resistant
-    filename encoding. The readable point name is a deliberate convention
-    of this release and hashing it, to close a case that has never
-    occurred, would cost every file a reader opens. MEASURED 2026-09-11:
-    all 14 rotor aliases declared in every reference here are letters and
-    underscores only, so nothing in these workspaces is refused by this;
-    it is for the users the package now has.
+    Keep readable names and refuse aliases that collide after sanitisation.
+    The check prevents one rotor's product from overwriting another's.
     """
     by_safe: dict[str, list[str]] = {}
     for plan in plans.values():
@@ -356,10 +333,8 @@ def _read_freeze_of_log(log_path: Path, *, steady: bool = False) -> FrozenSolve 
 
     THE POST STAGE MUST SURVIVE A LOG IT CANNOT READ. The detector refuses a
     residual table that ends mid-write, which is what a stopped or killed run
-    leaves behind; until 2026-09-22 that exception travelled out of
-    `write_campaign_products` and ended the campaign's whole post, so ONE cut
-    log cost every product of every simulation after it. It was measured on a
-    cluster campaign recorded with 0.24.0 and posted with 0.25.0 (2026-09-22).
+    leaves behind. Keep that refusal local so one cut log cannot end the
+    campaign post or withhold later simulations' products.
 
     An unreadable log returns `UnjudgeableSolve`. The stage warns by default
     and refuses affected averages only with check_frozen=True.

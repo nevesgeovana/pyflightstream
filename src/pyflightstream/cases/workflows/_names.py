@@ -56,7 +56,7 @@ from ._vocabulary import (
     Frames,
 )
 
-# kept importable at its 0.38.0 path (release parity)
+# Kept importable through this module for callers using this path.
 from ._vocabulary import (
     IGNORE_MISSING_FAMILIES_VARIABLE as IGNORE_MISSING_FAMILIES_VARIABLE,
 )
@@ -77,10 +77,9 @@ def _resolve_token(case: SimCase, token: str, labels: Mapping[str, int]) -> tupl
     """Resolve one cited boundary token: an exact label, an alias of the setup, or a family.
 
     An ADAPTER over :func:`pyflightstream.cases.select_group_members`,
-    which is the one home of that precedence (the architecture lens of
-    2026-09-09 measured the order written out twice): one token, the
-    inventory in its own order, and the row's aliases. The design decision of
-    2026-09-09 puts the alias between the exact name and the family, and
+    which owns that precedence: one token, the
+    inventory in its own order, and the row's aliases. The alias resolves
+    between the exact name and the family, and
     a member the file lacks is ignored. Empty when the token names
     nothing, which the caller refuses for its own key.
     """
@@ -112,13 +111,13 @@ def _group_indices(
 
     The names go through :func:`pyflightstream.cases.select_group_members`
     over the inventory's labels: an EMPTY group is every boundary of the
-    file (the design decision of 2026-09-09), a member the geometry does not
+    file, a member the geometry does not
     carry is left out, which is the artifact's own rule (one artifact
     serves a wing-body and an isolated rotor), and an alias of the
     setup is its members; a position passes through. A group that
     resolves to NOTHING is refused naming
     the group, its members, the file and its inventory, because a motion
-    over no boundary is the silent no-op the rule of 2026-09-08 forbids.
+    over no boundary would silently do nothing.
     """
     ordered = [name for name, _ in sorted(labels.items(), key=lambda item: item[1])]
     indices = [member for member in members if isinstance(member, int)]
@@ -169,7 +168,7 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
     wing polar. An artifact that cites a POSITION resolves by construction.
     With no inventory declared there is nothing to check against, which
     is the permissive state FR-30c licenses. An EMPTY group is every
-    family and resolves by construction (the design decision of 2026-09-09) and
+    family and resolves by construction and
     is passed over rather than ending the check. A word is resolved as
     every boundary-citing cell resolves it, exact name then alias then
     family, and the message cites the word THE FILE WRITES, not what an
@@ -185,9 +184,7 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
     for members in pproc.groups.values():
         if not members:
             # Every family, which resolves by construction; the OTHER
-            # groups of the same artifact are still read (the interface
-            # lens of 2026-09-09: this returned from the function and
-            # disabled the guard for the whole file).
+            # groups of the same artifact still need checking.
             continue
         for member in members:
             if isinstance(member, int):
@@ -214,14 +211,14 @@ def _judge_the_group_members_the_model_lacks(case: SimCase, script: Script) -> N
     pproc none of whose groups selects a boundary keeps that refusal and its
     text (FR-986). Of the rest, a member the row's study holds is skipped and said
     (FR-982: it is left out of its group at post, and a group none of whose members
-    selects anything writes no polar row, both as on 0.38.0), one the study
+    selects anything writes no polar row), one the study
     does not hold is refused (FR-984), and every one is refused on a run that asked
     for the refusal (FR-988). A position, ``all`` and a member the model answers
     are not judged; with no vocabulary and no refusal asked for, nothing is said.
     A member is judged against the model as its geometry OPENED it
     (:func:`~pyflightstream.cases.setup_surfaces.the_model_inventory`): a
     surface the setup's ``delete_surfaces`` removed is one the model carries,
-    and the group leaves it out at post as on 0.38.0.
+    and the group leaves it out at post.
     """
     pproc = case.pproc
     labels = script.entities.labels("boundaries")
@@ -261,7 +258,7 @@ def _refuse_name_absent_from_inventory(
         groups = f", or a group of {_artifact_of(case)} as {numbers}"
     if key == MOVING_BOUNDARIES_VARIABLE and _GROUP_TOKEN.match(token):
         # The token is spelled as a GROUP, so the cause is the artifact and
-        # not the geometry (the release review of 2026-09-09).
+        # not the geometry.
         if case.pproc is None:
             raise ScriptReferenceError(
                 f"case {case.sim_id!r} states {key} with {token!r}, a group spelling, and "
@@ -389,9 +386,9 @@ def _refuse_what_the_geometry_does_not_carry(
     geometry carries every family the artifact names and wants to hear
     about it when it does not.
     """
-    # THE REFUSAL'S READING, moved beside the plan's warning (FR-320): an alias
+    # THE REFUSAL'S READING (FR-320): an alias
     # answers with the alias that DECLARES each absent member, and a list
-    # member is judged on its own (the QA lens of 2026-09-10).
+    # member is judged on its own.
     missing = [
         f"{token!r} names nothing this geometry carries"
         if owner is None
@@ -438,10 +435,8 @@ def _selected_families(
     The skip itself is the artifact's own rule, and it is what lets one
     file serve a wing-body and an isolated rotor. What the warning adds
     is the difference between a geometry that legitimately carries none
-    of those families and a MISSPELLED word, which read alike from the
-    script (the interface lens of 2026-09-09): both left the entry out
-    and said nothing, and the user met it as a plot that is not in the
-    products.
+    of those families and a MISSPELLED word. Both omit the entry from the
+    script; the warning explains the absent plot in the products.
     """
     names = _the_names_a_rotor_answers_to(case)
     expanded = select_families(selection, inventory, is_blade, aliases=names)
@@ -488,10 +483,8 @@ def _rotors_the_entry_cites(
 
     The second half of each pair is the families the entry cited INSIDE
     that rotor, or an empty list meaning the whole of it, which is what an
-    entry naming the rotor itself asks for. Returning only the aliases
-    made a partial citation emit the rotor's whole union under the name
-    the user wrote: an entry asking for the hub's loads in the rotor frame
-    got a plot summing hub AND blades (the QA lens, 2026-09-10).
+    entry naming the rotor itself asks for. Preserve a partial citation so
+    an entry asking for hub loads does not also sum the blades.
 
     A selection reaches a rotor when it names the rotor itself, or when
     its members INTERSECT that rotor's families. Intersect, not
@@ -511,21 +504,10 @@ def _rotors_the_entry_cites(
     if not case.rotors:
         return []
     wanted = [families] if isinstance(families, str) else list(families)
-    # EVERY ROTOR IS WHAT `all` MEANS HERE, and reading it is
-    # the answer to a refusal that lied: `frame = "SMRP", families = "all"`
-    # is the natural way to write "every rotor, each in its own frame", and
-    # it was refused saying the families reach no rotor of the reference,
-    # which diagnoses a misspelling. The selectors were simply not read (the
-    # interface lens, 2026-09-10). `airframe` still reaches none, and that
-    # refusal is true: an airframe has no rotor.
-    #
-    # THE ALIAS IS ASKED FIRST, exactly as `select_families` asks it. The
-    # word `blades` was a SELECTOR that decided what a blade is from a
-    # pattern over the family name, and 0.15.0 refuses it; a reference that
-    # DECLARES `blades` gives the word a meaning of its own and keeps it,
-    # which is the migration the refusal asks a reader to make. Testing the
-    # word before the table refused the very file the message tells them to
-    # write.
+    # `all` selects every rotor in its own frame; `airframe` selects none.
+    # Resolve aliases first, as select_families does: a declared alias named
+    # `blades` is valid even though the inferred family-name selector is
+    # refused. The reference gives the declared word its meaning.
     known_here = _the_names_a_rotor_answers_to(case)
     if any(
         str(token).strip().casefold() == "blades"
@@ -583,8 +565,7 @@ def _and_the_frame_it_turned_from(
 ) -> list[tuple[str, list[str], str]]:
     """One emission, or TWO when the frame it names was rotated (FR-71).
 
-    The rule of 2026-09-10: "no posproc, se eu indicar um SMRP que foi
-    rotacionado, ele escreve os outputs tanto no SMRP quanto no original".
+    A rotated SMRP produces outputs in both its rotated and original frame.
     An entry says which rotor it is about, and the ROW's rotation decides
     whether there are two readings of it, which is the rule FR-65 already
     applies to the frame: the run's own state decides how many emissions

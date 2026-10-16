@@ -139,7 +139,7 @@ class Workflow:
     keys : tuple of str
         Every ``VAR_NAMES_VALUES`` key the run type READS: the row's
         vocabulary, and the list a refusal prints when a row states a
-        key outside it (PFS-2008.02.01, the rule of 2026-09-08: a row
+        key outside it (PFS-2008.02.01: a row
         states only what the script will carry). A key here is one the
         builder, the clock, the window or the point name resolves; a key
         another run type reads is refused on this one naming that type,
@@ -487,7 +487,7 @@ _AVERAGE_ACTION = "SET_NEW_UNSTEADY_SOLVER_ACTION"
 #: THE COMMANDS A ROW REACHES ONLY WHERE A RUN VERIFIED THEM on the build,
 #: which asks more than the documented status any other emission needs.
 #: ``SOLVER_TIME_AVERAGING`` is documented from 26.122 and was measured hanging
-#: 26.124 (C01, 2026-09-19). Since 0.28.0 no row reaches it at all:
+#: 26.124 (C01). No row reaches it:
 #: ``[time_averaging]`` is averaged by the package from the per-step exports
 #: (G25) and the command is never emitted. The input glossary states the builds
 #: a key is accepted on by :func:`command_accepted_on`.

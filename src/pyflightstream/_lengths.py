@@ -5,14 +5,13 @@ length. It imports nothing from this package, which is the reason it is a
 module of its own, the same reason :mod:`pyflightstream._tokens` is: two
 layers need one table, and neither may import the other to get it.
 
-WHY IT MOVED HERE (0.27.0). The table lived in
-:mod:`pyflightstream.workspace.wake_edges`, where the trailing-edge node
-file is converted into the simulation's unit. The actuator disc and the
+The trailing-edge node file is converted into the simulation's unit by
+:mod:`pyflightstream.workspace.wake_edges`. The actuator disc and the
 volume section, emitted by the cases layer below the workspace, state their
 lengths in metres and hand them to commands that carry no unit of their
 own, which the solver reads in the SIMULATION's unit (the command database
 records ``SET_SIMULATION_LENGTH_UNITS`` as the unit "length-typed command
-arguments are interpreted in", SRC-003 p.284, and the actuator's lengths in
+arguments are interpreted in", FSM-26.120 p.284, and the actuator's lengths in
 "simulation length units"), so they need the same conversion; a second
 table in the cases layer would be a second copy free to disagree with the
 first. The workspace keeps its own validating
@@ -35,7 +34,7 @@ __all__ = ["METRES_PER_UNIT", "scale"]
 
 #: The token of ``SET_SIMULATION_LENGTH_UNITS`` (and of the import commands
 #: that list the same words) that names no length, so it has no scale here.
-#: Its one home since 0.33.0 (AD-10): a raw mesh import and a CCS curve import
+#: This is its one home (AD-10): a raw mesh import and a CCS curve import
 #: both refuse it, because its scale would be whatever the solver assumes.
 UNIT_THAT_NAMES_NO_LENGTH = "OTHER"
 

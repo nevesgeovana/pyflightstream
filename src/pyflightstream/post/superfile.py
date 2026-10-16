@@ -238,10 +238,7 @@ def super_file_name(
 def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
     """Return the rows of the campaign's own matrix, keyed by POL; empty when there is none.
 
-    WHERE THE FILE IS LOOKED FOR, and it is a measurement rather than a
-    rule the format states: both workspaces that ran on the licensed
-    machine on 2026-09-11, `pfs0160` and `pfs0160-extract`, hold their
-    matrix at the workspace root under the stem every record names, so
+    A matrix can live at the workspace root under its recorded stem, so
     `matrix_stem = "matriz"` is `<root>/matriz.fs`. (P0320-MATRICES-HOME)
     `inputs/matrices/matriz.fs` is an equal home
     (:func:`pyflightstream.workspace.find_matrix`): one stem in both is read
@@ -322,7 +319,7 @@ def _take(row: dict[str, str], key: str, value: object, *, fixed: bool = False) 
 #: check both read this tuple, so excluding a field requires an explicit decision beside the
 #: shared definition.
 RECORD_SCALARS = (
-    # FR-98, 0.17.0. The wall clock the ROW stated and the margin the SETUP
+    # FR-98: the wall clock the ROW stated and the margin the SETUP
     # left for the exports, as THIS RUN used them. Both are facts about the
     # simulation and both are carried, even though the matrix block beside
     # them also writes a WALLTIME cell: the cell is what the workspace
@@ -331,29 +328,23 @@ RECORD_SCALARS = (
     # that states no clock.
     "walltime_s",
     "walltime_margin_s",
-    # GOAL-026 item 12, 0.23.0. WHO submitted the run. It is carried rather
-    # than excluded because the super file's whole claim is that a reader
-    # holding it needs no second file to know something about that
-    # simulation, and who ran it is something about that simulation. Empty
-    # on every record written before 0.23.0: it is a RUN-time fact that
-    # cannot be recovered afterwards, which the release notes state as this
-    # item's one exception.
+    # GOAL-026 item 12: the recorded operator. It is a run-time fact that
+    # cannot be recovered afterward; records without it keep an empty value.
     "submitted_by",
-    # GOAL-023, 0.20.0. How an unsteady point was marched on its build,
-    # "actions" or "single_march": two runs of one row on two builds can
-    # differ in exactly this, so a reader comparing them sees it on the row.
-    # Empty on a steady point and on every record written before 0.20.0.
+    # GOAL-023: the recorded unsteady route, actions or single_march. It
+    # can differ across builds for one row. Empty for steady points and
+    # records that do not state a route.
     "march_strategy",
-    # GOAL-024, 0.21.0. Where a final residual overflowed its printed field
+    # GOAL-024: where a final residual overflowed its printed field
     # and was read from an earlier iteration: a converged verdict that rests
     # on that reading says so on its row.
     "residual_note",
-    # GOAL-024, 0.21.0. The names of the point and its sweep, and whether the run
+    # GOAL-024: the names of the point and its sweep, and whether the run
     # accepted an installed build other than the registered one.
     "point_name",
     "sweep_name",
     "accept_unregistered_build",
-    # GOAL-024, 0.21.0. The solver's own times and step count, from its log.
+    # GOAL-024: the solver's own times and step count, from its log.
     "solver_run_time_s",
     "solver_initialization_s",
     "time_steps",
@@ -396,11 +387,8 @@ def superfile_row(
     is the exact shape the rule was made for: a key declared
     for the union of every run type, on a row whose run type does not have it.
 
-    Borrowing another point's record was the alternative and it is the
-    worse one: a missing cell is visible and a wrong one is not, in the one
-    file whose claim is that it says everything about that simulation. The
-    first writing of the campaign path did borrow, as
-    ``by_run.get(run_id, records[0])``.
+    Never borrow another point's record: a missing cell is visible while
+    another point's plausible value would hide the missing evidence.
 
     Parameters
     ----------
@@ -475,7 +463,7 @@ def superfile_row(
         # reader parsed rather than re-read off the file: the cell is kept
         # so a reader sees the row as it was written, and every key inside
         # it is ALSO a column of its own below, so nothing is only inside a
-        # string. Its commas reach the file as `;` (G16, 0.27.0): the funnel
+        # string. Its commas reach the file as `;` (G16): the funnel
         # writes no cell a reader splitting on `,` would count twice.
         _take(row, "FLIGHT_CONDITION", _condition_cell(matrix_row))
         _take(row, "SWEEP_VALUES", ",".join(_free(value) for value in matrix_row.sweep.values))
@@ -487,17 +475,9 @@ def superfile_row(
         )
         for key, value in matrix_row.variables.items():
             _take(row, key, value)
-        # THE SIX COLUMNS OF 0.17.0, written always and empty where the row
-        # states none, for the same reason the three record cells below are:
-        # the column set of this file may not depend on what one row
-        # happened to fill in. They reach it through the variables loop
-        # above whenever the row states them, and this is what puts them
-        # there when it does not.
-        #
-        # The SUPER file's whole contract is that it is a superset of
-        # everything the workspace knows about a simulation, so a column
-        # the format defines is something the workspace knows whether or
-        # not this row used it. Its own guard is what caught the omission.
+        # Always include these six columns, leaving values empty where unstated.
+        # The column set must not depend on what one row fills in: the superfile
+        # is a superset of the workspace's defined simulation information.
         for column in COLUMNS_THAT_MAY_BE_UNSTATED:
             _take(row, column, row.get(column, ""))
         # The three cell keys the matrix reader parses OUT of the variables
@@ -511,7 +491,7 @@ def superfile_row(
             _take(row, key, matrix_row.flight_condition[key])
         for key, column in _AXIS_COLUMNS.items():
             _take(row, key, row.get(column, ""))
-    # 4. RPM, by name, and per rotor its speed and its diameter (0.37.0).
+    # 4. RPM, by name, and per rotor its speed and its diameter.
     for key, value in _rotor_columns(
         getattr(record, "reductions", None), own_speeds, rotors or {}
     ).items():
@@ -744,7 +724,7 @@ def write_superfiles(
                 if key not in seen:
                     seen.add(key)
                     columns.append(key)
-    # FR-1062 (0.40.0): the far-field block after every other column of the
+    # FR-1062: the far-field block after every other column of the
     # campaign, whichever simulation brought it in.
     farfield = [column for column in columns if _FARFIELD_COLUMN.fullmatch(column)]
     columns = [column for column in columns if column not in farfield] + farfield
@@ -1063,13 +1043,9 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
             continue
         expected = sorted(counts)
 
-        # THE RECORD SAYS WHICH SCRIPT IT RAN, and it is taken from there rather
-        # than matched by name. The first version of this looked for the point
-        # tag inside the file name and found nothing: a script is named by the
-        # point name, `P6002-M144RE438AL+000BE+000J+170.txt`, and the legacy point
-        # tag is `a+00.0_b+00.0_j+01.7`, so the two never share a substring. A
-        # measurement that silently matches nothing reports a clean zero, which
-        # is the shape this estate keeps paying for.
+        # Read the executed script path from the record. Point tags and script
+        # filenames use different naming schemes, so substring matching cannot
+        # reliably identify the script.
         stated = str(record.get("script_path") or "")
         if not stated:
             continue
@@ -1161,10 +1137,8 @@ def _record_field_names(record: Mapping[str, object]) -> set[str]:
         condition = record.get(field)
         if isinstance(condition, Mapping):
             known |= set(condition)
-    # THE RECORD'S OWN SCALARS, from the same tuple the writer loops.
-    # Without this the union could not see a single one of them, and
-    # a mutant that dropped one from the file passed the superset
-    # check; measured by the push review of 2026-09-11.
+    # Read the record scalars through the same tuple as the writer so
+    # the superset check covers every scalar the file must carry.
     known |= {field for field in RECORD_SCALARS if record.get(field) is not None}
     setup = record.get("solver_setup") or {}
     known |= set((setup.get("flags") if isinstance(setup, Mapping) else None) or {})
@@ -1172,6 +1146,6 @@ def _record_field_names(record: Mapping[str, object]) -> set[str]:
     rotors = reductions.get("rotors") if isinstance(reductions, Mapping) else None
     for alias in rotors or {}:
         known.add(f"{RPM_COLUMN}_{alias}")
-        # 0.37.0: each rotor's diameter beside its speed (FR-89).
+        # Each rotor's diameter beside its speed (FR-89).
         known.add(f"DIAMETER_{alias}")
     return known

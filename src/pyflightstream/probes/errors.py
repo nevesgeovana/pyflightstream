@@ -22,6 +22,5 @@ class ProbeGeometryError(PyflightstreamError, ValueError):
     lattice, the planar grids and the geometry gate alike, so one
     ``except`` covers the survey-geometry surface.
 
-    Added 2026-08-03 for FR-39, keeping ``ValueError`` as a second base
-    so an existing ``except ValueError`` catches what it always did.
+    Also a ``ValueError`` so callers can catch either exception family (FR-39).
     """

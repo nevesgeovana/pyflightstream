@@ -11,7 +11,7 @@ and long, the commands are the logic. The storage and records subcommands
 ``rebuild``, ``mark-failed``) are added by their own builders, and every
 command that reads a manifest takes ``--runs NAME`` from one list.
 
-Since 0.39.0 (FR-436) :mod:`pyflightstream.run.cli` parses through
+:mod:`pyflightstream.run.cli` parses through (FR-436)
 :func:`parsed`: an option the command line does not state takes its default
 from ``pyfs.local.toml``, else ``pyfs.toml``, else the package. The parse is
 this family's (FR-1002); the parser adaptation it runs inside is the command-line
@@ -56,10 +56,10 @@ from pyflightstream.run._mark_converged import add_mark_converged_parser, add_ma
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
 
-# Kept importable from here as in 0.39.0 (release parity, api).
+# Re-exported through this public import path.
 from pyflightstream.workspace.costs import select_cost_file as select_cost_file
 
-# Kept importable from here as in 0.39.0 (release parity, api).
+# Re-exported through this public import path.
 from pyflightstream.workspace.hpc import select_hpc_profile as select_hpc_profile
 from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME
@@ -154,7 +154,7 @@ def _matrix_stem(text: str) -> str:
 
 
 def _add_grouping_arguments(parser: argparse.ArgumentParser) -> None:
-    """Declare --polar-sweep and --batch N of ``plan`` and ``run`` (0.35.0).
+    """Declare --polar-sweep and --batch N of ``plan`` and ``run``.
 
     Mutually exclusive: a run is one grouping or the other, never both.
     """
@@ -207,7 +207,7 @@ def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
-    """Declare --ignore-missing-families, the design of 2026-09-10.
+    """Declare --ignore-missing-families and its refusal alternative.
 
     The choice is a property of this plan or run invocation, not a stored
     campaign declaration (PFS-2035.13).
@@ -233,13 +233,9 @@ def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
         "geometry carries every family the artifact names and want to hear "
         "about it if it does not (PFS-2035.13)",
     )
-    # THE SAME CHOICE, SPELLED SO THE EFFECT-BEARING FORM IS THE BARE ONE.
-    # The positive flag's default is already true, so writing it bare does
-    # nothing and only `--ignore-missing-families false` acts: a positive
-    # name carrying a negative word, which a reader unpicks at the shell and
-    # which does not match `post --strict` beside it (the interface lens of
-    # the 0.15.0 release review). Both spellings stay, because the reference
-    # instruction was that a user be able to pass false.
+    # Provide a bare refusal flag for the effect-changing choice. The
+    # positive flag defaults true, so its false value remains another
+    # way to request the same missing-family refusal.
     parser.add_argument(
         "--no-ignore-missing-families",
         dest="refuse_missing_families",
@@ -391,17 +387,17 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_post_selection_parsers(subparsers)
     _add_degenerate_parsers(subparsers)
     _add_query_parsers(subparsers)
-    add_mark_converged_parser(subparsers)  # 0.37.0, FR-414
-    add_mesh_parsers(subparsers)  # 0.38.0, FR-426
+    add_mark_converged_parser(subparsers)  # FR-414
+    add_mesh_parsers(subparsers)  # FR-426
     return parser
 
 
-#: The commands that take ``--runs NAME``, the manifest they read (0.32.0).
+#: The commands that take ``--runs NAME``, the manifest they read.
 _RUNS_COMMANDS = ("post", "collect", "free-space", "delete-sims", "sync")
 
 
 def _add_records_parsers(subparsers: Any) -> None:
-    """Register ``restore``, ``rebuild`` (0.32.0), ``mark-failed`` and ``mark-converged``."""
+    """Register ``restore``, ``rebuild``, ``mark-failed`` and ``mark-converged``."""
     workspace_help = "the workspace root carrying runs.json (default: the current directory)"
     apply_help = "change files; without it the command previews and changes nothing"
     restore = subparsers.add_parser(
@@ -460,7 +456,7 @@ def _add_records_parsers(subparsers: Any) -> None:
 
 
 def _add_query_parsers(subparsers: Any) -> None:
-    """Register the read-only query verbs of 0.35.0, whose options live beside their commands."""
+    """Register read-only query verbs whose options live beside their commands."""
     add_query_parsers(subparsers)
 
 
@@ -491,14 +487,13 @@ def _cost_file_name(name: str) -> str:
 
 
 def _add_hpc_argument(parser: argparse.ArgumentParser) -> None:
-    """Add ``--hpc NAME`` (0.35): which HPC profile a several-profile workspace uses."""
+    """Add ``--hpc NAME``: which HPC profile a several-profile workspace uses."""
     parser.add_argument(
         "--hpc",
         type=_hpc_profile_name,
         default=None,
         metavar="NAME",
-        help="the HPC profile inputs/hpc/<NAME>.toml to use when the workspace holds "
-        "several (0.35)",
+        help="the HPC profile inputs/hpc/<NAME>.toml to use when the workspace holds several",
     )
 
 
@@ -520,7 +515,7 @@ def _add_the_cost_arguments(plan: Any) -> None:
         default=None,
         metavar="NAME",
         help="the cost file inputs/costs/<NAME>.toml that prices the points when the "
-        "workspace holds several; a single file needs no name (0.35)",
+        "workspace holds several; a single file needs no name",
     )
 
 
@@ -530,7 +525,7 @@ def _add_plan_parsers(subparsers: Any) -> None:
         "plan",
         aliases=["inspect-setups"],
         help="bind the matrix to the workspace input library and pre-flight every "
-        "point, executing nothing. REQUIRED BEFORE `run` since v0.17.0: it writes "
+        "point, executing nothing. REQUIRED BEFORE `run`: it writes "
         "the receipt that command asks for, pinned to the digest of the matrix it "
         "read",
     )
@@ -564,7 +559,7 @@ def _add_plan_parsers(subparsers: Any) -> None:
         default=MATRIX_POINT_NAME,
         help="the template that names each point's script and exports; the default "
         "is P<sim>-<point name>, the point name writing every variable the row's "
-        "flight condition declares, in its order (0.21.0); {point}, {alpha}, {beta}, "
+        "flight condition declares, in its order; {point}, {alpha}, {beta}, "
         "{mach}, {advance_ratio}, {sim} and {campaign} are the other placeholders "
         "(PFS-2029.19)",
     )
@@ -604,7 +599,7 @@ def _add_plan_parsers(subparsers: Any) -> None:
         plan,
         "print every warning in Python's full format (file, line and source) and the "
         "started and finished lines of the stages printed only on request, such as "
-        "[continuation]; logs/activity.log holds them either way (0.31.0)",
+        "[continuation]; logs/activity.log holds them either way",
     )
 
 
@@ -615,7 +610,7 @@ def _add_run_parsers(subparsers: Any) -> None:
         help="run every active point of the matrix and write the sweep table",
         description=(
             "Runs every active point of the matrix and writes the sweep table. "
-            "SINCE v0.17.0 THIS NEEDS A PLAN: run `pyfs-matrix plan <matrix>` "
+            "THIS NEEDS A PLAN: run `pyfs-matrix plan <matrix>` "
             "first and this command will not release without it. The plan is "
             "where the warning is, and it is pinned to the matrix it read, so a "
             "matrix edited after it was planned is planned again rather than run "
@@ -643,7 +638,7 @@ def _add_run_parsers(subparsers: Any) -> None:
         default=MATRIX_POINT_NAME,
         help="the template that names each point's script and exports; the default "
         "is P<sim>-<point name>, the point name writing every variable the row's "
-        "flight condition declares, in its order (0.21.0); {point}, {alpha}, {beta}, "
+        "flight condition declares, in its order; {point}, {alpha}, {beta}, "
         "{mach}, {advance_ratio}, {sim} and {campaign} are the other placeholders "
         "(PFS-2029.19)",
     )
@@ -929,7 +924,7 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
             command_parser,
             "print every warning in Python's full format (file, line and source) and "
             "one line per item where a repeated warning is otherwise counted in one line, "
-            "and the [continuation] started and finished lines (0.31.0); "
+            "and the [continuation] started and finished lines; "
             "logs/activity.log holds the full detail either way",
         )
     post.add_argument(
@@ -951,14 +946,14 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         "partial.not_rebuilt in products.json and in post.log. An id with no record of the "
         "matrix is refused before anything is written",
     )
-    for name in _RUNS_COMMANDS:  # 0.32.0 hook: the manifest a command reads (B1, B3)
+    for name in _RUNS_COMMANDS:  # The manifest a command reads (B1, B3).
         subparsers.choices[name].add_argument(
             "--runs",
             metavar="NAME",
             default=None,
             help="the manifest file to read, directly in the workspace root (default: runs.json)",
         )
-    post.add_argument(  # 0.32.0 hook: the post from the simulation folders (B3)
+    post.add_argument(  # Post from the simulation folders (B3).
         "--from-sims",
         dest="from_sims",
         action="store_true",

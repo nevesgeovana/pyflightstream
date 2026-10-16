@@ -1,4 +1,4 @@
-"""The instruments of the 0.40.0 command-gap probes: inputs, builds, readers and judges.
+"""The instruments of the command-gap probes: inputs, builds, readers and judges.
 
 Pipeline role: the support of ``pyflightstream.qa._spec_0400_gap``, which holds the
 ordered battery and registers its primary probes. Here are the synthetic inputs
@@ -924,10 +924,9 @@ def _trajectory_then_march(symmetry: str = "NONE") -> Build:
 def _before_the_march_trajectory(script: Script, workdir: Path) -> None:
     """Write the trajectory export before the march, a placement the phase order refuses.
 
-    The database phase of the command is export since 0.40.0 (RPT-166 P4-04), so
-    the placement the first batch measured, which held the header and no row, is
-    appended unvalidated, as :func:`_after_the_march_trajectory` was while the
-    recorded phase was setup. The script is flagged raw.
+    The database phase is export (RPT-166 P4-04). To test the pre-solve
+    placement, which produces a header without rows, append it unvalidated
+    and flag the script raw.
     """
     scratch = Script(script.version, registry=script.registry)
     scratch.declare_existing(motions=script.num_motions)
@@ -1088,7 +1087,7 @@ def _pod_import(direction: int) -> Build:
     return build
 
 
-# --- the second round (2026-10-12): instruments the first batch showed blind ----------
+# --- additional state and export instruments ---------------------------------------
 
 
 def _state_still(artifacts: ProbeArtifacts) -> bool | None:
@@ -1359,7 +1358,7 @@ def _nodes_only(script: Script, workdir: Path) -> None:
 def _aero_frame(script: Script, workdir: Path) -> None:
     """Create frame 2 at the origin, the frame the aeroelastic coupling is assigned.
 
-    The reference frame cannot serve as an aeroelastic frame (SRC-753 p.388).
+    The reference frame cannot serve as an aeroelastic frame (FSM-26.125 p.388).
     The first batch's route B prelude,
     which assigned frame 1 with no frame created, stopped on "No user-defined
     coordinate systems available to assign as aeroelastic frames" (26.124).

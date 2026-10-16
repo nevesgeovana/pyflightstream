@@ -121,7 +121,7 @@ def build_polar_point(version: str, alpha_deg: float, loads_name: str) -> Script
     # lifting body. On a mixed geometry, select only the boundaries with
     # a user-defined trailing edge: a bluff body on this list reports
     # zero induced drag, and omitting the command keeps every boundary
-    # on the solver's surface pressure integration (SRC-003 p.202).
+    # on the solver's surface pressure integration (FSM-26.120 p.202).
     script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
     script.emit("SET_LOADS_AND_MOMENTS_UNITS", "COEFFICIENTS")
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)

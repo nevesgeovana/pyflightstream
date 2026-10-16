@@ -10,7 +10,7 @@ the saved simulation listing the new boundary (probe C4). The workflows reach
 it through :func:`pyflightstream.cases.ccs_wing.emit_ccs_geometry`.
 
 On this loft ``loft_u`` is the RADIAL continuity and ``loft_v`` the AXIAL one,
-not the wing's chordwise and spanwise; both default to C2 (SRC-752 p.83).
+not the wing's chordwise and spanwise; both default to C2 (FSM-26.124 p.83).
 """
 
 from __future__ import annotations

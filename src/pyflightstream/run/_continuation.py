@@ -152,8 +152,8 @@ def resolve_continuation(
     if request is None:
         return None
     tag = point_name(case, point)
-    # FR-96, 0.33.0: a CONVERGED unsteady march is continued by ADDITIONAL_REVS
-    # or ADDITIONAL_ITERS, once per request; everything else as before.
+    # FR-96: a CONVERGED unsteady march is continued by ADDITIONAL_REVS
+    # or ADDITIONAL_ITERS, once per request.
     previous = refuse_what_cannot_continue(workspace, case.sim_id, tag, request)
     iterations = restart_steps(request, previous)
     step_offset = _continued_step_offset(workspace, previous)
@@ -164,10 +164,9 @@ def resolve_continuation(
     if saved is None:
         raise CampaignConfigError(
             f"run {previous.run_id!r} stopped at {previous.status} and collected no saved "
-            f"simulation ({SIMULATION_SUFFIX}), so there is no state to reopen. A run recorded "
-            "before 0.27.0 under a post-processing artifact that turned the simulation export "
-            "off cannot be continued: since 0.27.0 every point of a row naming a run type saves "
-            "it and no artifact can turn it off, so run the row again."
+            f"simulation ({SIMULATION_SUFFIX}), so there is no state to reopen. Every point "
+            "of a row naming a run type saves its simulation and no artifact can turn that "
+            "export off, so run the row again."
         )
     ensure_sim_expanded(workspace, case.sim_id, reason="continuation")
     if not (workspace.sim_dir(case.sim_id) / str(saved)).is_file():
@@ -323,7 +322,7 @@ def _queued_record_of_point(
 ) -> RunRecord | None:
     """Return a SUBMITTED record of this simulation and point, or None.
 
-    Asked for EVERY executor: since 0.27.0 a local point runs in the same
+    Asked for EVERY executor: a local point runs in the same
     datapoint folder a submitted one does, so a local run meets a queued job
     of another campaign that names the same simulation and point.
     """
@@ -348,8 +347,8 @@ def _refuse_an_import_count_nothing_logs(
     it ends abnormally, so the count is read from the log the script exports.
     The builder refuses a file-route row whose outputs name no log, but it
     reads the NAMES, and ``EXPORT_LOG: false`` then leaves the named log with
-    nothing to write it: the point built, ran, and was recorded
-    FAILED_INCOMPLETE_OUTPUT after the seat (the qa lens, 2026-09-24).
+    nothing to write it, which would leave the point recorded
+    FAILED_INCOMPLETE_OUTPUT after consuming a seat.
 
     So this reads the script as built, after every switch: a case that states
     the switch false and a script that carries no ``EXPORT_LOG`` is refused,
@@ -361,7 +360,7 @@ def _refuse_an_import_count_nothing_logs(
     the machine, so it refuses the switch in the row, where it is never needed:
     a machine that writes its own log says so in its profile.
 
-    RUN LOCALLY ON SUCH A MACHINE (``--local``, 0.27.0) the point runs too: the
+    RUN LOCALLY ON SUCH A MACHINE (``--local``) the point runs too: the
     declared log is written from what the solver printed and the count read
     from it, and a solver that printed nothing leaves the point recorded
     FAILED_INCOMPLETE_OUTPUT naming the machine, never accepted in silence.

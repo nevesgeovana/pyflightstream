@@ -1,4 +1,4 @@
-# Chapter: Scripting, Simulation Controls (SRC-003 p.284).
+# Chapter: Scripting, Simulation Controls (FSM-26.120 p.284).
 
 SET_SIMULATION_LENGTH_UNITS:
   layout: inline
@@ -8,19 +8,19 @@ SET_SIMULATION_LENGTH_UNITS:
       type: enum
       values: [INCH, MILLIMETER, OTHER, FEET, MILE, METER, KILOMETER,
                MILS, MICRON, CENTIMETER, MICROINCH]
-  manual_ref: "SRC-003 p.284"
+  manual_ref: "FSM-26.120 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.254, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.254, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.274, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.273, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.278, same grammar as 26.120"}
     "26.101": {status: verified, report: "reports/compat/CMP-26101_2026-08-08_full.yaml"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.288, unchanged from SRC-750 p.288"}
-    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.288, the SRC-751 file, carried from 26.123"}
-    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "SRC-753 p.293, unchanged from SRC-752 p.288"}
+    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.288, unchanged from FSM-26.122 p.288"}
+    "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123"}
+    "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
   notes: >
     Selects the simulation length scale unit; geometry dimensions and
     length-typed command arguments are interpreted in this unit.
@@ -31,18 +31,18 @@ SET_SIGNIFICANT_DIGITS:
   args:
     - name: digits
       type: int
-  manual_ref: "SRC-003 p.284"
+  manual_ref: "FSM-26.120 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.254, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
-    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.254, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.274, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.273, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.287, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.283, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.278, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.123": {status: documented, note: "SRC-751 p.288, unchanged from SRC-750 p.288"}
-    "26.124": {status: documented, note: "SRC-752 p.288, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.356, unchanged from SRC-752 p.288"}
+    "26.123": {status: documented, note: "FSM-26.123 p.288, unchanged from FSM-26.122 p.288"}
+    "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.288"}
   notes: >
     Output precision, integer between 1 and 8; applies to the values
     the solver writes into its exports.
@@ -54,18 +54,18 @@ SET_TRAILING_EDGE_SWEEP_ANGLE:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-003 p.284"
+  manual_ref: "FSM-26.120 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.254, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.254, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.274, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.273, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.278, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.288, unchanged from SRC-750 p.288"}
-    "26.124": {status: documented, note: "SRC-752 p.288, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.293, unchanged from SRC-752 p.288"}
+    "26.121": {status: documented, note: "FSM-26.121 p.287, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.288, unchanged from FSM-26.122 p.288"}
+    "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
   notes: >
     Threshold used by trailing-edge detection: how far an edge may sweep
     away from the reference direction and still be detected. The manual
@@ -83,20 +83,20 @@ SET_TRAILING_EDGE_BLUNTNESS_ANGLE:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-003 p.284"
+  manual_ref: "FSM-26.120 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.255, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.255, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.274, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.273, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.278, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
+    "26.121": {status: documented, note: "FSM-26.121 p.287, same grammar as 26.120"}
     "26.122":
       status: removed
       successor: SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE
       note: >-
-        SRC-750 pp.283-383, the scripting reference of the 26.122
+        FSM-26.122 pp.283-383, the scripting reference of the 26.122
         edition, does not print this command anywhere, AND THAT
         EDITION'S INDEX DISAGREES WITH ITS OWN BODY: while its Script Index at
         pp.384-390 still names it and does not name
@@ -142,18 +142,18 @@ SET_VERTEX_MERGE_TOLERANCE:
     - name: tolerance
       type: float
       unit: "simulation length units"
-  manual_ref: "SRC-003 p.284"
+  manual_ref: "FSM-26.120 p.284"
   versions:
-    "25.000": {status: documented, note: "SRC-749 p.254, same grammar as 26.120"}
-    "25.100": {status: documented, note: "SRC-748 p.274, same grammar as 26.120"}
-    "26.000": {status: documented, note: "SRC-747 p.273, same grammar as 26.120"}
-    "26.100": {status: documented, note: "SRC-741 p.278, same grammar as 26.120"}
-    "26.101": {status: documented, note: "SRC-725 p.283, same grammar as 26.120"}
+    "25.000": {status: documented, note: "FSM-25.000 p.254, same grammar as 26.120"}
+    "25.100": {status: documented, note: "FSM-25.100 p.274, same grammar as 26.120"}
+    "26.000": {status: documented, note: "FSM-26.000 p.273, same grammar as 26.120"}
+    "26.100": {status: documented, note: "FSM-26.100 p.278, same grammar as 26.120"}
+    "26.101": {status: documented, note: "FSM-26.101 p.283, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.121": {status: documented, note: "SRC-740 p.287, same grammar as 26.120"}
-    "26.123": {status: documented, note: "SRC-751 p.288, unchanged from SRC-750 p.288"}
-    "26.124": {status: documented, note: "SRC-752 p.288, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.293, unchanged from SRC-752 p.288"}
+    "26.121": {status: documented, note: "FSM-26.121 p.287, same grammar as 26.120"}
+    "26.123": {status: documented, note: "FSM-26.123 p.288, unchanged from FSM-26.122 p.288"}
+    "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}
   notes: >
     Distance below which two mesh vertices are treated as one, which is
     what closes the gaps of an imported surface. The manual states only
@@ -172,7 +172,7 @@ SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE:
     - name: angle
       type: float
       unit: "deg"
-  manual_ref: "SRC-750 p.288"
+  manual_ref: "FSM-26.122 p.288"
   notes: >
     Angle above which a geometric edge counts as blunt, from 45 to
     179 degrees. First documented by the 26.122 edition, which is
@@ -190,7 +190,7 @@ SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE:
   versions:
     "26.122":
       status: documented
-      note: "SRC-750 p.288, the first edition to document it"
-    "26.123": {status: documented, note: "SRC-751 p.288, unchanged from SRC-750 p.288"}
-    "26.124": {status: documented, note: "SRC-752 p.288, the SRC-751 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "SRC-753 p.293, unchanged from SRC-752 p.288"}
+      note: "FSM-26.122 p.288, the first edition to document it"
+    "26.123": {status: documented, note: "FSM-26.123 p.288, unchanged from FSM-26.122 p.288"}
+    "26.124": {status: documented, note: "FSM-26.124 p.288, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
+    "26.125": {status: documented, note: "FSM-26.125 p.293, unchanged from FSM-26.124 p.288"}

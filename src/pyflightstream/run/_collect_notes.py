@@ -90,9 +90,8 @@ def is_a_sweep_job(record: RunRecord) -> bool:
 def no_time_without_the_log(update: dict[str, object]) -> None:
     """Null a point's wall time where its solver log is absent, and say why (FR-861).
 
-    The solver clock is the log's, and a time is never estimated. The basis
-    says so too (PFS-2103.007): it still named the clock file the nulled time
-    had been measured from.
+    The solver clock is the log's, and a time is never estimated. Clear its
+    basis as well as the unavailable time (PFS-2103.007).
     """
     update["wall_time_s"] = None
     submission = update.get("submission")
@@ -135,12 +134,10 @@ def _declared_outputs(record: RunRecord) -> list[str]:
 def _datapoint_of(record: RunRecord) -> str | None:
     """Return the datapoint folder's NAME for this record's outputs, or None.
 
-    The name the run RECORDED when it has one. When it does not -- every record
-    written before 0.21.0 -- the folder the record's own submission block says
+    The name the run RECORDED when it has one. Otherwise the folder its submission block says
     the job ran in, which is read rather than recomputed: a name recomputed now
     would file the outputs where no record of them points, and that is the thing
-    to avoid. None when the record names neither, which is a point submitted
-    before 0.18.1, whose job ran in the simulation folder.
+    to avoid. None when the record names neither and the job uses the simulation folder.
 
     ONE HOME, because the two callers must not disagree. `_recorded_name`
     refuses when this is None and the assessor's shim carries the None through,
@@ -161,12 +158,9 @@ def _datapoint_of(record: RunRecord) -> str | None:
     ran_in = datapoint_name_of(Path(str((record.submission or {}).get("working_dir") or "")).name)
     if ran_in is None:
         return None
-    # AND IT IS THIS RECORD'S FOLDER, not merely a datapoint folder of this
-    # simulation. `_working_dir` checks the second and not the first, so an
-    # edited `working_dir` naming ANOTHER point's folder was refused for a
-    # record that carries a point name and accepted for one that does not --
-    # this release's own records (the qa lens, FIX-0211). A 0.20.x record ends
-    # its `run_id` in the tag, so the record carries its own cross-check.
+    # Check that the working directory belongs to this record, not merely to
+    # the simulation. The run_id's point tag supplies a cross-check when the
+    # record has no explicit point name (FIX-0211).
     tail = str(record.run_id).rsplit("/", 1)[-1]
     return str(ran_in) if tail in ("", str(ran_in)) else None
 
@@ -192,27 +186,16 @@ class _RecordAsCase:
 
     def __init__(self, record: RunRecord, *, velocity_is_the_point_s: bool = True) -> None:
         self.point = dict(record.point or {})
-        # 0.21.0: the folder the assessor judges is named by the name the run
-        # RECORDED, never recomputed from a record that is not a case. 0.21.1:
-        # a record written before 0.21.0 recorded no name and names its folder
-        # in its submission block instead, and reading it here is what keeps
-        # the assessor out of the branch that would ask this shim for a field
-        # only a real case has.
+        # Give the assessor the recorded point name, or the submission's folder
+        # when no name is recorded. Do not recompute a case name from this record
+        # shim, which lacks the case-only condition fields.
         self.datapoint_name = _datapoint_of(record)
         self.outputs = list(record.outputs or _declared_outputs(record))
-        # THE VELOCITY THE RUN REQUESTED, which the record has carried since
-        # OPS-2009.01.13 and which this read as None until 0.24.0, calling None
-        # the honest answer. It was not: a local point whose export printed
-        # 30 m/s against a requested 80 is FAILED_INCOMPLETE_OUTPUT, and the
-        # same files collected from a cluster were CONVERGED, because nothing
-        # here asked. The two paths claim one judgement and now make it.
-        #
-        # None still, in the one place the record cannot answer: a POINT OF A
-        # JOB that sweeps a flow variable. The job's record carries the row's
-        # velocity and not that point's, and holding a point to another
-        # point's speed would refuse a correct export. Unasked is recorded as
-        # unasked there, which rule 3 of `_bind_case_conditions` exists for.
+        # Carry the recorded requested velocity into the same condition binding
+        # as local assessment. A point of a job sweeping flow is the exception:
+        # the job's flat velocity is the row's, not this point's, so leave it None
+        # and record the binding as unasked (_bind_case_conditions rule 3).
         self.velocity = record.velocity_requested_m_s if velocity_is_the_point_s else None
-        # 0.31.0: the run type the record states, which the assessor reads to
+        # The run type the record states, which the assessor reads to
         # know a quasi-steady point (its record is judged per clocking).
         self.recipe = record.recipe

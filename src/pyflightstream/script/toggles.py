@@ -1,7 +1,7 @@
 """The solver's on/off vocabulary, read in both directions.
 
 Pipeline role: leaf of the script layer. FlightStream writes every
-on/off flag as the words ENABLE and DISABLE (SRC-003 pp.339-346), so a
+on/off flag as the words ENABLE and DISABLE (FSM-26.120 pp.339-346), so a
 setup carried over from the solver, a preset, or an interface export
 speaks that vocabulary while Python speaks ``True`` and ``False``. This
 module is the single home of the translation: the curated helpers
