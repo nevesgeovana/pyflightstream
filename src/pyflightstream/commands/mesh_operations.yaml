@@ -76,6 +76,7 @@ SURFACE_ROTATE:
       type: float
       unit: "deg"
     - name: surfaces
+      cites: null
       type: int
     - name: surface_indices
       type: int_list
@@ -341,6 +342,7 @@ SURFACE_LINEAR_COPY_PASTE:
       type: int
       cites: boundaries
     - name: num_copies
+      cites: null
       type: int
     - name: frame
       type: int
@@ -385,6 +387,7 @@ SURFACE_CIRCULAR_COPY_PASTE:
     - name: axis
       type: str
     - name: num_copies
+      cites: null
       type: int
     - name: angle
       type: float
@@ -396,12 +399,15 @@ SURFACE_CIRCULAR_COPY_PASTE:
       note: "FSM-25.000 p.266, this edition's own grammar; see the note below"
       args:
         - name: surface
+          cites: boundaries
           type: int
         - name: coordinate_system
+          cites: frames
           type: int
         - name: axis
           type: str
         - name: num_copies
+          cites: null
           type: int
     "25.100": {status: documented, note: "FSM-25.100 p.286, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.285, same grammar as 26.120"}
@@ -594,6 +600,7 @@ SURFACE_COMBINE:
   phase: geometry
   args:
     - name: surface_count
+      cites: null
       type: int
     - name: surface_indices
       type: int_list
@@ -618,7 +625,9 @@ SURFACE_COMBINE:
         unchanged
       args:
         - name: surface_count
+          cites: null
         - name: surface_indices
+          cites: boundaries
           required: false
   notes: >
     Merges several surfaces into one. The count sits on the command line
@@ -813,6 +822,7 @@ SELECT_MESH_NODE:
   phase: geometry
   args:
     - name: node_id
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.313"
   versions:
@@ -883,6 +893,7 @@ ROTATE_SURFACE:
       type: float
       unit: "deg"
     - name: surfaces
+      cites: null
       type: int
     - name: detach_vertices
       type: enum

@@ -27,6 +27,7 @@ WRAPPER_SET_INPUT:
   phase: geometry
   args:
     - name: num_surfaces
+      cites: null
       type: int
     - name: surface_indices
       type: int_list
@@ -168,9 +169,11 @@ WRAPPER_EDIT_LOCAL_CONTROL:
     # joins_previous cannot because the first argument has no preceding
     # argument line. See the field's docstring in commands/__init__.py.
     - name: control_id
+      cites: null
       type: int
       on_command_line: true
     - name: surfaces
+      cites: null
       type: int
     - name: surface_indices
       type: int_list

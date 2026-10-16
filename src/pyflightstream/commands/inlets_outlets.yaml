@@ -95,6 +95,7 @@ SET_INLET_CUSTOM_PROFILE:
   phase: setup
   args:
     - name: inlet_id
+      cites: null
       type: int
     - name: file
       type: path
@@ -127,11 +128,13 @@ REMESH_INLET:
   phase: setup
   args:
     - name: inlet
+      cites: null
       type: int
     - name: inner_radius
       type: float
       unit: "simulation length units"
     - name: elements
+      cites: null
       type: int
     - name: growth_scheme
       type: enum
@@ -173,6 +176,7 @@ DELETE_INLET:
   phase: setup
   args:
     - name: inlet
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.325"
   versions:
@@ -245,11 +249,13 @@ REMESH_OUTLET:
   phase: setup
   args:
     - name: outlet
+      cites: null
       type: int
     - name: inner_radius
       type: float
       unit: "simulation length units"
     - name: elements
+      cites: null
       type: int
     - name: growth_scheme
       type: enum
@@ -274,6 +280,7 @@ DELETE_OUTLET:
   phase: setup
   args:
     - name: outlet
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.326"
   versions:

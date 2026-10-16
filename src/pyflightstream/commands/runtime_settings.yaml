@@ -100,6 +100,7 @@ SOLVER_SET_ITERATIONS:
   phase: init
   args:
     - name: num_iterations
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.339"
   versions:
@@ -261,6 +262,7 @@ SET_MAX_PARALLEL_THREADS:
   phase: init
   args:
     - name: num_cores
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.340"
   versions:

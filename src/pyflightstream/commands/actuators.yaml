@@ -166,6 +166,7 @@ SET_PROP_ACTUATOR_PROFILE:
       type: enum
       values: [NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE]
     - name: n_blades
+      cites: null
       type: int
     - name: file_name
       type: path
@@ -177,6 +178,7 @@ SET_PROP_ACTUATOR_PROFILE:
       note: "FSM-25.000 p.281, this edition's own grammar; see the note below"
       args:
         - name: actuator_index
+          cites: actuators
           type: int
         - name: units_type
           type: enum
@@ -189,6 +191,7 @@ SET_PROP_ACTUATOR_PROFILE:
       note: "FSM-25.100 p.298, this edition's own grammar; see the note below"
       args:
         - name: actuator_index
+          cites: actuators
           type: int
         - name: units_type
           type: enum

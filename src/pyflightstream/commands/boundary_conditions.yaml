@@ -26,6 +26,7 @@ SET_TRAILING_EDGE_TYPE:
   phase: setup
   args:
     - name: te_index
+      cites: null
       type: int
     - name: type
       type: enum
@@ -43,7 +44,7 @@ SET_TRAILING_EDGE_TYPE:
         positive control on 26.101 and a sweep of every page of this
         edition finding the token nowhere.
       args:
-        - {name: te_index, type: int}
+        - {name: te_index, type: int, cites: null}
         - {name: type, type: enum, values: [STANDARD, RELAXED, JET_OUTFLOW]}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.101": {status: documented, note: "FSM-26.101 p.318, same grammar as 26.120"}
@@ -95,6 +96,7 @@ DISABLE_WAKE_NODES_ON_TRAILING_EDGE:
   phase: setup
   args:
     - name: te_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.320"
   versions:
@@ -348,6 +350,7 @@ DETECT_TRAILING_EDGES_BY_SURFACE:
   phase: setup
   args:
     - name: surfaces
+      cites: null
       type: int
     - name: surface_indices
       type: int_list
@@ -372,7 +375,9 @@ DETECT_TRAILING_EDGES_BY_SURFACE:
         p.323 is unchanged
       args:
         - name: surfaces
+          cites: null
         - name: surface_indices
+          cites: boundaries
           required: false
   notes: >
     Runs trailing-edge detection on a named set of boundaries rather
@@ -490,6 +495,7 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
         p.325 took as one surface, and its second sample passes it
       args:
         - name: surface_id
+          cites: boundaries
           all_sentinel: -1
   notes: >
     Detects wake termination nodes on one boundary, where
@@ -604,6 +610,7 @@ DETECT_LEADING_EDGES_WAKES_BY_SURFACE:
   phase: setup
   args:
     - name: surfaces
+      cites: null
       type: int
     - name: surface_indices
       type: int_list

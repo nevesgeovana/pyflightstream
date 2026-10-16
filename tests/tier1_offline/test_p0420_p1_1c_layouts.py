@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from pyflightstream.commands import CommandEntry, CommandRegistry, Layout, Status
+from pyflightstream.commands import ArgType, CommandEntry, CommandRegistry, Layout, Status
 from pyflightstream.script import Script
 
 
@@ -102,3 +102,30 @@ def test_p0420_database_has_no_implicit_mixed_layouts():
             assert not any(arg.own_line for arg in command.args), command.name
         if command.layout is Layout.MIXED_INLINE:
             assert command.manual_ref, command.name
+
+
+def missing_integer_declarations(commands):
+    missing = []
+    for command in commands:
+        grammars = [("base", command.args)] + [
+            (version, row.args) for version, row in command.versions.items() if row.args is not None
+        ]
+        for version, args in grammars:
+            for arg in args:
+                if (
+                    arg.type in (ArgType.INT, ArgType.INT_LIST)
+                    and "cites" not in arg.model_fields_set
+                ):
+                    missing.append((command.name, version, arg.name))
+    return missing
+
+
+def test_p0420_every_integer_declares_its_entity_or_none():
+    assert missing_integer_declarations(CommandRegistry.load().commands.values()) == []
+
+
+def test_p0420_missing_integer_declaration_control_has_no_name_heuristic():
+    command = entry(args=[dict(name="arbitrary_word", type="int")])
+    assert missing_integer_declarations([command]) == [(command.name, "base", "arbitrary_word")]
+    stated = entry(args=[dict(name="arbitrary_word", type="int", cites=None)])
+    assert missing_integer_declarations([stated]) == []

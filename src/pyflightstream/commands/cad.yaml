@@ -13,6 +13,7 @@ CAD_BODY_DELETE:
   phase: geometry
   args:
     - name: body_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.287"
   versions:
@@ -35,6 +36,7 @@ CAD_BODY_MIRROR:
   phase: geometry
   args:
     - name: body_index
+      cites: null
       type: int
     - name: plane
       type: enum
@@ -59,6 +61,7 @@ CAD_BODY_ROTATE:
   phase: geometry
   args:
     - name: body_index
+      cites: null
       type: int
     - name: axis
       type: enum
@@ -101,6 +104,7 @@ CAD_BODY_SCALE:
   phase: geometry
   args:
     - name: body_index
+      cites: null
       type: int
     - name: scale
       type: float
@@ -123,6 +127,7 @@ CAD_BODY_TRANSLATE:
   phase: geometry
   args:
     - name: body_index
+      cites: null
       type: int
     - name: x
       type: float
@@ -206,6 +211,7 @@ IMPORT_CAD:
       type: enum
       values: ["TRUE", "FALSE"]
     - name: num_curvature
+      cites: null
       type: int
     - name: file
       type: path
@@ -249,6 +255,7 @@ CONVERT_CAD_TO_MESH:
   phase: geometry
   args:
     - name: body_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.286"
   versions:

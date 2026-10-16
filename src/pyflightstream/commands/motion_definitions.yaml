@@ -81,6 +81,7 @@ SET_MOTION_BOUNDARIES:
       type: int
       cites: motions
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -111,6 +112,7 @@ SET_MOTION_MOVING_FRAMES:
       type: int
       cites: motions
     - name: num_frames
+      cites: null
       type: int
     - name: frame_indices
       type: int_list
@@ -232,6 +234,7 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
       type: enum
       values: [ENABLE, DISABLE]
     - name: num_blades
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.333"
   versions:
@@ -905,6 +908,7 @@ DELETE_6DOF_EXTERNAL_FORCE:
       type: int
       cites: motions
     - name: force_id
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.335"
   versions:

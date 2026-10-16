@@ -18,6 +18,7 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
     - name: name
       type: str
     - name: boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -47,12 +48,15 @@ UNSTEADY_SOLVER_NEW_FORCE_PLOT:
         table's pressure-drag total (RPT-160), so the four are accepted
       args:
         - name: frame
+          cites: frames
         - name: units
         - name: parameter
           values: [CL, CDI, CDO, CDP, CDV, CD, FORCE_X, FORCE_Y, FORCE_Z, MOMENT_X, MOMENT_Y, MOMENT_Z]
         - name: name
         - name: boundaries
+          cites: null
         - name: boundary_indices
+          cites: boundaries
   notes: >
     Samples one force or moment parameter per solver time step, in
     FRAME and UNITS, over the listed boundaries. BOUNDARIES -1 selects
@@ -106,6 +110,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
       note: "FSM-26.122 p.352 lists the six BL parameters as in FSM-26.121 p.350."
       args:
         - name: frame
+          cites: frames
         - name: parameter
           values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
                    BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
@@ -117,6 +122,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
       note: "FSM-26.123 p.352 lists the six BL parameters as in FSM-26.121 p.350."
       args:
         - name: frame
+          cites: frames
         - name: parameter
           values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
                    BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
@@ -132,6 +138,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
         verify each parameter.
       args:
         - name: frame
+          cites: frames
         - name: parameter
           values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
                    BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
@@ -144,6 +151,7 @@ UNSTEADY_SOLVER_NEW_FLUID_PLOT:
       note: "FSM-26.125 p.359, unchanged from FSM-26.124 p.352; the argument list is the one FSM-26.124 prints, carried with the text"
       args:
         - name: frame
+          cites: frames
         - name: parameter
           values: [CP_FREE, CP_REF, MACH, VELOCITY, VX, VY, VZ, STATIC_PRESSURE_RATIO,
                    BL_MOMENTUM_THICKNESS, BL_DISPLACEMENT_THICKNESS, BL_TOTAL_THICKNESS,
@@ -262,6 +270,7 @@ UNSTEADY_SOLVER_ANIMATION:
       values: [SOLVER_BITMAP, PLOTS_BITMAP, TECPLOT_DATA, PARAVIEW_VTK]
       required: false
     - name: frequency
+      cites: null
       type: int
       required: false
     - name: volume_sections
@@ -309,6 +318,7 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
   phase: init
   args:
     - name: num_iteration
+      cites: null
       type: int
   manual_ref: "FSM-26.000 p.321"
   notes: >
@@ -384,8 +394,10 @@ SOLVER_TIME_AVERAGING:
       type: enum
       values: [ENABLE, DISABLE]
     - name: starting_iteration
+      cites: null
       type: int
     - name: ending_iteration
+      cites: null
       type: int
   manual_ref: "FSM-26.122 p.353"
   notes: >
@@ -504,8 +516,10 @@ ENABLE_SOLVER_TIME_AVERAGING:
   phase: init
   args:
     - name: starting_iteration
+      cites: null
       type: int
     - name: ending_iteration
+      cites: null
       type: int
   manual_ref: "FSM-26.125 p.360"
   versions:

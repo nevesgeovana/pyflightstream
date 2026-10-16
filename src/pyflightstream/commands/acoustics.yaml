@@ -131,6 +131,7 @@ DELETE_ACOUSTIC_OBSERVER:
   phase: setup
   args:
     - name: observer_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.373"
   versions:
@@ -184,6 +185,7 @@ SET_ACOUSTIC_OBSERVER_TIME:
       type: float
       unit: "s"
     - name: time_steps
+      cites: null
       type: int
   manual_ref: "FSM-26.120 pp.373-374"
   versions:
@@ -262,8 +264,10 @@ CREATE_ACOUSTIC_SECTION:
       type: float
       unit: "simulation length units"
     - name: radial_observers
+      cites: null
       type: int
     - name: azimuth_observers
+      cites: null
       type: int
     - name: inner_radius
       type: float

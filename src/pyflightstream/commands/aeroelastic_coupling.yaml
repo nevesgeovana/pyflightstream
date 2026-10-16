@@ -76,8 +76,10 @@ ASSIGN_AEROELASTIC_SURFACES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
+      cites: null
       type: int_list
       separator: newline
       required: false
@@ -112,6 +114,7 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
   phase: init
   args:
     - name: num_index
+      cites: null
       type: int
     - name: frame_indices
       type: int_list
@@ -256,6 +259,7 @@ SET_AEROELASTIC_ITERATIONS:
   phase: init
   args:
     - name: num_iterations
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.376"
   versions:

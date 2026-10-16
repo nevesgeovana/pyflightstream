@@ -724,8 +724,8 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # unit: four fields.
     # 0.37.0 item S10: the twenty-five 26.125 overrides name their arguments
     # and inherit the rest, 142 fields more.
-    # 203 since the 26.125 revolve export states the sample's form (nine fields).
-    assert checked == 203, (
+    # P0420: explicit integer citations leave 178 inherited fields.
+    assert checked == 178, (
         f"{checked} inherited fields were checked and the shipped database has 33, "
         "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "
         "here is an override that stopped inheriting or started, both of which are "

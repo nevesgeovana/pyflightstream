@@ -19,6 +19,7 @@ DELETE_TRANSITION_TRIP:
   phase: setup
   args:
     - name: transition_trip_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.327"
   versions:

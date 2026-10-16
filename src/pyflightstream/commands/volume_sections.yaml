@@ -15,6 +15,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
     - name: offset
       type: float
     - name: refinement_layers
+      cites: null
       type: int
     - name: x1
       type: float
@@ -30,6 +31,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
     - name: thickness
       type: float
     - name: layers
+      cites: null
       type: int
     - name: growth_rate
       type: float
@@ -63,8 +65,10 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
     - name: offset
       type: float
     - name: ipts
+      cites: null
       type: int
     - name: jpts
+      cites: null
       type: int
     - name: r1
       type: float
@@ -76,6 +80,7 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
     - name: thickness
       type: float
     - name: layers
+      cites: null
       type: int
     - name: growth_rate
       type: float

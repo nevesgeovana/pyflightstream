@@ -26,6 +26,7 @@ SET_SOLVER_CONVERGENCE_ITERATIONS:
   phase: init
   args:
     - name: value
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.344"
   versions:
@@ -116,6 +117,7 @@ SOLVER_SET_FARFIELD_LAYERS:
   phase: init
   args:
     - name: layers
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.344"
   versions:
@@ -163,6 +165,7 @@ SET_WAKE_TERMINATION_TIME_STEPS:
   phase: init
   args:
     - name: time_steps
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.344"
   versions:

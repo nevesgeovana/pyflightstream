@@ -23,6 +23,7 @@ SET_SOLVER_UNSTEADY:
   phase: init
   args:
     - name: time_iterations
+      cites: null
       type: int
     - name: delta_time
       type: float
@@ -102,6 +103,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -158,6 +160,7 @@ CREATE_BULK_SEPARATION:
       type: enum
       values: [CYLINDRICAL, FLAT_PLATE]
     - name: num_boundaries
+      cites: null
       type: int
     - name: diameter
       type: float
@@ -186,6 +189,7 @@ CREATE_BULK_SEPARATION:
         - name: name
           type: str
         - name: num_boundaries
+          cites: null
           type: int
         - name: diameter
           type: float
@@ -241,6 +245,7 @@ CREATE_AIRFOIL_SEPARATION:
     - name: name
       type: str
     - name: num_boundaries
+      cites: null
       type: int
     - name: valarezo_criterion
       type: enum
@@ -267,10 +272,12 @@ CREATE_AIRFOIL_SEPARATION:
       args:
         - name: name
         - name: num_boundaries
+          cites: null
         - name: leading_edge_type
           type: enum
           values: [ROUNDED_UNSWEPT, ROUNDED_SWEPT, HIGH_LIFT, SHARP]
         - name: boundary_indices
+          cites: boundaries
   notes: >
     Assigns the airfoil (trailing-edge) separation model to the listed
     boundaries, with the Valarezo maximum-lift criterion enabled or
@@ -285,6 +292,7 @@ CREATE_AXIAL_VORTEX_SEPARATION:
     - name: name
       type: str
     - name: num_boundaries
+      cites: null
       type: int
     - name: frame
       type: int
@@ -327,6 +335,7 @@ CREATE_CYLINDRICAL_BULK_SEPARATION:
     - name: name
       type: str
     - name: num_boundaries
+      cites: null
       type: int
     - name: diameter
       type: float
@@ -356,6 +365,7 @@ CREATE_STRATFORD_BULK_SEPARATION:
     - name: name
       type: str
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -379,6 +389,7 @@ DELETE_SEPARATION:
   phase: init
   args:
     - name: index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.342"
   versions:
@@ -416,6 +427,7 @@ SET_AXIAL_SEPARATION_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -452,6 +464,7 @@ SET_VALAREZO_SEPARATION_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -509,6 +522,7 @@ SET_CROSSFLOW_SEPARATION_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -612,6 +626,7 @@ SET_THIN_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list

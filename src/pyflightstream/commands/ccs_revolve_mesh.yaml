@@ -47,6 +47,7 @@ CCS_REVOLVE_MESH_SUBDIVISIONS:
       type: enum
       values: [AXIAL, AZIMUTH]
     - name: num_pts
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.304"
   versions:
@@ -117,6 +118,7 @@ CCS_REVOLVE_MESH_PERIODICITY:
       type: enum
       values: [AXIAL, AZIMUTH]
     - name: periodicity
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.304"
   versions:
@@ -142,6 +144,7 @@ NEW_CCS_REVOLVE_REFINEMENT_ZONE:
     - name: u1
       type: float
     - name: num_pts
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.304"
   versions:
@@ -162,6 +165,7 @@ DELETE_CCS_REVOLVE_REFINEMENT_ZONES:
   phase: geometry
   args:
     - name: zone_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.305"
   versions:
@@ -235,6 +239,7 @@ DELETE_CCS_REVOLVE_RELAXED_TE:
   phase: geometry
   args:
     - name: index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.305"
   versions:

@@ -30,6 +30,7 @@ SET_SIGNIFICANT_DIGITS:
   phase: setup
   args:
     - name: digits
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.284"
   versions:

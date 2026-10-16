@@ -5,6 +5,7 @@ SET_VORTICITY_DRAG_BOUNDARIES:
   phase: analysis
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -171,6 +172,7 @@ SET_SOLVER_ANALYSIS_BOUNDARIES:
   phase: analysis
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list

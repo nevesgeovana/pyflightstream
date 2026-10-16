@@ -53,6 +53,7 @@ NEW_STREAMLINE_DISTRIBUTION:
     - name: position_2_z
       type: float
     - name: subdivisions
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.368"
   versions:
@@ -132,8 +133,10 @@ NEW_OFF_BODY_STREAMTUBE:
       type: float
       unit: "simulation length units"
     - name: radial_streamlines
+      cites: null
       type: int
     - name: circular_streamlines
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.368"
   versions:

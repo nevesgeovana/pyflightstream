@@ -20,6 +20,7 @@ CREATE_NEW_SURFACE_SECTION:
       type: enum
       values: [ENABLE, DISABLE]
     - name: surfaces
+      cites: null
       type: int
     - name: surface_indices
       type: int_list
@@ -54,6 +55,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       type: enum
       values: [XY, XZ, YZ]
     - name: num_sections
+      cites: null
       type: int
     - name: plot_direction
       type: enum
@@ -63,6 +65,7 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       values: [ENABLE, DISABLE]
       required: false
     - name: surfaces
+      cites: null
       type: int
     - name: surface_indices
       type: int_list
@@ -76,18 +79,22 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       note: "FSM-25.000 p.323, this edition's own grammar; see the note below"
       args:
         - name: frame
+          cites: frames
           type: int
         - name: plane
           type: enum
           values: ["XY", "XZ", "YZ"]
         - name: num_sections
+          cites: null
           type: int
         - name: plot_direction
           type: enum
           values: ["1", "2"]
         - name: surfaces
+          cites: null
           type: int
         - name: surface_indices
+          cites: boundaries
           type: int_list
           required: false
     "25.100":
@@ -95,18 +102,22 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       note: "FSM-25.100 p.336, this edition's own grammar; see the note below"
       args:
         - name: frame
+          cites: frames
           type: int
         - name: plane
           type: enum
           values: ["XY", "XZ", "YZ"]
         - name: num_sections
+          cites: null
           type: int
         - name: plot_direction
           type: enum
           values: ["1", "2"]
         - name: surfaces
+          cites: null
           type: int
         - name: surface_indices
+          cites: boundaries
           type: int_list
           required: false
     "26.000":
@@ -114,18 +125,22 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       note: "FSM-26.000 p.335, this edition's own grammar; see the note below"
       args:
         - name: frame
+          cites: frames
           type: int
         - name: plane
           type: enum
           values: ["XY", "XZ", "YZ"]
         - name: num_sections
+          cites: null
           type: int
         - name: plot_direction
           type: enum
           values: ["1", "2"]
         - name: surfaces
+          cites: null
           type: int
         - name: surface_indices
+          cites: boundaries
           type: int_list
           required: false
     "26.100":
@@ -137,9 +152,9 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       args:
         - {name: frame, type: int, cites: frames}
         - {name: plane, type: enum, values: [XY, XZ, YZ]}
-        - {name: num_sections, type: int}
+        - {name: num_sections, type: int, cites: null}
         - {name: plot_direction, type: enum, values: ["1", "2"]}
-        - {name: surfaces, type: int}
+        - {name: surfaces, type: int, cites: null}
         - {name: surface_indices, type: int_list, cites: boundaries,
            separator: space, required: false}
     "26.101":
@@ -150,9 +165,9 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
       args:
         - {name: frame, type: int, cites: frames}
         - {name: plane, type: enum, values: [XY, XZ, YZ]}
-        - {name: num_sections, type: int}
+        - {name: num_sections, type: int, cites: null}
         - {name: plot_direction, type: enum, values: ["1", "2"]}
-        - {name: surfaces, type: int}
+        - {name: surfaces, type: int, cites: null}
         - {name: surface_indices, type: int_list, cites: boundaries,
            separator: space, required: false}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-08-08_full.yaml"}
@@ -266,6 +281,7 @@ EXPORT_SURFACE_SECTIONS:
   phase: export
   args:
     - name: index
+      cites: null
       type: int
     - name: filename
       type: path
@@ -292,6 +308,7 @@ DELETE_SURFACE_SECTION:
   phase: analysis
   args:
     - name: index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.365"
   versions:

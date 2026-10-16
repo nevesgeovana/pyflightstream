@@ -171,6 +171,7 @@ CCS_WING_MESH_SUBDIVISIONS:
       type: enum
       values: [CHORD, SPAN]
     - name: num_pts
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.298"
   versions:
@@ -244,6 +245,7 @@ CCS_WING_MESH_PERIODICITY:
       type: enum
       values: [CHORD, SPAN]
     - name: periodicity
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.298"
   versions:
@@ -272,6 +274,7 @@ NEW_CCS_WING_REFINEMENT_ZONE:
     - name: v1
       type: float
     - name: num_pts
+      cites: null
       type: int
   manual_ref: "FSM-26.120 pp.298-299"
   versions:
@@ -293,6 +296,7 @@ DELETE_CCS_WING_REFINEMENT_ZONES:
   phase: geometry
   args:
     - name: zone_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.299"
   versions:
@@ -448,6 +452,7 @@ DELETE_CCS_WING_CONTROL_SURFACE:
   phase: geometry
   args:
     - name: control_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.300"
   versions:

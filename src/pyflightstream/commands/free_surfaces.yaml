@@ -19,8 +19,10 @@ CREATE_FREE_SURFACE_TFI_MESH:
       type: float
       unit: "simulation length units"
     - name: hull_points
+      cites: null
       type: int
     - name: lateral_points
+      cites: null
       type: int
   manual_ref: "FSM-26.125 p.338"
   versions:

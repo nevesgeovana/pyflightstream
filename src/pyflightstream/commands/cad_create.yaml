@@ -78,6 +78,7 @@ SET_CAD_CREATE_SPLINE_SEGMENTS:
   phase: geometry
   args:
     - name: num_pts
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.289"
   versions:
@@ -125,6 +126,7 @@ SET_CAD_CURVATURE_REFINEMENT:
   phase: geometry
   args:
     - name: num_pts_per_circle
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.289"
   versions:
@@ -420,6 +422,7 @@ CAD_CREATE_CURVE_SELECT:
   phase: geometry
   args:
     - name: curve_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.294"
   versions:
@@ -444,6 +447,7 @@ CAD_CREATE_CURVE_UNSELECT:
   phase: geometry
   args:
     - name: curve_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.294"
   versions:
@@ -466,6 +470,7 @@ CAD_CREATE_CURVE_REVERSE:
   phase: geometry
   args:
     - name: curve_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.294"
   versions:
@@ -651,6 +656,7 @@ CAD_CREATE_PROJECT_CURVE:
   phase: geometry
   args:
     - name: curve_index
+      cites: null
       type: int
     - name: frame
       type: int
@@ -699,8 +705,10 @@ CAD_CREATE_PROJECT_MULTI_CURVE:
   phase: geometry
   args:
     - name: curve_index_1
+      cites: null
       type: int
     - name: curve_index_2
+      cites: null
       type: int
     - name: frame
       type: int
@@ -906,6 +914,7 @@ CAD_CREATE_IMPORT_CURVE_CCS:
       type: int
       cites: frames
     - name: component_index
+      cites: null
       type: int
     - name: file
       type: path
@@ -951,6 +960,7 @@ CAD_CREATE_IMPORT_CURVE_P3D:
       type: int
       cites: frames
     - name: component_index
+      cites: null
       type: int
     - name: file
       type: path
@@ -993,8 +1003,10 @@ CAD_CREATE_CROSS_SECTION:
     - name: offset
       type: float
     - name: body_index
+      cites: null
       type: int
     - name: quadrant
+      cites: null
       type: int
   manual_ref: "FSM-26.120 pp.292-293"
   versions:
@@ -1039,8 +1051,10 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
       type: enum
       values: [X, Y, Z]
     - name: sections
+      cites: null
       type: int
     - name: body_index
+      cites: null
       type: int
     - name: growth_scheme
       type: enum
@@ -1059,13 +1073,16 @@ CAD_CREATE_AUTO_CROSS_SECTIONS:
       note: "FSM-25.000 p.257, this edition's own grammar; see the note below"
       args:
         - name: frame
+          cites: frames
           type: int
         - name: axis
           type: enum
           values: ["X", "Y", "Z"]
         - name: sections
+          cites: null
           type: int
         - name: body_index
+          cites: null
           type: int
         - name: growth_scheme
           type: enum
@@ -1119,8 +1136,10 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
       type: int
       cites: frames
     - name: sections
+      cites: null
       type: int
     - name: body_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.292"
   versions:
