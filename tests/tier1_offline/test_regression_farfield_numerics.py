@@ -2237,8 +2237,8 @@ class TestRfixAEvidence:
         from tests.tier1_offline._docs_site import requirement_rows
 
         row = requirement_rows(text)["FR-1024"]
-        assert "signed shed circulation" in row[4] and "strip-edge strengths" in row[4]
-        assert "cumulative edge differences" in row[4]
+        assert "signed shed-circulation" in row[4] and "strip-edge strengths" in row[4]
+        assert "cumulative differences" in row[4]
         assert row[5] == "pyflightstream.farfield.trefftz:calibration_scale"
         assert "test_p0400_rfixa_signed_shed_reconstructs_strips_and_agrees_through_post" in row[6]
 
@@ -2250,7 +2250,7 @@ class TestRfixAEvidence:
         from tests.tier1_offline._docs_site import requirement_rows
 
         rows = requirement_rows(text)
-        assert "mean of each step's nonlinear balance" in rows["FR-484"][4]
+        assert "means of each step's nonlinear balance" in rows["FR-484"][4]
         assert "full-spectrum Parseval" in rows["FR-481"][4]
         assert rows["FR-38"][3] == "deferred"
 

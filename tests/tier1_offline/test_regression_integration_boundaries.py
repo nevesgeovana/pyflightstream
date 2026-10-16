@@ -547,8 +547,8 @@ class TestRfixBParity:
         from tests.tier1_offline._docs_site import requirement_rows
 
         row = requirement_rows(text)["FR-1064"]
-        assert "right-handed cross product" in row[4]
-        assert "z-axis in-plane moment" in row[4]
+        assert "right-handed moment-arm cross momentum-flux product" in row[4]
+        assert "in-plane moments, including the z-axis moment" in row[4]
         assert row[5] == "pyflightstream.farfield.balances:in_plane_moment"
         assert row[6].endswith("::test_p0400_rfixb_moment_is_the_integral_of_r_cross_momentum")
 
