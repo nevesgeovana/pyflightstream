@@ -4,6 +4,19 @@ from zipfile import ZipFile
 from pyflightstream.workspace.excel import create_workbook
 
 
+def test_p0420_workbook_controls_only_offer_effective_inputs(tmp_path):
+    import inspect
+
+    path = create_workbook(tmp_path / "controls.xlsx", workspace=tmp_path)
+    with ZipFile(path) as package:
+        root = ET.fromstring(package.read("xl/sharedStrings.xml"))
+        text = " ".join(root.itertext())
+    assert "Matrices (optional" not in text
+    assert "Python executable" not in text
+    assert "python -m pyflightstream.workspace.excel preview" in text
+    assert "python" not in inspect.signature(create_workbook).parameters
+
+
 def test_workbook_package_is_macro_free_with_required_sheets(tmp_path):
     # GOAL033:excel:checks:optional_workbook
     path = create_workbook(tmp_path / "documents.xlsx", workspace=tmp_path)
