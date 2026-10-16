@@ -912,7 +912,8 @@ def convection_speed(line: list[tuple[float, complex]]) -> tuple[float | None, f
     slope = float(np.polyfit(xs, phases, 1)[0])
     omega = 2.0 * math.pi * V_INF / (J * 2.0 * R_M)
     omega_b = BLADES * omega
-    return (omega_b / abs(slope)) / V_INF if slope else None, end
+    # rfft's phase is -kx for a downstream cos(wt-kx) wave.
+    return -omega_b / slope / V_INF if slope < 0 else None, end
 
 
 def slipstream(

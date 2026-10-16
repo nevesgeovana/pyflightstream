@@ -227,3 +227,23 @@ def test_the_unsteady_polar_holds_the_mean_and_not_a_number_that_agrees_on_a_ram
     _, rows = read_csv_table(written)
     assert rows[0]["CL"] == "43.50000", rows[0]
     assert rows[0]["CDi"] == "4.35000", rows[0]
+
+
+@pytest.mark.parametrize("direction", [-1, 1])
+def test_p0420_convection_speed_keeps_propagation_direction(direction):
+    from tests import support_tier3 as support
+
+    # rfft uses exp(-i wt): cos(wt - kx) travels downstream and has phase -kx.
+    omega = 2 * np.pi * support.V_INF / (support.J * 2 * support.R_M)
+    speed = 1.4 * support.V_INF
+    wave_number = support.BLADES * omega / speed
+    line = [
+        (float(x), complex(np.exp(direction * 1j * wave_number * x * support.R_M)))
+        for x in np.linspace(0.3, 1.0, 100)
+    ]
+    measured, end = support.convection_speed(line)
+    assert end == pytest.approx(1.0)
+    if direction == -1:
+        assert measured == pytest.approx(1.4)
+    else:
+        assert measured is None
