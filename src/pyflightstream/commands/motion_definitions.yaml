@@ -460,7 +460,7 @@ SET_MOTION_ANGULAR_VELOCITY:
       note: >-
         Measured rev/min for the unmarked Euclidean spelling: written
         473.1723 turns +90.0000 degrees and 49.5505 turns +9.4248 degrees;
-        negative controls mirror them. Native Tecplot readout, release 0.42.0
+        negative controls mirror them. Native Tecplot readout,
         licensed/EVIDENCE-5.md batch 8, namespace
         6bad1dac664ef7b0959e683749f4b1f437af6033-5381afcbf38d45ee92e0dc60d1122aea,
         PFS-2004.01-U/analysis.json. Session decision 2026-10-16 lifts the

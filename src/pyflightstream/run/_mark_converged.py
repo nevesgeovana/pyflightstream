@@ -467,6 +467,7 @@ def add_mark_converged_parser(subparsers: Any) -> None:
         converged,
         required=True,
         help=SIMS_IDS_HELP + "; also as separate words (2006 2007) or a mix (2006 2007,2008); "
+        "a quoted value '2006 2007' reads as two ids; "
         "to mark some of their points, use --points or a run id alias such as 2006_3",
     )
     converged.add_argument(

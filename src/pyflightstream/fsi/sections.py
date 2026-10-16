@@ -77,7 +77,7 @@ _R = TypeVar("_R")
 
 
 def _section_keywords(*names: str) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
-    """Keep positional calls until 0.43.0, while publishing the keyword signature."""
+    """Accept deprecated positional calls while publishing the keyword signature."""
 
     def decorate(function: Callable[_P, _R]) -> Callable[_P, _R]:
         @wraps(function)

@@ -4434,12 +4434,14 @@ def test_an_empty_entity_selection_in_an_artifact_is_refused_at_plan_time(tmp_pa
     assert "SET_VORTICITY_DRAG_BOUNDARIES" in message, f"the command: {message}"
     assert "FSM-26.120 p.202" in message, f"the manual's sentence: {message}"
 
-    # The control, so the check is not satisfied by refusing every list: a
-    # group with members and a setup naming families plan READY.
+    # A nonempty family list passes artifact validation and reaches the shared
+    # builder's inventory check. This synthetic workspace carries no family W.
     setup.write_text("iterations = 800\nvorticity_drag_boundaries = ['W']\n", encoding="utf-8")
     pproc.write_text(kept[0], encoding="utf-8")
     plan = _plan_first_matrix(workspace, first)
-    assert [point.status for point in plan.points] == [PlanStatus.READY, PlanStatus.READY]
+    assert len(plan.points) == 2
+    assert all(point.status == PlanStatus.BLOCKED for point in plan.points)
+    assert all("absent: W" in point.error for point in plan.points)
 
 
 def test_an_empty_group_is_refused_before_a_campaign_runs(tmp_path):

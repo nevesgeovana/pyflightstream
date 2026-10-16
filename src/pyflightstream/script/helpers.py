@@ -400,7 +400,7 @@ def rotary_motion(
 
     ON 26.100, WHICH NAMES THE TYPE EUCLIDEAN AND HAS NO SCRIPTED ROTOR MARK
     (RPT-049), the angular velocity is written in rev/min. The native Tecplot
-    rotation measurement in release 0.42.0 licensed/EVIDENCE-5.md batch 8
+    rotation measurement in licensed/EVIDENCE-5.md batch 8
     settles this unit for the script command (PFS-2004.01).
 
     Each Euclidean speed is converted from rev/min by the unit its constant

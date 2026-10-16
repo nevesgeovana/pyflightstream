@@ -758,6 +758,32 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     # historical fixture intact and specify the five intended text changes;
     # command status, grammar, scientific values and every other byte still compare.
     captured[plan_name] = _docs_clean_plan_evidence(captured[plan_name])
+    # The committed rotor-effect reanalysis withdraws only these inherited
+    # verification claims; preserve the historical bytes and every numeric default.
+    for command in (
+        "SET_MAX_PARALLEL_THREADS",
+        "SET_BOUNDARY_LAYER_TYPE",
+        "SET_SOLVER_VISCOUS_COUPLING",
+        "SET_SOLVER_CONVERGENCE_ITERATIONS",
+        "SOLVER_MINIMUM_CP",
+        "REYNOLDS_AVERAGED_DRAG_FORCES",
+        "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY",
+        "SOLVER_SET_FARFIELD_LAYERS",
+        "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA",
+        "SET_WAKE_ON_WAKE_INDUCTION",
+        "ADDITIONAL_WAKE_RELAXATION_ITERATION",
+        "SOLVER_STABILIZATION",
+        "SET_ANALYSIS_SYMMETRY_LOADS",
+    ):
+        before = f"{command}; build 26.120: verified;".encode()
+        assert captured[plan_name].count(before) == 1
+        captured[plan_name] = captured[plan_name].replace(
+            before, f"{command}; build 26.120: documented;".encode()
+        )
+    captured[plan_name] = captured[plan_name].replace(
+        b"reports/compat/CMP-26120_2026-09-08_rotor-path.yaml",
+        b"reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml",
+    )
     # PFS-2144 changes only this serialized description of the default.
     # Its value, probe identity and all other record fields stay pinned.
     old_prose = (

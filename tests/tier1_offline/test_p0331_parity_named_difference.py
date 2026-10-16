@@ -84,6 +84,20 @@ def _p1021_pair() -> tuple[str, str]:
     v0.33.0 golden byte for byte (asserted wherever the tag is in the clone).
     """
     release = _P1021_GOLDEN.read_text(encoding="utf-8")
+    # PFS-2119.024 changes the datum basis. This historical FR-51/FR-321
+    # composite still isolates those two changes; undo only the pinned basis.
+    for before, after, count in (
+        ("VECTOR_X_X 0.0", "VECTOR_X_X 1.0", 3),
+        ("VECTOR_X_Y 1.0", "VECTOR_X_Y 0.0", 3),
+        ("VECTOR_Y_Y 0.0", "VECTOR_Y_Y 1.0", 3),
+        ("VECTOR_Y_Z 1.0", "VECTOR_Y_Z 0.0", 3),
+        ("VECTOR_Z_X 1.0", "VECTOR_Z_X 0.0", 3),
+        ("VECTOR_Z_Z 0.0", "VECTOR_Z_Z 1.0", 3),
+        ("ROTATION_AXIS Z", "ROTATION_AXIS X", 1),
+        ("SET_MOTION_ROTOR_AXIS 1 Z", "SET_MOTION_ROTOR_AXIS 1 X", 1),
+    ):
+        assert release.splitlines().count(before) == count
+        release = release.replace(before + "\n", after + "\n")
     assert release.count(_TERMINATION) == 1 and "SECTIONS_CP" not in release
     base = release.replace(_TERMINATION, "", 1).replace(
         _EXPORT_LOG, "\n" + _P1021_PLOT + "EXPORT_LOG\n", 1
