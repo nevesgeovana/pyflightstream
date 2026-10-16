@@ -121,6 +121,7 @@ BOOLEAN_UNITE_GEOMETRY:
     - name: body_unite_types
       type: str_list
       separator: newline
+      required: false
     - name: openvsp_path
       type: path
   manual_ref: "FSM-25.000 p.272"

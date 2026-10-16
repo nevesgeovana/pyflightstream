@@ -4351,3 +4351,13 @@ def test_p0420_mirror_plane_closed_set(plane):
     with pytest.raises(CommandArgumentError):
         script.emit("SURFACE_MIRROR", 1, 1, plane, "FALSE", "FALSE")
     assert not script.render().strip()
+
+
+def test_p0420_boolean_unite_all_has_no_body_payload():
+    script = Script("25.000")
+    script.emit("BOOLEAN_UNITE_GEOMETRY", bodies=-1, openvsp_path="openvsp")
+    assert script.render().strip().splitlines() == [
+        "BOOLEAN_UNITE_GEOMETRY",
+        "BODIES -1",
+        "OPENVSP_PATH openvsp",
+    ]
