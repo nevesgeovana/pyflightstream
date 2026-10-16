@@ -4,8 +4,7 @@ Pipeline role: none. Nothing in the run pipeline imports this
 subpackage, which is what keeps it outside the layer rule rather than
 at a position within it (CONTRIBUTING.md Layout, AD-01).
 
-The two positions are stated separately, because one declaration for
-the subpackage was wrong for half of it. :mod:`~pyflightstream.utils.manual`
+The modules occupy two dependency layers. :mod:`~pyflightstream.utils.manual`
 and :mod:`~pyflightstream.utils.errors` import nothing from this package
 and sit at the bottom beside :mod:`pyflightstream._errors`, so they can
 be used from any layer. :mod:`~pyflightstream.utils.cli` is an ENTRY

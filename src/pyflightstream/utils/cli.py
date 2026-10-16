@@ -463,15 +463,9 @@ def _citations(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int
 def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     """Run the multi-edition sweep and print it, grouped or flat.
 
-    Reports BOTH halves of the coverage question, because for a long
-    time it reported only one and the other was where the gap was. The
-    first half asks which commands have no ENTRY; the second asks which
-    commands an edition documents that its own build cannot emit, which
-    is a different question and the sweep is structurally blind to it: it
-    compares entry names, so an entry missing one edition's row reads as
-    covered. On 2026-08-10 this command reported zero absent across eight
-    editions while three of them could not emit
-    ``EXPORT_ALL_SURFACE_STREAMLINES``.
+    Report both missing entries and missing edition rows. Entry-name
+    coverage alone cannot establish that each documented command is
+    available to its own build's emitter.
 
     Returns
     -------
@@ -514,13 +508,9 @@ def _sweep(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
             f"    {label}: read, but the registry resolves that label to no single "
             "build, so nothing is known about what it can emit"
         )
-    # ONE TERM, because the other is subsumed. `manual_editions` reports
-    # names the database has no entry for; `unreachable_commands`
-    # reports the same names with reason "no entry" plus the row-level
-    # gaps, over the same parsed set. So a non-empty `absent` implies a
-    # non-empty `unreachable` and the disjunction that used to be here
-    # had a term no test could decide. Both findings are still PRINTED;
-    # what changed is that the gate names the measure it actually reads.
+    # unreachable_commands includes missing entries as well as missing
+    # version rows over the same parsed command set. Gate on that complete
+    # measure while printing both entry-level and row-level findings.
     exit_code = 1 if (unreachable and args.fail_if_absent) else 0
     if not args.by_section:
         for command in absent:
@@ -808,9 +798,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "citations":
         return _citations(parser, args)
 
-    # Every argument check happens before the manual is opened. The
-    # --write refusal used to fire after two full pdf reads and a render,
-    # so a mistyped invocation cost the whole run on a 400-page document.
+    # Validate arguments before opening the manual or rendering a draft.
     chapter_first, chapter_last = _pages(parser, "--chapter-pages", args.chapter_pages)
     index_range = _pages(parser, "--index-pages", args.index_pages) if args.index_pages else None
     if args.command == "draft" and args.write and not args.out:

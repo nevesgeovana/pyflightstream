@@ -1,50 +1,18 @@
 """Carry a build's documentation forward into the command database.
 
-Pipeline role: maintainer tooling beside :mod:`pyflightstream.utils.cli`,
-above :mod:`pyflightstream.commands` because it constructs the schema it
-writes, and the ONE importable home of the registration transaction.
+Maintainer tooling above commands: this module constructs the schema and
+owns the registration transaction used by the thin pyfs-manual CLI.
+Like qa.compat.apply_compat, it validates every rewritten chapter before
+writing any file (CONTRIBUTING.md invariant 3).
 
-WHY IT IS A MODULE AND NOT A CLI FUNCTION, which is the correction of
-2026-08-17 rather than a preference. The command database is this
-package's evidence authority (CONTRIBUTING.md invariant 3) and it has two
-writers: :func:`pyflightstream.qa.compat.apply_compat`, which promotes a
-status from a committed probe report, and this one, which writes a
-``documented`` row from a reading. The first is a library function with
-its own test module and it validates every chapter it rewrites before a
-byte reaches the disk. The second was written inside ``pyfs-manual``'s
-argument parser, so nothing importable could perform a registration,
-nothing could test one, and it wrote unvalidated bytes. Two writers into
-one authority with materially different guarantees is the defect; the
-architecture chapter's own rule, that a CLI is a thin argument layer over
-the public Python API, is what it broke.
+Registration requires a canonical build in the version registry and a
+manifest source citation. Edition labels can describe unregistered builds
+for comparisons, but may not write unregistered database rows. A comparison
+may omit source; a written documented row must cite its manual.
 
-WHAT IT REFUSES, and each of these was reachable before it existed:
-
-  A BUILD THE VERSION REGISTRY DOES NOT KNOW. :attr:`Edition.label` says
-  in as many words that nothing resolves it, which is right for SWEEPING
-  an unregistered build and wrong for WRITING one. Unchecked, a manifest
-  label that is not a registered canonical writes hundreds of rows keyed
-  to a version ``_meta.yaml`` does not carry, the run exits reporting
-  success, and the refusal arrives on the next import of the registry as
-  a complaint about some unrelated entry. The remedy would be a revert of
-  thirty chapter files.
-
-  A MANIFEST ROW WITH NO CITATION ID. ``source`` is optional in the
-  manifest because a sweep does not need one. A row written from an
-  edition with no ``source`` carries the literal text ``None`` as its
-  provenance, in every row, and nothing downstream rejects a note.
-
-  A CHAPTER THE WRITE WOULD LEAVE INVALID. Every edit is built in memory,
-  re-parsed, and every touched entry reconstructed through
-  :class:`~pyflightstream.commands.CommandEntry` before anything is
-  written, which is what ``apply_compat`` does and this path did not.
-
-Re-running is not an error. A build already recorded for a command is
-counted and excluded rather than refused, so a second ``--write`` is a
-no-op that says so. The first version refused on the first such row,
-after two full manual reads, with a message telling the operator to "fix
-the entry", which is an invitation to hand-edit a database whose whole
-invariant is that its rows are not hand-edited.
+Build edits in memory, reparse them and reconstruct each touched entry
+through CommandEntry before writing. Already-recorded rows are counted
+and excluded, making a repeated --write a reported no-op.
 """
 
 from __future__ import annotations
@@ -228,20 +196,10 @@ def _write_all_or_none(edited: Mapping[Path, str], originals: Mapping[Path, str]
 
 def _refuse_unlabelled_build(build: str, labels: Sequence[str]) -> NoReturn:
     """Refuse a build the manifest has no row labelled, naming the closest true cause."""
-    # THE MOST USEFUL REFUSAL FIRST, and it used to be unreachable
-    # for the input that most needs it. Membership was tested before
-    # anything resolved, so `--fs-version 26.0` against a correctly
-    # labelled manifest was told "no row labelled '26.0'", while the
-    # tool already knew, one line later, that 26.0 names 26.000 and
-    # that the manifest carries THAT. The reader went editing a
-    # manifest that was right. Resolving costs nothing and opens no
-    # manual, so it is asked here.
-    # BOTH ALIAS SHAPES, not only the unique one. The first version
-    # of this branch caught `AmbiguousVersionAliasError` into a bare
-    # None and fell through to the generic message, so a reader who
-    # typed the release name off their manual's cover was told
-    # nothing about which of the four registered builds their
-    # edition is, by a tool that had just computed the list.
+    # Resolve aliases before testing manifest membership so the refusal
+    # identifies the canonical build or lists ambiguous candidates. This
+    # requires no manual read and avoids misdiagnosing a correctly labelled
+    # manifest when the caller supplies a vendor release name.
     try:
         resolved = resolve(build)
     except AmbiguousVersionAliasError as ambiguous:
@@ -331,9 +289,7 @@ def register_edition(
             "compare against. This subcommand carries documentation FORWARD; a first "
             "edition is drafted, not registered"
         )
-    # BEFORE EITHER MANUAL IS OPENED. Both refusals are decidable from
-    # the manifest and the registry, and a 400-page read is what they
-    # used to cost.
+    # Check the manifest and registry before opening either manual.
     try:
         known = resolve(build)
     except (UnknownVersionError, AmbiguousVersionAliasError) as error:
