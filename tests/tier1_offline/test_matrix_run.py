@@ -897,6 +897,33 @@ def _steady_sweep_matrix(tmp_path, cell=""):
     return workspace, path
 
 
+def test_p0420_p1_1d_plan_rehearses_the_one_job_builder(tmp_path, monkeypatch):
+    from pyflightstream.cases import CampaignConfigError, workflows
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    calls = []
+
+    def refuse(point_cases, script, *, cold=True):
+        calls.append((len(point_cases), script.version.canonical, cold))
+        raise CampaignConfigError("one-job-only refusal")
+
+    monkeypatch.setattr(workflows, "build_steady_sweep", refuse)
+    plan = plan_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        recipes=RECIPES,
+        default_fs_version="26.120",
+        recipe_registry=workflow_registry(),
+    )
+    assert len(calls) == 1
+    assert calls[0][0] == 3
+    assert len(plan.points) == 3
+    assert all(
+        p.status == PlanStatus.BLOCKED and "one-job-only refusal" in p.error for p in plan.points
+    )
+
+
 @pytest.mark.requirement("FR-95")
 def test_goal019_warm_a_steady_row_is_one_job_for_all_its_points(tmp_path):
     """Her convention of 2026-09-12, and the shape the predecessor already had.

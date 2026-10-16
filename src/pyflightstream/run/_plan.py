@@ -22,6 +22,7 @@ from typing import Any, cast
 
 import pyflightstream
 import pyflightstream._textio as _textio
+import pyflightstream.cases.workflows as workflows
 import pyflightstream.run._ids as _ids
 from pyflightstream._digest import (
     file_sha256,
@@ -1175,6 +1176,8 @@ def plan_campaign(
                 if recipes and case.recipe in recipes
                 else cast(ScriptRecipe, resolve_recipe(case.recipe))
             )
+        if case_error is None:
+            case_error = _one_job_error(campaign, case, workspace, case_version)
         # A POINT A RECORDED JOB OF ITS ROW RAN IS RECORDED, although no record
         # carries the point's own id: the question `run_campaign` asks before a
         # resume, asked here of the same helper, so READY is what resume runs.
@@ -1248,6 +1251,26 @@ def plan_campaign(
         setup_inspections=list(setup_inspections or ()),
         planned_order=order,
     )
+
+
+def _one_job_error(
+    campaign: Campaign, case: SimCase, workspace: CampaignWorkspace, version: str
+) -> str | None:
+    """Rehearse the shared steady script in addition to each point's recipe."""
+    if not _ids._is_one_job(campaign, case):
+        return None
+    try:
+        point_cases = [
+            case_at_point(case, point, outputs=_point_names(campaign, case, point, workspace)[1])
+            for point in case.sweep.points()
+        ]
+        script = Script(version=version)
+        script.working_dir = str(workspace.sim_dir(case.sim_id))
+        workflows.build_steady_sweep(point_cases, script, cold=_ids._is_cold_start(case))
+        script.render()
+    except Exception as error:
+        return f"{type(error).__name__}: {error}"
+    return None
 
 
 def _planned_order(
@@ -1534,8 +1557,9 @@ def _plan_point(
     # chose, reused or added, which are the ones the run lays and records.
     if base.get("farfield"):
         base["farfield"] = farfield_plan_record(point_case, fs_version, script)
-    # The dry run built the same COMMANDS the campaign will, so the two
-    # provenance flags are already determined here. Not the same bytes,
+    # This dry run built the point recipe; one-job rows also rehearse the
+    # shared sweep in _one_job_error. These provenance flags describe the
+    # point recipe. Neither rehearsal promises the run's exact bytes,
     # and the difference is one argument: the plan runs before
     # anything is staged, so a case naming a geometry renders `OPEN
     # <library path>` here and `OPEN <staged copy>` at run time. A raw mesh
