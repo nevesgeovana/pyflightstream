@@ -27,8 +27,46 @@ from __future__ import annotations
 
 import pytest
 
+from pyflightstream.cases import BladeDatum, RotorBlock
+from pyflightstream.cases.pproc import ProbeCircle, ProbeLine, ProbeRectangle
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.inputs import InputArtifactError
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+@pytest.mark.parametrize("model", ["datum", "rotor", "line", "rectangle", "circle"])
+def test_p0420_reference_and_probe_models_refuse_nonfinite_fields(model, bad):
+    """Each input model must refuse a single nonfinite coordinate or datum."""
+    with pytest.raises(ValueError):
+        if model == "datum":
+            BladeDatum(azimuth_deg=bad)
+        elif model == "rotor":
+            RotorBlock(alias="R", axis="X", diameter_m=2.0, families_blades=["B"], x_m=bad)
+        elif model == "line":
+            ProbeLine(start=(bad, 0.0, 0.0), end=(1.0, 0.0, 0.0))
+        elif model == "rectangle":
+            ProbeRectangle(
+                origin=(bad, 0.0, 0.0),
+                along_u=(1.0, 0.0, 0.0),
+                along_v=(0.0, 1.0, 0.0),
+                points_u=2,
+                points_v=2,
+            )
+        else:
+            ProbeCircle(
+                center=(bad, 0.0, 0.0),
+                normal=(0.0, 0.0, 1.0),
+                radius=1.0,
+                points_radial=2,
+                points_azimuth=4,
+            )
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+def test_p0420_rotor_axis_refuses_nonfinite_components(bad):
+    with pytest.raises(ValueError, match="axis"):
+        RotorBlock(alias="R", axis=(bad, 1.0, 0.0), diameter_m=2.0, families_blades=["B"])
+
 
 #: The reference of the use case, cut to what one test needs: two rotors
 #: of different sizes, the aliases a row cites, and one custom frame.
