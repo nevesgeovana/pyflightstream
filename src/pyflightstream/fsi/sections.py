@@ -736,8 +736,9 @@ def blade_properties_from_sections(
     >>> from pyflightstream.fsi.sections import blade_properties_from_sections
     >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
     >>> blade = blade_properties_from_sections(
-    ...     [0.1, 0.5], [plate, plate], [0.04, 0.04], [20.0, 10.0],
-    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ...     [0.1, 0.5], sections_m=[plate, plate], chord_m=[0.04, 0.04],
+    ...     geometric_pitch_deg=[20.0, 10.0], material="ti-6al-4v-grade5-annealed",
+    ...     geometry_source="a flat 40 x 4 mm plate",
     ... )
     >>> round(blade.mass_per_length_kg_per_m[0], 4)
     0.7088
