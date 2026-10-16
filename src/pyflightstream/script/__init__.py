@@ -981,6 +981,17 @@ class Script:
         elif entry.name in _DELETION_COMMANDS:
             kind, argument = _DELETION_COMMANDS[entry.name]
             self.entities.delete(kind, int(bound[argument]))  # type: ignore[call-overload]
+        elif entry.name in {"DELETE_SURFACES", "SURFACE_DELETE", "SURFACE_CLEARALL"}:
+            total = self.entities.limit("boundaries")
+            if total is not None:
+                index = int(bound.get("index", bound.get("surface", -1)))  # type: ignore[call-overload]
+                labels = self.entities.labels("boundaries")
+                surviving = {
+                    name: held - (held > index)
+                    for name, held in labels.items()
+                    if index != -1 and held != index
+                }
+                self.entities.renumber_boundaries(surviving, 0 if index == -1 else total - 1)
 
     def bind_native_solver_identity(self, *, executable_sha256: str, build: str) -> None:
         """Bind an identity verified by the caller for exact motion-proof lookup.

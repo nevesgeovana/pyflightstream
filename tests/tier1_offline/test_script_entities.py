@@ -218,3 +218,18 @@ def test_two_scripts_have_independent_registries():
     assert second.num_boundaries is None
     with pytest.raises(ScriptReferenceError, match="unknown mesh boundary label"):
         second.resolve_boundary("wing")
+
+
+def test_p0420_deletion_renumbers_boundary_inventory():
+    from pyflightstream.script import Script, ScriptReferenceError
+
+    script = Script("26.124")
+    script.declare_existing(boundaries={"first": 1, "middle": 2, "last": 3})
+    script.emit("DELETE_SURFACES", "middle")
+    assert script.entities.limit("boundaries") == 2
+    assert script.entities.labels("boundaries") == {"first": 1, "last": 2}
+    with pytest.raises(ScriptReferenceError):
+        script.emit("DELETE_SURFACES", 3)
+    script.emit("DELETE_SURFACES", -1)
+    assert script.entities.limit("boundaries") == 0
+    assert script.entities.labels("boundaries") == {}
