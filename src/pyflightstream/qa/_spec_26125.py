@@ -24,6 +24,7 @@ shared registry of ``pyflightstream.qa._spec_kit``.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from pathlib import Path
 
@@ -41,7 +42,8 @@ from pyflightstream.qa._spec_ccs_noise import (
     _wing_loft,
 )
 from pyflightstream.qa._spec_kit import _emit, _saveas, _seq, _spec
-from pyflightstream.qa.probes import ProbeArtifacts, Requires
+from pyflightstream.qa.errors import QaEvidenceError
+from pyflightstream.qa.probes import ProbeArtifacts, ProbeSpec, Requires, file_effect
 from pyflightstream.script import Script
 
 __all__: list[str] = []
@@ -59,6 +61,40 @@ _HANG_GUARD_S = 60.0
 #: and a coarse grid (FSM-26.125 p.338).
 _FREE_SURFACE = _emit("CREATE_FREE_SURFACE_TFI_MESH", 0.5, -1.0, 3.0, 2.0, 20, 10)
 _FREE_SURFACE_VTK = "free_surface.vtk"
+
+
+def _unattended_profile_spec(point: tuple[float, float, float]) -> ProbeSpec:
+    """Prepare G52's receipt against an explicitly supplied solved surface point.
+
+    Use only with build 26.125 and a saved, solved control state. The session
+    selects the upper-wing point from its control export, as RPT-075 describes.
+    This spec is deliberately absent from the generic probe catalog: its
+    geometry-dependent input must never be guessed. A nonempty file proves
+    export completion only; inspection of its format and product acceptance
+    remain separate, and the product stays disabled.
+    """
+    if len(point) != 3 or not all(math.isfinite(value) for value in point):
+        raise QaEvidenceError("profile probe point requires three finite reference coordinates")
+
+    def target(script: Script, workdir: Path) -> None:
+        if script.version.canonical != "26.125":
+            raise QaEvidenceError("the G52 unattended-profile receipt is scoped to build 26.125")
+        script.emit("EXPORT_BL_VELOCITY_PROFILE", 1, *point, workdir / "profile.txt")
+
+    def observe(artifacts: ProbeArtifacts) -> str:
+        path = artifacts.workdir / "profile.txt"
+        size = path.stat().st_size if path.is_file() else 0
+        return f"profile.txt: {size} bytes; format and physical interpretation not yet accepted"
+
+    return ProbeSpec(
+        command="EXPORT_BL_VELOCITY_PROFILE",
+        build_target=target,
+        requires=Requires.SIM,
+        assert_effect=file_effect("profile.txt"),
+        observe=observe,
+        timeout_s=120.0,
+        effect_note="a nonempty profile file and the after-target sentinel complete unattended",
+    )
 
 
 def _state_moved(artifacts: ProbeArtifacts) -> bool | None:
