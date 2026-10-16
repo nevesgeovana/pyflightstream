@@ -30,7 +30,7 @@
       ],
       "parameters": "path: str | Path, workspace: CampaignWorkspace, *, name: str, fs_version: str | None, recipes: Mapping[str, str], fs_exe: str | Path | None=None, ignore_missing_families: bool=True, rows: list[MatrixRow] | None=None",
       "returns": "ResolvedMatrix",
-      "source_sha256": "ce6e172d70c117779cf0a1631b91482b309ac59353453c3ed0e6b57c807470e6"
+      "source_sha256": "65d2c01a231bbc7f82245d0a69e3a2a24d90565c44ef1d105d6bedda234aade1"
     },
     {
       "id": "plan",
@@ -45,7 +45,7 @@
       ],
       "parameters": "campaign: Campaign, workspace: CampaignWorkspace, *, recipes: dict[str, ScriptRecipe] | None=None, write_plan: bool=True, name_from: str | None=None, builds: Mapping[str, SolverBuild] | None=None, versions: Mapping[str, str] | None=None, matrix_path: str | Path | None=None, accept_unregistered_build: bool=False, setup_inspections: Sequence[dict[str, object]] | None=None, inflow_fft: bool=False, accepted_builds: Collection[str]=(), planned_order: Mapping[str, Sequence[str]] | None=None",
       "returns": "CampaignPlan",
-      "source_sha256": "4b9c719fdb6709dfb608ab36bdaf2796299aefa38a44118b6ac7c2671f915328"
+      "source_sha256": "3f805d7b616db7ac0b2970955babfc240a64e7e0cf7166fc759701168872e05c"
     },
     {
       "id": "run",
@@ -62,7 +62,7 @@
       ],
       "parameters": "campaign: Campaign, executor: Executor, workspace: CampaignWorkspace, *, assess: OutcomeAssessor, recipes: dict[str, ScriptRecipe] | None=None, resume: bool=False, force_rerun: Sequence[str] | None=None, preflight: bool=True, builds: Mapping[str, SolverBuild] | None=None, name_from: str | None=None, quiet: bool=False, accept_unregistered_build: bool=False, sweep_csv: str | Path | None=None, accepted_builds: Collection[str]=()",
       "returns": "list[RunRecord]",
-      "source_sha256": "419f0291430010c36b370d1c9ce432d4afbb8864c7a960a93512b749e70d28eb"
+      "source_sha256": "f057b3ac6b3bed85bc8d7187291bfb6b2ed91d3ce2d6e3cf78a1db1c623000ae"
     },
     {
       "id": "collect",
@@ -77,7 +77,7 @@
       ],
       "parameters": "workspace: CampaignWorkspace, *, interval: float=DEFAULT_SETTLE_INTERVAL_S, sleep: Callable[[float], None]=time.sleep, observer: Callable[[Iterable[Path]], dict[str, Stamp | None]]=observe, assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None=None, sims: Collection[str] | None=None",
       "returns": "CollectReport",
-      "source_sha256": "a1bd3a73484bd7da5c631b1a229c40ca0dbd60fa7392a652b129511fc281d3d2"
+      "source_sha256": "6bd1c00c17d1d1ea7330ccebb0d12ff22da5402f5c9d7d6f7eba4510a4278e21"
     },
     {
       "id": "post",

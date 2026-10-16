@@ -1321,12 +1321,12 @@
  "one_home_allowlist": [],
  "facade_lines": {
   "__init__.py": 9,
-  "cases/__init__.py": 1039,
-  "commands/__init__.py": 806,
+  "cases/__init__.py": 1032,
+  "commands/__init__.py": 766,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
-  "script/__init__.py": 1652,
-  "workspace/__init__.py": 1993
+  "script/__init__.py": 1630,
+  "workspace/__init__.py": 1908
  },
  "facade_definitions": {
   "fsi/__init__.py": [
@@ -1599,6 +1599,6 @@
   "private_test_names": 334,
   "monkeypatch_targets": 150,
   "workspace_to_run_imports": 0,
-  "root_facade_lines": 5673
+  "root_facade_lines": 5397
  }
 }
