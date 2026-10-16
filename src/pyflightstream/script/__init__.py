@@ -1752,6 +1752,17 @@ class Script:
             elif spec.is_list:
                 inline_parts.append(" ".join(self._format_scalar(item) for item in value))  # type: ignore[attr-defined]
             else:
+                # PRINT consumes the remainder as a message (FSM-26.120 p.281).
+                if (
+                    spec.type is ArgType.STR
+                    and entry.name != "PRINT"
+                    and (not str(value) or any(character.isspace() for character in str(value)))
+                ):
+                    raise CommandArgumentError(
+                        f"{entry.name}: argument {spec.name!r} is {value!r}; "
+                        "an inline string must be one nonempty token without whitespace. "
+                        f"Use a single-token name ({entry.citation})"
+                    )
                 inline_parts.append(self._format_scalar(value))
         return [" ".join(inline_parts), *tail_lines], bool(tail_lines)
 

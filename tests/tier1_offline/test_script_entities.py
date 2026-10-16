@@ -41,7 +41,7 @@ def test_actuator_label_creation_and_resolution():
     make_frame(script, label="disc_frame")
     index = helpers.actuator_disc(
         script,
-        "prop right",
+        "prop_right",
         frame="disc_frame",
         axis="X",
         offset=0.0,
@@ -184,8 +184,8 @@ def test_label_on_a_non_creation_command_is_rejected():
 
 def test_deleting_an_entity_drops_its_dangling_label():
     script = Script(version="26.120")
-    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="left prop", label="left")
-    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="right prop", label="right")
+    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", "ELLIPTICAL", name="left_prop", label="left")
+    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", "ELLIPTICAL", name="right_prop", label="right")
     script.emit("DELETE_ACTUATOR", 2)
     script.emit("ENABLE_ACTUATOR", "left")
     with pytest.raises(ScriptReferenceError, match="unknown actuator label 'right'"):
