@@ -163,3 +163,11 @@ def test_p0420_missing_integer_declaration_control_has_no_name_heuristic():
     assert missing_integer_declarations([command]) == [(command.name, "base", "arbitrary_word")]
     stated = entry(args=[dict(name="arbitrary_word", type="int", cites=None)])
     assert missing_integer_declarations([stated]) == []
+
+
+@pytest.mark.parametrize("layout", ["mixed_inline", "param_lines"])
+def test_p0420_compact_input_keeps_declared_following_lines(layout):
+    command = entry(layout=layout)
+    script = Script("26.120", registry=CommandRegistry(commands={command.name: command}))
+    script.emit_line("LAYOUT_CONTROL output.dat")
+    assert "LAYOUT_CONTROL\noutput.dat\n\n" in script.render()

@@ -91,7 +91,6 @@ from pyflightstream.commands import (
 from pyflightstream.script._arg_checks import (
     CommandArgumentError,
     ScriptLineBreakError,
-    _bind_line_tokens,
     _check_list,
     _check_one_line_each,
     _check_scalar,
@@ -1317,7 +1316,7 @@ class Script:
         return self._view[name]
 
     def emit_line(self, line: str, /) -> None:
-        """Emit one command line as the solver reads it (PFS-2033.01).
+        """Bind compact command input through the curated renderer (PFS-2033.01).
 
         The line is split on whitespace; the first token is the command
         and the rest its arguments, each coerced to the type the database
@@ -1327,37 +1326,20 @@ class Script:
         emission applies. A list argument takes the run of following tokens
         its element type reads, as the inline renderer writes it, so a
         sweep line such as ``SWEEPER_SET_AOA_SWEEP CUSTOM 0.0 2.0 4.0``
-        round-trips. Only a command whose grammar is one line (``bare`` or
-        ``inline``) is carried: a block, a payload or a parameter list is
-        refused naming the layout, since the line the user wrote cannot be
-        it.
+        round-trips. Declared following-line arguments are rendered on their
+        own lines, preserving the compact input accepted before layouts
+        distinguished mixed commands. Other blocks and payloads are refused.
 
         Raises
         ------
         CommandArgumentError
-            If the command's layout is not one line, a token is not the
+            If the layout cannot bind compact input, a token is not the
             type its position declares, or tokens are left that no argument
             reads (a value containing a space, which splits into several).
         """
-        tokens = line.split()
-        if not tokens:
-            raise CommandArgumentError("an empty line names no command")
-        name, arguments = tokens[0], tokens[1:]
-        spec = self.entry(name)
-        if spec.layout not in (Layout.BARE, Layout.INLINE):
-            raise CommandArgumentError(
-                f"{name} is a {spec.layout.value.replace('_', ' ')} and not a one-line "
-                "command; a raw entry is one line as the solver reads it, and a block "
-                "has no place in it. State what the block sets through the preset's own "
-                "keys or the row's, or drop the entry"
-            )
-        bound = _bind_line_tokens(name, spec.args, arguments)
-        previous = self._emitting_line
-        self._emitting_line = True
-        try:
-            self.emit(name, **bound)
-        finally:
-            self._emitting_line = previous
+        from pyflightstream.script._build_forms import _emit_compact_line
+
+        _emit_compact_line(self, line)
 
     def raw(self, text: str) -> None:
         """Append unvalidated script text and flag the script (FR-07).

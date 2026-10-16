@@ -36,12 +36,12 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import PureWindowsPath
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.commands import ArgSpec, ArgType, CommandEntry, Layout
 from pyflightstream.script import CommandArgumentError
-from pyflightstream.script._arg_checks import _check_scalar
+from pyflightstream.script._arg_checks import _bind_line_tokens, _check_scalar
 
 if TYPE_CHECKING:
     from pyflightstream.commands import VersionView
@@ -620,3 +620,29 @@ def render_actuator_profile(text: str, *, source: str = "the radial thrust profi
             f"distribution needs at least two. {_PROFILE_FORM}"
         )
     return "\n".join(rows)
+
+
+def _emit_compact_line(script: Script, line: str) -> None:
+    """Bind compact input and preserve the command's declared physical layout."""
+    tokens = line.split()
+    if not tokens:
+        raise CommandArgumentError("an empty line names no command")
+    name, arguments = tokens[0], tokens[1:]
+    spec = script.entry(name)
+    if not (
+        spec.layout in (Layout.BARE, Layout.INLINE, Layout.MIXED_INLINE)
+        or (spec.layout is Layout.PARAM_LINES and all(arg.own_line for arg in spec.args))
+    ):
+        raise CommandArgumentError(
+            f"{name} is a {spec.layout.value.replace('_', ' ')} and not a one-line "
+            "command; a raw entry is one line as the solver reads it, and a block "
+            "has no place in it. State what the block sets through the preset's own "
+            "keys or the row's, or drop the entry"
+        )
+    bound: dict[str, Any] = _bind_line_tokens(name, spec.args, arguments)
+    previous = script._emitting_line
+    script._emitting_line = True
+    try:
+        script.emit(name, **bound)
+    finally:
+        script._emitting_line = previous
