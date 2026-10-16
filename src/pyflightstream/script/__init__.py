@@ -713,6 +713,7 @@ class Script:
         actuators: int = 0,
         motions: int = 0,
         boundaries: int | Mapping[str, int] = 0,
+        volume_sections: int = 0,
     ) -> None:
         """Declare auxiliary objects already present in the opened project.
 
@@ -731,6 +732,8 @@ class Script:
             Actuators in the project.
         motions : int
             Motions in the project.
+        volume_sections : int
+            Volume sections already present in the project, numbered from one.
         boundaries : int or mapping of str to int
             Mesh boundaries of the loaded geometry: either their total
             count (zero, the default, keeps the inventory undeclared),
@@ -746,6 +749,8 @@ class Script:
         for kind, extra in (("frames", frames), ("actuators", actuators), ("motions", motions)):
             self.entities.declare(kind, extra)
         self.entities.declare_boundaries(boundaries)
+        self.entities.declare("volume_sections", volume_sections)
+        self._volume_sections += volume_sections
 
     def resolve_boundary(self, value: int | str, *, context: str = "boundary citation") -> int:
         """Resolve a mesh boundary citation to its 1-based index.
@@ -1284,8 +1289,10 @@ class Script:
         """Keep :attr:`volume_sections` and :attr:`volume_section_index` in step (G05)."""
         if name in _VOLUME_SECTION_CREATES:
             self._volume_sections += 1
+            self.entities.create("volume_sections")
         elif name == _VOLUME_SECTION_DELETE:
             self._volume_sections = max(self._volume_sections - 1, 0)
+            self.entities.delete("volume_sections", int(bound["index"]))
             deleted, own = bound.get("index"), self.volume_section_index
             if isinstance(deleted, int) and own is not None:
                 if deleted == own:
@@ -1294,6 +1301,7 @@ class Script:
                     self.volume_section_index = own - 1
         elif name == _VOLUME_SECTION_DELETE_ALL:
             self._volume_sections = 0
+            self.entities.clear("volume_sections")
             self.volume_section_index = None
 
     def entry(self, name: str, /) -> CommandEntry:

@@ -33,16 +33,17 @@ __all__ = [
 ]
 
 #: Entity kinds the registry tracks, in the vocabulary of the builder.
-ENTITY_KINDS = ("frames", "actuators", "motions", "boundaries")
+ENTITY_KINDS = ("frames", "actuators", "motions", "boundaries", "volume_sections")
 
 #: Kinds a script command can create (boundaries come from geometry).
-CREATED_KINDS = ("frames", "actuators", "motions")
+CREATED_KINDS = ("frames", "actuators", "motions", "volume_sections")
 
 _NOUNS = {
     "frames": "local coordinate system",
     "actuators": "actuator",
     "motions": "motion",
     "boundaries": "mesh boundary",
+    "volume_sections": "volume section",
 }
 
 
@@ -250,6 +251,13 @@ class EntityRegistry:
             for label, held in self._labels[kind].items()
             if held != index
         }
+
+    def clear(self, kind: str) -> None:
+        """Forget all entities of a script-created kind after its delete-all command."""
+        if kind not in CREATED_KINDS:
+            raise ScriptReferenceError(f"entity kind {kind!r} is not script-created")
+        self._counts[kind] = 0
+        self._labels[kind].clear()
 
     def declare(self, kind: str, extra: int) -> None:
         """Add ``extra`` project-carried entities of a created kind.

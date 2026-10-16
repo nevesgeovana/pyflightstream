@@ -103,6 +103,7 @@ VOLUME_SECTION_BOUNDARY_LAYER:
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
@@ -148,6 +149,7 @@ EXPORT_VOLUME_SECTION_VTK:
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: filename
       type: path
       own_line: true
@@ -173,6 +175,7 @@ EXPORT_VOLUME_SECTION_TECPLOT:
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: filename
       type: path
       own_line: true
@@ -198,6 +201,7 @@ DELETE_VOLUME_SECTION:
   args:
     - name: index
       type: int
+      cites: volume_sections
   manual_ref: "FSM-26.120 p.367"
   versions:
     "25.000": {status: documented, note: "FSM-25.000 p.327, same grammar as 26.120"}
@@ -238,6 +242,7 @@ VOLUME_SECTION_WIREFRAME:
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
@@ -270,6 +275,7 @@ EXPORT_VOLUME_SECTION_2D_VTK:
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: file
       type: path
       own_line: true

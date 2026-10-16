@@ -136,6 +136,7 @@ class EntityKind(enum.StrEnum):
     ACTUATORS = "actuators"
     MOTIONS = "motions"
     BOUNDARIES = "boundaries"
+    VOLUME_SECTIONS = "volume_sections"
 
 
 class ListSeparator(enum.StrEnum):

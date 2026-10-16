@@ -500,6 +500,7 @@ def test_export_surface_sections_exists_only_from_26120():
 
 def test_volume_section_boundary_layer_is_removed_at_26120():
     earlier = Script(version="26.101")
+    earlier.declare_existing(volume_sections=2)
     earlier.emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
     assert "VOLUME_SECTION_BOUNDARY_LAYER 2 DISABLE" in earlier.render()
     with pytest.raises(CommandNotInVersionError, match=r"FSM-26\.101 p\.365"):
@@ -2578,13 +2579,9 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     ("CAD_CREATE_PROJECT_MULTI_CURVE", "curve_index_2"),
     ("DELETE_SEPARATION", "index"),
     ("DELETE_SURFACE_SECTION", "index"),
-    ("DELETE_VOLUME_SECTION", "index"),
     ("DISABLE_WAKE_NODES_ON_TRAILING_EDGE", "te_index"),
     ("EXPORT_SURFACE_SECTIONS", "index"),
-    ("EXPORT_VOLUME_SECTION_TECPLOT", "index"),
-    ("EXPORT_VOLUME_SECTION_VTK", "index"),
     ("SET_TRAILING_EDGE_TYPE", "te_index"),
-    ("VOLUME_SECTION_BOUNDARY_LAYER", "index"),
     # Caught by the widened stems on 2026-08-07, each read and kept:
     # a count of sections to create rather than a citation of one,
     # a mesh VERTEX (the tracker counts boundaries, not nodes),
@@ -2648,8 +2645,6 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     ("BOOLEAN_UNITE_MESH", "body_indices"),
     ("CONVERT_CAD_TO_MESH", "body_index"),
     ("DELETE_TRANSITION_TRIP", "transition_trip_index"),
-    ("EXPORT_VOLUME_SECTION_2D_VTK", "index"),
-    ("VOLUME_SECTION_WIREFRAME", "index"),
 }
 
 #: Name stems that suggest an argument cites something by index. This
@@ -3873,10 +3868,12 @@ def test_the_tail_of_the_edge_and_section_chapters_emits(version):
     script.emit("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", 2)
     script.emit("SET_VORTICITY_LIFT_MODEL", "ENABLE")
     script.emit("SET_SCENE_CONTOUR", "mach_number")
+    script.declare_existing(volume_sections=2)
     script.emit("VOLUME_SECTION_WIREFRAME", 2, "ENABLE")
     script.emit("DELETE_ALL_SURFACE_SECTIONS")
     script.emit("DELETE_ALL_VOLUME_SECTIONS")
     script.emit("SET_PLOT_TYPE", "FORCE_Z_AXIS_Y")
+    script.declare_existing(volume_sections=2)
     script.emit("EXPORT_VOLUME_SECTION_2D_VTK", 2, "section_2d.vtk")
     script.emit("SAVE_PLOT_TO_FILE", "Test_Plot.txt")
     golden = (GOLDENS / "tail_edges_and_sections.txt").read_text(encoding="utf-8")
@@ -4536,3 +4533,24 @@ def test_p0420_deferred_vorticity_does_not_bypass_an_already_completed_solve():
     with pytest.raises(ScriptOrderError, match="precede"):
         script.emit_deferred_vorticity_before_solve()
     assert script.render() == before
+
+
+@pytest.mark.parametrize("index", [-1, 0, 1, 7])
+def test_p0420_volume_section_cannot_cite_an_uncreated_index(index):
+    with pytest.raises(ScriptReferenceError, match="volume.section"):
+        Script("26.124").emit("DELETE_VOLUME_SECTION", index)
+
+
+def test_p0420_volume_section_inventory_follows_deletion_and_clear():
+    script = Script("26.124")
+    script.declare_existing(volume_sections=3)
+    script.emit("DELETE_VOLUME_SECTION", 2)
+    assert script.volume_sections == 2
+    with pytest.raises(ScriptReferenceError, match="volume section"):
+        script.emit("DELETE_VOLUME_SECTION", 3)
+    script.emit("DELETE_VOLUME_SECTION", 2)
+    assert script.volume_sections == 1
+    script.emit("DELETE_ALL_VOLUME_SECTIONS")
+    assert script.volume_sections == 0
+    with pytest.raises(ScriptReferenceError, match="volume section"):
+        script.emit("DELETE_VOLUME_SECTION", 1)
