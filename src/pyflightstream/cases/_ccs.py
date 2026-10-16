@@ -286,6 +286,8 @@ class CcsImportOptions(BaseModel):
 
     @model_validator(mode="after")
     def _keys_of_the_kind(self) -> CcsImportOptions:
+        if self.kind == "revolution" and not 0 <= self.start_angle_deg < self.end_angle_deg <= 360:
+            raise ValueError("revolution requires 0 <= start_angle_deg < end_angle_deg <= 360")
         allowed = _KIND_KEYS[self.kind]
         stray = sorted(self.model_fields_set - allowed - {"kind"})
         if stray:
