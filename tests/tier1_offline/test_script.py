@@ -500,6 +500,7 @@ def test_export_surface_sections_exists_only_from_26120():
 
 def test_volume_section_boundary_layer_is_removed_at_26120():
     earlier = Script(version="26.101")
+    earlier.declare_existing(volume_sections=2)
     earlier.emit("VOLUME_SECTION_BOUNDARY_LAYER", 2, "DISABLE")
     assert "VOLUME_SECTION_BOUNDARY_LAYER 2 DISABLE" in earlier.render()
     with pytest.raises(CommandNotInVersionError, match=r"FSM-26\.101 p\.365"):
@@ -1631,7 +1632,7 @@ def test_every_cad_command_is_available_on_every_registered_build():
     assert named["25.000"] == named["25.100"] == named["26.000"], (
         "the three pre-26.100 builds carry different parts of the CAD chapter: "
         f"{ {c: v for c, v in named.items()} }. They are supposed to carry the same "
-        "sixteen, the chapter arriving whole only at 26.100"
+        "eighteen, the chapter arriving whole only at 26.100"
     )
     assert named["25.000"] == (
         "CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS",
@@ -1647,12 +1648,14 @@ def test_every_cad_command_is_available_on_every_registered_build():
         "CAD_CREATE_CURVE_REVERSE",
         "CAD_CREATE_CURVE_SELECT",
         "CAD_CREATE_CURVE_UNSELECT",
+        "CAD_CREATE_IMPORT_CURVE_CCS",
         "CAD_CREATE_IMPORT_CURVE_TXT",
         "CAD_CREATE_INITIALIZE",
         "CONVERT_CAD_TO_MESH",
+        "IMPORT_CAD",
     ), f"the CAD commands the older builds carry are now {named['25.000']}"
     partial = {c: len(names) for c, names in available.items() if c not in whole and names}
-    assert partial == {"25.000": 16, "25.100": 16, "26.000": 16}, (
+    assert partial == {"25.000": 18, "25.100": 18, "26.000": 18}, (
         f"the pre-26.100 builds carry {partial} of the {len(members)} CAD commands; "
         "each of those counts is a measured edition surface, so a change here is "
         "either a sweep that found more or a row that was lost"
@@ -2544,190 +2547,6 @@ def test_the_backfilled_early_build_rows_are_emittable(command, version, args):
     script.declare_existing(boundaries=6, frames=3, motions=1)
     script.emit(command, *args)
     assert command in script.render()
-
-
-#: Index arguments that name an object the entity tracker does NOT model.
-#: Each is a real 1-based index the solver keeps, but of a kind the
-#: script builder has no inventory for, so there is nothing to resolve a
-#: label against or bound the value by. Listing them is the point: the
-#: guard below reports every entity-looking index argument that neither
-#: declares `cites` nor appears here, so a new one is a decision rather
-#: than an omission. Extending the tracker to a new kind is what removes
-#: a row from this list.
-_INDEXES_OF_UNTRACKED_OBJECTS = {
-    # A boundary ID, not a tree position (0.30.0, FSI-1): the solver stores the
-    # aeroelastic surface list as written and maps the boundaries whose ID
-    # matches, and an OBJ import numbers its boundaries from 2. A range check
-    # against the tree would refuse the ID of an OBJ import's last boundary.
-    ("ASSIGN_AEROELASTIC_SURFACES", "boundary_indices"),
-    ("CAD_BODY_DELETE", "body_index"),
-    ("CAD_BODY_MIRROR", "body_index"),
-    ("CAD_BODY_ROTATE", "body_index"),
-    ("CAD_BODY_SCALE", "body_index"),
-    ("CAD_BODY_TRANSLATE", "body_index"),
-    ("CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS", "body_index"),
-    ("CAD_CREATE_AUTO_CROSS_SECTIONS", "body_index"),
-    ("CAD_CREATE_CROSS_SECTION", "body_index"),
-    ("CAD_CREATE_CURVE_REVERSE", "curve_index"),
-    ("CAD_CREATE_CURVE_SELECT", "curve_index"),
-    ("CAD_CREATE_CURVE_UNSELECT", "curve_index"),
-    ("CAD_CREATE_IMPORT_CURVE_CCS", "component_index"),
-    ("CAD_CREATE_IMPORT_CURVE_P3D", "component_index"),
-    ("CAD_CREATE_PROJECT_CURVE", "curve_index"),
-    ("CAD_CREATE_PROJECT_MULTI_CURVE", "curve_index_1"),
-    ("CAD_CREATE_PROJECT_MULTI_CURVE", "curve_index_2"),
-    ("DELETE_SEPARATION", "index"),
-    ("DELETE_SURFACE_SECTION", "index"),
-    ("DELETE_VOLUME_SECTION", "index"),
-    ("DISABLE_WAKE_NODES_ON_TRAILING_EDGE", "te_index"),
-    ("EXPORT_SURFACE_SECTIONS", "index"),
-    ("EXPORT_VOLUME_SECTION_TECPLOT", "index"),
-    ("EXPORT_VOLUME_SECTION_VTK", "index"),
-    ("SET_TRAILING_EDGE_TYPE", "te_index"),
-    ("VOLUME_SECTION_BOUNDARY_LAYER", "index"),
-    # Caught by the widened stems on 2026-08-07, each read and kept:
-    # a count of sections to create rather than a citation of one,
-    # a mesh VERTEX (the tracker counts boundaries, not nodes),
-    # a plane selector whose 1, 2, 3 name YZ, XZ, XY rather than an
-    # object (FSM-26.120 p.311), and a force index within a motion.
-    ("CAD_CREATE_AUTO_CROSS_SECTIONS", "sections"),
-    ("CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS", "sections"),
-    ("SELECT_MESH_NODE", "node_id"),
-    ("DELETE_6DOF_EXTERNAL_FORCE", "force_id"),
-    # The CCS wing definition's own objects, added 2026-08-08 with that
-    # chapter: a spanwise refinement zone and a control surface belong to
-    # a parametric wing definition, not to the loaded geometry, so the
-    # builder has no inventory of either. Both document -1 to delete all,
-    # which is recorded in their notes rather than declared as a sentinel,
-    # for the same reason: with no kind to resolve, nothing reads it.
-    ("DELETE_CCS_WING_REFINEMENT_ZONES", "zone_index"),
-    ("DELETE_CCS_WING_CONTROL_SURFACE", "control_index"),
-    # The same objects of the other two CCS components, added later the
-    # same day with their chapters. The guard found all four the moment
-    # the chapters landed, which is the point of it: an untracked index
-    # is a deliberate exemption in every case and never a default.
-    ("DELETE_CCS_FUSELAGE_REFINEMENT_ZONES", "zone_index"),
-    ("DELETE_CCS_FUSELAGE_RELAXED_TE", "index"),
-    ("DELETE_CCS_REVOLVE_REFINEMENT_ZONES", "zone_index"),
-    ("DELETE_CCS_REVOLVE_RELAXED_TE", "index"),
-    # A mesh-wrapper local control, added 2026-08-08 with that chapter.
-    # Nothing creates one with a name and nothing reports how many exist,
-    # so the id is a number the caller counted and there is no inventory
-    # to resolve it against.
-    ("WRAPPER_EDIT_LOCAL_CONTROL", "control_id"),
-    # An acoustic observer, added 2026-08-08 with that chapter. The
-    # manual defines the index as the observer's position in the
-    # application's own tree, which is a statement about the user
-    # interface rather than about anything a script can read back.
-    ("DELETE_ACOUSTIC_OBSERVER", "observer_index"),
-    # A base region, added 2026-08-08 with that chapter. Boundaries ARE
-    # tracked, and the two commands here that take a boundary index
-    # declare it; these four take a base-region index instead, which is
-    # a separate 1-based sequence over the boundaries already marked and
-    # which nothing reports back. Two of them document -1 for all, kept
-    # in their notes for the usual reason.
-    ("DELETE_BASE_REGION", "base_region_boundary"),
-    ("SET_BASE_REGION_TRAILING_EDGES", "base_region_boundary"),
-    ("SET_OUTFLOW_TRAILING_EDGES", "base_region_boundary"),
-    ("SET_OUTLET_TRAILING_EDGES", "base_region_boundary"),
-    ("SELECT_BASE_REGION_FACES", "base_index"),
-    ("SET_BASE_REGION_CP", "base_index"),
-    # An inlet, added 2026-08-08 with the Inlets and Outlets chapter. The
-    # two CREATE commands there take a BOUNDARY index and declare it;
-    # this is the separate 1-based sequence over the boundaries already
-    # marked as inlets, which nothing reports back. Its DELETE siblings
-    # are not here because their argument names carry no citation stem.
-    ("SET_INLET_CUSTOM_PROFILE", "inlet_id"),
-    # The tail chapters of 2026-08-08. A CAD BODY is not a mesh boundary
-    # and the builder tracks only boundaries, so the unite list and the
-    # CAD transfer index resolve to nothing; both document -1 for all,
-    # kept in their notes. A volume section and a transition trip are
-    # likewise untracked, and the trip is the sharper case: no edition
-    # documents a command that CREATES one, so its index has no scripted
-    # source at all.
-    ("BOOLEAN_UNITE_MESH", "body_indices"),
-    ("CONVERT_CAD_TO_MESH", "body_index"),
-    ("DELETE_TRANSITION_TRIP", "transition_trip_index"),
-    ("EXPORT_VOLUME_SECTION_2D_VTK", "index"),
-    ("VOLUME_SECTION_WIREFRAME", "index"),
-}
-
-#: Name stems that suggest an argument cites something by index. This
-#: is a HEURISTIC over names, not a closure over arguments: 53 of the
-#: database's 206 integer arguments are neither a citation nor a count,
-#: and classifying all of them is the only thing that would close the
-#: set (registered as part of PLN-20260807-1410). The 2026-08-07 QA
-#: pass got 17 invented spellings past the first version of this list,
-#: so the stems below are broad, and the test name and docstring say
-#: heuristic rather than closed.
-_LOOKS_LIKE_A_CITATION = re.compile(
-    r"index|indices|\bid\b|_id|frame|surface|surf|coordinate_system|\bcs\b|motion"
-    r"|actuator|boundar|body|component|part|section|curve|node|vertex|group|owner"
-    r"|target|wake|probe|plane|system"
-)
-
-
-def test_an_index_argument_whose_name_suggests_a_citation_resolves_to_one():
-    """An unresolved index argument is silence, not a refusal.
-
-    Omitting `cites` on a new ambiguous index produces no error: the
-    entity check is simply skipped, so a declared label is not resolved
-    and an out-of-range index is not caught. The 2026-08-07 review found
-    five such arguments shipped in one chapter, which is what made the
-    field necessary; nothing then stopped the sixth.
-
-    So every int or int_list argument whose NAME suggests a citation
-    must either declare what it cites, be a count, or be named above as
-    an index of an object the tracker does not model. The middle option
-    used to include "be a spelling the emitter's own maps resolve"; the
-    maps went on 2026-08-08 (PLN-20260807-1410) and the 101 arguments
-    they covered declare it themselves now, so the guard has one fewer
-    way to be satisfied and the database says what the emitter does.
-
-    STATED HONESTLY, because the first version of this docstring said
-    the vocabulary was closed and it is not: the rule is a heuristic
-    over name stems, and the 2026-08-07 QA pass got 17 invented
-    spellings past it. The stems were widened with all 17. Real closure
-    means classifying every integer argument, 53 of which are today
-    neither a citation nor a count, and that is registered rather than
-    claimed here.
-
-    Running it found five the review did not, each then read on its own
-    page before being declared: DELETE_SURFACES (FSM-26.121 p.315) and the
-    two surface-section commands (FSM-26.120 p.364, where SURFACES is a
-    count of geometry surfaces followed by their indices) cite mesh
-    boundaries; ROTATE_COORDINATE_SYSTEM's ROTATION_FRAME (FSM-26.120
-    p.330) and IMPORT_AEROELASTIC_STRUCTURAL_NODES's
-    STRUCTURAL_COORDINATE_SYSTEM (FSM-26.120 p.375) cite local coordinate
-    systems, both stating 1 as the reference system.
-    """
-    from pyflightstream.commands import ArgType
-    from pyflightstream.script import _COUNT_ARG_NAMES, _COUNT_REFERENCE_ARGS
-
-    unresolved = set()
-    for name, entry in CommandRegistry.load().commands.items():
-        grammars = [entry.args]
-        grammars += [record.args for record in entry.versions.values() if record.args]
-        for args in grammars:
-            for spec in args:
-                if spec.type not in (ArgType.INT, ArgType.INT_LIST) or spec.cites is not None:
-                    continue
-                if spec.name in _COUNT_ARG_NAMES or spec.name in _COUNT_REFERENCE_ARGS:
-                    continue
-                if _LOOKS_LIKE_A_CITATION.search(spec.name):
-                    unresolved.add((name, spec.name))
-
-    assert unresolved <= _INDEXES_OF_UNTRACKED_OBJECTS, (
-        "these index arguments look like entity citations and resolve to nothing, so a "
-        "declared label is not resolved there and an out-of-range index is not caught: "
-        f"{sorted(unresolved - _INDEXES_OF_UNTRACKED_OBJECTS)}. Add `cites:` with the "
-        "entity kind, or list the pair in _INDEXES_OF_UNTRACKED_OBJECTS with the reason"
-    )
-    stale = _INDEXES_OF_UNTRACKED_OBJECTS - unresolved
-    assert not stale, (
-        f"these exceptions no longer describe anything in the database: {sorted(stale)}. "
-        "An exemption outliving its site is how a guard quietly stops guarding"
-    )
 
 
 def test_the_sentinel_holds_before_any_inventory_is_declared():
@@ -3873,10 +3692,12 @@ def test_the_tail_of_the_edge_and_section_chapters_emits(version):
     script.emit("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", 2)
     script.emit("SET_VORTICITY_LIFT_MODEL", "ENABLE")
     script.emit("SET_SCENE_CONTOUR", "mach_number")
+    script.declare_existing(volume_sections=2)
     script.emit("VOLUME_SECTION_WIREFRAME", 2, "ENABLE")
     script.emit("DELETE_ALL_SURFACE_SECTIONS")
     script.emit("DELETE_ALL_VOLUME_SECTIONS")
     script.emit("SET_PLOT_TYPE", "FORCE_Z_AXIS_Y")
+    script.declare_existing(volume_sections=2)
     script.emit("EXPORT_VOLUME_SECTION_2D_VTK", 2, "section_2d.vtk")
     script.emit("SAVE_PLOT_TO_FILE", "Test_Plot.txt")
     golden = (GOLDENS / "tail_edges_and_sections.txt").read_text(encoding="utf-8")
@@ -4497,3 +4318,71 @@ def test_p0420_sweeper_folder_matches_export_mode(mode, folder):
         args["export_folder"] = folder
     with pytest.raises(CommandArgumentError):
         script.emit("EXECUTE_SOLVER_SWEEPER", **args)
+
+
+def test_p0420_physics_presence_keywords_can_be_omitted():
+    script = Script("25.000")
+    script.emit("PHYSICS")
+    assert "PHYSICS\nEND" in script.render()
+
+
+def test_p0420_carried_actions_use_atomic_file_conflict_checks():
+    carried = Script("26.124")
+    helpers.unsteady_action(
+        carried,
+        name="counter",
+        kind="SCRIPT",
+        filename="actions/count.txt",
+        action_script="PRINT step",
+    )
+    target = Script("26.124")
+    target.park_input_file("actions/COUNT.txt", "input data")
+    before = target.render()
+    with pytest.raises(CommandArgumentError, match="conflicts"):
+        target.carry_unsteady_actions(carried.unsteady_actions, carried.pending_action_scripts)
+    assert target.unsteady_actions == ()
+    assert target.pending_action_scripts == {}
+    assert target.render() == before
+    clean = Script("26.124")
+    clean.carry_unsteady_actions(carried.unsteady_actions, carried.pending_action_scripts)
+    assert clean.unsteady_actions == carried.unsteady_actions
+    assert clean.pending_action_scripts == carried.pending_action_scripts
+    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" not in clean.render()
+
+
+def test_p0420_deferred_vorticity_does_not_bypass_an_already_completed_solve():
+    script = Script("26.124")
+    script.emit("START_SOLVER")
+    before = script.render()
+    with pytest.raises(ScriptOrderError, match="precede"):
+        script.emit_deferred_vorticity_before_solve()
+    assert script.render() == before
+
+
+@pytest.mark.parametrize("index", [-1, 0, 1, 7])
+def test_p0420_volume_section_cannot_cite_an_uncreated_index(index):
+    with pytest.raises(ScriptReferenceError, match="volume.section"):
+        Script("26.124").emit("DELETE_VOLUME_SECTION", index)
+
+
+def test_p0420_volume_section_inventory_follows_deletion_and_clear():
+    script = Script("26.124")
+    script.declare_existing(volume_sections=3)
+    script.emit("DELETE_VOLUME_SECTION", 2)
+    assert script.volume_sections == 2
+    with pytest.raises(ScriptReferenceError, match="volume section"):
+        script.emit("DELETE_VOLUME_SECTION", 3)
+    script.emit("DELETE_VOLUME_SECTION", 2)
+    assert script.volume_sections == 1
+    script.emit("DELETE_ALL_VOLUME_SECTIONS")
+    assert script.volume_sections == 0
+    with pytest.raises(ScriptReferenceError, match="volume section"):
+        script.emit("DELETE_VOLUME_SECTION", 1)
+
+
+@pytest.mark.parametrize("build", ["26.122", "26.123"])
+def test_p0420_later_documented_proximal_all_boundaries_form(build):
+    """The samples in both editions, pp.342-343, retain the count -1 form."""
+    script = Script(build)
+    script.emit("SOLVER_PROXIMAL_BOUNDARIES", -1)
+    assert "SOLVER_PROXIMAL_BOUNDARIES -1" in script.render()

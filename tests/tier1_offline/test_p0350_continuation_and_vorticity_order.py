@@ -1,9 +1,9 @@
-"""Tier 1: a continuation continues the march; a rotor march lands its drag list before the solve.
+"""Tier 1: a continuation continues the march; an unsteady march selects drag before the solve.
 
 FR-396 (RPT-134): a continuation that reopens a saved state emits no INITIALIZE_SOLVER
 (FR-798), registers none of the unsteady actions the saved file carries (FR-799), and the post
 warns when a continuation adds no time step to the march (FR-800). FR-568 (RPT-133): a
-row turning a rotor in time that states vorticity_drag_families emits the list right
+row advancing in time that states vorticity_drag_families emits the list right
 before START_SOLVER. Each behaviour is checked on the script the package builds, with a
 control that shows the check can see the other answer, and each named difference of the
 parity checker is held to the real render.
@@ -266,18 +266,17 @@ def test_a_rotor_march_lands_its_drag_list_before_start_solver_fr_318(tmp_path, 
 
 
 @pytest.mark.parametrize("run_type", ["steady", "unsteady"])
-def test_a_row_turning_no_rotor_in_time_keeps_its_list_after_the_solve_fr_318(tmp_path, run_type):
-    """P0350-VORTICITY-BEFORE-SOLVE (FR-318), the control: FR-568 moves the list of a rotor march
-     only.
-
-    A steady row exports after the solve, and a march turning no rotor is outside the
-    requirement and RPT-133's measurement: both keep the list right after START_SOLVER,
-    as 0.34.0 emitted it.
-    """
+def test_p0420_rotorless_march_sets_vorticity_before_solve(tmp_path, run_type):
+    """Every march needs the selection before solving; steady exports follow the solve."""
     make = steady_case if run_type == "steady" else unsteady_case
     lines = _lines(_with_geometry(make(), tmp_path, vorticity_drag_families=["Blade"]))
     start = lines.index("START_SOLVER")
-    assert lines[start + 1 : start + 3] == ["SET_VORTICITY_DRAG_BOUNDARIES 1", "1"]
+    selection = lines.index("SET_VORTICITY_DRAG_BOUNDARIES 1")
+    assert lines[selection + 1] == "1"
+    if run_type == "unsteady":
+        assert selection < start
+    else:
+        assert lines[start + 1 : start + 3] == ["SET_VORTICITY_DRAG_BOUNDARIES 1", "1"]
 
 
 # --- the parity checker names each difference, and only it -----------------------------

@@ -63,6 +63,62 @@ def _tree() -> dict[str, str]:
     }
 
 
+def script_crossings(sources: dict[str, str]) -> set[tuple[str, str]]:
+    """Find private attribute use on imported, constructed or annotated Script values."""
+    found = set()
+    for rel, text in sources.items():
+        if rel.startswith("script/"):
+            continue
+        tree = ast.parse(text)
+        types = {"Script"}
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.ImportFrom)
+                and _imported_module(rel, node) == "pyflightstream.script"
+            ):
+                types.update(
+                    alias.asname or alias.name for alias in node.names if alias.name == "Script"
+                )
+        instances = set()
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.arg)
+                and isinstance(node.annotation, ast.Name)
+                and node.annotation.id in types
+            ):
+                instances.add(node.arg)
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+                call = node.value.func
+                if isinstance(call, ast.Name) and call.id in types:
+                    instances.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Attribute)
+                and node.attr.startswith("_")
+                and isinstance(node.value, ast.Name)
+                and node.value.id in instances
+            ):
+                found.add((rel, node.attr))
+    return found
+
+
+def test_p0420_cases_use_the_public_script_boundary():
+    assert script_crossings(_tree()) == set()
+
+
+def test_p0420_script_attribute_guard_sees_renamed_instances_and_reads():
+    planted = {
+        "cases/planted.py": "from pyflightstream.script import Script as Builder\n"
+        "def build(target: Builder):\n    target._through_the_door = True\n"
+        "other = Builder('26.124')\nfiles = other._pending_input_files\n",
+    }
+    assert script_crossings(planted) == {
+        ("cases/planted.py", "_through_the_door"),
+        ("cases/planted.py", "_pending_input_files"),
+    }
+    assert script_crossings({"script/planted.py": planted["cases/planted.py"]}) == set()
+
+
 def test_the_reparse_helper_has_a_public_name_in_its_home_module():
     """P0390-REV38 (NFR-45, PUSH-W12-ARCH-2): ``_links.is_reparse`` is public."""
     assert callable(_links.is_reparse)

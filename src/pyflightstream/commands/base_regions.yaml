@@ -80,6 +80,7 @@ SET_BASE_REGION_CP:
   phase: setup
   args:
     - name: base_index
+      cites: null
       type: int
     - name: base_model
       type: enum
@@ -207,6 +208,7 @@ DETECT_BASE_REGIONS_BY_SURFACE:
         p.321 took as positive only, and its second sample passes it
       args:
         - name: boundary_index
+          cites: boundaries
           all_sentinel: -1
   notes: >
     The same detection restricted to one mesh boundary, for a geometry
@@ -219,6 +221,7 @@ SET_BASE_REGION_TRAILING_EDGES:
   phase: setup
   args:
     - name: base_region_boundary
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.317"
   versions:
@@ -246,6 +249,7 @@ DELETE_BASE_REGION:
   phase: setup
   args:
     - name: base_region_boundary
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.317"
   versions:
@@ -271,6 +275,7 @@ SELECT_BASE_REGION_FACES:
   phase: setup
   args:
     - name: base_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.318"
   versions:
@@ -294,11 +299,13 @@ REMESH_BASE_REGION:
   phase: setup
   args:
     - name: base_region
+      cites: null
       type: int
     - name: inner_radius
       type: float
       unit: "simulation length units"
     - name: elements
+      cites: null
       type: int
     - name: growth_scheme
       type: enum
@@ -336,6 +343,7 @@ SET_OUTFLOW_TRAILING_EDGES:
   phase: setup
   args:
     - name: base_region_boundary
+      cites: null
       type: int
   manual_ref: "FSM-26.122 p.331"
   notes: >
@@ -385,6 +393,7 @@ SET_OUTLET_TRAILING_EDGES:
   phase: setup
   args:
     - name: base_region_boundary
+      cites: null
       type: int
   manual_ref: "FSM-26.123 p.331"
   notes: >

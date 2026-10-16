@@ -216,8 +216,7 @@ def _the_actions_the_saved_state_runs(
     """
     carried = Script(script.version, script.registry)
     register_unsteady_actions(carried, threshold, walltime=walltime)
-    script._unsteady_actions.update((use.name, use) for use in carried.unsteady_actions)
-    script._pending_action_scripts.update(carried.pending_action_scripts)
+    script.carry_unsteady_actions(carried.unsteady_actions, carried.pending_action_scripts)
 
 
 def _refuse_cold_start_on_a_march(case: SimCase, run_type: str) -> None:

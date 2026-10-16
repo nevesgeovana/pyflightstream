@@ -76,8 +76,10 @@ ASSIGN_AEROELASTIC_SURFACES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
+      cites: null
       type: int_list
       separator: newline
       required: false
@@ -112,6 +114,7 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
   phase: init
   args:
     - name: num_index
+      cites: null
       type: int
     - name: frame_indices
       type: int_list
@@ -149,7 +152,7 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
     interpretation, not an established fact; PLN-20260808-1100 carries the probe.
 
 IMPORT_AEROELASTIC_STRUCTURAL_NODES:
-  layout: inline
+  layout: mixed_inline
   phase: init
   args:
     - name: structural_coordinate_system
@@ -190,7 +193,7 @@ DELETE_AEROELASTIC_STRUCTURAL_NODES:
   notes: Deletes all imported structural nodes.
 
 SET_AEROELASTIC_WORKING_DIRECTORY:
-  layout: inline
+  layout: param_lines
   phase: init
   args:
     - name: directory_path
@@ -211,7 +214,7 @@ SET_AEROELASTIC_WORKING_DIRECTORY:
     working directory of the external executable's process.
 
 SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
-  layout: inline
+  layout: param_lines
   phase: init
   args:
     - name: script_path
@@ -232,7 +235,7 @@ SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
     example the surface section loads export.
 
 SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
-  layout: inline
+  layout: param_lines
   phase: init
   args:
     - name: command
@@ -256,6 +259,7 @@ SET_AEROELASTIC_ITERATIONS:
   phase: init
   args:
     - name: num_iterations
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.376"
   versions:

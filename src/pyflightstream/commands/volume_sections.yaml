@@ -15,6 +15,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
     - name: offset
       type: float
     - name: refinement_layers
+      cites: null
       type: int
     - name: x1
       type: float
@@ -30,6 +31,7 @@ CREATE_NEW_RECTANGLE_VOLUME_SECTION:
     - name: thickness
       type: float
     - name: layers
+      cites: null
       type: int
     - name: growth_rate
       type: float
@@ -63,8 +65,10 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
     - name: offset
       type: float
     - name: ipts
+      cites: null
       type: int
     - name: jpts
+      cites: null
       type: int
     - name: r1
       type: float
@@ -76,6 +80,7 @@ CREATE_NEW_CIRCLE_VOLUME_SECTION:
     - name: thickness
       type: float
     - name: layers
+      cites: null
       type: int
     - name: growth_rate
       type: float
@@ -103,6 +108,7 @@ VOLUME_SECTION_BOUNDARY_LAYER:
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
@@ -143,11 +149,12 @@ UPDATE_ALL_VOLUME_SECTIONS:
     "26.125": {status: documented, note: "FSM-26.125 p.378, unchanged from FSM-26.124 p.372"}
 
 EXPORT_VOLUME_SECTION_VTK:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: filename
       type: path
       own_line: true
@@ -168,11 +175,12 @@ EXPORT_VOLUME_SECTION_VTK:
     The file path follows on the line after the section index.
 
 EXPORT_VOLUME_SECTION_TECPLOT:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: filename
       type: path
       own_line: true
@@ -198,6 +206,7 @@ DELETE_VOLUME_SECTION:
   args:
     - name: index
       type: int
+      cites: volume_sections
   manual_ref: "FSM-26.120 p.367"
   versions:
     "25.000": {status: documented, note: "FSM-25.000 p.327, same grammar as 26.120"}
@@ -238,6 +247,7 @@ VOLUME_SECTION_WIREFRAME:
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: mode
       type: enum
       values: [ENABLE, DISABLE]
@@ -265,11 +275,12 @@ VOLUME_SECTION_WIREFRAME:
     which agree with each other.
 
 EXPORT_VOLUME_SECTION_2D_VTK:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: index
       type: int
+      cites: volume_sections
     - name: file
       type: path
       own_line: true

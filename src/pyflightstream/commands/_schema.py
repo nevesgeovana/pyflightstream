@@ -10,17 +10,23 @@ is the typed specification of one argument. Everything here is re-exported by
 from __future__ import annotations
 
 import enum
+import re
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from pyflightstream._errors import PyflightstreamError
+
+if TYPE_CHECKING:
+    from pyflightstream.commands import CommandEntry
 
 
 class Layout(enum.StrEnum):
     """Script layout grammars a command can use.
 
     ``bare`` has no arguments; ``inline`` takes arguments on the command
-    line; ``param_lines`` takes the command name alone and its
+    line; ``mixed_inline`` adds explicitly declared following lines to
+    an inline head; ``param_lines`` takes the command name alone and its
     parameters each on a following line, ended by a blank line (the
     multi-line function grammar of FSM-26.120 p.279, for example OPEN on
     p.282); ``payload_lines`` takes a count followed by that many data
@@ -29,6 +35,7 @@ class Layout(enum.StrEnum):
 
     BARE = "bare"
     INLINE = "inline"
+    MIXED_INLINE = "mixed_inline"
     PARAM_LINES = "param_lines"
     PAYLOAD_LINES = "payload_lines"
     KEYWORD_BLOCK = "keyword_block"
@@ -134,6 +141,7 @@ class EntityKind(enum.StrEnum):
     ACTUATORS = "actuators"
     MOTIONS = "motions"
     BOUNDARIES = "boundaries"
+    VOLUME_SECTIONS = "volume_sections"
 
 
 class ListSeparator(enum.StrEnum):
@@ -211,13 +219,15 @@ class ArgSpec(BaseModel):
         Whether the argument must be supplied; optional arguments are
         the ones the manual marks as such (for example
         LOAD_SOLVER_INITIALIZATION of OPEN, FSM-26.120 p.282).
+        Presence-keyword bool arguments default to optional; an explicit
+        required declaration still takes precedence.
     separator : ListSeparator
         How a list-typed argument joins its values when rendered; the
         manual fixes it per command (see :class:`ListSeparator`).
     own_line : bool
-        For inline commands whose file path follows on the line after
+        For mixed_inline commands whose file path follows on the line after
         the inline arguments (for example SET_PROP_ACTUATOR_PROFILE,
-        FSM-26.120 pp.323-324).
+        FSM-26.120 pp.323-324), or a bare value line in param_lines.
     joins_previous : bool
         The value is appended to the script line of the preceding
         argument instead of taking its own KEY VALUE line; the copy
@@ -289,6 +299,17 @@ class ArgSpec(BaseModel):
     fixed_length: int | None = None
     cites: EntityKind | None = None
     all_sentinel: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _presence_keywords_are_optional(cls, value: object) -> object:
+        if (
+            isinstance(value, dict)
+            and value.get("type") == ArgType.BOOL
+            and "required" not in value
+        ):
+            return {**value, "required": False}
+        return value
 
     @model_validator(mode="after")
     def _enum_types_carry_values(self) -> ArgSpec:
@@ -391,7 +412,7 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
     """
     if layout is Layout.BARE and args:
         raise CommandDatabaseError(f"{name} has layout bare and must not declare arguments")
-    if layout is Layout.INLINE:
+    if layout in (Layout.INLINE, Layout.MIXED_INLINE):
         optional = False
         for arg in args:
             if arg.own_line:
@@ -402,8 +423,12 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
                     "make positional arguments required before optional ones"
                 )
             optional = optional or not arg.required
-    if layout is not Layout.INLINE and any(arg.own_line for arg in args):
-        raise CommandDatabaseError(f"{name}: own_line only applies to inline commands")
+    if layout not in (Layout.MIXED_INLINE, Layout.PARAM_LINES) and any(
+        arg.own_line for arg in args
+    ):
+        raise CommandDatabaseError(
+            f"{name}: own_line requires an explicit mixed_inline or param_lines layout"
+        )
     if layout is not Layout.KEYWORD_BLOCK and any(arg.type is ArgType.BOOL for arg in args):
         raise CommandDatabaseError(
             f"{name}: bool arguments are bare presence keywords of a "
@@ -417,7 +442,7 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
 
 def _check_inline_lists(name: str, layout: Layout, args: tuple[ArgSpec, ...]) -> None:
     """Reject an inline list that declares a separator other than a space."""
-    if layout is Layout.INLINE:
+    if layout in (Layout.INLINE, Layout.MIXED_INLINE):
         for arg in args:
             if arg.is_list and arg.separator is not ListSeparator.SPACE:
                 raise CommandDatabaseError(
@@ -478,3 +503,41 @@ def _check_joins_previous(name: str, layout: Layout, args: tuple[ArgSpec, ...]) 
             raise CommandDatabaseError(
                 f"{name}: {arg.name!r} joins {anchor.name!r}, which is not a scalar keyword line"
             )
+
+
+#: A source-and-page citation as this database writes one, for pulling
+#: the edition's own page out of a per-version note.
+_NOTE_CITATION = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)\s+pp?\.\s*\d+(?:\s*-\s*\d+)?")
+
+
+def _override_citation(entry: CommandEntry, source: str, note: str | None) -> str:
+    """Citation for a version whose grammar overrides the entry's.
+
+    Prefers the page the version's own note cites, since that is the
+    edition documenting the overridden signature. Falls back to the
+    entry citation, still marked with the version, because naming the
+    build is useful even when the note gave no page.
+
+    Parameters
+    ----------
+    entry : CommandEntry
+        Entry carrying the default grammar.
+    source : str
+        Canonical identifier of the version whose record supplies the
+        override, for example ``"26.100"``.
+    note : str or None
+        That record's note, which usually opens with its own citation.
+
+    Returns
+    -------
+    str
+        Citation text for a refusal message.
+    """
+    # A note's page is used only for an entry that rests on a manual
+    # page. For a probe-cited entry the note may still mention a manual
+    # page, and taking it would put a page citation into ``probe_ref``,
+    # which fails that field's own repository-relative-path rule; the
+    # copy runs no validator, so nothing downstream would say so.
+    found = _NOTE_CITATION.search(note or "") if entry.manual_ref else None
+    cited = found.group(0) if found else entry.citation
+    return f"{cited}, the {source} grammar"

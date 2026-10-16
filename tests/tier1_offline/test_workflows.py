@@ -138,7 +138,6 @@ from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import (
     CommandArgumentError,
     Script,
-    ScriptReferenceError,
     helpers,
     rotor_vocabulary,
 )
@@ -2117,7 +2116,7 @@ def _metre_saved(root: Path, relative: str) -> str:
     G34 of 0.29.0 (e9fa00ec): every length stated in metres, the runtime velocity
     included, reaches the script in the simulation's own unit, or is refused where
     that unit is not read. A builder handed a path to no file is therefore refused
-    by name (ScriptReferenceError) rather than opening it blind, so the geometry
+    by name (CampaignConfigError) rather than opening it blind, so the geometry
     tests below stage a readable file instead of naming a missing one.
     """
     target = root / relative
@@ -2152,7 +2151,7 @@ def test_a_saved_geometry_that_is_not_there_is_refused_by_name():
     """The other half of the G34 rule the tests above stage a file for: a saved
     simulation whose unit cannot be read because the file is absent is refused,
     naming the path, rather than having its metres written as if it were in metres."""
-    with pytest.raises(ScriptReferenceError) as refused:
+    with pytest.raises(CampaignConfigError) as refused:
         rendered(steady_case(geometry=STAGED))
     assert STAGED in str(refused.value)
     assert "Restore the file or correct its path" in str(refused.value)
@@ -3759,7 +3758,7 @@ def test_a_row_naming_a_surface_the_geometry_lacks_is_refused_naming_what_it_has
     """An unknown name is refused, and the refusal is didactic."""
     sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
     script = Script("26.123")
-    with pytest.raises(ScriptReferenceError) as raised:
+    with pytest.raises(CampaignConfigError) as raised:
         build_script(_rotor_row(sector, "Blade,Nacelle"), script)
     message = str(raised.value)
     assert "Nacelle" in message
@@ -4709,14 +4708,14 @@ def test_an_unknown_base_region_family_is_refused_naming_the_inventory(tmp_path)
     row = _rotor_row(sector, "Blade").model_copy(
         update={"variables": {**_rotor_row(sector, "Blade").variables, "BASE_REGIONS": "Wing"}}
     )
-    with pytest.raises(ScriptReferenceError) as caught:
+    with pytest.raises(CampaignConfigError) as caught:
         build_script(row, Script("26.123"))
     message = str(caught.value)
     assert "BASE_REGIONS" in message and "'Wing'" in message
     assert "the mesh block of sector.fsm" in message and "'Blade1', 'S', 'N'" in message
     placeholder = tmp_path / "placeholder.fsm"
     placeholder.write_bytes(b"fake simulation")
-    with pytest.raises(ScriptReferenceError) as blockless:
+    with pytest.raises(CampaignConfigError) as blockless:
         build_script(row.model_copy(update={"geometry": str(placeholder)}), Script("26.123"))
     assert "placeholder.fsm" in str(blockless.value) and "carries no mesh block" in str(
         blockless.value

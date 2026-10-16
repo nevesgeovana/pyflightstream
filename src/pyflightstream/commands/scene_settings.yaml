@@ -78,9 +78,11 @@ SET_SCENE_COLORMAP_SIZE:
       type: enum
       values: [PRIMARY, SECONDARY]
     - name: thickness
+      cites: null
       type: int
       unit: "pixels"
     - name: height
+      cites: null
       type: int
       unit: "pixels"
   manual_ref: "FSM-26.120 p.356"
@@ -104,8 +106,10 @@ SET_SCENE_COLORMAP_SIZE:
         - name: colormap
           on_command_line: true
         - name: thickness
+          cites: null
           on_command_line: true
         - name: height
+          cites: null
           on_command_line: true
   notes: >
     Size of the colour bar in screen pixels. THICKNESS IS THE LONG
@@ -120,9 +124,11 @@ SET_SCENE_COLORMAP_POSITION:
       type: enum
       values: [PRIMARY, SECONDARY]
     - name: x
+      cites: null
       type: int
       unit: "pixels"
     - name: y
+      cites: null
       type: int
       unit: "pixels"
   manual_ref: "FSM-26.120 p.356"
@@ -145,8 +151,10 @@ SET_SCENE_COLORMAP_POSITION:
         - name: colormap
           on_command_line: true
         - name: x
+          cites: null
           on_command_line: true
         - name: y
+          cites: null
           on_command_line: true
   notes: >
     Position of the colour bar in screen pixels. These are window

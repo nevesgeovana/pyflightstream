@@ -30,6 +30,7 @@ from pyflightstream._digest import optional_file_sha256
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.commands import CommandEntry, CommandRegistry, Status
+from pyflightstream.qa._reanalysis import _citation, _withdrawals, _write_reanalysis
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
 from pyflightstream.qa.reports import (
@@ -54,6 +55,7 @@ __all__ = [
     "PROMOTABLE_OUTCOMES",
     "WITHHELD_DIGEST",
     "apply_compat",
+    "apply_reanalysis",
     "classify_executable",
     "compat_report_paths",
     "contradicting_evidence",
@@ -64,6 +66,7 @@ __all__ = [
     "read_executable_baseline",
     "resolve_commands_dir",
     "write_compat_report",
+    "write_reanalysis",
 ]
 
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
@@ -411,6 +414,7 @@ def read_compat_reports(
         reports_dir = Path(repo_root) / "reports" / "compat"
     reports_dir = Path(reports_dir)
     index: dict[tuple[str, str], list[Judgment]] = {}
+    withdrawn: set[tuple[str, str, str]] = set()
     if not reports_dir.is_dir():
         # An absent default is the first-report case and yields an empty index.
         # An explicitly named missing path is refused here for every caller:
@@ -440,6 +444,7 @@ def read_compat_reports(
         document = _load_yaml(path)
         if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
             continue
+        withdrawn.update(_withdrawals(document, root))
         try:
             citation = path.resolve().relative_to(root).as_posix()
         except ValueError:
@@ -458,7 +463,11 @@ def read_compat_reports(
                         report=citation,
                     )
                 )
-    return {key: tuple(sorted(value, key=lambda j: j.date)) for key, value in index.items()}
+    return {
+        key: tuple(sorted(active, key=lambda j: j.date))
+        for key, value in index.items()
+        if (active := [j for j in value if (*key, j.report) not in withdrawn])
+    }
 
 
 def contradicting_evidence(
@@ -658,6 +667,8 @@ def apply_compat(
     # promoted from a report the tool has already judged unfit, which
     # is a worse state than either applying it or refusing it.
     judgments = read_compat_reports(reports_dir, repo_root=repo_root)
+
+    _refuse_withdrawn_promotion(citation, canonical, targets, reports_dir, root)
     incoming_date = str(report.get("date") or "")
     superseded = [
         (name, body["outcome"], contradicting)
@@ -1052,6 +1063,7 @@ def _rewritten_flow_entry(
         and existing.get("status") == ProbeOutcome.VERIFIED.value
         and existing.get("report")
         and existing.get("report") != citation
+        and not body.get("reconciles_withdrawal")
     ):
         return line
 
@@ -1061,7 +1073,7 @@ def _rewritten_flow_entry(
     # carried-through keys are new output, and they go after.
     owned = {"status", "report"}
     pairs: dict[str, object] = {"status": status, "report": citation}
-    if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value):
+    if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value, "documented"):
         # A removed row REQUIRES a note (the model refuses one without),
         # because the status alone cannot say which of the three ways it
         # arrived; the probe detail says it was measured.
@@ -1077,6 +1089,8 @@ def _promoted_note(previous: object, detail: object, status: str) -> str:
     previous = str(previous or "").strip()
     if previous == note or previous.endswith(f"Probe: {note}"):
         return previous
+    if status == "documented" and _EDITION_PAGE.search(previous):
+        return note if previous.startswith(note) else f"{note} Prior edition evidence: {previous}"
     if status == ProbeOutcome.BROKEN.value and previous:
         return f"{previous} Probe: {note}"
     return note
@@ -1110,10 +1124,9 @@ def _rewrite_version_line(
     unpromotable and the only remaining route a hand edit, which
     invariant 3 forbids outright.
 
-    Still refused loudly: a command whose ``versions:`` block holds no
-    single-line flow-mapping entry to pattern the new one on. That block
-    is either multi-line or malformed, and guessing its shape is how a
-    mechanical edit mangles a file.
+    Flow and block version mappings are both supported. A block promotion
+    preserves its grammar and unchanged notes; insertion follows complete
+    version mappings rather than splitting a multiline row.
     """
     lines = text.splitlines()
     start = None
@@ -1140,40 +1153,29 @@ def _rewrite_version_line(
     recorded = [
         (index, match.group(1), match.group(2))
         for index in range(start, end)
-        if (match := _VERSION_LINE.match(lines[index])) is not None
+        if (match := re.match(r'^( {4})"([^"]+)":', lines[index])) is not None
     ]
-    for index, _indent, recorded_canonical in recorded:
-        if recorded_canonical == canonical:
+
+    for index, indent, recorded_canonical in recorded:
+        if recorded_canonical != canonical:
+            continue
+        if _VERSION_LINE.match(lines[index]):
             lines[index] = _rewritten_flow_entry(
                 lines[index], chapter, name, canonical, citation, body
             )
-            return "\n".join(lines) + "\n"
-
-    # Refuse an existing block-form version row: _VERSION_LINE sees only flow
-    # mappings, so inserting beside a block would duplicate its key and YAML
-    # would discard one. This writer cannot preserve a block's notes and grammar
-    # overrides while rewriting it.
-    block = f'{" " * 4}"{canonical}":'
-    for index in range(start, end):
-        if lines[index].rstrip() == block:
-            raise QaEvidenceError(
-                f"{chapter}: {name} already records {canonical!r} as a multi-line "
-                "block, which this promotion cannot rewrite without discarding the "
-                "note or argument override the block carries. Fold the new status "
-                f"and report into that block by hand, citing {citation!r}, and leave "
-                "the rest of it alone; the status still comes from a committed "
-                "report, which is what invariant 3 asks."
-            )
+        else:
+            stop = _version_row_end(lines, index, end)
+            existing = yaml.safe_load("\n".join(lines[index:stop]))[canonical]
+            synthetic = f'{indent}"{canonical}": {_flow_mapping(existing)}'
+            rewritten = _rewritten_flow_entry(synthetic, chapter, name, canonical, citation, body)
+            _, updated = _parsed_flow_entry(rewritten, chapter, name, canonical)
+            if existing == updated:
+                return text
+            _rewrite_block_fields(lines, index, stop, existing, updated)
+        return "\n".join(lines) + "\n"
 
     if not recorded:
-        raise QaEvidenceError(
-            f"{chapter}: {name} records no version as a single-line entry, so this "
-            f"promotion has no line to copy the shape of the new {canonical!r} entry "
-            f"from. Rewrite the versions: block of {name} as one line per version "
-            "(for example '\"26.120\": {status: documented}') and re-run "
-            "pyfs-qa apply-compat; a status is promoted from a committed report, "
-            "never hand-edited (CONTRIBUTING.md invariant 3)."
-        )
+        raise QaEvidenceError(f"{chapter}: {name} records no version mapping to extend")
 
     position = order[canonical]
     indent = recorded[0][1]
@@ -1183,7 +1185,7 @@ def _rewrite_version_line(
             for index, _, recorded_canonical in recorded
             if order.get(recorded_canonical, -1) > position
         ),
-        recorded[-1][0] + 1,
+        _version_row_end(lines, recorded[-1][0], end),
     )
     lines.insert(insert_at, f'{indent}"{canonical}": {_flow_mapping(pairs)}')
     return "\n".join(lines) + "\n"
@@ -1716,3 +1718,166 @@ def licence_sensitive_candidates(
             )
         )
     return tuple(sorted(candidates, key=lambda candidate: (candidate.chapter, candidate.command)))
+
+
+def _version_row_end(lines: list[str], index: int, end: int) -> int:
+    for following in range(index + 1, end):
+        line = lines[following]
+        if (
+            line.strip()
+            and not line.lstrip().startswith("#")
+            and len(line) - len(line.lstrip()) <= 4
+        ):
+            return following
+    return end
+
+
+def _rewrite_block_fields(
+    lines: list[str],
+    index: int,
+    stop: int,
+    existing: dict,
+    updated: dict,
+) -> None:
+    """Replace changed evidence fields while retaining untouched grammar text."""
+    fields = [
+        (at, match.group(1))
+        for at in range(index + 1, stop)
+        if (match := re.match(r"^      ([a-z_]+):", lines[at])) is not None
+    ]
+    # Replace only owned values, from bottom to top; grammar, comments and
+    # multiline edition notes that did not change retain their exact text.
+    for position in range(len(fields) - 1, -1, -1):
+        at, key = fields[position]
+        if existing.get(key) == updated.get(key):
+            continue
+        finish = fields[position + 1][0] if position + 1 < len(fields) else stop
+        lines[at:finish] = ["      " + _flow_mapping({key: updated[key]})[1:-1]]
+    missing = {key: value for key, value in updated.items() if key not in existing}
+    for key, value in reversed(list(missing.items())):
+        lines.insert(index + 1, "      " + _flow_mapping({key: value})[1:-1])
+
+
+def write_reanalysis(
+    source: str | Path,
+    explanations: Mapping[str, str],
+    *,
+    repo_root: str | Path,
+    date: str,
+    label: str,
+) -> tuple[Path, Path]:
+    """Write a dated, analysis-only withdrawal preserving the source execution.
+
+    Each named command requires an explanation. This operation withdraws a
+    judgment, not its observations, and launches nothing. The original report
+    UTF-8 text with LF line ends is pinned so that checkout line endings do not
+    change provenance and later content edits cannot silently change it.
+    Apply the result explicitly with :func:`apply_reanalysis` after review.
+
+    Parameters
+    ----------
+    source : str or Path
+        Original committed compatibility report, inside the repository.
+    explanations : mapping of str to str
+        Commands to withdraw and the reason for each withdrawal.
+    repo_root : str or Path
+        Repository containing the original report and output directory.
+    date : str
+        ISO analysis date, later than the original report.
+    label : str
+        Distinguishing suffix for the analysis report filenames.
+
+    Returns
+    -------
+    tuple of Path
+        New YAML report and rendered Markdown report, respectively.
+
+    Raises
+    ------
+    QaEvidenceError
+        If provenance, dates, explanations or report destinations are invalid.
+    """
+    return _write_reanalysis(source, explanations, repo_root=repo_root, date=date, label=label)
+
+
+def apply_reanalysis(report_path: str | Path, *, repo_root: str | Path) -> list[str]:
+    """Reconcile withdrawn judgments through validated chapter rewrites.
+
+    Independent measured evidence remains authoritative. Where none remains,
+    the row records direct inconclusive evidence as documented, never verified
+    or broken. The original report remains on disk and cannot be reapplied.
+
+    Parameters
+    ----------
+    report_path : str or Path
+        Explicit dated withdrawal report to apply.
+    repo_root : str or Path
+        Repository holding the reports and command chapters.
+
+    Returns
+    -------
+    list of str
+        Sorted command names whose judgments were reconciled.
+
+    Raises
+    ------
+    QaEvidenceError
+        If source evidence changed, a command is unknown or validation fails.
+    """
+    root = Path(repo_root).resolve()
+    report = read_compat_report(report_path)
+    citation = _citation(Path(report_path).resolve(), root)
+    withdrawn = _withdrawals(report, root)
+    names = {name for name, _, _ in withdrawn}
+    if names != set(report["commands"]):
+        raise QaEvidenceError("every reanalysis command must withdraw its own source judgment")
+    directory = resolve_commands_dir(root)
+    order = _release_order(directory)
+    version = report["fs_version"]
+    judgments = read_compat_reports(repo_root=root)
+    pending = set(names)
+    rewritten = []
+    for path in sorted(directory.glob("*.yaml")):
+        entries = _load_yaml(path)
+        selected = sorted(pending.intersection(entries))
+        if not selected:
+            continue
+        original = text = path.read_text(encoding="utf-8")
+        for name in selected:
+            remaining = judgments.get((name, version), ())
+            source = remaining[-1].report if remaining else citation
+            body = (
+                read_compat_report(root / source)["commands"][name]
+                if remaining
+                else dict(
+                    outcome="documented",
+                    detail="direct inconclusive evidence; " + report["commands"][name]["detail"],
+                )
+            )
+            body = {**body, "reconciles_withdrawal": True}
+            text = _rewrite_version_line(text, path.name, name, version, body, source, order)
+            pending.remove(name)
+        _validate_chapter(path.name, text, selected)
+        rewritten.append((path, original, text))
+    if pending:
+        raise QaEvidenceError(f"unknown commands in reanalysis: {sorted(pending)}")
+    _write_changed(rewritten)
+    return sorted(names)
+
+
+def _refuse_withdrawn_promotion(
+    citation: str,
+    version: str,
+    targets: Mapping[str, Any],
+    reports_dir: str | Path | None,
+    root: Path,
+) -> None:
+    """Prevent reapplying precisely the judgments an explicit review withdrew."""
+    directory = Path(reports_dir) if reports_dir is not None else root / "reports" / "compat"
+    for path in directory.glob("*.yaml"):
+        document = _load_yaml(path)
+        if not isinstance(document, dict) or document.get("analysis_only") is not True:
+            continue
+        withdrawn = _withdrawals(document, root)
+        if any((name, version, citation) in withdrawn for name in targets):
+            raise QaEvidenceError(f"{citation}: judgment withdrawn by {path.name}; nothing written")

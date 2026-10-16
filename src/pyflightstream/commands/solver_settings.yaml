@@ -23,6 +23,7 @@ SET_SOLVER_UNSTEADY:
   phase: init
   args:
     - name: time_iterations
+      cites: null
       type: int
     - name: delta_time
       type: float
@@ -60,7 +61,7 @@ SET_BOUNDARY_LAYER_TYPE:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "FSM-26.100 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.340, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
@@ -87,7 +88,7 @@ SET_SOLVER_VISCOUS_COUPLING:
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"}
     "26.100": {status: documented, note: "FSM-26.100 p.338, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.340, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
     "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.346, unchanged from FSM-26.122 p.346"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.346, the FSM-26.123 file, carried from 26.123"}
@@ -102,6 +103,7 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -158,6 +160,7 @@ CREATE_BULK_SEPARATION:
       type: enum
       values: [CYLINDRICAL, FLAT_PLATE]
     - name: num_boundaries
+      cites: null
       type: int
     - name: diameter
       type: float
@@ -186,6 +189,7 @@ CREATE_BULK_SEPARATION:
         - name: name
           type: str
         - name: num_boundaries
+          cites: null
           type: int
         - name: diameter
           type: float
@@ -241,6 +245,7 @@ CREATE_AIRFOIL_SEPARATION:
     - name: name
       type: str
     - name: num_boundaries
+      cites: null
       type: int
     - name: valarezo_criterion
       type: enum
@@ -267,10 +272,12 @@ CREATE_AIRFOIL_SEPARATION:
       args:
         - name: name
         - name: num_boundaries
+          cites: null
         - name: leading_edge_type
           type: enum
           values: [ROUNDED_UNSWEPT, ROUNDED_SWEPT, HIGH_LIFT, SHARP]
         - name: boundary_indices
+          cites: boundaries
   notes: >
     Assigns the airfoil (trailing-edge) separation model to the listed
     boundaries, with the Valarezo maximum-lift criterion enabled or
@@ -285,6 +292,7 @@ CREATE_AXIAL_VORTEX_SEPARATION:
     - name: name
       type: str
     - name: num_boundaries
+      cites: null
       type: int
     - name: frame
       type: int
@@ -327,6 +335,7 @@ CREATE_CYLINDRICAL_BULK_SEPARATION:
     - name: name
       type: str
     - name: num_boundaries
+      cites: null
       type: int
     - name: diameter
       type: float
@@ -356,6 +365,7 @@ CREATE_STRATFORD_BULK_SEPARATION:
     - name: name
       type: str
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -379,6 +389,7 @@ DELETE_SEPARATION:
   phase: init
   args:
     - name: index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.342"
   versions:
@@ -416,6 +427,7 @@ SET_AXIAL_SEPARATION_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -452,6 +464,7 @@ SET_VALAREZO_SEPARATION_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -509,6 +522,7 @@ SET_CROSSFLOW_SEPARATION_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -612,6 +626,7 @@ SET_THIN_BOUNDARIES:
   phase: init
   args:
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -662,9 +677,9 @@ SOLVER_STABILIZATION:
   manual_ref: "FSM-26.120 p.346"
   versions:
     "26.101": {status: documented, note: "FSM-26.101 p.345, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
     "26.121": {status: documented, note: "FSM-26.121 p.348, same grammar as 26.120"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
+    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.350, unchanged from FSM-26.122 p.350"}
     "26.124": {status: documented, note: "FSM-26.124 p.350, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.357, unchanged from FSM-26.124 p.350"}
   notes: >

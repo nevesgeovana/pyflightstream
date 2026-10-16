@@ -43,8 +43,27 @@ from pyflightstream.post import (
     write_reduction,
     write_series,
 )
+from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.post.writers import write_tecplot_points, write_vtk_points
 from pyflightstream.script import Script, helpers
+
+
+@pytest.mark.parametrize("operation", ["average", "windows"])
+def test_p0420_empty_series_names_missing_frames(operation):
+    """An empty series has no endpoint to index in either passage operation."""
+    series = TimestepSeries(
+        steps=np.array([], dtype=int),
+        times_s=None,
+        points=np.zeros((1, 3)),
+        fields={"cp": np.empty((0, 1))},
+        sources=(),
+    )
+    with pytest.raises(MalformedOutputError, match="series holds no frame"):
+        if operation == "average":
+            blade_passage_average(series, window=(0, 1))
+        else:
+            passage_windows(series, period_steps=1)
+
 
 POINTS = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
 

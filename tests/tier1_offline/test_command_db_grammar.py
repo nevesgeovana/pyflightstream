@@ -171,6 +171,8 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
     },
     "SOLVER_PROXIMAL_BOUNDARIES": {
         "26.121": {"optional": ("boundary_indices",)},
+        "26.122": {"optional": ("boundary_indices",)},
+        "26.123": {"optional": ("boundary_indices",)},
     },
     "UNSTEADY_SOLVER_NEW_FLUID_PLOT": {
         "26.121": {
@@ -356,6 +358,8 @@ PER_VERSION_OPTIONAL: dict[tuple[str, str], tuple[str, ...]] = {
     ("NEW_SURFACE_SECTION_DISTRIBUTION", "26.101"): ("surface_indices",),
     ("OPEN", "25.000"): ("reset_parallel_cores", "load_solver_initialization"),
     ("SOLVER_PROXIMAL_BOUNDARIES", "26.121"): ("boundary_indices",),
+    ("SOLVER_PROXIMAL_BOUNDARIES", "26.122"): ("boundary_indices",),
+    ("SOLVER_PROXIMAL_BOUNDARIES", "26.123"): ("boundary_indices",),
 }
 
 # 26.125 (item S10): THE EDITION READ AGAINST 26.124's, page against page
@@ -494,6 +498,21 @@ PER_VERSION_OPTIONAL.update(
         ("UNSTEADY_SOLVER_NEW_FORCE_PLOT", "26.125"): ("boundary_indices",),
     }
 )
+
+
+# P0420, PFS-2003.11: FSM-25.000/25.100/26.000, ten formerly withheld rows.
+for _command in ("IMPORT_CAD", "CAD_CREATE_IMPORT_CURVE_CCS"):
+    PER_VERSION_GRAMMAR.setdefault(_command, {}).update(
+        {version: {"names": ("file",)} for version in ("25.000", "25.100", "26.000")}
+    )
+for _version in ("25.000", "25.100"):
+    PER_VERSION_GRAMMAR.setdefault("SET_SCENE_CONTOUR", {})[_version] = {
+        "enum:variable": tuple(str(n) for n in range(26))
+    }
+    PER_VERSION_GRAMMAR.setdefault("NEW_OFF_BODY_STREAMTUBE", {})[_version] = {
+        "names": ("radius", "frame", "axis", "radial_subdivisions", "azimuth_subdivisions"),
+        "enum:axis": ("1", "2", "3"),
+    }
 
 
 def _layout_delta(command: str, version: str, arg: str, field: str) -> bool:
@@ -724,8 +743,8 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # unit: four fields.
     # 0.37.0 item S10: the twenty-five 26.125 overrides name their arguments
     # and inherit the rest, 142 fields more.
-    # 203 since the 26.125 revolve export states the sample's form (nine fields).
-    assert checked == 203, (
+    # P0420: the ten manual layout readings add two inherited fields.
+    assert checked == 180, (
         f"{checked} inherited fields were checked and the shipped database has 33, "
         "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "
         "here is an override that stopped inheriting or started, both of which are "
@@ -841,7 +860,7 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # 0.37.0 item S10: the 26.125 overrides add 693 comparisons; the fields a
     # `sentinel:` or `command_line` delta names are skipped for that argument only.
     # 1821 since the 26.125 revolve export override (five arguments the base carries).
-    assert compared == 1821, (
+    assert compared == 1949, (
         f"{compared} field comparisons ran and the shipped database supports 976. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"

@@ -155,6 +155,14 @@ class InputArtifactError(PyflightstreamError, RuntimeError):
         self.available = available
 
 
+class SolverSetupError(PyflightstreamError, RuntimeError):
+    """The solver-setup snapshot cannot represent a command in its registry.
+
+    RuntimeError remains a base for callers already handling this internal
+    consistency refusal through the public solver-settings API.
+    """
+
+
 class ProductArgumentError(PyflightstreamError, TypeError):
     """A product writer was called with arguments that contradict each other.
 

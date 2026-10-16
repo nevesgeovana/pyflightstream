@@ -174,7 +174,7 @@ CLEAR_LOG:
     it; the warning is stated where a reader meets the command.
 
 OUTPUT_SURFACE_INDICES:
-  layout: inline
+  layout: param_lines
   phase: control
   args:
     - name: file

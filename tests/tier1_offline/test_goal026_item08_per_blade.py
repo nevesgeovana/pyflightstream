@@ -28,7 +28,20 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from pyflightstream._errors import ProductError
 from pyflightstream.post.unsteady import TimestepSeries, per_blade_rows
+
+
+@pytest.mark.parametrize("blades,period,window", [(0, 8, (1, 8)), (2, 0, (1, 8)), (2, 8, (20, 21))])
+def test_p0420_per_blade_rows_uses_product_refusal(blades, period, window):
+    with pytest.raises(ProductError):
+        per_blade_rows(_series(), window=window, blades=blades, steps_per_revolution=period)
+
+
+def test_p0420_per_blade_rows_has_explicit_public_status():
+    from pyflightstream.post import unsteady
+
+    assert "per_blade_rows" in unsteady.__all__
 
 
 def _series(n_steps: int = 8) -> TimestepSeries:

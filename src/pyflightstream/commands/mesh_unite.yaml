@@ -51,8 +51,10 @@ BOOLEAN_UNITE_MESH:
   phase: geometry
   args:
     - name: num_bodies
+      cites: null
       type: int
     - name: body_indices
+      cites: null
       type: int_list
       separator: space
       required: false
@@ -63,6 +65,7 @@ BOOLEAN_UNITE_MESH:
       note: "FSM-25.000 p.272, this edition's own grammar; see the note below"
       args:
         - name: num_bodies
+          cites: null
           type: int
         - name: body_unite_types
           type: str_list
@@ -73,6 +76,7 @@ BOOLEAN_UNITE_MESH:
       note: "FSM-25.100 p.290, this edition's own grammar; see the note below"
       args:
         - name: num_bodies
+          cites: null
           type: int
         - name: body_unite_types
           type: str_list
@@ -83,6 +87,7 @@ BOOLEAN_UNITE_MESH:
       note: "FSM-26.000 p.289, this edition's own grammar; see the note below"
       args:
         - name: num_bodies
+          cites: null
           type: int
         - name: body_unite_types
           type: str_list
@@ -117,6 +122,7 @@ BOOLEAN_UNITE_GEOMETRY:
   phase: geometry
   args:
     - name: bodies
+      cites: null
       type: int
     - name: body_unite_types
       type: str_list

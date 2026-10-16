@@ -412,7 +412,7 @@ def write_csv_table(
     """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    with _textio.open_text(target, "w") as handle:
+    with _textio.atomic_text(target) as handle:
         writer = _textio.csv_writer(handle)
         writer.writerow([plain_cell(str(name)) for name in columns])
         for row in rows:

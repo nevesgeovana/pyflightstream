@@ -93,7 +93,7 @@ class BladeDatum(BaseModel):
         The axis letter the azimuth is measured from, with at most one sign.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     azimuth_deg: float = 0.0
     zero: str = "X"

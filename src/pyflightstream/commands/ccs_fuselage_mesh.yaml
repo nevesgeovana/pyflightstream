@@ -57,6 +57,7 @@ CCS_FUSELAGE_MESH_SUBDIVISIONS:
       type: enum
       values: [AXIAL, RADIAL]
     - name: num_pts
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.301"
   versions:
@@ -128,6 +129,7 @@ CCS_FUSELAGE_MESH_PERIODICITY:
       type: enum
       values: [AXIAL, RADIAL]
     - name: periodicity
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.301"
   versions:
@@ -154,6 +156,7 @@ NEW_CCS_FUSELAGE_REFINEMENT_ZONE:
     - name: u1
       type: float
     - name: num_pts
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.301"
   versions:
@@ -176,6 +179,7 @@ DELETE_CCS_FUSELAGE_REFINEMENT_ZONES:
   phase: geometry
   args:
     - name: zone_index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.302"
   versions:
@@ -246,6 +250,7 @@ DELETE_CCS_FUSELAGE_RELAXED_TE:
   phase: geometry
   args:
     - name: index
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.302"
   versions:
@@ -262,7 +267,7 @@ DELETE_CCS_FUSELAGE_RELAXED_TE:
     the reason given on DELETE_CCS_FUSELAGE_REFINEMENT_ZONES.
 
 EXPORT_FUSELAGE_CCS_FILE:
-  layout: inline
+  layout: mixed_inline
   phase: geometry
   args:
     - name: name

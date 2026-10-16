@@ -235,6 +235,7 @@ def emit_ccs_wing(script: Script, case: SimCase) -> None:
         As :func:`loft_component` refuses.
     """
     spec, name, component = loft_component(case, "wing")
+    _refuse_the_real_control_surface_form(case, spec)
     emit_curve_prelude(script, case, component)
     if spec.te_blend_length_pct is not None:
         script.emit("SET_CCS_TE_BLEND_LENGTH", spec.te_blend_length_pct)

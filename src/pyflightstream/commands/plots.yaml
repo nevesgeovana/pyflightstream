@@ -81,7 +81,7 @@ SET_PLOT_TYPE:
     run on any build.
 
 SAVE_PLOT_TO_FILE:
-  layout: inline
+  layout: param_lines
   phase: export
   args:
     - name: file

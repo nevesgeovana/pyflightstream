@@ -31,6 +31,26 @@ from pyflightstream.post import qsteady_noise as qn
 C0 = 340.0
 
 
+@pytest.mark.parametrize("argument", ["blades", "omega_rad_s", "c0", "distance_m"])
+@pytest.mark.parametrize("value", [0, -1])
+def test_p0420_gutin_refuses_undefined_inputs(argument, value):
+    """Zero blades or a nonpositive speed, sound speed or distance is undefined."""
+    inputs = dict(
+        blades=2,
+        omega_rad_s=100.0,
+        c0=340.0,
+        distance_m=10.0,
+        theta_rad=0.5,
+        axial_force_n=1.0,
+        tangential_force_n=1.0,
+        axial_radius_m=1.0,
+        inplane_radius_m=1.0,
+    )
+    inputs[argument] = value
+    with pytest.raises(ProductError, match=argument):
+        qn.gutin_harmonic_rms(2, **inputs)
+
+
 def _dft_rms(signal: np.ndarray, harmonic: int) -> float:
     """Return the rms amplitude of harmonic ``harmonic`` of one period sampled uniformly."""
     count = signal.size

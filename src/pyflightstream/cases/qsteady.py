@@ -494,8 +494,10 @@ def blade_stations(
     Raises
     ------
     CampaignConfigError
-        No vertex, or a span of no length.
+        No vertex, a span of no length, or a count other than an integer of at least one.
     """
+    if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+        raise CampaignConfigError("blade_stations: count must be an int >= 1")
     n = _unit(axis)
     placed: list[tuple[float, float, Vector]] = []
     for vertex in vertices:

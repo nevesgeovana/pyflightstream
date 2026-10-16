@@ -62,7 +62,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Literal
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import ProductError
@@ -780,8 +780,8 @@ def add_reduced_frequency_to_sections(
     """
     columns, rows = _read_table(path)
     index = {name: at for at, name in enumerate(columns)}
-    if not {"ROTOR", "Offset", "Chord", "Fx", "Fz"} <= set(index):
-        return None
+    if (preflight := _section_validity_preflight(index, rows, record)) is not True:
+        return preflight
     alias = record.rotor_alias
     omega = _omega(record)
     notes: list[str] = []
@@ -1472,3 +1472,30 @@ def write_qsteady_tables(
             average_rows,
         ),
     )
+
+
+def _section_validity_preflight(
+    index: dict[str, int],
+    rows: list[list[str]],
+    record: QsteadyRecord,
+) -> Literal[True] | PointValidity | None:
+    """Check required columns and one plane per blade distribution before reduction."""
+    if not {"ROTOR", "Offset", "Chord", "Fx", "Fz"} <= set(index):
+        return None
+    alias = record.rotor_alias
+    planes = {
+        row[index["PLANE"]]
+        for row in rows
+        if "PLANE" in index
+        and row[index["ROTOR"]] == alias
+        and ("FAMILY" not in index or row[index["FAMILY"]] in record.families_blades)
+    }
+    if len(planes) > 1:
+        return PointValidity(
+            {},
+            notes=(
+                f"rotor {alias!r} validity skipped: blade distributions span multiple planes "
+                f"{', '.join(sorted(planes))}; the summary cannot pool them",
+            ),
+        )
+    return True

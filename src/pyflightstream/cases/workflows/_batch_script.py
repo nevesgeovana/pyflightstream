@@ -293,7 +293,7 @@ def _line_args(entry: CommandEntry) -> list[ArgSpec]:
     """Return the arguments a command writes on the lines after its own, in order."""
     if entry.layout is Layout.PARAM_LINES:
         return [arg for arg in entry.args if not arg.on_command_line]
-    if entry.layout is Layout.INLINE:
+    if entry.layout in (Layout.INLINE, Layout.MIXED_INLINE):
         return [arg for arg in entry.args if arg.own_line]
     return []
 

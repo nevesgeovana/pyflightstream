@@ -36,6 +36,7 @@ from pydantic import (
     model_serializer,
 )
 
+from pyflightstream._errors import SolverSetupError
 from pyflightstream.commands import CommandEntry, CommandRegistry
 from pyflightstream.script import CommandArgumentError
 from pyflightstream.versions import resolve
@@ -989,7 +990,7 @@ def build_setup(
 
     Raises
     ------
-    RuntimeError
+    SolverSetupError
         If a command of the three families has no snapshot flag; the
         model must never silently lag the command database.
     """
@@ -1001,7 +1002,7 @@ def build_setup(
             continue
         spec = _SPEC_BY_COMMAND.get(name)
         if spec is None:
-            raise RuntimeError(
+            raise SolverSetupError(
                 f"command {name} of family {entry.chapter} has no solver-setup flag; "
                 "extend FLAG_SPECS and the solver_settings signature in "
                 "pyflightstream.script (the snapshot must cover every command of the "

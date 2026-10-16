@@ -49,6 +49,19 @@ from pyflightstream.run import qsteady_validity_line
 from pyflightstream.run._plan import _recorded_is_unsteady
 from pyflightstream.script import Script
 
+
+@pytest.mark.parametrize("count", [0, -1, 1.5, True, "2"])
+def test_p0420_blade_stations_refuses_invalid_count(count):
+    """The band count is an integer of at least one, before any geometry work."""
+    with pytest.raises(CampaignConfigError, match="count"):
+        arithmetic.blade_stations(
+            [(0.0, 1.0, 0.0), (0.2, 2.0, 0.0)],
+            hub=(0.0, 0.0, 0.0),
+            axis=(1.0, 0.0, 0.0),
+            count=count,
+        )
+
+
 #: The rotor of every case here: three blades on X, hub at the origin, 2 m.
 ROTOR = RotorBlock(
     alias="PROP",

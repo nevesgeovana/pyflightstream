@@ -58,6 +58,7 @@ EXPORT_SOLVER_ANALYSIS_VTK:
     - name: filename
       type: path
     - name: surfaces
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -90,6 +91,7 @@ SET_VTK_EXPORT_VARIABLES:
   phase: export
   args:
     - name: num_variables
+      cites: null
       type: int
     - name: export_wake
       type: enum
@@ -119,6 +121,7 @@ SET_VTK_EXPORT_VARIABLES:
         list FSM-26.124 p.358 printed; the remaining grammar is unchanged
       args:
         - name: num_variables
+          cites: null
         - name: export_wake
         - name: variables
           values: [X, Y, Z, CF, CP, CP_REFERENCE, CP_FREESTREAM, MACH, VX, VY, VZ, VTOT, PSTATIC, BLMOM, BLDISP, BLTHICK, SHAPEFACTOR, TRANS, SEP, BLLENGTH, AREA, VORTICITY, C_H, Q_FLUX, WALL_TEMP]
@@ -144,6 +147,7 @@ EXPORT_SOLVER_ANALYSIS_CSV:
       type: int
       cites: frames
     - name: surfaces
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -165,8 +169,10 @@ EXPORT_SOLVER_ANALYSIS_CSV:
           type: enum
           values: ["PASCALS", "MEGAPASCALS", "BAR", "ATMOSPHERES", "PSI"]
         - name: surfaces
+          cites: null
           type: int
         - name: boundary_indices
+          cites: boundaries
           type: int_list
           required: false
     "25.100": {status: documented, note: "FSM-25.100 p.326, same grammar as 26.120"}
@@ -192,6 +198,7 @@ EXPORT_SOLVER_ANALYSIS_PLOAD_BDF:
     - name: filename
       type: path
     - name: surfaces
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -221,6 +228,7 @@ EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
     - name: filename
       type: path
     - name: surfaces
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -245,7 +253,7 @@ EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
     boundaries.
 
 EXPORT_BL_VELOCITY_PROFILE:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: frame

@@ -115,7 +115,7 @@ CHANGE_SCENE_TO_PLOTS:
     Switches the active scene to the plots view. Each version row cites the page in its own manual edition.
 
 SAVE_SCENE_AS_IMAGE:
-  layout: inline
+  layout: param_lines
   phase: control
   args:
     - name: file

@@ -96,6 +96,7 @@ STABILITY_TOOLBOX_NEW_COEFFICIENT:
     - name: constant
       type: float
     - name: boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -126,10 +127,13 @@ STABILITY_TOOLBOX_NEW_COEFFICIENT:
           values: [CL, CDP, CDV, CD, FORCE_X, FORCE_Y, FORCE_Z, MOMENT_X, MOMENT_Y, MOMENT_Z]
         - name: denominator
         - name: frame
+          cites: frames
         - name: units
         - name: constant
         - name: boundaries
+          cites: null
         - name: boundary_indices
+          cites: boundaries
   notes: >
     Defines one derivative: a numerator variable over a denominator
     variable, scaled by a constant, computed on a named set of
@@ -206,7 +210,7 @@ COMPUTE_STABILITY_COEFFICIENTS:
     and has not been measured here.
 
 STABILITY_TOOLBOX_EXPORT:
-  layout: inline
+  layout: param_lines
   phase: export
   args:
     - name: file

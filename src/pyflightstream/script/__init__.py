@@ -91,14 +91,12 @@ from pyflightstream.commands import (
 from pyflightstream.script._arg_checks import (
     CommandArgumentError,
     ScriptLineBreakError,
-    _bind_line_tokens,
     _check_list,
     _check_one_line_each,
     _check_scalar,
 )
 from pyflightstream.script._ledger_tables import (
     _COUNT_ARG_NAMES,
-    _COUNT_REFERENCE_ARGS,
     _CREATION_COMMANDS,
     _DELETION_COMMANDS,
     _FRAME_FOLLOWERS,
@@ -159,6 +157,8 @@ __all__ = [
     "ScriptLineBreakError",
     "ScriptOrderError",
     "ScriptReferenceError",
+    "SurfaceAverageWindow",
+    "SurfaceAveragingWindow",
     "UnsteadyActionUse",
 ]
 
@@ -491,6 +491,45 @@ class Script:
 
         _park_input_file(self, path, payload)
 
+    def emit_deferred_vorticity_before_solve(self) -> None:
+        """Emit a pending unsteady selection before solving, preserving the phase guard.
+
+        The licensed pre-solve selection applies to each unsteady step. This
+        exception admits only the deferred selection, never a later solver restart.
+
+        Raises
+        ------
+        ScriptOrderError
+            If a solver execution or export phase has already been reached.
+        """
+        from pyflightstream.script._settings import _emit_deferred_vorticity
+
+        if self._phase_index is not None and self._phase_index >= _ORDERED_PHASES.index(Phase.EXEC):
+            raise ScriptOrderError("deferred vorticity selection must precede the solve")
+        _emit_deferred_vorticity(self)
+
+    def carry_unsteady_actions(
+        self, uses: Sequence[UnsteadyActionUse], scripts: Mapping[str, str]
+    ) -> None:
+        """Carry saved-state actions and their files without emitting registrations.
+
+        Parameters
+        ----------
+        uses : sequence of UnsteadyActionUse
+            Action records already registered in the saved solver state.
+        scripts : mapping of str to str
+            Child script paths and text to stage for those actions.
+
+        Raises
+        ------
+        CommandArgumentError
+            If an action name or parked-file destination conflicts. No partial
+            update is retained on refusal.
+        """
+        from pyflightstream.script._build_forms import _carry_unsteady_actions
+
+        _carry_unsteady_actions(self, uses, scripts)
+
     @contextmanager
     def observe_commands(
         self,
@@ -667,6 +706,7 @@ class Script:
         actuators: int = 0,
         motions: int = 0,
         boundaries: int | Mapping[str, int] = 0,
+        volume_sections: int = 0,
     ) -> None:
         """Declare auxiliary objects already present in the opened project.
 
@@ -685,6 +725,8 @@ class Script:
             Actuators in the project.
         motions : int
             Motions in the project.
+        volume_sections : int
+            Volume sections already present in the project, numbered from one.
         boundaries : int or mapping of str to int
             Mesh boundaries of the loaded geometry: either their total
             count (zero, the default, keeps the inventory undeclared),
@@ -700,6 +742,8 @@ class Script:
         for kind, extra in (("frames", frames), ("actuators", actuators), ("motions", motions)):
             self.entities.declare(kind, extra)
         self.entities.declare_boundaries(boundaries)
+        self.entities.declare("volume_sections", volume_sections)
+        self._volume_sections += volume_sections
 
     def resolve_boundary(self, value: int | str, *, context: str = "boundary citation") -> int:
         """Resolve a mesh boundary citation to its 1-based index.
@@ -1238,8 +1282,10 @@ class Script:
         """Keep :attr:`volume_sections` and :attr:`volume_section_index` in step (G05)."""
         if name in _VOLUME_SECTION_CREATES:
             self._volume_sections += 1
+            self.entities.create("volume_sections")
         elif name == _VOLUME_SECTION_DELETE:
             self._volume_sections = max(self._volume_sections - 1, 0)
+            self.entities.delete("volume_sections", int(bound["index"]))
             deleted, own = bound.get("index"), self.volume_section_index
             if isinstance(deleted, int) and own is not None:
                 if deleted == own:
@@ -1248,6 +1294,7 @@ class Script:
                     self.volume_section_index = own - 1
         elif name == _VOLUME_SECTION_DELETE_ALL:
             self._volume_sections = 0
+            self.entities.clear("volume_sections")
             self.volume_section_index = None
 
     def entry(self, name: str, /) -> CommandEntry:
@@ -1263,7 +1310,7 @@ class Script:
         return self._view[name]
 
     def emit_line(self, line: str, /) -> None:
-        """Emit one command line as the solver reads it (PFS-2033.01).
+        """Bind compact command input through the curated renderer (PFS-2033.01).
 
         The line is split on whitespace; the first token is the command
         and the rest its arguments, each coerced to the type the database
@@ -1273,37 +1320,20 @@ class Script:
         emission applies. A list argument takes the run of following tokens
         its element type reads, as the inline renderer writes it, so a
         sweep line such as ``SWEEPER_SET_AOA_SWEEP CUSTOM 0.0 2.0 4.0``
-        round-trips. Only a command whose grammar is one line (``bare`` or
-        ``inline``) is carried: a block, a payload or a parameter list is
-        refused naming the layout, since the line the user wrote cannot be
-        it.
+        round-trips. Declared following-line arguments are rendered on their
+        own lines, preserving the compact input accepted before layouts
+        distinguished mixed commands. Other blocks and payloads are refused.
 
         Raises
         ------
         CommandArgumentError
-            If the command's layout is not one line, a token is not the
+            If the layout cannot bind compact input, a token is not the
             type its position declares, or tokens are left that no argument
             reads (a value containing a space, which splits into several).
         """
-        tokens = line.split()
-        if not tokens:
-            raise CommandArgumentError("an empty line names no command")
-        name, arguments = tokens[0], tokens[1:]
-        spec = self.entry(name)
-        if spec.layout not in (Layout.BARE, Layout.INLINE):
-            raise CommandArgumentError(
-                f"{name} is a {spec.layout.value.replace('_', ' ')} and not a one-line "
-                "command; a raw entry is one line as the solver reads it, and a block "
-                "has no place in it. State what the block sets through the preset's own "
-                "keys or the row's, or drop the entry"
-            )
-        bound = _bind_line_tokens(name, spec.args, arguments)
-        previous = self._emitting_line
-        self._emitting_line = True
-        try:
-            self.emit(name, **bound)
-        finally:
-            self._emitting_line = previous
+        from pyflightstream.script._build_forms import _emit_compact_line
+
+        _emit_compact_line(self, line)
 
     def raw(self, text: str) -> None:
         """Append unvalidated script text and flag the script (FR-07).
@@ -1699,41 +1729,9 @@ class Script:
         return None
 
     def _check_references(self, entry: CommandEntry, bound: dict[str, object]) -> None:
-        if entry.name == "DELETE_COORDINATE_SYSTEM" and bound.get("frame") == 1:
-            raise CommandArgumentError(
-                "DELETE_COORDINATE_SYSTEM: frame 1 is the reference frame and cannot "
-                "be deleted. Select a local frame with an index greater than 1 "
-                f"({entry.citation})"
-            )
-        for spec in entry.args:
-            if spec.name not in bound:
-                continue
-            context = f"{entry.name}: argument {spec.name!r}"
-            value = bound[spec.name]
-            kind = _reference_kind(spec)
-            if kind is not None and not spec.is_list:
-                self.entities.check_index(
-                    kind,
-                    value,
-                    context=context,
-                    citation=entry.citation,
-                    all_sentinel=spec.all_sentinel,
-                )
-            elif kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
-                # Each item uses the argument's declared sentinel, just like a scalar.
-                # Frames and motions have no documented -1 form; surface selections
-                # may instead declare zero.
-                for item in value:
-                    self.entities.check_index(
-                        kind,
-                        item,
-                        context=context,
-                        citation=entry.citation,
-                        all_sentinel=spec.all_sentinel,
-                    )
-            kind = _COUNT_REFERENCE_ARGS.get(spec.name)
-            if kind is not None:
-                self.entities.check_boundary_count(value, context=context, citation=entry.citation)
+        from pyflightstream.script._build_forms import _check_references
+
+        _check_references(self, entry, bound)
 
     def _format_scalar(self, value: object) -> str:
         return str(value)
@@ -1757,7 +1755,7 @@ class Script:
         provided = [(spec, bound[spec.name]) for spec in entry.args if spec.name in bound]
         if entry.layout is Layout.BARE:
             return [entry.name], False
-        if entry.layout is Layout.INLINE:
+        if entry.layout in (Layout.INLINE, Layout.MIXED_INLINE):
             return self._render_inline(entry, provided)
         if entry.layout is Layout.PAYLOAD_LINES:
             return self._render_payload_lines(entry, provided)
@@ -1804,7 +1802,7 @@ class Script:
         for spec, value in provided:
             if spec.is_list:
                 lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
-            elif spec.type is ArgType.PATH:
+            elif spec.type is ArgType.PATH or spec.own_line:
                 lines.append(self._format_scalar(value))
             else:
                 lines.append(f"{spec.name.upper()} {self._format_scalar(value)}")

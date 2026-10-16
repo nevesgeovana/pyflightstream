@@ -24,6 +24,7 @@ import pytest
 
 from pyflightstream import cases
 from pyflightstream.cases import CampaignConfigError
+from pyflightstream.cases._ccs import CcsImportOptions
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.workspace import InputArtifactError
@@ -32,6 +33,24 @@ from pyflightstream.workspace.matrix import resolve_matrix
 from tests.tier1_offline.test_matrix_run import RECIPES, make_library, write_matrix
 
 BUILD = "26.124"
+
+
+@pytest.mark.parametrize(
+    "start,end", [(0, 0), (90, 45), (-1, 90), (0, 361), (float("nan"), 360), (0, float("inf"))]
+)
+def test_p0420_revolution_angles_must_form_a_forward_turn(start, end):
+    """Only the documented interval 0 <= start < end <= 360 is admitted."""
+    with pytest.raises(ValueError, match="0 <= start_angle_deg < end_angle_deg <= 360"):
+        CcsImportOptions(kind="revolution", component=1, start_angle_deg=start, end_angle_deg=end)
+
+
+@pytest.mark.parametrize("start,end", [(0, 360), (90, 180)])
+def test_p0420_revolution_angles_accept_full_and_partial_turns(start, end):
+    spec = CcsImportOptions(
+        kind="revolution", component=1, start_angle_deg=start, end_angle_deg=end
+    )
+    assert (spec.start_angle_deg, spec.end_angle_deg) == (start, end)
+
 
 #: One steady row naming a CCS file; ``{tail}`` appends row keys.
 ROW = (
@@ -371,22 +390,19 @@ def test_p0320_ccs2_control_surface_is_declared_with_all_ten_arguments_before_th
 
 
 @pytest.mark.requirement("FR-298")
-def test_p0320_ccs2_control_surface_in_real_space_names_its_axis(tmp_path):
-    """P0320-CCS2-CONTROL-SURFACE: REAL spanwise limits along a reference axis."""
+def test_p0420_direct_wing_emitter_refuses_real_control_surfaces(tmp_path):
+    """The direct public route carries the same measured refusal as the workflow."""
     real = AILERON.replace("v0 = 0.5\nv1 = 0.9\n", "v0 = 2.0\nv1 = 3.6\n") + (
         'space = "REAL"\naxis = "Y"\n'
     )
     case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + real, ["WING"])
-    # The emitter still writes the form; the plan refuses it before (RPT-097), see
-    # test_p0320_ccs2_the_real_form_is_refused_at_plan_naming_rpt_097.
     from pyflightstream.cases.ccs_wing import emit_ccs_wing
 
     script = Script(BUILD)
-    emit_ccs_wing(script, case)
-    _index(
-        script.render().splitlines(),
-        "NEW_CCS_WING_CONTROL_SURFACE AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 REAL Y",
-    )
+    before = script.render()
+    with pytest.raises(CampaignConfigError, match="RPT-097"):
+        emit_ccs_wing(script, case)
+    assert script.render() == before
 
 
 def test_p0320_ccs2_control_surfaces_follow_the_subdivisions_in_the_order_written(tmp_path):

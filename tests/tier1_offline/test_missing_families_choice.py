@@ -563,3 +563,35 @@ def test_the_refusal_is_about_the_missing_family_and_not_about_every_entry():
     assert _selected_families(
         subject, "WING", INVENTORY, lambda name: "BLADE" in name, "a plot group"
     ) == [["WING"]]
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "axial_separation_families",
+        "viscous_excluded",
+        "thin_boundaries",
+        "valarezo_separation_boundaries",
+        "crossflow_separation_boundaries",
+        "disabled_wake_trailing_edges",
+        "leading_edge_wake_boundaries",
+        "delete_inlets",
+        "delete_outlets",
+        "proximal_boundaries",
+        "delete_transition_trips",
+        "delete_surfaces",
+    ],
+)
+def test_p0420_setup_entity_lists_have_an_explicit_empty_verdict(tmp_path, key):
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace.selections import ENTITY_SELECTIONS, refuse_empty_selections
+
+    rule = next((r for r in ENTITY_SELECTIONS if r.kind == "setup" and r.key == key), None)
+    assert rule is not None, key
+    path = tmp_path / "chosen-setup.toml"
+    if rule.empty_admitted:
+        refuse_empty_selections("setup", path, {key: []})
+    else:
+        with pytest.raises(InputArtifactError, match="chosen-setup.toml") as caught:
+            refuse_empty_selections("setup", path, {key: []})
+        assert key in str(caught.value)

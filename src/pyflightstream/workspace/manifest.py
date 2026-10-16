@@ -40,8 +40,7 @@ from pyflightstream.cases.windows import (
     surface_average_window,
     surface_averaging_window,
 )
-from pyflightstream.script import MarchStrategy
-from pyflightstream.script._surface_averaging import SurfaceAverageWindow, SurfaceAveragingWindow
+from pyflightstream.script import MarchStrategy, SurfaceAverageWindow, SurfaceAveragingWindow
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, free_root_archive
 
 __all__ = [

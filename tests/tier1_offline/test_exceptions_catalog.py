@@ -199,6 +199,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "ScriptLineBreakError": ValueError,
         "ScriptOrderError": ValueError,
         "ScriptReferenceError": ValueError,
+        "SolverSetupError": RuntimeError,
         "StaleLoadsError": ValueError,
         "SurfaceMeshExportError": RuntimeError,
         "TwistIterationError": RuntimeError,

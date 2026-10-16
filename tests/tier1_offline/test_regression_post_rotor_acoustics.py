@@ -437,20 +437,20 @@ def _post_1_qsteady___sections(tmp_path, hub):
         "ROTOR,FAMILY,PLANE,Offset,Chord,Fx,Fz\n"
         "PROP,B,XZ,1.5,0.2,10.0,2.0\n"
         "PROP,B,XZ,2.0,0.2,12.0,3.0\n"
-        "PROP,B,XY,1.0,0.2,8.0,1.0\n",
+        "PROP,C,XZ,1.0,0.2,8.0,1.0\n",
         encoding="utf-8",
     )
     record = SimpleNamespace(
         rotor_alias="PROP",
         rpm=1200.0,
-        families_blades=["B"],
+        families_blades=["B", "C"],
         hub_m=hub,
         axis_vector=(1.0, 0.0, 0.0),
         shaft_frame_axis="X",
     )
     layout = [
         {"families": ["B"], "plane": "XZ", "frame": "MRP"},
-        {"families": ["B"], "plane": "XY", "frame": "PROP_RMRP"},
+        {"families": ["C"], "plane": "XZ", "frame": "PROP_RMRP"},
     ]
     validity = add_reduced_frequency_to_sections(
         path, cast(Any, record), velocity_m_per_s=30.0, layout=layout

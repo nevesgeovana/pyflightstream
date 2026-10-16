@@ -827,7 +827,7 @@ class TestFarfieldProbes:
     )
     def test_p0400_probehome_a_lattice_is_laid_along_its_frame_axis_right_handed(axis, order):
         """P0400-PROBEHOME (FR-1072): build_lattice's points, carried onto the frame cyclically."""  # noqa: E501
-        lattice = build_lattice(tip_radius=0.8, stations=(-1.0, 1.0), n_r=4, n_psi=8)
+        lattice = build_lattice(tip_radius=0.8, stations=(-1.0, 1.0), n_r=4, n_psi=16)
         local = lattice.dimensional_points()
         laid = lattice_points(lattice, axis=axis)
         assert laid.shape == local.shape
@@ -2541,3 +2541,18 @@ class TestRfixR5Quadrature:
         assert "Nonfinite coordinates propagate" in doc
         assert "one-dimensional" in doc and "ends" in doc
         assert "strictly increasing" not in doc
+
+
+@pytest.mark.parametrize("n_psi", range(8, 14))
+def test_p0420_reference_lattice_refuses_undersampled_stored_harmonics(n_psi):
+    from pyflightstream.probes import build_lattice
+    from pyflightstream.probes.errors import ProbeGeometryError
+
+    with pytest.raises(ProbeGeometryError, match=r"DLV-006 Sec\. 3\.2"):
+        build_lattice(tip_radius=1.0, n_psi=n_psi)
+
+
+def test_p0420_reference_lattice_accepts_fourteen_azimuths():
+    from pyflightstream.probes import build_lattice
+
+    assert build_lattice(tip_radius=1.0, n_psi=14).n_psi == 14

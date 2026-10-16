@@ -82,15 +82,19 @@ class TestCoreSmallDatabase:
         calls = []
 
         def failing(source, target):
-            calls.append(target)
-            if len(calls) == 2:
-                raise PermissionError(13, "locked by another program", str(target))
+            # P0420: the text funnel also replaces temporary siblings. Inject
+            # failure at chapter publication, not while preparing its text.
+            if Path(target).name in {"alpha.yaml", "beta.yaml"}:
+                calls.append(Path(target).name)
+                if len(calls) == 2:
+                    raise PermissionError(13, "locked by another program", str(target))
             return real(source, target)
 
         monkeypatch.setattr(os, "replace", failing)
         with pytest.raises(ManualDraftError, match="were put back"):
             _core_small_database___run(tree, write=True)
         assert _core_small_database___snapshot(chapters) == before
+        assert calls == ["alpha.yaml", "beta.yaml", "alpha.yaml"]
 
 
 def _core_small_manual___manifest(tmp_path: Path, row: str) -> Path:

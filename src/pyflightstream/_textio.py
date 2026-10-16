@@ -30,7 +30,10 @@ from __future__ import annotations
 
 import csv
 import json
-from collections.abc import Iterable, Sequence
+import os
+import tempfile
+from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Any
 
@@ -71,7 +74,31 @@ def write_text(
     >>> target.read_bytes()
     b'a\nb\n'
     """
-    return Path(path).write_text(text, encoding=encoding, errors=errors, newline=LINE_END)
+    with atomic_text(path, encoding=encoding, errors=errors) as stream:
+        return stream.write(text)
+
+
+@contextmanager
+def atomic_text(
+    path: str | Path, *, encoding: str = "utf-8", errors: str | None = None
+) -> Iterator[IO[str]]:
+    """Publish a complete text file by replacing it from a sibling temporary file.
+
+    A writer or close failure leaves the destination intact. Temporary files
+    are removed on ordinary exceptions; abrupt process termination can leave
+    a temporary sibling, but cannot publish its partial contents.
+    """
+    target = Path(path)
+    descriptor, name = tempfile.mkstemp(prefix=".pfs-", suffix=".tmp", dir=target.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(
+            descriptor, "w", encoding=encoding, errors=errors, newline=LINE_END
+        ) as stream:
+            yield stream
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def append_text(path: str | Path, text: str, *, encoding: str = "utf-8") -> int:
@@ -136,7 +163,7 @@ def write_csv(
     Returns the number of data rows written.
     """
     count = 0
-    with open_text(path, "w") as handle:
+    with atomic_text(path) as handle:
         writer = csv_writer(handle)
         if header is not None:
             writer.writerow(header)
@@ -149,7 +176,7 @@ def write_csv(
 def write_lines(path: str | Path, lines: Iterable[str], *, encoding: str = "utf-8") -> int:
     """Write ``lines`` to ``path``, each ended by LF, and return how many were written."""
     count = 0
-    with open_text(path, "w", encoding=encoding) as handle:
+    with atomic_text(path, encoding=encoding) as handle:
         for line in lines:
             handle.write(line + LINE_END)
             count += 1

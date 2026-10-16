@@ -85,7 +85,7 @@ QUOTED_PHRASE = re.compile(
 )
 REQUIRED_ENTRY_KEYS = {"layout", "phase", "args", "versions"}
 CITATION_KEYS = {"manual_ref", "probe_ref"}
-KNOWN_LAYOUTS = {"bare", "inline", "param_lines", "payload_lines", "keyword_block"}
+KNOWN_LAYOUTS = {"bare", "inline", "mixed_inline", "param_lines", "payload_lines", "keyword_block"}
 
 
 def load_meta():
@@ -379,9 +379,9 @@ def test_version_args_override_is_rejected_for_removed():
 
 
 def test_version_args_override_obeys_the_layout_rules():
-    with pytest.raises(ValidationError, match="own_line only applies"):
+    with pytest.raises(ValidationError, match="own_line requires"):
         make_entry(
-            layout="param_lines",
+            layout="inline",
             args=[{"name": "filename", "type": "path"}],
             versions={
                 "26.120": {
@@ -1985,3 +1985,29 @@ def test_a_row_backed_by_a_run_on_its_build_never_says_it_was_not_run():
         "these rows cite a run on their build and their note says the build was not run: "
         + "; ".join(offenders)
     )
+
+
+def test_p0420_bool_presence_is_optional_by_default():
+    assert ArgSpec(name="clear", type="bool").required is False
+    assert ArgSpec(name="index", type="int").required is True
+    assert ArgSpec(name="clear", type="bool", required=True).required is True
+
+
+@pytest.mark.parametrize(
+    "name,version",
+    [
+        ("SET_WAKE_RELAXATION", "26.122"),
+        ("SET_WAKE_STREAMWISE_AGGLOMERATION", "26.122"),
+        ("SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER", "26.122"),
+        ("SOLVER_VORTEX_RING_NORMALIZATION", "26.122"),
+        ("SOLVER_VORTEX_RING_NORMALIZATION", "26.123"),
+    ],
+)
+def test_p0420_withdrawn_manual_entries_are_not_never_present(name, version):
+    entry = CommandRegistry.load().commands[name]
+    assert version in entry.versions, "previously documented name needs an edition verdict"
+    row = entry.versions[version]
+    assert row.status is Status.REMOVED
+    assert row.report is None
+    assert f"FSM-{version}" in row.note
+    assert "document" in row.note and "measurement" in row.note

@@ -99,11 +99,11 @@ def _rows() -> list[list[str]]:
 
 
 def test_p0320_i2_the_raw_route_is_offered_only_for_commands_it_carries():
-    """P0320-I2-RAW-ROUTE: a raw line is one line, so a block is refused before the run.
+    """P0420: compact raw input carries declared inline and following-line arguments.
 
-    ``Script.emit_raw`` carries a bare or an inline command and refuses a keyword block, a
-    payload or a parameter list. A row of the page that sends a reader to setup table
-    ``[[raw]]`` for a block command teaches a route that does not exist.
+    ``Script.emit_line`` binds compact input for bare, inline and mixed layouts,
+    including parameter lists whose arguments all occupy following lines. Keyword
+    blocks and payloads still require their structured forms.
     """
     from pyflightstream.commands import CommandRegistry, Layout
 
@@ -114,7 +114,13 @@ def test_p0320_i2_the_raw_route_is_offered_only_for_commands_it_carries():
             clauses = cells[1].split(";")
             for command in _COMMAND.findall(cells[2]):
                 spec = database.get(command)
-                if spec is None or spec.layout in (Layout.BARE, Layout.INLINE):
+                if (
+                    spec is None
+                    or spec.layout in (Layout.BARE, Layout.INLINE, Layout.MIXED_INLINE)
+                    or (
+                        spec.layout is Layout.PARAM_LINES and all(arg.own_line for arg in spec.args)
+                    )
+                ):
                     continue
                 # A block may be NAMED in the cell, but only as out of reach: its own clause
                 # says "block" and does not say the raw route "carries" it (a review mutant

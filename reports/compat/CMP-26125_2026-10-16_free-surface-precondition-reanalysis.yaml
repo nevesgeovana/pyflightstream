@@ -1,0 +1,38 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.125'
+date: '2026-10-16'
+package_version: 0.35.1
+fs_exe: Flightstream_26125.exe
+fs_exe_sha256: withheld; build 10052026
+executor: GatedExecutor, -hidden -script (as run; mechanism FSM-26.120 pp.279-280; argument spelling RPT-023)
+solver_identity:
+- 'Simcenter Flightstream 2612, build #10052026'
+summary:
+  verified: 0
+  broken: 0
+  removed: 0
+  unprobed: 1
+commands:
+  CREATE_FREE_SURFACE_TFI_MESH:
+    outcome: unprobed
+    detail: 'PFS-2138.009: the modal error names a perimeter curve with zero assigned virtual curves.
+      The probe did not establish the required precondition, so its abort does not distinguish a command
+      defect from invalid setup. Withdraw broken; preserve the baseline, aborted target and script hash.
+      No new solver run.'
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 2.07
+    return_code: 1
+    script_sha256: b9c55fef297b6f67f91f35167d7b6c7fac32821cfc89123a04de57f1c1a0252e
+    withdraws:
+      report: reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml
+      sha256: d104c8a2279cfaa15200e593ca683150e9ba7e740611ae5a837871f056e86f27
+      hash_domain: utf8-lf
+      outcome: broken
+    source_detail: 'script processing aborted at the command: the log exported before it exists, the one
+      after it never appeared (END sentinel missing)'
+analysis_only: true
+execution_date: '2026-10-05'

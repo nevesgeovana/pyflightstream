@@ -81,6 +81,7 @@ SET_MOTION_BOUNDARIES:
       type: int
       cites: motions
     - name: num_boundaries
+      cites: null
       type: int
     - name: boundary_indices
       type: int_list
@@ -111,6 +112,7 @@ SET_MOTION_MOVING_FRAMES:
       type: int
       cites: motions
     - name: num_frames
+      cites: null
       type: int
     - name: frame_indices
       type: int_list
@@ -232,6 +234,7 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
       type: enum
       values: [ENABLE, DISABLE]
     - name: num_blades
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.333"
   versions:
@@ -272,7 +275,7 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
     does not read.
 
 SET_MOTION_FSI_EXECUTABLE:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: motion_id
@@ -316,7 +319,7 @@ SET_MOTION_FSI_EXECUTABLE:
     26.124 and 26.125 by the same probe round.
 
 SET_MOTION_FSI_STRUCTURAL_NODES:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: motion_id
@@ -619,7 +622,7 @@ SET_MOTION_GRAVITY:
     caller's: the sample points it along negative Z.
 
 SET_MOTION_CUSTOM_TABLE:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: type
@@ -811,7 +814,7 @@ CREATE_NEW_6DOF_EXTERNAL_FORCE:
     nothing would say so.
 
 CREATE_NEW_6DOF_CUSTOM_FORCE:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: motion_id
@@ -905,6 +908,7 @@ DELETE_6DOF_EXTERNAL_FORCE:
       type: int
       cites: motions
     - name: force_id
+      cites: null
       type: int
   manual_ref: "FSM-26.120 p.335"
   versions:
@@ -961,7 +965,7 @@ SET_6DOF_MOTION_SYMMETRY_LOADS:
     (PLN-20260806-1200).
 
 EXPORT_6DOF_TRAJECTORY:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: motion_id

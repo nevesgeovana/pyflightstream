@@ -64,6 +64,7 @@ __all__ = [
     "blade_passage_average",
     "blade_one_azimuth",
     "passage_windows",
+    "per_blade_rows",
     "phase_locked_rows",
     "read_timestep_series",
     "revolution_drift_warnings",
@@ -529,6 +530,8 @@ def blade_passage_average(
         of nothing is still a number, which is exactly why it is
         refused rather than returned as a NaN.
     """
+    if series.n_frames == 0:
+        raise MalformedOutputError("the series holds no frame")
     first, last = int(window[0]), int(window[1])
     if last < first:
         raise MalformedOutputError(
@@ -589,6 +592,8 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
         divides ``period_steps``, because the passages would then hold
         their equally weighted frames at different phases.
     """
+    if series.n_frames == 0:
+        raise MalformedOutputError("the series holds no frame")
     period = int(period_steps)
     if period <= 0:
         raise MalformedOutputError(
@@ -780,21 +785,21 @@ def per_blade_rows(
 
     Raises
     ------
-    ValueError
+    ProductError
         If the window names no step the history holds, or the rotor carries no
         blade. Could-not-measure is never a pass.
     """
     if blades < 1:
-        raise ValueError(f"the rotor carries {blades} blades, so it has no per-blade rows")
+        raise ProductError(f"the rotor carries {blades} blades, so it has no per-blade rows")
     if steps_per_revolution is not None and steps_per_revolution <= 0:
-        raise ValueError(
+        raise ProductError(
             f"steps_per_revolution is {steps_per_revolution}, so a step count cannot be "
             "turned into an angle and no azimuth can be written"
         )
     first, last = int(window[0]), int(window[1])
     steps = np.asarray(series.steps, dtype=int)
     if not ((steps >= first) & (steps <= last)).any():
-        raise ValueError(
+        raise ProductError(
             f"the window {window} names no step this history holds, which runs from "
             f"{int(steps[0])} to {int(steps[-1])}"
         )

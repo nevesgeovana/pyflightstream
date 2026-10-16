@@ -32,10 +32,8 @@ from pyflightstream.cases import (
 from pyflightstream.probes.layouts import emit_probe_export
 from pyflightstream.script import (
     Script,
-    helpers,
-)
-from pyflightstream.script._surface_averaging import (
     SurfaceAverageWindow,
+    helpers,
 )
 
 from ._conventions import (

@@ -36,16 +36,17 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import PureWindowsPath
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.commands import ArgSpec, ArgType, CommandEntry, Layout
 from pyflightstream.script import CommandArgumentError
-from pyflightstream.script._arg_checks import _check_scalar
+from pyflightstream.script._arg_checks import _bind_line_tokens, _check_scalar
+from pyflightstream.script._ledger_tables import _COUNT_REFERENCE_ARGS, _reference_kind
 
 if TYPE_CHECKING:
     from pyflightstream.commands import VersionView
-    from pyflightstream.script import Script
+    from pyflightstream.script import Script, UnsteadyActionUse
 
 __all__ = [
     "assign_selected_ccs_curves",
@@ -424,7 +425,7 @@ def _check_bound_form(
                 "export_surface_data_per_step is enabled; provide the folder for "
                 f"TXT, CSV, DAT or VTK, and omit it for DISABLE ({entry.citation})"
             )
-    if entry.layout is Layout.INLINE:
+    if entry.layout in (Layout.INLINE, Layout.MIXED_INLINE):
         positional = _positional_form(entry, specs, checked)
         missing = None
         for spec in positional:
@@ -474,6 +475,32 @@ def _park_input_file(script: Script, path: str, payload: str | bytes) -> None:
             return
         raise CommandArgumentError(f"input file {path!r} collides with {kind} {held!r}")
     script._pending_input_files[path] = payload
+
+
+def _carry_unsteady_actions(
+    script: Script, uses: Sequence[UnsteadyActionUse], scripts: Mapping[str, str]
+) -> None:
+    """Preflight the complete carried action set before publishing either register."""
+    from pyflightstream._digest import one_file_key
+
+    actions = dict(script._unsteady_actions)
+    for use in uses:
+        if use.name in actions and actions[use.name] != use:
+            raise CommandArgumentError(f"carried unsteady action {use.name!r} conflicts")
+        actions[use.name] = use
+    paths = {
+        one_file_key(path): (path, text) for path, text in script._pending_action_scripts.items()
+    }
+    inputs = {one_file_key(path) for path in script.pending_input_files}
+    for path, text in scripts.items():
+        key = one_file_key(path)
+        if key in inputs or (key in paths and paths[key][1] != text):
+            raise CommandArgumentError(
+                f"carried action script {path!r} conflicts with a parked file"
+            )
+        paths[key] = (path, text)
+    script._unsteady_actions = actions
+    script._pending_action_scripts = dict(paths.values())
 
 
 def _parked_file(script: Script, path: str) -> tuple[str, str] | None:
@@ -594,3 +621,67 @@ def render_actuator_profile(text: str, *, source: str = "the radial thrust profi
             f"distribution needs at least two. {_PROFILE_FORM}"
         )
     return "\n".join(rows)
+
+
+def _emit_compact_line(script: Script, line: str) -> None:
+    """Bind compact input and preserve the command's declared physical layout."""
+    tokens = line.split()
+    if not tokens:
+        raise CommandArgumentError("an empty line names no command")
+    name, arguments = tokens[0], tokens[1:]
+    spec = script.entry(name)
+    if not (
+        spec.layout in (Layout.BARE, Layout.INLINE, Layout.MIXED_INLINE)
+        or (spec.layout is Layout.PARAM_LINES and all(arg.own_line for arg in spec.args))
+    ):
+        raise CommandArgumentError(
+            f"{name} is a {spec.layout.value.replace('_', ' ')} and not a one-line "
+            "command; a raw entry is one line as the solver reads it, and a block "
+            "has no place in it. State what the block sets through the preset's own "
+            "keys or the row's, or drop the entry"
+        )
+    bound: dict[str, Any] = _bind_line_tokens(name, spec.args, arguments)
+    previous = script._emitting_line
+    script._emitting_line = True
+    try:
+        script.emit(name, **bound)
+    finally:
+        script._emitting_line = previous
+
+
+def _check_references(script: Script, entry: CommandEntry, bound: dict[str, object]) -> None:
+    if entry.name == "DELETE_COORDINATE_SYSTEM" and bound.get("frame") == 1:
+        raise CommandArgumentError(
+            "DELETE_COORDINATE_SYSTEM: frame 1 is the reference frame and cannot "
+            "be deleted. Select a local frame with an index greater than 1 "
+            f"({entry.citation})"
+        )
+    for spec in entry.args:
+        if spec.name not in bound:
+            continue
+        context = f"{entry.name}: argument {spec.name!r}"
+        value = bound[spec.name]
+        kind = _reference_kind(spec)
+        if kind is not None and not spec.is_list:
+            script.entities.check_index(
+                kind,
+                value,
+                context=context,
+                citation=entry.citation,
+                all_sentinel=spec.all_sentinel,
+            )
+        elif kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
+            # Each item uses the argument's declared sentinel, just like a scalar.
+            # Frames and motions have no documented -1 form; surface selections
+            # may instead declare zero.
+            for item in value:
+                script.entities.check_index(
+                    kind,
+                    item,
+                    context=context,
+                    citation=entry.citation,
+                    all_sentinel=spec.all_sentinel,
+                )
+        kind = _COUNT_REFERENCE_ARGS.get(spec.name)
+        if kind is not None:
+            script.entities.check_boundary_count(value, context=context, citation=entry.citation)

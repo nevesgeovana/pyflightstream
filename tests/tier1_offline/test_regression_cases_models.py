@@ -108,7 +108,7 @@ class TestCasesCcs:
         text = str(caught.value)
         assert "fractions of the span between 0 and 1" in text
         assert 'write space = "REAL"' not in text
-        assert CcsControlSurface.__doc__ is not None and "unsupported" in CcsControlSurface.__doc__
+        assert CcsControlSurface.__doc__ is not None and "refused" in CcsControlSurface.__doc__
 
 
 def _cases_corrections___phase_at(phases, j):

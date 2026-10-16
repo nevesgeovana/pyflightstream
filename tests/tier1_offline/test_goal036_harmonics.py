@@ -47,6 +47,18 @@ from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from tests.tier1_offline.test_f07_section_distributions import _exports
 from tests.tier1_offline.test_post_products import _plots_export
 
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+@pytest.mark.parametrize("field", ["azimuth", "value"])
+def test_p0420_fit_harmonics_names_nonfinite_sample(bad, field):
+    """A single nonfinite sample must be refused before the least-squares fit."""
+    angles = [0.0, 90.0, 180.0, 270.0]
+    values = [1.0, 2.0, 3.0, 4.0]
+    (angles if field == "azimuth" else values)[2] = bad
+    with pytest.raises(ProductError, match="sample 2"):
+        fit_harmonics(angles, values)
+
+
 FIXTURES = Path(__file__).parent / "fixtures"
 _HEAD = (FIXTURES / "fsi/FS_SurfaceSection_Loads_call0002.txt").read_text()
 #: The stations of every blade, in metres from the hub; the rotor's diameter is 2 m.
@@ -584,3 +596,68 @@ def test_a_phase_a_hair_below_360_is_stated_as_zero():
     assert _phase_deg(1.0, -1e-17) == 0.0
     assert _phase_deg(1.0, 1e-17) == 0.0
     assert _phase_deg(0.0, -1.0) == pytest.approx(270.0)
+
+
+def test_p0420_harmonics_skip_rotor_with_two_section_planes():
+    from pyflightstream.post.harmonics import HarmonicRotor, station_harmonics
+
+    rows = [
+        {
+            "ROTOR": "PROP",
+            "FAMILY": "Blade1",
+            "PLANE": plane,
+            "CLOCKING": str(i),
+            "AZIMUTH": str(i * 60),
+            "Offset": "0.5",
+            "Chord": "0.1",
+            "Fx": str(1 + i),
+            "Fz": "0",
+        }
+        for i in range(6)
+        for plane in ("XZ", "YZ")
+    ]
+    result = station_harmonics(
+        list(rows[0]),
+        rows,
+        {"PROP": HarmonicRotor("PROP", (("Blade1",),), 2.0, False)},
+        sample_column="CLOCKING",
+    )
+    assert result.rows == []
+    reason = result.skipped["#rotor=PROP"]
+    assert "plane" in reason.lower() and "XZ" in reason and "YZ" in reason
+
+
+def test_p0420_validity_summary_refuses_to_pool_two_planes(tmp_path):
+    from pyflightstream.cases.qsteady import QsteadyClocking, QsteadyRecord
+    from pyflightstream.post._tables import write_csv_table
+    from pyflightstream.post.qsteady import add_reduced_frequency_to_sections
+
+    record = QsteadyRecord(
+        case="wheel",
+        rotor_alias="PROP",
+        blades=1,
+        rpm=1200.0,
+        shaft_frame_axis="X",
+        hub_m=(0.0, 0.0, 0.0),
+        axis_vector=(1.0, 0.0, 0.0),
+        diameter_m=2.0,
+        families_general=(),
+        families_blades=("Blade1",),
+        blade1_azimuth_deg=0.0,
+        positions=(QsteadyClocking(0, 0.0, 0.0, "DP.txt"),),
+        validity=None,
+    )
+    target = tmp_path / "sections.csv"
+    write_csv_table(
+        target,
+        ["ROTOR", "FAMILY", "PLANE", "Offset", "Chord", "Fx", "Fz"],
+        [
+            ["PROP", "Blade1", plane, radius, 0.1, 1.0, 0.0]
+            for plane in ("XZ", "YZ")
+            for radius in (0.25, 0.5, 0.75)
+        ],
+    )
+    result = add_reduced_frequency_to_sections(target, record, velocity_m_per_s=10.0)
+    assert result is not None
+    assert all(value is None for value in result.cells())
+    assert any("PROP" in note and "plane" in note.lower() for note in result.notes)

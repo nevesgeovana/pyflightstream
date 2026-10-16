@@ -148,8 +148,8 @@ class CcsControlSurface(BaseModel):
         Slot gap on either side, in percent of span.
     space : str
         ``PARAMETRIC`` (the default), the one supported form. ``REAL``
-        is accepted by the model so the emitter can write it, and the
-        plan refuses it on every build (RPT-097): unsupported.
+        is accepted by the model for validation, but the plan and direct wing
+        emitter refuse it on every build (RPT-097, RPT-126).
     axis : str
         The reference axis of REAL spanwise limits; written on every line.
     """
@@ -286,6 +286,8 @@ class CcsImportOptions(BaseModel):
 
     @model_validator(mode="after")
     def _keys_of_the_kind(self) -> CcsImportOptions:
+        if self.kind == "revolution" and not 0 <= self.start_angle_deg < self.end_angle_deg <= 360:
+            raise ValueError("revolution requires 0 <= start_angle_deg < end_angle_deg <= 360")
         allowed = _KIND_KEYS[self.kind]
         stray = sorted(self.model_fields_set - allowed - {"kind"})
         if stray:

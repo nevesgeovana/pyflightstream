@@ -9,6 +9,25 @@ from pyflightstream.cases import SOLVER_SETTING_COMMANDS
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.workspace.setup_standards import render_guidelines
 
+
+@pytest.mark.parametrize("names", [("user", "user"), ("pfs_counter",)])
+def test_p0420_user_actions_refuse_duplicate_or_reserved_names(names):
+    from pyflightstream.cases import SolverSettings
+
+    actions = [{"type": "SCRIPT", "name": name, "filename": "action.txt"} for name in names]
+    with pytest.raises(ValueError, match="unsteady_solver_actions"):
+        SolverSettings(unsteady_solver_actions=actions)
+
+
+def test_p0420_user_actions_refuse_unknown_type():
+    from pyflightstream.cases import SolverSettings
+
+    with pytest.raises(ValueError, match="SCRIPT.*COMMAND_LINE"):
+        SolverSettings(
+            unsteady_solver_actions=[{"type": "INVALID", "name": "user", "filename": "a"}]
+        )
+
+
 DOMAINS = {
     "solver_settings",
     "solver_initialization",

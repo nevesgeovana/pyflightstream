@@ -183,3 +183,19 @@ def test_a_row_that_states_neither_keeps_the_answer_it_has_always_had():
     assert plan is not None
     assert "windows" in plan["time_average"], plan["time_average"]
     assert plan["per_blade"]["windows"] == [[221, 720]], plan["per_blade"]
+
+
+def test_p0420_passage_provenance_states_the_rotors_own_span():
+    from tests.tier1_offline.test_reduce_by_rotor import transition_case
+
+    case = transition_case()
+    case = case.model_copy(update={"variables": {**case.variables, "LAST_REVS_AVG": "1.0"}})
+    plan = reduction_windows(case)
+    for alias in ("LIFT_L1", "PUSHER"):
+        block = plan["rotors"][alias]
+        passage = block["phase_locked"]
+        assert passage["windows"][0][0] == block["per_blade"]["windows"][0][0]
+        remainder = block["per_blade"]["windows"][0][1] - passage["windows"][-1][1]
+        assert 0 <= remainder < passage["period_steps"]
+        assert alias in passage["window_from"]
+        assert "own" in passage["window_from"]

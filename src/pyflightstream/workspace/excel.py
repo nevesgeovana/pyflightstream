@@ -18,9 +18,7 @@ __all__ = [
 ]
 
 
-def create_workbook(
-    path: str | Path, *, workspace: str | Path, python: str | Path = sys.executable
-) -> Path:
+def create_workbook(path: str | Path, *, workspace: str | Path) -> Path:
     """Create a new macro-free .xlsx; synchronize saved files through the CLI.
 
     Parameters
@@ -29,9 +27,6 @@ def create_workbook(
         The new ``.xlsx`` file; an existing file is refused.
     workspace : str or Path
         The workspace the workbook synchronizes with.
-    python : str or Path, optional
-        The Python executable the workbook names for the synchronization, ``sys.executable`` by
-        default.
 
     Returns
     -------
@@ -71,15 +66,15 @@ def create_workbook(
         for row, label, value in (
             (1, "pyflightstream matrix workbook", "Explicit Preview / Apply / Cancel"),
             (3, "Workspace", str(Path(workspace).resolve())),
-            (4, "Python executable", str(Path(python).resolve())),
-            (5, "Matrices (optional, semicolon separated)", ""),
             (7, "Preview direction", "read"),
             (8, "Session directory", ""),
             (9, "Preview state", ""),
             (
                 11,
                 "Usage",
-                "Save and close Excel. Use the CLI to create a read or write preview. "
+                "Save and close Excel. Run python -m pyflightstream.workspace.excel preview "
+                '"workbook.xlsx" '
+                '--workspace "workspace" --direction read --batch "preview.json". '
                 "Review the HTML preview, then explicitly apply or cancel.",
             ),
             (

@@ -230,11 +230,7 @@ def _settings(
         script.emit("DELETE_TRANSITION_TRIP", trip)
     physics = (solver.physics_auto_trailing_edges, solver.physics_auto_wake_nodes)
     if any(value is not None for value in physics):
-        if any(value is None for value in physics):
-            raise CampaignConfigError(
-                "physics_auto_trailing_edges and physics_auto_wake_nodes must be stated together"
-            )
-        script.emit("PHYSICS", *physics)
+        script.emit("PHYSICS", *(bool(value) for value in physics))
     helpers.solver_settings(
         script,
         aoa=_angle(case, "alpha"),

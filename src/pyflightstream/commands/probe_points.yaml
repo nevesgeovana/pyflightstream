@@ -36,6 +36,7 @@ NEW_PROBE_LINE:
   phase: analysis
   args:
     - name: numpts
+      cites: null
       type: int
     - name: x1
       type: float

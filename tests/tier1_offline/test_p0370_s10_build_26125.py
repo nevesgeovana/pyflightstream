@@ -50,6 +50,44 @@ NEW_IN_26125 = (
 #: The compat report of the 26.125 probe campaign (2026-10-05).
 CAMPAIGN = "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
 
+
+def test_p0420_g52_profile_receipt_preparation_preserves_product_hold(tmp_path):
+    from pyflightstream.cases.pproc import ProductsSpec
+    from pyflightstream.qa.probes import generate_probe_script, unattended_profile_spec
+
+    spec = unattended_profile_spec((0.25, 0.4, 0.03))
+    script = generate_probe_script(spec, "26.125", tmp_path, fsm=tmp_path / "solved.fsm")
+    lines = script.render().splitlines()
+    target = lines.index("EXPORT_BL_VELOCITY_PROFILE 1 0.25 0.4 0.03")
+    assert lines[target + 1].endswith("profile.txt")
+    assert any("BEGIN" in line and "EXPORT_BL_VELOCITY_PROFILE" in line for line in lines[:target])
+    assert any(
+        "END" in line and "EXPORT_BL_VELOCITY_PROFILE" in line for line in lines[target + 2 :]
+    )
+    assert "START_SOLVER" not in lines
+    assert spec.timeout_s == 120.0
+    assert "EXPORT_BL_VELOCITY_PROFILE" not in PROBE_SPECS
+    with pytest.raises(ValueError, match="unattended"):
+        ProductsSpec(boundary_layer_velocity_profile=True)
+
+
+def test_p0420_g52_profile_effect_requires_nonempty_output(tmp_path):
+    from types import SimpleNamespace
+
+    from pyflightstream.qa.probes import unattended_profile_spec
+
+    spec = unattended_profile_spec((0.25, 0.4, 0.03))
+    artifacts = SimpleNamespace(workdir=tmp_path)
+    assert spec.assert_effect(artifacts) is False
+    (tmp_path / "profile.txt").write_text("", encoding="utf-8")
+    assert spec.assert_effect(artifacts) is False
+    (tmp_path / "profile.txt").write_text(
+        "synthetic output, not a solver format fixture", encoding="utf-8"
+    )
+    assert spec.assert_effect(artifacts) is True
+    assert "not yet accepted" in spec.observe(artifacts)
+
+
 #: The four commands FSM-26.125 stops printing, absent on 26.125.
 DROPPED_BY_26125 = (
     "AUTO_DETECT_BASE_REGIONS",

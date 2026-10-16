@@ -23,7 +23,6 @@ writer they extend.
 from __future__ import annotations
 
 import math
-import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -495,16 +494,18 @@ def rotor_coefficients(
 
     Raises
     ------
-    ZeroDivisionError
-        If the rotor is not turning. Every coefficient divides by the square of
-        the speed, and a rotor at zero rev/min has no coefficients rather than
-        infinite ones.
+    ProductError
+        If the rotor is not turning or its diameter is not positive. Every
+        coefficient divides by the square of the speed; a stationary rotor has no
+        coefficients rather than infinite ones.
     """
     if rps == 0:
-        raise ZeroDivisionError(
-            "the rotor is not turning, so it has no thrust or torque coefficient: "
+        raise ProductError(
+            "rps is zero: the rotor is not turning, so it has no thrust or torque coefficient: "
             "every one of them divides by the square of its speed"
         )
+    if diameter_m <= 0:
+        raise ProductError("diameter_m must be positive to define rotor coefficients")
     # rps carries the rotation sense. Its magnitude normalises J, CT and CQ.
     # Power is Q times omega: reversing both torque and rotation preserves
     # shaft power, so CP = 2 pi CQ * sign(n), with magnitude-rate normalisation
@@ -939,19 +940,4 @@ def write_rotor_table(
     # reads `NA` like every other product rather than by a rule of its own.
     # Writing the rows here with `csv.writer` would be a fifth family spelling
     # its own absences, which is the drift item 5 repaired.
-    # THE SCRATCH FILE IS REMOVED WHATEVER HAPPENS, and it was not for one
-    # commit. `write_csv_table` refuses a malformed row, and the refusal left
-    # `<product>.rows` behind IN THE POLARS FOLDER, and nothing on any later run
-    # cleans it up. A QA round reproduced it by shrinking the column tuple.
-    # It goes in a TEMPORARY DIRECTORY rather than beside the product, so a
-    # process killed or a row refused before the table is whole leaves nothing
-    # in the user's workspace at all. This machine killed three runs for memory
-    # in one day; that is not a hypothetical.
-    with tempfile.TemporaryDirectory() as scratch_dir:
-        scratch = Path(scratch_dir) / "rows.csv"
-        write_csv_table(scratch, columns, written)
-        table = scratch.read_bytes()
-    # G16: write once through the shared CSV funnel, starting with the header.
-    # ROTOR carries the alias in each row; line endings match every product.
-    target.write_bytes(table)
-    return target
+    return write_csv_table(target, columns, written)
