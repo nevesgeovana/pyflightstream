@@ -1,0 +1,55 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.120'
+date: '2026-10-16'
+package_version: unrecorded; source 6bad1dac664ef7b0959e683749f4b1f437af6033
+fs_exe: FlightStream_26120.exe
+fs_exe_sha256: withheld; build 7012026
+executor: recorded licensed executor, -hidden -script (as run; mechanism FSM-26.120 pp.279-280; argument
+  spelling RPT-023)
+solver_identity:
+- 'FlightStream version 26.1, build #7012026'
+summary:
+  verified: 0
+  broken: 1
+  removed: 1
+  unprobed: 0
+commands:
+  CREATE_BULK_SEPARATION:
+    outcome: broken
+    detail: 'script processing aborted at the command: the log exported before it exists, the one after
+      it never appeared (END sentinel missing); the solver said: ERROR | Scripting | N/A | Error in script
+      ''<probe folder>\probe.txt'' at line 12: ''CREATE_BULK_SEPARATION PYFS_BULK CYLINDRICAL -1 0.5''
+      | Review command syntax a; ERROR | Scripting | N/A | Error in script ''<probe folder>\probe.txt''
+      at line 12: ''CREATE_BULK_SEPARATION PYFS_BULK CYLINDRICAL -1 0.5'' | Review command syntax a; offline
+      report of the licensed 2026-10-15 PFS-2001.07 observations, namespace 6bad1dac664ef7b0959e683749f4b1f437af6033-29503a168256457eab4ba4bf1099439f.
+      Only this tested spelling and syntax on build 7012026 are judged.'
+    expected: null
+    observation: null
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors:
+      - 'ERROR | Scripting | N/A | Error in script ''<probe folder>\probe.txt'' at line 12: ''CREATE_BULK_SEPARATION
+        PYFS_BULK CYLINDRICAL -1 0.5'' | Review command syntax a'
+      - 'ERROR | Scripting | N/A | Error in script ''<probe folder>\probe.txt'' at line 12: ''CREATE_BULK_SEPARATION
+        PYFS_BULK CYLINDRICAL -1 0.5'' | Review command syntax a'
+    wall_time_s: 0.74
+    return_code: 0
+    script_sha256: 4c088cbacddc0191c354ceb9967767295657df4826611e3d7450a3480b094528
+  DELETE_VALAREZO_CRITERION_BOUNDARIES:
+    outcome: removed
+    detail: the solver refused the name as an unrecognised command, so this build does not carry it; measured,
+      not read off an edition's silence; offline report of the licensed 2026-10-15 PFS-2001.07 observations,
+      namespace 6bad1dac664ef7b0959e683749f4b1f437af6033-29503a168256457eab4ba4bf1099439f. Only this tested
+      spelling and syntax on build 7012026 are judged.
+    expected: null
+    observation: null
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.79
+    return_code: 0
+    script_sha256: 1f1a021f7114eeb93cb37b2ba79aa596315607da1ffda4378956df1b9ac87069
