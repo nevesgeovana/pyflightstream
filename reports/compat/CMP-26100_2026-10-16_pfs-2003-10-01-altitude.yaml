@@ -1,0 +1,36 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.100'
+date: '2026-10-16'
+package_version: 0.41.0
+fs_exe: FlightStream_26100.exe
+fs_exe_sha256: null
+executor: kit invocation (executor class not retained), -hidden -script (as run; mechanism FSM-26.120
+  pp.279-280; argument spelling RPT-023)
+solver_identity:
+- 'FlightStream version 26.1, build #2122026'
+summary:
+  verified: 0
+  broken: 1
+  removed: 0
+  unprobed: 0
+commands:
+  AIR_ALTITUDE:
+    outcome: broken
+    detail: 'Reanalysis of PFS-2003.10.01 execution f05d9ea4031a, run 2026-10-15T23:18:18+00:00; GEO-105
+      release 0.42.0 licensed receipt namespace 6bad1dac664ef7b0959e683749f4b1f437af6033-634c716003ce4ffb9b1903895d7a048f.
+      Baseline and all three target sentinels passed. 5000 METERS equals 5000 FEET instead of equal-physical
+      16404.199475065616 FEET; the units token is not honored for this control. Density precision is 0.001
+      kg/m^3. This is analysis of retained evidence, not a new solver execution. Control script hashes
+      (meters, same-number feet, equivalent feet): 939c4a3f0cbe99a2d1d8870588ebb72002554803f5ed1b49a313711081f0a184,
+      5a4b14534bec6484402c955a3254340f39a7d2f1191f69a4c5c607f7d34d138f, acc22d514968bcdf0f099c5094014041bead05b8f4ee5662ebf84f3a259592e4'
+    expected: Equal physical altitudes produce equal density; equal-number METERS and FEET differ.
+    observation: 'Density kg/m^3 at 5000 METERS / 5000 FEET / 16404.199475065616 FEET: 1.056 / 1.056 /
+      .736'
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: false
+      log_errors: []
+    wall_time_s: 2.01
+    return_code: 0
+    script_sha256: 939c4a3f0cbe99a2d1d8870588ebb72002554803f5ed1b49a313711081f0a184

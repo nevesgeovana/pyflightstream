@@ -294,7 +294,7 @@ AIR_ALTITUDE:
           unit: "ft"
     "25.100": {status: documented, note: "FSM-25.100 p.302, same grammar as 26.120"}
     "26.000": {status: documented, note: "FSM-26.000 p.301, same grammar as 26.120"}
-    "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
+    "26.100": {status: broken, report: "reports/compat/CMP-26100_2026-10-16_pfs-2001-03-02-altitude.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...] Probe: Reanalysis of PFS-2003.10.01 execution f05d9ea4031a, run 2026-10-15T23:18:18+00:00; GEO-105 release 0.42.0 licensed receipt namespace [...] Probe: Reanalysis of PFS-2003.10.02 execution 14ae8220bc49, run 2026-10-15T23:19:22+00:00; GEO-105 release 0.42.0 licensed receipt namespace [...] Probe: Reanalysis of PFS-2001.03.02 execution 93117a8b6179, run 2026-10-15T23:18:18+00:00; GEO-105 release 0.42.0 licensed receipt namespace [...]"}
     "26.101": {status: broken, report: "reports/compat/CMP-26101_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
     "26.120": {status: broken, report: "reports/compat/CMP-26120_2026-08-08_full.yaml", note: "the command ran (script processing continued past it) but its effect was not observed; expected: the settings dump reports the 5000 m [...]"}
     "26.121": {status: verified, report: "reports/compat/CMP-26121_2026-08-08_full.yaml"}
@@ -313,21 +313,17 @@ AIR_ALTITUDE:
     same call means different things on either side of that boundary,
     by a factor of 3.28, and the number alone cannot say which.
 
-    Read the three broken rows beside that, and read them for what they
-    actually record. All three say the same thing: the command ran and
-    the expected density was not observed. ONE of them, 26.120, has a
-    reading behind it, 1.056 against the 0.736 expected, which is the
-    5000 FOOT standard state and was seen twice on build 7012026
-    (RPT-014). On 26.100 and 26.101 the probe recorded only that the
-    expected value was absent.
+    Licensed controls filed on 2026-10-16 measured the density for 5000
+    METERS, 5000 FEET and the equal physical altitude 16404.199475065616
+    FEET. On 26.100 the first two both produce 1.056 kg/m^3 and the third
+    0.736: the units token is ignored for these controls. On 26.124 and
+    26.125 the metre and equal-physical feet arms both produce 0.736,
+    while 5000 FEET produces 1.056. The three node-specific altitude
+    report sets dated 2026-10-16 retain their own execution provenance.
 
-    All three carry the sentence recording 1.056, but it is the probe spec's static
-    effect_note rather than a per-run reading, and the same sentence
-    appears in 26.121's row under outcome verified, which is the proof
-    that it is boilerplate. Whether those builds read every altitude in
-    feet is a question about three solvers and requires the
-    density read back on 26.100 and 26.101 as well as 26.120
-    (PLN-20260810-2000).
+    The 26.120 density reading remains RPT-014's 1.056 against 0.736
+    expected. The 26.101 row still records only an absent expected
+    value; no unit interpretation is inferred from that missing reading.
 
 SONIC_VELOCITY:
   layout: inline
