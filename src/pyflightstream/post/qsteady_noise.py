@@ -801,6 +801,11 @@ def gutin_harmonic_rms(
     float
         The rms amplitude in Pa; 0.0 for a harmonic that is not a multiple of ``blades``.
 
+    Raises
+    ------
+    ProductError
+        If blades is below one, or angular speed, sound speed or distance is not positive.
+
     Examples
     --------
     >>> gutin_harmonic_rms(1, blades=2, omega_rad_s=100.0, c0=340.0, distance_m=10.0,
@@ -808,6 +813,14 @@ def gutin_harmonic_rms(
     ...                    axial_radius_m=1.0, inplane_radius_m=1.0)
     0.0
     """
+    for name, value, minimum in (
+        ("blades", blades, 1),
+        ("omega_rad_s", omega_rad_s, 0),
+        ("c0", c0, 0),
+        ("distance_m", distance_m, 0),
+    ):
+        if value < minimum or (minimum == 0 and value == 0):
+            raise ProductError(f"{name} must be {'at least 1' if minimum else 'positive'}")
     if harmonic < 1 or harmonic % blades:
         return 0.0
     wave = harmonic * omega_rad_s / c0
