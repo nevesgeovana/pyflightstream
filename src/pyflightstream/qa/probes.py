@@ -1794,6 +1794,21 @@ def unattended_profile_spec(point: tuple[float, float, float]) -> ProbeSpec:
     geometry-dependent input must never be guessed. A nonempty file proves
     export completion only; inspection of its format and product acceptance
     remain separate, and the product stays disabled.
+
+    Parameters
+    ----------
+    point : tuple of float
+        Three finite reference-frame coordinates selected from the solved control.
+
+    Returns
+    -------
+    ProbeSpec
+        Unregistered, bounded probe for the 26.125 unattended-profile receipt.
+
+    Raises
+    ------
+    QaEvidenceError
+        If the point is invalid, or the generated target uses another build.
     """
     if len(point) != 3 or not all(math.isfinite(value) for value in point):
         raise QaEvidenceError("profile probe point requires three finite reference coordinates")
