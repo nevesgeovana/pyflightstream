@@ -653,6 +653,19 @@ def _emit_compact_line(script: Script, line: str) -> None:
 
 
 def _check_references(script: Script, entry: CommandEntry, bound: dict[str, object]) -> None:
+    frames = bound.get("frame_indices")
+    if (
+        entry.name == "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS"
+        and script.version.canonical in {"26.124", "26.125"}
+        and isinstance(frames, Sequence)
+        and 1 in frames
+    ):
+        raise CommandArgumentError(
+            "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS: index 1 is the reference frame "
+            "and cannot be assigned on 26.124 or 26.125. Select local frame indices "
+            "greater than 1; a count of one is valid "
+            "(reports/PFS-2005.07_frame-index-evidence_2026-10-16.md)."
+        )
     if entry.name == "DELETE_COORDINATE_SYSTEM" and bound.get("frame") == 1:
         raise CommandArgumentError(
             "DELETE_COORDINATE_SYSTEM: frame 1 is the reference frame and cannot "
