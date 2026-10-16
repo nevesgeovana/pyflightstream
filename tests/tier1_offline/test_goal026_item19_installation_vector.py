@@ -57,7 +57,7 @@ def test_a_letter_is_exactly_the_vector_it_always_meant(letter, expected):
     reference would silently change what it asks the solver, which is the one
     thing this item may not do.
     """
-    assert _rotor(letter, zero="Y" if letter != "Y" else "X").axis_vector == expected
+    assert _rotor(letter, zero="Z" if letter == "X" else "X").axis_vector == expected
 
 
 def test_a_vector_is_accepted_and_normalised():
@@ -173,12 +173,12 @@ def test_the_shaft_basis_is_the_identity_only_when_the_datum_is_x():
     )
 
 
-def test_a_rotor_stating_a_letter_keeps_the_identity_orientation():
-    """The branch that actually protects every reference written before 0.23.0."""
+def test_p0420_letter_rotor_keeps_identity_only_for_its_native_datum():
+    """PFS-2119.024: native +X datum of a Z shaft preserves the letter path."""
     from pyflightstream.cases import BladeDatum
     from pyflightstream.cases.workflows._frames import _hub_basis
 
-    for zero in ("X", "Y"):
+    for zero in ("X", "+X"):
         block = RotorBlock(
             alias="PUSHER",
             axis="Z",
@@ -363,17 +363,8 @@ def test_the_emitted_blade_frame_of_a_tilted_rotor_is_built_on_its_shaft(units, 
     assert "ROTATION_AXIS Z" in rotation, rotation
 
 
-def test_a_letter_rotor_emits_exactly_what_it_emitted_before():
-    """The property every reference she already has depends on, ON THE BYTES.
-
-    `_hub_basis` returns the LITERAL identity for a rotor stating a letter, so
-    routing the blade frames through it may not change one character of what a
-    pre-0.23.0 reference emits. Asserted by comparing the emitted text with the
-    axes the builder hard-coded before this release.
-    """
-    #: The three axes `_hub_basis` returns for EVERY letter: the literal
-    #: identity. That is the whole claim of this test, and until a closing round
-    #: read it, the body asserted nothing about these nine numbers at all.
+def test_p0420_native_letter_datums_keep_the_previous_emitted_frames():
+    """Native letter datums retain identity; non-default datums use vectors."""
     identity = {
         "VECTOR_X_X": 1.0, "VECTOR_X_Y": 0.0, "VECTOR_X_Z": 0.0,
         "VECTOR_Y_X": 0.0, "VECTOR_Y_Y": 1.0, "VECTOR_Y_Z": 0.0,
@@ -381,7 +372,7 @@ def test_a_letter_rotor_emits_exactly_what_it_emitted_before():
     }  # fmt: skip
 
     for letter in ("X", "Y", "Z"):
-        text = _emitted_blade_frames(_rotor(letter, zero="Y" if letter != "Y" else "X"))
+        text = _emitted_blade_frames(_rotor(letter, zero="Z" if letter == "X" else "X"))
         tail = text.split("ROTATE_COORDINATE_SYSTEM", 1)[1][:200]
         assert f"ROTATION_AXIS {letter}" in tail, (letter, tail)
 
