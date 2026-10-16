@@ -214,6 +214,19 @@ class FsiInputError(PyflightstreamError, ValueError):
     it from :mod:`pyflightstream.fsi.errors` or the catalog, as before.
     """
 
+    def __init__(self, *args: object, problems: tuple[str, ...] = ()) -> None:
+        """Preserve exception arguments and expose individual resume mismatches.
+
+        Parameters
+        ----------
+        *args : object
+            Diagnostic arguments accepted by ValueError.
+        problems : tuple of str, optional
+            Individual persisted-array mismatches, empty for other refusals.
+        """
+        super().__init__(*args)
+        self.problems = problems
+
 
 class ContractNotImplementedError(PyflightstreamError, NotImplementedError):
     """A contract function whose body its work package has not filled yet.

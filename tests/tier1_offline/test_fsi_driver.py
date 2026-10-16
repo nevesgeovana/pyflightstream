@@ -68,6 +68,24 @@ FAMILY_MAP = SectionFamilyMap(
 OMEGA_RAD_PER_S = 2.0 * np.pi / (4 * 0.004)
 
 
+@pytest.mark.requirement("NFR-52")
+def test_p0420_p1_1d_resume_error_exposes_each_array_problem():
+    """Resume a two-station state with three stations; inspect the refusal."""
+    from pyflightstream.fsi.state import FsiState, RecordedTwist, check_state_matches_config
+
+    state = FsiState(
+        previous_twist_rad=[[0.0, 0.0]],
+        recorded_twist=[RecordedTwist(step=1, elastic_twist_rad=[[0.0]])],
+    )
+    with pytest.raises(FsiInputError) as caught:
+        check_state_matches_config(state, blade_count=1, station_count=3)
+    problems = getattr(caught.value, "problems", None)
+    assert problems is not None, "resume errors must expose mismatched arrays"
+    assert len(problems) == 2
+    assert problems[0].startswith("previous_twist_rad blade 0")
+    assert problems[1].startswith("recorded_twist step 1 blade 0")
+
+
 def driver_config() -> FsiConfig:
     """Stiff synthetic blade covering the fixture sections (0.29-1.81 m)."""
     n = 11

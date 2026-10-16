@@ -416,7 +416,8 @@ def check_state_matches_config(
             "structure and keep producing plausible numbers. Either restore the "
             "configuration this state was produced under, or start a new run "
             "directory; state.json is not portable across a config change that "
-            "moves stations or blades."
+            "moves stations or blades.",
+            problems=tuple(problems),
         )
 
     # REV010-009, and it runs AFTER the shape checks deliberately. A config
