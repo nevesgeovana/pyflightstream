@@ -2,8 +2,8 @@
 
 Two halves, both read by the run layer before a ``RESTART`` row is built.
 :func:`continuation_verdict` says, per point, whether its latest record may be
-continued and what the plan and the run say about it (FR-96, amended in
-0.33.0: a CONVERGED unsteady march may be continued by ``ADDITIONAL_REVS`` or
+continued and what the plan and the run say about it (FR-96: a CONVERGED
+unsteady march may be continued by ``ADDITIONAL_REVS`` or
 ``ADDITIONAL_ITERS``, once per request). :func:`recover_frame` proves the
 original setup of a stopped run whose manifest predates frame placement.
 """
@@ -39,8 +39,7 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 
-# 0.35.0 (FR-381): the effective-record rules moved down to the workspace layer,
-# where the ledger reads them too; the run layer imports them back under this name.
+# FR-381: the run layer and ledger share the workspace's effective-record rules.
 from pyflightstream.workspace.ledger import latest_record_of_point
 
 #: The statuses a continuation continues FROM whatever the run type: these three
@@ -66,7 +65,7 @@ MARCHING_RUN_TYPES = ("unsteady", "unsteady_rotor")
 #: The statuses of a run that reached every step it was given.
 _COMPLETED = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER, RunStatus.MAX_ITER_REACHED)
 
-#: The step counter's registration, which every unsteady row carries since 0.33.0
+#: The step counter's registration, which every unsteady row carries
 #: (FR-314) and which counts and places nothing.
 _COUNTER_HEAD = f"SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE {UNSTEADY_COUNTER_ACTION}"
 
@@ -90,8 +89,8 @@ def _verified_file(record: RunRecord, path: Path, digest: str | None, label: str
 def _native_setup(text: str, script: Script) -> tuple[str, ...]:
     """Compare native setup, excluding output serialization and comments.
 
-    0.27 wrote Tecplot natively; current releases translate VTK. Exports
-    select no loads frame, and neither does the step counter 0.33.0 registers
+    Native Tecplot and translated VTK exports select no loads frame,
+    and neither does the step counter registered
     on every unsteady row (FR-314). Scientific commands and their order stay
     compared.
     """
@@ -104,7 +103,7 @@ def _native_setup(text: str, script: Script) -> tuple[str, ...]:
     at = 0
     while at < len(lines):
         line = lines[at]
-        # FR-314: a row recorded by 0.32.0 without the counter is the same setup.
+        # FR-314: counter registration does not change the scientific setup.
         if line == _COUNTER_HEAD and at + 1 < len(lines):
             at += 2
             continue
@@ -256,7 +255,7 @@ def recover_frame(
     }
 
 
-# --- what a RESTART row continues (FR-96; a CONVERGED march since 0.33.0) -------
+# --- what a RESTART row continues (FR-96) ------------------------------------
 
 
 @dataclass(frozen=True)
@@ -374,7 +373,7 @@ def continuation_verdict(
     """Judge one point of a ``RESTART`` row by its latest record (FR-96).
 
     A run the wall clock stopped, and one recorded at its iteration cap, are
-    continued as they always were. A CONVERGED run of an unsteady run type is
+    continuable. A CONVERGED run of an unsteady run type is
     continued by ``ADDITIONAL_REVS`` or ``ADDITIONAL_ITERS``, because for a
     march CONVERGED is the residual test at its last step and an average may
     need more revolutions; ``FINISH_PENDING`` has nothing to finish there. A
@@ -445,9 +444,8 @@ def refuse_what_cannot_continue(
 ) -> RunRecord:
     """Return the record a point's ``RESTART`` request continues, or raise why it cannot.
 
-    The point's MOST RECENT record, whatever it says, is the one asked: this read
-    the latest STOPPED record until 0.18.1, so a point whose continuation had
-    since finished was continued again from the run before it (GOAL-021).
+    Ask the point's most recent record, whatever its status, so a finished
+    continuation cannot be restarted from an earlier stopped run (GOAL-021).
     """
     records = workspace.read_manifest()
     previous = latest_record_of_point(records, sim_id, tag)

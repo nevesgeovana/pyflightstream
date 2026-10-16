@@ -428,7 +428,7 @@ def _validate_read_row(row: Mapping[str, Any]) -> None:
 
 
 def add_mark_parsers(subparsers: Any, *, workspace_help: str, apply_help: str) -> None:
-    """Register ``mark-failed`` (0.33.0, FR-309) among the records commands."""
+    """Register ``mark-failed`` (FR-309) among the records commands."""
     mark = subparsers.add_parser(
         "mark-failed",
         help="mark every run record of the named simulations FAILED_MARKED, whatever it "
@@ -458,7 +458,7 @@ def add_mark_parsers(subparsers: Any, *, workspace_help: str, apply_help: str) -
 
 
 def add_mark_converged_parser(subparsers: Any) -> None:
-    """Register ``mark-converged`` (0.37.0, FR-414), appended last as every later command is."""
+    """Register ``mark-converged`` (FR-414), appended last as every later command is."""
     workspace_help = "the workspace root carrying runs.json (default: the current directory)"
     apply_help = "change files; without it the command previews and changes nothing"
     converged = subparsers.add_parser(

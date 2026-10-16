@@ -35,15 +35,10 @@ class WindowDiagnostic:
     unread: tuple[str, ...] = ()
 
 
-#: What a window that ASKS NOTHING is, measured: FlightStream 26.124 launched
-#: with its GUI (a matrix row with HIDDEN 0) shows for about two seconds a
-#: startup splash of class #32770, modal over its main window, with no title,
-#: no readable text and one image control, and no button (the no-solve probe of
-#: 2026-09-28, 700x525). Nobody can answer it and it closes by itself, so the
-#: watcher spares it; before 0.30.0 it killed every GUI run within 2 s as
-#: "solver dialog contains no readable text". A window with a title, any
-#: readable text, or any button is still a dialog (the design decision of
-#: 2026-09-28, option (b) adjusted to the measurement).
+#: FlightStream 26.124's GUI startup splash asks nothing: it is a modal
+#: class #32770 window with no title, readable text or button, one image
+#: control and a 700x525 extent. It closes itself after about two seconds.
+#: Spare this splash; a title, readable text or button identifies a dialog.
 def asks_nothing(window: WindowDiagnostic) -> bool:
     """Say whether a window has no title, no readable text and no button."""
     return (

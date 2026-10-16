@@ -1,6 +1,6 @@
 """The counter program a point's COMMAND_LINE action runs (PFS-2031.18).
 
-The design of 2026-09-08, GeoversePlan design 67. The solver runs the
+GeoversePlan design 67. The solver runs the
 program after every unsteady time step and hands it nothing: no argument,
 no step index, no environment (RPT-041 finding 4). So the program keeps
 the count itself, in a file beside itself, derives the physical time, the
@@ -20,8 +20,7 @@ with backslashes and a script text with newlines survive the substitution
 without an escaping rule of their own.
 
 A ROW WITH NO PER-STEP EXPORT GETS A COUNTER TOO (FR-314): the progress bar
-of a local run (FR-129) reads the count, and until 0.33.0 only a row asking
-for per-step exports had one. Such a row's program is
+of a local run (FR-129) reads the count. Such a row's program is
 :data:`COUNT_ONLY_TEMPLATE`: it keeps the count and rewrites nothing else, so
 no exports file exists and no exports script runs. :func:`stage_counter`
 writes whichever program the script's registration names.
@@ -302,7 +301,7 @@ def stage_counter(
     fields["action_script"] = UNSTEADY_ACTION_SCRIPT
     # What the row stated and the step the exports begin on, so a reader of the
     # manifest answers "from which step" without opening the counter program
-    # (the release review of 2026-09-09), and the clock the program ran with, so
+    # and the clock the program ran with, so
     # the series tables compute each step's time and azimuth by the same
     # arithmetic (PFS-2031.18.01); a rotorless row has no azimuth step.
     window: ExportThresholdRecord = {

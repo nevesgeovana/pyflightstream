@@ -78,7 +78,7 @@ class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD 
 def _run_id(campaign: Campaign, case: SimCase, point: dict[str, float]) -> str:
     """Compose the fixed manifest identity of one campaign point.
 
-    The scheme ``<campaign>/sim_<sim_id>/<point name>`` is identity (0.21.0),
+    The scheme ``<campaign>/sim_<sim_id>/<point name>`` is identity,
     not presentation: it never goes through the naming template, so
     renaming outputs can never fork or collide run identities.
     """
@@ -123,7 +123,7 @@ def _point_names(
     ]
     # G45: the VTK a Tecplot surface is written from is an output of the point,
     # and the native Tecplot only where the pproc asks for the strength (SS1).
-    # 0.32.0 (E2): the acoustic export of a row that declares observers, last.
+    # E2: the acoustic export of a row that declares observers, last.
     return stem, with_acoustic_signals(
         with_tecplot_source(outputs, singularity_strength=carries_singularity_strength(case)),
         case,
@@ -194,8 +194,7 @@ def _say(message: str, *, quiet: bool = False) -> None:
 
 
 #: The tag a JOB's run id ends with, where a point's run id ends with its
-#: point tag; its home is the workspace layer since 0.30.0, beside the record
-#: it names, and it is stated here under the name this module has always had.
+#: point tag. Defined in the workspace layer beside the record it names.
 JOB_TAG = _WORKSPACE_JOB_TAG
 
 
@@ -231,7 +230,7 @@ def _points_the_recorded_job_ran(
     return tuple(str(entry.get("tag") or "") for entry in job.points_ran or [])
 
 
-#: The run type whose points are ONE job since 0.17.0.
+#: The run type whose points can share ONE job.
 ONE_JOB_RECIPE = "steady"
 
 
@@ -284,27 +283,27 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     follow is a question for the author, and answering it unasked is what
     the second condition exists to prevent.
 
-    A FOURTH CONDITION SINCE 0.21.0: the points differ in ATTITUDE alone. A
-    row may now sweep a flow variable, and one warm job cannot run such a
+    A FOURTH CONDITION: the points differ in ATTITUDE alone. A
+    row may sweep a flow variable, and one warm job cannot run such a
     sweep: the air state is a SETUP command, the solver takes it before it is
     initialised, and the phase guard refuses it after. So a row sweeping MACH,
     REmi, an altitude or any other flow variable is one job per point, each
-    with its own fluid block, and the warm sweep stays what the predecessor's
-    recipe was: one setup, one initialisation, many angles.
+    with its own fluid block. A warm sweep uses one setup, one initialisation
+    and many angles.
 
-    A FIFTH SINCE 0.28.0: the row's disc takes a different speed at each
+    A FIFTH CONDITION: the row's disc takes a different speed at each
     point. A disc that derives its speed from a swept advance ratio (G20) is
     set once in a warm job, so every point after the first would turn at the
     first point's speed; such a row is one job per point, as a flow sweep is.
 
-    A SIXTH SINCE 0.30.0: the row couples a fixed wing (FSI-G). A steady
+    A SIXTH CONDITION: the row couples a fixed wing (FSI-G). A steady
     coupled script ends at ``EXECUTE_AEROELASTIC_ANALYSIS`` and its process
     is stopped once the analysis ends, so one script holds one point.
 
-    A SEVENTH SINCE 0.40.0 (PFS-2104.044): the row sweeps a body rate, or
+    A SEVENTH CONDITION (PFS-2104.044): the row sweeps a body rate, or
     the body rate otherwise changes between points. The rotating free stream
     is set once in a warm job, at the first point's rate, so every point
-    after it was solved at that rate and recorded under its own; such a row
+    after it would be solved at that rate and recorded under its own; such a row
     is one job per point, as a flow sweep is.
     """
     if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
@@ -386,7 +385,7 @@ def _is_cold_start(case: SimCase) -> bool:
     )
 
 
-# FR-327 (0.34.0, P0340-RUN-AGAIN): the refusal of a second run counts what continuing does.
+# FR-327 (P0340-RUN-AGAIN): the refusal of a second run counts what continuing does.
 class _AlreadyRecordedError(WorkspaceError):
     """A point of the matrix is already in the manifest and no way to continue was chosen.
 
@@ -456,7 +455,7 @@ def already_recorded_error(
     )
 
 
-# FR-326 (0.34.0, P0340-RUN-ONE-POINT): a selection of the matrix, planned or run alone.
+# FR-326 (P0340-RUN-ONE-POINT): a selection of the matrix, planned or run alone.
 def _names_of(case: SimCase) -> list[str]:
     """Return the point names of one case, in sweep order, as the plan prints them."""
     return [point_name(case, point) for point in case.sweep.points()]

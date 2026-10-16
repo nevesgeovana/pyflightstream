@@ -142,7 +142,7 @@ def _warm_steady(case: SimCase, steady: bool) -> str | None:
 def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) -> str | None:
     """Return the reason a polar cannot join a grouped job, or None when it can (reading 7).
 
-    The run types ``unsteady`` and ``unsteady_rotor`` join, and since 0.35.1 the steady ones,
+    The run types ``unsteady`` and ``unsteady_rotor`` join, and the steady ones,
     ``steady`` and ``qsteady_rotor`` (FR-403), each kind in jobs of its own. A polar is left
     out and NAMED, never refused: a LEGACY row (its own recipe builds it), a steady row that
     states ``COLD_START`` false (a warm sweep, which a re-initialisation before every point would
@@ -152,15 +152,15 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
     ``SOLVER_SET_AOA`` is not left out: those points reopen their geometry, and the plan says
     so (:func:`_splice_refusal`).
 
-    An acoustic row and a coupled (FSI) row join since 0.35.1 (FR-406, FR-407): the job restates
+    An acoustic row and a coupled (FSI) row join (FR-406, FR-407): the job restates
     each point's acoustic setup and enters each coupled point by ``NEW_SIMULATION``
     (:mod:`pyflightstream.cases.workflows._batch_script`, rules 8 and 9). A steady or
     quasi-steady coupled row stays out: ``EXECUTE_AEROELASTIC_ANALYSIS`` starts its coupling
     loop only after the script ends, so no point can follow it in one instance (FR-410,
     FR-421). ``unsteady_rotor`` refuses FSI when it builds.
 
-    A row whose setup states ``unsteady_solver_actions`` otherwise joins a grouped job (FR-405,
-    0.35.1): the split puts it only with polars stating the same actions, and the job registers
+    A row whose setup states ``unsteady_solver_actions`` otherwise joins a grouped job (FR-405):
+    the split puts it only with polars stating the same actions, and the job registers
     them once, before the package's actions, as the point run alone does. A user action cannot
     be withdrawn between polars. A relative SCRIPT file also joins: the plan warns once per
     job, naming the file and the job's folder, that the solver resolves it there and the file
@@ -203,7 +203,7 @@ def eligibility(case: SimCase, *, workspace: CampaignWorkspace, version: str) ->
 def _pristine_refusal(case: SimCase) -> str | None:
     """Return the block a geometry carrying saved solver actions earns (decision 3, FR-378).
 
-    Re-examined for 0.35.1 and KEPT, on three measurements. ``OPEN`` loads a file's saved
+    Three measurements establish the rule. ``OPEN`` loads a file's saved
     actions (RPT-141, arm G). A saved action runs beside the script's action of the same name,
     both firing each step (RPT-135: twice the runtime commands, a step counter of 24 for 12
     steps). An action survives ``NEW_SIMULATION`` and no command withdraws one (RPT-141, Test

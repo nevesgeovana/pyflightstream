@@ -168,11 +168,8 @@ def _refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> N
     if not isinstance(executor, SubmittingExecutor):
         return
     campaign = resolved.campaign
-    # THE ROW'S OWN BUILD, READ OFF THE BINDING, and not `case.fs_build`: that
-    # field is filled by `_bind_row_builds` AFTER this runs, so reading it here
-    # saw only the campaign default for every case, and a later row naming an
-    # unmapped build was submitted-around (the independent review of the
-    # 0.18.1 release, second pass, reproduced in memory).
+    # Read each row's build from its binding. case.fs_build is populated only
+    # later by _bind_row_builds, so it cannot identify the row's build here.
     row_builds = resolved.row_builds
     if len(row_builds) != len(campaign.sims):
         row_builds = tuple(None for _ in campaign.sims)
@@ -253,12 +250,9 @@ def _default_version(
             stacklevel=3,
         )
         return fs_version
-    # NO DEFAULT IS A LEGAL INPUT SINCE 0.11.0 (PFS-2029.01): a matrix whose
-    # every active row fills FS_BUILD names its builds itself, and the
-    # default only ever answered for a row that left the cell empty. That
-    # row is still refused, by name, by refuse_silent_rows_without_default,
-    # which runs before anything is bound; what went is the requirement
-    # to repeat on the command line a build every row already states.
+    # A default is unnecessary when every active row supplies FS_BUILD
+    # (PFS-2029.01). refuse_silent_rows_without_default names rows with empty
+    # cells before binding anything.
     return default_fs_version
 
 
@@ -551,9 +545,7 @@ def plan_matrix(
         (PFS-2009.08.03).
     pyflightstream.workspace.InputArtifactError
         A REF, SET or ENTRY code, or a ``GEOMETRY`` stem, that the input
-        library cannot resolve. The geometry half arrived with the package and
-        raises through the same call; this list said REF, SET and ENTRY
-        only until the review that noticed. An OBJ with no sidecar whose
+        library cannot resolve. An OBJ with no sidecar whose
         groups are not read, naming the line (G30): an OBJ with none is
         otherwise given one, written from its groups, when the matrix is
         bound (:func:`pyflightstream.workspace.matrix.resolve_matrix`).
@@ -627,7 +619,7 @@ def plan_matrix(
     _warn_when_a_helical_mach_may_reach_one(resolved, plan)
     _warn_when_a_quasi_steady_point_leaves_its_assumption(resolved, plan)
     if write_plan:
-        # THE GENERATED PPROC GUIDES (0.24.0), written by the step every campaign
+        # THE GENERATED PPROC GUIDES, written by the step every campaign
         # passes through, so a workspace made before they existed gets them and a
         # `[glossary]` just written reaches the variables page. A plan asked to
         # write nothing writes nothing.
@@ -723,59 +715,27 @@ def _campaign_executor(
     # would send some rows somewhere the caller never asked for.
     supplied = executor
     forced = False
-    # G43 of 0.28.0: how often a local unsteady run says its progress, passed only
-    # when it is not the default, as the false side of export_log is, so every
-    # executor built without it is built exactly as before.
+    # G43: pass progress frequency only when nondefault, matching the
+    # nondefault-only handling of export_log.
     machine: dict[str, Any] = (
         {} if progress_every == PROGRESS_EVERY_DEFAULT else {"progress_every": progress_every}
     )
     if executor is None:
-        # The matrix has a HIDDEN column and it used to be read into the
-        # matrix_hidden variable and never acted on, so a row saying 0
-        # (show the window) ran headless anyway because this parameter
-        # defaults to True. The row decides when the caller did not
-        # (hidden=None); an explicit True or False still wins, because a
-        # caller who names it means it.
+        # Use the matrix's HIDDEN column when hidden=None. An explicit caller
+        # value, True or False, takes precedence.
         if hidden is None:
             hidden = all(
                 case.variables.get("matrix_hidden", True) for case in resolved.campaign.sims
             )
-        # FR-99: THE CODE SEES LINUX AND THAT
-        # IS THE CLUSTER. No cell selects it, so the same matrix, unchanged
-        # in every cell, runs locally on Windows and submits on Linux.
+        # FR-99: the platform selects cluster submission; no matrix cell does.
+        # local=True keeps execution on this machine even when a cluster profile
+        # exists. Record forced_local only where the platform would have submitted:
+        # a cluster with a profile. Count profiles without resolving an unused
+        # profile ambiguity.
         #
-        # THIS BRANCH IS THE WHOLE WIRING, and without it every name the
-        # release added was dead code: `on_a_cluster`, the profile reader
-        # and the submitting executor existed, the CHANGELOG announced
-        # them in the present tense, and `run_campaign` built a
-        # LocalExecutor unconditionally, so opening the study on a cluster
-        # ran it locally on the login node -- the exact failure
-        # `on_a_cluster`'s own comment says it exists to prevent. All five
-        # lenses found it independently (2026-09-13).
-        #
-        # `local=True` (the command line's --local, 0.27.0) KEEPS THE RUN ON
-        # THIS MACHINE: the cluster is not asked, so a Linux box that carries
-        # a profile runs the solver itself, the way Windows does. The choice
-        # is recorded on every point's executor entry as `forced_local`, so a
-        # record never has to be read against the platform to know why a
-        # profiled workspace ran without a queue.
-        #
-        # `forced_local` IS THE SWITCH'S MEASURED EFFECT, not the request (the
-        # opening round of 0.27.0): it is recorded only where the platform
-        # would have submitted, a cluster with a profile. On Windows, or on a
-        # Linux box with none, the run was local anyway and nothing was forced.
-        # The profile is COUNTED rather than resolved, so a local run is never
-        # refused over an ambiguity in a profile it does not use.
-        #
-        # EXCEPT ITS LOG, WHICH IS THE MACHINE'S (0.27.0). A profile stating
-        # `export_log = false` says the build on this cluster aborts at
-        # EXPORT_LOG, and it aborts there whether the job is submitted or run
-        # here: a point run with --local on such a cluster stopped at
-        # EXPORT_LOG after every other export (measured 2026-09-24). So a run
-        # the switch keeps here reads the decision and carries it on its
-        # executor. Only the false side is passed, as `_with_the_profile_s_log`
-        # writes only the false side onto a case: every other executor is
-        # built exactly as it was.
+        # The machine's export_log setting still applies locally: a build that
+        # aborts at EXPORT_LOG does so in either execution mode. Carry a false
+        # setting on the local executor; other executors use their default.
         submitting = None if local else _cluster_executor(workspace, resolved)
         forced = local and on_a_cluster() and bool(hpc_profiles(workspace.inputs_dir))
         if forced and not _exports_its_log_here(workspace):
@@ -784,10 +744,8 @@ def _campaign_executor(
         executor = submitting or LocalExecutor(
             resolved.fs_exe, hidden=hidden, forced_local=forced, **machine
         )
-    # THE PROTOCOL, NOT THE CLASS: the runner submits through anything that
-    # implements `Submitting`, so a caller's own scheduler adapter that does
-    # not inherit SubmittingExecutor passed a class check and could submit
-    # under local=True (the opening round of 0.27.0, all five lenses).
+    # Check the Submitting protocol so local=True also refuses a caller's
+    # scheduler adapter that does not inherit SubmittingExecutor.
     if local and isinstance(executor, Submitting):
         raise ExecutorConfigurationError(
             "local=True keeps the run on this machine, and the executor given is a "
@@ -1088,11 +1046,8 @@ def run_matrix(
     pyflightstream.workspace.InputArtifactError
         A REF, SET or ENTRY code, or a ``GEOMETRY`` stem, that the input
         library cannot resolve. Raised during resolution, before the
-        pre-flight and before any executor is constructed. Documented on
-        the sibling :func:`plan_matrix` and not here in legacy releases, which
-        read as a difference in behaviour where there is none: both call
-        the same resolver on the same line, and a mistyped geometry stem
-        is the commonest user mistake this release makes possible.
+        pre-flight and before any executor is constructed. This uses the
+        same resolver as :func:`plan_matrix`.
     pyflightstream.run.ExecutorConfigurationError
         When the identity pre-flight finds the wrong build installed;
         raised before any point executes.
@@ -1191,7 +1146,7 @@ def run_matrix(
     )
 
 
-# --- G12 (0.27.0): the additional post over a point's saved simulation --------
+# --- G12: the additional post over a point's saved simulation --------
 #
 # `pyfs-matrix post --additional-pproc` and its library half. A row may name a
 # second pproc, ADDITIONAL_PPROC: p<id>; for every recorded point of that row
@@ -1204,7 +1159,7 @@ def run_matrix(
 # beside run_matrix, because it binds the matrix and chooses the executor the
 # way run_matrix does, through the one _campaign_executor.
 #
-# THE SUBMITTING HALF IS NOT BUILT (0.27.0): where the executor chosen is a
+# THE SUBMITTING HALF IS NOT BUILT: where the executor chosen is a
 # scheduler the pass is refused by name before anything is written. A submitted
 # extraction needs a completion pass of its own (its copy of the .fsm kept until
 # the job ends, its original hashed afterwards, its record rewritten), which
@@ -1522,7 +1477,7 @@ def _plan_all(
     by_run = {point.run_id: point for _, point in points}
     latest = _latest_extractions(workspace.read_additional())
     exe_digests: dict[Path, str | None] = {}
-    # THE MACHINE'S LOG DECISION REACHES THE EXTRACTION SCRIPTS (0.27.0). On a
+    # THE MACHINE'S LOG DECISION REACHES THE EXTRACTION SCRIPTS. On a
     # cluster whose profile states `export_log = false` the build aborts at
     # EXPORT_LOG whether the extraction runs here or is submitted, so the plan,
     # which is built before either is chosen, asks the machine and not the

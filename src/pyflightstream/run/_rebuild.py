@@ -9,8 +9,7 @@ record the rebuild makes says so in its ``warnings``, beginning with
 states the procedure and what proves it; :func:`rebuild` is its entry and
 :func:`summary_lines` its report.
 
-The public names are re-exported, unchanged, by :mod:`pyflightstream.run.records`,
-their path of 0.32.0 (AD-11, since 0.33.0).
+The public names are re-exported by :mod:`pyflightstream.run.records` (AD-11).
 """
 
 from __future__ import annotations

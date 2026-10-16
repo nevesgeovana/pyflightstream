@@ -9,8 +9,7 @@ manifest (:func:`manifest_lock`), the write through a temporary file, and
 :class:`RecordsError`, which every records operation refuses with before it
 writes anything.
 
-The public names are re-exported, unchanged, by :mod:`pyflightstream.run.records`,
-their path of 0.32.0 (AD-11, since 0.33.0).
+The public names are re-exported by :mod:`pyflightstream.run.records` (AD-11).
 """
 
 from __future__ import annotations
@@ -50,8 +49,7 @@ _ROOT_KINDS = {
 #: products as ``post/<matrix>/archive/<stamp>/<name>``.
 _MATRIX_KINDS = {"products": "products.json", "plan": "plan.json"}
 
-#: The pattern of an archive stamp, from its one home beside the spelling
-#: (``workspace.naming``, since 0.33.0, AD-10).
+#: The archive-stamp pattern from workspace.naming, beside its spelling (AD-10).
 _STAMP = ARCHIVE_STAMP_PATTERN
 
 

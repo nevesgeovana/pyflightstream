@@ -9,8 +9,7 @@ renders today, with the class of every difference named (:func:`drift`).
 Nothing here writes into the workspace; the shadow's preparation (its matrix
 re-activated, its inputs copied, its one copy of the matrix) writes only there.
 
-The public names are re-exported, unchanged, by :mod:`pyflightstream.run.records`,
-their path of 0.32.0 (AD-11, since 0.33.0).
+The public names are re-exported by :mod:`pyflightstream.run.records` (AD-11).
 """
 
 from __future__ import annotations
@@ -381,7 +380,7 @@ def _matrices(base: Path, matrix: str | Path | None) -> list[Path]:
     Both through the workspace's one lookup of a matrix (FR-310): a named
     matrix is found in either home, and the sweep reads one file per stem. A
     stem in both homes with different bytes is refused, naming both, before
-    any work; until 0.32.0 the sweep left it out with a note instead.
+    any work.
     """
     if matrix is not None:
         return [matrix_path(base, matrix).resolve()]
@@ -448,11 +447,9 @@ def _shadow_home(shadow: Path, matrix: Path) -> Path:
     """Return where the shadow holds ``matrix``: over its ``inputs/matrices/`` copy, else the root.
 
     The shadow's ``inputs/`` is a copy of the workspace's, matrices included, so a
-    second copy at the shadow's root, re-activated to RUN 1, was the same stem in
-    both homes with different bytes, and every row of a matrix kept in
-    ``inputs/matrices/`` with a RUN 0 row was refused as being in two places
-    (FR-411, a report on 0.35.1). The matrix read replaces the one copy
-    of its stem, so the shadow holds it once.
+    second copy at the shadow's root re-activated to RUN 1 would conflict
+    with its original bytes in ``inputs/matrices/`` (FR-411). Replace the
+    existing copy of the stem so the shadow holds it once.
     """
     same_stem = [path for path in matrix_files(shadow) if path.stem == matrix.stem]
     for extra in same_stem[1:]:

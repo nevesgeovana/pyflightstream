@@ -481,7 +481,7 @@ def alias_warning(verb: str) -> str:
     )
     return (
         f"pyfs-matrix {verb} is an alias of `pyfs-workspace geometry {group}`, the home of "
-        "every geometry command since 0.40.0; the alias gives the identical result. "
+        "every geometry command; the alias gives the identical result. "
         f"{promise.message()} See docs/geometry.md."
     )
 

@@ -164,10 +164,9 @@ class PointPlan:
         waiver. Known at plan time, because the dry run builds the same
         script, and reported here so an operator learns the campaign
         leans on a command a probe measured broken BEFORE spending
-        solver time rather than from the manifest afterwards. Named
-        ``broken_commands`` until 0.13.0 (PFS-2022.01.05); the old name
-        still reads, warning from the deprecation ledger, and the
-        ``plan.json`` key moved with the field.
+        solver time rather than from the manifest afterwards. The deprecated
+        alias ``broken_commands`` still reads, warning from the deprecation
+        ledger (PFS-2022.01.05). ``plan.json`` uses ``waived_commands``.
     raw : bool
         Whether the point's script used the ``raw()`` escape hatch.
         Same reason.
@@ -180,35 +179,35 @@ class PointPlan:
         ``RPM`` or a row naming an actuator disc, each rotor's and disc's tip
         and helical Mach numbers keyed by its alias or disc name, as
         :meth:`pyflightstream.cases.workflows.RotorMach.record` states them,
-        with a ``note`` naming the row where they are not known (0.30.0,
-        M1). Empty on every other point.
+        with a ``note`` naming the row where they are not known (M1).
+        Empty on every other point.
     qsteady_validity : dict of str to object
         On a point of a ``qsteady_rotor`` WHEEL, the 1P reduced frequency of
-        its blade (0.30.0): the per cent of the span with k above 0.1,
+        its blade: the per cent of the span with k above 0.1,
         ``k_min``, ``k_max`` and ``k_mean``, as
         :func:`pyflightstream.cases.workflows.qsteady_validity` states them,
         or a ``note`` saying why the chord is not known at plan time. Empty on
         every other point.
     continuation : str or None
-        On a point of a row stating ``RESTART`` (FR-96, 0.33.0), what the
+        On a point of a row stating ``RESTART`` (FR-96), what the
         continuation does (``continuing a CONVERGED unsteady run, <run id>, by
         1 revolution(s)``) or why the request cannot continue the point; None
         on every other point and where the resolver's refusal is the error.
     wake_termination : dict of str to object
         On a point of an ``unsteady_rotor`` row that is not a continuation, the
-        wake termination its script emits (FR-584, 0.34.0): the key that
+        wake termination its script emits (FR-584): the key that
         stated it (``default`` for the 4R default), the length asked in rotor
         radii, the steps, the rule that gave V_ax and V_ax in m/s, as
         :meth:`pyflightstream.cases.workflows._freestream.WakeTermination.record`
         states them. Empty on every other point.
     run_wake_length : dict of str to object
         On a point of an ``unsteady_rotor`` row stating ``RUN_WAKE_LENGTH_R``
-        (FR-906, 0.37.0), the run length resolved from it: the length asked
+        (FR-906), the run length resolved from it: the length asked
         in rotor radii, the rule and V_ax, the resulting ``time_iterations`` and
         the revolutions they turn. Empty on every other point, and then left
         out of ``plan.json``.
     streamlines : int
-        The off-body streamlines the point's pproc traces (FR-1079, 0.40.0):
+        The off-body streamlines the point's pproc traces (FR-1079):
         every seed line's count and every tube's ``radial * circular``. 0, and
         left out of ``plan.json``, where it traces none.
     """
@@ -237,12 +236,9 @@ class PointPlan:
 class PlannedPointCost:
     """What one point is expected to cost, and what that expectation rests on.
 
-    NAMED FOR THE POINT THAT HAS NOT RUN, because `PointCost` was already
-    taken: :class:`pyflightstream.qa.cost.PointCost` has meant one point
-    MEASURED on two solver builds since PFS-2018.02 and is exported from
-    `pyflightstream.qa`. Two public classes of one name in one package is a
-    traceback nobody can read, and this is the one that arrived second
-    (the interface lens, 2026-09-11).
+    Named for the point that has not run. In contrast,
+    :class:`pyflightstream.qa.cost.PointCost` represents one point measured
+    on two solver builds and is exported from `pyflightstream.qa`.
 
     FR-82. Every field but `seconds` and `samples` is READ from the row, the
     mesh and the setup: they are measurements of the thing about to be run. The
@@ -258,8 +254,7 @@ class PlannedPointCost:
         Mesh size: the ELEMENT COUNT the geometry's mesh block states, which
         one campaign geometry overstates by about a percent (`_mesh_size`
         carries the measurement). None where the geometry states none or
-        could not be read. THIS FIELD ONCE HELD THE BOUNDARY COUNT and this
-        line once said so; a wing-body read 2 where its mesh states 14266.
+        could not be read. This is an element count, not a boundary count.
     trailing_edges : int or None
         How many of the families the row marks for vorticity drag the
         opened geometry actually carries. ZERO is a measured none; None
@@ -322,19 +317,14 @@ def _marked_trailing_edges(case) -> int | None:
 
     THE SELECTION IS `solver.vorticity_drag_families`, family NAMES, and
     the builder leaves out the families the opened geometry does not carry
-    (PFS-2030.03.03). The first two writings of this column read
-    `VORTICITY_DRAG_BOUNDARIES` off the row's variables and then
-    `solver.vorticity_drag_boundaries`; neither exists, so the column
-    reported 0 for every row in the table and a reader had no way to tell
-    that from a campaign marking none.
+    (PFS-2030.03.03).
 
     A row marking none answers 0, which is then a measurement.
 
     A RAW MESH IS READ FROM ITS DECLARED INVENTORY (G01, G03). An ``.obj``
     or ``.stl`` carries no mesh block, so its names are the sidecar's
     ``boundaries`` as the import's renames leave them, which is exactly
-    what the builder declares; the file's block read alone answered
-    nothing, and every raw-mesh row printed NA.
+    what the builder declares.
     """
     families = getattr(getattr(case, "solver", None), "vorticity_drag_families", None)
     if not families:
@@ -352,11 +342,8 @@ def _marked_trailing_edges(case) -> int | None:
         except Exception:
             inventory = None
     if not inventory:
-        # NONE, AND NOT THE ROW'S OWN COUNT. This returned `len(families)`
-        # unintersected, which is a different quantity printed in the same
-        # cell with nothing to tell the two apart -- while `mesh` printed
-        # `-` for that same unreadable geometry, so one failure had two
-        # answers in one row (the technical writing lens, 2026-09-11).
+        # An unreadable geometry leaves the intersection unknown. The row's
+        # family count alone cannot establish which trailing edges the geometry has.
         return None
     carried = {name.casefold() for name in inventory}
     return len([name for name in families if str(name).casefold() in carried])
@@ -367,16 +354,13 @@ def _recorded_is_unsteady(record: dict) -> bool:
 
     The record's own `recipe` answers, and it is the same key the planned
     point is classified by. A record from an older manifest schema states
-    none, and only then does this fall back to the proxy that used to be
-    the rule: a run carrying a reduction block reduced, and only an
-    unsteady run reduces. The fallback is named here rather than left
-    looking like the rule, because it is wrong for exactly the case that
-    broke it -- an unsteady run nobody planned a reduction for.
+    none, and only then does this fall back to a proxy: a run carrying a
+    reduction block reduced, and only an unsteady run reduces. That fallback
+    cannot identify an unsteady run without a planned reduction.
     """
     recipe = record.get("recipe")
     if isinstance(recipe, str) and recipe:
-        # 0.30.0: THE QUASI-STEADY ROTOR IS STEADY, every solve of it; a
-        # recipe other than "steady" stopped meaning unsteady that day.
+        # The quasi-steady rotor is steady at every solve.
         return recipe not in STEADY_RUN_TYPES
     return bool(record.get("reductions"))
 
@@ -438,11 +422,9 @@ def estimate_point_cost(
     step. Within a run type the fit is linear in the work the point asks for,
     which is the time steps for an unsteady row and one solve for a steady one.
 
-    THERE IS NO PROCESSOR TERM, and this sentence once said there was. The
-    processor count is READ and PRINTED so a reader can see it differ between
-    rows, and it is not multiplied into anything: the fit is linear in the
-    time steps and in nothing else, which is what the requirement says one
-    page away (the technical writing lens, 2026-09-11).
+    There is no processor term. The processor count is read and printed for
+    comparison across rows; it is not multiplied into anything. The fit is
+    linear in the time steps and in nothing else.
 
     IT IS DELIBERATELY A CRUDE MODEL and the docstring says so rather than
     the code implying otherwise. A fuller scalability study is planned and
@@ -503,16 +485,10 @@ def estimate_point_cost(
     # reported zero for every point, which reads as a measurement of none.
     trailing = _marked_trailing_edges(case)
 
-    # THE FIT. Comparable runs are those of the same run type; the work a point
-    # asks for is its time steps, or one solve for a steady row.
-    #
-    # THE RUN TYPE IS READ FROM THE RECORD'S OWN `recipe`, which is the same
-    # fact the point is classified by three lines above, so both ends of the
-    # comparison ask one question. The first writing asked a PROXY -- does the
-    # record carry a reduction block -- which is true of an unsteady run until
-    # it is not: a run whose reductions were never planned carries a null
-    # there, read as STEADY, and a 180 second unsteady run then moved every
-    # steady estimate in the table.
+    # Fit comparable records of the same run type against time steps, or one
+    # solve for a steady row. Read the record's recipe just as for the planned
+    # point: a reduction block alone cannot identify an unsteady run whose
+    # reductions were not planned.
     same = [r for r in recorded if _recorded_is_unsteady(r) == unsteady]
     seconds = None
     basis = (
@@ -671,19 +647,13 @@ def _elide(text: str, width: int) -> str:
 
     FROM THE LEFT, because the left of a run id is the campaign and the
     simulation, which every row of one table shares, and the right is the
-    point, which is the only thing that tells two rows apart. Truncated from
-    the right with no marker, as this did until 2026-09-11, a J sweep whose
-    campaign name is one character longer than the example renders every row
-    with the same label and says nothing about it (the interface lens).
+    point, which distinguishes rows. Preserve that suffix and mark truncation
+    so long campaign names cannot make distinct points appear identical.
     """
     if len(text) <= width:
         return text
-    # THE RESULT IS NEVER LONGER THAN THE WIDTH IT WAS GIVEN. Without this,
-    # a width of three or less made `text[-(width - 3):]` a slice from zero or
-    # from the right of the string, and the marker was prepended to the WHOLE
-    # id: measured at 47 characters for a width of 3. Unreachable from the
-    # table today, which fixes the width at 38, and unbounded is the half that
-    # gets reached later (the QA lens, round two, 2026-09-11).
+    # Keep the result within the requested width, including widths too small
+    # for both the truncation marker and a suffix.
     if width <= len(MARKER):
         return text[-width:] if width > 0 else ""
     return MARKER + text[-(width - len(MARKER)) :]
@@ -724,11 +694,8 @@ def format_cost_table(costs: list[PlannedPointCost]) -> str:
     if costs:
         rows.append("")
         rows.append("EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT:")
-        # ONE LINE PER DISTINCT BASIS, in the order the rows appear. The
-        # first writing printed `costs[0].basis` under the whole table, so
-        # a table holding a steady row and an unsteady one said "fitted
-        # from 2 recorded steady run(s)" under both: a false sentence
-        # about the unsteady row, and one that reads as a measurement.
+        # Print each distinct basis in row order, so a mixed steady and unsteady
+        # table states the evidence supporting each estimate.
         seen: list[tuple[bool, str]] = []
         for cost in costs:
             key = (cost.unsteady, cost.basis)
@@ -773,18 +740,11 @@ class CampaignPlan:
     campaign_name_from: str | None = None
     plan_file: Path | None = None
     build_groups: dict[str, list[str]] = field(default_factory=dict)
-    #: FR-82. One row per point when the caller asked for the cost table,
-    #: empty otherwise. Filled by :func:`point_costs` where the resolved
-    #: cases are; a caller re-resolving the matrix to find them would be
-    #: re-deriving state this object already holds.
-    #:
-    #: LAST, and that position is the fix for a break this field caused.
-    #: Put above `campaign_name_from` it forced `points` to lose its own
-    #: default, so `CampaignPlan(campaign=..., fs_version=...)` -- a public
-    #: constructor call that worked in every release -- raised TypeError.
-    #: The architecture and interface lenses both caught it (2026-09-11).
+    #: FR-82. One row per point when the caller asks for the cost table, empty
+    #: otherwise. Filled by point_costs from the resolved cases held by this plan.
+    #: Keep this field last so the public constructor retains its defaults.
     costs: list[PlannedPointCost] = field(default_factory=list)
-    #: The generated input guides this plan wrote or rewrote (0.24.0), under
+    #: The generated input guides this plan wrote or rewrote, under
     #: ``inputs/pproc``; empty when they already said what they would say.
     guides: list[Path] = field(default_factory=list)
     #: Resolved row setup details, shared by plan's summary and inspect-setups.
@@ -792,7 +752,7 @@ class CampaignPlan:
     #: The grouping a ``plan --batch`` or ``--polar-sweep`` decided (FR-365); None for single
     #: points. LAST, for the reason of ``costs``.
     grouping: GroupingReceipt | None = None
-    #: Each simulation's WHOLE sweep, point names in sweep order (0.40.0, FR-395): what an
+    #: Each simulation's WHOLE sweep, point names in sweep order (FR-395): what an
     #: alias is numbered against, also for a plan of a ``--sims``/``--points`` selection,
     #: whose ``points`` list only the selection. LAST, for the reason of ``costs``.
     planned_order: dict[str, list[str]] = field(default_factory=dict)
@@ -814,7 +774,7 @@ class CampaignPlan:
 
     @staticmethod
     def installation_label(key: str) -> str:
-        """Name one of :attr:`build_groups` the way a message should say it (0.31.0)."""
+        """Name one of :attr:`build_groups` the way a message should say it."""
         return _build_label(key)
 
     def summary(self) -> str:
@@ -851,14 +811,14 @@ class CampaignPlan:
 
 
 def _point_lines(points: Sequence[PointPlan]) -> list[str]:
-    """Return the per-point lines of the plan's summary, in the order each kind was added."""
+    """Return the per-point lines of the plan's summary in display order."""
     lines: list[str] = []
-    # 0.30.0 (M1): every unsteady rotor point states its rotors' tip and
+    # M1: every unsteady rotor point states its rotors' tip and
     # helical Mach numbers, or why they are not known.
     for entry in points:
         for alias, mach in entry.rotor_mach.items():
             lines.append(f"  {entry.run_id}: {rotor_mach_line(alias, mach)}")
-    # 0.30.0: every quasi-steady wheel point states the four values of its
+    # Every quasi-steady wheel point states the four values of its
     # blade's 1P reduced frequency, or why the chord is not known.
     for entry in points:
         if entry.qsteady_validity:
@@ -866,11 +826,11 @@ def _point_lines(points: Sequence[PointPlan]) -> list[str]:
             harmonics = entry.qsteady_validity.get("inflow_fft")
             if isinstance(harmonics, Mapping):
                 lines.append(f"  {entry.run_id}: {inflow_harmonics_line(harmonics)}")
-    # 0.34.0 (FR-584): every rotor point states the wake its termination keeps.
+    # FR-584: every rotor point states the wake its termination keeps.
     for entry in points:
         if entry.wake_termination:
             lines.append(f"  {entry.run_id}: {wake_termination_line(entry.wake_termination)}")
-    # 0.37.0 (FR-906): a run length stated as a wake length states its count.
+    # FR-906: a run length stated as a wake length states its count.
     for entry in points:
         if entry.run_wake_length:
             lines.append(f"  {entry.run_id}: {run_wake_length_line(entry.run_wake_length)}")
@@ -888,7 +848,7 @@ def _streamline_lines(points: Sequence[PointPlan]) -> list[str]:
 
 
 def _farfield_lines(points: Sequence[PointPlan]) -> list[str]:
-    """Return one line per far-field input a plan adds or cannot serve (FR-1047, 0.40.0)."""
+    """Return one line per far-field input a plan adds or cannot serve (FR-1047)."""
     lines: list[str] = []
     for entry in points:
         inputs = entry.farfield.get("inputs", ()) if entry.farfield else ()
@@ -944,7 +904,7 @@ def wake_termination_line(wake: Mapping[str, object]) -> str:
 
 
 def qsteady_validity_line(validity: Mapping[str, object]) -> str:
-    """Return the words the plan prints for one quasi-steady wheel point (0.30.0).
+    """Return the words the plan prints for one quasi-steady wheel point.
 
     ``validity`` is one :attr:`PointPlan.qsteady_validity`.
     """
@@ -961,7 +921,7 @@ def qsteady_validity_line(validity: Mapping[str, object]) -> str:
 
 
 def inflow_harmonics_line(harmonics: Mapping[str, object]) -> str:
-    """Return the words the plan prints for one point's ``--inflow-fft`` record (0.30.0).
+    """Return the words the plan prints for one point's ``--inflow-fft`` record.
 
     nP is counted on ONE BLADE (how many times it meets the perturbation per
     revolution), not the blade-passing N P of a fixed surface nor the rotor
@@ -975,7 +935,7 @@ def inflow_harmonics_line(harmonics: Mapping[str, object]) -> str:
 
 
 def rotor_mach_line(alias: str, mach: Mapping[str, object]) -> str:
-    """Return the words the plan prints for one rotor of one point (0.30.0, M1).
+    """Return the words the plan prints for one rotor of one point (M1).
 
     ``mach`` is one entry of :attr:`PointPlan.rotor_mach`.
     """
@@ -992,15 +952,10 @@ def rotor_mach_line(alias: str, mach: Mapping[str, object]) -> str:
     return f"{kind} {alias} M_tip and M_hel not computed: {mach.get('note')}"
 
 
-#: FR-97: `plan` is mandatory and `run` does
-#: not release without one. The plan is the receipt AND the confirmation.
-#: WHAT PLAN ACTUALLY DOES, and it named two things it does not until
-#: 2026-09-13: an archive preview and a confirmation. This is the one piece
-#: of prose that has to be exactly right, because the user is stopped and
-#: reading it, and a refusal that describes a tool by something other than
-#: what it does teaches them not to trust the next one (the interface lens).
+#: FR-97: plan is mandatory before run. It pre-flights points and writes
+#: the receipt required by run; describe only those operations here.
 PLAN_REQUIRED_MESSAGE = (
-    "no plan for this matrix, and since v0.17.0 a run needs one. Run "
+    "no plan for this matrix, and a run needs one. Run "
     "`pyfs-matrix plan <matrix>` first: it pre-flights every point without "
     "spending any solver time, reports which are blocked and which are already "
     "recorded, and writes the receipt this refusal is asking for. Add --cost for "
@@ -1085,7 +1040,7 @@ def plan_campaign(
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
-    ``inflow_fft`` (0.30.0, ``pyfs-matrix plan --inflow-fft``) adds to each
+    ``inflow_fft`` (``pyfs-matrix plan --inflow-fft``) adds to each
     quasi-steady wheel point in a custom inflow the harmonic content of that
     inflow as one blade meets it
     (:func:`pyflightstream.cases.workflows.qsteady_inflow_fft`).
@@ -1141,11 +1096,9 @@ def plan_campaign(
         ``run_matrix`` both read it off the build registry for the build
         each row named (``_row_versions``), so a row naming a second build
         has its dry-run script validated against that build's grammar
-        away from the licensed machine (the residual PFS-2009.05 left,
-        closed on the plan path 2026-09-09 as .05.01 and on the run path
-        the same day as .05.02: a row on 26.123 in a matrix whose default
-        is 26.120 was BLOCKED for a command 26.120 lacks and 26.123
-        carries).
+        away from the licensed machine (PFS-2009.05). A row on 26.123 in a
+        matrix defaulting to 26.120 is checked against 26.123's grammar,
+        including commands absent from 26.120.
         ``builds`` wins where both name a build.
     matrix_path : str or Path, optional
         The matrix file the campaign was converted from. Its SHA-256 is
@@ -1235,7 +1188,6 @@ def plan_campaign(
         # A POINT A RECORDED JOB OF ITS ROW RAN IS RECORDED, although no record
         # carries the point's own id: the question `run_campaign` asks before a
         # resume, asked here of the same helper, so READY is what resume runs.
-        # Until 0.27.0 every point of a recorded steady sweep planned READY.
         case_points = list(case.sweep.points())
         recorded_here = recorded
         ran = _points_the_recorded_job_ran(campaign, case, manifest)
@@ -1275,7 +1227,7 @@ def plan_campaign(
             "build_groups": groups,
             "setup_inspections": list(setup_inspections or ()),
             "points": [_point_record(entry) for entry in points],
-            # FR-395 (0.40.0): the whole sweep, the order an alias is numbered against.
+            # FR-395: the whole sweep, the order an alias is numbered against.
             PLANNED_ORDER_KEY: order,
             # FR-97: WHICH MATRIX THIS PLAN MEASURED. A
             # mandatory plan that does not say is satisfied by a stale one,
@@ -1284,7 +1236,7 @@ def plan_campaign(
             # Python and has no matrix to pin to; `run` asks for a plan
             # only where a matrix exists.
             "matrix_sha256": _file_digest(matrix_path) if matrix_path else None,
-            # 0.21.0: plan launches no solver, so the flag changes no check here;
+            # Plan launches no solver, so the flag changes no check here;
             # it is recorded so the plan rehearses the command line run executes.
             "accept_unregistered_build": accept_unregistered_build,
             # FR-998, FR-999: what the workspace files gave this plan, and where
@@ -1293,7 +1245,7 @@ def plan_campaign(
         }
         plan_file.parent.mkdir(parents=True, exist_ok=True)
         if campaign.matrix_stem:
-            # 0.32.0 (P0320-RESTORE-ARCHIVE): the plan this one replaces, for `restore plan`.
+            # P0320-RESTORE-ARCHIVE: the plan this one replaces, for `restore plan`.
             archive_previous(workspace.root, plan_file, matrix=campaign.matrix_stem)
         _textio.write_text(plan_file, json.dumps(payload, indent=2) + "\n")
     return CampaignPlan(
@@ -1425,14 +1377,14 @@ def _point_record(entry: PointPlan) -> dict[str, Any]:
     """Return one point as ``plan.json`` writes it.
 
     The run length of FR-422 is written only where the row states it, so a
-    plan of rows that do not carries the keys 0.36.0 wrote.
+    plan omits its keys for rows without that setting.
     """
     record = {**asdict(entry), "status": str(entry.status)}
     if not entry.run_wake_length:
         del record["run_wake_length"]
     if not entry.streamlines:
         del record["streamlines"]
-    # FR-1047 (0.40.0): the far-field resolution, on a row with [farfield] only.
+    # FR-1047: the far-field resolution, on a row with [farfield] only.
     if not entry.farfield:
         del record["farfield"]
     for key in ("fsi", "inflow_harmonics"):
@@ -1446,9 +1398,9 @@ def _point_facts(
 ) -> dict[str, Any]:
     """Return what a point's plan states about its rotors, wheel and wake, READY or not.
 
-    The rotors' tip and helical Mach numbers (0.30.0, M1), a quasi-steady
-    wheel's 1P reduced frequency (0.30.0) and, on a rotor point, the wake its
-    termination keeps (0.34.0, FR-584).
+    The rotors' tip and helical Mach numbers (M1), a quasi-steady
+    wheel's 1P reduced frequency and, on a rotor point, the wake its
+    termination keeps (FR-584).
     """
     wake = planned_wake(point_case)
     run = planned_run_wake(point_case)
@@ -1465,7 +1417,7 @@ def _point_facts(
 def _warn_on_short_wakes(points: Sequence[PointPlan]) -> None:
     """Warn, and never refuse, on every READY rotor point whose wake may fall short (FR-325).
 
-    The plan warns ALWAYS (the decision of 2026-10-01): when the run
+    The plan warns always: when the run
     has fewer revolutions than the length asked needs, at the 4R default and at
     any larger length; when a step or revolution count keeps less than the 4R
     recommendation; when a stated wake end plane sits before the length; and
@@ -1518,33 +1470,20 @@ def _plan_point(
         return PointPlan(**base, script_name=None, status=PlanStatus.BLOCKED, error=str(error))
     script_name = f"{stem}.txt"
     point_case = case_at_point(case, point, outputs=outputs)
-    # 0.30.0 (M1): the rotors' tip and helical Mach numbers ride on every
-    # entry from here on, READY or not, since a point blocked for another
-    # reason is still a point whose rotor may reach the speed of sound.
-    # 0.30.0: a quasi-steady wheel point states its blade's 1P reduced frequency,
-    # READY or not, as the Mach numbers do; 0.34.0: a rotor point its wake.
+    # M1: record tip and helical Mach numbers even for blocked points; their
+    # rotors may still reach the speed of sound. Likewise record a quasi-steady
+    # wheel's blade 1P reduced frequency and a rotor point's wake.
     base.update(_point_facts(point_case, inflow_fft=inflow_fft, fs_version=fs_version))
-    # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
-    # reason is that a rehearsal which refuses what the run accepts is not a
-    # rehearsal. A row stating RESTART carries no saved file and no step count
-    # of its own: both come from the record it continues, and the builder is a
-    # pure function of its case, so without this the builder was handed a
-    # RESTART row with nothing resolved, raised, and the point was reported
-    # BLOCKED. Since 0.17.0 a run REQUIRES a plan, so the release's headline
-    # feature was unreachable through its own documented sequence: plan, then
-    # run. Found by the architect lens of the 0.18.0 release round on
-    # 2026-09-14, which named the command that settles it and could not run it.
+    # Resolve a continuation exactly as run does: its saved file and step count
+    # come from the previous record, not the RESTART row. The builder needs
+    # those resolved inputs to rehearse the script.
     #
-    # IT RESOLVES AND DOES NOT ARCHIVE. The archive belongs to the run, which
-    # is about to replace the outputs; a pre-flight that moved them would
-    # spend a destructive act on a rehearsal, and `plan` promises to spend
-    # nothing.
+    # Do not archive during pre-flight. Only run replaces existing outputs.
     #
-    # A POINT ITS REQUEST CANNOT CONTINUE IS RECORDED, not blocked, AND SAID
-    # (FR-96, 0.33.0): a completed continuation of the same request, a
-    # FINISH_PENDING on a CONVERGED run, a steady run, a queued one. A point
-    # whose latest run FAILED goes on to the resolver, which refuses it by
-    # name, so the plan reports it BLOCKED with the reason instead of recorded.
+    # A point its request cannot continue is RECORDED and explained (FR-96): a
+    # completed continuation of the same request, FINISH_PENDING on CONVERGED,
+    # a steady run or a queued one. A failed latest run goes to the resolver,
+    # which refuses it by name, so plan reports BLOCKED with that reason.
     restarting = (verdict := point_verdict(workspace, case, point)) is not None
     base["continuation"] = verdict.said if verdict else None
     if verdict is not None and not verdict.pending:
@@ -1601,7 +1540,7 @@ def _plan_point(
             status=PlanStatus.BLOCKED,
             error=f"{type(error).__name__}: {error}",
         )
-    # FR-1047 (0.40.0, PFS-2081.56): the far-field probes this dry-run script
+    # FR-1047 (PFS-2081.56): the far-field probes this dry-run script
     # chose, reused or added, which are the ones the run lays and records.
     if base.get("farfield"):
         base["farfield"] = farfield_plan_record(point_case, fs_version, script)
@@ -1662,18 +1601,11 @@ def _output_collision(
     names the way the loop will, so it judges the actual collision
     rather than the presence of a particular placeholder.
 
-    ACROSS POINTS THE COLLISION MOVED DOWN A LAYER AND IS STILL
-    CHECKED HERE (FR-92). Until 0.16.0 two points exporting
-    ``loads.txt`` destroyed each other IN THE SHARED COLLECTION FOLDER,
-    and that half is genuinely gone: each point collects into
-    ``datapoints/DP-<point>/`` and nothing on disk overwrites anything.
-    THEY STILL MEET IN ``post/products.py``, which keys every per-point
-    product by the STEM of the loads file name. Measured on two points
-    each in their own folder both declaring ``loads.txt`` and
-    ``loads_plots.txt``: one ``probes/loads_plots.csv`` naming BOTH runs
-    while holding the last point's data, and a superfile whose runs list
-    records one point twice, so the other is gone from the product
-    record (the quality lens, 2026-09-11).
+    Check cross-point collisions (FR-92). Each point collects into its own
+    ``datapoints/DP-<point>/`` folder, but ``post/products.py`` keys products
+    by the loads file's stem. Repeated stems can overwrite a product or
+    duplicate one point in a superfile, so separate collection folders do
+    not establish unique product names.
 
     So the check stays, and its REASON is what changed: it is about the
     products a name will collide in, not about the folder it lands in.
@@ -1748,7 +1680,7 @@ def _output_collision(
 def _names_two_cases_share(campaign: Campaign, workspace: CampaignWorkspace) -> dict[str, str]:
     """Return, per ``sim_id``, why a case renders an output name another case renders too.
 
-    :func:`_output_collision` ACROSS CASES (0.24.0), keyed the same way, by the
+    :func:`_output_collision` ACROSS CASES, keyed the same way, by the
     name collection files an output under. Each simulation collects into its
     own folder, so nothing on disk is overwritten there. WHERE TWO CASES MEET
     IS THE PRODUCTS FOLDER, which a campaign has one of: every per-point
@@ -1763,13 +1695,10 @@ def _names_two_cases_share(campaign: Campaign, workspace: CampaignWorkspace) -> 
     and never meets this. A campaign authored in Python does, and is refused
     HERE, at plan time, for BOTH cases, because neither is the one at fault.
 
-    A CAMPAIGN CONVERTED FROM A MATRIX IS LEFT ALONE (``matrix_stem`` set),
-    which is the scope the finding was accepted under: the matrix path is
-    untouched. Measured before it was decided, 2026-09-19: applied to every
-    campaign the rule blocked seven tests of ``test_matrix_run.py``, whose
-    two-row matrices state one condition twice under the library's default
-    template. That path has the same exposure when it is driven from Python
-    WITHOUT ``{polar}``, and it stays open, registered rather than taken here.
+    A campaign converted from a matrix (``matrix_stem`` set) is excluded.
+    Matrix rows may repeat a condition under the default template. When
+    driven from Python without ``{polar}``, that path remains exposed to
+    duplicate names; this check does not cover it.
 
     Empty when no two cases share a name. A case whose names cannot be
     rendered is left to its own points, which report why.

@@ -7,8 +7,7 @@ profile's ``native_log`` (:func:`native_log`); a job whose end-of-job files
 (``job_end_files``) exist while its log does not ended without it
 (:func:`job_ended_without_log`, FR-311); and the sweep observes the
 scheduler's file in the place of the declared log (:func:`observed_paths`).
-Moved out of collect in 0.37.0, unchanged but for the point folder name, which
-collect passes in, so the collect stage stays one module under 1000 lines.
+The collect stage supplies the point folder name.
 """
 
 from __future__ import annotations
@@ -83,7 +82,7 @@ def native_log(
     *,
     point: str,
 ) -> NativeLog:
-    """Find the log the SCHEDULER wrote, and the declared name it is read under (0.21.0).
+    """Find the log the SCHEDULER wrote, and the declared name it is read under.
 
     Some machines abort at
     ``EXPORT_LOG``: the job runs, every other export lands, and the log the
@@ -93,11 +92,8 @@ def native_log(
     that file to the declared name, so everything downstream reads one log
     whatever the scheduler called it.
 
-    NOTHING IS COPIED HERE, since 0.24.0. This used to copy the scheduler's
-    file to the declared name BEFORE the two settling observations, which then
-    watched the COPY: a file nothing writes is settled by construction, so a
-    job still running was collected and judged by the log as it stood at the
-    first sweep, and the copy was never refreshed once it existed. The source
+    NOTHING IS COPIED HERE. Observing a copy would falsely establish settling
+    while the scheduler continues writing its source. The source
     is what is OBSERVED (:func:`pyflightstream.run.collect.collect_once`), and it
     is copied once it has settled (collect's ``_copy_native_log``), over whatever
     an earlier sweep left.
@@ -120,10 +116,9 @@ def native_log(
             f"run is judged; its outputs are {', '.join(Path(n).name for n in names)}."
         )
     target = work_dir / declared[0]
-    # `{point}` IS THE FOLDER THIS RECORD'S OUTPUTS ARE IN, by the one rule,
-    # not `point_name` alone: that is empty for exactly the records 0.21.1
-    # supports, so a profile naming the point in its pattern would glob nothing,
-    # copy no log, and wait for a file nothing writes (the qa lens, FIX-0211).
+    # Resolve {point} to the record's output folder through the shared rule,
+    # including records without point_name that name their submitted working
+    # directory (FIX-0211).
     glob, refusal = _profile_glob("native_log", pattern, _glob_values(record, point))
     if glob is None:
         return NativeLog(refusal)

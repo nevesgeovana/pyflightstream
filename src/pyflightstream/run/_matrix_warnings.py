@@ -30,7 +30,7 @@ if TYPE_CHECKING:  # annotation only: the package root does not import this modu
 
 
 def _warn_the_legacy_rows_saving_no_simulation(resolved: ResolvedMatrix) -> None:
-    """Name each LEGACY row whose outputs declare no saved simulation (G11, 0.27.0).
+    """Name each LEGACY row whose outputs declare no saved simulation (G11).
 
     A row naming a run type saves its final ``.fsm`` on every point, which the
     pproc artifact cannot switch off. A LEGACY row's recipe decides what it
@@ -60,7 +60,7 @@ def _warn_the_legacy_rows_saving_no_simulation(resolved: ResolvedMatrix) -> None
 
 
 def _warn_when_the_points_may_not_fit(workspace: CampaignWorkspace, ready: int) -> None:
-    """Warn at plan when the READY points may not fit on the workspace's disk (0.30.0, S6).
+    """Warn at plan when the READY points may not fit on the workspace's disk (S6).
 
     The estimate is the mean recorded datapoint of this workspace times the
     points the run will write; the warning names ``free-space``, the command
@@ -86,7 +86,7 @@ def _warn_when_the_points_may_not_fit(workspace: CampaignWorkspace, ready: int) 
 
 
 def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: CampaignPlan) -> None:
-    """Name each polar point whose rotor or disc has a helical Mach of 1 or more (0.30.0, M1).
+    """Name each polar point whose rotor or disc has a helical Mach of 1 or more (M1).
 
     ``M_hel = sqrt(V^2 + (Omega R)^2) / a``, the geometric speed the blade tip
     meets the flow at (free stream plus rotation, no induced velocity), over the
@@ -180,7 +180,7 @@ def _sort_the_validity(
 def _warn_when_a_quasi_steady_point_leaves_its_assumption(
     resolved: ResolvedMatrix, plan: CampaignPlan
 ) -> None:
-    """Name each quasi-steady wheel point whose blade has k above 0.1 anywhere (0.30.0).
+    """Name each quasi-steady wheel point whose blade has k above 0.1 anywhere.
 
     ``k = Omega c / (2 V_rel)`` is the 1P reduced frequency of a blade station
     (:mod:`pyflightstream.cases.qsteady`); above 0.1 the lag of the unsteady
@@ -190,7 +190,7 @@ def _warn_when_a_quasi_steady_point_leaves_its_assumption(
     chord is not known at plan time is named in a second warning, with why.
     Called from :func:`plan_matrix` alone.
 
-    WITH ``--inflow-fft`` (0.30.0) a point carrying the harmonic content of its
+    WITH ``--inflow-fft`` a point carrying the harmonic content of its
     custom inflow is judged by ``k_eff = n95 k_1P`` instead of ``k``, where
     that is known, and a point whose row states fewer ``PASSAGE_POSITIONS``
     than ``n_max / N + 1`` is named in a warning of its own. nP is counted on

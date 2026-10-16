@@ -115,7 +115,7 @@ class Assessment:
         time steps of an unsteady run, read from the log the verdict read;
         None where no log was read or it prints no such line.
     clocking_verdicts : list of dict, optional
-        A quasi-steady rotor wheel solved at several clockings (0.30.0): one
+        A quasi-steady rotor wheel solved at several clockings: one
         entry per clocking, in the order the run solved them, with its
         ``index``, ``clocking_deg``, ``status``, ``iterations``, ``residual``
         and, where it has one, ``note`` or ``error``, each judged from that
@@ -129,7 +129,7 @@ class Assessment:
         ``MAX_ITER_REACHED`` point, whose ``iterations`` is the counter reached.
     warnings : list of str, optional
         What the judgment could not use and did without, for the point's
-        record's ``warnings`` (0.31.0): a quasi-steady point whose record
+        record's ``warnings``: a quasi-steady point whose record
         cannot be read (:class:`~pyflightstream.cases.qsteady.QsteadyRecordError`)
         has its solver log judged as one solve, and says so here. None where
         there is nothing to say.
@@ -175,7 +175,7 @@ def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> Conditio
     Notes
     -----
     WHICH SUPPLIED VELOCITY WINS, stated here because this is the one
-    function that applies the rule and it was previously written nowhere
+    function that applies the rule
     (OPS-2009.01.04). Free-stream velocity can arrive from two places at
     once and the order is:
 
@@ -216,8 +216,8 @@ class OutcomeAssessor(Protocol):
 
     The campaign loop already handled execution failure and missing
     declared outputs; the assessor inspects the collected outputs (in
-    ``sim_dir / "outputs"``, and in ``sim_dir / "raw"`` where a workspace
-    written before 0.16.0 holds one, FR-84) and decides between
+    ``sim_dir / "outputs"``, and legacy ``sim_dir / "raw"`` folders, FR-84)
+    and decides between
     converged, iteration limited, and diverged. The standard
     implementation lands with the results parsers.
     """
@@ -332,14 +332,10 @@ class LoadsAssessor:
     8. Steady mode with all iterations forced, and the solver stopped
        early (PYFS-008), as described above.
 
-    Items 4 and 5 are new at v0.4.0 and both replace a path that used
-    to end in a SUCCESS, which is what makes them worth stating here
-    rather than only in the changelog. Item 4 ran as CONVERGED on a
-    valid export belonging to another case: nothing about such a file
-    is malformed, so no parser guard could ever have seen it. Item 5
-    fell through to the unsteady branch and returned
-    COMPLETED_MAX_ITER with no error, so a mode this package had never
-    seen became a successful terminal state.
+    Items 4 and 5 prevent success from being inferred from a valid export
+    belonging to another case or from an unrecognised solver mode.
+    Parsing alone cannot establish operating-point identity or choose the
+    correct convergence rule.
 
     Item 4 is also tested BEFORE divergence, deliberately. Divergence
     is a physical outcome, and attributing one to a case that never
@@ -403,68 +399,37 @@ class _LoadsJudgment:
 
 def _find_assessment_outputs(job: _LoadsJudgment) -> Assessment | None:
     """Find assessment outputs."""
-    # THE POINT'S OWN FOLDER, OR THE TWO A CAMPAIGN WROTE INTO BEFORE
-    # 0.16.0, AND NEVER BOTH (FR-92). A point collects into
-    # `datapoints/DP-<point>/` since this release, so what is there is
-    # that point's evidence and nothing else; `outputs/` held every
-    # point of the simulation at once, and `raw/` was its name before
-    # 0.16.0. A workspace recorded under an older layout must keep
-    # every one of its points, so both are still read -- but ONLY
-    # where the point has no folder of its own. Mixing them would put
-    # a sweep's shared folder back beside the point's own, which is
-    # what this layout exists to prevent.
-    #
-    # The `break` below therefore ranks nothing on the first branch,
-    # which holds one folder; it ranks `outputs/` before `raw/` on the
-    # legacy branch, where a workspace can hold both.
-    # `case` is None where a caller judges a folder directly rather
-    # than a point, which the unit tests do and which is why this
-    # reads through getattr like the declared-outputs narrowing below.
+    # FR-92: judge the point's own datapoints/DP-<point> folder when it
+    # exists. Only without that folder may legacy outputs/ or raw/ supply
+    # evidence, in that order. Never mix point-specific and shared exports.
+    # A direct folder assessment may have no case, hence getattr below.
     point = getattr(job.case, "point", None)
-    # `if point` and not `is not None`: an EMPTY mapping has no folder to
-    # be judged from, and it cannot reach here carrying evidence anyway,
-    # because `collect_outputs` refuses it before anything is moved.
-    # 0.21.0: a record carried across as a case names its folder by the name
-    # the run recorded; a real case is named by `point_name`.
+    # An empty point mapping has no point folder and collect_outputs refuses
+    # it before moving evidence. A record uses its recorded folder name;
+    # a case uses point_name.
     recorded_name = getattr(job.case, "datapoint_name", None)
     if recorded_name:
         own_name: str | None = datapoint_dir_name(PointName(recorded_name))
     elif point and hasattr(job.case, "condition_order"):
-        # A REAL CASE, asked by what only a case has, and not by whether a
-        # name happened to be recorded. 0.21.1: a record carried across as a
-        # case can reach here with NO recorded name -- a 0.20.x swept row
-        # carries neither a point name nor a working directory, because the
-        # whole sweep was one job in the simulation folder -- and it then
-        # fell into this branch and raised AttributeError on
-        # `condition_order`. That is not a WorkspaceError, so the collecting
-        # sweep does not catch it and one such record aborts the collection
-        # of every other point in the workspace (the qa lens, FIX-0211).
+        # Identify a real case by its case-only fields. A record may lack both
+        # a recorded point name and a working directory, and must not enter a
+        # branch that requires condition_order (FIX-0211).
         own_name = datapoint_dir_name(PointName(point_name(job.case, point)))
     else:
         # No name recorded and nothing that can compute one: the point is
-        # judged from the simulation folder, as it was before 0.21.0.
+        # judged from the simulation folder.
         own_name = None
     own = None if own_name is None else Path(job.sim_dir) / SIM_DATAPOINTS_DIR / own_name
-    # THE PREDICATE IS EXISTENCE AND NOT EMPTINESS, and the difference
-    # is a wrong answer (the architecture and verification lenses,
-    # 2026-09-11). A point whose folder EXISTS is judged from that
-    # folder whatever is in it: an empty one earns this point's own
-    # refusal. Falling through to the shared folder because the
-    # point's own was empty is how a point whose collection failed
-    # got judged on ANOTHER point's export.
-    #
-    # MEASURED, because on an alpha sweep the operating-point binding
-    # below hides it: a loads export prints alpha, beta and velocity
-    # and NEVER prints the advance ratio, so on a J sweep the binding
-    # cannot tell two points apart, and the point at J=1.7 was
-    # recorded CONVERGED on the export of J=1.3 in silence. That is
-    # the defect REV010-001 exists against, re-entered by a new door.
+    # An existing point folder owns the assessment even when empty. Falling
+    # back to shared exports could judge the point on another point's result.
+    # Loads headers cannot disambiguate an advance-ratio sweep because they
+    # print alpha, beta and velocity but not advance ratio (REV010-001).
     folders = (
         [f"{SIM_DATAPOINTS_DIR}/{own_name}"]
         if own is not None and own.is_dir()
         else [SIM_OUTPUTS_DIR, LEGACY_SIM_OUTPUTS_DIR]
     )
-    # 0.40.0 (PFS-2103.017): a caller that FOUND the point's exports names their
+    # PFS-2103.017: a caller that FOUND the point's exports names their
     # folder, and only that folder is judged. ``post --from-sims`` takes an
     # export anywhere under the simulation folder, where none of the folders
     # above need exist.
@@ -526,25 +491,10 @@ def _read_assessment_loads(job: _LoadsJudgment) -> Assessment | None:
             if report
         ]
         if len(usable) > 1:
-            # A WORKSPACE RECORDED BEFORE 0.16.0 SHARES ONE FOLDER
-            # between the points of a case, so from the second point
-            # onward every earlier point's export is still sitting
-            # there and parses just as well. Points collected under
-            # this release each have their own folder (FR-92) and
-            # never reach here. Ask REV010-001's binding,
-            # thirty lines below, which of them the solver actually ran at
-            # THIS point's conditions: a loads export prints the alpha,
-            # the sideslip and the velocity it ran, so the file that
-            # belongs to this point identifies itassessor.
-            #
-            # THIS IS NOT A RELAXATION. Where the binding does not settle
-            # it -- none match, or several do -- the refusal below stands
-            # exactly as it was, because attributing another point's
-            # result to this one is the defect REV010-001 exists against
-            # and it is worse than refusing. Naming the file cannot fix
-            # this and never could: the message used to offer that, forty
-            # lines under the sentence saying no literal names them all on
-            # a swept case.
+            # A legacy shared folder may hold exports from several points. Use
+            # REV010-001 condition binding to select exactly one matching alpha,
+            # sideslip and velocity. If none or several match, retain the refusal;
+            # a literal filename cannot identify every point of a swept case.
             mine = [
                 (path, report)
                 for path, report in usable
@@ -560,10 +510,10 @@ def _read_assessment_loads(job: _LoadsJudgment) -> Assessment | None:
                 error=(
                     f"no single collected output reads as a loads table ({reason}); "
                     f"collected: {names}. Each point collects into its own "
-                    f"{SIM_DATAPOINTS_DIR}/ folder since 0.16.0, so this folder "
+                    f"{SIM_DATAPOINTS_DIR}/ folder, so this folder "
                     "should hold one point's exports: either the point exported "
                     "no loads spreadsheet, or it exported several. A workspace "
-                    "recorded before 0.16.0 shares one folder between the points "
+                    "using the legacy layout shares one folder between the points "
                     "of a case, and there this assessor keeps the export whose "
                     "printed conditions match the point it is judging; reaching "
                     "here means none of them did, or more than one did. Naming a "
@@ -632,14 +582,9 @@ def _validate_assessment_loads(job: _LoadsJudgment) -> Assessment | None:
             error=f"non-finite Total coefficients: {', '.join(diverged)}",
             **job.stamp,
         )
-    # REV010-002. The mode decides WHICH judgment rule applies, so an
-    # unrecognized one is checked before any rule is chosen, including
-    # the residual path below. The old code tested for "steady" and let
-    # everything else fall through to the unsteady branch, which returns
-    # COMPLETED_MAX_ITER with error=None: a solver mode this package has
-    # never seen became a successful terminal state, indistinguishable
-    # from a genuine unsteady run. Failing closed here is the difference
-    # between "we judged this" and "we did not recognize it".
+    # REV010-002: recognise solver mode before choosing an assessment rule,
+    # including the residual path. An unknown mode must not fall through to
+    # a successful unsteady terminal state.
     job.mode = classify_solver_mode(job.report.solver_mode)
     if job.mode is None:
         return Assessment(
@@ -658,24 +603,10 @@ def _validate_assessment_loads(job: _LoadsJudgment) -> Assessment | None:
     job.stopped_early = (
         job.mode == "steady" and job.report.current_iteration < job.report.requested_iterations
     )
-    # PYFS-008. The iteration-count judgment below reads an early stop
-    # as "the convergence threshold stopped the solver", and that
-    # inference holds only while the threshold is what can stop it.
-    # SOLVER_SET_FORCED_ITERATIONS turns the threshold off: the solver
-    # is told to run the full budget whatever the residual does. So
-    # under forced iterations an early stop means the opposite of
-    # convergence, because the one mechanism that could legitimately
-    # end the loop early was disabled. The field was parsed
-    # (LoadsReport.forced_iterations) and never consulted, so a run
-    # that stopped at 312 of a forced 500 was published CONVERGED,
-    # indistinguishable from one that met the threshold at 312.
-    #
-    # BEFORE THE LOG, since 0.24.0. This check sat below the log branch,
-    # which returns, so a collected log turned the refusal into
-    # COMPLETED_MAX_ITER or CONVERGED: a residual says how far the
-    # iteration it was printed at had come, and says nothing about the
-    # iterations a run that was told to do all of them never did.
-    # Completeness is established first and the residual judged after.
+    # PYFS-008: forced iterations disable convergence-based early stopping.
+    # A run stopping before its forced budget is incomplete, regardless of
+    # its residual. Establish completeness before reading the log: a residual
+    # measures a completed iteration, not the missing iterations.
     if job.stopped_early and job.report.forced_iterations:
         return Assessment(
             status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
@@ -699,14 +630,14 @@ def _find_assessment_log(job: _LoadsJudgment) -> Assessment | None:
     """Find assessment log."""
     job.log_path = None
     # A QUASI-STEADY WHEEL SOLVED AT k CLOCKINGS exports ONE log holding its
-    # k solves in sequence, each counter starting at 1 (L1 of 0.30.0,
+    # k solves in sequence, each counter starting at 1 (L1,
     # RPT-091): the run's own record beside the loads export says so, and
     # the log is then read and judged solve by solve.
     job.clockings, record_warning = _wheel_clockings(
         job.report_path, quasi_steady=None if job.case is None else job.case.recipe == QSTEADY_ROTOR
     )
     if record_warning is not None:
-        # 0.31.0: THE RECORD'S ONE REFUSAL, decided here: the log is judged
+        # THE RECORD'S ONE REFUSAL, decided here: the log is judged
         # as one solve, and the point's record says why.
         job.stamp["warnings"] = [record_warning]
     solves = 1 if job.clockings is None else len(job.clockings)
@@ -875,7 +806,7 @@ def _judge_assessment_log(job: _LoadsJudgment) -> Assessment | None:
             # A residual block the solver stopped under is unusable
             # evidence at assessment time, the same verdict the residual
             # history gives above; it escaped as an exception once the
-            # reader learned to call a cut a cut (0.26.0).
+            # reader learned to call a cut a cut.
             return Assessment(
                 status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
                 iterations=final.iteration,
@@ -921,7 +852,7 @@ def _at_the_limit(job: _LoadsJudgment, counter: int | None) -> bool:
     requested = job.report.requested_iterations
     if job.report.forced_iterations:
         # Forced iterations switch the convergence threshold off: the loop runs its whole
-        # budget by design, so reaching it is not a stop that failed to settle (0.38.0 kept).
+        # budget by design, so reaching it is not a stop that failed to settle.
         return False
     return job.mode == "steady" and counter is not None and requested > 0 and counter == requested
 
@@ -944,7 +875,7 @@ def _counterless_final(text: str) -> ResidualSample | None:
     (:func:`~pyflightstream.results.parse_residual_history` refuses it), so its row
     carries iteration 0 here and the caller takes the counter from the loads footer.
     None for a log with a readable counter on any row, an unreadable residual, or no
-    table: those are read, or refused, as 0.38.0 reads them.
+    table: the normal log-reading path judges or refuses those.
     """
     rows: list[list[str]] = []
     try:
@@ -974,7 +905,7 @@ def _stamp_log(job: _LoadsJudgment, log_text: str, log_name: str) -> None:
 
     One route for a log named by ``log_file`` and one found by content
     (FR-974), so both carry the same ``solver_run_time_s``,
-    ``solver_initialization_s`` and ``time_steps`` (0.21.0: the times the
+    ``solver_initialization_s`` and ``time_steps`` (the times the
     log prints ride on every verdict read from it).
     """
     job.stamp["log_file_used"] = log_name
@@ -990,7 +921,7 @@ def _footer_counter_limit(job: _LoadsJudgment, log_text: str, log_name: str) -> 
     The footer supplies the counter only, never the verdict: the log's final residuals
     must be readable and above the convergence limit, and the footer's counter must
     equal the requested limit of a steady, unforced run. Anything else is None, and the
-    0.38.0 judgment of the point stands (a counterless log decides nothing else).
+    normal judgment of the point stands (a counterless log decides nothing else).
     """
     final = _counterless_final(log_text)
     reached = job.report.current_iteration
@@ -1205,7 +1136,7 @@ def _wheel_clockings(
     or more, and the point's log is then judged as one solve, which refuses a
     log of several.
 
-    THE RECORD'S REFUSAL IS DECIDED HERE (0.31.0). A point of the
+    THE RECORD'S REFUSAL IS DECIDED HERE. A point of the
     ``qsteady_rotor`` run type (``quasi_steady`` True) whose record is
     missing, unreadable or of another schema has its log judged as one solve,
     and the returned warning says so for the point's record. A point of
@@ -1410,7 +1341,7 @@ def worse_of(left: RunStatus, right: RunStatus) -> RunStatus:
     return right if rank(right) > rank(left) else left
 
 
-#: PUBLIC SINCE 0.24.0, because `run.collect` folds a swept job's points with the
+#: Public because `run.collect` folds a swept job's points with the
 #: same rule and reaching into a sibling for an underscore name is the boundary
 #: the digest guard refuses. The private spelling stays for what already reads it.
 _worse_of = worse_of

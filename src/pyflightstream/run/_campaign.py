@@ -194,9 +194,7 @@ def _leave_products(workspace: CampaignWorkspace, matrix_stem: str | None) -> st
             f"{where}: {type(error).__name__}: {error}. "
             f"No run outcome is affected and nothing is lost: every point is recorded in "
             f"{workspace.manifest_path}. Fix the cause and rebuild them with "
-            # NO --overwrite. This named that flag until 2026-09-14, and `post`
-            # had not accepted it since 0.17.0, when the archive replaced the refusal, so
-            # the one command the warning offered was refused by argparse.
+            # post archives replaced products and accepts no --overwrite flag.
             "`pyfs-matrix post --workspace <root> --archive`, which keeps replaced products."
         )
     return None
@@ -437,7 +435,7 @@ def run_campaign(
         IT NAMES POINTS AND IS NOT A SWITCH. Redoing every recorded point
         of a matrix because one row was wrong spends a licensed seat per
         point, and a seat is the one thing here that archiving cannot give
-        back (the interface lens, FIX-0212).
+        back (FIX-0212).
 
         A name that matches no recorded point is refused rather than
         ignored. Refused together with ``resume``, which SKIPS a recorded
@@ -466,11 +464,10 @@ def run_campaign(
         One entry per solver installation the campaign's cases name in
         :attr:`~pyflightstream.cases.SimCase.fs_build`. A case naming
         none runs on ``executor``, ``campaign.fs_exe`` and
-        ``campaign.fs_version``, which is every campaign written before
-        v0.8.0 and every single-installation campaign since; a case
+        ``campaign.fs_version``; a case
         naming one runs on that build's executor and is RECORDED against
         that build's executable, its digest and its version, so a study
-        across two builds no longer has to lie about which one produced
+        across two builds records which one produced
         a point. A case naming a build this mapping does not carry is
         refused before anything executes.
     preflight : bool
@@ -657,31 +654,19 @@ def _schedule_campaign_case(state: _CampaignState) -> None:
     ran = _points_the_recorded_job_ran(state.campaign, state.case, state.manifest)
     if ran is not None:
         state.already = [_job_run_id(state.campaign, state.case)]
-        # WHICH POINTS THE JOB ACTUALLY RAN, read off its record, and
-        # not "all of them because the job id is there". A sweep
-        # extended from two angles to three and re-run with resume
-        # returned successfully having executed NOTHING: the branch
-        # discarded every requested point on the strength of the job
-        # id alone, and a user reads that as done. Found by the
-        # independent Codex review of `main`, 2026-09-13
-        # (GEO-047-C05); `points_ran` is what it is for.
+        # Use points_ran to identify completed points within a swept job.
+        # The job id alone cannot prove completion of points added to the sweep
+        # after the recorded run (GEO-047-C05).
         remaining = [
             point for point in state.case_points if point_name(state.case, point) not in ran
         ]
         state.case_points = remaining
         state.run_ids = [_run_id(state.campaign, state.case, point) for point in remaining]
-    # A ROW STATING RESTART CONTINUES WHAT IS RECORDED, so its recorded
-    # points are its subject and not a fork (GOAL-021).
-    # Until 0.18.1 such a row, under the campaign that recorded
-    # the stopped run, was refused as a fork without `resume` and skipped
-    # as done with it, and ran only under another campaign name. A point
-    # of it is pending when the most recent record of that point stopped
-    # continuably, when nothing records it at all, or when its most recent
-    # run FAILED, and in the last two the continuation resolver refuses it
-    # by name rather than skipping it in silence (the quality and V&V
-    # lenses, closing round). FR-96, 0.33.0: a CONVERGED march continues
-    # once per request (`continuation_verdict`), so a completed continuation
-    # is not continued again, and a point not continued is said.
+    # GOAL-021: RESTART continues recorded points rather than forking them.
+    # A continuably stopped point is pending; absent or failed records reach
+    # the continuation resolver for a named refusal. A CONVERGED march
+    # continues once per request (FR-96, continuation_verdict). Explain every
+    # point not continued rather than silently skipping it.
     state.continuing = restart_request(state.case) is not None
     state.redoing = False
     _resolve_campaign_redo(state)
@@ -762,11 +747,8 @@ def _resolve_campaign_redo(state: _CampaignState) -> None:
             recorded_here = set(state.already)
             job = _job_run_id(state.campaign, state.case)
             state.case_points = asked.points
-            # G37 of 0.28.0: A POINT OF A RECORDED JOB REDOES THE WHOLE JOB, which
-            # the paragraph above promised and the code did not do for a point
-            # name or a point's run_id: the job's record was archived and the
-            # named point ran alone, cold, leaving its siblings in no record. The
-            # selection is resolved here, before anything is archived, and said.
+            # G37: selecting a point of a recorded job redoes the whole indivisible
+            # job. Expand and explain that selection before archiving any record.
             if job in recorded_here and job not in asked.named:
                 state.case_points = list(state.case.sweep.points())
                 warnings.warn(
@@ -806,13 +788,9 @@ def _resolve_campaign_redo(state: _CampaignState) -> None:
             state.to_supersede.append((state.case, list(state.case_points), superseding))
             state.redoing = True
             state.already = [run_id for run_id in state.already if run_id not in set(superseding)]
-            # AND THEY STOP COUNTING AS RECORDED, which is the half the
-            # first writing missed. `recorded` is frozen before the loop
-            # and `pending` below keeps only the points NOT in it, so
-            # clearing `already` alone left every superseded point filtered
-            # out: the case was dropped, and the run archived the evidence
-            # and executed nothing -- the very failure the paragraph above
-            # claims to prevent, one level down (the qa lens, FIX-0212).
+            # Remove superseded points from recorded as well as already: pending
+            # filters against recorded, so retaining them would archive their evidence
+            # without executing their replacements (FIX-0212).
             state.recorded.difference_update(superseding)
             state.recorded.difference_update(state.run_ids)
 
@@ -916,7 +894,7 @@ def _preflight_campaign_schedule(state: _CampaignState) -> None:
         _supersede_recorded_points(state.workspace, state.to_supersede)
 
     # PASS THREE is the only one that stages, executes or records.
-    # G43 of 0.28.0: A BANNER, EACH POINT NUMBERED, A TABLE AT THE END, so a long
+    # G43: A BANNER, EACH POINT NUMBERED, A TABLE AT THE END, so a long
     # local run reads at a glance: what runs, how far it is, how it ended.
 
 
@@ -925,8 +903,7 @@ def _start_campaign_progress(state: _CampaignState) -> None:
     state.to_run = sum(len(pending) for _case, _build, pending in state.scheduled)
     state.started = time.perf_counter()
     if state.to_run:
-        # 0.30.0: one of the two approved aircraft, drawn at random; the text
-        # stays on the wing line, as before.
+        # Draw one of the two approved aircraft at random; put text on its wing line.
         top, mast, wing = random.choice(_RUN_BANNERS)
         _say(top, quiet=state.quiet)
         _say(mast, quiet=state.quiet)
@@ -959,9 +936,8 @@ def _prepare_campaign_case(state: _CampaignState) -> None:
         FS_VERSION_FROM_ROW if state.build is not None else FS_VERSION_FROM_DEFAULT
     )
     state.canonical = resolve(state.case_version).canonical
-    # 0.30.0: A FOLDER THAT CANNOT BE WRITTEN IS THIS ROW'S RECORDED FAILURE,
-    # never the end of the run: a workspace on a network share that refuses
-    # one write left a row's planned points with no record at all.
+    # A folder-write failure is recorded for this row; it must not end
+    # the campaign with its planned points unaccounted for.
     try:
         state.sim_dir = state.workspace.create_sim(state.case.sim_id)
         state.recipe, state.preparation_error, state.inputs_sha256, state.staged_geometry = (
@@ -1013,8 +989,8 @@ def _start_campaign_sweep(state: _CampaignState) -> None:
 def _with_the_acceptance(state: _CampaignState, record: RunRecord) -> RunRecord:
     """Return ``record`` stating the acceptance of its build and what the files gave it.
 
-    The acceptance is recorded as since 0.21.0; since 0.39.0 (FR-998, FR-999)
-    it may come from a workspace settings file or from the build's own entry of
+    The recorded acceptance (FR-998, FR-999) may come from a workspace
+    settings file or from the build's own entry of
     ``inputs/executables.local.toml``, and ``settings_sources`` then names that
     file (``executables.local.toml`` for the entry), with every other value
     this invocation took from a file. An acceptance typed is named ``typed``
@@ -1090,7 +1066,7 @@ def _execute_campaign_points(state: _CampaignState) -> None:
 
 def _resolve_campaign_continuation(state: _CampaignState) -> bool:
     """Resolve campaign continuation."""
-    # FR-96, 0.18.0. A CONTINUATION IS RESOLVED BEFORE ANYTHING IS
+    # FR-96: A CONTINUATION IS RESOLVED BEFORE ANYTHING IS
     # BUILT, because it changes three things at once: which script
     # the builder writes, which run id the record carries, and what
     # is in the datapoint folder when the solver starts. Resolving
@@ -1111,8 +1087,8 @@ def _resolve_campaign_continuation(state: _CampaignState) -> bool:
         # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
         # MORE THAN ONE RESTART. It happens before the solver starts,
         # so a continuation never writes into the folder holding the
-        # evidence of the run it continues. INSIDE the refusal since
-        # 0.30.0: an archive the folder refuses is this point's
+        # evidence of the run it continues. Inside the refusal handling:
+        # an archive the folder refuses is this point's
         # recorded failure, not the end of the run.
         stamp = datetime.now()
         archived = (
@@ -1171,11 +1147,9 @@ def _resolve_campaign_continuation(state: _CampaignState) -> bool:
         state.outcomes.append(str(refused.status))
         return False
     if state.continuation is not None:
-        # THE ARCHIVED COPY, BY ABSOLUTE PATH. The archive above has just
-        # MOVED the saved simulation out of the datapoint folder, and
-        # this used to hand the solver the path it had been moved from,
-        # relative to a working directory a submitted point does not
-        # have, so the script named a file that was no longer there.
+        # Use the saved simulation's archived absolute path after moving it
+        # from the datapoint folder; the submitted working directory must not
+        # change which saved state the solver opens.
         saved = str(state.continuation["saved"])
         source = (
             archived / Path(saved).name
@@ -1237,7 +1211,7 @@ def _execute_campaign_point(state: _CampaignState) -> None:
             progress=progress,
         )
     except OSError as error:
-        # 0.30.0: A FILE THIS POINT COULD NOT WRITE IS THIS POINT'S
+        # A FILE THIS POINT COULD NOT WRITE IS THIS POINT'S
         # FAILURE, recorded, and the run goes on with the next point.
         record = _record_of_an_unwritable_point(
             progress,
@@ -1270,28 +1244,15 @@ def _execute_campaign_point(state: _CampaignState) -> None:
 
 def _finish_campaign(state: _CampaignState) -> list[RunRecord]:
     """Finish campaign."""
-    # BEFORE THE RAISE, and that is the whole placement (PFS-2014.03).
-    # `CampaignErrors` is raised by a campaign that RAN and had failing
-    # points, and those points have records; writing the table after it
-    # would mean a sweep with one failed point leaves no table at all,
-    # which is this item's acceptance exactly inverted. The same defect
-    # was found and fixed one layer up, in `pyfs-matrix run`, where the
-    # writer sat under an `except` arm that returned first.
-    #
-    # `recorded` is the manifest's run ids, so an empty one means nothing
-    # anywhere has ever been recorded here: there is no table to leave and
-    # no problem to report, and complaining would put a warning on every
-    # resume that found its work already done.
-    #
-    # G43 of 0.28.0: A RUN THAT SUBMITS DOES NOT POST, and its log stays short.
-    # A point in a queue has no outputs
-    # yet, so the post could only print a skip per point; one line says what
-    # was submitted and the command that collects and then posts.
+    # PFS-2014.03: write the sweep table before raising CampaignErrors so
+    # recorded failed points remain represented. With no recorded run ids
+    # there is no table to write and no warning to issue. G43: a submitting
+    # run does not post unavailable outputs; print one submission summary
+    # and the command that collects and posts them.
     if state.outcomes:
         _say_the_summary(state.outcomes, time.perf_counter() - state.started, quiet=state.quiet)
-    # 0.30.0: EVERY ROW SAYS HOW MANY OF ITS PLANNED POINTS HAVE A RECORD, and
-    # names the ones none carries: a row of ten planned points once recorded
-    # six, and nothing said so until the scripts were counted by hand.
+    # Report how many planned points have records and name every point
+    # without one, so a partly recorded row cannot look complete.
     if state.to_run:
         _say_the_rows(
             state.campaign,
@@ -1334,7 +1295,7 @@ def _say_the_rows(
     *,
     quiet: bool,
 ) -> None:
-    """Say, per row, how many planned points have a record, and warn of the rest (0.30.0).
+    """Say, per row, how many planned points have a record, and warn of the rest.
 
     One line per row of the campaign, on the terminal and in
     ``logs/activity.log``: ``row 4016: all 10 executed``, or ``row 4016: 6 of
@@ -1384,7 +1345,7 @@ def _job_point_statuses(record: RunRecord, points: int) -> list[str]:
     return [str(record.status)] * points
 
 
-#: The run banner's two aircraft, approved on 2026-09-28: the rows
+#: The run banner's two approved aircraft: the rows
 #: above the wing, then the wing, which the banner text follows.
 _RUN_BANNERS: tuple[tuple[str, str, str], ...] = (
     (
@@ -1483,10 +1444,8 @@ def _supersede_recorded_points(
     may need to look at afterwards.
     """
     run_ids = [run_id for _, _, ids in superseding for run_id in ids]
-    # ONE LINE PER SIMULATION ON A CONSOLE WITHOUT --verbose (0.30.0, the
-    # clean-log rule L3): ten points of one simulation printed ten
-    # near-identical warnings. Every point's move is still written to the
-    # activity log in full, whatever the console shows (L4).
+    # L3: print one line per simulation unless verbose. L4: retain each
+    # point's full archive move in the activity log regardless of console detail.
     terse = terse_terminal()
     for case, points, _ in superseding:
         archived: list[Path] = []

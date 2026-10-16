@@ -7,22 +7,10 @@ to the workspace input library and pre-flights every point without
 executing anything; ``pyfs-matrix run`` takes the same matrix all the
 way to manifest records and a sweep table.
 
-WHY THERE IS A ``run`` SUBCOMMAND NOW, since this file used to say
-there deliberately was not, and a reader who finds only the new
-sentence will reconstruct the old reasoning wrongly. The refusal said
-that execution stays a Python-API decision because the solver quality
-judgment and the recipe registry are code, not command-line strings.
-Both halves of that survive here rather than being overturned: the
-assessor is HARD-WIRED to
-:class:`pyflightstream.run.LoadsAssessor` and no flag selects another
-one, and there is NO recipe-registry option, so no function reaches
-this tool from a shell. What changed is that a run no longer needs
-either of them to be supplied: ``--workflow CODE=NAME`` names a run
-type from this package's OWN table
-(:mod:`pyflightstream.cases.workflows`), which is code, and a study
-built out of those types needs no Python at all (PFS-2025.09). The
-reversal is the design decision; the reasoning it replaces is kept
-above so the change reads as a decision rather than as drift.
+The assessor is :class:`pyflightstream.run.LoadsAssessor`; no flag selects
+another one. ``--workflow CODE=NAME`` names a run type from the package's
+table (:mod:`pyflightstream.cases.workflows`), so a study built from those
+types needs no Python (PFS-2025.09).
 
 ``--recipe CODE=REFERENCE`` still points at a function of your own on
 ``plan`` and ``run``; what it may not do is
@@ -31,11 +19,8 @@ anything is read.
 
 The command-line entry point belongs to the run layer because it binds planning and execution.
 
-The console entry point is unchanged: the command is still
-``pyfs-matrix``, with the same subcommands and the same flags, so FR-44's contract is
-untouched. The human output of ``plan`` is laid out in titled blocks; its exit codes and
-``plan.json`` did not change. What moved is the dotted
-module path, which a user never writes.
+The console entry point is ``pyfs-matrix`` (FR-44). Plan's human output uses
+titled blocks; its machine-readable outputs are exit codes and ``plan.json``.
 
 The dispatcher of every pyfs-matrix subcommand, each command's logic beside it.
 The argument parser is :mod:`pyflightstream.run._cli_parsers` (AD-14, built by family (AD-18))
@@ -53,11 +38,10 @@ from typing import NoReturn
 
 from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
 
-# Each `name as name` import of this block is a name 0.33.1 offered here, where its
-# printing used it; the printing is run/_cli_print since 0.34.0 (AD-18), and the nine
-# names keep this dotted path (parity arm R1, AD-15): blocks, table, wrap,
-# print_held_warnings, CampaignPlan, format_cost_table, inflow_harmonics_line,
-# qsteady_validity_line and continuation_block.
+# Re-export the console helpers and plan types at this public dotted path
+# (parity arm R1, AD-15): blocks, table, wrap, print_held_warnings,
+# CampaignPlan, format_cost_table, inflow_harmonics_line,
+# qsteady_validity_line and continuation_block. Printing lives in _cli_print.
 from pyflightstream._console import blocks as blocks
 from pyflightstream._console import (
     command_help,
@@ -82,7 +66,7 @@ from pyflightstream.cases.workflows import (
     workflow_registry,
 )
 
-# Offered here by 0.32.0, whose parser read it; the parser is _cli_parsers now.
+# Re-export the parser's public name at this dotted path.
 from pyflightstream.cases.workflows import read_a_choice as read_a_choice
 from pyflightstream.cases.workflows import resolve_workflow as resolve_workflow
 from pyflightstream.cases.workflows import workflow_names as workflow_names
@@ -249,9 +233,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     # FR-436: what the command line does not state, the workspace files may.
     args = parsed(parser, _storage_flag_form(argv))
-    # THE CONSOLE CONTRACT (FR-200 to FR-204): a titled opening block,
-    # the warnings at the end, a live log for a long command. `plan` keeps the
-    # header and the warnings block of 0.31.0, after its header.
+    # Console contract (FR-200 to FR-204): titled opening, final warnings,
+    # and a live log for long commands. Plan prints its warnings after its header.
     with command_console(
         "pyfs-matrix",
         args.subcommand,
@@ -286,11 +269,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             recipes = _parse_recipes(args.recipe)
             if args.subcommand in ("run", "plan", "inspect-setups"):
-                # BOTH, since 2026-08-19. `plan` is the zero-cost rehearsal of
-                # `run`, and a rehearsal that refuses what the run accepts is
-                # not a rehearsal: a workflow matrix could be run and not
-                # planned, so the one user who writes no Python had no way to
-                # check a study before spending a licensed seat on it.
+                # Plan rehearses run without solver time, including workflow matrices.
                 recipes = _one_builder_per_code(recipes, _parse_workflows(args.workflow))
         except (ValueError, CampaignConfigError) as error:
             print(str(error), file=sys.stderr)
@@ -300,29 +279,13 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_plan(args, recipes)
 
 
-#: Printed by `upgrade` on both routes, because this subcommand is the
-#: one point at which a user commits to the change, and a release review
-#: found it was the only surface in the release carrying no warning: the
-#: results-will-move paragraph was in the changelog, the docs page and
-#: the guide, and in front of nobody who runs the command. This
-#: subcommand exists precisely BECAUSE the previous migration path was a
-#: Python call that a matrix user does not write, so it cannot assume
-#: that user read any of the three.
-#:
-#: IT IS ABOUT THE LAYOUT AND NOTHING ELSE, and saying so is the
-#: release review's severity-one finding. It used to print on every
-#: upgrade of every layout, so a user converting a 14-column file was told
-#: their RESULTS ARE NOT PRESERVED by the one surface they read at the
-#: moment of committing, while this release's own guarantee is the exact
-#: opposite: the sweep fold carries a held angle at every point, so every
-#: existing run_id resolves and a resume finds its records. A user who
-#: believed the notice would discard a recorded campaign and spend a
-#: licensed seat re-running it, which is the resource this whole package
-#: exists to ration.
+#: Print this layout-specific warning on both upgrade routes, where the user
+#: commits to the change. Do not print it for a sweep fold: held angles keep
+#: existing run_ids resolvable and resume can find their records.
 _RE_NOTICE = (
     "This file entered at the v0.8.x layout, and across that boundary your "
     "RESULTS are not preserved: the RE column was recorded metadata that "
-    "reached no emitted line, and from v0.9.0 REmi is a CONSTRAINT that "
+    "reached no emitted line. REmi is a CONSTRAINT that "
     "solves for density, so every upgraded row emits an explicit fluid state "
     "it never emitted before and its numbers will differ. To keep the "
     "previous behaviour, state the condition without REmi. See "
@@ -587,12 +550,8 @@ def _naming(args: argparse.Namespace) -> NamingTemplate:
 
 def _cmd_collect(args: argparse.Namespace) -> int:
     """Sweep the submitted points and collect the ones whose outputs settled."""
-    # A FLAG THAT BOUNDS A WATCH IS REFUSED WITHOUT THE WATCH, at parse time,
-    # rather than accepted and ignored. Both facts are known here and the
-    # information to refuse exists, so silence is the wrong answer: `--rounds
-    # 5` alone reads as "sweep five times" to anybody who has not read the
-    # source, and it ran once. Found by the interface lens of the 0.18.0
-    # release round, 2026-09-14.
+    # Refuse a watch-bounding flag without a watch at parse time; accepting it
+    # would silently ignore the requested repetition limit.
     idle = [
         name
         for name, value in (("--rounds", args.rounds), ("--watch-interval", args.watch_interval))
@@ -613,13 +572,9 @@ def _cmd_collect(args: argparse.Namespace) -> int:
     if (interval_error := collect_interval_error(args.interval)) is not None:
         print(interval_error, file=sys.stderr)
         return 2
-    # THE POST STAGE IS REACHED THROUGH THE WORKSPACE REGISTRY, exactly as
-    # `_cmd_post` reaches it, and not by importing the products writer here.
-    # Dependencies flow downward and a function-body import does not make an
-    # upward one legal: deferring it to call time hides the direction from
-    # every module-level reader without changing it. The layering guard
-    # carries no allowlist, deliberately, and it refused the first writing
-    # of this command.
+    # Reach the post stage through the workspace registry, as _cmd_post does.
+    # Importing the products writer would point dependencies upward even if
+    # deferred to call time.
     from pyflightstream.workspace import post_stages
 
     from .collect import (
@@ -628,7 +583,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         collect_and_post,
     )
 
-    if (workspace := _records_workspace(args)) is None:  # 0.32.0: --runs NAME (B3)
+    if (workspace := _records_workspace(args)) is None:  # --runs NAME (B3)
         return 2
     interval = DEFAULT_SETTLE_INTERVAL_S if args.interval is None else args.interval
     watch_interval = (
@@ -649,9 +604,8 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         # of replacing them under the chosen archive policy.
         note_post_ran()
         for stage in post_stages():
-            # THE FLAG TRAVELS ONLY WHEN SET: a stage registered before
-            # 0.25.1 takes no `check_frozen`, and the bare command must keep
-            # running it (the fourth independent reading of GitHub main).
+            # Pass check_frozen only when set, preserving stages that do not accept
+            # that optional keyword under the bare command.
             stage(
                 ws,
                 overwrite=True,
@@ -739,7 +693,7 @@ def _cmd_post(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    if (workspace := _records_workspace(args)) is None:  # 0.32.0: --runs, --from-sims (B3)
+    if (workspace := _records_workspace(args)) is None:  # --runs, --from-sims (B3)
         return 2
     extraction_failed = 0
     extraction_skipped = 0
@@ -819,11 +773,8 @@ def _cmd_post(args: argparse.Namespace) -> int:
                 )
             )
             return 0
-        # THE REFUSAL THE HELP TEXT PROMISES, and it was prose alone until
-        # 2026-09-13 (the interface lens). `--yes` answers one question and
-        # nothing else asks one, so alone it parses, runs, archives and
-        # exits 0: a pre-authorisation sitting in a saved command line,
-        # waiting for the day someone adds --force-overwrite beside it.
+        # --yes answers the overwrite question only. Refuse it without
+        # --force-overwrite so a saved command cannot carry unused authorisation.
         if args.yes and not args.force_overwrite:
             print(
                 "--yes answers the --force-overwrite confirmation and nothing else asks "
@@ -856,8 +807,8 @@ def _cmd_post(args: argparse.Namespace) -> int:
                             overwrite=True,
                             archive=args.archive,
                             matrix_stem=matrix,
-                            # Only when set, so a stage registered before 0.25.1
-                            # keeps running under the bare command.
+                            # Pass only when set; bare commands work with stages
+                            # that do not accept this keyword.
                             **({"check_frozen": True} if args.check_frozen else {}),
                             # FR-307, and only when set, for the same reason.
                             **({"sims": sims_of[matrix]} if matrix in sims_of else {}),
@@ -885,10 +836,9 @@ def _cmd_post(args: argparse.Namespace) -> int:
         return 2
     skipped += extraction_skipped
     if skipped and args.strict:
-        # The design decision of 2026-09-08: a skip is a success by default, since
-        # everything producible was produced, and a wrapper that needs to
-        # tell a partial rebuild apart asks for it. The code is 3, its own,
-        # beside 2 for a refusal that wrote nothing (review round two).
+        # A skip succeeds by default when everything producible was produced.
+        # A caller requesting a distinct partial-rebuild result receives code 3;
+        # code 2 denotes a refusal that wrote nothing.
         print(
             f"--strict: {skipped} simulation(s) skipped; the products of the rest were "
             f"written under {folders}; exit 3",
@@ -1083,33 +1033,27 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 workspace,
                 name=name,
                 name_from=name_from,
-                # The keyword the library takes, not the flag the user types:
-                # the parameter renamed with PFS-2009.08.01 and `--fs-version`
-                # deliberately did not. Passing the old spelling here fired a
-                # deprecation warning at a user who had typed a shell command
-                # and named a Python keyword they never wrote.
+                # Pass the library's default_fs_version keyword for the --fs-version flag;
+                # the deprecated Python keyword must not warn a command-line user.
                 default_fs_version=args.fs_version,
                 recipes=recipes,
                 fs_exe=args.fs_exe,
                 recipe_registry=workflow_registry(),
                 ignore_missing_families=missing_families,
                 cost=getattr(args, "cost", False),  # FR-82
-                inflow_fft=getattr(args, "inflow_fft", False),  # 0.30.0
+                inflow_fft=getattr(args, "inflow_fft", False),
                 write_plan=args.subcommand != "inspect-setups",
                 accept_unregistered_build=args.accept_unregistered_build,
                 sims=args.sims,  # FR-326
                 points=args.points,
             )
-    # PyflightstreamError, AS `_cmd_run` CATCHES IT (PFS-2095.051): a
-    # WorkspaceError, the refusal read_manifest writes for a recorded defect,
-    # is neither a ValueError nor an OSError and reached the user as a
-    # traceback.
+    # Catch PyflightstreamError as _cmd_run does (PFS-2095.051). WorkspaceError
+    # is neither ValueError nor OSError and must reach the user as a refusal.
     except (MatrixError, InputArtifactError, PyflightstreamError, OSError, ValueError) as error:
         release_warnings(held)
         print(f"matrix not planned: {error}", file=sys.stderr)
         if renumbered:
-            # SAID AT THE MOMENT IT MATTERS (the interface and V&V lenses,
-            # 2026-09-14): the file on disk is not the one the user handed in.
+            # Tell the user when the file on disk differs from the one submitted.
             print(
                 f"--update-ids: the {renumbered} renumbering(s) printed above are written to "
                 f"{Path(args.matrix).name} and stay written; the plan refused for the reason "
@@ -1211,13 +1155,9 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         InputArtifactError,
         CampaignConfigError,
         WorkflowCoverageError,
-        # A REFUSAL IS NOT A CRASH. `WorkspaceError` is
-        # `(PyflightstreamError, RuntimeError)` and is neither a ValueError nor
-        # an OSError, so every refusal this package writes for a workspace --
-        # the already-recorded point among them -- reached the user as a Python
-        # traceback with the sentence at the bottom of it. `_cmd_post` has
-        # caught `PyflightstreamError` since 0.17.0 (the interface lens,
-        # FIX-0212).
+        # Catch package refusals as messages, including WorkspaceError, which
+        # inherits PyflightstreamError and RuntimeError rather than ValueError or
+        # OSError (FIX-0212).
         PyflightstreamError,
         OSError,
         ValueError,
@@ -1227,50 +1167,31 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     else:
         status = 0
 
-    # G43 of 0.28.0: a run that submitted anything posts nothing and writes no
-    # table; the library has said what was submitted and what to run next.
+    # G43: a run that submits anything posts nothing and writes no table.
+    # The library reports what was submitted and what to run next.
     if any(record.status is RunStatus.SUBMITTED for record in records):
         return status
 
     # The matrix's own folder, so several matrices of one workspace keep
     # their own table (PFS-2031.04); the table holds this matrix's records.
     stem = Path(args.matrix).stem
-    # FR-90: ONE NAME, AND IT IS THE ONE THE LIBRARY ALREADY WRITES.
-    # `run_campaign` leaves `campaign_sweep.csv` under the same folder
-    # (`run.SWEEP_TABLE_NAME`), so a default of `sweep.csv` here wrote the
-    # same table a second time under a second name: measured in the
-    # reference workspace, `post/matriz/sweep.csv` and
-    # `post/matriz/campaign_sweep.csv` were 1012 bytes with one sha256
-    # between them. A reader who found both could not know they were the
-    # same without hashing them, and a reader who edited one had silently
-    # disagreed with the other. `campaign_sweep.csv` is the name that
-    # survives: it says the table is about the CAMPAIGN rather than about
-    # one polar's sweep, and it is what FR-89 cites as one of its sources.
-    #
-    # WRITING IT AGAIN AT THE SAME PATH IS DELIBERATE and is not the
-    # duplicate this fixes: the content is derived from the append-only
-    # manifest, so the second write is the first one's own content, and
-    # keeping it here means a campaign whose library-side write failed
-    # still gets its table with this arm's own refusal.
+    # FR-90: use run.SWEEP_TABLE_NAME, the same campaign_sweep.csv path the
+    # library writes. Rewriting that path is deliberate: both writes derive
+    # from the manifest, and this gives a library-side write failure another
+    # attempt with this command's own refusal.
     target = args.sweep_csv or str(workspace.sweep_dir(stem) / SWEEP_TABLE_NAME)
-    # A record written before 0.13.0 names no matrix and is left out of
-    # this table by design (PFS-2031.04); say so at the moment it happens
-    # rather than leave a shorter table to be discovered.
+    # Exclude records naming no matrix (PFS-2031.04) and announce their count.
     unnamed = sum(1 for record in workspace.read_manifest() if record.matrix_stem is None)
     if unnamed:
         print(
-            f"{unnamed} recorded point(s) name no matrix (written before 0.13.0) and are "
+            f"{unnamed} recorded point(s) name no matrix and are "
             f"not in this table; their own products live under {workspace.products_dir(None)}",
             file=sys.stderr,
         )
     try:
-        # `require_loads=False` is the keyword written for exactly this
-        # condition: a sweep in which no run yielded coefficients still
-        # has identity rows, and printing "sweep table not written" over
-        # them discards work the campaign already did. `write_table` is
-        # the one write path of the tabular layer and refuses a frame
-        # that cannot say what produced its numbers; `to_csv` bypassed
-        # that and was correct only by coincidence.
+        # require_loads=False retains identity rows when no run yields coefficients.
+        # Use write_table to enforce tabular provenance instead of bypassing it with
+        # a direct to_csv call.
         Path(target).parent.mkdir(parents=True, exist_ok=True)
         # THE LIBRARY HAS ALREADY SAID IT. Every path that reaches this line
         # went through `run_matrix`, which left the same table from the same

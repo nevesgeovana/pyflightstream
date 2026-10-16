@@ -201,7 +201,7 @@ def test_goal025_a_record_naming_no_folder_at_all_is_still_refused(tmp_path):
     assert len(report.failed) == 1, report
     detail = report.failed[0].detail
     assert "names no working directory" in detail, detail
-    assert "0.18.1" in detail, "the refusal says which release's records this is about"
+    assert "Set `submission.working_dir` on this record in runs.json" in detail, detail
 
 
 def test_goal025_a_working_dir_that_is_not_a_datapoint_folder_is_refused_for_what_it_is(

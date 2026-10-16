@@ -10,8 +10,7 @@ point's exports under ``sims/sim_<POL>/``), and :func:`from_sims_workspace`
 hands them to ``post MATRIX --from-sims``, whose products land in
 ``post/<matrix>@sims/``.
 
-The public names are re-exported, unchanged, by :mod:`pyflightstream.run.records`,
-their path of 0.32.0 (AD-11, since 0.33.0).
+The public names are re-exported by :mod:`pyflightstream.run.records` (AD-11).
 """
 
 from __future__ import annotations
@@ -58,7 +57,7 @@ from pyflightstream.workspace.naming import (
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
 # ---------------------------------------------------------------------------
-# 0.32.0, work package B3: the post and the collect of other records.
+# Work package B3: the post and collect of other records.
 
 #: What sets the products folder of a post of other records apart from the
 #: default one: ``post/<matrix>@<label>/`` beside ``post/<matrix>/``.

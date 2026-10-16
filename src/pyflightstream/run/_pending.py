@@ -86,23 +86,14 @@ def _write_probe_points(
         return None
     relative = f"{PROBE_PROFILE_DIR}/{sim_id}_probe_points.csv"
     target = sim_dir / relative
-    # A USER'S FILE MAY BE IN THIS FOLDER TOO. A cited survey (FR-80) is read
-    # where it lives, under the workspace's `inputs/profiles/`, and is not
-    # staged here; but a user may still have put a file of this exact name in
-    # the simulation's `profiles/`, and it would have been overwritten without
-    # a word. Destroying user input is not a thing to do quietly, and a
-    # refusal naming both the file and the fix costs one rename (the
-    # interface, architecture and verification lenses, 2026-09-11).
+    # Refuse to overwrite a user's file of this name. A cited survey (FR-80)
+    # is read under inputs/profiles/ and is not staged here, but the user may
+    # have placed another file in the simulation's profiles/ folder.
     if target.is_file():
         existing = target.read_text(encoding="utf-8", errors="replace").splitlines()
         header = existing[0].strip() if existing else ""
-        # AN EMPTY FILE IS NOT THIS WRITER'S EITHER. The guard read
-        # `if header and ...`, so a file with no first line, or a blank one,
-        # fell through and was overwritten in silence while the message above
-        # and the page both said it would not be (the technical writing lens,
-        # round two, 2026-09-11). The absolute is made TRUE rather than the
-        # sentence softened: the one file this writer may replace is one
-        # carrying its own header.
+        # Only a file carrying this writer's own header may be replaced.
+        # An empty file or a blank first line does not establish ownership.
         if header != ",".join(PROBE_POSITION_COLUMNS):
             raise PyflightstreamError(
                 f"{target} already exists and is not a probe positions file "
@@ -139,8 +130,7 @@ def _write_pending_files(
     the child scripts of SCRIPT actions (PFS-2031.13) and the data files a
     command reads, the trailing-edge node file (G02) and the run's own copy
     of an actuator disc's radial thrust profile (G06). One writer for all,
-    called by the point path and by the sweep path alike; the sweep path
-    wrote neither kind until 0.27.0.
+    called by the point path and by the sweep path alike.
 
     A data file parked as TEXT is written in text mode, as the node file
     always was; one parked as BYTES is written exactly as it is, which is how
@@ -191,7 +181,7 @@ def _write_pending_files(
     if case.fsi is not None:
         # FSI files are point-owned inputs and use the existing guarded writer,
         # never the simulation inputs folder which may link to geometry data.
-        # THE CONFIGURATION THE BUILDER WIRED (0.30.0): a quasi-steady sector's
+        # THE CONFIGURATION THE BUILDER WIRED: a quasi-steady sector's
         # structure turns at the speed its row turns the free stream, so its
         # omega is the row's and not the input's; the provenance says so.
         effective = effective_fsi_config(case)
