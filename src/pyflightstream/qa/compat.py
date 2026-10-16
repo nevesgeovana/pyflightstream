@@ -401,6 +401,8 @@ def read_compat_reports(
     QaEvidenceError
         If ``reports_dir`` is given explicitly and is not a directory.
     """
+    from pyflightstream.qa.reanalysis import _withdrawals
+
     root = Path(repo_root).resolve()
     # Defaulting here rather than only in apply_compat: every caller of
     # this function was retyping the location that function already
@@ -411,6 +413,7 @@ def read_compat_reports(
         reports_dir = Path(repo_root) / "reports" / "compat"
     reports_dir = Path(reports_dir)
     index: dict[tuple[str, str], list[Judgment]] = {}
+    withdrawn: set[tuple[str, str, str]] = set()
     if not reports_dir.is_dir():
         # An absent default is the first-report case and yields an empty index.
         # An explicitly named missing path is refused here for every caller:
@@ -440,6 +443,7 @@ def read_compat_reports(
         document = _load_yaml(path)
         if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
             continue
+        withdrawn.update(_withdrawals(document, root))
         try:
             citation = path.resolve().relative_to(root).as_posix()
         except ValueError:
@@ -458,7 +462,11 @@ def read_compat_reports(
                         report=citation,
                     )
                 )
-    return {key: tuple(sorted(value, key=lambda j: j.date)) for key, value in index.items()}
+    return {
+        key: tuple(sorted(active, key=lambda j: j.date))
+        for key, value in index.items()
+        if (active := [j for j in value if (*key, j.report) not in withdrawn])
+    }
 
 
 def contradicting_evidence(
@@ -658,6 +666,9 @@ def apply_compat(
     # promoted from a report the tool has already judged unfit, which
     # is a worse state than either applying it or refusing it.
     judgments = read_compat_reports(reports_dir, repo_root=repo_root)
+    from pyflightstream.qa.reanalysis import _refuse_withdrawn_promotion
+
+    _refuse_withdrawn_promotion(citation, canonical, targets, reports_dir, root)
     incoming_date = str(report.get("date") or "")
     superseded = [
         (name, body["outcome"], contradicting)
@@ -1052,6 +1063,7 @@ def _rewritten_flow_entry(
         and existing.get("status") == ProbeOutcome.VERIFIED.value
         and existing.get("report")
         and existing.get("report") != citation
+        and not body.get("reconciles_withdrawal")
     ):
         return line
 
@@ -1061,7 +1073,7 @@ def _rewritten_flow_entry(
     # carried-through keys are new output, and they go after.
     owned = {"status", "report"}
     pairs: dict[str, object] = {"status": status, "report": citation}
-    if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value):
+    if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value, "documented"):
         # A removed row REQUIRES a note (the model refuses one without),
         # because the status alone cannot say which of the three ways it
         # arrived; the probe detail says it was measured.

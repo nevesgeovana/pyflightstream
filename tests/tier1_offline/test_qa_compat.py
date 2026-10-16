@@ -109,6 +109,88 @@ def make_run():
     )
 
 
+@pytest.mark.parametrize(
+    ("outcome", "independent"), [("verified", False), ("broken", False), ("verified", True)]
+)
+def test_p0420_reanalysis_preserves_run_and_withdraws_only_its_judgment(
+    tmp_path, outcome, independent
+):
+    from pyflightstream.qa.compat import read_compat_reports
+    from pyflightstream.qa.reanalysis import apply_reanalysis, write_reanalysis
+
+    commands = tmp_path / "src" / "pyflightstream" / "commands"
+    commands.parent.mkdir(parents=True)
+    write_chapter_fixture(commands)
+    reports = tmp_path / "reports" / "compat"
+    reports.mkdir(parents=True)
+    original = reports / "CMP-26120_2026-09-01_control.yaml"
+    document = {
+        "schema": COMPAT_SCHEMA,
+        "fs_version": "26.120",
+        "date": "2026-09-01",
+        "package_version": "0.0.1.dev0",
+        "executor": "retained test executor",
+        "solver_identity": ["retained build"],
+        "commands": {
+            "PRINT": {
+                "outcome": outcome,
+                "detail": "workflow completed; command effect unmeasured",
+                "signals": {"effect": "workflow converged"},
+                "script_sha256": "a" * 64,
+            }
+        },
+    }
+    original.write_text(yaml.safe_dump(document), encoding="utf-8")
+    apply_compat(original, repo_root=tmp_path)
+    original_bytes = original.read_bytes()
+    if independent:
+        measured = read_compat_report(original)
+        measured["date"] = "2026-09-02"
+        measured["commands"]["PRINT"]["signals"]["effect"] = True
+        measured["commands"]["PRINT"]["detail"] = "command-specific effect observed"
+        (reports / "CMP-26120_2026-09-02_independent.yaml").write_text(yaml.safe_dump(measured))
+    analysis, _ = write_reanalysis(
+        original,
+        {"PRINT": "The workflow did not isolate this command's effect or precondition."},
+        repo_root=tmp_path,
+        date="2026-10-16",
+        label="judgment-review",
+    )
+    apply_reanalysis(analysis, repo_root=tmp_path)
+    row = yaml.safe_load((commands / "script_controls.yaml").read_text())["PRINT"]["versions"][
+        "26.120"
+    ]
+    assert row["status"] == ("verified" if independent else "documented")
+    if independent:
+        assert "independent" in row["report"]
+    else:
+        assert "direct inconclusive evidence" in row["note"]
+    active = read_compat_reports(repo_root=tmp_path).get(("PRINT", "26.120"), ())
+    assert len(active) == int(independent)
+    assert original.read_bytes() == original_bytes
+    reviewed = read_compat_report(analysis)
+    assert reviewed["execution_date"] == "2026-09-01"
+    assert reviewed["executor"] == document["executor"]
+    assert reviewed["commands"]["PRINT"]["signals"] == document["commands"]["PRINT"]["signals"]
+    with pytest.raises(QaEvidenceError, match="withdrawn"):
+        apply_compat(original, repo_root=tmp_path)
+    reviewed["commands"]["PRINT"]["script_sha256"] = "b" * 64
+    analysis.write_text(yaml.safe_dump(reviewed))
+    with pytest.raises(QaEvidenceError, match="changed execution evidence"):
+        read_compat_reports(repo_root=tmp_path)
+
+
+def test_p0420_ordinary_unprobed_report_does_not_withdraw_verification(tmp_path):
+    from pyflightstream.qa.compat import read_compat_reports
+
+    reports = tmp_path / "reports" / "compat"
+    write_compat_report(make_run(), reports, date="2026-09-01")
+    document = read_compat_report(reports / "CMP-26120_2026-09-01.yaml")
+    document.update(date="2026-10-16", commands={"PRINT": {"outcome": "unprobed"}})
+    (reports / "CMP-26120_2026-10-16.yaml").write_text(yaml.safe_dump(document))
+    assert len(read_compat_reports(repo_root=tmp_path)[("PRINT", "26.120")]) == 1
+
+
 def test_report_pair_round_trips(tmp_path):
     yaml_path, md_path = write_compat_report(make_run(), tmp_path, date="2026-07-21")
     assert yaml_path.name == "CMP-26120_2026-07-21.yaml"
