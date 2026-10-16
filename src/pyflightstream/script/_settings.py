@@ -42,7 +42,7 @@ Nothing here imports ``cases`` or ``workspace``, and nothing here imports
 from __future__ import annotations
 
 import math
-from collections.abc import Iterator, Mapping, Sequence, Sized
+from collections.abc import Callable, Iterator, Mapping, Sequence, Sized
 from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple
 
@@ -956,14 +956,7 @@ def _preflight_settings(script: Script, values: Mapping[str, Any], prepared: _Pr
     for family in (RUNTIME_FAMILY, BOUNDARY_LAYER_FAMILY, SEPARATION_FAMILY):
         for command, args in _family_calls(values, family):
             check(command, *args)
-    deleted = values["delete_separations"]
-    if deleted is not None:
-        check("DELETE_SEPARATION", -1 if deleted == "all" else deleted)
-    if prepared.bulk is not None:
-        check("CREATE_BULK_SEPARATION", **prepared.bulk)
-    for argument, command in ASSIGNMENT_COMMANDS:
-        for arguments in prepared.models[argument]:
-            check(command, **arguments)
+    _preflight_models(check, values, prepared)
     for command, args in _family_calls(values, CONVERGENCE_FAMILY):
         check(command, *args)
     if values["minimum_cp"] is not None:
@@ -972,12 +965,31 @@ def _preflight_settings(script: Script, values: Mapping[str, Any], prepared: _Pr
         check("SOLVER_MINIMUM_CP", LIBRARY_MINIMUM_CP)
     for command, args in _family_calls(values, ADVANCED_FAMILY):
         check(command, *args)
-    if values["vorticity_drag_boundaries"] is not None:
-        selection = prepared.selection
-        if selection == "all":
-            check("SET_VORTICITY_DRAG_BOUNDARIES", -1)
-        elif selection is not None:
-            check("SET_VORTICITY_DRAG_BOUNDARIES", len(selection), list(selection))
+    _preflight_vorticity(check, prepared.selection)
+
+
+def _preflight_models(
+    check: Callable[..., None], values: Mapping[str, Any], prepared: _Prepared
+) -> None:
+    """Validate separation erasures and model assignments without emitting."""
+    deleted = values["delete_separations"]
+    if deleted is not None:
+        check("DELETE_SEPARATION", -1 if deleted == "all" else deleted)
+    if prepared.bulk is not None:
+        check("CREATE_BULK_SEPARATION", **prepared.bulk)
+    for argument, command in ASSIGNMENT_COMMANDS:
+        for arguments in prepared.models[argument]:
+            check(command, **arguments)
+
+
+def _preflight_vorticity(
+    check: Callable[..., None], selection: list[int] | Literal["all"] | None
+) -> None:
+    """Validate the deferred selection in its eventual command form."""
+    if selection == "all":
+        check("SET_VORTICITY_DRAG_BOUNDARIES", -1)
+    elif selection is not None:
+        check("SET_VORTICITY_DRAG_BOUNDARIES", len(selection), list(selection))
 
 
 def _read_boundary_lists(values: dict[str, Any]) -> None:
