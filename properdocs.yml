@@ -233,6 +233,7 @@ nav:
       - Why pyflightstream: srs/introduction.md
       - Scope: srs/scope.md
       - Data and evidence model: srs/data-model.md
+      - Numerical laboratory method: srs/numerical-laboratory-method.md
       - Architecture: architecture.md
   - Contributing:
       - Contributing guide: contributing.md
