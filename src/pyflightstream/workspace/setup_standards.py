@@ -732,8 +732,8 @@ def render_guidelines(fs_version: str) -> str:
         ),
         "",
         (
-            "Schlichting, Boundary-Layer Theory, 7th edition (1979), Chs. XVI-XVII [REF-15] "
-            "(printed pp.449-505 and 536-544) and Sec. XVIII.g (pp.572-575), "
+            "Schlichting, Boundary-Layer Theory, 7th edition (1979), Chs. XVI-XVII "
+            "(printed pp.449-505 and 536-544) and Sec. XVIII.g (pp.572-575) [REF-15], "
             "explains why pressure gradient, surface roughness and free-stream turbulence "
             "affect transition. A transition prediction and a separation criterion describe "
             "different mechanisms. Compare boundary-layer type and trip assumptions against "
@@ -765,8 +765,8 @@ def render_guidelines(fs_version: str) -> str:
             "overrides."
         ),
         "",
-        "The viscous interaction described by Ahuja, Hartfield and Ciliberti (2023), [REF-16] "
-        "DOI 10.2514/6.2023-2455, pp. 2-4, "
+        "The viscous interaction described by Ahuja, Hartfield and Ciliberti (2023), "
+        "DOI 10.2514/6.2023-2455, pp. 2-4 [REF-16], "
         "uses boundary-layer displacement to modify the outer-flow boundary condition. Its "
         "streamline boundary-layer assumption limits strongly three-dimensional crossflow and "
         "post-stall interpretation. This is physical context, not proof that a native "
@@ -774,26 +774,24 @@ def render_guidelines(fs_version: str) -> str:
         "Transition, laminar separation, turbulent separation and Valarezo maximum-lift limiting "
         "are separate choices. That paper does not establish a Valarezo command or its "
         "implementation.",
-        "Valarezo and Chin (1994), DOI 10.2514/3.46461, printed pp. 104-105, [REF-17] "
+        "Valarezo and Chin (1994), DOI 10.2514/3.46461, printed pp. 104-105 [REF-17], "
         "define an empirical pressure-difference limit dependent on Reynolds number and Mach "
         "number, applied at the first limiting span station. Geometry and configuration matter; "
         "one threshold is not universal. This is source evidence, not native "
         "implementation evidence.",
-        "[REF-18] Pibiri, Validation and modification of the Valarezo-Chin method "
-        "for the prediction "
+        "Pibiri, Validation and modification of the Valarezo-Chin method for the prediction "
         "of maximum lift, MSc thesis, Politecnico di Milano (academic year 2020/21), "
-        "printed pp. 24-28 and 41-45, studies Re=6e6 and M=0.15. "
+        "printed pp. 24-28 and 41-45 [REF-18], studies Re=6e6 and M=0.15. "
         "Its geometry corrections exclude laminar 6-series airfoils. Its fixed threshold 14 "
         "does not establish a universal laminar-plus-airfoil or Valarezo recommendation.",
         "Wake relaxation changes numerical convergence; wake decay changes downstream induction; "
         "printing induced velocities adds diagnostics. Compare each effect at fixed "
         "mesh and time step.",
         "",
-        "[REF-19] DiMaggio, Simmons, Geuther, Hartfield and Ahuja, "
-        "Transition Aero-Propulsive Analysis "
+        "DiMaggio, Simmons, Geuther, Hartfield and Ahuja, Transition Aero-Propulsive Analysis "
         "of a Tilt-Wing eVTOL Aircraft Using a Surface-Vorticity Solver (AIAA SciTech 2025 "
         "manuscript, [NASA NTRS 20240014618](https://ntrs.nasa.gov/citations/20240014618)), "
-        "PDF pp. 12-13, report better agreement at high-speed transition and offsets at "
+        "PDF pp. 12-13 [REF-19], report better agreement at high-speed transition and offsets at "
         "mid-transition for LA8. Their separation model omitted propeller-induced flow. "
         "This historical limitation motivates independent rotor-blending and wake sensitivities; "
         "it does not describe current-build behavior or prove a universally superior setting.",
@@ -801,27 +799,25 @@ def render_guidelines(fs_version: str) -> str:
         "L in metres. This is separate from geometry import or saved simulation length units.",
         "",
         (
-            "[REF-20] Hoeijmakers, in Ballmann, Eppler and Hackbusch (eds.), "
-            "Panel Methods in Fluid "
+            "Hoeijmakers, in Ballmann, Eppler and Hackbusch (eds.), Panel Methods in Fluid "
             "Mechanics with Emphasis on Aerodynamics (1988), DOI 10.1007/978-3-663-13997-3, "
-            "printed pp.24-32, motivates wake deformation for closely interacting "
+            "printed pp.24-32 [REF-20], motivates wake deformation for closely interacting "
             "components and describes field-panel extensions for nonlinear compressibility. "
             "These historical model arguments motivate sensitivity studies; they are not "
             "current-build cost or accuracy benchmarks."
         ),
         "",
         (
-            "Pate and German, A Surface Vorticity Panel Method (2018), DOI [REF-21] "
-            "10.2514/1.J057120, PDF pp.1-2 and 9, describes an incompressible formulation "
+            "Pate and German, A Surface Vorticity Panel Method (2018), DOI "
+            "10.2514/1.J057120, PDF pp.1-2 and 9 [REF-21], describes an incompressible formulation "
             "and explicitly refers elsewhere for the wake model. It therefore cannot "
             "establish a transonic or wake-setting recommendation by itself."
         ),
         "",
         (
-            "[REF-22] Sathe, Ahuja and Hartfield, Experimental Validation of "
-            "Integral Boundary Layer "
+            "Sathe, Ahuja and Hartfield, Experimental Validation of Integral Boundary Layer "
             "Coupled with a Surface Vorticity Solver (2023), DOI 10.2514/6.2023-4314, PDF "
-            "pp.1-2 and 15-17, reports airfoil comparisons motivating a coupled/uncoupled "
+            "pp.1-2 and 15-17 [REF-22], reports airfoil comparisons motivating a coupled/uncoupled "
             "study. The scoped source review does not establish three-dimensional rotor "
             "accuracy or that laminar and airfoil separation should always be combined."
         ),
