@@ -518,7 +518,7 @@ def test_p0420_sweeps_reference_page_and_private_dataset_boundary():
     path = ROOT / "docs/references.md"
     assert path.is_file(), "The public reference register is missing"
     text = path.read_text(encoding="utf-8")
-    ids = re.findall(r"^### (REF-\d+) \{ #REF-\d+ \}", text, re.MULTILINE)
+    ids = re.findall(r"^### (REF-\d+)$", text, re.MULTILINE)
     assert ids == [f"REF-{number:02}" for number in range(1, 58) if number != 37]
     for build in (
         "25.000",
