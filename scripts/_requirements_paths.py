@@ -69,13 +69,16 @@ def requirement_rows(text: str, path: str = "<text>") -> list[dict[str, str]]:
     columns: tuple[str, ...] = ()
     for number, line in enumerate(text.splitlines(), 1):
         if not line.strip().startswith("|"):
+            columns = ()
             continue
         cells = [v.strip().replace("&#124;", "|") for v in line.strip().strip("|").split("|")]
         if cells[0].lower() == "uid":
             columns = tuple(v.lower().replace(" ", "_") for v in cells)
             if columns not in (ROW_COLUMNS, LEGACY_COLUMNS):
                 raise ValueError(f"{path}:{number}: unknown requirement columns")
-        elif re.match(r"^(?:N?FR)-", cells[0]):
+        elif (columns and not all(re.fullmatch(r":?-+:?", cell) for cell in cells)) or re.match(
+            r"^(?:N?FR)-", cells[0]
+        ):
             if not columns or len(cells) != len(columns):
                 raise ValueError(f"{path}:{number}: malformed requirement row")
             row = dict(zip(columns, cells, strict=True))

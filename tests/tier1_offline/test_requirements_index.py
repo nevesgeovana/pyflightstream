@@ -438,6 +438,39 @@ def test_p0420_srs_reader_preserves_authored_attributes():
         requirement_rows(text.replace(" | reason", ""))
 
 
+@pytest.mark.parametrize("uid", ["XR-1230", "FR_1230", "1230"])
+def test_p0420_srs_reader_refuses_mistyped_uid(uid):
+    """A mistyped UID in an authored table must not disappear from its readers."""
+    from scripts._requirements_paths import requirement_rows
+
+    generator = _generator()
+    text = (
+        "| UID | Parent | HID | Level | Status | Verification method | Statement "
+        "| Rationale | Derives from | Code | Test |\n"
+        f"| {uid} | - | INST-1 | L1 | pending | analysis | The library shall record a result. "
+        "| reason | NL-INST | - | - |\n"
+    )
+    with pytest.raises(ValueError, match="invalid UID"):
+        requirement_rows(text)
+    with pytest.raises(generator.MalformedRequirementPageError, match="invalid UID"):
+        generator._table_rows(Path("inst.md"), text)
+
+
+def test_p0420_srs_reader_bounds_requirement_table():
+    from scripts._requirements_paths import requirement_rows
+
+    text = (
+        "| UID | Parent | HID | Level | Status | Verification method | Statement "
+        "| Rationale | Derives from | Code | Test |\n" + "|" + " --- |" * 11 + "\n"
+        "| FR-1230 | - | INST-1 | L1 | pending | analysis | The library shall record a result. "
+        "| reason | NL-INST | - | - |\n"
+        "\nUnrelated table follows.\n\n| Name | Value |\n| alpha | beta |\n"
+    )
+    assert [row["uid"] for row in requirement_rows(text)] == ["FR-1230"]
+    with pytest.raises(ValueError, match="malformed requirement row"):
+        requirement_rows("| FR-1230 | orphan |\n")
+
+
 def test_p0420_writing_rules_controls_and_baseline():
     path = REPO / "scripts/check_writing_rules.py"
     assert path.is_file(), "the repository writing-rule checker is missing"
