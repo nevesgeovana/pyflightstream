@@ -231,17 +231,11 @@ def test_the_rotor_table_is_written_with_its_alias_in_every_row(tmp_path):
 
 
 def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_path):
-    """A FINDING RATHER THAN A DESIGN, and it is worth the owner's attention.
+    """A zero reference velocity cannot recover dimensional loads.
 
-    The loads export states DIMENSIONLESS coefficients, normalised by the run's
-    own dynamic pressure. At V = 0 that pressure is zero and a hovering rotor's
-    real thrust has been divided away -- so item 6's coefficients cannot be
-    derived from this export for a static point AT ALL, whatever is wired.
-
-    This test asserted `CT > 0` when it was written, on the assumption that
-    only the two efficiencies were 0/0. Running it showed the whole row is
-    unrecoverable, which is a fact about the export rather than about the code.
-    A hover figure of merit needs the run to state a FORCE.
+    This fixture sets both reference and free-stream velocities to zero. It
+    does not establish the solver's normalization at hover with positive VREF;
+    PFS-2127.001 still requires that licensed measurement and session judgement.
 
     So every coefficient reads `NA` EXCEPT `J`: visibly absent, rather than a
     zero a reader would believe of a rotor that is plainly pushing.
@@ -284,6 +278,39 @@ def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_
         "J is V / (n D) and a turning rotor at rest has an advance ratio of "
         f"exactly zero, which is a measurement and not a missing value: {rows[0]}"
     )
+
+
+def test_p0420_hover_with_positive_vref_pins_current_reconstruction(tmp_path):
+    """Pin arithmetic pending licensed confirmation of the export normalization.
+
+    qref=980 Pa, S=10 m2, Cz=.5 gives 4900 N. CMz=.25 and Cref=1 m
+    give 2450 Nm. At n=50 Hz, D=2 m these imply CT=.1 and CQ=.025.
+    The independent free stream is zero, so J=0 and efficiencies are NA.
+    """
+    from pyflightstream.post.products import NOT_APPLICABLE, read_csv_table, write_rotor_table
+
+    path = write_rotor_table(
+        tmp_path / "hover.csv",
+        rotor=_rotor("Z"),
+        rows=[
+            {
+                "surfaces": _surfaces(Blade1={"Cz": 0.5, "CMz": 0.25}),
+                "condition": {"MACH": 0.0, "VREF": 40.0},
+                "rpm": 3000.0,
+                "density": 1.225,
+                "speed": 40.0,
+                "free_stream": 0.0,
+            }
+        ],
+        reference=_reference(),
+    )
+    _, rows = read_csv_table(path)
+    assert rows[0]["CT_PUSHER"] != NOT_APPLICABLE
+    assert float(rows[0]["CT_PUSHER"]) == pytest.approx(0.1)
+    assert float(rows[0]["CQ_PUSHER"]) == pytest.approx(0.025)
+    assert float(rows[0]["CP_PUSHER"]) == pytest.approx(0.15708, abs=0.000005)
+    assert float(rows[0]["J_PUSHER"]) == 0.0
+    assert rows[0]["ETA_PUSHER"] == rows[0]["ETAW_PUSHER"] == NOT_APPLICABLE
 
 
 def test_a_rotor_that_is_not_turning_writes_no_table(tmp_path):
