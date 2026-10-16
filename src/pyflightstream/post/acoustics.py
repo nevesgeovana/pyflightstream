@@ -539,17 +539,9 @@ def write_acoustic_products(
             else:
                 rows = [(n, None, None, None, None) for n in range(1, harmonics + 1)]
             for order, frequency, bin_hz, amplitude, level_db in rows:
-                offset = (
-                    (bin_hz - frequency) / df
-                    if bin_hz is not None and frequency is not None and df
-                    else None
+                offset = _harmonic_bin_offset(
+                    bin_hz, frequency, df, signal.observer, alias, order, result.notes
                 )
-                if offset is not None and abs(offset) > 1e-10:
-                    result.notes.append(
-                        f"observer {signal.observer!r} rotor {alias!r}: harmonic {order} uses "
-                        f"nearest-bin extraction at offset {offset:g} bins; an unwindowed "
-                        "off-bin tone can be underestimated by about 3.9 dB"
-                    )
                 if frequency is not None and amplitude is None:
                     result.notes.append(
                         f"observer {signal.observer!r} rotor {alias!r}: harmonic {order} at "
@@ -608,3 +600,25 @@ def write_acoustic_products(
             ],
         )
     return result
+
+
+def _harmonic_bin_offset(
+    bin_hz: float | None,
+    frequency: float | None,
+    df: float | None,
+    observer: str,
+    alias: str,
+    order: int,
+    notes: list[str],
+) -> float | None:
+    """Record the nearest-bin estimator bias beside its signed bin offset."""
+    offset = (
+        (bin_hz - frequency) / df if bin_hz is not None and frequency is not None and df else None
+    )
+    if offset is not None and abs(offset) > 1e-10:
+        notes.append(
+            f"observer {observer!r} rotor {alias!r}: harmonic {order} uses "
+            f"nearest-bin extraction at offset {offset:g} bins; an unwindowed "
+            "off-bin tone can be underestimated by about 3.9 dB"
+        )
+    return offset
