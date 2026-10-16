@@ -431,6 +431,8 @@ def patch_structural_node_frame(saved: bytes, frame_index: int, *, node_count: i
 #: after it ends the analysis, and with neither the process never exits by
 #: itself. The analysis prints this line when it ends in the 26.124 probe;
 #: the recorded steady replay of GOAL-033 ends the same way.
+#: The executor recognizes this marker on either stdout or stderr and retains
+#: those channels separately in its execution result.
 STEADY_AEROELASTIC_COMPLETION = "Aeroelastic solver run time"
 
 

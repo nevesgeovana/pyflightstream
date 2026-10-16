@@ -1084,11 +1084,15 @@ def _run_until_the_analysis_ends(
     A process that exits first returns its own code; a timeout kills it as
     every other run's. The owned-window check of every run applies.
     """
-    from pyflightstream.cases.fsi_workspace import steady_aeroelastic_finished
+    from pyflightstream.cases.fsi_workspace import STEADY_AEROELASTIC_COMPLETION
+    from pyflightstream.run._completion import _CompletionScan
 
     start = time.perf_counter()
     out_path = working_dir / STEADY_COUPLED_STDOUT
     err_path = working_dir / STEADY_COUPLED_STDERR
+    scans = tuple(
+        _CompletionScan(path, STEADY_AEROELASTIC_COMPLETION) for path in (out_path, err_path)
+    )
 
     def captured() -> tuple[str, str]:
         texts = []
@@ -1122,7 +1126,7 @@ def _run_until_the_analysis_ends(
                 return code, False, ""
             except subprocess.TimeoutExpired:
                 pass
-            if steady_aeroelastic_finished(captured()[0]):
+            if any(scan.finished() for scan in scans):
                 process.kill()
                 process.wait()
                 note = (

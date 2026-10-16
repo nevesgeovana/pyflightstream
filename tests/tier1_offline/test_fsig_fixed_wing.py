@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -448,6 +449,89 @@ def test_a_wing_too_thin_for_its_nodes_is_refused_at_plan_naming_the_node(tmp_pa
 
 # --------------------------------------------------------------------------
 # The run: a steady coupled process is stopped once its analysis ended.
+
+
+@pytest.mark.parametrize("channels", [(), ("stdout",), ("stderr",), ("stdout", "stderr")])
+def test_p0420_p1_1d_completion_channels(tmp_path, monkeypatch, channels):
+    """PFS-2120.001: either captured channel completes a living process."""
+    from pyflightstream.run import _executors
+
+    killed = []
+
+    class Process:
+        pid = 0
+
+        def __init__(self, *args, **kwargs):
+            for channel in channels:
+                kwargs[channel].write(ws.STEADY_AEROELASTIC_COMPLETION)
+                kwargs[channel].flush()
+
+        def wait(self, timeout=None):
+            if timeout is not None:
+                raise subprocess.TimeoutExpired("fake", timeout)
+            return 0
+
+        def kill(self):
+            killed.append(True)
+
+    ticks = iter([0.0, 0.0, 3.0])
+    monkeypatch.setattr(_executors.time, "perf_counter", lambda: next(ticks))
+    monkeypatch.setattr(_executors.subprocess, "Popen", Process)
+    monkeypatch.setattr(_executors, "_owned_solver_dialogs", lambda pid: ())
+    code, out, err, timed_out = _run_until_the_analysis_ends(["fake"], tmp_path, 2.0)
+    assert (code, timed_out) == ((0, False) if channels else (None, True))
+    assert killed == [True]
+    assert (ws.STEADY_AEROELASTIC_COMPLETION in out) == ("stdout" in channels)
+    assert (ws.STEADY_AEROELASTIC_COMPLETION in err) == ("stderr" in channels)
+
+
+def test_p0420_p1_1d_completion_reads_appended_bytes_once(tmp_path, monkeypatch):
+    """PFS-2132.001: 50 MB append-only output costs exactly 50 MB of reads."""
+    from pyflightstream.run._completion import _CompletionScan
+
+    path = tmp_path / "stdout.txt"
+    scan = _CompletionScan(path, ws.STEADY_AEROELASTIC_COMPLETION)
+    original_open = Path.open
+    reads = []
+
+    class Counted:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.stream.close()
+
+        def seek(self, offset):
+            return self.stream.seek(offset)
+
+        def read(self, size):
+            data = self.stream.read(size)
+            reads.append(len(data))
+            return data
+
+    def counted_open(self, mode="r", *args, **kwargs):
+        stream = original_open(self, mode, *args, **kwargs)
+        return Counted(stream) if self == path and mode == "rb" else stream
+
+    monkeypatch.setattr(Path, "open", counted_open)
+    with path.open("wb") as stream:
+        for _ in range(50):
+            stream.write(b"x" * 1_000_000)
+            stream.flush()
+            assert not scan.finished()
+        marker = ws.STEADY_AEROELASTIC_COMPLETION.encode()
+        stream.write(marker[:12])
+        stream.flush()
+        assert not scan.finished()
+        stream.write(marker[12:])
+        stream.flush()
+        assert scan.finished()
+    assert sum(reads) == 50_000_000 + len(marker)
+    assert scan.finished()
+    assert sum(reads) == 50_000_000 + len(marker)
 
 
 def test_a_steady_coupled_process_is_stopped_after_its_completion_line(tmp_path):
