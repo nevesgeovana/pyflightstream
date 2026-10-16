@@ -77,7 +77,7 @@
    "positional": 3
   },
   "cases/freestream.py:prepare_field": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 11,
    "statements": 37,
    "positional": 1

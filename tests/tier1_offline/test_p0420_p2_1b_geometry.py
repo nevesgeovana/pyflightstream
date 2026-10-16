@@ -1,43 +1,15 @@
 """Tier 1, 0.42.0 P2-1b: the trailing-edge file route and raw-mesh rows in a non-metre setup.
 
-Pipeline role: guards on :mod:`pyflightstream.cases.workflows._geometry` and the
-sidecar reader (FR-42, NFR-01a).
+Pipeline role: guards on the trailing-edge sidecar reader and the plan (FR-42, NFR-01a); the
+conversion of the file route is pinned in test_raw_mesh_conditions.
 """
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
 from pyflightstream.cases.mesh import TrailingEdgeMarking
-from pyflightstream.cases.workflows import _geometry
-from pyflightstream.script import Script
 from pyflightstream.workspace.sidecars import read_trailing_edges
-
-
-def _case():
-    return SimpleNamespace(sim_id="te", geometry="wing.obj", mesh_import=None, variables={})
-
-
-@pytest.mark.parametrize("unit,factor", [("METER", 1.0), ("MILLIMETER", 1000.0)])
-def test_p0420_the_file_route_writes_points_and_tolerance_in_the_simulation_unit(unit, factor):
-    """PFS-2130.013: points and tolerance are metres in the row, the setup's unit in the script."""
-    script = Script("26.124")
-    script.emit("SET_SIMULATION_LENGTH_UNITS", unit)
-    marking = TrailingEdgeMarking(
-        route="file",
-        points_file="wing.te.txt",
-        points_m=((0.25, 0.5, 0.0),),
-        tolerance=0.002,
-    )
-    _geometry._mark_trailing_edges_from_file(_case(), script, marking, "wing.boundaries.toml", "p")
-    lines = script.render().splitlines()
-    assert f"IMPORT_WAKE_EDGES_FROM_FILE STANDARD {0.002 * factor} {unit}" in lines
-    assert script.pending_input_files["wing.wake_nodes.txt"].splitlines()[-1] == (
-        f"{0.25 * factor},{0.5 * factor},0.0".replace(",", " ").replace(" ", ",")
-    )
-    assert script.wake_edge_points == 1
 
 
 def test_p0420_the_tolerance_is_stated_in_metres_in_all_three_places(tmp_path):

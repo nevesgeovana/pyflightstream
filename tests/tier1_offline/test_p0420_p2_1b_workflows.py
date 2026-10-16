@@ -204,22 +204,20 @@ def test_p0420_a_grouped_steady_job_deletes_the_probe_points_before_it_creates_t
         (["P.txt"], "the section-coordinate export (the _cp.txt file) and the VTK"),
     ],
 )
-def test_p0420_the_boundary_layer_build_guard_asks_for_what_the_post_reads(outputs, missing):
+def test_p0420_the_boundary_layer_build_guard_asks_for_what_the_post_reads(
+    tmp_path, outputs, missing
+):
     """PFS-2117.018: VTK specifically, and the _cp.txt export; a Tecplot surface is not enough."""
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows import _steady
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_workflows import _wb_geometry, _with_pproc, steady_case
 
-    case = SimpleNamespace(
-        sim_id="9001",
-        outputs=outputs,
-        pproc=SimpleNamespace(
-            products=SimpleNamespace(boundary_layer_integrals=True), time_averaging=None
-        ),
-        recipe="steady",
-        variables={},
-    )
+    case = _with_pproc(steady_case(), _wb_geometry(tmp_path))
+    case.pproc.products.boundary_layer_integrals = True
+    case = case.model_copy(update={"sim_id": "9001", "outputs": outputs})
     with pytest.raises(CampaignConfigError, match="boundary_layer_integrals requires") as refusal:
-        _steady._before_the_build(case, None, conventions=None, registry=None)
+        build_script(case, Script("26.124"))
     text = str(refusal.value)
     assert missing in text and "'9001'" in text and "plan the point again" in text
 
@@ -260,10 +258,10 @@ def test_p0420_a_local_run_writes_the_job_start_before_launching_the_solver(tmp_
     """The run layer hands the clock its origin; a scheduler-bound or clockless job gets none."""
     (tmp_path / "actions").mkdir()
     before = time.time()
-    _points._start_the_wall_clock(_job(tmp_path, LocalExecutor(sys.executable), clock=True))
+    _points.start_the_wall_clock(_job(tmp_path, LocalExecutor(sys.executable), clock=True))
     written = json.loads((tmp_path / WALLTIME_CLOCK_STATE).read_text(encoding="utf-8"))
     assert before <= written["started_at"] <= time.time() and written["fired"] is False
     (tmp_path / WALLTIME_CLOCK_STATE).unlink()
-    _points._start_the_wall_clock(_job(tmp_path, LocalExecutor(sys.executable), clock=False))
-    _points._start_the_wall_clock(_job(tmp_path, SimpleNamespace(submit=True), clock=True))
+    _points.start_the_wall_clock(_job(tmp_path, LocalExecutor(sys.executable), clock=False))
+    _points.start_the_wall_clock(_job(tmp_path, SimpleNamespace(submit=True), clock=True))
     assert not (tmp_path / WALLTIME_CLOCK_STATE).exists()

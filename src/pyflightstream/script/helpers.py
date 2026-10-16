@@ -127,6 +127,10 @@ from pyflightstream.script._wake_edge_file import (  # noqa: F401  (this module 
     _where_parked,
     render_wake_edge_node_file,
 )
+from pyflightstream.script.motion import (  # noqa: F401  (this module is the public path)
+    FRAME_AXES_TOLERANCE,
+    frame_axes_problem,
+)
 from pyflightstream.script.rotor_vocabulary import (
     EUCLIDEAN_ROTOR_UNIT,
     UNMARKED_EUCLIDEAN_ROTOR_UNIT,
@@ -1551,59 +1555,6 @@ def export_probes(
     script._exported_paths[path] = f"{source} (called at {_caller_site(1)})"
 
 
-#: How far from orthogonal two frame axes may be: the cosine of their angle, the tolerance
-#: the motion ledger applies to the axes of a frame it records (``script/motion.py``).
-FRAME_AXES_TOLERANCE = 1e-8
-
-
-def frame_axes_problem(x_axis: Sequence[float], y_axis: Sequence[float]) -> str | None:
-    """Return why two frame axes do not define a coordinate system, or None when they do.
-
-    A coordinate system needs two directions that are finite, not zero, not
-    parallel and orthogonal: the cosine of their angle within
-    :data:`FRAME_AXES_TOLERANCE`, the test the motion ledger applies. Their
-    lengths are free (they are directions), so ``(2, 0, 0)`` and ``(0, 1, 0)``
-    are accepted. Used by :func:`coordinate_frame` and by
-    :class:`pyflightstream.cases.FrameSpec`, so a frame is refused where it is
-    written and where it is emitted for the same reasons (PFS-2130.018,
-    PFS-2130.021, PFS-2130.053).
-
-    Parameters
-    ----------
-    x_axis, y_axis : sequence of float
-        The two axes, three components each, in the reference frame.
-
-    Returns
-    -------
-    str or None
-        The reason, in words naming the axis at fault, or None.
-
-    Examples
-    --------
-    >>> frame_axes_problem((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)) is None
-    True
-    >>> frame_axes_problem((1.0, 0.0, 0.0), (2.0, 0.0, 0.0))
-    'x_axis and y_axis are parallel, so they define no plane'
-    """
-    values = [float(v) for axis in (x_axis, y_axis) for v in axis]
-    if not all(math.isfinite(v) for v in values):
-        return "an axis component is not a finite number"
-    lengths = [math.sqrt(sum(float(v) ** 2 for v in axis)) for axis in (x_axis, y_axis)]
-    for label, length in zip(("x_axis", "y_axis"), lengths, strict=True):
-        if length == 0.0:
-            return f"{label} has zero length, so it points nowhere"
-    dot = sum(float(a) * float(b) for a, b in zip(x_axis, y_axis, strict=True))
-    cosine = dot / (lengths[0] * lengths[1])
-    if 1.0 - abs(cosine) < FRAME_AXES_TOLERANCE:
-        return "x_axis and y_axis are parallel, so they define no plane"
-    if abs(cosine) > FRAME_AXES_TOLERANCE:
-        return (
-            f"x_axis and y_axis are not orthogonal (the cosine of their angle is {cosine:.3g}, "
-            f"more than {FRAME_AXES_TOLERANCE:g})"
-        )
-    return None
-
-
 def coordinate_frame(
     script: Script,
     *,
@@ -1660,20 +1611,7 @@ def coordinate_frame(
         frame and the vectors; nothing is emitted. The axes are written as
         given, never normalised: their lengths are directions' lengths.
     """
-    problem = frame_axes_problem(x_axis, y_axis)
-    if problem is None and z_axis is not None:
-        ax, ay, az = x_axis
-        bx, by, bz = y_axis
-        normal = (ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx)
-        scale = math.sqrt(sum(v * v for v in normal)) * math.sqrt(
-            sum(float(v) ** 2 for v in z_axis)
-        )
-        along = sum(n * float(c) for n, c in zip(normal, z_axis, strict=True)) / (scale or 1.0)
-        if scale == 0.0 or abs(along - 1.0) > FRAME_AXES_TOLERANCE:
-            problem = (
-                f"z_axis {tuple(z_axis)} does not point along the right-handed cross product of "
-                "x_axis and y_axis"
-            )
+    problem = frame_axes_problem(x_axis, y_axis, z_axis)
     if problem is not None:
         raise CommandArgumentError(
             f"coordinate_frame {name!r}: {problem}; x_axis = {tuple(x_axis)}, "

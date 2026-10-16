@@ -871,7 +871,7 @@ def _write_point_pending_files(job: _PointJob) -> RunRecord | None:
     return None
 
 
-def _start_the_wall_clock(job: _PointJob) -> None:
+def start_the_wall_clock(job: _PointJob) -> None:
     """Write the job start into the wall clock's state, just before the solver is launched.
 
     FR-98, PFS-2119.023. THE CLOCK STARTS WHEN THE SOLVER IS LAUNCHED, not at its
@@ -925,7 +925,7 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
     bind_submission_values(job.executor, job.case, job.point_case)
     if job.progress is not None:
         job.progress.solver_started = True
-    _start_the_wall_clock(job)
+    start_the_wall_clock(job)
     try:
         job.result = job.executor.run_script(
             job.script_path, working_dir=job.work_dir, timeout_s=job.case.solver.timeout_s

@@ -195,6 +195,7 @@ from pyflightstream.cases.reference_blocks import (
     BladeDatum,
     CampaignConfigError,
     RotorBlock,
+    SecondAxis,
 )
 from pyflightstream.cases.reference_blocks import ActuatorOperation as ActuatorOperation
 from pyflightstream.cases.reference_blocks import frame_basis_for_shaft as frame_basis_for_shaft
@@ -223,7 +224,6 @@ from pyflightstream.commands import Phase
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.script import Script
-from pyflightstream.script.helpers import frame_axes_problem
 from pyflightstream.versions import resolve
 
 __all__ = [
@@ -707,16 +707,13 @@ class RawCommand(BaseModel):
 class FrameSpec(BaseModel):
     """One custom coordinate system the reference's ``[[frames]]`` defines (PFS-2034.01, FR-72).
 
-    (design/69): the row's rotation names an
-    axis as ``<frame>-<X|Y|Z>``, and the frame is one the setup defined
-    here or one the package creates (``MRP``; ``ROTOR_MRP`` on the rotor
-    run types). The origin is in the geometry's own frame, the solver's
-    reference frame, in metres, and the two axes
-    are direction vectors in that frame; the third axis is the right-handed cross product,
+    (design/69): the row's rotation names an axis as ``<frame>-<X|Y|Z>``, and the frame
+    is one the setup defined here or one the package creates (``MRP``; ``ROTOR_MRP`` on
+    the rotor run types). The origin is in the geometry's own frame, the solver's
+    reference frame, in metres, and the two axes are direction vectors in that frame,
+    free in length, refused when zero, parallel or not orthogonal (cosine beyond 1e-8),
+    naming the frame and both vectors; the third axis is their right-handed cross product,
     as :func:`pyflightstream.script.helpers.coordinate_frame` computes it.
-    A zero-length, parallel or non-orthogonal pair (the cosine of their angle
-    beyond 1e-8) is refused where the frame is written, naming the frame and
-    both vectors; their lengths are free.
 
     Attributes
     ----------
@@ -737,7 +734,7 @@ class FrameSpec(BaseModel):
     name: str
     origin: tuple[float, float, float]
     x_axis: tuple[float, float, float] = (1.0, 0.0, 0.0)
-    y_axis: tuple[float, float, float] = (0.0, 1.0, 0.0)
+    y_axis: SecondAxis = Field(default=(0.0, 1.0, 0.0), validate_default=True)
 
     @field_validator("name", mode="before")
     @classmethod
@@ -765,21 +762,6 @@ class FrameSpec(BaseModel):
                 "row); choose another name. A rotor's own frames are protected "
                 "separately, by the guard that composes <ALIAS>_SMRP forward from the "
                 "rotors the reference declares"
-            )
-        return self
-
-    @model_validator(mode="after")
-    def _axes_that_define_a_system(self) -> FrameSpec:
-        # REFUSED WHERE IT IS WRITTEN (PFS-2130.018, PFS-2130.021): a zero, a parallel or
-        # a non-orthogonal pair was accepted here and emitted as a degenerate coordinate
-        # system, and only TRANSLATE refused a zero axis, at script build. The lengths
-        # stay free: they are directions.
-        problem = frame_axes_problem(self.x_axis, self.y_axis)
-        if problem is not None:
-            raise ValueError(
-                f"the frame {self.name!r} defines no coordinate system: {problem}; "
-                f"x_axis = {self.x_axis}, y_axis = {self.y_axis}. Give two non-zero, orthogonal "
-                "directions; the third axis is their right-handed cross product"
             )
         return self
 

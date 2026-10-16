@@ -3,14 +3,83 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from typing import Any
 
 __all__ = [
+    "FRAME_AXES_TOLERANCE",
     "MotionLedger",
+    "frame_axes_problem",
     "resolve_frame_motion",
 ]
+
+#: How far from orthogonal two frame axes may be: the cosine of their angle, the tolerance
+#: the motion ledger applies to the axes of a frame it records (``script/motion.py``).
+FRAME_AXES_TOLERANCE = 1e-8
+
+
+def frame_axes_problem(
+    x_axis: Sequence[float], y_axis: Sequence[float], z_axis: Sequence[float] | None = None
+) -> str | None:
+    """Return why the axes do not define a coordinate system, or None when they do.
+
+    A coordinate system needs two directions that are finite, not zero, not
+    parallel and orthogonal: the cosine of their angle within
+    :data:`FRAME_AXES_TOLERANCE`, the test the motion ledger applies. Their
+    lengths are free (they are directions), so ``(2, 0, 0)`` and ``(0, 1, 0)``
+    are accepted. A ``z_axis``, when given, must point along the right-handed cross
+    product of the other two.
+
+    Parameters
+    ----------
+    x_axis, y_axis : sequence of float
+        The two axes, three components each, in the reference frame.
+    z_axis : sequence of float, optional
+        A third axis the caller states.
+
+    Returns
+    -------
+    str or None
+        The reason, in words naming the axis at fault, or None.
+
+    Examples
+    --------
+    >>> frame_axes_problem((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)) is None
+    True
+    >>> frame_axes_problem((1.0, 0.0, 0.0), (2.0, 0.0, 0.0))
+    'x_axis and y_axis are parallel, so they define no plane'
+    """
+    values = [float(v) for axis in (x_axis, y_axis) for v in axis]
+    if not all(math.isfinite(v) for v in values):
+        return "an axis component is not a finite number"
+    lengths = [math.sqrt(sum(float(v) ** 2 for v in axis)) for axis in (x_axis, y_axis)]
+    for label, length in zip(("x_axis", "y_axis"), lengths, strict=True):
+        if length == 0.0:
+            return f"{label} has zero length, so it points nowhere"
+    dot = sum(float(a) * float(b) for a, b in zip(x_axis, y_axis, strict=True))
+    cosine = dot / (lengths[0] * lengths[1])
+    if 1.0 - abs(cosine) < FRAME_AXES_TOLERANCE:
+        return "x_axis and y_axis are parallel, so they define no plane"
+    if abs(cosine) > FRAME_AXES_TOLERANCE:
+        return (
+            f"x_axis and y_axis are not orthogonal (the cosine of their angle is {cosine:.3g}, "
+            f"more than {FRAME_AXES_TOLERANCE:g})"
+        )
+    if z_axis is None:
+        return None
+    ax, ay, az = (float(v) for v in x_axis)
+    bx, by, bz = (float(v) for v in y_axis)
+    normal = (ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx)
+    reach = math.sqrt(sum(v * v for v in normal) * sum(float(v) ** 2 for v in z_axis))
+    along = sum(n * float(c) for n, c in zip(normal, z_axis, strict=True)) / (reach or 1.0)
+    if reach == 0.0 or abs(along - 1.0) > FRAME_AXES_TOLERANCE:
+        return (
+            f"z_axis {tuple(z_axis)} does not point along the right-handed cross product of "
+            "x_axis and y_axis"
+        )
+    return None
+
 
 # Exact version, simulation unit and solver build (NFR-31: the build identifies the
 # measured executable; the package carries no executable digest). A run must still
