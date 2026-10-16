@@ -540,7 +540,13 @@ def write_acoustic_products(
                 rows = [(n, None, None, None, None) for n in range(1, harmonics + 1)]
             for order, frequency, bin_hz, amplitude, level_db in rows:
                 offset = _harmonic_bin_offset(
-                    bin_hz, frequency, df, signal.observer, alias, order, result.notes
+                    bin_hz,
+                    frequency,
+                    df,
+                    observer=signal.observer,
+                    alias=alias,
+                    order=order,
+                    notes=result.notes,
                 )
                 if frequency is not None and amplitude is None:
                     result.notes.append(
@@ -606,6 +612,7 @@ def _harmonic_bin_offset(
     bin_hz: float | None,
     frequency: float | None,
     df: float | None,
+    *,
     observer: str,
     alias: str,
     order: int,
