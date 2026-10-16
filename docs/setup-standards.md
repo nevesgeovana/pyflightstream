@@ -34,6 +34,12 @@ whether a separation model is physically appropriate for your flow.
 
 ## Generate workspace standards
 
+For Python scripts that supply generated input files, use
+`Script.park_input_file` with a relative path inside the point folder. Drives,
+rooted paths and parent traversal are refused. Different content cannot share
+a case-insensitive destination. Actuator, rotary-motion and blade-frame helpers
+validate references and labels before creating entities.
+
 Generate the guide and standard setup library while planning:
 
 ```console

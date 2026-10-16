@@ -10,9 +10,34 @@ repo_url: https://github.com/nevesgeovana/pyflightstream
 
 theme:
   name: material
+  logo: assets/sticker_white.png
+  favicon: assets/favicon-white.png
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
   features:
     - navigation.indexes
+    - navigation.tabs
+    - navigation.sections
+    - navigation.instant
     - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
 
 # The generated reference/SUMMARY.md exists only to feed literate-nav;
 # the hook keeps it out of the rendered site (exclude_docs cannot see
@@ -59,6 +84,8 @@ plugins:
 markdown_extensions:
   - admonition
   - attr_list
+  - md_in_html
+  - pymdownx.emoji
   - toc:
       permalink: true
   # The fence reader the pages are written for (D07 of 0.27.0). The built-in
@@ -75,6 +102,13 @@ markdown_extensions:
 
 extra_css:
   - stylesheets/extra.css
+  - stylesheets/variant-D.css
+  - understanding/assets/understanding.css
+extra_javascript:
+  - understanding/assets/vendor/cytoscape.min.js
+  - understanding/assets/vendor/d3.min.js
+  - understanding/assets/vendor/d3-sankey.min.js
+  - understanding/assets/understanding.js
 nav:
   - Home: index.md
   - Start here:
@@ -83,8 +117,9 @@ nav:
       - "Track 1: first campaign": getting-started.md
       - From the GUI to pyfs: gui-to-pyfs.md
       - PDF guides: guides.md
-  - Workspace and Workflows:
+  - Workspace CLI:
       - The workspace and the workflow: workspace-and-workflows.md
+      - Workspace files: workspace-files.md
       - 1. Geometry and mesh:
           - "Geometry: build a body before the run": geometry.md
           - Prepare a mesh input: mesh/how-to.md
@@ -166,9 +201,9 @@ nav:
       - Campaign example: examples/campaign_matrix.md
       - Replaying a recorded run: tutorial-replay.md
       - Workspace route map: workspace-route-map.md
+  - Reference:
       - Python API reference: api/
       - Exceptions catalog: exceptions.md
-  - Reference:
       - References: references.md
       - Input files and keys:
           - Input glossary: inputs.md
@@ -228,24 +263,29 @@ nav:
       - Recovery example: examples/continuation_frame_recovery.md
       - Restore and rebuild: restore-and-rebuild.md
       - Upgrading: upgrading.md
-  - Concepts:
+  - Understanding pyflightstream:
+      - Overview: understanding/index.md
+      - Requirements: understanding/requirements.md
+      - Code: understanding/code.md
+      - Execution: understanding/execution.md
       - Versions, builds and evidence: concepts/versions-and-evidence.md
-      - Philosophy: srs/philosophy.md
-      - Why pyflightstream: srs/introduction.md
-      - Scope: srs/scope.md
       - Data and evidence model: srs/data-model.md
       - Numerical laboratory method: srs/numerical-laboratory-method.md
       - Architecture: architecture.md
   - Contributing:
       - Contributing guide: contributing.md
       - Contributor graphs: graphs/index.md
-      - Requirements tree: graphs/requirements.md
+      - Specification:
+          - Why pyflightstream: srs/introduction.md
+          - Philosophy: srs/philosophy.md
+          - Scope: srs/scope.md
+          - Standards alignment: srs/standards.md
+          - Requirements tree: graphs/requirements.md
       - Library module graph: graphs/library.md
       - Matrix to products: graphs/data-flow.md
       - Contributor rules: https://nevesgeovana.github.io/pyflightstream/architecture/#architectural-decisions
       - Test tiers: tiers.md
       - House conventions: conventions.md
-      - Standards alignment: srs/standards.md
 
 # Requirement registers and release history remain repository material.
 exclude_docs: |

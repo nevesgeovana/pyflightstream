@@ -1,7 +1,50 @@
+<div class="docs-hero" markdown>
+
+![Geoverse Goddess owl](assets/sticker.png){ .hero-owl .hero-owl-dark }
+![Geoverse Goddess owl](assets/sticker_white.png){ .hero-owl .hero-owl-light }
+
 # pyflightstream
 
 pyflightstream builds and checks FlightStream solver inputs, manages workspace
 campaigns, and reads recorded results.
+
+</div>
+
+<div class="grid cards" markdown>
+
+-   :material-rocket-launch-outline: **Start**
+
+    ---
+
+    Create a workspace and render your first checked script without a solver.
+
+    [:material-arrow-right: First success](getting-started.md#first-success-without-a-solver)
+
+-   :material-console: **Command line**
+
+    ---
+
+    Plan a campaign, run it, and keep its inputs and results together.
+
+    [:material-arrow-right: Workspace workflow](workspace-and-workflows.md)
+
+-   :material-language-python: **Python**
+
+    ---
+
+    Build scripts, automate a study, or read recorded results in Python.
+
+    [:material-arrow-right: Choose a task](python-api/index.md)
+
+-   :material-compass-outline: **Concepts**
+
+    ---
+
+    Understand solver versions, supported builds, and what the evidence establishes.
+
+    [:material-arrow-right: Versions and evidence](concepts/versions-and-evidence.md)
+
+</div>
 
 ## Where to start
 

@@ -79,7 +79,7 @@ def test_the_definition_of_record_is_an_index_under_reference():
 
 def test_the_workspace_guide_is_an_index_and_each_run_type_has_a_page():
     index = (DOCS / "workspace-and-workflows.md").read_text(encoding="utf-8")
-    workflows = _group("Workspace and Workflows")
+    workflows = _group("Workspace CLI")
     for run_type, page in (
         ("steady", "workflow-steady.md"),
         ("unsteady", "workflow-unsteady.md"),

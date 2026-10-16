@@ -38,8 +38,13 @@ matrix  ->  plan  ->  run  ->  collect  ->  post  ->  products
 ## Install
 
 ```
-pip install "pyflightstream[geom,fsi,plot,excel]"
+pip install "pyflightstream[dev,plot,geom,fsi,excel]"
 ```
+
+The extras add development and documentation tools (`dev`), plotting (`plot`),
+spatial geometry queries (`geom`), structural coupling (`fsi`) and workbook
+authoring (`excel`). Maintainers reading licensed manuals also install
+`pyflightstream[manual]`.
 
 Python 3.12 or newer. FlightStream itself is licensed separately and is
 located through your workspace, never guessed.
@@ -87,19 +92,19 @@ and the evidence behind it is narrower than for the supported rows.
 
 ## Supported FlightStream versions
 
-| Version | Vendor name | Support level |
-|---|---|---|
-| 25.000 | 25.0 | `documented` |
-| 25.100 | 25.1 | `documented` |
-| 26.000 | 26.0 | `documented` |
-| 26.100 | 26.1 | `operational` |
-| 26.101 | 26.1 | `operational` |
-| 26.120 | 26.12 | `operational` |
-| 26.121 | 26.12 | `operational` |
-| 26.122 | 26.12 | `operational` |
-| 26.123 | 26.12 | `operational` |
-| 26.124 | 26.12 | `operational` |
-| 26.125 | 26.12 | `operational` |
+| Version | Vendor name | Support level | Build |
+|---|---|---|---|
+| 25.000 | 25.0 | `documented` | `12162024` |
+| 25.100 | 25.1 | `documented` | `5062025` |
+| 26.000 | 26.0 | `documented` | `10202025` |
+| 26.100 | 26.1 | `operational` | `2122026` |
+| 26.101 | 26.1 | `operational` | `5012026` |
+| 26.120 | 26.12 | `operational` | `7012026` |
+| 26.121 | 26.12 | `operational` | `7262026` |
+| 26.122 | 26.12 | `operational` | `8092026` |
+| 26.123 | 26.12 | `operational` | `8112026` |
+| 26.124 | 26.12 | `operational` | `8172026` |
+| 26.125 | 26.12 | `operational` | `10052026` |
 
 `operational` means the minimal geometry-to-loads workflow builds for that
 version, checked by a test. `documented` describes the database support level;

@@ -1,0 +1,30 @@
+{
+  "disc_color": "#3c0805",
+  "measurement": "Most frequent opaque RGBA pixel in sticker.png: (60, 8, 5, 255), 322978 pixels.",
+  "assets": [
+    {
+      "path": "sticker.png",
+      "sha256": "54b3cc9ed310c80ab1b42983e6134d1ed9398eaaf3ede13ae5b10bafdcf2f2f1",
+      "hash_domain": "exact-file-bytes",
+      "source": "Owner-supplied Geoverse Goddess symbol"
+    },
+    {
+      "path": "sticker_white.png",
+      "sha256": "8998b4b2526663a9ef7073605e3a02ba6d2d6675b136ccfa814f1823625c8108",
+      "hash_domain": "exact-file-bytes",
+      "source": "Owner-supplied Geoverse Goddess symbol"
+    },
+    {
+      "path": "favicon.png",
+      "sha256": "0b0e9a6cf04a3921b3c89cd271562e12682f1700407ffe60e7b960da21198539",
+      "hash_domain": "exact-file-bytes",
+      "source": "Pillow LANCZOS, 48 by 48 pixels, from supplied matching sticker"
+    },
+    {
+      "path": "favicon-white.png",
+      "sha256": "0247df8cfd77b5d5a9e615dcf0046c0a8e61e00815ac50c3e23a95dc7dd901a8",
+      "hash_domain": "exact-file-bytes",
+      "source": "Pillow LANCZOS, 48 by 48 pixels, from supplied matching sticker"
+    }
+  ]
+}

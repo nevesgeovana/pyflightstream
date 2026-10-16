@@ -1,0 +1,24 @@
+/* Light scheme: the white header of variant C. The dark scheme keeps variant A from extra.css. */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #fde3a3;
+  --md-primary-fg-color--dark: #fde3a3;
+  --md-primary-bg-color: #3c0805;
+  --md-primary-bg-color--light: #a7100d;
+  --md-accent-fg-color: #fb7007;
+  --md-accent-fg-color--transparent: #fb700726;
+  --md-accent-bg-color: #3c0805;
+  --docs-link: #3c0805;
+  --docs-link-hover: #a7100d;
+  --docs-note: #a7100d;
+}
+[data-md-color-scheme="default"] .md-header .md-search__form { background-color: #3c08050d; }
+[data-md-color-scheme="default"] .md-header .md-search__input::placeholder { color: #3c0805; }
+[data-md-color-scheme="default"] .md-header .md-search__icon { color: #3c0805; }
+.hero-owl-dark { display: none; }
+.hero-owl-light { display: inline; }
+[data-md-color-scheme="slate"] .hero-owl-dark { display: inline; }
+[data-md-color-scheme="slate"] .hero-owl-light { display: none; }
+/* Dark scheme: the header owl of variant A (the dark sticker); the light scheme keeps the white owl. */
+[data-md-color-scheme="slate"] .md-header__button.md-logo img,
+[data-md-color-scheme="slate"] .md-nav__button.md-logo img { content: url("../assets/sticker.png"); }

@@ -7,6 +7,35 @@ ascending order. The current package provides only `pyfs-workspace migrate`,
 for the workspace format used since 0.38.0. Earlier conversion commands below
 describe the older releases that supplied them.
 
+## 0.42.0
+
+### Script validation and manual registration
+
+Inline string arguments must be one nonempty token. Replace spaces in solver
+entity names with underscores. Supply `CREATE_NEW_ACTUATOR` subtype explicitly
+and fill earlier optional positional slots before supplying later values.
+Static toggle annotations accept `bool`, `ENABLE` and `DISABLE`; runtime readers
+continue to normalize case and whitespace.
+
+`solver_settings` validates scalar values and target command availability before
+emitting any lines. Catch `CommandNotInVersionError` when a command is unavailable
+for the selected build; the existing script remains intact after that refusal.
+
+Maintainers using `pyfs-manual register --write` must supply `--commands-dir` with
+the editable command database directory. Dry-run installation discovery requires
+a real filesystem directory.
+
+### Build-specific script forms
+
+For 26.124 wake imports, use `edge_type=` for the third argument. The previous
+`units=` keyword remains an alias, and the measured string values remain valid.
+The `1`/`2` enumeration applies only to 26.125.
+
+Validated 26.122 velocity-profile export refuses the measured modal operation
+with RPT-027. The measured broken-operation refusal remains in place for 26.124.
+The high-level velocity-profile product remains refused pending measurement on
+26.125.
+
 ## 0.41.0
 
 ### Workspace input guide

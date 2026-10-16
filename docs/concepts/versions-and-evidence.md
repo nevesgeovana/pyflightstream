@@ -30,3 +30,17 @@ the command database without launching FlightStream. The reported level is
 derived: registered, documented, verified or operational. Operational means
 the minimal geometry-to-loads script builds; it does not validate every solver
 feature or your simulation.
+
+## Reference grammar by build
+
+A version-scoped HTML reference shows the arguments for its selected build.
+The Markdown reference labels each version's override grammar, including an
+empty override. Check that build label before copying a command form between
+solver installations.
+
+## Manual edition comparisons
+
+Maintainer edition registration compares complete command descriptions, bounded
+by the next Function name. It ignores whitespace and page-number footers when
+comparing descriptions. A detected change is a review signal; it does not promote
+the command's native evidence status.

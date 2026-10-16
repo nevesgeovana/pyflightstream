@@ -1,5 +1,6 @@
 """Canonical graphs regenerate from SRS and source, with controlled drift."""
 
+import hashlib
 import importlib.util
 import json
 import sys
@@ -8,6 +9,68 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_p0420_doc_charts_ship_pinned_local_libraries():
+    """PFS-2143: charts load licensed, hash-pinned libraries without a CDN."""
+    import yaml
+
+    vendor = ROOT / "docs/understanding/assets/vendor"
+    manifest = vendor / "VERSIONS.json"
+    assert manifest.is_file(), "Chart libraries need a version and hash manifest"
+    records = json.loads(manifest.read_text(encoding="utf-8"))["files"]
+    expected = {"cytoscape.min.js": "MIT", "d3.min.js": "ISC", "d3-sankey.min.js": "BSD-3-Clause"}
+    assert set(records) == set(expected)
+    licenses = (vendor / "LICENSES.txt").read_bytes()
+    config = yaml.safe_load((ROOT / "properdocs.yml").read_text(encoding="utf-8"))
+    scripts = config["extra_javascript"]
+    controller = scripts.index("understanding/assets/understanding.js")
+    for name, license_id in expected.items():
+        record = records[name]
+        assert record["license"] == license_id
+        assert record["version"] and "latest" not in record["source_url"]
+        assert record["source_url"].startswith("https://registry.npmjs.org/")
+        assert hashlib.sha256((vendor / name).read_bytes()).hexdigest() == record["sha256"]
+        payload = (vendor / name).read_bytes()
+        if name == "cytoscape.min.js":
+            assert chr(0x200B).encode() not in payload
+            assert payload.count(b'.join("\\u200b")') == 1
+            upstream = payload.replace(
+                b'.join("\\u200b")', b'.join("' + chr(0x200B).encode() + b'")'
+            )
+            assert hashlib.sha256(upstream).hexdigest() == record["upstream_sha256"]
+            assert record["transformation"]
+        else:
+            assert record["upstream_sha256"] == record["sha256"]
+            assert record["transformation"] is None
+        assert record["license_text"].encode("utf-8") in licenses
+        assert scripts.index("understanding/assets/vendor/" + name) < controller
+    assert scripts.index("understanding/assets/vendor/d3.min.js") < scripts.index(
+        "understanding/assets/vendor/d3-sankey.min.js"
+    )
+    assert all("://" not in script for script in scripts)
+    assert not (ROOT / "properdocs.D.yml").exists()
+
+
+def test_p0420_doc_understanding_reads_approved_stages():
+    """PFS-2143: the view consumes phase-S areas, parents and trace anchors."""
+    import yaml
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    failure = None
+    try:
+        import gen_understanding_data as understanding
+
+        data = understanding.generate()
+    except (ValueError, KeyError) as error:
+        failure = str(error)
+    assert failure is None, failure
+    areas = yaml.safe_load((ROOT / "docs/srs/areas.yaml").read_text())
+    assert {s["id"] for s in data["mission.json"]["stages"]} == set(areas["stages"])
+    rows = data["requirements.json"]["nodes"]
+    assert {r["level"] for r in rows if r["status"] != "retired"} >= {"L1", "L2", "L3"}
+    assert all(r["source"]["line"] > 0 for r in rows)
+    assert all(r["stage"] in {*areas["stages"], "nfr"} for r in rows)
 
 
 def generator():
