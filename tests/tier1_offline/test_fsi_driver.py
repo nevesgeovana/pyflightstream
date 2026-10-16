@@ -113,10 +113,11 @@ def test_p0420_p1_1d_direct_morphing_refuses_multiple_blades():
 def test_p0420_p1_1d_frozen_direct_refuses_before_writing(tmp_path):
     """Frozen direct morphing cannot use the structural station row count."""
     cfg = driver_config().model_copy(update={"morphing": "direct", "blade_count": 1})
+    stage_run(tmp_path, cfg)
     rows = len(cfg.blade.station_radii_m) * 3
     nodes.write_fsidisp(tmp_path / driver.FROZEN_FILE, np.zeros((rows, 3)))
     with pytest.raises(FsiInputError, match="direct"):
-        driver._frozen_step(tmp_path, cfg, initial_state())
+        driver.coupling_step(tmp_path)
     assert not (tmp_path / "FSIDisp.txt").exists()
 
 

@@ -487,10 +487,9 @@ def test_p0420_p1_1d_completion_channels(tmp_path, monkeypatch, channels):
 
 def test_p0420_p1_1d_completion_reads_appended_bytes_once(tmp_path, monkeypatch):
     """PFS-2132.001: 50 MB append-only output costs exactly 50 MB of reads."""
-    from pyflightstream.run._completion import _CompletionScan
+    from pyflightstream.run import _executors
 
-    path = tmp_path / "stdout.txt"
-    scan = _CompletionScan(path, ws.STEADY_AEROELASTIC_COMPLETION)
+    path = tmp_path / _executors.STEADY_COUPLED_STDOUT
     original_open = Path.open
     reads = []
 
@@ -517,20 +516,30 @@ def test_p0420_p1_1d_completion_reads_appended_bytes_once(tmp_path, monkeypatch)
         return Counted(stream) if self == path and mode == "rb" else stream
 
     monkeypatch.setattr(Path, "open", counted_open)
-    with path.open("wb") as stream:
-        for _ in range(50):
-            stream.write(b"x" * 1_000_000)
-            stream.flush()
-            assert not scan.finished()
-        marker = ws.STEADY_AEROELASTIC_COMPLETION.encode()
-        stream.write(marker[:12])
-        stream.flush()
-        assert not scan.finished()
-        stream.write(marker[12:])
-        stream.flush()
-        assert scan.finished()
-    assert sum(reads) == 50_000_000 + len(marker)
-    assert scan.finished()
+    marker = ws.STEADY_AEROELASTIC_COMPLETION
+
+    class Process:
+        pid = 0
+
+        def __init__(self, *args, **kwargs):
+            self.stream = kwargs["stdout"]
+            self.chunks = iter(["x" * 1_000_000] * 50 + [marker[:12], marker[12:]])
+
+        def wait(self, timeout=None):
+            if timeout is None:
+                return 0
+            self.stream.write(next(self.chunks))
+            self.stream.flush()
+            raise subprocess.TimeoutExpired("fake", timeout)
+
+        def kill(self):
+            pass
+
+    monkeypatch.setattr(_executors.subprocess, "Popen", Process)
+    monkeypatch.setattr(_executors, "_owned_solver_dialogs", lambda pid: ())
+    code, out, err, timed_out = _run_until_the_analysis_ends(["fake"], tmp_path, None)
+    assert (code, timed_out) == (0, False)
+    assert out.endswith(marker) and not err
     assert sum(reads) == 50_000_000 + len(marker)
 
 

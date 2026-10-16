@@ -14,10 +14,13 @@ Below both callers, so neither reaches up into the other for it.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePath
 
+import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256, optional_file_sha256
+from pyflightstream.cases import EXPORT_KINDS
 from pyflightstream.results import translate_surface_exports
+from pyflightstream.run._executors import Submitting, bind_submission_values
 from pyflightstream.workspace import (
     AdditionalRecord,
     CampaignWorkspace,
@@ -25,6 +28,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
 )
 from pyflightstream.workspace.inputs import resolve_hpc_profile
+from pyflightstream.workspace.naming import ARCHIVE_DIR
 
 
 def complete_extraction(
@@ -266,3 +270,90 @@ def extraction_job_end(workspace, record, folder: Path) -> str | None:
         f"the extraction job {job} ended without its outputs: "
         f"{', '.join(sorted(p.name for p in found))} exist (the HPC profile's end of job)"
     )
+
+
+def _archive_extraction_script(script_target: Path, stamp: str) -> None:
+    """Preserve an earlier extraction script, including same-stamp retries."""
+    if script_target.is_file():
+        archived = script_target.parent / ARCHIVE_DIR / stamp / script_target.name
+        index = 2
+        while archived.exists():
+            archived = script_target.parent / ARCHIVE_DIR / f"{stamp}.{index}" / script_target.name
+            index += 1
+        archived.parent.mkdir(parents=True, exist_ok=True)
+        script_target.replace(archived)
+
+
+def _launch_extraction(executor, case, script_path, folder, copy, *, base):
+    """Return the launch result or refusal after cleaning a local private copy."""
+    result = None
+    error_text = None
+    try:
+        bind_submission_values(executor, case, case)
+        result = executor.run_script(
+            script_path, working_dir=folder, timeout_s=case.solver.timeout_s
+        )
+    except Exception as error:
+        error_text = f"{type(error).__name__}: {error}"
+    finally:
+        if not isinstance(executor, Submitting) or result is None or result.failed:
+            try:
+                copy.unlink(missing_ok=True)
+            except OSError as error:
+                base["note"] = f"the private copy {copy.name} could not be removed ({error})"
+    return result, error_text
+
+
+def _archive_extraction_folder(folder: Path, stamp: str) -> None:
+    """Archive a prior extraction before new output can be mistaken for it."""
+    if folder.is_dir():
+        movable = [child for child in folder.iterdir() if child.name != ARCHIVE_DIR]
+        if movable:
+            target = folder / ARCHIVE_DIR / stamp
+            target.mkdir(parents=True, exist_ok=True)
+            for child in movable:
+                child.replace(target / child.name)
+    folder.mkdir(parents=True, exist_ok=True)
+
+
+def _write_extraction_script(workspace, sim_id, name, text, *, stamp):
+    """Archive a previous script before the workspace writes its replacement."""
+    target = workspace.sim_dir(sim_id) / "scripts" / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    _archive_extraction_script(target, stamp)
+    return workspace.write_script(sim_id, name, text)
+
+
+#: The suffix of a declared solver log, the log export kind's own.
+_LOG_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
+
+
+def _the_extraction_s_log(
+    base: dict[str, object], names: list[str], sim_dir: Path, printed: str
+) -> list[str]:
+    """Write an extraction's declared log from what the solver printed, or excuse it.
+
+    On a machine that cannot export the log the extraction script carries no
+    ``EXPORT_LOG``, as a run's does there. What the solver printed is written
+    as the declared log; with nothing printed the log is not required, since
+    the machine cannot write one. Either way the record's ``note`` says so.
+    Returns the names the extraction is held to.
+    """
+    logs = [name for name in names if name.endswith(_LOG_SUFFIX) and not (sim_dir / name).is_file()]
+    if not logs:
+        return names
+    if printed:
+        _textio.write_text(sim_dir / logs[0], printed)
+        said = (
+            f"{PurePath(logs[0]).name} is the solver's captured standard output and error, "
+            "written by this package: this machine's HPC profile states export_log = false, "
+            "so the extraction script exports no log"
+        )
+    else:
+        names = [name for name in names if name != logs[0]]
+        said = (
+            "no solver log: this machine's HPC profile states export_log = false, so the "
+            "extraction script exports none, and the solver printed nothing to capture"
+        )
+    base["note"] = "; ".join(str(part) for part in (base.get("note"), said) if part)
+    return names

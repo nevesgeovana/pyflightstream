@@ -38,34 +38,44 @@ FIXTURE = FIXTURES / "matrix.fs"
 @pytest.mark.parametrize(
     "words", [["2006", "2007"], ["2006,2007"], ["[2006,", "2007]"], ["[2006]", "[2007]"]]
 )
-def test_p0420_p1_1d_all_sim_selectors_share_the_grammar(command, words):
-    from pyflightstream.run.cli import _build_parser
+def test_p0420_p1_1d_all_sim_selectors_share_the_grammar(command, words, monkeypatch):
+    import argparse
+
+    parse = argparse.ArgumentParser.parse_args
+
+    def checked(parser, argv, namespace=None):
+        args = parse(parser, argv, namespace)
+        assert args.sims == ["2006", "2007"]
+        raise SystemExit(0)
+
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", checked)
 
     arguments = [command]
     if command in {"plan", "run", "post"}:
         arguments.append("matrix.fs")
     if command == "mark-converged":
         arguments += ["--reason", "reviewed"]
-    args = _build_parser().parse_args([*arguments, "--sims", *words])
-    assert args.sims == ["2006", "2007"]
+    with pytest.raises(SystemExit) as caught:
+        main([*arguments, "--sims", *words])
+    assert caught.value.code == 0
 
 
-def test_p0420_p1_1d_delete_positional_alias_warns_and_preserves_selection(tmp_path, monkeypatch):
+def test_p0420_p1_1d_delete_positional_alias_warns_and_preserves_selection(tmp_path, capsys):
     from pyflightstream._errors import PyflightstreamDeprecationWarning
-    from pyflightstream.run import cli
-    from pyflightstream.workspace import storage
+    from pyflightstream.workspace import RunStatus
+    from tests.tier1_offline.test_mark_failed import _record
 
-    seen = []
-    monkeypatch.setattr(
-        storage, "delete_sims", lambda root, sims, **kwargs: seen.append(sims) or {}
-    )
-    monkeypatch.setattr(cli, "_print_delete_sims", lambda entry: None)
+    workspace = CampaignWorkspace(tmp_path)
+    workspace.init(tmp_path)
+    for sim in ("2006", "2007"):
+        workspace.append_record(_record(sim, f"camp/sim_{sim}/AL+000", RunStatus.FAILED_MARKED))
     assert main(["delete-sims", "--workspace", str(tmp_path), "--sims", "2006", "2007"]) == 0
+    modern = capsys.readouterr().out
     with pytest.warns(PyflightstreamDeprecationWarning, match="0.43.0"):
         assert main(["delete-sims", "[2006,2007]", "--workspace", str(tmp_path)]) == 0
-    assert seen == [["2006", "2007"], ["2006", "2007"]]
+    assert capsys.readouterr().out == modern
+    assert "2006" in modern and "2007" in modern
     assert main(["delete-sims", "2006", "--sims", "2007", "--workspace", str(tmp_path)]) == 2
-    assert len(seen) == 2
 
 
 REGISTRY_FIXTURE = FIXTURES / "matrix_registry.fs"

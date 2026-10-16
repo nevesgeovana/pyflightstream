@@ -51,16 +51,18 @@ beam that consumes its output needs the ``[fsi]`` extra.
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, ParamSpec, TypeVar
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from pyflightstream._deprecations import FSI_SECTION_POSITIONAL
 from pyflightstream._digest import file_sha256
-from pyflightstream.fsi._positional import _section_keywords
+from pyflightstream._errors import PyflightstreamDeprecationWarning, warn
 from pyflightstream.fsi.config import (
     BladeProperties,
     BladePropertiesProvenance,
@@ -69,6 +71,39 @@ from pyflightstream.fsi.config import (
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.materials import MATERIALS_DATABASE_VERSION, Material
 from pyflightstream.fsi.materials import material as material_entry
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _section_keywords(*names: str) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    """Keep positional calls until 0.43.0, while publishing the keyword signature."""
+
+    def decorate(function: Callable[_P, _R]) -> Callable[_P, _R]:
+        @wraps(function)
+        def compatible(*args: Any, **kwargs: Any) -> _R:
+            if len(args) > 1:
+                if len(args) > len(names) + 1:
+                    raise TypeError(
+                        f"{function.__name__} accepts at most {len(names) + 1} positional arguments"
+                    )
+                for name, value in zip(names, args[1:], strict=False):
+                    if name in kwargs:
+                        raise TypeError(f"{function.__name__} got multiple values for {name!r}")
+                    kwargs[name] = value
+                promise = next(
+                    entry
+                    for entry in FSI_SECTION_POSITIONAL
+                    if entry.owner.endswith(function.__name__)
+                )
+                warn(promise.message(), PyflightstreamDeprecationWarning, stacklevel=2)
+                args = args[:1]
+            return function(*args, **kwargs)
+
+        return compatible
+
+    return decorate
+
 
 __all__ = [
     "BENDING_STIFFNESS_RULE",

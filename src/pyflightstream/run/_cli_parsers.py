@@ -51,8 +51,8 @@ from pyflightstream.run._cli_parsers_storage import (
     add_storage_parsers as _add_storage_parsers,
 )
 from pyflightstream.run._cli_query import add_query_parsers
-from pyflightstream.run._cli_selectors import _add_sim_ids
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
+from pyflightstream.run._ids import _add_sim_ids
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.cli import take_settings, withhold_defaults

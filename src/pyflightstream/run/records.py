@@ -108,7 +108,6 @@ from pyflightstream.run._assemble import ManifestWorkspace as ManifestWorkspace
 from pyflightstream.run._assemble import assemble_records as assemble_records
 from pyflightstream.run._assemble import from_sims_workspace as from_sims_workspace
 from pyflightstream.run._assemble import manifest_workspace as manifest_workspace
-from pyflightstream.run._assessment import worse_of
 from pyflightstream.run._mark_converged import mark_converged as mark_converged
 from pyflightstream.run._rebuild import QUIET_WINDOW_S as QUIET_WINDOW_S
 from pyflightstream.run._rebuild import REBUILT as REBUILT
@@ -125,9 +124,11 @@ from pyflightstream.run._record_files import (
     _ROOT_KINDS,
     RESTORE_KINDS,
     RecordsError,
+    _apply_marking,
     _leases,
     _matrix_archives,
     _now_stamp,
+    _point_units,
     _relative,
     _replace_bytes,
     _root_archives,
@@ -175,19 +176,6 @@ from pyflightstream.workspace.storage import register_records_rebuild
 
 #: One record to mark: the row, and (run id, the dict holding its status) of each point marked.
 _Marking = tuple[dict[str, Any], list[tuple[str, dict[str, Any]]]]
-
-
-def _point_units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
-    """Return a record's points as (point tag, run id, the dict holding its status).
-
-    A steady job is one record over several points (``points_ran``); each
-    point is its own unit, its entry holding its status.
-    """
-    entries = row.get("points_ran") or []
-    if not entries:
-        return [(str(row["run_id"]).rsplit("/", 1)[-1], str(row["run_id"]), row)]
-    prefix = str(row["run_id"]).rsplit("/", 1)[0]
-    return [(str(entry.get("tag")), f"{prefix}/{entry.get('tag')}", entry) for entry in entries]
 
 
 def _plan_marking(
@@ -269,33 +257,6 @@ def _read_manifest_rows(manifest: Path) -> list[dict[str, Any]]:
     from pyflightstream.workspace.record_document import read_rows
 
     return read_rows(manifest)
-
-
-def _apply_marking(
-    row: dict[str, Any],
-    marking: list[tuple[str, dict[str, Any]]],
-    whole: bool,
-    at: str,
-    reason: str | None,
-) -> None:
-    """Write FAILED_MARKED on the marked units of one record and recompute its status."""
-    from pyflightstream.workspace import RunStatus
-
-    if whole and marking[0][1] is not row:
-        # A job marked whole keeps the person's verdict at its top too.
-        row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
-    for _run_id, unit in marking:
-        unit["marked"] = {"from": unit.get("status"), "at": at, "reason": reason}
-        unit["status"] = str(RunStatus.FAILED_MARKED)
-        unit.pop("iterations_requested", None)  # FR-974: for MAX_ITER_REACHED alone.
-    # A job's status is its worst point's, by the one order (worse_of).
-    worst = RunStatus.FAILED_MARKED
-    for entry in row.get("points_ran") or []:
-        if entry.get("status"):
-            worst = worse_of(worst, RunStatus(entry["status"]))
-    row["status"] = str(worst)
-    if worst is not RunStatus.MAX_ITER_REACHED:
-        row.pop("iterations_requested", None)
 
 
 def mark_failed(

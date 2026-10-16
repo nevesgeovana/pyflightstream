@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from pyflightstream.run._cli_selectors import _add_sim_ids
+from pyflightstream.run._ids import _add_sim_ids
 
 
 def _top_rows(text: str) -> int:

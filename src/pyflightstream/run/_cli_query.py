@@ -27,7 +27,7 @@ from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._cli_query_history import add_history_parsers, run_history_query
 from pyflightstream.run._cli_query_point import _add_parsers, _run_point_query
-from pyflightstream.run._cli_selectors import _add_sim_ids
+from pyflightstream.run._ids import _add_sim_ids
 from pyflightstream.support import support_table, version_support
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.ledger import (

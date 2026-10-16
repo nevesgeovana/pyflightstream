@@ -55,16 +55,22 @@ returning a silently shorter table (FR-17).
 
 from __future__ import annotations
 
+import json
+import math
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from pyflightstream._digest import file_sha256
 
 # Re-export PyflightstreamError and the six results names for callers
 # using this module's public path.
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.fsi.errors import FsiInputError
+from pyflightstream.fsi.state import LOADS_FILE
 from pyflightstream.results import AnchorNotFoundError as AnchorNotFoundError
 from pyflightstream.results import IncompleteOutputError as IncompleteOutputError
 from pyflightstream.results import delimited_table as delimited_table
@@ -630,3 +636,29 @@ def cross_check_totals(
                 "no longer holds"
             )
     return deltas
+
+
+def _check_staged_totals(
+    folder: Path, report: SectionalLoadsReport, family_map: SectionFamilyMap
+) -> None:
+    path = folder / "fsi_totals.json"
+    if not path.exists():
+        return
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        if payload["loads_sha256"] != file_sha256(folder / LOADS_FILE):
+            raise ValueError("loads_sha256 does not match the current sectional export")
+        if payload["solver_iteration"] != report.current_iteration:
+            raise ValueError("solver_iteration does not match the current sectional export")
+        blocks = report.split(family_map)
+        totals = payload["families"]
+        names = {family.name for family in family_map.families if family.is_blade}
+        if set(totals) != names:
+            raise ValueError("families must name exactly the coupled blade boundaries")
+        for name in sorted(names):
+            fx, fz = float(totals[name]["fx_n"]), float(totals[name]["fz_n"])
+            if not all(math.isfinite(value) for value in (fx, fz)):
+                raise ValueError("integrated forces must be finite Newton values")
+            cross_check_totals(blocks[name], fx, fz)
+    except (KeyError, TypeError, ValueError) as error:
+        raise FsiInputError(f"{path.name}: {error}") from error

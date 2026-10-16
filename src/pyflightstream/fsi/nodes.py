@@ -95,6 +95,7 @@ __all__ = [
     "EMBEDDINGS",
     "LEADING_EDGE_NODE_CHORD_FRACTION",
     "MIN_NODE_CLEARANCE_CHORD_FRACTION",
+    "MIN_NODE_CLEARANCE_M",
     "MIN_NODE_CLEARANCE_THICKNESS_FRACTION",
     "NodeClearance",
     "NodeOrderingMap",
@@ -134,6 +135,8 @@ LEADING_EDGE_NODE_CHORD_FRACTION = 0.10
 TRAILING_EDGE_NODE_CHORD_FRACTION = 0.90
 #: The least clearance a structural node keeps from its section's skin:
 #: max(0.1 % of chord, 10 % of thickness at the node's chord fraction).
+#: Legacy absolute floor, retained for imports; node placement now uses local scale.
+MIN_NODE_CLEARANCE_M = 1.0e-3
 MIN_NODE_CLEARANCE_CHORD_FRACTION = 1.0e-3
 MIN_NODE_CLEARANCE_THICKNESS_FRACTION = 0.10
 

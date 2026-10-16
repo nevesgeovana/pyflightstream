@@ -73,13 +73,13 @@ import pyflightstream._textio as _textio
 import pyflightstream.fsi._direct_morphing as _direct_morphing
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
-from pyflightstream.fsi._totals import _check_staged_totals
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (
     ElasticAxisLoads,
     SectionalLoadsReport,
     SectionFamilyMap,
+    _check_staged_totals,
     parse_sectional_loads,
     to_elastic_axis,
 )

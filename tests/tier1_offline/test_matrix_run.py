@@ -897,31 +897,24 @@ def _steady_sweep_matrix(tmp_path, cell=""):
     return workspace, path
 
 
-def test_p0420_p1_1d_plan_rehearses_the_one_job_builder(tmp_path, monkeypatch):
-    from pyflightstream.cases import CampaignConfigError, workflows
+def test_p0420_p1_1d_plan_rehearses_the_one_job_builder(tmp_path):
+    # A supplied per-point recipe accepts the row, but the actual shared steady
+    # builder refuses its unknown key. Planning must rehearse that job too.
+    workspace, matrix = _steady_sweep_matrix(tmp_path, cell="ONE_JOB_UNKNOWN: 1")
 
-    workspace, matrix = _steady_sweep_matrix(tmp_path)
-    calls = []
+    def point_recipe(case, script):
+        script.emit("ECHO", "custom per-point recipe")
 
-    def refuse(point_cases, script, *, cold=True):
-        calls.append((len(point_cases), script.version.canonical, cold))
-        raise CampaignConfigError("one-job-only refusal")
-
-    monkeypatch.setattr(workflows, "build_steady_sweep", refuse)
     plan = plan_matrix(
         matrix,
         workspace,
         name="warm",
         recipes=RECIPES,
         default_fs_version="26.120",
-        recipe_registry=workflow_registry(),
+        recipe_registry={**workflow_registry(), "steady": point_recipe},
     )
-    assert len(calls) == 1
-    assert calls[0][0] == 3
     assert len(plan.points) == 3
-    assert all(
-        p.status == PlanStatus.BLOCKED and "one-job-only refusal" in p.error for p in plan.points
-    )
+    assert all(p.status == PlanStatus.BLOCKED and "ONE_JOB_UNKNOWN" in p.error for p in plan.points)
 
 
 def test_p0420_p1_1d_plan_names_thin_blade_beside_source(tmp_path):

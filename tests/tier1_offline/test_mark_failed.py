@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream.run import _record_files as records_module
 from pyflightstream.run import cli as matrix_cli
-from pyflightstream.run import records as records_module
 from pyflightstream.run import worse_of
 from pyflightstream.run.records import RunsManifestError, mark_failed
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -227,7 +227,9 @@ def test_mutant_leaving_the_status_turns_the_check_red_fr_309(tmp_path):
     try:
         exec(compile(mutant, "records_mutant_mark.py", "exec"), module.__dict__)
         workspace = _workspace(tmp_path)
-        module.mark_failed(workspace.root, ["2006"], apply=True)
+        module.mark_runs_failed(
+            workspace, [row["run_id"] for row in _rows(workspace) if row["sim_id"] == "2006"]
+        )
         statuses = {row["status"] for row in _rows(workspace) if row["sim_id"] == "2006"}
         assert statuses != {"FAILED_MARKED"}
         mark_failed(workspace.root, ["2006"], apply=True)

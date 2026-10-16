@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.run._assessment import worse_of
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
@@ -200,8 +201,6 @@ def mark_runs_failed(
         The updated records. Each identity keeps one current manifest row,
         as with ``mark_failed``; its previous row remains in the archive.
     """
-    from pyflightstream.run.records import _apply_marking, _point_units
-
     chosen = set(run_ids)
     with manifest_lock(workspace.root, workspace.manifest_path):
         rows = workspace.read_raw_manifest()
@@ -231,3 +230,43 @@ def mark_runs_failed(
                 row["discarded_by"] = discarded_by
         workspace._replace_manifest(rows)
     return [RunRecord.model_validate(row) for row in todo]
+
+
+def _point_units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
+    """Return a record's points as (point tag, run id, the dict holding its status).
+
+    A steady job is one record over several points (``points_ran``); each
+    point is its own unit, its entry holding its status.
+    """
+    entries = row.get("points_ran") or []
+    if not entries:
+        return [(str(row["run_id"]).rsplit("/", 1)[-1], str(row["run_id"]), row)]
+    prefix = str(row["run_id"]).rsplit("/", 1)[0]
+    return [(str(entry.get("tag")), f"{prefix}/{entry.get('tag')}", entry) for entry in entries]
+
+
+def _apply_marking(
+    row: dict[str, Any],
+    marking: list[tuple[str, dict[str, Any]]],
+    whole: bool,
+    at: str,
+    reason: str | None,
+) -> None:
+    """Write FAILED_MARKED on the marked units of one record and recompute its status."""
+    from pyflightstream.workspace import RunStatus
+
+    if whole and marking[0][1] is not row:
+        # A job marked whole keeps the person's verdict at its top too.
+        row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
+    for _run_id, unit in marking:
+        unit["marked"] = {"from": unit.get("status"), "at": at, "reason": reason}
+        unit["status"] = str(RunStatus.FAILED_MARKED)
+        unit.pop("iterations_requested", None)  # FR-974: for MAX_ITER_REACHED alone.
+    # A job's status is its worst point's, by the one order (worse_of).
+    worst = RunStatus.FAILED_MARKED
+    for entry in row.get("points_ran") or []:
+        if entry.get("status"):
+            worst = worse_of(worst, RunStatus(entry["status"]))
+    row["status"] = str(worst)
+    if worst is not RunStatus.MAX_ITER_REACHED:
+        row.pop("iterations_requested", None)

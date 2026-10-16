@@ -34,7 +34,7 @@ from pyflightstream.cases import classify_outputs
 from pyflightstream.run._alias import listed_ids as _listed
 from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._assessment import worse_of
-from pyflightstream.run._cli_selectors import _add_sim_ids
+from pyflightstream.run._ids import _add_sim_ids
 from pyflightstream.run._record_files import _now_stamp, _relative, manifest_lock
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
 from pyflightstream.workspace._verdicts import marked_units

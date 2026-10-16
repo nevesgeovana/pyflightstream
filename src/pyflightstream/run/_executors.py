@@ -1085,11 +1085,11 @@ def _run_until_the_analysis_ends(
     every other run's. The owned-window check of every run applies.
     """
     from pyflightstream.cases.fsi_workspace import STEADY_AEROELASTIC_COMPLETION
-    from pyflightstream.run._completion import _CompletionScan
 
     start = time.perf_counter()
-    out_path = working_dir / STEADY_COUPLED_STDOUT
-    err_path = working_dir / STEADY_COUPLED_STDERR
+    out_path, err_path = (
+        working_dir / name for name in (STEADY_COUPLED_STDOUT, STEADY_COUPLED_STDERR)
+    )
     scans = tuple(
         _CompletionScan(path, STEADY_AEROELASTIC_COMPLETION) for path in (out_path, err_path)
     )
@@ -1696,3 +1696,31 @@ def export_surface_mesh(
             "simulation file and what the run said."
         )
     return mesh_path
+
+
+class _CompletionScan:
+    """Read each appended byte once, retaining a possible partial marker."""
+
+    def __init__(self, path: Path, marker: str) -> None:
+        self.path = path
+        self.marker = marker.encode("utf-8")
+        self.offset = 0
+        self.tail = b""
+        self.found = False
+
+    def finished(self) -> bool:
+        if self.found:
+            return True
+        try:
+            with self.path.open("rb") as stream:
+                stream.seek(self.offset)
+                while chunk := stream.read(65536):
+                    self.offset += len(chunk)
+                    combined = self.tail + chunk
+                    self.found = self.marker in combined
+                    self.tail = combined[-(len(self.marker) - 1) :]
+                    if self.found:
+                        return True
+        except OSError:
+            return False
+        return False
