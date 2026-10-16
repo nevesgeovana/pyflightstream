@@ -26,6 +26,33 @@ from tests.tier1_offline._no_evidence import registry_without_version
 PILOT = ["PRINT", "STOP", "RUN_SCRIPT"]
 
 
+def test_p0420_p2_1a_observer_header_without_samples_is_no_control(tmp_path):
+    """A control name alone is not a nonempty observer signal."""
+    from types import SimpleNamespace
+
+    from pyflightstream.qa._spec_ccs_noise import _SIGNALS
+
+    (tmp_path / _SIGNALS).write_text("Observer: PYFS_CTRL\n", encoding="utf-8")
+    assert (
+        PROBE_SPECS["DELETE_ALL_ACOUSTIC_OBSERVERS"].assert_effect(
+            SimpleNamespace(workdir=tmp_path)
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("name", ["vsection.vtk", "vsection_2.vtk"])
+def test_p0420_p2_1a_empty_section_control_proves_no_deletion(tmp_path, name):
+    """A surviving section must contain exported data, not just an empty file."""
+    from types import SimpleNamespace
+
+    (tmp_path / name).write_bytes(b"")
+    assert (
+        PROBE_SPECS["DELETE_VOLUME_SECTION"].assert_effect(SimpleNamespace(workdir=tmp_path))
+        is None
+    )
+
+
 def test_p0420_p2_1a_vorticity_lift_name_probe_keeps_effect_unprobed(tmp_path):
     """The documented 26.125 spelling is probeable without guessing its effect."""
     assert "SET_VORTICITY_LIFT_MODEL" in PROBE_SPECS

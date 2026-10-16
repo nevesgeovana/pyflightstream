@@ -905,7 +905,10 @@ def _no_observer_left(artifacts: ProbeArtifacts) -> bool | None:
     names = {name for name, _ in blocks}
     if names & {"PYFS_OBS1", "PYFS_OBS2"}:
         return False
-    return True if _CONTROL_OBSERVER in names else None
+    has_control_samples = any(
+        name == _CONTROL_OBSERVER and any(len(row) >= 2 for row in data) for name, data in blocks
+    )
+    return True if has_control_samples else None
 
 
 _spec(

@@ -336,9 +336,10 @@ def _delete_vsection_epilogue(script: Script, workdir: Path) -> None:
 
 
 def _delete_vsection_effect(artifacts: ProbeArtifacts) -> bool | None:
-    written = sum(
-        (artifacts.workdir / name).is_file() for name in ("vsection.vtk", "vsection_2.vtk")
-    )
+    paths = [artifacts.workdir / name for name in ("vsection.vtk", "vsection_2.vtk")]
+    if any(path.is_file() and path.stat().st_size == 0 for path in paths):
+        return None  # an empty export is not a surviving section control
+    written = sum(path.is_file() for path in paths)
     if written == 0:
         return None  # no positive control: the export instrument proved nothing
     return written == 1
