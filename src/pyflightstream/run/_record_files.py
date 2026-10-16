@@ -200,6 +200,8 @@ def mark_runs_failed(
         The updated records. Each identity keeps one current manifest row,
         as with ``mark_failed``; its previous row remains in the archive.
     """
+    from pyflightstream.run.records import _apply_marking, _point_units
+
     chosen = set(run_ids)
     with manifest_lock(workspace.root, workspace.manifest_path):
         rows = workspace.read_raw_manifest()
@@ -208,7 +210,9 @@ def mark_runs_failed(
             for row in rows
             if row.get("run_id") in chosen
             and row.get("deleted_sim") is None
-            and row.get("status") != RunStatus.FAILED_MARKED
+            and any(
+                unit.get("status") != RunStatus.FAILED_MARKED for _, _, unit in _point_units(row)
+            )
         ]
         if not todo:
             return []
@@ -217,8 +221,12 @@ def mark_runs_failed(
         shutil.copy2(workspace.manifest_path, archived)
         at = dt.datetime.now(dt.UTC).isoformat()
         for row in todo:
-            row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
-            row["status"] = str(RunStatus.FAILED_MARKED)
+            marking = [
+                (run_id, unit)
+                for _, run_id, unit in _point_units(row)
+                if unit.get("status") != RunStatus.FAILED_MARKED
+            ]
+            _apply_marking(row, marking, True, at, reason)
             if discarded_by is not None:
                 row["discarded_by"] = discarded_by
         workspace._replace_manifest(rows)

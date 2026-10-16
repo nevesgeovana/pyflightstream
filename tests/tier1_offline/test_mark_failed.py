@@ -62,6 +62,35 @@ def _rows(workspace: CampaignWorkspace) -> list[dict]:
     return _read_record_rows(workspace.manifest_path)
 
 
+@pytest.mark.parametrize("route", ["simulation", "run"])
+def test_p0420_mark_failed_reaches_every_steady_job_point(tmp_path, route):
+    from pyflightstream.run._record_files import mark_runs_failed
+
+    workspace = _workspace(tmp_path)
+    job = _record("2009", "camp/sim_2009/job", RunStatus.CONVERGED)
+    job = job.model_copy(
+        update={
+            "points_ran": [
+                {"tag": "AL+000", "status": "CONVERGED", "outputs": []},
+                {"tag": "AL+005", "status": "COMPLETED_MAX_ITER", "outputs": []},
+            ]
+        }
+    )
+    workspace.append_record(job)
+    if route == "simulation":
+        mark_failed(workspace.root, ["2009"], reason="wrong mesh", apply=True)
+    else:
+        mark_runs_failed(workspace, [job.run_id], reason="wrong mesh")
+    row = next(row for row in _rows(workspace) if row["run_id"] == job.run_id)
+    assert row["status"] == "FAILED_MARKED"
+    assert [point["status"] for point in row["points_ran"]] == ["FAILED_MARKED"] * 2
+    assert [point["marked"]["from"] for point in row["points_ran"]] == [
+        "CONVERGED",
+        "COMPLETED_MAX_ITER",
+    ]
+    assert all(point["marked"]["reason"] == "wrong mesh" for point in row["points_ran"])
+
+
 def test_preview_names_each_record_and_writes_nothing_fr_309(tmp_path):
     # Verifies FR-309.
     workspace = _workspace(tmp_path)
