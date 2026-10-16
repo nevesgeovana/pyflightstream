@@ -752,7 +752,7 @@ def _read_the_call(
     state.step_count += 1
     state.last_solver_iteration = report.current_iteration
     family_map = SectionFamilyMap.model_validate_json(
-        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
+        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8-sig")
     )
     return _CallInputs(layout, report, family_map, time_increment_s)
 

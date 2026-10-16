@@ -774,7 +774,7 @@ def load_config(path: str | Path) -> FsiConfig:
     True
     """
     path = Path(path)
-    cfg = FsiConfig.model_validate_json(path.read_text(encoding="utf-8"))
+    cfg = FsiConfig.model_validate_json(path.read_text(encoding="utf-8-sig"))
     logger.info("loaded FSI config %s (sha256 %s)", path, config_sha256(cfg))
     return cfg
 

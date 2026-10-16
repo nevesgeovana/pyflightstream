@@ -308,7 +308,7 @@ def load_state(path: str | Path) -> FsiState:
     FsiState
         The validated state.
     """
-    return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8"))
+    return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8-sig"))
 
 
 def check_state_matches_config(

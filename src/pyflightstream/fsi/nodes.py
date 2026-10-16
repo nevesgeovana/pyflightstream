@@ -916,7 +916,7 @@ def load_node_map(path: str | Path) -> NodeOrderingMap:
     NodeOrderingMap
         The validated map.
     """
-    return NodeOrderingMap.model_validate_json(Path(path).read_text(encoding="utf-8"))
+    return NodeOrderingMap.model_validate_json(Path(path).read_text(encoding="utf-8-sig"))
 
 
 def flatten_blade_translations(

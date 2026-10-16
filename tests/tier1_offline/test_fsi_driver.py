@@ -167,6 +167,28 @@ def write_loads(run_dir: Path, iteration: int) -> None:
     (run_dir / driver.LOADS_FILE).write_text(patched, encoding="utf-8")
 
 
+@pytest.mark.parametrize("which", ["config", "state", "nodes", "families"])
+def test_p0420_p1_1d_coupling_accepts_utf8_bom_json(tmp_path, which):
+    """An editor-added UTF-8 BOM does not change a coupling input's meaning."""
+    cfg = stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+    driver.coupling_step(tmp_path)
+    paths = {
+        "config": driver.CONFIG_FILE,
+        "state": "state.json",
+        "nodes": cfg.node_map_file,
+        "families": driver.FAMILY_MAP_FILE,
+    }
+    path = tmp_path / paths[which]
+    path.write_bytes(bytes.fromhex("efbbbf") + path.read_bytes())
+    write_loads(tmp_path, 140)
+    try:
+        result = driver.coupling_step(tmp_path)
+    except ValueError as error:
+        pytest.fail(f"BOM must be accepted for {which}: {error}")
+    assert result.call == 2
+
+
 def run_sequence(run_dir: Path, calls: int, first_iteration: int = 100) -> list:
     results = []
     for i in range(calls):
