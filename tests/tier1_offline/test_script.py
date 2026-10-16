@@ -31,6 +31,19 @@ GOLDENS = Path(__file__).parent / "goldens"
 
 
 @pytest.mark.parametrize("version", ["26.124", "26.125"])
+def test_p0420_p2_1a_minimum_cp_can_follow_initialization(version):
+    """Existing init-phase placement permits the measured late-before-start setting."""
+    script = Script(version)
+    script.emit("SOLVER_MINIMUM_CP", -20)
+    helpers.initialize_solver(script)
+    script.emit("SOLVER_MINIMUM_CP", 0)
+    script.emit("START_SOLVER")
+    lines = script.render().splitlines()
+    assert lines.index("INITIALIZE_SOLVER") < lines.index("SOLVER_MINIMUM_CP 0")
+    assert lines.index("SOLVER_MINIMUM_CP 0") < lines.index("START_SOLVER")
+
+
+@pytest.mark.parametrize("version", ["26.124", "26.125"])
 def test_p0420_p2_1a_aeroelastic_refuses_index_one_not_count_one(version):
     """Measured builds accept one local frame and refuse the reference index."""
     script = Script(version)
