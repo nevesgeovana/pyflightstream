@@ -1,21 +1,14 @@
 """The solver settings, emitted by family behind ``solver_settings`` (AD-17).
 
-A private module of the ``script`` package since 0.34.0 (GOAL-039, work
-package WP9a). :func:`pyflightstream.script.helpers.solver_settings`
-keeps its signature, its defaults, its docstring and its public path, and
-hands the arguments it received, unchanged, to
-:func:`emit_solver_settings`, which runs the call in the three steps the
-0.33.0 function ran inline:
+:func:`pyflightstream.script.helpers.solver_settings` passes its arguments
+unchanged to :func:`emit_solver_settings`, which performs three steps:
 
 1. every ARGUMENT refusal, on an untouched script
    (:func:`_read_arguments`): the bare labels and the boundary lists, the
    separation erase, the assignment models, the toggles, the time regime,
    the bulk model and the build it is written for, and the induced-drag
-   selection, in that order, so the first refusal of a call is the one
-   0.33.0 raised;
-2. one emitter per family of settings, called in the order the 0.33.0
-   function emitted, so the emitted lines and their order are
-   byte-identical: the time regime, the runtime settings
+   selection, in that order;
+2. one emitter per family of settings, in order: the time regime, runtime settings
    (:data:`RUNTIME_FAMILY`), the boundary layer
    (:data:`BOUNDARY_LAYER_FAMILY`), separation (:data:`SEPARATION_FAMILY`
    and the assignment models), convergence (:data:`CONVERGENCE_FAMILY` and
@@ -29,14 +22,13 @@ hands the arguments it received, unchanged, to
 A later setup key of the solver chapters lands as a row of its family's
 table, without growing the facade.
 
-The other helpers that set up a run moved here with it, unchanged apart
-from type annotations, and are still imported from
-``pyflightstream.script.helpers``, their public path: the flow conditions
+Other run-setup helpers use the public import path
+``pyflightstream.script.helpers``: the flow conditions
 (:func:`free_stream`, :func:`fluid_fifth_property`, :func:`atmosphere`),
 the time regime alone (:func:`unsteady_solver`), and the solver
 initialization (:func:`initialize_solver`, which carries the wake
-termination plane, and :func:`start_solver`). So did the toggle readers
-the helpers share (:func:`_read`, :func:`_optional_toggle`,
+termination plane, and :func:`start_solver`). Shared toggle readers
+(:func:`_read`, :func:`_optional_toggle`,
 :func:`_toggle`), which a private module may offer to every helper and
 the public :mod:`pyflightstream.script.toggles` may not. The deferred
 induced-drag selection has one home here too: ``solver_settings`` records
@@ -204,14 +196,10 @@ ADVANCED_FAMILY = (
     Row("vortex_ring_normalization", "SOLVER_VORTEX_RING_NORMALIZATION", "toggle"),
 )
 
-#: The toggles read before the first emission, in the order they are read,
-#: so a value in neither vocabulary refuses on an untouched script and the
-#: snapshot records booleans whichever vocabulary the caller wrote. The five
-#: toggle rows of ADVANCED_FAMILY that 0.33.0 left out (valarezo_criterion,
-#: wake_relaxation, wake_streamwise_agglomeration,
-#: adverse_gradient_boundary_layer and vortex_ring_normalization) are the
-#: last five: FR-349 (0.34.0) reads them too, so 'DISABLE' writes DISABLE
-#: and the snapshot records a boolean.
+#: Read toggles before emission in the declared order. Invalid values
+#: refuse on an untouched script; the snapshot records booleans for either
+#: accepted input vocabulary. The last five rows cover the advanced-family
+#: toggles required by FR-349, including explicit DISABLE values.
 READ_TOGGLES = (
     "forced_iterations",
     "viscous_coupling",
@@ -325,11 +313,9 @@ def _as_selection(value: object) -> object:
     """Return a boundary selection as a list, leaving None and ``"all"`` alone.
 
     One materialisation, read by both the emission and the snapshot.
-    They used to decide emptiness by two different tests over the same
-    value, length on one side and equality with ``[]`` on the other, so
-    an empty tuple emitted the erase and recorded the setter. A caller
-    may also hand in any iterable, and an emptiness check must not
-    consume it.
+    Both use the same emptiness result, including for empty tuples.
+    Materialize an iterable once so checking it does not consume values
+    needed by emission or the snapshot.
 
     Parameters
     ----------
@@ -618,11 +604,8 @@ def atmosphere(
     ``sonic_velocity`` and have no specific-heat-ratio argument at all
     (FSM-25.000 p.286).
 
-    Before 2026-08-10 the helper only knew the newer form, and entering
-    the older grammar closed both doors at once on those builds: passing
-    the five was refused by the binder for a keyword the edition does not
-    have, and omitting one was refused by this helper, which quoted a
-    page of a different edition at a caller who was not reading it.
+    Validate against the target edition's grammar so required arguments
+    and accepted keywords agree with the page that governs this build.
 
     Parameters
     ----------
@@ -922,7 +905,7 @@ def _carry_earlier_records(
 
 
 def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
-    """Run every argument refusal before the first emission, in 0.33.0's order.
+    """Run argument refusals in their declared order before the first emission.
 
     Normalizes ``values`` in place to what the emitters and the snapshot
     read: the boundary lists as lists, the separation erase, the validated
@@ -1218,16 +1201,14 @@ def _emit_separation_models(script: Script, values: Mapping[str, Any], prepared:
 
     The erase precedes every create, which is what FLAG_SPECS says the
     order is for: one call can clear the models an opened simulation
-    carried and then build its own on a known-empty list. It used to sit
-    after CREATE_BULK_SEPARATION, so passing both keywords created the
-    bulk model and deleted it, while the snapshot recorded it as emitted.
+    carried and then build its own on a known-empty list. This keeps the
+    emitted models and the recorded snapshot aligned.
     """
     delete_separations = values["delete_separations"]
     if delete_separations is not None:
         script.emit("DELETE_SEPARATION", -1 if delete_separations == "all" else delete_separations)
     if prepared.bulk is not None:
-        # Through the same renderer as the other four assignment models,
-        # since 2026-08-06, so the no-boundary refusal reaches it too.
+        # Use the assignment-model renderer so the no-boundary refusal applies.
         script.emit("CREATE_BULK_SEPARATION", **prepared.bulk)
     for argument, command in ASSIGNMENT_COMMANDS:
         for arguments in prepared.models[argument]:

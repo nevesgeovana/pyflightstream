@@ -421,10 +421,8 @@ def actuator_disc(
                 f"actuator_disc wake_type {wake_type!r} is not one of {tuple(allowed)}"
             )
     subtype = "ELLIPTICAL" if thrust is not None else "CUSTOM"
-    # THE SOLVER'S OWN WORD, not this package's. The rotor-word sweep of
-    # 0.15.0 renamed this to ROTOR and the command database refused it:
-    # PROPELLER is the enum value CREATE_NEW_ACTUATOR accepts, and a
-    # vendor vocabulary is quoted rather than translated.
+    # PROPELLER is the CREATE_NEW_ACTUATOR enum value. Emit the solver's
+    # vocabulary exactly.
     script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype=subtype, name=name, label=label)
     index = script.num_actuators
     script.emit("SET_ACTUATOR_AXIS", index, frame, axis, offset)
@@ -758,11 +756,9 @@ def solver_settings(
     - ``minimum_cp`` unset emits ``SOLVER_MINIMUM_CP -100`` while the
       script carries no SOLVER_MINIMUM_CP yet: the
       solver's own default -20 (FSM-26.120 p.221) clips the suction peaks
-      of rotor blades, so -100 is the library default ; pass the flag to override. A re-emission
-      call that
-      omits it leaves the limiter already in the script as it is, where
-      in legacy releases it wrote -100 over an earlier explicit value. The physics references
-      were re-validated under this default, 30 of 30 metrics
+      of rotor blades, so -100 is the library default; pass the flag to override.
+      A re-emission that omits it leaves the existing limiter unchanged.
+      The physics reference check found 30 of 30 metrics
       bit-identical (report
       PHY-26120_2026-07-23_reseed-cp100-2026-07-23). On a
       FlightStream version without the command nothing is emitted and
@@ -929,10 +925,9 @@ def solver_settings(
         separation model (FSM-26.100 p.340).
     laminar_separation : bool or 'ENABLE' or 'DISABLE', optional
         Laminar boundary layer separation (FSM-26.120 p.345); the one
-        member of the separation family documented unchanged across the
-        four 26.1x editions. It carries no row for the three pre-26.100
-        builds, so it is refused there, and the phrase used to read "all
-        four editions" while eight are registered.
+        separation-family member documented by FSM-26.100, FSM-26.101,
+        FSM-26.120 and FSM-26.121. It carries no row for the three
+        pre-26.100 builds, so it is refused there.
     convergence_iterations : int, optional
         Iterations the solver must stay below the convergence
         threshold before convergence is declared (FSM-26.120 p.344).
@@ -1100,8 +1095,8 @@ def solver_settings(
     SOLVER_SET_ITERATIONS 500
     SOLVER_MINIMUM_CP -100
     """
-    # The facade of AD-17: every keyword, exactly as received, goes to the
-    # family emitters of script._settings, which emit in the 0.33.0 order.
+    # AD-17 facade: pass each keyword unchanged to the ordered family
+    # emitters in script._settings.
     arguments = dict(locals())
     del arguments["script"]
     return _emit_solver_settings(script, arguments)
@@ -1191,12 +1186,8 @@ def sweep(
         if values is not None:
             script.emit(command, "CUSTOM", values)
     if velocity_file is not None:
-        # BY NAME, not positionally. The velocity command used to declare
-        # `filename` as its only tail, so a path was the second positional;
-        # the 2026-08-06 redraft gave all four sweep axes the manual's real
-        # grammar, where the inline value list comes first and the path
-        # second. A positional path bound to `values` and raised, and no
-        # test covered this keyword, so the whole suite stayed green.
+        # Bind filename by name: the inline values list precedes it in the
+        # sweep command grammar, so a positional path would bind to values.
         script.emit("SWEEPER_SET_VELOCITY_SWEEP", "CUSTOM", filename=velocity_file)
     _emit_sweep_options(script, clear_solution, ref_velocity_same, post_run_script)
     if start:
@@ -1846,13 +1837,9 @@ def blade_frames(
         which way round the disc the blades are numbered and nothing
         else.
 
-        REQUIRED, with no default. It carried one on the branch that
-        added this function and never in a release, so no caller is
-        migrating: the default was removed before shipping because the
-        refusal below says there is no safe default to guess and the
-        signature was making one. A wrong sense renumbers the blades,
-        raises nothing, and every phase-locked reduction keyed to blade
-        index inherits it.
+        Required, with no safe default. A wrong sense silently renumbers
+        the blades and changes every phase-locked reduction keyed to
+        blade index.
     names : sequence of str, optional
         Display names of the created frames, one per blade; ``Blade1`` to
         ``BladeN`` by default.

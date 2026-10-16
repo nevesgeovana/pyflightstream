@@ -25,18 +25,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from pyflightstream.commands import ArgSpec
 
-# Argument names that declare how many items the list argument after
-# them carries. The solver reads the count, then reads that many tokens,
-# so a count disagreeing with its list makes the solver consume the next
-# command line as data: a silent corruption, never a syntax error.
-#
-# The vendor spells this argument differently per command, so the set is
-# a name list and not a type rule. That is the hazard: a command whose
-# count carries a new spelling escapes the check entirely and nothing
-# says so. `test_every_declared_count_is_a_known_count_name` in
-# tests/tier1_offline/test_script.py closes that class by walking the database and
-# failing on any int scalar that introduces a list from outside this set.
-# It was added after two commands were found escaping (PFS-8, 2026-08-02).
+# Argument names declaring the following list's length. A count that
+# disagrees with its payload makes the solver consume following commands
+# as data. The names mirror each manual page, rather than a type rule.
+# The tier-1 test_every_declared_count_is_a_known_count_name guard walks
+# the database and refuses an int scalar introducing a list under an
+# unrecognized count name.
 _COUNT_ARG_NAMES = {
     "boundaries",
     "count",
@@ -46,26 +40,13 @@ _COUNT_ARG_NAMES = {
     "num_sections",
     "num_variables",
     "numpts",
-    # SURFACE_COMBINE's count of the surfaces it merges (FSM-26.120 p.312).
-    # Added 2026-08-07 with the Mesh Operations chapter; the tier-1 guard
-    # over this set is what reported the omission, before the entry could
-    # ship a count nothing compares against its own list.
+    # SURFACE_COMBINE's surface count (FSM-26.120 p.312).
     "surface_count",
     "surfaces",
-    # WRAPPER_SET_INPUT's count of the surfaces the wrap is built over
-    # (FSM-26.120 p.314). Added 2026-08-08 with the Mesh Wrapper chapter,
-    # reported by the same guard the same way. This is the FOURTH
-    # spelling for a count of surfaces in the database, after
-    # 'surface_count', 'surfaces' and 'boundaries', and all four are the
-    # manual's own on their own pages; the entries mirror them rather
-    # than harmonising, which is the design decision of 2026-08-08.
-    # The cost of that decision is exactly this set, which is why the
-    # set is guarded rather than trusted.
+    # WRAPPER_SET_INPUT's surface count (FSM-26.120 p.314). Each command's
+    # argument spelling follows its manual page; this set covers them all.
     "num_surfaces",
-    # BOOLEAN_UNITE_MESH's count of the mesh BODIES it unites (FSM-26.120
-    # p.316), added 2026-08-08 with the Mesh Unite chapter. Fifth
-    # spelling of a count in this set and the first counting something
-    # other than surfaces, bodies being a different inventory again.
+    # BOOLEAN_UNITE_MESH's mesh-body count (FSM-26.120 p.316).
     "num_bodies",
     # BOOLEAN_UNITE_GEOMETRY's count of the GEOMETRY bodies it unites
     # (FSM-25.000 p.272), added 2026-08-10 with the commands only the
@@ -86,10 +67,8 @@ _COUNT_ARG_NAMES = {
 # inventory comes from declare_existing() and -1 selects all of them.
 _CREATION_COMMANDS = {
     "CREATE_NEW_COORDINATE_SYSTEM": "frames",
-    # A copy is appended as a new frame, and MIRROR duplicates before it
-    # mirrors, so the original survives and the mirrored copy is appended
-    # (coordinate_systems.yaml). Uncounted until 0.40.0, so the next
-    # CREATE_NEW_COORDINATE_SYSTEM was given the copy's index (PFS-2104.017).
+    # Copy and MIRROR append new frames; MIRROR leaves the original intact
+    # (coordinate_systems.yaml). Count both so the next create uses a new index.
     "DUPLICATE_COORDINATE_SYSTEM": "frames",
     "MIRROR_COORDINATE_SYSTEM": "frames",
     "CREATE_NEW_ACTUATOR": "actuators",
@@ -158,15 +137,15 @@ _MINIMUM_CP_COMMAND = "SOLVER_MINIMUM_CP"
 #: emitted it, which :meth:`Script.emit_after_initialization` needs (G02).
 _INITIALIZATION_COMMAND = "INITIALIZE_SOLVER"
 
-#: The command that states the simulation's length unit (G05, G06 of 0.27.0).
-#: Its one home (AD-10); script.helpers reads the unit vocabulary from it.
+#: The command declaring the simulation length unit. Its one home (AD-10);
+#: script.helpers reads the unit vocabulary from this declaration.
 LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
 #: The command that names the analysis loads frame, in which the solver writes
 #: its VTK surface export (RPT-074).
 _LOADS_FRAME_COMMAND = "SET_SOLVER_ANALYSIS_LOADS_FRAME"
 
 #: The commands that add a volume section to the solver's list, remove one by
-#: its index, and remove them all (G05 of 0.27.0).
+#: its index, and remove them all (G05).
 _VOLUME_SECTION_CREATES = frozenset(
     {"CREATE_NEW_RECTANGLE_VOLUME_SECTION", "CREATE_NEW_CIRCLE_VOLUME_SECTION"}
 )
@@ -183,40 +162,20 @@ _COUNT_REFERENCE_ARGS = {
 
 
 def _reference_kind(spec: ArgSpec) -> str | None:
-    """Return the entity kind an argument cites, or None if it cites none.
+    """Return the argument's declared entity kind, or None.
 
-    ONE MECHANISM SINCE 2026-08-08: the argument's own declaration, and
-    nothing else. There were two until then, this one and a pair of
-    global maps from argument NAME to entity kind, and the maps were the
-    original.
-
-    They went because a name is a guess about an argument and a
-    declaration is the argument saying so. The maps could not carry a
-    spelling that means different things on different pages, which the
-    2026-08-07 review found: the Mesh Operations chapter spells a
-    surface reference ``index``, which elsewhere is a separation index,
-    a surface-section index and a volume-section index. Mapping it would
-    have refused valid section indices; leaving it out let
-    ``SURFACE_DELETE`` accept a declared label while ``SURFACE_INVERT``
-    did not, by no rule a caller could see.
-
-    So the maps were already the fallback rather than the rule, and a
-    fallback that silently covers 101 arguments is not a fallback. Those
-    101 now declare ``cites`` on their own entries
-    (PLN-20260807-1410), which also makes the database say what the
-    emitter does: reading an entry now tells you whether its index is
-    checked, where before you had to know the map.
+    Use the per-version cites declaration rather than infer a kind from the
+    argument name: index can refer to a surface, separation or section.
 
     Parameters
     ----------
     spec : ArgSpec
-        The argument specification, from the per-version view.
+        Argument specification from the per-version view.
 
     Returns
     -------
     str or None
-        Entity kind name as :mod:`pyflightstream.script.entities`
-        spells it, or None when the argument cites no entity.
+        Entity kind as spelled by script.entities, or None for no reference.
     """
     return str(spec.cites) if spec.cites is not None else None
 
@@ -314,8 +273,8 @@ def _placed_by_origin(
     explicit unit is converted through the one length table into the native
     unit of the placement ledger only when the script knows the simulation's
     length unit (set by the script or read from the opened save). While that
-    unit is unknown an origin in ``METER`` is kept as written, as before
-    0.29.0, and one in any other unit is forgotten rather than converted, so
+    unit is unknown an origin in ``METER`` is kept as written,
+    and one in any other unit is forgotten rather than converted, so
     a translation of that frame is refused.
     """
     from pyflightstream._lengths import scale
@@ -367,9 +326,8 @@ def _placed_by_delete(
     placements[_REFERENCE_PLACEMENT_INDEX] = reference
 
 
-#: THE COMMANDS THE LEDGER FOLLOWS, AND HOW, as one table. The set of followed
-#: names is this table's keys and nothing else, so a name cannot be declared
-#: followed without the code that follows it (the architecture lens, 2026-09-14).
+#: Commands followed by the ledger, with their handlers. Keys define the
+#: followed set so a declared command always has an implementation.
 _FRAME_FOLLOWERS = {
     "EDIT_COORDINATE_SYSTEM": _placed_by_edit,
     "SET_COORDINATE_SYSTEM_ORIGIN": _placed_by_origin,
@@ -382,93 +340,33 @@ FramePlacement.__module__ = "pyflightstream.script"
 
 
 class BrokenCommandUse(BaseModel):
-    """One command emitted although its record in this version is broken.
+    """One command emitted although its evidence record is broken.
 
-    Provenance, not configuration: the script collects one of these per
-    waived command and the run manifest carries them, so a run that
-    depended on a command known not to work says so in its own record
-    instead of looking like every other run (the same promise
-    ``raw_flag`` makes for unvalidated text, FR-07).
+    The script records each waived command in the run manifest (FR-07), so
+    its dependence on a known-broken command remains explicit.
 
     Attributes
     ----------
     command : str
         Command name as emitted.
     version : str
-        Canonical identifier of the build the script was written for,
-        which is what it has always held. Unchanged deliberately: it
-        travels inside ``RunRecord.waived_commands``, every row carries a
-        manifest stamp, and that identifier's own rule is that it bumps
-        when a field CHANGES MEANING. Redefining this one would have made
-        a reader of an existing manifest read two meanings under one key
-        with nothing to tell them apart, which is the defect this release
-        is named for, on the one surface that cannot be regenerated.
-
-        The stamp itself is no longer a single value and this sentence
-        used to name one: it said "every row is stamped
-        ``pyfs-manifest/1``", which stopped being true on 2026-08-19 when
-        ``source_version`` below became required and the stamp moved to
-        ``pyfs-manifest/2`` (PFS-2012.03). What did NOT change is this
-        field, which is the point of the paragraph.
+        Canonical identifier of the build the script targets.
     source_version : str
-        Canonical identifier of the version whose record is broken,
-        which differs from ``version`` when a hotfix build inherits its
-        base release's record. That is the build the cited ``report``
-        was run on.
-
-        **Required since 2026-08-19** (PFS-2012.03, manifest schema
-        ``pyfs-manifest/2``). It was ``str | None`` with a None default,
-        and the default was the only route to an empty one: the single
-        construction site has always passed the evidence's own source,
-        which the command database types as a plain ``str``. So the
-        optionality described no live path and only left room for a
-        waiver record that cites a report without saying which build the
-        report was run on, which is a provenance row asserting nothing.
-        A row that predates the field is refused on read by
-        :meth:`pyflightstream.workspace.CampaignWorkspace.read_manifest`,
-        naming the manifest and the stamp it was written under, rather
-        than loading with the field empty.
-
-        THE EMPTY STRING IS REFUSED TOO, by ``min_length=1``, and that is
-        not decoration. Requiredness alone still admits ``""``, and the
-        manifest reader treats an empty ``source_version`` exactly as it
-        treats a missing one, so without this the model would ACCEPT a
-        value its own reader refuses: the row would be written, and the
-        manifest it landed in would be unreadable by the release that
-        wrote it. The constraint is on this field alone rather than on
-        every ``str`` here because this is the one whose emptiness the
-        reader is known to refuse; widening it is a separate decision
-        with its own evidence.
-
-        AND SO IS THE BLANK STRING, by the ``pattern`` beside it, which
-        is the hostile pass's finding against the line above rather than
-        a second thought: ``min_length=1`` accepts ``" "``, and a waiver
-        naming a build of one space satisfies every check while saying
-        exactly as much as the empty one it replaced. The pattern demands
-        one non-whitespace character and nothing more. It deliberately
-        does NOT strip the value: a stored identifier is evidence, and
-        silently rewriting evidence to make it pass is the failure mode
-        this field exists to prevent. What a version identifier may
-        otherwise look like belongs to :mod:`pyflightstream.versions`,
-        not here.
+        Canonical identifier of the build measured by report. A hotfix can
+        inherit this evidence from its base release. Required and nonblank:
+        min_length and pattern reject empty or whitespace-only values
+        without stripping a stored identifier. The manifest reader refuses
+        rows lacking this field and names their manifest and schema stamp.
     report : str
-        Repository-relative path of the committed probe report that
-        recorded the breakage. Never optional: ``broken`` cannot exist
-        without it (evidence rule, CONTRIBUTING.md invariant 3).
+        Repository-relative committed probe report recording the breakage.
+        Broken status requires this evidence (CONTRIBUTING.md invariant 3).
     note : str, optional
-        The database's paraphrase of what the probe observed, when the
-        record carries one.
+        Database paraphrase of the probe observation, when recorded.
     reason : str
-        The caller's justification, as passed to
-        :meth:`Script.allow_broken`. This is the field no automated
-        check can supply, which is why the method demands it.
+        Caller justification supplied to Script.allow_broken.
     first_line : str
-        The script line the first waived emission rendered. The reason
-        is written for a particular call, and a script-lifetime waiver
-        covers every later one, so a reader who has only the reason
-        cannot tell which emission it was written for: the QA prelude's
-        justification, for instance, holds at an altitude of zero and
-        nowhere else. This is the fact that lets them check.
+        First waived script line. This identifies the particular call behind
+        the reason; the script-lifetime waiver covers subsequent emissions.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)

@@ -1,11 +1,11 @@
 """The resolved surface-window contracts shared by builders and recorded runs.
 
-Two windows, because two different things averaged a surface. The first,
-:data:`SurfaceAveragingWindow`, is the window a run before 0.28.0 handed the
-solver's ``SOLVER_TIME_AVERAGING``, whose bounds' meaning was never measured
+Two windows describe different averaging operations. The first,
+:data:`SurfaceAveragingWindow`, records the solver's
+``SOLVER_TIME_AVERAGING``, whose bounds' meaning is not measured
 (``verification: UNVERIFIED``). The second, :data:`SurfaceAverageWindow`, is
 the window the package itself averages the per-step surface exports over
-(G25 of 0.28.0): its bounds are the time steps the package counts and the
+(G25): its bounds are the time steps the package counts and the
 solver stamps, so it carries no verification to qualify them.
 """
 

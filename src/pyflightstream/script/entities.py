@@ -482,28 +482,17 @@ class EntityRegistry:
         self._require_kind(kind)
         if isinstance(value, bool) or not isinstance(value, int):
             return
-        # NO PER-KIND DEFAULT. An all-form is a per-command fact the page
-        # either states or does not, and treating -1 as the boundary
-        # default made every surface command accept it: SURFACE_RENAME
-        # renamed "all surfaces", SURFACE_MIRROR mirrored them, and the
-        # refusal text offered -1 on commands whose page never mentions
-        # it. That is the same inversion this argument was added to fix,
-        # found a third time by the 2026-08-07 API pass. Absent now means
-        # the command has no all-form (FSM-26.120 pp.309-313 read command by
-        # command; nine of the boundary indices state one and six do not).
+        # An all-entities sentinel is a per-command declaration, not a default
+        # for an entity kind. Absent means this command has no all-form.
+        # FSM-26.120 pp.309-313 declares one for nine boundary indices and
+        # none for six; do not offer a sentinel where the page has none.
         sentinel = all_sentinel
         if sentinel is not None and value == sentinel:
             return
         limit = self.limit(kind)
         if limit is None:
-            # The INVENTORY is unknowable statically, so an index above
-            # it cannot be judged. Its sign can: indices are 1-based, so
-            # a value at or below zero that is not this argument's own
-            # sentinel is invalid whatever the inventory turns out to be.
-            # Returning here unconditionally used to swallow the
-            # sentinel check entirely, and -1 on a zero-sentinel command
-            # emitted silently on any script that had not called
-            # declare_existing (2026-08-07 API pass).
+            # The inventory size is unknown, but indices must still be positive
+            # unless the value is this argument's declared sentinel.
             if value <= 0:
                 self._reject_index(kind, value, None, context, citation, sentinel)
             return

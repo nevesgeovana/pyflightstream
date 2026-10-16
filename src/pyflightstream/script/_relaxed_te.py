@@ -1,10 +1,7 @@
 """The relaxed trailing-edge component specification, read and written (AD-17).
 
-A private module of the ``script`` package since 0.34.0: the block moved
-out of :mod:`pyflightstream.script.helpers` whole and unchanged (GOAL-039,
-work package WP9a), and every name below is still imported from
-``pyflightstream.script.helpers``, which is the public path. The pair
-emits nothing: it reads and writes the ``Relaxed_TE;u;v1;v2;direction``
+The public import path is ``pyflightstream.script.helpers``. These helpers
+emit no commands: they read and write the ``Relaxed_TE;u;v1;v2;direction``
 line a CCS file writes where a component is defined (FSM-26.124 p.85).
 """
 
