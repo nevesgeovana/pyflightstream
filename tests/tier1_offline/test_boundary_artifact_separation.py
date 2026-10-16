@@ -333,8 +333,11 @@ def test_disabled_trailing_edge_definition_does_not_read_an_unused_points_file(t
 
 def test_p0420_missing_row_boundary_is_a_campaign_refusal(tmp_path):
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows._names import _refuse_name_absent_from_inventory
+    from pyflightstream.cases.workflows import build_script
 
-    case = _case(tmp_path, {})
+    case = _case(tmp_path, {}, {"BASE_REGIONS": "TYPO"})
+    case = case.model_copy(
+        update={"geometry": str(tmp_path / "duct.fsm"), "raw_mesh_conditions": None}
+    )
     with pytest.raises(CampaignConfigError, match="TYPO"):
-        _refuse_name_absent_from_inventory(case, "MOVING_BOUNDARIES", "TYPO", {"Inlet": 1})
+        build_script(case, Script("26.124"))
