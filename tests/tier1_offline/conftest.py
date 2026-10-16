@@ -27,7 +27,6 @@ from pyflightstream.cases import matrix as _matrix
 from pyflightstream.cases import workflows as _workflows
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.fsi.config import BladeProperties, FsiConfig
-from pyflightstream.qa import _spec_kit
 from pyflightstream.qa import physics as _physics
 from pyflightstream.script import entities as _entities
 from pyflightstream.script import solver_setup as _solver_setup
@@ -114,7 +113,7 @@ def _mutable_module_state() -> list[dict]:
     """Enumerate every module-level mutable registry or cached default.
 
     The list is the single inventory of test-mutable module state:
-    public case and spec registries, private derived mappings, and the
+    public case registries, private derived mappings, and the
     mutable objects held by the two lru caches (the loaded command
     database and the manual-edition map), which would otherwise carry a
     test's mutation for the rest of the session. The snapshot contract
@@ -125,7 +124,7 @@ def _mutable_module_state() -> list[dict]:
     return [
         _physics.PHYSICS_CASES,
         _physics.SMI_CASES,
-        _spec_kit._PROBE_SPECS,
+        # PROBE_SPECS is read-only; catalog registration tests run in isolation.
         _solver_setup._SPEC_BY_COMMAND,
         _matrix._SWEEP_CODE_KEYS,
         _entities._NOUNS,

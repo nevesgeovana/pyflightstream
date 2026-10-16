@@ -280,13 +280,24 @@ def test_generated_script_wraps_target_between_sentinels(tmp_path):
 
 def test_p0420_p2_1a_duplicate_probe_registration_is_refused():
     """Registering PRINT twice must preserve the first command-effect specification."""
-    from pyflightstream.qa._spec_kit import _spec
-    from pyflightstream.qa.errors import QaEvidenceError
+    import subprocess
+    import sys
 
-    original = PROBE_SPECS["PRINT"]
-    with pytest.raises(QaEvidenceError, match="PRINT.*already"):
-        _spec(command="PRINT", build_target=lambda s, w: None, assert_effect=lambda a: True)
-    assert PROBE_SPECS["PRINT"] is original
+    code = """
+import importlib
+from pyflightstream.qa import specs
+from pyflightstream.qa.errors import QaEvidenceError
+original = specs.PROBE_SPECS['PRINT']
+try:
+    importlib.reload(specs)
+except QaEvidenceError as error:
+    assert 'PRINT' in str(error) and 'already' in str(error)
+else:
+    raise AssertionError('duplicate catalog import replaced registered probes')
+assert specs.PROBE_SPECS['PRINT'] is original
+"""
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_p0420_p2_1a_probe_catalog_is_read_only():
