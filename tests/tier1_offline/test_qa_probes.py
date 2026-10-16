@@ -318,6 +318,63 @@ def test_p0420_p2_1a_broken_support_does_not_abort_campaign(tmp_path, monkeypatc
     assert "BROKEN_SUPPORT" in by_name["RUN_SCRIPT"].detail
 
 
+@pytest.mark.parametrize("baseline", [False, True])
+def test_p0420_p2_1a_licence_refusal_is_unprobed(tmp_path, baseline):
+    """Refusal text is inferred from the checkout format, not observed.
+
+    The fixture is the measured L0 log with EDU Success! changed to Not available.;
+    NULs are removed and the local script path is scrubbed. No refusal was provoked.
+    """
+    text = (Path(__file__).parent / "fixtures/p0420/licence-inferred.txt").read_text(
+        encoding="utf-8"
+    )
+
+    class Checkout(FakeFlightStream):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            if baseline or Path(working_dir).name == "PRINT":
+                return ExecutionResult(
+                    return_code=0,
+                    wall_time_s=0.01,
+                    timed_out=False,
+                    log_text=text,
+                    stdout="",
+                    stderr="",
+                )
+            return super().run_script(script_path, working_dir, timeout_s)
+
+    try:
+        run = probe_version("26.124", workroot=tmp_path, executor=Checkout(), commands=["PRINT"])
+    except ProbeEnvironmentError as error:
+        pytest.fail(f"licence refusal must produce an unprobed result: {error}")
+    result = next(r for r in run.results if r.command == "PRINT")
+    assert result.outcome is ProbeOutcome.UNPROBED
+    assert result.detail.startswith("licence-denied")
+
+
+@pytest.mark.parametrize(
+    "checkout,expected",
+    [
+        ("Checking out Altair units...Not available.", True),
+        ("Attempting EDU feature checkout...Success!", False),
+        ("Error loading input file", False),
+        (
+            "Checking out Altair units...Not available.\n"
+            "Attempting EDU feature checkout...Success!",
+            False,
+        ),
+        ("PYFS_PROBE_BEGIN_PRINT\nChecking out Altair units...Not available.", False),
+    ],
+)
+def test_p0420_p2_1a_checkout_controls_keep_other_failure_classes(checkout, expected):
+    """Successful fallback and non-checkout failures do not become licence denial."""
+    from pyflightstream.qa.probes import _licence_denied
+
+    execution = ExecutionResult(
+        return_code=1, wall_time_s=0.01, timed_out=False, log_text=None, stdout=checkout, stderr=""
+    )
+    assert _licence_denied(execution, "PYFS_PROBE_BEGIN_PRINT") is expected
+
+
 def test_probe_spec_requires_an_effect_assertion():
     with pytest.raises(ValueError, match="runs but does nothing"):
         ProbeSpec(command="STOP", build_target=lambda script, workdir: None)

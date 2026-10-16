@@ -1144,8 +1144,9 @@ def probe_version(
     ------
     ProbeEnvironmentError
         When no executor and no ``fs_exe`` is given, when ``fsm`` names
-        no file, or when the baseline probe fails or a probe directory
-        cannot be prepared; no command evidence is produced in that case.
+        no file, or when the baseline probe fails for a reason other than
+        exhausted licence checkouts, or a probe directory cannot be prepared.
+        Exhausted checkouts produce unprobed results with licence-denied detail.
     QaEvidenceError
         When ``commands`` names a command outside the version's view
         (a ``ValueError``).
@@ -1200,19 +1201,26 @@ def probe_version(
     # report. `None` still means every command with a spec.
     requested = None if commands is None else set(commands)
 
-    solver_identity, invocation = _run_baseline(executor, resolved, workroot, timeout_s, registry)
+    solver_identity, invocation, licence_denied = _run_baseline(
+        executor, resolved, workroot, timeout_s, registry
+    )
 
     planned = [
         active_specs[name]
         for name in available
         if name in active_specs and (requested is None or name in requested)
     ]
-    tier_failures = _validate_tiers(
-        planned, resolved, executor, workroot, fsm_path, timeout_s, registry
+    tier_failures = (
+        {}
+        if licence_denied
+        else _validate_tiers(planned, resolved, executor, workroot, fsm_path, timeout_s, registry)
     )
 
     results: list[ProbeResult] = []
     for name in available:
+        if licence_denied and (requested is None or name in requested):
+            results.append(ProbeResult(name, ProbeOutcome.UNPROBED, _LICENCE_DENIED))
+            continue
         decided = _unprobed_or_spec(
             name, active_specs.get(name), requested, fsm_path=fsm_path, tier_failures=tier_failures
         )
@@ -1318,7 +1326,9 @@ def _validate_tiers(
         _textio.write_text(script_path, script.render())
         execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
         log_text = _read_log(workdir / _LOG_AFTER)
-        if log_text is None or not printed_line(log_text, marker):
+        if isinstance(execution, ExecutionResult) and _licence_denied(execution, marker):
+            failures[tier] = _LICENCE_DENIED
+        elif log_text is None or not printed_line(log_text, marker):
             failures[tier] = f"prelude did not reach its sentinel ({execution.diagnosis()})"
     return failures
 
@@ -1402,7 +1412,7 @@ def _run_baseline(
     workroot: Path,
     timeout_s: float,
     registry: CommandRegistry | None,
-) -> tuple[tuple[str, ...], ExecutorRecord]:
+) -> tuple[tuple[str, ...], ExecutorRecord, bool]:
     """Validate the probe instruments and capture the solver identity.
 
     The baseline script is PRINT plus EXPORT_LOG plus
@@ -1452,6 +1462,8 @@ def _run_baseline(
     _textio.write_text(script_path, script.render())
     execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
     log_text = _read_log(log_path)
+    if _licence_denied(execution, _BASELINE_MARKER):
+        return (), invocation_record(executor, execution), True
     if log_text is None or not printed_line(log_text, _BASELINE_MARKER):
         # Describe the observed failure and quote the solver's output from every
         # channel. Standard output carries evidence emitted before the script is
@@ -1468,7 +1480,7 @@ def _run_baseline(
         for line in log_text.splitlines()
         if ("version" in line.lower() or "build" in line.lower()) and _BASELINE_MARKER not in line
     )[:5]
-    return identity, invocation_record(executor, execution)
+    return identity, invocation_record(executor, execution), False
 
 
 def _run_probe(
@@ -1538,6 +1550,8 @@ def _judge(
         "return_code": execution.return_code,
         "script_sha256": script_sha256,
     }
+    if _licence_denied(execution, artifacts.begin_marker):
+        return ProbeResult(outcome=ProbeOutcome.UNPROBED, detail=_LICENCE_DENIED, **common)
     # Read BEFORE every branch below, INCLUDING the halting one, because
     # each of them would answer this case with a different wrong word. An
     # unrecognised command aborts the script exactly as any other abort
@@ -1742,6 +1756,24 @@ def _judge_halt(
         effect=True,
         **common,
     )
+
+
+_LICENCE_DENIED = (
+    "licence-denied: every recorded checkout attempt before the probe marker lacked "
+    "Success!; restore licence access and rerun before judging the command"
+)
+
+
+def _licence_denied(execution: ExecutionResult, marker: str) -> bool:
+    """Read checkout attempts only, retaining successful fallback as a control."""
+    attempts: list[str] = []
+    for text in (execution.log_text, execution.stdout, execution.stderr):
+        for line in (text or "").replace("\x00", "").splitlines():
+            if printed_line(line, marker) or printed_line(line, "PYFS_LICENCE_PROBE_REACHED"):
+                break
+            if re.match(r"\s*(Checking out .*|Attempting .* checkout)\.\.\.", line):
+                attempts.append(line)
+    return bool(attempts) and not any("Success!" in line for line in attempts)
 
 
 def _solver_errors_text(execution: ExecutionResult) -> str:
