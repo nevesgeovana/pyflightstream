@@ -56,6 +56,7 @@ from pyflightstream.commands._schema import (
     Phase,
     Status,
     _check_layout_rules,
+    _override_citation,
 )
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
@@ -102,44 +103,6 @@ _MEASURED_CLAIM = re.compile(r"\b(measured|probed|observed|the solver (?:answers
 # can erase a real solver claim in a later clause, or reject a disclaimer
 # whose negator follows the claim word. Document counts say counted; solver
 # observations say measured. Extend the explicit wording list when needed.
-
-
-#: A source-and-page citation as this database writes one, for pulling
-#: the edition's own page out of a per-version note.
-_NOTE_CITATION = re.compile(r"FSM-(?:\d{2}\.\d{3}|TEST)\s+pp?\.\s*\d+(?:\s*-\s*\d+)?")
-
-
-def _override_citation(entry: CommandEntry, source: str, note: str | None) -> str:
-    """Citation for a version whose grammar overrides the entry's.
-
-    Prefers the page the version's own note cites, since that is the
-    edition documenting the overridden signature. Falls back to the
-    entry citation, still marked with the version, because naming the
-    build is useful even when the note gave no page.
-
-    Parameters
-    ----------
-    entry : CommandEntry
-        Entry carrying the default grammar.
-    source : str
-        Canonical identifier of the version whose record supplies the
-        override, for example ``"26.100"``.
-    note : str or None
-        That record's note, which usually opens with its own citation.
-
-    Returns
-    -------
-    str
-        Citation text for a refusal message.
-    """
-    # A note's page is used only for an entry that rests on a manual
-    # page. For a probe-cited entry the note may still mention a manual
-    # page, and taking it would put a page citation into ``probe_ref``,
-    # which fails that field's own repository-relative-path rule; the
-    # copy runs no validator, so nothing downstream would say so.
-    found = _NOTE_CITATION.search(note or "") if entry.manual_ref else None
-    cited = found.group(0) if found else entry.citation
-    return f"{cited}, the {source} grammar"
 
 
 class VersionStatus(BaseModel):
