@@ -89,7 +89,7 @@ def atomic_text(
     a temporary sibling, but cannot publish its partial contents.
     """
     target = Path(path)
-    descriptor, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+    descriptor, name = tempfile.mkstemp(prefix=".pfs-", suffix=".tmp", dir=target.parent)
     temporary = Path(name)
     try:
         with os.fdopen(
