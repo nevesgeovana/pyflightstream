@@ -500,7 +500,7 @@ PER_VERSION_OPTIONAL.update(
 )
 
 
-# P0420, PFS-2003.11: SRC-747/748/749 edition readings, ten formerly withheld rows.
+# P0420, PFS-2003.11: FSM-25.000/25.100/26.000, ten formerly withheld rows.
 for _command in ("IMPORT_CAD", "CAD_CREATE_IMPORT_CURVE_CCS"):
     PER_VERSION_GRAMMAR.setdefault(_command, {}).update(
         {version: {"names": ("file",)} for version in ("25.000", "25.100", "26.000")}
