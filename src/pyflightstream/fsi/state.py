@@ -406,6 +406,9 @@ def check_state_matches_config(
     check("previous_twist_rad", state.previous_twist_rad)
     for record in state.recorded_twist:
         check(f"recorded_twist step {record.step}", record.elastic_twist_rad)
+    for sample in state.load_history:
+        check(f"load_history step {sample.step} flap_n_per_m", sample.flap_n_per_m)
+        check(f"load_history step {sample.step} torsion_nm_per_m", sample.torsion_nm_per_m)
 
     if problems:
         raise FsiInputError(

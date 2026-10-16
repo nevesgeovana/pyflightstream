@@ -676,6 +676,11 @@ class FsiConfig(BaseModel):
     @model_validator(mode="after")
     def _direct_morphing_is_rigid_and_turns(self) -> "FsiConfig":
         """Refuse direct morphing on a fixed wing, which couples through its nodes (FR-341)."""
+        if self.morphing == DIRECT_MORPHING and self.blade_count != 1:
+            raise ValueError(
+                f"morphing = 'direct' requires blade_count = 1; got {self.blade_count}. "
+                "Use one rotor sector or mapped morphing for several blades."
+            )
         if self.morphing == DIRECT_MORPHING and self.wing is not None:
             raise ValueError(
                 "morphing = 'direct' couples a quasi-steady rotor sector; a fixed wing "

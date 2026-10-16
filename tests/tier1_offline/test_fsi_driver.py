@@ -86,6 +86,39 @@ def test_p0420_p1_1d_resume_error_exposes_each_array_problem():
     assert problems[1].startswith("recorded_twist step 1 blade 0")
 
 
+@pytest.mark.requirement("FR-1207")
+@pytest.mark.parametrize("field", ["flap_n_per_m", "torsion_nm_per_m"])
+def test_p0420_p1_1d_resume_checks_load_history_shape(field):
+    """Reject a stale averaged-load buffer even when twist has the right shape."""
+    from pyflightstream.fsi.state import FsiState, LoadSample, check_state_matches_config
+
+    data = {"step": 1, "flap_n_per_m": [[1.0, 2.0]], "torsion_nm_per_m": [[3.0, 4.0]]}
+    data[field] = [[1.0]]
+    state = FsiState(load_history=[LoadSample.model_validate(data)])
+    with pytest.raises(FsiInputError, match=field):
+        check_state_matches_config(state, blade_count=1, station_count=2)
+
+
+@pytest.mark.requirement("FR-341")
+def test_p0420_p1_1d_direct_morphing_refuses_multiple_blades():
+    """Direct aerodynamic-node rows describe one rotor sector."""
+    data = driver_config().model_dump()
+    data.update(morphing="direct", blade_count=2)
+    with pytest.raises(ValueError, match="blade_count"):
+        FsiConfig.model_validate(data)
+
+
+@pytest.mark.requirement("FR-341")
+def test_p0420_p1_1d_frozen_direct_refuses_before_writing(tmp_path):
+    """Frozen direct morphing cannot use the structural station row count."""
+    cfg = driver_config().model_copy(update={"morphing": "direct", "blade_count": 1})
+    rows = len(cfg.blade.station_radii_m) * 3
+    nodes.write_fsidisp(tmp_path / driver.FROZEN_FILE, np.zeros((rows, 3)))
+    with pytest.raises(FsiInputError, match="direct"):
+        driver._frozen_step(tmp_path, cfg, initial_state())
+    assert not (tmp_path / "FSIDisp.txt").exists()
+
+
 def driver_config() -> FsiConfig:
     """Stiff synthetic blade covering the fixture sections (0.29-1.81 m)."""
     n = 11

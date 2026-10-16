@@ -534,6 +534,11 @@ def _relaxed(state: FsiState, computed: np.ndarray, relaxation: float) -> np.nda
 
 def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
     """Replay the stored deformation without coupling (FSI-R10)."""
+    if cfg.morphing == DIRECT_MORPHING:
+        raise FsiInputError(
+            "frozen replay does not support morphing = 'direct': aerodynamic node rows "
+            "differ from structural station rows. Use mapped morphing or resume coupling."
+        )
     layout = _verified_layout(cfg, run_dir)
     translations = nodes.read_fsidisp(run_dir / FROZEN_FILE, expected_rows=layout.total_nodes)
     state.call_count += 1
