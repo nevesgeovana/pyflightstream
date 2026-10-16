@@ -97,7 +97,6 @@ from pyflightstream.script._arg_checks import (
 )
 from pyflightstream.script._ledger_tables import (
     _COUNT_ARG_NAMES,
-    _COUNT_REFERENCE_ARGS,
     _CREATION_COMMANDS,
     _DELETION_COMMANDS,
     _FRAME_FOLLOWERS,
@@ -1735,41 +1734,9 @@ class Script:
         return None
 
     def _check_references(self, entry: CommandEntry, bound: dict[str, object]) -> None:
-        if entry.name == "DELETE_COORDINATE_SYSTEM" and bound.get("frame") == 1:
-            raise CommandArgumentError(
-                "DELETE_COORDINATE_SYSTEM: frame 1 is the reference frame and cannot "
-                "be deleted. Select a local frame with an index greater than 1 "
-                f"({entry.citation})"
-            )
-        for spec in entry.args:
-            if spec.name not in bound:
-                continue
-            context = f"{entry.name}: argument {spec.name!r}"
-            value = bound[spec.name]
-            kind = _reference_kind(spec)
-            if kind is not None and not spec.is_list:
-                self.entities.check_index(
-                    kind,
-                    value,
-                    context=context,
-                    citation=entry.citation,
-                    all_sentinel=spec.all_sentinel,
-                )
-            elif kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
-                # Each item uses the argument's declared sentinel, just like a scalar.
-                # Frames and motions have no documented -1 form; surface selections
-                # may instead declare zero.
-                for item in value:
-                    self.entities.check_index(
-                        kind,
-                        item,
-                        context=context,
-                        citation=entry.citation,
-                        all_sentinel=spec.all_sentinel,
-                    )
-            kind = _COUNT_REFERENCE_ARGS.get(spec.name)
-            if kind is not None:
-                self.entities.check_boundary_count(value, context=context, citation=entry.citation)
+        from pyflightstream.script._build_forms import _check_references
+
+        _check_references(self, entry, bound)
 
     def _format_scalar(self, value: object) -> str:
         return str(value)

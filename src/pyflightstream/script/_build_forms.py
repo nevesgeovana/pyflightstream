@@ -42,6 +42,7 @@ from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.commands import ArgSpec, ArgType, CommandEntry, Layout
 from pyflightstream.script import CommandArgumentError
 from pyflightstream.script._arg_checks import _bind_line_tokens, _check_scalar
+from pyflightstream.script._ledger_tables import _COUNT_REFERENCE_ARGS, _reference_kind
 
 if TYPE_CHECKING:
     from pyflightstream.commands import VersionView
@@ -646,3 +647,41 @@ def _emit_compact_line(script: Script, line: str) -> None:
         script.emit(name, **bound)
     finally:
         script._emitting_line = previous
+
+
+def _check_references(script: Script, entry: CommandEntry, bound: dict[str, object]) -> None:
+    if entry.name == "DELETE_COORDINATE_SYSTEM" and bound.get("frame") == 1:
+        raise CommandArgumentError(
+            "DELETE_COORDINATE_SYSTEM: frame 1 is the reference frame and cannot "
+            "be deleted. Select a local frame with an index greater than 1 "
+            f"({entry.citation})"
+        )
+    for spec in entry.args:
+        if spec.name not in bound:
+            continue
+        context = f"{entry.name}: argument {spec.name!r}"
+        value = bound[spec.name]
+        kind = _reference_kind(spec)
+        if kind is not None and not spec.is_list:
+            script.entities.check_index(
+                kind,
+                value,
+                context=context,
+                citation=entry.citation,
+                all_sentinel=spec.all_sentinel,
+            )
+        elif kind is not None and isinstance(value, Sequence) and not isinstance(value, str):
+            # Each item uses the argument's declared sentinel, just like a scalar.
+            # Frames and motions have no documented -1 form; surface selections
+            # may instead declare zero.
+            for item in value:
+                script.entities.check_index(
+                    kind,
+                    item,
+                    context=context,
+                    citation=entry.citation,
+                    all_sentinel=spec.all_sentinel,
+                )
+        kind = _COUNT_REFERENCE_ARGS.get(spec.name)
+        if kind is not None:
+            script.entities.check_boundary_count(value, context=context, citation=entry.citation)
