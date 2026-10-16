@@ -40,7 +40,8 @@ from typing import TYPE_CHECKING, Literal
 
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.commands import ArgSpec, ArgType, CommandEntry, Layout
-from pyflightstream.script import CommandArgumentError, _check_scalar
+from pyflightstream.script import CommandArgumentError
+from pyflightstream.script._arg_checks import _check_scalar
 
 if TYPE_CHECKING:
     from pyflightstream.commands import VersionView
