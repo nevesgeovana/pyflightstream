@@ -158,8 +158,10 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
     counts = {status: 0 for status in Status}
     for row in rows.values():
         counts[row.status] += 1
-    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (185, 5, 4)
-    assert counts[Status.DOCUMENTED] == 187
+    # P0420: the free-surface probe did not establish its precondition; its
+    # original aborted execution is retained as inconclusive, not broken.
+    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (185, 4, 4)
+    assert counts[Status.DOCUMENTED] == 188
     assert rows["SET_DIRECT_AEROELASTIC_MESH_MORPHING"].status is Status.DOCUMENTED
     assert rows["SET_OUTFLOW_TRAILING_EDGES"].status is Status.REMOVED
     edition = manual_editions()["26.125"]

@@ -1089,6 +1089,8 @@ def _promoted_note(previous: object, detail: object, status: str) -> str:
     previous = str(previous or "").strip()
     if previous == note or previous.endswith(f"Probe: {note}"):
         return previous
+    if status == "documented" and _EDITION_PAGE.search(previous):
+        return note if previous.startswith(note) else f"{note} Prior edition evidence: {previous}"
     if status == ProbeOutcome.BROKEN.value and previous:
         return f"{previous} Probe: {note}"
     return note

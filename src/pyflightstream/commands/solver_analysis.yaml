@@ -130,8 +130,8 @@ SET_ANALYSIS_SYMMETRY_LOADS:
     "26.121": {status: documented, note: "FSM-26.121 p.353, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.346, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.349, same grammar as 26.120"}
-    "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-09-08_rotor-path.yaml"}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-09-08_rotor-path.yaml", note: "FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
+    "26.120": {status: documented, report: "reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...]"}
+    "26.123": {status: documented, report: "reports/compat/CMP-26123_2026-10-16_rotor-effect-reanalysis.yaml", note: "direct inconclusive evidence; PFS-2138.065 and PFS-2138.069: convergence of row 7001 and its loads export do not isolate this command [...] Prior edition evidence: FSM-26.123 p.356, unchanged from FSM-26.122 p.356"}
     "26.124": {status: documented, note: "FSM-26.124 p.356, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.365, unchanged from FSM-26.124 p.356"}
   notes: >

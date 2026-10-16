@@ -191,6 +191,36 @@ def test_p0420_ordinary_unprobed_report_does_not_withdraw_verification(tmp_path)
     assert len(read_compat_reports(repo_root=tmp_path)[("PRINT", "26.120")]) == 1
 
 
+@pytest.mark.parametrize(("version", "inconclusive"), [("26.120", 13), ("26.123", 8)])
+def test_p0420_workflow_convergence_does_not_verify_individual_commands(version, inconclusive):
+    root = Path(__file__).resolve().parents[2]
+    stem = version.replace(".", "")
+    original = read_compat_report(root / f"reports/compat/CMP-{stem}_2026-09-08_rotor-path.yaml")
+    registry = CommandRegistry.load()
+    records = {name: registry.commands[name].versions[version] for name in original["commands"]}
+    assert sum(row.status.value == "documented" for row in records.values()) == inconclusive
+    for name, row in records.items():
+        assert "rotor-path" not in (row.report or "")
+        evidence = read_compat_report(root / row.report)["commands"][name]
+        if row.status.value == "verified":
+            assert evidence["signals"]["effect"] is True
+        else:
+            assert evidence["outcome"] == "unprobed"
+            assert evidence["script_sha256"] == original["commands"][name]["script_sha256"]
+            assert evidence["signals"] == original["commands"][name]["signals"]
+
+
+def test_p0420_unknown_free_surface_precondition_is_not_a_command_defect():
+    root = Path(__file__).resolve().parents[2]
+    row = CommandRegistry.load().commands["CREATE_FREE_SURFACE_TFI_MESH"].versions["26.125"]
+    assert row.status.value == "documented"
+    evidence = read_compat_report(root / row.report)["commands"]["CREATE_FREE_SURFACE_TFI_MESH"]
+    assert evidence["outcome"] == "unprobed"
+    assert "precondition" in evidence["detail"]
+    assert evidence["signals"]["sentinel_before"] is True
+    assert evidence["signals"]["sentinel_after"] is False
+
+
 def test_report_pair_round_trips(tmp_path):
     yaml_path, md_path = write_compat_report(make_run(), tmp_path, date="2026-07-21")
     assert yaml_path.name == "CMP-26120_2026-07-21.yaml"
