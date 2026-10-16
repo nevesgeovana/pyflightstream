@@ -195,7 +195,6 @@ from pyflightstream.cases.reference_blocks import (
     BladeDatum,
     CampaignConfigError,
     RotorBlock,
-    _SecondAxis,
 )
 from pyflightstream.cases.reference_blocks import ActuatorOperation as ActuatorOperation
 from pyflightstream.cases.reference_blocks import frame_basis_for_shaft as frame_basis_for_shaft
@@ -224,6 +223,7 @@ from pyflightstream.commands import Phase
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.script import Script
+from pyflightstream.script.motion import SecondAxis
 from pyflightstream.versions import resolve
 
 __all__ = [
@@ -734,7 +734,7 @@ class FrameSpec(BaseModel):
     name: str
     origin: tuple[float, float, float]
     x_axis: tuple[float, float, float] = (1.0, 0.0, 0.0)
-    y_axis: _SecondAxis = Field(default=(0.0, 1.0, 0.0), validate_default=True)
+    y_axis: SecondAxis = Field(default=(0.0, 1.0, 0.0), validate_default=True)
 
     @field_validator("name", mode="before")
     @classmethod

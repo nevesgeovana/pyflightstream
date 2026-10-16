@@ -5,11 +5,14 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import AfterValidator, ValidationInfo
 
 __all__ = [
     "FRAME_AXES_TOLERANCE",
     "MotionLedger",
+    "SecondAxis",
     "frame_axes_problem",
     "resolve_frame_motion",
 ]
@@ -79,6 +82,25 @@ def frame_axes_problem(
             "x_axis and y_axis"
         )
     return None
+
+
+def _second_axis_defines_a_system(
+    value: tuple[float, float, float], info: ValidationInfo
+) -> tuple[float, float, float]:
+    """Refuse a ``y_axis`` that, with the ``x_axis`` read before it, defines no frame."""
+    x_axis = info.data.get("x_axis")
+    problem = None if x_axis is None else frame_axes_problem(x_axis, value)
+    if problem is not None:
+        raise ValueError(
+            f"the frame {info.data.get('name')!r} defines no coordinate system: {problem}; "
+            f"x_axis = {x_axis}, y_axis = {value}. Give two non-zero, orthogonal directions; "
+            "the third axis is their right-handed cross product"
+        )
+    return value
+
+
+#: A frame's second axis: three numbers that, with the first, define a coordinate system.
+SecondAxis = Annotated[tuple[float, float, float], AfterValidator(_second_axis_defines_a_system)]
 
 
 # Exact version, simulation unit and solver build (NFR-31: the build identifies the
