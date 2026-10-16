@@ -559,13 +559,10 @@ class Script:
         #: other way to make: the export writes the numbers and never the
         #: positions.
         #:
-        #: Filled by the loop that EMITS the point, so the coordinates
-        #: recorded cannot drift from the coordinates emitted. Empty for a
-        #: script with no helper or workflow probe placements. Public
+        #: Filled when each helper or workflow emits a point. Public
         #: ``probe_points`` and ``probe_line`` helpers record reference-frame
         #: coordinates; workflows retain their declared coordinate frame.
-        #: Raw command emission and ``probes_from_file`` do not parse or
-        #: reconstruct imported points.
+        #: Raw emission and ``probes_from_file`` do not reconstruct points.
         self.probe_points: list[tuple[int, float, float, float, str]] = []
         #: Exact sample IDs, field requests and native-to-SI conversion per entry.
         self.probe_field_layout: list[dict[str, object]] = []

@@ -578,6 +578,19 @@ def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[fl
         raise CampaignConfigError(f"probe profile {path!r} cannot be read: {error}") from error
 
 
+def _record_probe_line_frame(script: Script, points: list[list[float]], frame: str) -> None:
+    """Retain declared coordinates after the helper records reference coordinates."""
+    first = len(script.probe_points) - len(points)
+    for offset, point in enumerate(points):
+        script.probe_points[first + offset] = (
+            first + offset + 1,
+            float(point[0]),
+            float(point[1]),
+            float(point[2]),
+            frame,
+        )
+
+
 def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady: bool) -> int:
     """Emit one `[[probes]]` entry, returning the vertex count after it."""
     if not probes.parameters:
@@ -715,17 +728,11 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             )
             # The helper records reference coordinates; workflow records retain
             # the declared local frame used by the field-layout join.
-            first = len(script.probe_points) - probes.points
-            for offset, point in enumerate(
-                line_points(line.start, end=line.end, points=probes.points, scale=scale)
-            ):
-                script.probe_points[first + offset] = (
-                    first + offset + 1,
-                    float(point[0]),
-                    float(point[1]),
-                    float(point[2]),
-                    probes.frame,
-                )
+            _record_probe_line_frame(
+                script,
+                line_points(line.start, end=line.end, points=probes.points, scale=scale),
+                probes.frame,
+            )
 
     # FR-79: rectangles and circles are emitted point by point so one
     # declaration produces the same sampling on steady and unsteady paths.
