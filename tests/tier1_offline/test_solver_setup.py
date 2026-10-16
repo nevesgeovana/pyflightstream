@@ -61,6 +61,42 @@ def family_commands() -> set[str]:
     return {name for name, entry in registry.commands.items() if entry.chapter in SNAPSHOT_FAMILIES}
 
 
+@pytest.mark.requirement("NFR-49")
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"farfield_layers": "wide"},
+        {"boundary_layer": "UNKNOWN"},
+        {"velocity": float("nan")},
+        {"minimum_cp": float("inf")},
+    ],
+    ids=["P0420-TYPE", "P0420-ENUM", "P0420-NAN", "P0420-INFINITY"],
+)
+def test_p0420_solver_settings_value_refusals_preserve_the_script(invalid):
+    """P0420-SETTINGS-ATOMIC: scalar validation precedes every emission."""
+    script = Script("26.124")
+    script.comment("existing content")
+    before = script.render()
+    with pytest.raises(CommandArgumentError):
+        helpers.solver_settings(script, mode="STEADY", aoa=2.0, **invalid)
+    assert script.render() == before
+    assert script.solver_setup is None
+
+
+@pytest.mark.requirement("NFR-49", "FR-39")
+def test_p0420_solver_settings_version_refusal_preserves_the_script():
+    """P0420-SETTINGS-VERSION: a late unavailable flag leaves no earlier lines."""
+    script = Script("26.121")
+    script.comment("existing content")
+    before = script.render()
+    with pytest.raises(CommandNotInVersionError):
+        helpers.solver_settings(
+            script, mode="STEADY", aoa=2.0, jet_wake_filaments_grid_induction=True
+        )
+    assert script.render() == before
+    assert script.solver_setup is None
+
+
 # --- completeness: the model can never silently lag the database ------------
 
 
