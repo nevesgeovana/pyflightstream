@@ -1142,17 +1142,6 @@ def _rewrite_version_line(
         if (match := re.match(r'^( {4})"([^"]+)":', lines[index])) is not None
     ]
 
-    def row_end(index: int) -> int:
-        for following in range(index + 1, end):
-            line = lines[following]
-            if (
-                line.strip()
-                and not line.lstrip().startswith("#")
-                and len(line) - len(line.lstrip()) <= 4
-            ):
-                return following
-        return end
-
     for index, indent, recorded_canonical in recorded:
         if recorded_canonical != canonical:
             continue
@@ -1161,29 +1150,14 @@ def _rewrite_version_line(
                 lines[index], chapter, name, canonical, citation, body
             )
         else:
-            stop = row_end(index)
+            stop = _version_row_end(lines, index, end)
             existing = yaml.safe_load("\n".join(lines[index:stop]))[canonical]
             synthetic = f'{indent}"{canonical}": {_flow_mapping(existing)}'
             rewritten = _rewritten_flow_entry(synthetic, chapter, name, canonical, citation, body)
             _, updated = _parsed_flow_entry(rewritten, chapter, name, canonical)
             if existing == updated:
                 return text
-            fields = [
-                (at, match.group(1))
-                for at in range(index + 1, stop)
-                if (match := re.match(r"^      ([a-z_]+):", lines[at])) is not None
-            ]
-            # Replace only owned values, from bottom to top; grammar, comments and
-            # multiline edition notes that did not change retain their exact text.
-            for position in range(len(fields) - 1, -1, -1):
-                at, key = fields[position]
-                if existing.get(key) == updated.get(key):
-                    continue
-                finish = fields[position + 1][0] if position + 1 < len(fields) else stop
-                lines[at:finish] = ["      " + _flow_mapping({key: updated[key]})[1:-1]]
-            missing = {key: value for key, value in updated.items() if key not in existing}
-            for key, value in reversed(list(missing.items())):
-                lines.insert(index + 1, "      " + _flow_mapping({key: value})[1:-1])
+            _rewrite_block_fields(lines, index, stop, existing, updated)
         return "\n".join(lines) + "\n"
 
     if not recorded:
@@ -1197,7 +1171,7 @@ def _rewrite_version_line(
             for index, _, recorded_canonical in recorded
             if order.get(recorded_canonical, -1) > position
         ),
-        row_end(recorded[-1][0]),
+        _version_row_end(lines, recorded[-1][0], end),
     )
     lines.insert(insert_at, f'{indent}"{canonical}": {_flow_mapping(pairs)}')
     return "\n".join(lines) + "\n"
@@ -1730,3 +1704,41 @@ def licence_sensitive_candidates(
             )
         )
     return tuple(sorted(candidates, key=lambda candidate: (candidate.chapter, candidate.command)))
+
+
+def _version_row_end(lines: list[str], index: int, end: int) -> int:
+    for following in range(index + 1, end):
+        line = lines[following]
+        if (
+            line.strip()
+            and not line.lstrip().startswith("#")
+            and len(line) - len(line.lstrip()) <= 4
+        ):
+            return following
+    return end
+
+
+def _rewrite_block_fields(
+    lines: list[str],
+    index: int,
+    stop: int,
+    existing: dict,
+    updated: dict,
+) -> None:
+    """Replace changed evidence fields while retaining untouched grammar text."""
+    fields = [
+        (at, match.group(1))
+        for at in range(index + 1, stop)
+        if (match := re.match(r"^      ([a-z_]+):", lines[at])) is not None
+    ]
+    # Replace only owned values, from bottom to top; grammar, comments and
+    # multiline edition notes that did not change retain their exact text.
+    for position in range(len(fields) - 1, -1, -1):
+        at, key = fields[position]
+        if existing.get(key) == updated.get(key):
+            continue
+        finish = fields[position + 1][0] if position + 1 < len(fields) else stop
+        lines[at:finish] = ["      " + _flow_mapping({key: updated[key]})[1:-1]]
+    missing = {key: value for key, value in updated.items() if key not in existing}
+    for key, value in reversed(list(missing.items())):
+        lines.insert(index + 1, "      " + _flow_mapping({key: value})[1:-1])
