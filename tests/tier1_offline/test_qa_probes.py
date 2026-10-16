@@ -336,9 +336,9 @@ def test_p0420_p2_1a_new_simulation_needs_a_measured_change(tmp_path, before, af
 
 
 @pytest.mark.parametrize("tier", [False, True])
-def test_p0420_p2_1a_broken_support_does_not_abort_campaign(tmp_path, monkeypatch, tier):
+def test_p0420_p2_1a_broken_support_does_not_abort_campaign(tmp_path, tier):
     """A broken support command leaves its target unjudged and other probes runnable."""
-    from pyflightstream.qa import probes
+    from pyflightstream.commands import CommandRegistry, VersionStatus
     from pyflightstream.script import BrokenCommandError
 
     def refuses(*args, **kwargs):
@@ -352,8 +352,11 @@ def test_p0420_p2_1a_broken_support_does_not_abort_campaign(tmp_path, monkeypatc
         assert_effect=lambda a: True,
         requires=Requires.SIM if tier else Requires.NONE,
     )
+    commands = dict(CommandRegistry.load().commands)
     if tier:
-        monkeypatch.setattr(probes, "emit_tier_prelude", refuses)
+        commands["OPEN"] = commands["OPEN"].model_copy(
+            update={"versions": {"26.120": VersionStatus(status="broken", report="offline.yaml")}}
+        )
     result = probe_version(
         "26.120",
         workroot=tmp_path / "run",
@@ -361,11 +364,12 @@ def test_p0420_p2_1a_broken_support_does_not_abort_campaign(tmp_path, monkeypatc
         commands=["PRINT", "RUN_SCRIPT"],
         specs={"PRINT": PROBE_SPECS["PRINT"], "RUN_SCRIPT": spec},
         fsm=fsm,
+        registry=CommandRegistry(commands),
     )
     by_name = {r.command: r for r in result.results}
     assert by_name["PRINT"].outcome is ProbeOutcome.VERIFIED
     assert by_name["RUN_SCRIPT"].outcome is ProbeOutcome.UNPROBED
-    assert "BROKEN_SUPPORT" in by_name["RUN_SCRIPT"].detail
+    assert ("OPEN" if tier else "BROKEN_SUPPORT") in by_name["RUN_SCRIPT"].detail
 
 
 @pytest.mark.parametrize("baseline", [False, True])
