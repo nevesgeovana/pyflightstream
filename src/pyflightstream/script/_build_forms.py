@@ -180,6 +180,17 @@ def detect_every_boundary(script: Script, kind: str) -> str:
     return command
 
 
+def _wake_argument_alias(entry: CommandEntry, key: str) -> str:
+    """Preserve the former 26.124 keyword without broadening the later enum."""
+    if (
+        entry.name == "IMPORT_WAKE_EDGES_FROM_FILE"
+        and key == "units"
+        and any(spec.name == "edge_type" and spec.type is ArgType.STR for spec in entry.args)
+    ):
+        return "edge_type"
+    return key
+
+
 def _refuse_interactive_profile(script: Script, entry: CommandEntry) -> None:
     """Keep a measured modal operation out of a validated batch script."""
     if entry.name == "EXPORT_BL_VELOCITY_PROFILE" and script.version.canonical == "26.122":
