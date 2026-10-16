@@ -251,7 +251,7 @@ for never in ("START_SOLVER", "SAVEAS", "UPDATE_PROBE_POINTS"):
 
 # %%
 (workspace.inputs_dir / "pproc" / "p003.toml").write_text(
-    '[[probes]]\nframe = "MRP"\n\n'
+    '[[probes]]\nframe = "MRP"\nparameters = ["VX"]\n\n'
     "[[probes.lines]]\nstart = [1.5, -4.0, 0.0]\nend = [1.5, 4.0, 0.0]\n",
     encoding="utf-8",
 )
