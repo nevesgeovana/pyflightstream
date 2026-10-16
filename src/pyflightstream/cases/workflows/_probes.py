@@ -260,7 +260,7 @@ def _pproc_probes(
         raise CampaignConfigError(
             f"case {case.sim_id!r}: [[surface_probes]] requires an unsteady march"
         )
-    vertex = 0
+    vertex = len(script.probe_points)
     normal = unsteady and _normal_probes_of(case)
     if unsteady and not analysis:
         _pproc_surface_probes(case, script, frames)
@@ -671,10 +671,10 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             # X, Y and Z and still never names the frame they are in, and a
             # table of coordinates that does not say which frame is as
             # unplaceable as one carrying none.
-            script.probe_points.append(
-                (vertex, float(point[0]), float(point[1]), float(point[2]), probes.frame)
-            )
             if unsteady:
+                script.probe_points.append(
+                    (vertex, float(point[0]), float(point[1]), float(point[2]), probes.frame)
+                )
                 for parameter in probes.parameters:
                     script.emit(
                         "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
@@ -704,13 +704,28 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         ]
         # THROUGH THE SCRIPT HELPER (PFS-2140.001): the public helper is what the
         # workspace runs, so the two cannot disagree on the command's grammar.
-        for first_x, first_y, first_z, last_x, last_y, last_z in ends:
+        for line, (first_x, first_y, first_z, last_x, last_y, last_z) in zip(
+            probes.lines, ends, strict=True
+        ):
             helpers.probe_line(
                 script,
                 points=probes.points,
                 start=(first_x, first_y, first_z),
                 end=(last_x, last_y, last_z),
             )
+            # The helper records reference coordinates; workflow records retain
+            # the declared local frame used by the field-layout join.
+            first = len(script.probe_points) - probes.points
+            for offset, point in enumerate(
+                line_points(line.start, end=line.end, points=probes.points, scale=scale)
+            ):
+                script.probe_points[first + offset] = (
+                    first + offset + 1,
+                    float(point[0]),
+                    float(point[1]),
+                    float(point[2]),
+                    probes.frame,
+                )
 
     # FR-79: rectangles and circles are emitted point by point so one
     # declaration produces the same sampling on steady and unsteady paths.
@@ -764,17 +779,16 @@ def _lay_points(
 ) -> int:
     """Record and place an entry's points one vertex each; return the vertex count after them.
 
-    ``emit`` False records a steady point and leaves its creation to the caller,
-    which emits the declared lattices through the probes home.
+    ``emit`` False counts a steady point and leaves its creation and recording
+    to the caller, which emits the declared lattices through the probes home.
     """
     for point in points:
         vertex += 1
         # FR-91, and the lattice reaches here for BOTH run types, so one
         # append covers a rectangle and a circle on either path.
-        script.probe_points.append(
-            (vertex, float(point[0]), float(point[1]), float(point[2]), probes.frame)
-        )
+        record = (vertex, float(point[0]), float(point[1]), float(point[2]), probes.frame)
         if unsteady:
+            script.probe_points.append(record)
             for parameter in probes.parameters:
                 script.emit(
                     "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
@@ -790,6 +804,7 @@ def _lay_points(
             # for a steady line's endpoints (B30).
             x, y, z = _in_the_reference_frame(case, script, frame, probes.frame, list(point))
             helpers.probe_points(script, [(x, y, z)], kind="VOLUME")
+            script.probe_points[-1] = record
     return vertex
 
 
@@ -1021,8 +1036,8 @@ def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) 
             else _in_the_reference_frame(case, script, frame, section.frame, native)
         )
         vertex += 1
-        script.probe_points.append((vertex, *map(float, point), label))
         if unsteady:
+            script.probe_points.append((vertex, *map(float, point), label))
             for parameter in ("VX", "VY", "VZ"):
                 script.emit(
                     "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
