@@ -577,9 +577,14 @@ def test_no_layer_reaches_into_another_for_a_private_digest():
             if not name.startswith("_"):
                 continue
             if source.rsplit(".", 1)[-1].startswith("_"):
-                # A private name out of a private module is that module's
-                # own business; `_errors` and `_digest` are exactly that.
-                continue
+                importer = "pyflightstream." + module.relative_to(SRC).with_suffix(
+                    ""
+                ).as_posix().replace("/", ".")
+                owner = source.rsplit(".", 1)[0]
+                # Internal imports stay inside their owning package. Root-level
+                # floor utilities belong to the enclosing pyflightstream package.
+                if importer.startswith(owner + "."):
+                    continue
             offenders.append(f"{module.relative_to(SRC).as_posix()} imports {name} from {source}")
     assert not offenders, (
         "a module imports an underscore-private name out of a PUBLIC sibling module, "

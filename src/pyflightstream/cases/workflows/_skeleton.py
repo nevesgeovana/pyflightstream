@@ -34,7 +34,6 @@ from pyflightstream.script import (
     Script,
     helpers,
 )
-from pyflightstream.script._settings import _flush_pending_vorticity
 
 from ._clock import (
     _rotor_clock,
@@ -289,11 +288,7 @@ def _vorticity_list_before_the_solve(script: Script) -> None:
     its own, moving no phase: every other check of the emitter applies, and
     the next command still meets the phase the script had reached.
     """
-    script._through_the_door = True
-    try:
-        _flush_pending_vorticity(script)
-    finally:
-        script._through_the_door = False
+    script.emit_deferred_vorticity_before_solve()
 
 
 def _script_tail(

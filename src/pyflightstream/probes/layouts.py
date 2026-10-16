@@ -28,7 +28,7 @@ import numpy as np
 import pyflightstream._textio as _textio
 from pyflightstream.probes.errors import ProbeGeometryError
 from pyflightstream.probes.lattice import ProbeLattice
-from pyflightstream.script import CommandArgumentError, Script, helpers
+from pyflightstream.script import Script, helpers
 from pyflightstream.script.toggles import Toggle
 
 __all__ = [
@@ -587,27 +587,4 @@ def emit_probe_export(script: Script, path: str | Path, *, update: Toggle = True
     second entry point onto that register and re-stamps it with its own
     name, for the reason under the call below.
     """
-    # PFS-2081.26. The remedy sentence of the helper's refusal names
-    # `export_probes`, which a caller of this function never wrote, so a
-    # collision is refused here first, in this entry point's own words.
-    already = script._exported_paths.get(str(path))
-    if already is not None:
-        raise CommandArgumentError(
-            f"this script already exports to {str(path)!r}, from {already}. The solver "
-            "writes one file per path, so the second export would silently replace "
-            "the first and the script would carry two identical lines. Give "
-            "emit_probe_export a path of its own, for example one carrying the point "
-            "or the survey name."
-        )
-    helpers.export_probes(script, str(path), update=update)
-    # PFS-2011.02. `helpers.export_probes` registers the path under the
-    # name of the helper, so a collision between two calls made THROUGH
-    # THIS function told the reader "from export_probes", a function
-    # their code never calls. A refusal that names a call site the caller
-    # did not write is worse than one that names none: it sends them to
-    # look for a line that is not there. This is the only one of the two
-    # entry points that knows which was used, so the register is stamped
-    # with the truthful site here. The remedy sentence of the helper's
-    # refusal still names the helper, which is why this function refuses
-    # a collision itself, above.
-    script._exported_paths[str(path)] = "emit_probe_export"
+    helpers.export_probes(script, str(path), update=update, source="emit_probe_export")

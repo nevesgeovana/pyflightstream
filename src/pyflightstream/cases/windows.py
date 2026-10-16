@@ -28,7 +28,7 @@ from typing import TypedDict
 
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases.reference_blocks import CampaignConfigError
-from pyflightstream.script._surface_averaging import (
+from pyflightstream.script import (
     SurfaceAverageWindow,
     SurfaceAveragingWindow,
 )

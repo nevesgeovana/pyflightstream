@@ -168,8 +168,8 @@ from pyflightstream.cases import RawCommand as RawCommand
 from pyflightstream.cases.windows import surface_average_window as surface_average_window
 from pyflightstream.cases.windows import surface_averaging_window as surface_averaging_window
 from pyflightstream.script import MarchStrategy as MarchStrategy
-from pyflightstream.script._surface_averaging import SurfaceAverageWindow as SurfaceAverageWindow
-from pyflightstream.script._surface_averaging import (
+from pyflightstream.script import SurfaceAverageWindow as SurfaceAverageWindow
+from pyflightstream.script import (
     SurfaceAveragingWindow as SurfaceAveragingWindow,
 )
 from pyflightstream.script.solver_setup import explicit_empty_selections

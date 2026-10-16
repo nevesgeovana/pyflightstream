@@ -45,7 +45,7 @@ from pyflightstream.script._arg_checks import _check_scalar
 
 if TYPE_CHECKING:
     from pyflightstream.commands import VersionView
-    from pyflightstream.script import Script
+    from pyflightstream.script import Script, UnsteadyActionUse
 
 __all__ = [
     "assign_selected_ccs_curves",
@@ -474,6 +474,32 @@ def _park_input_file(script: Script, path: str, payload: str | bytes) -> None:
             return
         raise CommandArgumentError(f"input file {path!r} collides with {kind} {held!r}")
     script._pending_input_files[path] = payload
+
+
+def _carry_unsteady_actions(
+    script: Script, uses: Sequence[UnsteadyActionUse], scripts: Mapping[str, str]
+) -> None:
+    """Preflight the complete carried action set before publishing either register."""
+    from pyflightstream._digest import one_file_key
+
+    actions = dict(script._unsteady_actions)
+    for use in uses:
+        if use.name in actions and actions[use.name] != use:
+            raise CommandArgumentError(f"carried unsteady action {use.name!r} conflicts")
+        actions[use.name] = use
+    paths = {
+        one_file_key(path): (path, text) for path, text in script._pending_action_scripts.items()
+    }
+    inputs = {one_file_key(path) for path in script.pending_input_files}
+    for path, text in scripts.items():
+        key = one_file_key(path)
+        if key in inputs or (key in paths and paths[key][1] != text):
+            raise CommandArgumentError(
+                f"carried action script {path!r} conflicts with a parked file"
+            )
+        paths[key] = (path, text)
+    script._unsteady_actions = actions
+    script._pending_action_scripts = dict(paths.values())
 
 
 def _parked_file(script: Script, path: str) -> tuple[str, str] | None:

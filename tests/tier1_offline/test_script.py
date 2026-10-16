@@ -4503,3 +4503,36 @@ def test_p0420_physics_presence_keywords_can_be_omitted():
     script = Script("25.000")
     script.emit("PHYSICS")
     assert "PHYSICS\nEND" in script.render()
+
+
+def test_p0420_carried_actions_use_atomic_file_conflict_checks():
+    carried = Script("26.124")
+    helpers.unsteady_action(
+        carried,
+        name="counter",
+        kind="SCRIPT",
+        filename="actions/count.txt",
+        action_script="PRINT step",
+    )
+    target = Script("26.124")
+    target.park_input_file("actions/COUNT.txt", "input data")
+    before = target.render()
+    with pytest.raises(CommandArgumentError, match="conflicts"):
+        target.carry_unsteady_actions(carried.unsteady_actions, carried.pending_action_scripts)
+    assert target.unsteady_actions == ()
+    assert target.pending_action_scripts == {}
+    assert target.render() == before
+    clean = Script("26.124")
+    clean.carry_unsteady_actions(carried.unsteady_actions, carried.pending_action_scripts)
+    assert clean.unsteady_actions == carried.unsteady_actions
+    assert clean.pending_action_scripts == carried.pending_action_scripts
+    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" not in clean.render()
+
+
+def test_p0420_deferred_vorticity_does_not_bypass_an_already_completed_solve():
+    script = Script("26.124")
+    script.emit("START_SOLVER")
+    before = script.render()
+    with pytest.raises(ScriptOrderError, match="precede"):
+        script.emit_deferred_vorticity_before_solve()
+    assert script.render() == before

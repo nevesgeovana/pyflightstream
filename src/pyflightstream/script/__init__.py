@@ -159,6 +159,8 @@ __all__ = [
     "ScriptLineBreakError",
     "ScriptOrderError",
     "ScriptReferenceError",
+    "SurfaceAverageWindow",
+    "SurfaceAveragingWindow",
     "UnsteadyActionUse",
 ]
 
@@ -490,6 +492,50 @@ class Script:
         from pyflightstream.script._build_forms import _park_input_file
 
         _park_input_file(self, path, payload)
+
+    def emit_deferred_vorticity_before_solve(self) -> None:
+        """Emit a pending unsteady selection before solving, preserving the phase guard.
+
+        The licensed pre-solve selection applies to each unsteady step. This
+        exception admits only the deferred selection, never a later solver restart.
+
+        Raises
+        ------
+        ScriptOrderError
+            If a solver execution or export phase has already been reached.
+        """
+        from pyflightstream.script._settings import _flush_pending_vorticity
+
+        if self._phase_index is not None and self._phase_index >= _ORDERED_PHASES.index(Phase.EXEC):
+            raise ScriptOrderError("deferred vorticity selection must precede the solve")
+        previous = self._through_the_door
+        self._through_the_door = True
+        try:
+            _flush_pending_vorticity(self)
+        finally:
+            self._through_the_door = previous
+
+    def carry_unsteady_actions(
+        self, uses: Sequence[UnsteadyActionUse], scripts: Mapping[str, str]
+    ) -> None:
+        """Carry saved-state actions and their files without emitting registrations.
+
+        Parameters
+        ----------
+        uses : sequence of UnsteadyActionUse
+            Action records already registered in the saved solver state.
+        scripts : mapping of str to str
+            Child script paths and text to stage for those actions.
+
+        Raises
+        ------
+        CommandArgumentError
+            If an action name or parked-file destination conflicts. No partial
+            update is retained on refusal.
+        """
+        from pyflightstream.script._build_forms import _carry_unsteady_actions
+
+        _carry_unsteady_actions(self, uses, scripts)
 
     @contextmanager
     def observe_commands(

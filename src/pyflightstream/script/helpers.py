@@ -1499,7 +1499,9 @@ def _caller_site(depth: int) -> str:
     return f"{name}:{frame.f_lineno}"
 
 
-def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
+def export_probes(
+    script: Script, path: str, *, update: Toggle = True, source: str = "export_probes"
+) -> None:
     """Export the probe values, refreshing them first (FSM-26.120 pp.362-363).
 
     Parameters
@@ -1512,6 +1514,8 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
         Emit UPDATE_PROBE_POINTS first, so the export reflects the
         current solution; the manual instructs refreshing before
         exporting (FSM-26.120 p.362).
+    source : str
+        Public calling entry point to name in collision diagnostics.
 
     Raises
     ------
@@ -1537,11 +1541,11 @@ def export_probes(script: Script, path: str, *, update: Toggle = True) -> None:
     """
     # Checked before UPDATE_PROBE_POINTS, so a refusal writes no line; the
     # script's one check (PFS-2093.004), which the emission repeats.
-    script._refuse_export_collision(path, asker="export_probes")
+    script._refuse_export_collision(path, asker=source)
     if _read("export_probes", "update", update):
         script.emit("UPDATE_PROBE_POINTS")
     script.emit("EXPORT_PROBE_POINTS", path)
-    script._exported_paths[path] = f"export_probes (called at {_caller_site(1)})"
+    script._exported_paths[path] = f"{source} (called at {_caller_site(1)})"
 
 
 def coordinate_frame(
