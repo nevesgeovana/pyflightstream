@@ -103,6 +103,93 @@ _ANALYSIS_EMPTY = (
 ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
     EntitySelection(
         "setup",
+        "viscous_excluded",
+        "DELETE_VISCOUS_EXCLUDED_BOUNDARIES",
+        True,
+        "An empty selection emits the clearing command (FSM-26.120 p.341).",
+    ),
+    EntitySelection(
+        "setup",
+        "thin_boundaries",
+        "DELETE_THIN_BOUNDARIES",
+        True,
+        "An empty selection emits the clearing command (FSM-26.120 p.343).",
+    ),
+    EntitySelection(
+        "setup",
+        "valarezo_separation_boundaries",
+        "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
+        True,
+        "An empty selection requests the dedicated clearing command (RPT-018); "
+        "the build's command evidence still governs its availability.",
+    ),
+    EntitySelection(
+        "setup",
+        "crossflow_separation_boundaries",
+        "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES",
+        True,
+        "An empty selection emits the clearing command (FSM-26.100 p.340).",
+    ),
+    EntitySelection(
+        "setup",
+        "axial_separation_families",
+        "SET_AXIAL_SEPARATION_BOUNDARIES",
+        False,
+        "This family selector must resolve to at least one boundary; "
+        "it does not request the separate clearing command.",
+    ),
+    EntitySelection(
+        "setup",
+        "disabled_wake_trailing_edges",
+        "DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
+        None,
+        "No empty-list clearing form is established for this sequence of edge selections.",
+    ),
+    EntitySelection(
+        "setup",
+        "leading_edge_wake_boundaries",
+        "DETECT_LEADING_EDGES_WAKES_BY_SURFACE",
+        None,
+        "No empty boundary selection is established for this detection request.",
+    ),
+    EntitySelection(
+        "setup",
+        "delete_inlets",
+        "DELETE_INLET",
+        None,
+        "No empty-list meaning is established for this sequence of inlet deletions.",
+    ),
+    EntitySelection(
+        "setup",
+        "delete_outlets",
+        "DELETE_OUTLET",
+        None,
+        "No empty-list meaning is established for this sequence of outlet deletions.",
+    ),
+    EntitySelection(
+        "setup",
+        "proximal_boundaries",
+        "SOLVER_PROXIMAL_BOUNDARIES",
+        None,
+        "The all-boundaries form is the explicit all token on supported builds, "
+        "not an established empty-list clearing form.",
+    ),
+    EntitySelection(
+        "setup",
+        "delete_transition_trips",
+        "DELETE_TRANSITION_TRIP",
+        None,
+        "No empty-list meaning is established for this sequence of trip deletions.",
+    ),
+    EntitySelection(
+        "setup",
+        "delete_surfaces",
+        "DELETE_SURFACES",
+        None,
+        "No empty-list meaning is established for this sequence of named surface deletions.",
+    ),
+    EntitySelection(
+        "setup",
         "vorticity_drag_boundaries",
         "SET_VORTICITY_DRAG_BOUNDARIES",
         False,
