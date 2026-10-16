@@ -1110,10 +1110,9 @@ def _rewrite_version_line(
     unpromotable and the only remaining route a hand edit, which
     invariant 3 forbids outright.
 
-    Still refused loudly: a command whose ``versions:`` block holds no
-    single-line flow-mapping entry to pattern the new one on. That block
-    is either multi-line or malformed, and guessing its shape is how a
-    mechanical edit mangles a file.
+    Flow and block version mappings are both supported. A block promotion
+    preserves its grammar and unchanged notes; insertion follows complete
+    version mappings rather than splitting a multiline row.
     """
     lines = text.splitlines()
     start = None
@@ -1140,40 +1139,55 @@ def _rewrite_version_line(
     recorded = [
         (index, match.group(1), match.group(2))
         for index in range(start, end)
-        if (match := _VERSION_LINE.match(lines[index])) is not None
+        if (match := re.match(r'^( {4})"([^"]+)":', lines[index])) is not None
     ]
-    for index, _indent, recorded_canonical in recorded:
-        if recorded_canonical == canonical:
+
+    def row_end(index: int) -> int:
+        for following in range(index + 1, end):
+            line = lines[following]
+            if (
+                line.strip()
+                and not line.lstrip().startswith("#")
+                and len(line) - len(line.lstrip()) <= 4
+            ):
+                return following
+        return end
+
+    for index, indent, recorded_canonical in recorded:
+        if recorded_canonical != canonical:
+            continue
+        if _VERSION_LINE.match(lines[index]):
             lines[index] = _rewritten_flow_entry(
                 lines[index], chapter, name, canonical, citation, body
             )
-            return "\n".join(lines) + "\n"
-
-    # Refuse an existing block-form version row: _VERSION_LINE sees only flow
-    # mappings, so inserting beside a block would duplicate its key and YAML
-    # would discard one. This writer cannot preserve a block's notes and grammar
-    # overrides while rewriting it.
-    block = f'{" " * 4}"{canonical}":'
-    for index in range(start, end):
-        if lines[index].rstrip() == block:
-            raise QaEvidenceError(
-                f"{chapter}: {name} already records {canonical!r} as a multi-line "
-                "block, which this promotion cannot rewrite without discarding the "
-                "note or argument override the block carries. Fold the new status "
-                f"and report into that block by hand, citing {citation!r}, and leave "
-                "the rest of it alone; the status still comes from a committed "
-                "report, which is what invariant 3 asks."
-            )
+        else:
+            stop = row_end(index)
+            existing = yaml.safe_load("\n".join(lines[index:stop]))[canonical]
+            synthetic = f'{indent}"{canonical}": {_flow_mapping(existing)}'
+            rewritten = _rewritten_flow_entry(synthetic, chapter, name, canonical, citation, body)
+            _, updated = _parsed_flow_entry(rewritten, chapter, name, canonical)
+            if existing == updated:
+                return text
+            fields = [
+                (at, match.group(1))
+                for at in range(index + 1, stop)
+                if (match := re.match(r"^      ([a-z_]+):", lines[at])) is not None
+            ]
+            # Replace only owned values, from bottom to top; grammar, comments and
+            # multiline edition notes that did not change retain their exact text.
+            for position in range(len(fields) - 1, -1, -1):
+                at, key = fields[position]
+                if existing.get(key) == updated.get(key):
+                    continue
+                finish = fields[position + 1][0] if position + 1 < len(fields) else stop
+                lines[at:finish] = ["      " + _flow_mapping({key: updated[key]})[1:-1]]
+            missing = {key: value for key, value in updated.items() if key not in existing}
+            for key, value in reversed(list(missing.items())):
+                lines.insert(index + 1, "      " + _flow_mapping({key: value})[1:-1])
+        return "\n".join(lines) + "\n"
 
     if not recorded:
-        raise QaEvidenceError(
-            f"{chapter}: {name} records no version as a single-line entry, so this "
-            f"promotion has no line to copy the shape of the new {canonical!r} entry "
-            f"from. Rewrite the versions: block of {name} as one line per version "
-            "(for example '\"26.120\": {status: documented}') and re-run "
-            "pyfs-qa apply-compat; a status is promoted from a committed report, "
-            "never hand-edited (CONTRIBUTING.md invariant 3)."
-        )
+        raise QaEvidenceError(f"{chapter}: {name} records no version mapping to extend")
 
     position = order[canonical]
     indent = recorded[0][1]
@@ -1183,7 +1197,7 @@ def _rewrite_version_line(
             for index, _, recorded_canonical in recorded
             if order.get(recorded_canonical, -1) > position
         ),
-        recorded[-1][0] + 1,
+        row_end(recorded[-1][0]),
     )
     lines.insert(insert_at, f'{indent}"{canonical}": {_flow_mapping(pairs)}')
     return "\n".join(lines) + "\n"

@@ -322,45 +322,30 @@ def _fake_chapter(commands_dir, versions: str) -> None:
     )
 
 
-def test_apply_compat_refuses_to_promote_over_a_multiline_block(tmp_path):
-    """The promotion must not write the same version key twice.
-
-    A version already recorded as a BLOCK is invisible to the one-line
-    matcher, so the promotion used to insert a SECOND key beside it.
-    YAML keeps the last and drops the first without complaining, and on
-    2026-08-08 that nearly erased a hand-authored per-version GRAMMAR:
-    SOLVER_PROXIMAL_BOUNDARIES records a different argument list on
-    26.121, and the inserted line would have silenced it.
-
-    Refused rather than rewritten, because the block carries a note and
-    possibly an argument override this function cannot preserve, and
-    dropping either is the same silent loss somewhere else.
-    """
+def test_apply_compat_promotes_a_multiline_block_without_losing_its_note(tmp_path):
     commands_dir = tmp_path / "commands"
     _fake_chapter(
         commands_dir,
-        '    "26.120":\n'
-        "      status: documented\n"
-        "      note: >-\n"
-        "        a hand-authored block carrying something worth keeping\n",
+        '    "26.120":\n      status: documented\n'
+        "      note: >-\n        retained edition reading\n",
     )
-    report_path = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}})
-    with pytest.raises(ValueError, match="already records '26.120' as a multi-line block"):
-        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    report = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}})
+    apply_compat(report, repo_root=tmp_path, commands_dir=commands_dir)
+    version = yaml.safe_load((commands_dir / "fake.yaml").read_text())["FAKE_CMD"]["versions"][
+        "26.120"
+    ]
+    assert version["status"] == "verified"
+    assert version["note"] == "retained edition reading"
 
 
-def test_apply_compat_refuses_when_no_line_shows_it_the_shape(tmp_path):
-    """The older refusal, still reachable and still its own case.
-
-    Here the block belongs to a DIFFERENT version, so there is no
-    collision to refuse and also no single-line entry whose shape the
-    new one could copy.
-    """
+def test_apply_compat_inserts_before_a_later_block_mapping(tmp_path):
     commands_dir = tmp_path / "commands"
-    _fake_chapter(commands_dir, '    "26.101":\n      status: documented\n')
-    report_path = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}})
-    with pytest.raises(ValueError, match="records no version as a single-line entry"):
-        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
+    _fake_chapter(commands_dir, '    "26.121":\n      status: documented\n')
+    report = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}})
+    apply_compat(report, repo_root=tmp_path, commands_dir=commands_dir)
+    versions = yaml.safe_load((commands_dir / "fake.yaml").read_text())["FAKE_CMD"]["versions"]
+    assert list(versions) == ["26.120", "26.121"]
+    assert versions["26.121"]["status"] == "documented"
 
 
 def test_apply_compat_onboards_a_version_the_command_does_not_record_yet(tmp_path):
@@ -407,38 +392,21 @@ def test_apply_compat_onboards_a_version_the_command_does_not_record_yet(tmp_pat
     assert not [line for line in run_block if "26.121" in line]
 
 
-def test_apply_compat_still_refuses_a_block_with_no_line_to_pattern_on(tmp_path):
+def test_apply_compat_inserts_after_a_complete_block_mapping(tmp_path):
     commands_dir = tmp_path / "commands"
-    commands_dir.mkdir()
-    (commands_dir / "_meta.yaml").write_text(META_FIXTURE, encoding="utf-8")
-    (commands_dir / "fake.yaml").write_text(
-        "FAKE_CMD:\n"
-        "  layout: bare\n"
-        "  phase: control\n"
-        "  args: []\n"
-        '  manual_ref: "FSM-26.120 p.281"\n'
-        "  versions:\n"
-        '    "26.120":\n'
-        "      status: documented\n",
-        encoding="utf-8",
+    _fake_chapter(
+        commands_dir,
+        '    "26.120":\n      status: documented\n'
+        "      note: >-\n        retain both lines\n        of the old note\n",
     )
-    report_path = write_report(
-        tmp_path,
-        {"FAKE_CMD": {"outcome": "verified", "detail": "x"}},
-        version="26.121",
+    report = write_report(
+        tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "x"}}, version="26.121"
     )
-    with pytest.raises(ValueError) as caught:
-        apply_compat(report_path, repo_root=tmp_path, commands_dir=commands_dir)
-    message = str(caught.value)
-    # Pin the REMEDY, not only the diagnosis. The first wording of this
-    # refusal said "promote this entry manually reviewable or normalize the
-    # block first", whose only actionable reading told the user to hand-edit
-    # a status, which invariant 3 forbids outright. Only the diagnosis half
-    # was pinned, so the broken half was free to drift.
-    assert "no line to copy the shape" in message
-    assert "one line per version" in message
-    assert "never hand-edited" in message
-    assert "manually" not in message
+    apply_compat(report, repo_root=tmp_path, commands_dir=commands_dir)
+    versions = yaml.safe_load((commands_dir / "fake.yaml").read_text())["FAKE_CMD"]["versions"]
+    assert list(versions) == ["26.120", "26.121"]
+    assert versions["26.120"]["note"] == "retain both lines of the old note"
+    assert versions["26.121"]["status"] == "verified"
 
 
 def test_apply_compat_refuses_a_report_naming_an_unregistered_version(tmp_path):
@@ -1963,3 +1931,41 @@ def test_the_derivation_writes_no_membership(tmp_path):
         "a licence subset has been committed as evidence: which commands belong in it "
         f"is the author's domain-expert seat, not a derivation's: {committed}"
     )
+
+
+@pytest.mark.parametrize("existing", ["26.120", "26.121"])
+def test_p0420_compat_preserves_multiline_evidence_and_reapplies_identically(tmp_path, existing):
+    commands_dir = tmp_path / "commands"
+    _fake_chapter(
+        commands_dir,
+        f'    "{existing}":\n'
+        "      status: documented\n      note: >-\n"
+        "        FSM-26.120 p.281, retained edition reading\n"
+        "      args: []\n",
+    )
+    report = write_report(tmp_path, {"FAKE_CMD": {"outcome": "verified", "detail": "observed"}})
+    apply_compat(report, repo_root=tmp_path, commands_dir=commands_dir)
+    target = commands_dir / "fake.yaml"
+    first = target.read_bytes()
+    versions = yaml.safe_load(first)["FAKE_CMD"]["versions"]
+    assert versions["26.120"]["status"] == "verified"
+    assert versions[existing]["args"] == []
+    assert "retained edition reading" in versions[existing]["note"]
+    apply_compat(report, repo_root=tmp_path, commands_dir=commands_dir)
+    assert target.read_bytes() == first
+
+
+def test_p0420_reapplying_t1_probe_keeps_command_database_bytes(tmp_path):
+    import shutil
+
+    root = Path(__file__).resolve().parents[2]
+    copied = tmp_path / "commands"
+    shutil.copytree(root / "src/pyflightstream/commands", copied)
+    reports = tmp_path / "reports/compat"
+    reports.mkdir(parents=True)
+    report = reports / "CMP-26124_2026-10-02_t1-probe.yaml"
+    shutil.copyfile(root / "reports/compat" / report.name, report)
+    apply_compat(report, repo_root=tmp_path, commands_dir=copied)
+    before = {p.name: p.read_bytes() for p in copied.glob("*.yaml")}
+    apply_compat(report, repo_root=tmp_path, commands_dir=copied)
+    assert {p.name: p.read_bytes() for p in copied.glob("*.yaml")} == before
