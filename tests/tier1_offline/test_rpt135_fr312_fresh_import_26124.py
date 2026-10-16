@@ -3,9 +3,8 @@
 The fixture holds the blocks (MESH left out, machine paths replaced) of the ten tier-3 shapes
 freshly imported on FlightStream 26.124 (build 8172026) by the tier-3 preparation recipe,
 and of D, the blade saved by 26.124 after a 12-step unsteady_rotor solve (far field 5). The
-26.124 table is NOT in the released package (FR-531: a 26.124 file keeps its blocks); the
-tests give it to the package's own reset in-process, which is what registering it in 0.35.0
-would do, and they pin the released behaviour beside it.
+26.124 table is registered for meter files. The tests compare the reset with the
+recorded table and preserve all blocks outside that measured table.
 
 D's WAKE (268 lines) and SOLVER (720 lines) are recorded as one placeholder line each,
 carrying the block's sha256; the fixture carries the blade's fresh-import hashes of the same
@@ -105,8 +104,8 @@ def test_the_dirty_save_differs_and_the_reset_puts_back_what_rpt_135_measured_fr
     assert all(recorded[n] == _sha256(fresh_blocks[n]) for n in recorded), recorded
     differ = [n for n in _table() if _content(dirty_blocks[n]) != _content(fresh_blocks[n])]
     assert sorted(differ) == sorted(RESET_PUT_BACK), differ
-    # The table is registered for this test only, as an entry of the released registry,
-    # which is what registering it in 0.35.0 would do; the registry is restored after.
+    # Inject the fixture independently of the shipped literal so this comparison
+    # measures reset behavior separately from the registration test below.
     monkeypatch.setitem(FRESH_IMPORT, (BUILD124, UNIT), _table())
     result = reset_to_fresh_import(dirty, UNIT, "D")
     assert sorted(result.blocks) == sorted(RESET_PUT_BACK) and result.note is None
@@ -115,9 +114,13 @@ def test_the_dirty_save_differs_and_the_reset_puts_back_what_rpt_135_measured_fr
     assert all(after[n] == block_lines(dirty)[n] for n in after if n not in _table())
 
 
-def test_the_released_package_keeps_every_block_of_the_recorded_26124_save_fr_312():
-    """As released (FR-531): no 26.124 table, so the recorded save keeps every block and says so."""
+def test_p0420_p2_1a_released_package_resets_recorded_26124_save_fr_312():
+    """The measured 26.124 table resets its blocks and preserves every other block."""
     # Verifies FR-312.
     dirty = _text(_data()["dirty"])
     result = reset_to_fresh_import(dirty, UNIT, "D")
-    assert result.text == dirty and result.blocks == () and "8172026" in (result.note or "")
+    assert sorted(result.blocks) == sorted(RESET_PUT_BACK) and result.note is None
+    assert FRESH_IMPORT[(BUILD124, UNIT)] == _table()
+    before, after = block_lines(dirty), block_lines(result.text)
+    assert all(after[name] == body for name, body in _table().items())
+    assert all(after[name] == body for name, body in before.items() if name not in _table())
