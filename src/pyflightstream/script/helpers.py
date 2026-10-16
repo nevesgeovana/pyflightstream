@@ -76,6 +76,7 @@ from pyflightstream.script import (
     Script,
     ScriptReferenceError,
     UnsteadyActionUse,
+    _check_scalar,
 )
 from pyflightstream.script._build_forms import (  # noqa: F401  (this module is the public path)
     _unmarked_unit_refusal,
@@ -253,6 +254,17 @@ def render_actuator_profile(text: str, *, source: str = "the radial thrust profi
     return "\n".join(rows)
 
 
+def _checked_helper_value(script: Script, command: str, argument: str, value: object) -> object:
+    """Validate a helper argument against its target build before creating an entity."""
+    entry = script.entry(command)
+    spec = next(spec for spec in entry.args if spec.name == argument)
+    if spec.cites is not None:
+        context = f"{command}: argument {argument!r}"
+        value = script.entities.resolve(spec.cites, value, context=context)
+        script.entities.check_index(spec.cites, value, context=context)
+    return _check_scalar(entry, spec, value)
+
+
 def actuator_disc(
     script: Script,
     name: str,
@@ -350,7 +362,10 @@ def actuator_disc(
     CommandArgumentError
         If not exactly one thrust specification is given, a profile file lacks ``n_blades`` or is
         refused on the script's build, ``profile_text`` comes without ``profile`` or names a path
-        the script already writes differently, or ``swirl`` is outside [0, 1].
+        the script already writes differently, ``swirl`` is outside [0, 1], or an axis,
+        thrust unit, profile unit or wake type is outside the build's accepted vocabulary.
+    ScriptReferenceError, ScriptLabelError
+        If the frame does not exist or the creation label is already used.
     """
     enable = _read("actuator_disc", "enable", enable)
     if (thrust is None) == (profile is None):
@@ -414,6 +429,7 @@ def actuator_disc(
             "fraction of the swirl velocity kept downstream (FSM-26.120 p.186)"
         )
     if wake_type is not None:
+        wake_type = wake_type.upper()
         entry = script.entry("SET_ACTUATOR_WAKE_TYPE")
         allowed = next(arg.values for arg in entry.args if arg.name == "type") or ()
         if wake_type not in allowed:
@@ -421,6 +437,17 @@ def actuator_disc(
                 f"actuator_disc wake_type {wake_type!r} is not one of {tuple(allowed)}"
             )
     subtype = "ELLIPTICAL" if thrust is not None else "CUSTOM"
+    for command, argument, value in (
+        ("SET_ACTUATOR_AXIS", "frame", frame),
+        ("SET_ACTUATOR_AXIS", "axis", axis),
+    ):
+        _checked_helper_value(script, command, argument, value)
+    if thrust is not None:
+        _checked_helper_value(script, "SET_PROP_ACTUATOR_THRUST", "thrust_type", thrust_type)
+    else:
+        _checked_helper_value(script, "SET_PROP_ACTUATOR_PROFILE", "units_type", profile_force_unit)
+    if label is not None:
+        script.entities.assert_label_free("actuators", label)
     # PROPELLER is the CREATE_NEW_ACTUATOR enum value. Emit the solver's
     # vocabulary exactly.
     script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype=subtype, name=name, label=label)
@@ -546,7 +573,11 @@ def rotary_motion(
         On 26.100 until the rotor unit is measured. On a Euclidean build,
         marked or not, if the axis is given by index
         or a wake stabilization blade count is asked for, neither of which
-        that vocabulary can state.
+        that vocabulary can state, or if a rotary axis is outside its build's
+        accepted vocabulary.
+    ScriptReferenceError, ScriptLabelError
+        If a cited frame or boundary does not exist, or the motion label is
+        already used. These checks precede entity creation.
     """
     _reject_bare_label("rotary_motion", "boundaries", boundaries, allows_all=True)
     _reject_bare_label("rotary_motion", "moving_frames", moving_frames, allows_all=True)
@@ -575,6 +606,16 @@ def rotary_motion(
             "rotary motion', RPT-026), although the command runs on a 6DOF motion "
             "(RPT-166). Drop start_time for a rotary motion"
         )
+    _checked_helper_value(script, "SET_MOTION_COORDINATE_SYSTEM", "coordinate_system_id", frame)
+    if not euclidean:
+        _checked_helper_value(script, "SET_MOTION_ROTOR_AXIS", "axis", axis)
+    for kind, selection in (("boundaries", boundaries), ("frames", moving_frames)):
+        if selection is not None and selection != "all":
+            for value in selection:
+                resolved = script.entities.resolve(kind, value, context="rotary_motion")
+                script.entities.check_index(kind, resolved, context="rotary_motion")
+    if label is not None:
+        script.entities.assert_label_free("motions", label)
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
     motion_id = script.num_motions
     _emit_motion_selections(script, motion_id, boundaries, moving_frames)
@@ -1865,6 +1906,9 @@ def blade_frames(
         different length from the blade count. Every one of these fires
         before anything is emitted, so a refused call leaves the script
         untouched.
+    ScriptLabelError
+        If a blade label is invalid or already used. Duplicate labels are refused
+        with CommandArgumentError before any blade frame is created.
 
     Notes
     -----
@@ -1937,6 +1981,13 @@ def blade_frames(
             "indices this returns"
         )
 
+    if labels is not None:
+        if len(set(labels)) != len(labels):
+            raise CommandArgumentError(
+                "blade_frames: labels must be unique; give each blade its own label"
+            )
+        for label in labels:
+            script.entities.assert_label_free("frames", label)
     sign = ROTATION_SENSE_SIGN[rotation]
     spacing = 360.0 / n_blades
     created: list[int] = []
