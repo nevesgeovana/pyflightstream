@@ -177,20 +177,13 @@ def test_a_write_adds_a_row_only_where_the_reading_says_it_may(tree):
 
 
 def test_the_note_names_both_editions_by_citation_id_and_both_pages(tree):
-    """A build is not an edition, and the claim is about two pages.
-
-    The first version wrote "same grammar as the 26.122 edition" into 368
-    shipped rows: a BUILD label where an EDITION is meant, in a package
-    whose own citation checker reads notes for SRC ids. It also dropped
-    the predecessor's page, which is the one thing that makes the claim
-    checkable, since the claim is that TWO pages say the same thing.
-    """
+    """The note identifies both manual editions and their compared pages."""
     chapters, _, _, _ = tree
     _run(tree, write=True)
     alpha = yaml.safe_load((chapters / "alpha.yaml").read_text(encoding="utf-8"))
     note = alpha["KEPT"]["versions"]["26.123"]["note"]
     assert "FSM-26.123" in note and "FSM-26.122" in note
-    assert "26.122" not in note and "edition" not in note.split(",")[0]
+    assert note == "FSM-26.123 p.10, unchanged from FSM-26.122 p.10"
 
 
 def test_running_the_write_twice_is_a_no_op_that_says_so(tree):
