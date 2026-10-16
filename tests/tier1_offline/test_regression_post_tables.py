@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 import pyflightstream.post.section_distributions as distributions
+from pyflightstream import _textio
 from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
 from pyflightstream.post import OutputProvenance
 from pyflightstream.post._tables import (
@@ -77,6 +78,39 @@ from tests.tier1_offline.test_post_products import (
 )
 from tests.tier1_offline.test_post_superfile import _PLOTS as _POST_1_POINT_TABLES___PLOTS
 from tests.tier1_offline.test_settings_codebook import snapshot as _post_1_settings_table__snapshot
+
+
+def test_p0420_csv_refusal_preserves_published_table(tmp_path):
+    target = tmp_path / "table.csv"
+    target.write_bytes(b"x,y\nold,data\n")
+    with pytest.raises(ProductError):
+        write_csv_table(target, ["x", "y"], [[1, 2], [3]])
+    assert target.read_bytes() == b"x,y\nold,data\n"
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_p0420_text_encoding_refusal_preserves_published_text(tmp_path):
+    target = tmp_path / "text.txt"
+    target.write_bytes(b"previous\n")
+    with pytest.raises(UnicodeEncodeError):
+        _textio.write_text(target, "\ud800")
+    assert target.read_bytes() == b"previous\n"
+    assert list(tmp_path.iterdir()) == [target]
+
+
+def test_p0420_line_iterator_failure_preserves_published_text(tmp_path):
+    target = tmp_path / "text.txt"
+    target.write_bytes(b"previous\n")
+
+    def lines():
+        yield "first"
+        raise RuntimeError("interrupted producer")
+
+    with pytest.raises(RuntimeError, match="interrupted producer"):
+        _textio.write_lines(target, lines())
+    assert target.read_bytes() == b"previous\n"
+    assert list(tmp_path.iterdir()) == [target]
+
 
 _POST2_CUSTOM_POLAR___ACCENTED = "Asa em cruzeiro, " + chr(0xE2) + "ngulo m" + chr(0xE9) + "dio"
 
