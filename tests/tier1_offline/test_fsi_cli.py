@@ -2,8 +2,41 @@
 
 import json
 
+import pytest
+
 from pyflightstream.fsi import cli, driver
 from tests.tier1_offline.test_fsi_driver import stage_run, write_loads
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["stpe"],
+        ["externl"],
+        ["init-dumy"],
+        ["--version"],
+        ["--dir", ".", "step"],
+        ["solver", "--node-count=3"],
+    ],
+)
+def test_p0420_p1_1d_cli_typo_does_not_run_a_step(tmp_path, monkeypatch, argv):
+    """PFS-2124.001: person-facing mistakes must not mutate a coupling folder."""
+    cli.init_dummy(tmp_path, 2)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as error:
+        cli.main(argv)
+    assert error.value.code == 2
+    assert not (tmp_path / cli.DISPLACEMENT_FILE).exists()
+
+
+@pytest.mark.parametrize("argv", [[], ["solver", "42"]])
+def test_p0420_p1_1d_solver_dispatch_names_directory_and_mode(tmp_path, monkeypatch, capsys, argv):
+    cli.init_dummy(tmp_path, 2)
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(argv) == 0
+    said = capsys.readouterr().err
+    assert str(tmp_path) in said
+    assert "dummy" in said
 
 
 def test_init_dummy_then_step_writes_zero_displacements(tmp_path):
