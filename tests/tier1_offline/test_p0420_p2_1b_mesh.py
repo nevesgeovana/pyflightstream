@@ -120,3 +120,19 @@ def test_p0420_files_read_is_the_list_the_audit_refuses_by_and_write_csv_guards_
             assert path.read_bytes() == before
     out = tmp_path / "figures.csv"
     assert audit.write_csv(out) == out and out.is_file()
+
+
+# ---------------------------------------------------------------- PFS-2119.062
+
+
+def test_p0420_a_sheet_with_no_trailing_edge_is_refused_for_that_reason():
+    """PFS-2119.062: a sheet needs a trailing edge; the refusal says so, not 'not a grid line'."""
+    from pyflightstream.workspace._refine._grid import recover_grid
+    from tests.p0380_mesh_fixtures import sheet_quads
+
+    sheet = sheet_quads()
+    said = recover_grid(sheet.verts, sheet.faces, set())
+    assert isinstance(said, str) and said.startswith("a sheet needs a trailing edge")
+    assert "only a smooth tube is recovered without one" in said
+    # the control: with its trailing edge the same sheet is a grid
+    assert not isinstance(recover_grid(sheet.verts, sheet.faces, sheet.te), str)
