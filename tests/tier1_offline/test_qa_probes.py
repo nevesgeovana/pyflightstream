@@ -26,6 +26,99 @@ from tests.tier1_offline._no_evidence import registry_without_version
 PILOT = ["PRINT", "STOP", "RUN_SCRIPT"]
 
 
+def test_p0420_direct_unprobed_hotfix_does_not_inherit_verified():
+    """P0420-P1-1b, FR-03: 26.122's own inconclusive run is not a verified run."""
+    from pyflightstream.commands import CommandRegistry, Status
+    from pyflightstream.versions import resolve
+
+    evidence = CommandRegistry.load().commands["SET_INVISCID_LOADS"].evidence_in(resolve("26.122"))
+    assert evidence.record.status is Status.DOCUMENTED
+    assert not evidence.inherited
+
+
+def test_p0420_record_unprobed_build_keeps_manual_evidence_and_report(tmp_path):
+    """P0420-P1-1b, FR-03: direct inconclusive evidence supersedes inherited verification."""
+    import shutil
+
+    import yaml
+
+    from pyflightstream.commands import CommandEntry, Status
+    from pyflightstream.qa import compat
+    from pyflightstream.qa.errors import QaEvidenceError
+    from pyflightstream.versions import resolve
+
+    record = getattr(compat, "record_unprobed_build", None)
+    assert callable(record), "an explicit supported route must record inconclusive build evidence"
+    source = Path(__file__).resolve().parents[2]
+    chapters = tmp_path / "commands"
+    chapters.mkdir()
+    for name in ("_meta.yaml", "solver_analysis.yaml"):
+        shutil.copyfile(source / "src/pyflightstream/commands" / name, chapters / name)
+    # The lane's live row may already carry the correction. This fixture
+    # represents the inherited-only predecessor, without copying its output.
+    chapter = chapters / "solver_analysis.yaml"
+    text = chapter.read_text(encoding="utf-8")
+    start = text.index("SET_INVISCID_LOADS:")
+    end = text.index("SET_VORTICITY_LIFT_MODEL:", start)
+    block = (
+        "\n".join(
+            line for line in text[start:end].splitlines() if not line.startswith('    "26.122":')
+        )
+        + "\n\n"
+    )
+    chapter.write_text(text[:start] + block + text[end:], encoding="utf-8")
+    report = tmp_path / "reports/compat/CMP-26122_2026-08-11_full.yaml"
+    report.parent.mkdir(parents=True)
+    shutil.copyfile(source / "reports/compat" / report.name, report)
+    before = chapter.read_bytes()
+    with pytest.raises(QaEvidenceError, match="cite a page"):
+        record(
+            report,
+            "SET_INVISCID_LOADS",
+            manual_ref="FSM-26.120 p.351",
+            repo_root=tmp_path,
+            commands_dir=chapters,
+        )
+    assert chapter.read_bytes() == before
+    record(
+        report,
+        "SET_INVISCID_LOADS",
+        manual_ref="FSM-26.122 p.349",
+        repo_root=tmp_path,
+        commands_dir=chapters,
+    )
+    body = yaml.safe_load(chapter.read_text(encoding="utf-8"))["SET_INVISCID_LOADS"]
+    entry = CommandEntry(name="SET_INVISCID_LOADS", chapter="solver_analysis.yaml", **body)
+    evidence = entry.evidence_in(resolve("26.122"))
+    assert not evidence.inherited
+    assert evidence.record.status is Status.DOCUMENTED
+    assert evidence.record.report == report.relative_to(tmp_path).as_posix()
+    assert "unprobed" in evidence.record.note
+    assert "FSM-26.122 p.349" in evidence.record.note
+    before = chapter.read_bytes()
+    with pytest.raises(QaEvidenceError, match="explicit"):
+        record(
+            report,
+            "SET_INVISCID_LOADS",
+            manual_ref="FSM-26.122 p.349",
+            repo_root=tmp_path,
+            commands_dir=chapters,
+        )
+    assert chapter.read_bytes() == before
+    document = yaml.safe_load(report.read_text(encoding="utf-8"))
+    document["commands"]["SET_INVISCID_LOADS"]["outcome"] = "verified"
+    report.write_text(yaml.safe_dump(document), encoding="utf-8")
+    with pytest.raises(QaEvidenceError, match="must record unprobed"):
+        record(
+            report,
+            "SET_INVISCID_LOADS",
+            manual_ref="FSM-26.122 p.349",
+            repo_root=tmp_path,
+            commands_dir=chapters,
+        )
+    assert chapter.read_bytes() == before
+
+
 class FakeFlightStream:
     """Interprets probe scripts the way a healthy solver would.
 

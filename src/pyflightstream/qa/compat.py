@@ -59,6 +59,7 @@ __all__ = [
     "contradicting_evidence",
     "licence_sensitive_candidates",
     "read_compat_report",
+    "record_unprobed_build",
     "read_compat_reports",
     "read_executable_baseline",
     "resolve_commands_dir",
@@ -731,6 +732,105 @@ def apply_compat(
     return promotions
 
 
+def record_unprobed_build(
+    report_path: str | Path,
+    command: str,
+    *,
+    manual_ref: str,
+    repo_root: str | Path,
+    commands_dir: str | Path | None = None,
+) -> None:
+    """Record direct inconclusive evidence instead of inherited verification.
+
+    This explicit maintenance route adds a documented row only where the build
+    has no row and no committed measured verdict. It never changes a measured
+    record and never interprets unprobed as a broken command.
+
+    Parameters
+    ----------
+    report_path : str or Path
+        Committed report containing an unprobed outcome for the command.
+    command : str
+        One command to reconcile; other report entries are not applied.
+    manual_ref : str
+        Page citation of this build's manual, checked by the caller.
+    repo_root : str or Path
+        Repository containing both the report and command chapters.
+    commands_dir : str or Path, optional
+        Chapter directory under the repository.
+
+    Raises
+    ------
+    QaEvidenceError
+        If evidence is not inconclusive, a direct record or measured verdict
+        exists, the manual citation names another build, or paths are invalid.
+    """
+    report = read_compat_report(report_path)
+    canonical = report["fs_version"]
+    root = Path(repo_root).resolve()
+    try:
+        citation = Path(report_path).resolve().relative_to(root).as_posix()
+    except ValueError:
+        raise QaEvidenceError("the unprobed report must be inside repo_root") from None
+    if report["commands"].get(command, {}).get("outcome") != "unprobed":
+        raise QaEvidenceError(f"{command}: the report must record unprobed")
+    if not manual_ref.startswith(f"FSM-{canonical} p."):
+        raise QaEvidenceError(f"{command}: cite a page of FSM-{canonical}")
+    if read_compat_reports(repo_root=root).get((command, canonical)):
+        raise QaEvidenceError(f"{command}: explicit measured evidence requires reconciliation")
+    directory = resolve_commands_dir(root, commands_dir)
+    order = _release_order(directory)
+    if canonical not in order:
+        raise QaEvidenceError(f"unregistered build {canonical}")
+    for path in sorted(directory.glob("*.yaml")):
+        entries = _load_yaml(path)
+        if command in entries:
+            _record_unprobed_row(
+                path,
+                entries[command],
+                command,
+                canonical,
+                citation=citation,
+                manual_ref=manual_ref,
+                order=order,
+            )
+            return
+    raise QaEvidenceError(f"unknown command {command}")
+
+
+def _record_unprobed_row(
+    path: Path,
+    entry: dict,
+    command: str,
+    canonical: str,
+    *,
+    citation: str,
+    manual_ref: str,
+    order: dict[str, int],
+) -> None:
+    """Validate and atomically add the one explicit inconclusive row."""
+    if canonical in entry.get("versions", {}):
+        raise QaEvidenceError(f"{command}: an explicit build record already exists")
+    original = path.read_text(encoding="utf-8")
+    updated = _rewrite_version_line(
+        original,
+        path.name,
+        command,
+        canonical,
+        {
+            "outcome": "documented",
+            "detail": (
+                f"{manual_ref}; unprobed on this build; direct inconclusive evidence "
+                "takes precedence over inherited verification."
+            ),
+        },
+        citation,
+        order,
+    )
+    _validate_chapter(path.name, updated, [command])
+    _write_changed([(path, original, updated)])
+
+
 def _write_changed(rewritten: list[tuple[Path, str, str]]) -> None:
     """Write each chapter whose text changed; a corroborated chapter is left alone.
 
@@ -1034,7 +1134,7 @@ def _rewrite_version_line(
 
     status = body["outcome"]
     pairs: dict[str, object] = {"status": status, "report": citation}
-    if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value):
+    if status in (ProbeOutcome.BROKEN.value, ProbeOutcome.REMOVED.value, "documented"):
         pairs["note"] = _one_line_note(str(body.get("detail", "")))
 
     recorded = [
