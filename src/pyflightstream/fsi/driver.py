@@ -60,6 +60,7 @@ in-plane centrifugal softening) and writes the relaxed displacement.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from collections.abc import Callable, Sequence
@@ -71,6 +72,7 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 import pyflightstream.fsi._direct_morphing as _direct_morphing
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
@@ -79,7 +81,7 @@ from pyflightstream.fsi.loads import (
     ElasticAxisLoads,
     SectionalLoadsReport,
     SectionFamilyMap,
-    _check_staged_totals,
+    cross_check_totals,
     parse_sectional_loads,
     to_elastic_axis,
 )
@@ -115,6 +117,34 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def _check_staged_totals(
+    folder: Path, report: SectionalLoadsReport, family_map: SectionFamilyMap
+) -> None:
+    """Verify optional, hash-bound integrated loads before the structural solve."""
+    path = folder / "fsi_totals.json"
+    if not path.exists():
+        return
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        if payload["loads_sha256"] != file_sha256(folder / LOADS_FILE):
+            raise ValueError("loads_sha256 does not match the current sectional export")
+        if payload["solver_iteration"] != report.current_iteration:
+            raise ValueError("solver_iteration does not match the current sectional export")
+        blocks = report.split(family_map)
+        totals = payload["families"]
+        names = {family.name for family in family_map.families if family.is_blade}
+        if set(totals) != names:
+            raise ValueError("families must name exactly the coupled blade boundaries")
+        for name in sorted(names):
+            fx, fz = float(totals[name]["fx_n"]), float(totals[name]["fz_n"])
+            if not all(math.isfinite(value) for value in (fx, fz)):
+                raise ValueError("integrated forces must be finite Newton values")
+            cross_check_totals(blocks[name], fx, fz)
+    except (KeyError, TypeError, ValueError) as error:
+        raise FsiInputError(f"{path.name}: {error}") from error
+
 
 CONFIG_FILE = "config.json"
 STATE_FILE = "state.json"

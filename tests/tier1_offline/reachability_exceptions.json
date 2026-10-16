@@ -22,16 +22,6 @@
    ]
   },
   {
-   "id": "RX-10",
-   "capability": "Structural outcome per station (deflection and elastic twist from the node translations) and the loads cross-check",
-   "reason": "routed later",
-   "node": "PFS-2140.003",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.fsi.loads.cross_check_totals"
-   ]
-  },
-  {
    "id": "RX-11",
    "capability": "Quasi-steady rotor loading noise (observer signals and Gutin harmonics)",
    "reason": "routed later",

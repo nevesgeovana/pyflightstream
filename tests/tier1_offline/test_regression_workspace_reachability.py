@@ -55,10 +55,10 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # 273: N3 removes five retired RX-19/RX-20 migration names; no new exception.
 # P0420-P1-1d: launch instruction h authorizes the four new QA maintainer
 # APIs; minimal_workflow is now reached and leaves the register.
-_REACH_GUARD___REGISTER_CEILING = 225
+_REACH_GUARD___REGISTER_CEILING = 224
 
 
-_REACH_GUARD___REGISTER_DIGEST = "a8b8944c5cd5cd4aab55d0364346891b92ea5596b92214ac9dfd5d9e5b8ea7a4"
+_REACH_GUARD___REGISTER_DIGEST = "395f8132903f6db8094708fa4a446b0fa57172775fcead1f2d9a25eb82aa82f4"
 
 
 _REACH_GUARD__REASONS = (

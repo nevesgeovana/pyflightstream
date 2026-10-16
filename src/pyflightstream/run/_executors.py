@@ -1709,6 +1709,8 @@ class _CompletionScan:
         self.found = False
 
     def finished(self) -> bool:
+        from pyflightstream.cases.fsi_workspace import steady_aeroelastic_finished
+
         if self.found:
             return True
         try:
@@ -1717,7 +1719,7 @@ class _CompletionScan:
                 while chunk := stream.read(65536):
                     self.offset += len(chunk)
                     combined = self.tail + chunk
-                    self.found = self.marker in combined
+                    self.found = steady_aeroelastic_finished(combined.decode("utf-8", "replace"))
                     self.tail = combined[-(len(self.marker) - 1) :]
                     if self.found:
                         return True
