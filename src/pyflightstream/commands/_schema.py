@@ -391,6 +391,17 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
     """
     if layout is Layout.BARE and args:
         raise CommandDatabaseError(f"{name} has layout bare and must not declare arguments")
+    if layout is Layout.INLINE:
+        optional = False
+        for arg in args:
+            if arg.own_line:
+                continue
+            if optional and arg.required:
+                raise CommandDatabaseError(
+                    f"{name}: a required inline argument follows an optional argument; "
+                    "make positional arguments required before optional ones"
+                )
+            optional = optional or not arg.required
     if layout is not Layout.INLINE and any(arg.own_line for arg in args):
         raise CommandDatabaseError(f"{name}: own_line only applies to inline commands")
     if layout is not Layout.KEYWORD_BLOCK and any(arg.type is ArgType.BOOL for arg in args):

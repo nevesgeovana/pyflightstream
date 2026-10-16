@@ -1466,6 +1466,28 @@ class Script:
             else:
                 checked[spec.name] = _check_scalar(entry, spec, value)
         self._check_counts(entry, checked)
+        if entry.layout is Layout.INLINE:
+            positional = [spec for spec in specs if not spec.own_line]
+            # These grammars select alternative positional forms by a leading mode.
+            if entry.name == "SET_FREESTREAM":
+                selected = {
+                    "CONSTANT": {"type"},
+                    "ROTATION": {"type", "frame", "axis", "angular_velocity"},
+                    "CUSTOM": {"type", "filetype", "filename"},
+                }.get(str(checked.get("type")), set())
+                positional = [spec for spec in positional if spec.name in selected]
+            elif entry.name.startswith("SWEEPER_SET_") and "filename" in checked:
+                positional = [spec for spec in positional if spec.name != "values"]
+            missing = None
+            for spec in positional:
+                if spec.name not in checked:
+                    missing = missing or spec.name
+                elif missing is not None:
+                    raise CommandArgumentError(
+                        f"{entry.name}: argument {spec.name!r} follows omitted inline "
+                        f"argument {missing!r}; supply preceding positional arguments "
+                        f"to preserve their slots ({entry.citation})"
+                    )
         return checked
 
     def _resolve_labels(self, entry: CommandEntry, spec: ArgSpec, value: object) -> object:

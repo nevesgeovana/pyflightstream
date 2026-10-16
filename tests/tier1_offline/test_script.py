@@ -4369,3 +4369,9 @@ def test_p0420_boolean_unite_all_has_no_body_payload():
         "BODIES -1",
         "OPENVSP_PATH openvsp",
     ]
+
+
+def test_p0420_optional_inline_gap_is_refused():
+    script = Script("26.124")
+    with pytest.raises(CommandArgumentError):
+        script.emit("NEW_CCS_WING_CONTROL_SURFACE", "flap", 0, 1, 0, 1, 0, 10, 0, axis="X")
