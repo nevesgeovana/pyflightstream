@@ -283,16 +283,14 @@ def parse_signatures(
             page_of.append(page)
 
     found: dict[str, ManualCommand] = {}
-    headings = [i for i, line in enumerate(lines) if _SIGNATURE.search(line.strip())]
-    for position, i in enumerate(headings):
-        line = lines[i]
+    headings = [
+        (i, match) for i, line in enumerate(lines) if (match := _SIGNATURE.search(line.strip()))
+    ]
+    for position, (i, match) in enumerate(headings):
         # search, not match: the pattern already requires the heading
         # to start a line or follow whitespace, and anchoring at
         # position zero as well would defeat the margin tolerance the
         # pattern was widened for.
-        match = _SIGNATURE.search(line.strip())
-        if match is None:
-            continue
         name = match.group(1)
         if name in found:
             continue
@@ -300,7 +298,7 @@ def parse_signatures(
         if i + 1 < len(lines) and _WRAPPED_SIGNATURE.match(lines[i + 1]):
             signature += " " + lines[i + 1].strip()
         placeholders = tuple(a.strip() for a in _PLACEHOLDER.findall(signature))
-        end = headings[position + 1] if position + 1 < len(headings) else len(lines)
+        end = headings[position + 1][0] if position + 1 < len(headings) else len(lines)
         block = lines[i:end]
         found[name] = ManualCommand(
             name=name,
@@ -349,8 +347,6 @@ def _parameters_after(
     # stop existed: five commands compared a neighbour's parameter table.
     opening = None
     for j in range(start + 1, len(lines)):
-        if lines[j].strip().startswith("Function name:"):
-            break
         if lines[j].strip().startswith("Function parameters"):
             opening = j
             break
