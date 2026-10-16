@@ -148,8 +148,8 @@ class CcsControlSurface(BaseModel):
         Slot gap on either side, in percent of span.
     space : str
         ``PARAMETRIC`` (the default), the one supported form. ``REAL``
-        is accepted by the model so the emitter can write it, and the
-        plan refuses it on every build (RPT-097): unsupported.
+        is accepted by the model for validation, but the plan and direct wing
+        emitter refuse it on every build (RPT-097, RPT-126).
     axis : str
         The reference axis of REAL spanwise limits; written on every line.
     """

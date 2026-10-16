@@ -33,6 +33,7 @@ from tests.tier1_offline.test_matrix_run import RECIPES, make_library, write_mat
 
 BUILD = "26.124"
 
+
 #: One steady row naming a CCS file; ``{tail}`` appends row keys.
 ROW = (
     "7001 | TestCcs | CCS | 3.10 | 0.0890 | AL | 0.0 | r003 | s002 | e001 "
@@ -371,22 +372,19 @@ def test_p0320_ccs2_control_surface_is_declared_with_all_ten_arguments_before_th
 
 
 @pytest.mark.requirement("FR-298")
-def test_p0320_ccs2_control_surface_in_real_space_names_its_axis(tmp_path):
-    """P0320-CCS2-CONTROL-SURFACE: REAL spanwise limits along a reference axis."""
+def test_p0420_direct_wing_emitter_refuses_real_control_surfaces(tmp_path):
+    """The direct public route carries the same measured refusal as the workflow."""
     real = AILERON.replace("v0 = 0.5\nv1 = 0.9\n", "v0 = 2.0\nv1 = 3.6\n") + (
         'space = "REAL"\naxis = "Y"\n'
     )
     case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + real, ["WING"])
-    # The emitter still writes the form; the plan refuses it before (RPT-097), see
-    # test_p0320_ccs2_the_real_form_is_refused_at_plan_naming_rpt_097.
     from pyflightstream.cases.ccs_wing import emit_ccs_wing
 
     script = Script(BUILD)
-    emit_ccs_wing(script, case)
-    _index(
-        script.render().splitlines(),
-        "NEW_CCS_WING_CONTROL_SURFACE AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 REAL Y",
-    )
+    before = script.render()
+    with pytest.raises(CampaignConfigError, match="RPT-097"):
+        emit_ccs_wing(script, case)
+    assert script.render() == before
 
 
 def test_p0320_ccs2_control_surfaces_follow_the_subdivisions_in_the_order_written(tmp_path):
