@@ -34,6 +34,54 @@ DOCS = REPO / "docs"
 SCRIPTS = REPO / "scripts"
 
 
+def test_p0420_doc_theme_config_is_safe_yaml():
+    """PFS-2143: the approved theme passes check-yaml without skipping it."""
+    failure = None
+    try:
+        yaml.safe_load((REPO / "properdocs.yml").read_text(encoding="utf-8"))
+    except yaml.YAMLError as error:
+        failure = str(error)
+    assert failure is None, failure
+
+
+def test_p0420_doc_readme_vendor_build_is_last():
+    """PFS-2143: the last column identifies the vendor build, not its alias."""
+    from pyflightstream.versions import known_versions
+
+    text = (REPO / "README.md").read_text(encoding="utf-8")
+    assert "| Version | Vendor name | Support level | Build |" in text
+    for version in known_versions():
+        row = next(
+            line for line in text.splitlines() if line.startswith(f"| {version.canonical} |")
+        )
+        assert row.split("|")[-2].strip(" `") == version.build
+
+
+def test_p0420_doc_approved_navigation_and_assets():
+    """PFS-2143: publish theme D and all approved linked view destinations."""
+    config = yaml.safe_load((REPO / "properdocs.yml").read_text(encoding="utf-8"))
+    names = [next(iter(item)) for item in config["nav"]]
+    assert names == [
+        "Home",
+        "Start here",
+        "Workspace CLI",
+        "Python API",
+        "Reference",
+        "Help",
+        "Understanding pyflightstream",
+        "Contributing",
+    ]
+    assert "workspace-files.md" in _group("Workspace CLI")
+    assert {"api/", "exceptions.md"} <= set(_group("Reference"))
+    assert {
+        "understanding/requirements.md",
+        "understanding/code.md",
+        "understanding/execution.md",
+    } <= set(_group("Understanding pyflightstream"))
+    assert "stylesheets/variant-D.css" in config["extra_css"]
+    assert config["theme"]["logo"] == "assets/sticker_white.png"
+
+
 def _script(name: str):
     spec = importlib.util.spec_from_file_location(name, SCRIPTS / f"{name}.py")
     assert spec is not None and spec.loader is not None
@@ -485,7 +533,7 @@ def test_the_exceptions_catalog_lists_every_catalogued_exception():
         assert f"[`{name}`]" in hierarchy, f"{name} is not in the hierarchy"
     generator = (SCRIPTS / "gen_docs_pages.py").read_text(encoding="utf-8")
     assert 'mkdocs_gen_files.open("exceptions.md"' in generator
-    assert "exceptions.md" in _group("Python API")
+    assert "exceptions.md" in _group("Reference")
     # The control: a row cut from the page is seen.
     first = sorted(catalogued)[0]
     cut = re.sub(rf"^\| \[`{first}`\].*\n", "", page, count=1, flags=re.MULTILINE)
@@ -505,10 +553,11 @@ def test_the_nav_follows_the_approved_reader_structure():
     # The architecture core generates the single Concepts page; contributor
     # navigation links to its rules section instead of publishing the core twice.
     assert set(srs) - {"srs/architecture-srs.md"} == set(
-        _group("Concepts") + _group("Contributing")
+        _group("Understanding pyflightstream") + _group("Contributing")
     ) & set(srs)
-    assert {"srs/philosophy.md", "srs/introduction.md", "srs/scope.md", "srs/data-model.md"} <= set(
-        _group("Concepts")
+    assert "srs/data-model.md" in _group("Understanding pyflightstream")
+    assert {"srs/philosophy.md", "srs/introduction.md", "srs/scope.md"} <= set(
+        _group("Contributing")
     )
     site_url = yaml.safe_load((REPO / "properdocs.yml").read_text(encoding="utf-8"))["site_url"]
     assert {
@@ -518,8 +567,8 @@ def test_the_nav_follows_the_approved_reader_structure():
     assert "srs/roadmap.md" not in _group("Contributing")
     assert not (DOCS / "srs/roadmap.md").exists()
     for folder, group in (
-        ("api/", "Python API"),
-        ("cli/", "Workspace and Workflows"),
+        ("api/", "Reference"),
+        ("cli/", "Workspace CLI"),
         ("reference/", "Reference"),
     ):
         assert folder in _group(group), f"{folder} is not under {group}"

@@ -1,0 +1,790 @@
+{
+  "steps": [
+    {
+      "order": 1,
+      "phase": "CLI",
+      "module": "src/pyflightstream/run/cli.py",
+      "function": "main",
+      "inputs": [
+        "CLI argv, workspace W, matrix.fs"
+      ],
+      "outputs": [
+        "parsed args; command console activity log"
+      ],
+      "next": [
+        "_cmd_plan",
+        "_cmd_run",
+        "_cmd_post"
+      ],
+      "note": "Separate invocations, not a single call. pyproject.toml registers pyfs-matrix; no pyfs entry point.",
+      "line": 241,
+      "locator": "src/pyflightstream/run/cli.py:241"
+    },
+    {
+      "order": 2,
+      "phase": "Resolve",
+      "module": "src/pyflightstream/workspace/_matrix_homes.py",
+      "function": "resolve_matrix_arguments",
+      "inputs": [
+        "workspace root; matrix argument; candidate matrix paths"
+      ],
+      "outputs": [
+        "resolved matrix path in args"
+      ],
+      "next": [
+        "matrix_path"
+      ],
+      "note": "Reads path existence; no matrix mutation.",
+      "line": 178,
+      "locator": "src/pyflightstream/workspace/_matrix_homes.py:178"
+    },
+    {
+      "order": 3,
+      "phase": "Plan",
+      "module": "src/pyflightstream/run/cli.py",
+      "function": "_cmd_plan",
+      "inputs": [
+        "resolved args"
+      ],
+      "outputs": [
+        "CampaignWorkspace; CampaignPlan returned"
+      ],
+      "next": [
+        "plan_matrix"
+      ],
+      "note": "Default route through planner_for; no additional options or setup generation selected.",
+      "line": 1035,
+      "locator": "src/pyflightstream/run/cli.py:1035"
+    },
+    {
+      "order": 4,
+      "phase": "Parse",
+      "module": "src/pyflightstream/run/matrix.py",
+      "function": "plan_matrix",
+      "inputs": [
+        "matrix.fs; W/inputs; existing W/runs.json if present"
+      ],
+      "outputs": [
+        "resolved campaign; plan; input guides"
+      ],
+      "next": [
+        "_selected_rows",
+        "resolve_matrix",
+        "plan_campaign",
+        "write_input_guides"
+      ],
+      "note": "",
+      "line": 455,
+      "locator": "src/pyflightstream/run/matrix.py:455"
+    },
+    {
+      "order": 5,
+      "phase": "Parse",
+      "module": "src/pyflightstream/cases/matrix.py",
+      "function": "read_matrix",
+      "inputs": [
+        "matrix.fs"
+      ],
+      "outputs": [
+        "MatrixRow for POL 1001; alpha sweep [0,2,4]"
+      ],
+      "next": [
+        "to_campaign"
+      ],
+      "note": "Strict 19-column header; RUN=1 active; variables and flight condition parsed. Called through _selected_rows.",
+      "line": 972,
+      "locator": "src/pyflightstream/cases/matrix.py:972"
+    },
+    {
+      "order": 6,
+      "phase": "Resolve",
+      "module": "src/pyflightstream/workspace/matrix.py",
+      "function": "resolve_matrix",
+      "inputs": [
+        "matrix rows; workspace; recipes; build default/override"
+      ],
+      "outputs": [
+        "ResolvedMatrix; Campaign and resolved artifacts"
+      ],
+      "next": [
+        "_bind_build",
+        "_bind_artifacts",
+        "_bind_rows"
+      ],
+      "note": "",
+      "line": 567,
+      "locator": "src/pyflightstream/workspace/matrix.py:567"
+    },
+    {
+      "order": 7,
+      "phase": "Resolve",
+      "module": "src/pyflightstream/workspace/_matrix_phases.py",
+      "function": "_bind_build",
+      "inputs": [
+        "FS_BUILD=26.124; W/inputs/executables.toml"
+      ],
+      "outputs": [
+        "executable/build bindings; preliminary Campaign"
+      ],
+      "next": [
+        "_resolve_build",
+        "to_campaign"
+      ],
+      "note": "",
+      "line": 1302,
+      "locator": "src/pyflightstream/workspace/_matrix_phases.py:1302"
+    },
+    {
+      "order": 8,
+      "phase": "Resolve",
+      "module": "src/pyflightstream/workspace/_matrix_phases.py",
+      "function": "_bind_artifacts",
+      "inputs": [
+        "W/inputs/references/r001.toml",
+        "W/inputs/setups/s001.toml",
+        "W/inputs/pproc/p001.toml"
+      ],
+      "outputs": [
+        "reference, solver setup and PprocSpec objects"
+      ],
+      "next": [
+        "_bind_setup",
+        "_bind_pproc"
+      ],
+      "note": "",
+      "line": 1406,
+      "locator": "src/pyflightstream/workspace/_matrix_phases.py:1406"
+    },
+    {
+      "order": 9,
+      "phase": "Resolve",
+      "module": "src/pyflightstream/workspace/_matrix_phases.py",
+      "function": "_bind_rows",
+      "inputs": [
+        "resolved artifacts; W/inputs/geometries/wing.obj; wing.boundaries.toml"
+      ],
+      "outputs": [
+        "SimCase with resolved geometry, flight states and declared output templates"
+      ],
+      "next": [
+        "_row_update",
+        "_bind_geometry",
+        "_bind_profiles",
+        "_bind_row_variables",
+        "_bind_states",
+        "row_outputs"
+      ],
+      "note": "",
+      "line": 1744,
+      "locator": "src/pyflightstream/workspace/_matrix_phases.py:1744"
+    },
+    {
+      "order": 10,
+      "phase": "Plan",
+      "module": "src/pyflightstream/run/_plan.py",
+      "function": "plan_campaign",
+      "inputs": [
+        "Campaign; existing runs.json; settings; geometry"
+      ],
+      "outputs": [
+        "simulation directories; W/post/matrix/plan.json"
+      ],
+      "next": [
+        "_plan_point"
+      ],
+      "note": "Plan receipt contains points, matrix SHA-256, build/settings facts. Creates simulation layout even while write_plan=False on later run preflight.",
+      "line": 1070,
+      "locator": "src/pyflightstream/run/_plan.py:1070"
+    },
+    {
+      "order": 11,
+      "phase": "Plan",
+      "module": "src/pyflightstream/run/_plan.py",
+      "function": "_plan_point",
+      "inputs": [
+        "one point case; version command database; geometry metadata"
+      ],
+      "outputs": [
+        "PointPlan; rendered script in memory"
+      ],
+      "next": [
+        "recipe(point_case, script)",
+        "Script.render"
+      ],
+      "note": "Runs once per alpha. No workspace.write_script call in this function.",
+      "line": 1485,
+      "locator": "src/pyflightstream/run/_plan.py:1485"
+    },
+    {
+      "order": 12,
+      "phase": "Emit",
+      "module": "src/pyflightstream/cases/workflows/_steady.py",
+      "function": "_build_steady",
+      "inputs": [
+        "point SimCase; Script; workflow conventions"
+      ],
+      "outputs": [
+        "validated in-memory commands"
+      ],
+      "next": [
+        "_open_geometry",
+        "_free_stream",
+        "_fluid",
+        "_settings",
+        "_script_tail"
+      ],
+      "note": "Registered steady recipe dispatches here for per-point planning; geometry/setup precede solve/export.",
+      "line": 114,
+      "locator": "src/pyflightstream/cases/workflows/_steady.py:114"
+    },
+    {
+      "order": 13,
+      "phase": "Run",
+      "module": "src/pyflightstream/run/cli.py",
+      "function": "_cmd_run",
+      "inputs": [
+        "matrix.fs; W/post/matrix/plan.json; args"
+      ],
+      "outputs": [
+        "run records; W/post/matrix/campaign_sweep.csv"
+      ],
+      "next": [
+        "plan_receipt_error",
+        "run_matrix"
+      ],
+      "note": "CLI checks plan receipt and matrix digest. Submitted work returns before the CLI table write.",
+      "line": 1148,
+      "locator": "src/pyflightstream/run/cli.py:1148"
+    },
+    {
+      "order": 14,
+      "phase": "Run",
+      "module": "src/pyflightstream/run/matrix.py",
+      "function": "run_matrix",
+      "inputs": [
+        "matrix and input library read again; existing records"
+      ],
+      "outputs": [
+        "fresh resolved campaign; preflight plan in memory; RunRecords"
+      ],
+      "next": [
+        "resolve_matrix",
+        "plan_campaign",
+        "_campaign_executor",
+        "run_campaign"
+      ],
+      "note": "Does not consume previously emitted scripts. plan_campaign(write_plan=False) rebuilds per-point scripts for preflight.",
+      "line": 937,
+      "locator": "src/pyflightstream/run/matrix.py:937"
+    },
+    {
+      "order": 15,
+      "phase": "Run",
+      "module": "src/pyflightstream/run/matrix.py",
+      "function": "_campaign_executor",
+      "inputs": [
+        "resolved executable; --local; optional W/inputs HPC profiles"
+      ],
+      "outputs": [
+        "LocalExecutor on selected local route"
+      ],
+      "next": [
+        "LocalExecutor",
+        "_bind_row_builds"
+      ],
+      "note": "Without --local, a matching cluster profile can select SubmittingExecutor; branch documented below.",
+      "line": 679,
+      "locator": "src/pyflightstream/run/matrix.py:679"
+    },
+    {
+      "order": 16,
+      "phase": "Run",
+      "module": "src/pyflightstream/run/_campaign.py",
+      "function": "run_campaign",
+      "inputs": [
+        "campaign; executor; LoadsAssessor; runs.json"
+      ],
+      "outputs": [
+        "scheduled records and final returned outcomes"
+      ],
+      "next": [
+        "_resolve_campaign_schedule",
+        "_run_scheduled_campaign"
+      ],
+      "note": "",
+      "line": 357,
+      "locator": "src/pyflightstream/run/_campaign.py:357"
+    },
+    {
+      "order": 17,
+      "phase": "Run",
+      "module": "src/pyflightstream/run/_campaign.py",
+      "function": "_prepare_case",
+      "inputs": [
+        "W/inputs/geometries/wing.obj; recipe registry"
+      ],
+      "outputs": [
+        "W/sim_1001/inputs/wing.obj; staged-input SHA-256 map"
+      ],
+      "next": [
+        "CampaignWorkspace.stage_inputs"
+      ],
+      "note": "Called by _prepare_campaign_case. Exact simulation ID follows matrix/naming policy.",
+      "line": 1535,
+      "locator": "src/pyflightstream/run/_campaign.py:1535"
+    },
+    {
+      "order": 18,
+      "phase": "Run",
+      "module": "src/pyflightstream/run/_campaign.py",
+      "function": "_run_scheduled_campaign",
+      "inputs": [
+        "three pending alpha points; steady recipe"
+      ],
+      "outputs": [
+        "one sweep execution selected"
+      ],
+      "next": [
+        "_execute_campaign_sweep",
+        "_execute_sweep"
+      ],
+      "note": "_is_one_job recognizes steady matrix row, no FSI and no moving flow/body-rate/disc-speed axis; three alpha points satisfy this.",
+      "line": 558,
+      "locator": "src/pyflightstream/run/_campaign.py:558"
+    },
+    {
+      "order": 19,
+      "phase": "Emit",
+      "module": "src/pyflightstream/run/_sweep.py",
+      "function": "_prepare_sweep_script",
+      "inputs": [
+        "staged geometry; three point cases; executable bytes; package VCS identity"
+      ],
+      "outputs": [
+        "Script; run provenance base; declared point outputs"
+      ],
+      "next": [
+        "build_steady_sweep"
+      ],
+      "note": "Hashes executable and staged inputs; retains requested build, references, flight condition, setup and package identity.",
+      "line": 235,
+      "locator": "src/pyflightstream/run/_sweep.py:235"
+    },
+    {
+      "order": 20,
+      "phase": "Emit",
+      "module": "src/pyflightstream/cases/workflows/_steady.py",
+      "function": "build_steady_sweep",
+      "inputs": [
+        "three point cases; command database"
+      ],
+      "outputs": [
+        "one Script containing geometry/setup once and solve/export per point"
+      ],
+      "next": [
+        "_script_init",
+        "_script_solve_and_export",
+        "Script.emit"
+      ],
+      "note": "For later points emits SOLVER_SET_AOA and SOLVER_SET_SIDESLIP; cold branch clears solution; ends CLOSE_FLIGHTSTREAM.",
+      "line": 176,
+      "locator": "src/pyflightstream/cases/workflows/_steady.py:176"
+    },
+    {
+      "order": 21,
+      "phase": "Emit",
+      "module": "src/pyflightstream/run/_sweep.py",
+      "function": "_write_sweep_script",
+      "inputs": [
+        "Script.render()"
+      ],
+      "outputs": [
+        "W/sim_1001/scripts/<sweep-stem>.txt; script SHA-256"
+      ],
+      "next": [
+        "CampaignWorkspace.write_script"
+      ],
+      "note": "Optional probe-point file only if Script declares probes.",
+      "line": 362,
+      "locator": "src/pyflightstream/run/_sweep.py:362"
+    },
+    {
+      "order": 22,
+      "phase": "Execute",
+      "module": "src/pyflightstream/run/_sweep.py",
+      "function": "_run_sweep_solver",
+      "inputs": [
+        "script path; declared output names; pending auxiliary inputs"
+      ],
+      "outputs": [
+        "ExecutionResult; invocation and timing facts"
+      ],
+      "next": [
+        "executor.run_script"
+      ],
+      "note": "Refuses stale declared outputs before launch; records SUBMITTED and declared_by_point for submission route.",
+      "line": 453,
+      "locator": "src/pyflightstream/run/_sweep.py:453"
+    },
+    {
+      "order": 23,
+      "phase": "Execute",
+      "module": "src/pyflightstream/run/_executors.py",
+      "function": "LocalExecutor.run_script",
+      "inputs": [
+        "configured FlightStream executable; script; sim directory; timeout; inherited environment"
+      ],
+      "outputs": [
+        "solver exports in simulation working directory; stdout/stderr; log; ExecutionResult"
+      ],
+      "next": [
+        "_run_with_progress",
+        "subprocess.run"
+      ],
+      "note": "On Windows uses _run_with_progress. This is a source trace only: no solver invoked.",
+      "line": 1431,
+      "locator": "src/pyflightstream/run/_executors.py:1431"
+    },
+    {
+      "order": 24,
+      "phase": "Collect",
+      "module": "src/pyflightstream/run/_sweep.py",
+      "function": "_collect_sweep_outputs",
+      "inputs": [
+        "declared point exports in W/sim_1001"
+      ],
+      "outputs": [
+        "per-point collected output paths or missing-output failures"
+      ],
+      "next": [
+        "CampaignWorkspace.collect_outputs"
+      ],
+      "note": "",
+      "line": 626,
+      "locator": "src/pyflightstream/run/_sweep.py:626"
+    },
+    {
+      "order": 25,
+      "phase": "Collect",
+      "module": "src/pyflightstream/workspace/__init__.py",
+      "function": "CampaignWorkspace.collect_outputs",
+      "inputs": [
+        "produced files; datapoint name"
+      ],
+      "outputs": [
+        "files moved into W/sim_1001/datapoints/DP-<point>/; relative path list"
+      ],
+      "next": [
+        "shutil.move"
+      ],
+      "note": "Datapoint folder spelling is delegated to datapoint_dir_name; refuses destination collisions and reports missing files.",
+      "line": 1465,
+      "locator": "src/pyflightstream/workspace/__init__.py:1465"
+    },
+    {
+      "order": 26,
+      "phase": "Assess",
+      "module": "src/pyflightstream/run/_sweep.py",
+      "function": "_assess_sweep_points",
+      "inputs": [
+        "collected exports; execution result; case"
+      ],
+      "outputs": [
+        "per-point verdicts; worst job verdict; iterations/residual/build evidence"
+      ],
+      "next": [
+        "LoadsAssessor.__call__"
+      ],
+      "note": "LoadsAssessor calls loads readers and log checks. File presence alone is not convergence.",
+      "line": 693,
+      "locator": "src/pyflightstream/run/_sweep.py:693"
+    },
+    {
+      "order": 27,
+      "phase": "Record",
+      "module": "src/pyflightstream/run/_sweep.py",
+      "function": "_record_sweep_outcome",
+      "inputs": [
+        "per-point verdicts; output files; retained input/script/executable hashes"
+      ],
+      "outputs": [
+        "one RunRecord with points_ran and outputs_sha256"
+      ],
+      "next": [
+        "CampaignWorkspace.output_digests",
+        "RunRecord"
+      ],
+      "note": "",
+      "line": 769,
+      "locator": "src/pyflightstream/run/_sweep.py:769"
+    },
+    {
+      "order": 28,
+      "phase": "Record",
+      "module": "src/pyflightstream/workspace/manifest.py",
+      "function": "append_record",
+      "inputs": [
+        "RunRecord; existing W/runs.json"
+      ],
+      "outputs": [
+        "updated W/runs.json under writer lease"
+      ],
+      "next": [
+        "CampaignWorkspace._replace_manifest"
+      ],
+      "note": "Called by _execute_campaign_sweep; duplicate run identity refused.",
+      "line": 1558,
+      "locator": "src/pyflightstream/workspace/manifest.py:1558"
+    },
+    {
+      "order": 29,
+      "phase": "Record",
+      "module": "src/pyflightstream/workspace/__init__.py",
+      "function": "CampaignWorkspace._replace_manifest",
+      "inputs": [
+        "resolved raw records"
+      ],
+      "outputs": [
+        "schema-4 document via encode_rows; runs.json.<pid>.tmp then atomic replacement"
+      ],
+      "next": [
+        "record_document.encode_rows"
+      ],
+      "note": "Shared definitions encoded before persistence; temporary file replaced into runs.json.",
+      "line": 2080,
+      "locator": "src/pyflightstream/workspace/__init__.py:2080"
+    },
+    {
+      "order": 30,
+      "phase": "Post",
+      "module": "src/pyflightstream/run/_campaign.py",
+      "function": "_finish_campaign",
+      "inputs": [
+        "recorded outcomes"
+      ],
+      "outputs": [
+        "post products; campaign_sweep.csv"
+      ],
+      "next": [
+        "_leave_products",
+        "_leave_sweep_table"
+      ],
+      "note": "Local run posts automatically through registered stages. Any SUBMITTED record skips posting here.",
+      "line": 1271,
+      "locator": "src/pyflightstream/run/_campaign.py:1271"
+    },
+    {
+      "order": 31,
+      "phase": "Post",
+      "module": "src/pyflightstream/run/cli.py",
+      "function": "_cmd_post",
+      "inputs": [
+        "W/runs.json; matrix selector; --archive"
+      ],
+      "outputs": [
+        "rebuilt product files and post diagnostics"
+      ],
+      "next": [
+        "post_stages",
+        "write_campaign_products"
+      ],
+      "note": "Separate explicit post command; ordinary product rebuild launches no solver.",
+      "line": 711,
+      "locator": "src/pyflightstream/run/cli.py:711"
+    },
+    {
+      "order": 32,
+      "phase": "Post",
+      "module": "src/pyflightstream/post/products.py",
+      "function": "write_campaign_products",
+      "inputs": [
+        "durable records; output directory"
+      ],
+      "outputs": [
+        "post.log; post.log.json; product files and products.json"
+      ],
+      "next": [
+        "_campaign_products"
+      ],
+      "note": "post/__init__.py registers this function as a post stage; guides are another registered stage.",
+      "line": 495,
+      "locator": "src/pyflightstream/post/products.py:495"
+    },
+    {
+      "order": 33,
+      "phase": "Post",
+      "module": "src/pyflightstream/post/products.py",
+      "function": "_campaign_products",
+      "inputs": [
+        "runs.json with recorded definitions; collected files; current matrix if readable; prior products.json; campaign_sweep.csv if present"
+      ],
+      "outputs": [
+        "admitted records grouped by simulation; product manifest"
+      ],
+      "next": [
+        "_write_the_products",
+        "_write_simulation_products"
+      ],
+      "note": "",
+      "line": 730,
+      "locator": "src/pyflightstream/post/products.py:730"
+    },
+    {
+      "order": 34,
+      "phase": "Post",
+      "module": "src/pyflightstream/post/_sim.py",
+      "function": "_sim_products",
+      "inputs": [
+        "admitted loads; effective p001.toml; references; run metadata"
+      ],
+      "outputs": [
+        "resolved SimContext; polar and configured point products"
+      ],
+      "next": [
+        "_resolve",
+        "_group_polars",
+        "_point_products"
+      ],
+      "note": "_effective_pproc can read current matrix/pproc configuration; historical run definitions are read from records.",
+      "line": 271,
+      "locator": "src/pyflightstream/post/_sim.py:271"
+    },
+    {
+      "order": 35,
+      "phase": "Post",
+      "module": "src/pyflightstream/post/_sim.py",
+      "function": "_group_polar",
+      "inputs": [
+        "loads for Wing group; resolved references and flight conditions"
+      ],
+      "outputs": [
+        "W/post/matrix/polars/<swept-polar-file>.csv"
+      ],
+      "next": [
+        "polar_table_rows",
+        "write_csv_table"
+      ],
+      "note": "Optional custom DAT and point sections depend on pproc settings/available exports. No numeric products were generated in this audit.",
+      "line": 612,
+      "locator": "src/pyflightstream/post/_sim.py:612"
+    },
+    {
+      "order": 36,
+      "phase": "Provenance",
+      "module": "src/pyflightstream/post/products.py",
+      "function": "_finish_campaign_products",
+      "inputs": [
+        "records; completed product inventory"
+      ],
+      "outputs": [
+        "provenance index; complete marker in products.json; optional section report"
+      ],
+      "next": [
+        "run_provenance",
+        "_write_manifest"
+      ],
+      "note": "",
+      "line": 1152,
+      "locator": "src/pyflightstream/post/products.py:1152"
+    },
+    {
+      "order": 37,
+      "phase": "Provenance",
+      "module": "src/pyflightstream/post/provenance.py",
+      "function": "run_provenance",
+      "inputs": [
+        "RunRecord and simulation directory; hashes and execution facts"
+      ],
+      "outputs": [
+        "W/post/matrix/provenance/<provenance-file>.json"
+      ],
+      "next": [
+        "prov_document",
+        "_textio.write_text"
+      ],
+      "note": "Per durable run record, so a grouped sweep has job-level provenance including its points.",
+      "line": 565,
+      "locator": "src/pyflightstream/post/provenance.py:565"
+    }
+  ],
+  "branches": [
+    {
+      "order": 1,
+      "module": "src/pyflightstream/run/_executors.py",
+      "function": "SubmittingExecutor.run_script",
+      "inputs": [
+        "script; HPC profile/template; submit command"
+      ],
+      "outputs": [
+        "job descriptor; scheduler submission result"
+      ],
+      "next": [
+        "SUBMITTED RunRecord"
+      ],
+      "note": "Alternative to LocalExecutor, not an extra local step.",
+      "line": 903,
+      "locator": "src/pyflightstream/run/_executors.py:903"
+    },
+    {
+      "order": 2,
+      "module": "src/pyflightstream/run/collect.py",
+      "function": "collect_and_post",
+      "inputs": [
+        "SUBMITTED records; arriving solver outputs"
+      ],
+      "outputs": [
+        "CollectReport; post products once collection permits"
+      ],
+      "next": [
+        "collect_once",
+        "_post_sweep"
+      ],
+      "line": 1437,
+      "locator": "src/pyflightstream/run/collect.py:1437"
+    },
+    {
+      "order": 3,
+      "module": "src/pyflightstream/run/collect.py",
+      "function": "collect_once",
+      "inputs": [
+        "runs.json; declared outputs; job/native log; two file size/mtime observations"
+      ],
+      "outputs": [
+        "WAITING/UNKNOWN/failed/collected report; updated records and moved files"
+      ],
+      "next": [
+        "_complete",
+        "_complete_sweep",
+        "_post_sweep"
+      ],
+      "note": "Tests output stability across settle interval. Local run already collects inline and does not require this command.",
+      "line": 604,
+      "locator": "src/pyflightstream/run/collect.py:604"
+    }
+  ],
+  "source_revision": "8761af31340763b6c3f53ac7869da68a80e02660",
+  "method": "Static source trace, not an executed solver run. Ordered stages include nested calls and return-to-caller transitions; next names the actual callees where applicable.",
+  "representative_case": {
+    "matrix": "examples/using-CLI/steady-wing-polar/matrix.fs:2",
+    "POL": "1001",
+    "workflow": "steady",
+    "FS_BUILD": "26.124",
+    "flight_condition": "MACH:0.1, REmi:2.3, ALPHA:sweep",
+    "sweep": [
+      0,
+      2,
+      4
+    ],
+    "route": "fresh local run with --local, no resume or additional post; asynchronous alternative separately listed",
+    "prerequisites": "Prepared copy of workspace with wing.obj and real configured executable. The committed example does not contain wing.obj and names FlightStream.exe as a placeholder."
+  },
+  "gaps_in_existing_data_flow": [
+    "Stage graph is declarative artifact matching, not a call graph.",
+    "Plan renders per-point scripts in memory; ordinary plan writes plan.json, not solver script files.",
+    "Run resolves inputs and preflights again; it builds its own grouped sweep script.",
+    "CLI entry, plan receipt/digest gate, executor selection and workflow emission are absent.",
+    "Local collection and automatic post during run are explained in prose but not separate nodes in the SVG.",
+    "Submission, settling checks, per-point assessment, file moves, runs.json transitions and shared definitions are absent.",
+    "Provenance fields/hashes, concrete paths, current pproc inputs and product admission/refusal branches are absent."
+  ]
+}

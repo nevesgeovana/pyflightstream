@@ -46,6 +46,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y texlive-latex-extra texlive-fonts-recommended texlive-science cm-super
       - name: Build downloadable guides
         run: python scripts/build_guides.py
+      - name: Generate linked Understanding views from the checked-out sources
+        run: |
+          python scripts/gen_understanding_data.py --revision "$GITHUB_SHA"
+          python scripts/gen_understanding_data.py --check --revision "$GITHUB_SHA"
       - name: Build the docs (strict)
         run: properdocs build --strict
       - name: Add guide downloads to the site

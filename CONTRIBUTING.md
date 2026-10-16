@@ -42,6 +42,37 @@ frozen full suite: the GeoverseArtifacts release tools run `make_receipts`
 `pyproject.toml` under `[tool.coverage.report]`; no coverage job belongs in
 the Release workflow. Docs deploy on version tags.
 
+## Regenerate the Understanding views
+
+From a checkout of the release tag, with the development extras installed, run:
+
+```text
+python scripts/gen_understanding_data.py
+python scripts/gen_understanding_data.py --check
+properdocs build --strict
+```
+
+The generator reads the approved SRS stages and requirement registers, static
+Python imports and symbol locations, the example matrix and the curated execution
+scenario. It writes six JSON files under docs/understanding/data and updates the
+marked tables in Workspace files and Execution. Do not edit generated regions.
+The docs CI job runs generation and its byte comparison before the strict build.
+CI passes --revision with its checked-out commit SHA, so source links stay bound
+to that release. Locally the default is HEAD; pass the same full SHA to both
+commands when reproducing a previously generated bundle.
+
+Requirements show authored trace links, not verified satisfaction. Code views
+measure static structure, not runtime timing. Execution is a curated steady-polar
+source trace, not a solver run; review its order and file descriptions when those
+functions change. Workspace files describes possible paths, not a live inventory.
+Regenerate again from the final release SRS and source after integration.
+
+The chart libraries are shipped under docs/understanding/assets/vendor, with
+exact npm versions, source tarball URLs and SHA-256 hashes in VERSIONS.json.
+LICENSES.txt carries the upstream license texts. Preserve these payload bytes
+when updating a version, then run the docs guards and check all three interactive
+views in the strict site build with external requests blocked.
+
 ## Repository layout
 
 | Folder | Purpose |

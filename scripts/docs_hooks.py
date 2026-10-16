@@ -14,10 +14,19 @@ the file when the exclusion lands.
 # objects may originate from either namespace during the ecosystem
 # transition. The exclusion below is validated by the CI docs step,
 # which asserts no rendered SUMMARY page reaches the site.
+from material.extensions.emoji import to_svg, twemoji
 from properdocs.structure.files import Files, InclusionLevel
 
 #: The generated folders whose navigation literate-nav reads from a SUMMARY.md.
 NAV_FOLDERS = ("reference", "api", "cli")
+
+
+def on_config(config):
+    """Bind the theme's emoji renderer without Python-specific YAML tags."""
+    config.mdx_configs.setdefault("pymdownx.emoji", {}).update(
+        emoji_index=twemoji, emoji_generator=to_svg
+    )
+    return config
 
 
 def on_files(files: Files, config: object) -> Files:

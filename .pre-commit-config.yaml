@@ -52,9 +52,10 @@ repos:
       # sha256 would have been false on the second try. .gitattributes
       # already declares those files binary; this hook does not read it.
       - id: trailing-whitespace
-        exclude: '^tests/(tier1_offline/(goldens|fixtures)|tier3_licensed/(goldens|inputs/geometries))/'
+        # Vendored payloads and license texts are exact upstream bytes.
+        exclude: '^(tests/(tier1_offline/(goldens|fixtures)|tier3_licensed/(goldens|inputs/geometries))/|docs/understanding/assets/vendor/(.*\.min\.js|LICENSES\.txt)$)'
       - id: end-of-file-fixer
-        exclude: '^tests/(tier1_offline/(goldens|fixtures)|tier3_licensed/(goldens|inputs/geometries))/'
+        exclude: '^(tests/(tier1_offline/(goldens|fixtures)|tier3_licensed/(goldens|inputs/geometries))/|docs/understanding/assets/vendor/(.*\.min\.js|LICENSES\.txt)$)'
       - id: check-yaml
       - id: check-added-large-files
 

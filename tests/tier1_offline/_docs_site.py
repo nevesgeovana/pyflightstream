@@ -11,11 +11,11 @@ ROOT = Path(__file__).resolve().parents[2]
 GROUPS = [
     "Home",
     "Start here",
-    "Workspace and Workflows",
+    "Workspace CLI",
     "Python API",
     "Reference",
     "Help",
-    "Concepts",
+    "Understanding pyflightstream",
     "Contributing",
 ]
 DEFINITION_PAGES = {
