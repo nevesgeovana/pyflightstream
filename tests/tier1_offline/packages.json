@@ -265,6 +265,7 @@
       "tests/tier1_offline/test_p0390_r02.py",
       "tests/tier1_offline/test_p0410_cl_ex_examples.py",
       "tests/tier1_offline/test_p0420_p2_1b_geometry.py",
+      "tests/tier1_offline/test_p0420_p2_1b_workflows.py",
       "tests/tier1_offline/test_plan_cost.py",
       "tests/tier1_offline/test_regression_geometry_build_sweep.py",
       "tests/tier1_offline/test_regression_run_assessment_collect.py",

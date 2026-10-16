@@ -8,6 +8,7 @@ the stop text are what the run writes beside its script to watch itself.
 
 from __future__ import annotations
 
+import json
 from dataclasses import (
     dataclass,
 )
@@ -459,9 +460,15 @@ def unsteady_export_threshold(
 #: The program the clock action runs, rendered with this row's deadline.
 #:
 #: IT KEEPS ITS OWN STATE because the solver hands an action nothing: not
-#: the step, not the time, not how far the run has come. The first
-#: invocation writes the start; every one after it reads that back and
-#: asks one question.
+#: the step, not the time, not how far the run has come. The clock starts at
+#: the JOB START when the run wrote one into the state before launching the
+#: solver (:func:`job_start_state`, a local run), so geometry load,
+#: initialisation and the first step count against the walltime; otherwise
+#: the first invocation writes the start, which is AFTER the first step, and
+#: the margin must also cover that pre-march time (PFS-2119.023). Either way the
+#: state records its ``origin`` and, for a job start, the first invocation's
+#: ``first_invocation_offset_s`` from it. Every invocation after the first
+#: reads the start back and asks one question.
 #:
 #: WHEN IT FIRES it writes the row's exports and the stop into the script
 #: file the solver re-reads on the next step, and records WHERE it stopped
@@ -492,6 +499,10 @@ if STATE.is_file():
 now = time.time()
 if state["started_at"] is None:
     state["started_at"] = now
+    state["origin"] = "first-invocation"
+elif "origin" not in state:
+    state["origin"] = "job-start"
+    state["first_invocation_offset_s"] = now - float(state["started_at"])
 state["steps"] = int(state["steps"]) + 1
 elapsed = now - float(state["started_at"])
 state["elapsed_s"] = elapsed
@@ -503,6 +514,30 @@ if not state["fired"] and elapsed >= DEADLINE_S:
 
 STATE.write_text(json.dumps(state, indent=2), encoding="utf-8", newline="\\n")
 """
+
+
+def job_start_state(started_at: float) -> str:
+    """Return the clock state a run writes just before it launches the solver (PFS-2119.023).
+
+    The clock program counts from ``started_at`` in its state file when the
+    state already holds one, so the run layer, which knows when the solver
+    process was launched and the program (called inside the run, after the
+    first step) cannot, hands it the origin. Only a run that launches the
+    solver itself can: a job handed to a scheduler waits in a queue the run
+    cannot see, so it keeps the first-invocation origin and its margin must
+    also cover the time before the first step.
+
+    Parameters
+    ----------
+    started_at : float
+        Seconds since the epoch at which the solver is launched.
+
+    Returns
+    -------
+    str
+        The JSON text of the state, without ``origin``, which the program adds.
+    """
+    return json.dumps({"started_at": float(started_at), "steps": 0, "fired": False}, indent=2)
 
 
 def walltime_clock_program(

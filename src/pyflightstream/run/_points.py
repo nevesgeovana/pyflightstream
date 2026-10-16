@@ -9,6 +9,7 @@ path above reuses those helpers.
 
 from __future__ import annotations
 
+import time
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -50,6 +51,7 @@ from pyflightstream.cases.workflows import (
     WALLTIME_CLOCK_STATE,
     WALLTIME_STOP_SCRIPT,
     creates_surface_sections,
+    job_start_state,
     reduction_windows,
     rotor_machs,
     row_walltime_s,
@@ -869,6 +871,23 @@ def _write_point_pending_files(job: _PointJob) -> RunRecord | None:
     return None
 
 
+def _start_the_wall_clock(job: _PointJob) -> None:
+    """Write the job start into the wall clock's state, just before the solver is launched.
+
+    FR-98, PFS-2119.023. THE CLOCK STARTS WHEN THE SOLVER IS LAUNCHED, not at its
+    first action call, which is after the first step: a run that launches the
+    solver itself hands the clock program its origin through the state file
+    (:func:`~pyflightstream.cases.workflows.job_start_state`). A job handed to a
+    scheduler waits in a queue this run cannot see, so it keeps the
+    first-invocation origin, and its margin must also cover the time before
+    the first step.
+    """
+    if isinstance(job.executor, LocalExecutor) and any(
+        use.name == WALLTIME_CLOCK_ACTION for use in job.script.unsteady_actions
+    ):
+        _textio.write_text(job.work_dir / WALLTIME_CLOCK_STATE, job_start_state(time.time()))
+
+
 def _run_point_solver(job: _PointJob) -> RunRecord | None:
     """Run point solver."""
     stale = [name for name in job.point_case.outputs if (job.work_dir / name).exists()]
@@ -906,6 +925,7 @@ def _run_point_solver(job: _PointJob) -> RunRecord | None:
     bind_submission_values(job.executor, job.case, job.point_case)
     if job.progress is not None:
         job.progress.solver_started = True
+    _start_the_wall_clock(job)
     try:
         job.result = job.executor.run_script(
             job.script_path, working_dir=job.work_dir, timeout_s=job.case.solver.timeout_s

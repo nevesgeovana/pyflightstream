@@ -324,10 +324,22 @@ def _before_the_build(
     if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
         names = list((conventions.outputs if conventions else None) or case.outputs)
         kinds = classify_outputs(names)
-        if "sections" not in kinds or not ({"vtk", "tecplot"} & kinds.keys()):
+        # THE POST READS THE VTK AND THE _cp.txt SECTIONS EXPORT (PFS-2117.018): a point that
+        # exports a Tecplot surface alone passed this guard and then had the product refused.
+        missing = [
+            what
+            for kind, what in (
+                ("sections", "the section-coordinate export (the _cp.txt file)"),
+                ("vtk", "the VTK surface export"),
+            )
+            if kind not in kinds
+        ]
+        if missing:
             raise CampaignConfigError(
-                "boundary_layer_integrals requires the section-coordinate export and VTK "
-                "surface of the same point; retain the pproc's generated output dependencies"
+                f"case {case.sim_id!r}: boundary_layer_integrals requires {' and '.join(missing)} "
+                "of the same point, and the outputs it declares do not name it. Retain the "
+                "pproc's generated output dependencies: do not list the point's outputs by "
+                "hand, or add the missing file to them, and plan the point again"
             )
     workflow = resolve_workflow(select_workflow(case))
     require_coverage(workflow, script.version, registry=registry)
