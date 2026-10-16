@@ -63,10 +63,21 @@ SOFTWARE_CITATION_PATHS = frozenset(
 
 def citation_units(path, text):
     if path.endswith(".py"):
-        for node in ast.walk(ast.parse(text)):
-            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-                if doc := ast.get_docstring(node):
-                    yield from re.split(r"\n\s*\n", doc)
+
+        def strings(node):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                yield node.value
+            elif isinstance(node, ast.JoinedStr):
+                # Keep citation and label together across interpolated values.
+                yield "".join(
+                    value.value if isinstance(value, ast.Constant) else " " for value in node.values
+                )
+            else:
+                for child in ast.iter_child_nodes(node):
+                    yield from strings(child)
+
+        for value in strings(ast.parse(text)):
+            yield from re.split(r"\n\s*\n", value)
     elif path.endswith((".yaml", ".yml")):
 
         def strings(value):
@@ -146,6 +157,40 @@ def test_p0420_sweeps_literature_guard_planted_controls(monkeypatch, citation):
             test_p0420_sweeps_literature_has_public_reference()
         assert not uncited_literature([(path, content(citation + " [REF-01]"))])
     assert not uncited_literature([("docs/references.md", citation)])
+
+
+@pytest.mark.parametrize(
+    "citation",
+    [
+        "Smith (1999)",
+        "Smith, 1999",
+        "Smith 1999",
+        "J. Smith, A book,\n1999",
+        "DOI 10.1234/example",
+        "ISBN 978-1-234-56789-0",
+    ],
+)
+@pytest.mark.parametrize("formatted", [False, True])
+def test_p0420_sweeps_runtime_literature_planted_controls(monkeypatch, citation, formatted):
+    path = "src/fixture.py"
+    expression = f"f{(citation + ' {value}')!r}" if formatted else repr(citation)
+    source = f"def render(value=None):\n    return {expression}\n"
+    monkeypatch.setattr(sys.modules[__name__], "tracked_texts", lambda: [(path, source)])
+    with pytest.raises(AssertionError):
+        test_p0420_sweeps_literature_has_public_reference()
+    labeled = f"def render(value=None):\n    return {expression} ' [REF-01]'\n"
+    assert not uncited_literature([(path, labeled)])
+
+
+def test_p0420_sweeps_generated_setup_citation_planted_control(monkeypatch):
+    path = "src/pyflightstream/workspace/setup_standards.py"
+    source = (ROOT / path).read_text(encoding="utf-8")
+    assert " [REF-16]" in source
+    assert not uncited_literature([(path, source)])
+    planted = source.replace(" [REF-16]", "")
+    monkeypatch.setattr(sys.modules[__name__], "tracked_texts", lambda: [(path, planted)])
+    with pytest.raises(AssertionError, match="setup_standards"):
+        test_p0420_sweeps_literature_has_public_reference()
 
 
 def published_pages():
