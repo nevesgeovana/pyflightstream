@@ -86,6 +86,7 @@
       "tests/tier1_offline/test_p0410_cl_ex_refusal.py",
       "tests/tier1_offline/test_p0410_fx6_continuation.py",
       "tests/tier1_offline/test_p0410_fx6_refusals.py",
+      "tests/tier1_offline/test_p0420_p2_1b_frames.py",
       "tests/tier1_offline/test_periodic_native_zones.py",
       "tests/tier1_offline/test_reduce_by_rotor.py",
       "tests/tier1_offline/test_reference_normalization_setup.py",
