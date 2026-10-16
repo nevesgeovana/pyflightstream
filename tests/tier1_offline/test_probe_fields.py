@@ -477,7 +477,7 @@ def test_steady_field_uses_measured_reference_export_and_si_velocity(tmp_path):
 _FR153_FIELD_BUILD_WARNING__MEASURED = "8172026"
 
 
-#: A build nobody registered (8242026 is registered by decision, RPT-136).
+#: A build nobody registered (8242026 is the Linux build of 8172026, RPT-083).
 _FR153_FIELD_BUILD_WARNING__OTHER = "8999999"
 
 

@@ -65,22 +65,23 @@ _ROTARY_PROOFS: dict[tuple[str, str, str], dict[str, Any]] = {
 }
 
 
-def _decision_proof() -> dict[str, Any]:
-    """Return the timing row of build 8242026, registered by decision and not measured (FR-153)."""
+def _linux_build_proof(unit: str) -> dict[str, Any]:
+    """Attribute Linux 8242026 to the same 26.124 build's RPT-083 timing (FR-153)."""
+    measured = deepcopy(_ROTARY_PROOFS[("26.124", unit, "8172026")])
     return {
+        **measured,
         "fs_build": "8242026",
-        "signed_rpm_factor": 1,
-        "step_time_origin": 0,
         "evidence": {
-            "kind": "decision of 2026-10-01, not measured",
-            "receipt": "RPT-136",
-            "limits": "No run measured this build; no delayed-start or accuracy claim.",
+            **measured["evidence"],
+            "kind": "Linux build of 8172026; owner identity statement 2026-10-15",
+            "measurement_build": "8172026",
+            "receipt": "RPT-083",
         },
     }
 
 
-_ROTARY_PROOFS[("26.124", "METER", "8242026")] = _decision_proof()
-_ROTARY_PROOFS[("26.124", "MILLIMETER", "8242026")] = _decision_proof()
+_ROTARY_PROOFS[("26.124", "METER", "8242026")] = _linux_build_proof("METER")
+_ROTARY_PROOFS[("26.124", "MILLIMETER", "8242026")] = _linux_build_proof("MILLIMETER")
 
 
 def _basis(placement: Any) -> tuple[Any, Any]:
