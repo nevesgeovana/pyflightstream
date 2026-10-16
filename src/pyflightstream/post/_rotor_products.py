@@ -1,7 +1,7 @@
 """The rotor products of a point: quasi-steady clockings, harmonics, noise and disc maps.
 
-A private module of :mod:`pyflightstream.post` (AD-13, work package WP5 of
-0.33.0): the orchestration of the advanced rotor products the post stage of
+A private module of :mod:`pyflightstream.post` (AD-13):
+the orchestration of the advanced rotor products the post stage of
 :mod:`pyflightstream.post.products` writes beside a point's tables. The
 arithmetic of each lives in its own public module; what is here decides
 which applies to a point, where its file goes and what the manifest says:
@@ -91,9 +91,9 @@ def _qsteady_sections(
     """Complete a quasi-steady wheel point's sections table: its clockings and its 1P frequency.
 
     Every clocking's rows, each with its ``CLOCKING`` and each blade's own
-    ``AZIMUTH`` (0.31.0, :func:`pyflightstream.post.qsteady.add_clockings_to_sections`,
+    ``AZIMUTH`` (:func:`pyflightstream.post.qsteady.add_clockings_to_sections`,
     ``tabled`` writing one clocking's export as this stage writes the point's),
-    then the 1P reduced frequency of each station (0.30.0). A clocking whose
+    then the 1P reduced frequency of each station. A clocking whose
     export cannot be tabled is named under the table and the others are
     written; a clocking not cut at clocking 0's stations is warned.
 
@@ -104,7 +104,7 @@ def _qsteady_sections(
         return {}
     relative = f"{SECTIONS_DIR}/{point.name}_sections.csv"
     try:
-        # A record that cannot be read is a named skip of the column (0.31.0),
+        # A record that cannot be read is a named skip of the column,
         # as a quasi-steady point always has one.
         quasi = read_qsteady_record(point.loads_path)
     except QsteadyRecordError as error:
@@ -126,7 +126,7 @@ def _qsteady_sections(
                 f"point={point.name} product=sections: {note}", PyflightstreamWarning, stacklevel=2
             )
     try:
-        # 0.31.0: the frame each block was cut in, so each station's force is
+        # The frame each block was cut in, so each station's force is
         # projected on the rotor's axis rather than read in the export's axes.
         validity = _qsteady.add_reduced_frequency_to_sections(
             table,
@@ -160,9 +160,9 @@ def _write_harmonics(
     extra: Mapping[str, object] | None = None,
     disc_maps: list[tuple[Path, dict[str, object]]] | None = None,
 ) -> tuple[Path, dict[str, object]] | None:
-    """Write ``sections/<point>_harmonics.csv`` from a WRITTEN sections table (0.31.0).
+    """Write ``sections/<point>_harmonics.csv`` from a WRITTEN sections table.
 
-    Where ``disc_maps`` is a list (0.32.0), the same rows, cut the same way,
+    Where ``disc_maps`` is a list, the same rows, cut the same way,
     are also mapped over the disc (:func:`_write_disc_maps`) and each map's
     path and ``products.json`` entry is appended to it.
 
@@ -255,7 +255,7 @@ def _acoustic_products(
     target: Callable[[Path], Path],
     skipped: dict[str, str],
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
-    """Write a point's acoustic products from the export its record lists (0.32.0, FR-264).
+    """Write a point's acoustic products from the export its record lists (FR-264).
 
     The record lists the export among its ``outputs``, the entry that ends with
     :data:`~pyflightstream.cases.acoustics.ACOUSTIC_SIGNALS_SUFFIX` (how the run
@@ -321,7 +321,7 @@ def _acoustic_products(
 
 
 def _skip_disc_maps(point: str, reason: str, skipped: dict[str, str], marker: str = "") -> None:
-    """Name the disc maps a point could not write, and why (0.32.0)."""
+    """Name the disc maps a point could not write, and why."""
     relative = f"{SECTIONS_DIR}/{point}{_disc_maps.DISC_MAP_MARK}{marker}"
     skipped[relative] = f"no disc map: {reason}"
     warn(
@@ -346,7 +346,7 @@ def _write_disc_maps(
     skipped: dict[str, str],
     extra: Mapping[str, object] | None,
 ) -> list[tuple[Path, dict[str, object]]]:
-    """Write ``sections/<point>_disc_<ROTOR>_<QUANTITY>.csv`` from a table already read (0.32.0).
+    """Write ``sections/<point>_disc_<ROTOR>_<QUANTITY>.csv`` from a table already read.
 
     One file per rotor and sectional load quantity of the rows given (a wheel's
     every clocking, an unsteady point's last complete revolution), by
@@ -406,7 +406,7 @@ def _wheel_harmonics(
     skipped: dict[str, str],
     disc_maps: list[tuple[Path, dict[str, object]]] | None = None,
 ) -> tuple[Path, dict[str, object]] | None:
-    """Fit a quasi-steady WHEEL point's harmonics over its blades and clockings (0.31.0).
+    """Fit a quasi-steady WHEEL point's harmonics over its blades and clockings.
 
     None, and nothing said, for any point that is not a wheel, and for a
     wheel whose record cannot be read (its sections table names that).
@@ -533,8 +533,7 @@ def _unsteady_harmonics(
     product's key. A point that cuts sections (its record states a sections
     layout) and has no sections series, no export window or no rotor to fit
     writes nothing and is named under the product's key too, with a line in
-    ``post.log`` (invariant 2): the product was silently absent on a licensed
-    run whose row cut sections and exported no per-step sectional loads. A
+    ``post.log`` (invariant 2). A
     point that cuts no sections asked for no harmonics, and nothing is said.
     """
     name = f"{stem}_sections_series.csv"
@@ -610,7 +609,7 @@ def _unsteady_harmonics(
 
 
 def _the_sections_writer(**arguments: Any) -> Callable[[Path, str], Path | None]:
-    """Return :func:`write_sections_table` bound to one steady point's arguments (0.31.0).
+    """Return :func:`write_sections_table` bound to one steady point's arguments.
 
     The writer of a quasi-steady wheel's further clockings, so each clocking's
     export is tabled with the point's own condition, layout and rotors, by the
@@ -628,7 +627,7 @@ def _qsteady_super_cells(
     record: RunRecord | None,
     validity_of: Mapping[str, _qsteady.PointValidity],
 ) -> dict[str, str]:
-    """Return a quasi-steady wheel point's validity cells for its super-file row (0.30.0).
+    """Return a quasi-steady wheel point's validity cells for its super-file row.
 
     Empty for any other point, and for one whose quasi-steady record cannot be
     read (the clockings tables name that point under their own key).
@@ -657,7 +656,7 @@ def _qsteady_products(
     target: Callable[[Path], Path],
     skipped: dict[str, str],
 ) -> list[tuple[Path, dict[str, object]]]:
-    """Write a quasi-steady simulation's clockings table and average table (0.30.0).
+    """Write a quasi-steady simulation's clockings table and average table.
 
     One pair per rotor, named after it like the rotor table:
     ``polars/P<sim>-<ALIAS>_qs_positions.csv`` and ``_qs_avg.csv``. A point
@@ -675,7 +674,7 @@ def _qsteady_products(
         record = record_of.get(point.name)
         if record is None or record.recipe != QSTEADY_ROTOR:
             continue
-        # A MISSING, UNREADABLE OR UNKNOWN RECORD is one refusal (0.31.0), never
+        # A MISSING, UNREADABLE OR UNKNOWN RECORD is one refusal, never
         # a traceback. It is keyed under the point, beside its validity skip:
         # with no record there is no rotor alias, and a made-up one named a
         # positions file of a rotor called "rotor" that no plan writes.
@@ -705,7 +704,7 @@ def _qsteady_products(
             if density is not None
             else None
         )
-        # 0.31.0: A WHEEL POINT'S ROTOR STATE, from the mean thrust over its
+        # A WHEEL POINT'S ROTOR STATE, from the mean thrust over its
         # clockings, for the average table and the validity file; what cannot
         # be taken is NA and a WARNING line of the post's log.
         state: _qsteady.RotorState | None = None
@@ -730,10 +729,10 @@ def _qsteady_products(
                     stacklevel=2,
                 )
         if quasi.case == "wheel":
-            # 0.30.0: THE WHEEL POINT'S VALIDITY AFTER THE RUN, in its datapoint
+            # THE WHEEL POINT'S VALIDITY AFTER THE RUN, in its datapoint
             # folder beside the run's record, the shares of thrust and torque
-            # from the stations above k = 0.1 included (0.30.0), and its rotor
-            # state (0.31.0).
+            # from the stations above k = 0.1 included, and its rotor
+            # state.
             try:
                 written_file = _qsteady.write_point_validity_file(
                     point.loads_path, quasi, validity, state
@@ -796,7 +795,7 @@ def _qsteady_products(
                             else "the mean of the steady clockings of a quasi-steady rotor"
                         ),
                         # Where each wheel point's validity file sits, relative to
-                        # this products folder (0.30.0).
+                        # this products folder.
                         "validity_files": dict(sorted(validity_files.get(alias, {}).items())),
                     },
                 )
@@ -816,7 +815,7 @@ def _qsteady_corrections(
     target: Callable[[Path], Path],
     skipped: dict[str, str],
 ) -> list[tuple[Path, dict[str, object]]]:
-    """Write a simulation's corrected wheel products and diagnostic (0.31.0, P0310-CAL).
+    """Write a simulation's corrected wheel products and diagnostic (P0310-CAL).
 
     Nothing where the pproc states no ``[qsteady_correction]`` table or states
     it with no route and no diagnostic, which is the default. Otherwise the
@@ -933,10 +932,8 @@ def _point_series(
     )
     live = _live_reference(workspace, matrix_row)
     if point is not None and record.mach is not None:
-        # THE CLOCK COLUMNS REACH THIS FAMILY TOO. Both lenses measured the
-        # rotor table and the per-step series carrying neither while the polar
-        # beside them carried both, which is the drift the shared condition
-        # exists to prevent (2026-09-22).
+        # Use the shared condition columns so this family carries the same
+        # clock information as the polar, rotor table and per-step series.
         condition = point_condition(
             point,
             mach=record.mach,
@@ -980,8 +977,8 @@ def _point_series(
         condition=condition,
         reference=reference,
         rotors=_section_rotors(live, aliases, record),
-        # R03 and R04 of 0.27.0: the geometry's names, recorded since 0.27.0 or
-        # recovered by the hash an older record carries; hashed for every point
+        # R03 and R04: geometry names recorded directly or recovered through
+        # the recorded hash; hashed for every point
         # except one whose record proves an EMPTY layout ([]). A legacy record
         # (layout None) is hashed too, deliberately: its layout is recovered
         # from its hashed script against these names
@@ -1002,8 +999,8 @@ def _point_series(
             rotors=_section_rotors(live, aliases, record),
             skipped=skipped,
             surface_exports=surface_exports,
-            # `archive` WAS ACCEPTED HERE AND NEVER USED until 2026-09-14, so the
-            # series were the one product a rebuild rewrote in place.
+            # Pass the archive policy through so rebuilding a series preserves the
+            # previous product when archiving is requested.
             target=lambda path: _refuse_an_existing_product(
                 path, archive=archive, stamp=archive_stamp
             ),
@@ -1018,7 +1015,7 @@ def _point_series(
             stacklevel=2,
         )
         written, names = [], {}
-    # 0.31.0 (P0310-HARMONICS): AN UNSTEADY ROTOR POINT'S PER-STATION HARMONICS,
+    # P0310-HARMONICS: AN UNSTEADY ROTOR POINT'S PER-STATION HARMONICS,
     # fitted over its last complete revolution of the sections series just written.
     if record.recipe == "unsteady_rotor":
         series_maps: list[tuple[Path, dict[str, object]]] = []
@@ -1045,7 +1042,7 @@ def _point_series(
                 mapped_path.relative_to(out) if mapped_path.is_relative_to(out) else mapped_path
             )
             names = {**names, mapped_key.as_posix(): mapped_entry}
-    # 0.32.0 (P0320-NOISE-POST): the acoustic signals the record lists, read into
+    # P0320-NOISE-POST: the acoustic signals the record lists, read into
     # the per-observer products, whatever the recipe was.
     acoustic_files, acoustic_names = _acoustic_products(
         record,

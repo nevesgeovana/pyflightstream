@@ -7,11 +7,11 @@ importing each other, one direction hidden inside a function).
 :mod:`pyflightstream.post.products` re-exports every public name here,
 which is where a reader finds them.
 
-Since 0.33.0 (AD-10) the post's one CSV reader, :func:`read_csv_table`, and
+The post's one CSV reader (AD-10), :func:`read_csv_table`, and
 the plots-table readers (:func:`plots_table_series` and the step clock it
 reads) are defined here too, so :mod:`pyflightstream.post.corrections`, which
 :mod:`pyflightstream.post.products` imports, reads a table without importing
-that module back. Since 0.33.0 (FR-96) so is the plots history of a continued
+that module back. So is the plots history (FR-96) of a continued
 point over its whole march (:func:`_march_history`), which the products stage
 reads through :func:`_march_records` and :func:`_march_plots_text` and does not
 re-export.
@@ -54,35 +54,12 @@ from pyflightstream.results import labeled_value, parse_unsteady_plots
 from pyflightstream.workspace import CampaignWorkspace, RunRecord
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
-#: The spellings a RUN recorded, mapped to the product column they mean.
-#:
-#: `context_row` folds case and nothing else, so a recorded key reaches a column
-#: only when the two are the same word -- and none of the three columns item 5
-#: most needs is spelled the way the run recorded it. The cell keys carry their
-#: UNIT in the name (`TASmps`, `ALTFT`) and the column does not; the sweep point
-#: and the matrix cell spell the advance ratio two ways; and the loads export
-#: reports under the labels its own header uses. Without this table the products
-#: carry the columns and never the values, which is what a release round
-#: measured on real files: `VINF` and `ALT` read `NA` in every row of every
-#: polar and super file.
-#:
-#: ONLY PAIRS WHOSE UNITS AGREE ARE HERE, and that is the whole discipline of
-#: the table rather than a note on it. `ALTFT` is feet and so is `ALT`; `TASmps`
-#: is m/s and so is `VINF`.
-#:
-#: `REmi` IS DELIBERATELY ABSENT, and the reason is the opposite of the one this
-#: comment first gave. It said `REmi` "would write 4.38 into a column where
-#: every other row writes 4380000". THE COLUMN IS MILLIONS: the polar's
-#: twenty-four say so at `products.COEFFICIENT_COLUMNS`, and the sections table
-#: writes `_reynolds_millions`. A V&V round measured the tree against this
-#: sentence and found the sentence wrong -- and, because the sentence was wrong,
-#: the rotor table had been wired to write the absolute number, putting 4380000
-#: and 4.38 under one column name in two files of one directory.
-#:
-#: So `REmi` stays out for a plainer reason: an alias may not carry a unit
-#: conversion. The cell keys that ARE here differ from their column only in
-#: spelling. `point_condition` converts the export's absolute Reynolds where it
-#: assembles the condition, which is a place a reader can see it happen.
+#: Recorded spellings mapped to product columns. context_row folds case
+#: only, so cell keys with units and export-header labels need aliases.
+#: Every alias preserves units: ALTFT and ALT are feet, TASmps and VINF
+#: are m/s. Unit conversion belongs in point_condition, not an alias.
+#: REmi is deliberately absent: Reynolds values in product columns are
+#: in millions, while the export supplies an absolute Reynolds number.
 CONDITION_KEY_ALIASES: dict[str, str] = {
     # The sweep point and the matrix cell, which spell one quantity two ways.
     "advance_ratio": ADVANCE_RATIO_COLUMN,
@@ -97,9 +74,8 @@ CONDITION_KEY_ALIASES: dict[str, str] = {
     "freestream_velocity_m_s": "VINF",
     "altitude_ft": "ALT",
     "reynolds": "RE",
-    # 0.24.0. The export's reference velocity, the record's air, and the cell
-    # keys that pin the air directly. Units agree in every pair: m/s, kg/m3, K
-    # and Pa s.
+    # The export's reference velocity, recorded air and directly pinned air
+    # keys. Units agree in each pair: m/s, kg/m3, K and Pa s.
     "reference_velocity_m_s": "VREF",
     "density_kg_m3": "RHO",
     "temperature_k": "TEMP",
@@ -118,11 +94,8 @@ def context_row(
 ) -> tuple[object, ...]:
     """Return the values of ``columns``, read from what the run recorded.
 
-    ONE ASSEMBLY FOR EVERY PRODUCT FAMILY, which is the whole point of the
-    function existing rather than four list comprehensions. Item 5 of 0.23.0
-    exists because three of the four families had drifted into carrying
-    different subsets of the condition, and four call sites assembling the same
-    tuple is how they drift again.
+    ONE ASSEMBLY FOR EVERY PRODUCT FAMILY, keeping their condition columns
+    consistent instead of constructing a separate subset at each call site.
 
     A key the run did not record is NOT invented and is not left blank: it
     arrives at the funnel as ``None`` and is written as ``NA``, which says the
@@ -201,21 +174,13 @@ def rotor_advance_ratio(speed_m_s: object, rpm: object, diameter_m: object) -> f
     return speed / (abs(rate) / 60.0 * diameter)
 
 
-#: What tells one sections ROW from another, in front of the condition every
-#: row of the file shares. v0.23.0 item 13, found by reading a real production
-#: file: `POINT` carried the polar's NAME, which the file name already
-#: carries, so the column restated the one fact a reader holds before opening
-#: the file while the two facts that vary down the table were nowhere. On an
-#: unsteady run every row then looked identical apart from its position.
-#:
-#: `AZIMUTH` is `NA` on a run with no rotor, and never zero: zero is a real
-#: azimuth a rotor row can hold.
-#: 0.24.0. `STEP` is the ONE name of the solver step across the package's tables
-#: (it was `ITERATION` here); on a steady run it is the solver iteration. `FAMILY`,
-#: `PLANE` and `ROTOR` say which DISTRIBUTION a row belongs to, which nothing did.
+#: Columns distinguishing sections rows before their shared condition.
+#: AZIMUTH is NA without a rotor, not zero, which is a real rotor angle.
+#: STEP names the solver step, or solver iteration on a steady run.
+#: FAMILY, PLANE and ROTOR identify the distribution.
 _SECTION_IDENTITY_COLUMNS: tuple[str, ...] = ("STEP", "FAMILY", "PLANE", "ROTOR", "AZIMUTH")
 
-#: 0.27.0 (G16): the polar first, as in every table the post writes.
+#: G16: the polar first, as in every table the post writes.
 SECTION_COLUMNS: tuple[str, ...] = (
     POLAR_ID_COLUMN,
     *_SECTION_IDENTITY_COLUMNS,
@@ -338,80 +303,15 @@ _COEFFICIENT_COLUMN = re.compile(
 )
 
 
-#: What a cell writes when the column does not apply to that row.
-#:
-#: A product never writes a BLANK cell. A blank is ambiguous three ways -- it
-#: could mean zero, it could mean not-measured, it could mean
-#: this-column-is-not-for-this-row -- and a reader cannot tell them apart.
-#: Measured on a production superfile, 50 of 628 columns per row were blank for
-#: the third reason alone: a key declared for the union of all run types, on a
-#: row whose run type does not have it.
-#:
-#: `NA` says the third of those three and only the third. A value that was
-#: EXPECTED and is missing is NOT this: it stays a visible defect rather than
-#: being spelled the same as a column that never applied.
-#:
-#: THAT LAST SENTENCE IS AN INTENT THE FUNNEL CANNOT ENFORCE, and saying so
-#: here is the difference between a rule and a wish. `_cell` sees a blank and
-#: cannot know which of the three reasons produced it, so it spells every
-#: blank `NA`. The promise therefore rests on the PRODUCERS: it holds exactly
-#: as long as no producer emits a blank for a value it expected and did not
-#: get. It is not currently checked anywhere, and `_probe_spine` is the one
-#: place that would test it, since it returns a blank on the path where no
-#: position was recorded.
-#:
-#: The QA lens of the 0.23.0 range measured this and it is registered as owed
-#: rather than left implied: routing the does-not-apply case through this
-#: constant AT THE PRODUCER, and leaving a blank to arrive as a visible
-#: defect, is the shape that would make the sentence above testable. It is not
-#: done here because it touches every producer at once, and this release
-#: already changes the bytes of every product.
-#:
-#: ONE PRODUCER IS A KNOWN EXCEPTION TODAY, and it is named because the
-#: closing round found the same commit asserting the promise and breaking it.
-#: A run recorded before 0.16.0 names no probe-positions file, so that table's
-#: position and frame cells are a value the package COULD NOT DERIVE -- reason
-#: two, which this comment says is not spelled `NA` -- and they read `NA` all
-#: the same, because a blank is the one thing a product may not write. The
-#: honest statement is therefore narrower than the sentence above: `NA` means
-#: does-not-apply EXCEPT in the probes spine of a pre-0.16.0 run, where it
-#: means the record that would have said is not there.
-#:
-#: THAT EXCEPTION IS CARRIED FOR COMPATIBILITY and remains open: refusing such
-#: a table instead would take a product away from a campaign that already
-#: happened, which is why it was never refused. The alternative, a third token
-#: meaning "not recorded", is a change to the product file format and is not
-#: taken here.
-#:
-#: ONE TOKEN IN THE CSV PRODUCTS, and the scope word is load-bearing. The
-#: rule is that where a value does not apply the token is always `NA`, and
-#: it is written here with the boundary the rule's REASON gives it: a second
-#: spelling costs something exactly where a reader PARSES, which is the
-#: products. The probes table's `STEP` said `-` on a steady row until 0.23.0,
-#: putting two spellings of one meaning in one row beside a `FRAME` that
-#: already read `NA`.
-#:
-#: `-` WAS A LIVE SENTINEL OUTSIDE THE PRODUCTS UNTIL 2026-09-18, and the
-#: paragraph that stood here listed the five surfaces that contradicted this
-#: rule and then left the question open, because converging them changes a
-#: file format users already read. IT IS DECIDED: every surface converges on
-#: `NA`.
-#:
-#: The five were the printed plan and cost table (`run/_plan`, FR-82), the
-#: QA physics, drift and CLI tables, and `cases.matrix.UNSTATED_CELL`. All five
-#: now WRITE `NA`, and every READER still accepts `-`, so a matrix or a product
-#: written by an earlier release is read exactly as it was.
-#:
-#: THE TOKEN NO LONGER LIVES HERE. It moved to :mod:`pyflightstream._tokens`,
-#: below every layer, for the reason the rule itself demands: `qa` does not
-#: import `post` and must not start, so a token defined in `post` could only
-#: reach those three tables by inverting a layer. It is re-exported under this
-#: name because every existing importer asks for it here, and because this
-#: module remains the FUNNEL even though it is no longer the DEFINITION --
-#: `_cell` below is still the one place a CSV product turns a value into a cell.
-#:
-#: (The re-export is the `X as X` form in the import block above, which is what
-#: makes it explicit to a type checker rather than incidental.)
+#: CSV products use NA for a column that does not apply. _cell is the
+#: shared funnel for all product families and converts every blank to NA;
+#: it cannot distinguish inapplicable values from missing expected ones.
+#: Producers therefore own that distinction. Probe position and frame
+#: cells also become NA when a record names no probe-position file,
+#: preserving readable products despite unavailable position evidence.
+#: The printed plan, cost, QA tables and matrix writer share this token;
+#: readers still accept the legacy dash. Its definition is in _tokens
+#: below all layers, and this module explicitly re-exports it for callers.
 
 
 def _cell(value: object) -> str:
@@ -419,11 +319,8 @@ def _cell(value: object) -> str:
 
     IT IS DONE HERE because this is the funnel the CSV PRODUCTS pass through --
     the polars, the superfile, the sections, the probes, the campaign reduction
-    table, the POINT SERIES and, since 0.23.0, the settings table. A rule
-    applied at the writers
-    instead would have to be remembered at each of them, and the naming table of
-    0.22.0 is the standing lesson about what that costs: held in a second place,
-    it was remembered at one call site of three.
+    table, the POINT SERIES and the settings table. A rule applied at each
+    writer would need a separate implementation for every product family.
 
     WHAT DOES NOT PASS THROUGH IT, named rather than left to be discovered:
     `reductions.write_series` and `reductions.write_reduction` render their own
@@ -442,7 +339,7 @@ def _cell(value: object) -> str:
     enumeration that has just been corrected for overclaiming is worth
     re-reading for the opposite, and nobody had.
 
-    NO CELL HOLDS A COMMA OR A DOUBLE QUOTE (G16, 0.27.0), which is the second
+    NO CELL HOLDS A COMMA OR A DOUBLE QUOTE (G16), which is the second
     rule held here for the same reason as the first: a text cell goes through
     :func:`pyflightstream._tokens.plain_cell`, so a comma is written ``;``, a
     double quote a single one and a line break a space, and the CSV writer has
@@ -550,7 +447,7 @@ def renamed_columns(
     printed: Sequence[str],
     where: str,
 ) -> tuple[str, ...]:
-    """Return ``columns`` with the pproc's ``[names]`` dictionary applied (0.24.0).
+    """Return ``columns`` with the pproc's ``[names]`` dictionary applied.
 
     ``printed`` is what the plots export prints, which is what a dictionary's
     left side may name. THE WHOLE DICTIONARY APPLIES OR NONE OF IT DOES: half a
@@ -601,16 +498,10 @@ def renamed_columns(
     return tuple(names.get(name, name) for name in columns)
 
 
-#: How a rotor table's file name ends, and how many lines lead its header.
-#:
-#: NONE SINCE 0.27.0 (G16). From 0.23.0 the rotor's alias stood alone on line
-#: one, so a script that had loaded the file still knew which rotor it held;
-#: but a line before the header is a file no CSV reader takes as written. The
-#: alias is the `ROTOR` column now, right after `POL`, on every row, which keeps
-#: the promise inside the bytes and makes the first line the header. The name
-#: stays, at zero, for a reader that skips this many lines; a table written by
-#: 0.23.0 to 0.26.x still leads with its alias, and a reader of those files
-#: drops a first line of one cell (as `post.superfile` does).
+#: The rotor-table filename suffix and number of lines before its header.
+#: Current tables start with the header and carry the alias in ROTOR after
+#: POL, so the skip count is zero. Legacy tables with a single-cell alias
+#: line before the header can be read by dropping that line.
 ROTOR_TABLE_SUFFIX = "_rotor.csv"
 ROTOR_TABLE_LEAD_LINES = 0
 
@@ -805,7 +696,7 @@ class ReferenceValues:
         return {"SREF": self.sref_m2, "CREF": self.cref_m, "BREF": self.bref_m}
 
     def as_moment_point(self) -> dict[str, float]:
-        """Return the moment point, keyed by its column names (0.24.0).
+        """Return the moment point, keyed by its column names.
 
         For the families that DO carry a moment without carrying the polar's own
         reference block: the unsteady polar and the reductions average the plots'
@@ -858,7 +749,7 @@ def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     return f"{polar}_M{_mach_code(mach):02d}_g{number:02d}.csv"
 
 
-# --- the post's one CSV reader (0.33.0, AD-10: moved from post.products) ---
+# --- the post's one CSV reader (AD-10: moved from post.products) ---
 
 
 def read_csv_table(
@@ -870,10 +761,9 @@ def read_csv_table(
     number; a row whose width differs from the header is refused naming
     the line, which is what makes the round trip a proof.
 
-    ``skip`` drops that many lines before the header. No table the post writes
-    since 0.27.0 has one (G16): its first line is the header and its first
-    column `POL`. A rotor table written by 0.23.0 to 0.26.x leads with its
-    rotor's alias alone on the first line, and ``skip=1`` reads it.
+    ``skip`` drops that many lines before the header. Current tables start
+    with the header and column `POL` (G16). A legacy rotor table with its
+    alias alone on the first line is read with ``skip=1``.
 
     Parameters
     ----------
@@ -912,11 +802,11 @@ def read_csv_table(
     return columns, rows
 
 
-# --- the plots-table readers (0.33.0, AD-10: moved from post.products) ---
+# --- the plots-table readers (AD-10: moved from post.products) ---
 
 #: PFS-2038.04. The column an unsteady plots export states its clock in.
 #: Private here, since this module's public names are the ones post.products
-#: lists; post.products keeps it as ``PLOTS_STEP_COLUMN`` (0.33.0, AD-10), and
+#: lists; post.products keeps it as ``PLOTS_STEP_COLUMN`` (AD-10), and
 #: the probe table and the probe fields read it from here.
 #: The same name `post.superfile` and the probe table already read, and the
 #: same rule those two write down: the step a sample came from is not a guess.
@@ -985,16 +875,10 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     The export writes one row per time step (the manual's paraphrase in the
     database entry for ``UNSTEADY_SOLVER_EXPORT_PLOTS``) and states the step
     it wrote in a ``Time-step`` column; the step axis is that column, so a
-    window's ``FIRST_STEP`` and ``LAST_STEP`` mean what the file means. This
-    used to be the row number regardless, so an export whose clock does not
-    begin at one was labelled with ordinals and could not be reduced by its
-    own step numbers.
+    window's ``FIRST_STEP`` and ``LAST_STEP`` mean what the file means,
+    including an offset or sparse clock.
 
-    MEASURED 2026-09-11 over every recorded plots export in these
-    workspaces: 49 of 49 begin at 1 and step by 1, so the column and the
-    ordinal agree on every export this solver has produced and nothing
-    already recorded changes. What this closes is the silent mislabel if an
-    offset or sparse clock ever arrives.
+    Use row ordinals only where the table states no step clock.
 
     THE ORDINAL REMAINS THE FALLBACK, for a table that states no such
     column and for one whose column is not a strictly increasing whole
@@ -1010,11 +894,11 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     Read from the WRITTEN table rather than from the export in memory, so a
     reduction is of the file a user holds and can be recomputed from it.
 
-    `POL` IS NOT A PLOTTED QUANTITY (G16, 0.27.0). The table opens with the
+    `POL` IS NOT A PLOTTED QUANTITY (G16). The table opens with the
     polar its point belongs to, which says which polar the file is OF and is
     no field of any sample: it is left out of the columns and of the series,
     so no reduction averages it and no reduction states it twice. A table
-    written before 0.27.0 carries no such column and reads as it always did.
+    with no such column needs no exclusion.
 
     Parameters
     ----------
@@ -1044,7 +928,7 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     )
 
 
-# --- the whole march of a continued point (0.33.0, FR-96) ---------------------
+# --- the whole march of a continued point (FR-96) ---------------------
 #
 # A continuation reopens the saved simulation of the run it continues and
 # marches on; that run's outputs are archived under the datapoint's
@@ -1317,7 +1201,7 @@ def _march_history(
 def _adds_no_step(run_id: str, continued: str, reached: int) -> str:
     """Return the warning for a continuation whose export adds no time step (FR-800).
 
-    The shape RPT-134 measured on 26.124 for the continuation 0.34.0 emitted:
+    The shape RPT-134 measured on 26.124:
     the solver cleared the reopened state and marched again from step 1, so the
     export restates the march it continues and ends where that march ended. The
     table is still posted, as the march stands; the warning names the two runs.
@@ -1334,7 +1218,7 @@ def _adds_no_step(run_id: str, continued: str, reached: int) -> str:
 def _march_records(workspace: CampaignWorkspace, records: Sequence[RunRecord]) -> list[RunRecord]:
     """Return ``records`` with each continuation's windows ending at its march's last step.
 
-    FR-96, 0.33.0: a continuation records the row's clock, so its windows end
+    FR-96: a continuation records the row's clock, so its windows end
     at the last step of the run it continues; they are moved, keeping their
     lengths, to end at the last step of the whole march (:func:`_march_history`,
     :func:`~pyflightstream.cases.windows.march_end`). Every other record is
@@ -1354,7 +1238,7 @@ def _march_records(workspace: CampaignWorkspace, records: Sequence[RunRecord]) -
 def _march_plots_text(workspace: CampaignWorkspace, record: RunRecord | None, path: Path) -> str:
     """Return the plots export a point's table is written from: the whole march, continued.
 
-    A point that continues nothing reads its own export, as before 0.33.0. A
+    A point that continues nothing reads its own export. A
     continuation reads :func:`_march_history`, and the post log says how it was
     put together and where the averaging window ends.
     """

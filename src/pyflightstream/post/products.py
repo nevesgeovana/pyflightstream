@@ -176,7 +176,7 @@ from pyflightstream.post._tables import (
 
 # The post's one CSV reader and the plots-table readers (`read_csv_table`,
 # `plots_table_series` and the step column) are defined in `post._tables`
-# since 0.33.0 (AD-10), so `post.corrections` reads a table without importing
+# (AD-10), so `post.corrections` reads a table without importing
 # this module back; they stay in this module's __all__ and namespace.
 from pyflightstream.post._tables import (
     ADVANCE_RATIO_COLUMN,
@@ -373,11 +373,8 @@ __all__ = [
     "context_row",
     "renamed_columns",
     "section_identity",
-    # The token a reader of any product compares against. It was reachable
-    # only from the private `_tables` until 0.23.0, while that module's own
-    # docstring said this one re-exports every public name it holds -- so the
-    # sentence was false, and a test that wanted the constant had to import
-    # the private module to get it.
+    # The shared token for an inapplicable product value, exported for
+    # readers without requiring an import from the private table module.
     "NOT_APPLICABLE",
     "POLAR_COLUMNS",
     "SWEEP_AXES",
@@ -427,7 +424,7 @@ __all__ = [
     "write_campaign_products",
     "write_recorded_polar",
     "write_sections_table",
-    # The per-revolution product (0.31.0, P0310-G2-PER-REV), appended so the
+    # The per-revolution product (P0310-G2-PER-REV), appended so the
     # inventory recorded before it keeps its order.
     "PER_REVOLUTION_COLUMNS",
     "DEFAULT_DRIFT_LIMIT_PCT",
@@ -439,12 +436,8 @@ __all__ = [
 ]
 
 
-# The polar format's REMOVED names are refused, naming the replacement, by
-# the one hook both post modules install (AD-10). It used to carry a
-# docstring saying it SERVED them and warned, over a body that raised the
-# bare AttributeError: the user this most fails is the one upgrading from a
-# published 0.14.0, where the old name still worked (the interface lens at
-# the release boundary, 2026-09-11).
+# Removed polar-format names are refused with replacement guidance by
+# the shared hook installed by both post modules (AD-10).
 def __getattr__(name: str) -> object:
     """Refuse the names removed through the one hook of ``_deprecations``."""
     from pyflightstream._deprecations import removed_names_hook
@@ -772,27 +765,20 @@ def _campaign_products(
     ``sims`` (FR-307), already validated by the caller, limits the
     rebuild to those simulations (:class:`_PartialPost`).
     """
-    # ONE STAMP PER REBUILD, taken here and threaded to every archiver.
-    # The archive folder's whole claim is that a rebuild is ONE thing a
-    # reader can look at. It was not: each archiver called `datetime.now()`
-    # for itself at one-second resolution, so a rebuild that archived more
-    # products than fit in one second scattered them across two folders or
-    # more, and the reader comparing before and after had to union N
-    # siblings and could not tell a second boundary from a second rebuild
-    # (the interface lens, 2026-09-13). The collision branch below the
-    # stamp guards two rebuilds INSIDE one second, which is the rare case;
-    # this was the common one.
+    # Use one stamp per rebuild and pass it to every archiver, keeping all
+    # replaced products together. The collision branch distinguishes separate
+    # rebuilds that start within the same second.
     archive_stamp = archive_stamp or datetime.now()
     everything = workspace.read_manifest()
     records = [record for record in everything if record.matrix_stem == matrix_stem]
-    # A COMPACTED SIMULATION IS READ AS IF IT WERE NOT (0.30.0, S4): the
+    # A COMPACTED SIMULATION IS READ AS IF IT WERE NOT (S4): the
     # post restores `sims/sim_<id>.zip` in place before it reads anything.
     for sim_id in sorted({record.sim_id for record in records} if sims is None else sims):
         ensure_sim_expanded(workspace, sim_id, reason="post")
     _refuse_an_unknown_matrix(workspace, matrix_stem, everything)
     out = workspace.products_dir(matrix_stem)
     by_sim: dict[str, list[RunRecord]] = {}
-    # THE END OF A CONTINUATION CHAIN (0.24.0). Expanded first, because a chain
+    # THE END OF A CONTINUATION CHAIN. Expanded first, because a chain
     # is between POINTS; named below in `skipped`, once that exists.
     points = [point for record in records for point in record.as_points()]
     superseded = superseded_by_a_continuation(points)
@@ -814,13 +800,9 @@ def _campaign_products(
         "log": _POST_LOG,
         "log_json": _POST_LOG_JSON,
     }
-    # PFS-2031.16. A simulation whose product is REFUSED by design, the
-    # polar under sideslip among them, is recorded as skipped with the
-    # reason, and the others are written: until 2026-09-08 the first
-    # refusal aborted the stage, and a sideslip row cost every later row
-    # of its matrix its tables and the workspace its products.json. An
-    # existing product without overwrite is still the whole stage's
-    # refusal, since it is about the caller's flag and not about a row.
+    # PFS-2031.16: record a simulation product's refusal as a skip with its
+    # reason and continue other products. An existing destination without
+    # overwrite refuses the whole stage because it concerns the caller's flag.
     for old, new in superseded.items():
         if sims is not None and sim_of_point.get(old) not in sims:
             continue
@@ -839,14 +821,10 @@ def _campaign_products(
     _warn_unreadable_matrix(workspace, matrix_stem, rows_of_the_matrix)
     sweep_rows = _sweep_rows(workspace, matrix_stem)
     drafts: list[SuperfileDraft] = []
-    # THE MANIFEST DESCRIBES THE DISK EVEN WHEN THE REBUILD DIES (MT-08). It was
-    # written ONCE, last, after every existing product had been moved into
-    # `archive/`; a rebuild that died on anything but a `ProductError` (a raw
-    # `ValueError` from a malformed export, an `OSError`, the memory watchdog) left
-    # the PREVIOUS manifest naming files the archiver had just moved away. The old
-    # one is invalidated first and the new one is written in a `finally`, saying it
-    # is incomplete and why. THE INVALIDATION IS INSIDE THE TRY: it ran before it,
-    # so a refusal after the old manifest was removed left no manifest at all.
+    # MT-08: invalidate the old manifest inside the try and write the new
+    # one in finally, marking incompleteness and its reason if rebuilding
+    # fails. This keeps the manifest aligned with files already archived
+    # or written even when an unexpected exception interrupts the rebuild.
     partial: _PartialPost | None = None
     try:
         previous_products, partial = _prepare_campaign_rebuild(
@@ -1142,17 +1120,10 @@ def _write_campaign_superfiles(ctx: _CampaignProducts) -> None:
 
 
 def _finish_campaign_products(ctx: _CampaignProducts) -> None:
-    # THE SECTIONS MEASUREMENT, written the same way as the superfile one: from
-    # the workspace rather than from this stage's own arithmetic. It counts what
-    # each point's ARTIFACT declared against what its SCRIPT emitted, two
-    # different files, neither derived from the other (FR-83). The records are
-    # pydantic models here and the measurement takes plain mappings, because it
-    # reads the same JSON a manifest on disk holds.
-    #
-    # OUTSIDE `if drafts:` SINCE 0.24.0 (MT-02). It has nothing to do with a super
-    # file, but it sat in the branch that writes one, and a windowed unsteady
-    # campaign drafts none: the rotor campaigns, which are the ones that declare
-    # sections, never got their report.
+    # Measure sections from the workspace: compare each point's artifact
+    # declaration with its script emission (FR-83), using plain mappings
+    # matching manifest JSON. This is independent of superfile drafts so
+    # windowed unsteady campaigns also receive the report.
     """Finish campaign products."""
     import pyflightstream as _package
 
@@ -1230,14 +1201,10 @@ def _write_simulation_series(
     sim_records: Sequence[RunRecord],
     effective_pproc: tuple[str | None, PprocSpec | None, str | None],
 ) -> None:
-    # PFS-2031.18.01: the per-step exports of a windowed point as a
-    # series, written before the polar so a simulation the polar
-    # refuses (no Mach, a sideslip) keeps its series, which rest on
-    # the stamped files and the record alone.
-    # A stamped file the parsers cannot read (a run stopped mid-window
-    # leaves one) is that point's skip, recorded under series/<run id>,
-    # and never the stage's abort: the same rule the polar below follows
-    # since 2026-09-08 (the V&V lens of REL-0140).
+    # PFS-2031.18.01: write per-step series before the polar so a refused
+    # polar does not remove series supported by stamped files and the record.
+    # An unreadable stamped file is a point skip under series/<run id>, not
+    # an abort of the campaign stage.
     """Write simulation series."""
     recorded_pprocs = {effective_pproc[0]: effective_pproc[1]}
     for record in sim_records:

@@ -1,8 +1,8 @@
 """The settings table and its codebook as a campaign product (FR-419).
 
 Pipeline role: the post stage, after the simulations' products. The library
-writer :func:`pyflightstream.post.settings_table.write_settings_table` has
-existed since 0.22.0 with no caller; this module is the caller. With
+writer :func:`pyflightstream.post.settings_table.write_settings_table` is
+called by this module. With
 ``[products] settings_codebook = true`` in a simulation's pproc, the
 simulation's recorded points enter ONE table per matrix, one numeric row per
 point, written from the solver-setup snapshot each record carries.

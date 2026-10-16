@@ -56,7 +56,7 @@ __all__ = [
 ]
 
 
-# --- the input template, input_template.md (G47 of 0.28.0) --------------------
+# --- the input template, input_template.md (G47) --------------------
 
 #: The input template's file name. It is written at the ROOT of a workspace's
 #: ``inputs/`` folder, where the files whose format it shows live, and it links
@@ -1262,7 +1262,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
                 "`detect = { ... }` of `[trailing_edges]`": MappingProxyType(
                     {_IN_THE_COMMENT: ("surfaces", "sweep_angle")}
                 ),
-                # 0.32.0 (package C): beside a CCS file only, which the
+                # Beside a CCS file only, which the
                 # CCS geometry page shows with every key.
                 "`[import]`": MappingProxyType(
                     {"beside a CCS file only, shown on the CCS geometry page": ("ccs",)}
@@ -1416,7 +1416,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
     TemplateSection(
         heading=f"The quasi-steady wheel calibration, `inputs/{CALIBRATIONS_DIR}/<id>.toml`",
         intro=(
-            "Optional (0.31.0): the calibration a pproc's `[qsteady_correction]` "
+            "Optional: the calibration a pproc's `[qsteady_correction]` "
             'table names by its id, `file = "<id>"`, for a `qsteady_rotor` wheel. '
             "The post writes each corrected product beside its raw file, "
             "`<name>_corrected.csv`, and never over it; no route is validated. "

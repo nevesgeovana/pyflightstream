@@ -288,9 +288,9 @@ register_post_diagnostics(render_post_diagnostics)
 # THE GENERATED PPROC GUIDES reach the workspace init and the plan, which live
 # below this layer, through the same kind of registry the post stage uses.
 register_input_guide(write_workspace_pproc_guides)
-# THE INPUT GLOSSARY (G08 of 0.27.0), beside them and by the same registry.
+# THE INPUT GLOSSARY (G08), beside them and by the same registry.
 register_input_guide(write_workspace_input_glossary)
-# THE INPUT TEMPLATE (G47 of 0.28.0), at the root of `inputs/`, by the same registry.
+# THE INPUT TEMPLATE (G47), at the root of `inputs/`, by the same registry.
 register_input_guide(write_workspace_input_template)
 
 

@@ -439,15 +439,14 @@ def write_point_surface_average(
             ("", native_source.suffix.lstrip(".")), {}
         )
     bounds = stated["iterations"]
-    # JUDGED BEFORE IT EXISTS: a refusal after the write left the file on disk
-    # and in the list of files written, with only its manifest entry gone
-    # (reading C32 of 0.28.0).
+    # Validate before writing so a refused product cannot remain on disk
+    # and in the written-file list without a manifest entry.
     refused = judge(name, (int(bounds[0]), int(bounds[1]))) if judge is not None else None
     if refused is not None:
         if skipped is not None:
             skipped[name] = refused
         return [], {}
-    # A STEP FREE-SPACE DELETED REFUSES THE AVERAGE BY NAME (0.30.0): "not
+    # A STEP FREE-SPACE DELETED REFUSES THE AVERAGE BY NAME: "not
     # exported" would be false of a step that was exported and then deleted.
     window = (int(bounds[0]), int(bounds[1]))
     expected: dict[int, list[Path]] = {}

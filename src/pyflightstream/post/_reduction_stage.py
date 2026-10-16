@@ -1,14 +1,14 @@
 """The reductions of one point's plots table, each one file beside it.
 
-A private module of :mod:`pyflightstream.post` (AD-13, work package WP5 of
-0.33.0), called by the simulation stage of :mod:`pyflightstream.post._sim`
+A private module of :mod:`pyflightstream.post` (AD-13),
+called by the simulation stage of :mod:`pyflightstream.post._sim`
 for every plots table it writes.
 
 Each applicable reduction of a point's plots table is one file beside it
 under ``probes/``, windowed as the record's plan and the matrix row state
 it: the time average, the phase-locked table and the per-blade table, one
 per rotor where a row names its rotors (FR-68), and the per-revolution table
-with the drift of its last revolution (0.31.0), each written by the writers
+with the drift of its last revolution, each written by the writers
 of :mod:`pyflightstream.post.point_tables`. A reduction the row cannot window
 is recorded under ``skipped`` with its reason, and an average a frozen solve
 would cover is refused by the stage's one verdict. A names dictionary of the
@@ -75,10 +75,8 @@ def _dictionary_the_table_can_honour(
 
     A dictionary the plots table cannot honour is said ONCE for the point, under
     `probes/<point>#names`, and the reductions keep the export's own names
-    rather than be lost. This lived inside the lazy load of the history until
-    2026-09-22, when loading it earlier for the interpolation support skipped
-    the check and handed the writer a dictionary it then refused the product
-    for.
+    rather than be lost. Check independently of when the history is loaded
+    so interpolation support cannot bypass the validation.
     """
     try:
         renamed_columns(columns, names, printed=columns, where=_names_location(PROBES_DIR, stem))
@@ -109,8 +107,7 @@ def _point_reductions(
 ) -> None:
     """Write every applicable reduction of one plots table beside it (PFS-2015.04).
 
-    ``pol`` is the point's polar, the first column of every reduction since
-    0.27.0 (G16).
+    ``pol`` is the point's polar, the first column of every reduction (G16).
 
     ``names`` is the pproc's dictionary. It renames the columns of the averaged
     reductions; a dictionary the plots table cannot honour is said ONCE for the
@@ -119,13 +116,13 @@ def _point_reductions(
     that are no longer the export's own names and are not renamed.
 
     ``rotor_facts`` is what the sections table takes of each rotor, its blade
-    families and its clock; the per-blade reduction is ONE ROW PER BLADE since
-    0.24.0 and needs both.
+    families and its clock; the per-blade reduction is ONE ROW PER BLADE
+    and needs both.
 
     The plots table is written FIRST and is never touched here: the
     reductions are read off it and land under their own names beside it,
-    which is the rule of 2026-08-16 (a reduction ships beside the history
-    and never in its place) kept by construction. A reduction the record
+    so a reduction ships beside the history and never in its place.
+    A reduction the record
     cannot window, or whose window reaches past the table, is a skip
     recorded under the file it would have been, with the reason.
     """
@@ -428,13 +425,9 @@ class _ReductionProducts:
 def _reduction_reading(
     ctx: _ReductionProducts,
 ) -> tuple[list[tuple[str, object, str, str | None]], dict[str, list[str]]]:
-    # ONE READING LIST, TWO SHAPES (FR-68). A row turning several rotors
-    # has no single blade passage, so its two passage reductions live one
-    # per ROTOR under `rotors` and land in files that NAME the rotor; the
-    # flat keys carry the skip that says where they went, and the products
-    # record it as it records any skip. A row turning one rotor, and every
-    # row written before 0.15.0, reads the flat keys alone and its files
-    # keep the names they have always had.
+    # FR-68: per-rotor passage reductions live under rotors and write files
+    # naming each rotor. Flat keys carry the explanatory skip. Records with
+    # no per-rotor blocks use the flat keys and their flat filenames.
     """List flat reductions before per-rotor reductions and their skip pointers."""
     reading: list[tuple[str, object, str, str | None]] = [
         (name, ctx.plan.get(name), f"{PROBES_DIR}/{ctx.stem}_{name}.csv", None)
@@ -455,12 +448,8 @@ def _reduction_reading(
                         str(alias),
                     )
                 )
-    # THE FLAT SKIP NAMES THE FILES, because this layer knows the stem and
-    # the cases layer does not. Its own sentence can only describe the
-    # SHAPE of the names; read by someone who has just opened the plots
-    # folder and not found their per-blade table, that is one inference
-    # away from the two files sitting in the folder they are looking at
-    # (the interface lens, 2026-09-10).
+    # The flat skip names the actual files. This layer knows the stem; the
+    # cases layer can describe only the filename shape.
     per_rotor: dict[str, list[str]] = {}
     for name, _entry, relative, rotor in reading:
         if rotor is not None:
@@ -549,14 +538,10 @@ def _trim_reduction_windows(
     assert ctx.series is not None  # The first sample judgment loaded the history.
     frozen_windows = [window for window, _ in reached]
     kept = [window for window in windows if window not in frozen_windows]
-    # THE PER-BLADE TABLE HAS ONE WINDOW, collapsed from its passages, so
-    # dropping a refused passage IN THE MIDDLE and collapsing the rest
-    # BRIDGES it: passages [55,56] and [59,60] became [55,60], averaging the
-    # very step the refusal had just removed and recording that span in the
-    # manifest (the V&V lens at the push review, 2026-09-22). Losing
-    # passages from an END is not bridging and keeps its product, which is
-    # what the definitions page asks and what the independent review of
-    # 0.25.0 restored. So the test is CONTIGUITY, not "any refusal".
+    # The per-blade table collapses passages into one contiguous window.
+    # Refusing a middle passage must not bridge the gap: [55,56] and [59,60]
+    # cannot become [55,60]. Trimming either end preserves a contiguous
+    # product; judge contiguity rather than rejecting every partial window.
     bridged = (
         name == _PER_BLADE and kept != windows[windows.index(kept[0]) : windows.index(kept[-1]) + 1]
         if kept
@@ -575,14 +560,10 @@ def _trim_reduction_windows(
     if reached:
         windows = kept
     if name == _PER_BLADE and windows:
-        # End trimming changes the span. Ask the reducer again for exactly
-        # what the final table reads, including samples between passages.
-        # UNDER THE SAME HANDLING AS THE FIRST ASK: a trimmed span that
-        # holds no plotted frame is a named skip of this table, as the
-        # definitions page asks of every no-data impossibility, and not an
-        # exception out of the post (the QA read of the closing-round
-        # fixes, 2026-09-23: passages [58,58], [59,59], [60,61], plotted
-        # 60 and 61, unread 61 opt-in, aborted every later product).
+        # End trimming changes the span. Recompute exactly the samples the
+        # final table reads, including between passages. Apply the same handling
+        # as the first reduction: a span with no plotted frame is a named skip
+        # of this table, not an exception that aborts later products.
         try:
             final_reads = _window_the_reduction_reads(
                 name, entry, (windows[0][0], windows[-1][1]), ctx.series, ctx.columns, count, facts
@@ -737,7 +718,7 @@ def _write_point_revolutions(
     ctx: _ReductionProducts,
     drift_limit_pct: float | None,
 ) -> None:
-    # THE PER-REVOLUTION PRODUCT (0.31.0, P0310-G2-PER-REV) is read off the same
+    # THE PER-REVOLUTION PRODUCT (P0310-G2-PER-REV) is read off the same
     # WRITTEN table and is not one of `REDUCTION_NAMES`: it has no window of the
     # row's, it cuts the whole history into revolutions.
     """Write per-revolution products using the point's shared history reading."""
@@ -801,11 +782,8 @@ def _record_reduction_product(
         if key in entry:
             record[key] = entry[key]
     if rotor is not None:
-        # THE ROTOR AS A FIELD, not only as a piece of a file name. The
-        # name is `{stem}_{reduction}_{alias}` and both the reduction
-        # and the alias carry underscores, so it does not decompose: a
-        # reader holding `a-02.0_per_blade_LIFT_L1.csv` could not say
-        # which rotor it is without already knowing the alias set (the
-        # interface lens, 2026-09-10).
+        # Record the rotor as a field as well as in the filename. Both a
+        # reduction name and rotor alias can contain underscores, so the filename
+        # cannot identify the rotor without already knowing the alias set.
         record["rotor"] = rotor
     ctx.written_names[relative] = record

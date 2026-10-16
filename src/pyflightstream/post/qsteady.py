@@ -518,8 +518,8 @@ def add_clockings_to_sections(
         name = clocking_section_export(position, "sectional_loads")
         if name is None:
             result.missing[clocking] = (
-                "the point's record names no sectional loads export for this clocking; a "
-                "wheel run before 0.31.0 exported its sections at clocking 0 only"
+                "the point's record names no sectional loads export for this clocking; "
+                "only named exports can supply its section rows"
             )
             continue
         export = folder / Path(name).name

@@ -115,15 +115,9 @@ def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     str
         The file name, ``P<sim_id>_<name>_uns_avg.csv``, without a directory.
     """
-    # NOT `group_token`, which is the GROUP rule: it prefixes a bare number with
-    # `g` so a named group can never be told from the numbered era's suffix. A
-    # simulation id is not a group and carries no such history, and prefixing it
-    # would rename every file of every existing workspace.
-    # `P<sim>_<name>_uns_avg.csv` SINCE 0.24.0. Every file under
-    # `post/` comes from a sweep, so a sweep token in the middle of the name told a
-    # reader nothing; `uns_avg` says what the file IS, the average of the unsteady
-    # history, and the `P` is the prefix every per-point product already carries.
-    # It was `<sim>_<name>_unsteady.csv`.
+    # A simulation id is not a group token; do not add the numbered-group
+    # prefix. P<sim>_<name>_uns_avg.csv identifies the simulation and names
+    # the product as an unsteady-history average.
     return f"P{sim_id}_{name}_uns_avg.csv"
 
 
@@ -187,7 +181,7 @@ def write_unsteady_polar(
 
     THE FILE SAYS IT IS AN AVERAGE, AND OVER WHAT. Each row opens with
     `FIRST_STEP, LAST_STEP, STEPS`, the three columns the reductions beside it
-    already use; the window used to be in `products.json` alone. Its `reduction`
+    also use. Its `reduction`
     and `reduction_window` cells, which the super content carries over from the
     sweep row, say so too: `time_average` over `averaging_window`, and
     never the sweep row's `last_step`, which describes the native export. The moment point

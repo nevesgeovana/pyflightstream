@@ -499,18 +499,9 @@ def write_settings_table(
             )
     destination.parent.mkdir(parents=True, exist_ok=True)
     columns = list(rows[0]) if rows else list(TIDY_COLUMNS)
-    # THROUGH THE ONE FUNNEL, which it was not until 0.23.0. This writer built
-    # its own DictWriter and did the exact inverse of the product rule twice:
-    # `restval=""` for a column the row does not carry, and an explicit
-    # `None -> ""`. It is a CSV product like any other and a blank cell in it is
-    # the same ambiguity -- zero, not measured, or not applicable -- that the
-    # rule exists to end (the architect lens, v0.22.0 push round, which found
-    # the commit claiming `_cell` was the one funnel while this bypassed it).
-    # EVERY VALUE AT FULL PRECISION, through the same funnel. The funnel writes a
-    # float at five decimals, the precision of a coefficient, and a convergence
-    # threshold of 1e-6 was written 0.00000 and read back as 0: a setting is
-    # not a coefficient. A finite float goes in as its shortest exact spelling
-    # (repr), so it reads back equal; a NaN and None stay `NA`.
+    # Use the shared CSV funnel and its NA spelling. Settings retain full
+    # precision: supply finite floats as their shortest exact repr so a small
+    # threshold such as 1e-6 cannot round to zero. NaN and None remain NA.
     held = keys or [{} for _ in rows]
     write_csv_table(
         destination,
@@ -590,12 +581,8 @@ def read_settings_table(path: str | Path) -> list[Row]:
     for row in raw:
         converted: Row = {}
         for key, cell in row.items():
-            # `NA` IS WHAT THE WRITER NOW EMITS for a column this row does not
-            # carry, and this reader turned everything that was not blank into
-            # a float. Reading a table written by this version would have died
-            # on `float("NA")` -- a crash rather than a refusal, on the package's
-            # own round trip. The empty spellings stay readable so a table
-            # written before 0.23.0 still opens.
+            # Read NA as absent without converting it to float. Legacy empty
+            # spellings remain readable too.
             if key not in TIDY_COLUMNS and not _WIDE_COLUMN.match(key):
                 converted[key] = cell  # a key column of the campaign product: text
             elif cell in ("", None, NOT_APPLICABLE):

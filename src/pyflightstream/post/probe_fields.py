@@ -24,7 +24,7 @@ from pyflightstream.script.motion import resolve_frame_motion
 #: The field formats and the suffix each one appends to the field's stem. The
 #: ``tecplot`` product holds one single-point zone per sample; ``tecplot-points``
 #: holds all samples as one ordered POINT zone, written by
-#: :func:`~pyflightstream.post.writers.write_tecplot_points` (FR-153, 0.40.0).
+#: :func:`~pyflightstream.post.writers.write_tecplot_points` (FR-153).
 _FIELD_SUFFIXES = {"vtk": ".vtk", "tecplot": ".dat", "tecplot-points": "_points.dat"}
 
 
@@ -32,9 +32,7 @@ def _refuse_existing(destination: Path, overwrite: bool) -> None:
     """Refuse a destination that already exists (PFS-2011.02), as the writers refuse it."""
     if destination.exists() and not overwrite:
         raise OutputExistsError(
-            f"{destination} already exists. This writer replaced it silently before "
-            "v0.8.0, which is the shape PYFS-005 records: one point of a run "
-            "overwrote another's output while the run record listed both complete. "
+            f"{destination} already exists. "
             "Pass overwrite=True to replace it deliberately, or write under a name "
             "that carries the point."
         )
@@ -182,8 +180,8 @@ def write_probe_field(
     ['field.vtk', 'field.vtk.provenance.json']
     """
     points, velocity = _validate_field(points_m, velocity_m_s, frame, formats, reusable_inflow)
-    # EVERY DESTINATION BEFORE ANY WRITE: each pair refused on its own let a
-    # .dat that exists refuse after the .vtk pair had been written.
+    # Check every destination before writing either pair, so an existing
+    # .dat cannot refuse after the .vtk pair has already been written.
     for destination in _field_destinations(stem, formats, reusable_inflow):
         _refuse_existing(destination, overwrite)
     metadata = {
@@ -229,7 +227,7 @@ def write_probe_field(
             )
         )
     if "tecplot-points" in formats:
-        # FR-153 (0.40.0): every sample in one ordered POINT zone, the public
+        # FR-153: every sample in one ordered POINT zone, the public
         # point writer's layout, beside the one-zone-per-sample product above.
         written.extend(
             write_tecplot_points(

@@ -1,7 +1,7 @@
 """What a recorded point states: its condition, its state, its clock and its windows.
 
-A private module of :mod:`pyflightstream.post` (AD-13, work package WP5 of
-0.33.0), below every product family. Each family writes rows that say what
+A private module of :mod:`pyflightstream.post` (AD-13),
+below every product family. Each family writes rows that say what
 they are rows OF, and every one of them asks the same questions of a
 record, a matrix row and an export header; the answers are defined here
 once:
@@ -81,7 +81,7 @@ def row_rotor_speeds(record: object | None, loads_path: Path | None) -> dict[str
     A ``qsteady_rotor`` run is steady and plans no reductions, so its record
     states no rotor speed; the builder wrote the row's speed in the
     quasi-steady record beside the point's loads export, and the rotor table
-    and the quasi-steady tables read it there (0.30.0, L1). This is that one
+    and the quasi-steady tables read it there (L1). This is that one
     source, ``{alias: rev/min, signed}``, for every other product of the point
     (FR-89, P0370-S11-SUPER-DIAMETER). Empty for any other run type, and for a
     quasi-steady record that cannot be read: its own tables name that refusal.
@@ -131,12 +131,12 @@ def clock_rotor_facts(
 
     The speed comes from the RECORD, which is what the run actually turned, and
     the diameter from the reference artifact the row cites. Both are needed for
-    the ratio and either may be absent on a record written before 0.24.0.
+    the ratio and either may be absent on a record.
 
     ``own_speeds`` is the row's own speed by alias, :func:`row_rotor_speeds`,
     taken only where the record's plan states no speed at all: a quasi-steady
     point's, which the rotor table and the quasi-steady tables already read
-    (0.37.0, FR-89, P0370-S11-SUPER-DIAMETER). Its clock read `NA` until then.
+    (FR-89, P0370-S11-SUPER-DIAMETER). Its clock read `NA` until then.
 
     Parameters
     ----------
@@ -164,11 +164,9 @@ def clock_rotor_facts(
         """Return the key that spells this name, case-folded as the planner folds it."""
         return next((key for key in among if str(key).casefold() == name.casefold()), None)
 
-    # THE IDENTITY FIRST, AND FROM THE NAME. Inferring it from the speed map
-    # alone left a row that NAMES its clock unresolved whenever the record kept
-    # a flat speed and no rotor block, and the diameter then fell back to the
-    # only rotor the reference declared -- another rotor's span under this
-    # rotor's ratio (the QA lens, 2026-09-22).
+    # Resolve the clock identity from its name before consulting speed maps.
+    # A record can name its clock while carrying a flat speed and no rotor
+    # block; its diameter must belong to that clock rather than another rotor.
     alias: str | None = None
     if named:
         alias = _spelt(named, speeds) or _spelt(named, declared) or named
@@ -186,16 +184,9 @@ def clock_rotor_facts(
         and isinstance(reductions, Mapping)
         and isinstance(reductions.get("rpm"), int | float)
     ):
-        # WITHOUT AN ALIAS TOO. A record with no rotor block turns ONE rotor and
-        # the flat field is its speed, whether or not the row names it or the
-        # reference declares it: requiring the alias here dropped a speed the
-        # record states plainly (the QA lens, 2026-09-22). What stays unknown is
-        # the SPAN, so J_CLOCK is still absent.
-        # A row that records one speed and NO ROTOR BLOCK AT ALL turns one
-        # rotor, and the flat field is its speed. With rotor blocks present and
-        # no clock resolved, this published one rotor's speed for a row whose
-        # clock nobody could name, and `reduction_windows` records both fields
-        # (the architect and V&V lenses, 2026-09-22).
+        # With no rotor blocks, a flat speed describes the single rotor even
+        # without an alias. Its unknown span leaves J_CLOCK absent. With rotor
+        # blocks present, no flat speed substitutes for an unresolved clock.
         rpm = float(reductions["rpm"])
 
     # THE SPAN COMES FROM THE BLOCK BEARING THAT IDENTITY, or from nowhere.
@@ -205,12 +196,9 @@ def clock_rotor_facts(
         span = getattr(declared[spelt_in_reference], "diameter_m", None)
         diameter = float(span) if isinstance(span, int | float) else None
     elif rpm is not None and not speeds and not declared:
-        # THE FLAT SINGLE-ROTOR SHAPE: no rotor block in the record and none in
-        # the reference, one flat speed and one top-level `rotor_diameter_m`.
-        # Both facts are stated and no other rotor exists to borrow from, so
-        # `NA` here would refuse a ratio the files supply (the fifth independent
-        # reading of GitHub main, 2026-09-23). With named blocks present the
-        # flat diameter answers for nobody and is not read.
+        # With no rotor blocks in record or reference, the flat speed and
+        # top-level rotor_diameter_m supply the ratio. With named blocks, the flat
+        # diameter identifies no particular rotor and is not read.
         span = getattr(artifact, "rotor_diameter_m", None)
         diameter = float(span) if isinstance(span, int | float) else None
     return {"alias": alias, "rpm": rpm, "diameter_m": diameter}
@@ -227,9 +215,7 @@ def point_condition(
 
     Item 5: every file the post stage writes says what it is a file OF, which
     means the condition has to reach the row rather than only the header. The
-    columns existed from the first commit of this release and the values did
-    not; a release round measured `VINF` and `ALT` reading `NA` in every row of
-    every polar and super file.
+    condition values therefore accompany their columns in every product family.
 
     THE REPORTED CONDITION WINS OVER THE REQUESTED ONE. Two sources exist per
     point and they are not equivalent: ``cell`` is the matrix row, what was
@@ -282,17 +268,9 @@ def point_condition(
             ("ALPHA", report.angle_of_attack_deg),
             ("BETA", report.sideslip_deg),
             ("VINF", report.freestream_velocity_m_s),
-            # IN MILLIONS, which is what the `RE` column already means in the
-            # two families that carried it before this release: the polar's
-            # twenty-four say so at `COEFFICIENT_COLUMNS`, and the sections
-            # table writes `_reynolds_millions`. The export states the absolute
-            # number, so it is converted HERE.
-            #
-            # It went in absolute for one commit, which put 4380000 in a rotor
-            # table and 4.38 in the polar BESIDE IT, under one column name --
-            # six orders of magnitude between two files a reader joins on their
-            # condition columns. Aligning the polar instead would change bytes
-            # already published for a second time in one release.
+            # Convert the export's absolute Reynolds number to millions here,
+            # matching RE in polar, sections and rotor tables. The unit belongs to
+            # the shared column contract.
             ("RE", None if report.reynolds is None else report.reynolds / 1e6),
         )
         for column, value in reported:
@@ -303,10 +281,9 @@ def point_condition(
             condition[column] = value
 
     condition.setdefault("MACH", mach)
-    # 0.24.0: THE DIVISORS. The reference velocity is the EXPORT's, because that
-    # is what its coefficients were normalised by; the air is the POINT's, from
-    # its own resolved state. A value the run never stated stays absent and the
-    # funnel writes `NA`.
+    # The divisors: reference velocity comes from the export that normalised
+    # the coefficients; air comes from the point's resolved state. Unstated
+    # values remain absent and the funnel writes NA.
     if report is not None and getattr(report, "reference_velocity_m_s", None) is not None:
         condition["VREF"] = report.reference_velocity_m_s
     if own is not None:
@@ -317,7 +294,7 @@ def point_condition(
             # IN SCIENTIFIC NOTATION, AS TEXT. The funnel writes five decimals, and
             # air's viscosity is 1.8e-05: `0.00002` would be a column of one digit.
             condition["MU"] = f"{own.viscosity_pa_s:.5e}"
-    # WHAT THE CLOCK ROTOR RAN AT (0.25.1). `J` above is what the row REQUESTED
+    # WHAT THE CLOCK ROTOR RAN AT. `J` above is what the row REQUESTED
     # and is `NA` on a row that states RPM; these two are measured from the run:
     # the speed the record kept and the ratio it implies against this point's
     # own free stream and the rotor's diameter. Either stays absent -- and the
@@ -337,14 +314,12 @@ def point_condition(
 
 @dataclass(frozen=True)
 class PointState:
-    """The flow state ONE point of a sweep resolved to, as the post stage holds it.
+    """The flow state of one sweep point, as held by post-processing.
 
-    A record written before 0.24.0 states the SIMULATION's Mach, velocity and
-    air on every point of a row that swept a flow variable: the run layer wrote
-    them from the simulation-level case (STATE-SNAPSHOT). What such a record still
-    states truthfully is its ``point`` mapping and the row's cell as written, and
-    that is enough to resolve the point again with the same function the plan
-    used. The record is never rewritten; the products simply stop repeating it.
+    A record can carry simulation-level Mach, velocity and air while its
+    point mapping and row cell state a swept flow condition (STATE-SNAPSHOT).
+    Resolve that point again through the plan's resolver. Products use the
+    resolved state without rewriting the source record.
     """
 
     mach: float | None
@@ -385,8 +360,8 @@ def point_state(record: RunRecord) -> PointState:
             defaults_origin=record.flight_condition_defaults_from,
         )
     except PyflightstreamError:
-        # A cell this release cannot resolve costs the correction and never the
-        # product: the point keeps what its record states, as it always did.
+        # An unresolvable cell skips the correction, not the product: retain
+        # the state recorded for the point.
         return PointState(**{**recorded.__dict__, "cell": cell})
     differs = tuple(
         f"{label} {was:g} is {now:g}"
@@ -408,13 +383,13 @@ def point_state(record: RunRecord) -> PointState:
 
 
 def _free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
-    """Return a point's free-stream speed and speed of sound, in m/s (0.30.0, M1).
+    """Return a point's free-stream speed and speed of sound, in m/s (M1).
 
     Resolved from the record's own condition, the swept value in place, by the
     function the plan resolved it with, so the rotor table's Mach numbers are
     taken at the state the point ran at. A record does not carry the speed of
-    sound itself before 0.30.0, which is why it is resolved rather than read.
-    None where the record states no condition, or one this release cannot
+    sound in every record shape, so it is resolved rather than read.
+    None where the record states no condition, or one the package cannot
     resolve.
     """
     resolved = _resolved_point(record)
@@ -426,8 +401,8 @@ def _free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
 def _resolved_point(record: RunRecord) -> ResolvedCondition | None:
     """Return the record's own point resolved, the swept value in place, else None.
 
-    None where the record states no condition, or one this release cannot
-    resolve: a cell this release cannot resolve costs the check, never the
+    None where the record states no condition, or one the package cannot
+    resolve: an unresolvable cell costs the check, never the
     product.
     """
     stated = dict(record.flight_condition or {})
@@ -450,8 +425,7 @@ def _resolved_point(record: RunRecord) -> ResolvedCondition | None:
 def warn_pinned_states(points: Iterable[RunRecord]) -> None:
     """Warn in ``post.log`` for each point whose pinned state disagrees with p = rho R T.
 
-    Since 0.40.0, a point
-    pinning density, temperature and pressure all three is checked by
+    A point pinning density, temperature and pressure all three is checked by
     :func:`~pyflightstream.workspace.flight_condition.pinned_state_mismatch`,
     the check the plan calls, and each distinct mismatch is warned once
     through the post's warning sink. Nothing is refused or withheld.
@@ -475,38 +449,19 @@ def _mach_of(point: object, fallback: float) -> float:
 
 
 def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, int] | None:
-    """Return the window the MATRIX states NOW, resolved against the recorded clock.
+    """Return the matrix's stated window resolved against the recorded clock.
 
-    ITEM 16 IS POST-ONLY AND IT WAS NOT. `_stated_window` below reads the window
-    off the RUN RECORD, which `reduction_windows` wrote when the point EXECUTED.
-    So editing `LAST_REVS_AVG` in the matrix and re-running only the post stage
-    changed nothing, and a record written before 0.23.0 carries no
-    `window_stated` flag at all, so its polar fell back to the native
-    last-time-step export. Both silently.
+    The matrix wins over the recorded window so LAST_REVS_AVG or
+    LAST_ITERS_AVG can change without rerunning the solver (item 16).
+    Recorded steps_per_revolution and time_iterations supply the clock and
+    last step; this function reads no solver, geometry or script.
 
-    THE ACCEPTANCE RULE FOR THIS WHOLE RELEASE: finished simulations already
-    exist and only the post-processing is redone, on Windows and on HPC alike;
-    an item that requires a re-run is not ready. A window a user cannot change
-    without re-running the solver fails it. The direction is therefore to
-    recompute it here, and the MATRIX WINS THE RECORD.
+    Precedence is the stated matrix window, then the record's window flagged
+    as stated (_stated_window), then the recorded default (_defaulted_window),
+    which the caller labels with a warning.
 
-    IT COSTS NO RE-RUN BECAUSE THE CLOCK IS ALREADY IN THE RECORD. The plan
-    writes `steps_per_revolution` and `time_iterations` next to the window it
-    derived, so a count of revolutions has a length in solver steps and the run
-    has a last step -- which is everything the derivation needs. Nothing here
-    reads the solver, the geometry or the script.
-
-    PRECEDENCE, stated because a silent precedence is the defect one level up:
-
-    1. The matrix row's `LAST_REVS_AVG` or `LAST_ITERS_AVG`, resolved here.
-    2. Failing that, the window the record states AND FLAGS as stated, which is
-       `_stated_window` -- a point whose matrix no longer names a key still
-       reduces the way it was run.
-    3. Failing both, None: the caller then averages over the window the record
-       defaulted to (:func:`_defaulted_window`) and says so in a warning.
-
-    Returns None for a malformed record. An invalid stated matrix window raises
-    CampaignConfigError, which admission records as a named refusal for this run.
+    Return None for a malformed record. An invalid stated matrix window
+    raises CampaignConfigError, recorded by admission as this run's refusal.
     """
     if matrix_row is None:
         return None
@@ -520,7 +475,7 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     if isinstance(last_step, bool) or not isinstance(last_step, int | float) or last_step <= 0:
         return None
     per_revolution = plan.get("steps_per_revolution")
-    # THE ARITHMETIC IS `cases.windows` AND NOTHING ELSE (0.24.0). It stood here
+    # THE ARITHMETIC IS `cases.windows` AND NOTHING ELSE. It stood here
     # as a second copy of what the plan derives, and a third copy fed the
     # reductions from the frozen record, which is how one edit to the matrix
     # moved the polar and left `<point>_time_average.csv` behind (PO-01).
@@ -553,7 +508,7 @@ def _refuse_a_reference_the_solver_did_not_use(
     coefficient by the area and the length its own project file carries, and the
     loads export prints both. Every product states `SREF` and `CREF` from the
     reference ARTIFACT. Where the two differ the table is wrong by a constant
-    factor that nothing in it reveals. Since 0.26.0 the campaign post warns by
+    factor that nothing in it reveals. The campaign post warns by
     default; its explicit refusal mode retains the reference refusal.
 
     An export that prints neither line is not refused; there is nothing to compare.
@@ -625,7 +580,7 @@ def _section_rotors(
     table: dict[str, dict[str, object]] = {}
     if not blocks:
         # NO REFERENCE TO ASK, which is a workspace posted without its matrix. The
-        # record states each rotor's blade families since 0.24.0, so it answers.
+        # record's per-rotor blade families supply the answer.
         recorded = stated if isinstance(stated, Mapping) and stated else {"": reductions}
         for alias, own in recorded.items():
             named = own.get(BLADE_FAMILIES_KEY) if isinstance(own, Mapping) else None
@@ -742,10 +697,8 @@ def _stated_window(record: object) -> tuple[int, int] | None:
     plan = getattr(record, "reductions", None)
     if not isinstance(plan, Mapping):
         return None
-    # ONLY A WINDOW THE ROW ASKED FOR. A record written before 0.23.0 carries no
-    # such flag and is therefore not re-sourced, which is exactly right: it never
-    # stated an averaging window, and averaging its polar from step one would
-    # publish the transient as though it were the answer.
+    # Re-source only a window explicitly flagged as stated. Without that
+    # flag, averaging from step one could publish the transient as the answer.
     if not plan.get("window_stated"):
         return None
     entry = plan.get("time_average")
@@ -833,7 +786,7 @@ def _vorticity_selection(record: RunRecord) -> object:
 def _in_coefficients(report: LoadsReport) -> bool:
     """Whether a loads table prints coefficients, the unit every product here reads.
 
-    G09 (0.27.0). The table's own footer says so. Every product reads its
+    G09. The table's own footer says so. Every product reads its
     columns by coefficient name, and what header the solver prints under
     ``SET_LOADS_AND_MOMENTS_UNITS NEWTONS`` has not been measured, so a table
     whose footer names another unit is not summed as though it held

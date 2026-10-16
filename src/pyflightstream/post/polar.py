@@ -591,12 +591,9 @@ def swept_polar_file_name(
     holds those files and a pproc that still numbers its groups must keep
     producing the names beside them rather than a second era of its own.
 
-    ``int(group)`` WAS UNCONDITIONAL HERE, which made item 14 unreachable: a
-    named group raised a bare `ValueError` inside the products stage -- not even
-    a `ProductError`, so `except PyflightstreamError` did not catch it and the
-    refusal carried no file, no group and no fix. The matrix binder refused the
-    same pproc one stage earlier, so the feature this release is named for was
-    refused at BOTH ends.
+    Groups may be names as well as numbers (item 14). Preserve the named
+    form instead of forcing integer conversion and raising an uncontextualised
+    ValueError outside the product-refusal handling.
 
     Parameters
     ----------
@@ -883,7 +880,7 @@ def group_polar_rows(
                 coefficients,
                 cref_m=reference.cref_m,
                 bref_m=reference.bref_m,
-                # AS THE POINT FLEW IT. A sideslip was a refusal until 0.24.0.
+                # Transform using the sideslip the point flew at.
                 beta_deg=point.beta_deg,
             )
         )
@@ -984,12 +981,9 @@ def write_recorded_polar(
             target = write_sections_table(
                 out / SECTIONS_DIR / f"{point.name}_sections.csv",
                 sloads.read_text(encoding="utf-8", errors="replace"),
-                # NO `point=` SINCE 0.23.0 ITEM 13: the polar's name is the
-                # FILE's name and a column spent restating it told no row
-                # from another. The iteration and the azimuth are read from
-                # the export where it states them and are `NA` where it does
-                # not, which is the honest answer for a steady distribution
-                # and for a run that recorded no clock.
+                # The filename identifies the polar. Read iteration and azimuth from
+                # the export where stated, otherwise write NA, including steady
+                # distributions and records with no clock.
                 mach=mach,
                 # ITEM 5. This path rebuilds from a bare folder of recorded
                 # loads files and reaches no run record, so the advance ratio

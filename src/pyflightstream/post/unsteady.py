@@ -240,12 +240,9 @@ def _read_tecplot_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], f
             f"the frame declares {len(names)} variables and its rows hold {sorted(widths)} columns"
         )
     table = np.asarray(rows, dtype=float)
-    # The zone's own I= against the rows that are THERE. The reader
-    # ignored it until 2026-08-19, so a file cut mid-table came back
-    # shorter with no refusal, and a history one step short is the worst
-    # shape here: every reduction downstream averages over whatever it
-    # was handed. Read here rather than at the ZONE branch because the
-    # row count only exists once the loop has finished.
+    # Check the zone's declared I count against its actual rows after the
+    # loop, when the row count is known. Refuse a truncated frame before
+    # a downstream reduction can average an incomplete history.
     if declared_points is not None and len(rows) != declared_points:
         raise IncompleteOutputError(
             f"the zone declares I={declared_points} and the frame carries {len(rows)} "
@@ -288,11 +285,8 @@ def _read_vtk_frame(text: str) -> tuple[np.ndarray, dict[str, np.ndarray], float
         ) from error
     count = int(lines[start].split()[1])
     rows = lines[start + 1 : start + 1 + count]
-    # The declared count against the rows that are THERE. Without this the
-    # slice simply runs out and the frame comes back short, which every
-    # reduction downstream then averages over as though it were the run
-    # (measured 2026-08-19: a file cut after the point block returned two
-    # frames, an unmet point count and no fields at all, with no refusal).
+    # Check the declared count against the actual rows. Refuse an incomplete
+    # point or field block instead of returning a short frame for reduction.
     if len(rows) != count:
         raise IncompleteOutputError(
             f"the frame declares POINTS {count} and carries {len(rows)}. It is "
@@ -729,7 +723,7 @@ def per_blade_rows(
 ) -> list[dict[str, object]]:
     """One row per blade, every blade averaged over the SAME window.
 
-    v0.23.0 item 8: the right reading is always the last converged window, and
+    Item 8: the reading is the last converged window, and
     even for a wheel every blade is read over that same window.
 
     WHAT THIS REPLACES. `per_blade` averaged each blade over ITS OWN passage,
@@ -768,7 +762,7 @@ def per_blade_rows(
         ``steps_per_revolution``, leaves both azimuths unstated (None), which
         a table writes as `NA`: zero is a real azimuth.
     blade_families : sequence of str, optional
-        The blade families in the rotor's own order (0.24.0). A plot is named
+        The blade families in the rotor's own order. A plot is named
         ``<parameter>_<group>`` and a group cut per blade is named for the
         blade's family, so a blade's columns are the ones ENDING in
         ``_<family>``; the row carries them with the family removed. There is

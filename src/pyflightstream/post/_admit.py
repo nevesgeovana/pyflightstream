@@ -1,7 +1,7 @@
 """Admitting a simulation's records: which can supply a product row, and what each states.
 
-A private module of :mod:`pyflightstream.post` (AD-13, work package WP5 of
-0.33.0), the first part of the simulation stage of
+A private module of :mod:`pyflightstream.post` (AD-13),
+the first part of the simulation stage of
 :mod:`pyflightstream.post._sim`. Each record of a simulation is read once,
 in the records' order, into an :class:`_Admitted`:
 
@@ -99,20 +99,13 @@ def _admit(
         warn(f"{stem}: {reason}", PyflightstreamWarning, stacklevel=2)
         return
     _admit_point(admitted, record, loads)
-    # FR-91. Where this run put its probe points. Per SIM and identical
-    # across the sweep, so the first record that names one answers for
-    # every point; a record written before 0.16.0 names none and the
-    # probe table is then written without the position columns, as it
-    # always was.
+    # FR-91: probe positions are per simulation and identical across the
+    # sweep. The first record naming a positions file supplies it for all
+    # points. With no named file, write probe tables without position columns.
     if record.probe_points_file and not admitted.probe_positions:
-        # CAUGHT HERE, AND THE BLAST RADIUS IS WHY. `read_probe_positions`
-        # refuses a file that is there and cannot be read, which is the
-        # distinction round one asked for; but this function's caller
-        # catches `ProductError` per SIMULATION, so letting it out would
-        # cost this simulation its polar table, its plots tables and every
-        # reduction over one unreadable positions file. That is the rename
-        # taking a product away that the probe-export reader twenty lines
-        # below is written against (the QA lens, round two, 2026-09-11).
+        # Catch unreadable probe positions here. ProductError escaping to the
+        # simulation-level caller would suppress the polar, plots and reductions
+        # along with the positions, although those products remain readable.
         try:
             admitted.probe_positions.update(
                 read_probe_positions(sim_dir / record.probe_points_file)
@@ -156,7 +149,7 @@ def _loads_of(
         )
         return None
     if not _in_coefficients(report):
-        # G09 (0.27.0): a setup's load_units makes the solver print forces and
+        # G09: a setup's load_units makes the solver print forces and
         # moments under the columns every product reads as coefficients.
         skipped[f"runs/{record.run_id}"] = (
             f"{by_name[loads_name]} prints its loads in {report.force_units or 'no unit'} "
@@ -239,7 +232,7 @@ def _warn_the_point_s_state(stem: str, report: LoadsReport, point: PolarPoint) -
         and isinstance(vref, int | float)
         and abs(vref - vinf) > 1e-6 * max(1.0, abs(vinf))
     ):
-        # SAID ONCE PER POINT (0.24.0). Both velocities are columns of every
+        # SAID ONCE PER POINT. Both velocities are columns of every
         # product now, so nothing is hidden; what a reader still cannot see
         # from one file is that the FAMILIES differ in which one they use.
         warn(
@@ -315,11 +308,9 @@ def _defaulted_point_window(
     admitted: _Admitted, record: RunRecord, stem: str
 ) -> tuple[int, int] | None:
     """Return the window a record that stated none is averaged over, said once per point."""
-    # A RECORD THAT STATED NO WINDOW IS AVERAGED OVER THE ONE IT DEFAULTED TO
-    # (0.24.0, the post half of the required window). It used to take the
-    # STEADY route: a polar read off the last time step, under a steady
-    # name, beside a time average, with nothing marking either. A new row
-    # is refused at plan; a record already held is never refused here.
+    # Average a record with no stated window over its recorded default and
+    # label that choice. New rows require a window at plan time; existing
+    # records remain readable without treating their last step as a steady polar.
     point_window = _defaulted_window(record)
     if point_window is not None and stem not in admitted.point_windows:
         key = "LAST_REVS_AVG" if record.recipe == "unsteady_rotor" else "LAST_ITERS_AVG"

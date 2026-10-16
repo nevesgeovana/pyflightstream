@@ -218,8 +218,8 @@ def _number(text: object) -> float | None:
 
 
 def _read(path: Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:
-    # The post's one CSV reader, in `post._tables` since 0.33.0 (AD-10), so
-    # this module no longer reaches into `post.products`, which imports it.
+    # The shared CSV reader is in post._tables (AD-10), avoiding an import
+    # back into post.products, which imports this module.
     return read_csv_table(path)
 
 

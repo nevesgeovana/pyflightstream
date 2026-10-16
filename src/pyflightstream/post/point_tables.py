@@ -173,13 +173,11 @@ def write_sections_table(
 
         (blade1_azimuth_deg + sign(rpm) * STEP * 360 / steps_per_revolution) mod 360
 
-    and `NA` on a block no rotor owns. It used to be ONE number for the whole
-    file, the row's clock rotor turned from zero and unsigned, on wing rows too.
+    and `NA` on a block no rotor owns.
 
     ``condition`` is the POINT's condition as :func:`point_condition` assembles it,
-    and the stage always passes it: this family used to build its own
-    from the export's header, whose `Altitude (ft)` line the campaign never sets,
-    so a row at 10000 ft printed `ALT 0.00000` beside a polar printing 10000.
+    and the stage always passes it. The export header's `Altitude (ft)` line
+    is not set by the campaign and cannot substitute for the point's altitude.
     Without it the header is read, for a caller holding an export and no point.
 
     ``step`` is the solver step the distribution was sampled at and
@@ -290,12 +288,8 @@ def write_sections_table(
             f"the sectional loads export carries {table.shape[1]} columns, fewer than the seven "
             "the product tables"
         )
-    # THROUGH `context_row` AND NOT ASSEMBLED HERE. This lead used to be built
-    # by hand in the order ALPHA, BETA, MACH, VINF, RE, ALT; the shared tuple
-    # orders them ALPHA, BETA, MACH, RE, VINF, ALT, J, and a hand-built lead is
-    # exactly how two families come to disagree about which column is which --
-    # a value landing under its neighbour's name, which is the defect 0.23.0
-    # item 5 found in three of the four families.
+    # Use context_row for the shared condition-column order so values
+    # land under the same headings across product families.
     try:
         reynolds = None if condition is not None else _reynolds_millions(export_text)
     except (PyflightstreamError, ValueError) as error:
@@ -486,13 +480,9 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
     try:
         columns, rows = read_csv_table(target)
     except Exception as error:
-        # THE FILE IS THERE AND SAYS NOTHING, which is not the same state as
-        # a run recorded before 0.16.0 and must not read as one. Both
-        # answered an empty mapping and nothing anywhere recorded it, so a
-        # positions file this release wrote and a crash truncated produced a
-        # table of empty coordinates in silence (the architecture and
-        # interface lenses, 2026-09-11). The ABSENT file above stays silent,
-        # as designed.
+        # An empty existing positions file is unreadable evidence, distinct
+        # from an absent file. Name the empty-file failure instead of silently
+        # writing empty coordinates; an absent file remains silent.
         raise ProductError(
             f"the probe positions file {target} cannot be read: {error}. It is "
             "where the run stage recorded which probe point is where, so the "
@@ -774,16 +764,9 @@ def write_unsteady_probes_table(
             + ", ".join(parameters)
             + " for them, so they are not in this table; a new run is needed to sample them"
         )
-    # THE STEP THE TABLE STATES, never the row's position in it. The plots
-    # table carries `Time-step` and the superfile already reads it, with the
-    # rule written down there: "The step it came from is not a guess". This
-    # read `enumerate(rows, start=1)`, which agrees with the column on every
-    # fixture in the tree and disagrees the first time an export does not
-    # begin at one or does not step by one (the QA lens scoring M22,
-    # 2026-09-11). A table with no such column falls back to the ordinal,
-    # which is the only thing left, rather than refusing a product. THE ONE
-    # READER of that clock (`_read_step_clock`), so a row's STEP here is the step
-    # the reductions and the series give it.
+    # Use _read_step_clock, shared with reductions and series. The table's
+    # Time-step column supplies STEP, including offset and sparse clocks;
+    # only a table without that column falls back to row ordinals.
     steps = (
         _read_step_clock([row.get(_PLOTS_STEP_COLUMN) or "" for row in rows])
         if _PLOTS_STEP_COLUMN in present
@@ -848,9 +831,8 @@ def write_reduction_table(
     (G16) and the first of :data:`REDUCTION_COLUMNS`; `NA` where the
     caller states none.
 
-    THE CLOCK IS NOT AVERAGED. Every column of the plots table used to
-    be, `Time-step` among them, so a row stated FIRST_STEP 1, LAST_STEP 8 and
-    `Time-step 4.50000`: the mean of a counter, under the same contract as `CL`.
+    THE CLOCK IS NOT AVERAGED. FIRST_STEP and LAST_STEP identify the span;
+    Time-step is a counter rather than a plotted physical quantity.
     ``rotor`` is the alias this reduction is cut for, `NA` for the time average.
 
     ``condition`` and ``reference`` are what the row is a reduction OF, and
@@ -1062,7 +1044,7 @@ def write_per_blade_table(
             f"nothing states which families are the blades of rotor {rotor!r}, so the "
             "per-blade reduction has no blade to give a row to. A rotor's blades are the "
             "families_blades of its block in the reference artifact: declare the rotor "
-            "there and have the row cite it. A run made since 0.24.0 records them; this "
+            "there and have the row cite it. The run records them; this "
             "row names no rotor block, so neither its record nor the reference has them."
         )
     held = [f for f in families if any(str(c).endswith(f"_{f}") for c in columns)]
@@ -1227,8 +1209,8 @@ def write_phase_locked_table(
             f"the phase-locked table of rotor {rotor!r} is tabulated by azimuth, and nothing "
             f"states where its blade one is (blade1_azimuth_deg: {datum!r}) or which way it "
             f"turns (rpm: {rpm!r}). Declare the rotor in the reference artifact, with its "
-            "[rotors.<ALIAS>.blade1] azimuth_deg, and have the matrix row cite it; a run made "
-            "since 0.24.0 records both."
+            "[rotors.<ALIAS>.blade1] azimuth_deg, and have the matrix row cite it; the run "
+            "records both."
         )
     stated = facts.get("families")
     families = (
