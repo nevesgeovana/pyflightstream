@@ -1867,7 +1867,7 @@ def test_the_mirror_plane_is_an_index_and_refuses_a_plane_name():
     script.declare_existing(boundaries=6, frames=2)
     script.emit("SURFACE_MIRROR", 1, 2, 2, "TRUE", "FALSE")
     assert "SURFACE_MIRROR 1 2 2 TRUE FALSE" in script.render()
-    with pytest.raises(CommandArgumentError, match="expects an integer"):
+    with pytest.raises(CommandArgumentError, match="expects one of 1, 2, 3"):
         Script(version="26.120").emit("SURFACE_MIRROR", 1, 2, "XZ", "TRUE", "FALSE")
 
 
@@ -2504,7 +2504,6 @@ _INDEXES_OF_UNTRACKED_OBJECTS = {
     ("CAD_CREATE_AUTO_CROSS_SECTIONS", "sections"),
     ("CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS", "sections"),
     ("SELECT_MESH_NODE", "node_id"),
-    ("SURFACE_MIRROR", "mirror_plane"),
     ("DELETE_6DOF_EXTERNAL_FORCE", "force_id"),
     # The CCS wing definition's own objects, added 2026-08-08 with that
     # chapter: a spanwise refinement zone and a control surface belong to
@@ -4343,4 +4342,12 @@ def test_p0420_surface_probe_refuses_unknown_frame():
     script = Script("26.124")
     with pytest.raises(ScriptReferenceError):
         script.emit("NEW_UNSTEADY_SOLVER_SURFACE_PROBE", "probe", "MACH", 7, 0, 0, 0)
+    assert not script.render().strip()
+
+
+@pytest.mark.parametrize("plane", [0, 4])
+def test_p0420_mirror_plane_closed_set(plane):
+    script = Script("26.124")
+    with pytest.raises(CommandArgumentError):
+        script.emit("SURFACE_MIRROR", 1, 1, plane, "FALSE", "FALSE")
     assert not script.render().strip()
