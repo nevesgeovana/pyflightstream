@@ -92,7 +92,7 @@ def _distributions(
 
     ``inventory`` is the geometry's boundary names where they are known (R04).
     They settle a NAME and never cost a split: where they name
-    no single owner, the cuts decide as before and the rows are kept.
+    no single owner, the cuts decide and the rows are kept.
     """
     if record.sections_layout is None:
         raise ProductError(
