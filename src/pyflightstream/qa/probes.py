@@ -67,7 +67,7 @@ from pyflightstream.run import (
     LocalExecutor,
     invocation_record,
 )
-from pyflightstream.script import CommandArgumentError, Script
+from pyflightstream.script import BrokenCommandError, CommandArgumentError, Script
 from pyflightstream.script.helpers import initialize_solver
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
@@ -1299,7 +1299,7 @@ def _validate_tiers(
         script.comment(f"prelude tier baseline: {tier.value}")
         try:
             emit_tier_prelude(script, tier, fsm)
-        except (CommandNotInVersionError, CommandArgumentError) as absent:
+        except (CommandNotInVersionError, CommandArgumentError, BrokenCommandError) as absent:
             # A prelude grammar refusal is a tier failure, like a missing command
             # row. For example, AIR_ALTITUDE takes one argument on 25.000. The fixed
             # prelude cannot be emitted on every edition, so mark this tier's probes
@@ -1485,7 +1485,7 @@ def _run_probe(
     workdir = _fresh_dir(workroot / spec.command)
     try:
         script = generate_probe_script(spec, version, workdir, registry=registry, fsm=fsm)
-    except (CommandNotInVersionError, CommandArgumentError) as unbuildable:
+    except (CommandNotInVersionError, CommandArgumentError, BrokenCommandError) as unbuildable:
         # A probe can fail to build because a support command has no row for
         # the edition or because the edition's grammar refuses a spec value.
         # For example, the February 2026 build calls ROTARY motion EUCLIDEAN.

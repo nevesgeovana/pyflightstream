@@ -285,6 +285,39 @@ def test_p0420_p2_1a_new_simulation_needs_a_measured_change(tmp_path, before, af
     assert spec.save_state
 
 
+@pytest.mark.parametrize("tier", [False, True])
+def test_p0420_p2_1a_broken_support_does_not_abort_campaign(tmp_path, monkeypatch, tier):
+    """A broken support command leaves its target unjudged and other probes runnable."""
+    from pyflightstream.qa import probes
+    from pyflightstream.script import BrokenCommandError
+
+    def refuses(*args, **kwargs):
+        raise BrokenCommandError("BROKEN_SUPPORT is broken; choose a supported build")
+
+    fsm = tmp_path / "model.fsm"
+    fsm.write_text("offline", encoding="utf-8")
+    spec = ProbeSpec(
+        command="RUN_SCRIPT",
+        build_target=refuses,
+        assert_effect=lambda a: True,
+        requires=Requires.SIM if tier else Requires.NONE,
+    )
+    if tier:
+        monkeypatch.setattr(probes, "emit_tier_prelude", refuses)
+    result = probe_version(
+        "26.120",
+        workroot=tmp_path / "run",
+        executor=FakeFlightStream(),
+        commands=["PRINT", "RUN_SCRIPT"],
+        specs={"PRINT": PROBE_SPECS["PRINT"], "RUN_SCRIPT": spec},
+        fsm=fsm,
+    )
+    by_name = {r.command: r for r in result.results}
+    assert by_name["PRINT"].outcome is ProbeOutcome.VERIFIED
+    assert by_name["RUN_SCRIPT"].outcome is ProbeOutcome.UNPROBED
+    assert "BROKEN_SUPPORT" in by_name["RUN_SCRIPT"].detail
+
+
 def test_probe_spec_requires_an_effect_assertion():
     with pytest.raises(ValueError, match="runs but does nothing"):
         ProbeSpec(command="STOP", build_target=lambda script, workdir: None)
