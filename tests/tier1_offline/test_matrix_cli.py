@@ -135,7 +135,16 @@ def test_plan_with_cost_tables_every_point_it_planned(tmp_path, monkeypatch, cap
     # FR-82 her instruction is most specific about.
     assert "EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT" in out
     # One row per planned point, and this matrix plans four.
-    assert out.count("/a") >= 4 or out.count("ready") >= 1
+    table = out.split("EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT:")[0]
+    rows = [line.split() for line in table.splitlines() if line.strip().startswith("matrix/sim_")]
+    assert len(rows) == 4
+    assert {row[0] for row in rows} == {
+        "matrix/sim_8001/M089RE310AL+000",
+        "matrix/sim_8001/M089RE310AL+020",
+        "matrix/sim_8002/M089RE310BE-030",
+        "matrix/sim_8002/M089RE310BE+030",
+    }
+    assert all(row[5] == "steady" for row in rows)
 
 
 def test_run_local_reaches_the_library(tmp_path, monkeypatch):

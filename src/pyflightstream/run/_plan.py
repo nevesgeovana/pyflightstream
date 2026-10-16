@@ -350,7 +350,7 @@ def _marked_trailing_edges(case) -> int | None:
     return len([name for name in families if str(name).casefold() in carried])
 
 
-def _recorded_is_unsteady(record: dict) -> bool:
+def _recorded_is_unsteady(record: dict, *, steps: int | None = None) -> bool:
     """Whether a recorded run was unsteady, by the fact it states (FR-82).
 
     The record's own `recipe` answers, and it is the same key the planned
@@ -360,10 +360,10 @@ def _recorded_is_unsteady(record: dict) -> bool:
     cannot identify an unsteady run without a planned reduction.
     """
     recipe = record.get("recipe")
-    if isinstance(recipe, str) and recipe:
+    if recipe in (*STEADY_RUN_TYPES, "unsteady", "unsteady_rotor"):
         # The quasi-steady rotor is steady at every solve.
         return recipe not in STEADY_RUN_TYPES
-    return bool(record.get("reductions"))
+    return steps is not None or bool(record.get("reductions"))
 
 
 #: The statuses whose wall time is no sample of what a point costs (PFS-2094.014):
@@ -450,10 +450,15 @@ def estimate_point_cost(
         sentence naming the basis.
     """
     solver = getattr(case, "solver", None)
-    unsteady = case.recipe not in STEADY_RUN_TYPES
     from pyflightstream.cases.workflows import time_steps_of
 
     iterations = time_steps_of(case)
+    # A custom LEGACY recipe is not an unsteady declaration. Its physical
+    # clock is the available evidence, while registered unsteady workflows
+    # remain unsteady even if an invalid clock prevents a step count.
+    unsteady = case.recipe in ("unsteady", "unsteady_rotor") or (
+        case.recipe not in STEADY_RUN_TYPES and iterations is not None
+    )
 
     # Resolve row NCPUS before setup max_threads, using the same resolver
     # as the emitted script and descriptor (PFS-2094.038).
@@ -480,7 +485,11 @@ def estimate_point_cost(
     # solve for a steady row. Read the record's recipe just as for the planned
     # point: a reduction block alone cannot identify an unsteady run whose
     # reductions were not planned.
-    same = [r for r in recorded if _recorded_is_unsteady(r) == unsteady]
+    same = [
+        r
+        for r in recorded
+        if _recorded_is_unsteady(r, steps=(steps_by_run or {}).get(r.get("run_id", ""))) == unsteady
+    ]
     seconds = None
     basis = (
         "no recorded run of this run type in this workspace, so no estimate is "
