@@ -64,6 +64,7 @@ __all__ = [
     "blade_passage_average",
     "blade_one_azimuth",
     "passage_windows",
+    "per_blade_rows",
     "phase_locked_rows",
     "read_timestep_series",
     "revolution_drift_warnings",
@@ -784,21 +785,21 @@ def per_blade_rows(
 
     Raises
     ------
-    ValueError
+    ProductError
         If the window names no step the history holds, or the rotor carries no
         blade. Could-not-measure is never a pass.
     """
     if blades < 1:
-        raise ValueError(f"the rotor carries {blades} blades, so it has no per-blade rows")
+        raise ProductError(f"the rotor carries {blades} blades, so it has no per-blade rows")
     if steps_per_revolution is not None and steps_per_revolution <= 0:
-        raise ValueError(
+        raise ProductError(
             f"steps_per_revolution is {steps_per_revolution}, so a step count cannot be "
             "turned into an angle and no azimuth can be written"
         )
     first, last = int(window[0]), int(window[1])
     steps = np.asarray(series.steps, dtype=int)
     if not ((steps >= first) & (steps <= last)).any():
-        raise ValueError(
+        raise ProductError(
             f"the window {window} names no step this history holds, which runs from "
             f"{int(steps[0])} to {int(steps[-1])}"
         )
