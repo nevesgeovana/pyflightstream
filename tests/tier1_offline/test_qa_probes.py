@@ -26,6 +26,18 @@ from tests.tier1_offline._no_evidence import registry_without_version
 PILOT = ["PRINT", "STOP", "RUN_SCRIPT"]
 
 
+def test_p0420_p2_1a_vorticity_lift_name_probe_keeps_effect_unprobed(tmp_path):
+    """The documented 26.125 spelling is probeable without guessing its effect."""
+    assert "SET_VORTICITY_LIFT_MODEL" in PROBE_SPECS
+    spec = PROBE_SPECS["SET_VORTICITY_LIFT_MODEL"]
+    from pyflightstream.script import Script
+
+    script = Script("26.125")
+    spec.build_target(script, tmp_path)
+    assert "SET_VORTICITY_LIFT_MODEL ENABLE" in script.render()
+    assert spec.assert_effect(None) is None
+
+
 def test_p0420_direct_unprobed_hotfix_does_not_inherit_verified():
     """P0420-P1-1b, FR-03: 26.122's own inconclusive run is not a verified run."""
     from pyflightstream.commands import CommandRegistry, Status

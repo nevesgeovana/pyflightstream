@@ -584,6 +584,18 @@ _spec(
 # --- advanced settings (FSM-26.120 pp.344-345) ----------------------------
 
 _spec(
+    command="SET_VORTICITY_LIFT_MODEL",
+    build_target=_emit("SET_VORTICITY_LIFT_MODEL", "ENABLE"),
+    requires=Requires.SIM,
+    save_state=True,
+    assert_effect=_unobservable,
+    effect_note=(
+        "name probe of the spelling still printed at FSM-26.125 p.365; continuation "
+        "does not establish a lift-model effect or identify a replacement"
+    ),
+)
+
+_spec(
     command="SET_SOLVER_CONVERGENCE_ITERATIONS",
     build_target=_emit("SET_SOLVER_CONVERGENCE_ITERATIONS", 37),
     requires=Requires.SIM,
