@@ -263,6 +263,35 @@ def test_the_wake_edge_import_writes_edge_type_one_on_26125_and_the_unit_on_2612
 
 
 @pytest.mark.requirement("FR-423")
+@pytest.mark.parametrize(
+    "command",
+    [
+        "CAD_CREATE_INITIALIZE",
+        "CAD_CREATE_IMPORT_CURVE_CCS",
+        "CAD_CREATE_CURVE_SELECT",
+        "CCS_WING_MESH_SUBDIVISIONS",
+        "SET_CCS_TE_BLEND_LENGTH",
+    ],
+)
+def test_p0420_p2_1a_ccs_probe_assigns_each_selected_loft(command, tmp_path):
+    """Every 26.125 loft follows a fresh curve assignment in the generated probe."""
+    from pyflightstream.qa.probes import generate_probe_script
+    from pyflightstream.qa.specs import PROBE_SPECS
+
+    lines = generate_probe_script(PROBE_SPECS[command], "26.125", tmp_path).render().splitlines()
+    assigned = False
+    lofts = 0
+    for line in lines:
+        if line.startswith("CAD_CREATE_CURVE_SELECT"):
+            assigned = False
+        if line == "ASSIGN_SELECTED_CURVES_TO_CCS_WING":
+            assigned = True
+        if line.startswith("CAD_CREATE_WING_MESH_FROM_CCS"):
+            assert assigned, command
+            lofts += 1
+    assert lofts > 0
+
+
 def test_the_ccs_curve_assignment_is_written_where_the_build_carries_it():
     """P0370-S10-CCS-ASSIGN (FR-423): one line per component on 26.125, none on 26.124."""
     for kind, command in (
