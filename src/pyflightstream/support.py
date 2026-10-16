@@ -60,6 +60,7 @@ __all__ = [
     "SUPPORT_LADDER",
     "SupportLevel",
     "VersionSupport",
+    "WORKFLOW_ALTERNATIVES",
     "minimal_workflow",
     "support_level",
     "support_table",
@@ -121,7 +122,7 @@ MINIMAL_WORKFLOW_COMMANDS: tuple[str, ...] = (
 #: A link of the minimal workflow that a build may write in another form
 #: (FR-423): 26.125's manual prints no automatic trailing-edge detection and
 #: documents the every-boundary form of the by-surface detection in its place.
-_LINK_ALTERNATIVES: dict[str, str] = {
+WORKFLOW_ALTERNATIVES: dict[str, str] = {
     "AUTO_DETECT_TRAILING_EDGES": "DETECT_TRAILING_EDGES_BY_SURFACE",
 }
 
@@ -269,7 +270,7 @@ def _workflow_gaps(version: FsVersion, registry: CommandRegistry) -> tuple[str, 
             if record is not None and record.status is Status.BROKEN:
                 missing.append(name)
             continue
-        alternative = _LINK_ALTERNATIVES.get(name)
+        alternative = WORKFLOW_ALTERNATIVES.get(name)
         if alternative and helpers.takes_every_boundary(view, alternative):
             record = view[alternative].status_in(version)
             if record is not None and record.status is not Status.BROKEN:
@@ -282,7 +283,7 @@ def _workflow_gaps(version: FsVersion, registry: CommandRegistry) -> tuple[str, 
     except PyflightstreamError as error:
         # A present command can still reject the workflow's argument grammar.
         # Report the refusal instead of claiming a workflow was built.
-        commands = (*MINIMAL_WORKFLOW_COMMANDS, *_LINK_ALTERNATIVES.values())
+        commands = (*MINIMAL_WORKFLOW_COMMANDS, *WORKFLOW_ALTERNATIVES.values())
         refused = tuple(name for name in commands if name in str(error))
         return refused or ("minimal_workflow",)
     return ()

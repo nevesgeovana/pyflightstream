@@ -20,9 +20,9 @@ from pyflightstream.commands import (
     Status,
 )
 from pyflightstream.support import (
-    _LINK_ALTERNATIVES,
     MINIMAL_WORKFLOW_COMMANDS,
     SUPPORT_LADDER,
+    WORKFLOW_ALTERNATIVES,
     SupportLevel,
     minimal_workflow,
     support_table,
@@ -176,7 +176,7 @@ def test_every_operational_version_builds_the_minimal_workflow(canonical):
     lines = script.render()
     # 26.125 prints no automatic trailing-edge detection and writes the
     # every-boundary form of the by-surface one in its place (P0370-S10-DETECTION).
-    alternative = _LINK_ALTERNATIVES
+    alternative = WORKFLOW_ALTERNATIVES
     for command in MINIMAL_WORKFLOW_COMMANDS:
         written = alternative.get(command, command)
         assert re.search(rf"^({command}|{written})\b", lines, re.MULTILINE), (
