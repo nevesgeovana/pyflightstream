@@ -260,7 +260,6 @@ def _pproc_probes(
         raise CampaignConfigError(
             f"case {case.sim_id!r}: [[surface_probes]] requires an unsteady march"
         )
-    vertex = len(script.probe_points)
     normal = unsteady and _normal_probes_of(case)
     if unsteady and not analysis:
         _pproc_surface_probes(case, script, frames)
@@ -280,6 +279,8 @@ def _pproc_probes(
     declared: list[tuple[int, str, np.ndarray]] = []
     previous_layout = list(script.probe_field_layout)
     _open_the_probe_points(case, script, sampled=sampled, steady=not unsteady, normal=normal)
+    # Number from the points that survive the opening, so a replaced survey restarts at 1.
+    vertex = len(script.probe_points)
     for entry_number, probes in enumerate(pproc.probes, start=1):
         if not unsteady and probes.parameters:
             _warn_steady_parameter_list(case, probes, entry_number, normal=normal)
