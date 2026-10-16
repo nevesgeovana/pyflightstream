@@ -49,7 +49,10 @@ from pyflightstream.post.products import global_frame_plot_groups
             {
                 "windows": [[31, 35], [36, 40]],
                 "period_steps": 5,
-                "window_from": "the row's window cut into blade passages of PROP, 5 steps each",
+                "window_from": (
+                    "PROP's own averaging span, steps 31 to 40, "
+                    "cut into blade passages of 5 steps each"
+                ),
             },
         ),
         (
