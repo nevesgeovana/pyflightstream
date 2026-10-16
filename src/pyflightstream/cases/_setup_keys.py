@@ -27,7 +27,7 @@ command never takes is refused at load rather than at the first build.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
@@ -104,7 +104,7 @@ class UnsteadyAction(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    type: str
+    type: Literal["SCRIPT", "COMMAND_LINE"]
     name: str = Field(min_length=1)
     filename: str = Field(min_length=1)
 

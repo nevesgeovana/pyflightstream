@@ -688,6 +688,22 @@ class SolverSettings(BaseModel):
     #: iteration of the solver's own surface average. None emits nothing.
     solver_time_averaging: list[int] | None = Field(default=None, min_length=2, max_length=2)
 
+    @field_validator("unsteady_solver_actions")
+    @classmethod
+    def _unique_user_action_names(
+        cls, value: list[UnsteadyAction] | None
+    ) -> list[UnsteadyAction] | None:
+        seen: set[str] = set()
+        for action in value or ():
+            if action.name.startswith("pfs_"):
+                raise ValueError(
+                    "unsteady_solver_actions names must not use the reserved prefix pfs_"
+                )
+            if action.name in seen:
+                raise ValueError(f"unsteady_solver_actions contains duplicate name {action.name!r}")
+            seen.add(action.name)
+        return value
+
     @field_validator("load_units")
     @classmethod
     def _a_unit_the_command_takes(cls, value: str | None) -> str | None:
