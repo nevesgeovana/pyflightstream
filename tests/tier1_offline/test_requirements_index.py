@@ -522,7 +522,6 @@ def test_p0420_writing_receipt_binds_committed_inputs(tmp_path, monkeypatch, rec
         checker.main(["--root", str(REPO), "--baseline", str(baseline)])
 
 
-@pytest.mark.skip(reason="Activate at S3 after content lanes bring W01/W02/W10 to zero")
 def test_p0420_srs_w01_w02_w10_zero():
     from scripts._requirements_paths import read_requirements
     from scripts.check_writing_rules import check
@@ -532,6 +531,23 @@ def test_p0420_srs_w01_w02_w10_zero():
         for row in read_requirements(REPO, live_only=True)
     }
     assert not {uid: rules for uid, rules in violations.items() if rules}
+
+
+def test_p0420_srs_writing_rules_never_exceed_the_s3_baseline():
+    """PFS-2142: every measured writing-rule count may fall, never rise."""
+    from scripts._requirements_paths import read_requirements
+    from scripts.check_writing_rules import RULES, check, compare_baseline
+
+    # Session decision 2026-10-15; reviewed S3 baseline, 1,868 live rows.
+    limits = dict(zip(RULES, (0, 0, 2, 0, 0, 0, 40, 3, 15, 0, 6), strict=True))
+    findings = [check(row) for row in read_requirements(REPO, live_only=True)]
+    counts = {rule: sum(rule in found for found in findings) for rule in RULES}
+    assert compare_baseline(counts, {"rules": limits}) == []
+    for rule in RULES:
+        raised = {**limits, rule: limits[rule] + 1}
+        assert compare_baseline(raised, {"rules": limits}), rule
+        lowered = {**limits, rule: max(0, limits[rule] - 1)}
+        assert compare_baseline(lowered, {"rules": limits}) == [], rule
 
 
 def test_p0410_pa2_owned_citations_use_stable_uids() -> None:
