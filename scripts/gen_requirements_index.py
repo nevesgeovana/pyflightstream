@@ -126,7 +126,7 @@ def _table_rows(page: Path, text: str) -> list[dict[str, str]]:
         if (area not in AREAS and status != "retired") or not statement:
             raise MalformedRequirementPageError(f"{page.name}: invalid area/statement")
         pending_plan = status == "pending" and re.search(
-            r"\bPFS-\d+(?:\.\d+)*\b", record.get("rationale", "")
+            r"\b(?:PFS|OPS)-\d+(?:\.\d+)*\b", record.get("rationale", "")
         )
         if (
             status != "retired"
@@ -554,7 +554,7 @@ def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
         if "hid" not in row or row["status"] == "retired" or row.get("level") == "L1":
             continue
         pending_plan = row["status"] == "pending" and re.search(
-            r"\bPFS-\d+(?:\.\d+)*\b", row.get("rationale", "")
+            r"\b(?:PFS|OPS)-\d+(?:\.\d+)*\b", row.get("rationale", "")
         )
         module, _, symbol = row["code"].partition(":")
         paths = [
