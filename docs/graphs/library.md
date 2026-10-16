@@ -3050,6 +3050,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.support"><summary><code>pyflightstream.support</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script.helpers">pyflightstream.script.helpers</a> (module)</li>
@@ -3135,6 +3136,7 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 <li>&rarr; <a href="#pyflightstream._lengths">pyflightstream._lengths</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script._arg_checks">pyflightstream.script._arg_checks</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.script._build_forms">pyflightstream.script._build_forms</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.script._ledger_tables">pyflightstream.script._ledger_tables</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script._surface_averaging">pyflightstream.script._surface_averaging</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script.entities">pyflightstream.script.entities</a> (module)</li>
@@ -3149,11 +3151,14 @@ This is the architecture guard's AST walk, including deferred and type-checking 
 </ul></details>
 
 <details id="pyflightstream.script._build_forms"><summary><code>pyflightstream.script._build_forms</code></summary><ul>
+<li>&rarr; <a href="#pyflightstream._digest">pyflightstream._digest</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream._errors">pyflightstream._errors</a> (module)</li>
+<li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.commands">pyflightstream.commands</a> (typing)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (deferred)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (module)</li>
 <li>&rarr; <a href="#pyflightstream.script">pyflightstream.script</a> (typing)</li>
+<li>&rarr; <a href="#pyflightstream.script._arg_checks">pyflightstream.script._arg_checks</a> (module)</li>
 </ul></details>
 
 <details id="pyflightstream.script._ledger_tables"><summary><code>pyflightstream.script._ledger_tables</code></summary><ul>
