@@ -690,7 +690,8 @@ def phase_locked_plan(
             "windows": [list(item) for item in cut],
             "period_steps": period,
             "window_from": (
-                f"the row's window cut into blade passages of {who}, {period} steps each"
+                f"{who}'s own averaging span, steps {span[0]} to {span[1]}, "
+                f"cut into blade passages of {period} steps each"
             ),
         }
     return {
