@@ -271,6 +271,11 @@ def aeroelastic_surface_ids(
         If the geometry is not a fresh import whose numbering was
         measured, rather than guessing the ID.
     """
+    if case.solver.delete_surfaces:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {context} refuses delete_surfaces because boundary IDs "
+            "after deletion are not measured; use an undeleted input geometry for FSI."
+        )
     suffix = PurePath(str(case.geometry)).suffix.lower() if case.geometry is not None else ""
     offset = IMPORT_BOUNDARY_ID_OFFSET.get(suffix)
     if offset is None:
@@ -290,7 +295,7 @@ def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
     component. With the blade's sections in the configuration
     (``BladeProperties.section_contours_m``), the nodes are placed on
     each section's camber line and a node outside its section, or
-    inside it by less than max(1 mm, 10 % of the local thickness), is
+    inside it by less than max(0.1 % of chord, 10 % of local thickness), is
     refused naming it (:func:`pyflightstream.fsi.nodes.generate_node_layout`).
     Without them, the configuration states offsets and no geometry, and
     the layout is the offset layout, unchecked: the geometry the check
