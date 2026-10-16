@@ -45,6 +45,45 @@ def historical_requirements():
     return historical
 
 
+@pytest.mark.parametrize(
+    "defect", ["unallocated", "out-of-range", "retired", "lane", "node", "missing-lineage"]
+)
+def test_p0420_srs_application_allocations_refuse_invalid_lineage(tmp_path, monkeypatch, defect):
+    """P0420: an allocation is bounded provenance, not an unexplained UID exemption."""
+    from scripts._requirements_paths import requirement_files
+
+    historical = historical_requirements()
+    for source in requirement_files(REPO):
+        target = tmp_path / source.relative_to(REPO)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
+    identities = json.loads((REPO / "docs/srs/reserved-ids.json").read_text())
+    migration = (REPO / "docs/srs/uid-migration.csv").read_text()
+    uid = "FR-3203"
+    if defect == "unallocated":
+        del identities["allocations"][uid]
+    elif defect == "out-of-range":
+        identities["allocations"]["FR-3300"] = identities["allocations"][uid]
+    elif defect == "retired":
+        identities["reserved_ids"].append(uid)
+    elif defect == "lane":
+        identities["allocations"][uid]["lane"] = "unassigned"
+    elif defect == "node":
+        identities["allocations"][uid]["node"] = ""
+    else:
+        migration = "\n".join(
+            line for line in migration.splitlines() if not line.startswith(uid + ",")
+        )
+    folder = tmp_path / "docs/srs"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "reserved-ids.json").write_text(json.dumps(identities), encoding="utf-8")
+    (folder / "uid-migration.csv").write_text(migration, encoding="utf-8")
+    monkeypatch.setitem(globals(), "REPO", tmp_path)
+    monkeypatch.setitem(globals(), "historical_requirements", lambda: historical)
+    with pytest.raises(AssertionError):
+        test_p0420_stage_migration_preserves_historical_statements()
+
+
 def test_p0420_stage_migration_preserves_historical_statements():
     """P0420: historical identities resolve through explicit content-phase lineage."""
     import csv
@@ -61,11 +100,27 @@ def test_p0420_stage_migration_preserves_historical_statements():
     live = [r for r in historical if r["status"] != "retired"]
     historical_ids = {r["uid"] for r in live}
     assert historical_ids <= set(migration)
+    identities = json.loads((REPO / "docs/srs/reserved-ids.json").read_text())
+    allocations = identities.get("allocations", {})
+    for uid, allocation in allocations.items():
+        family, number = uid.split("-")
+        lower, upper = identities["allocation_ranges"]["srs-application"][family]
+        assert lower <= int(number) <= upper, uid
+        assert uid in current and uid in migration, uid
+        assert uid not in historical_ids and uid not in identities["reserved_ids"], uid
+        assert allocation["lane"] in {"srs-apply-1", "srs-apply-2"}, uid
+        assert all(
+            re.fullmatch(r"(?:PFS-\d+(?:\.\d+)*|GOAL-033:G52)", node)
+            for node in allocation["node"].split("; ")
+        ), uid
+        assert migration[uid]["destination"] == "kept" and not migration[uid]["target"], uid
     split_ids = {uid for r in records for uid in r["new_uids"].split()}
     for uid in set(migration) - historical_ids:
-        assert uid in split_ids or (uid in current and migration[uid]["new_uids"]), (
-            "unexplained migration UID"
-        )
+        assert (
+            uid in allocations
+            or uid in split_ids
+            or (uid in current and migration[uid]["new_uids"])
+        ), "unexplained migration UID"
     lettered = [r["uid"] for r in live if r["uid"][-1].isalpha()]
     expected = dict(
         zip(
