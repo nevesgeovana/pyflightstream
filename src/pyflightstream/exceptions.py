@@ -61,6 +61,7 @@ from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
+    SolverSetupError,
 )
 from pyflightstream._fsm import MeshReadError
 from pyflightstream._retired_names import RetiredAttributeError
@@ -196,6 +197,7 @@ __all__ = [
     "ScriptOrderError",
     "ScriptReferenceError",
     "SixDofSetupError",
+    "SolverSetupError",
     "StaleLoadsError",
     "StorageError",
     "SurfaceMeshExportError",

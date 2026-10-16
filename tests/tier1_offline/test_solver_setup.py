@@ -1876,3 +1876,14 @@ class TestFr317Fr318MomentsModel:
         with pytest.warns(PyflightstreamWarning, match="FR-318"):
             build_script(case, script)
         assert "SET_ANALYSIS_MOMENTS_MODEL VORTICITY" in script.render().splitlines()
+
+
+def test_p0420_unknown_snapshot_command_uses_package_error_hierarchy():
+    from pyflightstream._errors import PyflightstreamError
+
+    registry = CommandRegistry.load()
+    entry = registry.commands["SOLVER_SET_AOA"].model_copy(update={"name": "SOLVER_NEW_SETTING"})
+    custom = CommandRegistry(commands={**registry.commands, "SOLVER_NEW_SETTING": entry})
+    with pytest.raises(PyflightstreamError, match="SOLVER_NEW_SETTING") as caught:
+        helpers.solver_settings(Script("26.124", registry=custom))
+    assert isinstance(caught.value, RuntimeError)
