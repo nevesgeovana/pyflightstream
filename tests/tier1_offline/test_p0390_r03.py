@@ -646,7 +646,7 @@ def settings_spelling_admitted(new: str, captured: str) -> bool:
 
 
 def _docs_clean_plan_evidence(captured: bytes) -> bytes:
-    """Admit only the owner's three prose replacements in serialized evidence."""
+    """Admit only the owner's five prose replacements in serialized evidence."""
     replacements = (
         (
             b"bounds in this database (design decision of 2026-08-08);",
@@ -657,6 +657,18 @@ def _docs_clean_plan_evidence(captured: bytes) -> bytes:
             b"Both are registered in mesh_operations.yaml,",
         ),
         (b"PROBE ROUND 1 OF 0.32.0, on 26.124:", b"PROBE ROUND 1 on 26.124:"),
+        (
+            b"Documented unchanged in the four editions read then; the three added on "
+            b"2026-08-05 were read from their own pages, not inherited.",
+            b"Documented unchanged in FSM-26.100, FSM-26.101, FSM-26.120 and FSM-26.121, "
+            b"each from its own page rather than inherited evidence.",
+        ),
+        (
+            b"A 2026-08-08 review pass reported this as a paste error from the arithmetic "
+            b"alone; it is not one, and this paragraph exists so the next reader measures "
+            b"before correcting it.",
+            b"Check the page before replacing an individual citation with an average offset.",
+        ),
     )
     for before, after in replacements:
         assert captured.count(before) == 1, before
@@ -743,9 +755,19 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b"reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml",
     )
     # Public command prose is also serialized into plan evidence. Keep the
-    # historical fixture intact and specify the three intended text changes;
+    # historical fixture intact and specify the five intended text changes;
     # command status, grammar, scientific values and every other byte still compare.
     captured[plan_name] = _docs_clean_plan_evidence(captured[plan_name])
+    # PFS-2144 changes only this serialized description of the default.
+    # Its value, probe identity and all other record fields stay pinned.
+    old_prose = (
+        b"design decision of 2026-07-22; physics references re-validated under it, "
+        b"30 of 30 metrics bit-identical"
+    )
+    assert captured["tree/runs.json"].count(old_prose) == 1
+    captured["tree/runs.json"] = captured["tree/runs.json"].replace(
+        old_prose, b"physics reference check: 30 of 30 metrics bit-identical"
+    )
     assert sorted(outputs) == sorted(captured)
     for name, text in outputs.items():
         if name == "tree/runs.json":
@@ -797,6 +819,12 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     ("before", "after"),
     [
         ("bounds in this database ;", "bounds in this database (design decision of 2026-08-08);"),
+        (
+            "Check the page before replacing an individual citation with an average offset.",
+            "A 2026-08-08 review pass reported this as a paste error from the arithmetic "
+            "alone; it is not one, and this paragraph exists so the next reader measures "
+            "before correcting it.",
+        ),
         ("between 0 and 90 degrees", "between 0 and 91 degrees"),
         ('"available": true', '"available": false'),
     ],
@@ -814,6 +842,22 @@ def test_p0420_docs_clean_plan_comparison_rejects_mutants(tmp_path, monkeypatch,
 
     monkeypatch.setattr(sys.modules[__name__], "r10_outputs", altered)
     with pytest.raises(AssertionError, match="tree/post/polars/plan.json"):
+        test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the output fixture was captured on Windows")
+@pytest.mark.filterwarnings("ignore::Warning")
+def test_p0420_sweeps_record_comparison_rejects_a_changed_default(tmp_path, monkeypatch):
+    """The prose allowance cannot admit a different scientific default."""
+    original = _read_record_rows
+
+    def altered(path):
+        rows = original(path)
+        rows[0]["solver_setup"]["flags"]["SOLVER_MINIMUM_CP"]["value"] = -99
+        return rows
+
+    monkeypatch.setattr(sys.modules[__name__], "_read_record_rows", altered)
+    with pytest.raises(AssertionError, match="tree/runs.json"):
         test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path)
 
 
