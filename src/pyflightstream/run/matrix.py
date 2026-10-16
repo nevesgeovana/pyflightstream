@@ -1892,7 +1892,16 @@ def _extract(
     folder.mkdir(parents=True, exist_ok=True)
     copy = folder / f"{context['stem']}{REOPENED_SUFFIX}"
     shutil.copy2(original, copy)
-    (sim_dir / "scripts" / ADDITIONAL_DIR / plan.pproc).mkdir(parents=True, exist_ok=True)
+    script_target = sim_dir / "scripts" / _script_name(plan.pproc, str(context["stem"]))
+    script_target.parent.mkdir(parents=True, exist_ok=True)
+    if script_target.is_file():
+        archived = script_target.parent / ARCHIVE_DIR / stamp / script_target.name
+        index = 2
+        while archived.exists():
+            archived = script_target.parent / ARCHIVE_DIR / f"{stamp}.{index}" / script_target.name
+            index += 1
+        archived.parent.mkdir(parents=True, exist_ok=True)
+        script_target.replace(archived)
     script_path, script_sha = workspace.write_script(
         point.sim_id, _script_name(plan.pproc, str(context["stem"])), plan.script_text
     )
@@ -1936,9 +1945,26 @@ def _extract(
         )
     from pyflightstream.run import bind_submission_values
 
-    bind_submission_values(executor, case, case)
-    result = executor.run_script(script_path, working_dir=folder, timeout_s=case.solver.timeout_s)
-    if result.failed:
+    try:
+        bind_submission_values(executor, case, case)
+        result = executor.run_script(
+            script_path, working_dir=folder, timeout_s=case.solver.timeout_s
+        )
+    except Exception as error:
+        return record_additional_extraction(
+            workspace,
+            base,
+            status=ExtractionStatus.FAILED_EXECUTION,
+            error=f"{type(error).__name__}: {error}",
+            original=original,
+        )
+    finally:
+        if not isinstance(executor, Submitting):
+            try:
+                copy.unlink(missing_ok=True)
+            except OSError as error:
+                base["note"] = f"the private copy {copy.name} could not be removed ({error})"
+    if result.failed and isinstance(executor, Submitting):
         copy.unlink(missing_ok=True)
     base.update(
         {

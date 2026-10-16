@@ -650,6 +650,32 @@ def extract(workspace: CampaignWorkspace, matrix: Path, stub: CountingStub):
     )
 
 
+def test_p0420_p1_1d_extraction_launch_exception_is_recorded_and_cleaned(tmp_path, monkeypatch):
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    stub = a_stub(tmp_path)
+
+    def fail(*args, **kwargs):
+        raise OSError("offline launch refusal")
+
+    monkeypatch.setattr(stub, "run_script", fail)
+    _, records = extract(workspace, matrix, stub)
+    assert len(records) == 2
+    assert all(
+        r.status == "FAILED_EXECUTION" and "offline launch refusal" in r.error for r in records
+    )
+    assert not list(workspace.root.rglob("*.reopened.fsm"))
+    scripts = {
+        workspace.sim_dir(r.sim_id) / r.script_path: b"previous extraction script" for r in records
+    }
+    for path, content in scripts.items():
+        path.write_bytes(content)
+    _, rerun = extract(workspace, matrix, stub)
+    assert len(rerun) == 2
+    for path, content in scripts.items():
+        assert path.read_bytes() != content
+        assert any(p.read_bytes() == content for p in (path.parent / "archive").rglob(path.name))
+
+
 def saved_simulations(workspace: CampaignWorkspace) -> dict[str, Path]:
     """Each recorded point's saved simulation, by the point's run id."""
     found = {}
