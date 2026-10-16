@@ -1,0 +1,38 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.121'
+date: '2026-10-16'
+package_version: 0.5.0.dev0
+fs_exe: Flightstream_2612.exe
+executor: LocalExecutor, -hidden --script (FSM-26.120 pp.279-280)
+solver_identity:
+- 'FlightStream version 26.1, build #7262026'
+summary:
+  verified: 0
+  broken: 0
+  removed: 0
+  unprobed: 1
+commands:
+  SWEEPER_REF_VELOCITY_SAME:
+    outcome: unprobed
+    detail: 'PFS-2138.029: SRC-740, the 26.121 manual edition, is absent from the session manual inventory
+      (editions.yaml names it; available PDFs are SRC-003, SRC-172, SRC-215 and SRC-747 through SRC-751).
+      Before=true, after=false, effect=null and no log errors establish an abort, not removal or command-specific
+      failure. No later edition substitutes for 26.121. Analysis only; no solver run, no status application.
+      Current command database status is retained pending the missing edition or target-specific evidence.'
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 0.77
+    return_code: 0
+    script_sha256: a630b56ed4bca18fa8f1d54530ab45af51cc9441a978f8bf338a8c15617ba37d
+    withdraws:
+      report: reports/compat/CMP-26121_2026-08-08_full.yaml
+      sha256: 3be916888e3e85115749c48450be48c8a859f37d4100b12ff59fdb8f264cb465
+      hash_domain: utf8-lf
+      outcome: broken
+    source_detail: 'script processing aborted at the command: the log exported before it exists, the one
+      after it never appeared (END sentinel missing)'
+analysis_only: true
+execution_date: '2026-08-08'
