@@ -217,6 +217,11 @@ NEW_CCS_REVOLVE_RELAXED_TE:
     U is the radial parametric location and V0 and V1 the axial
     parametric limits, all between 0 and 1 with V1 greater than V0.
 
+    On 26.120 through 26.123 emission warns that this grammar is unmeasured:
+    the same form aborted on 26.124 and 26.125 adds DIRECTION. This warning
+    preserves the older documented status; it does not assert an older-build
+    failure. Probe the target build with a timeout before unattended use.
+
     ALL FOUR EDITIONS PRINT A SAMPLE THAT VIOLATES THEIR OWN BOUND,
     passing 20 for V1 where the table two lines above states values
     between 0 and 1. The fuselage sibling had the same error in the
@@ -309,18 +314,23 @@ EXPORT_REVOLVE_CCS_FILE:
     Writes the lofted body of revolution to a file instead of into the
     simulation.
 
-    THIS PAGE IS WHERE THE EXPORT SAMPLES ARE PROVED TO BE COPIES. The
+    On 26.120 through 26.123 emission warns that this grammar is unmeasured:
+    the heading form aborted on 26.124 and 26.125. This warning preserves
+    the older documented status; it does not assert an older-build failure.
+    Probe the target build with a timeout before unattended use.
+
+    THE HEADING AND SAMPLE DISAGREE. The
     signature heading prints six placeholders, the parameter table
     documents four of them, and the sample passes EIGHT arguments,
     among them a frame index, an axis and two angles that appear
     nowhere in this command's heading and are exactly the extra
     arguments of the neighbouring CAD_CREATE_REVOLVE_MESH_FROM_CCS. A
-    sample that carries arguments its own signature does not name is
-    the create command's sample with the name swapped, so it is not
-    evidence about this command at all.
+    sample cannot settle the older build's grammar by itself. On 26.125
+    the cited probe establishes the sample form; no such conclusion is
+    carried back to the older builds.
 
-    The six of the heading are recorded, as on the fuselage sibling,
-    and the probe is registered as PLN-20260808-1730. The parameter
+    The older rows retain the six of the heading, as on the fuselage sibling.
+    The parameter
     table is missing the MARK_TRAILING_EDGES and TE_GEOMETRY rows that
     the wing sibling's table prints in full for the same six
     placeholders.

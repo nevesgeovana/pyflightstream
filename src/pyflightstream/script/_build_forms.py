@@ -180,6 +180,24 @@ def detect_every_boundary(script: Script, kind: str) -> str:
     return command
 
 
+def _warn_unmeasured_ccs_grammar(script: Script, entry: CommandEntry) -> None:
+    """Flag a suspect older grammar without attributing a newer run to it."""
+    if entry.name not in {"NEW_CCS_REVOLVE_RELAXED_TE", "EXPORT_REVOLVE_CCS_FILE"}:
+        return
+    if script.version.canonical not in {"26.120", "26.121", "26.122", "26.123"}:
+        return
+    record = entry.status_in(script.version)
+    if record is not None and str(record.status) == "documented":
+        warn(
+            f"{entry.name}: this grammar is unmeasured on {script.version.canonical}; "
+            "the same form aborted on 26.124 (CMP-26124_2026-10-02_qa-promote) and "
+            "26.125 requires a different form (CMP-26125_2026-10-05_probe-campaign). "
+            "The older build remains documented, not measured broken. Probe this "
+            "build with a timeout before using the command unattended.",
+            PyflightstreamWarning,
+        )
+
+
 def wake_edge_import_token(script: Script, units: str) -> str:
     """Return the third token of the wake-edge import on the script's build.
 

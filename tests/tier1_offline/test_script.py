@@ -30,6 +30,27 @@ from pyflightstream.versions import known_versions
 GOLDENS = Path(__file__).parent / "goldens"
 
 
+@pytest.mark.parametrize("version", ["26.120", "26.121", "26.122", "26.123"])
+@pytest.mark.parametrize(
+    ("command", "args"),
+    [
+        ("NEW_CCS_REVOLVE_RELAXED_TE", (0.2, 0.1, 0.8)),
+        ("EXPORT_REVOLVE_CCS_FILE", ("body", "TRUE", "SHARP", "OPEN", "C2", "C2", "body.ccs")),
+    ],
+)
+def test_p0420_unmeasured_ccs_grammar_warns_without_inventing_a_broken_status(
+    version, command, args
+):
+    """P0420-P1-1b, FR-03: a later abort flags risk, not a measurement of this build."""
+    from pyflightstream._errors import PyflightstreamWarning
+
+    script = Script(version)
+    with pytest.warns(PyflightstreamWarning, match="unmeasured.*26.124"):
+        script.emit(command, *args)
+    assert command in script.render()
+    assert script.registry.commands[command].status_in(script.version).status is Status.DOCUMENTED
+
+
 def test_p0420_wake_import_names_the_edge_token_and_keeps_the_old_keyword():
     """P0420-P1-1b, FR-01: edge identity is not a coordinate unit."""
     script = Script("26.124")
@@ -63,6 +84,18 @@ def test_p0420_wake_import_names_the_edge_token_and_keeps_the_old_keyword():
         )
     assert legacy.render() == before
     assert helpers.wake_edge_import_token(Script("26.125"), "METER") == "1"
+
+
+def test_p0420_ccs_risk_warning_does_not_cover_new_grammar_or_refused_inputs():
+    """P0420-P1-1b: controls keep the warning confined to accepted older forms."""
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        Script("26.125").emit("NEW_CCS_REVOLVE_RELAXED_TE", 0.2, 0.1, 0.8, "0")
+        with pytest.raises(CommandArgumentError):
+            Script("26.123").emit("NEW_CCS_REVOLVE_RELAXED_TE", "invalid", 0.1, 0.8)
+    assert not caught
 
 
 def classify_count_spellings(label, args):

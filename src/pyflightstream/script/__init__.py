@@ -830,6 +830,9 @@ class Script:
         for path in exports:
             self._refuse_export_collision(path, asker=entry.name)
         _check_one_line_each(entry, block)
+        from pyflightstream.script._build_forms import _warn_unmeasured_ccs_grammar
+
+        _warn_unmeasured_ccs_grammar(self, entry)
         # ACCEPTED: from here on the emission is committed.
         self._commit_state(entry, bound, phase)
         self._lines.extend(block)
