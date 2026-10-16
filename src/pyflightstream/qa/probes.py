@@ -120,32 +120,24 @@ DEFAULT_ERROR_PATTERNS: tuple[str, ...] = (
 )
 
 
-#: The solver's own refusal of a name it does not carry, measured on
-#: 26.122 (RPT-026). The crash log records a pipe-delimited record whose
-#: second field is ``Syntax``, and the same wording answers a real
-#: command absent from the build and a token that was never a command
-#: at all. The second field is what separates it from a SEMANTIC
-#: refusal, which reads ``Scripting`` with ``N/A`` in the quoted field
-#: and means the command exists and declined this call.
+#: The solver's refusal of an unknown name (26.122, RPT-026). Its
+#: pipe-delimited record has Syntax in the second field, for both a real
+#: command absent from the build and a token that is not a command. A
+#: semantic refusal instead has Scripting and N/A in the quoted field: the
+#: command exists but declines the call.
 #:
-#: THE QUOTED FIELD IS THE WHOLE SCRIPT LINE, not the command token, and
-#: that was measured the hard way. RPT-026's first arm spliced a target
-#: with no arguments, so the two shapes were indistinguishable and this
-#: pattern was written against a bare token. Argument-bearing targets
-#: fell through to the wrong branch. The re-measurement on
-#: 26.122 records ``'SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE'`` in
-#: this field, and the repository's own RPT-012 had recorded the same
-#: shape since 2026-07-23.
+#: The quoted field is the whole script line, including arguments:
+#: SET_JET_WAKE_FILAMENTS_GRID_INDUCTION ENABLE in RPT-026. RPT-012
+#: corroborates this shape. The pattern must accept arguments after the name.
 _UNRECOGNISED_COMMAND = re.compile(
     r"ERROR\s*\|\s*Syntax\s*\|\s*'(?P<line>[^']+)'\s*\|\s*Unrecognized command",
     re.IGNORECASE,
 )
 
-#: The older wording, without the table: 26.100 (build #2122026) wrote
-#: ``Unrecognized command in script <path> at line 6: <the script line>``
-#: and nothing else (measured 2026-10-12 on DELETE_VALAREZO_CRITERION_BOUNDARIES
-#: and the FSI motion pair), so the table pattern alone recorded each name it
-#: refused as an abort, broken instead of removed.
+#: 26.100 (build #2122026) writes an unstructured refusal without a table:
+#: Unrecognized command in script <path> at line 6: <the script line>.
+#: DELETE_VALAREZO_CRITERION_BOUNDARIES and the FSI motion pair confirm this
+#: shape; it identifies a removed command rather than a generic abort.
 _UNRECOGNISED_COMMAND_UNTABLED = re.compile(
     r"^\s*Unrecognized command in script .*? at line \d+:\s*(?P<line>\S.*)$",
     re.IGNORECASE | re.MULTILINE,
@@ -454,15 +446,10 @@ class ProbeSpec:
                 "runs but does nothing is broken, not verified (SAD Section 11), so "
                 "every probe must assert an observable effect"
             )
-        # A saved-state assertion with no saved state. Everything needed
-        # to refuse this is present at construction, which is import time
-        # of the spec catalog, and refusing it anywhere later costs a run
-        # on the licensed machine AND writes the wrong answer: with no
-        # state files the assertion returns False under its default, the
-        # command is recorded BROKEN, and apply-compat promotes that into
-        # the shipped database, where the emitter then refuses a working
-        # command for every user. A refusal that could have arrived
-        # before the seat was spent has to (release review, 2026-08-09).
+        # Refuse a saved-state assertion without saved state at construction,
+        # before spending a licensed run. Missing state would otherwise make the
+        # assertion return False, record a working command as BROKEN and let
+        # apply-compat promote that false refusal into the command database.
         if getattr(self.assert_effect, "needs_saved_state", False) and not self.save_state:
             raise QaEvidenceError(
                 f"probe for {self.command} asserts on the saved simulation and declares "
@@ -608,14 +595,10 @@ def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], 
     field being positional within its section, which is why this reads
     the value rather than parsing a field.
 
-    IT COMPARES CHANGED LINES AND NOT THE WHOLE TEXT, and the first
-    version did the latter and was wrong. Searching the after-state for
-    the token and the before-state for the same token marks a working
-    command BROKEN whenever the token also occurs somewhere innocent:
-    ``SET_SOLVER_CONVERGENCE_ITERATIONS 37`` genuinely wrote 37 into the
-    file, the run recorded it broken, and the diff of the two saved
-    states was a single line going from 15 to 37. A short token matches
-    a mesh index, a date or a count somewhere in any simulation.
+    Compare changed lines, not the whole text. A short token can also
+    occur in an unrelated mesh index, date or count. For example,
+    ``SET_SOLVER_CONVERGENCE_ITERATIONS 37`` can change a line from 15
+    to 37 even when another line already contains 37.
 
     So the question asked here is the one the diff answers: is there a
     line the target ADDED or CHANGED that carries this value. That is
@@ -673,22 +656,10 @@ def fsm_gained(*tokens: str, strict: bool = True) -> Callable[[ProbeArtifacts], 
         after = artifacts.saved_after()
         before = artifacts.saved_before()
         if not before or not after:
-            # BOTH files, and EMPTY counts as missing. A before-state read
-            # as the empty string makes every line of the after look
-            # changed, which is the whole-file search this docstring says
-            # was wrong, and it turns a command that did nothing into
-            # VERIFIED evidence that apply-compat then promotes. A false
-            # positive here is worse than the false negatives caught by
-            # hand, because nothing downstream re-reads it.
-            #
-            # The first repair tested `is None`, which is what the reader
-            # returns for an ABSENT file, and left the door beside it
-            # open: a SAVEAS that failed after creating the file, or one
-            # interrupted mid-write, leaves a zero-byte state that reads
-            # as "" and walks straight back into the same false VERIFIED
-            # (release review, 2026-08-09). A saved simulation is never
-            # legitimately empty, so emptiness is an instrument failure
-            # and reads as one.
+            # Both state files must exist and be nonempty. An empty before-state
+            # makes every after-state line appear changed and can falsely verify a
+            # command that did nothing. A saved simulation is never legitimately
+            # empty: an absent or zero-byte file is an instrument failure.
             return False if strict else None
         changed = "\n".join(_added_lines(before, after))
         if not changed:
@@ -744,22 +715,10 @@ def fsm_changed(*, strict: bool = True) -> Callable[[ProbeArtifacts], bool | Non
         after = artifacts.saved_after()
         before = artifacts.saved_before()
         if not before or not after:
-            # BOTH files, and EMPTY counts as missing. A before-state read
-            # as the empty string makes every line of the after look
-            # changed, which is the whole-file search this docstring says
-            # was wrong, and it turns a command that did nothing into
-            # VERIFIED evidence that apply-compat then promotes. A false
-            # positive here is worse than the false negatives caught by
-            # hand, because nothing downstream re-reads it.
-            #
-            # The first repair tested `is None`, which is what the reader
-            # returns for an ABSENT file, and left the door beside it
-            # open: a SAVEAS that failed after creating the file, or one
-            # interrupted mid-write, leaves a zero-byte state that reads
-            # as "" and walks straight back into the same false VERIFIED
-            # (release review, 2026-08-09). A saved simulation is never
-            # legitimately empty, so emptiness is an instrument failure
-            # and reads as one.
+            # Both state files must exist and be nonempty. An empty before-state
+            # makes every after-state line appear changed and can falsely verify a
+            # command that did nothing. A saved simulation is never legitimately
+            # empty: an absent or zero-byte file is an instrument failure.
             return False if strict else None
         return after != before
 
@@ -1339,17 +1298,10 @@ def _validate_tiers(
         try:
             emit_tier_prelude(script, tier, fsm)
         except (CommandNotInVersionError, CommandArgumentError) as absent:
-            # PFS-2102.033: an edition whose grammar refuses a prelude line
-            # (AIR_ALTITUDE takes one argument on 25.000) is the same tier
-            # failure as a missing row, and ended the run after the baseline.
-            # The prelude is a FIXED sequence and the older editions do
-            # not document all of it, so on those builds it cannot be
-            # emitted at all. That is a tier failure like any other and
-            # downgrades this tier's probes to unprobed with the reason
-            # named; before 2026-08-08 it escaped as an exception and
-            # ended the whole run, so a single missing row made every
-            # command of that build unmeasurable and the operator had to
-            # discover the list one crash at a time.
+            # A prelude grammar refusal is a tier failure, like a missing command
+            # row. For example, AIR_ALTITUDE takes one argument on 25.000. The fixed
+            # prelude cannot be emitted on every edition, so mark this tier's probes
+            # unprobed with the reason and continue the other tiers.
             failures[tier] = (
                 f"the prelude cannot be emitted on this build: {absent}. The tier is "
                 "a fixed sequence, so a command it needs that this edition does not "
@@ -1377,12 +1329,10 @@ def _fresh_dir(workdir: Path) -> Path:
     (neither the ownership marker nor a probe script inside a non-empty
     directory) is refused instead of deleted.
 
-    THE MARKER IS WRITTEN WHEN THE DIRECTORY IS MADE (PFS-2102.027). The
-    probe script alone used to be the proof of ownership, and it is
-    written only after the script builds: a spec whose prelude wrote a
-    support file and whose target then refused to build left a directory
-    the next run on that workroot refused to wipe, at that command, for
-    good.
+    Write the ownership marker when creating the directory, before
+    building the script. A prelude can write support files before a
+    target refuses to build; the marker lets a later run recognize and
+    clean that owned directory even without a completed script.
     """
     workdir = workdir.resolve()
     if workdir.exists():
@@ -1472,32 +1422,14 @@ def _run_baseline(
         script.emit("EXPORT_LOG", log_path)
         script.emit("CLOSE_FLIGHTSTREAM")
     except CommandNotInVersionError:
-        # A NEWLY REGISTERED version has no rows at all, so the database
-        # cannot say that this build has PRINT, and the baseline that
-        # asks it refuses before the solver is ever started. That made
-        # the registry's own build-recording rule unreachable for
-        # exactly the versions needing it: a build number is admitted
-        # only from a report's solver_identity, a report needs a
-        # baseline, a baseline needed a row, and a row needs the manual
-        # reading that registering a build is the first step of
-        # (measured 2026-08-09 on three builds at once).
+        # A newly registered build has no command rows, so borrow instrument
+        # availability from the newest build recording the instruments. Grammar
+        # still comes from the database: EXPORT_LOG uses param_lines, with its
+        # filename on a separate line.
         #
-        # The instruments are borrowed from the NEWEST build that
-        # records them, and the word borrowed is doing real work. The
-        # first version of this fallback wrote the three lines by hand
-        # and got EXPORT_LOG wrong: it is `param_lines`, so the filename
-        # goes on its own line, and written inline the 25.0 solver read
-        # the FOLLOWING command as the filename, exported the log into a
-        # file called CLOSE_FLIGHTSTREAM and then sat open forever
-        # because the command to close it had been eaten. That is this
-        # repository's whole subject arriving inside its own harness, so
-        # the grammar comes from the database here exactly as it does
-        # everywhere else. What the fallback supplies is the AVAILABILITY
-        # the target build cannot vouch for, never the grammar.
-        #
-        # Borrowing is a guess about this build and is treated as one:
-        # the check below is empirical, and a build whose instruments
-        # differ fails it and is reported unusable rather than judged.
+        # Availability is provisional. The empirical baseline check below must
+        # confirm the borrowed instruments; otherwise report the build unusable
+        # instead of judging its commands.
         donor = _newest_build_recording(registry, ("PRINT", "EXPORT_LOG", "CLOSE_FLIGHTSTREAM"))
         if donor is None:
             raise ProbeEnvironmentError(
@@ -1519,14 +1451,9 @@ def _run_baseline(
     execution = executor.run_script(script_path, working_dir=workdir, timeout_s=timeout_s)
     log_text = _read_log(log_path)
     if log_text is None or not printed_line(log_text, _BASELINE_MARKER):
-        # The message that cost a day, rewritten. It used to offer three
-        # candidate causes, one of them the licence checkout, while the
-        # captured stdout it discarded said the licence checkout had
-        # SUCCEEDED. It names no candidates now: it says what the run
-        # did and quotes what the solver actually said, including the
-        # channel that carries everything printed BEFORE a script is
-        # accepted, which is the only evidence a pre-script failure
-        # leaves (INC-20260809-2230).
+        # Describe the observed failure and quote the solver's output from every
+        # channel. Standard output carries evidence emitted before the script is
+        # accepted; guessed causes would obscure that evidence.
         raise ProbeEnvironmentError(
             "baseline probe failed: the PRINT sentinel never reached the exported log, "
             "so no command was judged. A run that never reached the script prints its "
@@ -1557,21 +1484,11 @@ def _run_probe(
     try:
         script = generate_probe_script(spec, version, workdir, registry=registry, fsm=fsm)
     except (CommandNotInVersionError, CommandArgumentError) as unbuildable:
-        # Two ways a probe script fails to BUILD on an older edition,
-        # both of which say nothing about the target command.
-        #
-        # A support command (early_prelude, prelude, epilogue or an
-        # instrument) may not be recorded for this edition, even where
-        # the target is. Or a spec may pass a value this edition's
-        # grammar refuses: the specs are written against the flagship,
-        # and the February 2026 build renames things, so a spec creating
-        # a ROTARY motion cannot run where that type is called EUCLIDEAN.
-        #
-        # Either way the target is UNJUDGED rather than broken, and the
-        # cause is named so it can be closed instead of rediscovered.
-        # Before 2026-08-08 both escaped and ended the run, so one such
-        # command made an entire build unmeasurable and the list had to
-        # be found one crash at a time.
+        # A probe can fail to build because a support command has no row for
+        # the edition or because the edition's grammar refuses a spec value.
+        # For example, the February 2026 build calls ROTARY motion EUCLIDEAN.
+        # Neither failure judges the target command: report it unjudged and
+        # name the cause.
         return ProbeResult(
             spec.command,
             ProbeOutcome.UNPROBED,
@@ -1831,11 +1748,9 @@ def _solver_errors_text(execution: ExecutionResult) -> str:
     26.124 writes the abort into ``FlightStreamLog.txt`` (``log_text``);
     26.125 writes no such file under ``-hidden`` and prints the same
     ``ERROR | Syntax | ... | Unrecognized command`` lines to its standard
-    output instead (measured 2026-10-12 on build #10052026, a two-line
-    script with an unknown name: no file in the working directory, the
-    lines on stdout). Reading the file alone recorded every refused name
-    on 26.125 as an abort, broken instead of removed, with no line to
-    show for it.
+    output instead (build #10052026, a two-line script with an unknown
+    name: no file in the working directory, the lines on stdout).
+    Read both channels to distinguish a removed command from an abort.
     """
     return "\n".join(text for text in (execution.log_text, execution.stdout) if text)
 

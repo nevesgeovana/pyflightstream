@@ -208,12 +208,8 @@ def wing_triangles(
         KEYWORD-ONLY, and NOT called ``offset_m``. Positionally it
         would have sat behind ``half``, so ``wing_triangles(spec, True,
         (0, 0, 0.5))`` would have been legal and would have read as
-        nothing in particular. ``half`` itself became keyword-only on
-        2026-08-18 for the same reason and in the same breaking window
-        this argument opened: a bare ``True`` in a call is a fact the
-        reader has to go and look up, and paying that debt in the window
-        already open costs nothing where paying it later is a second
-        break for the same callers. And ``offset_m`` already means a
+        nothing in particular. ``half`` is keyword-only for the same reason:
+        the parameter name explains the boolean at the call site. ``offset_m`` means a
         radial station along a blade elsewhere in this package, where it
         is a scalar rather than a 3-vector.
 
@@ -511,9 +507,7 @@ def generate_wing_stl(
         derived from the aerofoil and the half flag alone, so two
         translated copies of one wing, which is exactly what the
         proximity study writes, get the SAME solid name in two files.
-        On 2026-08-17 that made the loads parser refuse all sixteen
-        exports of a licensed run, and the numbers had to be read off
-        the files by hand.
+        Distinct names let the loads parser distinguish those bodies.
 
     Returns
     -------

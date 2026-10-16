@@ -1,8 +1,7 @@
 """The probe catalog, third part: CCS, noise, surface removal and the arity probes.
 
-Pipeline role: the entries of ``PROBE_SPECS`` for the commands the 0.32.0
-licensed rounds ran through the release harness and not through
-``pyfs-qa probe`` (the CCS lofts, the acoustic chain, ``DELETE_SURFACES``),
+Pipeline role: ``PROBE_SPECS`` entries for CCS lofts, the acoustic chain,
+``DELETE_SURFACES``,
 for the three commands PFS-2001.05 names, and for the two CCS export
 commands whose arity PFS-2003.06 asks (FR-333, FR-334, FR-335). The module
 is imported by ``pyflightstream.qa.specs`` and registers into the shared

@@ -411,10 +411,8 @@ def _cmd_cost(args: argparse.Namespace) -> int:
         view.cell(point, build).excluded_count for point in view.points for build in view.builds
     )
     if excluded:
-        # NOT "ended in a FAILED status", which is what this said until
-        # 2026-09-13 while the set behind it had just gained two states
-        # that are not failures. A user whose points are in a queue was
-        # told they had failed.
+        # Describe non-success statuses without calling every one a failure: a
+        # queued point has not yet produced a verdict.
         print(
             f"{excluded} of the recorded runs did not reach an answer: they failed, the "
             "wall clock stopped them, or they are still queued. Their time is time to "
@@ -540,11 +538,8 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     elif args.commands:
         commands = [name.strip() for name in args.commands.split(",") if name.strip()]
 
-    # BEFORE the solver starts, for the reason the shared helper states.
-    # ONE date for the whole run: resolved here, asked about here, and
-    # stamped by the writer below. Each writer used to resolve its own a
-    # moment later, so a run started at 23:59 checked one stem and wrote
-    # another, which is a missed refusal and therefore a licensed seat.
+    # Resolve one date for pre-flight and the report body before the solver
+    # starts, so crossing midnight cannot change the checked report stem.
     date = resolve_report_date()
     try:
         paths = compat_report_paths(args.report_dir, version=canonical, date=date, label=args.label)
@@ -591,23 +586,13 @@ def _cmd_probe(args: argparse.Namespace) -> int:
 def _refuse_before_the_solver(paths: tuple[Path, Path]) -> bool:
     """Ask whether the report already exists, BEFORE anything is run.
 
-    The refusal is right and its POSITION was wrong, in all THREE evidence
-    writers. It was hoisted for `probe` on 2026-08-17, after a full
-    campaign of 111 command probes over five minutes of licensed solver
-    ran to completion and was then discarded on a stem collision knowable
-    from the command line. `physics` and `drift` kept the defect until the
-    review round of the same day: the whole Tier 3 matrix could still run
-    and then die on an uncaught FileExistsError, which is worse than the
-    original, because probe at least caught and printed.
+    Check all three evidence writers before running the solver. A report-stem
+    collision is knowable from the command line and must not discard results
+    after spending a licensed seat.
 
     Returns True when the caller must stop.
 
-    IT NO LONGER BUILDS THE NAME, which is the correction of 2026-08-18.
-    It took a series prefix and an already-derived build key, so this
-    function and the writer it protects each spelled the stem once and
-    agreed by coincidence; sabotaging one writer's prefix left the whole
-    suite green, so the guard was decorative for two of the three series.
-    Each caller now asks the SERIES' OWN helper for the pair and hands it
+    Each caller asks the series' own helper for the path pair and hands it
     both here and to the writer, so there is one expression and one date.
     """
     try:

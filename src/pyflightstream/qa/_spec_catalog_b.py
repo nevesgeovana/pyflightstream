@@ -584,10 +584,10 @@ _spec(
     effect_note=("the saved simulation carries the motion frame binding"),
 )
 # PFS-2135.066. The start time is judged on the saved simulation across the
-# command: the 0.40.0 gap probes measured that a 6DOF setter's value moves a
+# command: the gap probes measure a 6DOF setter's value moving a
 # line of the saved file on 26.124 and 26.125 (gravity -9.81 written into the
-# motion record), so "stored in binary form, no instrument" no longer holds for
-# this family, and a probe that cannot fail could not refute the old aborts.
+# motion record). Saved-state differences therefore provide an instrument
+# for this family, capable of distinguishing acceptance from an abort.
 _spec(
     command="SET_MOTION_START_TIME",
     build_target=_emit("SET_MOTION_START_TIME", 1, 0.05),
@@ -620,7 +620,7 @@ _spec(
     assert_effect=fsm_changed(),
     effect_note=(
         "DISABLE after ENABLE changes the saved simulation, which stores the key "
-        "(the one-line difference of the 0.32.0 round 1, RPT-096)"
+        "(the one-line difference measured by RPT-096)"
     ),
 )
 _motion_setter(

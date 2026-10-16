@@ -89,25 +89,16 @@ __all__ = [
     "PhysicsEnvironmentError",
     "PHYSICS_CASES",
     "SMI_CASES",
-    # PUBLIC BECAUSE THE CHANGELOG BREAKS THEM. `PhysicsCase` is the
-    # element type of the two exported inventories above, so a caller
-    # holding `PHYSICS_CASES["PHY-01"]` could not annotate it or build
-    # one; `case_table` is the function whose key this release renames.
-    # `PhysicsCase` and `case_table` were announced as public breaks
-    # while being absent from this list, which also kept them outside the
-    # FR-39 bare-raise walk in `tests/tier1_offline/test_exceptions_catalog.py`, since
-    # that walk follows `__all__` where a module declares one.
+    # PhysicsCase is the public element type of the exported inventories.
+    # Export it with case_table for annotations and case construction;
+    # __all__ also defines the FR-39 exception-catalog inspection surface.
     "PhysicsCase",
     "case_table",
-    # `registered_cases` was already here and is listed beside them
-    # because it is the third half of the same inventory surface; the
-    # comment above covered two names and sat over three until
-    # 2026-08-18.
+    # registered_cases belongs to the same inventory surface.
     "registered_cases",
     "build_smi_script",
-    # The reductions, exported since 0.13.0 because the workspace driver
-    # and the tier-3 test both call them: they are the one statement of
-    # what each case measures now that no script builder carries it.
+    # Shared reductions called by the workspace driver and the tier-3 tests:
+    # they define what each case measures.
     "phy01_metrics",
     "phy02_metrics",
     "phy05_metrics",
@@ -387,11 +378,8 @@ def _induced_name(total: Mapping[str, float]) -> str:
     return next((pair[0] for pair in DRAG_PAIRS if pair[0] in total), DRAG_PAIRS[0][0])
 
 
-#: Names the package removed from this module (PFS-2031.17, the CHANGELOG entry
-#: marks them BREAKS): each ran the physics cases through a recipe path
-#: that no longer exists, so no shim could answer for them. An import
-#: of one is refused with the release and the call that replaced it,
-#: rather than with a bare name error.
+#: Retired recipe APIs: importing one raises a refusal naming its removal
+#: release and replacement call. The workspace matrix owns case execution.
 REMOVED_IN_0_13_0: frozenset[str] = frozenset(
     {
         "build_phy01_script",
@@ -591,11 +579,8 @@ class PhysicsCase:
         Declared metrics with the default bands used at reference
         seeding time.
 
-        NO RUNNER. The entry used to carry the callable
-        that built and ran the case's scripts; a case is a row of the
-        workspace matrix now, and :mod:`pyflightstream.qa.matrix` maps
-        the row to the reduction by the case id the row's DESCRIPTION
-        names (PFS-2031.17).
+        A case is a workspace matrix row. :mod:`pyflightstream.qa.matrix`
+        maps the row to its reduction using the case id in DESCRIPTION.
     minimum_version : str, optional
         Earliest canonical identifier this case's command set has
         evidence for. None means every registered version.
@@ -838,19 +823,12 @@ PHYSICS_CASES: dict[str, PhysicsCase] = {
 }
 
 
-# --------------------------------------------------------------------------
-# SMI drift class: local-only cases over the research geometry
-# --------------------------------------------------------------------------
-#
-# The SMI simulation files live under _private/geometry/smi/ and never
-# enter Git (CONTRIBUTING.md invariant 5); the committed reports carry the
-# aggregated Total coefficients plus the sha256 of the opened file, never
-# the geometry itself. Reference values use the unit reference area and
-# length convention (coefficients scale consistently on both sides of any
-# comparison, which is all drift needs). The class has no runner since
-# 0.13.0 (PFS-2031.17): the hand-built run machinery retired with the
-# PHY builders, and an SMI case runs again as a row of a private
-# workspace whose recipe emits this script.
+# SMI drift cases use local research geometry under _private/geometry/smi/,
+# which never enters Git (CONTRIBUTING.md invariant 5). Committed reports
+# carry aggregated Total coefficients and the opened file's sha256, never
+# the geometry. Reference values use unit reference area and length; both
+# sides of a drift comparison therefore scale consistently. Each case runs
+# as a row of a private workspace whose recipe emits the script.
 
 SMI_ALPHA_DEG = 2.0
 SMI_VELOCITY_M_S = 30.0
@@ -1328,8 +1306,7 @@ def write_physics_report(
         # The BUILD, never the digest (NFR-31): the report is committed.
         "fs_exe_sha256": public_executable_identity(run.fs_exe_sha256, run.version),
         "executor": describe_invocation(run.executor),
-        # The rows the cases came from, since 0.13.0; None for a run
-        # built in Python, which the tier-1 tests still do.
+        # Source matrix rows; None for a run built directly in Python.
         "source": run.source,
         "solver_identity": list(run.solver_identity),
         "summary": counts,
@@ -1503,7 +1480,7 @@ def _refuse_lost_metrics(
     """Refuse an update that would delete curated bands of metrics the report lacks (PFS-2102.011).
 
     The file is replaced whole, so a reference metric the report lacks
-    (CL_a6 from a sweep without 6 deg) used to vanish with its curated bands.
+    (CL_a6 from a sweep without 6 deg) would vanish with its curated bands.
     """
     if existing is None:
         return

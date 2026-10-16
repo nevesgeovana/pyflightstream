@@ -14,8 +14,8 @@ not a command that failed. The two exceptions are measured shapes: the CCS
 curve assignment, judged by the loft after it naming its component in the saved
 simulation, and the free-surface export, judged by the file it writes.
 
-SET_DIRECT_AEROELASTIC_MESH_MORPHING, the thirteenth, is entered and probed by
-item S6 of 0.37.0 (FR-341), which measured it on 26.124 (RPT-154), so it has no
+SET_DIRECT_AEROELASTIC_MESH_MORPHING, the thirteenth, is probed under
+FR-341, with evidence on 26.124 (RPT-154), so it has no
 entry here.
 
 The module is imported by ``pyflightstream.qa.specs`` and registers into the

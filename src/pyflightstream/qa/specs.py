@@ -728,14 +728,11 @@ _spec(
     assert_effect=_unobservable,
     effect_note="the vorticity-drag boundary list is not exposed by any instrument yet",
 )
-# THE LOADS FRAME AND THE MOMENTS MODEL ARE PROBED BEFORE THE SOLVE, where the
-# package emits them since 0.27.0 (B05): both are init-phase commands on the
-# evidence of RPT-064, where set after START_SOLVER the frame reached the final
-# export and none of the step exports written during the march. The SOLVER tier
-# ends at INITIALIZE_SOLVER, so the target lands where a workflow puts it, and
-# the frame's epilogue starts the solver BEFORE the sheet: the sheet then says
-# whether the frame survived the solve, which is what the step exports rest on,
-# rather than only whether the line was accepted.
+# Probe loads-frame and moments-model commands before the solve, in their
+# init phase. RPT-064 shows that a frame set after START_SOLVER reaches the
+# final export but not the step exports. The SOLVER tier ends at
+# INITIALIZE_SOLVER; the frame epilogue starts the solver before exporting
+# the sheet to check whether the setting survives the solve.
 _spec(
     command="SET_SOLVER_ANALYSIS_LOADS_FRAME",
     build_target=_emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", 2),
@@ -763,8 +760,7 @@ _spec(
     assert_effect=_unobservable,
     effect_note=(
         "the symmetry-loads toggle is not exposed by any instrument yet; probed "
-        "pre-solve since the 2026-07-21 phase correction (the in-solve monitors "
-        "consume it)"
+        "pre-solve because the in-solve monitors consume it"
     ),
 )
 _spec(

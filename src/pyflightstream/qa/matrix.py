@@ -412,11 +412,9 @@ def _records_by_row(
     for record in workspace.read_manifest():
         if record.matrix_stem != stem or record.run_id.split("/", 1)[0] != campaign:
             continue
-        # THE MANIFEST STORES JOBS SINCE 0.17.0 and this reduction reasons
-        # per POINT: it sorts by angle of attack and reports one row per
-        # incidence. A steady matrix row is one job over several points, so
-        # asking the record to expand itself is what keeps three points
-        # three here. A record that is one point returns itself.
+        # Expand job records into points for per-incidence reduction and angle
+        # sorting. A steady job may contain several points; a point record returns
+        # itself.
         for point_record in record.as_points():
             latest.setdefault(point_record.sim_id, {})[point_record.run_id] = point_record
     return {pol: list(points.values()) for pol, points in latest.items()}
@@ -571,9 +569,7 @@ def physics_rows(matrix: str | Path) -> dict[str, list[MatrixRow]]:
     refused before anything runs: a row naming a case the registry does
     not know, and a case named by two rows where the reduction reads one
     (every case but PHY-02, whose two rows are the full span and the
-    mirrored half). The release review of 2026-09-09 measured the second
-    refusal firing only in the reduction, after every point of the matrix
-    had spent its seat.
+    mirrored half). Both checks precede licensed solver work.
 
     Parameters
     ----------
@@ -843,9 +839,8 @@ def _reduce_after_the_run(
 ) -> PhysicsRun:
     """Reduce a matrix that has run, saying so when the reduction fails.
 
-    PFS-2102.034, PFS-2102.007. A failure here used to reach the command
-    line as the run layer's ``matrix not run``, after the matrix had
-    run; it is re-raised as the post-run refusal it is.
+    PFS-2102.034, PFS-2102.007: re-raise a reduction failure as a post-run
+    refusal, stating that the matrix ran and its points are recorded.
     """
     try:
         return reduce_physics(workspace, path, name=name, **options)
@@ -962,10 +957,8 @@ def drift_sides(
 ) -> list[tuple[str, str, str | Path, Path]]:
     """Check both sides of a drift before either runs, and return them.
 
-    PFS-2102.008. Side B's executable and root used to be checked only
-    after side A had run the whole matrix on a licensed seat, so a typo
-    in the second path cost a full run and left side A's root behind to
-    refuse the retry. Both are checked here first.
+    PFS-2102.008: check both sides' executables and roots before either
+    consumes a licensed seat or creates a root that could block a retry.
 
     Parameters
     ----------

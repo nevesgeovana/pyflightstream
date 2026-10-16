@@ -1,4 +1,4 @@
-"""The mesh-edge instruments of the 0.40.0 command-gap probes.
+"""The mesh-edge instruments of the command-gap probes.
 
 Pipeline role: readers of the edges a saved mesh marks, the judges of what a probe
 did to them and the builds that mark them. ``pyflightstream.qa._spec_0400_gapkit``

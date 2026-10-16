@@ -1,11 +1,10 @@
-"""The probe catalog, seventh part: the command gaps of 0.40.0 (PFS-2081.13 to .17).
+"""The probe catalog, seventh part: command gaps (PFS-2081.13 to .17).
 
 Pipeline role: the licensed probes that settle what the five command-gap use
-cases of 0.40.0 leave to measurement before any of them is coded: the mesh
+cases require measured evidence for: the mesh
 operations (P1), the CAD bodies and CAD Create (P2), the streamlines (P3), the
-6DOF motion (P4) and the external FSI executable (P5). Every gap command is
-recorded ``documented`` and unprobed on 26.124 and 26.125, so each one gets a
-probe here before a workflow emits it.
+6DOF motion (P4) and the external FSI executable (P5). Each command has a
+probe to establish its behavior on 26.124 and 26.125 before workflow emission.
 
 TWO REGISTRIES, BECAUSE ONE COMMAND CAN CARRY SEVERAL QUESTIONS. The shared
 ``PROBE_SPECS`` is keyed by command, and its entry is the probe whose verdict
@@ -180,15 +179,15 @@ NODES = {
 
 @dataclass(frozen=True)
 class GapProbe:
-    """One licensed run of the 0.40.0 command-gap batch.
+    """One licensed run of the command-gap batch.
 
     Attributes
     ----------
     probe_id : str
         Stable identifier, ordered within its capability (``P5-A2``, ``P1-03``).
     capability : str
-        ``P1`` to ``P5``, or ``G`` for what a saved geometry must keep (owner
-        decision of 2026-10-12: geometry is built outside the matrix and saved).
+        ``P1`` to ``P5``, or ``G`` for what a saved geometry must keep:
+        geometry is built outside the matrix and saved.
     question : str
         What the run settles, in the use case's words.
     control : str
@@ -1283,9 +1282,8 @@ def _p4() -> list[GapProbe]:
         _g(
             "P4-04",
             "P4",
-            "trajectory export placed before the solve, the placement the database recorded "
-            "(setup) before the second round: which file is written and when",
-            "P4-04m, the export placed after the march (the recorded phase since 0.40.0)",
+            "trajectory export placed before the solve: which file is written and when",
+            "P4-04m, the export placed after the march (the recorded phase)",
             command="EXPORT_6DOF_TRAJECTORY",
             build_target=_before_the_march_trajectory,
             prelude=_sixdof_body(gravity=True),
@@ -1296,7 +1294,7 @@ def _p4() -> list[GapProbe]:
         _g(
             "P4-04m",
             "P4",
-            "trajectory export placed after the march, the database phase since 0.40.0 "
+            "trajectory export placed after the march, the database phase "
             "(RPT-166 P4-04: the export before the march holds the header and no row): "
             "is the file written then",
             "P4-04, the export placed before the solve",
@@ -1614,7 +1612,7 @@ def _p5_rest(standin: Path | None) -> list[GapProbe]:
 
 
 def _geometry_stage() -> list[GapProbe]:
-    """Return the runs the geometry-stage design adds (its probes page, 2026-10-12)."""
+    """Return the geometry-stage probe runs."""
     obj_read = ("surface_1.obj", "surface_2.obj", "surface_3.obj")
     resave = _save("resaved.fsm")
     three = _seq(
@@ -1723,7 +1721,7 @@ def _geometry_stage() -> list[GapProbe]:
 def _geometry_kept() -> list[GapProbe]:
     """Return what a geometry built once, saved and reopened by a later run must keep (G).
 
-    Owner decision of 2026-10-12: geometry is built by its own command into a
+    Geometry is built by its own command into a
     saved simulation or a mesh file, and a run opens it. Each ``a`` probe builds
     and saves; its ``b`` probe opens that file in a new process and saves it
     again, and the batch compares the two (the ``opens`` link). The OBJ exports
@@ -1849,7 +1847,7 @@ def _geometry_kept() -> list[GapProbe]:
 
 
 def gap_probes(fsi_standin: Path | None = None) -> tuple[GapProbe, ...]:
-    """Return the ordered battery of the 0.40.0 command-gap probes.
+    """Return the ordered battery of command-gap probes.
 
     The order is fixed: P5 probe A first (stage ``first``), then what a
     saved geometry must keep (``G``), P1, P2, P3 and P4, then the rest of P5,
