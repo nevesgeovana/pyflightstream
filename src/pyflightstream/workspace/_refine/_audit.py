@@ -83,7 +83,6 @@ from pyflightstream.workspace._refine._obj import (
     TrailingPoints,
     edge_midpoints,
     read_obj,
-    te_file,
     te_points,
     te_route,
 )
@@ -231,23 +230,26 @@ class MeshAudit:
         >>> [what for what, _ in MeshAudit.files_read("W1/W1.obj")][:2]
         ['the OBJ', 'its boundaries file']
         """
-        obj = Path(mesh)
-        files = [
-            ("the OBJ", obj),
-            ("its boundaries file", obj.with_name(obj.stem + SIDECAR_SUFFIX)),
-            ("its trailing-edge points file", obj.with_name(obj.stem + TE_SUFFIX)),
-        ]
-        try:
-            named = te_route(obj).file
-        except (InputArtifactError, OSError):
-            named = None
-        if named is not None:
-            files.append(("its trailing-edge points file", named))
-        return files
+        return _inputs(Path(mesh), None)
 
     def write_csv(self, path: str | Path) -> Path:
-        """Write one row per family and figure (``--out``, alias ``--csv``) and return the path."""
+        """Write one row per family and figure (``--out``, alias ``--csv``) and return the path.
+
+        Raises
+        ------
+        InputArtifactError
+            The path is a file this audit reads (:meth:`files_read` of the
+            mesh and of its source) or the audit JSON it wrote; nothing was
+            written (PFS-2123.004).
+        """
         target = Path(path)
+        for what, read in [*_inputs(self.mesh, self.source), ("the audit JSON", self.path)]:
+            if _same_file(target, read):
+                raise _refusal(
+                    target,
+                    f"the CSV would be written over {what}, {read}, which the audit reads or wrote",
+                    "Name another file and run again.",
+                )
         rows = (
             [family, figure, "" if value is None else str(value)]
             for family, values in self.figures.items()
@@ -268,6 +270,8 @@ class _Trailing:
     faces: Array
     # G4 completeness (PFS-2099.020): where the chains end, and their total length
     line: _Line | None = None
+    # G4 (PFS-2130.068): points beyond the first that match an edge another point matches
+    sharing: int = 0
 
 
 @dataclass(frozen=True)
@@ -374,26 +378,39 @@ def _inputs(mesh: Path, against: Path | None) -> list[tuple[str, Path]]:
 
     The OBJ, its boundaries file, its trailing-edge points file and its
     ``refine.json``; with ``against``, the source, its boundaries file and
-    its points file. Call it once both meshes were read, so their boundaries
-    files are known to be readable.
+    its points file. It is the one list: :meth:`MeshAudit.files_read` returns it
+    and the audit's own refusal reads it (PFS-2123.004). A file may not
+    exist, and a boundaries file that cannot be read names no points file
+    here; the audit refuses it on its own.
     """
     files = [
         ("the OBJ", mesh),
         ("its boundaries file", mesh.with_name(mesh.stem + SIDECAR_SUFFIX)),
         ("its refinement record", mesh.with_name(mesh.stem + RECORD_SUFFIX)),
     ]
-    points = te_file(mesh)
-    if points is not None:
-        files.append(("its trailing-edge points file", points))
+    files += [("its trailing-edge points file", p) for p in _points_files(mesh)]
     if against is not None:
         files += [
             ("the source", against),
             ("the source's boundaries file", against.with_name(against.stem + SIDECAR_SUFFIX)),
         ]
-        points = te_file(against)
-        if points is not None:
-            files.append(("the source's trailing-edge points file", points))
+        files += [("the source's trailing-edge points file", p) for p in _points_files(against)]
     return files
+
+
+def _points_files(obj: Path) -> list[Path]:
+    """Return the trailing-edge points files a mesh could be read with: none for ``none = true``.
+
+    The file its boundaries file names and ``<stem>.te.txt`` beside the mesh.
+    """
+    try:
+        route = te_route(obj)
+    except (InputArtifactError, OSError):
+        return [obj.with_name(obj.stem + TE_SUFFIX)]
+    if route.none:
+        return []
+    files = [obj.with_name(obj.stem + TE_SUFFIX)]
+    return files if route.file is None else [*files, route.file]
 
 
 def _same_file(a: Path, b: Path) -> bool:
@@ -679,7 +696,10 @@ def _trailing(
     on = _on_edges(verts, faces, points, size)
     for a, b in on:
         touched[ef[(int(a), int(b))]] = True
-    return _Trailing(True, len(points), len(on), _components(on), touched, _line(verts, on))
+    sharing = len(on) - len({(int(a), int(b)) for a, b in on})
+    return _Trailing(
+        True, len(points), len(on), _components(on), touched, _line(verts, on), sharing
+    )
 
 
 _NO_EDGES = numpy.zeros((0, 2), dtype=numpy.int64)
@@ -892,7 +912,11 @@ def _g3(level: _Mesh, source: _Mesh | None) -> AuditItem:
 
 
 def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
-    """G4: every trailing-edge point on a mesh edge, and the source's number of chains.
+    """G4: every trailing-edge point on its own mesh edge, and the source's number of chains.
+
+    Two points on one mesh edge (a duplicated row) are counted in
+    ``points_sharing_an_edge`` and fail the gate, as the run refuses such a
+    file (PFS-2130.068).
 
     The source's chains are the connected components of its listed edges and
     the detected edges the record states, together; ``source_chains_detected``
@@ -911,9 +935,10 @@ def _g4(level: _Mesh, source: _Mesh | None) -> AuditItem:
     values: dict[str, Value] = {
         "points": te.points,
         "points_on_edges": te.on_edges,
+        "points_sharing_an_edge": te.sharing,
         "chains": te.chains,
     }
-    failed = te.on_edges < te.points
+    failed = te.on_edges < te.points or te.sharing > 0
     if source is not None:
         chains = source.trailing.chains if source.chains is None else source.chains
         values["source_chains"] = chains

@@ -459,6 +459,7 @@ def test_a_detected_trailing_edge_is_written_to_the_level_points_file(tmp_path, 
     assert dict(g4.values) == {
         "points": 9,
         "points_on_edges": 9,
+        "points_sharing_an_edge": 0,
         "chains": 1,
         "source_chains": 0,
         "length": 2.0,
