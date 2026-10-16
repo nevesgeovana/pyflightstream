@@ -272,3 +272,65 @@ def test_undeclared_mm_field_warning_reaches_the_sink_despite_caller_filter(tmp_
     assert source.read_bytes() == original
     assert not script.pending_input_files
     assert script.custom_field_extent_m is None
+
+
+# ---------------------------------------------------------------- PFS-2119.002
+
+
+def _field(tmp_path):
+    source = tmp_path / "field.txt"
+    source.write_bytes(b"1 1\n0 0 0 1 2 3\n")
+    return source
+
+
+@pytest.mark.parametrize("unit", ["CENTIMETER", "INCH", "OTHER"])
+def test_p0420_every_reader_and_writer_of_a_field_refuses_an_unmeasured_unit_alike(tmp_path, unit):
+    """PFS-2119.002: one whitelist, one message, the RPT-083 citation, in all three entry points."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.freestream import (
+        field_rows_in_metres,
+        prepare_field,
+        prepare_rotating_field,
+    )
+
+    source = _field(tmp_path)
+    axis, hub = (0.0, 0.0, 1.0), (0.0, 0.0, 0.0)
+    refusals = []
+    for call in (
+        lambda: prepare_field(source, form="STRUCTURED", source_units="SI", native_unit=unit),
+        lambda: field_rows_in_metres(
+            source, form="STRUCTURED", source_units="SI", native_unit=unit
+        ),
+        lambda: prepare_rotating_field(
+            source,
+            form="STRUCTURED",
+            source_units="SI",
+            native_unit=unit,
+            hub_m=hub,
+            axis=axis,
+            omega_rad_s=10.0,
+        ),
+    ):
+        with pytest.raises(CampaignConfigError, match="RPT-083") as refusal:
+            call()
+        refusals.append(str(refusal.value))
+    assert len(set(refusals)) == 1 and repr(unit) in refusals[0]
+
+
+@pytest.mark.parametrize("unit", ["METER", "MILLIMETER"])
+def test_p0420_the_measured_units_still_rotate_and_read(tmp_path, unit):
+    from pyflightstream.cases.freestream import field_rows_in_metres, prepare_rotating_field
+
+    source = _field(tmp_path)
+    _, rows = field_rows_in_metres(source, form="STRUCTURED", source_units="SI", native_unit=unit)
+    assert rows == [[0.0, 0.0, 0.0, 1.0, 2.0, 3.0]]
+    prepared = prepare_rotating_field(
+        source,
+        form="STRUCTURED",
+        source_units="SI",
+        native_unit=unit,
+        hub_m=(0.0, 0.0, 0.0),
+        axis=(0.0, 0.0, 1.0),
+        omega_rad_s=10.0,
+    )
+    assert prepared.provenance["native_length_unit"] == unit
