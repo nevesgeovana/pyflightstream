@@ -1447,3 +1447,13 @@ def initialize_solver(
     if wall_collision_avoidance is not None:
         arguments["wall_collision_avoidance"] = _toggle(wall_collision_avoidance)
     script.emit("INITIALIZE_SOLVER", **arguments)
+
+
+def _emit_deferred_vorticity(script: Script) -> None:
+    """Flush the approved pre-solve selection through the internal phase door."""
+    previous = script._through_the_door
+    script._through_the_door = True
+    try:
+        _flush_pending_vorticity(script)
+    finally:
+        script._through_the_door = previous

@@ -502,16 +502,11 @@ class Script:
         ScriptOrderError
             If a solver execution or export phase has already been reached.
         """
-        from pyflightstream.script._settings import _flush_pending_vorticity
+        from pyflightstream.script._settings import _emit_deferred_vorticity
 
         if self._phase_index is not None and self._phase_index >= _ORDERED_PHASES.index(Phase.EXEC):
             raise ScriptOrderError("deferred vorticity selection must precede the solve")
-        previous = self._through_the_door
-        self._through_the_door = True
-        try:
-            _flush_pending_vorticity(self)
-        finally:
-            self._through_the_door = previous
+        _emit_deferred_vorticity(self)
 
     def carry_unsteady_actions(
         self, uses: Sequence[UnsteadyActionUse], scripts: Mapping[str, str]
