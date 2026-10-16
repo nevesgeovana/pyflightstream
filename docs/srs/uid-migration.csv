@@ -92,7 +92,7 @@ FR-69,kept,,FR-1321 FR-1322 FR-1323,docs/unpublished/requirements/dexp.md
 FR-70,kept,,FR-1324 FR-1325,docs/unpublished/requirements/dexp.md
 FR-71,kept,,FR-1468,docs/unpublished/requirements/spcm.md
 FR-72,kept,,FR-1469,docs/unpublished/requirements/spcm.md
-FR-73,kept,,FR-1326,docs/unpublished/requirements/dexp.md
+FR-73,kept,,FR-1326 FR-1625,docs/unpublished/requirements/dexp.md
 FR-74,kept,,,docs/unpublished/requirements/phys.md
 FR-75,kept,,FR-1327,docs/unpublished/requirements/dexp.md
 FR-76,kept,,,docs/unpublished/requirements/dexp.md
@@ -727,7 +727,7 @@ FR-919,kept,,,docs/unpublished/requirements/spcm.md
 FR-920,kept,,,docs/unpublished/requirements/spcm.md
 FR-921,kept,,FR-1490 FR-1491,docs/unpublished/requirements/spcm.md
 FR-922,kept,,FR-1492 FR-1493 FR-1494 FR-1495,docs/unpublished/requirements/spcm.md
-FR-923,kept,,,docs/unpublished/requirements/spcm.md
+FR-923,kept,,FR-1623,docs/unpublished/requirements/spcm.md
 FR-924,kept,,FR-1496,docs/unpublished/requirements/spcm.md
 FR-925,kept,,,docs/unpublished/requirements/spcm.md
 FR-926,kept,,,docs/unpublished/requirements/spcm.md
@@ -914,7 +914,7 @@ FR-1086,kept,,,docs/unpublished/requirements/phys.md
 FR-1087,kept,,,docs/unpublished/requirements/phys.md
 FR-1088,kept,,FR-2039 FR-2040,docs/unpublished/requirements/recs.md
 FR-1089,kept,,,docs/unpublished/requirements/proc.md
-FR-462,kept,,FR-1391 FR-1392 FR-1393,docs/unpublished/requirements/phys.md
+FR-462,kept,,FR-1391 FR-1392 FR-1393 FR-1624,docs/unpublished/requirements/phys.md
 FR-1090,kept,,,docs/unpublished/requirements/phys.md
 FR-1091,kept,,FR-1394,docs/unpublished/requirements/phys.md
 FR-1092,kept,,FR-1395 FR-1396,docs/unpublished/requirements/phys.md
