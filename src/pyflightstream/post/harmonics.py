@@ -472,6 +472,9 @@ def station_harmonics(
 ) -> StationHarmonics:
     """Fit every station of every rotor in one written sections table.
 
+    A rotor whose blade samples span multiple planes is skipped with their names;
+    distinct distributions are never pooled into one station fit.
+
     ``rows`` are the table's rows as :func:`~pyflightstream.post.products.read_csv_table`
     reads them, already cut to the samples wanted (an unsteady point's last
     complete revolution); ``sample_column`` tells one sample from the next
@@ -508,6 +511,7 @@ def station_harmonics(
     result = StationHarmonics()
     quantities = load_quantities(columns)
     samples: dict[str, list[tuple[float, list[Mapping[str, str]]]]] = {}
+    planes: dict[str, set[str]] = {}
     for block in sample_blocks(rows, sample_column):
         first = block[0]
         rotor = rotors.get(first.get("ROTOR", ""))
@@ -527,6 +531,7 @@ def station_harmonics(
         if psi is None:
             continue
         samples.setdefault(rotor.alias, []).append((psi, block))
+        planes.setdefault(rotor.alias, set()).add(first.get("PLANE", ""))
     for alias in rotors:
         if alias not in samples:
             result.skipped[f"#rotor={alias}"] = (
@@ -534,6 +539,12 @@ def station_harmonics(
                 "so the rotor has no sample"
             )
     for alias, taken in samples.items():
+        if len(planes[alias]) > 1:
+            result.skipped[f"#rotor={alias}"] = (
+                f"rotor {alias!r} has blade samples in multiple planes "
+                f"{', '.join(sorted(planes[alias]))}; their distributions cannot be pooled"
+            )
+            continue
         _fit_rotor(result, rotors[alias], taken, quantities)
     return result
 

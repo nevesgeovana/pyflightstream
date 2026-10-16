@@ -783,6 +783,21 @@ def add_reduced_frequency_to_sections(
     if not {"ROTOR", "Offset", "Chord", "Fx", "Fz"} <= set(index):
         return None
     alias = record.rotor_alias
+    planes = {
+        row[index["PLANE"]]
+        for row in rows
+        if "PLANE" in index
+        and row[index["ROTOR"]] == alias
+        and ("FAMILY" not in index or row[index["FAMILY"]] in record.families_blades)
+    }
+    if len(planes) > 1:
+        return PointValidity(
+            {},
+            notes=(
+                f"rotor {alias!r} validity skipped: blade distributions span multiple planes "
+                f"{', '.join(sorted(planes))}; the summary cannot pool them",
+            ),
+        )
     omega = _omega(record)
     notes: list[str] = []
     frame_of = _section_frames(layout) if layout is not None else None
