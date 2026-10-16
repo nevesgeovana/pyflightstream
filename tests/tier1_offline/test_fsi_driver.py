@@ -9,6 +9,7 @@ counter assertions, frozen mode, and crash recovery from a mid-run
 state.json.
 """
 
+import json
 import re
 import shutil
 from dataclasses import replace
@@ -165,6 +166,48 @@ def write_loads(run_dir: Path, iteration: int) -> None:
     """Stage the fixture loads with an advanced solver iteration."""
     patched = re.sub(r"(Current solver iteration number:\s+)\d+", rf"\g<1>{iteration}", CALL2)
     (run_dir / driver.LOADS_FILE).write_text(patched, encoding="utf-8")
+
+
+@pytest.mark.parametrize("fault", [None, "scale", "hash", "iteration", "family", "nan"])
+def test_p0420_coupling_cross_checks_staged_totals_before_writing(tmp_path, fault):
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.fsi.loads import parse_sectional_loads
+
+    stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+    block = parse_sectional_loads(CALL2).split(FAMILY_MAP)["blade_1"]
+    # Independent midpoint-strip integration, using the fixture's increasing offsets.
+    offsets = block.offset_m
+    edges = np.r_[offsets[0], (offsets[:-1] + offsets[1:]) / 2, offsets[-1]]
+    widths = np.diff(edges)
+    payload = {
+        "loads_sha256": file_sha256(tmp_path / driver.LOADS_FILE),
+        "solver_iteration": 100,
+        "families": {
+            "blade_1": {
+                "fx_n": float(np.sum(block.fx_n_per_m * widths)),
+                "fz_n": float(np.sum(block.fz_n_per_m * widths)),
+            }
+        },
+    }
+    if fault == "scale":
+        payload["families"]["blade_1"]["fz_n"] *= 1000
+    elif fault == "hash":
+        payload["loads_sha256"] = "0" * 64
+    elif fault == "iteration":
+        payload["solver_iteration"] = 99
+    elif fault == "family":
+        payload["families"] = {}
+    elif fault == "nan":
+        payload["families"]["blade_1"]["fx_n"] = float("nan")
+    (tmp_path / "fsi_totals.json").write_text(json.dumps(payload), encoding="utf-8")
+    if fault:
+        with pytest.raises(FsiInputError, match="fsi_totals.json"):
+            driver.coupling_step(tmp_path)
+        assert not (tmp_path / driver.STATE_FILE).exists()
+        assert not (tmp_path / "FSIDisp.txt").exists()
+    else:
+        assert driver.coupling_step(tmp_path).call == 1
 
 
 @pytest.mark.parametrize("which", ["config", "state", "nodes", "families"])

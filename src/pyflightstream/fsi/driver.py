@@ -73,6 +73,7 @@ import pyflightstream._textio as _textio
 import pyflightstream.fsi._direct_morphing as _direct_morphing
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
+from pyflightstream.fsi._totals import _check_staged_totals
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (
@@ -755,6 +756,7 @@ def _read_the_call(
     family_map = SectionFamilyMap.model_validate_json(
         (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8-sig")
     )
+    _check_staged_totals(run_dir, report, family_map)
     return _CallInputs(layout, report, family_map, time_increment_s)
 
 

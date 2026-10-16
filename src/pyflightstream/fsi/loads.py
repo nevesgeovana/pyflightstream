@@ -583,7 +583,9 @@ def cross_check_totals(
     rotating blade); a disagreement beyond ``rel_tol`` means the
     sections do not cover the boundary, the attribution is wrong, or
     the per-span unit finding no longer holds, and raises instead of
-    letting a mis-scaled load set into the structural solve.
+    letting a mis-scaled load set into the structural solve. The coupling
+    driver invokes this check when matching totals are staged in
+    ``fsi_totals.json``; without that file this remains an offline utility.
 
     Parameters
     ----------
