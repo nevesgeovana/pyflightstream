@@ -216,9 +216,9 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
         (r for r in rows if r.get("level") == "L1"), key=lambda r: int(r["uid"].split("-")[1])
     )
     assert [r["uid"] for r in features] == [f"FR-{n}" for n in range(3000, 3167)]
-    # S1 l1_statement column in authored order, UTF-8 joined by LF (no trailing LF).
+    # S3 reviewed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF).
     assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
-        "319380d047be431a4cf1398d79559553302de88e9ab35a1524eb14a94e95a5e0"
+        "bbaabc64424adc37fbe44394886f0ebb725253b7fc840577bf16159dfdf24885"
     )
     for feature in features:
         members = [
@@ -228,7 +228,9 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
             or by_id.get(r["parent"], {}).get("parent") == feature["uid"]
         ]
         assert feature["status"] == (
-            "implemented" if all(r["status"] == "implemented" for r in members) else "pending"
+            "implemented"
+            if members and all(r["status"] == "implemented" for r in members)
+            else "pending"
         )
         assert feature["verification_method"] == "analysis"
         assert feature["code"] == feature["test"] == feature["parent"] == "-"

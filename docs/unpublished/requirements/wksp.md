@@ -6,7 +6,7 @@ absolute paths, machine identity and user identity.
 
 | UID | Parent | HID | Level | Status | Verification method | Statement | Rationale | Derives from | Code | Test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| FR-3082 | - | WKSP-1 | L1 | implemented | analysis | The library shall store workspace input artifacts in documented UTF-8 text formats. | - | NL-WKSP | - | - |
+| FR-3082 | - | WKSP-1 | L1 | pending | analysis | The library shall store workspace input artifacts in documented UTF-8 text formats. | - | NL-WKSP | - | - |
 | FR-3083 | - | WKSP-2 | L1 | implemented | analysis | The library shall create the managed workspace layout for the requested simulation identifier. | - | NL-WKSP | - | - |
 | FR-3084 | - | WKSP-3 | L1 | pending | analysis | The library shall preserve run evidence when staging inputs or collecting declared outputs. | - | NL-WKSP | - | - |
 | FR-3085 | - | WKSP-4 | L1 | implemented | analysis | The library shall synchronize selected workspace content with verified copies and recorded reconciliation outcomes. | - | NL-WKSP | - | - |
@@ -15,8 +15,8 @@ absolute paths, machine identity and user identity.
 | FR-3088 | - | WKSP-7 | L1 | implemented | analysis | The library shall report disk usage grouped by workspace folder, simulation and file extension. | - | NL-WKSP | - | - |
 | FR-3089 | - | WKSP-8 | L1 | pending | analysis | The library shall resolve matrix arguments consistently across the workspace root and inputs/matrices homes. | - | NL-WKSP | - | - |
 | FR-3090 | - | WKSP-9 | L1 | implemented | analysis | The library shall exclude machine-local absolute paths from shared workspace files. | - | NL-WKSP | - | - |
-| FR-3091 | - | WKSP-10 | L1 | pending | analysis | The library shall serialize identical governing content to identical UTF-8 bytes with stable key ordering. | - | NL-WKSP | - | - |
-| FR-3092 | - | WKSP-11 | L1 | implemented | analysis | The library shall store machine-local settings separately from shared experiment configuration. | - | NL-WKSP | - | - |
+| FR-3091 | - | WKSP-10 | L1 | implemented | analysis | The library shall serialize identical governing content to identical UTF-8 bytes with stable key ordering. | - | NL-WKSP | - | - |
+| FR-3092 | - | WKSP-11 | L1 | pending | analysis | The library shall store machine-local settings separately from shared experiment configuration. | - | NL-WKSP | - | - |
 | FR-3093 | - | WKSP-12 | L1 | pending | analysis | The library shall represent excluded bulk solver artifacts in shared records by content hash. | - | NL-WKSP | - | - |
 | FR-28 | FR-3083 | WKSP-2.1 | L2 | implemented | test | The library shall create the managed folder tree from the simulation identifier when creating a simulation workspace. | - | NL-WKSP | pyflightstream.workspace:CampaignWorkspace.create_sim | tests/tier1_offline/test_workspace.py::test_create_sim_builds_the_managed_subfolders |
 | FR-29 | FR-3084 | WKSP-3.1 | L2 | implemented | test | The library shall stage inputs into the run folder. | - | NL-WKSP | pyflightstream.workspace:CampaignWorkspace.stage_inputs | tests/tier1_offline/test_workspace.py::test_stage_inputs_copies_and_hashes |

@@ -3,15 +3,15 @@
 | UID | Parent | HID | Level | Status | Verification method | Statement | Rationale | Derives from | Code | Test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | FR-3094 | - | DRED-1 | L1 | pending | analysis | The library shall assemble parsed results into tables carrying the recorded experiment identity and condition. | - | NL-DRED | - | - |
-| FR-3095 | - | DRED-2 | L1 | implemented | analysis | The library shall write field sample products with recorded spatial and temporal interpretation. | - | NL-DRED | - | - |
+| FR-3095 | - | DRED-2 | L1 | pending | analysis | The library shall write field sample products with recorded spatial and temporal interpretation. | - | NL-DRED | - | - |
 | FR-3096 | - | DRED-3 | L1 | implemented | analysis | The library shall regenerate products only for the selected simulations under the declared partial-post policy. | - | NL-DRED | - | - |
-| FR-3097 | - | DRED-4 | L1 | implemented | analysis | The library shall record the reason for each unavailable requested product without suppressing independent computable products. | - | NL-DRED | - | - |
+| FR-3097 | - | DRED-4 | L1 | pending | analysis | The library shall record the reason for each unavailable requested product without suppressing independent computable products. | - | NL-DRED | - | - |
 | FR-3098 | - | DRED-5 | L1 | implemented | analysis | The library shall archive replaced post products only when the archive option is requested. | - | NL-DRED | - | - |
-| FR-3099 | - | DRED-6 | L1 | implemented | analysis | The library shall preserve source field associations and connectivity in converted surface products. | - | NL-DRED | - | - |
+| FR-3099 | - | DRED-6 | L1 | pending | analysis | The library shall preserve source field associations and connectivity in converted surface products. | - | NL-DRED | - | - |
 | FR-3100 | - | DRED-7 | L1 | implemented | analysis | The library shall write the declared sectional loads and pressure products for each point. | - | NL-DRED | - | - |
 | FR-3101 | - | DRED-8 | L1 | implemented | analysis | The library shall fit the defined harmonic load model over the recorded blade azimuth samples. | - | NL-DRED | - | - |
 | FR-3102 | - | DRED-9 | L1 | implemented | analysis | The library shall compute rotor coefficients from recorded loads in the declared rotor frame. | - | NL-DRED | - | - |
-| FR-3103 | - | DRED-10 | L1 | implemented | analysis | The library shall apply only the explicitly selected quasi-steady correction route. | - | NL-DRED | - | - |
+| FR-3103 | - | DRED-10 | L1 | pending | analysis | The library shall apply only the explicitly selected quasi-steady correction route. | - | NL-DRED | - | - |
 | FR-3104 | - | DRED-11 | L1 | implemented | analysis | The library shall transform an isolated rotor table to the installed frame using the declared reflection convention. | - | NL-DRED | - | - |
 | FR-3105 | - | DRED-12 | L1 | implemented | analysis | The library shall produce the requested field transformation in global-frame SI units. | - | NL-DRED | - | - |
 | FR-3106 | - | DRED-13 | L1 | implemented | analysis | The library shall report population velocity standard deviations over the requested consecutive field steps. | - | NL-DRED | - | - |
@@ -23,11 +23,11 @@
 | FR-3115 | - | DRED-19 | L1 | implemented | analysis | The library shall expose the declared far-field analyses through an array-based Python interface. | - | NL-DRED | - | - |
 | FR-3116 | - | DRED-20 | L1 | implemented | analysis | The library shall write the selected far-field analyses in the defined tables with source provenance. | - | NL-DRED | - | - |
 | FR-3117 | - | DRED-21 | L1 | implemented | analysis | The library shall convert off-body streamline exports to VTK polylines with the exported point variables. | - | NL-DRED | - | - |
-| FR-3118 | - | DRED-22 | L1 | pending | analysis | The library shall produce a radial per-blade loading profile normalized to the declared thrust target. | - | NL-DRED | - | - |
+| FR-3118 | - | DRED-22 | L1 | implemented | analysis | The library shall produce a radial per-blade loading profile normalized to the declared thrust target. | - | NL-DRED | - | - |
 | FR-3152 | - | DRED-23 | L1 | pending | analysis | The library shall report declared conservation balances from recorded survey samples with quadrature and sampling provenance. | - | NL-DRED | - | - |
 | FR-3153 | - | DRED-24 | L1 | pending | analysis | The library shall reduce each rotor history over the declared revolution and phase windows. | - | NL-DRED | - | - |
-| FR-3158 | - | DRED-25 | L1 | implemented | analysis | The library shall publish effective solver settings using the declared versioned codebook. | - | NL-DRED | - | - |
-| FR-3166 | - | DRED-26 | L1 | implemented | analysis | The library shall expose the structural response and convergence of a coupled run as attributable workspace products. | - | NL-DRED | - | - |
+| FR-3158 | - | DRED-25 | L1 | pending | analysis | The library shall publish effective solver settings using the declared versioned codebook. | - | NL-DRED | - | - |
+| FR-3166 | - | DRED-26 | L1 | pending | analysis | The library shall expose the structural response and convergence of a coupled run as attributable workspace products. | - | NL-DRED | - | - |
 | FR-32 | FR-3094 | DRED-1.1 | L2 | implemented | test | The library shall convert parsed results to tidy tables with identity fields permitting campaign sweep-table assembly. | - | NL-DRED | pyflightstream.results.tables:sweep_table | tests/tier1_offline/test_tables.py::test_every_parsed_export_converts_to_a_tidy_table |
 | FR-38 | FR-3152 | DRED-23.1 | L2 | deferred | test | The library shall compute defined conservation balances from recorded survey lattices without converting diagnostic values into acceptance verdicts. | - | NL-DRED | pyflightstream.post.farfield_fields:ledger_values | tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldLedgers::test_p0400_ledgers_the_lattice_is_found_by_its_positions |
 | FR-478 | FR-3152 | DRED-23.2 | L2 | deferred | test | The library shall write each row's selected far-field balances to the group ledger product. | - | NL-DRED | pyflightstream.post.farfield_products:_probe_point | tests/tier1_offline/test_regression_farfield_products.py::TestFfproofPost::test_p0400_ffproof_post_writes_the_ledgers_table |

@@ -5,8 +5,8 @@
 | FR-3107 | - | TRST-1 | L1 | implemented | analysis | The library shall report the defined inflow harmonic and reduced-frequency diagnostics for the selected rotor point. | - | NL-TRST | - | - |
 | FR-3110 | - | TRST-2 | L1 | implemented | analysis | The library shall report the defined comparison metrics for compatible signal records. | - | NL-TRST | - | - |
 | FR-3111 | - | TRST-3 | L1 | implemented | analysis | The library shall report Theodorsen transfer-function diagnostics without correcting measured harmonics. | - | NL-TRST | - | - |
-| FR-3119 | - | TRST-4 | L1 | implemented | analysis | The library shall distinguish invalid or incomplete solver evidence from valid numerical results. | - | NL-TRST | - | - |
-| FR-3120 | - | TRST-5 | L1 | implemented | analysis | The library shall compare physics regression metrics against committed reference bands. | - | NL-TRST | - | - |
+| FR-3119 | - | TRST-4 | L1 | pending | analysis | The library shall distinguish invalid or incomplete solver evidence from valid numerical results. | - | NL-TRST | - | - |
+| FR-3120 | - | TRST-5 | L1 | pending | analysis | The library shall compare physics regression metrics against committed reference bands. | - | NL-TRST | - | - |
 | FR-3121 | - | TRST-6 | L1 | implemented | analysis | The library shall report forces, moments and rotor quantities in the documented frames and sign conventions. | - | NL-TRST | - | - |
 | FR-3122 | - | TRST-7 | L1 | implemented | analysis | The library shall expose result assertion helpers that quantify a failed comparison. | - | NL-TRST | - | - |
 | FR-3123 | - | TRST-8 | L1 | implemented | analysis | The library shall preserve explicitly marked convergence verdicts with reasons and prior statuses. | - | NL-TRST | - | - |
@@ -15,7 +15,7 @@
 | FR-3126 | - | TRST-11 | L1 | implemented | analysis | The library shall retain a clean-room provenance declaration for each emitter change. | - | NL-TRST | - | - |
 | FR-3127 | - | TRST-12 | L1 | implemented | analysis | The library shall report violations of the declared verification-source constraints. | - | NL-TRST | - | - |
 | FR-3151 | - | TRST-13 | L1 | implemented | analysis | The library shall reject published solver-documentation digests through the declared guard. | - | NL-TRST | - | - |
-| FR-3155 | - | TRST-14 | L1 | pending | analysis | The library shall warn about declared wake and actuator configurations whose recorded limitations affect the planned experiment. | - | NL-TRST | - | - |
+| FR-3155 | - | TRST-14 | L1 | implemented | analysis | The library shall warn about declared wake and actuator configurations whose recorded limitations affect the planned experiment. | - | NL-TRST | - | - |
 | FR-3157 | - | TRST-15 | L1 | implemented | analysis | The library shall distinguish measured command effects from absent or inconclusive probe controls. | - | NL-TRST | - | - |
 | FR-3159 | - | TRST-16 | L1 | implemented | analysis | The library shall report mesh acceptance gates and source-relative quality checks with measured values. | - | NL-TRST | - | - |
 | FR-08 | FR-3126 | TRST-11.1 | L2 | implemented | inspection | The library's emitter changes shall carry official-manual and probe-evidence clean-room provenance through a Clean-room trailer or later Clean-room-for declaration naming the commit. | - | NL-TRST | tests.tier1_offline.test_clean_room:_classify | tests/tier1_offline/test_clean_room.py::test_every_commit_since_the_baseline_declares_its_provenance |

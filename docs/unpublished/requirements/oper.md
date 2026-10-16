@@ -5,7 +5,7 @@
 | FR-3128 | - | OPER-1 | L1 | implemented | analysis | The library shall expose documented refusal types and warnings through the public exception catalog. | - | NL-OPER | - | - |
 | FR-3129 | - | OPER-2 | L1 | implemented | analysis | The library shall present command identity, progress and warnings on the documented console streams. | - | NL-OPER | - | - |
 | FR-3130 | - | OPER-3 | L1 | pending | analysis | The library shall document every installed command option with declared type, default and domain. | - | NL-OPER | - | - |
-| FR-3131 | - | OPER-4 | L1 | implemented | analysis | The library shall report selected recorded and planned points with explicit freshness information. | - | NL-OPER | - | - |
+| FR-3131 | - | OPER-4 | L1 | pending | analysis | The library shall report selected recorded and planned points with explicit freshness information. | - | NL-OPER | - | - |
 | FR-3132 | - | OPER-5 | L1 | implemented | analysis | The library shall expose workspace queries as Python functions returning the same rows as the JSON console output. | - | NL-OPER | - | - |
 | FR-3133 | - | OPER-6 | L1 | pending | analysis | The library shall expose declared public names under documented dependency and retirement policies. | - | NL-OPER | - | - |
 | FR-3134 | - | OPER-7 | L1 | implemented | analysis | The library shall publish exactly one declared maturity level for each public module. | - | NL-OPER | - | - |

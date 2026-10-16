@@ -2,13 +2,13 @@
 
 | UID | Parent | HID | Level | Status | Verification method | Statement | Rationale | Derives from | Code | Test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| FR-3071 | - | RECS-1 | L1 | pending | analysis | The library shall record each run's identity, inputs, execution outcome and outputs in a validated manifest. | - | NL-RECS | - | - |
+| FR-3071 | - | RECS-1 | L1 | implemented | analysis | The library shall record each run's identity, inputs, execution outcome and outputs in a validated manifest. | - | NL-RECS | - | - |
 | FR-3072 | - | RECS-2 | L1 | pending | analysis | The library shall record effective solver settings with build-specific evidence or unknown provenance. | - | NL-RECS | - | - |
 | FR-3073 | - | RECS-3 | L1 | implemented | analysis | The library shall reconstruct run records from matching saved scripts and recorded source evidence. | - | NL-RECS | - | - |
 | FR-3074 | - | RECS-4 | L1 | implemented | analysis | The library shall restore a selected archived record while preserving the current record in the archive. | - | NL-RECS | - | - |
 | FR-3075 | - | RECS-5 | L1 | implemented | analysis | The library shall isolate operations on an explicitly named manifest from the default record set. | - | NL-RECS | - | - |
 | FR-3076 | - | RECS-6 | L1 | implemented | analysis | The library shall return the recorded evidence of the selected run without modifying workspace data. | - | NL-RECS | - | - |
-| FR-3077 | - | RECS-7 | L1 | implemented | analysis | The library shall trace an indexed product to the run identities and input digests that produced that product. | - | NL-RECS | - | - |
+| FR-3077 | - | RECS-7 | L1 | pending | analysis | The library shall trace an indexed product to the run identities and input digests that produced that product. | - | NL-RECS | - | - |
 | FR-3078 | - | RECS-8 | L1 | implemented | analysis | The library shall report the selected point's current and archived records in the continuation chain. | - | NL-RECS | - | - |
 | FR-3079 | - | RECS-9 | L1 | implemented | analysis | The library shall report differences between the selected runs' identities, inputs, settings and outcomes. | - | NL-RECS | - | - |
 | FR-3080 | - | RECS-10 | L1 | implemented | analysis | The library shall report recorded activity selected by the requested log filters. | - | NL-RECS | - | - |
