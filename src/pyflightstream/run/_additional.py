@@ -296,7 +296,9 @@ def _launch_extraction(executor, case, script_path, folder, copy, *, base):
     except Exception as error:
         error_text = f"{type(error).__name__}: {error}"
     finally:
-        if not isinstance(executor, Submitting) or result is None or result.failed:
+        if (result is None and not isinstance(executor, Submitting)) or (
+            result is not None and result.failed
+        ):
             try:
                 copy.unlink(missing_ok=True)
             except OSError as error:
