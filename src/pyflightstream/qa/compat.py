@@ -30,6 +30,7 @@ from pyflightstream._digest import optional_file_sha256
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream._yamlflow import flow_mapping
 from pyflightstream.commands import CommandEntry, CommandRegistry, Status
+from pyflightstream.qa._reanalysis import _citation, _withdrawals, _write_reanalysis
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
 from pyflightstream.qa.reports import (
@@ -54,6 +55,7 @@ __all__ = [
     "PROMOTABLE_OUTCOMES",
     "WITHHELD_DIGEST",
     "apply_compat",
+    "apply_reanalysis",
     "classify_executable",
     "compat_report_paths",
     "contradicting_evidence",
@@ -64,6 +66,7 @@ __all__ = [
     "read_executable_baseline",
     "resolve_commands_dir",
     "write_compat_report",
+    "write_reanalysis",
 ]
 
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
@@ -401,8 +404,6 @@ def read_compat_reports(
     QaEvidenceError
         If ``reports_dir`` is given explicitly and is not a directory.
     """
-    from pyflightstream.qa.reanalysis import _withdrawals
-
     root = Path(repo_root).resolve()
     # Defaulting here rather than only in apply_compat: every caller of
     # this function was retyping the location that function already
@@ -666,7 +667,6 @@ def apply_compat(
     # promoted from a report the tool has already judged unfit, which
     # is a worse state than either applying it or refusing it.
     judgments = read_compat_reports(reports_dir, repo_root=repo_root)
-    from pyflightstream.qa.reanalysis import _refuse_withdrawn_promotion
 
     _refuse_withdrawn_promotion(citation, canonical, targets, reports_dir, root)
     incoming_date = str(report.get("date") or "")
@@ -1756,3 +1756,128 @@ def _rewrite_block_fields(
     missing = {key: value for key, value in updated.items() if key not in existing}
     for key, value in reversed(list(missing.items())):
         lines.insert(index + 1, "      " + _flow_mapping({key: value})[1:-1])
+
+
+def write_reanalysis(
+    source: str | Path,
+    explanations: Mapping[str, str],
+    *,
+    repo_root: str | Path,
+    date: str,
+    label: str,
+) -> tuple[Path, Path]:
+    """Write a dated, analysis-only withdrawal preserving the source execution.
+
+    Each named command requires an explanation. This operation withdraws a
+    judgment, not its observations, and launches nothing. The original report
+    UTF-8 text with LF line ends is pinned so that checkout line endings do not
+    change provenance and later content edits cannot silently change it.
+    Apply the result explicitly with :func:`apply_reanalysis` after review.
+
+    Parameters
+    ----------
+    source : str or Path
+        Original committed compatibility report, inside the repository.
+    explanations : mapping of str to str
+        Commands to withdraw and the reason for each withdrawal.
+    repo_root : str or Path
+        Repository containing the original report and output directory.
+    date : str
+        ISO analysis date, later than the original report.
+    label : str
+        Distinguishing suffix for the analysis report filenames.
+
+    Returns
+    -------
+    tuple of Path
+        New YAML report and rendered Markdown report, respectively.
+
+    Raises
+    ------
+    QaEvidenceError
+        If provenance, dates, explanations or report destinations are invalid.
+    """
+    return _write_reanalysis(source, explanations, repo_root=repo_root, date=date, label=label)
+
+
+def apply_reanalysis(report_path: str | Path, *, repo_root: str | Path) -> list[str]:
+    """Reconcile withdrawn judgments through validated chapter rewrites.
+
+    Independent measured evidence remains authoritative. Where none remains,
+    the row records direct inconclusive evidence as documented, never verified
+    or broken. The original report remains on disk and cannot be reapplied.
+
+    Parameters
+    ----------
+    report_path : str or Path
+        Explicit dated withdrawal report to apply.
+    repo_root : str or Path
+        Repository holding the reports and command chapters.
+
+    Returns
+    -------
+    list of str
+        Sorted command names whose judgments were reconciled.
+
+    Raises
+    ------
+    QaEvidenceError
+        If source evidence changed, a command is unknown or validation fails.
+    """
+    root = Path(repo_root).resolve()
+    report = read_compat_report(report_path)
+    citation = _citation(Path(report_path).resolve(), root)
+    withdrawn = _withdrawals(report, root)
+    names = {name for name, _, _ in withdrawn}
+    if names != set(report["commands"]):
+        raise QaEvidenceError("every reanalysis command must withdraw its own source judgment")
+    directory = resolve_commands_dir(root)
+    order = _release_order(directory)
+    version = report["fs_version"]
+    judgments = read_compat_reports(repo_root=root)
+    pending = set(names)
+    rewritten = []
+    for path in sorted(directory.glob("*.yaml")):
+        entries = _load_yaml(path)
+        selected = sorted(pending.intersection(entries))
+        if not selected:
+            continue
+        original = text = path.read_text(encoding="utf-8")
+        for name in selected:
+            remaining = judgments.get((name, version), ())
+            source = remaining[-1].report if remaining else citation
+            body = (
+                read_compat_report(root / source)["commands"][name]
+                if remaining
+                else dict(
+                    outcome="documented",
+                    detail="direct inconclusive evidence; " + report["commands"][name]["detail"],
+                )
+            )
+            body = {**body, "reconciles_withdrawal": True}
+            text = _rewrite_version_line(text, path.name, name, version, body, source, order)
+            pending.remove(name)
+        _validate_chapter(path.name, text, selected)
+        rewritten.append((path, original, text))
+    if pending:
+        raise QaEvidenceError(f"unknown commands in reanalysis: {sorted(pending)}")
+    _write_changed(rewritten)
+    return sorted(names)
+
+
+def _refuse_withdrawn_promotion(
+    citation: str,
+    version: str,
+    targets: Mapping[str, Any],
+    reports_dir: str | Path | None,
+    root: Path,
+) -> None:
+    """Prevent reapplying precisely the judgments an explicit review withdrew."""
+    directory = Path(reports_dir) if reports_dir is not None else root / "reports" / "compat"
+    for path in directory.glob("*.yaml"):
+        document = _load_yaml(path)
+        if not isinstance(document, dict) or document.get("analysis_only") is not True:
+            continue
+        withdrawn = _withdrawals(document, root)
+        if any((name, version, citation) in withdrawn for name in targets):
+            raise QaEvidenceError(f"{citation}: judgment withdrawn by {path.name}; nothing written")

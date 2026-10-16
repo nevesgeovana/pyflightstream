@@ -115,8 +115,7 @@ def make_run():
 def test_p0420_reanalysis_preserves_run_and_withdraws_only_its_judgment(
     tmp_path, outcome, independent
 ):
-    from pyflightstream.qa.compat import read_compat_reports
-    from pyflightstream.qa.reanalysis import apply_reanalysis, write_reanalysis
+    from pyflightstream.qa.compat import apply_reanalysis, read_compat_reports, write_reanalysis
 
     commands = tmp_path / "src" / "pyflightstream" / "commands"
     commands.parent.mkdir(parents=True)
