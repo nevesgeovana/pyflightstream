@@ -415,14 +415,18 @@ def test_p0420_p2_1a_licence_refusal_is_unprobed(tmp_path, baseline):
         ("PYFS_PROBE_BEGIN_PRINT\nChecking out Altair units...Not available.", False),
     ],
 )
-def test_p0420_p2_1a_checkout_controls_keep_other_failure_classes(checkout, expected):
+def test_p0420_p2_1a_checkout_controls_keep_other_failure_classes(tmp_path, checkout, expected):
     """Successful fallback and non-checkout failures do not become licence denial."""
-    from pyflightstream.qa.probes import _licence_denied
+    from dataclasses import replace
 
-    execution = ExecutionResult(
-        return_code=1, wall_time_s=0.01, timed_out=False, log_text=None, stdout=checkout, stderr=""
-    )
-    assert _licence_denied(execution, "PYFS_PROBE_BEGIN_PRINT") is expected
+    class Checkout(FakeFlightStream):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            result = super().run_script(script_path, working_dir, timeout_s)
+            return replace(result, stdout=checkout) if Path(working_dir).name == "PRINT" else result
+
+    run = probe_version("26.124", workroot=tmp_path, executor=Checkout(), commands=["PRINT"])
+    result = next(r for r in run.results if r.command == "PRINT")
+    assert result.detail.startswith("licence-denied") is expected
 
 
 def test_probe_spec_requires_an_effect_assertion():

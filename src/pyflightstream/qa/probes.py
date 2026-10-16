@@ -1218,11 +1218,13 @@ def probe_version(
 
     results: list[ProbeResult] = []
     for name in available:
-        if licence_denied and (requested is None or name in requested):
-            results.append(ProbeResult(name, ProbeOutcome.UNPROBED, _LICENCE_DENIED))
-            continue
         decided = _unprobed_or_spec(
-            name, active_specs.get(name), requested, fsm_path=fsm_path, tier_failures=tier_failures
+            name,
+            active_specs.get(name),
+            requested,
+            fsm_path=fsm_path,
+            tier_failures=tier_failures,
+            licence_denied=licence_denied,
         )
         if isinstance(decided, ProbeResult):
             results.append(decided)
@@ -1257,10 +1259,13 @@ def _unprobed_or_spec(
     *,
     fsm_path: Path | None,
     tier_failures: Mapping[Requires, str],
+    licence_denied: bool = False,
 ) -> ProbeResult | ProbeSpec:
     """Return the unprobed result a command earns without a run, else the spec to run."""
     if requested is not None and name not in requested:
         return ProbeResult(name, ProbeOutcome.UNPROBED, "not probed in this run")
+    if licence_denied:
+        return ProbeResult(name, ProbeOutcome.UNPROBED, _LICENCE_DENIED)
     if spec is None:
         return ProbeResult(
             name, ProbeOutcome.UNPROBED, "no probe specification for this command yet"
@@ -1644,19 +1649,18 @@ def _judge(
             log_errors=tuple(matches),
             **common,
         )
-    epilogue_note = ""
-    if spec.epilogue is not None and artifacts.log_final() is None:
-        epilogue_note = (
-            " (the epilogue instruments aborted after the target; the effect was "
-            "judged from the artifacts they left)"
-        )
-    return _judge_effect(spec, artifacts, common, epilogue_note)
+    return _judge_effect(spec, artifacts, common, "")
 
 
 def _judge_effect(
     spec: ProbeSpec, artifacts: ProbeArtifacts, common: dict[str, object], epilogue_note: str
 ) -> ProbeResult:
     """Read an effect instrument and record its verdict or its own failure."""
+    if spec.epilogue is not None and artifacts.log_final() is None:
+        epilogue_note = (
+            " (the epilogue instruments aborted after the target; the effect was "
+            "judged from the artifacts they left)"
+        )
     # WHAT THE INSTRUMENT READ, beside the note (G02). The note is fixed text
     # naming the effect the probe expected, so an evidence line made of it
     # alone reads the same whatever the solver did, and a report could not be
