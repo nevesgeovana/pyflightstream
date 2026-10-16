@@ -211,6 +211,8 @@ class ArgSpec(BaseModel):
         Whether the argument must be supplied; optional arguments are
         the ones the manual marks as such (for example
         LOAD_SOLVER_INITIALIZATION of OPEN, FSM-26.120 p.282).
+        Presence-keyword bool arguments default to optional; an explicit
+        required declaration still takes precedence.
     separator : ListSeparator
         How a list-typed argument joins its values when rendered; the
         manual fixes it per command (see :class:`ListSeparator`).
@@ -289,6 +291,17 @@ class ArgSpec(BaseModel):
     fixed_length: int | None = None
     cites: EntityKind | None = None
     all_sentinel: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _presence_keywords_are_optional(cls, value: object) -> object:
+        if (
+            isinstance(value, dict)
+            and value.get("type") == ArgType.BOOL
+            and "required" not in value
+        ):
+            return {**value, "required": False}
+        return value
 
     @model_validator(mode="after")
     def _enum_types_carry_values(self) -> ArgSpec:

@@ -4497,3 +4497,9 @@ def test_p0420_sweeper_folder_matches_export_mode(mode, folder):
         args["export_folder"] = folder
     with pytest.raises(CommandArgumentError):
         script.emit("EXECUTE_SOLVER_SWEEPER", **args)
+
+
+def test_p0420_physics_presence_keywords_can_be_omitted():
+    script = Script("25.000")
+    script.emit("PHYSICS")
+    assert "PHYSICS\nEND" in script.render()

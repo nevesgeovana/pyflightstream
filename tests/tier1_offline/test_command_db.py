@@ -1985,3 +1985,9 @@ def test_a_row_backed_by_a_run_on_its_build_never_says_it_was_not_run():
         "these rows cite a run on their build and their note says the build was not run: "
         + "; ".join(offenders)
     )
+
+
+def test_p0420_bool_presence_is_optional_by_default():
+    assert ArgSpec(name="clear", type="bool").required is False
+    assert ArgSpec(name="index", type="int").required is True
+    assert ArgSpec(name="clear", type="bool", required=True).required is True
