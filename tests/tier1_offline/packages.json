@@ -15,13 +15,13 @@
       "tests/tier1_offline/test_utils_database.py"
     ],
     "script-results": [
-      "tests/tier1_offline/test_p0420_p1_1c_layouts.py",
       "tests/tier1_offline/test_motion_ledger.py",
       "tests/tier1_offline/test_p0340_settings_cut.py",
       "tests/tier1_offline/test_p0340_toggles.py",
       "tests/tier1_offline/test_p0350_log_slices.py",
       "tests/tier1_offline/test_p0370_s10_probe_exponents.py",
       "tests/tier1_offline/test_p0370_s10_sweeper_columns.py",
+      "tests/tier1_offline/test_p0420_p1_1c_layouts.py",
       "tests/tier1_offline/test_script.py",
       "tests/tier1_offline/test_script_entities.py",
       "tests/tier1_offline/test_versions.py"
