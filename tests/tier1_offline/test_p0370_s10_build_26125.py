@@ -397,8 +397,7 @@ def test_every_probe_specification_builds_its_script_on_26125(tmp_path):
         text = generate_probe_script(spec, "26.125", workdir, fsm=fsm).render()
         assert "AUTO_DETECT" not in text, name
         built += 1
-    # 230 since 0.40.0: the 55 primary probes of the command gaps (PFS-2081.13 to .17); 227
-    # since the second round (RPT-166) measured three of them REMOVED on 26.125, which leaves
-    # them out of the build's view: the FSI executable and structural-nodes motion commands and
-    # the off-body streamline length.
-    assert built == 227
+    # RPT-166 leaves three removed names outside this build's view. The
+    # SET_VORTICITY_LIFT_MODEL name probe adds one documented spelling without
+    # claiming a measured effect or restoring any removed command.
+    assert built == 228
