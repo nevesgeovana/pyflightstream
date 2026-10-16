@@ -438,7 +438,11 @@ def _cmd_records(args: argparse.Namespace) -> int:
                 args.workspace,
                 out=args.out,
                 all_sims=args.all_sims,
-                sims=None if args.sims is None else _listed_sims(args.sims),
+                # FR-794, PFS-2124.004: an alias resolves to the simulation that holds it, and
+                # acts only when every point of that simulation is named.
+                sims=None
+                if args.sims is None
+                else split_typed_ids(_listed_sims(args.sims), args.workspace, whole_only=True)[0],
                 build_alias=aliases or None,
                 matrix=args.matrix,
                 apply=args.apply,

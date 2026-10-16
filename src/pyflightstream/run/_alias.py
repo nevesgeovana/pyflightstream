@@ -429,20 +429,24 @@ def split_typed_ids(
     manifest : str
         The manifest the verb reads, by name in the root.
     whole_only : bool
-        The verb removes whole simulations (``delete-sims``), so an alias is refused
-        and the simulation id it carries is named.
+        The verb acts on whole simulations (``delete-sims``, ``rebuild``), so an alias
+        resolves to the simulation that holds it and acts only when the selection
+        names EVERY point of that simulation; a selection that names part of it is
+        refused, naming the simulation and its points, so the verb never acts on more
+        than was named (PFS-2124.004).
 
     Returns
     -------
     tuple
-        The simulation ids and, per simulation, the point names the aliases name;
+        The simulation ids and, per simulation, the point names the aliases name
+        (none with ``whole_only``, whose aliases are folded into the simulation ids);
         every alias read STRICTLY (the records and the plan must agree).
 
     Raises
     ------
     AliasError
         An alias with no point, whose two readings disagree, or, with ``whole_only``,
-        any alias.
+        aliases that name only part of a simulation's points.
     """
     from pyflightstream.workspace.record_document import read_rows
 
@@ -451,18 +455,28 @@ def split_typed_ids(
     known = planned_in_workspace(root, rows)
     sims: list[str] = []
     points: dict[str, list[str]] = {}
+    named: dict[str, list[tuple[str, str]]] = {}
     for text in items:
         found = resolve_alias(text, rows, known, strict=True)
         if found is None:
             sims.append(text)
         elif whole_only:
-            raise AliasError(
-                f"sims (CLI: --sims) names {text!r}, a point of simulation {found[0]}, and "
-                "this command removes whole simulations; name the simulation "
-                f"({found[0]}) to remove all of it. Nothing was done."
-            )
+            named.setdefault(found[0], []).append((text, found[1]))
         else:
             points.setdefault(found[0], []).append(found[1])
+    for sim, entries in named.items():
+        every = alias_order(rows, sim, known.get(sim, []))
+        left = [point for point in every if point not in {name for _, name in entries}]
+        if left and sim not in sims:
+            typed = ", ".join(repr(text) for text, _ in entries)
+            raise AliasError(
+                f"sims (CLI: --sims) names {typed}, {len(entries)} of the {len(every)} "
+                f"point(s) of simulation {sim} ({', '.join(every)}), and this command acts "
+                "on whole simulations, so it would act on points you did not name. Name every "
+                f"point of {sim}, or the simulation ({sim}) to act on all of it. Nothing was done."
+            )
+        if sim not in sims:
+            sims.append(sim)
     return sims, points
 
 

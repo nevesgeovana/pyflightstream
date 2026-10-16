@@ -4,7 +4,8 @@ Pipeline role: quality gate of P0350-RUN-ID-ALIAS, through ``pyflightstream.run.
 
 The alias is derived and never stored: the 1-based position of the point in its polar, the
 recorded points first and the planned ones without a record after them. It is accepted by
-``--points``, ``mark-failed`` and (refused, whole simulations only) ``delete-sims``, and
+``--points``, ``mark-failed`` and, for whole simulations only (every point named),
+``delete-sims`` and ``rebuild``, and
 printed beside the point by ``plan``. Where a verb destroys, an alias whose record reading and
 plan reading disagree is refused naming both.
 
@@ -175,7 +176,7 @@ def test_fr395_a_destructive_verb_refuses_an_alias_the_two_readings_disagree_on(
 
 
 def test_fr395_delete_sims_refuses_an_alias_and_names_the_simulation(tmp_path, monkeypatch, capsys):
-    """P0350-RUN-ID-ALIAS (FR-794): delete-sims removes whole simulations, never one point."""
+    """P0350-RUN-ID-ALIAS (FR-794): a partial alias is refused, never read as the whole."""
     workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
     names = _names(workspace, matrix, "5002")
     assert cli.main(_argv("plan", workspace, matrix)) == 0
@@ -184,3 +185,49 @@ def test_fr395_delete_sims_refuses_an_alias_and_names_the_simulation(tmp_path, m
     assert cli.main(["delete-sims", "5002_2", "--workspace", str(workspace.root)]) == 2
     assert "5002" in capsys.readouterr().err
     assert cli.main(["delete-sims", "5002", "--workspace", str(workspace.root)]) == 0
+
+
+def test_p0420_delete_sims_and_rebuild_read_every_alias_of_a_simulation_as_that_simulation(
+    tmp_path, monkeypatch, capsys
+):
+    """PFS-2124.004 (FR-794, owner-list entry 34): an alias names the simulation holding it.
+
+    Every point of 5002 named by its alias is 5002 itself; a typed 5002 beside one of its
+    aliases is 5002 once; the other simulation is never touched.
+    """
+    from pyflightstream.run._alias import split_typed_ids
+
+    workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
+    names = _names(workspace, matrix, "5002")
+    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    _record_points(workspace, "5002", names)
+    every = [f"5002_{n}" for n in range(1, len(names) + 1)]
+    assert split_typed_ids(every, workspace.root, whole_only=True) == (["5002"], {})
+    assert split_typed_ids(["5002", every[0]], workspace.root, whole_only=True) == (["5002"], {})
+    capsys.readouterr()
+    code = cli.main(["delete-sims", ",".join(every), "--workspace", str(workspace.root)])
+    said = capsys.readouterr()
+    assert code == 0 and "5002" in said.out and "5001" not in said.out
+
+
+def test_p0420_a_selection_naming_part_of_a_simulation_is_refused_with_its_points(
+    tmp_path, monkeypatch, capsys
+):
+    """PFS-2124.004: never delete or rebuild more than was named; nothing is written."""
+    workspace, matrix, _stub = _two_simulations(tmp_path, monkeypatch)
+    names = _names(workspace, matrix, "5002")
+    assert len(names) > 1
+    assert cli.main(_argv("plan", workspace, matrix)) == 0
+    _record_points(workspace, "5002", names)
+    before = workspace.manifest_path.read_bytes()
+    for argv in (
+        ["delete-sims", "5002_1", "--workspace", str(workspace.root), "--apply"],
+        ["delete-sims", "--sims", "5002_1", "--workspace", str(workspace.root), "--apply"],
+        ["rebuild", "--sims", "5002_1", "--workspace", str(workspace.root), "--apply"],
+    ):
+        capsys.readouterr()
+        assert cli.main(argv) == 2, argv
+        err = capsys.readouterr().err
+        assert "simulation 5002" in err and all(name in err for name in names), err
+        assert "5002_1" in err and "Nothing was done" in err
+    assert workspace.manifest_path.read_bytes() == before

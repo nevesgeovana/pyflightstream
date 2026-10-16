@@ -67,7 +67,11 @@ from pyflightstream.workspace.naming import MATRIX_POINT_NAME
 
 
 def _whole_sims(args: argparse.Namespace) -> list[str]:
-    """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
+    """Read the ids of ``delete-sims``; a run id alias names the simulation holding it (FR-794).
+
+    An alias acts only when the selection names every point of its simulation, and a
+    selection naming part of one is refused (PFS-2124.004).
+    """
     manifest = getattr(args, "runs", None) or "runs.json"
     legacy = getattr(args, "legacy_sims", None)
     if legacy is not None:
