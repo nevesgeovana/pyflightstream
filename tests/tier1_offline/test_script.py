@@ -4346,6 +4346,14 @@ def test_p0420_inline_strings_keep_one_token(value):
     assert not script.render().strip()
 
 
+@pytest.mark.parametrize("path", ["../escape", "/absolute", "C:relative", "C:/absolute"])
+def test_p0420_parked_inputs_stay_in_point_folder(path):
+    script = Script("26.124")
+    with pytest.raises(CommandArgumentError):
+        script.park_input_file(path, "data")
+    assert not script.pending_input_files
+
+
 def test_p0420_surface_probe_refuses_unknown_frame():
     script = Script("26.124")
     with pytest.raises(ScriptReferenceError):

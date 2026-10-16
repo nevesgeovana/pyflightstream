@@ -74,6 +74,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from pathlib import PureWindowsPath
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -463,9 +464,42 @@ class Script:
     def park_input_file(self, path: str, payload: str | bytes) -> None:
         """Park an input beside the script, using the shared case-insensitive path rule.
 
-        An identical input may be parked again. Different content or an action
-        script at that path raises CommandArgumentError without replacing it.
+        An identical input may be parked again. The run layer writes the parked
+        payload before starting the solver.
+
+        Parameters
+        ----------
+        path : str
+            Relative file destination inside the point folder, without a drive,
+            root or parent traversal.
+        payload : str or bytes
+            Text or exact bytes to stage at that destination.
+
+        Raises
+        ------
+        CommandArgumentError
+            If the path escapes the point folder or collides case-insensitively
+            with different input content or an action script. Nothing is replaced.
+
+        Examples
+        --------
+        >>> script = Script("26.124")
+        >>> script.park_input_file("inputs/profile.txt", "profile data")
+        >>> script.pending_input_files["inputs/profile.txt"]
+        'profile data'
         """
+        destination = PureWindowsPath(path)
+        if (
+            not path
+            or destination.drive
+            or destination.root
+            or ".." in destination.parts
+            or not destination.name
+        ):
+            raise CommandArgumentError(
+                f"input file {path!r} must be a relative file path inside the point folder; "
+                "use a filename or a subfolder without parent traversal"
+            )
         parked = self._parked_file(path)
         if parked is not None:
             kind, held = parked
