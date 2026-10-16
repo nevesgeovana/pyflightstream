@@ -34,9 +34,7 @@ from pyflightstream.script import (
     Script,
     helpers,
 )
-from pyflightstream.script._settings import (
-    _flush_pending_vorticity,
-)
+from pyflightstream.script._settings import _flush_pending_vorticity
 
 from ._clock import (
     _rotor_clock,
@@ -74,7 +72,6 @@ from ._rows import (
     _from_metres,
     _qsteady_speed,
     _required_int,
-    _states_a_rotor_speed,
     _the_copies_the_sector_stands_for,
     _the_isolated_rotor,
     _the_rotor_a_flat_row_turns,
@@ -270,16 +267,6 @@ def _initialize_the_solver(case: SimCase, script: Script) -> None:
     _initialize(case, script)
 
 
-def _a_march_turning_a_rotor(case: SimCase) -> bool:
-    """Say whether an unsteady row turns a rotor: ``unsteady_rotor``, or a stated rotor speed.
-
-    The predicate :func:`~._solver_settings._analysis` reads for FR-318, less
-    the quasi-steady rotor, which does not march: every export of it follows
-    the solve (RPT-133, section 5).
-    """
-    return case.recipe == "unsteady_rotor" or _states_a_rotor_speed(case)
-
-
 def _vorticity_list_before_the_solve(script: Script) -> None:
     """Emit the deferred vorticity drag list right before ``START_SOLVER`` (FR-568).
 
@@ -287,8 +274,9 @@ def _vorticity_list_before_the_solve(script: Script) -> None:
     emitted after ``START_SOLVER`` reaches the final loads export and no step
     export (0 of 12 differ from a march without it); emitted right before it,
     the solver accepts it and every step export carries it (12 of 12), the
-    last step equal to the final export. So a march turning a rotor lands the
-    list here, the lines of the measured probe (arm B) and nothing else moved.
+    last step equal to the final export. The release's licensed batch 5 also
+    measured the rotorless march: the after-start list equals no list at every
+    step. All unsteady marches therefore place the selection here.
     A row that states no list has nothing deferred, and nothing is emitted.
 
     THE COMMAND DATABASE FILES THE LIST UNDER THE ANALYSIS PHASE, the
@@ -751,7 +739,7 @@ def _script_solve_and_export(
     That retained state makes warm start a sweep model.
     """
     _raw_commands(case, script, "exec")
-    if unsteady and _a_march_turning_a_rotor(case):
+    if unsteady:
         _vorticity_list_before_the_solve(script)
     helpers.start_solver(script)
     if not unsteady:
