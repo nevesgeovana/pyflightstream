@@ -4375,3 +4375,28 @@ def test_p0420_optional_inline_gap_is_refused():
     script = Script("26.124")
     with pytest.raises(CommandArgumentError):
         script.emit("NEW_CCS_WING_CONTROL_SURFACE", "flap", 0, 1, 0, 1, 0, 10, 0, axis="X")
+
+
+@pytest.mark.parametrize("mode,folder", [("VTK", None), ("DISABLE", "surfaces")])
+def test_p0420_sweeper_folder_matches_export_mode(mode, folder):
+    script = Script("26.100")
+    args = dict(
+        angle_of_attack="ENABLE",
+        side_slip_angle="DISABLE",
+        velocity="DISABLE",
+        angle_of_attack_start=0,
+        angle_of_attack_stop=2,
+        angle_of_attack_delta=1,
+        side_slip_angle_start=0,
+        side_slip_angle_stop=0,
+        side_slip_angle_delta=1,
+        export_surface_data_per_step=mode,
+        clear_solution_after_each_run="DISABLE",
+        reference_velocity_equals_freestream="DISABLE",
+        append_to_existing_sweep="DISABLE",
+        file="sweep.txt",
+    )
+    if folder is not None:
+        args["export_folder"] = folder
+    with pytest.raises(CommandArgumentError):
+        script.emit("EXECUTE_SOLVER_SWEEPER", **args)

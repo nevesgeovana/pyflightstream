@@ -1466,6 +1466,14 @@ class Script:
             else:
                 checked[spec.name] = _check_scalar(entry, spec, value)
         self._check_counts(entry, checked)
+        if entry.name == "EXECUTE_SOLVER_SWEEPER":
+            exporting = checked["export_surface_data_per_step"] != "DISABLE"
+            if exporting != ("export_folder" in checked):
+                raise CommandArgumentError(
+                    f"{entry.name}: export_folder is required exactly when "
+                    "export_surface_data_per_step is enabled; provide the folder for "
+                    f"TXT, CSV, DAT or VTK, and omit it for DISABLE ({entry.citation})"
+                )
         if entry.layout is Layout.INLINE:
             positional = [spec for spec in specs if not spec.own_line]
             # These grammars select alternative positional forms by a leading mode.
