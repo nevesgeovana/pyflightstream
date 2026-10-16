@@ -28,7 +28,7 @@ __all__ = [
     "resolve_row_sixdof",
 ]
 
-#: The one run type a free body runs on in this release (FR-1087).
+#: The run type for a free body (FR-1087).
 _SIXDOF_WORKFLOW = "unsteady"
 
 

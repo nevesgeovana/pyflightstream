@@ -1,7 +1,7 @@
 """Degenerate geometries derived from a blade mesh: the thin blade (FR-330).
 
 A thin-blade study replaces a blade by its mean surface, a sheet with no
-thickness, and until 0.34.0 that sheet was built by hand. This module builds
+thickness. This module builds
 it from the blade's own surface mesh and writes it beside the source, with
 the boundary inventory the raw-mesh route reads (FR-55), so the command
 ``pyfs-matrix degenerate --kind thin-blade`` (FR-628) has one library
@@ -106,7 +106,7 @@ __all__ = [
     "thin_blade_path",
 ]
 
-#: The one kind of degenerate geometry of 0.34.0 (FR-628).
+#: The supported kind of degenerate geometry (FR-628).
 THIN_BLADE_KIND = "thin-blade"
 
 #: The suffixes read: a saved simulation and an OBJ, the forms ``inventory`` reads.
@@ -606,9 +606,9 @@ def _resampled(side: Points, start: Points, chord: Points, stations: Points) -> 
     """Return one side resampled at the chord fractions ``stations``.
 
     The fractions are clipped to [0, 1] before they are made non-decreasing
-    (PFS-2099.002): a point projecting past the chord's end used to leave the
-    accumulated fractions above the forced last 1.0, which numpy.interp does
-    not define.
+    (PFS-2099.002). This prevents a point beyond the chord from producing
+    accumulated fractions above the forced last 1.0, outside numpy.interp's
+    defined ordering.
     """
     xi = numpy.maximum.accumulate(
         numpy.clip((side - start) @ chord / float(chord @ chord), 0.0, 1.0)

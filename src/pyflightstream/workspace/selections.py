@@ -142,8 +142,8 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
         "groups.<name>",
         "the polar table written per group (products.polars)",
         True,
-        "An empty group is every family the geometry carries, the design decision of "
-        "2026-09-09: the polar table sums every surface row of the loads table, and a "
+        "An empty group is every family the geometry carries: the polar table sums "
+        "every surface row of the loads table, and a "
         "motion naming the group moves every boundary of the file.",
     ),
     EntitySelection(

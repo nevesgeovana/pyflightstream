@@ -478,7 +478,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     _take_the_console_level(args)
-    # THE CONSOLE CONTRACT (0.32.0, FR-200, FR-201): a titled opening block
+    # THE CONSOLE CONTRACT (FR-200, FR-201): a titled opening block
     # and the warnings at the end, as every pyfs-matrix command.
     group = getattr(args, f"{args.subcommand}_command", None)
     names = [args.subcommand, *([group] if group else [])]

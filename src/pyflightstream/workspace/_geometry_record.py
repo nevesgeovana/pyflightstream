@@ -9,10 +9,9 @@ when the built file itself was saved again, when the body was never accepted
 build that made it (G-Q11). A row whose geometry has no record is planned as
 before.
 
-THE IN-ROW ROUTES WARN IN 0.40.0 (G-Q1, option A). A row naming a CCS, IGES or
-STL file, or a sidecar whose ``[[import.operations]]`` scale, rename or mirror,
-still runs exactly as in 0.39.0 and is warned with the exact replacement; 0.41.0
-refuses it.
+The in-row routes warn with their replacement (G-Q1, option A): a row naming
+a CCS, IGES or STL file, or sidecar ``[[import.operations]]`` that scale,
+rename or mirror. The warning states 0.41.0 as the removal version.
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ __all__ = [
 #: The suffix of a build record, beside the body it describes.
 _RECORD_SUFFIX = BUILD_RECORD_SUFFIX
 
-#: The geometry files a row names in 0.39.0 that the geometry stage now builds.
+#: Geometry formats handled by the geometry stage rather than the run row.
 IN_ROW_GEOMETRY_SUFFIXES = frozenset({*CCS_FORMATS, ".igs", ".iges", ".stl"})
 
 #: The sidecar operations that leave the run for the instruction file.

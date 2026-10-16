@@ -19,14 +19,10 @@ about to be planned or run.
 Geometry is resolved alongside the reference, setup and post-processing inputs, so the run
 layer receives a complete bound case.
 
-This module exists because the reader used to do the binding itself and
-paid for it with imports deferred to call time, which recorded an
-upward dependency while hiding it from every module-level reader
-(OPS-2007.01, PFS-2009.05). The execution half went to
-:mod:`pyflightstream.run.matrix` in the same move, and the direction now
-reads off the import block: this module imports the cases layer and the
-script layer downward, the workspace layer sideways, and nothing from
-:mod:`pyflightstream.run`.
+This module binds the parsed matrix (OPS-2007.01, PFS-2009.05). It imports
+the cases and script layers downward, workspace siblings sideways and
+nothing from :mod:`pyflightstream.run`. Execution belongs to
+:mod:`pyflightstream.run.matrix`.
 
 THE SCRIPT IMPORT IS THE NEWEST OF THOSE AND THE SENTENCE ABOVE IS AN
 ENUMERATION, so it is named rather than left to be inferred:
@@ -424,10 +420,8 @@ def _refuse_a_repeated_pol(path: str | Path, workspace: CampaignWorkspace) -> No
     if not repeated:
         return
     listing = "; ".join(f"POL {pol} in {', '.join(places)}" for pol, places in repeated.items())
-    # SPLIT BY WHAT THE FLAG CAN REACH, per POL (the interface lens,
-    # 2026-09-14). A single remedy chosen by "any repeat touches this matrix"
-    # sent a workspace holding both kinds to --update-ids, which moved one kind
-    # and left a second refusal the first message never announced.
+    # Choose the remedy per POL according to what --update-ids can reach.
+    # A workspace may contain repeats of both kinds.
     here = f"{matrix.name} row "
     movable = [p for p, places in repeated.items() if any(x.startswith(here) for x in places)]
     elsewhere = [p for p in repeated if p not in movable]
@@ -668,8 +662,8 @@ def resolve_matrix(
         left (PFS-2031.14), or a row naming no build with a campaign
         default that strips to empty. The last is raised before the
         build is selected, so no executable is looked up
-        (PFS-2009.08.03). Two FS_BUILD values USED TO BE REFUSED here
-        and no longer are: each row runs on the installation it names
+        (PFS-2009.08.03). Distinct FS_BUILD values are allowed: each row
+        runs on the installation it names
         (PFS-2009.05).
     pyflightstream.workspace.InputArtifactError
         A code the library cannot resolve, a ``GEOMETRY`` stem the

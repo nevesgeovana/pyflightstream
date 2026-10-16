@@ -1,4 +1,4 @@
-"""The one rule that names a run whose solver log is absent, RAN_MISSING_LOG (FR-413, 0.37.0).
+"""The one rule that names a run whose solver log is absent, RAN_MISSING_LOG (FR-413).
 
 Pipeline role: beneath the run layer's collect, its grouped collect and its
 rebuild, which all ask :func:`absent_solver_logs` of one point's files BEFORE
@@ -13,7 +13,7 @@ the solver to write its log to, recorded at submission under
 ``declared_logs``, and present among its ``declared_outputs``. A machine whose
 HPC profile states ``[log] export_log = false`` writes no log from the
 script, so nothing is declared there and the rule never fires (FR-864): that
-machine's log is the scheduler's, and collect keeps its 0.36.0 handling.
+machine's log is the scheduler's and is handled by collect.
 
 WHAT IS UNAVAILABLE, said once here and read by every writer and reader of
 the status (:data:`UNAVAILABLE_WITHOUT_LOG`): the residual history, the
@@ -107,7 +107,7 @@ def declared_log_names(record: RunRecord, sim_dir: Path | None) -> list[str]:
     """Name the solver logs of a record: its ``declared_logs``, else its script's (FR-867).
 
     A record that carries the field keeps the field's names. A record without
-    it (a point submitted before 0.37.0) is read from the job's own script on
+    it is read from the job's own script on
     disk, ``sim_dir / script_path``. Empty when there is neither the field nor
     a readable script, which is a point with no declared log.
     """

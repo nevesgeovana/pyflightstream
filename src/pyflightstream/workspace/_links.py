@@ -8,15 +8,8 @@ PUBLIC module (`tests/tier1_offline/test_digest.py`'s layer-boundary
 guard): a private name out of a private module is that module's own
 business.
 
-MOVED HERE FROM ``workspace/__init__.py`` ON 2026-09-28, PUSH REVIEW,
-0.30.0. The four functions below are unchanged from that module, where
-they stayed private and are imported back under their original names so
-every existing caller there is unchanged. ``workspace/storage.py`` used to
-reach them through three PUBLIC wrappers (``is_link``, ``make_dir_link``,
-``remove_link``) kept only so a public sibling would not import a private
-name out of another public module; publishing this module in its place
-removes the reason those wrappers existed, the same fix ``_digest`` and
-``_errors`` made for a digest helper and the exception base.
+Workspace creation and storage share these link operations through this
+module. The workspace package imports the helpers under their private names.
 """
 
 from __future__ import annotations

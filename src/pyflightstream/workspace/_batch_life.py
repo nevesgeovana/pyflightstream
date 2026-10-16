@@ -1,4 +1,4 @@
-"""What the other commands do about a grouped job's folders while it runs (0.35.0).
+"""What the other commands do about a grouped job's folders while it runs.
 
 Pipeline role: the workspace-layer half of FR-372 (P0350-BATCH-TRANSPARENT). A
 batch's sims live in ``sims/batch/<matrix>_b<ID>/sim_<id>/`` until its job ends
@@ -103,9 +103,7 @@ def is_kept_name(name: str) -> bool:
 def is_log_name(name: str) -> bool:
     """Say whether a file name is a log: the one rule sync and ``free-space`` read (PFS-2087.002).
 
-    The two used to disagree: the sync took ``FS_runtime_output.txt`` and
-    ``*_log.txt`` by exact case and missed ``FlightStreamLog.txt``, while
-    ``free-space`` compared without case and also kept ``*.log``.
+    Sync and free-space share this rule for runtime output and solver logs.
 
     Parameters
     ----------
@@ -495,7 +493,7 @@ def sim_sync_files(sim: Path, rank: int) -> set[Path]:
     """Return what a sync of level ``rank`` brings from one simulation folder.
 
     The one per-simulation rule (PFS-2087.002): ``sims/sim_<id>`` and a batch's
-    ``sim_<id>`` both call it, where each used to carry its own copy.
+    ``sim_<id>`` both call it.
 
     Parameters
     ----------

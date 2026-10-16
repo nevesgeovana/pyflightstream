@@ -1,7 +1,7 @@
 """The batch layout, the grouping receipt and the job entry of a grouped run.
 
 Pipeline role: the workspace-layer home of what a grouped run (``run --batch N``
-and ``run --polar-sweep``, 0.35.0) writes and reads back. It names the folders
+and ``run --polar-sweep``) writes and reads back. It names the folders
 a batch lives in (``sims/batch/<matrix>_b<ID>``), numbers them, and holds the
 receipt the plan writes under the ``grouping`` key of ``plan.json`` and the
 entry every point of a grouped job carries in ``RunRecord.submission["job"]``.

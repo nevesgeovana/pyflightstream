@@ -82,7 +82,7 @@ def inspect_case_setup(case: SimCase, version: str) -> dict[str, Any]:
         "boundary_conditions": (
             case.raw_mesh_conditions.model_dump(mode="json") if case.raw_mesh_conditions else None
         ),
-        # SS1 of 0.30.0: whether the row's Tecplot surface carries the nodal
+        # SS1: whether the row's Tecplot surface carries the nodal
         # Singularity_strength, which its pproc decides; None where the row
         # declares no Tecplot surface, so there is nothing to carry it.
         "singularity_strength": (

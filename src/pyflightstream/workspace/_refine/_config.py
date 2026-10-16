@@ -628,7 +628,7 @@ def spec_tag(spec: FamilySpec) -> str:
     return tag + ("k" if spec.keep_first_row else "")
 
 
-#: The longest built tag that stays the tag of 0.38.0; a longer one is summarised (FR-970).
+#: Maximum length for an unsummarised built tag (FR-970).
 TAG_MAX = 32
 
 
@@ -704,7 +704,7 @@ def level_tag(request: RefineRequest, names: Sequence[str], where: str = "the me
     path separator, ``..``, a drive or a reserved character into it is
     refused naming the family, before any work (FR-925); the uniform tag
     ``R<factors>`` and the summary form hold no family name and are not
-    refused (FR-973), as on 0.38.0.
+    refused (FR-973).
     """
     tag, picked, uniform = _built_tag(request, names)
     if not picked:

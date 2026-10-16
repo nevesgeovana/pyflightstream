@@ -1638,8 +1638,8 @@ def test_a_pre_rename_waiver_row_is_told_the_build_is_already_in_it(tmp_path):
     assert "requested_version" in message, (
         f"the refusal must name the key that identifies the old layout: {message}"
     )
-    assert "2026-08-04" in message, (
-        f"the refusal must date the layout, so a reader can place their row: {message}"
+    assert "in that layout, version held the record's source build" in message, (
+        f"the refusal must explain the field mapping for this row: {message}"
     )
     assert "version that wrote it" not in message, (
         "this row does not need another version of the package: the build is in it. "

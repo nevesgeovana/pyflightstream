@@ -430,8 +430,8 @@ def _read(
     ``detected`` maps the families whose trailing edge the refinement
     detected to their recorded mid-points (:func:`_recorded_detected`); the
     chains of the listed and the detected edges together are counted once
-    (:func:`_g4`). None, without a record, counts nothing and G4 is judged
-    as on 0.38.0.
+    (:func:`_g4`). None, without a record, contributes no detected chains
+    to G4.
     """
     if not path.is_file():
         raise _refusal(path, "no such OBJ file", "Name an existing OBJ and run again.")

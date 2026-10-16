@@ -190,16 +190,11 @@ def _resolve_build(
     resolved, one entry per build id, and the row that named it carries
     its own installation into the run.
 
-    THE ACTIVE ROWS USED TO HAVE TO AGREE on a single build id, because
-    a campaign declared one ``fs_exe`` and one ``fs_version`` and a
-    second FS_BUILD value would have been recorded as a falsehood: every
-    point named the campaign's executable whatever it ran on. That is no
-    longer the shape underneath. A case names its build
+    Each active row may select its build. A case names that build
     (:attr:`pyflightstream.cases.SimCase.fs_build`), the campaign loop
     takes a ``builds`` mapping of
     :class:`pyflightstream.run.SolverBuild`, and each point is recorded
-    against the installation it really ran on, so the refusal was
-    protecting a record that can now be told the truth (PFS-2009.05).
+    against the installation it ran on (PFS-2009.05).
 
     Every OTHER refusal is unchanged and none of them is what that one
     was: MANUAL still needs the explicit override, an override still
@@ -247,17 +242,9 @@ def _resolve_build(
     """
     named = tuple(row.fs_build.strip() or None for row in rows)
     if override is not None:
-        # The override is the only way to run MANUAL, so it has to win.
-        # It used to win SILENTLY over a row that named a real build,
-        # which is how a row saying FS_BUILD 26.121 ran on the 26.120
-        # executable and was recorded as having requested 26.120, with
-        # nothing said (measured on the reference campaign, 2026-08-03).
-        # Overruling an explicit request is a decision the caller is
-        # entitled to hear about, whatever it then does with it.
-        #
-        # A SILENT row is not overruled by it and must not be listed: it
-        # asked for nothing, so there is nothing to overrule, and listing
-        # it printed an empty id into the middle of the sentence.
+        # The executable override wins, including for MANUAL. Warn when it overrules
+        # a row's explicit build request; omit silent rows because they requested
+        # no build and therefore have no request to overrule.
         overruled = sorted({build for build in named if build and build.upper() != "MANUAL"})
         if overruled:
             warnings.warn(
@@ -279,10 +266,8 @@ def _resolve_build(
     # this function ran, so the empty fallback answers for no row.
     fallback = (default or "").strip()
     effective = tuple(build if build is not None else fallback for build in named)
-    # EVERY effective build is asked, not only the one a single-build
-    # matrix used to collapse to: MANUAL names no executable whichever row
-    # asks for it, and refusing it here keeps the message the one a caller
-    # already knows.
+    # Check every effective build: MANUAL names no executable, whichever row
+    # requests it. Refuse it here with the build-selection message.
     if any(build.upper() == "MANUAL" for build in effective):
         raise MatrixError(
             "FS_BUILD is MANUAL, the explicit-path mode: pass fs_exe (CLI: --fs-exe), "
@@ -333,15 +318,9 @@ def _resolve_code(
                 artifact_id=error.artifact_id,
                 available=error.available,
             ) from error
-        # THE SAME THREE-WAY READING ITS GEOMETRY SIBLING MAKES, and for
-        # the same reason: one arm prescribed a file for every refusal,
-        # so a code refused for its SHAPE was told to create a file that
-        # could not resolve under any name. The sharpest case is the one
-        # 0.8.0 created, a bare pre-0.8.0 code: `003` was answered with
-        # "put the artifact at inputs/references/003.toml" while the
-        # library's own sentence, chained immediately after it, said the
-        # file must be `r003.toml` and named the migration that renames
-        # it.
+        # Use the geometry resolver's three-way refusal: distinguish an invalid code
+        # shape from a missing file so the remedy never prescribes an unresolvable
+        # artifact filename.
         if not is_valid_artifact_id(code):
             remedy = (
                 "the cell is what to fix rather than the library: a code is a file "
@@ -373,26 +352,16 @@ def _resolve_code(
 def _moved_to_the_reference(row: MatrixRow, table: str) -> None:
     """REFUSE a setup preset that still carries a table the reference now owns.
 
-    FR-59 and FR-72. It raises and never returns: this function once warned
-    and let the preset's table be read until 0.17.0, and its name and this
-    docstring still said so after the behaviour changed to a refusal, which
-    is how a reader learns the wrong rule from the file that implements the
-    right one (the technical-writing lens of the 0.15.0 release review,
-    which read those words and reported the package as accepting what it
-    refuses).
+    FR-59 and FR-72: raise a refusal; this function never returns.
 
     The message names the row's two artifacts and where the table belongs,
     because whoever meets it has exactly one edit to make.
     """
-    # THE MESSAGE CARRIES NO ROW NUMBER, deliberately: the edit is one edit
-    # per PRESET, not per row, so naming a row would point a fifty-row
-    # campaign at a row rather than at the file to change (the interface
-    # lens of 2026-09-10, when this warned and the warning filter deduped
-    # on the message; a refusal stops at the first row, and the reasoning
-    # for naming the file rather than the row is unchanged).
+    # Name the preset and reference rather than a row number: the remedy is
+    # one edit to the shared preset, not an edit to every row citing it.
     raise InputArtifactError(
-        f"the setup preset {row.set_code!r} states [{table}], which moved to the "
-        f"reference artifact {row.ref_code!r} at 0.15.0: a boundary name and a "
+        f"the setup preset {row.set_code!r} states [{table}], which belongs in the "
+        f"reference artifact {row.ref_code!r}: a boundary name and a "
         "coordinate system are properties of the CONFIGURATION, and a preset is per "
         "condition. The reference's entries are the ones every row citing it uses. "
         f"Move the table into the reference {row.ref_code!r} and delete it here.",
@@ -404,10 +373,7 @@ def _aliases_of(reference, setup, row: MatrixRow) -> dict[str, list[str]]:
     """Return a row case's aliases, which are the REFERENCE's and only those.
 
     A preset stating any of its own is refused above, so there is nothing
-    to merge and no case-folding question left: this used to merge the two
-    tables, and the merge is gone with the deprecation it served rather
-    than left behind as unreachable code that tells the next reader a
-    preset's aliases still reach a case.
+    to merge and no case-folding question between the two artifacts.
     """
     if setup.aliases:
         _moved_to_the_reference(row, "aliases")
@@ -448,12 +414,9 @@ def _the_rows_raw_commands(row: MatrixRow, inputs_dir: Path) -> list[RawCommand]
             continue
         stated = record[RAW_FILE_KEY].strip()
         inputs = inputs_dir.resolve()
-        # RESOLVED BEFORE COMPARED, and that ORDER is the whole soundness of
-        # the check: `.resolve()` normalises `..` AND follows a link, so a
-        # junction placed inside the inputs and pointing out is caught. A
-        # lexical comparison defeats `..` and lets the junction through, and
-        # the QA lens measured that a lexical mutant survived the whole
-        # suite because no case reached the link (2026-09-10).
+        # Resolve before comparing: resolve() normalises .. and follows links,
+        # including a junction inside inputs that points outside. Lexical
+        # containment alone cannot detect that escape.
         path = (inputs_dir / stated).resolve()
         # UNDER THE INPUTS AND NOWHERE ELSE. A relative path that climbs out
         # of the workspace would read a file the run record cannot describe
@@ -470,17 +433,9 @@ def _the_rows_raw_commands(row: MatrixRow, inputs_dir: Path) -> list[RawCommand]
                 f"{path} is not a file. A raw file is written under the workspace's "
                 "inputs and its path is stated relative to them."
             )
-        # THE SOURCE IS THE RESOLVED PATH, NOT THE CELL'S TEXT, and this is
-        # the containment check's own stated purpose kept rather than
-        # merely claimed. `RAW/EXTRA.TXT`, `raw\\extra.txt`,
-        # `raw/../raw/extra.txt` and `raw/extra.txt.` all resolve inside the
-        # inputs on this platform and all four were written into the run
-        # record verbatim: an upper-cased name that no Linux machine
-        # resolves, a Windows separator, a non-canonical path, and a
-        # trailing dot the file system strips and the record did not. Each
-        # satisfies containment and defeats the reason for it (the QA lens,
-        # 2026-09-10). One canonical POSIX-relative spelling, so the record
-        # is separator-stable for the same reason the goldens are.
+        # Record the resolved source as one canonical POSIX-relative spelling.
+        # Containment alone does not normalise cell case, separators, .. or trailing
+        # dots; the recorded input must remain portable across platforms.
         canonical = path.relative_to(inputs).as_posix()
         try:
             body = path.read_text(encoding="utf-8-sig")
@@ -522,9 +477,6 @@ def _frames_for_row(reference, setup, row: MatrixRow) -> list:
     naming it, so the record cannot claim what the script never took; the
     setup's are refused exactly as before.
 
-    Whether that is the right division is the open question of
-    2026-09-10 (the interface lens, API1-20): refusing is the other
-    defensible answer and costs a study one edit per legacy row.
     """
     if row.workflow == LEGACY_WORKFLOW and reference.frames:
         warnings.warn(
@@ -565,12 +517,8 @@ def _not_on_a_legacy_row(row: MatrixRow, entries: list, table: str, sources: str
     the row's own key.
     """
     if entries and row.workflow == LEGACY_WORKFLOW:
-        # THE MESSAGE NAMES THE FILE THE ENTRIES CAME FROM, and it used to
-        # name the preset always. Since 0.15.0 the frames may come from the
-        # REFERENCE, so the old sentence could name a preset that states
-        # nothing and prescribe an edit that changes nothing (the interface
-        # lens of 2026-09-10). The caller knows which file contributed and
-        # says so in `sources`.
+        # Name the contributing file given by sources so the refusal directs the
+        # user to the artifact whose entries need correction.
         sources = sources or f"setup {row.set_code!r}"
         raise MatrixError(
             f"POL {row.pol} writes LEGACY and takes a [[{table}]] table from {sources}; a "
@@ -594,7 +542,7 @@ def _bind_motion(
     resolved against ``inputs/reference_points.toml`` and must be an
     rotor point, and the record keeps the name beside the coordinates
     as ``ROTOR_ORIGIN_POINT`` so the run record says which point it was.
-    Since 0.13.0 the flat rotor row's own ``ROTOR_ORIGIN`` is bound through
+    The flat rotor row's own ``ROTOR_ORIGIN`` is bound through
     the same function (PFS-2031.12), ``where`` naming which of the two the
     refusal is about.
     """
@@ -754,7 +702,7 @@ def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path
     """Resolve one ``GEOMETRY`` cell, naming the row.
 
     The sibling of :func:`_resolve_code` for the one library kind a matrix
-    names from its free cell rather than from a column. Since 0.11.0 the
+    names from its free cell rather than from a column. The
     cell carries the FILE NAME with its extension (PFS-2029.09), and the
     library's own refusal already says which file to write or to stage;
     this function adds the row so a reader finds the cell.
@@ -825,14 +773,8 @@ def _with_rotor_groups(pproc: PprocArtifact, reference, code: str, pol: str) -> 
 def _refuse_groups_named_by_a_word(pproc: PprocArtifact, code: str, pol: str) -> None:
     """Refuse a pproc group whose name reads as the NUMBERED era's own suffix.
 
-    THIS REFUSED EVERY WORD UNTIL 0.23.0, and that is what made item 14
-    unreachable from the other side. PFS-2032.03 refused a word here because the
-    polar table carried the group NUMBER in its name and `int(group)` therefore
-    stopped the whole products stage with a bare ValueError, after the seat was
-    spent. The naming is what changed: a group is now NAMED and the product file
-    carries that name, so the refusal's own reason is gone -- and a user
-    following the migration guide met this refusal telling them to undo the very
-    rename the guide had just asked for.
+    A group is named and its product filename carries that name (PFS-2032.03).
+    Do not require a numeric group identifier.
 
     WHAT STAYS REFUSED is the one name that cannot work: `g01` and its kin read
     as the suffix the numbered era wrote, so a file named after one could not be
@@ -880,10 +822,8 @@ def _resolve_cited_profiles(workspace: CampaignWorkspace, pproc, code: str, pol:
 
     THE GEOMETRY IS THE PRECEDENT. A GEOMETRY stem becomes an absolute path on
     the case here, when the row binds, and the script opens that path; a
-    survey is an input the same way and reaches the solver the same way. The
-    relative line it replaced named `profiles/<file>` inside the simulation
-    folder, where nothing had ever staged the file, and which a submitted
-    point's working directory is not (GOAL-021 item 2, measured 2026-09-14).
+    survey is an input the same way and reaches the solver the same way,
+    independently of the working directory (GOAL-021 item 2).
 
     IMPORTED IN PLACE, NOT COPIED: FR-80 says a cited profile is input a run
     must never write over, and the import reads it where it lives.
@@ -1112,8 +1052,7 @@ def _derived_velocity(
     revolutions per SECOND, which is why the rev/min are divided by sixty. The
     rotorcraft advance ratio, mu = V / (Omega R), is a different number for the
     same inputs -- larger by pi/2 -- and is not what this package reads. It is
-    named here because the vocabulary of this package spans both (the V&V lens,
-    2026-09-16).
+    named here because the vocabulary of this package spans both.
 
     A cell stating a velocity as well is refused where the cell is read, so by
     the time this is asked there is nothing to disagree with.
@@ -1332,11 +1271,8 @@ def _bind_build(
     else:
         named = [build for build in row_builds if build]
         if not named:
-            # Every active row named a build and the explicit override
-            # overruled all of them, so nothing left says which version
-            # the scripts are built for. A refusal naming the option,
-            # where a bare StopIteration stood until 2026-09-08
-            # (PFS-2031.14).
+            # Every active row named a build that the override overruled. Refuse when
+            # no remaining declaration identifies the script version (PFS-2031.14).
             raise MatrixError(
                 f"{Path(path).name}: the explicit executable override overrules the "
                 f"FS_BUILD cell of every active row, and no default version was given, so "
@@ -1458,13 +1394,10 @@ def _row_update(binding: _Binding, case: SimCase, row: MatrixRow) -> dict[str, o
         # FR-316: THE ROW'S SETUP KEYS, over its preset, for this row only: the
         # solver, and where the row states any, the keys and the variables left.
         **_setup_of_the_row(binding.setups[row.set_code], binding.solvers[row.set_code], row, case),
-        # THE REFERENCE'S FRAMES RIDE ON THE CASE (FR-72, the design decision of
-        # 2026-09-10), created by the builders after the package's own; a
-        # configuration defining none leaves the list empty and the script
-        # unchanged. They lived in the SETUP at 0.14.0 (PFS-2034.01), and a
-        # coordinate system is geometric data, so it belongs beside the
-        # lengths and the rotors; a preset still stating them is REFUSED
-        # when a row binds it, naming the reference to move them into.
+        # FR-72: carry the reference's frames on the case; builders create them
+        # after package frames. Coordinate systems belong to the configuration,
+        # not a per-condition preset. Refuse preset frames with the reference
+        # artifact to move them into. No declared frames leaves the list empty.
         "frames": _frames_for_row(reference, binding.setups[row.set_code], row),
         # THE SETUP'S RAW COMMANDS RIDE ON THE CASE TOO (PFS-2033.01),
         # each naming the artifact it came from, for the run record.
@@ -1475,11 +1408,8 @@ def _row_update(binding: _Binding, case: SimCase, row: MatrixRow) -> dict[str, o
                     row, binding.setups[row.set_code].raw_commands, "raw"
                 )
             ),
-            # THE PRESET'S LINES ARE THE GROUND AND THE ROW'S COME OVER
-            # THEM, which is the decision of 2026-09-10 and the whole of the
-            # ordering question at a shared seam (FR-67). The reference row 9210 is
-            # the case that fixes it: a preset line, then the row's file,
-            # then the row's own cell line.
+            # FR-67: order preset lines, then the row's file, then its own cell line,
+            # as specified by reference row 9210.
             *_the_rows_raw_commands(row, binding.workspace.inputs_dir),
         ],
         # THE SETUP'S CUSTOM FLAGS RIDE ON THE CASE (PFS-2035.20), each
@@ -1491,19 +1421,13 @@ def _row_update(binding: _Binding, case: SimCase, row: MatrixRow) -> dict[str, o
             entry.model_copy(update={"setup": row.set_code})
             for entry in _not_on_a_legacy_row(row, binding.setups[row.set_code].flags, "flags")
         ],
-        # THE REFERENCE'S ALIASES RIDE ON THE CASE (FR-59, the design decision of
-        # 2026-09-10), on a LEGACY row too: the products stage resolves a
-        # group by them whatever built the script. They lived in the SETUP
-        # at 0.14.0, which is per condition where a reference is per
-        # configuration, and a boundary name is not a solver setting; a
-        # preset still stating them is REFUSED when a row binds it,
-        # naming the reference to move them into.
+        # FR-59: carry the reference's aliases even on LEGACY rows, because
+        # products resolve groups regardless of the script builder. Aliases belong
+        # to a configuration, not a condition; refuse them in a preset and name
+        # the reference artifact to receive them.
         "aliases": _aliases_of(reference, binding.setups[row.set_code], row),
-        # THE ROTORS RIDE ON THE CASE (FR-60): a motion record names one
-        # by alias and takes its hub, axis, sign, blades and diameter
-        # from it, so a row states nine rotors without repeating nine
-        # hubs. A reference declaring none leaves this empty and every
-        # row written before 0.15.0 resolves exactly as it did.
+        # FR-60: motion names a rotor alias and reads its hub, axis, sign, blades
+        # and diameter from the reference. No declared rotors leaves this empty.
         "rotors": dict(reference.rotors),
         # THE ACTUATOR DISCS RIDE ON THE CASE (G06), as the rotors do: the
         # row's ACTUATOR names one and its loading keys load it. A reference
@@ -1529,23 +1453,9 @@ def _row_update(binding: _Binding, case: SimCase, row: MatrixRow) -> dict[str, o
 
 def _bind_geometry(binding: _Binding, row: MatrixRow, update: dict[str, object]) -> None:
     """Resolve FSI and geometry in the order their values reach the case."""
-    # ABSENT AND BLANK ARE THE SAME SILENCE, and it is the same rule
-    # `_resolve_build` applies one function above: a cell that is
-    # empty NAMES NOTHING. It matters more here than there, because
-    # it is what makes the promise this key ships with true: a row
-    # that does not name a geometry leaves the field absent, so every
-    # matrix written before 0.8.1 resolves to exactly the campaign it
-    # resolved to before, and the builders emit exactly the bytes they
-    # emitted before.
-    #
-    # NO `.strip()` HERE, deliberately, and the first version of this
-    # line had one. The reader strips every VAR_NAMES_VALUES value as
-    # it parses the cell, so `GEOMETRY:   ` arrives as `''` already
-    # and a second strip could never change an outcome: a mutation
-    # deleting it left the whole suite green, which is what an
-    # unreachable guard does. The composed behaviour is asserted in
-    # `tests/tier1_offline/test_matrix_run.py`, at the reader AND here, rather than
-    # defended twice in code and proven in neither place.
+    # An absent or blank GEOMETRY cell names nothing and leaves the field
+    # absent. The reader already strips VAR_NAMES_VALUES, so no second strip
+    # is needed. test_matrix_run checks this across reading and binding.
     fsi = resolve_row_fsi(binding.workspace.inputs_dir, row.variables)
     if isinstance(fsi, ExternalStructure):
         # FR-462: the user's program, hashed; the run stages its manifest.
@@ -1608,7 +1518,7 @@ def _bind_profiles(
     freestream = _resolve_freestream(binding.workspace, row)
     if freestream is not None:
         update["freestream_profile"] = freestream
-    # 0.32.0 (E2): AND ITS ACOUSTIC OBSERVER FILE, a file of inputs/acoustics/.
+    # E2: resolve the acoustic observer file under inputs/acoustics/.
     observers = resolve_observers_file(
         binding.workspace.inputs_dir,
         row.variables,
@@ -1641,15 +1551,9 @@ def _bind_row_variables(
         stated = update.get("variables")
         base = stated if isinstance(stated, Mapping) else case.variables
         update["variables"] = {**base, **bound}
-    # THE INVOCATION'S OWN CHOICE, written onto the row's variables so
-    # the builders read it like any other variable and never learn that
-    # a command line exists (PFS-2035.13, the design of 2026-09-10).
-    #
-    # ONLY THE FALSE SIDE WRITES. At the default the case is left
-    # byte-for-byte the case it was before this argument existed, which
-    # is what keeps every recorded run's identity and every emitted
-    # script unchanged; a variable written on both sides would have put
-    # a new key into every campaign of the 0.14.0 comparison.
+    # Write the invocation's choice into row variables for builders to read
+    # without knowing about the CLI (PFS-2035.13). Only false writes; the default
+    # leaves the case unchanged to preserve its identity and emitted script.
     if not binding.ignore_missing_families:
         stated = update.get("variables")
         base = stated if isinstance(stated, Mapping) else case.variables
@@ -1697,8 +1601,8 @@ def _bind_states(binding: _Binding, row: MatrixRow, update: dict[str, object]) -
             defaults_origin=condition_defaults_origin(row.set_code),
         )
         binding.conditions[row.pol] = resolved
-        # 0.40.0: a fully pinned state that disagrees with p = rho R T is
-        # warned about once per row; a swept row warned per point above.
+        # Warn once per row when a fully pinned state disagrees with p = rho R T;
+        # a swept row is warned per point above.
         if not update["point_states"]:
             _warn_pinned_states([pinned_state_mismatch(resolved, pol=row.pol)])
         # The three the case already has fields for. The rest of the
