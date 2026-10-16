@@ -218,6 +218,30 @@ IMPORT_CAD:
       own_line: true
   manual_ref: "FSM-26.120 p.286"
   versions:
+    "25.000":
+      status: documented
+      layout: param_lines
+      note: FSM-25.000 p.260, edition-specific line layout and arguments
+      args:
+      - name: file
+        type: path
+        own_line: true
+    "25.100":
+      status: documented
+      layout: param_lines
+      note: FSM-25.100 p.279, edition-specific line layout and arguments
+      args:
+      - name: file
+        type: path
+        own_line: true
+    "26.000":
+      status: documented
+      layout: param_lines
+      note: FSM-26.000 p.278, edition-specific line layout and arguments
+      args:
+      - name: file
+        type: path
+        own_line: true
     "26.100": {status: documented, note: "FSM-26.100 p.280, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.285, same grammar as 26.120"}
     "26.120": {status: documented}
@@ -240,15 +264,9 @@ IMPORT_CAD:
     three are required here: no edition prints a call omitting any of
     them, so a shorter form would be inferred rather than read.
 
-    THE THREE PRE-26.100 EDITIONS WRITE THIS COMMAND IN A DIFFERENT
-    LAYOUT and carry no row here because of it. They print the command
-    name alone on its line with each parameter on a line after it,
-    where 26.100 onward prints the arguments inline. A version row can
-    override the argument grammar and cannot override the layout, so a
-    row for those editions would emit the newer shape under an older
-    build's citation, which is worse than refusing to emit at all. The
-    reading exists and is withheld deliberately; the schema gap is
-    PLN-20260810-1200.
+    Older editions use the per-version line layouts and arguments recorded
+    above. Each row cites its own edition; later builds retain their
+    existing grammar. These readings are documented, not solver measurements.
 
 CONVERT_CAD_TO_MESH:
   layout: inline

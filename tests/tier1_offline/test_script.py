@@ -1632,7 +1632,7 @@ def test_every_cad_command_is_available_on_every_registered_build():
     assert named["25.000"] == named["25.100"] == named["26.000"], (
         "the three pre-26.100 builds carry different parts of the CAD chapter: "
         f"{ {c: v for c, v in named.items()} }. They are supposed to carry the same "
-        "sixteen, the chapter arriving whole only at 26.100"
+        "eighteen, the chapter arriving whole only at 26.100"
     )
     assert named["25.000"] == (
         "CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS",
@@ -1648,12 +1648,14 @@ def test_every_cad_command_is_available_on_every_registered_build():
         "CAD_CREATE_CURVE_REVERSE",
         "CAD_CREATE_CURVE_SELECT",
         "CAD_CREATE_CURVE_UNSELECT",
+        "CAD_CREATE_IMPORT_CURVE_CCS",
         "CAD_CREATE_IMPORT_CURVE_TXT",
         "CAD_CREATE_INITIALIZE",
         "CONVERT_CAD_TO_MESH",
+        "IMPORT_CAD",
     ), f"the CAD commands the older builds carry are now {named['25.000']}"
     partial = {c: len(names) for c, names in available.items() if c not in whole and names}
-    assert partial == {"25.000": 16, "25.100": 16, "26.000": 16}, (
+    assert partial == {"25.000": 18, "25.100": 18, "26.000": 18}, (
         f"the pre-26.100 builds carry {partial} of the {len(members)} CAD commands; "
         "each of those counts is a measured edition surface, so a change here is "
         "either a sweep that found more or a row that was lost"

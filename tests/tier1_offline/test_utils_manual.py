@@ -2139,12 +2139,11 @@ def test_the_sweep_fails_on_a_row_level_gap_alone(tmp_path, monkeypatch, capsys)
     manifest = _manifest(
         tmp_path, '- label: "25.000"\n  source: FSM-25.000\n  manual: x.pdf\n  chapter: 10-10\n'
     )
-    # IMPORT_CAD is in the database and deliberately carries no 25.000
-    # row, its older editions using a layout a version row cannot
-    # express (PLN-20260810-1200).
+    # Plant a later command in the synthetic older edition. Its entry exists,
+    # but that edition has no row, independently of the resolved CAD layouts.
     monkeypatch.setattr(
         "pyflightstream.utils.manual.read_pdf_pages",
-        lambda manual, *, first, last: {10: "Function name: IMPORT_CAD <A>\n"},
+        lambda manual, *, first, last: {10: "Function name: ENABLE_SOLVER_TIME_AVERAGING <A>\n"},
     )
     assert cli_main(["sweep", "--editions", str(manifest), "--fail-if-absent"]) == 1
     out = capsys.readouterr().out

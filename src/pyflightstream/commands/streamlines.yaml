@@ -140,6 +140,50 @@ NEW_OFF_BODY_STREAMTUBE:
       type: int
   manual_ref: "FSM-26.120 p.368"
   versions:
+    "25.000":
+      status: documented
+      layout: keyword_block
+      note: FSM-25.000 p.328, edition-specific line layout and arguments
+      args:
+      - name: radius
+        type: float
+      - name: frame
+        type: int
+        cites: frames
+      - name: axis
+        type: enum
+        values:
+        - '1'
+        - '2'
+        - '3'
+      - name: radial_subdivisions
+        type: int
+        cites: null
+      - name: azimuth_subdivisions
+        type: int
+        cites: null
+    "25.100":
+      status: documented
+      layout: keyword_block
+      note: FSM-25.100 p.341, edition-specific line layout and arguments
+      args:
+      - name: radius
+        type: float
+      - name: frame
+        type: int
+        cites: frames
+      - name: axis
+        type: enum
+        values:
+        - '1'
+        - '2'
+        - '3'
+      - name: radial_subdivisions
+        type: int
+        cites: null
+      - name: azimuth_subdivisions
+        type: int
+        cites: null
     "26.000": {status: documented, note: "FSM-26.000 p.340, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 p.363, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.367, same grammar as 26.120"}
@@ -161,14 +205,9 @@ NEW_OFF_BODY_STREAMTUBE:
     says which way the tube points. Recorded as the reading the two
     arguments together support, since neither alone would place a tube.
 
-    THE TWO 25 EDITIONS WRITE THIS COMMAND AS A KEYWORD BLOCK and carry
-    no row here because of it. They print KEY VALUE lines until a
-    terminator, where 26.000 onward prints the arguments inline. A
-    version row can override the argument grammar and cannot override
-    the layout, so a row for those editions would emit the newer shape
-    under an older build's citation, which is worse than refusing to
-    emit at all. The reading exists and is withheld deliberately; the
-    schema gap is PLN-20260810-1200.
+    Older editions use the per-version line layouts and arguments recorded
+    above. Each row cites its own edition; later builds retain their
+    existing grammar. These readings are documented, not solver measurements.
 
 SET_OFF_BODY_STREAMLINE_LENGTH:
   layout: keyword_block

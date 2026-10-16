@@ -104,6 +104,40 @@ def test_p0420_database_has_no_implicit_mixed_layouts():
             assert command.manual_ref, command.name
 
 
+@pytest.mark.parametrize("version", ["25.000", "25.100", "26.000"])
+@pytest.mark.parametrize("name", ["IMPORT_CAD", "CAD_CREATE_IMPORT_CURVE_CCS"])
+def test_p0420_older_cad_imports_take_only_the_file(version, name):
+    script = Script(version)
+    script.emit(name, "shape.ccs")
+    assert f"{name}\nshape.ccs\n\n" in script.render()
+    assert [arg.name for arg in script.entry(name).args] == ["file"]
+
+
+@pytest.mark.parametrize("version", ["25.000", "25.100"])
+def test_p0420_older_contour_numeric_keyword_golden(version):
+    script = Script(version)
+    script.emit("SET_SCENE_CONTOUR", variable="4")
+    assert "SET_SCENE_CONTOUR\nVARIABLE 4\n\n" in script.render()
+
+
+@pytest.mark.parametrize("version", ["25.000", "25.100"])
+def test_p0420_older_streamtube_keyword_golden(version):
+    script = Script(version)
+    script.declare_existing(frames=1)
+    script.emit(
+        "NEW_OFF_BODY_STREAMTUBE",
+        radius=0.5,
+        frame=2,
+        axis="1",
+        radial_subdivisions=3,
+        azimuth_subdivisions=10,
+    )
+    assert (
+        "NEW_OFF_BODY_STREAMTUBE\nRADIUS 0.5\nFRAME 2\nAXIS 1\n"
+        "RADIAL_SUBDIVISIONS 3\nAZIMUTH_SUBDIVISIONS 10\n\n"
+    ) in script.render()
+
+
 def missing_integer_declarations(commands):
     missing = []
     for command in commands:

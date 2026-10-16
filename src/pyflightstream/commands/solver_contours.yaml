@@ -44,6 +44,74 @@ SET_SCENE_CONTOUR:
         - proximity
   manual_ref: "FSM-26.120 pp.349-350"
   versions:
+    "25.000":
+      status: documented
+      layout: keyword_block
+      note: FSM-25.000 p.310, edition-specific line layout and arguments
+      args:
+      - name: variable
+        type: enum
+        values:
+        - '0'
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        - '8'
+        - '9'
+        - '10'
+        - '11'
+        - '12'
+        - '13'
+        - '14'
+        - '15'
+        - '16'
+        - '17'
+        - '18'
+        - '19'
+        - '20'
+        - '21'
+        - '22'
+        - '23'
+        - '24'
+        - '25'
+    "25.100":
+      status: documented
+      layout: keyword_block
+      note: FSM-25.100 p.323, edition-specific line layout and arguments
+      args:
+      - name: variable
+        type: enum
+        values:
+        - '0'
+        - '1'
+        - '2'
+        - '3'
+        - '4'
+        - '5'
+        - '6'
+        - '7'
+        - '8'
+        - '9'
+        - '10'
+        - '11'
+        - '12'
+        - '13'
+        - '14'
+        - '15'
+        - '16'
+        - '17'
+        - '18'
+        - '19'
+        - '20'
+        - '21'
+        - '22'
+        - '23'
+        - '24'
+        - '25'
     "26.000": {status: documented, note: "FSM-26.000 p.322, same grammar as 26.120"}
     "26.100": {status: documented, note: "FSM-26.100 pp.345-346, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 pp.348-349, same grammar as 26.120"}
@@ -240,11 +308,6 @@ SET_SCENE_CONTOUR:
     selecting one before the run is a scene showing an empty field
     rather than an error.
 
-    THE TWO 25 EDITIONS WRITE THIS COMMAND AS A KEYWORD BLOCK and carry
-    no row here because of it. They print KEY VALUE lines until a
-    terminator, where 26.000 onward prints the arguments inline. A
-    version row can override the argument grammar and cannot override
-    the layout, so a row for those editions would emit the newer shape
-    under an older build's citation, which is worse than refusing to
-    emit at all. The reading exists and is withheld deliberately; the
-    schema gap is PLN-20260810-1200.
+    Older editions use the per-version line layouts and arguments recorded
+    above. Each row cites its own edition; later builds retain their
+    existing grammar. These readings are documented, not solver measurements.
