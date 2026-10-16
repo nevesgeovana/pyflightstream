@@ -315,7 +315,7 @@ DELETE_ALL_SURFACE_STREAMLINES:
     Deletes every on-body streamline.
 
 EXPORT_ALL_SURFACE_STREAMLINES:
-  layout: inline
+  layout: param_lines
   phase: export
   args:
     - name: file

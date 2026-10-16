@@ -1803,7 +1803,7 @@ class Script:
         provided = [(spec, bound[spec.name]) for spec in entry.args if spec.name in bound]
         if entry.layout is Layout.BARE:
             return [entry.name], False
-        if entry.layout is Layout.INLINE:
+        if entry.layout in (Layout.INLINE, Layout.MIXED_INLINE):
             return self._render_inline(entry, provided)
         if entry.layout is Layout.PAYLOAD_LINES:
             return self._render_payload_lines(entry, provided)
@@ -1850,7 +1850,7 @@ class Script:
         for spec, value in provided:
             if spec.is_list:
                 lines.extend(self._list_lines(spec, value))  # type: ignore[arg-type]
-            elif spec.type is ArgType.PATH:
+            elif spec.type is ArgType.PATH or spec.own_line:
                 lines.append(self._format_scalar(value))
             else:
                 lines.append(f"{spec.name.upper()} {self._format_scalar(value)}")

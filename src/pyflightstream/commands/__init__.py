@@ -184,6 +184,9 @@ class VersionStatus(BaseModel):
         emission for this version binds and renders the overridden
         grammar. Absent for a version whose grammar matches the
         entry-level one, and meaningless for ``removed``.
+    layout : Layout, optional
+        Per-version line layout, validated with the effective argument
+        grammar. Absent means the entry-level layout; removed rows have none.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -194,6 +197,7 @@ class VersionStatus(BaseModel):
     report: str | None = None
     probe_ref: str | None = None
     args: tuple[ArgSpec, ...] | None = None
+    layout: Layout | None = None
 
     @model_validator(mode="after")
     def _statuses_follow_the_evidence_rules(self) -> VersionStatus:
@@ -202,7 +206,7 @@ class VersionStatus(BaseModel):
                 f"status {self.status} requires a committed probe report; statuses are "
                 "promoted only through pyfs-qa apply-compat, never edited by hand"
             )
-        if self.args is not None and self.status is Status.REMOVED:
+        if (self.args is not None or self.layout is not None) and self.status is Status.REMOVED:
             raise ValueError(
                 "a removed version has no grammar to emit; args overrides are only "
                 "recorded for versions where the command exists"
@@ -583,9 +587,13 @@ class CommandEntry(BaseModel):
     @model_validator(mode="after")
     def _version_arg_overrides_obey_the_layout_rules(self) -> CommandEntry:
         for canonical, record in self.versions.items():
-            if record.args is not None:
+            if record.args is not None or record.layout is not None:
                 label = f"{self.name} ({canonical} args override)"
-                _check_layout_rules(label, self.layout, record.args)
+                _check_layout_rules(
+                    label,
+                    record.layout or self.layout,
+                    record.args if record.args is not None else self.args,
+                )
         return self
 
     def evidence_in(self, version: FsVersion) -> Evidence | None:
@@ -763,7 +771,7 @@ class VersionView:
                 f"({reason}, {citation}).{inherited_note}"
                 f"{last_part} {successor}"
             )
-        if record.args is not None:
+        if record.args is not None or record.layout is not None:
             # Per-version grammar override: the returned entry carries the
             # argument signature this version's manual documents, AND the
             # citation of the edition that documents it. Without the second
@@ -781,10 +789,14 @@ class VersionView:
             # breaks that field's own repository-relative-path rule. A
             # probe-cited entry therefore keeps its citation unchanged: the
             # report is still the evidence, and the grammar is the row's.
+            grammar = {
+                "args": record.args if record.args is not None else entry.args,
+                "layout": record.layout or entry.layout,
+            }
             if entry.probe_ref and not entry.manual_ref:
-                return entry.model_copy(update={"args": record.args})
+                return entry.model_copy(update=grammar)
             cited = _override_citation(entry, evidence.source, record.note)
-            return entry.model_copy(update={"args": record.args, "manual_ref": cited})
+            return entry.model_copy(update={**grammar, "manual_ref": cited})
         return entry
 
     def __contains__(self, name: str) -> bool:

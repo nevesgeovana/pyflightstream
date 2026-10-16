@@ -20,7 +20,8 @@ class Layout(enum.StrEnum):
     """Script layout grammars a command can use.
 
     ``bare`` has no arguments; ``inline`` takes arguments on the command
-    line; ``param_lines`` takes the command name alone and its
+    line; ``mixed_inline`` adds explicitly declared following lines to
+    an inline head; ``param_lines`` takes the command name alone and its
     parameters each on a following line, ended by a blank line (the
     multi-line function grammar of FSM-26.120 p.279, for example OPEN on
     p.282); ``payload_lines`` takes a count followed by that many data
@@ -29,6 +30,7 @@ class Layout(enum.StrEnum):
 
     BARE = "bare"
     INLINE = "inline"
+    MIXED_INLINE = "mixed_inline"
     PARAM_LINES = "param_lines"
     PAYLOAD_LINES = "payload_lines"
     KEYWORD_BLOCK = "keyword_block"
@@ -217,9 +219,9 @@ class ArgSpec(BaseModel):
         How a list-typed argument joins its values when rendered; the
         manual fixes it per command (see :class:`ListSeparator`).
     own_line : bool
-        For inline commands whose file path follows on the line after
+        For mixed_inline commands whose file path follows on the line after
         the inline arguments (for example SET_PROP_ACTUATOR_PROFILE,
-        FSM-26.120 pp.323-324).
+        FSM-26.120 pp.323-324), or a bare value line in param_lines.
     joins_previous : bool
         The value is appended to the script line of the preceding
         argument instead of taking its own KEY VALUE line; the copy
@@ -404,7 +406,7 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
     """
     if layout is Layout.BARE and args:
         raise CommandDatabaseError(f"{name} has layout bare and must not declare arguments")
-    if layout is Layout.INLINE:
+    if layout in (Layout.INLINE, Layout.MIXED_INLINE):
         optional = False
         for arg in args:
             if arg.own_line:
@@ -415,8 +417,12 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
                     "make positional arguments required before optional ones"
                 )
             optional = optional or not arg.required
-    if layout is not Layout.INLINE and any(arg.own_line for arg in args):
-        raise CommandDatabaseError(f"{name}: own_line only applies to inline commands")
+    if layout not in (Layout.MIXED_INLINE, Layout.PARAM_LINES) and any(
+        arg.own_line for arg in args
+    ):
+        raise CommandDatabaseError(
+            f"{name}: own_line requires an explicit mixed_inline or param_lines layout"
+        )
     if layout is not Layout.KEYWORD_BLOCK and any(arg.type is ArgType.BOOL for arg in args):
         raise CommandDatabaseError(
             f"{name}: bool arguments are bare presence keywords of a "
@@ -430,7 +436,7 @@ def _check_layout_rules(name: str, layout: Layout, args: tuple[ArgSpec, ...]) ->
 
 def _check_inline_lists(name: str, layout: Layout, args: tuple[ArgSpec, ...]) -> None:
     """Reject an inline list that declares a separator other than a space."""
-    if layout is Layout.INLINE:
+    if layout in (Layout.INLINE, Layout.MIXED_INLINE):
         for arg in args:
             if arg.is_list and arg.separator is not ListSeparator.SPACE:
                 raise CommandDatabaseError(

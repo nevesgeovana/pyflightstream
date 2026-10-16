@@ -420,7 +420,7 @@ SOLVER_TIME_AVERAGING:
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE hangs the solver both in INIT before INITIALIZE_SOLVER and [...]"}
 
 SET_NEW_UNSTEADY_SOLVER_ACTION:
-  layout: inline
+  layout: mixed_inline
   phase: init
   args:
     - name: type

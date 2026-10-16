@@ -143,7 +143,7 @@ UPDATE_ALL_VOLUME_SECTIONS:
     "26.125": {status: documented, note: "FSM-26.125 p.378, unchanged from FSM-26.124 p.372"}
 
 EXPORT_VOLUME_SECTION_VTK:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: index
@@ -168,7 +168,7 @@ EXPORT_VOLUME_SECTION_VTK:
     The file path follows on the line after the section index.
 
 EXPORT_VOLUME_SECTION_TECPLOT:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: index
@@ -265,7 +265,7 @@ VOLUME_SECTION_WIREFRAME:
     which agree with each other.
 
 EXPORT_VOLUME_SECTION_2D_VTK:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: index

@@ -156,7 +156,7 @@ SET_PROP_ACTUATOR_RPM:
     Sign selects the rotation direction about the actuator axis.
 
 SET_PROP_ACTUATOR_PROFILE:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: actuator_index

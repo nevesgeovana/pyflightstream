@@ -77,7 +77,7 @@ CCS_IMPORT:
     geometry boundaries are deleted first (FSM-26.120 p.307).
 
 EXPORT_SURFACE_MESH:
-  layout: inline
+  layout: mixed_inline
   phase: control
   args:
     - name: file_type

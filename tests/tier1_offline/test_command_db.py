@@ -85,7 +85,7 @@ QUOTED_PHRASE = re.compile(
 )
 REQUIRED_ENTRY_KEYS = {"layout", "phase", "args", "versions"}
 CITATION_KEYS = {"manual_ref", "probe_ref"}
-KNOWN_LAYOUTS = {"bare", "inline", "param_lines", "payload_lines", "keyword_block"}
+KNOWN_LAYOUTS = {"bare", "inline", "mixed_inline", "param_lines", "payload_lines", "keyword_block"}
 
 
 def load_meta():
@@ -379,9 +379,9 @@ def test_version_args_override_is_rejected_for_removed():
 
 
 def test_version_args_override_obeys_the_layout_rules():
-    with pytest.raises(ValidationError, match="own_line only applies"):
+    with pytest.raises(ValidationError, match="own_line requires"):
         make_entry(
-            layout="param_lines",
+            layout="inline",
             args=[{"name": "filename", "type": "path"}],
             versions={
                 "26.120": {

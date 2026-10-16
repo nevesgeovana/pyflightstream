@@ -150,7 +150,7 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
     passes the phase order only through Script.emit_after_initialization.
 
 SET_FREESTREAM:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: type
@@ -385,7 +385,7 @@ DETECT_TRAILING_EDGES_BY_SURFACE:
     database's.
 
 TRAILING_EDGES_IMPORT:
-  layout: inline
+  layout: param_lines
   phase: setup
   args:
     - name: file
@@ -737,6 +737,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
       note: "FSM-26.122 p.324, the first edition to document it"
     "26.123": {status: documented, note: "FSM-26.123 p.323, unchanged from FSM-26.122 p.324"}
     "26.124":
+      layout: mixed_inline
       status: verified
       report: "reports/compat/CMP-26124_2026-09-24_wake-edge-import.yaml"
       note: >-
@@ -760,6 +761,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
           type: path
           own_line: true
     "26.125":
+      layout: mixed_inline
       status: verified
       report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
       note: >-

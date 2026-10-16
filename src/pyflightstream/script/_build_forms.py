@@ -424,7 +424,7 @@ def _check_bound_form(
                 "export_surface_data_per_step is enabled; provide the folder for "
                 f"TXT, CSV, DAT or VTK, and omit it for DISABLE ({entry.citation})"
             )
-    if entry.layout is Layout.INLINE:
+    if entry.layout in (Layout.INLINE, Layout.MIXED_INLINE):
         positional = _positional_form(entry, specs, checked)
         missing = None
         for spec in positional:

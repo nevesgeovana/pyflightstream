@@ -262,7 +262,7 @@ DELETE_CCS_FUSELAGE_RELAXED_TE:
     the reason given on DELETE_CCS_FUSELAGE_REFINEMENT_ZONES.
 
 EXPORT_FUSELAGE_CCS_FILE:
-  layout: inline
+  layout: mixed_inline
   phase: geometry
   args:
     - name: name

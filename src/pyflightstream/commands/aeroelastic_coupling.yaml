@@ -149,7 +149,7 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
     interpretation, not an established fact; PLN-20260808-1100 carries the probe.
 
 IMPORT_AEROELASTIC_STRUCTURAL_NODES:
-  layout: inline
+  layout: mixed_inline
   phase: init
   args:
     - name: structural_coordinate_system
@@ -190,7 +190,7 @@ DELETE_AEROELASTIC_STRUCTURAL_NODES:
   notes: Deletes all imported structural nodes.
 
 SET_AEROELASTIC_WORKING_DIRECTORY:
-  layout: inline
+  layout: param_lines
   phase: init
   args:
     - name: directory_path
@@ -211,7 +211,7 @@ SET_AEROELASTIC_WORKING_DIRECTORY:
     working directory of the external executable's process.
 
 SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
-  layout: inline
+  layout: param_lines
   phase: init
   args:
     - name: script_path
@@ -232,7 +232,7 @@ SET_AEROELASTIC_POST_PROCESSING_SCRIPT:
     example the surface section loads export.
 
 SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND:
-  layout: inline
+  layout: param_lines
   phase: init
   args:
     - name: command

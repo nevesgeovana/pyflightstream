@@ -272,7 +272,7 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
     does not read.
 
 SET_MOTION_FSI_EXECUTABLE:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: motion_id
@@ -316,7 +316,7 @@ SET_MOTION_FSI_EXECUTABLE:
     26.124 and 26.125 by the same probe round.
 
 SET_MOTION_FSI_STRUCTURAL_NODES:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: motion_id
@@ -619,7 +619,7 @@ SET_MOTION_GRAVITY:
     caller's: the sample points it along negative Z.
 
 SET_MOTION_CUSTOM_TABLE:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: type
@@ -811,7 +811,7 @@ CREATE_NEW_6DOF_EXTERNAL_FORCE:
     nothing would say so.
 
 CREATE_NEW_6DOF_CUSTOM_FORCE:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: motion_id
@@ -961,7 +961,7 @@ SET_6DOF_MOTION_SYMMETRY_LOADS:
     (PLN-20260806-1200).
 
 EXPORT_6DOF_TRAJECTORY:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: motion_id

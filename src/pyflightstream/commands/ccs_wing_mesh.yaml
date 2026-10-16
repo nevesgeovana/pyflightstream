@@ -469,7 +469,7 @@ DELETE_CCS_WING_CONTROL_SURFACE:
 # --- lofting the mesh out -----------------------------------------------------
 
 EXPORT_WING_CCS_FILE:
-  layout: inline
+  layout: mixed_inline
   phase: geometry
   args:
     - name: name

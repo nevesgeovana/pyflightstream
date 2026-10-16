@@ -206,7 +206,7 @@ COMPUTE_STABILITY_COEFFICIENTS:
     and has not been measured here.
 
 STABILITY_TOOLBOX_EXPORT:
-  layout: inline
+  layout: param_lines
   phase: export
   args:
     - name: file

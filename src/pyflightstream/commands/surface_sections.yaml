@@ -262,7 +262,7 @@ EXPORT_ALL_SURFACE_SECTIONS:
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.377, unchanged from FSM-26.124 p.371"}
 
 EXPORT_SURFACE_SECTIONS:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: index

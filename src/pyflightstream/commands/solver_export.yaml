@@ -245,7 +245,7 @@ EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS:
     boundaries.
 
 EXPORT_BL_VELOCITY_PROFILE:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: frame

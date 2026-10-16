@@ -98,7 +98,7 @@ CREATE_NEW_ACOUSTIC_OBSERVER:
     does not: there is no way to give an observer a local frame.
 
 ACOUSTIC_OBSERVERS_IMPORT:
-  layout: inline
+  layout: param_lines
   phase: setup
   args:
     - name: file
@@ -226,7 +226,7 @@ COMPUTE_ACOUSTIC_SIGNALS:
     that does the work.
 
 EXPORT_ACOUSTIC_SIGNALS:
-  layout: inline
+  layout: param_lines
   phase: analysis
   args:
     - name: file

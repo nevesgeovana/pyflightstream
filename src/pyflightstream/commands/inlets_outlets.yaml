@@ -91,7 +91,7 @@ CREATE_NEW_INLET:
     ingestion, and nothing here can check it.
 
 SET_INLET_CUSTOM_PROFILE:
-  layout: inline
+  layout: mixed_inline
   phase: setup
   args:
     - name: inlet_id

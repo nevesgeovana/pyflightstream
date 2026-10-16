@@ -35,7 +35,7 @@ CREATE_FREE_SURFACE_TFI_MESH:
     states none.
 
 FREE_SURFACE_EXPORT_TYPE:
-  layout: inline
+  layout: mixed_inline
   phase: export
   args:
     - name: type

@@ -196,7 +196,7 @@ CAD_BODY_SELECT_BY_THRESHOLD:
     (PLN-20260806-0900).
 
 IMPORT_CAD:
-  layout: inline
+  layout: mixed_inline
   phase: geometry
   args:
     - name: tessellation_density

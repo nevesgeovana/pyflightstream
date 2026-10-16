@@ -843,7 +843,7 @@ CAD_CREATE_CURVE_EXPORT_CCS:
 # the manual's own order.
 
 CAD_CREATE_IMPORT_CURVE_TXT:
-  layout: inline
+  layout: mixed_inline
   phase: geometry
   args:
     - name: units
@@ -896,7 +896,7 @@ CAD_CREATE_IMPORT_CURVE_TXT:
     in the chapter header.
 
 CAD_CREATE_IMPORT_CURVE_CCS:
-  layout: inline
+  layout: mixed_inline
   phase: geometry
   args:
     - name: units
@@ -938,7 +938,7 @@ CAD_CREATE_IMPORT_CURVE_CCS:
     PLN-20260810-1200.
 
 CAD_CREATE_IMPORT_CURVE_P3D:
-  layout: inline
+  layout: mixed_inline
   phase: geometry
   args:
     - name: units
