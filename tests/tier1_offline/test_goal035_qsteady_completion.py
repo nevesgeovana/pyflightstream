@@ -107,7 +107,7 @@ def test_passage_positions_is_read_as_every_count_of_a_row():
     """`2.0` is two clockings; `2.5` and `two` are refused naming the key."""
     # P0300-QS-PASSAGE-POSITIONS
     lines, _ = _lines(_case(PASSAGE_POSITIONS="2.0", ALPHA_POINT=5.0))
-    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 X 60.0 -1 DISABLE"
+    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 Z 60.0 -1 DISABLE"
     with pytest.raises(CampaignConfigError, match="PASSAGE_POSITIONS.*fractional"):
         _lines(_case(PASSAGE_POSITIONS="2.5", ALPHA_POINT=5.0))
     with pytest.raises(CampaignConfigError, match="PASSAGE_POSITIONS.*not a number"):

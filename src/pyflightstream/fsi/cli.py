@@ -29,6 +29,7 @@ and the log's path to stderr.
 
 import argparse
 import datetime
+import difflib
 import json
 import shutil
 import sys
@@ -291,6 +292,20 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _solver_call(argv: list[str]) -> int:
+    """Keep unknown solver conventions while refusing recognizable CLI mistakes."""
+    commands = ("init-dummy", "step", "external")
+    options = {"--dir", "--out", "--node-count", "--version", "--help", "-h"}
+    if any(token.split("=", 1)[0] in options for token in argv) or (
+        argv and difflib.get_close_matches(argv[0], commands, n=1, cutoff=0.7)
+    ):
+        _build_parser().error("use a subcommand before its options; check the subcommand spelling")
+    directory = Path.cwd()
+    mode = "coupled" if (directory / COUPLED_CONFIG).is_file() else "dummy"
+    print(f"pyfs-fsi: dispatching {mode} step in {directory}", file=sys.stderr)
+    return _step(directory, received_argv=tuple(argv))
+
+
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Entry point of the ``pyfs-fsi`` console script.
@@ -307,15 +322,8 @@ def main(argv: list[str] | None = None) -> int:
         The process exit code, 0 on success.
     """
     argv = sys.argv[1:] if argv is None else argv
-    if not argv:
-        # FlightStream calls the executable bare: one coupling step,
-        # coupled when the working directory carries a config.json.
-        return _step(Path.cwd())
-    if argv[0] not in ("init-dummy", "step", "external", "-h", "--help"):
-        # Unknown call convention: the Toolbox may pass arguments of its
-        # own. Execute the coupling step anyway and record the arguments
-        # as evidence instead of dying on argparse.
-        return _step(Path.cwd(), received_argv=tuple(argv))
+    if not argv or argv[0] not in ("init-dummy", "step", "external", "-h", "--help"):
+        return _solver_call(argv)
     parser = _build_parser()
     args = parser.parse_args(argv)
     if getattr(args, "legacy_dir", None) is not None:

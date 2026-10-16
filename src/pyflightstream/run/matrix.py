@@ -43,7 +43,6 @@ from pathlib import Path, PurePath
 from typing import Any
 
 import pyflightstream
-import pyflightstream._textio as _textio
 from pyflightstream._deprecations import MATRIX_FS_VERSION
 from pyflightstream._digest import file_sha256, optional_file_sha256
 from pyflightstream._errors import (
@@ -55,7 +54,6 @@ from pyflightstream._errors import (
 )
 from pyflightstream._progress import workspace_activity
 from pyflightstream.cases import (
-    EXPORT_KINDS,
     Campaign,
     ScriptRecipe,
     SimCase,
@@ -98,7 +96,15 @@ from pyflightstream.run import (
     run_campaign,
     runs_as_one_job,
 )
-from pyflightstream.run._additional import complete_extraction, discard_extraction_copy
+from pyflightstream.run._additional import (
+    _LOG_SUFFIX,
+    _archive_extraction_folder,
+    _launch_extraction,
+    _the_extraction_s_log,
+    _write_extraction_script,
+    complete_extraction,
+    discard_extraction_copy,
+)
 from pyflightstream.run._additional import (
     record_additional_extraction as record_additional_extraction,
 )
@@ -115,7 +121,6 @@ from pyflightstream.script import Script
 from pyflightstream.versions import known_versions, resolve
 from pyflightstream.workspace import (
     ADDITIONAL_DIR,
-    ARCHIVE_DIR,
     ARCHIVE_STAMP,
     AdditionalRecord,
     CampaignWorkspace,
@@ -1882,19 +1887,15 @@ def _extract(
     recorded = str(context["fsm_sha256"])
     # WHATEVER AN EARLIER PASS LEFT MOVES ASIDE, the archive_datapoint rule: a
     # declared output already in the folder would be collected as this launch's.
-    if folder.is_dir():
-        movable = [child for child in folder.iterdir() if child.name != ARCHIVE_DIR]
-        if movable:
-            target = folder / ARCHIVE_DIR / stamp
-            target.mkdir(parents=True, exist_ok=True)
-            for child in movable:
-                child.replace(target / child.name)
-    folder.mkdir(parents=True, exist_ok=True)
+    _archive_extraction_folder(folder, stamp)
     copy = folder / f"{context['stem']}{REOPENED_SUFFIX}"
     shutil.copy2(original, copy)
-    (sim_dir / "scripts" / ADDITIONAL_DIR / plan.pproc).mkdir(parents=True, exist_ok=True)
-    script_path, script_sha = workspace.write_script(
-        point.sim_id, _script_name(plan.pproc, str(context["stem"])), plan.script_text
+    script_path, script_sha = _write_extraction_script(
+        workspace,
+        point.sim_id,
+        _script_name(plan.pproc, str(context["stem"])),
+        plan.script_text,
+        stamp=stamp,
     )
     commit, dirty = package_vcs_state()
     base: dict[str, object] = {
@@ -1934,12 +1935,15 @@ def _extract(
             error=f"the copy of {original} hashed {copied[:12]}, not {recorded[:12]}; nothing ran",
             original=original,
         )
-    from pyflightstream.run import bind_submission_values
-
-    bind_submission_values(executor, case, case)
-    result = executor.run_script(script_path, working_dir=folder, timeout_s=case.solver.timeout_s)
-    if result.failed:
-        copy.unlink(missing_ok=True)
+    result, launch_error = _launch_extraction(executor, case, script_path, folder, copy, base=base)
+    if result is None:
+        return record_additional_extraction(
+            workspace,
+            base,
+            status=ExtractionStatus.FAILED_EXECUTION,
+            error=launch_error,
+            original=original,
+        )
     base.update(
         {
             "argv": list(result.argv),
@@ -1999,41 +2003,6 @@ def _extract(
         translations=translations if isinstance(translations, list) else None,
     )
     return discard_extraction_copy(workspace, completed, copy)
-
-
-#: The suffix of a declared solver log, the log export kind's own.
-_LOG_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
-
-
-def _the_extraction_s_log(
-    base: dict[str, object], names: list[str], sim_dir: Path, printed: str
-) -> list[str]:
-    """Write an extraction's declared log from what the solver printed, or excuse it.
-
-    On a machine that cannot export the log the extraction script carries no
-    ``EXPORT_LOG``, as a run's does there. What the solver printed is written
-    as the declared log; with nothing printed the log is not required, since
-    the machine cannot write one. Either way the record's ``note`` says so.
-    Returns the names the extraction is held to.
-    """
-    logs = [name for name in names if name.endswith(_LOG_SUFFIX) and not (sim_dir / name).is_file()]
-    if not logs:
-        return names
-    if printed:
-        _textio.write_text(sim_dir / logs[0], printed)
-        said = (
-            f"{PurePath(logs[0]).name} is the solver's captured standard output and error, "
-            "written by this package: this machine's HPC profile states export_log = false, "
-            "so the extraction script exports no log"
-        )
-    else:
-        names = [name for name in names if name != logs[0]]
-        said = (
-            "no solver log: this machine's HPC profile states export_log = false, so the "
-            "extraction script exports none, and the solver printed nothing to capture"
-        )
-    base["note"] = "; ".join(str(part) for part in (base.get("note"), said) if part)
-    return names
 
 
 def _script_name(pproc: str, stem: str) -> str:

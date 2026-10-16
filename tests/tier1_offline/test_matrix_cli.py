@@ -19,6 +19,65 @@ from pyflightstream.workspace import CampaignWorkspace
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "matrix.fs"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "plan",
+        "run",
+        "post",
+        "collect",
+        "status",
+        "rebuild",
+        "mark-failed",
+        "mark-converged",
+        "delete-sims",
+    ],
+)
+@pytest.mark.parametrize(
+    "words", [["2006", "2007"], ["2006,2007"], ["[2006,", "2007]"], ["[2006]", "[2007]"]]
+)
+def test_p0420_p1_1d_all_sim_selectors_share_the_grammar(command, words, monkeypatch):
+    import argparse
+
+    parse = argparse.ArgumentParser.parse_args
+
+    def checked(parser, argv, namespace=None):
+        args = parse(parser, argv, namespace)
+        assert args.sims == ["2006", "2007"]
+        raise SystemExit(0)
+
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", checked)
+
+    arguments = [command]
+    if command in {"plan", "run", "post"}:
+        arguments.append("matrix.fs")
+    if command == "mark-converged":
+        arguments += ["--reason", "reviewed"]
+    with pytest.raises(SystemExit) as caught:
+        main([*arguments, "--sims", *words])
+    assert caught.value.code == 0
+
+
+def test_p0420_p1_1d_delete_positional_alias_warns_and_preserves_selection(tmp_path, capsys):
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+    from pyflightstream.workspace import RunStatus
+    from tests.tier1_offline.test_mark_failed import _record
+
+    workspace = CampaignWorkspace(tmp_path)
+    workspace.init(tmp_path)
+    for sim in ("2006", "2007"):
+        workspace.append_record(_record(sim, f"camp/sim_{sim}/AL+000", RunStatus.FAILED_MARKED))
+    assert main(["delete-sims", "--workspace", str(tmp_path), "--sims", "2006", "2007"]) == 0
+    modern = capsys.readouterr().out
+    with pytest.warns(PyflightstreamDeprecationWarning, match="0.43.0"):
+        assert main(["delete-sims", "[2006,2007]", "--workspace", str(tmp_path)]) == 0
+    assert capsys.readouterr().out == modern
+    assert "2006" in modern and "2007" in modern
+    assert main(["delete-sims", "2006", "--sims", "2007", "--workspace", str(tmp_path)]) == 2
+
+
 REGISTRY_FIXTURE = FIXTURES / "matrix_registry.fs"
 RECIPE_ARGS = [
     "--recipe",
@@ -135,7 +194,16 @@ def test_plan_with_cost_tables_every_point_it_planned(tmp_path, monkeypatch, cap
     # FR-82 her instruction is most specific about.
     assert "EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT" in out
     # One row per planned point, and this matrix plans four.
-    assert out.count("/a") >= 4 or out.count("ready") >= 1
+    table = out.split("EXPECTED TIME IS AN EXTRAPOLATION AND NOT A MEASUREMENT:")[0]
+    rows = [line.split() for line in table.splitlines() if line.strip().startswith("matrix/sim_")]
+    assert len(rows) == 4
+    assert {row[0] for row in rows} == {
+        "matrix/sim_8001/M089RE310AL+000",
+        "matrix/sim_8001/M089RE310AL+020",
+        "matrix/sim_8002/M089RE310BE-030",
+        "matrix/sim_8002/M089RE310BE+030",
+    }
+    assert all(row[5] == "steady" for row in rows)
 
 
 def test_run_local_reaches_the_library(tmp_path, monkeypatch):

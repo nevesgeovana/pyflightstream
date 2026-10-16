@@ -157,8 +157,10 @@ def test_every_command_carries_a_26125_row_or_a_documented_absence():
     counts = {status: 0 for status in Status}
     for row in rows.values():
         counts[row.status] += 1
-    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (185, 5, 4)
-    assert counts[Status.DOCUMENTED] == 187
+    # CMP-26125_2026-10-16_free-surface-precondition-reanalysis withdraws one
+    # broken judgement: the aborted probe did not establish its precondition.
+    assert (counts[Status.VERIFIED], counts[Status.BROKEN], counts[Status.REMOVED]) == (185, 4, 4)
+    assert counts[Status.DOCUMENTED] == 188
     assert rows["SET_DIRECT_AEROELASTIC_MESH_MORPHING"].status is Status.DOCUMENTED
     assert rows["SET_OUTFLOW_TRAILING_EDGES"].status is Status.REMOVED
     edition = manual_editions()["26.125"]

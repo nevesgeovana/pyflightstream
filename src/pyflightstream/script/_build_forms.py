@@ -308,24 +308,6 @@ def assign_selected_ccs_curves(script: Script, kind: str) -> str | None:
     return command
 
 
-def _unmarked_unit_refusal(build: str) -> str:
-    """Return the refusal for a rotor whose angular-velocity unit is unproved.
-
-    Until a licensed probe settles the unit, the speed of such a rotor may be
-    off by 60/(2 pi). The probe that settles it is a rotation null test on
-    that build of the RPT-047 kind, comparing the azimuth the motion reaches
-    with the azimuth it states; the unit is then taken from that report.
-    """
-    return (
-        f"FlightStream {build}: rotary_motion, unsteady_rotor and rotor-speed rows are "
-        "refused until the angular-velocity unit is measured. The earlier emitter used "
-        "rev/min while the manual tutorial gives rad/s, a possible 9.55 times speed "
-        "error (RPT-051). A 26.100 rotation null test of the RPT-047 kind must compare "
-        "the azimuth reached with the azimuth stated before this build can run a rotor. "
-        "Use a build with a proved rotor unit instead."
-    )
-
-
 def _checked_helper_value(script: Script, command: str, argument: str, value: object) -> object:
     """Validate a helper argument against its target build before creating an entity."""
     entry = script.entry(command)
@@ -501,6 +483,27 @@ def _carry_unsteady_actions(
         paths[key] = (path, text)
     script._unsteady_actions = actions
     script._pending_action_scripts = dict(paths.values())
+
+
+def _refuse_export_collision(script: Script, path: str, *, asker: str) -> None:
+    """Refuse an output path already held by the script's export register.
+
+    Helpers and direct command emission share this check before committing
+    state. File identity follows the same normalization as parked input files.
+    """
+    from pyflightstream._digest import one_file_key
+
+    key = one_file_key(path)
+    for held, site in script._exported_paths.items():
+        if one_file_key(held) == key:
+            same = "" if held == path else f" (as {held!r}, the same file)"
+            raise CommandArgumentError(
+                f"this script already exports to {path!r}{same}, from {site}. The "
+                "solver writes one file per path, so the second export would "
+                "silently replace the first and the script would carry two "
+                f"exports of one file. Give {asker} a path of its own, for "
+                "example one carrying the point or the survey name."
+            )
 
 
 def _parked_file(script: Script, path: str) -> tuple[str, str] | None:

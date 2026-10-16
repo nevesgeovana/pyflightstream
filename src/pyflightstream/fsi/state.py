@@ -308,7 +308,7 @@ def load_state(path: str | Path) -> FsiState:
     FsiState
         The validated state.
     """
-    return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8"))
+    return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8-sig"))
 
 
 def check_state_matches_config(
@@ -406,6 +406,9 @@ def check_state_matches_config(
     check("previous_twist_rad", state.previous_twist_rad)
     for record in state.recorded_twist:
         check(f"recorded_twist step {record.step}", record.elastic_twist_rad)
+    for sample in state.load_history:
+        check(f"load_history step {sample.step} flap_n_per_m", sample.flap_n_per_m)
+        check(f"load_history step {sample.step} torsion_nm_per_m", sample.torsion_nm_per_m)
 
     if problems:
         raise FsiInputError(
@@ -416,7 +419,8 @@ def check_state_matches_config(
             "structure and keep producing plausible numbers. Either restore the "
             "configuration this state was produced under, or start a new run "
             "directory; state.json is not portable across a config change that "
-            "moves stations or blades."
+            "moves stations or blades.",
+            problems=tuple(problems),
         )
 
     # REV010-009, and it runs AFTER the shape checks deliberately. A config

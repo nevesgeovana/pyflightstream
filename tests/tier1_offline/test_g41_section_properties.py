@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import inspect
 import json
 import math
 import re
@@ -651,3 +652,50 @@ def test_the_beam_bends_and_twists_as_the_generated_stiffness_says():
     expected_twist = torque_n_m_per_m * length**2 / (2.0 * torsion)
     assert solution.flap_deflection_m[-1] == pytest.approx(expected_deflection, rel=0.01)
     assert solution.elastic_twist_rad[-1] == pytest.approx(expected_twist, rel=0.01)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["airfoil_section_contour", "solid_section_properties", "blade_properties_from_sections"],
+)
+def test_p0420_section_inputs_publish_keyword_only_signatures(name):
+    from pyflightstream.fsi import sections
+
+    parameters = list(inspect.signature(getattr(sections, name)).parameters.values())
+    assert all(p.kind is inspect.Parameter.KEYWORD_ONLY for p in parameters[1:])
+
+
+def test_p0420_section_positional_compatibility_warns_and_preserves_values():
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+
+    unit = [(0.0, 0.0), (0.5, 0.1), (1.0, 0.0), (0.5, -0.1)]
+    with pytest.warns(PyflightstreamDeprecationWarning, match="removed in v0.43.0"):
+        old = airfoil_section_contour(unit, 0.1, 0.3)
+    current = airfoil_section_contour(unit, chord_m=0.1, pitch_axis_chord_fraction=0.3)
+    np.testing.assert_array_equal(old, current)
+    with pytest.warns(PyflightstreamDeprecationWarning, match="removed in v0.43.0"):
+        old_section = solid_section_properties(old, 8)
+    assert old_section == solid_section_properties(current, grid_cells=8)
+    with pytest.warns(PyflightstreamDeprecationWarning, match="removed in v0.43.0"):
+        old_blade = blade_properties_from_sections(
+            [0.1, 0.2],
+            [old, old],
+            [0.1, 0.1],
+            [0.0, 0.0],
+            "al-7075-t6",
+            geometry_source="test section",
+            torsion_grid_cells=8,
+        )
+    assert old_blade == blade_properties_from_sections(
+        [0.1, 0.2],
+        sections_m=[current, current],
+        chord_m=[0.1, 0.1],
+        geometric_pitch_deg=[0.0, 0.0],
+        material="al-7075-t6",
+        geometry_source="test section",
+        torsion_grid_cells=8,
+    )
+    with pytest.raises(TypeError, match="multiple values"):
+        airfoil_section_contour(unit, 0.1, chord_m=0.2)
+    with pytest.raises(TypeError, match="at most"):
+        airfoil_section_contour(unit, 0.1, 0.2, 0.3)

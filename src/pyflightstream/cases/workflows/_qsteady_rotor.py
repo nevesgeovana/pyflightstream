@@ -101,6 +101,7 @@ from ._rows import (
     _qsteady_speed,
     _refuse_unregistered_keys,
     _required_int,
+    _rotor_frame_axis,
     _the_isolated_rotor,
     _variable,
     _velocity,
@@ -326,7 +327,7 @@ def _the_shaft_letter(rotor: RotorBlock) -> str:
     :func:`_hub_basis` builds a vector shaft's hub frame with the shaft as its
     third axis, as :func:`_motion_view` reads it.
     """
-    return rotor.axis if isinstance(rotor.axis, str) else "Z"
+    return _rotor_frame_axis(rotor)
 
 
 def _qsteady_free_stream(

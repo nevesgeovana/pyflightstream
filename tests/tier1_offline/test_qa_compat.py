@@ -179,6 +179,45 @@ def test_p0420_reanalysis_preserves_run_and_withdraws_only_its_judgment(
         read_compat_reports(repo_root=tmp_path)
 
 
+def test_p0420_p1_1d_analysis_note_preserves_the_source_judgment(tmp_path):
+    """PFS-2138.029: absent manual evidence records a note without withdrawing status."""
+    from pyflightstream.qa.compat import read_compat_reports, write_reanalysis
+
+    folder = tmp_path / "reports" / "compat"
+    folder.mkdir(parents=True)
+    original = folder / "original.yaml"
+    original.write_text(
+        yaml.safe_dump(
+            {
+                "schema": COMPAT_SCHEMA,
+                "fs_version": "26.121",
+                "date": "2026-08-08",
+                "commands": {
+                    "PRINT": {
+                        "outcome": "broken",
+                        "signals": {"effect": None},
+                        "script_sha256": "a" * 64,
+                    }
+                },
+            }
+        )
+    )
+    before = read_compat_reports(repo_root=tmp_path)
+    analysis, _ = write_reanalysis(
+        original,
+        {"PRINT": "The matching manual edition is unavailable."},
+        repo_root=tmp_path,
+        date="2026-10-16",
+        label="manual-note",
+        withdraw=False,
+    )
+    assert read_compat_reports(repo_root=tmp_path) == before
+    body = read_compat_report(analysis)["commands"]["PRINT"]
+    assert body["outcome"] == "unprobed" and "withdraws" not in body
+    assert body["source_judgment"]["outcome"] == "broken"
+    assert body["script_sha256"] == "a" * 64
+
+
 def test_p0420_ordinary_unprobed_report_does_not_withdraw_verification(tmp_path):
     from pyflightstream.qa.compat import read_compat_reports
 

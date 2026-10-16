@@ -1921,8 +1921,8 @@ class TestSweep1Contracts:
     @pytest.mark.parametrize(
         "text_needed",
         [
-            "6 significant digits",
-            "{sim} is the first simulation",
+            "six significant digits",
+            "expand sim as the first job simulation",
             "`CONVERGED`, `WALLTIME_REACHED`, `RAN_MISSING_LOG`, `SUBMITTED` and every `FAILED_`",
         ],
     )
@@ -1930,8 +1930,8 @@ class TestSweep1Contracts:
         """P0400-SWEEP-DOC-CONTRACTS: requirements state tag, cost and placeholder rules."""
         text = requirements_text(Path(__file__).resolve().parents[2])
         assert text_needed in text
-        if text_needed == "6 significant digits":
-            assert "Distinct exact factors can round to the same short tag" in text
+        if text_needed == "six significant digits":
+            assert "while retaining exact factors in refine.json" in text
             assert "Two short tags (R1) differ when the selections differ in a factor" not in text
 
     @staticmethod

@@ -27,6 +27,7 @@ from pyflightstream._console import table
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.run._cli_query_history import add_history_parsers, run_history_query
 from pyflightstream.run._cli_query_point import _add_parsers, _run_point_query
+from pyflightstream.run._ids import _add_sim_ids
 from pyflightstream.support import support_table, version_support
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.ledger import (
@@ -86,9 +87,8 @@ def add_query_parsers(subparsers: Any) -> None:
     status.add_argument(
         "--additional", action="store_true", help="list the additional register as recorded"
     )
-    status.add_argument(
-        "--sims",
-        default=None,
+    _add_sim_ids(
+        status,
         help="only these simulations, comma separated, with or without brackets: "
         "2006,2007 or [2006,2007]",
     )

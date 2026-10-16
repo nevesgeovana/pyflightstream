@@ -1203,42 +1203,10 @@ class Script:
             self._simulation_length_unit = str(bound["units"])
 
     def _refuse_export_collision(self, path: str, *, asker: str) -> None:
-        """Refuse an export to a file this script already exports to (PFS-2093.004).
+        """Refuse a duplicate export before emission changes the script."""
+        from pyflightstream.script._build_forms import _refuse_export_collision
 
-        THE ONE CHECK OF THE EXPORT REGISTER, keyed by
-        :func:`~pyflightstream._digest.one_file_key`, the key the parked action
-        scripts and input files are matched by: a path through a parent folder,
-        or equal but for case, is the same file where the solver writes. The
-        export helpers call it before their first line, so a refusal leaves the
-        script untouched, and record the path afterwards. A command emitted
-        directly passes through it too, before any state is committed.
-
-        Parameters
-        ----------
-        path : str
-            The output path, as the command renders it.
-        asker : str
-            The helper or command asking, named in the remedy.
-
-        Raises
-        ------
-        CommandArgumentError
-            If the register already holds the file, naming the earlier call
-            site.
-        """
-        from pyflightstream._digest import one_file_key
-
-        key = one_file_key(path)
-        for held, site in self._exported_paths.items():
-            if one_file_key(held) == key:
-                same = "" if held == path else f" (as {held!r}, the same file)"
-                raise CommandArgumentError(
-                    f"this script already exports to {path!r}{same}, from {site}. The "
-                    "solver writes one file per path, so the second export would "
-                    "silently replace the first and the script would carry two "
-                    f"exports of one file. Give {asker} a path of its own, for "
-                    "example one carrying the point or the survey name."
-                )
+        _refuse_export_collision(self, path, asker=asker)
 
     def _parked_file(self, path: str) -> tuple[str, str] | None:
         """Name the parked file ``path`` would replace, across both registers.

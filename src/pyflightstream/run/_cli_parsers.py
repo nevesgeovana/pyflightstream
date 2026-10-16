@@ -52,6 +52,7 @@ from pyflightstream.run._cli_parsers_storage import (
 )
 from pyflightstream.run._cli_query import add_query_parsers
 from pyflightstream.run._grouped import GROUPED_LEFT_OUT_HELP
+from pyflightstream.run._ids import _add_sim_ids
 from pyflightstream.run._mark_converged import add_mark_converged_parser, add_mark_parsers
 from pyflightstream.run._mark_converged import cmd_mark_converged as cmd_mark_converged
 from pyflightstream.workspace.cli import take_settings, withhold_defaults
@@ -68,8 +69,19 @@ from pyflightstream.workspace.naming import MATRIX_POINT_NAME
 def _whole_sims(args: argparse.Namespace) -> list[str]:
     """Read the ids of ``delete-sims``, refusing a run id alias (FR-395)."""
     manifest = getattr(args, "runs", None) or "runs.json"
+    legacy = getattr(args, "legacy_sims", None)
+    if legacy is not None:
+        from pyflightstream._deprecations import DELETE_SIMS_POSITIONAL
+        from pyflightstream._errors import PyflightstreamDeprecationWarning, warn
+
+        if args.sims is not None:
+            raise ValueError("choose --sims or the deprecated positional selector, not both")
+        warn(DELETE_SIMS_POSITIONAL.message(), PyflightstreamDeprecationWarning, stacklevel=2)
+    selected = args.sims if args.sims is not None else legacy
+    if not selected:
+        raise ValueError("delete-sims requires --sims ID [ID ...]")
     return split_typed_ids(
-        listed_sims(args.sims), args.workspace, manifest=manifest, whole_only=True
+        listed_sims(selected), args.workspace, manifest=manifest, whole_only=True
     )[0]
 
 
@@ -181,12 +193,8 @@ def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
     simulation (POL), or a simulation and some of its points, planned or run without
     the matrix being edited.
     """
-    parser.add_argument(
-        "--sims",
-        dest="sims",
-        nargs="+",
-        metavar="SIM",
-        default=None,
+    _add_sim_ids(
+        parser,
         help="plan or run only these simulations, by their ids as the matrix spells them "
         "(for example --sims 2031 2032 2033); every other simulation is left untouched. "
         "With `run --force-rerun-all`, the simulations to redo. An id the matrix does not "
@@ -433,7 +441,7 @@ def _add_records_parsers(subparsers: Any) -> None:
         action="store_true",
         help="rebuild every simulation folder on disk, recorded or not",
     )
-    rebuild.add_argument("--sims", default=None, help=SIMS_IDS_HELP)
+    _add_sim_ids(rebuild, help=SIMS_IDS_HELP)
     rebuild.add_argument(
         "--build-alias",
         dest="build_alias",
@@ -788,11 +796,8 @@ def _add_collect_parsers(subparsers: Any) -> None:
         help="collect and do NOT rebuild the products, which is the half a reader wants "
         "when the products are built somewhere else",
     )
-    collect.add_argument(
-        "--sims",
-        dest="sims",
-        default=None,
-        metavar="IDS",
+    _add_sim_ids(
+        collect,
         help="sweep only the SUBMITTED records of these simulations, comma separated as "
         "delete-sims takes them (2006,2007 or [2006,2007]); every other record is left "
         "untouched and is not counted as outstanding, and the post that follows is limited "
@@ -932,11 +937,8 @@ def _add_post_selection_parsers(subparsers: Any) -> None:
         action="store_true",
         help="print recorded post diagnostics as Markdown without changing products",
     )
-    post.add_argument(
-        "--sims",
-        dest="sims",
-        default=None,
-        metavar="IDS",
+    _add_sim_ids(
+        post,
         help="rebuild only these simulations' products of the matrix, comma separated as "
         "delete-sims takes them (2006,2007 or [2006,2007]), using the archive policy above; "
         "every other simulation's files and "

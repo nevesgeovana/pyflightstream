@@ -1571,7 +1571,8 @@ def _staged_geometries(directory: Path) -> dict[str, Path]:
 
     A file directly under ``geometries/`` is the flat layout. A folder
     ``geometries/<stem>/`` is one geometry's home (PFS-2032.04), and the
-    geometry files in it are the ones whose stem is the folder's name, so
+    geometry files in it carry the folder's stem or a derived thin-blade
+    OBJ stem (including a selected boundary). Thus
     its ``<stem>.boundaries.toml`` (stem ``<stem>.boundaries``) and its
     provenance record are not offered as geometries a cell could name;
     a flat sidecar is left out by its suffix for the same reason. The
@@ -1596,7 +1597,12 @@ def _staged_geometries(directory: Path) -> dict[str, Path]:
                 found.setdefault(entry.name, entry)
         elif entry.is_dir():
             for path in sorted(entry.iterdir()):
-                if path.is_file() and path.stem == entry.name:
+                derived = (
+                    path.suffix.lower() == ".obj"
+                    and path.stem.startswith(entry.name + "_")
+                    and path.stem.endswith("_thin_blade")
+                )
+                if path.is_file() and (path.stem == entry.name or derived):
                     found[path.name] = path
     return found
 

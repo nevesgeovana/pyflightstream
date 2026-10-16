@@ -4,7 +4,7 @@ The owner's rule of 2026-09-28: the structural nodes are inside the
 component. With the blade's sections known, the nodes are placed on each
 section's camber line (elastic axis at its chord fraction, leading-edge and
 trailing-edge nodes at 10 % and 90 %), and a node set with any node outside
-its section, or inside it by less than max(1 mm, 10 % of the local
+its section, or inside it by less than max(0.1 % chord, 10 % of the local
 thickness), is refused naming the node. Order, roles and row count do not
 change, so the FSIDisp rows keep their meaning.
 
@@ -97,6 +97,46 @@ def test_every_generated_node_clears_its_skin():
     assert [item.role for item in report] == list(NODE_ROLES) * len(RADII)
 
 
+@pytest.mark.requirement("FR-1382")
+@pytest.mark.parametrize("chord", [0.05, 0.5])
+def test_p0420_p1_1d_clearance_scales_with_section(chord):
+    """A 50 mm NACA 0012 and its scaled copy both admit the trailing node."""
+    contours = [airfoil_section_contour(naca4_contour("0012", 100), chord, 0.25)] * 3
+    blade = blade_properties_from_sections(
+        RADII,
+        contours,
+        [chord] * 3,
+        [0.0] * 3,
+        "ti-6al-4v-grade5-annealed",
+        geometry_source="synthetic NACA 0012",
+    )
+    try:
+        layout = nodes.generate_node_layout(_config(blade))
+    except FsiInputError as error:
+        pytest.fail(f"a geometrically similar section must admit its camber nodes: {error}")
+    checks = nodes.node_clearances(layout, contours)
+    assert all(item.ok for item in checks)
+    for item in checks:
+        assert item.required_m == pytest.approx(max(0.001 * chord, 0.1 * item.thickness_m))
+    # A node still inside, but almost touching the upper skin, must be refused.
+    altered = layout.model_copy(deep=True)
+    altered.le_offset_normal_m[0] += checks[1].thickness_m * 0.499
+    with pytest.raises(FsiInputError, match="clearance"):
+        nodes.refuse_nodes_outside_sections(altered, contours)
+
+
+@pytest.mark.requirement("FR-39")
+def test_p0420_p1_1d_unknown_node_role_is_an_fsi_error(tmp_path):
+    """Keyword FSIDisp writing keeps path-first compatibility; unknown roles refuse."""
+    layout = nodes.generate_node_layout(_config())
+    translations = np.zeros((layout.total_nodes, 3))
+    path = tmp_path / "FSIDisp.txt"
+    nodes.write_fsidisp(path=path, translations=translations)
+    assert nodes.read_fsidisp(path).shape == translations.shape
+    with pytest.raises(FsiInputError, match="role.*unknown"):
+        layout.row_index(0, 0, "unknown")
+
+
 def test_an_elastic_axis_outside_the_window_falls_back_to_thirty_percent():
     blade = _blade()
     aft = blade.model_copy(
@@ -145,11 +185,11 @@ def _plate(chord, thickness):
 
 
 def test_a_node_too_near_its_skin_is_refused_naming_it():
-    thin = _blade([_plate(c, 1.5e-3) for c in CHORDS])
+    thin = _blade([_plate(c, 0.15e-3) for c in CHORDS])
     with pytest.raises(FsiInputError) as refused:
         nodes.generate_node_layout(_config(thin))
     message = str(refused.value)
-    assert "row 0 (station 0, r = 0.3000 m, elastic_axis): inside by 0.75 mm, needs 1.00 mm" in (
+    assert "row 0 (station 0, r = 0.3000 m, elastic_axis): inside by 0.07 mm, needs 0.20 mm" in (
         message
     )
     assert "9 structural node(s)" in message
@@ -178,7 +218,7 @@ def test_the_plan_refuses_a_blade_whose_nodes_are_not_inside(tmp_path, monkeypat
     case = coupled_case(tmp_path)
     blade = case.fsi.blade
     thin = blade.model_copy(
-        update={"section_contours_m": [_plate(c, 1.5e-3) for c in blade.chord_m]}
+        update={"section_contours_m": [_plate(c, 0.15e-3) for c in blade.chord_m]}
     )
     case = case.model_copy(update={"fsi": case.fsi.model_copy(update={"blade": thin})})
     script = Script("26.124")

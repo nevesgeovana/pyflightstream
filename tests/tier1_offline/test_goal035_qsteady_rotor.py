@@ -197,11 +197,11 @@ def test_a_wheel_is_solved_at_each_clocking_and_last_at_clocking_zero():
     # P0300-QS-WHEEL
     lines, script = _lines(_case(PASSAGE_POSITIONS="3", ALPHA_POINT=5.0))
     assert _rotations(lines) == [
-        "ROTATE_SURFACE 2 X 40.0 -1 DISABLE",
-        "ROTATE_SURFACE 2 X 40.0 -1 DISABLE",
-        "ROTATE_SURFACE 2 X -80.0 -1 DISABLE",
+        "ROTATE_SURFACE 2 Z 40.0 -1 DISABLE",
+        "ROTATE_SURFACE 2 Z 40.0 -1 DISABLE",
+        "ROTATE_SURFACE 2 Z -80.0 -1 DISABLE",
     ]
-    assert "SET_FREESTREAM ROTATION 2 X 1200.0" in lines
+    assert "SET_FREESTREAM ROTATION 2 Z 1200.0" in lines
     # One initialisation per clocking, and one before it at clocking 0, where
     # the section distributions are cut (L1, RPT-091).
     assert lines.count("INITIALIZE_SOLVER") == 4 and lines.count("START_SOLVER") == 3
@@ -222,14 +222,14 @@ def test_a_left_handed_rotor_turns_the_free_stream_and_the_clocking_its_way():
     """rpm_sign -1: the free stream turns at -1200 and blade one advances by -40 deg."""
     left = ROTOR.model_copy(update={"rpm_sign": -1})
     lines, _ = _lines(_case(rotor=left, PASSAGE_POSITIONS="3", ALPHA_POINT=5.0))
-    assert "SET_FREESTREAM ROTATION 2 X -1200.0" in lines
-    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 X -40.0 -1 DISABLE"
+    assert "SET_FREESTREAM ROTATION 2 Z -1200.0" in lines
+    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 Z -40.0 -1 DISABLE"
 
 
 def test_a_wheel_in_an_axial_inflow_is_one_solve():
     lines, _ = _lines(_case())
     assert not _rotations(lines) and lines.count("START_SOLVER") == 1
-    assert "SET_FREESTREAM ROTATION 2 X 1200.0" in lines
+    assert "SET_FREESTREAM ROTATION 2 Z 1200.0" in lines
 
 
 def test_a_wheel_at_an_angle_must_state_its_clockings():
@@ -245,7 +245,7 @@ def test_a_sector_is_one_steady_solve_and_refuses_an_angle_or_clockings():
     sector = {"SYMMETRY": "PERIODIC", "PERIODIC_COPIES": "3"}
     lines, _ = _lines(_case(**sector))
     assert not _rotations(lines) and lines.count("START_SOLVER") == 1
-    assert "SET_FREESTREAM ROTATION 2 X 1200.0" in lines
+    assert "SET_FREESTREAM ROTATION 2 Z 1200.0" in lines
     with pytest.raises(CampaignConfigError, match="the key is the wheel's"):
         _lines(_case(PASSAGE_POSITIONS="2", **sector))
     with pytest.raises(CampaignConfigError, match="varies? with azimuth|vary with azimuth"):
@@ -276,7 +276,7 @@ def test_a_geometry_holding_more_than_the_rotor_is_refused(tmp_path):
     with pytest.raises(CampaignConfigError, match="carries no Blade3"):
         _lines(_with_obj(_case(), obj, ("Blade1", "Blade2")))
     lines, _ = _lines(_with_obj(_case(PASSAGE_POSITIONS="2"), obj, ("Blade1", "Blade2", "Blade3")))
-    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 X 60.0 3 DISABLE"
+    assert _rotations(lines)[0] == "ROTATE_SURFACE 2 Z 60.0 3 DISABLE"
 
 
 def test_fsi_is_refused_on_a_wheel_for_good():

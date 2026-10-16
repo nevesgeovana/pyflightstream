@@ -126,3 +126,16 @@ def test_no_pitch_no_softening():
     flat = cfg.model_copy(deep=True)
     flat.blade.geometric_pitch_deg = [0.0] * len(STATIONS)
     assert centrifugal.in_plane_softening_coefficients(flat) == [0.0] * len(STATIONS)
+
+
+def test_p0420_p1_1d_campbell_includes_flap_softening(monkeypatch):
+    """PFS-2119.028: the pitched rotating modal problem includes the static softening."""
+    softened = centrifugal.campbell_sweep(_config(), [0.0, OMEGA], n_modes=6)
+    monkeypatch.setattr(
+        centrifugal, "in_plane_softening_coefficients", lambda cfg: [0.0] * len(STATIONS)
+    )
+    tension_only = centrifugal.campbell_sweep(_config(), [0.0, OMEGA], n_modes=6)
+    soft = softened.family_track("flap")
+    stiff = tension_only.family_track("flap")
+    assert soft[0] == pytest.approx(stiff[0])
+    assert soft[1] < stiff[1] * 0.999

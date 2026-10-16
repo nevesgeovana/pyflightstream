@@ -55,8 +55,7 @@ def _no_block(**overrides):
 def _emitted(case, build: str) -> list[str]:
     """Emit the stabilization for motion 1 alone, the way the rotor builder calls it.
 
-    The 26.100 build refuses a rotor row until its angular-velocity unit is
-    measured (RPT-051), so its two-argument form is read from the emitter.
+    Its two-argument form is read directly from the stabilization emitter.
     """
     script = Script(build)
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN")

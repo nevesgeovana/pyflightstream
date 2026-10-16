@@ -22,16 +22,6 @@
    ]
   },
   {
-   "id": "RX-10",
-   "capability": "Structural outcome per station (deflection and elastic twist from the node translations) and the loads cross-check",
-   "reason": "routed later",
-   "node": "PFS-2140.003",
-   "release": "0.42.0",
-   "names": [
-    "pyflightstream.fsi.loads.cross_check_totals"
-   ]
-  },
-  {
    "id": "RX-11",
    "capability": "Quasi-steady rotor loading noise (observer signals and Gutin harmonics)",
    "reason": "routed later",
@@ -86,7 +76,6 @@
    "node": "PFS-2140.005",
    "release": "0.42.0",
    "names": [
-    "pyflightstream.support.minimal_workflow",
     "pyflightstream.support_level"
    ]
   },
@@ -94,7 +83,7 @@
    "id": "RX-22",
    "capability": "QA tooling of the pyfs-qa console tool (compatibility, cost, drift, physics, probes, reports, synthetic geometry)",
    "reason": "maintainer or developer API",
-   "decision": "classified by the release session under the owner's delegation of 2026-10-12",
+   "decision": "Release-session delegation of 2026-10-12; P1-1d launch instruction h additionally registers apply_reanalysis, write_reanalysis, record_unprobed_build and unattended_profile_spec: evidence reconciliation and probe preparation are maintainer operations, not campaign execution.",
    "names": [
     "pyflightstream.exceptions.PhysicsEnvironmentError",
     "pyflightstream.exceptions.ProbeEnvironmentError",
@@ -117,10 +106,13 @@
     "pyflightstream.qa.compat.ExecutableIdentity",
     "pyflightstream.qa.compat.ExecutableVerdict",
     "pyflightstream.qa.compat.LicenceCandidate",
+    "pyflightstream.qa.compat.apply_reanalysis",
     "pyflightstream.qa.compat.classify_executable",
     "pyflightstream.qa.compat.licence_sensitive_candidates",
     "pyflightstream.qa.compat.read_executable_baseline",
+    "pyflightstream.qa.compat.record_unprobed_build",
     "pyflightstream.qa.compat.resolve_commands_dir",
+    "pyflightstream.qa.compat.write_reanalysis",
     "pyflightstream.qa.compat_report_paths",
     "pyflightstream.qa.contradicting_evidence",
     "pyflightstream.qa.cost_rows",
@@ -137,6 +129,7 @@
     "pyflightstream.qa.fsm_changed",
     "pyflightstream.qa.fsm_gained",
     "pyflightstream.qa.generate_probe_script",
+    "pyflightstream.qa.probes.unattended_profile_spec",
     "pyflightstream.qa.geometry.BladeSpec",
     "pyflightstream.qa.geometry.WingSpec",
     "pyflightstream.qa.geometry.blade_triangles",

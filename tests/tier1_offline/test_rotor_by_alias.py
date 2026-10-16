@@ -123,6 +123,38 @@ def rendered(case: SimCase) -> str:
     return script.render()
 
 
+@pytest.mark.parametrize(
+    "shaft, zero, expected",
+    [
+        ("Z", "X", (0, 1, 0)),
+        ("Z", "Y", (-1, 0, 0)),
+        ("Z", "-Y", (1, 0, 0)),
+        ("X", "Y", (0, 0, 1)),
+        ("Y", "Z", (1, 0, 0)),
+    ],
+)
+def test_p0420_p1_1d_blade_datum_matches_measured_quarter_turn(tmp_path, shaft, zero, expected):
+    """PFS-2119.024 batch 8: blade 2's X axis after a right-handed quarter turn."""
+    case = two_rotor_case(tmp_path)
+    lifter = LIFTER.model_copy(update={"axis": shaft, "blade1": BladeDatum(zero=zero)})
+    case = case.model_copy(update={"rotors": {**case.rotors, "LIFT_L1": lifter}})
+    script = Script("26.124")
+    build_script(case, script)
+    names = frame_names(script.render())
+    blade2 = next(index for index, name in names.items() if name == "LIFT_L1_RMRP2")
+    lines = script.render().splitlines()
+    start = next(i for i, line in enumerate(lines) if line == f"FRAME {blade2}")
+    values = dict(line.split(maxsplit=1) for line in lines[start + 1 : start + 16] if " " in line)
+    x = [float(values[f"VECTOR_X_{axis}"]) for axis in "XYZ"]
+    # Batch 8 measured +90 as a right-handed turn. This independent oracle
+    # applies it to the emitted blade X direction, not to a package helper.
+    turned = {"X": (x[0], -x[2], x[1]), "Y": (x[2], x[1], -x[0]), "Z": (-x[1], x[0], x[2])}[shaft]
+    assert turned == pytest.approx(expected, abs=1e-12)
+    turn = lines.index("ROTATE_COORDINATE_SYSTEM", start)
+    assert lines[turn + 1] == f"FRAME {blade2}"
+    assert lines[turn + 3 : turn + 5] == ["ROTATION_AXIS Z", "ANGLE 90.0"]
+
+
 def motion_payloads(text: str) -> list[str]:
     """The boundary list under each SET_MOTION_BOUNDARIES, in the order emitted."""
     lines = text.splitlines()

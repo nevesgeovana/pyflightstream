@@ -53,10 +53,12 @@ _REACH_GUARD__ROOTS: tuple[tuple[str, str], ...] = (
 # 278: the plan places and rounds lattices through emit_probe_points and write_probe_csv.
 # 277: field_formats "tecplot-points" writes through post.write_tecplot_points (RX-04 deleted).
 # 273: N3 removes five retired RX-19/RX-20 migration names; no new exception.
-_REACH_GUARD___REGISTER_CEILING = 222
+# P0420-P1-1d: launch instruction h authorizes the four new QA maintainer
+# APIs; minimal_workflow is now reached and leaves the register.
+_REACH_GUARD___REGISTER_CEILING = 224
 
 
-_REACH_GUARD___REGISTER_DIGEST = "f133efa36c95c15d4e74da27d7e01a179a1eb71bd032663b60003e9cd234ef94"
+_REACH_GUARD___REGISTER_DIGEST = "395f8132903f6db8094708fa4a446b0fa57172775fcead1f2d9a25eb82aa82f4"
 
 
 _REACH_GUARD__REASONS = (

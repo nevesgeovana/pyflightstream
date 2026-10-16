@@ -371,16 +371,13 @@ def test_goal023_transparent_one_row_plans_on_every_build_with_only_the_build_ch
 #: edition exposes and no edition gives a default for (load frame, proximity
 #: avoidance, stabilization, its strength, fast multipole; FSM-25.000 p.303), so
 #: choosing them is a numerical decision that is the owner's (GOAL-023 arm 4).
-#: 26.100 rotor rows are refused again at 0.40.0 until the angular-velocity
-#: unit is measured; the rev/min decision disagrees with the manual (RPT-051).
+#: 26.100's unit was measured in 0.42.0 licensed/EVIDENCE-5.md batch 8.
 NOT_YET_RENDERED = {
     ("steady", "25.000"): "OWNER",
     ("unsteady", "25.000"): "OWNER",
     ("unsteady_rotor", "25.000"): "OWNER",
     # 0.30.0: the quasi-steady rotor initialises as the steady type does.
     ("qsteady_rotor", "25.000"): "OWNER",
-    ("unsteady_rotor", "26.100"): "UNPROVED_ROTOR_UNIT",
-    ("qsteady_rotor", "26.100"): "UNPROVED_ROTOR_UNIT",
 }
 
 #: How each declared cell refuses, and the words that say why (qa lens 5): a
@@ -390,8 +387,6 @@ REFUSED_BY = {
     ("unsteady", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
     ("unsteady_rotor", "25.000"): (WorkflowCoverageError, "no CREATE_NEW_MOTION"),
     ("qsteady_rotor", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
-    ("unsteady_rotor", "26.100"): (CommandArgumentError, "RPT-051"),
-    ("qsteady_rotor", "26.100"): (CommandArgumentError, "RPT-051"),
 }
 
 

@@ -88,9 +88,10 @@ def test_plan_resolves_the_patched_cold_start_check(tmp_path, monkeypatch):
     monkeypatch.setattr(ids_mod, "_is_cold_start", refuse)
     blocked = plan()
     assert {point.status for point in blocked.points} == {PlanStatus.BLOCKED}
-    assert len(seen) == len(blocked.points) == 3
+    assert len(seen) == 1  # the shared steady builder refuses the whole row first
+    assert len(blocked.points) == 3
     assert all(
-        point.error == "COLD_START: patched shared check refused this row"
+        point.error == "CampaignConfigError: COLD_START: patched shared check refused this row"
         for point in blocked.points
     )
 

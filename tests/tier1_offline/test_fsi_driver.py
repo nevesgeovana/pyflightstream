@@ -9,6 +9,7 @@ counter assertions, frozen mode, and crash recovery from a mid-run
 state.json.
 """
 
+import json
 import re
 import shutil
 from dataclasses import replace
@@ -68,6 +69,58 @@ FAMILY_MAP = SectionFamilyMap(
 OMEGA_RAD_PER_S = 2.0 * np.pi / (4 * 0.004)
 
 
+@pytest.mark.requirement("NFR-52")
+def test_p0420_p1_1d_resume_error_exposes_each_array_problem():
+    """Resume a two-station state with three stations; inspect the refusal."""
+    from pyflightstream.fsi.state import FsiState, RecordedTwist, check_state_matches_config
+
+    state = FsiState(
+        previous_twist_rad=[[0.0, 0.0]],
+        recorded_twist=[RecordedTwist(step=1, elastic_twist_rad=[[0.0]])],
+    )
+    with pytest.raises(FsiInputError) as caught:
+        check_state_matches_config(state, blade_count=1, station_count=3)
+    problems = getattr(caught.value, "problems", None)
+    assert problems is not None, "resume errors must expose mismatched arrays"
+    assert len(problems) == 2
+    assert problems[0].startswith("previous_twist_rad blade 0")
+    assert problems[1].startswith("recorded_twist step 1 blade 0")
+
+
+@pytest.mark.requirement("FR-1207")
+@pytest.mark.parametrize("field", ["flap_n_per_m", "torsion_nm_per_m"])
+def test_p0420_p1_1d_resume_checks_load_history_shape(field):
+    """Reject a stale averaged-load buffer even when twist has the right shape."""
+    from pyflightstream.fsi.state import FsiState, LoadSample, check_state_matches_config
+
+    data = {"step": 1, "flap_n_per_m": [[1.0, 2.0]], "torsion_nm_per_m": [[3.0, 4.0]]}
+    data[field] = [[1.0]]
+    state = FsiState(load_history=[LoadSample.model_validate(data)])
+    with pytest.raises(FsiInputError, match=field):
+        check_state_matches_config(state, blade_count=1, station_count=2)
+
+
+@pytest.mark.requirement("FR-341")
+def test_p0420_p1_1d_direct_morphing_refuses_multiple_blades():
+    """Direct aerodynamic-node rows describe one rotor sector."""
+    data = driver_config().model_dump()
+    data.update(morphing="direct", blade_count=2)
+    with pytest.raises(ValueError, match="blade_count"):
+        FsiConfig.model_validate(data)
+
+
+@pytest.mark.requirement("FR-341")
+def test_p0420_p1_1d_frozen_direct_refuses_before_writing(tmp_path):
+    """Frozen direct morphing cannot use the structural station row count."""
+    cfg = driver_config().model_copy(update={"morphing": "direct", "blade_count": 1})
+    stage_run(tmp_path, cfg)
+    rows = len(cfg.blade.station_radii_m) * 3
+    nodes.write_fsidisp(tmp_path / driver.FROZEN_FILE, np.zeros((rows, 3)))
+    with pytest.raises(FsiInputError, match="direct"):
+        driver.coupling_step(tmp_path)
+    assert not (tmp_path / "FSIDisp.txt").exists()
+
+
 def driver_config() -> FsiConfig:
     """Stiff synthetic blade covering the fixture sections (0.29-1.81 m)."""
     n = 11
@@ -114,6 +167,70 @@ def write_loads(run_dir: Path, iteration: int) -> None:
     """Stage the fixture loads with an advanced solver iteration."""
     patched = re.sub(r"(Current solver iteration number:\s+)\d+", rf"\g<1>{iteration}", CALL2)
     (run_dir / driver.LOADS_FILE).write_text(patched, encoding="utf-8")
+
+
+@pytest.mark.parametrize("fault", [None, "scale", "hash", "iteration", "family", "nan"])
+def test_p0420_coupling_cross_checks_staged_totals_before_writing(tmp_path, fault):
+    from pyflightstream._digest import file_sha256
+    from pyflightstream.fsi.loads import parse_sectional_loads
+
+    stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+    block = parse_sectional_loads(CALL2).split(FAMILY_MAP)["blade_1"]
+    # Independent midpoint-strip integration, using the fixture's increasing offsets.
+    offsets = block.offset_m
+    edges = np.r_[offsets[0], (offsets[:-1] + offsets[1:]) / 2, offsets[-1]]
+    widths = np.diff(edges)
+    payload = {
+        "loads_sha256": file_sha256(tmp_path / driver.LOADS_FILE),
+        "solver_iteration": 100,
+        "families": {
+            "blade_1": {
+                "fx_n": float(np.sum(block.fx_n_per_m * widths)),
+                "fz_n": float(np.sum(block.fz_n_per_m * widths)),
+            }
+        },
+    }
+    if fault == "scale":
+        payload["families"]["blade_1"]["fz_n"] *= 1000
+    elif fault == "hash":
+        payload["loads_sha256"] = "0" * 64
+    elif fault == "iteration":
+        payload["solver_iteration"] = 99
+    elif fault == "family":
+        payload["families"] = {}
+    elif fault == "nan":
+        payload["families"]["blade_1"]["fx_n"] = float("nan")
+    (tmp_path / "fsi_totals.json").write_text(json.dumps(payload), encoding="utf-8")
+    if fault:
+        with pytest.raises(FsiInputError, match="fsi_totals.json"):
+            driver.coupling_step(tmp_path)
+        assert not (tmp_path / driver.STATE_FILE).exists()
+        assert not (tmp_path / "FSIDisp.txt").exists()
+    else:
+        assert driver.coupling_step(tmp_path).call == 1
+
+
+@pytest.mark.parametrize("which", ["config", "state", "nodes", "families"])
+def test_p0420_p1_1d_coupling_accepts_utf8_bom_json(tmp_path, which):
+    """An editor-added UTF-8 BOM does not change a coupling input's meaning."""
+    cfg = stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+    driver.coupling_step(tmp_path)
+    paths = {
+        "config": driver.CONFIG_FILE,
+        "state": "state.json",
+        "nodes": cfg.node_map_file,
+        "families": driver.FAMILY_MAP_FILE,
+    }
+    path = tmp_path / paths[which]
+    path.write_bytes(bytes.fromhex("efbbbf") + path.read_bytes())
+    write_loads(tmp_path, 140)
+    try:
+        result = driver.coupling_step(tmp_path)
+    except ValueError as error:
+        pytest.fail(f"BOM must be accepted for {which}: {error}")
+    assert result.call == 2
 
 
 def run_sequence(run_dir: Path, calls: int, first_iteration: int = 100) -> list:
@@ -366,6 +483,8 @@ def test_an_unconverged_twist_iteration_is_not_written(tmp_path, monkeypatch):
 
     assert "did not converge" in str(caught.value)
     assert "blade 0" in str(caught.value)
+    assert "mass_per_length" in str(caught.value)
+    assert "pitch" in str(caught.value)
     assert caught.value.tolerance_rad > 0.0
     assert len(caught.value.residuals_rad) == cfg.blade_count
     assert all(r > caught.value.tolerance_rad for r in caught.value.residuals_rad)

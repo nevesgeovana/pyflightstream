@@ -405,16 +405,18 @@ class TestScriptHelpers:
 
     @staticmethod
     # --- P0400-ROTORUNIT (PFS-2088.010) -----------------------------------------
-    def test_p0400_rotorunit_a_rotor_on_the_unmarked_build_is_refused_citing_the_report():
-        """P0400-ROTORUNIT (PFS-2088.010, FR-101): a rotor row on 26.100 is refused by name."""
+    def test_p0400_rotorunit_a_rotor_on_the_unmarked_build_uses_measured_rpm():
+        """PFS-2004.01 supersedes the unproved-unit refusal with batch-8 evidence."""
         script = Script(version="26.100")
         frame = _script_helpers___rotor_frame(script)
-        before = script.render()
-        with pytest.raises(CommandArgumentError, match="RPT-051") as caught:
-            helpers.rotary_motion(script, frame=frame, axis="X", rpm=1200.0)
-        assert "9.55" in str(caught.value)
-        assert "unsteady_rotor" in str(caught.value)
-        assert script.render() == before
+        helpers.rotary_motion(script, frame=frame, axis="X", rpm=1200.0)
+        velocity = next(
+            line.split()
+            for line in script.render().splitlines()
+            if line.startswith("SET_MOTION_ANGULAR_VELOCITY")
+        )
+        assert [float(value) for value in velocity[2:]] == [1200.0, 0.0, 0.0]
+        assert "SET_MOTION_IS_ROTOR" not in script.render()
 
     @staticmethod
     def test_p0400_rotorunit_a_rotor_on_a_rotary_build_does_not_warn():
@@ -544,8 +546,9 @@ class TestScriptHelpers:
 
     @staticmethod
     @pytest.mark.parametrize("workflow", ["unsteady_rotor", "qsteady_rotor", "steady"])
-    def test_p0400_rotorunit_workflow_rehearsal_refuses_speed_rows_before_emission(workflow):
-        """P0400-ROTORUNIT (PFS-2088.010): plan rehearsal cannot interpret an unproved unit."""
+    def test_p0400_rotorunit_workflow_rehearsal_uses_the_measured_unit(workflow):
+        """PFS-2004.01 restores rotor builds without accepting foreign workflow keys."""
+        from pyflightstream.cases import CampaignConfigError
         from pyflightstream.cases.workflows import build_script
         from tests.tier1_offline.test_workflows import qsteady_case, rotor_case, steady_case
 
@@ -558,9 +561,12 @@ class TestScriptHelpers:
         if workflow == "steady":
             case = case.model_copy(update={"variables": {**case.variables, "RPM": "1200"}})
         script = Script("26.100")
-        with pytest.raises(CommandArgumentError, match="RPT-051"):
+        if workflow == "steady":
+            with pytest.raises(CampaignConfigError, match="RPM"):
+                build_script(case, script)
+        else:
             build_script(case, script)
-        assert script.render() == "\n"
+            assert "START_SOLVER" in script.render()
 
 
 class TestScriptRelaxedTe:

@@ -481,10 +481,10 @@ def _fsi_modal__plate_config(
     """A flat titanium plate blade on three stations, uniform in every distribution."""
     blade = blade_properties_from_sections(
         [0.1, 0.3, 0.5],
-        [_FSI_MODAL__PLATE] * 3,
-        [0.04] * 3,
-        [pitch_deg] * 3,
-        "ti-6al-4v-grade5-annealed",
+        sections_m=[_FSI_MODAL__PLATE] * 3,
+        chord_m=[0.04] * 3,
+        geometric_pitch_deg=[pitch_deg] * 3,
+        material="ti-6al-4v-grade5-annealed",
         geometry_source="a flat 40 x 4 mm plate",
     )
     data = {**blade.model_dump(), **blade_updates}

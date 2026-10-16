@@ -127,6 +127,11 @@ for _command in (
 # A working command without a product route is listed explicitly. There is
 # deliberately no catch-all reason for a new documented/verified command.
 EXCLUSIONS = {
+    "CREATE_FREE_SURFACE_TFI_MESH": (
+        "not offered: the command has build evidence but no workspace free-surface "
+        "creation input; a route requires code",
+        "src/pyflightstream/commands/free_surfaces.yaml",
+    ),
     "AIR_ALTITUDE": (
         "not offered in 0.40.0: flight conditions emit the resolved five fluid properties; "
         "altitude cannot express dISA or a Reynolds-derived density",
@@ -144,14 +149,12 @@ EXCLUSIONS = {
         "src/pyflightstream/script/_build_forms.py:solver_time_averaging",
     ),
     "FREE_SURFACE_EXPORT_TYPE": (
-        "not offered in 0.40.0: no free-surface pproc export route; a route requires code; "
-        "the prerequisite free-surface creation remains broken on 26.125",
+        "not offered: no free-surface pproc export route; a route requires code",
         "src/pyflightstream/commands/free_surfaces.yaml; "
         "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md",
     ),
     "DELETE_FREE_SURFACE": (
-        "not offered in 0.40.0: no free-surface setup operation; a route requires code; "
-        "the prerequisite free-surface creation remains broken on 26.125",
+        "not offered: no free-surface setup operation; a route requires code",
         "src/pyflightstream/commands/free_surfaces.yaml; "
         "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-160_flightstream-26125-registered-from-its-manual-and-its-outputs_2026-10-05.md",
     ),
@@ -251,6 +254,47 @@ def _emissions(root: Path, commands: set[str]) -> dict[str, list[str]]:
                         found |= _strings(argument) & commands
                     elif isinstance(argument, ast.Name):
                         found |= local_strings & commands
+                        if (
+                            path.name == "_settings.py"
+                            and function.name == "_emit_family"
+                            and argument.id == "command"
+                            and any(
+                                isinstance(node, ast.Call)
+                                and isinstance(node.func, ast.Name)
+                                and node.func.id == "_family_calls"
+                                for node in ast.walk(body)
+                            )
+                        ):
+                            # Preflight and emission consume the same row iterator.
+                            # Read its actual yielded attributes, then the matching
+                            # columns of the live Row tables, never docstrings.
+                            iterator = next(
+                                node
+                                for node in tree.body
+                                if isinstance(node, ast.FunctionDef)
+                                and node.name == "_family_calls"
+                            )
+                            attributes = {
+                                node.value.elts[0].attr
+                                for node in ast.walk(_executable(iterator))
+                                if isinstance(node, ast.Yield)
+                                and isinstance(node.value, ast.Tuple)
+                                and isinstance(node.value.elts[0], ast.Attribute)
+                            }
+                            for expression in globals_.values():
+                                for row in ast.walk(expression):
+                                    if not (
+                                        isinstance(row, ast.Call)
+                                        and isinstance(row.func, ast.Name)
+                                        and row.func.id == "Row"
+                                    ):
+                                        continue
+                                    for attribute, index in (("command", 1), ("erase", 3)):
+                                        if attribute in attributes and len(row.args) > index:
+                                            found |= _strings(row.args[index]) & commands
+                                    for keyword in row.keywords:
+                                        if keyword.arg == "erase" and "erase" in attributes:
+                                            found |= _strings(keyword.value) & commands
                         if (
                             path.name == "_build_forms.py"
                             and function.name == "detect_every_boundary"

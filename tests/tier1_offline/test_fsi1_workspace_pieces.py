@@ -109,6 +109,15 @@ def test_ids_follow_the_tree_position_of_every_boundary(tmp_path):
     assert ids == [3, 4, 2]
 
 
+def test_p0420_p1_1d_fsi_refuses_ids_after_surface_deletion(tmp_path):
+    case = coupled_case(tmp_path)
+    case = case.model_copy(
+        update={"solver": case.solver.model_copy(update={"delete_surfaces": ["Hub"]})}
+    )
+    with pytest.raises(CampaignConfigError, match="delete_surfaces.*not measured"):
+        ws.aeroelastic_surface_ids(case, _declared(["Blade1", "Blade2"]), ["Blade1"], context="FSI")
+
+
 def test_an_unmeasured_numbering_is_refused_not_guessed(tmp_path):
     case = coupled_case(tmp_path).model_copy(update={"geometry": str(tmp_path / "saved.fsm")})
     with pytest.raises(CampaignConfigError, match="not measured"):

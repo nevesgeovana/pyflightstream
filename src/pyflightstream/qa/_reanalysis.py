@@ -62,8 +62,9 @@ def _write_reanalysis(
     repo_root: str | Path,
     date: str,
     label: str,
+    withdraw: bool = True,
 ) -> tuple[Path, Path]:
-    """Construct and persist a validated dated withdrawal of measured judgments."""
+    """Construct dated analysis with an explicit choice to withdraw the source judgment."""
     from pyflightstream.qa.compat import compat_report_paths, read_compat_report
 
     root = Path(repo_root).resolve()
@@ -82,12 +83,13 @@ def _write_reanalysis(
         body = copy.deepcopy(original["commands"][command])
         if body["outcome"] not in {"verified", "broken", "removed"}:
             raise QaEvidenceError(f"{command}: only a measured judgment can be withdrawn")
-        body["withdraws"] = {
+        provenance = {
             "report": citation,
             "sha256": text_sha256(source.read_text(encoding="utf-8")),
             "hash_domain": "utf8-lf",
             "outcome": body["outcome"],
         }
+        body["withdraws" if withdraw else "source_judgment"] = provenance
         body["source_detail"] = body.get("detail", "")
         body.update(outcome="unprobed", detail=explanation.strip())
         document["commands"][command] = body

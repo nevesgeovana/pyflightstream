@@ -29,7 +29,6 @@ from pyflightstream._retired_names import (
 )
 from pyflightstream.cases import (
     AXIS_UNIT_VECTORS,
-    ROTOR_BLADE_ROTATION_AXIS,
     CampaignConfigError,
     RotorBlock,
     SimCase,
@@ -55,7 +54,9 @@ from ._rows import (
     UNNAMED_ROTOR_RADICAL,
     _from_metres,
     _point_from_metres,
+    _rotor_frame_axis,
     _the_rotor_a_flat_row_turns,
+    _uses_letter_frame,
     _variable,
 )
 from ._vocabulary import (
@@ -144,11 +145,9 @@ def _hub_basis(block: RotorBlock | None) -> tuple[tuple[float, ...], tuple[float
     A row that turns no declared rotor keeps the geometry's own axes because
     there is no shaft to align to.
     """
-    if block is None or isinstance(block.axis, str):
-        # A letter axis retains the geometry's basis. Deriving the basis of
-        # an untilted shaft gives (1,0,0) and (0,1,0) only for blade datum X:
-        # `axis = Z`, `zero = Y` yields x=(0,1,0), y=(-1,0,0), rotating the disk
-        # a quarter turn. This branch preserves the letter-axis convention.
+    if block is None or _uses_letter_frame(block):
+        # Keep the geometry basis only for its own datum. Batch 8 measured
+        # that a letter frame ignores a different blade1.zero.
         return (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
     datum = AXIS_UNIT_VECTORS[block.blade1.zero.lstrip("+-")]
     # THE SIGN IS KEPT: it reverses the direction the azimuth is measured FROM
@@ -181,8 +180,8 @@ def _rotor_frame(case: SimCase, script: Script) -> int | None:
     else:
         return None
     # The hub frame follows the shaft, including its installed pitch and toe.
-    # For a rotor whose axis is a LETTER the basis below is exactly (1,0,0)
-    # and (0,1,0), preserving the geometry-axis convention.
+    # A matching letter datum retains the geometry basis; any other datum
+    # uses the shaft-aligned vector basis measured in batch 8.
     x_axis, y_axis = _hub_basis(block)
     return helpers.coordinate_frame(
         script,
@@ -1077,8 +1076,7 @@ def _rotor_blade_frames(
             name=f"{stem}{number}" if stem else f"{radical}_RMRP{number}",
             origin=origin,
             # The blade frames follow the installed shaft's pitch and toe.
-            # `_hub_basis` returns the identity for a rotor stating a LETTER,
-            # retaining the geometry axes for that convention.
+            # A matching letter datum retains the geometry axes.
             x_axis=_hub_basis(rotor)[0],
             y_axis=_hub_basis(rotor)[1],
             label=f"blade_axis:{family}",
@@ -1087,13 +1085,9 @@ def _rotor_blade_frames(
             "ROTATE_COORDINATE_SYSTEM",
             frame=index,
             rotation_frame=hub,
-            # rotation_axis is an enum over X, Y, Z, 1, 2, 3. A letter shaft
-            # keeps that letter because _hub_basis returns the identity for that
-            # path. A vector shaft uses Z of its shaft-aligned hub frame. Never
-            # pass the three-component rotor.axis tuple into the enum field.
-            rotation_axis=(
-                rotor.axis if isinstance(rotor.axis, str) else ROTOR_BLADE_ROTATION_AXIS
-            ),
+            # A datum-aligned hub turns about its local Z. The preserved
+            # letter basis turns about the original letter.
+            rotation_axis=_rotor_frame_axis(rotor),
             angle=rotor.blade1.azimuth_deg + (number - 1) * 360.0 / count,
         )
         created[family] = index

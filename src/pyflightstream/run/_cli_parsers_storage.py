@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from pyflightstream.workspace.ledger import SIMS_IDS_HELP
+from pyflightstream.run._ids import _add_sim_ids
 
 
 def _top_rows(text: str) -> int:
@@ -87,7 +87,10 @@ def add_storage_parsers(subparsers: Any) -> None:
             "leaves it, recorded stale; regenerate reruns that matrix's post without them."
         ),
     )
-    delete.add_argument("sims", help=SIMS_IDS_HELP)
+    delete.add_argument(
+        "legacy_sims", nargs="?", help="deprecated positional alias; use --sims ID [ID ...]"
+    )
+    _add_sim_ids(delete)
     delete.add_argument("--workspace", default=".", help=workspace_help)
     delete.add_argument(
         "--matrix-products",

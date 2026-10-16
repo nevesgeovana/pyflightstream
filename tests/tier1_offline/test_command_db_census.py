@@ -42,9 +42,12 @@ from pyflightstream.versions import known_versions
 #: its solver ends a script at SET_MOTION_IS_ROTOR in every form and its
 #: executable carries no such command (RPT-049). The row stays, as removed.
 EMITTABLE = {
-    "25.000": 268,
-    "25.100": 270,
-    "26.000": 274,
+    # PFS-2003.11, commit 8dbf817b: edition-specific IMPORT_CAD and
+    # CAD_CREATE_IMPORT_CURVE_CCS on all three; SET_SCENE_CONTOUR and
+    # NEW_OFF_BODY_STREAMTUBE on the two 25.x editions. No solver promotion.
+    "25.000": 272,
+    "25.100": 274,
+    "26.000": 276,
     # 2026-10-12, measured removals and not lost rows (RPT-166): the solver
     # refuses SET_MOTION_FSI_EXECUTABLE and SET_MOTION_FSI_STRUCTURAL_NODES as
     # unrecognised on 26.100, 26.101, 26.120, 26.124 and 26.125, and
@@ -150,7 +153,9 @@ VERIFIED = {
     # to verified: 79.
     # +1 on 2026-10-12: SET_MOTION_START_TIME on a 6DOF motion
     # (CMP-26120_2026-10-12_pfs2135-items, RPT-166): 80.
-    "26.120": 80,
+    # PFS-2138.065/069: CMP-26120_2026-10-16_rotor-effect-reanalysis
+    # withdraws thirteen workflow-only effect judgments; evidence is retained.
+    "26.120": 67,
     "26.121": 84,
     # It had zero of its own until 2026-08-11, deriving `operational`
     # from 26.120's records by hotfix inheritance, and the comment here
@@ -179,7 +184,9 @@ VERIFIED = {
     # 84 until 2026-09-08, then the same sweep on this build
     # (CMP-26123_2026-09-08_rotor-path): eight of the thirteen were
     # documented here and are verified now, five were already: 92.
-    "26.123": 92,
+    # Same analysis-only withdrawal: CMP-26123_2026-10-16_rotor-effect-reanalysis.
+    # Eight direct verifications return to documented; no rows are removed.
+    "26.123": 84,
     # Measured 2026-09-14 on the build's first sweep, against the synthetic wing
     # of the tier-3 workspace (CMP-26124_2026-09-14_full-sim): 86. Read it
     # against 26.123's first sweep of 84: three MORE, the unsteady plot commands

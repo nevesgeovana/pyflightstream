@@ -309,6 +309,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # THIS call rebuilds or sweeps, the same SUBJECT; a default would limit
     # every post of a machine to simulations a registry happened to hold.
     ("pyfs-matrix", "sims"): SUBJECT,
+    ("pyfs-matrix", "legacy_sims"): SUBJECT,
     # 0.34.0 (FR-326): `plan --sims` and `run --sims` name the simulations THIS call
     # plans or runs, the same SUBJECT, and `--points` names the points of those
     # simulations: what the command works on, never a machine knob.
@@ -657,6 +658,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
     ("pyfs-matrix", "list_paths"): frozenset({"free-space"}),
     ("pyfs-matrix", "force"): frozenset({"delete-sims"}),
+    ("pyfs-matrix", "legacy_sims"): frozenset({"delete-sims"}),
     ("pyfs-matrix", "level"): frozenset({"sync"}),
     ("pyfs-matrix", "source"): frozenset({"sync"}),
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),

@@ -332,7 +332,8 @@ def test_goal022_frames_move_every_frame_the_rotor_owns_moves_to_its_new_origin(
         "PUSHER_RMRP3",
         "PUSHER_SMRP",
     ], moved
-    assert all(values == ["7.25", "0.0", "0.0", "METER"] for values in moved.values()), moved
+    # PFS-2119.024: this datum uses hub X along global Y and hub Z along the shaft X.
+    assert all(values == ["7.2", "0.05", "0.0", "METER"] for values in moved.values()), moved
     assert not any(name.startswith("LIFT_L1") for name in moved), "the other rotor stays"
 
 
@@ -344,10 +345,11 @@ def test_goal022_frames_move_a_second_record_moves_them_from_where_the_first_lef
     )
     lines = lines_of(case)
     hub = index_of_frame(lines, "PUSHER_SMRP")
-    assert [line for line in origin_moves(lines) if line.split()[1] == str(hub)] == [
-        f"SET_COORDINATE_SYSTEM_ORIGIN {hub} 7.25 0.0 0.0 METER",
-        f"SET_COORDINATE_SYSTEM_ORIGIN {hub} 7.25 0.0 -0.02 METER",
-    ]
+    moves = [line.split() for line in origin_moves(lines) if line.split()[1] == str(hub)]
+    assert len(moves) == 2
+    for move, expected in zip(moves, [(7.2, 0.05, 0.0), (7.18, 0.05, 0.0)], strict=True):
+        assert move[-1] == "METER"
+        assert tuple(map(float, move[2:5])) == pytest.approx(expected)
 
 
 def test_goal022_frames_move_along_a_frame_whose_axes_are_not_the_references(tmp_path):

@@ -1765,11 +1765,13 @@ def write_reanalysis(
     repo_root: str | Path,
     date: str,
     label: str,
+    withdraw: bool = True,
 ) -> tuple[Path, Path]:
-    """Write a dated, analysis-only withdrawal preserving the source execution.
+    """Write dated analysis preserving the source execution, optionally withdrawing judgment.
 
-    Each named command requires an explanation. This operation withdraws a
-    judgment, not its observations, and launches nothing. The original report
+    Each named command requires an explanation. By default this withdraws a
+    judgment while preserving its observations; withdraw=False adds an analysis
+    note without changing that judgment. It launches nothing. The original report
     UTF-8 text with LF line ends is pinned so that checkout line endings do not
     change provenance and later content edits cannot silently change it.
     Apply the result explicitly with :func:`apply_reanalysis` after review.
@@ -1786,6 +1788,9 @@ def write_reanalysis(
         ISO analysis date, later than the original report.
     label : str
         Distinguishing suffix for the analysis report filenames.
+    withdraw : bool, optional
+        Withdraw the source judgment by default. False records an unprobed
+        analysis note while retaining the source judgment and database status.
 
     Returns
     -------
@@ -1797,7 +1802,9 @@ def write_reanalysis(
     QaEvidenceError
         If provenance, dates, explanations or report destinations are invalid.
     """
-    return _write_reanalysis(source, explanations, repo_root=repo_root, date=date, label=label)
+    return _write_reanalysis(
+        source, explanations, repo_root=repo_root, date=date, label=label, withdraw=withdraw
+    )
 
 
 def apply_reanalysis(report_path: str | Path, *, repo_root: str | Path) -> list[str]:

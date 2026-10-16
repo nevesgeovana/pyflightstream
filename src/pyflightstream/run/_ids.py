@@ -9,8 +9,10 @@ order and imports no module of the package.
 
 from __future__ import annotations
 
+import argparse
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from typing import Any
 
 from pyflightstream._errors import (
     PyflightstreamError,
@@ -43,6 +45,7 @@ from pyflightstream.workspace import (
     RunRecord,
     WorkspaceError,
 )
+from pyflightstream.workspace.ledger import SIMS_IDS_HELP, listed_sims
 from pyflightstream.workspace.matrix import ResolvedMatrix
 
 
@@ -557,4 +560,22 @@ def narrow_to_selection(
             update={"sims": [by_id[sim] for sim in carried if sim in by_id]}
         ),
         row_builds=tuple(b for b, kept in zip(resolved.row_builds, keep, strict=True) if kept),
+    )
+
+
+class _SimulationIds(argparse.Action):
+    def __call__(self, parser: Any, namespace: Any, values: Any, option_string: Any = None) -> None:
+        setattr(namespace, self.dest, listed_sims(values))
+
+
+def _add_sim_ids(parser: Any, *, help: str = SIMS_IDS_HELP, required: bool = False) -> None:
+    """Add the shared --sims ID [ID ...] spelling, retaining comma/bracket input."""
+    parser.add_argument(
+        "--sims",
+        nargs="+",
+        metavar="ID",
+        default=None,
+        required=required,
+        action=_SimulationIds,
+        help="Use --sims ID [ID ...]; commas and brackets are also accepted. " + help,
     )

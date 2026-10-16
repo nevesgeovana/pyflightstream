@@ -153,7 +153,7 @@ def test_p0320_noise_observers_imported_from_the_point_s_copy_of_a_file(tmp_path
     lines = script.render().splitlines()
     copy = str(Path(script.working_dir) / "ring.acoustic_observers.csv")
     assert lines[lines.index("ACOUSTIC_OBSERVERS_IMPORT") + 1] == copy
-    assert script.pending_input_files[copy] == source.read_bytes()
+    assert script.pending_input_files["ring.acoustic_observers.csv"] == source.read_bytes()
     assert lines.index("ACOUSTIC_OBSERVERS_IMPORT") < _first(lines, "INITIALIZE_SOLVER")
 
 

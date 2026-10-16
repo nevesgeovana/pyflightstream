@@ -27,7 +27,7 @@ def test_p0410_shared_payloads_keep_every_execution(monkeypatch):
     monkeypatch.setattr(module, "render_or_refusal", render)
     rendered = module.build()
     assert calls == module.GOLDEN_RENDERS
-    assert len(rendered) == 27
+    assert len(rendered) == 31
     assert all(path.read_bytes() == data for path, data in rendered.items())
 
 

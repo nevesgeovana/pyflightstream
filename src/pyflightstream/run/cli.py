@@ -165,7 +165,7 @@ def _one_builder_per_code(recipes: dict[str, str], workflows: dict[str, str]) ->
     return {**recipes, **workflows}
 
 
-def _listed_sims(text: str) -> list[str]:
+def _listed_sims(text: str | list[str]) -> list[str]:
     """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
 
     Read by the positional ids of ``delete-sims`` and by ``--sims`` of ``rebuild``,

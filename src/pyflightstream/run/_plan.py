@@ -22,6 +22,7 @@ from typing import Any, cast
 
 import pyflightstream
 import pyflightstream._textio as _textio
+import pyflightstream.cases.workflows as workflows
 import pyflightstream.run._ids as _ids
 from pyflightstream._digest import (
     file_sha256,
@@ -349,7 +350,7 @@ def _marked_trailing_edges(case) -> int | None:
     return len([name for name in families if str(name).casefold() in carried])
 
 
-def _recorded_is_unsteady(record: dict) -> bool:
+def _recorded_is_unsteady(record: dict, *, steps: int | None = None) -> bool:
     """Whether a recorded run was unsteady, by the fact it states (FR-82).
 
     The record's own `recipe` answers, and it is the same key the planned
@@ -359,10 +360,10 @@ def _recorded_is_unsteady(record: dict) -> bool:
     cannot identify an unsteady run without a planned reduction.
     """
     recipe = record.get("recipe")
-    if isinstance(recipe, str) and recipe:
+    if recipe in (*STEADY_RUN_TYPES, "unsteady", "unsteady_rotor"):
         # The quasi-steady rotor is steady at every solve.
         return recipe not in STEADY_RUN_TYPES
-    return bool(record.get("reductions"))
+    return steps is not None or bool(record.get("reductions"))
 
 
 #: The statuses whose wall time is no sample of what a point costs (PFS-2094.014):
@@ -449,10 +450,15 @@ def estimate_point_cost(
         sentence naming the basis.
     """
     solver = getattr(case, "solver", None)
-    unsteady = case.recipe not in STEADY_RUN_TYPES
     from pyflightstream.cases.workflows import time_steps_of
 
     iterations = time_steps_of(case)
+    # A custom LEGACY recipe is not an unsteady declaration. Its physical
+    # clock is the available evidence, while registered unsteady workflows
+    # remain unsteady even if an invalid clock prevents a step count.
+    unsteady = case.recipe in ("unsteady", "unsteady_rotor") or (
+        case.recipe not in STEADY_RUN_TYPES and iterations is not None
+    )
 
     # Resolve row NCPUS before setup max_threads, using the same resolver
     # as the emitted script and descriptor (PFS-2094.038).
@@ -479,7 +485,11 @@ def estimate_point_cost(
     # solve for a steady row. Read the record's recipe just as for the planned
     # point: a reduction block alone cannot identify an unsteady run whose
     # reductions were not planned.
-    same = [r for r in recorded if _recorded_is_unsteady(r) == unsteady]
+    same = [
+        r
+        for r in recorded
+        if _recorded_is_unsteady(r, steps=(steps_by_run or {}).get(r.get("run_id", ""))) == unsteady
+    ]
     seconds = None
     basis = (
         "no recorded run of this run type in this workspace, so no estimate is "
@@ -1175,6 +1185,8 @@ def plan_campaign(
                 if recipes and case.recipe in recipes
                 else cast(ScriptRecipe, resolve_recipe(case.recipe))
             )
+        if case_error is None:
+            case_error = _one_job_error(campaign, case, workspace, case_version)
         # A POINT A RECORDED JOB OF ITS ROW RAN IS RECORDED, although no record
         # carries the point's own id: the question `run_campaign` asks before a
         # resume, asked here of the same helper, so READY is what resume runs.
@@ -1248,6 +1260,26 @@ def plan_campaign(
         setup_inspections=list(setup_inspections or ()),
         planned_order=order,
     )
+
+
+def _one_job_error(
+    campaign: Campaign, case: SimCase, workspace: CampaignWorkspace, version: str
+) -> str | None:
+    """Rehearse the shared steady script in addition to each point's recipe."""
+    if not _ids._is_one_job(campaign, case):
+        return None
+    try:
+        point_cases = [
+            case_at_point(case, point, outputs=_point_names(campaign, case, point, workspace)[1])
+            for point in case.sweep.points()
+        ]
+        script = Script(version=version)
+        script.working_dir = str(workspace.sim_dir(case.sim_id))
+        workflows.build_steady_sweep(point_cases, script, cold=_ids._is_cold_start(case))
+        script.render()
+    except Exception as error:
+        return f"{type(error).__name__}: {error}"
+    return None
 
 
 def _planned_order(
@@ -1447,7 +1479,7 @@ def _plan_point(
     run_id = _run_id(campaign, case, point)
     # A keyword bag for PointPlan: values differ by key, hence ``Any``.
     base: dict[str, Any] = {"run_id": run_id, "sim_id": case.sim_id, "point": dict(point)}
-    if case_error is not None or recipe is None:
+    if recipe is None:
         return PointPlan(
             **base,
             script_name=None,
@@ -1464,6 +1496,10 @@ def _plan_point(
     # rotors may still reach the speed of sound. Likewise record a quasi-steady
     # wheel's blade 1P reduced frequency and a rotor point's wake.
     base.update(_point_facts(point_case, inflow_fft=inflow_fft, fs_version=fs_version))
+    if case_error is not None:
+        return PointPlan(
+            **base, script_name=script_name, status=PlanStatus.BLOCKED, error=case_error
+        )
     # Resolve a continuation exactly as run does: its saved file and step count
     # come from the previous record, not the RESTART row. The builder needs
     # those resolved inputs to rehearse the script.
@@ -1513,16 +1549,15 @@ def _plan_point(
         # is refused here, before any run can spend a seat on it.
         _refuse_an_import_count_nothing_logs(point_case, script, None)
         script.render()
-        if inflow_fft and write_products:
-            from pyflightstream.workspace import write_plan_products
-
-            base["inflow_harmonics"] = [
-                path.relative_to(workspace.root).as_posix()
-                for path in write_plan_products(
-                    point_case,
-                    workspace.plan_dir(campaign.matrix_stem) / "inflow" / case.sim_id / stem,
-                )
-            ]
+        _inflow_plan_products(
+            base,
+            point_case,
+            workspace,
+            campaign.matrix_stem,
+            stem,
+            inflow_fft=inflow_fft,
+            write_products=write_products,
+        )
     except Exception as error:  # recipes are user code; any failure blocks the point
         return PointPlan(
             **base,
@@ -1534,8 +1569,9 @@ def _plan_point(
     # chose, reused or added, which are the ones the run lays and records.
     if base.get("farfield"):
         base["farfield"] = farfield_plan_record(point_case, fs_version, script)
-    # The dry run built the same COMMANDS the campaign will, so the two
-    # provenance flags are already determined here. Not the same bytes,
+    # This dry run built the point recipe; one-job rows also rehearse the
+    # shared sweep in _one_job_error. These provenance flags describe the
+    # point recipe. Neither rehearsal promises the run's exact bytes,
     # and the difference is one argument: the plan runs before
     # anything is staged, so a case naming a geometry renders `OPEN
     # <library path>` here and `OPEN <staged copy>` at run time. A raw mesh
@@ -1575,6 +1611,21 @@ def _plan_point(
         raw=script.raw_flag,
         march_strategy=script.march_strategy,
     )
+
+
+def _inflow_plan_products(
+    base, case, workspace, matrix_stem, stem, *, inflow_fft, write_products
+) -> None:
+    """Write requested inflow diagnostics and attach their workspace-relative paths."""
+    if inflow_fft and write_products:
+        from pyflightstream.workspace import write_plan_products
+
+        base["inflow_harmonics"] = [
+            path.relative_to(workspace.root).as_posix()
+            for path in write_plan_products(
+                case, workspace.plan_dir(matrix_stem) / "inflow" / case.sim_id / stem
+            )
+        ]
 
 
 def _output_collision(

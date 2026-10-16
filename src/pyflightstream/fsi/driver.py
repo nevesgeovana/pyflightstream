@@ -60,6 +60,7 @@ in-plane centrifugal softening) and writes the relaxed displacement.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from collections.abc import Callable, Sequence
@@ -71,6 +72,7 @@ import numpy as np
 
 import pyflightstream._textio as _textio
 import pyflightstream.fsi._direct_morphing as _direct_morphing
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
 from pyflightstream.fsi.config import DIRECT_MORPHING, FsiConfig, config_sha256, load_config
@@ -79,6 +81,7 @@ from pyflightstream.fsi.loads import (
     ElasticAxisLoads,
     SectionalLoadsReport,
     SectionFamilyMap,
+    cross_check_totals,
     parse_sectional_loads,
     to_elastic_axis,
 )
@@ -114,6 +117,34 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+def _check_staged_totals(
+    folder: Path, report: SectionalLoadsReport, family_map: SectionFamilyMap
+) -> None:
+    """Verify optional, hash-bound integrated loads before the structural solve."""
+    path = folder / "fsi_totals.json"
+    if not path.exists():
+        return
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        if payload["loads_sha256"] != file_sha256(folder / LOADS_FILE):
+            raise ValueError("loads_sha256 does not match the current sectional export")
+        if payload["solver_iteration"] != report.current_iteration:
+            raise ValueError("solver_iteration does not match the current sectional export")
+        blocks = report.split(family_map)
+        totals = payload["families"]
+        names = {family.name for family in family_map.families if family.is_blade}
+        if set(totals) != names:
+            raise ValueError("families must name exactly the coupled blade boundaries")
+        for name in sorted(names):
+            fx, fz = float(totals[name]["fx_n"]), float(totals[name]["fz_n"])
+            if not all(math.isfinite(value) for value in (fx, fz)):
+                raise ValueError("integrated forces must be finite Newton values")
+            cross_check_totals(blocks[name], fx, fz)
+    except (KeyError, TypeError, ValueError) as error:
+        raise FsiInputError(f"{path.name}: {error}") from error
+
 
 CONFIG_FILE = "config.json"
 STATE_FILE = "state.json"
@@ -534,6 +565,11 @@ def _relaxed(state: FsiState, computed: np.ndarray, relaxation: float) -> np.nda
 
 def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
     """Replay the stored deformation without coupling (FSI-R10)."""
+    if cfg.morphing == DIRECT_MORPHING:
+        raise FsiInputError(
+            "frozen replay does not support morphing = 'direct': aerodynamic node rows "
+            "differ from structural station rows. Use mapped morphing or resume coupling."
+        )
     layout = _verified_layout(cfg, run_dir)
     translations = nodes.read_fsidisp(run_dir / FROZEN_FILE, expected_rows=layout.total_nodes)
     state.call_count += 1
@@ -602,9 +638,10 @@ def _refuse_an_unsettled_blade(solved: Sequence[centrifugal.RotatingSolution]) -
         "describe a blade shape the structural model never settled on. They are "
         "NOT written: the solver would fly them and the run would continue as "
         "though they were a solution. The usual cause is a propeller moment "
-        "unusually strong for this blade stiffness; check the torsional "
-        "stiffness distribution against the inertia difference I1 - I2 of the "
-        "configuration (a centre of gravity offset does not enter this solve).",
+        "unusually strong for this blade stiffness; check torsion_stiffness_n_m2 "
+        "against inertia_major_kg_m - inertia_minor_kg_m, and mass_per_length "
+        "with geometric pitch for flap softening "
+        "(a centre of gravity offset does not enter this solve).",
         residuals_rad=residuals,
         tolerance_rad=twist_tolerance,
         inner_solves=inner_solves,
@@ -747,8 +784,9 @@ def _read_the_call(
     state.step_count += 1
     state.last_solver_iteration = report.current_iteration
     family_map = SectionFamilyMap.model_validate_json(
-        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
+        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8-sig")
     )
+    _check_staged_totals(run_dir, report, family_map)
     return _CallInputs(layout, report, family_map, time_increment_s)
 
 
