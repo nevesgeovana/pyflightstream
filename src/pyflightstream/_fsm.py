@@ -52,12 +52,8 @@ from typing import TextIO
 
 from pyflightstream._errors import PyflightstreamError
 
-#: The CONSUMED surface, which is what this list is for. It carries
-#: every name another module imports and no name only this one uses,
-#: so `family_of` is deliberately absent and `resolve_family` is
-#: deliberately present. The first version omitted `resolve_family`
-#: while `cases/workflows.py` imported it, which would have let a
-#: later tidy-up of unexported names break the caller.
+#: Names consumed by other modules. Export resolve_family for workflow
+#: callers; family_of is used only within this module.
 __all__ = [
     "MESH_MARKER",
     "element_count",

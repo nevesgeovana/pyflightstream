@@ -48,14 +48,9 @@ _COUNT_ARG_NAMES = {
     "num_surfaces",
     # BOOLEAN_UNITE_MESH's mesh-body count (FSM-26.120 p.316).
     "num_bodies",
-    # BOOLEAN_UNITE_GEOMETRY's count of the GEOMETRY bodies it unites
-    # (FSM-25.000 p.272), added 2026-08-10 with the commands only the
-    # pre-26.100 editions document. Sixth spelling, and the one that
-    # makes the point of this set best: it counts the same kind of thing
-    # as num_bodies directly above, for a command printed on the SAME
-    # PAGE as the one that spells it num_bodies. The two are the
-    # vendor's, one per keyword, and they are mirrored rather than
-    # harmonised for the reason recorded above.
+    # BOOLEAN_UNITE_GEOMETRY's geometry-body count (FSM-25.000 p.272).
+    # Preserve this command's argument spelling even though the same page
+    # uses num_bodies for a different command.
     "bodies",
 }
 
@@ -73,8 +68,8 @@ _CREATION_COMMANDS = {
     "MIRROR_COORDINATE_SYSTEM": "frames",
     "CREATE_NEW_ACTUATOR": "actuators",
     "CREATE_NEW_MOTION": "motions",
-    # 25.000 creates a motion by one command per type and has no
-    # CREATE_NEW_MOTION (FSM-25.000); uncounted until 0.40.0 (PFS-2104.018).
+    # 25.000 creates motions with one command per type rather than
+    # CREATE_NEW_MOTION (FSM-25.000, PFS-2104.018).
     "CREATE_NEW_MOTION_EUCLIDEAN": "motions",
     "CREATE_NEW_MOTION_CUSTOM": "motions",
     "CREATE_NEW_MOTION_6DOF": "motions",

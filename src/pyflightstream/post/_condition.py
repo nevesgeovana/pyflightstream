@@ -475,10 +475,8 @@ def _matrix_window(matrix_row: MatrixRow | None, record: object) -> tuple[int, i
     if isinstance(last_step, bool) or not isinstance(last_step, int | float) or last_step <= 0:
         return None
     per_revolution = plan.get("steps_per_revolution")
-    # THE ARITHMETIC IS `cases.windows` AND NOTHING ELSE. It stood here
-    # as a second copy of what the plan derives, and a third copy fed the
-    # reductions from the frozen record, which is how one edit to the matrix
-    # moved the polar and left `<point>_time_average.csv` behind (PO-01).
+    # Share cases.windows arithmetic with planning and recorded reductions
+    # so matrix-window resolution and exported time averages agree (PO-01).
     return averaging_span(
         variables,
         last_step=int(last_step),

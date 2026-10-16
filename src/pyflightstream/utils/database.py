@@ -100,18 +100,10 @@ class Registration:
 
 
 def _note(target: Edition, previous: Edition, delta: EditionDelta) -> str:
-    """Provenance of one carried-forward row.
+    """Record both manual edition IDs and both compared page numbers.
 
-    IT NAMES BOTH EDITIONS BY THEIR CITATION ID and both pages. The
-    first version wrote "same grammar as the 26.122 edition", which
-    names a BUILD where an EDITION is meant, in 368 shipped rows. This
-    package is careful that the two are different objects, and its own
-    citation checker reads notes for ``FSM-<build>`` ids, so the note taught
-    the confusion that checker exists to catch. Dropping the
-    predecessor's page also cost the reader the one thing that makes the
-    claim checkable: the claim is that TWO pages say the same thing, so
-    a note naming one of them cannot be verified without redoing the
-    comparison.
+    The claim concerns matching grammar on two pages, so each page must
+    remain identifiable by its FSM citation.
     """
     return (
         f"{target.source} p.{delta.page}, unchanged from {previous.source} p.{delta.previous_page}"
@@ -392,10 +384,8 @@ def register_edition(
     if not write or not writable:
         return result
 
-    # EVERY EDIT IS BUILT AND VALIDATED BEFORE ANY FILE IS WRITTEN. The
-    # first version wrote each chapter inside the loop, so a refusal on a
-    # late chapter left the earlier ones on disk and the database was in
-    # a state no single command produced.
+    # Build and validate every edit before writing any chapter so a late
+    # refusal cannot leave a partially registered database.
     edited: dict[Path, str] = {}
     originals: dict[Path, str] = {}
     written = 0

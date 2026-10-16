@@ -1043,13 +1043,9 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
             continue
         expected = sorted(counts)
 
-        # THE RECORD SAYS WHICH SCRIPT IT RAN, and it is taken from there rather
-        # than matched by name. The first version of this looked for the point
-        # tag inside the file name and found nothing: a script is named by the
-        # point name, `P6002-M144RE438AL+000BE+000J+170.txt`, and the legacy point
-        # tag is `a+00.0_b+00.0_j+01.7`, so the two never share a substring. A
-        # measurement that silently matches nothing reports a clean zero, which
-        # is the shape this estate keeps paying for.
+        # Read the executed script path from the record. Point tags and script
+        # filenames use different naming schemes, so substring matching cannot
+        # reliably identify the script.
         stated = str(record.get("script_path") or "")
         if not stated:
             continue

@@ -166,22 +166,11 @@ def _advance_ratio_of(case: SimCase) -> float | None:
 
 
 def _say(message: str, *, quiet: bool = False) -> None:
-    """Print one progress line to stderr, immediately.
+    """Print one progress line to stderr immediately (FR-78).
 
-    FR-78. STDERR is decided before the first line was written: everything this
-    run prints that a caller CONSUMES is on stdout, so a progress line there
-    would break a pipeline reading records.
-
-    THE STREAM IS RESOLVED AT CALL TIME, not bound at import. Binding it once
-    at module level captured the interpreter's ORIGINAL stderr, so anything
-    that replaces `sys.stderr` afterwards -- a test harness, a caller
-    redirecting output, a notebook -- saw nothing at all while the lines went
-    somewhere else. The first version did that and its own test caught it.
-
-    `flush=True` is the requirement and not a precaution: a stream that is not
-    a terminal is block-buffered, so a campaign redirected to a file would
-    print its first line when the last point was done, which is the silence
-    this requirement exists to end.
+    Keep stdout available for machine-readable records. Resolve sys.stderr
+    at call time so redirection is respected, and flush each line so
+    block-buffered streams expose progress before the campaign finishes.
     """
     # Guarded: a log that cannot be written is said, never raised, so it
     # cannot abort a campaign (GOAL-034 Q8 CXQ8-1).

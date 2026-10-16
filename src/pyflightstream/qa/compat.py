@@ -861,11 +861,9 @@ def _rewritten_flow_entry(
 ) -> str:
     """Rewrite one single-line version entry, KEEPING the keys it already has.
 
-    The first version of this rewrote the whole line from `status` and
-    `report`, which discarded every other key silently: the `note` that
-    carries a per-edition page citation, a `successor`, a `probe_ref`, an
-    inline `args` override. `_validate_chapter` re-parses the result and
-    passes, because what is left is well-formed YAML saying less.
+    Replace only the keys owned by promotion. Carry through note,
+    successor, probe_ref and inline args overrides: dropping them can
+    leave valid YAML while losing evidence or changing grammar.
 
     Preserve notes just as for block-form rows: per-edition citations belong
     to the existing evidence and must not disappear during promotion.

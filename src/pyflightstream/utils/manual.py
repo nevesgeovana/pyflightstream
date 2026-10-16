@@ -584,8 +584,8 @@ def manual_editions(
 ) -> tuple[SweptCommand, ...]:
     """Read every manual edition and report what none of them has an entry for.
 
-    ``sweep`` is the public manual-sweep entry point. The retired spelling is handled by the
-    package's deprecation policy (PFS-2022.05).
+    ``manual_editions`` is the public Python API; ``pyfs-manual sweep``
+    is the CLI subcommand that calls it.
 
     The multi-edition form of :func:`coverage_against`, and it exists
     because the single-edition one answers a question no sweep asks. A
@@ -933,13 +933,8 @@ def unreachable_commands(
         try:
             view = recorded.for_version(edition.label)
         except Exception as unresolved:  # noqa: BLE001 - the types live a layer above
-            # TWO refusals reach here and the first version of this
-            # matched the wording of one. A label the registry cannot
-            # turn into exactly one build is either unregistered or an
-            # ALIAS naming several, and the alias is the likelier of the
-            # two in this workflow: a maintainer holding a new manual
-            # writes the name the pdf prints, which is the vendor name.
-            # That raised out of the CLI.
+            # An unresolved label can be unregistered or an ambiguous vendor alias.
+            # Handle both so the coverage report identifies the missing build.
             if type(unresolved).__name__ not in _UNRESOLVED_LABEL:
                 raise
             unmeasured.append(edition.label)
@@ -2094,24 +2089,11 @@ def write_chapter(body: str, *, path: str | Path, write: bool = False) -> str:
 
 
 class EditionVerdict(enum.StrEnum):
-    """What one edition does with one command, against its predecessor.
+    """Closed vocabulary for one command's relationship to a predecessor edition.
 
-    A CLOSED VOCABULARY rather than a bare string, which is how the
-    twelve other judgement sets in this package are written
-    (:class:`~pyflightstream.qa.probes.ProbeOutcome`,
-    :class:`~pyflightstream.commands.Status` and the rest). The cost of
-    the bare string was concrete: the caller decided what to WRITE by
-    comparing against three string literals, so a typo in any of them
-    evaluated false in silence and dropped commands from the write set
-    with nothing raising.
-
-    FIVE VALUES, NOT THREE. The first version returned three and its
-    caller recovered the missing two out of band, by re-testing
-    membership in the predecessor's parse, which it could only do
-    because it still held that mapping; a second consumer could not,
-    and an arrival rendered as ``p.None -> p.290`` in an
-    engineer-facing report because it was reported as a change with no
-    previous page.
+    Five values distinguish unchanged, changed, arrived, dropped and absent
+    commands. Callers can decide which rows to write without rechecking the
+    predecessor mapping or reconstructing missing distinctions.
     """
 
     #: Both editions parse to the same record, so the new edition's page
@@ -2382,18 +2364,9 @@ def insert_version_row(
     except StopIteration:
         raise ManualDraftError(f"{command} has no versions block") from None
 
-    # The LAST NON-BLANK, NON-COMMENT line of the block, so the new row
-    # lands against the rows rather than after a trailing blank that
-    # separates entries or under a comment that explains the row above.
-    #
-    # A COMMENT DOES NOT END THE BLOCK, whatever its indentation, and
-    # that is the correction rather than a nicety. The first version
-    # stopped at the first line not indented four spaces, so a comment at
-    # column zero inside a versions block hid every row below it from the
-    # duplicate scan: the function would write a SECOND key for a build
-    # already recorded, YAML would keep the last and drop the other, and
-    # the run would exit 0. That is precisely the silent loss the refusal
-    # below exists to prevent, arriving through the scan instead.
+    # Insert after the last nonblank, noncomment line of the versions block.
+    # Comments do not end the block regardless of indentation; scan past
+    # them to detect every existing build key and prevent duplicates.
     last_content = versions_at
     block_rows = []
     for i in range(versions_at + 1, end):

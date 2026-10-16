@@ -310,34 +310,12 @@ def rotor_shaft_loads(
         thrust_n=sum(a * b for a, b in zip(newtons, shaft, strict=True)),
         torque_nm=sum(a * b for a, b in zip(about_hub, shaft, strict=True)),
         shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
-        # THE WIND-AXIS FORCE `Fx_W`, WITH THE ROUND TRIP COLLAPSED.
-        # The definition starts from the force in the ROTOR frame and carries
-        # it to the body frame by the TRANSPOSE of the rotor-to-body rotation.
-        # `newtons` is that force in the frame THE EXPORT STATES, which is checked
-        # against `GEOMETRY_ANALYSIS_FRAMES` above and refuses the whole row when
-        # it is not the geometry's. THIS COMMENT SAID "which the export states in
-        # the geometry frame", flatly, and the correction of that very sentence
-        # is twenty lines below it in the same function -- the false claim and
-        # its retraction shipped together, and the false one is what the
-        # identity argument rests on. The QA lens of the closing round found it.
-        # so resolving it into the rotor frame and straight back out is `R^T R`,
-        # the identity, for any orthonormal `R`. Writing the two rotations would
-        # give the same number with two more places to make a sign error.
-        #
-        # What remains is the second rotation: body axes to WIND axes, by alpha
-        # and beta, taking the X component. That is exactly the dot product of
-        # the body-frame force with the free-stream unit vector, which
-        # `post.axes` builds and `_shaft_angle` uses for the angle.
-        # `NA` WHERE THE EXPORT IS NOT IN THE GEOMETRY FRAME. The body-to-wind
-        # rotation assumes the force is stated in the geometry's own axes; a
-        # campaign that sets `analysis_setup(loads_frame=...)` states it in a
-        # created coordinate system instead, and rotating THAT by alpha and beta
-        # yields a plausible efficiency of nothing. The V&V lens of the release
-        # round found the field parsed, carried on `LoadsReport`, and read by
-        # nobody -- while a comment asserted the geometry frame as a property of
-        # the EXPORT. It is a property of the campaign's setup, and this is the
-        # witness. An absent label means the export stated none.
-        # The frame was settled above, for the whole row rather than this column.
+        # Compute wind-axis Fx_W from geometry-frame force. The rotor-to-body
+        # round trip cancels as R^T R for orthonormal R, so only the body-to-wind
+        # rotation remains: dot the force with the free-stream unit vector.
+        # The export frame is checked for the whole row above; a nongeometry
+        # frame cannot be rotated by alpha and beta as though it were geometry
+        # axes. An absent label does not establish a frame.
         wind_force_n=_force_along_the_stream(newtons, shaft, alpha_deg, beta_deg),
         families_used=tuple(used),
     )

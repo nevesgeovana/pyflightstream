@@ -601,7 +601,7 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
 _WRITTEN_PAIRS = (
     "The pairs this package writes are none with not_applicable, last_step with "
     "last_time_step, and unknown with unknown; time_average with not_printed is what "
-    "a file written before 0.40.0 carries on an unsteady export"
+    "a legacy file can carry on an unsteady export"
 )
 
 
@@ -1118,7 +1118,7 @@ def _pinned_frame_columns(
             f"the {what} names columns {list(printed)}, and this table pins "
             f"{list(expected)}. The layout of this export is fixed by the solver, so a "
             "table built from a different one would carry each value under the label of "
-            "whatever used to sit in its position"
+            "a different column in that position"
         )
     return list(expected)
 

@@ -382,14 +382,8 @@ def _recorded_costs(workspace) -> list[dict]:
     of :data:`_NOT_A_COST_SAMPLE` is left out, as restore-and-rebuild.md says
     of FAILED_MARKED.
     """
-    # READ THE MANIFEST BY ITS OWN READER, and let a missing FILE be the only
-    # empty answer. The first version called `workspace.records()`, which does
-    # not exist, inside a bare `except Exception` -- so an AttributeError read
-    # as "this workspace has run nothing" and every estimate came back
-    # `unknown` against a workspace holding three recorded points. An
-    # instrument that reports nothing when it cannot run is the failure this
-    # estate keeps paying for, so the narrow catch is the file's absence and
-    # nothing else.
+    # Use the workspace's manifest reader. Only a missing file means no
+    # recorded runs; other failures must remain visible to the estimator.
     if not workspace.manifest_path.is_file():
         return []
     records = workspace.read_manifest()
@@ -460,12 +454,8 @@ def estimate_point_cost(
 
     iterations = time_steps_of(case)
 
-    # PROCESSORS: `max_threads` on the solver settings, which is what
-    # `SET_MAX_PARALLEL_THREADS` is emitted from. The first version read a
-    # variable key no row writes and reported a dash for every point. THE
-    # ROW'S NCPUS FIRST, through the one resolver the script and the
-    # descriptor read (PFS-2094.038): the setup's count alone printed 8 for a
-    # row whose script set 48.
+    # Resolve row NCPUS before setup max_threads, using the same resolver
+    # as the emitted script and descriptor (PFS-2094.038).
     from pyflightstream.cases.workflows import row_ncpus
 
     from_setup = getattr(solver, "max_threads", None)

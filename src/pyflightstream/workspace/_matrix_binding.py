@@ -451,13 +451,9 @@ def _refuse_setup_keys(refused: list[str], set_code: str) -> None:
             "(inputs/pproc/p001.toml, PFS-2029.07). Move the table there."
         )
     if refused:
-        # THE CONSUMED KEYS BELONG IN THE LIST. `stabilization`,
-        # `stabilization_strength` and the reserved `recorded_only` are
-        # all accepted and are all taken out of `settings` before this
-        # loop, so the first version of this message refused
-        # `stabilisation` with a list of "keys that apply" that did not
-        # contain the word its writer meant, which is the one case where
-        # the list is the whole value of the refusal.
+        # Include consumed keys in the diagnostic vocabulary: stabilization,
+        # stabilization_strength and recorded_only are accepted even though
+        # they have already been removed from settings before this loop.
         available = sorted(
             known
             | set(_PRESET_ALIASES)

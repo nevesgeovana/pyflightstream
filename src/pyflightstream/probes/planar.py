@@ -250,11 +250,9 @@ class AxisSpec(ProbeModel):
         """Return the axis points, increasing, endpoints exact."""
         if self.distribution == "uniform":
             if self.spacing is not None:
-                # PFS-2104.016. Rounded until 0.40.0, which delivered 1.0 for a
-                # request of 0.7 over an extent of 1.0. Ceiling never exceeds
-                # the request. Check the resulting size before removing a
-                # division-roundoff cell: even a one-ULP finer request must
-                # not be rounded back to a size larger than it requested.
+                # Ceiling keeps cell size at or below the requested spacing. Check
+                # the resulting size before removing a division-roundoff cell: even
+                # a one-ULP finer request must not produce a larger cell.
                 cells = _uniform_cells(self.extent, self.spacing)
             else:
                 cells = self.count - 1

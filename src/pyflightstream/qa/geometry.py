@@ -163,9 +163,7 @@ def mean_edge_length(triangles: np.ndarray) -> float:
     ``gap_m`` puts the two copies INSIDE each other. The two copies start
     COINCIDENT, so the upper copy's lower surface sits a full section
     thickness BELOW the lower copy's upper surface, and the translation
-    that opens a gap of ``gap_m`` is therefore ``thickness + gap_m``. The first
-    version of this example translated by ``gap_m + 0.2`` and printed
-    ``0.25``, while the real separation was 0.78 face lengths.
+    that opens a gap of ``gap_m`` is therefore ``thickness + gap_m``.
 
     >>> thickness = float(lower[:, :, 2].max() - lower[:, :, 2].min())
     >>> upper = wing_triangles(spec, translation_m=(0.0, 0.0, thickness + gap_m))

@@ -164,9 +164,7 @@ def _refuse_open(mesh, source: str) -> None:
     PFS-2100.010. The remedy names the path that works: the gate loads
     ``mesh_path`` with the watertight check only when it culls, so a
     distance-only run (a standoff margin, a refinement band) is
-    ``cull=False``. Until 0.40.0 the gate loaded with the check whatever
-    ``cull`` was, and a user who followed the old remedy met the same
-    refusal again.
+    ``cull=False`` and does not require watertightness.
     """
     if not mesh.is_watertight:
         raise OpenMeshError(
@@ -187,17 +185,9 @@ def _fine_axis(values: np.ndarray, factor: int) -> np.ndarray:
 
 
 def _surface_distance(mesh, points: np.ndarray) -> np.ndarray:
-    # RE-POINTED on 2026-08-19 at what is actually absent. This refusal
-    # named trimesh as the missing package, which was right while trimesh
-    # and the index arrived in one extra and became wrong the moment
-    # trimesh was promoted: from that day the only way to reach this
-    # branch is with the reader present and the index absent, so the old
-    # text sent a reader to reinstall a distribution they already have.
-    #
-    # The import is inside the guarded block rather than outside it
-    # because a future trimesh could move its own scipy import to module
-    # level; today the failure surfaces on the CALL, which is why the
-    # block covers both.
+    # The mesh reader is installed, but spatial queries need the optional
+    # index dependencies. Guard both import and call so either failure
+    # produces the extra-install remedy.
     with _spatial_index(
         "the distance-to-surface query behind the geometry gate's "
         "clearance band (or run the grid without culling)"
@@ -211,15 +201,10 @@ def _surface_distance(mesh, points: np.ndarray) -> np.ndarray:
 def _inside(mesh, points: np.ndarray) -> np.ndarray:
     """Point-in-body test, with the same refusal the distance query has.
 
-    A NEW guard on 2026-08-19, and the reason is the promotion rather
-    than an oversight found late: trimesh answers ``contains`` by ray
-    casting against an rtree bounds tree, so containment needs the index
-    exactly as the distance query does. It could not be reached without
-    the index before, because one extra installed both the reader and
-    the index; an installation carrying trimesh and not rtree is a state
-    the promotion created. Unguarded it would raise a bare
-    ``ImportError`` out of the public
-    :func:`apply_geometry_gate`.
+    trimesh implements contains by ray casting against an rtree bounds
+    tree. Containment therefore needs the spatial-index extra even when
+    the mesh reader is installed. Translate its missing dependency into
+    the shared extra refusal at the apply_geometry_gate boundary.
     """
     with _spatial_index(
         "the point-in-body containment test of the geometry gate (or run the grid without culling)"

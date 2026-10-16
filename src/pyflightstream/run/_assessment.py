@@ -102,10 +102,8 @@ class Assessment:
         reader of the manifest cannot otherwise tell that from a point
         whose residuals were actually read and missed the threshold.
 
-        IT REACHES THE MANIFEST, which is the whole point of it and was
-        not true of the first version: the field was populated on the
-        assessment and dropped at the RunRecord boundary, so the reader
-        it names still could not tell the two apart.
+        Carried into the run manifest so readers can distinguish these
+        sources of convergence evidence.
     residual_note : str, optional
         Where a final residual did not fit its printed field and was read
         from an earlier iteration instead, which column, which iteration
@@ -682,14 +680,9 @@ def _find_assessment_log(job: _LoadsJudgment) -> Assessment | None:
         ):
             return refusal
         elif len(candidates) > 1:
-            # SEVERAL IS A REFUSAL, exactly as it is for the loads
-            # table one branch up, and for the same reason: choosing
-            # one would be a guess about which is the log of THIS
-            # point. The first version fell through silently to the
-            # iteration-count judgment, which is the verdict this
-            # whole path exists to replace, so a campaign that had
-            # gone to the trouble of exporting a log got the old
-            # answer and no way to tell.
+            # Refuse several matching logs: choosing one would guess which log
+            # belongs to this point. Do not hide ambiguity behind an iteration-only
+            # verdict.
             names = ", ".join(path.name for path in candidates)
             return Assessment(
                 status=RunStatus.FAILED_INCOMPLETE_OUTPUT,

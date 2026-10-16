@@ -706,12 +706,9 @@ _DECIMAL = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)$")
 def _log_position_shape(text: str) -> str:
     """Classify a LOG_OUTPUT cell that is not a whole number.
 
-    THE FIRST VERSION ASKED `float(text)`, which is wider than the
-    message it selected: `nan`, `inf` and `1e3` all parse, so their
-    users were told the value "takes no decimal point" about
-    characters containing no decimal point. A refusal whose whole job is
-    to point at the cell someone typed cannot be wrong about what they
-    typed.
+    Distinguish decimal syntax from other non-integer forms so the refusal
+    describes the actual cell. float parsing alone also accepts nan, inf
+    and exponent notation, which need a different explanation.
     """
     if _DECIMAL.match(text):
         return "decimal"

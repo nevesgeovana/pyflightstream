@@ -52,7 +52,7 @@ __all__ = [
 #: A wake sheet's starting nodes form one ordered run along the trailing edge
 #: when no gap between two consecutive ones (in span order) exceeds this many
 #: times their median gap; a larger gap means the lines belong to more than one
-#: sheet, which variant B of 0.40.0 does not split (FR-1026).
+#: sheet, which variant B does not split (FR-1026).
 RUN_GAP_FACTOR = 4.0
 
 

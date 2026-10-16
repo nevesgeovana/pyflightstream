@@ -11,9 +11,9 @@ homes.
 
 Every exception here descends from :class:`PyflightstreamError`, so one
 except clause catches every CATALOGUED exception (SRS FR-39), and each
-also keeps the standard-library base it had before that class existed,
-so ``except ValueError`` and ``except RuntimeError`` keep catching
-exactly what they used to. Catalogued is the operative word and the
+also has its declared standard-library base, so ``except ValueError``
+and ``except RuntimeError`` catch the corresponding families.
+Catalogued is the operative word and the
 requirement says so in bold: a residual of bare standard-library raises
 survives outside this catalog. Every site the guard's walk REACHES is
 named in the ratchet in ``tests/tier1_offline/test_exceptions_catalog.py``, which is

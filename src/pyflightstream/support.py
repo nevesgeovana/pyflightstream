@@ -4,19 +4,9 @@ Pipeline role: cross-cutting reporting layer above the script builder.
 It answers one question the rest of the package could only answer by
 implication, and answers it in named values rather than in prose.
 
-The package registers a version by adding it to the ordered list in
-``commands/_meta.yaml``, and from that moment every public surface
-called it supported. That word covered four very different states at
-once, and the widest gap between two of them was measured by the
-independent review, and it is quoted here as the measurement of
-2026-08-02 that it was rather than as a present fact: 26.000 was
-registered, was accepted by ``Script(version="26.000")``, and carried
-evidence for zero of the database's commands, so nothing whatsoever
-could be built for it. The README said as much in a sentence; nothing
-said it in a value a caller could read (finding PYFS-019, SRS FR-49).
-That build's own manual was read on 2026-08-10 and it now carries 274
-emittable commands, which is the levels working: the value moved
-without anyone editing a claim.
+A version's presence in ``commands/_meta.yaml`` establishes registration,
+not command coverage or a buildable workflow. Derive its support level
+from available command evidence and the minimal workflow (FR-49).
 
 The four levels, and every one of them is DERIVED. Nothing here is
 declared in a file, because a hand-set support level is exactly the
@@ -155,15 +145,9 @@ class VersionSupport(BaseModel):
         Of those, the ones carrying probe evidence (``verified`` or
         ``broken``) that this version can reach. On a hotfix build the
         count INCLUDES records inherited from the base release, so some
-        of them were probed on that other build. No number is written
-        here: it moves with every probe run. Nor is the split asserted
-        anywhere today, which is worth saying plainly because this
-        docstring used to credit
-        ``tests/tier1_offline/test_evidence_provenance.py`` with measuring it and that
-        file measures the neighbouring claim, the inherited cell count of
-        the rendered matrix, whose two sides both derive from this same
-        registry. Reporting the two separately, with the guard that makes
-        a wrong split fail, is registered as PLN-20260803-2210.
+        of them were probed on that other build. This aggregate does not
+        separately count direct and inherited measurements. The rendered
+        compatibility matrix identifies inherited evidence per cell.
     workflow_missing : tuple of str
         Commands of :data:`MINIMAL_WORKFLOW_COMMANDS` this version
         cannot emit, in workflow order. Empty when the workflow builds.

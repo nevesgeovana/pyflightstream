@@ -994,11 +994,8 @@ def _read_delete_separations(value: object) -> int | Literal["all"] | None:
             )
         return "all"
     if not isinstance(value, int) or isinstance(value, bool):
-        # The first repair split str from EVERYTHING ELSE and let the
-        # rest fall into a `< 1` comparison, so a list raised
-        # "'<' not supported between instances of 'list' and 'int'".
-        # bool is an int in Python and is not an index, so it is
-        # named here rather than accepted as 1 or refused as 0.
+        # Refuse non-index types before numeric comparison. bool is an int
+        # in Python but is not a valid index.
         raise CommandArgumentError(
             "solver_settings: delete_separations takes the 1-based index of one "
             f"separation model or the string 'all', got {type(value).__name__} "

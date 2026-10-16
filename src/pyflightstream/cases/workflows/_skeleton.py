@@ -232,18 +232,10 @@ def _initialize(case: SimCase, script: Script) -> None:
             f"'{SYMMETRY_VARIABLE}: PERIODIC' if the geometry really is a sector, or "
             f"drop {PERIODIC_COPIES_VARIABLE}."
         )
-    # THE PRESET REACHES INITIALIZE_SOLVER TOO, for the two arguments it
-    # states. Both are passed UNCONDITIONALLY and the absent case is
-    # spelled as the emitter's own default rather than as a missing
-    # keyword: `solver_model=None` would be a different call, so the
-    # `or` restates INCOMPRESSIBLE, which is what the helper signature
-    # already defaults to, and `wall_collision_avoidance=None` is that
-    # parameter's own default and emits nothing.
-    #
-    # The first version built a `dict[str, object]` and unpacked it,
-    # which typechecks as `object` against four differently typed
-    # parameters: the type checker could not see that any of them was
-    # right, on the one call this round exists to make.
+    # Pass both preset initialization arguments explicitly. An absent
+    # solver_model uses INCOMPRESSIBLE; wall_collision_avoidance=None is
+    # the helper default and emits nothing. Typed keyword arguments keep
+    # these distinct defaults visible to the type checker.
     helpers.initialize_solver(
         script,
         symmetry=mode,
