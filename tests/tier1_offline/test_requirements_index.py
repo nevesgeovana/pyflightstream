@@ -61,8 +61,11 @@ def test_p0420_stage_migration_preserves_historical_statements():
     live = [r for r in historical if r["status"] != "retired"]
     historical_ids = {r["uid"] for r in live}
     assert historical_ids <= set(migration)
+    split_ids = {uid for r in records for uid in r["new_uids"].split()}
     for uid in set(migration) - historical_ids:
-        assert uid in current and migration[uid]["new_uids"], "unexplained migration UID"
+        assert uid in split_ids or (uid in current and migration[uid]["new_uids"]), (
+            "unexplained migration UID"
+        )
     lettered = [r["uid"] for r in live if r["uid"][-1].isalpha()]
     expected = dict(
         zip(
@@ -171,6 +174,35 @@ def test_p0420_structure_guard():
         [r["uid"] for r in historical_requirements() if r["status"] != "retired"],
         [r["uid"] for r in migration],
     )
+
+
+def test_p0420_s3_architecture_dispositions_preserve_rules():
+    """P0420: architecture destinations retain historical content and anchors."""
+    import csv
+
+    from scripts._requirements_paths import read_requirements
+
+    historical = {r["uid"]: r for r in historical_requirements()}
+    current = {r["uid"]: r for r in read_requirements(REPO)}
+    architecture = (REPO / "docs/srs/architecture-srs.md").read_text("utf-8")
+    migration = {
+        r["uid"]: r
+        for r in csv.DictReader((REPO / "docs/srs/uid-migration.csv").open(encoding="utf-8"))
+    }
+    reserved = json.loads((REPO / "docs/srs/reserved-ids.json").read_text())["reserved_ids"]
+    for uid in ("FR-928", "FR-991", "FR-1073", "FR-744", "FR-1002", "FR-1189"):
+        assert uid not in current, uid
+        assert uid in reserved
+        assert migration[uid]["destination"] == "demoted"
+        assert migration[uid]["file"] == "docs/srs/architecture-srs.md"
+        assert migration[uid]["target"].startswith("architecture-srs#")
+        assert historical[uid]["statement"] in architecture
+        assert historical[uid]["code"] in architecture
+        assert historical[uid]["test"] in architecture
+    assert "FR-2269" not in current and "FR-2269" in reserved
+    assert "FR-2269" in architecture
+    assert "FR-965" in current and "FR-965" not in reserved
+    assert migration["FR-965"]["destination"] == "kept"
 
 
 def test_p0420_l1_rows_follow_the_approved_feature_statements():

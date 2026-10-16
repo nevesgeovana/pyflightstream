@@ -101,6 +101,10 @@ boundaries; they do not repeat the chronology of each extraction.
     Structural refactors do not raise shrink-only baselines to hide growth.
     A source layout change preserves behavior unless a requirement changes it.
 
+    Architecture rule FR-1189: A test that pins the digest of rendered text holding a path computes it from text in which every backslash of that path is a forward slash, and which holds no absolute path, drive letter or clock reading: the same text with either separator gives one digest.
+
+    Code: `tests.support_helpers:fold_separators`. Test: `tests/tier1_offline/test_p0380_guards.py::test_p0380_guards_the_fold_gives_one_digest_for_either_separator`.
+
 !!! decision "AD-09 Run above workspace"
     Run orchestrates execution and imports workspace services. Workspace owns
     layout and storage and does not import run to invoke execution. Registered
@@ -121,6 +125,10 @@ boundaries; they do not repeat the chronology of each extraction.
     registry selects builders, the vocabulary owns row keys, and each helper
     owns one emission concern. A new route reuses the script builder and its
     command validation rather than constructing a second command language.
+
+    Architecture rule FR-991: The vocabulary membership of FR-980 and the classification of each cited token (selects, skipped, misspelled) are one resolver in the cases layer, taking plain values: the names, the aliases and the study list. `workspace/inputs.py` parses the `[study]` table; the plan lines (FR-987), the emitted selections (FR-982) and `skipped_names` (FR-989) consume the same resolution result.
+
+    Code: `pyflightstream.cases.workflows._names:_judge_the_group_members_the_model_lacks`. Test: `tests/tier1_offline/test_p0390_r02.py::test_a_misspelled_name_is_blocked_on_every_row_naming_the_vocabulary`.
 
 !!! decision "AD-13 Product families share a resolved context"
     Post resolves input records into a context, then calls the polar, rotor,
@@ -209,6 +217,14 @@ alone. A failed or missing output is not convergence.
 | Storage actions | workspace.storage | Preview/apply operations and storage_management.json |
 | Query snapshot | workspace.ledger | Read-only resolved evidence, without modifying the workspace |
 
+Architecture rule FR-744: The run, the post, the sweep table and every query read these rules from one module; no reader keeps a second copy.
+
+Code: `pyflightstream.workspace._effective:effective_points`. Test: `tests/tier1_offline/test_p0350_status.py::test_each_datapoint_is_counted_once_by_its_effective_record`.
+
+Architecture rule FR-1002 (including split child FR-2269): One module of the workspace layer owns the schema of the files, their validation (FR-993 to FR-995), the precedence (the Requirement and FR-998) and the provenance (FR-999), and both command families take their values from it; no module of the workspace layer imports the run layer. The parsing of the command line stays above it, in each command family, and the build-entry key of FR-998 is parsed by `workspace/builds.py`.
+
+Code: `pyflightstream.workspace._settings_file:take_defaults`. Test: `tests/tier1_offline/test_p0390_r03.py::test_p0390_r03_only_the_two_command_families_import_the_settings_module`.
+
 Run documents store shared solver setups, frames and geometry once, by content
 identity. Readers resolve historical definitions from the document, not today's
 input files. Requested values, observed values, provenance and distinct times
@@ -237,6 +253,14 @@ and frames before passing arrays to it. Probe layouts belong to probes;
 geometry gating checks proposed sample positions against the declared body.
 The balance and Trefftz methods share quadrature. Parsing a file successfully
 does not establish a native convention or validate a physical model.
+
+Architecture rule FR-928: Layering. The refinement lives in a private package of `workspace`; it imports nothing of `run`; `run`'s command layer reaches it only through `refine_mesh` and `audit_mesh` of `pyflightstream.workspace`; the audit imports nothing of the refinement modules, so it judges a level without them.
+
+Code: `pyflightstream.workspace._refine._level:refine_mesh`. Test: `tests/tier1_offline/test_p0380_s1_refine.py::test_r14_the_refinement_audit_and_command_import_only_what_the_layering_allows`.
+
+Architecture rule FR-1073: The far field takes its lattice from here. `[farfield]` lattices and planes are built by `probes` and emitted as probe shapes; no other module builds probe geometry, and a tier-1 guard fails when a module outside `probes/` defines a probe layout.
+
+Code: `pyflightstream.cases.workflows._farfield:farfield_probes`. Test: `tests/tier1_offline/test_regression_farfield_numerics.py::TestFarfieldProbes::test_p0400_probehome_no_module_outside_probes_defines_a_layout`.
 
 Geometry instruction models belong to cases; workspace plans, audits and stores
 geometry builds; run supplies the executor. The geometry command group registers

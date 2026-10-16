@@ -521,7 +521,7 @@ FR-740,kept,,,docs/unpublished/requirements/recs.md
 FR-741,kept,,,docs/unpublished/requirements/recs.md
 FR-742,kept,,,docs/unpublished/requirements/recs.md
 FR-743,kept,,,docs/unpublished/requirements/recs.md
-FR-744,kept,,,docs/unpublished/requirements/recs.md
+FR-744,demoted,architecture-srs#run-paths-and-state-ownership,,docs/srs/architecture-srs.md
 FR-382,kept,,FR-2290,docs/unpublished/requirements/oper.md
 FR-745,kept,,,docs/unpublished/requirements/oper.md
 FR-746,kept,,,docs/unpublished/requirements/oper.md
@@ -732,7 +732,7 @@ FR-924,kept,,FR-1496,docs/unpublished/requirements/spcm.md
 FR-925,kept,,,docs/unpublished/requirements/spcm.md
 FR-926,kept,,,docs/unpublished/requirements/spcm.md
 FR-927,kept,,,docs/unpublished/requirements/spcm.md
-FR-928,kept,,,docs/unpublished/requirements/spcm.md
+FR-928,demoted,architecture-srs#scientific-and-geometric-seams,,docs/srs/architecture-srs.md
 FR-929,kept,,FR-1497 FR-1498,docs/unpublished/requirements/spcm.md
 FR-930,kept,,,docs/unpublished/requirements/spcm.md
 FR-931,kept,,FR-1499 FR-1500 FR-1501 FR-1502,docs/unpublished/requirements/spcm.md
@@ -806,7 +806,7 @@ FR-987,kept,,FR-1346 FR-1347,docs/unpublished/requirements/dexp.md
 FR-988,kept,,,docs/unpublished/requirements/dexp.md
 FR-989,kept,,FR-2038,docs/unpublished/requirements/recs.md
 FR-990,kept,,,docs/unpublished/requirements/dexp.md
-FR-991,kept,,,docs/unpublished/requirements/dexp.md
+FR-991,demoted,architecture-srs#architectural-decisions,,docs/srs/architecture-srs.md
 FR-436,kept,,,docs/unpublished/requirements/wksp.md
 FR-992,kept,,FR-2262 FR-2263,docs/unpublished/requirements/wksp.md
 FR-993,kept,,FR-2264 FR-2265,docs/unpublished/requirements/wksp.md
@@ -818,7 +818,7 @@ FR-998,kept,,FR-1307 FR-1308 FR-1309 FR-1310,docs/unpublished/requirements/inst.
 FR-999,kept,,,docs/unpublished/requirements/recs.md
 FR-1000,kept,,,docs/unpublished/requirements/oper.md
 FR-1001,kept,,,docs/unpublished/requirements/wksp.md
-FR-1002,kept,,FR-2269,docs/unpublished/requirements/wksp.md
+FR-1002,demoted,architecture-srs#run-paths-and-state-ownership,FR-2269,docs/srs/architecture-srs.md
 FR-450,kept,,,docs/unpublished/requirements/dred.md
 FR-1003,demoted,FR-1030,,docs/unpublished/requirements/dred.md
 FR-1004,kept,,FR-2136 FR-2137,docs/unpublished/requirements/dred.md
@@ -896,7 +896,7 @@ FR-1070,kept,,,docs/unpublished/requirements/oper.md
 FR-459,kept,,FR-1523 FR-1524,docs/unpublished/requirements/spcm.md
 FR-1071,kept,,FR-1525,docs/unpublished/requirements/spcm.md
 FR-1072,kept,,FR-1526,docs/unpublished/requirements/spcm.md
-FR-1073,kept,,,docs/unpublished/requirements/spcm.md
+FR-1073,demoted,architecture-srs#scientific-and-geometric-seams,,docs/srs/architecture-srs.md
 FR-1074,kept,,FR-2225 FR-2226 FR-2227,docs/unpublished/requirements/trst.md
 FR-1075,kept,,,docs/unpublished/requirements/trst.md
 FR-460,kept,,FR-1464 FR-1465 FR-1466,docs/unpublished/requirements/proc.md
@@ -1037,7 +1037,7 @@ FR-1185,kept,,,docs/unpublished/requirements/trst.md
 FR-1187,kept,,FR-2230,docs/unpublished/requirements/trst.md
 NFR-44,kept,,,docs/unpublished/requirements/quality.md
 FR-1188,kept,,FR-2231,docs/unpublished/requirements/trst.md
-FR-1189,kept,,,docs/unpublished/requirements/trst.md
+FR-1189,demoted,architecture-srs#architectural-decisions,,docs/srs/architecture-srs.md
 NFR-46,kept,,NFR-119,docs/unpublished/requirements/quality.md
 FR-1196,kept,,,docs/unpublished/requirements/oper.md
 FR-1197,kept,,FR-2298,docs/unpublished/requirements/oper.md
@@ -1047,3 +1047,4 @@ NFR-48,kept,,NFR-121,docs/unpublished/requirements/quality.md
 NFR-49,kept,,NFR-122,docs/unpublished/requirements/quality.md
 FR-3161,kept,,FR-1311,docs/unpublished/requirements/dexp.md
 FR-3062,kept,,FR-1541,docs/unpublished/requirements/exec.md
+FR-2269,demoted,architecture-srs#run-paths-and-state-ownership,,docs/srs/architecture-srs.md
