@@ -432,6 +432,11 @@ def write_acoustic_products(
     ``<stem>_acoustics_bpf.csv`` (blade-passage harmonics per rotor and observer)
     and, when the observers form an arc, ``<stem>_acoustics_directivity.csv``.
 
+    The BPF table retains nearest-bin amplitudes. ``BIN_OFFSET_BINS`` is
+    (selected bin frequency minus requested harmonic frequency) divided by bin
+    spacing. Nonzero offsets are noted: an unwindowed off-bin tone can be
+    underestimated by about 3.9 dB.
+
     Nothing blocks: an observer whose spectrum cannot be read keeps its pressure
     table and its OASPL, and is named in the notes.
 
@@ -534,13 +539,33 @@ def write_acoustic_products(
             else:
                 rows = [(n, None, None, None, None) for n in range(1, harmonics + 1)]
             for order, frequency, bin_hz, amplitude, level_db in rows:
+                offset = (
+                    (bin_hz - frequency) / df
+                    if bin_hz is not None and frequency is not None and df
+                    else None
+                )
+                if offset is not None and abs(offset) > 1e-10:
+                    result.notes.append(
+                        f"observer {signal.observer!r} rotor {alias!r}: harmonic {order} uses "
+                        f"nearest-bin extraction at offset {offset:g} bins; an unwindowed "
+                        "off-bin tone can be underestimated by about 3.9 dB"
+                    )
                 if frequency is not None and amplitude is None:
                     result.notes.append(
                         f"observer {signal.observer!r} rotor {alias!r}: harmonic {order} at "
                         f"{frequency:g} Hz is outside what the record resolves, NA"
                     )
                 bpf.append(
-                    (alias or None, signal.observer, order, frequency, bin_hz, amplitude, level_db)
+                    (
+                        alias or None,
+                        signal.observer,
+                        order,
+                        frequency,
+                        bin_hz,
+                        amplitude,
+                        level_db,
+                        offset,
+                    )
                 )
     emit(
         f"{stem}_acoustics_summary.csv",
@@ -560,7 +585,16 @@ def write_acoustic_products(
     )
     emit(
         f"{stem}_acoustics_bpf.csv",
-        ("ROTOR", "OBSERVER", "HARMONIC", "FREQUENCY_HZ", "BIN_HZ", "AMPLITUDE_PA", "LEVEL_DB"),
+        (
+            "ROTOR",
+            "OBSERVER",
+            "HARMONIC",
+            "FREQUENCY_HZ",
+            "BIN_HZ",
+            "AMPLITUDE_PA",
+            "LEVEL_DB",
+            "BIN_OFFSET_BINS",
+        ),
         bpf,
     )
     arc = arc_of(signals)

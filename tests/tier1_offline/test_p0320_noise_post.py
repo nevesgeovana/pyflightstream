@@ -423,3 +423,18 @@ def test_p0320_noise_post_the_record_lists_the_export_as_an_output_fr_290(tmp_pa
     quiet = _unsteady_rotor_workspace(tmp_path / "q", listed=False)
     write_campaign_products(quiet, overwrite=True)
     assert not (quiet.products_dir(None) / "acoustics").exists()
+
+
+@pytest.mark.parametrize("frequency,offset", [(50.0, 0.0), (52.0, -0.4)])
+def test_p0420_bpf_product_states_signed_bin_offset(tmp_path, frequency, offset):
+    signal = _cosine("m", frequency=frequency, amplitude=1.0)
+    result = acoustics.write_acoustic_products(
+        [signal], tmp_path, stem="P", rotors={"main": (2, frequency * 30)}, harmonics=1
+    )
+    row = _rows(tmp_path / "P_acoustics_bpf.csv")[0]
+    assert float(row["BIN_OFFSET_BINS"]) == pytest.approx(offset)
+    old_estimate = acoustics.blade_passage_harmonics(
+        acoustics.spectrum_of(signal), blades=2, rpm=frequency * 30, harmonics=1
+    )[0][3]
+    assert float(row["AMPLITUDE_PA"]) == pytest.approx(old_estimate)
+    assert any("nearest-bin" in note for note in result.notes) == (offset != 0)
