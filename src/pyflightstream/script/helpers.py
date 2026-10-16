@@ -76,13 +76,16 @@ from pyflightstream.script import (
     Script,
     ScriptReferenceError,
     UnsteadyActionUse,
-    _check_scalar,
 )
 from pyflightstream.script._build_forms import (  # noqa: F401  (this module is the public path)
+    _check_actuator_creation,
+    _check_blade_labels,
+    _check_motion_creation,
     _unmarked_unit_refusal,
     assign_selected_ccs_curves,
     detect_every_boundary,
     every_boundary_detection,
+    render_actuator_profile,
     solver_time_averaging,
     takes_every_boundary,
     wake_edge_import_token,
@@ -148,121 +151,6 @@ from pyflightstream.script.toggles import (  # noqa: F401  (resolve_toggle: the 
     resolve_toggle,
 )
 from pyflightstream.versions import known_versions
-
-#: One number of a radial thrust profile row as the check reads it: a plain
-#: decimal, optionally signed, with an optional exponent. A word, a NaN and an
-#: infinity are not one; an exponent too large for a float is refused as not
-#: finite.
-_PROFILE_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
-
-#: The form a radial thrust profile takes, quoted by every refusal of one.
-_PROFILE_FORM = (
-    "A radial thrust profile is rows of two numbers separated by one comma, r,F: the "
-    "radial station, normalised or dimensional, and the force there; no header line "
-    "and no count line"
-)
-
-#: The report that measured what 26.124 makes of a profile file.
-_ACTUATOR_PROFILE_REPORT = "RPT-070"
-
-
-def render_actuator_profile(text: str, *, source: str = "the radial thrust profile") -> str:
-    r"""Return a radial thrust profile's rows in the one form 26.124 was measured to read.
-
-    MEASURED ON 26.124 (RPT-070): ``SET_PROP_ACTUATOR_PROFILE`` reads every
-    line of the file as a point, the empty one after a final newline
-    included. Eleven rows ending in a newline were read as twelve points, the
-    file was logged as unreadable and refused in a modal dialog that holds
-    the solver until a person closes it; the same eleven rows with no final
-    newline were read, radii and forces. A first line that is a count or a
-    header was read as one more point too, and every value then read as
-    zero. Line ends, spaces, tabs and a dimensional radius changed nothing
-    of the refusal.
-
-    So the text returned is the rows, each ``r,F`` with its two numbers as
-    written, joined by a newline, and NO final newline. What an editor adds
-    is removed rather than refused: blank lines, the whitespace around a
-    line and around each number, a byte-order mark. The numbers are not
-    converted, so ``r`` stays normalised or dimensional as written.
-
-    Parameters
-    ----------
-    text : str
-        The profile file's text, as the user saved it.
-    source : str
-        What the refusals call the text, the file's path for one read from
-        disk.
-
-    Returns
-    -------
-    str
-        The file's text for the solver: newline separated, NOT newline
-        terminated.
-
-    Raises
-    ------
-    CommandArgumentError
-        Naming the line, 1-based with blank lines counted: a first row that
-        is one number (a count) or holds a word (a header); a row that is
-        not two numbers separated by one comma; a number that is not finite;
-        or fewer than two rows.
-
-    Examples
-    --------
-    >>> from pyflightstream.script import helpers
-    >>> print(helpers.render_actuator_profile("0.2, 0.0\n0.6,127.3\n1.0,0.0\n"))
-    0.2,0.0
-    0.6,127.3
-    1.0,0.0
-    """
-    rows: list[str] = []
-    for number, raw in enumerate(text.removeprefix("\ufeff").splitlines(), start=1):
-        line = raw.strip()
-        if not line:
-            continue
-        where = f"{source}, line {number}: {line!r}"
-        parts = [part.strip() for part in line.split(",")]
-        if len(parts) != 2 or not all(_PROFILE_NUMBER.fullmatch(part) for part in parts):
-            words = [word for word in re.split(r"[\s,;]+", line) if word]
-            numbers = all(_PROFILE_NUMBER.fullmatch(word) for word in words)
-            if not rows and numbers and len(words) == 1:
-                raise CommandArgumentError(
-                    f"{where} is one number, a count line; remove it. On 26.124 a count is "
-                    "read as one more point and every value of the profile then reads as zero "
-                    f"({_ACTUATOR_PROFILE_REPORT}). {_PROFILE_FORM}"
-                )
-            if not rows and not numbers:
-                raise CommandArgumentError(
-                    f"{where} is a header line; remove it. On 26.124 a header is read as one "
-                    "more point and every value of the profile then reads as zero "
-                    f"({_ACTUATOR_PROFILE_REPORT}). {_PROFILE_FORM}"
-                )
-            raise CommandArgumentError(
-                f"{where} is not two numbers separated by one comma. {_PROFILE_FORM}"
-            )
-        for part in parts:
-            if not math.isfinite(float(part)):
-                raise CommandArgumentError(
-                    f"{source}, line {number}: {part!r} is not a finite number. {_PROFILE_FORM}"
-                )
-        rows.append(",".join(parts))
-    if len(rows) < 2:
-        raise CommandArgumentError(
-            f"{source} holds {len(rows)} row{'' if len(rows) == 1 else 's'} of r,F, and a radial "
-            f"distribution needs at least two. {_PROFILE_FORM}"
-        )
-    return "\n".join(rows)
-
-
-def _checked_helper_value(script: Script, command: str, argument: str, value: object) -> object:
-    """Validate a helper argument against its target build before creating an entity."""
-    entry = script.entry(command)
-    spec = next(spec for spec in entry.args if spec.name == argument)
-    if spec.cites is not None:
-        context = f"{command}: argument {argument!r}"
-        value = script.entities.resolve(spec.cites, value, context=context)
-        script.entities.check_index(spec.cites, value, context=context)
-    return _check_scalar(entry, spec, value)
 
 
 def actuator_disc(
@@ -436,18 +324,16 @@ def actuator_disc(
             raise CommandArgumentError(
                 f"actuator_disc wake_type {wake_type!r} is not one of {tuple(allowed)}"
             )
+    _check_actuator_creation(
+        script,
+        frame=frame,
+        axis=axis,
+        thrust=thrust,
+        thrust_type=thrust_type,
+        profile_force_unit=profile_force_unit,
+        label=label,
+    )
     subtype = "ELLIPTICAL" if thrust is not None else "CUSTOM"
-    for command, argument, value in (
-        ("SET_ACTUATOR_AXIS", "frame", frame),
-        ("SET_ACTUATOR_AXIS", "axis", axis),
-    ):
-        _checked_helper_value(script, command, argument, value)
-    if thrust is not None:
-        _checked_helper_value(script, "SET_PROP_ACTUATOR_THRUST", "thrust_type", thrust_type)
-    else:
-        _checked_helper_value(script, "SET_PROP_ACTUATOR_PROFILE", "units_type", profile_force_unit)
-    if label is not None:
-        script.entities.assert_label_free("actuators", label)
     # PROPELLER is the CREATE_NEW_ACTUATOR enum value. Emit the solver's
     # vocabulary exactly.
     script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype=subtype, name=name, label=label)
@@ -606,16 +492,15 @@ def rotary_motion(
             "rotary motion', RPT-026), although the command runs on a 6DOF motion "
             "(RPT-166). Drop start_time for a rotary motion"
         )
-    _checked_helper_value(script, "SET_MOTION_COORDINATE_SYSTEM", "coordinate_system_id", frame)
-    if not euclidean:
-        _checked_helper_value(script, "SET_MOTION_ROTOR_AXIS", "axis", axis)
-    for kind, selection in (("boundaries", boundaries), ("frames", moving_frames)):
-        if selection is not None and selection != "all":
-            for value in selection:
-                resolved = script.entities.resolve(kind, value, context="rotary_motion")
-                script.entities.check_index(kind, resolved, context="rotary_motion")
-    if label is not None:
-        script.entities.assert_label_free("motions", label)
+    _check_motion_creation(
+        script,
+        frame=frame,
+        axis=axis,
+        euclidean=euclidean,
+        boundaries=boundaries,
+        moving_frames=moving_frames,
+        label=label,
+    )
     script.emit("CREATE_NEW_MOTION", "EUCLIDEAN" if euclidean else "ROTARY", label=label)
     motion_id = script.num_motions
     _emit_motion_selections(script, motion_id, boundaries, moving_frames)
@@ -1981,13 +1866,7 @@ def blade_frames(
             "indices this returns"
         )
 
-    if labels is not None:
-        if len(set(labels)) != len(labels):
-            raise CommandArgumentError(
-                "blade_frames: labels must be unique; give each blade its own label"
-            )
-        for label in labels:
-            script.entities.assert_label_free("frames", label)
+    _check_blade_labels(script, labels)
     sign = ROTATION_SENSE_SIGN[rotation]
     spacing = 360.0 / n_blades
     created: list[int] = []

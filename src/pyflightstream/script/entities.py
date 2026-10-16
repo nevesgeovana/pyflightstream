@@ -620,3 +620,15 @@ class EntityRegistry:
             "declaration given to declare_existing(boundaries=...)."
             + (f" ({citation})" if citation else "")
         )
+
+    def _delete_boundary(self, index: int) -> None:
+        """Apply measured surface deletion to a known boundary inventory."""
+        total = self.limit("boundaries")
+        if total is not None:
+            labels = self.labels("boundaries")
+            surviving = {
+                name: held - (held > index)
+                for name, held in labels.items()
+                if index != -1 and held != index
+            }
+            self.renumber_boundaries(surviving, 0 if index == -1 else total - 1)

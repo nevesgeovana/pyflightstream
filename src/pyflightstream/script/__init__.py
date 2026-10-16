@@ -74,7 +74,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from pathlib import PureWindowsPath
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -488,25 +487,9 @@ class Script:
         >>> script.pending_input_files["inputs/profile.txt"]
         'profile data'
         """
-        destination = PureWindowsPath(path)
-        if (
-            not path
-            or destination.drive
-            or destination.root
-            or ".." in destination.parts
-            or not destination.name
-        ):
-            raise CommandArgumentError(
-                f"input file {path!r} must be a relative file path inside the point folder; "
-                "use a filename or a subfolder without parent traversal"
-            )
-        parked = self._parked_file(path)
-        if parked is not None:
-            kind, held = parked
-            if kind == "input file" and self._pending_input_files[held] == payload:
-                return
-            raise CommandArgumentError(f"input file {path!r} collides with {kind} {held!r}")
-        self._pending_input_files[path] = payload
+        from pyflightstream.script._build_forms import _park_input_file
+
+        _park_input_file(self, path, payload)
 
     @contextmanager
     def observe_commands(
@@ -982,16 +965,8 @@ class Script:
             kind, argument = _DELETION_COMMANDS[entry.name]
             self.entities.delete(kind, int(bound[argument]))  # type: ignore[call-overload]
         elif entry.name in {"DELETE_SURFACES", "SURFACE_DELETE", "SURFACE_CLEARALL"}:
-            total = self.entities.limit("boundaries")
-            if total is not None:
-                index = int(bound.get("index", bound.get("surface", -1)))  # type: ignore[call-overload]
-                labels = self.entities.labels("boundaries")
-                surviving = {
-                    name: held - (held > index)
-                    for name, held in labels.items()
-                    if index != -1 and held != index
-                }
-                self.entities.renumber_boundaries(surviving, 0 if index == -1 else total - 1)
+            index = int(bound.get("index", bound.get("surface", -1)))  # type: ignore[call-overload]
+            self.entities._delete_boundary(index)
 
     def bind_native_solver_identity(self, *, executable_sha256: str, build: str) -> None:
         """Bind an identity verified by the caller for exact motion-proof lookup.
@@ -1223,17 +1198,9 @@ class Script:
         helpers, so a check on one alone let an action script and an input file
         share a path (PFS-2093.011).
         """
-        from pyflightstream._digest import one_file_key
+        from pyflightstream.script._build_forms import _parked_file
 
-        key = one_file_key(path)
-        for register, parked in (
-            ("action script", self._pending_action_scripts),
-            ("input file", self._pending_input_files),
-        ):
-            for held in parked:
-                if one_file_key(held) == key:
-                    return register, held
-        return None
+        return _parked_file(self, path)
 
     @property
     def volume_sections(self) -> int:
@@ -1511,36 +1478,9 @@ class Script:
             else:
                 checked[spec.name] = _check_scalar(entry, spec, value)
         self._check_counts(entry, checked)
-        if entry.name == "EXECUTE_SOLVER_SWEEPER":
-            exporting = checked["export_surface_data_per_step"] != "DISABLE"
-            if exporting != ("export_folder" in checked):
-                raise CommandArgumentError(
-                    f"{entry.name}: export_folder is required exactly when "
-                    "export_surface_data_per_step is enabled; provide the folder for "
-                    f"TXT, CSV, DAT or VTK, and omit it for DISABLE ({entry.citation})"
-                )
-        if entry.layout is Layout.INLINE:
-            positional = [spec for spec in specs if not spec.own_line]
-            # These grammars select alternative positional forms by a leading mode.
-            if entry.name == "SET_FREESTREAM":
-                selected = {
-                    "CONSTANT": {"type"},
-                    "ROTATION": {"type", "frame", "axis", "angular_velocity"},
-                    "CUSTOM": {"type", "filetype", "filename"},
-                }.get(str(checked.get("type")), set())
-                positional = [spec for spec in positional if spec.name in selected]
-            elif entry.name.startswith("SWEEPER_SET_") and "filename" in checked:
-                positional = [spec for spec in positional if spec.name != "values"]
-            missing = None
-            for spec in positional:
-                if spec.name not in checked:
-                    missing = missing or spec.name
-                elif missing is not None:
-                    raise CommandArgumentError(
-                        f"{entry.name}: argument {spec.name!r} follows omitted inline "
-                        f"argument {missing!r}; supply preceding positional arguments "
-                        f"to preserve their slots ({entry.citation})"
-                    )
+        from pyflightstream.script._build_forms import _check_bound_form
+
+        _check_bound_form(entry, specs, checked)
         return checked
 
     def _resolve_labels(self, entry: CommandEntry, spec: ArgSpec, value: object) -> object:
@@ -1827,17 +1767,9 @@ class Script:
             elif spec.is_list:
                 inline_parts.append(" ".join(self._format_scalar(item) for item in value))  # type: ignore[attr-defined]
             else:
-                # PRINT consumes the remainder as a message (FSM-26.120 p.281).
-                if (
-                    spec.type is ArgType.STR
-                    and entry.name != "PRINT"
-                    and (not str(value) or any(character.isspace() for character in str(value)))
-                ):
-                    raise CommandArgumentError(
-                        f"{entry.name}: argument {spec.name!r} is {value!r}; "
-                        "an inline string must be one nonempty token without whitespace. "
-                        f"Use a single-token name ({entry.citation})"
-                    )
+                from pyflightstream.script._build_forms import _check_inline_token
+
+                _check_inline_token(entry, spec, value)
                 inline_parts.append(self._format_scalar(value))
         return [" ".join(inline_parts), *tail_lines], bool(tail_lines)
 
