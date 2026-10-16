@@ -1,7 +1,9 @@
 # Chapter: Scripting reference, Acoustics Toolbox (FSM-26.120 pp.373-374).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Every signature is identical across the four.
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Every signature is identical across the four.
 #
 # WHAT THIS TOOLBOX IS, because the phase assignments are not obvious
 # from the names. It computes the acoustic signal an unsteady solution

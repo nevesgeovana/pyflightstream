@@ -1,8 +1,10 @@
 # Chapter: Scripting reference, Base Regions (FSM-26.120 pp.317-318, plus
 # p.284 for the bending angle).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Every signature is identical across the four.
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Every signature is identical across the four.
 #
 # A base region is a blunt aft-facing surface where the flow separates
 # and a panel method has no pressure to compute, so one is imposed. The
@@ -104,11 +106,10 @@ SET_BASE_REGION_CP:
     CREATE_NEW_BASE_REGION, two commands apart on the same page, in all
     four editions.
 
-    MEASURED 2026-08-08 (RPT-021): this command takes CUSTOM and REFUSES
+    RPT-021 measures this command taking CUSTOM and REFUSING
     USER, while the creator takes either. So the asymmetry is real
-    rather than a documentation slip, and this entry's three tokens are
-    now a measurement instead of a reading. The creator gained CUSTOM
-    from the same run.
+    rather than a documentation slip. This entry's three tokens and the
+    creator's acceptance of CUSTOM rest on the same measurement.
 
     CP IS OPTIONAL, and unusually the manual proves it rather than
     stating it: the page prints TWO samples for this command, one

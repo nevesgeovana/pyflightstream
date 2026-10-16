@@ -1,10 +1,5 @@
 # Chapter: Scripting reference, Scenes (FSM-26.120 p.355).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. The chapter previously held one command, CHANGE_SCENE_TO_PLOTS,
-# drafted when only commands with observed scripted use were entered; that
-# selection rule is gone and its own three older rows are backfilled here.
-#
 # TWELVE OF THE THIRTEEN TAKE NO ARGUMENTS, and the chapter is worth
 # reading for what that means rather than for its grammar. These are
 # display actions: they change what the application shows, not what the

@@ -145,9 +145,8 @@ ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
     Toolbox (FSM-26.100 p.369), so no edition disagrees and none settles
     it.
 
-    Nothing is enforced here for that reason. This entry previously
-    asserted the index reading as fact, which was an interpretation
-    presented as a citation; PLN-20260808-1100 carries the probe.
+    Nothing is enforced here for that reason. The index reading is an
+    interpretation, not an established fact; PLN-20260808-1100 carries the probe.
 
 IMPORT_AEROELASTIC_STRUCTURAL_NODES:
   layout: inline

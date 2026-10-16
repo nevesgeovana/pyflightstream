@@ -165,25 +165,15 @@ NEW_SURFACE_SECTION_DISTRIBUTION:
     Creates NUM_SECTIONS sections at once; the surface indices follow
     the SURFACES line.
 
-    THE TWO OLDER EDITIONS TAKE SIX KEYWORDS AND THIS ENTRY'S DEFAULT
-    GRAMMAR HAS SEVEN. INCLUDE_SYMMETRY reached this database from a
-    working 26.120 SCRIPT rather than from any manual, and the first
-    edition to document it is 26.121. So the February and May rows
-    declare their own six-keyword grammar; copying the default one would
-    have told a caller on those builds that a keyword no evidence places
-    there is available (read on the pages, 2026-08-08). The manual grammar (FSM-26.120 p.364) aborted the
-    original Tier 2 probe on 26.120, while a working 26.120 script
-    additionally carries an INCLUDE_SYMMETRY keyword the manual does
-    not list. The 2026-07-23 licensed re-probe
-    (CMP-26120_2026-07-23_pln012) decided it: with the corrected phase
-    (init) and the extended grammar (optional INCLUDE_SYMMETRY), the
-    command runs and its effect is observed, so it is now verified.
-    Phase init on empirical evidence (2026-07-21 case-reproduction
-    run): the cut planes freeze at creation against the current
-    geometry pose, so distributions over moving boundaries must be
-    created before the motion runs; the working reproduction script
-    creates them pre-solve, and the original aborting probe ran the
-    command post-solve, which was the abort cause the re-probe fixed.
+    The February and May editions specify six keywords; the default
+    grammar has seven. INCLUDE_SYMMETRY is evidenced on 26.120 by a
+    working script and CMP-26120_2026-07-23_pln012, although FSM-26.120
+    p.364 omits it; FSM-26.121 documents it. The licensed probe verifies
+    the command and its effect with optional INCLUDE_SYMMETRY in phase
+    init. The manual-only grammar in the post-solve probe aborts.
+    Phase init also rests on the 2026-07-21 case-reproduction evidence:
+    cut planes freeze at creation against the geometry's current pose,
+    so distributions over moving boundaries must precede motion.
 
 COMPUTE_SURFACE_SECTIONAL_LOADS:
   layout: inline

@@ -1,9 +1,7 @@
 # Chapter: Scripting reference, Boundary Layer Transition Trips
 # (FSM-26.120 p.327).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass, and complete is a strange word for it: the chapter is ONE
-# COMMAND AND IT IS A DELETE.
+# This chapter contains one documented command: a delete.
 #
 # A transition trip forces the boundary layer from laminar to turbulent
 # at a chosen line, which is how a wind-tunnel trip strip or a
@@ -14,8 +12,7 @@
 #
 # Stated as a chapter fact rather than left to be discovered, because the
 # natural reading of a delete command is that a create command is
-# somewhere nearby, and the sweep of 2026-08-08 read all four editions
-# and found none.
+# somewhere nearby; none is documented in the four cited editions.
 
 DELETE_TRANSITION_TRIP:
   layout: inline

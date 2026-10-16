@@ -122,8 +122,8 @@ SET_VISCOUS_EXCLUDED_BOUNDARIES:
   notes: >
     Excludes the listed boundaries from viscous coupling; the indices
     follow on the next line as comma-separated values. Documented
-    unchanged in the four editions read then; the three added on 2026-08-05 were
-    read from their own pages, not inherited.
+    unchanged in FSM-26.100, FSM-26.101, FSM-26.120 and FSM-26.121,
+    each from its own page rather than inherited evidence.
 
 DELETE_VISCOUS_EXCLUDED_BOUNDARIES:
   layout: bare
@@ -569,7 +569,7 @@ SET_CROSSFLOW_SEPARATION_AXISYMMETRIC:
 
 # --- thin boundaries and surface roughness ----------------------------------
 #
-# The last three of the Solver Settings chapter, entered 2026-08-07. A
+# The last three commands of the Solver Settings chapter. A
 # fourth name appears absent and is not: the Script Index of every
 # edition spells CREATE_STRATFORD_BULK_SEPARATION as
 # CREATE_STARTFORD_BULK_SEPARATION, and the command is recorded above
@@ -682,10 +682,8 @@ SOLVER_STABILIZATION:
     sharing FSM-26.120 p.346 split across two pages in the hotfix edition,
     this one landing on 348 and the other two on 349. A page shift is a
     rule about a document's average and not about a page boundary, so
-    the reading wins over the arithmetic. A 2026-08-08 review pass
-    reported this as a paste error from the arithmetic alone; it is not
-    one, and this paragraph exists so the next reader measures before
-    correcting it.
+    the reading wins over the arithmetic. Check the page before replacing
+    an individual citation with an average offset.
 
 DISABLE_SOLVER_REF_VELOCITY:
   layout: bare

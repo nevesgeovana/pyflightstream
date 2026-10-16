@@ -250,10 +250,8 @@ class ArgSpec(BaseModel):
         emitter resolves declared labels and checks index ranges from
         it. ABSENT MEANS THE ARGUMENT CITES NOTHING: no declared label
         resolves there and no index is range checked. Every argument
-        that cites an entity declares it, the emitter's two
-        argument-name maps having been removed at v0.5.0
-        (PLN-20260807-1410), so omitting this field is a decision and
-        not a default.
+        that cites an entity declares it; the emitter does not infer the
+        entity kind from the argument name (PLN-20260807-1410).
 
         The maps could not carry a spelling that means different things
         on different pages, which is the reason the field exists: the
@@ -373,12 +371,8 @@ class ArgSpec(BaseModel):
         # branch no input can reach, which is worse than absent because
         # a test would appear to cover it.
         if self.cites is None:
-            # The sentinel is only ever consulted where a kind resolves,
-            # so one declared on an argument that cites nothing is inert
-            # and silently so. That is the exact class of defect the
-            # field was added to end, which is why this refuses at load
-            # rather than leaving a dead declaration in the database
-            # (2026-08-07 architecture and API passes, both independently).
+            # A sentinel is consulted only where an entity kind resolves. An argument
+            # that cites nothing cannot use one, so refuse that inert declaration at load.
             raise ValueError(
                 f"argument {self.name!r} declares the all-entities sentinel "
                 f"{self.all_sentinel} but cites no entity, so nothing would ever "
@@ -446,13 +440,9 @@ def _check_on_command_line(name: str, layout: Layout, args: tuple[ArgSpec, ...])
                 "on_command_line arguments must be the leading ones"
             )
         if not arg.required:
-            # The command line is POSITIONAL: these are appended in
-            # order with no keyword naming them, so an omitted one moves
-            # every argument after it one place left and the solver
-            # reads a well-formed line meaning something else. That is
-            # the failure this whole field was added to prevent, on the
-            # axis the ordering rule above does not cover, so it is
-            # closed while both users of the field are required.
+            # These arguments are positional. Omitting one shifts the remaining
+            # values left and changes the meaning of an otherwise valid line.
+            # Both users require their fields, so optional positional fields are refused.
             raise CommandDatabaseError(
                 f"{name}: {arg.name!r} is optional and sits on the command line, "
                 "where arguments are positional and unnamed. Omitting it would "

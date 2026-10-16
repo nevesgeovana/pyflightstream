@@ -1,14 +1,11 @@
 # Chapter: Scripting reference, Mesh Wrapper (FSM-26.120 pp.314-315).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Every signature and every sample is identical across the
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Every signature and every sample is identical across the
 # four, apart from one edition printing a sample where the others print
 # none, which changes nothing about the grammar.
-#
-# THIS CHAPTER WAS OUT OF SCOPE UNTIL TODAY. NREQ-05 excluded the
-# mesh-wrapper family, and the design decision of 2026-08-08 brings it
-# in and narrows the non-requirement again. It is the last family the
-# scope excluded, so with this chapter the exclusion has no members left.
 #
 # WHAT THE WRAPPER IS, because the phase assignment follows from it. It
 # builds a single clean watertight surface mesh over a set of input
@@ -167,14 +164,9 @@ WRAPPER_EDIT_LOCAL_CONTROL:
   phase: geometry
   args:
     # CONTROL_ID sits on the command's own line and the rest are keyword
-    # lines beneath it. The emitter had no way to say that, and the
-    # attempt to spell it with `joins_previous` was refused by the schema
-    # for the right reason: there is no preceding argument line in first
-    # position. `on_command_line` was added with this chapter for the
-    # shape; the field's own docstring in commands/__init__.py is the
-    # single home of which commands use it, a count in a data file being
-    # stale the first time a second one appears, which happened the same
-    # day.
+    # lines beneath it. on_command_line describes that placement;
+    # joins_previous cannot because the first argument has no preceding
+    # argument line. See the field's docstring in commands/__init__.py.
     - name: control_id
       type: int
       on_command_line: true

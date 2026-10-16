@@ -4,7 +4,7 @@
 # after it is imported and before the solver initializes. Phase is
 # geometry throughout, for the same reason the CAD chapters are: these
 # act on geometry, and the ordering check refuses them after
-# INITIALIZE_SOLVER. The two rotations are the exception since 0.14.0,
+# INITIALIZE_SOLVER. The two rotations are exceptions,
 # phase setup, for the reason their own header below gives. The six other
 # commands of this chapter that cite a FRAME keep the geometry phase, so
 # under this package's ordering their frame can only be the reference
@@ -25,9 +25,7 @@
 # COPY_PASTE commands), whose pages state only that the first surface is
 # index 1. A script reaching for -1 out of habit translates surface -1
 # rather than all of them, or asks to rename every surface to one name.
-# The third case is the one this header omitted until 2026-08-07, and
-# the omission was in the emitter too: absent read as -1 everywhere.
-# It is now declared per argument, as all_sentinel, and absent means the
+# Each argument declares all_sentinel, and an absent field means the
 # page states none. See docs/srs/data-model.md.
 #
 # And the surface index appears under four different argument names
@@ -39,9 +37,8 @@
 #
 # MIRRORING THE PAGE IS FREE ONLY BECAUSE `cites:` PAYS FOR IT. The
 # emitter resolves a declared label and bounds an index by ARGUMENT
-# NAME, and a chapter that mirrors four spellings of one thing defeats
-# that: for one day in August 2026 SURFACE_DELETE accepted a declared
-# label and SURFACE_INVERT did not, by no rule a caller could see.
+# NAME. Explicit citations let differently named arguments refer to the
+# same inventory and accept its labels consistently.
 #
 # THE RULE LIVES IN docs/srs/data-model.md, in the section on what an
 # argument declares and when it must. Read it before adding a chapter;
@@ -56,13 +53,11 @@
 # --- moving a surface -------------------------------------------------------
 
 # THE TWO MESH ROTATIONS ARE PHASE SETUP, AND THE REST OF THE CHAPTER IS
-# PHASE GEOMETRY, since 0.14.0 (PFS-2034.02). Both cite a FRAME, and the
+# PHASE GEOMETRY (PFS-2034.02). Both cite a FRAME, and the
 # manual's own sample cites frame 3, which exists only once a
 # CREATE_NEW_COORDINATE_SYSTEM (phase setup) created it; under the
 # package's ordering a geometry-phase rotation could therefore never
-# cite the frame the manual shows it citing, and a row rotating a blade
-# family about a frame its setup defines (the recorded incidence study,
-# design 69) was refused at the frame it named. The phase is this package's
+# cite the frame shown by the manual. The phase is this package's
 # reading of the sample, as the header of cad_create.yaml records for
 # the CAD family, whose FRAME arguments keep the reference frame;
 # whether the solver accepts the rotation after the frame is the seat
@@ -176,7 +171,7 @@ SURFACE_ROTATE:
     this page shows a single index and a one-element list looks the same
     under either rule.
 
-# PHASE SETUP SINCE 0.19.0, for the reason the two rotations are (FR-100): a
+# PHASE SETUP, for the same reason as the two rotations (FR-100): a
 # row moves a rotor along its own hub frame, which exists only once the
 # setup created it, so a geometry-phase translation could never cite the
 # frame the row names. EXERCISED ON 26.123 ONLY: RPT-048 emitted it after

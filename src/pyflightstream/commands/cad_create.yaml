@@ -4,8 +4,7 @@
 #
 # The pane that builds geometry inside FlightStream: curve construction,
 # cross-sections, and the lofted meshes made from them. The chapter is
-# COMPLETE as of 2026-08-07, 36 entries, with one exception recorded
-# rather than omitted: the mirror command, whose name the manual spells
+# recorded with one unresolved exception: the mirror command, whose name the manual spells
 # two ways and which waits for a probe (PLN-20260806-1200).
 #
 # It reads in one direction. The pane settings fix how curves are
@@ -1158,12 +1157,9 @@ CAD_CREATE_AUTO_ANNULAR_CROSS_SECTIONS:
 # manual states; only TRUE is evidenced by a printed call, and which the
 # solver takes is a probe question.
 #
-# FALSE IS NOT AMONG THEM, and it was until the review of 2026-08-07.
-# No table and no sample carries it for CLOSE_ENDS in any edition: it is
-# the value set of MARK_TRAILING_EDGES, the argument two rows above on
-# the wing command, pasted across. That is the invented-token mistake
-# the CAD_MESH argument in this same file refuses by name, made in the
-# same commit that refused it.
+# FALSE is absent: no table or sample carries it for CLOSE_ENDS in any
+# edition. MARK_TRAILING_EDGES has a different vocabulary; its tokens
+# provide no evidence for CLOSE_ENDS.
 #
 # The three EXPORT_*_CCS_FILE siblings print a fourth, fifth and sixth
 # call passing TRUE against their own OPEN or CLOSED tables. They are

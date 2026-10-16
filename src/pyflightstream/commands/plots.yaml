@@ -1,14 +1,16 @@
 # Chapter: Scripting reference, Plots (FSM-26.120 p.361).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Both signatures identical across the four.
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Both signatures identical across the four.
 #
 # The application's plot pane shows one plot at a time. SET_PLOT_TYPE
 # chooses which, and SAVE_PLOT_TO_FILE writes whichever is showing, so
 # the two are ordered in use even though nothing enforces it: saving
 # without selecting writes whatever was last displayed.
 #
-# Both are phase EXPORT since 2026-09-24, on measured evidence (RPT-067,
+# Both are phase EXPORT on measured evidence (RPT-067,
 # 26.124): the run placed them after every export of a solved steady
 # point and before EXPORT_LOG, and the solve and its exports were
 # unchanged. The workflows save a steady point's plots in that position.

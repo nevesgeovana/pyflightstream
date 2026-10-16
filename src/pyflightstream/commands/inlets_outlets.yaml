@@ -1,7 +1,9 @@
 # Chapter: Scripting reference, Inlets and Outlets (FSM-26.120 pp.325-326).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Every signature is identical across the four.
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Every signature is identical across the four.
 #
 # An inlet or an outlet is a mesh boundary through which flow enters or
 # leaves at a prescribed normal velocity, which is how a duct, a nacelle

@@ -1,25 +1,15 @@
 # Chapter: Scripting reference, Advanced Settings (FSM-26.120 pp.344-346).
 #
-# COMPLETE as of 2026-08-08. The chapter was drafted at M1 to the entries
-# the core steady path needed, and the rest awaited the cases that would
-# exercise them; that rule is gone with the v0.5.0 sweep and the eight it
-# left behind are entered here.
-#
 # THIS IS THE CHAPTER WHERE THE EDITIONS DISAGREE ABOUT WHAT EXISTS, so
 # unlike every other chapter of the sweep its version rows differ per
 # command and none of them is boilerplate. Four commands are absent from
 # the February edition, one is absent from the hotfix that FOLLOWS the
 # edition documenting it, and one exists in that hotfix alone.
 #
-# THE RULE IN THIS HEADER CHANGED ON 2026-08-09 and the old wording is
-# replaced rather than kept, because it described a schema that no
-# longer exists. It said an edition that stops printing a command gets
-# NO row, since `removed` was reserved for a manual saying so. `removed`
-# now admits three routes and the row says which: an edition states the
+# `removed` records three evidence routes and the row says which: an edition states the
 # withdrawal, an edition merely stops printing the command, or a run
 # measures the solver refusing it. The middle one is the weakest and is
-# still a record, so silence now gets a row that says it is silence.
-# What has not changed is the thing the old wording was protecting: a
+# still a record, so its row says it is silence. A
 # row read off an edition's silence never claims anything about the
 # solver.
 #
@@ -443,8 +433,8 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
       status: removed
       probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-021_chapter-questions-measured_2026-08-08.md"
       note: >-
-        Measured 2026-08-08: the 26.121 solver answers the name with an
-        unrecognised-command error. Promoted from the run, not read off
+        The cited probe measures the 26.121 solver answering the name with an
+        unrecognised-command error. Evidence from the run, not read off
         the hotfix edition's silence.
     "26.122":
       status: removed

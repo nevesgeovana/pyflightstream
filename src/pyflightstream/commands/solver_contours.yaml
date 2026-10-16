@@ -1,13 +1,7 @@
 # Chapter: Scripting reference, Solver Contours (FSM-26.120 pp.349-350).
 #
-# COMPLETE as of 2026-08-08, entered from the four editions registered
-# THEN, in
-# one pass. The one command of the chapter, with the same 32 values in
-# all four. It said 33 until 2026-08-19, in this line and twice in the
-# entry's own notes, and 32 is what the list has always held: the count
-# was written by hand and never recounted. The fifth edition read here
-# adds four more, so the entry now states two counts and each names its
-# builds.
+# One command, with 32 values in FSM-26.100, FSM-26.101, FSM-26.120 and
+# FSM-26.121. The entry states each vocabulary count with its builds.
 
 SET_SCENE_CONTOUR:
   layout: inline

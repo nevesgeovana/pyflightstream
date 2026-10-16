@@ -1,7 +1,9 @@
 # Chapter: Scripting reference, Mesh Unite (FSM-26.120 p.316).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Both signatures identical across the four.
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Both signatures identical across the four.
 #
 # THE ONLY PLACE IN THIS DATABASE WHERE A COMMAND CALLS OUT TO ANOTHER
 # VENDOR'S EXECUTABLE. The boolean unite is performed by OpenVSP's

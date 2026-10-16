@@ -1,8 +1,6 @@
 # Chapter: Scripting reference, CCS Wing Mesh (FSM-26.120 pp.298-300).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. The page range used to read pp.297-299 and was wrong by one at
-# each end; p.297 carries no signature heading at all.
+# The signature headings occupy pp.298-300; p.297 has none.
 #
 # CCS is the vendor's parametric wing definition: a wing is described by
 # curves and a mesh is lofted from them, so everything here configures a
@@ -18,10 +16,8 @@
 # is nothing to exempt. The -1 lives in the notes, and the day zones
 # become tracked is the day it moves.
 #
-# And NEW_CCS_WING_FLAP_COVE reached the database only because a page was
-# read rather than the index. It carries a Function name heading in every
-# edition and NO Script Index row, so the index-driven coverage sweep
-# reported it as covered forever. The sweep now walks chapter bodies
+# NEW_CCS_WING_FLAP_COVE carries a Function name heading in every
+# edition but no Script Index row. Coverage walks chapter bodies
 # (PLN-20260808-1200).
 
 NEW_CCS_WING_CONTROL_SURFACE:
@@ -122,8 +118,7 @@ NEW_CCS_WING_CONTROL_SURFACE:
     26.1 grammar has neither parameter (FSM-26.101 p.298).
 
     Calling that pair OPTIONAL is this repository's READING and not the
-    manual's statement, and the word was corrected on 2026-08-06 from
-    one that implied otherwise. FSM-26.120 p.299 and FSM-26.121 p.302 both
+    manual's statement. FSM-26.120 p.299 and FSM-26.121 p.302 both
     declare ten placeholders and ten parameter rows, and both still
     print an EIGHT token sample, so either the pair is omissible or the
     sample was left unrevised when the pair was added. The permissive
@@ -445,10 +440,8 @@ NEW_CCS_WING_FLAP_COVE:
     commands above, which are inner and outer chordwise depths. Four
     arguments spelled almost alike mean two different things on one page.
 
-    ENTERED ON 2026-08-08 AND NOT BY THE COVERAGE SWEEP. This command has
-    a signature heading in the four editions read then and no Script Index row, so
-    the index-driven sweep reported it as covered indefinitely; it was
-    found by reading the page (PLN-20260808-1200).
+    This command has a signature heading in the four cited editions but no
+    Script Index row. Coverage must read the chapter body (PLN-20260808-1200).
 
 DELETE_CCS_WING_CONTROL_SURFACE:
   layout: inline

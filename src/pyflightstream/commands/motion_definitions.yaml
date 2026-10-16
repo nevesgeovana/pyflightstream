@@ -1,10 +1,7 @@
 # Chapter: Scripting reference, Motion Definitions (FSM-26.120 pp.332-336).
 #
-# COMPLETE as of 2026-08-07. M1 drafted the rotary motion path and the
-# FSI seam commands (FR-23) and left the 6DOF family and the custom
-# motion tables for the cases that would exercise them; the 2026-08-07
-# sweep entered them from the manual instead, together with the five
-# February-only kinematic commands.
+# Includes rotary motion, the FSI seam (FR-23), 6DOF, custom motion
+# tables and the five kinematic commands specific to the February edition.
 #
 # THREE COORDINATE SYSTEMS APPEAR IN THIS CHAPTER AND NOTHING IN AN
 # ARGUMENT NAME SAYS WHICH. SET_MOTION_GRAVITY reads the REFERENCE

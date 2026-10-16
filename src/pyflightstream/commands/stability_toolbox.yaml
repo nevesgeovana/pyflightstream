@@ -1,8 +1,10 @@
 # Chapter: Scripting reference, Stability and Control Toolbox
 # (FSM-26.120 pp.371-372).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Every signature is identical across the four.
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Every signature is identical across the four.
 #
 # WHAT THE TOOLBOX COMPUTES. A stability derivative is the rate of change
 # of a force or moment coefficient with respect to an angle or an angular

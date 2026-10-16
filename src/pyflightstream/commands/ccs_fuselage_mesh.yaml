@@ -1,7 +1,9 @@
 # Chapter: Scripting reference, CCS Fuselage Mesh (FSM-26.120 pp.301-302).
 #
-# COMPLETE as of 2026-08-08, entered from all four registered editions in
-# one pass. Every signature in the chapter is identical across the four,
+# The four editions compared here are FSM-26.100, FSM-26.101,
+# FSM-26.120 and FSM-26.121.
+#
+# Every signature in the chapter is identical across the four,
 # so the older rows cite their own pages and state no grammar difference.
 #
 # The sibling of the CCS Wing Mesh chapter, and the same reading applies:
@@ -16,10 +18,8 @@
 # each chapter states its own rather than sharing one enum.
 #
 # CAD_CREATE_FUSELAGE_MESH_FROM_CCS is NOT here. It is the loft that
-# consumes this definition and has lived in cad_create.yaml since before
-# this chapter was read; moving it now would break a citation for no
-# gain. EXPORT_FUSELAGE_CCS_FILE is here because it entered with this
-# chapter.
+# consumes this definition and belongs to cad_create.yaml.
+# EXPORT_FUSELAGE_CCS_FILE belongs to this chapter.
 #
 # The -1 that deletes every refinement zone or relaxed trailing edge is
 # NOT an all_sentinel declaration, for the reason the wing chapter

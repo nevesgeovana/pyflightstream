@@ -1,15 +1,9 @@
 # Chapter: Sweeper Toolbox script commands (FSM-26.120 pp.358-360).
 #
-# REDRAFTED on 2026-08-06 from the reference pages. The chapter was
-# first written from the worked scripting example at FSM-26.120 p.406,
-# which exercises two of the three sweep modes and three of the four
-# sweep axes, and every gap below followed from that: UNIFORM was
-# missing from all three enumerations, SWEEPER_SET_MACH_SWEEP was
-# missing entirely, and the velocity command could take a file where
-# the angle commands could take a list, an asymmetry the manual does
-# not have. The file's own header predicted the widening; the citation
-# range guard in tests/tier1_offline/test_command_db.py is what will now say so
-# before a reader has to.
+# Read the reference pages, not only the example at FSM-26.120 p.406,
+# which covers two of three modes and three of four axes. All axes use
+# the same table, including inline lists and file input. The citation
+# range guard in test_command_db checks reference-page citations.
 #
 # The four sweep commands share one parameter table, word for word, in
 # every edition that has them. NONE of them exists in 26.100, whose
@@ -119,11 +113,8 @@ SWEEPER_SET_VELOCITY_SWEEP:
     "26.124": {status: documented, note: "FSM-26.124 p.364, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.370, unchanged from FSM-26.124 p.364"}
   notes: >
-    Free-stream velocity axis of the sweeper. It used to declare the
-    file path alone, which made it the one axis that could not take an
-    inline list; the manual gives all four axes the same table and the
-    same three samples, so the asymmetry came from the worked example
-    this chapter was first read from and not from the grammar. The
+    Free-stream velocity axis of the sweeper. The manual gives all four
+    axes the same parameter table and three samples, including inline lists. The
     unit is this repository's convention rather than a manual
     statement: FSM-26.120 p.358 names none, and whether the axis follows
     the solver's configured velocity unit is a probe question.
