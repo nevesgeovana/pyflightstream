@@ -628,10 +628,6 @@ def test_a_build_inside_the_range_emits():
     covered = covered_builds(resolve_workflow("unsteady_rotor"))
     assert len(covered) >= 2, "too few covered builds for this guard to mean anything"
     for build in covered:
-        if build == "26.100":
-            with pytest.raises(CommandArgumentError, match="RPT-051"):
-                build_script(rotor_case(), Script(build))
-            continue
         script = Script(build)
         build_script(rotor_case(), script)
         speed = (
@@ -669,24 +665,28 @@ def test_a_build_without_the_rotary_type_writes_the_rotor_as_a_euclidean_motion(
     assert f"SET_MOTION_IS_ROTOR 1 ENABLE {axis}" in lines
 
 
-def test_26100_refuses_the_unproved_rotor_unit():
-    """The rev/min choice is refused until a null test settles it (RPT-051)."""
+def test_26100_uses_the_measured_rotor_unit():
+    """PFS-2004.01: batch 8 measured rev/min for unmarked Euclidean motion."""
     script = Script("26.100")
-    with pytest.raises(CommandArgumentError, match="RPT-051"):
-        build_script(rotor_case(), script)
-    assert script.render() == "\n"
+    build_script(rotor_case(), script)
+    assert "SET_MOTION_ANGULAR_VELOCITY" in script.render()
+    assert "SET_MOTION_IS_ROTOR" not in script.render()
 
 
 @pytest.mark.parametrize("rpm", [1200.0, -1200.0])
-def test_26100_refuses_both_hands_of_the_unproved_speed(rpm):
-    """The unit is unknown for either sign; no motion is emitted."""
+def test_26100_writes_both_hands_in_measured_rev_per_min(rpm):
+    """The measured positive and negative controls preserve the rpm value."""
     from pyflightstream.script import helpers
 
     script = Script("26.100")
     script.declare_existing(frames=2)
-    with pytest.raises(CommandArgumentError, match="RPT-051"):
-        helpers.rotary_motion(script, frame=2, axis="Y", rpm=rpm)
-    assert script.render() == "\n"
+    helpers.rotary_motion(script, frame=2, axis="Y", rpm=rpm)
+    velocity = next(
+        line.split()
+        for line in script.render().splitlines()
+        if line.startswith("SET_MOTION_ANGULAR_VELOCITY")
+    )
+    assert [float(value) for value in velocity[2:]] == [0.0, rpm, 0.0]
 
 
 def test_the_euclidean_speed_is_written_in_the_unit_its_constant_names(monkeypatch):
@@ -1920,8 +1920,6 @@ EXPECTED_REFUSALS = {
     ("steady", "25.000"),
     ("unsteady", "25.000"),
     ("qsteady_rotor", "25.000"),
-    ("unsteady_rotor", "26.100"),
-    ("qsteady_rotor", "26.100"),
 }
 
 #: Every workflow crossed with every case shape and every build it
@@ -6822,6 +6820,23 @@ def _fr314_counter_everywhere___strip_0400(text: str) -> str | None:
 
 def _fr314_counter_everywhere___admitted(name: str, text: str, digest: str) -> str | None:
     """The one admitted difference that makes ``text`` the v0.32.0 golden, or None."""
+    if "unsteady_rotor__" in name and name.endswith("__26.100.txt"):
+        # PFS-2004.01 batch 8 settles the unit. Restore only the exact retired
+        # warning to compare with v0.32.0; emitted commands still face its hash.
+        warning = (
+            "# FlightStream 26.100 has no SET_MOTION_IS_ROTOR in the command database: "
+            "the 26.100 solver\n"
+            "# does not recognize it (RPT-049), so this Euclidean motion is not marked as "
+            "a rotor. Its angular velocity is\n"
+            "# written in rev/min, a maintainer decision, and neither the unit nor the sense is\n"
+            "# measured on this build. The 26.100 manual's rotor tutorial gives rad/s; "
+            "if the solver reads\n"
+            "# rad/s, the rotor turns 60/(2 pi), about 9.55, times the speed stated "
+            "(pyflightstream RPT-051).\n"
+        )
+        text = text.replace(
+            "CREATE_NEW_MOTION EUCLIDEAN", warning + "CREATE_NEW_MOTION EUCLIDEAN", 1
+        )
     if _fr314_counter_everywhere___sha(text) == digest:
         return ""
     stripped, found = _FR314_COUNTER_EVERYWHERE__COUNTER_REGISTRATION.subn("", text)
@@ -6840,12 +6855,8 @@ def _fr314_counter_everywhere___admitted(name: str, text: str, digest: str) -> s
     )
 
 
-#: The goldens PFS-2088.010 (0.40.0) replaces by a refusal: a 26.100 rotor row is refused
-#: until a rotation null test measures that build's angular-velocity unit (RPT-051).
-_FR314_COUNTER_EVERYWHERE__REFUSED_26100_GOLDENS = {
-    f"tests/tier1_offline/goldens/workflows/unsteady_rotor__{form}__26.100.txt"
-    for form in ("bare", "full", "resolved")
-}
+#: PFS-2004.01 batch 8 restores all 26.100 rotor renders in 0.42.0.
+_FR314_COUNTER_EVERYWHERE__REFUSED_26100_GOLDENS: set[str] = set()
 
 
 def _fr314_counter_everywhere___is_26100_rotor_refusal(text: str) -> bool:
@@ -6924,7 +6935,7 @@ _FR314_COUNTER_EVERYWHERE__FR331_GOLDENS = {
 
 #: The goldens FR-321 (0.34.0) changes: every rotor row that states no wake termination keeps
 #: the 4R default, one SET_WAKE_TERMINATION_TIME_STEPS line more (FR-605). The 26.100 rows are
-#: refused since 0.40.0 (REFUSED_26100_GOLDENS).
+#: restored after the unit measurement in 0.42.0.
 _FR314_COUNTER_EVERYWHERE__FR321_GOLDENS = {
     *(
         f"tests/tier1_offline/goldens/workflows/unsteady_rotor__{form}__{build}.txt"
@@ -6932,6 +6943,7 @@ _FR314_COUNTER_EVERYWHERE__FR321_GOLDENS = {
         for build in (
             "25.100",
             "26.000",
+            "26.100",
             "26.101",
             "26.120",
             "26.121",

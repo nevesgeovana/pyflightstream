@@ -81,7 +81,6 @@ from pyflightstream.script._build_forms import (  # noqa: F401  (this module is 
     _check_actuator_creation,
     _check_blade_labels,
     _check_motion_creation,
-    _unmarked_unit_refusal,
     assign_selected_ccs_curves,
     detect_every_boundary,
     every_boundary_detection,
@@ -400,10 +399,9 @@ def rotary_motion(
     missing ``CREATE_NEW_MOTION``.
 
     ON 26.100, WHICH NAMES THE TYPE EUCLIDEAN AND HAS NO SCRIPTED ROTOR MARK
-    (RPT-049), a rotor is refused before emission (RPT-051). The angular
-    velocity unit has not been measured; the earlier rev/min decision
-    disagrees with the manual's rad/s and could turn the rotor 9.55 times
-    too fast. A rotation null test on this build must settle the unit.
+    (RPT-049), the angular velocity is written in rev/min. The native Tecplot
+    rotation measurement in release 0.42.0 licensed/EVIDENCE-5.md batch 8
+    settles this unit for the script command (PFS-2004.01).
 
     Each Euclidean speed is converted from rev/min by the unit its constant
     names (:data:`_FROM_REV_PER_MIN`), so a constant and the value written
@@ -456,7 +454,7 @@ def rotary_motion(
     Raises
     ------
     CommandArgumentError
-        On 26.100 until the rotor unit is measured. On a Euclidean build,
+        On a Euclidean build,
         marked or not, if the axis is given by index
         or a wake stabilization blade count is asked for, neither of which
         that vocabulary can state, or if a rotary axis is outside its build's
@@ -479,8 +477,6 @@ def rotary_motion(
     euclidean = marked or unmarked
     if euclidean:
         _refuse_what_a_euclidean_rotor_cannot_state(script, axis, wake_stabilization_blades)
-    if unmarked:
-        raise CommandArgumentError(_unmarked_unit_refusal(script.version.canonical))
     if start_time is not None and not euclidean:
         # A semantic refusal, not a status: SET_MOTION_START_TIME runs on a
         # 6DOF motion (RPT-166) and the solver declines

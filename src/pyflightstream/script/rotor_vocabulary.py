@@ -19,14 +19,6 @@ from __future__ import annotations
 
 from pyflightstream.commands import VersionView
 
-# Published under a public name for ``cases.workflows``, which refuses an
-# unmarked-unit build through this module: neither through the private form
-# module (the private cross-package import ratchet) nor by an underscore name
-# taken out of a public module (the layering guard). Outside ``__all__``.
-from pyflightstream.script._build_forms import (
-    _unmarked_unit_refusal as unmarked_unit_refusal,  # noqa: F401
-)
-
 __all__ = [
     "EUCLIDEAN_ROTOR_COMMANDS",
     "EUCLIDEAN_ROTOR_UNIT",
@@ -113,8 +105,9 @@ def unmarked_euclidean_rotor(view: VersionView) -> bool:
 EUCLIDEAN_ROTOR_UNIT = "rad/s"
 
 #: The unit SET_MOTION_ANGULAR_VELOCITY is written in on a build where
-#: :func:`unmarked_euclidean_rotor` holds. A maintainer decision, NOT a
-#: measurement: no run in this repository settles the unit on 26.100, and
-#: that build's manual tutorial gives rad/s for the dialog field (RPT-051).
-#: A rotor requested in it is refused during plan rehearsal (PFS-2088.010).
+#: :func:`unmarked_euclidean_rotor` holds. Measured on 26.100 by the native
+#: Tecplot rotation readout: 473.1723 gives +90 degrees and 49.5505 gives
+#: +9.4248 degrees; negative controls mirror them. Release 0.42.0
+#: licensed/EVIDENCE-5.md batch 8, namespace
+#: 6bad1dac664ef7b0959e683749f4b1f437af6033-5381afcbf38d45ee92e0dc60d1122aea.
 UNMARKED_EUCLIDEAN_ROTOR_UNIT = "rev/min"
