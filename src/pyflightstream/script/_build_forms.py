@@ -180,6 +180,18 @@ def detect_every_boundary(script: Script, kind: str) -> str:
     return command
 
 
+def _refuse_interactive_profile(script: Script, entry: CommandEntry) -> None:
+    """Keep a measured modal operation out of a validated batch script."""
+    if entry.name == "EXPORT_BL_VELOCITY_PROFILE" and script.version.canonical == "26.122":
+        raise CommandArgumentError(
+            "EXPORT_BL_VELOCITY_PROFILE on 26.122 waits for a modal Done button "
+            "even under -hidden (RPT-027), so a validated unattended script refuses it. "
+            "The database remains documented: this is an interface restriction, "
+            "not a new broken probe verdict. Use raw() only for an explicitly "
+            "supervised interactive run."
+        )
+
+
 def _warn_unmeasured_ccs_grammar(script: Script, entry: CommandEntry) -> None:
     """Flag a suspect older grammar without attributing a newer run to it."""
     if entry.name not in {"NEW_CCS_REVOLVE_RELAXED_TE", "EXPORT_REVOLVE_CCS_FILE"}:

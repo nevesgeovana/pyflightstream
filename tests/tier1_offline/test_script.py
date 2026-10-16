@@ -30,6 +30,27 @@ from pyflightstream.versions import known_versions
 GOLDENS = Path(__file__).parent / "goldens"
 
 
+def test_p0420_interactive_profile_is_refused_without_relabelling_the_build():
+    """P0420-P1-1b, FR-48: RPT-027's modal export cannot enter a validated batch."""
+    script = Script("26.122")
+    before = script.render()
+    with pytest.raises(CommandArgumentError, match="RPT-027"):
+        script.emit("EXPORT_BL_VELOCITY_PROFILE", 1, 0.5, 0.0, 0.1, "profile.txt")
+    assert script.render() == before
+    assert (
+        script.entry("EXPORT_BL_VELOCITY_PROFILE").status_in(script.version).status
+        is Status.DOCUMENTED
+    )
+
+
+@pytest.mark.parametrize("version", ["26.123", "26.125"])
+def test_p0420_profile_refusal_does_not_invent_measurements_on_other_builds(version):
+    """P0420-P1-1b: the documented low-level forms remain available for probing."""
+    script = Script(version)
+    script.emit("EXPORT_BL_VELOCITY_PROFILE", 1, 0.5, 0.0, 0.1, "profile.txt")
+    assert "EXPORT_BL_VELOCITY_PROFILE" in script.render()
+
+
 @pytest.mark.parametrize("version", ["26.120", "26.121", "26.122", "26.123"])
 @pytest.mark.parametrize(
     ("command", "args"),

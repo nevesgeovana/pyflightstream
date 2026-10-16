@@ -283,6 +283,11 @@ EXPORT_BL_VELOCITY_PROFILE:
     wait is indistinguishable from a hang unless somebody is at the
     machine.
 
+    Validated emission on 26.122 refuses this modal operation before adding
+    any script lines, citing RPT-027. An explicitly supervised interactive
+    script can use raw(), whose validation bypass is recorded. The refusal
+    does not extend the measurement to 26.123 or 26.125.
+
     No status is written from that. It is a fact about the interface
     rather than a refusal by the solver, which is a different claim from
     the one `broken` makes, and a status rests on a committed probe
