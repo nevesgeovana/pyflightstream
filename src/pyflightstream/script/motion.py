@@ -256,7 +256,8 @@ class MotionLedger:
         elif name == "SET_MOTION_COORDINATE_SYSTEM":
             motion["center_frame"] = int(bound["coordinate_system_id"])
         elif name == "SET_MOTION_ROTOR_AXIS":
-            motion["axis"] = str(bound["axis"])
+            axis = str(bound["axis"])
+            motion["axis"] = {"1": "X", "2": "Y", "3": "Z"}.get(axis, axis)
         elif name == "SET_MOTION_ROTOR_RPM":
             motion["rpm"] = float(bound["rpm"])
         elif name == "SET_MOTION_START_TIME":

@@ -29,6 +29,14 @@ def placed_script():
     return script, hub, moving
 
 
+@pytest.mark.parametrize("axis,direction", [("1", [1, 0, 0]), ("2", [0, 1, 0]), ("3", [0, 0, 1])])
+def test_p0420_numeric_rotor_axis(axis, direction):
+    """PFS-2119.051: numeric axes retain their documented reference direction."""
+    script, hub, moving = placed_script()
+    helpers.rotary_motion(script, frame=hub, axis=axis, rpm=800, moving_frames=[moving])
+    assert script.frame_motions[moving]["trajectory"]["axis_reference"] == direction
+
+
 def test_explicit_fixed_frame_has_named_reference_basis():
     script, _, moving = placed_script()
     record = script.frame_motions[moving]
