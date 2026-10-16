@@ -559,7 +559,8 @@ class Script:
         #: other way to make: the export writes the numbers and never the
         #: positions.
         #:
-        #: Filled when each helper or workflow emits a point. Public
+        #: Filled when each helper or workflow emits a point. The registry
+        #: is empty until a helper or workflow places points. Public
         #: ``probe_points`` and ``probe_line`` helpers record reference-frame
         #: coordinates; workflows retain their declared coordinate frame.
         #: Raw emission and ``probes_from_file`` do not reconstruct points.
