@@ -202,7 +202,9 @@ def _solid(spec: FsiSetupSpec, substance: Material) -> BladeProperties:
         assert unit_contour is not None
         contours = [
             airfoil_section_contour(
-                unit_contour, chord, sections.pitch_axis_chord_fraction
+                unit_contour,
+                chord_m=chord,
+                pitch_axis_chord_fraction=sections.pitch_axis_chord_fraction,
             ).tolist()
             for chord in sections.chord_m
         ]

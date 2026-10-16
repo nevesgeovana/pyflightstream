@@ -60,6 +60,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from pyflightstream._digest import file_sha256
+from pyflightstream.fsi._positional import _section_keywords
 from pyflightstream.fsi.config import (
     BladeProperties,
     BladePropertiesProvenance,
@@ -256,8 +257,9 @@ class SolidSectionProperties:
     thin_section_torsion_m4: float
 
 
+@_section_keywords("chord_m", "pitch_axis_chord_fraction")
 def airfoil_section_contour(
-    unit_contour: ArrayLike, chord_m: float, pitch_axis_chord_fraction: float = 0.25
+    unit_contour: ArrayLike, *, chord_m: float, pitch_axis_chord_fraction: float = 0.25
 ) -> NDArray[np.float64]:
     """Place a unit-chord airfoil contour in the blade's section frame.
 
@@ -579,8 +581,9 @@ def thin_section_torsion_estimate(contour_m: ArrayLike, samples: int = 4096) -> 
     return total * step / 3.0
 
 
+@_section_keywords("grid_cells")
 def solid_section_properties(
-    contour_m: ArrayLike, grid_cells: int = DEFAULT_TORSION_GRID_CELLS
+    contour_m: ArrayLike, *, grid_cells: int = DEFAULT_TORSION_GRID_CELLS
 ) -> SolidSectionProperties:
     """Area properties, torsion constant and its cross-check of one section.
 
@@ -612,13 +615,14 @@ def solid_section_properties(
     )
 
 
+@_section_keywords("sections_m", "chord_m", "geometric_pitch_deg", "material")
 def blade_properties_from_sections(
     station_radii_m: Sequence[float],
+    *,
     sections_m: Sequence[ArrayLike],
     chord_m: Sequence[float],
     geometric_pitch_deg: Sequence[float],
     material: Material | str,
-    *,
     geometry_source: str,
     geometry_file: str | Path | None = None,
     torsion_grid_cells: int = DEFAULT_TORSION_GRID_CELLS,
@@ -732,7 +736,9 @@ def blade_properties_from_sections(
         geometry_sha256 = file_sha256(path)
         geometry_file_name = path.name
 
-    properties = [solid_section_properties(section, torsion_grid_cells) for section in sections_m]
+    properties = [
+        solid_section_properties(section, grid_cells=torsion_grid_cells) for section in sections_m
+    ]
     moments = [item.moments for item in properties]
     density = entry.density_kg_per_m3
 
