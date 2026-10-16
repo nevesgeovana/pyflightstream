@@ -327,6 +327,10 @@ def _delete_vsection_epilogue(script: Script, workdir: Path) -> None:
     keeps it at 2. Two files mean nothing was deleted, and none means
     the export instrument proved nothing in this run.
     """
+    # This probe tests whether deletion happened at all. Its instrument must
+    # still address both pre-target candidate positions instead of accepting
+    # the emitter ledger's assumed deletion as the solver's measured result.
+    script.declare_existing(volume_sections=max(0, 2 - script.volume_sections))
     _vsection_export_epilogue(script, workdir)
     script.emit("EXPORT_VOLUME_SECTION_VTK", 2, workdir / "vsection_2.vtk")
 
