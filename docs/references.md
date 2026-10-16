@@ -244,3 +244,7 @@ R. L. Bisplinghoff, H. Ashley, R. L. Halfman, Aeroelasticity, Addison-Wesley, Re
 ### REF-57
 
 N. J. Smith, T. Kluyver, PEP 600: future manylinux platform tags for portable Linux built distributions, 2019. https://peps.python.org/pep-0600/
+
+### REF-58
+
+G. Neves, SMI: airframe geometry, version 1.0.0. Zenodo, 2026. Public dataset. [Zenodo record](https://zenodo.org/records/23025105).
