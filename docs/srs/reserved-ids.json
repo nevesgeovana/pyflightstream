@@ -94,5 +94,31 @@
     "NFR-38",
     "NFR-40",
     "NFR-45"
-  ]
+  ],
+  "allocation_ranges": {
+    "srs-application": {
+      "FR": [
+        3200,
+        3299
+      ],
+      "NFR": [
+        300,
+        319
+      ]
+    }
+  },
+  "allocations": {
+    "FR-3200": {
+      "lane": "srs-apply-1",
+      "node": "PFS-2138.052"
+    },
+    "FR-3201": {
+      "lane": "srs-apply-1",
+      "node": "PFS-2138.019"
+    },
+    "FR-3202": {
+      "lane": "srs-apply-1",
+      "node": "PFS-2138.006"
+    }
+  }
 }

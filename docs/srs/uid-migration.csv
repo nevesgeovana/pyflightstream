@@ -1,9 +1,9 @@
 uid,destination,target,new_uids,file
-FR-01,kept,,,docs/unpublished/requirements/inst.md
+FR-01,kept,,FR-3200,docs/unpublished/requirements/inst.md
 FR-02,kept,,,docs/unpublished/requirements/inst.md
 FR-02a,merged,FR-1204,FR-1204,docs/unpublished/requirements/inst.md
 FR-02c,merged,FR-1205,FR-1205,docs/unpublished/requirements/inst.md
-FR-03,kept,,,docs/unpublished/requirements/inst.md
+FR-03,kept,,FR-3201 FR-3202,docs/unpublished/requirements/inst.md
 FR-04,kept,,,docs/unpublished/requirements/inst.md
 FR-05,kept,,,docs/unpublished/requirements/proc.md
 FR-06,kept,,,docs/unpublished/requirements/proc.md
@@ -1048,3 +1048,6 @@ NFR-49,kept,,NFR-122,docs/unpublished/requirements/quality.md
 FR-3161,kept,,FR-1311,docs/unpublished/requirements/dexp.md
 FR-3062,kept,,FR-1541,docs/unpublished/requirements/exec.md
 FR-2269,demoted,architecture-srs#run-paths-and-state-ownership,,docs/srs/architecture-srs.md
+FR-3200,kept,,,docs/unpublished/requirements/inst.md
+FR-3201,kept,,,docs/unpublished/requirements/inst.md
+FR-3202,kept,,,docs/unpublished/requirements/inst.md
