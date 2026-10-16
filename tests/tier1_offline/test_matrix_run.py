@@ -924,6 +924,38 @@ def test_p0420_p1_1d_plan_rehearses_the_one_job_builder(tmp_path, monkeypatch):
     )
 
 
+def test_p0420_p1_1d_plan_names_thin_blade_beside_source(tmp_path):
+    from pyflightstream.workspace._degenerate import derive_thin_blade
+    from pyflightstream.workspace.sidecars import inventory_sidecar
+    from tests.tier1_offline.test_p0340_thin_blade import _blade, _write_obj
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    folder = workspace.inputs_dir / "geometries" / "blade"
+    folder.mkdir()
+    source = _write_obj(folder / "blade.obj", *_blade())
+    inventory_sidecar(source).write_text(
+        'boundaries = ["Blade1"]\n[import]\nunits = "METER"\n', encoding="utf-8"
+    )
+    derived = derive_thin_blade(source, root_offset=0.05)
+    assert derived.mesh.parent == source.parent
+    with derived.sidecar.open("a", encoding="utf-8") as handle:
+        handle.write('\n[trailing_edges]\ndetect = "auto"\n')
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace("wing_clean.fsm", derived.mesh.name),
+        encoding="utf-8",
+    )
+    plan = plan_matrix(
+        matrix,
+        workspace,
+        name="warm",
+        recipes=RECIPES,
+        default_fs_version="26.120",
+        recipe_registry=workflow_registry(),
+    )
+    assert len(plan.points) == 3
+    assert all(p.status == PlanStatus.READY for p in plan.points), [p.error for p in plan.points]
+
+
 @pytest.mark.requirement("FR-95")
 def test_goal019_warm_a_steady_row_is_one_job_for_all_its_points(tmp_path):
     """Her convention of 2026-09-12, and the shape the predecessor already had.
