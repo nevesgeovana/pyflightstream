@@ -30,6 +30,41 @@ from pyflightstream.versions import known_versions
 GOLDENS = Path(__file__).parent / "goldens"
 
 
+def test_p0420_wake_import_names_the_edge_token_and_keeps_the_old_keyword():
+    """P0420-P1-1b, FR-01: edge identity is not a coordinate unit."""
+    script = Script("26.124")
+    assert script.entry("IMPORT_WAKE_EDGES_FROM_FILE").args[2].name == "edge_type"
+    assert helpers.wake_edge_import_token(script, "METER") == "METER"
+    script.emit(
+        "IMPORT_WAKE_EDGES_FROM_FILE",
+        type="STANDARD",
+        tolerance=0.0001,
+        edge_type="METER",
+        file="nodes.txt",
+    )
+    legacy = Script("26.124")
+    legacy.emit(
+        "IMPORT_WAKE_EDGES_FROM_FILE",
+        type="STANDARD",
+        tolerance=0.0001,
+        units="METER",
+        file="nodes.txt",
+    )
+    assert legacy.render() == script.render()
+    before = legacy.render()
+    with pytest.raises(CommandArgumentError, match="given twice"):
+        legacy.emit(
+            "IMPORT_WAKE_EDGES_FROM_FILE",
+            type="STANDARD",
+            tolerance=0.0001,
+            edge_type="METER",
+            units="METER",
+            file="nodes.txt",
+        )
+    assert legacy.render() == before
+    assert helpers.wake_edge_import_token(Script("26.125"), "METER") == "1"
+
+
 def classify_count_spellings(label, args):
     """Report count-versus-list defects in one argument grammar.
 

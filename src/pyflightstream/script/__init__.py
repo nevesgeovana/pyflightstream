@@ -1454,6 +1454,14 @@ class Script:
             bound[spec.name] = value
         known = {spec.name for spec in specs}
         for key, value in kwargs.items():
+            # The measured 26.124 token is not a length unit. Preserve the
+            # former keyword without broadening the later enum grammar.
+            if (
+                entry.name == "IMPORT_WAKE_EDGES_FROM_FILE"
+                and key == "units"
+                and any(spec.name == "edge_type" and spec.type is ArgType.STR for spec in specs)
+            ):
+                key = "edge_type"
             if key not in known:
                 raise CommandArgumentError(
                     f"{entry.name} has no argument {key!r}; arguments are "

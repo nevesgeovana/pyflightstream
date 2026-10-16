@@ -20,7 +20,7 @@ THE WAKE-EDGE IMPORT TOKEN. 26.124 was measured to require a third token on
 only after it (RPT-061); its manual printed two values. FSM-26.125 p.329 names
 that token EDGE_TYPE, 1 for a file of edge mid-points and 2 for edge corner
 nodes. The package's node file lists mid-points, so a build whose grammar
-names the token gets 1, and a build whose grammar is the measured 26.124
+declares the enum gets 1, and a build whose grammar is the measured 26.124
 form keeps the simulation's length unit it was measured with.
 
 THE CCS CURVE ASSIGNMENT. FSM-26.125 asks for
@@ -193,11 +193,11 @@ def wake_edge_import_token(script: Script, units: str) -> str:
     Returns
     -------
     str
-        :data:`MIDPOINT_EDGE_TYPE` where the build's grammar names the
-        EDGE_TYPE token (26.125), else ``units``.
+        :data:`MIDPOINT_EDGE_TYPE` where the build's grammar declares the
+        EDGE_TYPE enum (26.125), else the measured legacy token ``units``.
     """
     grammar = script._view["IMPORT_WAKE_EDGES_FROM_FILE"]
-    if any(arg.name == "edge_type" for arg in grammar.args):
+    if any(arg.name == "edge_type" and arg.type is ArgType.ENUM for arg in grammar.args):
         return MIDPOINT_EDGE_TYPE
     return units
 

@@ -311,7 +311,7 @@ PER_VERSION_GRAMMAR["SET_SCENE_CONTOUR"]["26.124"] = PER_VERSION_GRAMMAR["SET_SC
 # when the command line carries a third token (RPT-061). The one override here whose
 # difference comes from a run rather than from a page.
 PER_VERSION_GRAMMAR["IMPORT_WAKE_EDGES_FROM_FILE"] = {
-    "26.124": {"names": ("type", "tolerance", "units", "file")},
+    "26.124": {"names": ("type", "tolerance", "edge_type", "file")},
 }
 
 #: Which arguments each override leaves OPTIONAL, stated exhaustively
