@@ -94,7 +94,11 @@ def check(r):
             f[rule] = "; ".join(h)
     if re.search("\\band\\s*/\\s*or\\b", low):
         f["W05"] = "and/or"
-    subject = re.search("(?:^|,\\s*)(?:the system|pyflightstream|the package)\\s+shall\\b", low)
+    subject = re.search(
+        r"(?:^|,\s*)(?:the system|pyflightstream|the package|the library"
+        r"(?:'s [a-z][a-z0-9_ .-]*?)?)\s+shall\b",
+        low,
+    )
     passive = re.search(
         "\\bshall\\s+(?:not\\s+)?be\\s+(?:\\w+ly\\s+)?(?:\\w+ed|written|shown|given|known|built|read|run|held|taken|made)\\b",
         low,

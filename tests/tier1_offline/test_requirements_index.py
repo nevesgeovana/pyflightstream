@@ -46,18 +46,26 @@ def historical_requirements():
 
 
 def test_p0420_stage_migration_preserves_historical_statements():
-    """P0420: every live historical row survives, with only approved UID changes."""
+    """P0420: historical identities resolve through explicit content-phase lineage."""
     import csv
 
     from scripts._requirements_paths import read_requirements
 
     migration_path = REPO / "docs/srs/uid-migration.csv"
     assert migration_path.exists(), "historical UID migration is missing"
-    migration = {r["uid"]: r for r in csv.DictReader(migration_path.open(encoding="utf-8"))}
+    records = list(csv.DictReader(migration_path.open(encoding="utf-8")))
+    migration = {r["uid"]: r for r in records}
+    assert len(migration) == len(records), "duplicate migration UID"
     current = {r["uid"]: r for r in read_requirements(REPO)}
     historical = historical_requirements()
     live = [r for r in historical if r["status"] != "retired"]
-    assert set(migration) == {r["uid"] for r in live}
+    historical_ids = {r["uid"] for r in live}
+    assert historical_ids <= set(migration)
+    split_ids = {uid for r in records for uid in r["new_uids"].split()}
+    for uid in set(migration) - historical_ids:
+        assert uid in split_ids or (uid in current and migration[uid]["new_uids"]), (
+            "unexplained migration UID"
+        )
     lettered = [r["uid"] for r in live if r["uid"][-1].isalpha()]
     expected = dict(
         zip(
@@ -70,27 +78,47 @@ def test_p0420_stage_migration_preserves_historical_statements():
     assert len(reserved) == len(set(reserved))
     assert set(reserved) == set(lettered) | {
         r["uid"] for r in historical if r["status"] == "retired"
+    } | {
+        r["uid"]
+        for r in records
+        if r["destination"] in {"merged", "demoted", "rationale", "retired"}
     }
     for old in historical:
         uid = old["uid"]
         target = expected.get(uid, uid)
-        row = current[target]
-        statement = old["statement"].replace("SRC-753", "FSM-26.125")
-        assert row["statement"] == statement, uid
-        assert row["status"] == old["status"], uid
         if old["status"] == "retired":
+            assert current[uid]["statement"] == old["statement"], uid
+            assert current[uid]["status"] == "retired", uid
             continue
-        assert migration[uid]["destination"] == ("merged" if uid in expected else "kept")
         assert (REPO / migration[uid]["file"]).exists()
+        disposition = migration[uid]
+        assert disposition["destination"] in {"kept", "merged", "demoted", "rationale", "retired"}
+        for child in disposition["new_uids"].split():
+            assert child in current or child in reserved, (uid, child)
+        if disposition["destination"] == "kept":
+            assert uid in current and current[uid]["status"] != "retired", uid
+        else:
+            assert uid in reserved, uid
+            if disposition["destination"] != "retired":
+                assert disposition["target"], uid
+                if disposition["file"].endswith("architecture-srs.md"):
+                    assert uid in (REPO / disposition["file"]).read_text("utf-8"), uid
+                else:
+                    assert disposition["target"] in current, uid
         if uid in expected:
             assert migration[uid]["target"] == target
-            assert migration[uid]["new_uids"] == target
+            assert target in migration[uid]["new_uids"].split()
+            row = current[target]
             base = uid[:-1]
-            if uid != "FR-23a":
+            if base in current and current[base]["status"] != "retired":
                 assert row["parent"] == base
                 assert row["hid"].startswith(current[base]["hid"] + ".")
             else:
-                assert current[row["parent"]]["level"] == "L1"
+                host = migration.get(base, {}).get("target")
+                if host and host != target:
+                    assert row["parent"] == host
+                else:
+                    assert current[row["parent"]]["level"] == "L1"
     for name in ("functional-requirements.md", "nonfunctional-requirements.md"):
         assert not (REPO / "docs/unpublished/requirements" / name).exists()
 
@@ -99,6 +127,7 @@ def validate_structure(rows, reserved, historical, migration):
     """P0420 structural guard shared with planted controls."""
     live = [r for r in rows if r["status"] != "retired"]
     ids = {r["uid"] for r in live}
+    assert len(migration) == len(set(migration)), "duplicate migration UID"
     assert not ids & set(reserved), "reserved UID live"
     assert set(historical) <= set(migration), "historical UID missing"
     generator = _generator()
@@ -147,6 +176,35 @@ def test_p0420_structure_guard():
     )
 
 
+def test_p0420_s3_architecture_dispositions_preserve_rules():
+    """P0420: architecture destinations retain historical content and anchors."""
+    import csv
+
+    from scripts._requirements_paths import read_requirements
+
+    historical = {r["uid"]: r for r in historical_requirements()}
+    current = {r["uid"]: r for r in read_requirements(REPO)}
+    architecture = (REPO / "docs/srs/architecture-srs.md").read_text("utf-8")
+    migration = {
+        r["uid"]: r
+        for r in csv.DictReader((REPO / "docs/srs/uid-migration.csv").open(encoding="utf-8"))
+    }
+    reserved = json.loads((REPO / "docs/srs/reserved-ids.json").read_text())["reserved_ids"]
+    for uid in ("FR-928", "FR-991", "FR-1073", "FR-744", "FR-1002", "FR-1189", "FR-1155"):
+        assert uid not in current, uid
+        assert uid in reserved
+        assert migration[uid]["destination"] == "demoted"
+        assert migration[uid]["file"] == "docs/srs/architecture-srs.md"
+        assert migration[uid]["target"].startswith("architecture-srs#")
+        assert historical[uid]["statement"] in architecture
+        assert historical[uid]["code"] in architecture
+        assert historical[uid]["test"] in architecture
+    assert "FR-2269" not in current and "FR-2269" in reserved
+    assert "FR-2269" in architecture
+    assert "FR-965" in current and "FR-965" not in reserved
+    assert migration["FR-965"]["destination"] == "kept"
+
+
 def test_p0420_l1_rows_follow_the_approved_feature_statements():
     import hashlib
 
@@ -158,9 +216,9 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
         (r for r in rows if r.get("level") == "L1"), key=lambda r: int(r["uid"].split("-")[1])
     )
     assert [r["uid"] for r in features] == [f"FR-{n}" for n in range(3000, 3167)]
-    # S1 l1_statement column in authored order, UTF-8 joined by LF (no trailing LF).
+    # S3 reviewed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF).
     assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
-        "319380d047be431a4cf1398d79559553302de88e9ab35a1524eb14a94e95a5e0"
+        "bbaabc64424adc37fbe44394886f0ebb725253b7fc840577bf16159dfdf24885"
     )
     for feature in features:
         members = [
@@ -170,15 +228,50 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
             or by_id.get(r["parent"], {}).get("parent") == feature["uid"]
         ]
         assert feature["status"] == (
-            "implemented" if all(r["status"] == "implemented" for r in members) else "pending"
+            "implemented"
+            if members and all(r["status"] == "implemented" for r in members)
+            else "pending"
         )
         assert feature["verification_method"] == "analysis"
         assert feature["code"] == feature["test"] == feature["parent"] == "-"
 
 
+@pytest.mark.parametrize("status", ["pending", "implemented"], ids=lambda s: "P0420-empty-" + s)
+def test_p0420_s3_empty_feature_is_pending(status):
+    generator = _generator()
+    rows = [
+        {
+            "id": "FR-3000",
+            "parent": "",
+            "area": "INST",
+            "hid": "",
+            "level": "L1",
+            "authored_hid": "INST-1",
+            "status": status,
+        }
+    ]
+    if status == "pending":
+        generator._hierarchy(rows)
+    else:
+        with pytest.raises(generator.MalformedRequirementPageError, match="L1 status"):
+            generator._hierarchy(rows)
+
+
+@pytest.mark.parametrize(
+    "subject",
+    ["The library", "The library's workspace settings module"],
+    ids=["P0420-library", "P0420-named-component"],
+)
+def test_p0420_s3_writing_subjects_follow_authored_format(subject):
+    from scripts.check_writing_rules import check
+
+    assert "W07" not in check({"statement": subject + " shall record the result."})
+    assert "W07" in check({"statement": subject + " shall be recorded."})
+
+
 @pytest.mark.parametrize(
     "defect",
-    ["numeric", "radical", "hid", "verification", "level", "reserved", "migration"],
+    ["numeric", "radical", "hid", "verification", "level", "reserved", "migration", "duplicate"],
     ids=lambda x: "P0420-" + x,
 )
 def test_p0420_structure_planted_controls(defect):
@@ -204,6 +297,8 @@ def test_p0420_structure_planted_controls(defect):
         row.pop("level")
     elif defect == "reserved":
         reserved = ["FR-3000"]
+    elif defect == "duplicate":
+        migration.append("FR-3000")
     else:
         migration = []
     with pytest.raises(AssertionError):
@@ -297,6 +392,33 @@ def test_p0420_parity_uses_the_validated_requirement_reader(tmp_path, header):
 
 
 GENERATOR = REPO / "scripts" / "gen_requirements_index.py"
+
+
+@pytest.mark.parametrize(
+    ("status", "rationale", "accepted"),
+    [
+        ("pending", "Planning node PFS-2142.001 remains open.", True),
+        ("pending", "No planning node.", False),
+        ("implemented", "Planning node PFS-2142.001.", False),
+        ("deferred", "Planning node PFS-2142.001.", False),
+    ],
+    ids=["P0420-pending-node", "P0420-no-node", "P0420-implemented", "P0420-deferred"],
+)
+def test_p0420_s3_missing_anchors_require_pending_planning_node(status, rationale, accepted):
+    generator = _generator()
+    text = (
+        "| UID | Parent | HID | Level | Status | Verification method | Statement "
+        "| Rationale | Derives from | Code | Test |\n"
+        f"| FR-1600 | FR-3000 | INST-1.1 | L2 | {status} | test | "
+        f"The library shall record a result. | {rationale} | NL-INST | - | - |\n"
+    )
+    if accepted:
+        rows = generator._table_rows(Path("inst.md"), text)
+        generator._check_anchors(rows, REPO)
+        assert rows[0]["code"] == rows[0]["test"] == ""
+    else:
+        with pytest.raises(generator.MalformedRequirementPageError, match="anchors"):
+            generator._table_rows(Path("inst.md"), text)
 
 
 def test_p0420_srs_reader_preserves_authored_attributes():
@@ -400,7 +522,6 @@ def test_p0420_writing_receipt_binds_committed_inputs(tmp_path, monkeypatch, rec
         checker.main(["--root", str(REPO), "--baseline", str(baseline)])
 
 
-@pytest.mark.skip(reason="Activate at S3 after content lanes bring W01/W02/W10 to zero")
 def test_p0420_srs_w01_w02_w10_zero():
     from scripts._requirements_paths import read_requirements
     from scripts.check_writing_rules import check
@@ -410,6 +531,23 @@ def test_p0420_srs_w01_w02_w10_zero():
         for row in read_requirements(REPO, live_only=True)
     }
     assert not {uid: rules for uid, rules in violations.items() if rules}
+
+
+def test_p0420_srs_writing_rules_never_exceed_the_s3_baseline():
+    """PFS-2142: every measured writing-rule count may fall, never rise."""
+    from scripts._requirements_paths import read_requirements
+    from scripts.check_writing_rules import RULES, check, compare_baseline
+
+    # Session decision 2026-10-15; reviewed S3 baseline, 1,868 live rows.
+    limits = dict(zip(RULES, (0, 0, 2, 0, 0, 0, 40, 3, 15, 0, 6), strict=True))
+    findings = [check(row) for row in read_requirements(REPO, live_only=True)]
+    counts = {rule: sum(rule in found for found in findings) for rule in RULES}
+    assert compare_baseline(counts, {"rules": limits}) == []
+    for rule in RULES:
+        raised = {**limits, rule: limits[rule] + 1}
+        assert compare_baseline(raised, {"rules": limits}), rule
+        lowered = {**limits, rule: max(0, limits[rule] - 1)}
+        assert compare_baseline(lowered, {"rules": limits}) == [], rule
 
 
 def test_p0410_pa2_owned_citations_use_stable_uids() -> None:
