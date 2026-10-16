@@ -19,6 +19,55 @@ from pyflightstream.workspace import CampaignWorkspace
 
 FIXTURES = Path(__file__).parent / "fixtures"
 FIXTURE = FIXTURES / "matrix.fs"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "plan",
+        "run",
+        "post",
+        "collect",
+        "status",
+        "rebuild",
+        "mark-failed",
+        "mark-converged",
+        "delete-sims",
+    ],
+)
+@pytest.mark.parametrize(
+    "words", [["2006", "2007"], ["2006,2007"], ["[2006,", "2007]"], ["[2006]", "[2007]"]]
+)
+def test_p0420_p1_1d_all_sim_selectors_share_the_grammar(command, words):
+    from pyflightstream.run.cli import _build_parser
+
+    arguments = [command]
+    if command in {"plan", "run", "post"}:
+        arguments.append("matrix.fs")
+    if command == "mark-converged":
+        arguments += ["--reason", "reviewed"]
+    args = _build_parser().parse_args([*arguments, "--sims", *words])
+    assert args.sims == ["2006", "2007"]
+
+
+def test_p0420_p1_1d_delete_positional_alias_warns_and_preserves_selection(tmp_path, monkeypatch):
+    from pyflightstream._errors import PyflightstreamDeprecationWarning
+    from pyflightstream.run import cli
+    from pyflightstream.workspace import storage
+
+    seen = []
+    monkeypatch.setattr(
+        storage, "delete_sims", lambda root, sims, **kwargs: seen.append(sims) or {}
+    )
+    monkeypatch.setattr(cli, "_print_delete_sims", lambda entry: None)
+    assert main(["delete-sims", "--workspace", str(tmp_path), "--sims", "2006", "2007"]) == 0
+    with pytest.warns(PyflightstreamDeprecationWarning, match="0.43.0"):
+        assert main(["delete-sims", "[2006,2007]", "--workspace", str(tmp_path)]) == 0
+    assert seen == [["2006", "2007"], ["2006", "2007"]]
+    assert main(["delete-sims", "2006", "--sims", "2007", "--workspace", str(tmp_path)]) == 2
+    assert len(seen) == 2
+
+
 REGISTRY_FIXTURE = FIXTURES / "matrix_registry.fs"
 RECIPE_ARGS = [
     "--recipe",

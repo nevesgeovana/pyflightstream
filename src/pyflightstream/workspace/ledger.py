@@ -158,17 +158,17 @@ _SWEPT_CODE = re.compile(r"([A-Z]+)" + re.escape(SWEEP_NAME_VALUE))
 
 
 #: The one help text of the simulation ids a records command reads, in the form
-#: :func:`listed_sims` reads them: one value, comma or space separated (a quoted
+#: :func:`listed_sims` reads them: words, comma or space separated (a quoted
 #: ``"2006 2007"`` is two ids), square brackets allowed (``delete-sims``,
 #: ``rebuild``, ``mark-failed`` and ``mark-converged``, which also takes the ids as
 #: separate words).
 SIMS_IDS_HELP = (
-    "simulation ids, comma separated: 2006,2007 or [2006,2007]; "
-    "one quoted value of words, '2006 2007', reads as two ids"
+    "simulation ids: --sims 2006 2007; comma forms 2006,2007 and [2006,2007] "
+    "remain accepted, including mixtures of words and bracketed lists"
 )
 
 
-def listed_sims(text: str) -> list[str]:
+def listed_sims(text: str | Sequence[str]) -> list[str]:
     """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
 
     ``"4001 2009"`` selects two simulation ids. Selection separates whitespace-delimited ids
@@ -176,7 +176,7 @@ def listed_sims(text: str) -> list[str]:
 
     Parameters
     ----------
-    text : str
+    text : str or sequence of str
         The ids, comma or blank separated, with or without square brackets.
 
     Returns
@@ -191,7 +191,9 @@ def listed_sims(text: str) -> list[str]:
     >>> listed_sims("2006 2007")
     ['2006', '2007']
     """
-    listed = re.sub(r"[,\s]+", ",", text.strip().strip("[]"))
+    if not isinstance(text, str):
+        text = " ".join(text)
+    listed = re.sub(r"[,\s\[\]]+", ",", text.strip())
     return [item for item in listed.split(",") if item]
 
 

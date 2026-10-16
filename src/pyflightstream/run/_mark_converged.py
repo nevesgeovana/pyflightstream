@@ -34,6 +34,7 @@ from pyflightstream.cases import classify_outputs
 from pyflightstream.run._alias import listed_ids as _listed
 from pyflightstream.run._alias import split_typed_ids
 from pyflightstream.run._assessment import worse_of
+from pyflightstream.run._cli_selectors import _add_sim_ids
 from pyflightstream.run._record_files import _now_stamp, _relative, manifest_lock
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
 from pyflightstream.workspace._verdicts import marked_units
@@ -56,29 +57,12 @@ _REMEDY = "check the ids against runs.json, or rebuild it with pyfs-matrix rebui
 _VERDICT = RunStatus.CONVERGED
 
 
-def _whole_simulations(base: Path, ids: list[str]) -> list[str]:
-    """Return ``ids``, refusing a run id alias with the ``--sims`` and ``--points`` that name it.
-
-    The alias is read by the resolver of ``mark-failed``
-    (:func:`pyflightstream.run._alias.split_typed_ids`), so the two commands
-    recognise the same ``<sim>_<index>``; this command selects points by name,
-    so the refusal spells the point's simulation and name.
-    """
+def _simulation_selection(base: Path, ids: list[str]) -> tuple[list[str], dict[str, list[str]]]:
+    """Resolve whole simulations and point aliases through the shared marking resolver."""
     try:
-        sims, aliased = split_typed_ids(ids, base)
+        return split_typed_ids(ids, base)
     except WorkspaceError as error:
         raise RunsManifestError(str(error)) from error
-    if not aliased:
-        return sims
-    named = [text for text in ids if text not in sims]
-    spelled = "; ".join(
-        f"--sims {sim} --points {' '.join(names)}" for sim, names in aliased.items()
-    )
-    raise RunsManifestError(
-        f"sims (CLI: --sims) names the run id alias(es) {', '.join(named)}, and "
-        "mark-converged selects points by simulation and point name; nothing was marked; "
-        f"name them as {spelled}"
-    )
 
 
 def _units(row: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
@@ -186,9 +170,15 @@ def _plan(
     return todo, already, refused
 
 
-def _checked_plan(workspace, rows, ids, wanted, *, reason, apply):
+def _checked_plan(workspace, rows, ids, wanted, *, reason, apply, aliases):
     """Plan against the rows actually read, refusing apply before any file is written."""
-    todo, already, refused = _plan(workspace, rows, ids, wanted)
+    groups = ([(ids, wanted)] if ids else []) + [
+        ([sim], points) for sim, points in aliases.items() if sim not in ids
+    ]
+    plans = [_plan(workspace, rows, sims, points) for sims, points in groups]
+    todo = [item for plan in plans for item in plan[0]]
+    already = [item for plan in plans for item in plan[1]]
+    refused = {key: value for plan in plans for key, value in plan[2].items()}
     result: dict[str, Any] = {
         "applied": False,
         "marked": [
@@ -243,8 +233,7 @@ def mark_converged(
     ------
     RunsManifestError
         No reason, no simulation named, no ``runs.json``, a simulation or a
-        point no record names, a run id alias (``2006_3``, refused naming the
-        ``sims`` and ``points`` that select its point); applying while any
+        point no record names, an unresolved run id alias (``2006_3``); applying while any
         point is refused, naming each, with nothing written.
     AliasError
         An alias the records and the plan read differently, or that names no
@@ -263,17 +252,19 @@ def mark_converged(
         )
     if not manifest.is_file():
         raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
-    ids = _whole_simulations(base, ids)
+    ids, aliases = _simulation_selection(base, ids)
     workspace = CampaignWorkspace(base)
     todo, result = _checked_plan(
-        workspace, _read(manifest), ids, wanted, reason=reason, apply=apply
+        workspace, _read(manifest), ids, wanted, reason=reason, apply=apply, aliases=aliases
     )
     if not apply or not todo:
         return result
     at = dt.datetime.now(dt.UTC).isoformat()
     with manifest_lock(base):
         rows = _read(manifest)
-        todo, result = _checked_plan(workspace, rows, ids, wanted, reason=reason, apply=True)
+        todo, result = _checked_plan(
+            workspace, rows, ids, wanted, reason=reason, apply=True, aliases=aliases
+        )
         if not todo:
             return result
         archived = base / ARCHIVE_DIR / f"{manifest.stem}-{_now_stamp()}.json"
@@ -440,10 +431,9 @@ def add_mark_parsers(subparsers: Any, *, workspace_help: str, apply_help: str) -
             "runs.json is copied to archive/ first (FR-309)."
         ),
     )
-    mark.add_argument(
-        "--sims",
+    _add_sim_ids(
+        mark,
         required=True,
-        nargs="+",
         help=SIMS_IDS_HELP + "; a run id alias (2006_3) marks that point's record alone",
     )
     mark.add_argument("--reason", default=None, help="why, recorded as given")
@@ -473,14 +463,11 @@ def add_mark_converged_parser(subparsers: Any) -> None:
             "marked failed is refused by name and nothing is written (FR-414)."
         ),
     )
-    converged.add_argument(
-        "--sims",
+    _add_sim_ids(
+        converged,
         required=True,
-        nargs="+",
-        metavar="ID",
         help=SIMS_IDS_HELP + "; also as separate words (2006 2007) or a mix (2006 2007,2008); "
-        "to mark some of their points, name them with --points (a run id alias such as "
-        "2006_3 is refused, naming the --sims and --points that select its point)",
+        "to mark some of their points, use --points or a run id alias such as 2006_3",
     )
     converged.add_argument(
         "--points",

@@ -258,25 +258,14 @@ def test_p0370_s1_unknown_ids_name_the_remedy_and_the_points_held(workspace):
     assert workspace.manifest_path.read_bytes() == before
 
 
-def test_p0370_s1_a_run_id_alias_is_refused_naming_the_sims_and_points(workspace, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414): an alias is read as mark-failed reads it, then refused.
-
-    ``7001_2`` is the second point of simulation 7001 by the resolver of
-    mark-failed; mark-converged names that point by simulation and name, so
-    the refusal spells the ``--sims`` and ``--points`` that select it, and
-    nothing is written. The control: the spelled selection marks that point.
-    """
+def test_p0370_s1_a_run_id_alias_marks_only_its_point(workspace, capsys):
+    """PFS-2124.004: marking commands share point-alias selection."""
     before = workspace.manifest_path.read_bytes()
-    with pytest.raises(RunsManifestError) as refused:
-        mark_converged(workspace.root, ["7001_2"], reason=REASON, apply=True)
-    said = str(refused.value)
-    assert "7001_2" in said and "--sims 7001 --points V0300RE120AL+020" in said, said
-    assert workspace.manifest_path.read_bytes() == before
     code, out = pyfs(
         ["mark-converged", "--sims", "7001_2", "--reason", REASON], workspace.root, capsys
     )
-    assert code == 2 and "--sims 7001 --points V0300RE120AL+020" in out, out
-    entry = mark_converged(
-        workspace.root, ["7001"], reason=REASON, points=["V0300RE120AL+020"], apply=True
-    )
+    assert code == 0 and ROTOR[1] in out and ROTOR[0] not in out
+    assert workspace.manifest_path.read_bytes() == before
+    entry = mark_converged(workspace.root, ["7001_2"], reason=REASON, apply=True)
     assert [item["run_id"] for item in entry["marked"]] == [ROTOR[1]], entry
+    assert _rows(workspace)[ROTOR[0]]["status"] == "RAN_MISSING_LOG"

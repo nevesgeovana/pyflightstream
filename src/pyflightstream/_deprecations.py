@@ -691,7 +691,17 @@ MATRIX_GEOMETRY_ALIASES = (
 )
 
 
+DELETE_SIMS_POSITIONAL = DeprecatedFlag(
+    command="pyfs-matrix delete-sims",
+    old="positional ids",
+    new="--sims ID [ID ...]",
+    deprecated_since="0.42.0",
+    removal_version="0.43.0",
+)
+
+
 DEPRECATIONS: tuple[Deprecation, ...] = (
+    DELETE_SIMS_POSITIONAL,
     *DEPRECATED_MODULES,
     ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES,
     PLAN_MATRIX_FS_VERSION,
