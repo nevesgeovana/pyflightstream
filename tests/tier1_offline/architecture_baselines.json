@@ -269,8 +269,8 @@
    "positional": 2
   },
   "cases/workflows/_solver_settings.py:_settings": {
-   "complexity": 16,
-   "branches": 16,
+   "complexity": 15,
+   "branches": 15,
    "statements": 43,
    "positional": 2
   },
@@ -469,7 +469,7 @@
   "post/rotor_table.py:write_rotor_table": {
    "complexity": 9,
    "branches": 8,
-   "statements": 57,
+   "statements": 52,
    "positional": 1
   },
   "post/section_distributions.py:_distributions": {
@@ -959,8 +959,8 @@
    "positional": 3
   },
   "utils/cli.py:_register": {
-   "complexity": 16,
-   "branches": 15,
+   "complexity": 15,
+   "branches": 14,
    "statements": 48,
    "positional": 2
   },
@@ -977,7 +977,7 @@
    "positional": 2
   },
   "utils/manual.py:_parameters_after": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 11,
    "statements": 26,
    "positional": 3
@@ -1229,7 +1229,7 @@
   "pyflightstream.run.collect": 5,
   "pyflightstream.run.matrix": 7,
   "pyflightstream.run.records": 2,
-  "pyflightstream.script": 10,
+  "pyflightstream.script": 9,
   "pyflightstream.script.entities": 1,
   "pyflightstream.script.motion": 1,
   "pyflightstream.script.solver_setup": 1,
@@ -1322,10 +1322,10 @@
  "facade_lines": {
   "__init__.py": 9,
   "cases/__init__.py": 1032,
-  "commands/__init__.py": 766,
+  "commands/__init__.py": 746,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
-  "script/__init__.py": 1630,
+  "script/__init__.py": 1624,
   "workspace/__init__.py": 1908
  },
  "facade_definitions": {

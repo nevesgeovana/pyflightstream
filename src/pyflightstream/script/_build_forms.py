@@ -503,6 +503,27 @@ def _carry_unsteady_actions(
     script._pending_action_scripts = dict(paths.values())
 
 
+def _refuse_export_collision(script: Script, path: str, *, asker: str) -> None:
+    """Refuse an output path already held by the script's export register.
+
+    Helpers and direct command emission share this check before committing
+    state. File identity follows the same normalization as parked input files.
+    """
+    from pyflightstream._digest import one_file_key
+
+    key = one_file_key(path)
+    for held, site in script._exported_paths.items():
+        if one_file_key(held) == key:
+            same = "" if held == path else f" (as {held!r}, the same file)"
+            raise CommandArgumentError(
+                f"this script already exports to {path!r}{same}, from {site}. The "
+                "solver writes one file per path, so the second export would "
+                "silently replace the first and the script would carry two "
+                f"exports of one file. Give {asker} a path of its own, for "
+                "example one carrying the point or the survey name."
+            )
+
+
 def _parked_file(script: Script, path: str) -> tuple[str, str] | None:
     """Find the same destination across action and input file registers."""
     from pyflightstream._digest import one_file_key
