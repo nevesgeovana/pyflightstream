@@ -1006,7 +1006,7 @@ _FFPROOF_PLAN___LATTICE = {
     "tip_radius_m": 0.5,
     "stations": [2.0],
     "n_r": 2,
-    "n_psi": 8,
+    "n_psi": 16,
 }
 
 

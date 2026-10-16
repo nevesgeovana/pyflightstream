@@ -476,7 +476,7 @@ _FFPROOF_POST___LATTICE = {
     "tip_radius_m": 1.0,
     "stations": [-1.0, 1.0],
     "n_r": 2,
-    "n_psi": 8,
+    "n_psi": 16,
 }
 
 
@@ -488,7 +488,7 @@ _FFPROOF_POST___POINTS_M = lattice_points(_FFPROOF_POST___SHAPE.build(1.0), axis
 
 _FFPROOF_POST___LEDGERS = (
     '[farfield]\nfamilies = "all"\n[farfield.ledgers]\nframe = "MRP"\ntip_radius_m = 1.0\n'
-    "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 8\nm_max = 2\n"
+    "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 16\nm_max = 2\n"
 )
 
 
@@ -898,7 +898,7 @@ class TestFfproofPost:
         probes = (
             '[[probes]]\nframe = "MRP"\nkind = "normal"\nparameters = ["VX"]\n'
             '[[probes.lattices]]\nframe = "MRP"\ntip_radius_m = 1.0\nstations = [-1.0, 1.0]\n'
-            "n_r = 2\nn_psi = 8\n"
+            "n_r = 2\nn_psi = 16\n"
         )
         workspace = _ffproof_post___campaign(
             tmp_path,
@@ -1305,7 +1305,7 @@ def _rfixf2_matching___lattice_case():
     from pyflightstream.probes.layouts import lattice_points
 
     lattice = LatticeShape.model_validate(
-        {"frame": "MRP", "tip_radius_m": 0.5, "stations": [2.0], "n_r": 2, "n_psi": 8}
+        {"frame": "MRP", "tip_radius_m": 0.5, "stations": [2.0], "n_r": 2, "n_psi": 16}
     ).build(1.0)
     local = lattice_points(lattice, axis="X")
     shape = {
@@ -2317,12 +2317,12 @@ class TestRfixFPlaneLift:
         assert "0.74" in flag and "RPT-171" in flag
 
 
-_RFIXF_QSTEADY___SHAPE = {"rotor": "ROTOR", "stations": [-1.0, 1.0], "n_r": 2, "n_psi": 8}
+_RFIXF_QSTEADY___SHAPE = {"rotor": "ROTOR", "stations": [-1.0, 1.0], "n_r": 2, "n_psi": 16}
 
 
 _RFIXF_QSTEADY___LEDGERS = (
     '[farfield]\nfamilies = "all"\n[farfield.ledgers]\nrotor = "ROTOR"\n'
-    "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 8\nm_max = 2\n"
+    "stations = [-1.0, 1.0]\nn_r = 2\nn_psi = 16\nm_max = 2\n"
 )
 
 

@@ -294,8 +294,8 @@ def build_lattice(
     n_r, r_inner, r_outer : int, float, float
         Ring count and radial extent r/R of every annular plane.
     n_psi : int
-        Uniform azimuth count; uniformity is structural, see the
-        module docstring.
+        Uniform azimuth count, at least 14 for the six stored harmonics
+        (DLV-006 Sec. 3.2); uniformity is structural.
     lateral_radius : float, optional
         Lateral closure cylinder radius r/R; None disables it.
     lateral_stations : tuple of float, optional
@@ -308,7 +308,16 @@ def build_lattice(
     -------
     ProbeLattice
         Validated, serializable lattice.
+
+    Raises
+    ------
+    ProbeGeometryError
+        If the survey has fewer than 14 azimuths for its six stored harmonics.
     """
+    if n_psi < 14:
+        raise ProbeGeometryError(
+            "build_lattice requires n_psi >= 14 for six stored harmonics (DLV-006 Sec. 3.2)"
+        )
     lateral: tuple[float, ...] = ()
     if lateral_radius is not None:
         lateral = tuple(stations) if lateral_stations is None else tuple(lateral_stations)
