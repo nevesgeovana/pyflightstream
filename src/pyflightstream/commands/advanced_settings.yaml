@@ -562,6 +562,12 @@ SET_WAKE_RELAXATION:
     rather than converging. Documented by the three pre-26.100 editions
     and by none after.
   versions:
+    "26.122":
+      status: removed
+      note: >-
+        FSM-26.122 pp.283-383, the scripting reference,
+        omits this previously documented command. This records document
+        withdrawal, not a solver measurement or a claim of runtime refusal.
     "25.000":
       status: documented
       note: "FSM-25.000 p.306, this edition documents it"
@@ -638,6 +644,12 @@ SET_WAKE_STREAMWISE_AGGLOMERATION:
     carries at some cost in wake resolution. Documented by the three
     pre-26.100 editions and by none after.
   versions:
+    "26.122":
+      status: removed
+      note: >-
+        FSM-26.122 pp.283-383, the scripting reference,
+        omits this previously documented command. This records document
+        withdrawal, not a solver measurement or a claim of runtime refusal.
     "25.000":
       status: documented
       note: "FSM-25.000 p.305, this edition documents it"
@@ -715,6 +727,12 @@ SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER:
     everywhere. Documented by the three pre-26.100 editions and by none
     after.
   versions:
+    "26.122":
+      status: removed
+      note: >-
+        FSM-26.122 pp.283-383, the scripting reference,
+        omits this previously documented command. This records document
+        withdrawal, not a solver measurement or a claim of runtime refusal.
     "25.000":
       status: documented
       note: "FSM-25.000 p.305, this edition documents it"
@@ -794,6 +812,18 @@ SOLVER_VORTEX_RING_NORMALIZATION:
     normalization does, so nothing further is recorded here: the reading
     of a name is not a description of a numerical method.
   versions:
+    "26.123":
+      status: removed
+      note: >-
+        FSM-26.123 pp.283-383, the scripting reference,
+        omits this previously documented command. This records document
+        withdrawal, not a solver measurement or a claim of runtime refusal.
+    "26.122":
+      status: removed
+      note: >-
+        FSM-26.122 pp.283-383, the scripting reference,
+        omits this previously documented command. This records document
+        withdrawal, not a solver measurement or a claim of runtime refusal.
     "25.000":
       status: documented
       note: "FSM-25.000 p.305, this edition documents it"

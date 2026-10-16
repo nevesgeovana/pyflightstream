@@ -1991,3 +1991,23 @@ def test_p0420_bool_presence_is_optional_by_default():
     assert ArgSpec(name="clear", type="bool").required is False
     assert ArgSpec(name="index", type="int").required is True
     assert ArgSpec(name="clear", type="bool", required=True).required is True
+
+
+@pytest.mark.parametrize(
+    "name,version",
+    [
+        ("SET_WAKE_RELAXATION", "26.122"),
+        ("SET_WAKE_STREAMWISE_AGGLOMERATION", "26.122"),
+        ("SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER", "26.122"),
+        ("SOLVER_VORTEX_RING_NORMALIZATION", "26.122"),
+        ("SOLVER_VORTEX_RING_NORMALIZATION", "26.123"),
+    ],
+)
+def test_p0420_withdrawn_manual_entries_are_not_never_present(name, version):
+    entry = CommandRegistry.load().commands[name]
+    assert version in entry.versions, "previously documented name needs an edition verdict"
+    row = entry.versions[version]
+    assert row.status is Status.REMOVED
+    assert row.report is None
+    assert f"FSM-{version}" in row.note
+    assert "document" in row.note and "measurement" in row.note
