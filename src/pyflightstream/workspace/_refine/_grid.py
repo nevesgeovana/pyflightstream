@@ -703,7 +703,19 @@ def _te_columns(ids: NDArray[numpy.int64], te: frozenset[int]) -> list[int]:
 def _sheet_trailing_edge_first(
     ids: NDArray[numpy.int64], te: frozenset[int]
 ) -> NDArray[numpy.int64]:
-    """Orient a sheet so the trailing edge is chordwise index 0."""
+    """Orient a sheet so the trailing edge is chordwise index 0.
+
+    A SHEET NEEDS A TRAILING EDGE (PFS-2119.062): the trailing edge is the one
+    grid line that fixes which of the sheet's edges is chordwise index 0, and
+    a family that names none has no such line, so it is refused for that reason.
+    Only a smooth tube is recovered without one, because its seam stands in
+    for it; a sheet has no seam to stand in.
+    """
+    if not te:
+        raise _NotAGridError(
+            "a sheet needs a trailing edge: the family has no trailing-edge vertex, and only "
+            "a smooth tube is recovered without one"
+        )
     cols = _te_columns(ids, te)
     if not cols:
         if not _te_columns(ids.T, te):

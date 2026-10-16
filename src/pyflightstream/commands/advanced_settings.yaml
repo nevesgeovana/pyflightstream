@@ -73,9 +73,20 @@ SOLVER_MINIMUM_CP:
     On 26.124 build 8172026 and 26.125 build 10052026, setting 0 after
     INITIALIZE_SOLVER and before START_SOLVER produced the same exported
     coefficients as setting 0 early, distinct from the -20 controls.
-    Phase init already allows that order; workflow early placement stays.
-    The 300-iteration runs did not meet the requested 1e-10 residual,
-    so this is numerical setting response, not physical validation.
+    SOLVER_MINIMUM_CP IS THEREFORE READ AFTER INITIALIZATION, on those two
+    builds and for this command only (PFS-2003.07, session judgement
+    2026-10-16). The low and high controls separated CL by 4.18 on 26.124
+    and 4.14 on 26.125, many orders of magnitude above any convergence error,
+    and the late-high run equals the early-high run to the printed digits.
+    The classification is `init`, which is the measured window: the command
+    is accepted between INITIALIZE_SOLVER and START_SOLVER with no second
+    initialization, and refused after START_SOLVER; a `setup` phase would
+    refuse the measured order and `exec` would refuse the early one. The
+    emitters keep their early placement, which is correct under both
+    answers. The other advanced settings are not generalized from this one.
+    RESIDUAL LEVEL: all runs stopped at the 300-iteration limit with
+    residuals about 8.2e-7 and 5.3e-7 against the requested 1e-10, so this
+    is numerical setting response, not physical validation.
     See reports/PFS-2003.07_late-setting-evidence_2026-10-16.md.
 
 REYNOLDS_AVERAGED_DRAG_FORCES:

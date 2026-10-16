@@ -11,11 +11,13 @@ from pyflightstream._lengths import scale
 from pyflightstream.cases import CampaignConfigError
 
 __all__ = [
+    "MEASURED_FIELD_UNITS",
     "PreparedField",
     "field_rows_in_metres",
     "prepare_field",
     "prepare_rotating_field",
     "read_field_rows",
+    "require_measured_unit",
 ]
 
 
@@ -26,6 +28,49 @@ class PreparedField:
     path: str
     payload: bytes | None
     provenance: dict[str, object]
+
+
+#: The simulation length units a custom field file is measured in.
+MEASURED_FIELD_UNITS = ("METER", "MILLIMETER")
+
+
+def require_measured_unit(native_unit: str | None) -> str:
+    """Return the simulation's unit when a custom field is measured in it, else refuse.
+
+    The one home of the whitelist (PFS-2119.002): :func:`prepare_field`,
+    :func:`field_rows_in_metres` and :func:`prepare_rotating_field` all write or
+    read a field in the simulation's unit, and the solver's reading of a custom
+    file is measured for the metre and the millimetre only.
+
+    Parameters
+    ----------
+    native_unit : str or None
+        The simulation's length unit, or None where the caller states none.
+
+    Returns
+    -------
+    str
+        The unit, ``METER`` or ``MILLIMETER``.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the unit is neither ``METER`` nor ``MILLIMETER``, citing RPT-083.
+
+    Examples
+    --------
+    >>> require_measured_unit("MILLIMETER")
+    'MILLIMETER'
+    """
+    if native_unit not in MEASURED_FIELD_UNITS:
+        raise CampaignConfigError(
+            "A custom field is converted and written only in a unit its reading is measured "
+            "in: it requires measured METER or "
+            f"MILLIMETER simulation units; got {native_unit!r} "
+            "(RPT-083: the solver's reading of a custom file is measured on 26.124 build "
+            "8172026 for METER and MILLIMETER only)."
+        )
+    return native_unit
 
 
 def prepare_field(
@@ -101,11 +146,7 @@ def prepare_field(
     }
     if source_units != "SI":
         return PreparedField(str(path), None, provenance)
-    if native_unit not in {"METER", "MILLIMETER"}:
-        raise CampaignConfigError(
-            "Explicit SI custom-field conversion requires measured METER or "
-            f"MILLIMETER simulation units; got {native_unit!r}."
-        )
+    native_unit = require_measured_unit(native_unit)
     factor = scale("METER", native_unit)
     assert factor is not None  # The measured-unit whitelist above guarantees this.
     lines = [line.strip() for line in original.decode("utf-8").splitlines() if line.strip()]
@@ -230,12 +271,10 @@ def field_rows_in_metres(
         field sits on a simulation not in metres, or :func:`read_field_rows` refuses the file.
     """
     header, rows = read_field_rows(path, form=form)
+    if source_units == "SI" and native_unit is not None:
+        require_measured_unit(native_unit)
     if source_units == "NATIVE":
-        if native_unit not in {"METER", "MILLIMETER"}:
-            raise CampaignConfigError(
-                "A NATIVE custom field is converted from the simulation's measured unit, "
-                f"METER or MILLIMETER; got {native_unit!r}."
-            )
+        native_unit = require_measured_unit(native_unit)
         factor = scale(native_unit, "METER")
         assert factor is not None  # The measured-unit whitelist above guarantees this.
         rows = [[value * factor for value in row] for row in rows]
@@ -311,9 +350,8 @@ def prepare_rotating_field(
     header, rows = field_rows_in_metres(
         path, form=form, source_units=source_units, native_unit=native_unit
     )
-    factor = 1.0 if native_unit is None else scale("METER", native_unit)
-    if factor is None:
-        raise CampaignConfigError(f"The simulation's unit {native_unit!r} names no scale.")
+    factor = 1.0 if native_unit is None else scale("METER", require_measured_unit(native_unit))
+    assert factor is not None  # The measured-unit whitelist above guarantees this.
     n = axis
     out = [] if header is None else [header]
     for x, y, z, vx, vy, vz in rows:

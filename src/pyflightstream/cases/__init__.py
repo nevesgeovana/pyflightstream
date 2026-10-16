@@ -223,6 +223,7 @@ from pyflightstream.commands import Phase
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.external import ExternalStructure
 from pyflightstream.script import Script
+from pyflightstream.script.motion import SecondAxis
 from pyflightstream.versions import resolve
 
 __all__ = [
@@ -706,12 +707,12 @@ class RawCommand(BaseModel):
 class FrameSpec(BaseModel):
     """One custom coordinate system the reference's ``[[frames]]`` defines (PFS-2034.01, FR-72).
 
-    (design/69): the row's rotation names an
-    axis as ``<frame>-<X|Y|Z>``, and the frame is one the setup defined
-    here or one the package creates (``MRP``; ``ROTOR_MRP`` on the rotor
-    run types). The origin is in the geometry's own frame, the solver's
-    reference frame, in metres, and the two axes
-    are direction vectors in that frame; the third axis is the right-handed cross product,
+    (design/69): the row's rotation names an axis as ``<frame>-<X|Y|Z>``, and the frame
+    is one the setup defined here or one the package creates (``MRP``; ``ROTOR_MRP`` on
+    the rotor run types). The origin is in the geometry's own frame, the solver's
+    reference frame, in metres, and the two axes are direction vectors in that frame,
+    free in length, refused when zero, parallel or not orthogonal (cosine beyond 1e-8),
+    naming the frame and both vectors; the third axis is their right-handed cross product,
     as :func:`pyflightstream.script.helpers.coordinate_frame` computes it.
 
     Attributes
@@ -733,7 +734,7 @@ class FrameSpec(BaseModel):
     name: str
     origin: tuple[float, float, float]
     x_axis: tuple[float, float, float] = (1.0, 0.0, 0.0)
-    y_axis: tuple[float, float, float] = (0.0, 1.0, 0.0)
+    y_axis: SecondAxis = Field(default=(0.0, 1.0, 0.0), validate_default=True)
 
     @field_validator("name", mode="before")
     @classmethod

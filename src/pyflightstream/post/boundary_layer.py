@@ -287,11 +287,18 @@ def _recorded_frame(record: RunRecord, index: object, step: int | None) -> Surfa
     from pyflightstream.post.field_frames import frame_pose
 
     if not isinstance(index, int) or isinstance(index, bool):
-        raise ProductError("BL source has no recorded integer frame identity")
+        raise ProductError(
+            "the boundary-layer source has no recorded integer frame identity; run the point "
+            "again with this package version so its sections and loads frame are recorded"
+        )
     ledger = record.frame_motions or {}
     motion = ledger.get(index)
     if motion is None:
-        raise ProductError(f"BL frame {index} has no recorded placement/motion proof")
+        raise ProductError(
+            f"the boundary-layer frame {index} has no recorded placement/motion proof; "
+            "run the point again from a script that creates that frame, not a saved "
+            "simulation that carries it"
+        )
     pose = frame_pose(
         motion,
         step=step,
@@ -312,8 +319,24 @@ def _recorded_frame(record: RunRecord, index: object, step: int | None) -> Surfa
 def _section_count(block: Mapping[str, object]) -> int:
     value = block.get("count")
     if not isinstance(value, int) or isinstance(value, bool) or value < 1:
-        raise ProductError("BL section layout requires a positive integer count per block")
+        raise ProductError(
+            "the boundary-layer section layout requires a positive integer count per block; "
+            "state the sections of the pproc with a count of one or more and run the point again"
+        )
     return value
+
+
+#: What to do when a boundary-layer source export is missing, by the kind of export.
+_EXPORT_REMEDY = {
+    "vtk": (
+        "Request the product in the pproc, which adds the VTK surface export itself, and run "
+        "the point again, since the solver writes that file."
+    ),
+    "sections": (
+        "Request surface sections in the pproc (the section-coordinate export, the _cp.txt file) "
+        "and run the point again, since the solver writes that file."
+    ),
+}
 
 
 def write_boundary_layer_products(
@@ -368,20 +391,33 @@ def write_boundary_layer_products(
         for kind, name in (("vtk", f"{stem}.vtk"), ("sections", f"{stem}_cp.txt")):
             matches = [output for output in record.outputs if Path(output).name == name]
             if len(matches) != 1:
-                raise ProductError(f"BL product needs one recorded {name}; found {len(matches)}")
+                raise ProductError(
+                    f"the boundary-layer product needs one recorded {name}; found {len(matches)}. "
+                    f"{_EXPORT_REMEDY[kind]}"
+                )
             path = sim_dir / matches[0]
             digest = file_sha256(path)
             expected = record.outputs_sha256.get(matches[0])
             if expected and digest != expected:
-                raise ProductError(f"BL source {name} changed since collection")
+                raise ProductError(
+                    f"the boundary-layer source {name} changed since collection; restore the "
+                    "collected file, or run the point again so the product is built from its own "
+                    "export"
+                )
             sources[kind], hashes[name] = path, digest
         sections = parse_surface_sections(sources["sections"].read_text(encoding="utf-8"))
         layout = record.sections_layout
         if not layout or sum(_section_count(block) for block in layout) != sections.count:
-            raise ProductError("BL product requires the recorded layout covering every cut section")
+            raise ProductError(
+                "the boundary-layer product requires the recorded layout covering every cut "
+                "section; run the point again with the sections of the pproc unchanged"
+            )
         loads_indices = {block.get("loads_frame_index") for block in layout}
         if len(loads_indices) != 1:
-            raise ProductError("BL cuts disagree on their recorded VTK loads frame")
+            raise ProductError(
+                "the boundary-layer cuts disagree on their recorded VTK loads frame; give every "
+                "section block of the pproc one loads frame and run the point again"
+            )
         surface_frame = _recorded_frame(record, loads_indices.pop(), step)
         frames: dict[int, SurfaceFrame] = {}
         normals: dict[int, Sequence[float]] = {}
@@ -392,11 +428,17 @@ def write_boundary_layer_products(
             motion = (record.frame_motions or {}).get(frame.index, {})
             unit = motion.get("length_unit")
             if not isinstance(unit, str) or not unit:
-                raise ProductError("BL section frame has no recorded simulation length unit")
+                raise ProductError(
+                    "the boundary-layer section frame has no recorded simulation length unit; run "
+                    "the point again so the frame ledger records it"
+                )
             units.add(unit)
             axis = {"XY": 2, "XZ": 1, "YZ": 0}.get(str(block.get("plane")))
             if axis is None:
-                raise ProductError("BL section layout has no proved XY/XZ/YZ cut plane")
+                raise ProductError(
+                    "the boundary-layer section layout has no proved XY, XZ or YZ cut plane; cut "
+                    "the sections in one of those planes and run the point again"
+                )
             for section in sections.sections[cursor : cursor + _section_count(block)]:
                 # Native XYZ columns are REFERENCE coordinates; only the cut normal
                 # uses the configured section frame (measured on 26.124).
@@ -406,7 +448,9 @@ def write_boundary_layer_products(
         source_unit = (record.frame_motions or {}).get(surface_frame.index, {}).get("length_unit")
         if len(units) != 1 or source_unit not in units:
             raise ProductError(
-                "BL source and section frames do not prove one simulation length unit"
+                "the boundary-layer source and section frames do not prove one simulation length "
+                "unit; give the surface and the sections one simulation length unit and run "
+                "the point again"
             )
         sampled = sample_boundary_layer(
             read_vtk_surface(sources["vtk"]),

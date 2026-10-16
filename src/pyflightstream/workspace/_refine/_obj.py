@@ -86,9 +86,16 @@ def read_obj(path: str | Path) -> ObjMesh:
     index counts back from the last vertex read. A vertex coordinate that is
     not a finite number, a face index that is not an integer, and a face with
     fewer than three vertices or naming a vertex that does not exist, are
-    refused naming the file and the line.
+    refused naming the file and the line. A path that is not a file is
+    refused in the words :func:`pyflightstream.workspace.audit_mesh` uses,
+    so the refinement and the audit refuse a missing mesh alike (PFS-2130.067).
     """
     source = Path(path)
+    if not source.is_file():
+        raise InputArtifactError(
+            f"{source}: no such OBJ file; name an existing OBJ and run again. Nothing was written.",
+            kind=KIND,
+        )
     mesh = ObjMesh(numpy.zeros((0, 3)), {})
     verts: list[tuple[float, float, float]] = []
     current = DEFAULT_FAMILY
@@ -239,7 +246,9 @@ class TrailingRoute:
     detection (``detect = "auto"`` or a ``detect`` table), and ``surfaces``
     the surfaces it names for detection, empty for every surface.
     ``sidecar`` is the boundaries file and ``named`` the points file's name
-    as it is written there.
+    as it is written there. ``none`` is whether it states ``none = true``,
+    that the mesh has no trailing edge to route: the mesh then has no points
+    file, not even a ``<stem>.te.txt`` beside it (PFS-2119.063).
     """
 
     file: Path | None = None
@@ -247,6 +256,7 @@ class TrailingRoute:
     named: str | None = None
     detect: bool = False
     surfaces: tuple[str, ...] = ()
+    none: bool = False
 
     def detects(self, family: str) -> bool:
         """Return whether the boundaries file routes the family's trailing edge to detection."""
@@ -291,6 +301,7 @@ def te_route(obj: str | Path) -> TrailingRoute:
         named=named if isinstance(named, str) else None,
         detect="detect" in table,
         surfaces=surfaces,
+        none=table.get("none") is True,
     )
 
 
@@ -299,7 +310,9 @@ def te_file(obj: str | Path) -> Path | None:
 
     It is the file the boundaries file names under ``[trailing_edges] file``,
     or else ``<stem>.te.txt`` beside the mesh. The refinement and the audit
-    both read it here, so they refuse the same inputs (FR-925).
+    both read it here, so they refuse the same inputs (FR-925). A boundaries
+    file that states ``[trailing_edges] none = true`` has no points file, and
+    a ``<stem>.te.txt`` left beside the mesh is not read.
 
     Raises
     ------
@@ -308,6 +321,8 @@ def te_file(obj: str | Path) -> Path | None:
         exist; nothing was written.
     """
     route = te_route(obj)
+    if route.none:
+        return None
     if route.file is not None:
         if not route.file.is_file():
             raise InputArtifactError(
@@ -386,7 +401,11 @@ def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:
 
     Every row holds exactly three finite numbers; any other row is refused
     naming the file and its line, so no row is ever read as part of another
-    point.
+    point. The first row must be a unit the package converts, one of
+    :data:`pyflightstream._lengths.METRES_PER_UNIT` (case and surrounding
+    blanks ignored); any other first row is refused naming the file and the
+    units it accepts, before any point is read, so a file that lacks its unit
+    line never loses its first point silently (PFS-2130.065).
     """
     source = Path(path)
     try:
@@ -396,6 +415,12 @@ def read_te(path: str | Path) -> tuple[str, NDArray[numpy.float64]]:
     rows = [(n, r.strip()) for n, r in enumerate(lines, start=1) if r.strip()]
     if not rows:
         raise _refuse(source, "the trailing-edge points file is empty")
+    if rows[0][1].upper() not in METRES_PER_UNIT:
+        raise _refuse(
+            source,
+            f"line {rows[0][0]} {rows[0][1]!r} is not a length unit; the first row of a "
+            f"trailing-edge points file is its unit, one of {', '.join(METRES_PER_UNIT)}",
+        )
     points = [_te_row(source, number, row) for number, row in rows[1:]]
     return rows[0][1], numpy.array(points, dtype=float).reshape(-1, 3)
 

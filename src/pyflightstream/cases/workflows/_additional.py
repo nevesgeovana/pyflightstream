@@ -246,8 +246,15 @@ def additional_outputs(pproc: PprocSpec, *, stem: str, unsteady: bool) -> tuple[
             kinds.append("streamlines_off_body")
     if chosen.get("log", True):
         kinds.append("log")
-    # G45: the Tecplot is written from a VTK, which the extraction exports and keeps.
-    return tuple(with_tecplot_source([f"{stem}{suffix[kind]}" for kind in kinds]))
+    # G45: the Tecplot is written from a VTK, which the extraction exports and keeps; and
+    # with singularity_strength it is written from the native Tecplot as well, which the
+    # extraction keeps beside it and so declares (PFS-2119.022).
+    return tuple(
+        with_tecplot_source(
+            [f"{stem}{suffix[kind]}" for kind in kinds],
+            singularity_strength=pproc.singularity_strength,
+        )
+    )
 
 
 def frame_definitions(

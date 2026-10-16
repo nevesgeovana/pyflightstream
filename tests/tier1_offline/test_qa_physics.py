@@ -163,6 +163,9 @@ def test_smi_script_opens_and_solves_the_local_file(tmp_path):
     assert "SET_SOLVER_STEADY" in rendered
     assert "SOLVER_SET_AOA 2.0" in rendered
     assert "SOLVER_SET_REF_AREA 1.0" in rendered
+    # PFS-2006.02.01: no boundary is put on the vorticity induced-drag list, on any build.
+    assert "VORTICITY_DRAG_BOUNDARIES" not in rendered
+    assert rendered.count("START_SOLVER") == 1 and "EXPORT_SOLVER_ANALYSIS_SPREADSHEET" in rendered
     # The SMI script must also build for 26.101 (the scoped backfill).
     script_26100 = build_smi_script("26.101", tmp_path / "28_B.fsm", "loads.txt", "log.txt")
     assert not script_26100.raw_flag

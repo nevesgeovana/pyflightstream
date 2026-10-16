@@ -945,3 +945,24 @@ if __name__ == "__main__":  # pragma: no cover - the golden writer, run by hand
             text = _normalized(_render(_case(root, _library(root, body))), root)
         (GOLDENS / f"{golden}.txt").write_bytes(text.encode("utf-8"))
         print(f"wrote {golden}.txt")
+
+
+@pytest.mark.parametrize(("unit", "factor"), [("METER", 1.0), ("MILLIMETER", 1000.0)])
+def test_p0420_the_file_route_writes_points_and_tolerance_in_the_simulation_unit(
+    tmp_path, unit, factor
+):
+    """PFS-2130.013: metres in the sidecar, the setup's simulation unit in the script.
+
+    The points and the tolerance are checked in metres at binding and converted to the unit
+    the setup states, which the import line names; the tolerance is in metres in the sidecar.
+    """
+    workspace = _library(tmp_path, FILE_ROUTE)
+    case = _case(tmp_path, workspace)
+    solver = case.solver.model_copy(update={"simulation_length_unit": unit})
+    script = Script("26.124")
+    build_script(case.model_copy(update={"solver": solver}), script)
+    lines = script.render().splitlines()
+    assert f"IMPORT_WAKE_EDGES_FROM_FILE STANDARD {0.0001 * factor} {unit}" in lines
+    (parked,) = script.pending_input_files.values()
+    first = [float(v) for v in parked.splitlines()[2].split(",")]
+    assert first == pytest.approx([1.0 * factor, -3.75 * factor, 0.0])

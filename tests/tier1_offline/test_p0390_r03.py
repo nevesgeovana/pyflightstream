@@ -682,6 +682,21 @@ def _docs_clean_plan_evidence(captured: bytes) -> bytes:
     "paths were measured; the Windows runner holds R10",
 )
 @pytest.mark.filterwarnings("ignore::Warning")
+def _minimum_cp_evidence_prose() -> bytes:
+    """The serialized notes of SOLVER_MINIMUM_CP as the plan carries them, from the database.
+
+    The 0.42.0 record states the late-setting finding (PFS-2003.07); the comparison pins that
+    only the prose after the documented default moved, and takes the prose from the entry so a
+    later edit of the record does not move a pin.
+    """
+    from pyflightstream.commands import CommandRegistry
+
+    notes = " ".join(CommandRegistry.load().commands["SOLVER_MINIMUM_CP"].notes.split())
+    anchor = "the solver default is -20 (FSM-26.120 p.221)."
+    assert "READ AFTER INITIALIZATION" in notes and notes.count(anchor) == 1
+    return notes[notes.index(anchor) :].encode()
+
+
 def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
     """P0390-R03 (FR-1001): no file, every output of plan, run, post and collect of 0.38.0.
 
@@ -795,13 +810,7 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         ),
         (
             b"the solver default is -20 (FSM-26.120 p.221).",
-            b"the solver default is -20 (FSM-26.120 p.221). On 26.124 build 8172026 and 26.125 "
-            b"build 10052026, setting 0 after INITIALIZE_SOLVER and before START_SOLVER produced "
-            b"the same exported coefficients as setting 0 early, distinct from the -20 controls. "
-            b"Phase init already allows that order; workflow early placement stays. The "
-            b"300-iteration runs did not meet the requested 1e-10 residual, so this is numerical "
-            b"setting response, not physical validation. See "
-            b"reports/PFS-2003.07_late-setting-evidence_2026-10-16.md.",
+            _minimum_cp_evidence_prose(),
         ),
         (
             b"No edition says what happens if both are enabled.",

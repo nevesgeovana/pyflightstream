@@ -4413,3 +4413,36 @@ def test_p0420_later_documented_proximal_all_boundaries_form(build):
     script = Script(build)
     script.emit("SOLVER_PROXIMAL_BOUNDARIES", -1)
     assert "SOLVER_PROXIMAL_BOUNDARIES -1" in script.render()
+
+
+def test_p0420_solver_minimum_cp_is_accepted_between_initialization_and_start_only():
+    """PFS-2003.07: the measured window, the init phase, with the evidence cited in the record.
+
+    On 26.124 and 26.125 the command issued after INITIALIZE_SOLVER and before START_SOLVER
+    gave the exported coefficients of the early setting; the database keeps it in the init
+    phase, which accepts exactly that order and refuses the command once the solver started.
+    """
+    import pytest
+
+    from pyflightstream.commands import CommandRegistry, Phase
+    from pyflightstream.script import ScriptOrderError
+
+    entry = CommandRegistry.load().commands["SOLVER_MINIMUM_CP"]
+    assert entry.phase is Phase.INIT
+    for build in ("26.124", "26.125"):
+        script = Script(build)
+        script.emit(
+            "INITIALIZE_SOLVER",
+            solver_model="INCOMPRESSIBLE",
+            surfaces=-1,
+            wake_termination_x="DEFAULT",
+            symmetry="NONE",
+        )
+        script.emit("SOLVER_MINIMUM_CP", 0.0)
+        script.emit("START_SOLVER")
+        assert script.render().index("SOLVER_MINIMUM_CP 0.0") < script.render().index(
+            "START_SOLVER"
+        )
+        with pytest.raises(ScriptOrderError, match="exec phase"):
+            script.emit("SOLVER_MINIMUM_CP", -5.0)
+    assert "READ AFTER INITIALIZATION" in entry.notes and "8.2e-7" in entry.notes

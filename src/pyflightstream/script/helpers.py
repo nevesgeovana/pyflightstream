@@ -127,6 +127,10 @@ from pyflightstream.script._wake_edge_file import (  # noqa: F401  (this module 
     _where_parked,
     render_wake_edge_node_file,
 )
+from pyflightstream.script.motion import (  # noqa: F401  (this module is the public path)
+    FRAME_AXES_TOLERANCE,
+    frame_axes_problem,
+)
 from pyflightstream.script.rotor_vocabulary import (
     EUCLIDEAN_ROTOR_UNIT,
     UNMARKED_EUCLIDEAN_ROTOR_UNIT,
@@ -1583,7 +1587,8 @@ def coordinate_frame(
         Axis direction vectors in the reference frame.
     z_axis : sequence of float, optional
         Third axis; computed as the right-handed cross product of
-        x_axis and y_axis when omitted.
+        x_axis and y_axis when omitted. When given it must point along
+        that cross product.
     label : str, optional
         Label registered for the created frame in the script's entity
         registry, so later commands can cite it by name instead of by
@@ -1595,7 +1600,23 @@ def coordinate_frame(
     int
         Index of the created frame (the reference frame is 1; created
         local frames follow).
+
+    Raises
+    ------
+    CommandArgumentError
+        If the axes define no coordinate system, because an axis has zero
+        length, the two are parallel or not orthogonal
+        (:func:`frame_axes_problem`), or a ``z_axis`` is given that does not
+        point along their right-handed cross product. The message names the
+        frame and the vectors; nothing is emitted. The axes are written as
+        given, never normalised: their lengths are directions' lengths.
     """
+    problem = frame_axes_problem(x_axis, y_axis, z_axis)
+    if problem is not None:
+        raise CommandArgumentError(
+            f"coordinate_frame {name!r}: {problem}; x_axis = {tuple(x_axis)}, "
+            f"y_axis = {tuple(y_axis)}. Give two non-zero, orthogonal directions."
+        )
     if z_axis is None:
         ax, ay, az = x_axis
         bx, by, bz = y_axis
