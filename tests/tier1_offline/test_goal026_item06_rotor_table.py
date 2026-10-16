@@ -57,8 +57,25 @@ import pytest
 from pyflightstream.post.products import (
     NOT_APPLICABLE,
     ROTOR_COEFFICIENT_COLUMNS,
+    ProductError,
     rotor_coefficients,
 )
+
+
+@pytest.mark.parametrize(
+    "rps,diameter,field", [(0.0, 2.0, "rps"), (20.0, 0.0, "diameter"), (20.0, -2.0, "diameter")]
+)
+def test_p0420_rotor_coefficients_refuse_missing_speed_or_diameter(rps, diameter, field):
+    """Zero speed and nonpositive diameter have no defined rotor coefficients."""
+    with pytest.raises(ProductError, match=field):
+        rotor_coefficients(
+            thrust_n=500.0,
+            torque_nm=40.0,
+            rps=rps,
+            diameter_m=diameter,
+            density_kg_m3=1.225,
+            speed_m_s=30.0,
+        )
 
 
 def test_the_six_coefficients_she_named_in_the_order_she_named_them():
@@ -183,7 +200,7 @@ def test_a_caller_that_states_no_wind_force_gets_na_and_never_the_old_formula():
 
 def test_a_rotor_that_is_not_turning_is_refused_rather_than_dividing_by_zero():
     """Every coefficient divides by the speed squared; zero is not a rotor."""
-    with pytest.raises(ZeroDivisionError):
+    with pytest.raises(ProductError):
         rotor_coefficients(
             thrust_n=500.0,
             torque_nm=40.0,
