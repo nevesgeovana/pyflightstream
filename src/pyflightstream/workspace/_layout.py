@@ -17,7 +17,14 @@ from pyflightstream.workspace.manifest import WorkspaceError
 #: which is what makes an ambiguity possible: two files sharing a stem
 #: are two files answering to one id.
 #:
-#: It is these two and not the five of ``INPUT_KINDS`` because the other
+#: Only ``profiles``: a profile cell is a stem. A ``geometries`` cell is
+#: the whole file name with its extension, so ``wing.fsm`` beside
+#: ``wing.obj`` (or an OBJ beside its ``.mtl``) are two ids, which the
+#: resolver reads fine, and a bare-stem cell is already refused by the
+#: resolver (PFS-2124.049). Geometries are checked by full file name
+#: instead (:data:`FILE_NAME_REGISTERED_KINDS`).
+#:
+#: It is not any of the other kinds of ``INPUT_KINDS`` because the other
 #: three build their path directly as ``<id>.toml``
 #: (:func:`~pyflightstream.workspace.inputs.resolve_reference` and its
 #: two siblings), so their per-kind uniqueness is enforced by the file
@@ -25,7 +32,12 @@ from pyflightstream.workspace.manifest import WorkspaceError
 #: ``references/003.toml`` is not a competing id; it is a file the
 #: library provably never opens, and refusing it would be code refusing
 #: something no requirement promised (FR-33a, OPS-2005.08.05).
-STEM_REGISTERED_KINDS = ("geometries", "profiles")
+STEM_REGISTERED_KINDS = ("profiles",)
+
+#: The library kinds whose id is the whole file name, extension included:
+#: two files answer to one id only when their names are equal, which a file
+#: system that ignores case makes possible (``Wing.fsm`` and ``wing.fsm``).
+FILE_NAME_REGISTERED_KINDS = ("geometries",)
 
 #: Optional workspace-level declaration of the named reference points,
 #: ``inputs/reference_points.toml``. A top-level registry beside
@@ -150,12 +162,14 @@ def find_matrix(root: str | Path, stem: str) -> Path | None:
 def check_unique_stems(inputs_dir: str | Path) -> None:
     """Refuse a library in which two files answer to one id.
 
-    Geometries and profiles register by file-name stem with any
-    extension (:data:`STEM_REGISTERED_KINDS`), so ``wing_v2.fsm`` beside
-    ``wing_v2.stl`` leaves the id ``wing_v2`` ambiguous. Until this
-    check existed the ambiguity was found lazily, by the resolver, for
-    the one id a caller happened to ask for, and only once a campaign
-    was already being built.
+    Profiles register by file-name stem with any extension
+    (:data:`STEM_REGISTERED_KINDS`), so ``thrust.csv`` beside
+    ``thrust.txt`` leaves the id ``thrust`` ambiguous. Geometries register
+    by the whole file name (:data:`FILE_NAME_REGISTERED_KINDS`), so
+    ``wing.fsm`` beside ``wing.obj`` is two ids and is accepted; only two
+    names equal but for case are refused. Until this check existed the
+    ambiguity was found lazily, by the resolver, for the one id a caller
+    happened to ask for, and only once a campaign was already being built.
 
     The check is per directory: ids are namespaced per kind, so the same
     stem under ``references/`` and ``setups/`` is two different ids and
@@ -182,14 +196,15 @@ def check_unique_stems(inputs_dir: str | Path) -> None:
     offenders: list[str] = []
     first_kind: str | None = None
     first_stem: str | None = None
-    for kind in STEM_REGISTERED_KINDS:
+    for kind in (*FILE_NAME_REGISTERED_KINDS, *STEM_REGISTERED_KINDS):
         directory = root / kind
         if not directory.is_dir():
             continue
         carriers: dict[str, list[Path]] = {}
         for path in sorted(directory.iterdir()):
             if path.is_file():
-                carriers.setdefault(path.stem, []).append(path)
+                key = path.name.casefold() if kind in FILE_NAME_REGISTERED_KINDS else path.stem
+                carriers.setdefault(key, []).append(path)
         for stem, paths in carriers.items():
             if len(paths) < 2:
                 continue
@@ -201,10 +216,10 @@ def check_unique_stems(inputs_dir: str | Path) -> None:
         return
     raise InputArtifactError(
         f"the input library {root} holds an ambiguous artifact id: {'; '.join(offenders)}. "
-        "The id is the file name stem and must be unique within the library, so rename "
-        "or remove the extras. A geometry or profile id selects a file by its stem, so "
-        "two files carrying one stem let a campaign be built on the geometry nobody "
-        "meant to use.",
+        "A profile id is the file name stem and a geometry id is the whole file name, "
+        "and each must be unique within the library, so rename or remove the extras. "
+        "Two files carrying one id let a campaign be built on the file nobody meant "
+        "to use.",
         kind=first_kind,
         artifact_id=first_stem,
     )

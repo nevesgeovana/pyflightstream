@@ -1207,16 +1207,16 @@ def _duplicate(workspace, kind: str, stem: str, suffixes: tuple[str, ...]) -> li
     return written
 
 
-def test_init_refuses_two_geometries_sharing_a_stem(tmp_path):
+def test_init_refuses_two_profiles_sharing_a_stem(tmp_path):
     """The ambiguity is refused when the library opens, not when the id resolves."""
     root = tmp_path / "camp"
     workspace = CampaignWorkspace.init(root)
-    paths = _duplicate(workspace, "geometries", "wing_v2", (".fsm", ".stl"))
+    paths = _duplicate(workspace, "profiles", "thrust_v2", (".csv", ".txt"))
 
     with pytest.raises(InputArtifactError, match="must be unique") as refusal:
         CampaignWorkspace.init(root)
     message = str(refusal.value)
-    assert "wing_v2" in message
+    assert "thrust_v2" in message
     for path in paths:
         assert str(path) in message, "the refusal names the full path of every file"
 
@@ -1225,10 +1225,27 @@ def test_open_refuses_the_library_init_refuses(tmp_path):
     """Opening an existing campaign asks the same question init asks."""
     root = tmp_path / "camp"
     workspace = CampaignWorkspace.init(root)
-    _duplicate(workspace, "geometries", "wing_v2", (".fsm", ".stl"))
+    _duplicate(workspace, "profiles", "thrust_v2", (".csv", ".txt"))
 
     with pytest.raises(InputArtifactError, match="must be unique"):
         CampaignWorkspace.open(root)
+
+
+def test_p0420_a_flat_geometry_library_with_one_stem_in_two_files_opens(tmp_path):
+    """PFS-2124.049: a geometry id is the whole file name, so wing.fsm beside wing.obj is two ids.
+
+    The resolver reads each fine; a bare-stem cell is refused by the resolver itself. The
+    mirror control is the profile pair above, which is still refused.
+    """
+    root = tmp_path / "camp"
+    workspace = CampaignWorkspace.init(root)
+    _duplicate(workspace, "geometries", "wing", (".fsm", ".obj", ".mtl"))
+
+    opened = CampaignWorkspace.open(root)
+    assert opened.resolve_geometry("wing.fsm").name == "wing.fsm"
+    assert opened.resolve_geometry("wing.obj").name == "wing.obj"
+    with pytest.raises(InputArtifactError, match="GEOMETRY: wing.fsm"):
+        opened.resolve_geometry("wing")
 
 
 def test_a_duplicate_profile_stem_is_refused_the_same_way(tmp_path):
