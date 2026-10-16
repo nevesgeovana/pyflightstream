@@ -54,7 +54,8 @@ written as the rigid section moves it, w + theta (e_node - e_true)
 twist is unchanged, and so are the node order, the roles and the row
 count, so the FSIDisp rows keep their meaning. A node set with any node
 outside its section, or inside it by less than
-max(:data:`MIN_NODE_CLEARANCE_M`, :data:`MIN_NODE_CLEARANCE_THICKNESS_FRACTION`
+max(:data:`MIN_NODE_CLEARANCE_CHORD_FRACTION` times chord,
+:data:`MIN_NODE_CLEARANCE_THICKNESS_FRACTION`
 of the local thickness), is refused naming the node
 (:func:`refuse_nodes_outside_sections`): a structural node the solver
 finds outside the surface it morphs is a node the interpolation reads
@@ -93,7 +94,7 @@ __all__ = [
     "ELASTIC_AXIS_FALLBACK_CHORD_FRACTION",
     "EMBEDDINGS",
     "LEADING_EDGE_NODE_CHORD_FRACTION",
-    "MIN_NODE_CLEARANCE_M",
+    "MIN_NODE_CLEARANCE_CHORD_FRACTION",
     "MIN_NODE_CLEARANCE_THICKNESS_FRACTION",
     "NodeClearance",
     "NodeOrderingMap",
@@ -132,8 +133,8 @@ ELASTIC_AXIS_CHORD_FRACTION_WINDOW = (0.20, 0.50)
 LEADING_EDGE_NODE_CHORD_FRACTION = 0.10
 TRAILING_EDGE_NODE_CHORD_FRACTION = 0.90
 #: The least clearance a structural node keeps from its section's skin:
-#: max(1 mm, 10 % of the local thickness at the node's chord fraction).
-MIN_NODE_CLEARANCE_M = 1.0e-3
+#: max(0.1 % of chord, 10 % of thickness at the node's chord fraction).
+MIN_NODE_CLEARANCE_CHORD_FRACTION = 1.0e-3
 MIN_NODE_CLEARANCE_THICKNESS_FRACTION = 0.10
 
 #: FSIDisp number format: 17 significant digits, so a written float64
@@ -319,6 +320,8 @@ class NodeOrderingMap(BaseModel):
             raise FsiInputError(f"blade {blade} outside 0..{self.blade_count - 1}")
         if not 0 <= station < self.station_count:
             raise FsiInputError(f"station {station} outside 0..{self.station_count - 1}")
+        if role not in NODE_ROLES:
+            raise FsiInputError(f"role {role!r} is unknown; use one of {NODE_ROLES}")
         return blade * self.nodes_per_blade + station * len(self.roles) + self.roles.index(role)
 
 
@@ -605,7 +608,7 @@ class NodeClearance:
         where the chord-normal line there misses the section.
     required_m : float
         The clearance the node must keep:
-        max(:data:`MIN_NODE_CLEARANCE_M`,
+        max(:data:`MIN_NODE_CLEARANCE_CHORD_FRACTION` times chord,
         :data:`MIN_NODE_CLEARANCE_THICKNESS_FRACTION` times the
         thickness).
     """
@@ -674,6 +677,7 @@ def node_clearances(
     result = []
     for station, contour in enumerate(sections_m):
         polygon = _polygon(contour, station)
+        chord = float(np.ptp(polygon[:, 0]))
         for k, role in enumerate(node_map.roles):
             point = points[station, k]
             fraction = section_chord_fraction(polygon, point)
@@ -693,7 +697,8 @@ def node_clearances(
                     clearance_m=_distance_to_outline(polygon, point),
                     thickness_m=float(thickness),
                     required_m=max(
-                        MIN_NODE_CLEARANCE_M, MIN_NODE_CLEARANCE_THICKNESS_FRACTION * thickness
+                        MIN_NODE_CLEARANCE_CHORD_FRACTION * chord,
+                        MIN_NODE_CLEARANCE_THICKNESS_FRACTION * thickness,
                     ),
                 )
             )
@@ -733,7 +738,7 @@ def refuse_nodes_outside_sections(
     more = f"; and {len(bad) - 6} more" if len(bad) > 6 else ""
     raise FsiInputError(
         f"{len(bad)} structural node(s) are not inside their blade section by the "
-        f"clearance max({MIN_NODE_CLEARANCE_M * 1e3:.0f} mm, "
+        f"clearance max({MIN_NODE_CLEARANCE_CHORD_FRACTION:.1%} of chord, "
         f"{MIN_NODE_CLEARANCE_THICKNESS_FRACTION:.0%} of the local thickness): "
         f"{shown}{more}. The solver interpolates the surface motion from these nodes, "
         "and a node outside the skin drives it from the wrong side. Correct the elastic "
