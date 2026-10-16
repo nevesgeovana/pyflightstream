@@ -780,8 +780,7 @@ def add_reduced_frequency_to_sections(
     """
     columns, rows = _read_table(path)
     index = {name: at for at, name in enumerate(columns)}
-    preflight = _section_validity_preflight(index, rows, record)
-    if preflight is not True:
+    if (preflight := _section_validity_preflight(index, rows, record)) is not True:
         return preflight
     alias = record.rotor_alias
     omega = _omega(record)
