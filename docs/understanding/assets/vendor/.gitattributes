@@ -1,4 +1,4 @@
-# Preserve the exact upstream bytes recorded in VERSIONS.json.
+# Preserve the exact shipped bytes recorded in VERSIONS.json.
 *.min.js -text
 LICENSES.txt -text
 VERSIONS.json text eol=lf

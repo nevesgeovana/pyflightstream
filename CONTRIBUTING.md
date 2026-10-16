@@ -69,7 +69,9 @@ Regenerate again from the final release SRS and source after integration.
 
 The chart libraries are shipped under docs/understanding/assets/vendor, with
 exact npm versions, source tarball URLs and SHA-256 hashes in VERSIONS.json.
-LICENSES.txt carries the upstream license texts. Preserve these payload bytes
+LICENSES.txt carries the upstream license texts verbatim. The manifest records
+upstream and shipped hashes and any explicit transformation, including the
+equivalent escape for Cytoscape's invisible label-wrap character. Preserve the shipped bytes
 when updating a version, then run the docs guards and check all three interactive
 views in the strict site build with external requests blocked.
 

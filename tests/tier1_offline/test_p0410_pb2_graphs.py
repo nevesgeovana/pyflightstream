@@ -31,6 +31,18 @@ def test_p0420_doc_charts_ship_pinned_local_libraries():
         assert record["version"] and "latest" not in record["source_url"]
         assert record["source_url"].startswith("https://registry.npmjs.org/")
         assert hashlib.sha256((vendor / name).read_bytes()).hexdigest() == record["sha256"]
+        payload = (vendor / name).read_bytes()
+        if name == "cytoscape.min.js":
+            assert chr(0x200B).encode() not in payload
+            assert payload.count(b'.join("\\u200b")') == 1
+            upstream = payload.replace(
+                b'.join("\\u200b")', b'.join("' + chr(0x200B).encode() + b'")'
+            )
+            assert hashlib.sha256(upstream).hexdigest() == record["upstream_sha256"]
+            assert record["transformation"]
+        else:
+            assert record["upstream_sha256"] == record["sha256"]
+            assert record["transformation"] is None
         assert record["license_text"].encode("utf-8") in licenses
         assert scripts.index("understanding/assets/vendor/" + name) < controller
     assert scripts.index("understanding/assets/vendor/d3.min.js") < scripts.index(

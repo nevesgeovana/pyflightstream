@@ -52,7 +52,7 @@ repos:
       # sha256 would have been false on the second try. .gitattributes
       # already declares those files binary; this hook does not read it.
       - id: trailing-whitespace
-        # Vendored payloads and license texts are exact upstream bytes.
+        # Vendored payloads and verbatim license texts have pinned byte hashes.
         exclude: '^(tests/(tier1_offline/(goldens|fixtures)|tier3_licensed/(goldens|inputs/geometries))/|docs/understanding/assets/vendor/(.*\.min\.js|LICENSES\.txt)$)'
       - id: end-of-file-fixer
         exclude: '^(tests/(tier1_offline/(goldens|fixtures)|tier3_licensed/(goldens|inputs/geometries))/|docs/understanding/assets/vendor/(.*\.min\.js|LICENSES\.txt)$)'
