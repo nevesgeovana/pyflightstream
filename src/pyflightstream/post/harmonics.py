@@ -275,7 +275,7 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     Raises
     ------
     ProductError
-        When there is not one value per azimuth, or no sample at all. It is
+        When a sample is non-finite, there is not one value per azimuth, or no sample. It is
         a ``ValueError``, so an existing ``except ValueError`` still holds.
 
     Examples
@@ -289,6 +289,10 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     load = np.asarray(values, dtype=float)
     if psi.shape != load.shape or load.size == 0:
         raise ProductError("a fit needs one value per azimuth and at least one sample")
+    for name, samples in (("azimuth", psi), ("value", load)):
+        bad = np.flatnonzero(~np.isfinite(samples))
+        if bad.size:
+            raise ProductError(f"harmonic sample {int(bad[0])} has a non-finite {name}")
     distinct = distinct_azimuths([float(value) for value in azimuths_deg])
     orders = 0
     reason: str | None = None

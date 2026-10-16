@@ -47,6 +47,18 @@ from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from tests.tier1_offline.test_f07_section_distributions import _exports
 from tests.tier1_offline.test_post_products import _plots_export
 
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+@pytest.mark.parametrize("field", ["azimuth", "value"])
+def test_p0420_fit_harmonics_names_nonfinite_sample(bad, field):
+    """A single nonfinite sample must be refused before the least-squares fit."""
+    angles = [0.0, 90.0, 180.0, 270.0]
+    values = [1.0, 2.0, 3.0, 4.0]
+    (angles if field == "azimuth" else values)[2] = bad
+    with pytest.raises(ProductError, match="sample 2"):
+        fit_harmonics(angles, values)
+
+
 FIXTURES = Path(__file__).parent / "fixtures"
 _HEAD = (FIXTURES / "fsi/FS_SurfaceSection_Loads_call0002.txt").read_text()
 #: The stations of every blade, in metres from the hub; the rotor's diameter is 2 m.
