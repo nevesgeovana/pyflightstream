@@ -1,18 +1,17 @@
-"""mark-converged takes --sims as words or commas; mark-failed and rebuild keep their comma form.
+"""P0420-P1-1D: sibling record selectors accept words, commas and brackets.
 
 Reproduction: give mark-converged its simulations as words (``7001 7002``)
 and as one comma separated word (``7001,7002``) on the package's own run;
-both print the same preview. mark-failed and rebuild keep the 0.33.1 action
-of their --sims (one comma separated value, pinned by the CLI contract of
-``test_p0340_kill_wave1.py``), and read it as before.
+both print the same preview. mark-failed and rebuild retain comma syntax
+while also accepting words through the shared selector action.
 """
 
 import pytest
 
 from tests.tier1_offline.test_p0370_s1_matrix_home import grouped_workspace, pyfs
 
-COMMA_FORM = "simulation ids, comma separated: 2006,2007 or [2006,2007]"
-WORDS = "as separate words (2006 2007)"
+COMMA_FORM = "comma forms 2006,2007 and [2006,2007] remain accepted"
+WORDS = "simulation ids: --sims 2006 2007"
 REASON = "read by hand"
 
 
@@ -33,14 +32,13 @@ def test_mark_converged_help_names_both_shapes(tmp_path, capsys):
 def test_mark_failed_and_rebuild_help_name_their_comma_form(command, tmp_path, capsys):
     """P0370-S1-MARK-CONVERGED (FR-414): the 0.33.1 commands keep the form they take."""
     text = _help(command, tmp_path, capsys)
-    assert COMMA_FORM in text and WORDS not in text, text
+    assert COMMA_FORM in text and WORDS in text, text
 
 
-def test_mark_converged_help_points_to_points_not_alias(tmp_path, capsys):
-    """P0370-S1-MARK-CONVERGED (FR-414): points are chosen by --points, not by the alias."""
+def test_p0420_mark_converged_help_names_points_and_alias(tmp_path, capsys):
+    """PFS-2124.004: points are chosen by --points or a run id alias."""
     text = _help("mark-converged", tmp_path, capsys)
-    assert "name them with --points" in text, text
-    assert "2006_3 is refused, naming the --sims and --points" in text, text
+    assert "--points or a run id alias such as 2006_3" in text, text
 
 
 def test_words_and_commas_read_the_same_ids(tmp_path, capsys):

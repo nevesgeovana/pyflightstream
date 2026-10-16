@@ -174,7 +174,19 @@ _ADMITTED = {
     # PFS-2094.051: restore --matrix takes a matrix path or its stem.
     ("pyfs-matrix", "restore|matrix|--matrix"): {"type": (None, "_matrix_stem")},
     # PFS-2089.002: mark-failed --sims takes simulation words, as mark-converged does.
-    ("pyfs-matrix", "mark-failed|sims|--sims"): {"nargs": (None, "+")},
+    ("pyfs-matrix", "mark-failed|sims|--sims"): {
+        "nargs": (None, "+"),
+        "action": ("_StoreAction", "_SimulationIds"),
+    },
+    # PFS-2124.003/.059: all selectors normalize words, commas and brackets.
+    **{
+        ("pyfs-matrix", f"{command}|sims|--sims"): {
+            "nargs": (None, "+"),
+            "action": ("_StoreAction", "_SimulationIds"),
+        }
+        for command in ("collect", "post", "rebuild")
+    },
+    ("pyfs-matrix", "run|sims|--sims"): {"action": ("_StoreAction", "_SimulationIds")},
 }
 
 # Deliberate moves of a 0.33.1 option to another key: (program, key) -> (the key it is now
@@ -182,6 +194,11 @@ _ADMITTED = {
 # pyfs-fsi output folder is --out, and --dir stays as a deprecated alias that parses to its own
 # destination (``legacy_dir``) with no default, so the option itself is kept and still accepted.
 _MOVED = {
+    # PFS-2124.004: positional deletion remains a deprecated optional alias.
+    ("pyfs-matrix", "delete-sims|sims|"): (
+        "delete-sims|legacy_sims|",
+        {"dest": ("sims", "legacy_sims"), "nargs": (None, "?"), "required": (True, False)},
+    ),
     ("pyfs-fsi", "init-dummy|dir|--dir"): (
         "init-dummy|legacy_dir|--dir",
         {"dest": ("dir", "legacy_dir"), "default": ("<CWD>", None)},
