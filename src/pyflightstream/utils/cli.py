@@ -319,8 +319,8 @@ def _parser() -> argparse.ArgumentParser:
         "--commands-dir",
         default=None,
         help=(
-            "directory of chapter yaml files to edit; defaults to the "
-            "installed command package. Point it at a copy to rehearse"
+            "directory of chapter yaml files; required with --write. A dry run "
+            "defaults to the installed command package when it is a real directory"
         ),
     )
     reg.add_argument(
@@ -639,16 +639,32 @@ def _surface_markdown(
 
 
 def _commands_dir(given: str | None) -> Path:
-    """Where the chapter files are, from the flag or from the install."""
+    """Return a persistent chapter directory; refuse non-filesystem installs."""
     if given:
         return Path(given)
-    with resources.as_file(
-        resources.files("pyflightstream.commands").joinpath("_meta.yaml")
-    ) as meta:
-        # Resolved INSIDE the context manager: as_file may have
-        # materialised a temporary copy for a zipped install, and the
-        # path is only valid while the block is open.
-        return Path(meta).resolve().parent
+    directory = Path(str(resources.files("pyflightstream.commands")))
+    if not directory.is_dir():
+        raise ManualDraftError(
+            "the installed command package is not a real directory; "
+            "pass --commands-dir naming an extracted chapter directory"
+        )
+    return directory
+
+
+def _register_destination(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Path:
+    """Resolve the explicit write destination before opening any manual."""
+    if args.write and not args.commands_dir:
+        parser.error("--write requires --commands-dir naming the chapter directory to edit")
+    try:
+        directory = _commands_dir(args.commands_dir)
+    except ManualDraftError as error:
+        parser.error(str(error))
+    if not directory.is_dir():
+        parser.error(
+            f"--commands-dir {directory} is not a directory. Nothing has been read "
+            "and nothing has been written"
+        )
+    return directory
 
 
 def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
@@ -663,12 +679,7 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     # file's own stated principle and which this subcommand broke: a
     # mistyped --commands-dir was discovered only after two 400-page
     # reads, and only on a run that was about to write.
-    directory = _commands_dir(args.commands_dir)
-    if not directory.is_dir():
-        parser.error(
-            f"--commands-dir {directory} is not a directory. Nothing has been read "
-            "and nothing has been written"
-        )
+    directory = _register_destination(parser, args)
     try:
         editions = read_edition_manifest(args.editions)
     except (FileNotFoundError, ManualDraftError) as error:

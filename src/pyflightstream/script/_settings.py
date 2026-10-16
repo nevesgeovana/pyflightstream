@@ -42,7 +42,7 @@ Nothing here imports ``cases`` or ``workspace``, and nothing here imports
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence, Sized
+from collections.abc import Callable, Iterator, Mapping, Sequence, Sized
 from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple
 
@@ -926,11 +926,8 @@ def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
     # the renderer, and raising it mid-emission left the caller's script
     # holding the mode line, the scalars, the toggles and DELETE_SEPARATION
     # while the call failed. Every ARGUMENT refusal in this helper fires
-    # on an untouched script, which is the property the module states
-    # about its toggle reading and did not keep here. The VERSION
-    # refusals still fire mid-emission, raised by `script.emit` when it
-    # reaches a command the build does not carry; moving those is a
-    # separate change, registered rather than claimed.
+    # on an untouched script. The command bindings below also check scalar
+    # types, enum members, finiteness and version availability before emission.
     models = {
         argument: [_separation_arguments(model) for model in values[argument]]
         for argument in SEPARATION_MODELS
@@ -939,7 +936,60 @@ def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
     rendered_bulk = _separation_arguments(bulk) if bulk is not None else None
     _refuse_bulk_form_the_build_lacks(script, rendered_bulk)
     selection = _read_vorticity_selection(script, values["vorticity_drag_boundaries"])
-    return _Prepared(models=models, bulk=rendered_bulk, selection=selection)
+    prepared = _Prepared(models=models, bulk=rendered_bulk, selection=selection)
+    _preflight_settings(script, values, prepared)
+    return prepared
+
+
+def _preflight_settings(script: Script, values: Mapping[str, Any], prepared: _Prepared) -> None:
+    """Bind every requested command without changing script state."""
+
+    def check(command: str, *args: Any, **kwargs: Any) -> None:
+        entry = script._view[command]
+        script._check_not_broken(entry)
+        script._bind(entry, args, kwargs)
+
+    if values["mode"] == "STEADY":
+        check("SET_SOLVER_STEADY")
+    elif values["mode"] == "UNSTEADY":
+        check("SET_SOLVER_UNSTEADY", values["time_iterations"], values["delta_time"])
+    for family in (RUNTIME_FAMILY, BOUNDARY_LAYER_FAMILY, SEPARATION_FAMILY):
+        for command, args in _family_calls(values, family):
+            check(command, *args)
+    _preflight_models(check, values, prepared)
+    for command, args in _family_calls(values, CONVERGENCE_FAMILY):
+        check(command, *args)
+    if values["minimum_cp"] is not None:
+        check("SOLVER_MINIMUM_CP", values["minimum_cp"])
+    elif not script._minimum_cp_emitted and "SOLVER_MINIMUM_CP" in script._view:
+        check("SOLVER_MINIMUM_CP", LIBRARY_MINIMUM_CP)
+    for command, args in _family_calls(values, ADVANCED_FAMILY):
+        check(command, *args)
+    _preflight_vorticity(check, prepared.selection)
+
+
+def _preflight_models(
+    check: Callable[..., None], values: Mapping[str, Any], prepared: _Prepared
+) -> None:
+    """Validate separation erasures and model assignments without emitting."""
+    deleted = values["delete_separations"]
+    if deleted is not None:
+        check("DELETE_SEPARATION", -1 if deleted == "all" else deleted)
+    if prepared.bulk is not None:
+        check("CREATE_BULK_SEPARATION", **prepared.bulk)
+    for argument, command in ASSIGNMENT_COMMANDS:
+        for arguments in prepared.models[argument]:
+            check(command, **arguments)
+
+
+def _preflight_vorticity(
+    check: Callable[..., None], selection: list[int] | Literal["all"] | None
+) -> None:
+    """Validate the deferred selection in its eventual command form."""
+    if selection == "all":
+        check("SET_VORTICITY_DRAG_BOUNDARIES", -1)
+    elif selection is not None:
+        check("SET_VORTICITY_DRAG_BOUNDARIES", len(selection), list(selection))
 
 
 def _read_boundary_lists(values: dict[str, Any]) -> None:
@@ -1172,25 +1222,33 @@ def _emit_time_regime(script: Script, values: Mapping[str, Any]) -> None:
 
 def _emit_family(script: Script, values: Mapping[str, Any], family: tuple[Row, ...]) -> None:
     """Emit the rows of one family that were passed, in the family's order."""
+    for command, args in _family_calls(values, family):
+        script.emit(command, *args)
+
+
+def _family_calls(
+    values: Mapping[str, Any], family: tuple[Row, ...]
+) -> Iterator[tuple[str, tuple[Any, ...]]]:
+    """Resolve family calls consistently for preflight and emission."""
     for row in family:
         value = values[row.argument]
         if row.form == "flag":
             if value:
-                script.emit(row.command)
+                yield row.command, ()
         elif value is None:
             continue
         elif row.form == "toggle":
-            script.emit(row.command, _toggle(value))
+            yield row.command, (_toggle(value),)
         elif row.form != "list":
-            script.emit(row.command, value)
+            yield row.command, (value,)
         elif value == "all":
             # -1 names every mesh boundary and takes no index line
             # (FSM-26.120 p.343).
-            script.emit(row.command, -1)
+            yield row.command, (-1,)
         elif len(value) == 0:
-            script.emit(row.erase)
+            yield row.erase, ()
         else:
-            script.emit(row.command, len(value), list(value))
+            yield row.command, (len(value), list(value))
 
 
 def _emit_separation_models(script: Script, values: Mapping[str, Any], prepared: _Prepared) -> None:

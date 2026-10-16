@@ -154,11 +154,11 @@ class VersionStatus(BaseModel):
     note : str, optional
         Short paraphrased justification, with citation when needed.
     report : str, optional
-        Repository-relative path of the committed compat report, the
-        machine-readable ``.yaml`` the probe harness writes; required for
-        ``verified`` and ``broken`` (CONTRIBUTING.md invariant 3). A guard
-        opens it and compares its recorded outcome against this status,
-        so a citation here is checkable and not merely present.
+        Repository-relative machine-readable compat report, required for
+        ``verified`` and ``broken`` (CONTRIBUTING.md invariant 3). Guards check
+        its outcome. A documented row may cite an unprobed report with a note
+        stating direct inconclusive evidence and the edition's page. That row
+        prevents inherited verification without asserting a measured effect.
     probe_ref : str, optional
         Repository-relative path of a committed NARRATIVE report
         (``.md``) of a solver run, admissible for ``removed`` alone and

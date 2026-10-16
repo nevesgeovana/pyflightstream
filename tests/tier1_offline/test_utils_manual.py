@@ -47,6 +47,56 @@ from pyflightstream.utils.errors import ManualDraftError
 from pyflightstream.utils.manual import citation_reach
 
 
+@pytest.mark.requirement("FR-1604")
+def test_p0420_manual_comparison_reads_the_complete_command_block():
+    """P0420-MANUAL-BLOCK: a late prose change is not an unchanged description."""
+    heading = "Function name: SYNTHETIC_COMMAND <VALUE>"
+    padding = ["Synthetic explanatory line."] * 55
+    tail = ["Sample:", "SYNTHETIC_COMMAND 1", "Function name: NEXT_COMMAND", "Unchanged."]
+    before = parse_signatures({1: "\n".join([heading, *padding, "Use one mode.", *tail])})
+    after = parse_signatures({1: "\n".join([heading, *padding, "Use two modes.", *tail])})
+    changes = {row.name: row for row in documentation_delta(before, after, recorded=before)}
+    assert changes["SYNTHETIC_COMMAND"].verdict is EditionVerdict.CHANGED
+    assert changes["NEXT_COMMAND"].verdict is EditionVerdict.UNCHANGED
+
+
+@pytest.mark.requirement("FR-1604")
+def test_p0420_manual_blocks_are_bounded_by_the_next_signature():
+    """P0420-MANUAL-BLOCK: long tables and samples survive; neighbours stay separate."""
+    table = [
+        "Function name: FIRST_COMMAND <VALUE>",
+        *(["Explanation."] * 8),
+        "Function parameters:",
+        "Parameter Value",
+        "VALUE synthetic value",
+        *(["continued description"] * 45),
+        "Sample:",
+        "FIRST_COMMAND 1",
+        *[str(index) for index in range(20)],
+        "Function name: NEXT_COMMAND",
+        "Function parameters:",
+        "Parameter Value",
+        "OTHER another value",
+        "Sample:",
+        "NEXT_COMMAND 2",
+    ]
+    parsed = parse_signatures({500: "\n".join(table)})
+    first = parsed["FIRST_COMMAND"]
+    assert first.parameters.get("VALUE", "").count("continued description") == 45
+    assert first.sample == ("FIRST_COMMAND 1", *map(str, range(20)))
+    assert "OTHER" not in first.parameters
+    assert parsed["NEXT_COMMAND"].sample == ("NEXT_COMMAND 2",)
+
+
+@pytest.mark.requirement("FR-1604")
+def test_p0420_manual_repagination_and_whitespace_do_not_change_a_description():
+    """P0420-MANUAL-BLOCK: formatting alone does not create a grammar change."""
+    before = parse_signatures({1: "Function name: SYNTHETIC_COMMAND\nA synthetic sentence.\n1"})
+    after = parse_signatures({2: "Function name: SYNTHETIC_COMMAND\nA   synthetic\nsentence.\n2"})
+    (delta,) = documentation_delta(before, after, recorded=before)
+    assert delta.verdict is EditionVerdict.UNCHANGED
+
+
 @pytest.fixture(autouse=True)
 def synthetic_cli_pdf_support(monkeypatch):
     """Keep text-reader CLI fixtures independent of the optional PDF dependency.

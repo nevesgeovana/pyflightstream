@@ -20,7 +20,7 @@ THE WAKE-EDGE IMPORT TOKEN. 26.124 was measured to require a third token on
 only after it (RPT-061); its manual printed two values. FSM-26.125 p.329 names
 that token EDGE_TYPE, 1 for a file of edge mid-points and 2 for edge corner
 nodes. The package's node file lists mid-points, so a build whose grammar
-names the token gets 1, and a build whose grammar is the measured 26.124
+declares the enum gets 1, and a build whose grammar is the measured 26.124
 form keeps the simulation's length unit it was measured with.
 
 THE CCS CURVE ASSIGNMENT. FSM-26.125 asks for
@@ -180,6 +180,47 @@ def detect_every_boundary(script: Script, kind: str) -> str:
     return command
 
 
+def _wake_argument_alias(entry: CommandEntry, key: str) -> str:
+    """Preserve the former 26.124 keyword without broadening the later enum."""
+    if (
+        entry.name == "IMPORT_WAKE_EDGES_FROM_FILE"
+        and key == "units"
+        and any(spec.name == "edge_type" and spec.type is ArgType.STR for spec in entry.args)
+    ):
+        return "edge_type"
+    return key
+
+
+def _refuse_interactive_profile(script: Script, entry: CommandEntry) -> None:
+    """Keep a measured modal operation out of a validated batch script."""
+    if entry.name == "EXPORT_BL_VELOCITY_PROFILE" and script.version.canonical == "26.122":
+        raise CommandArgumentError(
+            "EXPORT_BL_VELOCITY_PROFILE on 26.122 waits for a modal Done button "
+            "even under -hidden (RPT-027), so a validated unattended script refuses it. "
+            "The database remains documented: this is an interface restriction, "
+            "not a new broken probe verdict. Use raw() only for an explicitly "
+            "supervised interactive run."
+        )
+
+
+def _warn_unmeasured_ccs_grammar(script: Script, entry: CommandEntry) -> None:
+    """Flag a suspect older grammar without attributing a newer run to it."""
+    if entry.name not in {"NEW_CCS_REVOLVE_RELAXED_TE", "EXPORT_REVOLVE_CCS_FILE"}:
+        return
+    if script.version.canonical not in {"26.120", "26.121", "26.122", "26.123"}:
+        return
+    record = entry.status_in(script.version)
+    if record is not None and str(record.status) == "documented":
+        warn(
+            f"{entry.name}: this grammar is unmeasured on {script.version.canonical}; "
+            "the same form aborted on 26.124 (CMP-26124_2026-10-02_qa-promote) and "
+            "26.125 requires a different form (CMP-26125_2026-10-05_probe-campaign). "
+            "The older build remains documented, not measured broken. Probe this "
+            "build with a timeout before using the command unattended.",
+            PyflightstreamWarning,
+        )
+
+
 def wake_edge_import_token(script: Script, units: str) -> str:
     """Return the third token of the wake-edge import on the script's build.
 
@@ -193,11 +234,11 @@ def wake_edge_import_token(script: Script, units: str) -> str:
     Returns
     -------
     str
-        :data:`MIDPOINT_EDGE_TYPE` where the build's grammar names the
-        EDGE_TYPE token (26.125), else ``units``.
+        :data:`MIDPOINT_EDGE_TYPE` where the build's grammar declares the
+        EDGE_TYPE enum (26.125), else the measured legacy token ``units``.
     """
     grammar = script._view["IMPORT_WAKE_EDGES_FROM_FILE"]
-    if any(arg.name == "edge_type" for arg in grammar.args):
+    if any(arg.name == "edge_type" and arg.type is ArgType.ENUM for arg in grammar.args):
         return MIDPOINT_EDGE_TYPE
     return units
 

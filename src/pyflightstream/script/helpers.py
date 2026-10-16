@@ -1006,8 +1006,11 @@ def solver_settings(
     ------
     CommandArgumentError
         If the unsteady arguments and ``mode`` disagree, ``delete_separations`` is neither a
-        1-based index nor ``all``, an assignment list is empty, or a flag or field is one the
-        script's build does not take.
+        1-based index nor ``all``, an assignment list is empty, or a value violates the
+        build's typed argument grammar. These checks leave the script unchanged.
+    CommandNotInVersionError
+        If a requested command is unavailable on the script's build. Availability is
+        checked before the first emission, leaving the script unchanged.
 
     Examples
     --------

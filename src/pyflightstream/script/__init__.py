@@ -830,6 +830,13 @@ class Script:
         for path in exports:
             self._refuse_export_collision(path, asker=entry.name)
         _check_one_line_each(entry, block)
+        from pyflightstream.script._build_forms import (
+            _refuse_interactive_profile,
+            _warn_unmeasured_ccs_grammar,
+        )
+
+        _refuse_interactive_profile(self, entry)
+        _warn_unmeasured_ccs_grammar(self, entry)
         # ACCEPTED: from here on the emission is committed.
         self._commit_state(entry, bound, phase)
         self._lines.extend(block)
@@ -1443,6 +1450,8 @@ class Script:
         )
 
     def _bind(self, entry: CommandEntry, args: tuple, kwargs: dict) -> dict[str, object]:
+        from pyflightstream.script._build_forms import _wake_argument_alias
+
         specs = entry.args
         if len(args) > len(specs):
             raise CommandArgumentError(
@@ -1454,6 +1463,7 @@ class Script:
             bound[spec.name] = value
         known = {spec.name for spec in specs}
         for key, value in kwargs.items():
+            key = _wake_argument_alias(entry, key)
             if key not in known:
                 raise CommandArgumentError(
                     f"{entry.name} has no argument {key!r}; arguments are "

@@ -750,11 +750,15 @@ IMPORT_WAKE_EDGES_FROM_FILE:
         third token (RPT-061). After it a wake-termination detection marks
         nothing until the solver has initialised, and a repeated
         INITIALIZE_SOLVER clears the first initialisation and initialises
-        again (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07)
+        again (GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07).
+        The third argument is named edge_type following FSM-26.125 p.329,
+        not units: RPT-061 found no coordinate scaling from METER versus
+        MILLIMETER. This build retains the measured string grammar, not
+        the later edition's enum. The former units keyword remains an alias.
       args:
         - name: type
         - name: tolerance
-        - name: units
+        - name: edge_type
           type: str
         - name: file
           type: path

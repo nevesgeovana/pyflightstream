@@ -10999,6 +10999,11 @@
     },
     {
       "source": "pyflightstream.script",
+      "target": "pyflightstream.script._build_forms",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.script",
       "target": "pyflightstream.script._ledger_tables",
       "kind": "module"
     },
@@ -11039,7 +11044,17 @@
     },
     {
       "source": "pyflightstream.script._build_forms",
+      "target": "pyflightstream._digest",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.script._build_forms",
       "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.script._build_forms",
+      "target": "pyflightstream.commands",
       "kind": "module"
     },
     {
@@ -11061,6 +11076,11 @@
       "source": "pyflightstream.script._build_forms",
       "target": "pyflightstream.script",
       "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.script._build_forms",
+      "target": "pyflightstream.script._arg_checks",
+      "kind": "module"
     },
     {
       "source": "pyflightstream.script._ledger_tables",
@@ -11235,6 +11255,11 @@
     {
       "source": "pyflightstream.script.toggles",
       "target": "pyflightstream.script",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.support",
+      "target": "pyflightstream._errors",
       "kind": "module"
     },
     {

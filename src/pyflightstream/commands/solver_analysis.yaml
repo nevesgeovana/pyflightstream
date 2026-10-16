@@ -207,6 +207,7 @@ SET_INVISCID_LOADS:
     "26.100": {status: documented, note: "FSM-26.100 p.341, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.343, same grammar as 26.120"}
     "26.120": {status: verified, report: "reports/compat/CMP-26120_2026-07-21_full.yaml"}
+    "26.122": {status: documented, report: "reports/compat/CMP-26122_2026-08-11_full.yaml", note: "FSM-26.122 p.349; unprobed on this build; direct inconclusive evidence takes precedence over inherited verification."}
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.349, unchanged from FSM-26.122 p.349"}
     "26.124": {status: documented, note: "FSM-26.124 p.349, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
     "26.125": {status: documented, note: "FSM-26.125 p.356, unchanged from FSM-26.124 p.349"}

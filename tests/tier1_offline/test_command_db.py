@@ -766,7 +766,12 @@ def test_every_citation_records_the_status_the_record_claims() -> None:
         checked += 1
         if record.status is Status.BROKEN:
             seen_broken += 1
-        if probed.get("outcome") != record.status.value:
+        expected_outcome = record.status.value
+        if record.status is Status.DOCUMENTED and "direct inconclusive evidence" in (
+            record.note or ""
+        ):
+            expected_outcome = "unprobed"
+        if probed.get("outcome") != expected_outcome:
             offenders.append(
                 f"{name} at {canonical} is recorded {record.status.value} while "
                 f"{report} recorded {probed.get('outcome')}. A status is promoted from "
@@ -850,6 +855,12 @@ def test_no_citation_is_contradicted_by_newer_evidence() -> None:
     checked = 0
     for name, canonical, record in population:
         for_pair = judgments.get((name, canonical), ())
+        if record.status is Status.DOCUMENTED and "direct inconclusive evidence" in (
+            record.note or ""
+        ):
+            assert not for_pair, f"{name} at {canonical} has measured evidence to reconcile"
+            checked += 1
+            continue
         cited = next((j for j in for_pair if j.report == record.report), None)
         if cited is None:
             # The sibling guard owns "cites a report that never probed

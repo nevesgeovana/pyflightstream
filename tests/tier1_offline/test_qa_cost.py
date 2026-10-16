@@ -269,8 +269,9 @@ def test_repeated_runs_of_one_point_are_averaged_and_stay_countable():
     assert cell.wall_time_s == pytest.approx(15.0)
 
 
-def test_a_failed_run_is_counted_so_its_time_is_not_read_as_a_solution():
-    """Time to failure is time, and it is not the time to an answer."""
+@pytest.mark.requirement("FR-82")
+def test_p0420_a_failed_run_is_counted_so_its_time_is_not_read_as_a_solution():
+    """P0420-FAILED-COST: failed time is retained outside the successful mean."""
     view = cost_view(
         [
             _record("r1", wall_time_s=10.0, status=RunStatus.CONVERGED),
@@ -278,6 +279,9 @@ def test_a_failed_run_is_counted_so_its_time_is_not_read_as_a_solution():
         ]
     )
     cell = view.cell(view.points[0], view.builds[0])
+    assert cell.wall_time_s == pytest.approx(10.0)
+    assert cell.samples == (10.0,)
+    assert cell.excluded_samples == (2.0,)
     assert cell.run_count == 2
     assert cell.excluded_count == 1, (
         "a failed run is kept, because dropping evidence silently is worse "

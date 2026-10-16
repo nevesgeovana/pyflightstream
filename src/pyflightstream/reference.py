@@ -349,10 +349,13 @@ def _grouped_by_chapter(version: FsVersion | None) -> dict[str, list[CommandEntr
         chapter.
     """
     registry = CommandRegistry.load()
+    view = registry.for_version(version) if version is not None else None
     chapters: dict[str, list[CommandEntry]] = {}
     for entry in registry.commands.values():
         if version is not None and entry.status_in(version) is None:
             continue
+        if view is not None and entry.name in view:
+            entry = view[entry.name]
         chapters.setdefault(entry.chapter, []).append(entry)
     for members in chapters.values():
         members.sort(key=lambda entry: entry.name)
@@ -772,7 +775,8 @@ def render_html(version: str | FsVersion | None = None) -> str:
         When given, only commands with an evidence record for this
         version (hotfix inheritance included) are rendered; removed
         commands stay visible with their removal note. None renders
-        the whole database.
+        the whole database. A version scope uses that build's argument grammar;
+        the unscoped view uses entry-level grammar.
 
     Returns
     -------
@@ -896,12 +900,11 @@ def _entry_markdown(entry: CommandEntry) -> str:
         lines.append(f"> {_md_cell(entry.notes)}")
         lines.append("")
     if entry.args:
-        lines.append("| Argument | Specification |")
-        lines.append("|---|---|")
-        for arg in entry.args:
-            spec = _arg_text(arg).removeprefix(f"{arg.name}: ")
-            lines.append(f"| `{arg.name}` | {_md_cell(spec)} |")
-        lines.append("")
+        lines.extend(_argument_table(entry.args))
+    for canonical, record in _version_records(entry):
+        if record.args is not None:
+            lines.extend([f"### Arguments for {canonical}", ""])
+            lines.extend(_argument_table(record.args))
     lines.append("| Version | Status | Evidence |")
     lines.append("|---|---|---|")
     for canonical, record in _version_records(entry):
@@ -909,6 +912,17 @@ def _entry_markdown(entry: CommandEntry) -> str:
         lines.append(f"| {canonical} | {_status_span(record.status)} | {_md_cell(evidence)} |")
     lines.append("")
     return "\n".join(lines)
+
+
+def _argument_table(args: tuple[ArgSpec, ...]) -> list[str]:
+    """Render one complete argument grammar, including an empty override."""
+    if not args:
+        return ["No arguments.", ""]
+    lines = ["| Argument | Specification |", "|---|---|"]
+    for arg in args:
+        spec = _arg_text(arg).removeprefix(f"{arg.name}: ")
+        lines.append(f"| `{arg.name}` | {_md_cell(spec)} |")
+    return [*lines, ""]
 
 
 def markdown_reference_pages() -> dict[str, str]:

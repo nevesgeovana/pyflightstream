@@ -71,6 +71,30 @@ def test_render_html_covers_the_whole_database():
     assert "manual_ref" in page
 
 
+@pytest.mark.requirement("FR-36", "FR-01")
+def test_p0420_version_scoped_reference_renders_the_target_argument_grammar():
+    """P0420-REFERENCE-GRAMMAR: 26.125 names the wake edge type and file."""
+    page = render_html("26.125")
+    row = page.split("<code>IMPORT_WAKE_EDGES_FROM_FILE</code>", 1)[1].split("</tr>", 1)[0]
+    arguments = row.split("<td>")[3].split("</td>", 1)[0]
+    assert "edge_type: enum in {1, 2}" in arguments
+    assert "file: path" in arguments
+    older = render_html("26.123")
+    row = older.split("<code>IMPORT_WAKE_EDGES_FROM_FILE</code>", 1)[1].split("</tr>", 1)[0]
+    assert "edge_type:" not in row.split("<td>")[3].split("</td>", 1)[0]
+
+
+@pytest.mark.requirement("FR-36", "FR-01")
+def test_p0420_markdown_reference_labels_version_specific_grammars():
+    """P0420-REFERENCE-GRAMMAR: an all-version page identifies its overrides."""
+    chapter = markdown_reference_pages()["boundary_conditions.md"]
+    command = chapter.split("## IMPORT_WAKE_EDGES_FROM_FILE", 1)[1].split("\n## ", 1)[0]
+    assert "### Arguments for 26.125" in command
+    grammar = command.split("### Arguments for 26.125", 1)[1].split("\n### ", 1)[0]
+    assert "| `edge_type` | enum in {1, 2} |" in grammar
+    assert "| `file` | path |" in grammar
+
+
 def test_render_html_version_scope_keeps_removed_visible():
     page = render_html("26.120")
     assert "Scope: FlightStream 26.120" in page
