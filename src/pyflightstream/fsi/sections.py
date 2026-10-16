@@ -68,7 +68,7 @@ from pyflightstream.fsi.config import (
     BladePropertiesProvenance,
     MaterialProvenance,
 )
-from pyflightstream.fsi.errors import FsiInputError
+from pyflightstream.fsi.errors import FsiArgumentError, FsiInputError
 from pyflightstream.fsi.materials import MATERIALS_DATABASE_VERSION, Material
 from pyflightstream.fsi.materials import material as material_entry
 
@@ -84,12 +84,14 @@ def _section_keywords(*names: str) -> Callable[[Callable[_P, _R]], Callable[_P, 
         def compatible(*args: Any, **kwargs: Any) -> _R:
             if len(args) > 1:
                 if len(args) > len(names) + 1:
-                    raise TypeError(
+                    raise FsiArgumentError(
                         f"{function.__name__} accepts at most {len(names) + 1} positional arguments"
                     )
                 for name, value in zip(names, args[1:], strict=False):
                     if name in kwargs:
-                        raise TypeError(f"{function.__name__} got multiple values for {name!r}")
+                        raise FsiArgumentError(
+                            f"{function.__name__} got multiple values for {name!r}"
+                        )
                     kwargs[name] = value
                 promise = next(
                     entry

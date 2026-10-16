@@ -145,6 +145,7 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # 0.40.0: an external FSI input or a row's 6DOF input refused at plan.
         # ValueError because the file's CONTENT is refused, as FsiSetupError.
         "FsiExternalSetupError": ValueError,
+        "FsiArgumentError": TypeError,
         "FsiInputError": ValueError,
         "FsiSetupError": ValueError,
         "SixDofSetupError": ValueError,
@@ -289,6 +290,7 @@ _COMMON_BASES = (ValueError, RuntimeError, LookupError, KeyError, ImportError)
 #: outside the five as well, and counting them would make the number say
 #: nothing about the rows the comments are beside.
 _UNUSUAL_BASE_CLASSES = (
+    "FsiArgumentError",
     # TypeError: a drafting function called with the wrong argument shape
     # (PFS-2022.05, 2026-09-09).
     "ManualCallError",

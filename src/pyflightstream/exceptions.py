@@ -81,7 +81,7 @@ from pyflightstream.extras import (
 from pyflightstream.farfield import (
     FarfieldInputError,
 )
-from pyflightstream.fsi.errors import FsiInputError
+from pyflightstream.fsi.errors import FsiArgumentError, FsiInputError
 from pyflightstream.fsi.loads import UnitsError
 from pyflightstream.fsi.state import StaleLoadsError, TwistIterationError
 from pyflightstream.options import OptionError
@@ -159,6 +159,7 @@ __all__ = [
     "FarfieldInputError",
     "FieldNotInExportError",
     "FlightConditionError",
+    "FsiArgumentError",
     "FsiExternalSetupError",
     "FsiInputError",
     "FsiSetupError",
