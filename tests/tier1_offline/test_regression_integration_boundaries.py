@@ -171,8 +171,8 @@ def _bg_regressions___k_1p(
 ) -> list[str]:
     """K_1P of the XZ stations of rotor PROP cut in ``frame``.
 
-    An XY station in the rotor's own frame rides along, so the table is
-    rewritten even where no XZ station can be placed.
+    A second blade's XZ station in its own frame rides along, so the table is
+    rewritten even where no first-blade station can be placed (P0420).
     """
     from pyflightstream.post.qsteady import add_reduced_frequency_to_sections
 
@@ -180,20 +180,20 @@ def _bg_regressions___k_1p(
     path.write_text(
         "ROTOR,FAMILY,PLANE,Offset,Chord,Fx,Fz\n"
         + "".join(f"PROP,B,XZ,{offset},0.2,10.0,2.0\n" for offset in offsets)
-        + "PROP,B,XY,1.0,0.2,8.0,1.0\n",
+        + "PROP,C,XZ,1.0,0.2,8.0,1.0\n",
         encoding="utf-8",
     )
     record = SimpleNamespace(
         rotor_alias="PROP",
         rpm=1200.0,
-        families_blades=["B"],
+        families_blades=["B", "C"],
         hub_m=hub,
         axis_vector=(1.0, 0.0, 0.0),
         shaft_frame_axis="X",
     )
     layout = [
         {"families": ["B"], "plane": "XZ", "frame": frame},
-        {"families": ["B"], "plane": "XY", "frame": "PROP_RMRP"},
+        {"families": ["C"], "plane": "XZ", "frame": "PROP_RMRP"},
     ]
     add_reduced_frequency_to_sections(path, cast(Any, record), velocity_m_per_s=30.0, layout=layout)
     lines = path.read_text(encoding="utf-8").splitlines()
