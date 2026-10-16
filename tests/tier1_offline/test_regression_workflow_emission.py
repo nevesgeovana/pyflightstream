@@ -2337,19 +2337,19 @@ class TestRfixr3Azimuths:
     @staticmethod
     @pytest.mark.requirement("FR-454")
     def test_p0400_rfixr3_an_order_below_half_an_odd_azimuth_count_is_accepted():
-        """Order 6 on 13 azimuths is below 6.5 and is accepted; on 12 azimuths it is refused."""
-        LedgersSpec(rotor="R", stations=(1.0,), n_r=2, n_psi=13, m_max=6)
-        with pytest.raises(ValueError, match="n_psi = 12"):
-            LedgersSpec(rotor="R", stations=(1.0,), n_r=2, n_psi=12, m_max=6)
+        """P0420: order 7 on 15 azimuths is below 7.5; on 14 azimuths it is refused."""
+        LedgersSpec(rotor="R", stations=(1.0,), n_r=2, n_psi=15, m_max=7)
+        with pytest.raises(ValueError, match="n_psi = 14"):
+            LedgersSpec(rotor="R", stations=(1.0,), n_r=2, n_psi=14, m_max=7)
 
     @staticmethod
     @pytest.mark.requirement("FR-455")
     def test_p0400_rfixr3_the_sole_odd_azimuth_lattice_is_reused(tmp_path):
-        """A sole declared 13-azimuth lattice qualifies for order 6 and is reused, not replaced."""
-        declared = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 13}
+        """P0420: a sole declared 15-azimuth lattice qualifies for order 7 and is reused."""
+        declared = {"rotor": "ROTOR", "stations": [2.0], "n_r": 2, "n_psi": 15}
         case = _rfixr3_azimuths___case(
             tmp_path,
-            {"families": "all", "ledgers": {"rotor": "ROTOR", "m_max": 6}},
+            {"families": "all", "ledgers": {"rotor": "ROTOR", "m_max": 7}},
             probes=[{"frame": "REFERENCE", "parameters": ["VX"], "lattices": [declared]}],
         )
         script = _rfixr3_azimuths___script(case)
