@@ -4337,3 +4337,10 @@ def test_emit_line_carries_a_one_line_command_through_every_check_of_emit():
         Script(version="26.123").emit_line("SOLVER_SET_AOA one")
     with pytest.raises(CommandNotInVersionError):
         Script(version="26.120").emit_line("SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE")
+
+
+def test_p0420_surface_probe_refuses_unknown_frame():
+    script = Script("26.124")
+    with pytest.raises(ScriptReferenceError):
+        script.emit("NEW_UNSTEADY_SOLVER_SURFACE_PROBE", "probe", "MACH", 7, 0, 0, 0)
+    assert not script.render().strip()
