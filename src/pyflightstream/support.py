@@ -50,6 +50,7 @@ import enum
 
 from pydantic import BaseModel, ConfigDict
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import Script, helpers
 from pyflightstream.versions import FsVersion, known_versions, resolve
@@ -150,7 +151,8 @@ class VersionSupport(BaseModel):
         compatibility matrix identifies inherited evidence per cell.
     workflow_missing : tuple of str
         Commands of :data:`MINIMAL_WORKFLOW_COMMANDS` this version
-        cannot emit, in workflow order. Empty when the workflow builds.
+        cannot emit, in workflow order. A build refusal that names no command
+        is identified as ``minimal_workflow``. Empty when the workflow builds.
     summary : str
         One sentence naming the level and the reason for it, for a
         README table, a docs page or a console.
@@ -260,12 +262,30 @@ def minimal_workflow(
 def _workflow_gaps(version: FsVersion, registry: CommandRegistry) -> tuple[str, ...]:
     """Return the workflow commands this version cannot emit, in order."""
     view = registry.for_version(version)
-    return tuple(
-        name
-        for name in MINIMAL_WORKFLOW_COMMANDS
-        if name not in view
-        and not helpers.takes_every_boundary(view, _LINK_ALTERNATIVES.get(name, name))
-    )
+    missing = []
+    for name in MINIMAL_WORKFLOW_COMMANDS:
+        if name in view:
+            record = view[name].status_in(version)
+            if record is not None and record.status is Status.BROKEN:
+                missing.append(name)
+            continue
+        alternative = _LINK_ALTERNATIVES.get(name)
+        if alternative and helpers.takes_every_boundary(view, alternative):
+            record = view[alternative].status_in(version)
+            if record is not None and record.status is not Status.BROKEN:
+                continue
+        missing.append(name)
+    if missing:
+        return tuple(missing)
+    try:
+        minimal_workflow(version, registry=registry)
+    except PyflightstreamError as error:
+        # A present command can still reject the workflow's argument grammar.
+        # Report the refusal instead of claiming a workflow was built.
+        commands = (*MINIMAL_WORKFLOW_COMMANDS, *_LINK_ALTERNATIVES.values())
+        refused = tuple(name for name in commands if name in str(error))
+        return refused or ("minimal_workflow",)
+    return ()
 
 
 def version_support(

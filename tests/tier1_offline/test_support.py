@@ -20,6 +20,7 @@ from pyflightstream.commands import (
     Status,
 )
 from pyflightstream.support import (
+    _LINK_ALTERNATIVES,
     MINIMAL_WORKFLOW_COMMANDS,
     SUPPORT_LADDER,
     SupportLevel,
@@ -30,6 +31,33 @@ from pyflightstream.support import (
 from pyflightstream.versions import known_versions
 
 REPO = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.requirement("FR-49")
+@pytest.mark.parametrize(
+    "defect", ["broken", "grammar"], ids=["P0420-BROKEN-LINK", "P0420-BAD-GRAMMAR"]
+)
+def test_p0420_operational_requires_a_buildable_workflow(defect):
+    """P0420-SUPPORT: a present command with an unusable form is not operational."""
+    import dataclasses
+
+    from pyflightstream.commands import ArgSpec
+
+    registry = CommandRegistry.load()
+    command = registry.commands["SOLVER_SET_AOA"]
+    record = command.versions["26.124"]
+    if defect == "broken":
+        record = record.model_copy(update={"status": Status.BROKEN, "note": "synthetic failure"})
+    else:
+        record = record.model_copy(
+            update={"args": [ArgSpec(name="value", type="enum", values=["ONLY"])]}
+        )
+    command = command.model_copy(update={"versions": {**command.versions, "26.124": record}})
+    altered = dataclasses.replace(registry, commands={**registry.commands, command.name: command})
+    row = version_support("26.124", registry=altered)
+    assert row.level is SupportLevel.VERIFIED
+    assert "SOLVER_SET_AOA" in row.workflow_missing
+    assert version_support("26.124", registry=registry).level is SupportLevel.OPERATIONAL
 
 
 def test_the_levels_are_a_closed_named_set_in_ascending_order():
@@ -148,7 +176,7 @@ def test_every_operational_version_builds_the_minimal_workflow(canonical):
     lines = script.render()
     # 26.125 prints no automatic trailing-edge detection and writes the
     # every-boundary form of the by-surface one in its place (P0370-S10-DETECTION).
-    alternative = {"AUTO_DETECT_TRAILING_EDGES": "DETECT_TRAILING_EDGES_BY_SURFACE"}
+    alternative = _LINK_ALTERNATIVES
     for command in MINIMAL_WORKFLOW_COMMANDS:
         written = alternative.get(command, command)
         assert re.search(rf"^({command}|{written})\b", lines, re.MULTILINE), (
