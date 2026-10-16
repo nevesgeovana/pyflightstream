@@ -485,7 +485,7 @@ for _command, _delta in PER_VERSION_GRAMMAR_26125.items():
 PER_VERSION_OPTIONAL.update(
     {
         ("CREATE_AIRFOIL_SEPARATION", "26.125"): ("boundary_indices",),
-        ("CREATE_NEW_ACTUATOR", "26.125"): ("subtype",),
+        ("CREATE_NEW_ACTUATOR", "26.125"): (),
         ("DETECT_TRAILING_EDGES_BY_SURFACE", "26.125"): ("surface_indices",),
         ("IMPORT", "26.125"): ("clear",),
         ("SET_VTK_EXPORT_VARIABLES", "26.125"): ("variables",),
