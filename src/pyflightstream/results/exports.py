@@ -59,13 +59,13 @@ __all__ = [
 ]
 
 
-# --- the six exports PFS-2014.02 owed a parser -----------------------------
+# --- observed export formats (PFS-2014.02) --------------------------------
 #
 # Every format below is written against an OBSERVED file. The capture script
-# `scripts/capture_export_corpus.py` put a coarse generated NACA 0012 wing
-# through a licensed 26.123 solve on 2026-08-20 and committed one small file
-# per format under `tests/tier1_offline/fixtures/`; two earlier 26.120 captures sit beside
-# them. Nothing here is written from the manual alone, and the one format
+# `scripts/capture_export_corpus.py` captures a coarse generated NACA 0012 wing
+# through a licensed 26.123 solve. One small file per format and two 26.120
+# captures are under `tests/tier1_offline/fixtures/`.
+# Nothing here is written from the manual alone, and the one format
 # that has never been observed keeps its `owed` verdict rather than a parser
 # guessed from its page (see EXPORT_BL_VELOCITY_PROFILE in
 # :data:`EXPORT_CONVERSIONS`).
@@ -1245,8 +1245,8 @@ def parse_solver_analysis_csv(text: str, *, field: str | None = None) -> SolverA
     labelled on a guess is worse than a column labelled ``column_3``.
 
     WHAT IS SETTLED, and how. The observed export is
-    ``solver_analysis_26.123.csv``, written by the capture run of
-    2026-08-20 on a generated NACA 0012 wing of chord 1 m and span 8 m,
+    ``solver_analysis_26.123.csv``, from a generated NACA 0012 wing
+    of chord 1 m and span 8 m,
     called as ``EXPORT_SOLVER_ANALYSIS_CSV <path> CP-FREESTREAM PASCALS
     1 -1`` (the arguments the database names filename, format, units,
     frame and surfaces; FSM-26.120 p.353).

@@ -84,7 +84,7 @@ RESIDUAL_PAGE = re.compile(r"^Iteration", re.MULTILINE)
 #: The export footer naming the build. Two product names are read: the
 #: ``Flightstream version 26.1`` of every build up to 26.124 and the
 #: ``Simcenter Flightstream version 2612`` that 26.125 prints in every export
-#: (FR-423, measured on its exports of 2026-10-05). The version token is kept
+#: (FR-423). The version token is kept
 #: verbatim; :func:`cross_check_version` reads it against the registry.
 SOFTWARE_LINE = re.compile(
     r"Software\s*:\s*(?:Simcenter\s+)?Flightstream version\s+(?P<version>\S+),"

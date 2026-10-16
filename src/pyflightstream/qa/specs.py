@@ -839,11 +839,10 @@ _spec(
 
 # --- unsteady plots (FSM-26.120 pp.347-348), one coupled specification --------
 #
-# WRITTEN FROM A MEASUREMENT, NOT FROM THE MANUAL (PFS-2015.02.01). The
-# three commands are coupled: a plot is defined in the setup phase, the
+# The three commands are coupled (PFS-2015.02.01): a plot is defined in the setup phase, the
 # solver runs unsteady, and the export writes one file carrying every
 # defined plot as a column, named for the plot. The tier-3 workspace
-# measured that coupling on 2026-09-08 through the `unsteady_rotor` and
+# demonstrates that coupling through the `unsteady_rotor` and
 # `unsteady` run types (rows 1011, 1020, 5005, 7001 and 7002 of
 # tests/tier3_licensed): the run record names `<point>_plots.txt`, the
 # file exists, its header carries `Solver mode: Unsteady` and a column per

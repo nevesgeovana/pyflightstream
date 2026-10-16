@@ -425,6 +425,7 @@ def test_p0420_docs_clean_history_guard_controls(monkeypatch):
 SOURCE_HISTORY = re.compile(
     r"\b(?:since|until|added in|introduced in|before|as of)\s+(?:the\s+)?v?0\.\d+\.\d+\b|"
     r"\b(?:added|introduced|corrected|rewritten|measured)\s+20\d{2}-\d{2}-\d{2}\b|"
+    r"\b(?:measured|verified)(?:\s+against the solver)?(?:\s+on)?[, ]+20\d{2}-\d{2}-\d{2}\b|"
     r"\b(?:used to|previously)\s+(?:accept|carry|return|write|read|raise|emit|"
     r"name|report|compare|hardcode|overwrite|replace|drop|sit|live|say)\b|"
     r"\b(?:first version|first repair)\b|\bcorrection of\s+20\d{2}\b",
@@ -480,6 +481,8 @@ def test_p0420_sweeps_source_history_narration():
         "since the 0.24.0 review",
         "until 0.26.0 this returned a value",
         "Measured 2026-08-04",
+        "measured against the solver on 2026-08-08",
+        "verified 2026-10-12",
         "The first version used to accept a path",
     ],
 )

@@ -566,7 +566,7 @@ def rotary_motion(
         raise CommandArgumentError(_unmarked_unit_refusal(script.version.canonical))
     if start_time is not None and not euclidean:
         # A semantic refusal, not a status: SET_MOTION_START_TIME runs on a
-        # 6DOF motion (verified 2026-10-12, RPT-166) and the solver declines
+        # 6DOF motion (RPT-166) and the solver declines
         # it for a ROTARY one, stopping the script (RPT-026). Refused before
         # anything is emitted, so the caller's script is left untouched.
         raise CommandArgumentError(
@@ -977,7 +977,7 @@ def solver_settings(
         Let the jet wake filaments induce velocity on the mesh
         (FSM-26.120 p.346). NOT AVAILABLE ON 26.121, where passing this
         raises rather than emitting: the build does not recognise the
-        command, measured against the solver on 2026-08-08 (RPT-021).
+        command (RPT-021).
         Documented by the 26.101 and 26.120 editions and by neither
         neighbour.
     rotor_induced_velocity_blending : float, optional
@@ -2256,8 +2256,8 @@ def unsteady_action(
     index or physical time, and environment (RPT-030). An action that
     has to behave differently on different steps therefore needs state
     of its own, and the correctness of that route rests on the
-    invocation count being exactly the step count. MEASURED ON 26.123
-    (RPT-041, the script-action re-read probe, 2026-09-08): a SCRIPT
+    invocation count being exactly the step count. On 26.123
+    (RPT-041, the script-action re-read probe), a SCRIPT
     action's file is re-read on every
     invocation, the count is exactly the step count with nothing before
     the first step, the action gets no arguments and no solver-named

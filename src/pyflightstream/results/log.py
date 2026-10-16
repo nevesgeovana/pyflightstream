@@ -587,8 +587,7 @@ def imported_trailing_edges(log_text: str) -> dict[str, int]:
 
 
 #: The line the solver prints when one instance clears a solution to run the
-#: next point (FR-368). MEASURED on 26.124 build 8172026 (the
-#: re-initialisation probes of 2026-10-02): printed by REMOVE_INITIALIZATION
+#: next point (FR-368). On 26.124 build 8172026, printed by REMOVE_INITIALIZATION
 #: and by NEW_SIMULATION, so in the cumulative log of a job it opens every
 #: point but the first.
 RESTART_MARKER = "Solution cleared. Initialization removed."
@@ -694,7 +693,7 @@ def point_log_text(text: str, segment: LogSegment, *, polar_start: LogSegment) -
     initialisation echo, and they are put in front of the point's segment so
     its log reads as the log of the point run alone (the trailing-edge import
     count is judged per point). The process banner with the build is printed
-    once per job (MEASURED, 2026-10-02), so a point of a later polar does not
+    once per job, so a point of a later polar does not
     carry it; nothing of the package reads it off a log.
 
     Parameters
