@@ -239,6 +239,26 @@ def test_generated_script_wraps_target_between_sentinels(tmp_path):
     assert lines[-1] == "CLOSE_FLIGHTSTREAM" or lines[-2] == "CLOSE_FLIGHTSTREAM"
 
 
+def test_p0420_p2_1a_duplicate_probe_registration_is_refused():
+    """Registering PRINT twice must preserve the first command-effect specification."""
+    from pyflightstream.qa._spec_kit import _spec
+    from pyflightstream.qa.errors import QaEvidenceError
+
+    original = PROBE_SPECS["PRINT"]
+    with pytest.raises(QaEvidenceError, match="PRINT.*already"):
+        _spec(command="PRINT", build_target=lambda s, w: None, assert_effect=lambda a: True)
+    assert PROBE_SPECS["PRINT"] is original
+
+
+def test_p0420_p2_1a_probe_catalog_is_read_only():
+    """The published catalog refuses replacement of a registered probe."""
+    from types import MappingProxyType
+
+    assert isinstance(PROBE_SPECS, MappingProxyType)
+    with pytest.raises(TypeError):
+        PROBE_SPECS["PRINT"] = PROBE_SPECS["PRINT"]
+
+
 def test_probe_spec_requires_an_effect_assertion():
     with pytest.raises(ValueError, match="runs but does nothing"):
         ProbeSpec(command="STOP", build_target=lambda script, workdir: None)

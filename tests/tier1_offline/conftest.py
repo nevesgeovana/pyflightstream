@@ -27,8 +27,8 @@ from pyflightstream.cases import matrix as _matrix
 from pyflightstream.cases import workflows as _workflows
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.fsi.config import BladeProperties, FsiConfig
+from pyflightstream.qa import _spec_kit
 from pyflightstream.qa import physics as _physics
-from pyflightstream.qa import specs as _specs
 from pyflightstream.script import entities as _entities
 from pyflightstream.script import solver_setup as _solver_setup
 from pyflightstream.utils import manual as _manual
@@ -125,7 +125,7 @@ def _mutable_module_state() -> list[dict]:
     return [
         _physics.PHYSICS_CASES,
         _physics.SMI_CASES,
-        _specs.PROBE_SPECS,
+        _spec_kit._PROBE_SPECS,
         _solver_setup._SPEC_BY_COMMAND,
         _matrix._SWEEP_CODE_KEYS,
         _entities._NOUNS,
