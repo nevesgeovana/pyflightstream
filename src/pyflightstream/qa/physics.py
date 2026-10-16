@@ -880,6 +880,13 @@ def build_smi_script(
     incompressible initialization over every boundary, and a converged
     solve at the fixed comparison point.
 
+    THE SCRIPT PUTS NO BOUNDARY ON THE VORTICITY INDUCED-DRAG LIST (PFS-2006.02.01).
+    It used to select every boundary, bodies included, and the local cases'
+    stored coefficients were made with that form. Measured on 26.124 build
+    8172026, omitting the selection raises CDi by 0.0797 for SMI-01 and 0.1579 for
+    SMI-02, and leaves CL and the moments unchanged at the printed 0.0001, so the
+    references moved with it (reports/PFS-2006.02.01_reference-candidates_2026-10-16.md).
+
     Parameters
     ----------
     version : str
@@ -929,7 +936,6 @@ def build_smi_script(
     script.emit("SOLVER_SET_ITERATIONS", PHY01_ITERATIONS)
     script.emit("SOLVER_SET_CONVERGENCE", PHY01_CONVERGENCE)
     script.emit("START_SOLVER")
-    script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
     script.emit("SET_LOADS_AND_MOMENTS_UNITS", "COEFFICIENTS")
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads_name)
     script.emit("EXPORT_LOG", log_name)
@@ -980,8 +986,9 @@ def _smi_case(case_id: str, title: str, band_kind: str) -> PhysicsCase:
 
 #: The two local cases: ``28_B.fsm`` (SMI-01) and ``31_WBH_IH0.fsm`` (SMI-02),
 #: each opened by :func:`build_smi_script` at the fixed comparison point.
-#: Both put every boundary on the vorticity induced-drag list (build_smi_script);
-#: docs/tiers.md states what that means for their stored coefficients (PFS-2006.02).
+#: Neither puts a boundary on the vorticity induced-drag list (build_smi_script,
+#: PFS-2006.02.01); docs/tiers.md states what that means for their stored coefficients
+#: (PFS-2006.02), and the references hold the values of the no-selection form.
 SMI_CASES: dict[str, PhysicsCase] = {
     "SMI-01": _smi_case(
         "SMI-01",
