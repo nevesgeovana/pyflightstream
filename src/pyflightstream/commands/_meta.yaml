@@ -222,6 +222,13 @@ versions:
     # where the two editions describe a command identically, read anew
     # where they do not, and absent where FSM-26.125 stops documenting the
     # command (the manual_editions entry below lists those).
+    #
+    # COMPATIBILITY NOTE, MEASURED (PFS-2131.001, reports/physics/
+    # PHY-26125_2026-10-16_build-difference-against-26124.md): for identical
+    # inputs, the native CL on this build is 5.1 to 5.3 percent lower than on
+    # 26.124 build 8172026 at 0, 4 and 8 degrees of the local wing case, and
+    # its total drag 10.8 to 15.0 percent higher. A property of the solver
+    # build, not of the package; the package does not compensate for it.
     inherits_base: false
 
 # Each edition states two inclusive ranges: pages carrying scripting
