@@ -172,14 +172,8 @@ class LoadsReport:
         ]
 
 
-#: The tokens the solver prints for a boolean flag in an export footer,
-#: observed on 26.120 and 26.121. Enumerated rather than sniffed: the
-#: reading used to be ``token.upper().startswith("T")``, which mapped
-#: every unrecognised token to False in silence, so a footer printing
-#: "yes" or a label that matched the wrong line reported the flag OFF
-#: with the same confidence as a real F (PYFS-009). A flag read wrongly
-#: as off is worse than an unreadable one, because a run then carries a
-#: setting it did not have.
+#: Boolean footer tokens observed on 26.120 and 26.121. Enumerate them
+#: so an unrecognized spelling is refused rather than silently read as off.
 _TRUE_TOKENS = frozenset({"T", "TRUE"})
 _FALSE_TOKENS = frozenset({"F", "FALSE"})
 
@@ -196,8 +190,8 @@ def _parse_solver_flag(token: str | None, label: str) -> bool | None:
     raise ValueError(
         f"{label} printed {token!r}, which is not one of the tokens the solver "
         f"uses for this flag ({', '.join(sorted(_TRUE_TOKENS | _FALSE_TOKENS))}). "
-        "An unrecognised token used to read as off, so a run carried a setting it "
-        "did not have; if this is a real solver spelling, add it here with the "
+        "An unrecognised token cannot establish whether the flag is on or off; "
+        "if this is a real solver spelling, add it here with the "
         "export that printed it"
     )
 
@@ -276,11 +270,8 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
     # THE COLUMNS AS PRINTED, the 26.125 drag split ``CDp, CDv`` included
     # (FR-423, :data:`DRAG_PAIRS`).
     columns = [cell.strip() for cell in header_cells.split(",") if cell.strip()]
-    # PYFS-009, now shared with the probe parser (REV010-003). A repeated
-    # column name used to build the row dict with the later value winning,
-    # so a header naming CL twice lost CDi ENTIRELY and published CDi's
-    # number under CL. Every coefficient downstream then read a plausible
-    # value from the wrong column, and nothing anywhere said so.
+    # Reject duplicate columns before constructing row dictionaries. A repeated
+    # name would overwrite a value and mislabel coefficients (PYFS-009).
     reject_duplicate_columns(columns, what="loads")
     rows = delimited_table(text, "Surface,")
     surfaces: dict[str, dict[str, float]] = {}
@@ -296,24 +287,22 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
             column: parse_number(value) for column, value in zip(columns, values, strict=True)
         }
         if name.lower() == "total":
-            # PYFS-009. A second Total row used to overwrite the first in
-            # silence, so a concatenated or double-exported file published
-            # whichever total came last as though it were the only one.
+            # Refuse duplicate totals: a concatenated or repeated export does not
+            # identify one authoritative total.
             if total is not None:
                 raise MalformedOutputError(
                     "the loads table holds more than one Total row, so which total the "
                     "run produced is not determined by the file. Two exports were "
-                    "concatenated, or the table was written twice; the second used to "
-                    "replace the first without a word"
+                    "concatenated, or the table was written twice; neither total can "
+                    "be selected unambiguously"
                 )
             total = parsed
         else:
             if name in surfaces:
                 raise MalformedOutputError(
                     f"the loads table names the surface {name!r} more than once, so "
-                    "its coefficients are not determined by the file: the later row "
-                    "used to replace the earlier and the report carried one surface "
-                    "where the solver reported two"
+                    "its coefficients are not determined by the file: duplicate rows "
+                    "cannot be reduced to one unambiguous surface"
                 )
             surfaces[name] = parsed
     if total is None:

@@ -77,15 +77,9 @@ __all__ = [
 
 
 DASHED_LINE = re.compile(r"^-{4,}$")
-#: Where one page of the log's residual table ends and the next begins. The
-#: export repeats the header periodically, so the table is read page by page
-#: and the pages joined.
-#:
-#: THE PAGES ARE NOT A FIXED LENGTH, which the first writing of this comment
-#: said they were. Measured on 26.123: a steady log pages at a hundred rows,
-#: and an unsteady one pages PER TIME STEP, giving 36 pages of 81, 40, 23,
-#: 33, 36, 39 and so on in one file. The anchor is the repeated header and
-#: never a row count, which is why the split is on the header alone.
+#: Repeated Iteration headers delimit residual pages. Page length varies:
+#: 26.123 steady logs use hundred-row pages, while unsteady logs page per
+#: time step. Split on the repeated header, never a fixed row count.
 RESIDUAL_PAGE = re.compile(r"^Iteration", re.MULTILINE)
 #: The export footer naming the build. Two product names are read: the
 #: ``Flightstream version 26.1`` of every build up to 26.124 and the
@@ -466,31 +460,16 @@ def classify_solver_mode(printed: str) -> str | None:
     return candidate if candidate in SOLVER_MODES else None
 
 
-# --- provenance vocabulary: raw off the run, or out of a reduction ---------
+# Result provenance distinguishes direct steady integration from an
+# unsteady solver export's last time step (docs/definitions/the-unsteady-polar.md
+# and rotor-coefficients.md). These are different quantities even when they
+# occupy the same coefficient column. No package run asks for solver averaging.
 #
-# PFS-2014.05, the requirement of 2026-08-16. A sweep table carries one row
-# per point, and in a mixed campaign a steady point's row holds a direct
-# integration while an unsteady point's row holds the last time step, one
-# instant of a cycle (docs/definitions/the-unsteady-polar.md,
-# rotor-coefficients.md). Same column, two different quantities, and a
-# reader who cannot tell them apart reads a method difference as physics.
-# Until 0.40.0 the unsteady row said ``time_average``, an average the
-# solver never took (PFS-2105.043): no package run asks the solver for one.
-#
-# The vocabulary lives HERE rather than in the table module because it is
-# published in every result file the package writes, tabular or not: the
-# tables carry the tokens as columns and the numeric-only writers carry the
-# integer codes. Both live above this layer, so one home below them is the
-# only place neither has to copy.
-#
-# THE TOKENS AND THEIR CODES ARE A SEAT DECISION and are built here under
-# the lane's default, which that seat has not yet ruled on; the vocabulary is a
-# proposal until it does, and NFR-19 is where its status is tracked. Two
-# origin tokens, four reduction
-# tokens; a row with no loads report says ``unknown`` rather than ``none``,
-# because ``none`` would assert a direct integration that never happened; and
-# an unsteady solver export counts as ``raw``, because it is the solver's own
-# last-step instant and the reduction token ``last_step`` is what names it.
+# Shared tokens and numeric codes live below all result writers. NFR-19
+# tracks the vocabulary's proposed status pending owner approval: two origin
+# tokens and four reduction tokens. A row without a loads report is unknown, not none; none asserts
+# a direct integration. An unsteady solver export is raw with last_step
+# reduction, identifying the solver's own final instant.
 
 #: What produced the numbers in a row or a file, and the integer each token
 #: is published as in the numeric-only formats. APPEND ONLY: a published
@@ -717,16 +696,10 @@ def reduction_for_solver_mode(printed: str | None) -> str:
     return "unknown"
 
 
-# --- which solver exports this package can read ----------------------------
-#
-# PFS-2014.02, the scoping of 2026-08-16. The census of ``phase: export``
-# commands CANNOT be the default set: two of the eighteen entries export
-# nothing at all (they set the VTK variable list and delete a profile), so
-# the classification has to be explicit data rather than a filter.
-#
-# The keys are compared against the live command database by
-# ``tests/tier1_offline/test_results.py``, so an export command added to any yaml fails
-# the suite until it is classified here.
+# Classify readable solver exports explicitly. A phase: export filter
+# would also select commands that set VTK variables or delete a profile.
+# The results tests compare these keys with the live command database
+# and require each export command to have a classification.
 
 #: The export has a parser and a tabular conversion in this package.
 EXPORT_PARSED = "parsed"
@@ -889,16 +862,12 @@ EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
         EXPORT_OWED,
         None,
         None,
-        "the one default-set format that has never been observed, and it is the SOLVER "
-        "that will not write it rather than a capture nobody has run: two licensed 26.123 "
-        "runs on 2026-08-20, bounded at 1800 s and at 240 s, both stopped at this command "
-        "with every earlier export of the same script already written and the exported log "
-        "showing the run reaching it. The cause was measured on 26.122 and is recorded in "
-        "reports/RPT-027 and in the database entry: the command opens a modal window and "
-        "waits for a person to dismiss it, under -hidden and with both streams redirected, "
-        "so an unattended run waits forever. A parser is owed a file, and no file exists "
-        "to owe it to; writing one from the manual page would be a guess wearing evidence's "
-        "clothes",
+        "no observed output file is available for this parser. Two licensed 26.123 "
+        "captures, bounded at 1800 s and 240 s, reached this command after writing "
+        "the preceding exports but produced no profile. RPT-027 records the 26.122 "
+        "cause: the command opens a modal window and waits for dismissal even under "
+        "-hidden with redirected streams. This observation does not establish the "
+        "behavior of every build; a parser requires an observed file",
     ),
     "EXPORT_ALL_OFF_BODY_STREAMLINES": ExportConversion(
         EXPORT_PARSED,
