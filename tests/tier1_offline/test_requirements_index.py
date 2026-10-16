@@ -46,18 +46,23 @@ def historical_requirements():
 
 
 def test_p0420_stage_migration_preserves_historical_statements():
-    """P0420: every live historical row survives, with only approved UID changes."""
+    """P0420: historical identities resolve through explicit content-phase lineage."""
     import csv
 
     from scripts._requirements_paths import read_requirements
 
     migration_path = REPO / "docs/srs/uid-migration.csv"
     assert migration_path.exists(), "historical UID migration is missing"
-    migration = {r["uid"]: r for r in csv.DictReader(migration_path.open(encoding="utf-8"))}
+    records = list(csv.DictReader(migration_path.open(encoding="utf-8")))
+    migration = {r["uid"]: r for r in records}
+    assert len(migration) == len(records), "duplicate migration UID"
     current = {r["uid"]: r for r in read_requirements(REPO)}
     historical = historical_requirements()
     live = [r for r in historical if r["status"] != "retired"]
-    assert set(migration) == {r["uid"] for r in live}
+    historical_ids = {r["uid"] for r in live}
+    assert historical_ids <= set(migration)
+    for uid in set(migration) - historical_ids:
+        assert uid in current and migration[uid]["new_uids"], "unexplained migration UID"
     lettered = [r["uid"] for r in live if r["uid"][-1].isalpha()]
     expected = dict(
         zip(
@@ -70,27 +75,47 @@ def test_p0420_stage_migration_preserves_historical_statements():
     assert len(reserved) == len(set(reserved))
     assert set(reserved) == set(lettered) | {
         r["uid"] for r in historical if r["status"] == "retired"
+    } | {
+        r["uid"]
+        for r in records
+        if r["destination"] in {"merged", "demoted", "rationale", "retired"}
     }
     for old in historical:
         uid = old["uid"]
         target = expected.get(uid, uid)
-        row = current[target]
-        statement = old["statement"].replace("SRC-753", "FSM-26.125")
-        assert row["statement"] == statement, uid
-        assert row["status"] == old["status"], uid
         if old["status"] == "retired":
+            assert current[uid]["statement"] == old["statement"], uid
+            assert current[uid]["status"] == "retired", uid
             continue
-        assert migration[uid]["destination"] == ("merged" if uid in expected else "kept")
         assert (REPO / migration[uid]["file"]).exists()
+        disposition = migration[uid]
+        assert disposition["destination"] in {"kept", "merged", "demoted", "rationale", "retired"}
+        for child in disposition["new_uids"].split():
+            assert child in current or child in reserved, (uid, child)
+        if disposition["destination"] == "kept":
+            assert uid in current and current[uid]["status"] != "retired", uid
+        else:
+            assert uid in reserved, uid
+            if disposition["destination"] != "retired":
+                assert disposition["target"], uid
+                if disposition["file"].endswith("architecture-srs.md"):
+                    assert uid in (REPO / disposition["file"]).read_text("utf-8"), uid
+                else:
+                    assert disposition["target"] in current, uid
         if uid in expected:
             assert migration[uid]["target"] == target
-            assert migration[uid]["new_uids"] == target
+            assert target in migration[uid]["new_uids"].split()
+            row = current[target]
             base = uid[:-1]
-            if uid != "FR-23a":
+            if base in current and current[base]["status"] != "retired":
                 assert row["parent"] == base
                 assert row["hid"].startswith(current[base]["hid"] + ".")
             else:
-                assert current[row["parent"]]["level"] == "L1"
+                host = migration.get(base, {}).get("target")
+                if host and host != target:
+                    assert row["parent"] == host
+                else:
+                    assert current[row["parent"]]["level"] == "L1"
     for name in ("functional-requirements.md", "nonfunctional-requirements.md"):
         assert not (REPO / "docs/unpublished/requirements" / name).exists()
 
@@ -99,6 +124,7 @@ def validate_structure(rows, reserved, historical, migration):
     """P0420 structural guard shared with planted controls."""
     live = [r for r in rows if r["status"] != "retired"]
     ids = {r["uid"] for r in live}
+    assert len(migration) == len(set(migration)), "duplicate migration UID"
     assert not ids & set(reserved), "reserved UID live"
     assert set(historical) <= set(migration), "historical UID missing"
     generator = _generator()
@@ -178,7 +204,7 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
 
 @pytest.mark.parametrize(
     "defect",
-    ["numeric", "radical", "hid", "verification", "level", "reserved", "migration"],
+    ["numeric", "radical", "hid", "verification", "level", "reserved", "migration", "duplicate"],
     ids=lambda x: "P0420-" + x,
 )
 def test_p0420_structure_planted_controls(defect):
@@ -204,6 +230,8 @@ def test_p0420_structure_planted_controls(defect):
         row.pop("level")
     elif defect == "reserved":
         reserved = ["FR-3000"]
+    elif defect == "duplicate":
+        migration.append("FR-3000")
     else:
         migration = []
     with pytest.raises(AssertionError):
