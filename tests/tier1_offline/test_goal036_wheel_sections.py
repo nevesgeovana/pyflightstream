@@ -72,7 +72,8 @@ def _wheel(tmp_path: Path, *, frame: str = "LOCAL_AXIS", sign: int = 1) -> tuple
             "sections": {
                 "count": 8,
                 "include_symmetry": False,
-                "distributions": [{"families": families, "frame": frame, "planes": ["XZ"]}],
+                # PFS-2119.024: the datum-aligned frame's X is radial and Z is shaft.
+                "distributions": [{"families": families, "frame": frame, "planes": ["YZ"]}],
             }
         }
     )

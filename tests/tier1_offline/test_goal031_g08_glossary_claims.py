@@ -560,7 +560,12 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
             update={"reference": REFERENCE}
         ),
     ),
-    "ROTOR_AXIS": _rows(rotor_case, "ROTOR_AXIS", "X", "Z"),
+    # A declared rotor owns its shaft and datum; the flat key configures the
+    # legacy route without a reference rotor, not that rotor's frame basis.
+    "ROTOR_AXIS": Variation(
+        lambda _: rotor_case(ROTOR_AXIS="X").model_copy(update={"rotors": {}}),
+        lambda _: rotor_case(ROTOR_AXIS="Z").model_copy(update={"rotors": {}}),
+    ),
     "ROTOR_ORIGIN": _rows(rotor_case, "ROTOR_ORIGIN", "0.1,0.2,0.3", "0.4,0.5,0.6"),
     # Refused whatever its value: absent against stated.
     "ROTOR_SHEDDING": Variation(

@@ -77,8 +77,8 @@ def test_the_reader_round_trips_the_writers_record(tmp_path, row):
     assert record.run_type == QSTEADY_ROTOR == record_module.RECORD_RUN_TYPE
 
 
-def test_the_writer_keeps_the_bytes_it_wrote_before_the_record_had_a_type():
-    """The two-clocking wheel's file, key for key and in order, as the 0.30.0 builder wrote it.
+def test_p0420_the_writer_keeps_key_order_and_records_the_datum_frame_axis():
+    """The two-clocking wheel retains key order and records its vector frame's Z shaft.
 
     Pinned by a literal and not by the type, which now writes AND reads the
     file, so a round trip alone would move with a reordered key. The plan's
@@ -94,7 +94,7 @@ def test_the_writer_keeps_the_bytes_it_wrote_before_the_record_had_a_type():
         "rotor": "PROP",
         "blades": 3,
         "rpm": 1200.0,
-        "shaft_frame_axis": "X",
+        "shaft_frame_axis": "Z",
         "hub_m": [0.0, 0.0, 0.0],
         "axis_vector": [1.0, 0.0, 0.0],
         "diameter_m": 2.0,
