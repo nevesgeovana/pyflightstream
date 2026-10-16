@@ -1106,9 +1106,9 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
         if not all(cells):
             raise FsiInputError(
                 f"FSIDisp line {line_number} has an empty field ({line.strip()!r}), so "
-                "one of dx, dy, dz is missing rather than zero. A blank used to be "
-                "dropped before the count, which let the next value slide into the "
-                "empty slot and applied a displacement to the wrong axis"
+                "one of dx, dy, dz is missing rather than zero. Dropping the blank "
+                "would shift the following value into the empty slot and apply a "
+                "displacement to the wrong axis"
             )
         try:
             rows.append([float(cell) for cell in cells])

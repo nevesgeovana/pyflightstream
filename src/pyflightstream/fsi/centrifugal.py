@@ -593,12 +593,8 @@ def campbell_sweep(
     >>> [round(f) for f in data.family_track("flap")]
     [115, 164, 258]
     """
-    # Every point is validated BEFORE the first solve, not per iteration.
-    # Validating inside the loop refused a bad Omega only after paying for
-    # the earlier points, and the changelog said "before the first solve"
-    # while the code meant "before its own solve" (api-designer pass,
-    # 2026-08-03). Every value is known at call time, so there is no reason
-    # to spend thirty modal solves and then refuse.
+    # Validate every point before the first solve. All Omega values are
+    # known at call time, so invalid input must not consume earlier solves.
     points = [
         FsiConfig.model_validate({**cfg.model_dump(), "omega_rad_per_s": float(omega)})
         for omega in omegas_rad_per_s

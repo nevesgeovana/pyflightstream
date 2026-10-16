@@ -258,8 +258,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     A function of its own, as every other console script has, so the
     tier-1 registry guard (``tests/tier1_offline/test_cli_options_registry.py``,
-    FR-40) can enumerate the options; it was inline in :func:`main`
-    until 0.13.0 (PFS-2022.06.01).
+    FR-40) can enumerate the options independently of :func:`main`.
     """
     parser = argparse.ArgumentParser(
         prog="pyfs-fsi",

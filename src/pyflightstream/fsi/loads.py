@@ -60,9 +60,8 @@ from dataclasses import dataclass
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# PyflightstreamError and the six names from pyflightstream.results are
-# imported only because 0.32.0 offered them from this module; each keeps
-# importing from here (a release does everything the previous one did).
+# Re-export PyflightstreamError and the six results names for callers
+# using this module's public path.
 from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.fsi.errors import FsiInputError
@@ -73,9 +72,8 @@ from pyflightstream.results import labeled_value as labeled_value
 from pyflightstream.results import parse_count as parse_count
 from pyflightstream.results import parse_number as parse_number
 
-# The parser of the export and the report it returns are defined in the
-# results row since 0.33.0 (AD-10), which removed the cycle between this
-# module and results.tables; every name keeps importing from here.
+# The parser and report are defined in results (AD-10). Re-export them
+# here without introducing a cycle with results.tables.
 from pyflightstream.results.sectional_loads import (
     EXPECTED_COLUMNS as EXPECTED_COLUMNS,
 )
@@ -104,39 +102,20 @@ __all__ = [
 # describing the blade the sections were cut on.
 _SPAN_TOLERANCE = 0.01
 
-# Fraction of the blade span that may be left UNCOVERED at each end
-# before the resampling would be extrapolating rather than interpolating
-# (REV010-008). The two constants bound opposite directions and are
-# deliberately different numbers.
+# Maximum uncovered fraction at each blade end before resampling would
+# extrapolate rather than interpolate (REV010-008). The two constants
+# bound opposite directions and deliberately differ.
 #
-# This one is calibrated from evidence rather than chosen: a section cut
-# puts the outermost section centroids inboard of the geometric ends, so
-# some margin is physical and expected.
+# Section centroids lie inside the geometric ends. The committed WP1
+# export, fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt, spans
+# 0.2899 m to 1.813 m on blade_1. Its structural_nodes.csv fixture spans
+# 0.274320 m to 1.828800 m (RPT-006 Section 2). Over the 1.554480 m span,
+# those margins are 1.00% at the root and 1.02% at the tip.
 #
-# Measured on the committed WP1 export
-# (tests/tier1_offline/fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt, blade_1
-# extremes 0.2899 m and 1.813 m) against THE BLADE IT WAS CUT ON, whose
-# 11 imported pitch-axis nodes are the committed fixture
-# tests/tier1_offline/fixtures/fsi/structural_nodes.csv, root 0.274320 m and tip
-# 1.828800 m; RPT-006 Section 2 states the same span as 0.274 to 1.829 m.
-# Span 1.554480 m, so the real margins are 1.00% at the root and 1.02%
-# at the tip.
-#
-# 5% accepts that with room and still refuses the case this finding was
-# raised for, where sections covering [0.8, 1.2] m of a blade spanning
-# [0.25, 1.85] m leave 34% uncovered at the root and 41% at the tip and
-# are spread across the whole blade by constant extrapolation.
-#
-# Corrected 2026-08-03 by the V and V pass, and the correction is the
-# instructive part. This comment first reported 2.49% and 2.31% and
-# attributed them to "the blade it was cut on". Those numbers are exact
-# for the SYNTHETIC test blade [0.25, 1.85] in
-# tests/tier1_offline/test_fsi_loads.py:fixture_covering_config, which is deliberately
-# wider than the physical one; roughly 60% of each quoted margin was
-# that config's outward rounding rather than the section cut. The
-# constant is unchanged because 5% clears the real 1.0% by more than it
-# cleared the wrong number, but a tolerance justified by a measurement
-# of something else is the exact defect class REV-010 was raised about.
+# The 5% tolerance accepts those physical margins but refuses sections
+# covering only [0.8, 1.2] m of a [0.25, 1.85] m blade: that leaves 34%
+# and 41% uncovered. The wider synthetic fixture is not the physical
+# blade used to calibrate this tolerance.
 _COVERAGE_MARGIN = 0.05
 
 
