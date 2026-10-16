@@ -7,6 +7,113 @@ FlightStream versions.
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-10-16
+
+### Added
+
+- The documentation site is organised around Workspace CLI, Python API, Reference and
+  Understanding pyflightstream, with the owl theme. Linked requirement, code, execution
+  and workspace-file data are generated from the approved SRS and the tagged checkout,
+  with immutable source links and CI drift checks. A public references page enumerates
+  the literature citations, and manual citations use public FSM build identifiers.
+- The software requirements specification is organised by numerical laboratory stage,
+  with eleven stage requirements, the workspace version-control principle, stable numeric
+  identities and a complete migration table. Pending obligations tied to planning nodes
+  may keep absent code and test anchors until they are implemented.
+- The README support table ends with the vendor build number of each build, and the
+  installation extras are explained. The experiment protocol versus the generated
+  procedure, and the lifecycle of the version-controlled workspace files, are explained.
+- The BPF CSV adds `BIN_OFFSET_BINS`; off-bin notes disclose the unwindowed amplitude bias.
+- `window_from` states the rotor's own averaging span; reduction values are unchanged.
+- `Script` exposes the carried-action and deferred-selection methods, and the averaging
+  window types are public exports.
+- Volume-section references require an existing section, and `declare_existing` accepts
+  `volume_sections` for opened projects.
+- `pyfs-matrix` selects simulations with one `--sims` grammar, and both marking commands
+  accept point aliases. The positional ids of `delete-sims` still work and are deprecated
+  in favour of `--sims`.
+- Cost tables name each exact planned point and classify custom LEGACY recipes by their
+  declared clock. Plans dry-build and render one-job steady sweeps, and a builder refusal
+  blocks every point of its row.
+- `pyfs-fsi` refuses recognizable command-line mistakes before running a step, and
+  coupling JSON accepts a UTF-8 byte-order mark.
+- Structural resume errors name mismatched arrays and validate persisted load shapes.
+  Staged boundary totals are checked before coupling, and node clearance scales with the
+  local section dimensions.
+
+### Changed
+
+- Command emission validates enumerations, entity references and free labels before a
+  script is written. Numeric rotor axes 1, 2 and 3 resolve to X, Y and Z; toggles accept a
+  boolean or the literal `ENABLE`/`DISABLE`; inline strings require one non-empty token;
+  `PRINT` keeps its documented remainder-of-line message; `SURFACE_MIRROR` accepts only
+  the mirror planes 1, 2 and 3; `BOOLEAN_UNITE_GEOMETRY` accepts the documented `-1` form.
+- Skipped inline positional slots and required inline arguments after optional ones are
+  refused, duplicate blade labels are rejected before emission, `CREATE_NEW_ACTUATOR`
+  requires its subtype, and `EXECUTE_SOLVER_SWEEPER` requires `export_folder` exactly when
+  per-step export is enabled. Surface deletion reduces known boundary counts and
+  renumbers the surviving labels.
+- Public parking rejects absolute, drive-relative and parent-traversal paths.
+- Command metadata distinguishes `mixed_inline` from `inline`, and undeclared own-line
+  inline arguments are refused. Older CAD import, contour and streamtube forms are
+  emitted according to their own manual editions, and 26.122 and 26.123 accept the
+  documented all-boundaries proximal selection.
+- Workflow convergence alone no longer verifies a command: compatibility rows keep
+  independent effect measurements or become explicitly inconclusive. The 26.122
+  `SET_INVISCID_LOADS` claim is documented with direct inconclusive evidence, and the
+  free-surface command is unprobed because its precondition was not established.
+  Compatibility diagnostics distinguish a manual withdrawal from a command that was
+  never documented.
+- Validated 26.122 emission refuses the modal profile export; an explicitly supervised
+  script may use the recorded raw bypass. Older unmeasured CCS revolve forms emit
+  `PyflightstreamWarning`, and `emit_ccs_wing` refuses REAL controls.
+- Use `edge_type=` for 26.124 wake imports; `units=` remains accepted as an alias.
+- `pyfs-manual register --write` requires `--commands-dir`, and the manual comparison
+  reports description changes beyond the former fixed windows. Operational support
+  requires a buildable minimal workflow. Version-scoped reference pages show the target
+  grammar.
+- Workbook creation no longer accepts `python`; the inert Matrices and Python executable
+  cells are removed.
+- Reference lattice surveys require at least 14 azimuths for six stored harmonics, and
+  `PHYSICS` flags may be omitted independently.
+- Public documentation, docstrings, source prose and diagnostic messages state current
+  behaviour without release history or dated editing history. Concepts holds the single
+  architecture page, and the documentation delivery check resolves same-site section links.
+- Results of letter-path rotors with a non-default `blade1` datum change, because the
+  solver now honours that datum. The 26.100 unmarked Euclidean motion uses measured
+  rev/min.
+- Positional calls of `airfoil_section_contour`, `solid_section_properties` and
+  `blade_properties_from_sections` after the primary input still work and warn; use
+  keyword arguments. They are removed in 0.43.0.
+- Coverage is measured by the release's frozen full suite, with the floor kept in
+  `pyproject.toml`; push CI and the release workflow's wheel tests run without coverage
+  instrumentation, and both release runners still test the built wheel. Contributor
+  coverage evidence comes from the `suite-full` release receipt, run with
+  `--cov --cov-branch`.
+- Documentation builds print the last 80 LaTeX log lines and the first TeX error with its
+  following 10 lines before failing, and failed guide logs are kept as a CI artifact. The
+  docs workflow installs scalable T1 fonts (`cm-super`). A manual dispatch builds the site
+  and the guides without publishing them; it publishes only from main with `deploy=true`,
+  and a version tag still publishes the site.
+
+### Fixed
+
+- Undefined rotor coefficients raise `ProductError` instead of `ZeroDivisionError`, and
+  empty passage series raise `MalformedOutputError` instead of `IndexError`. Catch
+  `CampaignConfigError` for row and artifact naming refusals, and `SolverSetupError` or
+  `PyflightstreamError` for unsupported setup entries; `RuntimeError` handlers still work.
+- `per_blade_rows` is in `unsteady.__all__`, and its refusals derive from `ProductError`.
+  Multi-plane rotor sections are skipped instead of pooled in harmonics and validity
+  summaries, and rotorless unsteady marches apply the requested vorticity selection.
+- `solver_settings` scalar and version refusals preserve the existing script content.
+- Direct morphing refuses multiple blades and frozen coupling.
+- Steady coupled completion recognizes stderr and polls appended output incrementally;
+  discarding a steady job marks every one of its points failed.
+- Extraction records launch exceptions, cleans local copies in `finally`, and archives
+  previous scripts in collision-safe stamp folders. Per-mesh geometry discovery accepts
+  derived thin-blade OBJ names beside their source.
+- Surface probe coordinate systems cite their frames.
+
 ## [0.41.0] - 2026-10-15
 
 ### Added

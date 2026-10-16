@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.42.0 - 2026-10-16
+
+This release reorganises the documentation site around Workspace CLI, Python API,
+Reference and Understanding pyflightstream, restructures the requirements specification,
+and validates command arguments before a script is written. Positional calls of the
+fsi section functions and the positional ids of `delete-sims` are deprecated and are
+removed in 0.43.0; use keyword arguments and `--sims`. The changelog records the full scope.
+
 ## 0.41.0 - 2026-10-15
 
 Python 3.12 or newer is required. The registered FlightStream builds are
