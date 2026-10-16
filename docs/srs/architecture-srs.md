@@ -52,6 +52,10 @@ imports place them above those primitives. A module's underscore prefix alone
 does not make it a floor. The package `__init__` initializes registrations and
 is the named unranked root exception.
 
+Architecture rule FR-1155: Every text write of the package goes through one route that writes LF, in the private floor module `pyflightstream._textio`; a tier-1 guard walks `src/` and refuses a text write that bypasses it, and a planted bypass is its control.
+
+Code: `pyflightstream._textio:write_text`. Test: `tests/tier1_offline/test_p0340_lf_products.py::test_every_text_write_under_src_goes_through_the_one_lf_route`. The falsifying guard behavior remains FR-2271; the output guarantee remains NFR-32.
+
 ## Architectural decisions
 
 The AD identifiers remain stable. The statements below describe current

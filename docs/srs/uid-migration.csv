@@ -25,7 +25,7 @@ FR-23a,merged,FR-1207,FR-1207,docs/unpublished/requirements/phys.md
 FR-24,kept,,,docs/unpublished/requirements/trst.md
 FR-25,kept,,,docs/unpublished/requirements/inst.md
 FR-26,kept,,,docs/unpublished/requirements/trst.md
-FR-27,kept,,,docs/unpublished/requirements/trst.md
+FR-27,merged,NFR-08,,docs/unpublished/requirements/quality.md
 FR-28,kept,,,docs/unpublished/requirements/wksp.md
 FR-29,kept,,FR-2232 FR-2233 FR-2234,docs/unpublished/requirements/wksp.md
 FR-29a,merged,FR-1208,FR-1208,docs/unpublished/requirements/wksp.md
@@ -1016,8 +1016,8 @@ FR-1151,kept,,FR-2270,docs/unpublished/requirements/wksp.md
 FR-1152,kept,,FR-2043 FR-2044,docs/unpublished/requirements/recs.md
 FR-1153,kept,,FR-1400 FR-1401,docs/unpublished/requirements/quality.md
 NFR-32,kept,,,docs/unpublished/requirements/quality.md
-FR-1154,kept,,,docs/unpublished/requirements/wksp.md
-FR-1155,kept,,FR-2271,docs/unpublished/requirements/wksp.md
+FR-1154,merged,NFR-32,,docs/unpublished/requirements/quality.md
+FR-1155,demoted,architecture-srs#the-layered-pipeline,FR-2271,docs/srs/architecture-srs.md
 FR-1156,kept,,FR-2272,docs/unpublished/requirements/wksp.md
 FR-1159,kept,,,docs/unpublished/requirements/wksp.md
 NFR-33,kept,,,docs/unpublished/requirements/quality.md
@@ -1031,7 +1031,7 @@ FR-1181,kept,,,docs/unpublished/requirements/trst.md
 FR-1182,kept,,,docs/unpublished/requirements/trst.md
 NFR-42,kept,,NFR-118,docs/unpublished/requirements/quality.md
 FR-1183,kept,,,docs/unpublished/requirements/trst.md
-FR-1184,kept,,,docs/unpublished/requirements/trst.md
+FR-1184,merged,NFR-42,,docs/unpublished/requirements/quality.md
 NFR-43,kept,,,docs/unpublished/requirements/quality.md
 FR-1185,kept,,,docs/unpublished/requirements/trst.md
 FR-1187,kept,,FR-2230,docs/unpublished/requirements/trst.md

@@ -190,7 +190,7 @@ def test_p0420_s3_architecture_dispositions_preserve_rules():
         for r in csv.DictReader((REPO / "docs/srs/uid-migration.csv").open(encoding="utf-8"))
     }
     reserved = json.loads((REPO / "docs/srs/reserved-ids.json").read_text())["reserved_ids"]
-    for uid in ("FR-928", "FR-991", "FR-1073", "FR-744", "FR-1002", "FR-1189"):
+    for uid in ("FR-928", "FR-991", "FR-1073", "FR-744", "FR-1002", "FR-1189", "FR-1155"):
         assert uid not in current, uid
         assert uid in reserved
         assert migration[uid]["destination"] == "demoted"
