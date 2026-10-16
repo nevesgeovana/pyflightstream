@@ -651,6 +651,22 @@ def _commands_dir(given: str | None) -> Path:
     return directory
 
 
+def _register_destination(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Path:
+    """Resolve the explicit write destination before opening any manual."""
+    if args.write and not args.commands_dir:
+        parser.error("--write requires --commands-dir naming the chapter directory to edit")
+    try:
+        directory = _commands_dir(args.commands_dir)
+    except ManualDraftError as error:
+        parser.error(str(error))
+    if not directory.is_dir():
+        parser.error(
+            f"--commands-dir {directory} is not a directory. Nothing has been read "
+            "and nothing has been written"
+        )
+    return directory
+
+
 def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     """Write documented rows for the commands a new edition did not change.
 
@@ -663,17 +679,7 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     # file's own stated principle and which this subcommand broke: a
     # mistyped --commands-dir was discovered only after two 400-page
     # reads, and only on a run that was about to write.
-    if args.write and not args.commands_dir:
-        parser.error("--write requires --commands-dir naming the chapter directory to edit")
-    try:
-        directory = _commands_dir(args.commands_dir)
-    except ManualDraftError as error:
-        parser.error(str(error))
-    if not directory.is_dir():
-        parser.error(
-            f"--commands-dir {directory} is not a directory. Nothing has been read "
-            "and nothing has been written"
-        )
+    directory = _register_destination(parser, args)
     try:
         editions = read_edition_manifest(args.editions)
     except (FileNotFoundError, ManualDraftError) as error:

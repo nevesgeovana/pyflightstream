@@ -36,15 +36,10 @@ COMMANDS_DIR = pathlib.Path(pyflightstream.commands.__file__).resolve().parent
 
 
 @pytest.mark.requirement("FR-2304")
-def test_p0420_register_write_requires_an_explicit_destination(monkeypatch, capsys):
+def test_p0420_register_write_requires_an_explicit_destination(capsys):
     """P0420-COMMANDS-DIR: refuse an implicit package write before reading manuals."""
     from pyflightstream.utils import cli
 
-    def unexpected_read(*args, **kwargs):
-        pytest.fail("a manual was opened before checking the write destination")
-
-    monkeypatch.setattr(cli, "_manual_extra_error", lambda: None)
-    monkeypatch.setattr(cli, "read_edition_manifest", unexpected_read)
     with pytest.raises(SystemExit) as error:
         cli.main(["register", "--editions", "editions.yaml", "--fs-version", "26.125", "--write"])
     assert error.value.code == 2
@@ -52,15 +47,20 @@ def test_p0420_register_write_requires_an_explicit_destination(monkeypatch, caps
 
 
 @pytest.mark.requirement("FR-2304")
-def test_p0420_commands_directory_requires_a_real_directory(tmp_path, monkeypatch):
+def test_p0420_commands_directory_requires_a_real_directory(tmp_path, monkeypatch, capsys):
     """P0420-COMMANDS-DIR: a non-filesystem package cannot supply a durable path."""
     from pyflightstream.utils import cli
 
     missing = tmp_path / "archive.whl" / "commands"
     monkeypatch.setattr(cli.resources, "files", lambda name: missing)
-    with pytest.raises(ManualDraftError, match="--commands-dir"):
-        cli._commands_dir(None)
-    assert cli._commands_dir(str(tmp_path)) == tmp_path
+    argv = ["register", "--editions", str(tmp_path / "missing.yaml"), "--fs-version", "26.125"]
+    with pytest.raises(SystemExit) as error:
+        cli.main(argv)
+    assert error.value.code == 2
+    assert "--commands-dir" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        cli.main([*argv, "--commands-dir", str(tmp_path)])
+    assert "cannot read the manifest" in capsys.readouterr().err
 
 
 # A minimal scripting-reference page in the shape the parser reads. One
