@@ -329,3 +329,12 @@ def test_disabled_trailing_edge_definition_does_not_read_an_unused_points_file(t
         SolverSettings(apply_trailing_edges=False),
     )
     assert conditions.trailing_edges.points_m == ()
+
+
+def test_p0420_missing_row_boundary_is_a_campaign_refusal(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows._names import _refuse_name_absent_from_inventory
+
+    case = _case(tmp_path, {})
+    with pytest.raises(CampaignConfigError, match="TYPO"):
+        _refuse_name_absent_from_inventory(case, "MOVING_BOUNDARIES", "TYPO", {"Inlet": 1})

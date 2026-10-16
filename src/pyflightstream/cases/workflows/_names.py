@@ -44,7 +44,6 @@ from pyflightstream.cases._skipped_families import (
 from pyflightstream.cases.setup_surfaces import the_model_inventory
 from pyflightstream.script import (
     Script,
-    ScriptReferenceError,
 )
 
 from ._rows import (
@@ -126,7 +125,7 @@ def _group_indices(
         return sorted(set(indices))
     declared = _declared_labels(labels)
     spelled = ", ".join(repr(member) for member in members) or "nothing, meaning every family"
-    raise ScriptReferenceError(
+    raise CampaignConfigError(
         f"case {case.sim_id!r} states {MOVING_BOUNDARIES_VARIABLE} with {token!r}, group "
         f"{token[1:]} of {_artifact_of(case)}, whose members are {spelled}, "
         f"and {_inventory_source(case)} "
@@ -193,7 +192,7 @@ def _refuse_a_pproc_the_geometry_shares_no_name_with(case: SimCase, script: Scri
                 cited.append(str(member))
     if not cited or any(_resolve_token(case, name, labels) for name in cited):
         return
-    raise ScriptReferenceError(
+    raise CampaignConfigError(
         f"case {case.sim_id!r} names {_artifact_of(case)}, whose groups cite "
         f"{', '.join(repr(name) for name in cited)}, and {_inventory_source(case)} declares "
         f"none of those names or families; it declares {_declared_labels(labels)}. Every "
@@ -260,19 +259,19 @@ def _refuse_name_absent_from_inventory(
         # The token is spelled as a GROUP, so the cause is the artifact and
         # not the geometry.
         if case.pproc is None:
-            raise ScriptReferenceError(
+            raise CampaignConfigError(
                 f"case {case.sim_id!r} states {key} with {token!r}, a group spelling, and "
                 "names no PPROC artifact, so it resolves to no group. Name the artifact "
                 "in the PPROC column, or write a boundary name of "
                 f"{_inventory_source(case)}: {_declared_labels(labels)}."
             )
-        raise ScriptReferenceError(
+        raise CampaignConfigError(
             f"case {case.sim_id!r} states {key} with {token!r}, a group spelling, and "
             f"{_artifact_of(case)} carries no group of that number; it carries "
             f"{', '.join(f'g{n}' for n in case.pproc.groups) or 'no group'}. Write one of "
             f"those, or a boundary name of {_inventory_source(case)}: {_declared_labels(labels)}."
         )
-    raise ScriptReferenceError(
+    raise CampaignConfigError(
         f"case {case.sim_id!r} states {key} with {token!r}, and {_inventory_source(case)} "
         f"declares no boundary of that name or family; it declares "
         f"{_declared_labels(labels)}. Write one of those, or a family name (the label "
@@ -291,7 +290,7 @@ def _refuse_name_without_inventory(case: SimCase, key: str, token: str) -> None:
     has to say which of the three it is.
     """
     if case.geometry is None:
-        raise ScriptReferenceError(
+        raise CampaignConfigError(
             f"case {case.sim_id!r} states {key} with {token!r}, and the case opens no "
             "geometry, so there is no boundary inventory to read the name from. Name a "
             f"geometry in the row ({GEOMETRY_VARIABLE}), or cite positions."
@@ -300,20 +299,20 @@ def _refuse_name_without_inventory(case: SimCase, key: str, token: str) -> None:
     try:
         names = boundary_names(case.geometry)
     except MeshReadError as unreadable:
-        raise ScriptReferenceError(
+        raise CampaignConfigError(
             f"case {case.sim_id!r} states {key} with {token!r}, and the boundary "
             f"inventory of {file_name} could not be read: {unreadable} No name can "
             "resolve until the file reads."
         ) from unreadable
     if not names:
-        raise ScriptReferenceError(
+        raise CampaignConfigError(
             f"case {case.sim_id!r} states {key} with {token!r}, and {file_name} carries no "
             "mesh block, so no boundary name can be read from it. A saved simulation "
             "(.fsm) carries the block; a file that does not can state its names in "
             f"{PurePath(file_name).stem}.boundaries.toml beside it (docs/mesh-inputs.md), "
             "or the row can cite positions."
         )
-    raise ScriptReferenceError(
+    raise CampaignConfigError(
         f"case {case.sim_id!r} states {key} with {token!r}, and every name in the mesh "
         f"block of {file_name} is used more than once, so none of them can select a "
         "surface. Cite positions for this file."

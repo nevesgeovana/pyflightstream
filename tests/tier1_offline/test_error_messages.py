@@ -873,12 +873,12 @@ def _rotor_row_against(geometry, cell):
 
 
 def test_a_geometry_without_a_mesh_block_is_named_rather_than_the_row(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
     from pyflightstream.cases.workflows import build_script
-    from pyflightstream.script import ScriptReferenceError
 
     placeholder = tmp_path / "placeholder.fsm"
     placeholder.write_bytes(b"fake simulation")
-    with pytest.raises(ScriptReferenceError) as caught:
+    with pytest.raises(CampaignConfigError) as caught:
         build_script(_rotor_row_against(placeholder, "Blade"), Script("26.123"))
     message = str(caught.value)
     assert "placeholder.fsm" in message and "carries no mesh block" in message
@@ -887,18 +887,18 @@ def test_a_geometry_without_a_mesh_block_is_named_rather_than_the_row(tmp_path):
     # A file that cannot be opened is reported by name and cause, not as an empty inventory.
     missing = tmp_path / "absent.fsm"
     with pytest.warns(PyflightstreamWarning, match="absent.fsm: cannot be read"):
-        with pytest.raises(ScriptReferenceError) as unreadable:
+        with pytest.raises(CampaignConfigError) as unreadable:
             build_script(_rotor_row_against(missing, "Blade"), Script("26.123"))
     assert "absent.fsm" in str(unreadable.value) and "could not be read" in str(unreadable.value)
 
 
 def test_a_label_absent_from_a_declared_inventory_names_the_inventory(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
     from pyflightstream.cases.workflows import build_script
-    from pyflightstream.script import ScriptReferenceError
     from tests.tier1_offline.test_workflows import _saved_simulation
 
     sector = _saved_simulation(tmp_path / "sector.fsm", ["Blade1", "S", "N"])
-    with pytest.raises(ScriptReferenceError) as caught:
+    with pytest.raises(CampaignConfigError) as caught:
         build_script(_rotor_row_against(sector, "Nacelle"), Script("26.123"))
     message = str(caught.value)
     assert "the mesh block of sector.fsm" in message
@@ -906,7 +906,7 @@ def test_a_label_absent_from_a_declared_inventory_names_the_inventory(tmp_path):
     with_sidecar = _rotor_row_against(sector, "Nacelle").model_copy(
         update={"inventory": ("Blade1", "S", "N")}
     )
-    with pytest.raises(ScriptReferenceError) as sidecar:
+    with pytest.raises(CampaignConfigError) as sidecar:
         build_script(with_sidecar, Script("26.123"))
     assert "the sidecar sector.boundaries.toml" in str(sidecar.value)
 

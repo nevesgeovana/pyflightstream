@@ -49,7 +49,6 @@ from pyflightstream.cases._skipped_families import names_a_row_can_cite
 from pyflightstream.cases.windows import ExportThresholdRecord, StoppedStepRecord
 from pyflightstream.script import (
     Script,
-    ScriptReferenceError,
 )
 
 from ._conventions import (
@@ -1196,9 +1195,8 @@ def _from_metres(case: SimCase, script: Script, what: str) -> float:
 
     Raises
     ------
-    ScriptReferenceError
-        The saved geometry cannot be read; the filesystem cause is retained.
     CampaignConfigError
+        The saved geometry cannot be read; the filesystem cause is retained.
         Naming ``what``: the saved simulation's unit is not one this package
         has read, or the script set a unit that names no scale (OTHER).
     """
@@ -1213,7 +1211,7 @@ def _from_metres(case: SimCase, script: Script, what: str) -> float:
             unit = saved_length_unit(geometry)
         except MeshReadError as error:
             if isinstance(error.__cause__, OSError):
-                raise ScriptReferenceError(
+                raise CampaignConfigError(
                     f"case {case.sim_id!r}: the saved geometry {str(geometry)!r} "
                     f"could not be read: {error}. Restore the file or correct its path."
                 ) from error

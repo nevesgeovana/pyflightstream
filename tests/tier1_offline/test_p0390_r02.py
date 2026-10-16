@@ -396,7 +396,7 @@ def test_without_a_study_the_two_measured_v0380_refusals_stand(tmp_path):
     plan, said = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
     assert error_of(plan, "2001").startswith(
-        "ScriptReferenceError: case '2001' states BASE_REGIONS with 'TailBase', and the mesh "
+        "CampaignConfigError: case '2001' states BASE_REGIONS with 'TailBase', and the mesh "
         "block of wb.fsm declares no boundary of that name or family; it declares 'Wing', "
         "'Body', 'Base'."
     )
@@ -511,7 +511,7 @@ def test_a_pproc_whose_only_group_is_the_tail_keeps_the_rpt044_refusal(tmp_path)
     plan, said = planned(workspace, path)
     assert status_of(plan) == {"2001": {PlanStatus.BLOCKED}, "2002": {PlanStatus.READY}}
     assert error_of(plan, "2001").startswith(
-        "ScriptReferenceError: case '2001' names the pproc artifact 'p001' "
+        "CampaignConfigError: case '2001' names the pproc artifact 'p001' "
         "(inputs/pproc/p001.toml), whose groups cite 'tail', and the mesh block of wb.fsm "
         "declares none of those names or families; it declares 'Wing', 'Body', 'Base'."
     )
