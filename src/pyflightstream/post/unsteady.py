@@ -529,6 +529,8 @@ def blade_passage_average(
         of nothing is still a number, which is exactly why it is
         refused rather than returned as a NaN.
     """
+    if series.n_frames == 0:
+        raise MalformedOutputError("the series holds no frame")
     first, last = int(window[0]), int(window[1])
     if last < first:
         raise MalformedOutputError(
@@ -589,6 +591,8 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
         divides ``period_steps``, because the passages would then hold
         their equally weighted frames at different phases.
     """
+    if series.n_frames == 0:
+        raise MalformedOutputError("the series holds no frame")
     period = int(period_steps)
     if period <= 0:
         raise MalformedOutputError(
