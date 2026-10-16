@@ -259,6 +259,32 @@ def test_p0420_p2_1a_probe_catalog_is_read_only():
         PROBE_SPECS["PRINT"] = PROBE_SPECS["PRINT"]
 
 
+@pytest.mark.parametrize(
+    "before,after,expected",
+    [
+        (150000, 90000, True),
+        (150000, 150000, False),
+        (150000, 160000, False),
+        (90000, 90000, None),
+        (None, 90000, None),
+        (150000, None, None),
+    ],
+)
+def test_p0420_p2_1a_new_simulation_needs_a_measured_change(tmp_path, before, after, expected):
+    """An already small save cannot prove NEW_SIMULATION; compare bracketed states."""
+    from tests.tier1_offline._p0340_probe_support import artifacts_in
+
+    for name, size in (("state_before.fsm", before), ("state_after.fsm", after)):
+        if size is not None:
+            (tmp_path / name).write_bytes(b"x" * size)
+    # The previous instrument used only this absolute-size artifact.
+    if after is not None:
+        (tmp_path / "after_new.fsm").write_bytes(b"x" * after)
+    spec = PROBE_SPECS["NEW_SIMULATION"]
+    assert spec.assert_effect(artifacts_in(tmp_path)) is expected
+    assert spec.save_state
+
+
 def test_probe_spec_requires_an_effect_assertion():
     with pytest.raises(ValueError, match="runs but does nothing"):
         ProbeSpec(command="STOP", build_target=lambda script, workdir: None)
