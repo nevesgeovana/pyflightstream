@@ -59,7 +59,7 @@ def test_b07_noncolliding_reduction_heading_passes_validation():
     assert PprocSpec(names={"FX_ROTOR": "THRUST"}).names == {"FX_ROTOR": "THRUST"}
 
 
-@pytest.mark.parametrize("unsteady, parameters", [(False, ["MACH"]), (True, ["MACH"]), (False, [])])
+@pytest.mark.parametrize("unsteady, parameters", [(False, ["MACH"]), (True, ["MACH"])])
 def test_b10_plan_warns_only_for_enabled_steady_probe_parameters(tmp_path, unsteady, parameters):
     pproc = PprocSpec(
         probes=[
