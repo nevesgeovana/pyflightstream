@@ -53,8 +53,7 @@ CAMPAIGN = "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml"
 
 def test_p0420_g52_profile_receipt_preparation_preserves_product_hold(tmp_path):
     from pyflightstream.cases.pproc import ProductsSpec
-    from pyflightstream.qa.probes import generate_probe_script
-    from pyflightstream.qa.profile_probe import unattended_profile_spec
+    from pyflightstream.qa.probes import generate_probe_script, unattended_profile_spec
 
     spec = unattended_profile_spec((0.25, 0.4, 0.03))
     script = generate_probe_script(spec, "26.125", tmp_path, fsm=tmp_path / "solved.fsm")
@@ -75,7 +74,7 @@ def test_p0420_g52_profile_receipt_preparation_preserves_product_hold(tmp_path):
 def test_p0420_g52_profile_effect_requires_nonempty_output(tmp_path):
     from types import SimpleNamespace
 
-    from pyflightstream.qa.profile_probe import unattended_profile_spec
+    from pyflightstream.qa.probes import unattended_profile_spec
 
     spec = unattended_profile_spec((0.25, 0.4, 0.03))
     artifacts = SimpleNamespace(workdir=tmp_path)
