@@ -1275,7 +1275,7 @@ the previous products.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{Pitfalls found by real runs (Tiers 2 and 3)}
+\begin{frame}[shrink=4]{Pitfalls found by real runs (Tiers 2 and 3)}
   \begin{itemize}
     \item \textbf{Silent exit 0.} If \code{-script} names a missing file, the solver exits with code 0 and zero outputs. Always resolve the script path absolute, and treat "no outputs" as failure (the campaign loop does).
     \item \textbf{A command line the build does not know is a hang, not an error.} Give a 25.x build the two-dash spelling and it starts, checks out its licence, receives no script and waits; windowless with the streams redirected, the Fortran runtime then opens a modal dialog nobody can answer. A clean licence checkout is not evidence that a run reached the script (RPT-023).
