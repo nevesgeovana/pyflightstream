@@ -1,0 +1,35 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.125'
+date: '2026-10-16'
+package_version: 0.41.0
+fs_exe: Flightstream_26125.exe
+fs_exe_sha256: withheld; build 10052026
+executor: kit invocation, -hidden -script (as run; mechanism FSM-26.120 pp.279-280; argument spelling RPT-023)
+solver_identity:
+- 'Simcenter Flightstream 2612, build #10052026'
+summary:
+  verified: 0
+  broken: 0
+  removed: 1
+  unprobed: 0
+commands:
+  SET_VORTICITY_LIFT_MODEL:
+    outcome: removed
+    detail: 'GOAL-033:G22. The solver refused the name as an unrecognized command at line 18 of the
+      probe script: "ERROR | Syntax | ''SET_VORTICITY_LIFT_MODEL ENABLE'' | Unrecognized command in
+      script ... at line 18 | Check command spelling and syntax." The before marker was reached and
+      the after marker, log_after and state_after were never written; the baseline control reached
+      PYFS_BASELINE_OK. GEO-105 release 0.42.0 licensed receipt namespace 3891a52dfe79a1f18685c33f342f386ec3ddbe72-a993925ac8bc46d5bc5f3af868dc8526.
+      Only the spelling SET_VORTICITY_LIFT_MODEL ENABLE was probed; no other spelling is claimed.
+      The plan keeps refusing the command for 26.125 and the command database status is not applied
+      by this report.'
+    expected: ''
+    observation: null
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: null
+      log_errors: []
+    wall_time_s: 1.16
+    return_code: 0
+    script_sha256: af77a43d0889bb77cf6de2b1828b0d63654ee224ade5c7dd22a8388153d65628
