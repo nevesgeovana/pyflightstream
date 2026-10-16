@@ -288,7 +288,7 @@ def test_g12_an_additional_pproc_the_library_lacks_is_refused_at_plan_naming_the
 def test_g12_an_additional_pproc_with_probes_is_refused_naming_rpt062(tmp_path):
     """A probe updated or created after reopening is not the run's (RPT-062)."""
     probes = (
-        SECTIONS_TOML + '\n[[probes]]\nframe = "MRP"\n'
+        SECTIONS_TOML + '\n[[probes]]\nframe = "MRP"\nparameters = ["VX"]\n'
         "[[probes.lines]]\nstart = [0.0, 0.0, 0.0]\nend = [1.0, 0.0, 0.0]\n"
     )
     workspace, matrix = a_campaign(tmp_path, additional=probes)
