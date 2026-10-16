@@ -6648,6 +6648,14 @@ _FR314_COUNTER_EVERYWHERE__GOLDENS_0320 = (
     Path(__file__).parent / "fixtures" / "goldens_v0320_sha256.json"
 )
 
+# PFS-2119.024: exact reviewed tier-3 payload changes, including the
+# historical transforms below. An additional changed byte has no allowance.
+_P0420_GOLDEN_DIGESTS = json.loads(
+    (Path(__file__).parent / "fixtures" / "golden_datum_0420_sha256.json").read_text(
+        encoding="utf-8"
+    )
+)
+
 
 _FR314_COUNTER_EVERYWHERE__REPO = Path(__file__).resolve().parents[2]
 
@@ -6690,7 +6698,21 @@ def _fr314_counter_everywhere___sha(text: str) -> str:
     # Keep the recorded tag digest intact, admitting only these exact bytes.
     if digest == "2d2d375b913177226b6d1cf4c536cf592f77b661e1a20575bb54bf0b037f483d":
         return "b2326e835eb707bbf4fac84f0e64a0232d8a7f2d77a9e61ed33d3eb3dbdb50f5"
-    return digest
+    return _P0420_GOLDEN_DIGESTS["digests"].get(digest, digest)
+
+
+def test_p0420_datum_golden_admissions_reject_an_unrelated_command():
+    """PFS-2119.024: exact datum updates never admit a second script change."""
+    import hashlib
+
+    assert len(_P0420_GOLDEN_DIGESTS["paths"]) == 28
+    for name in _P0420_GOLDEN_DIGESTS["paths"]:
+        text = "\n".join((_FR314_COUNTER_EVERYWHERE__REPO / name).read_text().splitlines())
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        previous = _P0420_GOLDEN_DIGESTS["digests"][digest]
+        assert _fr314_counter_everywhere___sha(text) == previous
+        planted = text + "\nSTART_SOLVER"
+        assert _fr314_counter_everywhere___sha(planted) != previous, name
 
 
 def test_public_manual_id_digest_equivalence_accepts_only_the_pinned_refusal():
