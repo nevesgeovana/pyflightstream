@@ -30,6 +30,33 @@ from pyflightstream.versions import known_versions
 GOLDENS = Path(__file__).parent / "goldens"
 
 
+@pytest.mark.parametrize("version", ["26.124", "26.125"])
+def test_p0420_p2_1a_minimum_cp_can_follow_initialization(version):
+    """Existing init-phase placement permits the measured late-before-start setting."""
+    script = Script(version)
+    script.emit("SOLVER_MINIMUM_CP", -20)
+    helpers.initialize_solver(script)
+    script.emit("SOLVER_MINIMUM_CP", 0)
+    script.emit("START_SOLVER")
+    lines = script.render().splitlines()
+    assert lines.index("INITIALIZE_SOLVER") < lines.index("SOLVER_MINIMUM_CP 0")
+    assert lines.index("SOLVER_MINIMUM_CP 0") < lines.index("START_SOLVER")
+
+
+@pytest.mark.parametrize("version", ["26.124", "26.125"])
+def test_p0420_p2_1a_aeroelastic_refuses_index_one_not_count_one(version):
+    """Measured builds accept one local frame and refuse the reference index."""
+    script = Script(version)
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    script.emit("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS", 1, [2])
+    script.emit("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS", 2, [2, 3])
+    before = script.render()
+    with pytest.raises(CommandArgumentError, match="reference frame"):
+        script.emit("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS", 2, [1, 2])
+    assert script.render() == before
+
+
 def test_p0420_interactive_profile_is_refused_without_relabelling_the_build():
     """P0420-P1-1b, FR-48: RPT-027's modal export cannot enter a validated batch."""
     script = Script("26.122")

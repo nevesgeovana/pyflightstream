@@ -725,7 +725,13 @@ class TestFarfieldSpec:
         """P0400-FFTABLE and FR-1072: ``[[probes]] lattices`` takes the ledgers' geometry keys."""
         spec = _farfield_spec___pproc(
             None,
-            probes=[{"frame": "REFERENCE", "lattices": [{"rotor": "ROTOR", "n_psi": 24}]}],
+            probes=[
+                {
+                    "frame": "REFERENCE",
+                    "parameters": ["VX"],
+                    "lattices": [{"rotor": "ROTOR", "n_psi": 24}],
+                }
+            ],
         )
         (shape,) = spec.probes[0].lattices
         assert isinstance(shape, LatticeShape) and shape.build(1.0).n_psi == 24

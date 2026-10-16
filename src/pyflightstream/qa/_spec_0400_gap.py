@@ -39,7 +39,7 @@ Size exemption: one declarative battery of 103 probe entries, each a question wi
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from pyflightstream.fsi.state import LOADS_FILE
@@ -157,7 +157,7 @@ from pyflightstream.qa._spec_ccs_noise import (
     _mesh_read,
     _wing_loft,
 )
-from pyflightstream.qa._spec_kit import PROBE_SPECS, _emit, _seq
+from pyflightstream.qa._spec_kit import PROBE_SPECS, _emit, _seq, _spec
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeSpec, Requires, fsm_changed
 from pyflightstream.script import Script
@@ -1894,7 +1894,7 @@ def _register() -> None:
                 f"gap probe {probe.probe_id} would replace the catalog's probe of "
                 f"{probe.spec.command}; a command keeps one registered probe"
             )
-        PROBE_SPECS[probe.spec.command] = probe.spec
+        _spec(**asdict(probe.spec))
 
 
 _register()

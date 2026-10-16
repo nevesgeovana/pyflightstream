@@ -1134,6 +1134,11 @@ class ProbesSpec(_LocatedSpec):
     vertices across lines in input order. ``scale`` specifies metres or rotor radii.
     ``propeller_radius`` is refused with the replacement ``rotor_radius``.
 
+    An entry drawing or citing points must state nonempty ``parameters``;
+    otherwise loading refuses it. ``field_formats`` and ``reusable_inflow``
+    supply VX, VY and VZ automatically. On steady and normal entries the
+    parameters enable the fixed native probe export rather than filtering it.
+
     Attributes
     ----------
     frame : str
@@ -1271,6 +1276,12 @@ class ProbesSpec(_LocatedSpec):
             raise ValueError(
                 "`resolved_points_file` is set by the package when a row binds and is "
                 "never written in a pproc file; cite the survey with `points_file`."
+            )
+        if (drawn or self.points_file) and not self.parameters:
+            raise ValueError(
+                "a probe entry drawing or citing points requires nonempty parameters; "
+                "state the variables to sample, or request field_formats or reusable_inflow "
+                "to sample VX, VY and VZ"
             )
         return self
 

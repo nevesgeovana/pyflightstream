@@ -260,13 +260,15 @@ def apply_geometry_gate(
         If the grid asks for refinement, or a positive standoff is
         requested, without a mesh: both are measured from the
         surface, so they cannot exist without one. Also if the
-        standoff is negative, if ``cull`` is set without a mesh, or if
+        standoff is negative or non-finite, if ``cull`` is set without a mesh, or if
         both ``mesh`` and ``mesh_path`` are given. It is a
         ``ValueError``.
     OpenMeshError
         If ``cull`` is set and the mesh is not watertight, whether it
         came as ``mesh`` or through ``mesh_path``.
     """
+    if not np.isfinite(standoff):
+        raise ProbeGeometryError(f"standoff is {standoff!r}; use a finite nonnegative wall margin")
     resolved_path = str(mesh_path) if mesh_path is not None else None
     mesh = _gate_mesh(mesh, mesh_path, cull=cull)
     if grid.refinement is not None and mesh is None:

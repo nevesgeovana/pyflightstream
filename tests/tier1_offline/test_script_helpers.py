@@ -18,6 +18,21 @@ from pyflightstream.script.toggles import SOLVER_TOGGLE_WORDS, resolve_toggle
 GOLDENS = Path(__file__).parent / "goldens"
 
 
+def test_p0420_p2_1a_public_probe_helpers_record_every_point():
+    """Public point and line helpers share creation-order reference coordinates."""
+    script = Script("26.120")
+    helpers.probe_points(script, [(1.0, 2.0, 3.0)], kind="SURFACE")
+    helpers.probe_line(script, points=3, start=(0.0, 0.0, 0.0), end=(2.0, 4.0, 6.0))
+    helpers.probe_points(script, [(7.0, 8.0, 9.0)])
+    assert script.probe_points == [
+        (1, 1.0, 2.0, 3.0, "REFERENCE"),
+        (2, 0.0, 0.0, 0.0, "REFERENCE"),
+        (3, 1.0, 2.0, 3.0, "REFERENCE"),
+        (4, 2.0, 4.0, 6.0, "REFERENCE"),
+        (5, 7.0, 8.0, 9.0, "REFERENCE"),
+    ]
+
+
 def build_actuator_polar(script: Script) -> None:
     script.comment("Golden: actuator disc polar through the curated helpers, FlightStream 26.120")
     script.emit("OPEN", "C:/cases/prop_wing.fsm")

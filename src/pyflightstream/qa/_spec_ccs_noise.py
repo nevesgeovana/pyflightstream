@@ -349,7 +349,7 @@ _spec(
 _spec(
     command="CAD_CREATE_INITIALIZE",
     build_target=_ccs_initialize,
-    epilogue=_seq(_ccs_import(1), _ccs_select, _wing_loft("PYFS_WING"), _saveas),
+    epilogue=_seq(_ccs_import(1), _ccs_select, _ccs_assign(1), _wing_loft("PYFS_WING"), _saveas),
     assert_effect=_name_in_saved("PYFS_WING", strict=False),
     effect_note=(
         "the loft that follows the initialization names its wing in the saved simulation; "
@@ -360,7 +360,7 @@ _spec(
     command="CAD_CREATE_IMPORT_CURVE_CCS",
     build_target=_ccs_import(1),
     prelude=_ccs_initialize,
-    epilogue=_seq(_ccs_select, _wing_loft("PYFS_WING"), _saveas),
+    epilogue=_seq(_ccs_select, _ccs_assign(1), _wing_loft("PYFS_WING"), _saveas),
     assert_effect=_name_in_saved("PYFS_WING", strict=False),
     effect_note=(
         "the loft that consumes the imported curves names its wing in the saved simulation"
@@ -370,7 +370,7 @@ _spec(
     command="CAD_CREATE_CURVE_SELECT",
     build_target=_ccs_select,
     prelude=_seq(_ccs_initialize, _ccs_import(1)),
-    epilogue=_seq(_wing_loft("PYFS_WING"), _saveas),
+    epilogue=_seq(_ccs_assign(1), _wing_loft("PYFS_WING"), _saveas),
     assert_effect=_name_in_saved("PYFS_WING", strict=False),
     effect_note=(
         "the loft that consumes the selected curves names its wing in the saved simulation"
@@ -404,6 +404,7 @@ _spec(
 #: A second loft of the same curve, with the target between the two lofts.
 _SECOND_WING_LOFT = _seq(
     _ccs_select,
+    _ccs_assign(1),
     _wing_loft("PYFS_VARIANT"),
     _export_obj(1, "reference.obj"),
     _export_obj(2, "variant.obj"),
@@ -904,7 +905,10 @@ def _no_observer_left(artifacts: ProbeArtifacts) -> bool | None:
     names = {name for name, _ in blocks}
     if names & {"PYFS_OBS1", "PYFS_OBS2"}:
         return False
-    return True if _CONTROL_OBSERVER in names else None
+    has_control_samples = any(
+        name == _CONTROL_OBSERVER and any(len(row) >= 2 for row in data) for name, data in blocks
+    )
+    return True if has_control_samples else None
 
 
 _spec(

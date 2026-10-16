@@ -1,8 +1,7 @@
 """FR-153 (0.34.0): build 8242026 of 26.124 writes fields as build 8172026 does, no warning.
 
-The registration is by decision of 2026-10-01, not by measurement (RPT-136).
-Each test names the marker P0340-FR153-8242026 and the requirement FR-153 in its
-own source; the rows it reads say "not measured" in their evidence.
+The owner identified 8242026 as the Linux build of the same 26.124 build
+8172026 on 2026-10-15. Registration cites that identity and RPT-083 measurements.
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ from tests.tier1_offline.test_probe_fields import _fr153_field_build_warning___p
 from tests.tier1_offline.test_probe_fields import _fr153_field_build_warning___rotating as _rotating
 
 REGISTERED = "8242026"
-DECISION = "decision of 2026-10-01, not measured"
+SAME_BUILD = "Linux build of 8172026; owner identity statement 2026-10-15"
 
 
 @pytest.mark.parametrize("unit", ["METER", "MILLIMETER"])
@@ -37,8 +36,8 @@ def test_p0340_fr153_8242026_fluid_plot_writes_with_no_warning(tmp_path, unit):
 
 @pytest.mark.parametrize("unit", ["METER", "MILLIMETER"])
 @pytest.mark.parametrize("kind", ["unsteady-fluid-plot", "steady-probe"])
-def test_p0340_fr153_8242026_proof_is_proven_and_says_not_measured(kind, unit):
-    """P0340-FR153-8242026 FR-153: the proof is proven, equal in scale, and marked as a decision."""
+def test_p0420_p2_1a_8242026_proof_cites_same_build_measurement(kind, unit):
+    """P0340-FR153-8242026 FR-153: equal scale cites the same-build measurement."""
     args = {"solver_version": "26.124", "length_unit": unit}
     registered = native_velocity_proof(
         args,
@@ -53,8 +52,8 @@ def test_p0340_fr153_8242026_proof_is_proven_and_says_not_measured(kind, unit):
     assert "proven" not in registered and "measured_on_build" not in registered
     assert registered["velocity_to_m_s"] == measured["velocity_to_m_s"]
     assert registered["fs_build"] == REGISTERED
-    assert registered["evidence"]["basis"] == DECISION
-    assert registered["evidence"]["receipt"] == "RPT-136"
+    assert registered["evidence"]["basis"] == SAME_BUILD
+    assert registered["evidence"]["receipt"] == "RPT-083"
     assert ("26.124", REGISTERED, kind, unit) in VELOCITY_EVIDENCE
 
 
@@ -67,8 +66,8 @@ def test_p0340_fr153_8242026_rotating_frame_writes_with_no_warning(tmp_path):
 
 
 @pytest.mark.parametrize("unit", ["METER", "MILLIMETER"])
-def test_p0340_fr153_8242026_rotation_timing_is_the_measured_sense_and_says_not_measured(unit):
-    """P0340-FR153-8242026 FR-153: timing of 8242026 equals 8172026's and is marked a decision."""
+def test_p0420_p2_1a_8242026_rotation_timing_cites_same_build_measurement(unit):
+    """P0340-FR153-8242026 FR-153: timing agrees through the Linux build identity."""
     _, motion = _rotating()
     motion = {**motion, "length_unit": unit}
     resolved = {}
@@ -81,5 +80,5 @@ def test_p0340_fr153_8242026_rotation_timing_is_the_measured_sense_and_says_not_
     assert registered["fs_build"] == REGISTERED
     assert registered["signed_rpm_factor"] == resolved[MEASURED]["signed_rpm_factor"]
     assert registered["step_time_origin"] == resolved[MEASURED]["step_time_origin"]
-    assert registered["evidence"]["kind"] == DECISION
-    assert _ROTARY_PROOFS[("26.124", unit, REGISTERED)]["evidence"]["receipt"] == "RPT-136"
+    assert registered["evidence"]["kind"] == SAME_BUILD
+    assert _ROTARY_PROOFS[("26.124", unit, REGISTERED)]["evidence"]["receipt"] == "RPT-083"

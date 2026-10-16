@@ -85,6 +85,31 @@ def write_chapter_fixture(commands_dir):
     (commands_dir / "_meta.yaml").write_text(META_FIXTURE, encoding="utf-8")
 
 
+def test_p0420_p2_1a_judgments_expose_closed_outcomes(tmp_path):
+    """A report and a direct Judgment expose the same enum, refusing unknown outcomes."""
+    from pyflightstream.qa.compat import Judgment, read_compat_reports
+
+    fields = dict(command="PRINT", fs_version="26.120", date="2026-10-16", report="x.yaml")
+    assert Judgment(**fields, outcome="verified").outcome is ProbeOutcome.VERIFIED
+    with pytest.raises(QaEvidenceError, match="outcome"):
+        Judgment(**fields, outcome="maybe")
+    report = tmp_path / "report.yaml"
+    report.write_text(
+        yaml.safe_dump(
+            {
+                "schema": COMPAT_SCHEMA,
+                "fs_version": "26.120",
+                "commands": {"PRINT": {"outcome": "verified"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        read_compat_reports(tmp_path, repo_root=tmp_path)[("PRINT", "26.120")][0].outcome
+        is ProbeOutcome.VERIFIED
+    )
+
+
 def make_run():
     return ProbeRun(
         version="26.120",

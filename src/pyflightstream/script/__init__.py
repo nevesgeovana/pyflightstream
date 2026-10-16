@@ -548,7 +548,7 @@ class Script:
             self._command_observers.remove(observer)
 
     def _init_probe_and_surface_records(self) -> None:
-        """Create the empty probe and surface records the workflows fill."""
+        """Create the empty probe and surface records helpers and workflows fill."""
         #: WHERE THIS SCRIPT PUT EACH PROBE POINT (FR-91), one entry per
         #: point in creation order: the vertex number, its x, y and z as
         #: emitted, and the NAME of the frame they are measured in.
@@ -559,11 +559,11 @@ class Script:
         #: other way to make: the export writes the numbers and never the
         #: positions.
         #:
-        #: Filled by the loop that EMITS the point, so the coordinates
-        #: recorded cannot drift from the coordinates emitted. Empty for a
-        #: script whose row declares no probes, and empty for one whose
-        #: entry cites a user's points file, since the package does not
-        #: parse a survey the user wrote.
+        #: Filled when each helper or workflow emits a point. The registry
+        #: is empty until a helper or workflow places points. Public
+        #: ``probe_points`` and ``probe_line`` helpers record reference-frame
+        #: coordinates; workflows retain their declared coordinate frame.
+        #: Raw emission and ``probes_from_file`` do not reconstruct points.
         self.probe_points: list[tuple[int, float, float, float, str]] = []
         #: Exact sample IDs, field requests and native-to-SI conversion per entry.
         self.probe_field_layout: list[dict[str, object]] = []

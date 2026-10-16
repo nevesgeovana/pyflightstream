@@ -263,6 +263,35 @@ def test_the_wake_edge_import_writes_edge_type_one_on_26125_and_the_unit_on_2612
 
 
 @pytest.mark.requirement("FR-423")
+@pytest.mark.parametrize(
+    "command",
+    [
+        "CAD_CREATE_INITIALIZE",
+        "CAD_CREATE_IMPORT_CURVE_CCS",
+        "CAD_CREATE_CURVE_SELECT",
+        "CCS_WING_MESH_SUBDIVISIONS",
+        "SET_CCS_TE_BLEND_LENGTH",
+    ],
+)
+def test_p0420_p2_1a_ccs_probe_assigns_each_selected_loft(command, tmp_path):
+    """Every 26.125 loft follows a fresh curve assignment in the generated probe."""
+    from pyflightstream.qa.probes import generate_probe_script
+    from pyflightstream.qa.specs import PROBE_SPECS
+
+    lines = generate_probe_script(PROBE_SPECS[command], "26.125", tmp_path).render().splitlines()
+    assigned = False
+    lofts = 0
+    for line in lines:
+        if line.startswith("CAD_CREATE_CURVE_SELECT"):
+            assigned = False
+        if line == "ASSIGN_SELECTED_CURVES_TO_CCS_WING":
+            assigned = True
+        if line.startswith("CAD_CREATE_WING_MESH_FROM_CCS"):
+            assert assigned, command
+            lofts += 1
+    assert lofts > 0
+
+
 def test_the_ccs_curve_assignment_is_written_where_the_build_carries_it():
     """P0370-S10-CCS-ASSIGN (FR-423): one line per component on 26.125, none on 26.124."""
     for kind, command in (
@@ -368,8 +397,7 @@ def test_every_probe_specification_builds_its_script_on_26125(tmp_path):
         text = generate_probe_script(spec, "26.125", workdir, fsm=fsm).render()
         assert "AUTO_DETECT" not in text, name
         built += 1
-    # 230 since 0.40.0: the 55 primary probes of the command gaps (PFS-2081.13 to .17); 227
-    # since the second round (RPT-166) measured three of them REMOVED on 26.125, which leaves
-    # them out of the build's view: the FSI executable and structural-nodes motion commands and
-    # the off-body streamline length.
-    assert built == 227
+    # RPT-166 leaves three removed names outside this build's view. The
+    # SET_VORTICITY_LIFT_MODEL name probe adds one documented spelling without
+    # claiming a measured effect or restoring any removed command.
+    assert built == 228

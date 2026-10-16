@@ -29,6 +29,19 @@ REPORTS_DIR = REPO_ROOT / "reports"
 COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
 
 
+def test_p0420_p2_1a_separation_refusal_is_scoped_to_measured_build():
+    """26.120 has direct refusal evidence, not an inherited February-build row."""
+    data = yaml.safe_load((COMMANDS_DIR / "solver_settings.yaml").read_text(encoding="utf-8"))
+    versions = data["DELETE_VALAREZO_CRITERION_BOUNDARIES"]["versions"]
+    assert "26.120" in versions
+    assert versions["26.120"]["status"] == "removed"
+    report = yaml.safe_load((REPO_ROOT / versions["26.120"]["report"]).read_text(encoding="utf-8"))
+    assert report["fs_version"] == "26.120"
+    bulk = report["commands"]["CREATE_BULK_SEPARATION"]
+    assert bulk["outcome"] == "broken" and bulk["return_code"] == 0
+    assert "CYLINDRICAL -1 0.5" in bulk["detail"]
+
+
 def test_p0420_inline_optional_cannot_precede_required():
     with pytest.raises(ValidationError, match="optional"):
         CommandEntry(

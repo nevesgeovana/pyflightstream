@@ -353,7 +353,7 @@ class Judgment:
         Database command name.
     fs_version : str
         Canonical FlightStream identifier the report probed.
-    outcome : str
+    outcome : ProbeOutcome
         One of :data:`PROMOTABLE_OUTCOMES`: ``verified``, ``broken`` or
         ``removed``.
     date : str
@@ -370,6 +370,15 @@ class Judgment:
     outcome: ProbeOutcome
     date: str
     report: str
+
+    def __post_init__(self) -> None:
+        """Normalize accepted strings to the public outcome vocabulary."""
+        try:
+            object.__setattr__(self, "outcome", ProbeOutcome(self.outcome))
+        except ValueError as error:
+            raise QaEvidenceError(
+                f"judgment outcome {self.outcome!r} is unknown; use a ProbeOutcome value"
+            ) from error
 
 
 def read_compat_reports(
@@ -458,7 +467,7 @@ def read_compat_reports(
                     Judgment(
                         command=command,
                         fs_version=version,
-                        outcome=outcome,
+                        outcome=ProbeOutcome(outcome),
                         date=date,
                         report=citation,
                     )

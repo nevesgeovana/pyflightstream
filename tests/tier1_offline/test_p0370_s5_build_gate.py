@@ -48,6 +48,8 @@ def test_normal_probes_refuse_an_unmeasured_version(recipe, version):
                 "probes": [
                     {
                         "kind": "normal",
+                        "parameters": ["VX"],
+                        "frame": "REFERENCE",
                         "points": 2,
                         "lines": [{"start": [0, 0, 0], "end": [1, 0, 0]}],
                     }

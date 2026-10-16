@@ -266,3 +266,10 @@ SET_VORTICITY_LIFT_MODEL:
 
     Compare KUTTA_JOUKOWSKI_LIFT_FORCES, which is a third route to the
     same quantity. No edition says what happens if both are enabled.
+
+    A 2026-10-16 reread of FSM-26.125 p.365 and its script index
+    still finds this spelling, with ENABLE/DISABLE; no replacement
+    name is identified by the vorticity/lift search. The catalog's
+    name probe retains saved states and reports an unobservable effect
+    on continuation. A licensed 26.125 run and, if refused, a vendor
+    question remain required by GOAL-033:G22.

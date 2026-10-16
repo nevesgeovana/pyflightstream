@@ -1441,6 +1441,9 @@ def probe_points(
     """
     for x, y, z in points:
         script.emit("NEW_PROBE_POINT", kind, x, y, z)
+        script.probe_points.append(
+            (len(script.probe_points) + 1, float(x), float(y), float(z), "REFERENCE")
+        )
 
 
 def probe_line(
@@ -1462,6 +1465,10 @@ def probe_line(
         Line ends in the reference frame, simulation length units.
     """
     script.emit("NEW_PROBE_LINE", points, *start, *end)
+    for index in range(points):
+        fraction = index / max(1, points - 1)
+        x, y, z = (float(a + (b - a) * fraction) for a, b in zip(start, end, strict=True))
+        script.probe_points.append((len(script.probe_points) + 1, x, y, z, "REFERENCE"))
 
 
 def probes_from_file(script: Script, path: str, *, units: str, frame: int | str = 1) -> None:

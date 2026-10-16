@@ -26,6 +26,45 @@ from tests.tier1_offline._no_evidence import registry_without_version
 PILOT = ["PRINT", "STOP", "RUN_SCRIPT"]
 
 
+def test_p0420_p2_1a_observer_header_without_samples_is_no_control(tmp_path):
+    """A control name alone is not a nonempty observer signal."""
+    from types import SimpleNamespace
+
+    from pyflightstream.qa._spec_ccs_noise import _SIGNALS
+
+    (tmp_path / _SIGNALS).write_text("Observer: PYFS_CTRL\n", encoding="utf-8")
+    assert (
+        PROBE_SPECS["DELETE_ALL_ACOUSTIC_OBSERVERS"].assert_effect(
+            SimpleNamespace(workdir=tmp_path)
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("name", ["vsection.vtk", "vsection_2.vtk"])
+def test_p0420_p2_1a_empty_section_control_proves_no_deletion(tmp_path, name):
+    """A surviving section must contain exported data, not just an empty file."""
+    from types import SimpleNamespace
+
+    (tmp_path / name).write_bytes(b"")
+    assert (
+        PROBE_SPECS["DELETE_VOLUME_SECTION"].assert_effect(SimpleNamespace(workdir=tmp_path))
+        is None
+    )
+
+
+def test_p0420_p2_1a_vorticity_lift_name_probe_keeps_effect_unprobed(tmp_path):
+    """The documented 26.125 spelling is probeable without guessing its effect."""
+    assert "SET_VORTICITY_LIFT_MODEL" in PROBE_SPECS
+    spec = PROBE_SPECS["SET_VORTICITY_LIFT_MODEL"]
+    from pyflightstream.script import Script
+
+    script = Script("26.125")
+    spec.build_target(script, tmp_path)
+    assert "SET_VORTICITY_LIFT_MODEL ENABLE" in script.render()
+    assert spec.assert_effect(None) is None
+
+
 def test_p0420_direct_unprobed_hotfix_does_not_inherit_verified():
     """P0420-P1-1b, FR-03: 26.122's own inconclusive run is not a verified run."""
     from pyflightstream.commands import CommandRegistry, Status
@@ -237,6 +276,164 @@ def test_generated_script_wraps_target_between_sentinels(tmp_path):
     assert begin < target < end
     assert "EXPORT_LOG" in lines[begin:target] and "EXPORT_LOG" in lines[end:]
     assert lines[-1] == "CLOSE_FLIGHTSTREAM" or lines[-2] == "CLOSE_FLIGHTSTREAM"
+
+
+def test_p0420_p2_1a_duplicate_probe_registration_is_refused():
+    """Registering PRINT twice must preserve the first command-effect specification."""
+    import os
+    import subprocess
+    import sys
+
+    code = """
+import importlib
+from pyflightstream.qa import specs
+from pyflightstream.qa.errors import QaEvidenceError
+original = specs.PROBE_SPECS['PRINT']
+try:
+    importlib.reload(specs)
+except QaEvidenceError as error:
+    assert 'PRINT' in str(error) and 'already' in str(error)
+else:
+    raise AssertionError('duplicate catalog import replaced registered probes')
+assert specs.PROBE_SPECS['PRINT'] is original
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, env=dict(os.environ)
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_p0420_p2_1a_probe_catalog_is_read_only():
+    """The published catalog refuses replacement of a registered probe."""
+    from types import MappingProxyType
+
+    assert isinstance(PROBE_SPECS, MappingProxyType)
+    with pytest.raises(TypeError):
+        PROBE_SPECS["PRINT"] = PROBE_SPECS["PRINT"]
+
+
+@pytest.mark.parametrize(
+    "before,after,expected",
+    [
+        (150000, 90000, True),
+        (150000, 150000, False),
+        (150000, 160000, False),
+        (90000, 90000, None),
+        (None, 90000, None),
+        (150000, None, None),
+    ],
+)
+def test_p0420_p2_1a_new_simulation_needs_a_measured_change(tmp_path, before, after, expected):
+    """An already small save cannot prove NEW_SIMULATION; compare bracketed states."""
+    from tests.tier1_offline._p0340_probe_support import artifacts_in
+
+    for name, size in (("state_before.fsm", before), ("state_after.fsm", after)):
+        if size is not None:
+            (tmp_path / name).write_bytes(b"x" * size)
+    # The previous instrument used only this absolute-size artifact.
+    if after is not None:
+        (tmp_path / "after_new.fsm").write_bytes(b"x" * after)
+    spec = PROBE_SPECS["NEW_SIMULATION"]
+    assert spec.assert_effect(artifacts_in(tmp_path)) is expected
+    assert spec.save_state
+
+
+@pytest.mark.parametrize("tier", [False, True])
+def test_p0420_p2_1a_broken_support_does_not_abort_campaign(tmp_path, tier):
+    """A broken support command leaves its target unjudged and other probes runnable."""
+    from pyflightstream.commands import CommandRegistry, VersionStatus
+    from pyflightstream.script import BrokenCommandError
+
+    def refuses(*args, **kwargs):
+        raise BrokenCommandError("BROKEN_SUPPORT is broken; choose a supported build")
+
+    fsm = tmp_path / "model.fsm"
+    fsm.write_text("offline", encoding="utf-8")
+    spec = ProbeSpec(
+        command="RUN_SCRIPT",
+        build_target=refuses,
+        assert_effect=lambda a: True,
+        requires=Requires.SIM if tier else Requires.NONE,
+    )
+    commands = dict(CommandRegistry.load().commands)
+    if tier:
+        commands["OPEN"] = commands["OPEN"].model_copy(
+            update={"versions": {"26.120": VersionStatus(status="broken", report="offline.yaml")}}
+        )
+    result = probe_version(
+        "26.120",
+        workroot=tmp_path / "run",
+        executor=FakeFlightStream(),
+        commands=["PRINT", "RUN_SCRIPT"],
+        specs={"PRINT": PROBE_SPECS["PRINT"], "RUN_SCRIPT": spec},
+        fsm=fsm,
+        registry=CommandRegistry(commands),
+    )
+    by_name = {r.command: r for r in result.results}
+    assert by_name["PRINT"].outcome is ProbeOutcome.VERIFIED
+    assert by_name["RUN_SCRIPT"].outcome is ProbeOutcome.UNPROBED
+    assert ("OPEN" if tier else "BROKEN_SUPPORT") in by_name["RUN_SCRIPT"].detail
+
+
+@pytest.mark.parametrize("baseline", [False, True])
+def test_p0420_p2_1a_licence_refusal_is_unprobed(tmp_path, baseline):
+    """Refusal text is inferred from the checkout format, not observed.
+
+    The fixture is the measured L0 log with EDU Success! changed to Not available.;
+    NULs are removed and the local script path is scrubbed. No refusal was provoked.
+    """
+    text = (Path(__file__).parent / "fixtures/p0420/licence-inferred.txt").read_text(
+        encoding="utf-8"
+    )
+
+    class Checkout(FakeFlightStream):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            if baseline or Path(working_dir).name == "PRINT":
+                return ExecutionResult(
+                    return_code=0,
+                    wall_time_s=0.01,
+                    timed_out=False,
+                    log_text=text,
+                    stdout="",
+                    stderr="",
+                )
+            return super().run_script(script_path, working_dir, timeout_s)
+
+    try:
+        run = probe_version("26.124", workroot=tmp_path, executor=Checkout(), commands=["PRINT"])
+    except ProbeEnvironmentError as error:
+        pytest.fail(f"licence refusal must produce an unprobed result: {error}")
+    result = next(r for r in run.results if r.command == "PRINT")
+    assert result.outcome is ProbeOutcome.UNPROBED
+    assert result.detail.startswith("licence-denied")
+
+
+@pytest.mark.parametrize(
+    "checkout,expected",
+    [
+        ("Checking out Altair units...Not available.", True),
+        ("Attempting EDU feature checkout...Success!", False),
+        ("Error loading input file", False),
+        (
+            "Checking out Altair units...Not available.\n"
+            "Attempting EDU feature checkout...Success!",
+            False,
+        ),
+        ("PYFS_PROBE_BEGIN_PRINT\nChecking out Altair units...Not available.", False),
+    ],
+)
+def test_p0420_p2_1a_checkout_controls_keep_other_failure_classes(tmp_path, checkout, expected):
+    """Successful fallback and non-checkout failures do not become licence denial."""
+    from dataclasses import replace
+
+    class Checkout(FakeFlightStream):
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            result = super().run_script(script_path, working_dir, timeout_s)
+            return replace(result, stdout=checkout) if Path(working_dir).name == "PRINT" else result
+
+    run = probe_version("26.124", workroot=tmp_path, executor=Checkout(), commands=["PRINT"])
+    result = next(r for r in run.results if r.command == "PRINT")
+    assert result.detail.startswith("licence-denied") is expected
 
 
 def test_probe_spec_requires_an_effect_assertion():

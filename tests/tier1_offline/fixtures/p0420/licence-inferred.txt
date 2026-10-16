@@ -1,0 +1,17 @@
+--------------------------------------------------------------------------------------
+
+FlightStream version 26.1, build #8172026
+
+Software copyrights: Altair, 2024-2026.
+
+--------------------------------------------------------------------------------------
+
+Checking out Altair units...Not available.
+
+Attempting EDU feature checkout...Not available.
+
+Running script file: <probe folder>/probe.txt
+
+
+
+PYFS_LICENCE_PROBE_REACHED

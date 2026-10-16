@@ -12,8 +12,10 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
+from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import (
     ProbeArtifacts,
     ProbeSpec,
@@ -200,9 +202,14 @@ def _named_frame(name: str) -> Callable[[Script, Path], None]:
     return build
 
 
-PROBE_SPECS: dict[str, ProbeSpec] = {}
+_PROBE_SPECS: dict[str, ProbeSpec] = {}
+PROBE_SPECS = MappingProxyType(_PROBE_SPECS)
 
 
 def _spec(**kwargs: Any) -> None:
     spec = ProbeSpec(**kwargs)
-    PROBE_SPECS[spec.command] = spec
+    if spec.command in _PROBE_SPECS:
+        raise QaEvidenceError(
+            f"probe {spec.command} is already registered; keep one specification per command"
+        )
+    _PROBE_SPECS[spec.command] = spec

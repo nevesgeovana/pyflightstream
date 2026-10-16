@@ -120,10 +120,13 @@ def _open_reopen_target(script: Script, workdir: Path) -> None:
 
 
 def _new_sim_effect(artifacts: ProbeArtifacts) -> bool | None:
-    saved = artifacts.workdir / "after_new.fsm"
-    if not saved.is_file():
+    before = artifacts.workdir / "state_before.fsm"
+    after = artifacts.workdir / "state_after.fsm"
+    if not before.is_file() or not after.is_file():
         return None
-    return saved.stat().st_size < 100_000
+    if before.stat().st_size < 100_000:
+        return None
+    return 0 < after.stat().st_size < before.stat().st_size
 
 
 _spec(
@@ -145,11 +148,11 @@ _spec(
     command="NEW_SIMULATION",
     build_target=_emit("NEW_SIMULATION"),
     requires=Requires.SIM,
-    epilogue=lambda script, workdir: script.emit("SAVEAS", workdir / "after_new.fsm"),
+    save_state=True,
     assert_effect=_new_sim_effect,
     effect_note=(
-        "after NEW_SIMULATION on an opened 582 kB simulation, the session saved by the "
-        "epilogue is below 100 kB (the geometry is gone)"
+        "the saved session after NEW_SIMULATION is smaller than its before-state; "
+        "a before-state below 100 kB is inconclusive"
     ),
 )
 _spec(
@@ -579,6 +582,18 @@ _spec(
 
 
 # --- advanced settings (FSM-26.120 pp.344-345) ----------------------------
+
+_spec(
+    command="SET_VORTICITY_LIFT_MODEL",
+    build_target=_emit("SET_VORTICITY_LIFT_MODEL", "ENABLE"),
+    requires=Requires.SIM,
+    save_state=True,
+    assert_effect=_unobservable,
+    effect_note=(
+        "name probe of the spelling still printed at FSM-26.125 p.365; continuation "
+        "does not establish a lift-model effect or identify a replacement"
+    ),
+)
 
 _spec(
     command="SET_SOLVER_CONVERGENCE_ITERATIONS",

@@ -109,12 +109,12 @@ def _fr312_inventory_clean___dirty(text: str) -> str:
 
 
 def _fr312_inventory_clean___unmeasured_build(text: str) -> str:
-    """The block structure of a 26.124 save, from its block names and line counts only.
+    """A synthetic unknown build with the later block layout.
 
-    Build 8172026 in the head and the global block, and one line more in
+    Build 9999999 in the head and the global block, and one line more in
     CADCREATE and STABILITY than 26.120 writes; no value of any real save.
     """
-    text = text.replace("\r\n7012026\r\n", "\r\n8172026\r\n", 2)
+    text = text.replace("\r\n7012026\r\n", "\r\n9999999\r\n", 2)
     blocks = block_lines(text)
     text = _fr312_inventory_clean___replace_block(text, "CADCREATE", [*blocks["CADCREATE"], "0"])
     return _fr312_inventory_clean___replace_block(text, "STABILITY", [*blocks["STABILITY"], " 0.0"])
@@ -241,7 +241,7 @@ class TestFr312InventoryClean:
         before = block_lines(_fr312_inventory_clean___text(target))
         assert main(["inventory", str(target), "--clean"]) == 0
         err = capsys.readouterr().err
-        assert "no fresh import of build 8172026" in err, (requirement, err)
+        assert "no fresh import of build 9999999" in err, (requirement, err)
         assert "reset block" not in err
         after = block_lines(_fr312_inventory_clean___text(target))
         assert saved_solver_actions(target) == (), "the saved actions still go (FR-308)"

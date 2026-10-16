@@ -26,7 +26,8 @@ def test_restore_logic_reverts_a_mutation_directly():
     gen = conftest._restore_module_registries.__wrapped__()
     next(gen)
     _physics.PHYSICS_CASES[_SENTINEL] = object()
-    _specs.PROBE_SPECS[_SENTINEL] = object()
+    with pytest.raises(TypeError):
+        _specs.PROBE_SPECS[_SENTINEL] = object()
     _matrix._SWEEP_CODE_KEYS[_SENTINEL] = "SENTINEL"
     with pytest.raises(StopIteration):
         next(gen)
@@ -53,7 +54,8 @@ def test_inventory_snapshots_only_mutable_mappings():
 def test_zz_ordered_pair_mutates_the_registries():
     _physics.PHYSICS_CASES[_SENTINEL] = object()
     _physics.SMI_CASES[_SENTINEL] = object()
-    _specs.PROBE_SPECS[_SENTINEL] = object()
+    with pytest.raises(TypeError):
+        _specs.PROBE_SPECS[_SENTINEL] = object()
     assert _SENTINEL in _physics.PHYSICS_CASES
 
 

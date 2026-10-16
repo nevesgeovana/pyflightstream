@@ -234,8 +234,8 @@ def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_
     """A zero reference velocity cannot recover dimensional loads.
 
     This fixture sets both reference and free-stream velocities to zero. It
-    does not establish the solver's normalization at hover with positive VREF;
-    PFS-2127.001 still requires that licensed measurement and session judgement.
+    does not describe hover with positive VREF. The owner's batch-9 judgment
+    retains reference-speed reconstruction; see the PFS-2127.001 report.
 
     So every coefficient reads `NA` EXCEPT `J`: visibly absent, rather than a
     zero a reader would believe of a rotor that is plainly pushing.
@@ -281,7 +281,7 @@ def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_
 
 
 def test_p0420_hover_with_positive_vref_pins_current_reconstruction(tmp_path):
-    """Pin arithmetic pending licensed confirmation of the export normalization.
+    """Pin the reference-speed reconstruction retained by the batch-9 judgment.
 
     qref=980 Pa, S=10 m2, Cz=.5 gives 4900 N. CMz=.25 and Cref=1 m
     give 2450 Nm. At n=50 Hz, D=2 m these imply CT=.1 and CQ=.025.

@@ -30,6 +30,7 @@
       "tests/tier1_offline/test_farfield.py",
       "tests/tier1_offline/test_lapid_keyword_calls.py",
       "tests/tier1_offline/test_p0410_fx4_probes.py",
+      "tests/tier1_offline/test_p0420_p2_1a_geometry.py",
       "tests/tier1_offline/test_probes.py",
       "tests/tier1_offline/test_probes_geometry.py",
       "tests/tier1_offline/test_probes_planar.py"

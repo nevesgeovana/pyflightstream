@@ -8,6 +8,20 @@ from pyflightstream.script import Script
 from tests.tier1_offline.test_workflows import _wb_geometry, _with_pproc, steady_case, unsteady_case
 
 
+@pytest.mark.parametrize("kind", ["normal", "unsteady"])
+@pytest.mark.parametrize(
+    "source", [{"lines": [{"start": [0, 0, 0], "end": [1, 0, 0]}]}, {"points_file": "survey.csv"}]
+)
+def test_p0420_p2_1a_probe_sources_require_parameters(kind, source):
+    """A declared survey cannot disappear because its requested variables are absent."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="parameters"):
+        ProbesSpec(kind=kind, **source)
+    assert ProbesSpec(kind=kind, field_formats=["vtk"], **source).parameters == ["VX", "VY", "VZ"]
+    assert ProbesSpec(kind=kind, reusable_inflow=True, **source).parameters == ["VX", "VY", "VZ"]
+
+
 @pytest.mark.parametrize("steady", [False, True])
 def test_field_request_samples_components_and_records_layout(tmp_path, steady):
     assert "field_formats" in ProbesSpec.model_fields, "field request schema is missing"
