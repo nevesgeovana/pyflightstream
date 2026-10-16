@@ -246,7 +246,10 @@ def test_g05_a_raw_delete_before_an_explicit_native_volume_export_is_refused():
     deleted = declared.model_copy(
         update={"raw_commands": [RawCommand(command="DELETE_VOLUME_SECTION 1", before="export")]}
     )
-    with pytest.raises(CampaignConfigError, match=r"'P_vsec\.vtk'.*raw line deleted the one"):
+    from pyflightstream.script.entities import ScriptReferenceError
+
+    # P0420: the ledger now refuses the invalid delete before native export.
+    with pytest.raises(ScriptReferenceError, match=r"DELETE_VOLUME_SECTION.*declared 0"):
         _lines(deleted)
     # THE CONTROL: the same pproc without the explicit native file samples its plane.
     assert "EXPORT_PROBE_POINTS" in _lines(_steady(_pproc(**RECTANGLE)))
