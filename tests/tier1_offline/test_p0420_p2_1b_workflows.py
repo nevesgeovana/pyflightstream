@@ -6,6 +6,7 @@ Pipeline role: guards on :mod:`pyflightstream.cases.workflows` (FR-51, FR-98, FR
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -63,7 +64,9 @@ def _run_the_clock(folder: Path, *, state: dict | None, deadline: float) -> dict
     )
     if state is not None:
         (folder / WALLTIME_CLOCK_STATE).write_text(json.dumps(state), encoding="utf-8")
-    subprocess.run([sys.executable, str(program)], cwd=folder, check=True, timeout=30)
+    subprocess.run(
+        [sys.executable, str(program)], cwd=folder, check=True, timeout=30, env=dict(os.environ)
+    )
     return json.loads((folder / WALLTIME_CLOCK_STATE).read_text(encoding="utf-8"))
 
 
@@ -91,7 +94,11 @@ def test_p0420_the_origin_survives_the_next_invocations(tmp_path):
         folder, state=json.loads(job_start_state(time.time() - 5.0)), deadline=1e6
     )
     subprocess.run(
-        [sys.executable, str(folder / WALLTIME_CLOCK_PROGRAM)], cwd=folder, check=True, timeout=30
+        [sys.executable, str(folder / WALLTIME_CLOCK_PROGRAM)],
+        cwd=folder,
+        check=True,
+        timeout=30,
+        env=dict(os.environ),
     )
     second = json.loads((folder / WALLTIME_CLOCK_STATE).read_text(encoding="utf-8"))
     assert second["started_at"] == first["started_at"] and second["steps"] == 2

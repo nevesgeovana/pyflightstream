@@ -38,7 +38,6 @@ __all__ = [
     "BladeDatum",
     "ROTOR_BLADE_ROTATION_AXIS",
     "RotorBlock",
-    "SecondAxis",
     "ActuatorBlock",
     "CampaignConfigError",
 ]
@@ -60,7 +59,7 @@ def _defines_a_system(
 
 
 #: A frame's second axis: three numbers that, with the first, define a coordinate system.
-SecondAxis = Annotated[tuple[float, float, float], AfterValidator(_defines_a_system)]
+_SecondAxis = Annotated[tuple[float, float, float], AfterValidator(_defines_a_system)]
 
 
 class CampaignConfigError(PyflightstreamError, ValueError):

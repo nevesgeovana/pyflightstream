@@ -11,11 +11,13 @@ from pyflightstream._lengths import scale
 from pyflightstream.cases import CampaignConfigError
 
 __all__ = [
+    "MEASURED_FIELD_UNITS",
     "PreparedField",
     "field_rows_in_metres",
     "prepare_field",
     "prepare_rotating_field",
     "read_field_rows",
+    "require_measured_unit",
 ]
 
 
@@ -40,10 +42,25 @@ def require_measured_unit(native_unit: str | None) -> str:
     read a field in the simulation's unit, and the solver's reading of a custom
     file is measured for the metre and the millimetre only.
 
+    Parameters
+    ----------
+    native_unit : str or None
+        The simulation's length unit, or None where the caller states none.
+
+    Returns
+    -------
+    str
+        The unit, ``METER`` or ``MILLIMETER``.
+
     Raises
     ------
     CampaignConfigError
         If the unit is neither ``METER`` nor ``MILLIMETER``, citing RPT-083.
+
+    Examples
+    --------
+    >>> require_measured_unit("MILLIMETER")
+    'MILLIMETER'
     """
     if native_unit not in MEASURED_FIELD_UNITS:
         raise CampaignConfigError(
