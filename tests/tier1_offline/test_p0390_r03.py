@@ -784,6 +784,37 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b"reports/compat/CMP-26120_2026-09-08_rotor-path.yaml",
         b"reports/compat/CMP-26120_2026-10-16_rotor-effect-reanalysis.yaml",
     )
+    # The 0.42.0 command evidence for three commands (PFS-2001.07, PFS-2003.07 and
+    # GOAL-033:G22) changes only the serialized evidence prose and its report
+    # citation. Their availability, status and every other field stay pinned.
+    for before, after in (
+        (
+            b"p.342. reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml Assigns the bulk",
+            b"p.342. reports/compat/CMP-26120_2026-10-16_pfs2001-separation-observations.yaml "
+            b"Assigns the bulk",
+        ),
+        (
+            b"the solver default is -20 (FSM-26.120 p.221).",
+            b"the solver default is -20 (FSM-26.120 p.221). On 26.124 build 8172026 and 26.125 "
+            b"build 10052026, setting 0 after INITIALIZE_SOLVER and before START_SOLVER produced "
+            b"the same exported coefficients as setting 0 early, distinct from the -20 controls. "
+            b"Phase init already allows that order; workflow early placement stays. The "
+            b"300-iteration runs did not meet the requested 1e-10 residual, so this is numerical "
+            b"setting response, not physical validation. See "
+            b"reports/PFS-2003.07_late-setting-evidence_2026-10-16.md.",
+        ),
+        (
+            b"No edition says what happens if both are enabled.",
+            b"No edition says what happens if both are enabled./nA 2026-10-16 reread of "
+            b"FSM-26.125 p.365 and its script index still finds this spelling, with "
+            b"ENABLE/DISABLE; no replacement name is identified by the vorticity/lift search. "
+            b"The catalog's name probe retains saved states and reports an unobservable effect "
+            b"on continuation. A licensed 26.125 run and, if refused, a vendor question remain "
+            b"required by GOAL-033:G22.",
+        ),
+    ):
+        assert captured[plan_name].count(before) == 1, before
+        captured[plan_name] = captured[plan_name].replace(before, after)
     # PFS-2144 changes only this serialized description of the default.
     # Its value, probe identity and all other record fields stay pinned.
     old_prose = (
