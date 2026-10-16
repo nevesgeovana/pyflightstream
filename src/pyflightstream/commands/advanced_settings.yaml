@@ -433,7 +433,7 @@ SET_JET_WAKE_FILAMENTS_GRID_INDUCTION:
       status: removed
       probe_ref: "GEO-106-PYFLIGHTSTREAM-INTERNAL-REPORTS/reports/RPT-021_chapter-questions-measured_2026-08-08.md"
       note: >-
-        The cited probe measures the 26.121 solver answering the name with an
+        The cited probe measured the 26.121 solver answering the name with an
         unrecognised-command error. Evidence from the run, not read off
         the hotfix edition's silence.
     "26.122":
