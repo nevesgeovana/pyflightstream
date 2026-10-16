@@ -2226,8 +2226,8 @@ def documentation_delta(
     repaginates a run of commands by one, and under a page rule every
     one of them falls out of a bulk pass although most are word for word
     what they were. Comparing the parsed records handles it and is
-    strictly stronger, since a command on an unchanged page necessarily
-    parses identically.
+    sensitive to changes anywhere in the command block. Whitespace and page-number
+    footers are normalized; an unchanged page number is not evidence of unchanged text.
 
     Parameters
     ----------
@@ -2239,7 +2239,7 @@ def documentation_delta(
         documents that are not among these are not classified here; a
         caller reports them separately, because entering a new command
         is a different piece of work from carrying an existing one
-    forward.
+        forward.
 
     Returns
     -------
