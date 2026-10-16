@@ -223,9 +223,15 @@ alone. A failed or missing output is not convergence.
 
 Architecture rule FR-744: The run, the post, the sweep table and every query read these rules from one module; no reader keeps a second copy.
 
+Here, "these rules" means the effective-record selection rules of FR-381 and
+FR-739 through FR-743 in the records stage.
+
 Code: `pyflightstream.workspace._effective:effective_points`. Test: `tests/tier1_offline/test_p0350_status.py::test_each_datapoint_is_counted_once_by_its_effective_record`.
 
 Architecture rule FR-1002 (including split child FR-2269): One module of the workspace layer owns the schema of the files, their validation (FR-993 to FR-995), the precedence (the Requirement and FR-998) and the provenance (FR-999), and both command families take their values from it; no module of the workspace layer imports the run layer. The parsing of the command line stays above it, in each command family, and the build-entry key of FR-998 is parsed by `workspace/builds.py`.
+
+The files are the workspace-root `pyfs.toml` and `pyfs.local.toml`; "the
+Requirement" refers to FR-436, which defines their option precedence.
 
 Code: `pyflightstream.workspace._settings_file:take_defaults`. Test: `tests/tier1_offline/test_p0390_r03.py::test_p0390_r03_only_the_two_command_families_import_the_settings_module`.
 
