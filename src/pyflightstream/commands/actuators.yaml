@@ -12,6 +12,7 @@ CREATE_NEW_ACTUATOR:
     - name: subtype
       type: enum
       values: [CUSTOM, ELLIPTICAL]
+      required: true
     - name: name
       type: str
   manual_ref: "FSM-26.120 p.323"
