@@ -974,6 +974,23 @@ def _velocity(case: SimCase) -> float:
 UNNAMED_ROTOR_RADICAL = "ROTOR"
 
 
+def _uses_letter_frame(rotor: RotorBlock) -> bool:
+    """Keep a letter basis only when its native radial datum is the declared one.
+
+    PFS-2119.024, licensed/EVIDENCE-5.md batch 8: the letter path ignores
+    blade1.zero. A different datum therefore needs the shaft-aligned basis.
+    """
+    return (
+        isinstance(rotor.axis, str)
+        and rotor.blade1.zero.lstrip("+") == {"X": "Z", "Y": "X", "Z": "X"}[rotor.axis]
+    )
+
+
+def _rotor_frame_axis(rotor: RotorBlock) -> str:
+    """Return the shaft axis in the basis selected for this rotor."""
+    return str(rotor.axis) if _uses_letter_frame(rotor) else "Z"
+
+
 def _the_rotor_a_flat_row_turns(case: SimCase) -> RotorBlock | None:
     """Return the one rotor a row with no MOTIONS list turns, or None.
 

@@ -34,6 +34,7 @@ from ._rows import (
     RotorMach,
     RotorSpeed,
     _refuse_a_row_restating_the_hand,
+    _rotor_frame_axis,
     _rotor_of,
     _stated_advance_ratio,
     _states_a_rotor_speed,
@@ -427,7 +428,7 @@ def _motion_view(case: SimCase, record: Mapping[str, str]) -> SimCase:
         # For a vector shaft, _hub_basis makes the shaft the hub frame's third
         # axis, so the motion uses Z of that frame. A row variable holds a string,
         # not a vector. A letter shaft retains the identity frame and that letter.
-        variables[ROTOR_AXIS_VARIABLE] = rotor.axis if isinstance(rotor.axis, str) else "Z"
+        variables[ROTOR_AXIS_VARIABLE] = _rotor_frame_axis(rotor)
         variables[ROTOR_ORIGIN_VARIABLE] = "{},{},{}".format(*rotor.origin)
         variables[BLADES_VARIABLE] = str(rotor.blade_count)
         # The reference owns the rotor's hand for every speed form. The row

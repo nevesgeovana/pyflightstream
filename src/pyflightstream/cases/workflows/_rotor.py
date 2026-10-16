@@ -104,7 +104,9 @@ from ._rows import (
     _point_from_metres,
     _refuse_unregistered_keys,
     _require_the_averaging_window,
+    _rotor_frame_axis,
     _rotor_of,
+    _the_rotor_a_flat_row_turns,
     _variable,
     continuation_of,
     rotor_speed,
@@ -216,6 +218,9 @@ def emit_rotor_motion(
             "motion turns about a named axis of its own coordinate system. Add it to "
             f"the row's variables as '{ROTOR_AXIS_VARIABLE}: X' (or Y, or Z)."
         )
+    rotor = _the_rotor_a_flat_row_turns(case)
+    if rotor is not None:
+        axis = _rotor_frame_axis(rotor)
     boundaries: Sequence[int | str] | str = "all"
     declared = _variable(case, MOVING_BOUNDARIES_VARIABLE)
     if declared is not None:

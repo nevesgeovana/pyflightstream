@@ -829,7 +829,7 @@ def test_the_rotor_step_emits_the_whole_motion_from_the_row():
         "SET_MOTION_BOUNDARIES 1 -1",
         "SET_MOTION_MOVING_FRAMES 1 -1",
         "SET_MOTION_COORDINATE_SYSTEM 1 2",
-        "SET_MOTION_ROTOR_AXIS 1 X",
+        "SET_MOTION_ROTOR_AXIS 1 Z",
         "SET_MOTION_ROTOR_RPM 1 1200.0",
     ], f"the motion block is not what the row says; got {emitted}"
 
@@ -4539,7 +4539,7 @@ def test_the_rotor_run_creates_one_axis_frame_per_blade_and_moves_them(tmp_path)
     assert lines[rotate + 1 : rotate + 5] == [
         "FRAME 4",
         "ROTATION_FRAME 3",
-        "ROTATION_AXIS X",
+        "ROTATION_AXIS Z",
         "ANGLE 0.0",
     ]
     moving = lines.index("SET_MOTION_MOVING_FRAMES 1 1")
@@ -4783,7 +4783,7 @@ def test_two_motions_emit_two_motion_blocks_with_their_frames(tmp_path):
     lines = text.splitlines()
     assert lines.count("CREATE_NEW_MOTION ROTARY") == 2
     assert "SET_MOTION_ROTOR_RPM 1 1200.0" in lines and "SET_MOTION_ROTOR_RPM 2 2400.0" in lines
-    assert "SET_MOTION_ROTOR_AXIS 1 X" in lines and "SET_MOTION_ROTOR_AXIS 2 X" in lines
+    assert "SET_MOTION_ROTOR_AXIS 1 Z" in lines and "SET_MOTION_ROTOR_AXIS 2 Z" in lines
     boundaries = {
         line.split()[1]: lines[index + 1]
         for index, line in enumerate(lines)
@@ -6820,6 +6820,32 @@ def _fr314_counter_everywhere___strip_0400(text: str) -> str | None:
 
 def _fr314_counter_everywhere___admitted(name: str, text: str, digest: str) -> str | None:
     """The one admitted difference that makes ``text`` the v0.32.0 golden, or None."""
+    if "/workflows/unsteady_rotor__" in name:
+        # PFS-2119.024: these fixtures declare shaft X, datum Y. Undo only
+        # their measured datum basis and its motion components for the old hash.
+        aligned = (
+            "VECTOR_X_X 0.0\nVECTOR_X_Y 1.0\nVECTOR_X_Z 0.0\n"
+            "VECTOR_Y_X 0.0\nVECTOR_Y_Y 0.0\nVECTOR_Y_Z 1.0\n"
+            "VECTOR_Z_X 1.0\nVECTOR_Z_Y 0.0\nVECTOR_Z_Z 0.0"
+        )
+        identity = (
+            "VECTOR_X_X 1.0\nVECTOR_X_Y 0.0\nVECTOR_X_Z 0.0\n"
+            "VECTOR_Y_X 0.0\nVECTOR_Y_Y 1.0\nVECTOR_Y_Z 0.0\n"
+            "VECTOR_Z_X 0.0\nVECTOR_Z_Y 0.0\nVECTOR_Z_Z 1.0"
+        )
+        text = text.replace(aligned, identity, 1)
+        if "__full__" not in name:  # full's historical row already selected local Z
+            text = text.replace("SET_MOTION_ROTOR_AXIS 1 Z", "SET_MOTION_ROTOR_AXIS 1 X", 1)
+            text = text.replace(
+                "SET_MOTION_IS_ROTOR 1 ENABLE Z", "SET_MOTION_IS_ROTOR 1 ENABLE X", 1
+            )
+            text = re.sub(
+                r"^SET_MOTION_ANGULAR_VELOCITY 1 0\.0 0\.0 (\S+)$",
+                r"SET_MOTION_ANGULAR_VELOCITY 1 \1 0.0 0.0",
+                text,
+                count=1,
+                flags=re.M,
+            )
     if "unsteady_rotor__" in name and name.endswith("__26.100.txt"):
         # PFS-2004.01 batch 8 settles the unit. Restore only the exact retired
         # warning to compare with v0.32.0; emitted commands still face its hash.
