@@ -301,7 +301,8 @@ SURFACE_MIRROR:
       type: int
       cites: frames
     - name: mirror_plane
-      type: int
+      type: enum
+      values: ["1", "2", "3"]
     - name: combine_flag
       type: enum
       values: ["TRUE", "FALSE"]

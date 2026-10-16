@@ -27,6 +27,24 @@ from pyflightstream.versions import FsVersion
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPORTS_DIR = REPO_ROOT / "reports"
 COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
+
+
+def test_p0420_inline_optional_cannot_precede_required():
+    with pytest.raises(ValidationError, match="optional"):
+        CommandEntry(
+            name="TEST_COMMAND",
+            chapter="test",
+            layout="inline",
+            phase="setup",
+            args=(
+                ArgSpec(name="first", type="str", required=False),
+                ArgSpec(name="last", type="str"),
+            ),
+            manual_ref="FSM-TEST p.1",
+            versions={"26.124": VersionStatus(status="documented")},
+        )
+
+
 #: The canonical identifier scheme, YY.XXX: the vendor's two-digit
 #: major, then three digits whose last indexes the hotfix build. It read
 #: `^26\.\d{3}$` until 2026-08-09, when registering the 25 series made

@@ -1,6 +1,8 @@
 """The forms a command takes on the builds whose manual changed it (FR-423).
 
 Pipeline role: emission helpers below the workflows and the probe catalog.
+Private form checks validate argument slots, creation references and parked
+inputs before emission mutates a script.
 Each function here writes the one form the build the script targets
 documents, where two builds document two forms of the same request, so a
 caller states the request once and the script states the form.
@@ -30,10 +32,16 @@ carries it.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import math
+import re
+from collections.abc import Mapping, Sequence
+from pathlib import PureWindowsPath
+from typing import TYPE_CHECKING, Literal
 
 from pyflightstream._errors import PyflightstreamWarning, warn
+from pyflightstream.commands import ArgSpec, ArgType, CommandEntry, Layout
 from pyflightstream.script import CommandArgumentError
+from pyflightstream.script._arg_checks import _check_scalar
 
 if TYPE_CHECKING:
     from pyflightstream.commands import VersionView
@@ -274,3 +282,274 @@ def _unmarked_unit_refusal(build: str) -> str:
         "the azimuth reached with the azimuth stated before this build can run a rotor. "
         "Use a build with a proved rotor unit instead."
     )
+
+
+def _checked_helper_value(script: Script, command: str, argument: str, value: object) -> object:
+    """Validate a helper argument against its target build before creating an entity."""
+    entry = script.entry(command)
+    spec = next(spec for spec in entry.args if spec.name == argument)
+    if spec.cites is not None:
+        context = f"{command}: argument {argument!r}"
+        value = script.entities.resolve(spec.cites, value, context=context)
+        script.entities.check_index(spec.cites, value, context=context)
+    return _check_scalar(entry, spec, value)
+
+
+def _check_actuator_creation(
+    script: Script,
+    *,
+    frame: int | str,
+    axis: str,
+    thrust: float | None,
+    thrust_type: str,
+    profile_force_unit: str,
+    label: str | None,
+) -> None:
+    """Validate the selected actuator form before its creation line."""
+    for command, argument, value in (
+        ("SET_ACTUATOR_AXIS", "frame", frame),
+        ("SET_ACTUATOR_AXIS", "axis", axis),
+    ):
+        _checked_helper_value(script, command, argument, value)
+    if thrust is not None:
+        _checked_helper_value(script, "SET_PROP_ACTUATOR_THRUST", "thrust_type", thrust_type)
+    else:
+        _checked_helper_value(script, "SET_PROP_ACTUATOR_PROFILE", "units_type", profile_force_unit)
+    if label is not None:
+        script.entities.assert_label_free("actuators", label)
+
+
+def _check_motion_creation(
+    script: Script,
+    *,
+    frame: int | str,
+    axis: str,
+    euclidean: bool,
+    boundaries: Sequence[int | str] | Literal["all"],
+    moving_frames: Sequence[int | str] | Literal["all"] | None,
+    label: str | None,
+) -> None:
+    """Validate all rotary entity citations before creating the motion."""
+    _checked_helper_value(script, "SET_MOTION_COORDINATE_SYSTEM", "coordinate_system_id", frame)
+    if not euclidean:
+        _checked_helper_value(script, "SET_MOTION_ROTOR_AXIS", "axis", axis)
+    for kind, selection in (("boundaries", boundaries), ("frames", moving_frames)):
+        if selection is not None and selection != "all":
+            for value in selection:
+                resolved = script.entities.resolve(kind, value, context="rotary_motion")
+                script.entities.check_index(kind, resolved, context="rotary_motion")
+    if label is not None:
+        script.entities.assert_label_free("motions", label)
+
+
+def _check_blade_labels(script: Script, labels: Sequence[str] | None) -> None:
+    """Reserve no frame until every proposed label is unique and available."""
+    if labels is not None:
+        if len(set(labels)) != len(labels):
+            raise CommandArgumentError(
+                "blade_frames: labels must be unique; give each blade its own label"
+            )
+        for label in labels:
+            script.entities.assert_label_free("frames", label)
+
+
+def _positional_form(
+    entry: CommandEntry, specs: tuple[ArgSpec, ...], checked: Mapping[str, object]
+) -> list[ArgSpec]:
+    """Select the manual-defined alternative argument form."""
+    positional = [spec for spec in specs if not spec.own_line]
+    # These grammars select alternative positional forms by a leading mode.
+    if entry.name == "SET_FREESTREAM":
+        selected = {
+            "CONSTANT": {"type"},
+            "ROTATION": {"type", "frame", "axis", "angular_velocity"},
+            "CUSTOM": {"type", "filetype", "filename"},
+        }.get(str(checked.get("type")), set())
+        positional = [spec for spec in positional if spec.name in selected]
+    elif entry.name.startswith("SWEEPER_SET_") and "filename" in checked:
+        positional = [spec for spec in positional if spec.name != "values"]
+    return positional
+
+
+def _check_bound_form(
+    entry: CommandEntry, specs: tuple[ArgSpec, ...], checked: Mapping[str, object]
+) -> None:
+    """Refuse a missing bare folder or a shifted positional argument."""
+    if entry.name == "EXECUTE_SOLVER_SWEEPER":
+        exporting = checked["export_surface_data_per_step"] != "DISABLE"
+        if exporting != ("export_folder" in checked):
+            raise CommandArgumentError(
+                f"{entry.name}: export_folder is required exactly when "
+                "export_surface_data_per_step is enabled; provide the folder for "
+                f"TXT, CSV, DAT or VTK, and omit it for DISABLE ({entry.citation})"
+            )
+    if entry.layout is Layout.INLINE:
+        positional = _positional_form(entry, specs, checked)
+        missing = None
+        for spec in positional:
+            if spec.name not in checked:
+                missing = missing or spec.name
+            elif missing is not None:
+                raise CommandArgumentError(
+                    f"{entry.name}: argument {spec.name!r} follows omitted inline "
+                    f"argument {missing!r}; supply preceding positional arguments "
+                    f"to preserve their slots ({entry.citation})"
+                )
+
+
+def _check_inline_token(entry: CommandEntry, spec: ArgSpec, value: object) -> None:
+    """Keep scalar string arguments in their documented token slot."""
+    # PRINT consumes the remainder as a message (FSM-26.120 p.281).
+    if (
+        spec.type is ArgType.STR
+        and entry.name != "PRINT"
+        and (not str(value) or any(character.isspace() for character in str(value)))
+    ):
+        raise CommandArgumentError(
+            f"{entry.name}: argument {spec.name!r} is {value!r}; "
+            "an inline string must be one nonempty token without whitespace. "
+            f"Use a single-token name ({entry.citation})"
+        )
+
+
+def _park_input_file(script: Script, path: str, payload: str | bytes) -> None:
+    """Check the relative input destination and both parked-file registers."""
+    destination = PureWindowsPath(path)
+    if (
+        not path
+        or destination.drive
+        or destination.root
+        or ".." in destination.parts
+        or not destination.name
+    ):
+        raise CommandArgumentError(
+            f"input file {path!r} must be a relative file path inside the point folder; "
+            "use a filename or a subfolder without parent traversal"
+        )
+    parked = script._parked_file(path)
+    if parked is not None:
+        kind, held = parked
+        if kind == "input file" and script._pending_input_files[held] == payload:
+            return
+        raise CommandArgumentError(f"input file {path!r} collides with {kind} {held!r}")
+    script._pending_input_files[path] = payload
+
+
+def _parked_file(script: Script, path: str) -> tuple[str, str] | None:
+    """Find the same destination across action and input file registers."""
+    from pyflightstream._digest import one_file_key
+
+    key = one_file_key(path)
+    for register, parked in (
+        ("action script", script._pending_action_scripts),
+        ("input file", script._pending_input_files),
+    ):
+        for held in parked:
+            if one_file_key(held) == key:
+                return register, held
+    return None
+
+
+#: One number of a radial thrust profile row as the check reads it: a plain
+#: decimal, optionally signed, with an optional exponent. A word, a NaN and an
+#: infinity are not one; an exponent too large for a float is refused as not
+#: finite.
+_PROFILE_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+
+#: The form a radial thrust profile takes, quoted by every refusal of one.
+_PROFILE_FORM = (
+    "A radial thrust profile is rows of two numbers separated by one comma, r,F: the "
+    "radial station, normalised or dimensional, and the force there; no header line "
+    "and no count line"
+)
+
+#: The report that measured what 26.124 makes of a profile file.
+_ACTUATOR_PROFILE_REPORT = "RPT-070"
+
+
+def render_actuator_profile(text: str, *, source: str = "the radial thrust profile") -> str:
+    r"""Return a radial thrust profile's rows in the one form 26.124 was measured to read.
+
+    MEASURED ON 26.124 (RPT-070): ``SET_PROP_ACTUATOR_PROFILE`` reads every
+    line of the file as a point, the empty one after a final newline
+    included. Eleven rows ending in a newline were read as twelve points, the
+    file was logged as unreadable and refused in a modal dialog that holds
+    the solver until a person closes it; the same eleven rows with no final
+    newline were read, radii and forces. A first line that is a count or a
+    header was read as one more point too, and every value then read as
+    zero. Line ends, spaces, tabs and a dimensional radius changed nothing
+    of the refusal.
+
+    So the text returned is the rows, each ``r,F`` with its two numbers as
+    written, joined by a newline, and NO final newline. What an editor adds
+    is removed rather than refused: blank lines, the whitespace around a
+    line and around each number, a byte-order mark. The numbers are not
+    converted, so ``r`` stays normalised or dimensional as written.
+
+    Parameters
+    ----------
+    text : str
+        The profile file's text, as the user saved it.
+    source : str
+        What the refusals call the text, the file's path for one read from
+        disk.
+
+    Returns
+    -------
+    str
+        The file's text for the solver: newline separated, NOT newline
+        terminated.
+
+    Raises
+    ------
+    CommandArgumentError
+        Naming the line, 1-based with blank lines counted: a first row that
+        is one number (a count) or holds a word (a header); a row that is
+        not two numbers separated by one comma; a number that is not finite;
+        or fewer than two rows.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import helpers
+    >>> print(helpers.render_actuator_profile("0.2, 0.0\n0.6,127.3\n1.0,0.0\n"))
+    0.2,0.0
+    0.6,127.3
+    1.0,0.0
+    """
+    rows: list[str] = []
+    for number, raw in enumerate(text.removeprefix("\ufeff").splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        where = f"{source}, line {number}: {line!r}"
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) != 2 or not all(_PROFILE_NUMBER.fullmatch(part) for part in parts):
+            words = [word for word in re.split(r"[\s,;]+", line) if word]
+            numbers = all(_PROFILE_NUMBER.fullmatch(word) for word in words)
+            if not rows and numbers and len(words) == 1:
+                raise CommandArgumentError(
+                    f"{where} is one number, a count line; remove it. On 26.124 a count is "
+                    "read as one more point and every value of the profile then reads as zero "
+                    f"({_ACTUATOR_PROFILE_REPORT}). {_PROFILE_FORM}"
+                )
+            if not rows and not numbers:
+                raise CommandArgumentError(
+                    f"{where} is a header line; remove it. On 26.124 a header is read as one "
+                    "more point and every value of the profile then reads as zero "
+                    f"({_ACTUATOR_PROFILE_REPORT}). {_PROFILE_FORM}"
+                )
+            raise CommandArgumentError(
+                f"{where} is not two numbers separated by one comma. {_PROFILE_FORM}"
+            )
+        for part in parts:
+            if not math.isfinite(float(part)):
+                raise CommandArgumentError(
+                    f"{source}, line {number}: {part!r} is not a finite number. {_PROFILE_FORM}"
+                )
+        rows.append(",".join(parts))
+    if len(rows) < 2:
+        raise CommandArgumentError(
+            f"{source} holds {len(rows)} row{'' if len(rows) == 1 else 's'} of r,F, and a radial "
+            f"distribution needs at least two. {_PROFILE_FORM}"
+        )
+    return "\n".join(rows)

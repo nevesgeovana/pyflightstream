@@ -463,16 +463,33 @@ class Script:
     def park_input_file(self, path: str, payload: str | bytes) -> None:
         """Park an input beside the script, using the shared case-insensitive path rule.
 
-        An identical input may be parked again. Different content or an action
-        script at that path raises CommandArgumentError without replacing it.
+        An identical input may be parked again. The run layer writes the parked
+        payload before starting the solver.
+
+        Parameters
+        ----------
+        path : str
+            Relative file destination inside the point folder, without a drive,
+            root or parent traversal.
+        payload : str or bytes
+            Text or exact bytes to stage at that destination.
+
+        Raises
+        ------
+        CommandArgumentError
+            If the path escapes the point folder or collides case-insensitively
+            with different input content or an action script. Nothing is replaced.
+
+        Examples
+        --------
+        >>> script = Script("26.124")
+        >>> script.park_input_file("inputs/profile.txt", "profile data")
+        >>> script.pending_input_files["inputs/profile.txt"]
+        'profile data'
         """
-        parked = self._parked_file(path)
-        if parked is not None:
-            kind, held = parked
-            if kind == "input file" and self._pending_input_files[held] == payload:
-                return
-            raise CommandArgumentError(f"input file {path!r} collides with {kind} {held!r}")
-        self._pending_input_files[path] = payload
+        from pyflightstream.script._build_forms import _park_input_file
+
+        _park_input_file(self, path, payload)
 
     @contextmanager
     def observe_commands(
@@ -947,6 +964,9 @@ class Script:
         elif entry.name in _DELETION_COMMANDS:
             kind, argument = _DELETION_COMMANDS[entry.name]
             self.entities.delete(kind, int(bound[argument]))  # type: ignore[call-overload]
+        elif entry.name in {"DELETE_SURFACES", "SURFACE_DELETE", "SURFACE_CLEARALL"}:
+            index = int(bound.get("index", bound.get("surface", -1)))  # type: ignore[call-overload]
+            self.entities._delete_boundary(index)
 
     def bind_native_solver_identity(self, *, executable_sha256: str, build: str) -> None:
         """Bind an identity verified by the caller for exact motion-proof lookup.
@@ -1178,17 +1198,9 @@ class Script:
         helpers, so a check on one alone let an action script and an input file
         share a path (PFS-2093.011).
         """
-        from pyflightstream._digest import one_file_key
+        from pyflightstream.script._build_forms import _parked_file
 
-        key = one_file_key(path)
-        for register, parked in (
-            ("action script", self._pending_action_scripts),
-            ("input file", self._pending_input_files),
-        ):
-            for held in parked:
-                if one_file_key(held) == key:
-                    return register, held
-        return None
+        return _parked_file(self, path)
 
     @property
     def volume_sections(self) -> int:
@@ -1466,6 +1478,9 @@ class Script:
             else:
                 checked[spec.name] = _check_scalar(entry, spec, value)
         self._check_counts(entry, checked)
+        from pyflightstream.script._build_forms import _check_bound_form
+
+        _check_bound_form(entry, specs, checked)
         return checked
 
     def _resolve_labels(self, entry: CommandEntry, spec: ArgSpec, value: object) -> object:
@@ -1752,6 +1767,9 @@ class Script:
             elif spec.is_list:
                 inline_parts.append(" ".join(self._format_scalar(item) for item in value))  # type: ignore[attr-defined]
             else:
+                from pyflightstream.script._build_forms import _check_inline_token
+
+                _check_inline_token(entry, spec, value)
                 inline_parts.append(self._format_scalar(value))
         return [" ".join(inline_parts), *tail_lines], bool(tail_lines)
 

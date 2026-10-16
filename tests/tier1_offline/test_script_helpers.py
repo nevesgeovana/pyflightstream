@@ -242,7 +242,7 @@ def test_the_reference_frame_is_always_valid():
 
 def test_deleting_shrinks_the_reference_ledger():
     script = Script(version="26.120")
-    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="prop")
+    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", subtype="ELLIPTICAL", name="prop")
     script.emit("DELETE_ACTUATOR", 1)
     with pytest.raises(ScriptReferenceError, match="cites actuator 1"):
         script.emit("ENABLE_ACTUATOR", 1)
@@ -1769,3 +1769,58 @@ def test_the_direction_value_is_an_ascii_integer_or_one_of_the_two_words():
     for refused in ("١", "+1", "1.0", "2", "", "AXIAL_ISH", True):
         with pytest.raises(helpers.CommandArgumentError):
             helpers.resolve_shedding_direction(refused, context="pin")
+
+
+@pytest.mark.parametrize("kind", ["actuator", "motion", "blades"])
+def test_p0420_helper_refusals_do_not_create_entities(kind):
+    from pyflightstream.script import Script, helpers
+
+    script = Script("26.124")
+    before = script.render()
+    with pytest.raises(ValueError):
+        if kind == "actuator":
+            helpers.actuator_disc(
+                script,
+                "disc",
+                frame="missing",
+                axis="X",
+                offset=0,
+                r_tip=1,
+                r_hub=0.1,
+                rpm=800,
+                thrust=10,
+            )
+        elif kind == "motion":
+            helpers.rotary_motion(script, frame=1, axis="X", rpm=800, boundaries=["missing"])
+        else:
+            helpers.blade_frames(
+                script,
+                hub_origin=(0, 0, 0),
+                rotor_axis="Z",
+                n_blades=2,
+                blade1_azimuth_deg=0,
+                rotation="clockwise",
+                labels=["same", "same"],
+            )
+    assert script.render() == before
+    assert script.num_actuators == script.num_motions == 0
+
+
+def test_p0420_actuator_wake_vocabulary_is_case_insensitive():
+    script = Script("26.124")
+    frame = helpers.coordinate_frame(
+        script, name="hub", origin=(0, 0, 0), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+    )
+    helpers.actuator_disc(
+        script,
+        "disc",
+        frame=frame,
+        axis="X",
+        offset=0,
+        r_tip=1,
+        r_hub=0.1,
+        rpm=800,
+        thrust=10,
+        wake_type="rigid",
+    )
+    assert "SET_ACTUATOR_WAKE_TYPE 1 RIGID" in script.render()

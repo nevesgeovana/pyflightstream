@@ -300,8 +300,12 @@ class TestScriptEntities:
     def test_p0400_labelshift_deleting_the_first_of_two_keeps_the_survivor_label():
         """P0400-LABELSHIFT (PFS-2104.025, PFS-2104.026): the helper preserves its declared contract."""  # noqa: E501
         script = Script(version="26.124")
-        script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="left prop", label="left")
-        script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="right prop", label="right")
+        script.emit(
+            "CREATE_NEW_ACTUATOR", "PROPELLER", "ELLIPTICAL", name="left_prop", label="left"
+        )
+        script.emit(
+            "CREATE_NEW_ACTUATOR", "PROPELLER", "ELLIPTICAL", name="right_prop", label="right"
+        )
         script.emit("DELETE_ACTUATOR", 1)
         assert script.entities.labels("actuators") == {"right": 1}
         script.emit("ENABLE_ACTUATOR", "right")

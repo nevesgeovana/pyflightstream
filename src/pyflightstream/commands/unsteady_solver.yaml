@@ -219,6 +219,7 @@ NEW_UNSTEADY_SOLVER_SURFACE_PROBE:
                BL_SHAPE_FACTOR, BL_SKIN_FRICTION, BL_TRANSITION_MARKER]
     - name: csys
       type: int
+      cites: frames
     - name: x
       type: float
       unit: length units of the named coordinate system

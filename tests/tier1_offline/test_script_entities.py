@@ -41,7 +41,7 @@ def test_actuator_label_creation_and_resolution():
     make_frame(script, label="disc_frame")
     index = helpers.actuator_disc(
         script,
-        "prop right",
+        "prop_right",
         frame="disc_frame",
         axis="X",
         offset=0.0,
@@ -184,8 +184,8 @@ def test_label_on_a_non_creation_command_is_rejected():
 
 def test_deleting_an_entity_drops_its_dangling_label():
     script = Script(version="26.120")
-    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="left prop", label="left")
-    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", name="right prop", label="right")
+    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", "ELLIPTICAL", name="left_prop", label="left")
+    script.emit("CREATE_NEW_ACTUATOR", "PROPELLER", "ELLIPTICAL", name="right_prop", label="right")
     script.emit("DELETE_ACTUATOR", 2)
     script.emit("ENABLE_ACTUATOR", "left")
     with pytest.raises(ScriptReferenceError, match="unknown actuator label 'right'"):
@@ -218,3 +218,18 @@ def test_two_scripts_have_independent_registries():
     assert second.num_boundaries is None
     with pytest.raises(ScriptReferenceError, match="unknown mesh boundary label"):
         second.resolve_boundary("wing")
+
+
+def test_p0420_deletion_renumbers_boundary_inventory():
+    from pyflightstream.script import Script, ScriptReferenceError
+
+    script = Script("26.124")
+    script.declare_existing(boundaries={"first": 1, "middle": 2, "last": 3})
+    script.emit("DELETE_SURFACES", "middle")
+    assert script.entities.limit("boundaries") == 2
+    assert script.entities.labels("boundaries") == {"first": 1, "last": 2}
+    with pytest.raises(ScriptReferenceError):
+        script.emit("DELETE_SURFACES", 3)
+    script.emit("DELETE_SURFACES", -1)
+    assert script.entities.limit("boundaries") == 0
+    assert script.entities.labels("boundaries") == {}
