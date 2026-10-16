@@ -286,10 +286,12 @@ class TrailingEdgeMarking(BaseModel):
     no wake and runs and answers anyway, so a raw mesh declares one.
 
     ``route = "file"`` is the default route. ``points_m`` are the mid-points
-    of the trailing-edge mesh edges, in metres, the simulation's length unit, read
+    of the trailing-edge mesh edges, in metres, read
     from the points file the table names and checked against the mesh when
     the row is bound (:mod:`pyflightstream.workspace.wake_edges`); the
-    builder writes them as the solver's node file and imports it with
+    builder converts them, and ``tolerance``, which is also in metres, into the
+    simulation's length unit the setup states, writes them as the solver's
+    node file in that unit and imports it with
     ``IMPORT_WAKE_EDGES_FROM_FILE``, giving every edge ``edge_type`` and
     matching within ``tolerance``. ``points_file`` is where they were read
     from, for a refusal to name; it is kept out of every dump, since it is
@@ -336,8 +338,8 @@ class TrailingEdgeMarking(BaseModel):
             return self
         if not math.isfinite(self.tolerance) or self.tolerance <= 0.0:
             raise ValueError(
-                f"tolerance = {self.tolerance!r}; it is the distance, in the simulation's "
-                "length unit, within which an edge's mid-point counts as a point of the "
+                f"tolerance = {self.tolerance!r}; it is the distance, in metres, "
+                "within which an edge's mid-point counts as a point of the "
                 "file, and it must be positive and finite"
             )
         if self.route == "file":

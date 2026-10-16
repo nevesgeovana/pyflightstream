@@ -51,6 +51,7 @@ from pyflightstream.cases.qsteady import (
 from pyflightstream.cases.windows import RESTART_STEP_OFFSET_VARIABLE
 from pyflightstream.cases.workflows import (
     ACTUATOR_VARIABLE,
+    GEOMETRY_VARIABLE,
     PROFILE_VARIABLE,
     RAW_MESH_FORMATS,
     RESTART_FROM_VARIABLE,
@@ -1215,6 +1216,7 @@ def plan_campaign(
                 )
             )
     _warn_on_relaxed_discs_naming_a_profile(campaign.sims)
+    _warn_on_rows_that_open_no_geometry(campaign.sims)
     _warn_on_short_wakes(points)
     groups = _build_groups(campaign)
     order = _planned_order(campaign, planned_order)
@@ -1367,6 +1369,32 @@ def _discs_naming_a_profile(case: SimCase) -> list[tuple[str, str]]:
         for record in records
         if record.get(ACTUATOR_VARIABLE, "").strip() and record.get(PROFILE_VARIABLE, "").strip()
     ]
+
+
+def _warn_on_rows_that_open_no_geometry(cases: Sequence[SimCase]) -> None:
+    """Warn, and never refuse, on a workflow row that opens no geometry and says so nowhere.
+
+    A row of a registered run type with no ``GEOMETRY`` emits no open or import,
+    and the solver solves whatever it has open. That is a legitimate way to
+    run, so it is not refused, and the script is the bytes it always was
+    (PFS-2127.003); but a row that forgot the cell is told. A row that writes
+    ``GEOMETRY:`` with nothing after it declares the choice and is not
+    warned, and neither is a ``LEGACY`` row, whose recipe opens its own inputs.
+    """
+    run_types = set(workflows.workflow_names())
+    for case in cases:
+        if case.geometry is not None or case.recipe not in run_types:
+            continue
+        if GEOMETRY_VARIABLE in case.variables:
+            continue
+        warnings.warn(
+            f"row {case.sim_id!r}: the {case.recipe} run type opens no geometry, because the "
+            f"row names no {GEOMETRY_VARIABLE}, so the solver solves whatever it already has "
+            f"open. Name the file in the {GEOMETRY_VARIABLE} column, or write an empty "
+            f"{GEOMETRY_VARIABLE}: in VAR_NAMES_VALUES to say the row means it.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _warn_on_relaxed_discs_naming_a_profile(cases: Sequence[SimCase]) -> None:

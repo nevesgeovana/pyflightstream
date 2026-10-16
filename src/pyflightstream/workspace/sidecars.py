@@ -968,7 +968,7 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
         [trailing_edges]
         file = "wing.te.txt"      # the default route: a points file
         type = "STANDARD"         # optional, the edge type of every point
-        tolerance = 0.0001        # optional, in the simulation's length unit
+        tolerance = 0.0001        # optional, in metres
 
         # or detection, only when written:
         # detect = "auto"
@@ -1088,8 +1088,8 @@ def read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMar
     tolerance = table.get("tolerance", 0.0001)
     if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)):
         raise InputArtifactError(
-            f"{where} states tolerance = {tolerance!r}; write the distance, in the "
-            "simulation's length unit, within which an edge's mid-point counts as a point "
+            f"{where} states tolerance = {tolerance!r}; write the distance, in "
+            "metres, within which an edge's mid-point counts as a point "
             "of the file, as a number such as 0.0001."
         )
     fields: dict[str, Any] = {}
