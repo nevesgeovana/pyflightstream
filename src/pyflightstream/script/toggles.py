@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from types import MappingProxyType
+from typing import Literal
 
 from pyflightstream.script import CommandArgumentError
 
@@ -30,9 +31,9 @@ __all__ = ["SOLVER_TOGGLE_WORDS", "Toggle", "resolve_toggle"]
 SOLVER_TOGGLE_WORDS: Mapping[str, bool] = MappingProxyType({"ENABLE": True, "DISABLE": False})
 
 #: A solver toggle as callers may write it: a Python bool, or the
-#: solver's own ``ENABLE`` or ``DISABLE`` (any case, surrounding
-#: whitespace ignored). Nothing else is a toggle.
-Toggle = bool | str
+#: solver's own literal ``ENABLE`` or ``DISABLE``. Runtime readers also
+#: normalize case and surrounding whitespace; static callers use these literals.
+Toggle = bool | Literal["ENABLE", "DISABLE"]
 
 
 def resolve_toggle(value: object, *, context: str = "a solver toggle") -> bool:

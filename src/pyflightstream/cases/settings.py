@@ -40,7 +40,7 @@ from pyflightstream.script.solver_setup import (
     CylindricalBulkSeparation,
     StratfordBulkSeparation,
 )
-from pyflightstream.script.toggles import resolve_toggle
+from pyflightstream.script.toggles import Toggle, resolve_toggle
 
 __all__ = [
     "FluidState",
@@ -169,7 +169,9 @@ def _resolve_settings_toggle(value: object) -> object:
 
 
 #: Settings toggle: a bool, or the solver's own ENABLE and DISABLE.
-SolverToggle = Annotated[bool, BeforeValidator(_resolve_settings_toggle)]
+SolverToggle = Annotated[
+    bool, BeforeValidator(_resolve_settings_toggle, json_schema_input_type=Toggle)
+]
 
 #: A bare decimal number, the only text a wake end plane X is written as.
 _BARE_NUMBER = re.compile(r"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$")

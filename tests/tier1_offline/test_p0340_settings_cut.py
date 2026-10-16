@@ -577,3 +577,28 @@ def test_p0340_settings_cut_keeps_every_moved_public_path():
     # The facade's emitter is reached through the private module, so the
     # cut offers no new public name on helpers.
     assert not hasattr(helpers, "emit_solver_settings")
+
+
+def test_p0420_toggle_typing_rejects_misspelled_word(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    sample = tmp_path / "toggle_usage.py"
+    sample.write_text(
+        "from pyflightstream.script.toggles import Toggle\n"
+        "accepted: Toggle = 'ENABLE'\n"
+        "misspelled: Toggle = 'ENABLD'\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "mypy", "--follow-imports=silent", str(sample)],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "MYPYPATH": str(Path(__file__).resolve().parents[2] / "src")},
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Incompatible types in assignment" in result.stdout
+    assert "toggle_usage.py:3" in result.stdout
