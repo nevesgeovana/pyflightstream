@@ -299,6 +299,33 @@ def test_p0420_parity_uses_the_validated_requirement_reader(tmp_path, header):
 GENERATOR = REPO / "scripts" / "gen_requirements_index.py"
 
 
+@pytest.mark.parametrize(
+    ("status", "rationale", "accepted"),
+    [
+        ("pending", "Planning node PFS-2142.001 remains open.", True),
+        ("pending", "No planning node.", False),
+        ("implemented", "Planning node PFS-2142.001.", False),
+        ("deferred", "Planning node PFS-2142.001.", False),
+    ],
+    ids=["P0420-pending-node", "P0420-no-node", "P0420-implemented", "P0420-deferred"],
+)
+def test_p0420_s3_missing_anchors_require_pending_planning_node(status, rationale, accepted):
+    generator = _generator()
+    text = (
+        "| UID | Parent | HID | Level | Status | Verification method | Statement "
+        "| Rationale | Derives from | Code | Test |\n"
+        f"| FR-1600 | FR-3000 | INST-1.1 | L2 | {status} | test | "
+        f"The library shall record a result. | {rationale} | NL-INST | - | - |\n"
+    )
+    if accepted:
+        rows = generator._table_rows(Path("inst.md"), text)
+        generator._check_anchors(rows, REPO)
+        assert rows[0]["code"] == rows[0]["test"] == ""
+    else:
+        with pytest.raises(generator.MalformedRequirementPageError, match="anchors"):
+            generator._table_rows(Path("inst.md"), text)
+
+
 def test_p0420_srs_reader_preserves_authored_attributes():
     from scripts._requirements_paths import requirement_rows
 

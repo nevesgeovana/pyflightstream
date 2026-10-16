@@ -125,10 +125,16 @@ def _table_rows(page: Path, text: str) -> list[dict[str, str]]:
                 raise MalformedRequirementPageError(f"{page.name}: {uid} invalid L1 verification")
         if (area not in AREAS and status != "retired") or not statement:
             raise MalformedRequirementPageError(f"{page.name}: invalid area/statement")
+        pending_plan = status == "pending" and re.search(
+            r"\bPFS-\d+(?:\.\d+)*\b", record.get("rationale", "")
+        )
         if (
             status != "retired"
             and record.get("level") != "L1"
-            and (":" not in code or "::" not in test)
+            and (
+                (":" not in code and not (code == "-" and pending_plan))
+                or ("::" not in test and not (test == "-" and pending_plan))
+            )
         ):
             raise MalformedRequirementPageError(f"{page.name}: {uid} needs code and test anchors")
         rows.append(
@@ -530,16 +536,23 @@ def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
     for row in entries:
         if "hid" not in row or row["status"] == "retired" or row.get("level") == "L1":
             continue
+        pending_plan = row["status"] == "pending" and re.search(
+            r"\bPFS-\d+(?:\.\d+)*\b", row.get("rationale", "")
+        )
         module, _, symbol = row["code"].partition(":")
         paths = [
-            base / Path(*module.split(".")).with_suffix(".py") for base in (repo / "src", repo)
+            base / Path(*module.split(".")).with_suffix(".py")
+            for base in (repo / "src", repo)
+            if module
         ]
         paths += [path.with_suffix("") / "__init__.py" for path in paths]
-        if not any(symbol in names(path) for path in paths):
+        if not (not row["code"] and pending_plan) and not any(
+            symbol in names(path) for path in paths
+        ):
             problems.append(f"{row['id']}: missing code anchor {row['code']}")
         test_path, _, test_symbol = row["test"].partition("::")
         path = (repo / test_path).resolve()
-        if (
+        if not (not row["test"] and pending_plan) and (
             not path.is_relative_to((repo / "tests").resolve())
             or not test_symbol.split("::")[-1].startswith("test_")
             or test_symbol.replace("::", ".") not in names(path, tests_only=True)
