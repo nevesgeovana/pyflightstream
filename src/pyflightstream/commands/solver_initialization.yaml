@@ -173,7 +173,13 @@ SOLVER_PROXIMAL_BOUNDARIES:
     "26.100": {status: documented, note: "FSM-26.100 p.335, same grammar as 26.120"}
     "26.101": {status: documented, note: "FSM-26.101 p.336, same grammar as 26.120"}
     "26.120": {status: documented}
-    "26.122": {status: verified, report: "reports/compat/CMP-26122_2026-08-11_full.yaml"}
+    "26.122":
+      status: verified
+      report: "reports/compat/CMP-26122_2026-08-11_full.yaml"
+      note: "FSM-26.122 pp.342-343 retains the count -1 all-boundaries sample without index lines."
+      args:
+        - {name: count, type: int, cites: null}
+        - {name: boundary_indices, type: int_list, cites: boundaries, separator: newline, required: false}
     "26.121":
       status: verified
       report: "reports/compat/CMP-26121_2026-08-08_savedstate2.yaml"
@@ -190,7 +196,13 @@ SOLVER_PROXIMAL_BOUNDARIES:
         - {name: count, type: int, cites: null}
         - {name: boundary_indices, type: int_list, cites: boundaries,
            separator: newline, required: false}
-    "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "FSM-26.123 p.342, unchanged from FSM-26.122 p.342"}
+    "26.123":
+      status: verified
+      report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml"
+      note: "FSM-26.123 pp.342-343 retains the count -1 all-boundaries sample without index lines."
+      args:
+        - {name: count, type: int, cites: null}
+        - {name: boundary_indices, type: int_list, cites: boundaries, separator: newline, required: false}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "FSM-26.124 p.342, the FSM-26.123 file, carried from 26.123"}
     "26.125": {status: verified, report: "reports/compat/CMP-26125_2026-10-05_probe-campaign.yaml", note: "FSM-26.125 p.349, unchanged from FSM-26.124 p.342"}
   notes: >

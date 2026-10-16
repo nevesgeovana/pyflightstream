@@ -4378,3 +4378,11 @@ def test_p0420_volume_section_inventory_follows_deletion_and_clear():
     assert script.volume_sections == 0
     with pytest.raises(ScriptReferenceError, match="volume section"):
         script.emit("DELETE_VOLUME_SECTION", 1)
+
+
+@pytest.mark.parametrize("build", ["26.122", "26.123"])
+def test_p0420_later_documented_proximal_all_boundaries_form(build):
+    """The samples in both editions, pp.342-343, retain the count -1 form."""
+    script = Script(build)
+    script.emit("SOLVER_PROXIMAL_BOUNDARIES", -1)
+    assert "SOLVER_PROXIMAL_BOUNDARIES -1" in script.render()

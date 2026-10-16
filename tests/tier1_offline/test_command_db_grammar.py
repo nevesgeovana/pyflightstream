@@ -171,6 +171,8 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, object]]] = {
     },
     "SOLVER_PROXIMAL_BOUNDARIES": {
         "26.121": {"optional": ("boundary_indices",)},
+        "26.122": {"optional": ("boundary_indices",)},
+        "26.123": {"optional": ("boundary_indices",)},
     },
     "UNSTEADY_SOLVER_NEW_FLUID_PLOT": {
         "26.121": {
@@ -356,6 +358,8 @@ PER_VERSION_OPTIONAL: dict[tuple[str, str], tuple[str, ...]] = {
     ("NEW_SURFACE_SECTION_DISTRIBUTION", "26.101"): ("surface_indices",),
     ("OPEN", "25.000"): ("reset_parallel_cores", "load_solver_initialization"),
     ("SOLVER_PROXIMAL_BOUNDARIES", "26.121"): ("boundary_indices",),
+    ("SOLVER_PROXIMAL_BOUNDARIES", "26.122"): ("boundary_indices",),
+    ("SOLVER_PROXIMAL_BOUNDARIES", "26.123"): ("boundary_indices",),
 }
 
 # 26.125 (item S10): THE EDITION READ AGAINST 26.124's, page against page
@@ -856,7 +860,7 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # 0.37.0 item S10: the 26.125 overrides add 693 comparisons; the fields a
     # `sentinel:` or `command_line` delta names are skipped for that argument only.
     # 1821 since the 26.125 revolve export override (five arguments the base carries).
-    assert compared == 1917, (
+    assert compared == 1949, (
         f"{compared} field comparisons ran and the shipped database supports 976. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"
