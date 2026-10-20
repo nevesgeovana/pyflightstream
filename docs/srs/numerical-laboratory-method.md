@@ -38,6 +38,8 @@ Every row carries seven cells. **UID** is permanent: `NL-<STAGE>` for a goal and
 
 Statements follow the writing rules of the specification: an approved subject, active voice, no vague or open-ended terms, no bare pronouns, no implementation vocabulary, at most forty words. Conditional behaviour uses the EARS patterns. A goal is verified by analysis: the goal holds when every central requirement under the goal is verified. A central requirement whose verifying evidence does not exist yet is listed in the [verification owed](#verification-owed) section until the evidence exists.
 
+Three words carry two meanings in the communities this page addresses, and the page holds each to one sense. **Verification** in the Verification column is the requirements sense (ISO/IEC/IEEE 29148 [REF-23]): evidence that the system meets the requirement. The code and solution verification of stage TRST is the computational sense (AIAA G-077 2.2 [REF-24]): evidence that the equations are solved correctly. **Validation** is used only in the computational sense: agreement of the model with measured data for an intended use. **Calibration** follows test-section and balance calibration (VIM 2.39 [REF-60]): a calibration study characterizes a setting of the instrument, such as panel density or time step, against error and cost. It never adjusts model parameters until results match measured data; the V&V literature calls that model calibration and keeps it apart from validation (AIAA G-077 4.2 [REF-24]).
+
 ## Goals (L0)
 
 One goal per stage, in the order a numerical experiment proceeds.
