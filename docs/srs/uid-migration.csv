@@ -22,7 +22,7 @@ FR-18,kept,,FR-2171,docs/unpublished/requirements/trst.md
 FR-19,l3,FR-46,FR-2000,tests/requirements_l3.csv
 FR-22,kept,,,docs/unpublished/requirements/recs.md
 FR-23a,merged,FR-1207,FR-1207,docs/unpublished/requirements/phys.md
-FR-24,kept,,,docs/unpublished/requirements/trst.md
+FR-24,l3,NFR-44,,tests/requirements_l3.csv
 FR-25,kept,,,docs/unpublished/requirements/inst.md
 FR-26,kept,,,docs/unpublished/requirements/trst.md
 FR-27,merged,NFR-08,,docs/unpublished/requirements/quality.md
@@ -440,8 +440,8 @@ FR-341,kept,,,docs/unpublished/requirements/phys.md
 FR-677,l3,FR-341,,tests/requirements_l3.csv
 FR-678,l3,FR-341,,tests/requirements_l3.csv
 FR-679,l3,FR-341,,tests/requirements_l3.csv
-FR-344,l3,FR-24,,tests/requirements_l3.csv
-FR-688,l3,FR-24,,tests/requirements_l3.csv
+FR-344,l3,NFR-03,,tests/requirements_l3.csv
+FR-688,l3,NFR-03,,tests/requirements_l3.csv
 FR-347,l3,FR-697,,tests/requirements_l3.csv
 FR-697,kept,,,docs/unpublished/requirements/dred.md
 FR-698,kept,,,docs/unpublished/requirements/dred.md
@@ -1036,7 +1036,7 @@ NFR-43,kept,,,docs/unpublished/requirements/quality.md
 FR-1185,l3,NFR-43,,tests/requirements_l3.csv
 FR-1187,l3,NFR-43,FR-2230,tests/requirements_l3.csv
 NFR-44,kept,,,docs/unpublished/requirements/quality.md
-FR-1188,l3,FR-24,FR-2231,tests/requirements_l3.csv
+FR-1188,l3,NFR-44,FR-2231,tests/requirements_l3.csv
 FR-1189,demoted,architecture-srs#architectural-decisions,,docs/srs/architecture-srs.md
 NFR-46,kept,,NFR-119,docs/unpublished/requirements/quality.md
 FR-1196,l3,FR-1197,,tests/requirements_l3.csv
