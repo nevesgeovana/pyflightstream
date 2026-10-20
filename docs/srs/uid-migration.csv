@@ -53,14 +53,14 @@ FR-33d,merged,FR-1222,FR-1222,docs/unpublished/requirements/wksp.md
 FR-33e,merged,FR-1223,FR-1223,docs/unpublished/requirements/wksp.md
 FR-33f,merged,FR-1224,FR-1224,docs/unpublished/requirements/wksp.md
 FR-37,l3,FR-17,,tests/requirements_l3.csv
-FR-38,roadmap,,,docs/unpublished/requirements/roadmap.md
-FR-478,roadmap,,,docs/unpublished/requirements/roadmap.md
-FR-479,roadmap,,,docs/unpublished/requirements/roadmap.md
-FR-480,roadmap,,,docs/unpublished/requirements/roadmap.md
-FR-481,roadmap,,,docs/unpublished/requirements/roadmap.md
-FR-482,roadmap,,FR-2045 FR-2046,docs/unpublished/requirements/roadmap.md
-FR-483,roadmap,,,docs/unpublished/requirements/roadmap.md
-FR-484,roadmap,,,docs/unpublished/requirements/roadmap.md
+FR-38,kept,,,docs/unpublished/requirements/dred.md
+FR-478,kept,,,docs/unpublished/requirements/dred.md
+FR-479,l3,FR-38,,tests/requirements_l3.csv
+FR-480,kept,,,docs/unpublished/requirements/dred.md
+FR-481,l3,FR-38,,tests/requirements_l3.csv
+FR-482,kept,,FR-2045 FR-2046,docs/unpublished/requirements/dred.md
+FR-483,kept,,,docs/unpublished/requirements/dred.md
+FR-484,kept,,,docs/unpublished/requirements/dred.md
 FR-39,kept,,FR-2273 FR-2274,docs/unpublished/requirements/oper.md
 FR-40,kept,,,docs/unpublished/requirements/oper.md
 FR-42,kept,,FR-2172,docs/unpublished/requirements/trst.md
@@ -76,7 +76,7 @@ FR-52,kept,,,docs/unpublished/requirements/dexp.md
 FR-54,kept,,FR-1314,docs/unpublished/requirements/dexp.md
 FR-55,kept,,,docs/unpublished/requirements/dexp.md
 FR-56,kept,,,docs/unpublished/requirements/phys.md
-FR-57,roadmap,,,docs/unpublished/requirements/roadmap.md
+FR-57,kept,,,docs/unpublished/requirements/phys.md
 FR-58,kept,,,docs/unpublished/requirements/dexp.md
 FR-59,l3,FR-980,FR-1315 FR-1316,tests/requirements_l3.csv
 FR-60,kept,,,docs/unpublished/requirements/phys.md
@@ -418,11 +418,11 @@ FR-615,kept,,,docs/unpublished/requirements/exec.md
 FR-616,kept,,,docs/unpublished/requirements/exec.md
 FR-328,kept,,,docs/unpublished/requirements/oper.md
 FR-621,l3,FR-328,,tests/requirements_l3.csv
-FR-330,roadmap,,,docs/unpublished/requirements/roadmap.md
+FR-330,kept,,,docs/unpublished/requirements/spcm.md
 FR-628,l3,FR-629,,tests/requirements_l3.csv
 FR-629,kept,,,docs/unpublished/requirements/spcm.md
 FR-630,l3,FR-629,FR-1482 FR-1483,tests/requirements_l3.csv
-FR-631,roadmap,,FR-1484,docs/unpublished/requirements/roadmap.md
+FR-631,kept,,FR-1484,docs/unpublished/requirements/spcm.md
 FR-632,l3,FR-629,,tests/requirements_l3.csv
 FR-633,kept,,,docs/unpublished/requirements/spcm.md
 FR-634,l3,FR-36,,tests/requirements_l3.csv
