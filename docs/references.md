@@ -248,3 +248,95 @@ N. J. Smith, T. Kluyver, PEP 600: future manylinux platform tags for portable Li
 ### REF-58
 
 G. Neves, SMI: airframe geometry, version 1.0.0. Zenodo, 2026. Public dataset. [Zenodo record](https://zenodo.org/records/23025105).
+
+### REF-59
+
+JCGM. JCGM 100:2008, Evaluation of measurement data: Guide to the expression of uncertainty in measurement (GUM 1995 with minor corrections). BIPM, 2008. https://www.bipm.org/en/committees/jc/jcgm/publications
+
+### REF-60
+
+JCGM. JCGM 200:2012, International vocabulary of metrology: Basic and general concepts and associated terms (VIM), 3rd edition. BIPM, 2012. https://www.bipm.org/en/committees/jc/jcgm/publications
+
+### REF-61
+
+ASME. ASME V&V 20-2009, Standard for Verification and Validation in Computational Fluid Dynamics and Heat Transfer. New York: ASME, 2009.
+
+### REF-62
+
+W. L. Oberkampf, C. J. Roy, Verification and Validation in Scientific Computing, Cambridge University Press, Cambridge, 2010.
+
+### REF-63
+
+P. J. Roache, Verification and Validation in Computational Science and Engineering, Hermosa Publishers, Albuquerque, 1998.
+
+### REF-64
+
+P. J. Roache, "Perspective: a method for uniform reporting of grid refinement studies", Journal of Fluids Engineering, 116(3), pp. 405-413, 1994.
+
+### REF-65
+
+I. B. Celik, U. Ghia, P. J. Roache, C. J. Freitas, H. Coleman, P. E. Raad, "Procedure for estimation and reporting of uncertainty due to discretization in CFD applications", Journal of Fluids Engineering, 130(7), 078001, 2008.
+
+### REF-66
+
+J. B. Barlow, W. H. Rae, A. Pope, Low-Speed Wind Tunnel Testing, 3rd edition, Wiley, New York, 1999.
+
+### REF-67
+
+AIAA. AIAA R-091-2003, Assessment of Experimental Uncertainty With Application to Wind Tunnel Testing. Reston: AIAA, 2003.
+
+### REF-68
+
+AGARD. AGARD-AR-304, Quality Assessment for Wind Tunnel Testing. Neuilly-sur-Seine: AGARD, 1994.
+
+### REF-69
+
+D. C. Montgomery, Design and Analysis of Experiments, Wiley.
+
+### REF-70
+
+INCOSE Requirements Working Group. Guide to Writing Requirements, version 4, INCOSE-TP-2010-006-04. INCOSE, 2023.
+
+### REF-71
+
+A. Mavin, P. Wilkinson, A. Harwood, M. Novak, "Easy Approach to Requirements Syntax (EARS)", Proceedings of the 17th IEEE International Requirements Engineering Conference, pp. 317-322, 2009.
+
+### REF-72
+
+W. S. Smith, L. Lai, R. Khedri, "Requirements analysis for engineering computation: a systematic approach for improving reliability", Reliable Computing, 13(1), pp. 83-107, 2007.
+
+### REF-73
+
+J. Carette, W. S. Smith and contributors, Drasil: generate all the things. Software repository. https://github.com/JacquesCarette/Drasil
+
+### REF-74
+
+International Organization for Standardization. ISO 1151-1:1988, Flight dynamics - Concepts, quantities and symbols - Part 1: Aircraft motion relative to the air. Geneva: ISO, 1988.
+
+### REF-75
+
+AIAA. ANSI/AIAA R-004-1992, Recommended Practice: Atmospheric and Space Flight Vehicle Coordinate Systems. Washington: AIAA, 1992.
+
+### REF-76
+
+International Organization for Standardization. ISO 80000-1:2022, Quantities and units - Part 1: General. Geneva: ISO, 2022.
+
+### REF-77
+
+ISO/IEC. ISO/IEC 25010:2023, Systems and software engineering - Systems and software Quality Requirements and Evaluation (SQuaRE) - Product quality model. Geneva: ISO, 2023.
+
+### REF-78
+
+M. Barker, N. P. Chue Hong, D. S. Katz, A.-L. Lamprecht, C. Martinez-Ortiz, F. Psomopoulos, J. Harrow, L. J. Castro, M. Gruenpeter, P. A. Martinez, T. Honeyman, "Introducing the FAIR Principles for research software", Scientific Data, 9, 622, 2022. DOI: 10.1038/s41597-022-01710-x.
+
+### REF-79
+
+M. D. Wilkinson and others, "The FAIR Guiding Principles for scientific data management and stewardship", Scientific Data, 3, 160018, 2016. DOI: 10.1038/sdata.2016.18.
+
+### REF-80
+
+P. Groth, L. Moreau (editors), PROV-Overview: An Overview of the PROV Family of Documents. W3C Working Group Note, 2013. https://www.w3.org/TR/prov-overview/
+
+### REF-81
+
+J. L. Gustafson, "Reevaluating Amdahl's law", Communications of the ACM, 31(5), pp. 532-533, 1988. DOI: 10.1145/42411.42415.
