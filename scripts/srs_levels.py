@@ -64,7 +64,9 @@ def method_rows(root: Path) -> list[dict[str, str]]:
         if not line.strip().startswith("|"):
             columns = []
             continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        cells = [
+            c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", line.strip().strip("|"))
+        ]
         if cells and cells[0].lower() == "uid":
             columns = [c.lower() for c in cells]
             continue
@@ -101,8 +103,13 @@ def git_head(root: Path) -> str:
         return ""
 
 
-def measure(root: Path = REPO) -> dict[str, object]:
-    """Return the full measurement as a JSON-ready dict; ``ok`` carries the verdict."""
+def measure(root: Path = REPO, release: bool = False) -> dict[str, object]:
+    """Return the full measurement as a JSON-ready dict; ``ok`` carries the verdict.
+
+    A pending L3 row whose test does not exist yet, and a pending L2 with neither a test nor an
+    L3 row, are work the release still owes: they are listed under ``owed_l3`` and ``owed_l2``
+    and do not fail the check, except with ``release=True`` (the tag), where nothing is owed.
+    """
     live = read_requirements(root, live_only=True)
     l3 = read_l3(root)
     rows = method_rows(root)
@@ -145,14 +152,18 @@ def measure(root: Path = REPO) -> dict[str, object]:
     )
     l2_rows = {r["uid"]: r for r in live if r["level"] == "L2"}
     l3_parents = {r["parent"] for r in l3}
-    unresolved = sorted(
-        (r["uid"] for r in l3 if not anchor_names_a_test(root, r["test"])), key=_key
-    )
+    missing = [r for r in l3 if not anchor_names_a_test(root, r["test"])]
+    owed_l3 = sorted((r["uid"] for r in missing if r.get("status") == "pending"), key=_key)
+    unresolved = sorted((r["uid"] for r in missing if r.get("status") != "pending"), key=_key)
     orphans = sorted((r["uid"] for r in l3 if r["parent"] not in l2_rows), key=_key)
-    uncovered = sorted(
-        (u for u, r in l2_rows.items() if r["test"] in ("", "-") and u not in l3_parents),
-        key=_key,
-    )
+    bare = [(u, r) for u, r in l2_rows.items() if r["test"] in ("", "-") and u not in l3_parents]
+    owed_l2 = sorted((u for u, r in bare if r["status"] != "implemented"), key=_key)
+    uncovered = sorted((u for u, r in bare if r["status"] == "implemented"), key=_key)
+    if release:
+        unresolved, uncovered = (
+            sorted(unresolved + owed_l3, key=_key),
+            sorted(uncovered + owed_l2, key=_key),
+        )
     owed = sorted((u for u, r in l2_rows.items() if r["status"] != "implemented"), key=_key)
     identities = Counter([r["uid"] for r in live] + [r["uid"] for r in l3])
     identities.update(roadmap_uids(root))
@@ -185,7 +196,10 @@ def measure(root: Path = REPO) -> dict[str, object]:
             "unresolved": unresolved,
             "orphans": orphans,
             "l2_uncovered": uncovered,
+            "owed_l3": owed_l3,
+            "owed_l2": owed_l2,
         },
+        "release": release,
         "l2_not_implemented": owed,
         "duplicates": duplicates,
         "checks": checks,
@@ -220,6 +234,8 @@ def report(result: dict[str, object]) -> str:
         f"{'L3 unresolved or orphan':<28}{len(l3['unresolved']) + len(l3['orphans']):>8}{'0':>10}",
         f"{'L2 without L3 or test':<28}{len(l3['l2_uncovered']):>8}{'0':>10}",
         f"{'L2 not yet implemented':<28}{len(result['l2_not_implemented']):>8}{'0 at tag':>10}",
+        f"{'owed rows without a test':<28}"
+        f"{len(l3['owed_l3']) + len(l3['owed_l2']):>8}{'0 at tag':>10}",
         "",
         "failed: " + (", ".join(k for k, v in result["checks"].items() if not v) or "none"),
     ]
@@ -231,8 +247,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--json", action="store_true", help="print one JSON object")
     parser.add_argument("--root", type=Path, default=REPO, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--release", action="store_true", help="the tag check: pending rows without a test fail"
+    )
     args = parser.parse_args(argv)
-    result = measure(args.root)
+    result = measure(args.root, release=args.release)
     print(json.dumps(result, indent=1) if args.json else report(result))
     return 0 if result["ok"] else 1
 

@@ -31,9 +31,9 @@ METHOD = (
 TEST_FILE = "def test_one():\n    pass\n"
 
 
-def _run(root: Path) -> tuple[int, dict]:
+def _run(root: Path, *extra: str) -> tuple[int, dict]:
     done = subprocess.run(
-        [sys.executable, str(SCRIPT), "--json", "--root", str(root)],
+        [sys.executable, str(SCRIPT), "--json", "--root", str(root), *extra],
         capture_output=True,
         text=True,
         check=False,
@@ -56,6 +56,7 @@ def _tree(
     children: int = 3,
     l3_test: str = "tests/test_x.py::test_one",
     uncovered: str = "",
+    l3_status: str = "implemented",
 ) -> Path:
     req = tmp_path / "docs/unpublished/requirements"
     req.mkdir(parents=True)
@@ -73,7 +74,7 @@ def _tree(
     (tmp_path / "tests/test_x.py").write_text(TEST_FILE, encoding="utf-8")
     (tmp_path / "tests/requirements_l3.csv").write_text(
         "uid,parent,status,statement,code,test,node,rationale\n"
-        f"FR-900,FR-11,implemented,pyflightstream shall name the key.,,{l3_test},,\n",
+        f"FR-900,FR-11,{l3_status},pyflightstream shall name the key.,,{l3_test},PFS-1.1,\n",
         encoding="utf-8",
     )
     return tmp_path
@@ -179,3 +180,15 @@ def test_p0430_levels_planted_defects_flip_ok(tmp_path, defect):
         key = "max_children"
     status, result = _run(root)
     assert not result["checks"][key] and not result["ok"] and status == 1, result["checks"]
+
+
+def test_p0430_pending_row_without_test_is_owed_until_the_tag(tmp_path):
+    """A pending L3 row whose test does not exist yet is owed work: listed, not failing, until
+    ``--release`` (the tag check), where the same row fails the trace."""
+    root = _tree(tmp_path, l3_test="tests/test_x.py::test_absent", l3_status="pending")
+    status, result = _run(root)
+    assert result["l3"]["owed_l3"] == ["FR-900"] and not result["l3"]["unresolved"]
+    assert result["ok"] and status == 0, result["checks"]
+    status, result = _run(root, "--release")
+    assert result["l3"]["unresolved"] == ["FR-900"]
+    assert not result["checks"]["l3_resolved"] and status == 1
