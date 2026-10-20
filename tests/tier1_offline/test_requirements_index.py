@@ -313,9 +313,10 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
     left |= {3140, 3147, 3149, 3151, 3152, 3156, 3159, 3162, 3163, 3166}
     expected = [f"FR-{n}" for n in range(3000, 3167) if n not in left]
     assert [r["uid"] for r in features] == expected
-    # Trimmed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF).
+    # Trimmed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF); nine
+    # rewordings of the 0.43.0 instantiation review (R-INST-17, R-INST-18).
     assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
-        "5f938a58447198ca4ef6f1f8ebc21a5b2b8cc4afaa47bed9872fd17ceb32a748"
+        "b0682f1116bea2b1c7e9b3bb96037646423b35af7cdb129aa502ebc46087b2e0"
     )
     for feature in features:
         members = [
