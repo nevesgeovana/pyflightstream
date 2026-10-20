@@ -13,6 +13,17 @@ The product vision in one sentence: a version-aware, didactic,
 permissively licensed driver for FlightStream that makes silent
 failure structurally impossible.
 
+The specification has two layers. The
+[numerical laboratory method](numerical-laboratory-method.md) states,
+for any solver driven as an instrument, eleven goals and the central
+requirements of a numerical experiment run with the rigor of a
+wind-tunnel test: instrument knowledge, experiment design, specimen
+preparation, physics configuration, translation to the instrument,
+execution, records, data reduction, trust, the workspace and operation.
+The requirement set of this document instantiates that method for
+FlightStream: each feature derives from the central requirements it
+realizes and is refined down to the behaviour a test verifies.
+
 ## Context and motivation
 
 ### The version-drift problem
