@@ -20,6 +20,13 @@ NONFUNCTIONAL_REQUIREMENTS = REQUIREMENTS_DIR / "nonfunctional-requirements.md"
 REQUIREMENTS_INDEX = REQUIREMENTS_DIR / "index.md"
 #: Legacy fragment location; current requirements are edited in the register.
 REQUIREMENTS_FRAGMENTS_DIR = REQUIREMENTS_DIR / "fr.d"
+#: The L3 layer: detail rows, each tied to the test that verifies it, kept beside the tests
+#: rather than in the SRS pages (MOOSE and NQA-1 style). Machine-read; not a published page.
+L3_REQUIREMENTS = Path("tests/requirements_l3.csv")
+#: The columns of the L3 file, in order.
+L3_COLUMNS = ("uid", "parent", "status", "statement", "code", "test", "node", "rationale")
+#: Former requirements kept as roadmap candidates. The page makes no claim; its UIDs stay reserved.
+ROADMAP = REQUIREMENTS_DIR / "roadmap.md"
 
 STAGE_NAMES = "inst dexp spcm phys proc exec recs dred trst wksp oper".split()
 REQUIREMENT_FILES = tuple(REQUIREMENTS_DIR / (name + ".md") for name in STAGE_NAMES) + (
@@ -104,9 +111,69 @@ def read_requirements(root: Path, *, live_only: bool = False) -> list[dict[str, 
     return [row for row in rows if not live_only or row["status"] != "retired"]
 
 
+def read_l3(root: Path) -> list[dict[str, str]]:
+    """Read the L3 detail rows; refuse unknown columns, bad UIDs and duplicates."""
+    path = Path(root) / L3_REQUIREMENTS
+    if not path.exists():
+        return []
+    with path.open(encoding="utf-8", newline="") as source:
+        reader = csv.DictReader(source)
+        if tuple(reader.fieldnames or ()) != L3_COLUMNS:
+            raise ValueError(f"{path}: L3 columns must be {', '.join(L3_COLUMNS)}")
+        rows = [dict(row, level="L3") for row in reader]
+    for number, row in enumerate(rows, 2):
+        if not re.fullmatch(r"N?FR-\d+", row["uid"]):
+            raise ValueError(f"{path}:{number}: invalid UID {row['uid']}")
+        if row["status"] not in {"implemented", "pending"}:
+            raise ValueError(f"{path}:{number}: unknown status {row['status']}")
+        if not row["statement"] or not row["parent"]:
+            raise ValueError(f"{path}:{number}: empty statement or parent")
+    if len({row["uid"] for row in rows}) != len(rows):
+        raise ValueError("duplicate L3 UID")
+    return rows
+
+
+def roadmap_uids(root: Path) -> set[str]:
+    """Return the UIDs parked on the roadmap page (reserved, never live, never reused)."""
+    path = Path(root) / ROADMAP
+    if not path.exists():
+        return set()
+    return set(re.findall(r"^\| (N?FR-\d+) \|", path.read_text(encoding="utf-8"), re.M))
+
+
 def requirements_text(root: Path) -> str:
-    """Read all authored sources for consumers that inspect prose and anchors."""
-    return "\n".join(path.read_text(encoding="utf-8") for path in requirement_files(root))
+    """Read all authored sources for consumers that inspect prose and anchors.
+
+    Since the 0.43.0 trim the sources include the L3 detail rows and the roadmap page; the L3
+    rows are rendered as one register table (Level L3) so a reader keyed by UID still finds them.
+    """
+    root = Path(root)
+    parts = [path.read_text(encoding="utf-8") for path in requirement_files(root)]
+    detail = read_l3(root)
+    if detail:
+        header = "| " + " | ".join(c.replace("_", " ").capitalize() for c in ROW_COLUMNS) + " |"
+        lines = ["# L3 detail rows", "", header.replace("Uid", "UID").replace("Hid", "HID")]
+        lines.append("| " + " | ".join("---" for _ in ROW_COLUMNS) + " |")
+        for row in detail:
+            cells = (
+                row["uid"],
+                row["parent"],
+                "-",
+                "L3",
+                row["status"],
+                "test",
+                row["statement"],
+                row["rationale"] or "-",
+                "-",
+                row["code"] or "-",
+                row["test"] or "-",
+            )
+            lines.append("| " + " | ".join(c.replace("|", "&#124;") for c in cells) + " |")
+        parts.append("\n".join(lines) + "\n")
+    roadmap = Path(root) / ROADMAP
+    if roadmap.exists():
+        parts.append(roadmap.read_text(encoding="utf-8"))
+    return "\n".join(parts)
 
 
 def migrated_uids(root: Path) -> dict[str, str]:

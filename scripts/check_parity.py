@@ -94,6 +94,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _requirements_paths import (  # noqa: E402
     REQUIREMENTS_DIR,
+    read_l3,
     requirement_pages,
     requirement_rows,
 )
@@ -1677,7 +1678,8 @@ def srs_ids(tree: Path) -> set[str]:
         if path.parent == tree / REQUIREMENTS_DIR or "| UID | Parent |" in source
         for row in requirement_rows(source, str(path))
     ]
-    return set(legacy + compact)
+    detail = [row["uid"] for row in read_l3(tree)]  # L3 rows live beside the tests (0.43.0)
+    return set(legacy + compact + detail)
 
 
 def api_pairs(api: dict[str, Any], key: str = "exports") -> list[list[str]]:

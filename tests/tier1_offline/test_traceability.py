@@ -45,9 +45,14 @@ def _marked() -> dict[str, list[str]]:
 
 
 def _live_identifiers() -> set[str]:
+    from scripts._requirements_paths import read_l3, roadmap_uids
     from scripts.gen_requirements_index import SRS, collect
 
-    return {entry["id"] for entry in collect(SRS)}
+    # Since the 0.43.0 trim, L3 detail rows live beside the tests and keep their identities,
+    # and parked candidates keep theirs on the roadmap page: a test may still exercise the
+    # partial behaviour of a parked candidate. Neither kind is counted by the index.
+    live = {entry["id"] for entry in collect(SRS)}
+    return live | {row["uid"] for row in read_l3(REPO)} | roadmap_uids(REPO)
 
 
 def test_every_marker_resolves_to_a_live_requirement():

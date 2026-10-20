@@ -177,6 +177,7 @@ def requirement_data():
                 }
             )
         nodes.append(node)
+    nodes.extend(_l3_nodes(nodes, areas))
     return {
         "nodes": nodes,
         "summary": {
@@ -185,6 +186,48 @@ def requirement_data():
             "statuses": dict(Counter(n["status"] for n in nodes)),
         },
     }
+
+
+def _l3_nodes(nodes, areas):
+    """Add the L3 detail rows kept beside the tests (0.43.0) under their parent L2 nodes."""
+    from _requirements_paths import L3_REQUIREMENTS, read_l3
+
+    parents = {node["id"]: node for node in nodes}
+    counters: Counter[str] = Counter()
+    extra = []
+    for line, row in enumerate(read_l3(ROOT), 2):
+        parent = parents.get(row["parent"])
+        if parent is None:
+            continue  # an orphan is refused by scripts/srs_levels.py, not drawn here
+        counters[row["parent"]] += 1
+        text = requirements._plain(row["statement"])
+        node = {
+            "id": row["uid"],
+            "hid": f"{parent['hid']}.{counters[row['parent']]}",
+            "area": parent["area"],
+            "parent": row["parent"],
+            "status": row["status"],
+            "statement": text,
+            "first_sentence": re.split(r"(?<=[.!?])\s+(?=[A-Z])", text, maxsplit=1)[0],
+            "source": {"path": L3_REQUIREMENTS.as_posix(), "line": line},
+            "stage": parent["stage"],
+            "level": "L3",
+            "derives_from": "",
+            "verification": "test",
+            "code_anchors": [code_anchor(row["code"])] if row["code"] else [],
+            "test_anchors": [],
+        }
+        if row["test"]:
+            path, _, symbol = row["test"].partition("::")
+            node["test_anchors"].append(
+                {
+                    "anchor": row["test"],
+                    "path": path,
+                    "line": symbol_line(ROOT / path, symbol.replace("::", ".")),
+                }
+            )
+        extra.append(node)
+    return extra
 
 
 def code_data():
@@ -407,6 +450,7 @@ def generate(revision=None):
             "docs/srs/areas.yaml",
             "docs/srs/numerical-laboratory-method.md",
             "scripts/_requirements_paths.py",
+            "tests/requirements_l3.csv",
             "scripts/_workspace_files.py",
             "scripts/gen_requirements_index.py",
             "scripts/arch_metrics.py",
