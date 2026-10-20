@@ -643,7 +643,7 @@ FR-843,l3,FR-1616,,tests/requirements_l3.csv
 FR-844,l3,FR-1616,,tests/requirements_l3.csv
 FR-409,kept,,,docs/unpublished/requirements/oper.md
 FR-845,l3,FR-409,,tests/requirements_l3.csv
-FR-846,kept,,FR-2292,docs/unpublished/requirements/oper.md
+FR-846,l3,FR-409,FR-2292,tests/requirements_l3.csv
 FR-847,demoted,FR-409,,docs/unpublished/requirements/oper.md
 FR-410,l3,FR-841,,tests/requirements_l3.csv
 FR-850,merged,FR-410,,docs/unpublished/requirements/exec.md
