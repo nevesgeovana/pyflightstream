@@ -1,5 +1,7 @@
 # Quality requirements
 
+Safety (QSAF, ISO/IEC 25010:2023 3.9) has no requirement because the characteristic is not applicable: pyflightstream prepares, runs and reduces simulations of an external solver and controls no physical system, so no operation of the package can by itself endanger people, property or the environment. The risk that a wrong result informs an engineering decision is carried by functional suitability, reliability and the Establish trust stage, which report the evidence and the applicability limits of each result. The statement of permitted and prohibited uses of simulation results (FR-3149) stays a roadmap candidate.
+
 | UID | Parent | HID | Level | Status | Verification method | Statement | Rationale | Derives from | Code | Test |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | FR-3137 | - | QFSU-1 | L1 | implemented | analysis | pyflightstream shall reconstruct a run's invocation from the recorded identity and hash-verified workspace artifacts. | - | NL-WKSP-2 NL-RECS | - | - |
