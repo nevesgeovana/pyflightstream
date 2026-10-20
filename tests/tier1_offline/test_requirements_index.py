@@ -18,10 +18,11 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 RADICALS = "INST DEXP SPCM PHYS PROC EXEC RECS DRED TRST WKSP OPER".split()
 WORKSPACE_STATEMENT = (
-    "The laboratory state that governs an experiment (protocol, configuration, records) shall be "
-    "held in plain-text files that a version control system can compare and merge; bulk solver "
-    "outputs are referenced by hash and never edited."
+    "The system shall keep the governing state of an experiment, the protocol, the configuration "
+    "and the records, in plain-text files that a version control system can compare and merge."
 )
+# The method table of 0.43.0: UID | Level | Statement | Rationale | Analogy | Verification | Source.
+METHOD_COLUMNS = 7
 
 
 def historical_requirements():
@@ -403,19 +404,22 @@ def test_p0420_structure_planted_controls(defect):
 
 def validate_method(text):
     rows = [
-        [cell.strip() for cell in line.strip("|").split("|")]
+        [cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
         for line in text.splitlines()
         if line.startswith("| NL-")
     ]
     for radical in RADICALS:
         assert any(
-            len(row) == 6
+            len(row) == METHOD_COLUMNS
             and row[0] == "NL-" + radical
-            and row[2:4] == ["L0", radical]
-            and row[4].startswith("A numerical laboratory driver shall ")
+            and row[1] == "L0"
+            and row[2].startswith("The system shall ")
+            and all(row)
             for row in rows
         ), radical
-    assert any(row[0] == "NL-WKSP-1" and row[4] == WORKSPACE_STATEMENT for row in rows)
+    assert any(
+        row[0] == "NL-WKSP-1" and row[1] == "L1" and row[2] == WORKSPACE_STATEMENT for row in rows
+    )
 
 
 def test_p0420_method_stages_and_workspace_version_control():
@@ -425,11 +429,8 @@ def test_p0420_method_stages_and_workspace_version_control():
 
 @pytest.mark.parametrize("missing", [*RADICALS, "WKSP-1"], ids=lambda x: "P0420-" + x)
 def test_p0420_method_planted_missing_row(missing):
-    rows = [
-        f"| NL-{r} | pending | L0 | {r} | A numerical laboratory driver shall act. | - |"
-        for r in RADICALS
-    ]
-    rows.append(f"| NL-WKSP-1 | pending | L1 | WKSP | {WORKSPACE_STATEMENT} | - |")
+    rows = [f"| NL-{r} | L0 | The system shall act. | why | like | test | src |" for r in RADICALS]
+    rows.append(f"| NL-WKSP-1 | L1 | {WORKSPACE_STATEMENT} | why | like | test | src |")
     text = "\n".join(rows)
     validate_method(text)
     mutant = "\n".join(row for row in rows if not row.startswith(f"| NL-{missing} |"))

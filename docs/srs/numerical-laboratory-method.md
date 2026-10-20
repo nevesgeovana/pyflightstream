@@ -233,11 +233,11 @@ Every L0 to L2 requirement of the specification is implemented and verified at t
 | `NL-EXEC-5` | partial | FR-3060 family: a rerun overwrites the point script without archiving (C-SRS-S06-034, critical); FR-3164, FR-3061. |
 | `NL-RECS-2` | partial | FR-3072 effective settings records emitted=False; unemitted documented defaults are still reported as effective values (FR-31, FR-1216, high; marker T-S13-093). |
 | `NL-RECS-3` | partial | FR-3073 record rebuild implemented; FR-1217 test only round-trips the snapshot (C-SRS-S07-006); regenerated-script digest comparison owed (T-SRS-S07-008); owner decision 5 on the claim strength. |
-| `NL-RECS-4` | partial | FR-3077 product trace; trace reports a superseded producer with the continuation identity and the docstring calls that intended (FR-389, critical, owner decides D-06). |
+| `NL-RECS-4` | partial | FR-3077 product trace; trace reports a superseded producer with the continuation identity and the docstring calls that intended (FR-389, critical; decision D-06: report the original producer). |
 | `NL-RECS-6` | partial | wall_time_s and solver times recorded (FR-19); processor count, machine description, CPU time and peak memory absent from the record (paper outline 5b). |
 | `NL-TRST-1` | partial | FR-3119, FR-3124 implemented; the FR-37 convergence test has no failing-residual control (C-SRS-S09-001). |
 | `NL-TRST-5` | partial | FR-3157 probe controls implemented; the restoration check admits a third valid state as false (FR-2189, critical). |
-| `NL-TRST-7` | no | No row and no product estimates numerical error; spatial convergence is tested on package numerics only (paper outline 5a). Owner decides: implement in 0.43.0 or move to the roadmap page. |
+| `NL-TRST-7` | no | No row and no product estimates numerical error; spatial convergence is tested on package numerics only (paper outline 5a). 0.43.0 scope: the calibration studies C2b and C2c of the paper programme, whose scope C1 to C5 is kept, depend on it. |
 | `NL-WKSP-2` | partial | FR-3084 evidence preservation implemented; FR-3093 bulk artifacts by hash is pending with no child (external paper-readiness table). |
 | `NL-WKSP-7` | partial | Digest doctrine implemented for governing files (FR-3091); workbook digests hash embedded timestamps (NFR-108, critical; decision 11 option D). |
 | `NL-OPER-2` | partial | FR-3131 status and freshness implemented; FR-753 (no network) untested (external paper-readiness table). |
