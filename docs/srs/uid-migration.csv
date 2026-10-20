@@ -538,11 +538,11 @@ FR-754,l3,FR-384,,tests/requirements_l3.csv
 FR-755,kept,,,docs/unpublished/requirements/recs.md
 FR-756,l3,FR-384,,tests/requirements_l3.csv
 FR-757,l3,FR-384,,tests/requirements_l3.csv
-FR-385,l3,FR-761,,tests/requirements_l3.csv
+FR-385,l3,FR-775,,tests/requirements_l3.csv
 FR-758,l3,FR-200,,tests/requirements_l3.csv
-FR-759,l3,FR-761,,tests/requirements_l3.csv
-FR-760,l3,FR-761,,tests/requirements_l3.csv
-FR-761,kept,,,docs/unpublished/requirements/oper.md
+FR-759,l3,FR-775,,tests/requirements_l3.csv
+FR-760,l3,FR-775,,tests/requirements_l3.csv
+FR-761,l3,FR-775,,tests/requirements_l3.csv
 FR-386,l3,FR-381,,tests/requirements_l3.csv
 FR-762,l3,FR-763,,tests/requirements_l3.csv
 FR-763,kept,,,docs/unpublished/requirements/recs.md
