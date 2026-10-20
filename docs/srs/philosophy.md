@@ -2,7 +2,25 @@
 
 Two disciplines shape every requirement in this document: evidence and
 didactics. They are not features; they are the way the package is
-built.
+built. Both serve one idea, stated below and specified as requirements in
+the [numerical laboratory method](numerical-laboratory-method.md).
+
+## Simulation as experiment
+
+A simulation result deserves the habits that made wind-tunnel data
+trustworthy: a calibrated instrument with a kept certificate, a test
+matrix written before the occupancy, an inspected test article, a run log
+that records every run, data reduced by published equations with
+corrections labelled, repeat runs and an uncertainty budget before a
+coefficient is believed, and one archive per test. The package treats the
+solver as the instrument of a numerical laboratory and enforces those
+habits in eleven stages, from knowing the instrument to operating the
+laboratory. The method page states each stage as one goal refined by a
+few central requirements, each with its rationale, its wind-tunnel
+analogy, its verification method and the standard it rests on. Physics
+never lives in a requirement: formulas, windows, tokens and validity
+ranges live in the [post-processing definitions](../post-processing-definitions.md)
+and the definitions pages, which a requirement cites and never restates.
 
 ## Evidence discipline
 
