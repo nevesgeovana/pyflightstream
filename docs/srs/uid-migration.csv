@@ -1025,12 +1025,12 @@ FR-1161,l3,FR-1147,,tests/requirements_l3.csv
 FR-1162,l3,FR-1147,,tests/requirements_l3.csv
 NFR-39,kept,,NFR-117,docs/unpublished/requirements/quality.md
 FR-1175,demoted,FR-1176,,docs/unpublished/requirements/trst.md
-FR-1176,kept,,,docs/unpublished/requirements/trst.md
+FR-1176,l3,NFR-39,,tests/requirements_l3.csv
 NFR-41,l3,NFR-39,,tests/requirements_l3.csv
-FR-1181,l3,FR-1176,,tests/requirements_l3.csv
-FR-1182,l3,FR-1176,,tests/requirements_l3.csv
+FR-1181,l3,NFR-39,,tests/requirements_l3.csv
+FR-1182,l3,NFR-39,,tests/requirements_l3.csv
 NFR-42,kept,,NFR-118,docs/unpublished/requirements/quality.md
-FR-1183,l3,FR-1176,,tests/requirements_l3.csv
+FR-1183,l3,NFR-39,,tests/requirements_l3.csv
 FR-1184,merged,NFR-42,,docs/unpublished/requirements/quality.md
 NFR-43,kept,,,docs/unpublished/requirements/quality.md
 FR-1185,l3,FR-1187,,tests/requirements_l3.csv
