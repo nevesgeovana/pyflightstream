@@ -999,7 +999,7 @@ NFR-23,l3,NFR-44,,tests/requirements_l3.csv
 NFR-25,l3,NFR-52,,tests/requirements_l3.csv
 NFR-27,kept,,NFR-114,docs/unpublished/requirements/quality.md
 NFR-29,kept,,NFR-115,docs/unpublished/requirements/quality.md
-FR-1137,l3,FR-1147,,tests/requirements_l3.csv
+FR-1137,l3,NFR-29,,tests/requirements_l3.csv
 FR-1138,kept,,,docs/unpublished/requirements/oper.md
 FR-1139,l3,FR-36,,tests/requirements_l3.csv
 FR-1140,l3,FR-1141,,tests/requirements_l3.csv
@@ -1007,9 +1007,9 @@ FR-1141,kept,,,docs/unpublished/requirements/oper.md
 FR-1142,l3,FR-1138,,tests/requirements_l3.csv
 FR-1144,l3,FR-409,,tests/requirements_l3.csv
 NFR-30,kept,,NFR-116,docs/unpublished/requirements/quality.md
-FR-1147,kept,,,docs/unpublished/requirements/oper.md
-FR-1148,l3,FR-1147,,tests/requirements_l3.csv
-FR-1149,l3,FR-1147,,tests/requirements_l3.csv
+FR-1147,l3,NFR-30,,tests/requirements_l3.csv
+FR-1148,l3,NFR-30,,tests/requirements_l3.csv
+FR-1149,l3,NFR-33,,tests/requirements_l3.csv
 NFR-31,kept,,,docs/unpublished/requirements/quality.md
 FR-1150,l3,NFR-31,FR-1399,tests/requirements_l3.csv
 FR-1151,kept,,FR-2270,docs/unpublished/requirements/wksp.md
@@ -1021,8 +1021,8 @@ FR-1155,demoted,architecture-srs#the-layered-pipeline,FR-2271,docs/srs/architect
 FR-1156,l3,FR-1219,FR-2272,tests/requirements_l3.csv
 FR-1159,l3,FR-1219,,tests/requirements_l3.csv
 NFR-33,kept,,,docs/unpublished/requirements/quality.md
-FR-1161,l3,FR-1147,,tests/requirements_l3.csv
-FR-1162,l3,FR-1147,,tests/requirements_l3.csv
+FR-1161,l3,NFR-33,,tests/requirements_l3.csv
+FR-1162,l3,NFR-33,,tests/requirements_l3.csv
 NFR-39,kept,,NFR-117,docs/unpublished/requirements/quality.md
 FR-1175,demoted,FR-1176,,docs/unpublished/requirements/trst.md
 FR-1176,l3,NFR-39,,tests/requirements_l3.csv
