@@ -758,7 +758,7 @@ FR-946,kept,,,docs/unpublished/requirements/spcm.md
 FR-429,l3,FR-948,,tests/requirements_l3.csv
 FR-947,l3,FR-948,,tests/requirements_l3.csv
 FR-948,kept,,,docs/unpublished/requirements/oper.md
-FR-949,kept,,,docs/unpublished/requirements/oper.md
+FR-949,l3,FR-1138,,tests/requirements_l3.csv
 FR-430,kept,,,docs/unpublished/requirements/spcm.md
 FR-950,l3,FR-430,,tests/requirements_l3.csv
 FR-951,l3,FR-430,FR-1510,tests/requirements_l3.csv
