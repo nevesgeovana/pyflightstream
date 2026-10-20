@@ -567,8 +567,9 @@ def test_p0420_sweeps_reference_page_and_private_dataset_boundary():
     assert path.is_file(), "The public reference register is missing"
     text = path.read_text(encoding="utf-8")
     ids = re.findall(r"^### (REF-\d+)$", text, re.MULTILINE)
-    assert ids == [f"REF-{number:02}" for number in range(1, 59) if number != 37]
-    dataset = text.split("### REF-58", 1)[1]
+    # REF-59 to REF-81 are the method-layer references of 0.43.0; REF-37 stays a gap.
+    assert ids == [f"REF-{number:02}" for number in range(1, 82) if number != 37]
+    dataset = text.split("### REF-58", 1)[1].split("\n### ", 1)[0]
     assert "https://zenodo.org/records/23025105" in dataset
     info = (ROOT / "guide/latex-sources/shared/info.tex").read_text(encoding="utf-8")
     assert "Zenodo, 2026. [REF-58]" in info

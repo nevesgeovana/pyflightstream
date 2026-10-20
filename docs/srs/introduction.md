@@ -10,8 +10,8 @@ reference legacy research scripts, which worked but were built under
 research time pressure and accumulated structural debt.
 
 The product vision in one sentence: a version-aware, didactic,
-permissively licensed driver for FlightStream that makes silent
-failure structurally impossible.
+permissively licensed driver for FlightStream in which every failure
+is reported and no run passes without its evidence.
 
 The specification has two layers. The
 [numerical laboratory method](numerical-laboratory-method.md) states,
@@ -70,7 +70,7 @@ intellectual property and migrates freely.
 
 | Stakeholder | Interest |
 |---|---|
-| The owning seat (owner, maintainer) | Runs FlightStream campaigns for the research; needs the existing run-matrix files to keep working |
+| Maintainer | Runs FlightStream campaigns for research; needs the existing run-matrix files to keep working |
 | Aerospace engineers without software background | Primary external audience; need a didactic API, readable errors, and worked examples |
 | Future contributors | Need tests, contribution rules, and a command database they can extend with evidence |
 | Research groups and co-authors | Need reproducible run provenance for publications |
