@@ -115,11 +115,11 @@ ISO/IEC/IEEE. ISO/IEC/IEEE 29148, Systems and software engineering - Life cycle 
 
 ### REF-24
 
-AIAA. Guide for the Verification and Validation of Computational Fluid Dynamics Simulations. AIAA G-077. DOI: 10.2514/4.472855.
+AIAA. AIAA G-077-1998, Guide for the Verification and Validation of Computational Fluid Dynamics Simulations. Reston: AIAA, 1998. DOI: 10.2514/4.472855.
 
 ### REF-25
 
-NASA. NASA-STD-7009, Standard for Models and Simulations.
+NASA. NASA-STD-7009B, Standard for Models and Simulations. Office of the NASA Chief Engineer, 2024.
 
 ### REF-26
 
