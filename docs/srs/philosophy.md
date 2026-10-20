@@ -13,9 +13,12 @@ matrix written before the occupancy, an inspected test article, a run log
 that records every run, data reduced by published equations with
 corrections labelled, repeat runs and an uncertainty budget before a
 coefficient is believed, and one archive per test. The package treats the
-solver as the instrument of a numerical laboratory and enforces those
-habits in eleven stages, from knowing the instrument to operating the
-laboratory. The method page states each stage as one goal refined by a
+solver as the instrument of a numerical laboratory and states those
+habits as requirements in eleven stages, from knowing the instrument to
+operating the laboratory. Where a habit changes meaning for a
+deterministic solver, the method says so: a repeat run checks that the
+same inputs give the same result, and the numerical part of the
+uncertainty budget comes from a refinement study. The method page states each stage as one goal refined by a
 few central requirements, each with its rationale, its wind-tunnel
 analogy, its verification method and the standard it rests on. Physics
 never lives in a requirement: formulas, windows, tokens and validity
