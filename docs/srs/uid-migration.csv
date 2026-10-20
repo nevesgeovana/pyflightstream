@@ -893,9 +893,9 @@ FR-1065,l3,FR-44,,tests/requirements_l3.csv
 FR-1066,l3,FR-457,,tests/requirements_l3.csv
 FR-458,l3,FR-44,,tests/requirements_l3.csv
 FR-1070,l3,FR-44,,tests/requirements_l3.csv
-FR-459,kept,,FR-1523 FR-1524,docs/unpublished/requirements/dexp.md
-FR-1071,kept,,FR-1525,docs/unpublished/requirements/dexp.md
-FR-1072,l3,FR-459,FR-1526,tests/requirements_l3.csv
+FR-459,l3,FR-79,FR-1523 FR-1524,tests/requirements_l3.csv
+FR-1071,l3,FR-79,FR-1525,tests/requirements_l3.csv
+FR-1072,l3,FR-79,FR-1526,tests/requirements_l3.csv
 FR-1073,demoted,architecture-srs#scientific-and-geometric-seams,,docs/srs/architecture-srs.md
 FR-1074,kept,,FR-2225 FR-2226 FR-2227,docs/unpublished/requirements/trst.md
 FR-1075,kept,,,docs/unpublished/requirements/trst.md
