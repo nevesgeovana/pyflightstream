@@ -987,7 +987,7 @@ NFR-05,kept,,,docs/unpublished/requirements/quality.md
 NFR-06,l3,NFR-05,NFR-100,tests/requirements_l3.csv
 NFR-07,kept,,NFR-101 NFR-102,docs/unpublished/requirements/quality.md
 NFR-08,kept,,NFR-103 NFR-104,docs/unpublished/requirements/quality.md
-NFR-11,kept,,,docs/unpublished/requirements/quality.md
+NFR-11,l3,FR-1138,,tests/requirements_l3.csv
 NFR-13,kept,,NFR-105,docs/unpublished/requirements/quality.md
 NFR-14,kept,,,docs/unpublished/requirements/quality.md
 NFR-15,kept,,NFR-106 NFR-107 NFR-108,docs/unpublished/requirements/quality.md
