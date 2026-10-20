@@ -628,6 +628,7 @@
       "tests/tier1_offline/test_script_helpers.py",
       "tests/tier1_offline/test_settings_codebook.py",
       "tests/tier1_offline/test_sibling_imports.py",
+      "tests/tier1_offline/test_srs_levels.py",
       "tests/tier1_offline/test_submitted_additional_post.py",
       "tests/tier1_offline/test_suite_packages.py",
       "tests/tier1_offline/test_support.py",
