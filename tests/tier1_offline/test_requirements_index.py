@@ -50,16 +50,16 @@ def historical_requirements():
 )
 def test_p0420_srs_application_allocations_refuse_invalid_lineage(tmp_path, monkeypatch, defect):
     """P0420: an allocation is bounded provenance, not an unexplained UID exemption."""
-    from scripts._requirements_paths import requirement_files
+    from scripts._requirements_paths import L3_REQUIREMENTS, ROADMAP, requirement_files
 
     historical = historical_requirements()
-    for source in requirement_files(REPO):
+    for source in (*requirement_files(REPO), REPO / L3_REQUIREMENTS, REPO / ROADMAP):
         target = tmp_path / source.relative_to(REPO)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(source.read_bytes())
     identities = json.loads((REPO / "docs/srs/reserved-ids.json").read_text())
     migration = (REPO / "docs/srs/uid-migration.csv").read_text()
-    uid = "FR-3203"
+    uid = "FR-3206"  # an allocation still live in the SRS after the 0.43.0 trim
     if defect == "unallocated":
         del identities["allocations"][uid]
     elif defect == "out-of-range":
@@ -88,7 +88,7 @@ def test_p0420_stage_migration_preserves_historical_statements():
     """P0420: historical identities resolve through explicit content-phase lineage."""
     import csv
 
-    from scripts._requirements_paths import read_requirements
+    from scripts._requirements_paths import read_l3, read_requirements, roadmap_uids
 
     migration_path = REPO / "docs/srs/uid-migration.csv"
     assert migration_path.exists(), "historical UID migration is missing"
@@ -96,6 +96,12 @@ def test_p0420_stage_migration_preserves_historical_statements():
     migration = {r["uid"]: r for r in records}
     assert len(migration) == len(records), "duplicate migration UID"
     current = {r["uid"]: r for r in read_requirements(REPO)}
+    # 0.43.0 trim: L3 detail rows keep their identity in the L3 file beside the tests, and
+    # parked rows keep theirs on the roadmap page, which makes no claim.
+    detail = {r["uid"]: r for r in read_l3(REPO)}
+    roadmap = roadmap_uids(REPO)
+    assert not set(detail) & set(current) and not roadmap & (set(current) | set(detail))
+    current.update(detail)
     historical = historical_requirements()
     live = [r for r in historical if r["status"] != "retired"]
     historical_ids = {r["uid"] for r in live}
@@ -106,20 +112,27 @@ def test_p0420_stage_migration_preserves_historical_statements():
         family, number = uid.split("-")
         lower, upper = identities["allocation_ranges"]["srs-application"][family]
         assert lower <= int(number) <= upper, uid
-        assert uid in current and uid in migration, uid
+        assert (uid in current or uid in roadmap) and uid in migration, uid
         assert uid not in historical_ids and uid not in identities["reserved_ids"], uid
         assert allocation["lane"] in {"srs-apply-1", "srs-apply-2"}, uid
         assert all(
             re.fullmatch(r"(?:PFS-\d+(?:\.\d+)*|GOAL-033:G52)", node)
             for node in allocation["node"].split("; ")
         ), uid
-        assert migration[uid]["destination"] == "kept" and not migration[uid]["target"], uid
+        destination = migration[uid]["destination"]
+        if destination == "kept":
+            assert uid not in detail and not migration[uid]["target"], uid
+        elif destination == "l3":
+            assert uid in detail and detail[uid]["parent"] == migration[uid]["target"], uid
+        else:
+            assert destination == "roadmap" and uid in roadmap, uid
     split_ids = {uid for r in records for uid in r["new_uids"].split()}
     for uid in set(migration) - historical_ids:
         assert (
             uid in allocations
             or uid in split_ids
             or (uid in current and migration[uid]["new_uids"])
+            or (migration[uid]["destination"] == "merged" and migration[uid]["target"] in current)
         ), "unexplained migration UID"
     lettered = [r["uid"] for r in live if r["uid"][-1].isalpha()]
     expected = dict(
@@ -147,11 +160,24 @@ def test_p0420_stage_migration_preserves_historical_statements():
             continue
         assert (REPO / migration[uid]["file"]).exists()
         disposition = migration[uid]
-        assert disposition["destination"] in {"kept", "merged", "demoted", "rationale", "retired"}
+        assert disposition["destination"] in {
+            "kept",
+            "merged",
+            "demoted",
+            "rationale",
+            "retired",
+            "l3",
+            "roadmap",
+        }
         for child in disposition["new_uids"].split():
-            assert child in current or child in reserved, (uid, child)
+            assert child in current or child in reserved or child in roadmap, (uid, child)
         if disposition["destination"] == "kept":
-            assert uid in current and current[uid]["status"] != "retired", uid
+            assert uid in current and uid not in detail, uid
+            assert current[uid]["status"] != "retired", uid
+        elif disposition["destination"] == "l3":
+            assert uid in detail and detail[uid]["parent"] == disposition["target"], uid
+        elif disposition["destination"] == "roadmap":
+            assert uid in roadmap and uid not in reserved, uid
         else:
             assert uid in reserved, uid
             if disposition["destination"] != "retired":
@@ -163,8 +189,13 @@ def test_p0420_stage_migration_preserves_historical_statements():
         if uid in expected:
             assert migration[uid]["target"] == target
             assert target in migration[uid]["new_uids"].split()
+            if target in roadmap or target in detail:
+                continue  # placement of L3 rows is checked by scripts/srs_levels.py
             row = current[target]
             base = uid[:-1]
+            promoted = base in current and current[base]["level"] == row["level"]
+            if promoted:
+                continue  # the 0.43.0 trim made the former child a sibling (ledger row)
             if base in current and current[base]["status"] != "retired":
                 assert row["parent"] == base
                 assert row["hid"].startswith(current[base]["hid"] + ".")
@@ -256,8 +287,11 @@ def test_p0420_s3_architecture_dispositions_preserve_rules():
         assert historical[uid]["test"] in architecture
     assert "FR-2269" not in current and "FR-2269" in reserved
     assert "FR-2269" in architecture
-    assert "FR-965" in current and "FR-965" not in reserved
-    assert migration["FR-965"]["destination"] == "kept"
+    # FR-965 stays a live identity; the 0.43.0 trim moved the detail to the L3 file.
+    from scripts._requirements_paths import read_l3
+
+    assert "FR-965" in {r["uid"] for r in read_l3(REPO)} and "FR-965" not in reserved
+    assert migration["FR-965"]["destination"] == "l3"
 
 
 def test_p0420_l1_rows_follow_the_approved_feature_statements():
@@ -270,10 +304,17 @@ def test_p0420_l1_rows_follow_the_approved_feature_statements():
     features = sorted(
         (r for r in rows if r.get("level") == "L1"), key=lambda r: int(r["uid"].split("-")[1])
     )
-    assert [r["uid"] for r in features] == [f"FR-{n}" for n in range(3000, 3167)]
-    # S3 reviewed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF).
+    # 0.43.0 trim (instantiation-ledger-0.43.0.csv): 45 L1 merged into named survivors;
+    # FR-3082, FR-3093, FR-3138, FR-3149 and FR-3152 parked on the roadmap.
+    left = {3004, 3010, 3011, 3017, 3033, 3034, 3035, 3036, 3037, 3040, 3041, 3042, 3043, 3047}
+    left |= {3056, 3081, 3082, 3090, 3093, 3098, 3100, 3101, 3103, 3104, 3105, 3106, 3107}
+    left |= {3110, 3111, 3117, 3121, 3122, 3124, 3126, 3127, 3128, 3130, 3132, 3134, 3138}
+    left |= {3140, 3147, 3149, 3151, 3152, 3156, 3159, 3162, 3163, 3166}
+    expected = [f"FR-{n}" for n in range(3000, 3167) if n not in left]
+    assert [r["uid"] for r in features] == expected
+    # Trimmed L1 statements, numeric UID order, UTF-8 joined by LF (no trailing LF).
     assert hashlib.sha256("\n".join(r["statement"] for r in features).encode()).hexdigest() == (
-        "bbaabc64424adc37fbe44394886f0ebb725253b7fc840577bf16159dfdf24885"
+        "5f938a58447198ca4ef6f1f8ebc21a5b2b8cc4afaa47bed9872fd17ceb32a748"
     )
     for feature in features:
         members = [
@@ -422,9 +463,10 @@ def test_p0420_hid_legend_reads_authored_vocabulary(tmp_path):
 
 
 def test_p0420_register_uses_public_manual_identity():
-    from scripts._requirements_paths import read_requirements
+    from scripts._requirements_paths import read_l3, read_requirements
 
-    definitions = [row["statement"] for row in read_requirements(REPO) if row["uid"] == "FR-909"]
+    rows = [*read_requirements(REPO), *read_l3(REPO)]  # FR-909 is L3 detail since 0.43.0
+    definitions = [row["statement"] for row in rows if row["uid"] == "FR-909"]
     assert len(definitions) == 1
     assert "FSM-26.125" in definitions[0]
     assert "SRC-" not in definitions[0]
@@ -626,8 +668,9 @@ def test_p0420_srs_writing_rules_never_exceed_the_s3_baseline():
     from scripts._requirements_paths import read_requirements
     from scripts.check_writing_rules import RULES, check, compare_baseline
 
-    # Session decision 2026-10-15; reviewed S3 baseline, 1,868 live rows.
-    limits = dict(zip(RULES, (0, 0, 2, 0, 0, 0, 40, 3, 15, 0, 6), strict=True))
+    # 0.43.0 trim: 571 live L1/L2 rows measure zero on every rule (S3 baseline of
+    # 2026-10-15 was 0, 0, 2, 0, 0, 0, 40, 3, 15, 0, 6 over 1,868 rows).
+    limits = dict.fromkeys(RULES, 0)
     findings = [check(row) for row in read_requirements(REPO, live_only=True)]
     counts = {rule: sum(rule in found for found in findings) for rule in RULES}
     assert compare_baseline(counts, {"rules": limits}) == []

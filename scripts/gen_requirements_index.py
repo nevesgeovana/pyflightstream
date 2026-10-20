@@ -21,8 +21,6 @@ import sys
 from pathlib import Path
 from typing import cast
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _requirements_paths import (  # noqa: E402
     REQUIREMENTS_DIR,
@@ -519,36 +517,55 @@ def build(srs_dir: Path, tests_dir: Path) -> dict[str, object]:
     }
 
 
+_SYMBOLS: dict[tuple[Path, bool], set[str]] = {}
+
+
+def names(path: Path, *, tests_only: bool = False) -> set[str]:
+    """Return the module-level and class-level names a file defines, read statically.
+
+    With ``tests_only`` the set holds only pytest-collectable test functions and the
+    tests of ``Test`` classes, dotted by class. Results are cached per path.
+    """
+    key = (path, tests_only)
+    if key in _SYMBOLS:
+        return _SYMBOLS[key]
+    found: set[str] = set()
+
+    def walk(body: list[ast.stmt], prefix: str = "") -> None:
+        for node in body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if not tests_only or node.name.startswith("test_"):
+                    found.add(prefix + node.name)
+            elif isinstance(node, ast.ClassDef):
+                name = prefix + node.name
+                if not tests_only:
+                    found.add(name)
+                if not tests_only or node.name.startswith("Test"):
+                    walk(node.body, name + ".")
+            elif not tests_only and isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                found.update(prefix + n.id for n in targets if isinstance(n, ast.Name))
+
+    if path.is_file():
+        walk(ast.parse(path.read_text(encoding="utf-8-sig")).body)
+    _SYMBOLS[key] = found
+    return found
+
+
+def anchor_names_a_test(repo: Path, anchor: str) -> bool:
+    """Return whether ``path::test`` names a collectable test under ``tests/``."""
+    test_path, _, test_symbol = anchor.partition("::")
+    path = (repo / test_path).resolve()
+    return (
+        bool(test_path)
+        and path.is_relative_to((repo / "tests").resolve())
+        and test_symbol.split("::")[-1].startswith("test_")
+        and test_symbol.replace("::", ".") in names(path, tests_only=True)
+    )
+
+
 def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
     """Resolve compact-row links without importing product or test modules."""
-    symbols: dict[tuple[Path, bool], set[str]] = {}
-
-    def names(path: Path, *, tests_only: bool = False) -> set[str]:
-        key = (path, tests_only)
-        if key in symbols:
-            return symbols[key]
-        found: set[str] = set()
-
-        def walk(body: list[ast.stmt], prefix: str = "") -> None:
-            for node in body:
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    if not tests_only or node.name.startswith("test_"):
-                        found.add(prefix + node.name)
-                elif isinstance(node, ast.ClassDef):
-                    name = prefix + node.name
-                    if not tests_only:
-                        found.add(name)
-                    if not tests_only or node.name.startswith("Test"):
-                        walk(node.body, name + ".")
-                elif not tests_only and isinstance(node, (ast.Assign, ast.AnnAssign)):
-                    targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                    found.update(prefix + n.id for n in targets if isinstance(n, ast.Name))
-
-        if path.is_file():
-            walk(ast.parse(path.read_text(encoding="utf-8-sig")).body)
-        symbols[key] = found
-        return found
-
     problems = []
     for row in entries:
         if "hid" not in row or row["status"] == "retired" or row.get("level") == "L1":
@@ -567,13 +584,7 @@ def _check_anchors(entries: list[dict[str, str]], repo: Path) -> None:
             symbol in names(path) for path in paths
         ):
             problems.append(f"{row['id']}: missing code anchor {row['code']}")
-        test_path, _, test_symbol = row["test"].partition("::")
-        path = (repo / test_path).resolve()
-        if not (not row["test"] and pending_plan) and (
-            not path.is_relative_to((repo / "tests").resolve())
-            or not test_symbol.split("::")[-1].startswith("test_")
-            or test_symbol.replace("::", ".") not in names(path, tests_only=True)
-        ):
+        if not (not row["test"] and pending_plan) and not anchor_names_a_test(repo, row["test"]):
             problems.append(f"{row['id']}: missing test anchor {row['test']}")
     if problems:
         raise MalformedRequirementPageError("\n".join(problems))
@@ -584,6 +595,8 @@ def hid_legend(root: Path = REPO) -> str:
     path = root / "docs/srs/areas.yaml"
     if not path.exists():
         return ""
+    import yaml  # deferred: the stdlib-only level checker imports this module
+
     areas = yaml.safe_load(path.read_text(encoding="utf-8"))
     lines = [
         "## HID radical legend",
@@ -615,6 +628,7 @@ def authored_index(root: Path) -> str:
         for path in requirement_files(root)
     )
     lines += [
+        "- [Roadmap candidates](roadmap.md), parked former requirements that make no claim",
         "- [Numerical laboratory method](../../srs/numerical-laboratory-method.md)",
         "- [Introduction](../../srs/introduction.md)",
         "- [Scope](../../srs/scope.md)",
@@ -633,6 +647,16 @@ def authored_index(root: Path) -> str:
         "",
         "An anchor establishes traceability, not universal coverage. Pending contracts "
         "retain that status until their full acceptance guard is implemented.",
+        "",
+        "## Levels and the L3 layer",
+        "",
+        "These registers hold L1 capabilities and L2 behaviour observable through the "
+        "workspace, the command line or the public API. Detail (literal values, defaults, "
+        "internal symbols, file layouts, algorithm steps) is L3: one row per detail in "
+        "`tests/requirements_l3.csv`, each tied to its parent L2 and to the test that "
+        "verifies it. Run `python scripts/srs_levels.py` to measure every level against "
+        "its approved ceiling and to check that every L3 row resolves to a test; "
+        "`--json` prints the measurement as one object.",
         "",
         "## Writing-rule measurements",
         "",
