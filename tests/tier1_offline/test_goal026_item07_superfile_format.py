@@ -26,6 +26,17 @@ import pytest
 
 from pyflightstream.post.superfile import SUPERFILE_FORMATS, SuperfileDraft, write_superfiles
 
+
+def test_p0430_all_formats_validated_before_any_target(tmp_path):
+    from pyflightstream._errors import ProductError
+
+    drafts = [*_drafts(tmp_path), SuperfileDraft(tmp_path / "bad.csv", (), {}, fmt="invalid")]
+    prepared = []
+    with pytest.raises(ProductError, match="format"):
+        write_superfiles(drafts, target=lambda path: prepared.append(path) or path)
+    assert prepared == []
+
+
 # ITEM 7 SHIPS IN 0.24.0. These cases were SKIPPED through 0.23.0, where the owner
 # moved the item out and `legacy_polar` left `cases.SUPERFILE_FORMATS`, so a pproc
 # naming it was refused by name. Not one was deleted then, because several found

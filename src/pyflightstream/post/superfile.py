@@ -683,6 +683,16 @@ class SuperfileDraft:
     fmt: str | None = None
 
 
+def _validate_superfile_formats(drafts: Sequence[SuperfileDraft], fmt: str) -> None:
+    """Validate every format before any destination can be prepared."""
+    for chosen in (fmt, *(fmt if draft.fmt is None else draft.fmt for draft in drafts)):
+        if chosen not in SUPERFILE_FORMATS:
+            raise ProductError(
+                f"the super file format {chosen!r} is not one this package writes; it "
+                f"offers {', '.join(SUPERFILE_FORMATS)}"
+            )
+
+
 def write_superfiles(
     drafts: Sequence[SuperfileDraft],
     *,
@@ -718,17 +728,7 @@ def write_superfiles(
     ProductError
         If the format is not one this package writes.
     """
-    if fmt not in SUPERFILE_FORMATS:
-        # ProductError AND NOT A BARE ValueError, which the exceptions catalogue
-        # refuses in an exported public name: `except PyflightstreamError` has to
-        # catch everything this package raises (FR-39). It keeps the ValueError
-        # base, so an existing `except ValueError` catches exactly what it did.
-        raise ProductError(
-            f"the super file format {fmt!r} is not one this package writes; it offers "
-            f"{', '.join(SUPERFILE_FORMATS)}. Could-not-understand is never a silent "
-            "fallback to the default, because a file in a format you did not ask for "
-            "reads as a file in the format you did"
-        )
+    _validate_superfile_formats(drafts, fmt)
     columns: list[str] = []
     seen: set[str] = set()
     for draft in drafts:
@@ -765,11 +765,6 @@ def write_superfiles(
         # a value a rotor row can HAVE" beside the advance ratio -- and I wrote
         # both of those and then did this.
         chosen = fmt if draft.fmt is None else draft.fmt
-        if chosen not in SUPERFILE_FORMATS:
-            raise ProductError(
-                f"the super file format {chosen!r} is not one this package writes; it "
-                f"offers {', '.join(SUPERFILE_FORMATS)}"
-            )
         if chosen == "legacy_polar":
             _write_legacy_polar(path, columns, rows)
         else:
