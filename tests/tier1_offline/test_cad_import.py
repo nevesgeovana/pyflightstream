@@ -105,3 +105,19 @@ def test_unproved_step_route_is_refused_before_emission(tmp_path, suffix):
     with pytest.raises(cases.CampaignConfigError, match="STEP.*IGES"):
         _open_geometry(_case(tmp_path, suffix), script)
     assert "IMPORT_CAD" not in script.render()
+
+
+def test_f1320_a_file_route_declaration_the_setup_disables_does_not_refuse_the_cad_preflight(
+    tmp_path,
+):
+    marking = cases.TrailingEdgeMarking.model_construct(route="file")
+    raw = cases.RawMeshConditions.model_construct(trailing_edges=marking)
+    base = _case(tmp_path).model_copy(update={"raw_mesh_conditions": raw})
+    with pytest.raises(cases.CampaignConfigError, match="source trailing-edge points"):
+        _open_geometry(base, Script("26.124"))
+    # THE CONTROL: the same declaration under apply_trailing_edges = false is not read.
+    disabled = base.model_copy(update={"solver": cases.SolverSettings(apply_trailing_edges=False)})
+    try:
+        _open_geometry(disabled, Script("26.124"))
+    except cases.CampaignConfigError as refused:
+        assert "source trailing-edge points" not in str(refused)

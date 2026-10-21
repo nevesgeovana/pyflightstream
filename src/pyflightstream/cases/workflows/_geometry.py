@@ -183,7 +183,8 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         raise CampaignConfigError(
             "STEP CAD import is not supported by this workflow; use the documented "
             "IGES route (.igs/.iges), or convert and inspect a supported surface mesh. "
-            "Native STEP controls produced empty geometry, so no script is emitted."
+            "Native STEP controls produced empty geometry (RPT-082, FlightStream 26.124 "
+            "build 8172026, 2026-09-27), so no script is emitted."
         )
     refuse_ccs_options_off_a_ccs_file(case, suffix.lower())
     if suffix.lower() in CAD_FORMATS:
@@ -294,7 +295,11 @@ def _import_cad(case: SimCase, script: Script) -> None:
             "load a saved solver initialization."
         )
     marking = None if case.raw_mesh_conditions is None else case.raw_mesh_conditions.trailing_edges
-    if marking is not None and marking.route == "file":
+    if (
+        marking is not None
+        and marking.route == "file"
+        and case.solver.apply_trailing_edges is not False
+    ):
         raise CampaignConfigError(
             f"case {case.sim_id!r}: CAD tessellation cannot validate source "
             "trailing-edge points offline. Declare detection, or export a mesh "
@@ -962,7 +967,9 @@ def _emit_import_operation(script: Script, step: _ImportStep, units: str) -> Non
     if operation.op == "mirror":
         # JOINED TO ITS SOURCE, which survives: the surface count is unchanged,
         # and the other three outcomes add or replace a surface whose name and
-        # position are unmeasured.
+        # position are unmeasured. The four outcomes are the manual's
+        # (FSM-26.120 p.311; SURFACE_MIRROR in the command database); no dated
+        # probe report measures the count, so this is documented, not measured.
         assert operation.plane is not None
         script.emit(
             step.command,
