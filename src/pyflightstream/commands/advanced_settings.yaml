@@ -430,7 +430,7 @@ SET_JET_WAKE_DECAY_NORMALIZED_LENGTH:
     "26.121": {status: documented, note: "FSM-26.121 p.349, same grammar as 26.120"}
     "26.123": {status: documented, note: "FSM-26.123 p.351, unchanged from FSM-26.122 p.351"}
     "26.124": {status: documented, note: "FSM-26.124 p.351, the FSM-26.123 file, carried from 26.123; not run on 26.124"}
-    "26.125": {status: documented, note: "FSM-26.125 p.358, read against FSM-26.124 p.351: the grammar is unchanged and the documented default decay length moves from 100 to 10 jet diameters (minimum still 1); the entry-level default records the earlier editions' value"}
+    "26.125": {status: documented, default: 10.0, default_ref: "FSM-26.125 p.358", note: "FSM-26.125 p.358, read against FSM-26.124 p.351: the grammar is unchanged and the documented default decay length moves from 100 to 10 jet diameters (minimum still 1); the entry-level default records the earlier editions' value"}
   default: 100.0
   default_ref: "FSM-26.120 p.346"
   notes: >

@@ -29,6 +29,26 @@ REPORTS_DIR = REPO_ROOT / "reports"
 COMMANDS_DIR = REPO_ROOT / "src" / "pyflightstream" / "commands"
 
 
+def test_p0430_fd01_default_follows_the_target_edition():
+    registry = CommandRegistry.load()
+    name = "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH"
+    current = registry.for_version("26.125")[name]
+    assert current.default == 10.0
+    assert current.default_ref == "FSM-26.125 p.358"
+    assert registry.for_version("26.124")[name].default == 100.0
+    assert registry.commands[name].default == 100.0
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [{"default": 10.0}, {"default_ref": "FSM-26.125 p.358"}],
+    ids=["P0430-default-needs-citation", "P0430-citation-needs-default"],
+)
+def test_p0430_fd01_version_default_requires_value_and_citation(fields):
+    with pytest.raises(ValidationError, match="default.*together"):
+        VersionStatus(status="documented", **fields)
+
+
 def test_p0420_p2_1a_separation_refusal_is_scoped_to_measured_build():
     """26.120 has direct refusal evidence, not an inherited February-build row."""
     data = yaml.safe_load((COMMANDS_DIR / "solver_settings.yaml").read_text(encoding="utf-8"))

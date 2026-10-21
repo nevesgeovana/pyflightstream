@@ -150,6 +150,12 @@ class VersionStatus(BaseModel):
     layout : Layout, optional
         Per-version line layout, validated with the effective argument
         grammar. Absent means the entry-level layout; removed rows have none.
+    default : int, float, str, or tuple of int, optional
+        Documented default for this build, overriding the entry-level value.
+        It describes solver behavior; it does not insert an omitted argument.
+    default_ref : str, optional
+        Manual page supporting the per-build default. Value and citation
+        must be supplied together; absent means use the entry-level pair.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -161,6 +167,18 @@ class VersionStatus(BaseModel):
     probe_ref: str | None = None
     args: tuple[ArgSpec, ...] | None = None
     layout: Layout | None = None
+    default: int | float | str | tuple[int, ...] | None = None
+    default_ref: str | None = None
+
+    @model_validator(mode="after")
+    def _default_override_is_cited(self) -> VersionStatus:
+        if (self.default is None) != (self.default_ref is None):
+            raise ValueError("default and default_ref must be supplied together")
+        if self.default_ref is not None and not _MANUAL_REF_PATTERN.match(self.default_ref):
+            raise ValueError("default_ref must cite a manual page, for example FSM-26.125 p.358")
+        if self.default is not None and self.status is Status.REMOVED:
+            raise ValueError("a removed version has no default to apply")
+        return self
 
     @model_validator(mode="after")
     def _statuses_follow_the_evidence_rules(self) -> VersionStatus:
@@ -733,6 +751,10 @@ class VersionView:
                 f"{name} is removed in FlightStream {evidence.source} "
                 f"({reason}, {citation}).{inherited_note}"
                 f"{last_part} {successor}"
+            )
+        if record.default is not None:
+            entry = entry.model_copy(
+                update={"default": record.default, "default_ref": record.default_ref}
             )
         if record.args is not None or record.layout is not None:
             # Per-version grammar override: the returned entry carries the
