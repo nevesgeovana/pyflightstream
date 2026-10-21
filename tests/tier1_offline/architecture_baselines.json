@@ -1316,7 +1316,7 @@
  "facade_lines": {
   "__init__.py": 9,
   "cases/__init__.py": 1032,
-  "commands/__init__.py": 746,
+  "commands/__init__.py": 643,
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
   "script/__init__.py": 1624,
