@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -98,6 +99,7 @@ def git_head(root: Path) -> str:
             capture_output=True,
             text=True,
             check=True,
+            env=os.environ.copy(),
         ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return ""

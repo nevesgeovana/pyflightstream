@@ -40,7 +40,7 @@ Statements follow the writing rules of the specification: an approved subject, a
 
 Three words carry two meanings in the communities this page addresses, and the page holds each to one sense. **Verification** in the Verification column is the requirements sense (ISO/IEC/IEEE 29148 [REF-23]): evidence that the system meets the requirement. The code and solution verification of stage TRST is the computational sense (AIAA G-077 2.2 [REF-24]): evidence that the equations are solved correctly. **Validation** is used only in the computational sense: agreement of the model with measured data for an intended use. **Calibration** follows test-section and balance calibration (VIM 2.39 [REF-60]): a calibration study characterizes a setting of the instrument, such as panel density or time step, against error and cost. It never adjusts model parameters until results match measured data; the V&V literature calls that model calibration and keeps it apart from validation (AIAA G-077 4.2 [REF-24]).
 
-One software term recurs because the records depend on it. A **digest**, or content hash, is a short fingerprint computed from the bytes of a file: identical bytes give an identical digest and any change gives a different one, so a record that cites a digest names exactly one content, as a serial number names one balance.
+One software term recurs because the records depend on it. A **digest**, or content hash, is a short fingerprint computed from the bytes of a file: identical bytes give an identical digest and any change gives a different one, so a record that cites a digest names exactly one content, as a serial number names one balance. Every digest is a sha256 of the canonical form that `pyflightstream._digest` defines for its kind.
 
 ## Goals (L0)
 

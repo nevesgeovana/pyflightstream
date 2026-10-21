@@ -8,6 +8,7 @@ unmutated control must stay ``ok``.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -37,6 +38,7 @@ def _run(root: Path, *extra: str) -> tuple[int, dict]:
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
     return done.returncode, json.loads(done.stdout)
 
@@ -152,7 +154,12 @@ def test_p0430_levels_checker_imports_only_the_standard_library():
         "sys.stderr.write('BAD=' + ','.join(bad))\n"
     )
     done = subprocess.run(
-        [sys.executable, "-c", probe], capture_output=True, text=True, cwd=REPO, check=False
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        cwd=REPO,
+        check=False,
+        env=os.environ.copy(),
     )
     assert "BAD=" in done.stderr
     assert done.stderr.rsplit("BAD=", 1)[1].strip() == ""
