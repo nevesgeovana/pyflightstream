@@ -10,7 +10,8 @@ points that cannot, each with its reason.
 An unsteady row reads the rotor's history from a plot group of the plots
 export, time-averaged over the row's window; :func:`rotor_plot_source` names
 that group (the one the solver adds itself, or one the pproc declares over
-exactly the rotor's families in the rotor's own frame), and the unsteady
+exactly the rotor's families in the moment-reference frame; a group in the
+rotor's own frame is never a source), and the unsteady
 polar's axes ask the same question of a frame through
 :func:`_plot_name_can_emit` and :func:`_emitted_by_another`. A steady row and
 a quasi-steady wheel read their loads export.

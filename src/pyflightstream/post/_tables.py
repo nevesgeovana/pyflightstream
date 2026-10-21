@@ -952,10 +952,11 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
 # A continuation reopens the saved simulation of the run it continues and
 # marches on; that run's outputs are archived under the datapoint's
 # ``archive/<stamp>/``, the stamp being the one the continuation's run id
-# carries (``<campaign>/sim_<id>/r<stamp>/<point>``). Whether the solver's plots
-# export of a continuation holds the whole march or the continuation's steps
-# only is not on record (no licensed continuation has been read), so the post
-# reads both shapes by their step numbers and says which it met.
+# carries (``<campaign>/sim_<id>/r<stamp>/<point>``). RPT-134 measured one shape on
+# 26.124: a continuation that clears the reopened state marches again from step 1,
+# so its export restates the march it continues. The other shape, an export of the
+# continuation's own steps only, is not on record, so the post reads both by their
+# step numbers and says which it met.
 
 #: The run types that march in time; only their records are continued.
 _MARCHING = ("unsteady", "unsteady_rotor")
