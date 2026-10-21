@@ -1072,3 +1072,16 @@ def test_an_id_with_a_trailing_newline_is_not_a_file_name_stem(artifact_id):
     """X-F-1265: the stem grammar admits no newline, not even a final one."""
     assert not is_valid_artifact_id(artifact_id)
     assert is_valid_artifact_id(artifact_id.strip())
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize("axis", ["x_m", "y_m", "z_m"])
+def test_f2_0809_a_named_point_refuses_a_non_finite_coordinate(axis, bad):
+    """F-344: NaN and infinity are not reference geometry."""
+    from pydantic import ValidationError
+
+    from pyflightstream.workspace.inputs import PointXyz
+
+    assert PointXyz(**{axis: 1.5}).model_dump()[axis] == 1.5
+    with pytest.raises(ValidationError):
+        PointXyz(**{axis: bad})

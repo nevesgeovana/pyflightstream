@@ -346,7 +346,7 @@ class PointXyz(BaseModel):
         convention to say (``ERP`` is a rotor, ``ARP`` the airframe).
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     kind: str | None = None
 
     @field_validator("kind")
