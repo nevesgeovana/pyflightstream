@@ -281,3 +281,15 @@ def test_f6_15_a_non_finite_length_is_refused(field, value):
 
     with pytest.raises(QaEvidenceError, match="positive"):
         WingSpec(**{field: value})
+
+
+def test_every_blade_end_cap_triangle_faces_outward():
+    """F-226: no cap triangle of the default cambered blade is inverted."""
+    from pyflightstream.qa.geometry import BladeSpec, blade_triangles
+
+    triangles = blade_triangles(BladeSpec())
+    z = triangles[:, :, 2]
+    normals = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
+    tip = np.all(np.isclose(z, z.max()), axis=1)
+    root = np.all(np.isclose(z, z.min()), axis=1)
+    assert np.all(normals[tip, 2] > 0.0) and np.all(normals[root, 2] < 0.0)

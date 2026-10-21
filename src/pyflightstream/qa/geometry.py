@@ -452,9 +452,22 @@ def blade_triangles(spec: BladeSpec) -> np.ndarray:
 
 
 def _blade_cap(section: np.ndarray, outward_positive_z: bool) -> list[np.ndarray]:
-    """Triangulate one blade end section as a fan from mid camber."""
-    hub = 0.5 * (section[0] + section[section.shape[0] // 2])
-    hub[2] = section[0, 2]
+    """Triangulate one blade end section as a fan from the area centroid of its contour.
+
+    A fan from a chord-line point turns some triangles inside out on a cambered section;
+    the area centroid lies inside the contour and sees all of it.
+    """
+    x, y = section[:, 0], section[:, 1]
+    x_next, y_next = np.roll(x, -1), np.roll(y, -1)
+    cross = x * y_next - x_next * y
+    area = 0.5 * cross.sum()
+    hub = np.array(
+        (
+            ((x + x_next) * cross).sum() / (6.0 * area),
+            ((y + y_next) * cross).sum() / (6.0 * area),
+            section[0, 2],
+        )
+    )
     fan = []
     for i in range(section.shape[0] - 1):
         triangle = np.array((hub, section[i + 1], section[i]))
