@@ -4,6 +4,7 @@ import json
 from contextlib import contextmanager
 
 import pytest
+from pydantic import ValidationError
 
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError
 
@@ -228,3 +229,22 @@ def test_p0430_supersede_archives_the_snapshot_under_lease(tmp_path, monkeypatch
 
     assert read_rows(archive)[0]["status"] == "CONVERGED"
     assert ws.read_raw_manifest() == []
+
+
+@pytest.mark.parametrize("point", [1, "bad", [], [1], [["alpha", 2]], False])
+def test_p0430_non_mapping_job_point_is_refused_at_validation(point):
+    """RunRecord must refuse an invalid point before any as_points consumer reads it."""
+    error = None
+    try:
+        _record(points_ran=[{"tag": "a", "point": point}])
+    except ValidationError as caught:
+        error = caught
+    assert error is not None, "non-mapping point accepted by RunRecord"
+    assert "points_ran" in str(error)
+    assert "entry 0" in str(error)
+
+
+@pytest.mark.parametrize("point", [None, {}, {"alpha": 2}])
+def test_p0430_mapping_and_unknown_job_points_still_expand(point):
+    record = _record(points_ran=[{"tag": "a", "point": point}])
+    assert record.as_points()[0].point == (point or {})

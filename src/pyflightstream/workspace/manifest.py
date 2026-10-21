@@ -975,13 +975,19 @@ class RunRecord(BaseModel):
     @field_validator("points_ran")
     @classmethod
     def _points_ran_entries_are_readable(cls, entries: list[dict]) -> list[dict]:
-        """Refuse an entry whose status is no RunStatus or whose tag is no text (PFS-2093.005).
+        """Refuse unreadable statuses, tags and point mappings before expansion.
 
         Read here, so the row is unreadable when the manifest is read, rather
         than a bare ValueError later in every per-point consumer of :meth:`as_points`.
         """
         known = {status.value for status in RunStatus}
         for index, entry in enumerate(entries):
+            point = entry.get("point")
+            if point is not None and not isinstance(point, Mapping):
+                raise ValueError(
+                    f"entry {index} has point {point!r}; expected a mapping or null. "
+                    "Restore the point mapping from the original run record."
+                )
             status = entry.get("status")
             if status is not None and (not isinstance(status, str) or status not in known):
                 raise ValueError(
