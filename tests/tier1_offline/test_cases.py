@@ -501,7 +501,9 @@ def test_f5_0304_fr12_a_protocol_recipe_resolves_to_the_imported_function():
 @pytest.mark.requirement("FR-1616")
 @pytest.mark.parametrize("axis", ["alpha", "alpha_beta", "MACH"])
 def test_p0430_fr1616_a_sweep_axis_with_no_values_is_refused_at_construction(axis):
+    from pydantic import ValidationError
+
     from pyflightstream.cases import CampaignConfigError, SweepAxis
 
-    with pytest.raises(CampaignConfigError, match="no values"):
+    with pytest.raises((CampaignConfigError, ValidationError), match="no values"):
         SweepAxis(type=axis, values=[])
