@@ -1268,6 +1268,39 @@ def test_the_shared_thresholds_have_one_home_read_by_every_consumer():
     assert _threshold_literals(planted, values) == [(2, 1e-6)]
 
 
+def test_p0430_f731_a_symlinked_source_protects_the_folder_of_the_file_it_points_at(
+    tmp_path, monkeypatch
+):
+    """F-731: the level folder may not be the folder of the real file behind a source symlink.
+
+    A symlink is simulated by mapping the link's resolution to the real file (creating a symlink
+    needs a privilege some machines lack); the guard must refuse on the real file's folder."""
+    from pyflightstream.workspace._refine._level import _place
+
+    real_dir = tmp_path / "real" / "m_fine"
+    links = tmp_path / "links"
+    real_dir.mkdir(parents=True)
+    links.mkdir()
+    real = real_dir / "m.obj"
+    real.write_text("o A\n", encoding="utf-8")
+    link = links / "m.obj"
+    link.write_text("o A\n", encoding="utf-8")
+    link_resolved, real_resolved = link.resolve(), real.resolve()
+    original = Path.resolve
+
+    def fake(self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        return real_resolved if result == link_resolved else result
+
+    monkeypatch.setattr(Path, "resolve", fake)
+    with pytest.raises(InputArtifactError, match="source's folder"):
+        _place(link, "m_fine", tmp_path / "real", True)
+    # control: the same level folder beside an unrelated source is accepted
+    other = tmp_path / "other"
+    other.mkdir()
+    assert _place(other / "n.obj", "n_fine", tmp_path / "out", True).name == "n_fine"
+
+
 def test_a_remeshed_family_at_factor_1_is_copied_unchanged(tmp_path):
     """P0380-REFINE (FR-424, UNCHANGED FAMILY): a family that is not a grid, at factor 1, is a
     remeshed family at factor 1 and is copied as the source holds it: the level writes the

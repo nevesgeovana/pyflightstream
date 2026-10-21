@@ -1288,7 +1288,10 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
     # Resolved first: a bare file name's parent is ".", whose parent is "." again.
     root = Path(out_dir) if out_dir is not None else source.resolve().parent.parent
     folder = root / stem
-    level, home = folder.resolve(), source.parent.resolve()
+    level = folder.resolve()
+    # F-731: a source that is itself a symlink has two homes, the folder the link sits
+    # in and the folder of the file it points at; the guard covers both.
+    homes = {source.parent.resolve(), source.resolve().parent}
     if Path(stem).name != stem or level.parent != root.resolve():
         raise _refuse(
             str(folder),
@@ -1296,17 +1299,17 @@ def _place(source: Path, stem: str, out_dir: str | Path | None, overwrite: bool)
             'one folder name as [refine] tag = "fine" in the refinement file '
             "config (CLI: --config)",
         )
-    if level == home:
+    if level in homes:
         raise _refuse(
             str(folder),
             "the level folder is the source's folder; choose another out_dir (CLI: --out)",
         )
-    if home.is_relative_to(level):
+    if any(home.is_relative_to(level) for home in homes):
         raise _refuse(
             str(folder),
             "the level folder holds the source's folder; choose another out_dir (CLI: --out)",
         )
-    if level.is_relative_to(home):
+    if any(level.is_relative_to(home) for home in homes):
         raise _refuse(
             str(folder),
             "the level folder lies inside the source's folder; choose an out_dir "
