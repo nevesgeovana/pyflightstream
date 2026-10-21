@@ -125,7 +125,6 @@ def _card(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
     point = str(record.get("point_name") or record["run_id"].rsplit("/", 1)[-1])
     result = {
         "outcome": outcome,
-        "record": record,
         "evidence": evidence,
         "activity": [row for row in _activity(ledger) if _mentions(row, run_id)],
         "post": [row for row in _post_rows(ledger, matrix) if _mentions(row, run_id)],
@@ -148,6 +147,9 @@ def _card(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
     coupling = _coupling(ledger, record, files)
     if coupling is not None:
         result["coupling"] = coupling
+    # The effective record closes the card: the outcome is followed by the evidence, the
+    # logs, the chain, the identity and the inputs (FR-763), not by the whole record.
+    result["record"] = record
     return result
 
 

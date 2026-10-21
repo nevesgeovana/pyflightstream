@@ -156,13 +156,13 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
     row = _rows(workspace, capsys, "show", "9101_1")[0]
     assert list(row) == [
         "outcome",
-        "record",
         "evidence",
         "activity",
         "post",
         "chain",
         "identity",
         "inputs",
+        "record",
     ]
     assert row["outcome"]["status"] == "FAILED_MARKED"
     assert row["outcome"]["marked"]["from"] == "CONVERGED"
@@ -187,7 +187,7 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
     polar = _rows(workspace, capsys, "show", "9101")[0]
     assert len(polar["points"]) == 1 and polar["failed"] == [row]
     code, out, _ = _query(workspace, capsys, "show", RUN)
-    assert code == 0 and out.index("outcome:") < out.index("record:") < out.index("identity:")
+    assert code == 0 and out.index("outcome:") < out.index("evidence:") < out.index("identity:")
     code, out, _ = _query(workspace, capsys, "show", "9101")
     assert code == 0 and any(
         "9101" in line and "A0" in line and "FAILED_MARKED" in line for line in out.splitlines()
