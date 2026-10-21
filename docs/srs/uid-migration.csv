@@ -882,7 +882,7 @@ FR-1055,l3,FR-1054,,tests/requirements_l3.csv
 FR-1056,l3,FR-1054,FR-2163,tests/requirements_l3.csv
 FR-1057,l3,FR-1054,FR-2164,tests/requirements_l3.csv
 FR-1058,l3,FR-1054,,tests/requirements_l3.csv
-FR-1059,kept,,FR-2165 FR-2166,docs/unpublished/requirements/dred.md
+FR-1059,l3,FR-455,FR-2165 FR-2166,tests/requirements_l3.csv
 FR-1060,kept,,FR-2167 FR-2168,docs/unpublished/requirements/dred.md
 FR-1061,l3,FR-1054,,tests/requirements_l3.csv
 FR-1062,l3,FR-1054,,tests/requirements_l3.csv
