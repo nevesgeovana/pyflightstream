@@ -3992,3 +3992,12 @@ class TestF2Package0607Workspace:
         assert found.run_root == "/r/ws"
         only_copy = compare_scripts('COPY "C:/ws/a" "C:/ws/b"', 'COPY "/r/ws/a" "/r/ws/b"', shadow)
         assert only_copy.run_root == "/r/ws" and only_copy.same
+
+    @staticmethod
+    def test_f1585_a_short_changed_token_is_not_reported_as_no_input_responsible(tmp_path):
+        """F-1585: when only short words changed, the message says it cannot attribute them."""
+        from pyflightstream.workspace._script_comparison import _Comparison, drift
+
+        comparison = _Comparison(False, None, ["SET_X 5"], ["SET_X 7"])
+        text = drift(comparison, tmp_path, [])
+        assert "too short to attribute" in text and "no input of the row" not in text

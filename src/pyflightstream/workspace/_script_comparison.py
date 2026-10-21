@@ -177,7 +177,8 @@ def drift(
         what = _DRIFT_VERBS.get(verb)
         left_words = {word for word in re.split(r"[\s,|]+", left) if word}
         right_words = {word for word in re.split(r"[\s,|]+", right) if word}
-        words = [word for word in left_words ^ right_words if len(word) > 2 and word != verb]
+        differing = sorted(word for word in left_words ^ right_words if word != verb)
+        words = [word for word in differing if len(word) > 2]
         holders = sorted(
             name
             for name, text in texts.items()
@@ -200,7 +201,12 @@ def drift(
             where = (
                 f"from inputs/{', inputs/'.join(candidates)} (candidates)"
                 if candidates
-                else "from no input of the row (the package's own rendering)"
+                else (
+                    f"from an input not identified: the changed text {differing[:4]} is too "
+                    "short to attribute to one"
+                    if differing and not words
+                    else "from no input of the row (the package's own rendering)"
+                )
             )
         described.append(
             f"line {line + 1}: ran {left[:90] or '(nothing)'!r}, renders "
