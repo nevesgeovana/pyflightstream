@@ -225,3 +225,17 @@ def test_check_state_matches_config_refuses_positional_counts():
     """
     with pytest.raises(TypeError):
         check_state_matches_config(FsiState(), 3, 11)
+
+
+def test_f6_0102_reversed_major_and_minor_inertias_are_refused():
+    """F-108: major < minor flips the centrifugal pitch moment sign, so it is refused."""
+    from pyflightstream.fsi.config import BladeProperties
+
+    kwargs = _uniform_blade_kwargs()
+    kwargs["inertia_major_kg_m"], kwargs["inertia_minor_kg_m"] = (
+        kwargs["inertia_minor_kg_m"],
+        kwargs["inertia_major_kg_m"],
+    )
+    with pytest.raises(ValidationError, match="major inertia is the larger"):
+        BladeProperties(**kwargs)
+    BladeProperties(**_uniform_blade_kwargs())

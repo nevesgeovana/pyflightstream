@@ -415,6 +415,19 @@ class BladeProperties(BaseModel):
                     f"{n} radial stations; every per-station list must be "
                     "sampled at exactly the stations of station_radii_m"
                 )
+        reversed_at = [
+            index
+            for index, (major, minor) in enumerate(
+                zip(self.inertia_major_kg_m, self.inertia_minor_kg_m, strict=True)
+            )
+            if major < minor
+        ]
+        if reversed_at:
+            raise ValueError(
+                f"inertia_major_kg_m is smaller than inertia_minor_kg_m at station "
+                f"index {reversed_at[0]}; the major inertia is the larger one, and "
+                "swapped values flip the sign of the centrifugal pitch moment"
+            )
         if self.section_contours_m is not None:
             if len(self.section_contours_m) != n:
                 raise ValueError(
