@@ -47,6 +47,7 @@ from pyflightstream.cases.farfield_inputs import (
     resolve_farfield,
     traced_family,
 )
+from pyflightstream.cases.field_coverage import operated_corners
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.probes.geometry import apply_geometry_gate, load_surface_mesh, points_inside
 from pyflightstream.probes.layouts import (
@@ -61,14 +62,17 @@ from pyflightstream.probes.layouts import (
 )
 from pyflightstream.script import Script
 
+from ._motion import _origin
 from ._names import _inventory
 from ._rows import (
     _angle,
     _from_metres,
     _states_a_rotor_speed,
     _the_names_a_rotor_answers_to,
+    _the_rotor_a_flat_row_turns,
     _variable,
 )
+from ._vocabulary import ROTOR_ORIGIN_VARIABLE
 
 __all__ = [
     "FARFIELD_PLOT_PARAMETERS",
@@ -379,14 +383,16 @@ def _qualifying_plane(rectangle: Any, axes: np.ndarray, reach: float) -> tuple |
     return center, (width / 2.0, height / 2.0, spacing)
 
 
-def _plane_choice(case: SimCase, native_per_m: float) -> FarfieldShape:
+def _plane_choice(
+    case: SimCase, native_per_m: float, script: Script | None = None
+) -> FarfieldShape:
     """Choose the wing's Trefftz C plane: a declared one, or the one the plan lays (FR-1045)."""
     spec = _spec(case)
     trefftz = spec.trefftz if spec is not None else None
     if trefftz is None:
         raise CampaignConfigError(f"case {case.sim_id!r}: the far-field plane needs a trefftz")
     direction = _free_stream(case)
-    extent = _extent_m(case, direction, native_per_m)
+    extent = _extent_m(case, direction, native_per_m, script)
     laid = farfield_plane_of(case, extent_m=extent)
     middle = (len(laid.y) // 2) * len(laid.z) + len(laid.z) // 2
     bref = float(getattr(case.reference, "span_m", None) or 0.0)
@@ -419,13 +425,20 @@ def _lattice_placement(
 ) -> tuple[Any, str, np.ndarray]:
     """Return a lattice, its shaft axis letter and its origin in metres (reference frame)."""
     if shape.rotor is not None:
-        return _rotor_placement(case, shape)
+        return _rotor_placement(case, shape, native_per_m)
     origin = _frame_origin(case, script, frames, str(shape.frame), native_per_m)
     return shape.build(float(shape.tip_radius_m or 0.0)), "X", origin
 
 
-def _rotor_placement(case: SimCase, shape: LatticeShape) -> tuple[Any, str, np.ndarray]:
-    """Return a rotor's lattice, its shaft axis letter and its hub in metres (FR-1072)."""
+def _rotor_placement(
+    case: SimCase, shape: LatticeShape, native_per_m: float = 1.0
+) -> tuple[Any, str, np.ndarray]:
+    """Return a rotor's lattice, its shaft axis letter and its hub in metres (FR-1072).
+
+    The hub is the one the run places: a row stating ROTOR_ORIGIN moves the hub of
+    the rotor it turns, in the simulation's unit (``native_per_m`` of them to the
+    metre; a caller with no script states the metre).
+    """
     rotor = case.rotors.get(str(shape.rotor))
     if rotor is None:
         raise CampaignConfigError(
@@ -439,6 +452,10 @@ def _rotor_placement(case: SimCase, shape: LatticeShape) -> tuple[Any, str, np.n
             f"{rotor.axis!r}; a lattice is laid along an axis letter X, Y or Z"
         )
     origin = np.array([rotor.x_m, rotor.y_m, rotor.z_m])
+    if _variable(case, ROTOR_ORIGIN_VARIABLE) is not None and (
+        _the_rotor_a_flat_row_turns(case) is rotor
+    ):
+        origin = np.asarray(_origin(case), dtype=float) / native_per_m
     return shape.build(rotor.diameter_m / 2.0), axis, origin
 
 
@@ -546,7 +563,7 @@ def farfield_shapes(
     """
     shapes: list[FarfieldShape] = []
     if _needs_plane(case):
-        shapes.append(_plane_choice(case, native_per_m))
+        shapes.append(_plane_choice(case, native_per_m, script))
     if _needs_lattice(case):
         shapes.append(_lattice_choice(case, script, frames, native_per_m))
     return shapes
@@ -818,7 +835,7 @@ def emit_declared_lattices(case: SimCase, script: Script, probes: Any, native_pe
     count = 0
     for shape in probes.lattices:
         if shape.rotor is not None:
-            lattice, axis, origin = _rotor_placement(case, shape)
+            lattice, axis, origin = _rotor_placement(case, shape, native_per_m)
             placed: Any = origin
         else:
             lattice, axis, placed = shape.build(float(shape.tip_radius_m or 0.0)), "X", None
@@ -839,7 +856,16 @@ def _mesh(case: SimCase) -> str | None:
     return None
 
 
-def _extent_m(case: SimCase, direction: np.ndarray, native_per_m: float) -> float | None:
+def _extent_m(
+    case: SimCase, direction: np.ndarray, native_per_m: float, script: Script | None = None
+) -> float | None:
+    """Return how far downstream the solved body reaches, or None when it is not known.
+
+    The source mesh is carried through the surface operations the script emitted
+    (a translation or rotation moves the body the solver solves), so the plane is
+    laid downstream of the body as placed (F-025). An operation the rule does not
+    know leaves the extent unknown.
+    """
     mesh = _mesh(case)
     if mesh is None:
         return None
@@ -849,6 +875,12 @@ def _extent_m(case: SimCase, direction: np.ndarray, native_per_m: float) -> floa
         vertices = np.asarray(read_mesh(mesh).vertices, dtype=float) / native_per_m
     except (OSError, ValueError, PyflightstreamError):
         return None
+    operations = [] if script is None else script.surface_operations
+    if operations:
+        try:
+            vertices = np.asarray(operated_corners(vertices.tolist(), operations)[0], dtype=float)
+        except (CampaignConfigError, KeyError, TypeError, ValueError):
+            return None
     return float((vertices @ direction).max())
 
 

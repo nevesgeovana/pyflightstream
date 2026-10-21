@@ -159,3 +159,46 @@ def test_f5_0102_f019_a_far_point_still_sweeps_its_radius():
     }
     bounds, _ = envelope([(1e9, 1.0, 0.0)], motions=[motion])
     assert bounds == pytest.approx((-1, 1, -1, 1))
+
+
+def test_f5_0102_f024_the_far_field_lattice_sits_on_the_rotor_origin_the_row_states():
+    """F-024: a row stating ROTOR_ORIGIN moves the hub the lattice is laid on."""
+    from pyflightstream.cases._farfield_spec import LatticeShape
+    from pyflightstream.cases.workflows._farfield import _rotor_placement
+    from tests.tier1_offline.test_workflows import FIXTURE_ROTOR, rotor_case
+
+    shape = LatticeShape(rotor=FIXTURE_ROTOR.alias)
+    block_hub = _rotor_placement(rotor_case(), shape)[2]
+    assert list(block_hub) == pytest.approx(
+        [FIXTURE_ROTOR.x_m, FIXTURE_ROTOR.y_m, FIXTURE_ROTOR.z_m]
+    )
+    stated = rotor_case(ROTOR_ORIGIN="1.0,2.0,3.0")
+    assert list(_rotor_placement(stated, shape)[2]) == pytest.approx([1.0, 2.0, 3.0])
+    # the stated origin is in the simulation unit: 1000 of them to the metre
+    assert list(_rotor_placement(stated, shape, 1000.0)[2]) == pytest.approx([0.001, 0.002, 0.003])
+
+
+def test_f5_0102_f025_the_plane_extent_follows_the_emitted_translation(tmp_path):
+    """F-025: a body translated downstream by an emitted operation reaches further."""
+    from types import SimpleNamespace
+
+    import numpy as np
+
+    from pyflightstream.cases.workflows._farfield import _extent_m
+
+    mesh = tmp_path / "body.obj"
+    mesh.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nv 0 0 1\nf 1 2 3\nf 1 2 4\nf 1 3 4\nf 2 3 4\n")
+    case = SimpleNamespace(geometry=str(mesh))
+    direction = np.array([1.0, 0.0, 0.0])
+    assert _extent_m(case, direction, 1.0, SimpleNamespace(surface_operations=[])) == 1.0
+    move = {
+        "command": "TRANSLATE_SURFACE_IN_FRAME",
+        "arguments": {"surface": -1, "x": 5.0, "y": 0.0, "z": 0.0, "units": "METER"},
+        "length_unit": "METER",
+        "frame": {"origin": [0, 0, 0], "axes": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]},
+        "boundary_count": 1,
+    }
+    placed = SimpleNamespace(surface_operations=[move])
+    assert _extent_m(case, direction, 1.0, placed) == pytest.approx(6.0)
+    unknown = SimpleNamespace(surface_operations=[{**move, "command": "SOMETHING_ELSE"}])
+    assert _extent_m(case, direction, 1.0, unknown) is None

@@ -12,6 +12,7 @@ from pyflightstream.cases import CampaignConfigError
 
 __all__ = [
     "Point",
+    "operated_corners",
     "spatial_envelope",
 ]
 
@@ -101,40 +102,7 @@ def spatial_envelope(
         If a transform is not one the rule knows, has no frame, a rotation is not finite, or a
         moving frame's trajectory is unknown, has no proved rule or moves its centre.
     """
-    points = _corners(points_m)
-    notes = ["conservative bounding-box envelope; excess is not proof of a missed surface"]
-    for event in operations:
-        name = event["command"]
-        args = event["arguments"]
-        frame = event.get("frame")
-        if name not in {"TRANSLATE_SURFACE_IN_FRAME", "ROTATE_SURFACE"}:
-            raise CampaignConfigError(f"unsupported emitted transform {name}")
-        if not frame:
-            raise CampaignConfigError("unknown transform frame")
-        center = _point(frame["origin"])
-        scale = _scale(event.get("length_unit"))
-        center = _point([v * scale for v in center])
-        axes = [_axis(a) for a in frame["axes"]]
-        selected = args.get("surface", args.get("surfaces"))
-        all_surfaces = selected == -1 or event.get("boundary_count") == 1
-        if name == "TRANSLATE_SURFACE_IN_FRAME":
-            unit_scale = _scale(args.get("units"))
-            delta = [
-                sum(float(args[k]) * axes[j][i] * unit_scale for j, k in enumerate(("x", "y", "z")))
-                for i in range(3)
-            ]
-            moved = [tuple(p[i] + delta[i] for i in range(3)) for p in points]
-        else:
-            axis = axes["XYZ".index(str(args["axis"]))]
-            angle = math.radians(float(args["angle"]))
-            if not math.isfinite(angle):
-                raise CampaignConfigError("nonfinite rotation")
-            moved = [_rotation(p, center, axis, sign * angle) for p in points for sign in (-1, 1)]
-            notes.append("both rotation signs included; no new native sense claim")
-        if not all_surfaces:
-            moved += points
-            notes.append("partial selection uses a conservative union with the unmoved body")
-        points = _corners(moved)
+    points, notes = operated_corners(points_m, operations)
     seen = set()
     for record in motions:
         motion = record.get("motion_index")
@@ -184,3 +152,53 @@ def spatial_envelope(
         min(p[2] for p in points),
         max(p[2] for p in points),
     ), notes
+
+
+def operated_corners(
+    points_m: Iterable[Sequence[float]], operations: Sequence[Mapping[str, Any]]
+) -> tuple[list[Point], list[str]]:
+    """Return the corners of the body's bounding box after the emitted surface operations.
+
+    The bounding box is conservative (it may exceed the body) and a partial selection
+    unions the moved and the unmoved body. The points are in metres.
+
+    Raises
+    ------
+    CampaignConfigError
+        If an operation is not one the rule knows, has no frame or a rotation is not finite.
+    """
+    points = _corners(points_m)
+    notes = ["conservative bounding-box envelope; excess is not proof of a missed surface"]
+    for event in operations:
+        name = event["command"]
+        args = event["arguments"]
+        frame = event.get("frame")
+        if name not in {"TRANSLATE_SURFACE_IN_FRAME", "ROTATE_SURFACE"}:
+            raise CampaignConfigError(f"unsupported emitted transform {name}")
+        if not frame:
+            raise CampaignConfigError("unknown transform frame")
+        center = _point(frame["origin"])
+        scale = _scale(event.get("length_unit"))
+        center = _point([v * scale for v in center])
+        axes = [_axis(a) for a in frame["axes"]]
+        selected = args.get("surface", args.get("surfaces"))
+        all_surfaces = selected == -1 or event.get("boundary_count") == 1
+        if name == "TRANSLATE_SURFACE_IN_FRAME":
+            unit_scale = _scale(args.get("units"))
+            delta = [
+                sum(float(args[k]) * axes[j][i] * unit_scale for j, k in enumerate(("x", "y", "z")))
+                for i in range(3)
+            ]
+            moved = [tuple(p[i] + delta[i] for i in range(3)) for p in points]
+        else:
+            axis = axes["XYZ".index(str(args["axis"]))]
+            angle = math.radians(float(args["angle"]))
+            if not math.isfinite(angle):
+                raise CampaignConfigError("nonfinite rotation")
+            moved = [_rotation(p, center, axis, sign * angle) for p in points for sign in (-1, 1)]
+            notes.append("both rotation signs included; no new native sense claim")
+        if not all_surfaces:
+            moved += points
+            notes.append("partial selection uses a conservative union with the unmoved body")
+        points = _corners(moved)
+    return points, notes
