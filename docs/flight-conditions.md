@@ -223,10 +223,8 @@ script writes
 
 instead of `SET_FREESTREAM CONSTANT`. That is how a run states a pull-up, a
 roll or a yaw rather than straight flight: the free stream turns about the
-MOMENT REFERENCE POINT of the row's `REF`, at the rate the row wrote
-. The
-rate is a key of the cell like any other, so a row can sweep it
-.
+MOMENT REFERENCE POINT of the row's `REF`, at the rate the row wrote. The
+rate is a key of the cell like any other, so a row can sweep it.
 
 **Which axis is which belongs to the configuration.** A mesh is built in
 whatever orientation its author chose, so the reference artifact says it:
@@ -236,13 +234,11 @@ whatever orientation its author chose, so the reference artifact says it:
     pitch = "Y"
     yaw = "Z"
 
-A row stating a rate against a reference that declares none is refused by name
-,
+A row stating a rate against a reference that declares none is refused by name,
 and so is a row stating two non-zero rates: the free stream turns about one
 axis at one speed, and two rates would be composed into an axis the row does
 not write.
-Every rate zero, or no rate at all, writes `CONSTANT`
-.
+Every rate zero, or no rate at all, writes `CONSTANT`.
 
 **The sign of the emitted rotation is the sign of its body axis in the
 geometry's frame**. Positive p is right wing down, q nose up and
@@ -253,13 +249,11 @@ frame axis it is given. So p = -omega_x, q = +omega_y and r = -omega_z: a row
 stating `roll_rate:40` writes `ROTATION <frame> X -6.667`, `pitch_rate:40`
 writes `Y 6.667`, and `yaw_rate:40` writes `Z -6.667`. The sign per
 axis is the diagonal of the turn the post takes a loads export into body axes
-by, so the two cannot part
-.
+by, so the two cannot part.
 
 **The measured sense of all three**, on FlightStream 26.124: for each rate, the
 line the package emits today for +40 deg/s, and what the solver answered to
-that very line in the licensed probes
-:
+that very line in the licensed probes:
 
 | rate | positive is | emitted for +40 deg/s | the solver's answer to that line | measured by |
 |---|---|---|---|---|
@@ -292,8 +286,7 @@ reversal is measured on 26.124 and on one configuration's axes; on another
 build the same line was emitted and its response is unmeasured.
 
 A `[body_axes]` table that permutes the axes (`roll = "Y"`, say) turns about
-the axis it declares with its rate's sign above
-;
+the axis it declares with its rate's sign above;
 no probe has measured such a mesh.
 
 ## Which quantity gets solved for

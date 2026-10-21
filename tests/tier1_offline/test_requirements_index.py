@@ -43,6 +43,13 @@ def test_p0430_f7_04_continuation_example_loads_from_checkout(monkeypatch):
     assert result.value.code == 0
 
 
+def test_p0430_f7_04_rotation_prose_has_no_detached_punctuation():
+    """Removing a citation must not leave punctuation on a separate line."""
+    page = (REPO / "docs/flight-conditions.md").read_text(encoding="utf-8")
+    section = page.split("## A rotating free stream", 1)[1].split("\n## ", 1)[0]
+    assert not [line for line in section.splitlines() if line.strip() in {".", ",", ":", ";"}]
+
+
 def historical_requirements():
     """Read the frozen migration population through the shared table parser."""
     from scripts._requirements_paths import requirement_rows
