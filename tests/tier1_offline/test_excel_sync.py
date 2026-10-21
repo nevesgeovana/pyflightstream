@@ -317,3 +317,61 @@ def test_bridge_checks_unsaved_snapshot_and_invalidates_failed_preview(tmp_path:
     assert b"original" in path.read_bytes()
     literal = "a\\b\tline\nnext\rreturn"
     assert unescape(escape(literal)) == literal
+
+
+def test_p0430_fr_2311_an_interrupted_replacement_leaves_the_previous_matrix_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FR-2311: an interruption before or during the replacement leaves the complete previous
+    file and no partial or temporary file; the uninterrupted apply leaves the whole replacement."""
+    import os
+
+    first = matrix(tmp_path)
+    original = first.read_bytes()
+    snap = imported(tmp_path)
+    for row in snap.rows:
+        row[snap.headers.index("DESCRIPTION")] = Cell("changed")
+    preview = preview_sync(tmp_path, snap, direction="write")
+    real_replace = os.replace
+
+    def interrupted(source, target):
+        raise OSError("interrupted during replacement")
+
+    monkeypatch.setattr(os, "replace", interrupted)
+    result = apply_preview(preview, snap)
+    assert "interrupted during replacement" in result.error and result.written == []
+    assert first.read_bytes() == original
+    assert [p.name for p in first.parent.glob(".excel-sync-*")] == []
+    monkeypatch.setattr(os, "replace", real_replace)
+    done = apply_preview(preview_sync(tmp_path, snap, direction="write"), snap)
+    assert not done.error
+    assert done.written == ["batch.fs"] and b"changed" in first.read_bytes()
+
+
+def test_p0430_nl_wksp_7_a_workbook_digest_ignores_save_time_and_zip_envelope() -> None:
+    """NL-WKSP-7: two saves of the same cells agree whatever the clock read; a changed cell
+    does not."""
+    import io
+    from zipfile import ZipFile, ZipInfo
+
+    from pyflightstream.workspace.excel_file import _workbook_digest
+
+    def save(cell: str, stamp: str, date_time: tuple[int, int, int, int, int, int]) -> bytes:
+        buffer = io.BytesIO()
+        with ZipFile(buffer, "w") as archive:
+            for name, data in (
+                ("xl/workbook.xml", f"<c>{cell}</c>".encode()),
+                (
+                    "docProps/core.xml",
+                    f"<cp><dcterms:modified xsi:type='x'>{stamp}</dcterms:modified></cp>".encode(),
+                ),
+            ):
+                archive.writestr(ZipInfo(name, date_time), data)
+        return buffer.getvalue()
+
+    early = save("1", "2026-01-01T00:00:00Z", (2026, 1, 1, 0, 0, 0))
+    late = save("1", "2026-10-21T09:30:00Z", (2026, 10, 21, 9, 30, 0))
+    assert early != late
+    assert _workbook_digest(early) == _workbook_digest(late)
+    changed = save("2", "2026-01-01T00:00:00Z", (2026, 1, 1, 0, 0, 0))
+    assert _workbook_digest(changed) != _workbook_digest(early)

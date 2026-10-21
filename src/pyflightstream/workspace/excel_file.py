@@ -51,6 +51,36 @@ def _digest(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+#: The document properties a save rewrites without any cell changing: wall-clock creation and
+#: modification stamps and the elapsed editing time (NL-WKSP-7).
+_VOLATILE_PROPERTIES = re.compile(
+    rb"<dcterms:(created|modified)\b[^>]*>[^<]*</dcterms:\1>|<TotalTime>[^<]*</TotalTime>"
+)
+
+
+def _workbook_digest(raw: bytes) -> str:
+    """Hash the workbook's content, not its ZIP envelope (NL-WKSP-7).
+
+    The canonical form is every member's name and uncompressed bytes in name order, with the
+    created and modified stamps and the elapsed editing time of the document properties
+    removed, so two saves of the same cells agree whatever the clock read. A file that is not a
+    ZIP archive is hashed as it is.
+    """
+    digest = hashlib.sha256()
+    try:
+        with ZipFile(io.BytesIO(raw)) as archive:
+            for name in sorted(archive.namelist()):
+                data = archive.read(name)
+                if name.startswith("docProps/"):
+                    data = _VOLATILE_PROPERTIES.sub(b"", data)
+                for part in (name.encode("utf-8"), data):
+                    digest.update(len(part).to_bytes(8, "big"))
+                    digest.update(part)
+    except BadZipFile:
+        return _digest(raw)
+    return digest.hexdigest()
+
+
 def _parts(archive: ZipFile) -> dict[str, str]:
     relationships = _xml(archive.read("xl/_rels/workbook.xml.rels"))
     targets = {}
@@ -365,7 +395,7 @@ def preview_file(
         "schema": 1,
         "status": "pending",
         "workbook": str(path),
-        "workbook_sha256": _digest(original),
+        "workbook_sha256": _workbook_digest(original),
         "preview": asdict(preview),
     }
     batch.parent.mkdir(parents=True, exist_ok=True)
@@ -449,7 +479,7 @@ def apply_batch(path: Path) -> dict:
     payload = _load_batch(path)
     workbook = Path(payload["workbook"])
     original = workbook.read_bytes()
-    if _digest(original) != payload["workbook_sha256"]:
+    if _workbook_digest(original) != payload["workbook_sha256"]:
         raise ExcelSyncError("Workbook changed after Preview; save and preview again.")
     snapshot = read_snapshot(workbook)
     preview = preview_from_json(payload["preview"])
@@ -508,7 +538,7 @@ def apply_batch(path: Path) -> dict:
         status="partial" if result.error else "applied",
         result=asdict(result),
         workbook_backup=str(backup),
-        workbook_after_sha256=_digest(workbook.read_bytes()),
+        workbook_after_sha256=_workbook_digest(workbook.read_bytes()),
     )
     _replace(path, json.dumps(payload, ensure_ascii=False, indent=2).encode())
     return {
