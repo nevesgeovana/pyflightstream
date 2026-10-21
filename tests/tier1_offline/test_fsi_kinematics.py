@@ -19,6 +19,16 @@ from tests.tier1_offline.conftest import make_uniform_blade_config
 FIXTURES = Path(__file__).parent / "fixtures" / "fsi"
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_p0430_f6_04_node_offsets_must_be_finite(value):
+    from pydantic import ValidationError
+
+    data = nodes.generate_node_layout(make_uniform_blade_config()).model_dump()
+    data["ea_offset_normal_m"][0] = value
+    with pytest.raises(ValidationError, match="finite"):
+        nodes.NodeOrderingMap.model_validate(data)
+
+
 def analytic_solution(radii: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Smooth cantilever-like flap and twist distributions for tests."""
     span = radii[-1] - radii[0]

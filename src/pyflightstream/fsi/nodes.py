@@ -204,7 +204,7 @@ class NodeOrderingMap(BaseModel):
         not serialised.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     blade_count: int = Field(ge=1)
     station_radii_m: list[float] = Field(min_length=2)
