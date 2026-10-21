@@ -45,8 +45,10 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from types import MappingProxyType
 
 import pyflightstream._textio as _textio
+from pyflightstream._errors import ProductError
 from pyflightstream.post._tables import NOT_APPLICABLE, write_csv_table
 from pyflightstream.post.writers import OutputExistsError
 from pyflightstream.results import MalformedOutputError
@@ -143,22 +145,26 @@ _FROZEN_ORDER: tuple[str, ...] = (
 )
 
 #: FlightStream command name to its frozen numeric id, dense from 1.
-FLAG_IDS: dict[str, int] = {name: index for index, name in enumerate(_FROZEN_ORDER, start=1)}
+FLAG_IDS: Mapping[str, int] = MappingProxyType(
+    {name: index for index, name in enumerate(_FROZEN_ORDER, start=1)}
+)
 
 #: Provenance of a flag, as a code. Dense from 1, so the fill value is
 #: free here. ``unknown`` IS the way the file says it does not know,
 #: which is why no value column ever carries a sentinel.
-PROVENANCE_CODES: dict[str, int] = {"explicit": 1, "default": 2, "unknown": 3}
+PROVENANCE_CODES: Mapping[str, int] = MappingProxyType({"explicit": 1, "default": 2, "unknown": 3})
 
 #: What kind of thing the value columns of a row hold.
-VALUE_KINDS: dict[str, int] = {
-    "bool": 1,
-    "int": 2,
-    "float": 3,
-    "enumerated": 4,
-    "list": 5,
-    "mapping": 6,
-}
+VALUE_KINDS: Mapping[str, int] = MappingProxyType(
+    {
+        "bool": 1,
+        "int": 2,
+        "float": 3,
+        "enumerated": 4,
+        "list": 5,
+        "mapping": 6,
+    }
+)
 
 #: The kinds this projection cannot carry whole. A boundary selection
 #: contributes its LENGTH and a mapping its entry COUNT, and nothing
@@ -168,24 +174,26 @@ LOSSY_KINDS: tuple[str, ...] = ("list", "mapping")
 #: Per-flag token sets, coded densely from 1 IN THIS ORDER. Per flag
 #: rather than global, which is what lets a reader tell that 999 is the
 #: sentinel here and a value there.
-ENUMERATIONS: dict[str, tuple[str, ...]] = {
-    "SET_BOUNDARY_LAYER_TYPE": ("LAMINAR", "TRANSITIONAL", "TURBULENT"),
-    "SET_SOLVER_MODEL": ("INCOMPRESSIBLE", "SUBSONIC", "TRANSONIC", "LOW_ORDER_SUPERSONIC"),
-    "AEROELASTIC_RBF_TYPE": (
-        "WENDLAND_C2",
-        "GAUSSIAN",
-        "THIN_PLATE_SPLINE",
-        "MULTI_QUADRATIC",
-        "INV_MULTI_QUADRATIC",
-    ),
-    "SET_VISCOUS_EXCLUDED_BOUNDARIES": ("all",),
-    "SET_THIN_BOUNDARIES": ("all",),
-    "SET_AXIAL_SEPARATION_BOUNDARIES": ("all",),
-    "SET_VALAREZO_SEPARATION_BOUNDARIES": ("all",),
-    "SET_CROSSFLOW_SEPARATION_BOUNDARIES": ("all",),
-    "SET_VORTICITY_DRAG_BOUNDARIES": ("all",),
-    "DELETE_SEPARATION": ("all",),
-}
+ENUMERATIONS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "SET_BOUNDARY_LAYER_TYPE": ("LAMINAR", "TRANSITIONAL", "TURBULENT"),
+        "SET_SOLVER_MODEL": ("INCOMPRESSIBLE", "SUBSONIC", "TRANSONIC", "LOW_ORDER_SUPERSONIC"),
+        "AEROELASTIC_RBF_TYPE": (
+            "WENDLAND_C2",
+            "GAUSSIAN",
+            "THIN_PLATE_SPLINE",
+            "MULTI_QUADRATIC",
+            "INV_MULTI_QUADRATIC",
+        ),
+        "SET_VISCOUS_EXCLUDED_BOUNDARIES": ("all",),
+        "SET_THIN_BOUNDARIES": ("all",),
+        "SET_AXIAL_SEPARATION_BOUNDARIES": ("all",),
+        "SET_VALAREZO_SEPARATION_BOUNDARIES": ("all",),
+        "SET_CROSSFLOW_SEPARATION_BOUNDARIES": ("all",),
+        "SET_VORTICITY_DRAG_BOUNDARIES": ("all",),
+        "DELETE_SEPARATION": ("all",),
+    }
+)
 
 #: The tidy layout, one row per run and flag. Order is documented but
 #: NOT guaranteed: a reader resolves a column by its LABEL (NFR-19).
@@ -225,7 +233,8 @@ def _encode(command: str, value: object) -> tuple[int | None, float | None, int 
     if isinstance(value, bool):
         return VALUE_KINDS["bool"], float(value), None, None
     if isinstance(value, int):
-        return VALUE_KINDS["int"], float(value), None, None
+        # Kept an integer: a float would round an integer above 2**53 and could not round trip.
+        return VALUE_KINDS["int"], value, None, None
     if isinstance(value, float):
         return VALUE_KINDS["float"], float(value), None, None
     if isinstance(value, str):
@@ -250,10 +259,22 @@ def _encode(command: str, value: object) -> tuple[int | None, float | None, int 
     )
 
 
+def _refuse_a_colliding_fill(fill: object) -> None:
+    """Refuse a fill that is not a whole number or equals a code the codebook assigns."""
+    longest = max(len(tokens) for tokens in ENUMERATIONS.values())
+    taken = {*PROVENANCE_CODES.values(), *VALUE_KINDS.values(), *range(1, longest + 1)}
+    if isinstance(fill, bool) or not isinstance(fill, int) or fill in taken:
+        raise ProductError(
+            f"fill={fill!r} is refused: a fill is a whole number that is not a code the "
+            f"codebook assigns (the codes 1 to {max(taken)} are taken), so that a filled cell "
+            "can never be read as a real code; 999 is the conventional choice."
+        )
+
+
 def _refuse_a_value_fill(fill: object) -> None:
     """Refuse a fill aimed at a column whose domain is not ours."""
     at_risk = _numeric_flags()
-    raise MalformedOutputError(
+    raise ProductError(
         f"filling a value column with {fill!r} is refused. The code columns "
         f"({', '.join(_CODE_COLUMNS)}) are assigned here, densely from 1, so a fill "
         f"cannot collide with them; the value columns ({', '.join(_VALUE_COLUMNS)}) carry "
@@ -333,9 +354,11 @@ def settings_table(
 
     Raises
     ------
+    ProductError
+        If ``fill_values`` is asked for, or ``fill`` is not a whole number or equals
+        a code the codebook assigns.
     MalformedOutputError
-        If ``fill_values`` is asked for; if a flag holds a token the
-        frozen codebook does not code; or if a flag holds a type this
+        If a flag holds a token the frozen codebook does not code, or a type this
         projection has no kind for.
 
     Examples
@@ -349,6 +372,8 @@ def settings_table(
     >>> rows[FLAG_IDS["SOLVER_SET_AOA"]]["provenance_code"]
     3
     """
+    if fill is not None:
+        _refuse_a_colliding_fill(fill)
     if fill_values:
         _refuse_a_value_fill(fill)
     if not wide:
@@ -408,8 +433,8 @@ def codebook() -> dict[str, object]:
     }
 
 
-#: A column of the wide form that carries a number, ``f<id>_value`` or ``f<id>_prov``.
-_WIDE_COLUMN = re.compile(r"^f\d+_(?:value|prov)$")
+#: A numeric column of the wide form: ``f<id>_value``, ``f<id>_prov`` or ``f<id>_kind``.
+_WIDE_COLUMN = re.compile(r"^f\d+_(?:value|prov|kind)$")
 
 
 def _key_columns(
@@ -419,13 +444,13 @@ def _key_columns(
     if keys is None:
         return []
     if not wide:
-        raise MalformedOutputError(
+        raise ProductError(
             "keys name one run each and belong to the wide form, one row per run; the long "
             "form has one row per setting of a run, so pass wide=True"
         )
     names = list(keys[0]) if keys else []
     if len(keys) != len(rows) or any(list(own) != names for own in keys):
-        raise MalformedOutputError(
+        raise ProductError(
             f"keys must be one mapping per run, all with the same keys; got {len(keys)} for "
             f"{len(rows)} run(s)"
         )
@@ -478,9 +503,12 @@ def write_settings_table(
     ------
     OutputExistsError
         If either file exists and ``overwrite`` is False.
-    MalformedOutputError
+    ProductError
         As :func:`settings_table`; also if ``keys`` is given without ``wide``, does not
-        hold one mapping per run, or holds mappings of different keys.
+        hold one mapping per run, or holds mappings of different keys, or if the legend
+        path is the table path.
+    MalformedOutputError
+        As :func:`settings_table`.
     """
     destination = Path(path)
     legend_path = (
@@ -488,6 +516,11 @@ def write_settings_table(
         if legend is not None
         else destination.with_name(destination.name + ".codebook.json")
     )
+    if legend_path.resolve() == destination.resolve():
+        raise ProductError(
+            f"the legend path {legend_path} is the table path: the legend would replace the "
+            "table, so name two files"
+        )
     rows = settings_table(setups, wide=wide, fill=fill, fill_values=fill_values)
     lead = _key_columns(keys, rows, wide=wide)
     for target in (destination, legend_path):
@@ -547,13 +580,20 @@ def read_settings_table(path: str | Path) -> list[Row]:
         codebook other than :data:`CODEBOOK_VERSION`. It is REFUSED
         rather than resolved, because the one thing a reader must never
         do with an older encoding is reinterpret it silently: an id that
-        moved makes every row of the file describe a different flag.
+        moved makes every row of the file describe a different flag. Also if
+        the header names a column twice, or a numeric cell is not a finite number.
     """
     source = Path(path)
     with source.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         header = reader.fieldnames or []
         raw = list(reader)
+    repeated = sorted({name for name in header if header.count(name) > 1})
+    if repeated:
+        raise MalformedOutputError(
+            f"{source} names {', '.join(repeated)} more than once in its header, so one "
+            "value of each would be dropped"
+        )
     if "codebook_version" not in header:
         raise MalformedOutputError(
             f"{source} carries no codebook_version column, so nothing says which "
@@ -578,17 +618,34 @@ def read_settings_table(path: str | Path) -> list[Row]:
             "exists to prevent."
         )
     rows: list[Row] = []
-    for row in raw:
+    for number, row in enumerate(raw, start=2):
         converted: Row = {}
         for key, cell in row.items():
-            # Read NA as absent without converting it to float. Legacy empty
-            # spellings remain readable too.
+            # Read NA (and the historical dash) as absent without converting it to
+            # float. Legacy empty spellings remain readable too.
             if key not in TIDY_COLUMNS and not _WIDE_COLUMN.match(key):
                 converted[key] = cell  # a key column of the campaign product: text
-            elif cell in ("", None, NOT_APPLICABLE):
+            elif cell in ("", None, NOT_APPLICABLE, "-"):
                 converted[key] = None
             else:
-                number = float(cell)
-                converted[key] = int(number) if number.is_integer() else number
+                converted[key] = _number(cell, source, number, key)
         rows.append(converted)
     return rows
+
+
+def _number(cell: str, source: Path, line: int, column: str) -> int | float:
+    """Read one cell: integer text stays an exact integer, anything else must be a finite float."""
+    try:
+        return int(cell)
+    except ValueError:
+        pass
+    try:
+        value = float(cell)
+    except ValueError:
+        value = math.nan
+    if not math.isfinite(value):
+        raise MalformedOutputError(
+            f"{source} line {line} column {column}: {cell!r} is not a finite number; a value "
+            "that does not apply is written NA"
+        )
+    return int(value) if value.is_integer() else value

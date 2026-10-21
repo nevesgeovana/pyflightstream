@@ -35,6 +35,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream._errors import ProductError
 from pyflightstream.exceptions import MalformedOutputError, OutputExistsError
 from pyflightstream.post.settings_table import (
     CODEBOOK_VERSION,
@@ -221,7 +222,7 @@ def test_a_fill_reaches_the_code_columns_only():
 
 def test_asking_to_fill_a_value_column_is_refused_naming_the_flags():
     """The collision, refused rather than reintroduced wearing an option."""
-    with pytest.raises(MalformedOutputError) as refused:
+    with pytest.raises(ProductError) as refused:
         settings_table([snapshot()], fill=999, fill_values=True)
 
     message = str(refused.value)
@@ -318,3 +319,80 @@ def test_the_writer_refuses_an_existing_destination(tmp_path):
     write_settings_table(tmp_path / "settings.csv", [snapshot()])
     with pytest.raises(OutputExistsError, match="already exists"):
         write_settings_table(tmp_path / "settings.csv", [snapshot()])
+
+
+# --- 0.43.0 hardening (F-1371 F-1398 F-1399 F-1400 F-207 F-208 F-209 F-794) -----
+
+
+def _hand_table(tmp_path, header, *cells):
+    path = tmp_path / "hand.csv"
+    path.write_text(",".join(header) + "\n" + ",".join(cells) + "\n", encoding="utf-8")
+    return path
+
+
+def test_p0430_f3_wide_kind_columns_read_as_numbers(tmp_path):
+    """F-1371: f<id>_kind is a code column: a number when stated, None for NA."""
+    table, _ = write_settings_table(tmp_path / "w.csv", [snapshot()], wide=True)
+    (row,) = read_settings_table(table)
+    kinds = [value for key, value in row.items() if key.endswith("_kind")]
+    assert kinds and all(value is None or isinstance(value, int) for value in kinds)
+
+
+def test_p0430_f3_a_fill_that_equals_a_code_is_refused(tmp_path):
+    """F-1398: a fill must be a whole number outside the assigned codes."""
+    for fill in (1, 4, 6, 2.5, True):
+        with pytest.raises(ProductError, match="fill="):
+            settings_table([snapshot()], fill=fill)
+    assert settings_table([snapshot()], fill=999)
+
+
+def test_p0430_f3_a_legend_path_equal_to_the_table_path_is_refused(tmp_path):
+    """F-1399: the legend would replace the table."""
+    with pytest.raises(ProductError, match="legend path"):
+        write_settings_table(tmp_path / "s.csv", [snapshot()], legend=tmp_path / "s.csv")
+    assert not (tmp_path / "s.csv").exists()
+
+
+def test_p0430_f3_the_reader_takes_the_historical_dash_as_missing(tmp_path):
+    """F-1400: a dash is None, as NA is, never a bare ValueError."""
+    path = _hand_table(tmp_path, ("codebook_version", "value_num"), "1", "-")
+    assert read_settings_table(path) == [{"codebook_version": 1, "value_num": None}]
+
+
+def test_p0430_f3_integers_keep_every_digit_through_the_table(tmp_path):
+    """F-207 F-208: an integer above 2**53 is written and read back exactly."""
+    from pyflightstream.post.settings_table import _encode
+
+    big = 2**60 + 1
+    assert _encode("SOLVER_SET_ITERATIONS", big)[1] == big
+    path = _hand_table(tmp_path, ("codebook_version", "value_num"), "1", str(big))
+    assert read_settings_table(path)[0]["value_num"] == big
+
+
+def test_p0430_f3_the_reader_refuses_a_nonfinite_number(tmp_path):
+    """F-209: nan, inf and 1e999 are not settings; the refusal names the cell."""
+    for cell in ("nan", "inf", "1e999"):
+        path = _hand_table(tmp_path, ("codebook_version", "value_num"), "1", cell)
+        with pytest.raises(MalformedOutputError, match="value_num"):
+            read_settings_table(path)
+
+
+def test_p0430_f3_the_reader_refuses_a_repeated_header_label(tmp_path):
+    """F-794: a label named twice would drop one value silently."""
+    path = _hand_table(tmp_path, ("codebook_version", "value_num", "value_num"), "1", "2", "3")
+    with pytest.raises(MalformedOutputError, match="value_num"):
+        read_settings_table(path)
+
+
+def test_p0430_f3_the_exported_codebook_cannot_be_altered(tmp_path):
+    """PFS-2126.026 FR-2325: the frozen tables are read-only and codebook() returns copies."""
+    from pyflightstream.post import settings_table as module
+
+    for table in (module.FLAG_IDS, module.PROVENANCE_CODES, module.VALUE_KINDS):
+        with pytest.raises(TypeError):
+            table["X"] = 99  # type: ignore[index]
+    first = codebook()
+    first["flag_ids"]["X"] = 99
+    first["enumerations"]["SET_SOLVER_MODEL"].append("X")
+    assert "X" not in codebook()["flag_ids"]
+    assert "X" not in codebook()["enumerations"]["SET_SOLVER_MODEL"]
