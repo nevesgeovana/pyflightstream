@@ -136,7 +136,11 @@ def _annotate(value: Any, aliases: dict[tuple[str, str], str]) -> Any:
         parts = run_id.split("/")
         # <campaign>/sim_<id>/<point>: the campaign (the folder name) may
         # itself start with sim_, so the simulation is the second last part.
-        sim = parts[-2].removeprefix("sim_") if len(parts) > 1 else ""
+        # A continuation's id carries its stamp folder before the point
+        # (<campaign>/sim_<id>/r<stamp>/<point>), so the simulation is the part
+        # after the campaign when that part names one.
+        holder = parts[1] if len(parts) > 2 and parts[1].startswith("sim_") else parts[-2:][0]
+        sim = holder.removeprefix("sim_") if len(parts) > 1 else ""
         result["run_id_alias"] = aliases.get((sim, parts[-1]))
     return result
 

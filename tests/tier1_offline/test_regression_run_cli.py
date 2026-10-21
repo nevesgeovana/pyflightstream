@@ -287,3 +287,12 @@ class TestRun2Cli:
         assert cli.main(["inventory", str(obj), "--clean"]) == 2
         assert "is a raw mesh, which carries no saved solver action" in capsys.readouterr().err
         assert sorted(p.name for p in tmp_path.iterdir()) == ["wing.obj"]
+
+
+def test_f6_0102_a_continuation_run_id_gets_its_points_alias():
+    """C-SRS-S11-066: the stamp folder of a continuation id does not hide its simulation."""
+    aliases = {("2006", "a+02.0_b+00.0"): "2006_1"}
+    row = {"run_id": "camp/sim_2006/r20261002T010203/a+02.0_b+00.0"}
+    assert _cli_query_point._annotate(row, aliases)["run_id_alias"] == "2006_1"
+    nested = {"run_id": "sim_runs/sim_2006/r20261002T010203/a+02.0_b+00.0"}
+    assert _cli_query_point._annotate(nested, aliases)["run_id_alias"] == "2006_1"
