@@ -55,9 +55,9 @@ def test_f1500_object_shaped_additional_manifest_is_refused_not_rewritten(tmp_pa
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     workspace.additional_path.write_text('{"e1": {"status": "EXTRACTED"}}', encoding="utf-8")
     before = workspace.additional_path.read_bytes()
-    with pytest.raises(WorkspaceError, match="not the list"):
+    with pytest.raises(WorkspaceError, match="must hold a list"):
         workspace.append_additional(_extraction("e2"))
-    with pytest.raises(WorkspaceError, match="not the list"):
+    with pytest.raises(WorkspaceError, match="must hold a list"):
         workspace.read_additional()
     assert workspace.additional_path.read_bytes() == before
 

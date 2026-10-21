@@ -516,10 +516,10 @@ def test_f_310_the_last_station_is_the_tip_itself_for_every_shape(tip, hub, stat
     Betz-Prandtl factor then took acos of a number above one."""
     disc = DiscGeometry(tip, hub, BLADES)
     assert hub + (tip - hub) * (stations - 1) / (stations - 1) > tip, "the rounding exists"
-    for profile in (
-        uniform_profile(disc, stations=stations),
-        betz_prandtl_profile(disc, advance_ratio=1.0, stations=stations),
-    ):
+    profiles = [uniform_profile(disc, stations=stations)]
+    if stations >= 3:  # a two-station Betz-Prandtl shape is refused (F-1586)
+        profiles.append(betz_prandtl_profile(disc, advance_ratio=1.0, stations=stations))
+    for profile in profiles:
         assert profile.rows[-1][0] == tip
         assert all(r <= tip for r, _ in profile.rows)
 

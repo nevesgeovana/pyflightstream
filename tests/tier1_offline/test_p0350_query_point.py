@@ -496,7 +496,7 @@ def test_history_reports_an_unreadable_zip_as_a_row_and_still_answers(workspace,
     rows = json.loads(out)["rows"]
     errors = [row for row in rows if "error" in row]
     assert len(errors) == 1 and errors[0]["source"].endswith("sim_bad.zip")
-    assert "history" in errors[0]["error"]
+    assert "unreadable archive" in errors[0]["error"]
     assert any("record" in row for row in rows)
     code, _, err = _query(workspace, capsys, "diff", RUN, RUN)
     assert code in (0, 2), err

@@ -195,15 +195,11 @@ def test_f728_linked_datapoint_folder_cannot_claim_another_simulations_output(tm
     except OSError:
         if os.name != "nt":
             pytest.skip("symbolic links are not permitted here")
-        import subprocess
+        from pyflightstream.workspace import _make_dir_link
 
-        made = subprocess.run(
-            ["cmd", "/c", "mklink", "/J", str(link), str(other)],
-            capture_output=True,
-            creationflags=0x08000000,
-            check=False,
-        )
-        if made.returncode != 0:
+        try:
+            _make_dir_link(other, link)
+        except OSError:
             pytest.skip("neither a symbolic link nor a junction can be made here")
     with pytest.raises(WorkspaceError, match="outside this simulation"):
         workspace.collect_outputs(
@@ -3105,7 +3101,7 @@ def test_x_f_1308_a_corrupt_additional_manifest_is_a_named_refusal(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.root.mkdir(parents=True)
     workspace.additional_path.write_text('[{"extraction_id": ', encoding="utf-8")
-    with pytest.raises(WorkspaceError, match=r"additional\.json.*cannot read"):
+    with pytest.raises(WorkspaceError, match=r"additional\.json.*not valid JSON"):
         workspace.read_additional()
 
 
