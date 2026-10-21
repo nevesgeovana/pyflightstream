@@ -116,3 +116,29 @@ def test_p0420_revolutions_states_the_fewest_samples_of_any_column_of_the_row():
     )
     row = next(row for row in rows if row["STEP"] == 7)
     assert row["REVOLUTIONS"] == 1
+
+
+def test_p0430_f3_phase_locked_refuses_a_column_the_history_does_not_hold():
+    """PFS-2130.044: a requested column absent from series.fields is refused, named."""
+    with pytest.raises(ProductError, match="no column Q_B9"):
+        phase_locked_rows(
+            history(1),
+            ["Q_B1", "Q_B9"],
+            last_step=10,
+            revolutions=2,
+            steps_per_revolution=4.0,
+            blade1_azimuth_deg=0,
+        )
+
+
+def test_p0430_f3_phase_locked_depth_refusal_names_the_keyword_the_caller_passed():
+    """PFS-2130.044: the refusal says revolutions=, with the pproc key as a parenthetical."""
+    with pytest.raises(ProductError, match=r"revolutions=0\.5.*\(last_revolutions_avg"):
+        phase_locked_rows(
+            history(1),
+            ["Q_B1"],
+            last_step=10,
+            revolutions=0.5,
+            steps_per_revolution=4.0,
+            blade1_azimuth_deg=0,
+        )

@@ -580,7 +580,7 @@ def read_timestep_series(
     _refuse_a_bad_call(order, frequency)
     paths = [Path(item) for item in frames]
     if not paths:
-        raise MalformedOutputError(
+        raise ProductError(
             "no frames were given, so there is no series to read; an empty animation "
             "folder means the run exported nothing"
         )
@@ -662,16 +662,16 @@ def blade_passage_average(
 
     Raises
     ------
-    MalformedOutputError
+    ProductError
         If the window holds no frame, or is given backwards. An average
         of nothing is still a number, which is exactly why it is
         refused rather than returned as a NaN.
     """
     if series.n_frames == 0:
-        raise MalformedOutputError("the series holds no frame")
+        raise ProductError("the series holds no frame")
     first, last = int(window[0]), int(window[1])
     if last < first:
-        raise MalformedOutputError(
+        raise ProductError(
             f"the window ({first}, {last}) ends before it starts; it is an inclusive "
             "(first_step, last_step) pair in solver steps"
         )
@@ -680,7 +680,7 @@ def blade_passage_average(
         read_steps.update(int(step) for step in series.steps[inside])
     count = int(inside.sum())
     if count == 0:
-        raise MalformedOutputError(
+        raise ProductError(
             f"the window ({first}, {last}) holds no frame of a series running from "
             f"{int(series.steps[0])} to {int(series.steps[-1])} in steps of "
             f"{int(series.steps[1] - series.steps[0]) if len(series.steps) > 1 else 1}. "
@@ -724,24 +724,26 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
 
     Raises
     ------
-    MalformedOutputError
+    ProductError
         If ``period_steps`` is not positive, or is longer than the
         series; or if the frames are not exported at one stride that
         divides ``period_steps``, because the passages would then hold
         their equally weighted frames at different phases.
+    MalformedOutputError
+        If the frames' steps do not advance.
     """
     if series.n_frames == 0:
-        raise MalformedOutputError("the series holds no frame")
+        raise ProductError("the series holds no frame")
     period = int(period_steps)
     if period <= 0:
-        raise MalformedOutputError(
+        raise ProductError(
             f"period_steps={period} is not a passage; it is the number of solver steps "
             "in one blade passage and must be at least one"
         )
     steps = series.steps
     span = int(steps[-1] - steps[0]) + 1
     if period > span:
-        raise MalformedOutputError(
+        raise ProductError(
             f"one passage of {period} steps is longer than the {span} steps this series "
             "covers, so not one complete passage was exported"
         )
@@ -757,7 +759,7 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
             "so each frame advances to a new solver step"
         )
     if len(strides) > 1 or (strides and period % next(iter(strides))):
-        raise MalformedOutputError(
+        raise ProductError(
             f"the frames are exported every {sorted(strides)} step(s) and one passage is "
             f"{period} steps, so the passages would hold their frames at different "
             "phases and their means would differ by how they were sampled. Export at "
@@ -1145,8 +1147,9 @@ def phase_locked_rows(
     Raises
     ------
     ProductError
-        If the depth is under one revolution, the clock is not positive, or the
-        history does not cover the revolutions asked for. Could-not-measure is
+        If the depth is under one revolution, the clock is not positive, a
+        requested column is not in ``series.fields``, or the history does not cover the
+        revolutions asked for. Could-not-measure is
         never a pass.
 
     Examples
@@ -1176,9 +1179,15 @@ def phase_locked_rows(
         )
     if depth < 1.0:
         raise ProductError(
-            f"last_revolutions_avg is {depth:g}, under one revolution, so no table from 0 to "
-            "360 degrees can be filled. State at least 1 under [phase_locked] in the pproc "
-            "artifact"
+            f"revolutions={depth:g} is under one revolution, so no table from 0 to "
+            "360 degrees can be filled; give at least 1 (last_revolutions_avg under "
+            "[phase_locked] in the pproc artifact)"
+        )
+    absent = [name for name in columns if name not in series.fields]
+    if absent:
+        raise ProductError(
+            f"the history holds no column {', '.join(absent)}; it holds "
+            f"{', '.join(sorted(series.fields)) or 'none'}"
         )
     steps = np.asarray(series.steps, dtype=float)
     last = int(last_step)
@@ -1237,9 +1246,7 @@ def phase_locked_rows(
             "REVOLUTIONS": fewest,
         }
         for name in columns:
-            values = series.fields.get(name)
-            if values is None:
-                continue
+            values = series.fields[name]
             moments = samples(step - offset_of(name))
             row["REVOLUTIONS"] = fewest = min(fewest, len(moments))
             if not len(moments):

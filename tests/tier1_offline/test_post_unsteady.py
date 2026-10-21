@@ -59,7 +59,7 @@ def test_p0420_empty_series_names_missing_frames(operation):
         fields={"cp": np.empty((0, 1))},
         sources=(),
     )
-    with pytest.raises(MalformedOutputError, match="series holds no frame"):
+    with pytest.raises(ProductError, match="series holds no frame"):
         if operation == "average":
             blade_passage_average(series, window=(0, 1))
         else:
@@ -249,7 +249,7 @@ def test_the_average_refuses_a_window_holding_no_frame(tmp_path):
     frames = write_frames(tmp_path / "anim", [1.0, 2.0])
     series = read_timestep_series(frames, order="given")
 
-    with pytest.raises(MalformedOutputError, match="no frame"):
+    with pytest.raises(ProductError, match="no frame"):
         blade_passage_average(series, window=(40, 50))
 
 
@@ -567,3 +567,17 @@ def test_p0420_a_vtk_points_record_without_a_count_is_malformed_output(tmp_path,
     )
     with pytest.raises(MalformedOutputError, match="POINTS record"):
         read_timestep_series([frame], order="given")
+
+
+def test_p0430_f3_caller_argument_errors_are_product_errors(tmp_path):
+    """PFS-2124.038: arguments the caller chose raise ProductError; file content stays Malformed."""
+    frames = write_frames(tmp_path / "anim", [1.0, 2.0, 3.0, 4.0])
+    series = read_timestep_series(frames, order="given")
+    with pytest.raises(ProductError, match="ends before it starts"):
+        blade_passage_average(series, window=(3, 1))
+    with pytest.raises(ProductError, match="not a passage"):
+        passage_windows(series, period_steps=0)
+    with pytest.raises(ProductError, match="longer than"):
+        passage_windows(series, period_steps=99)
+    with pytest.raises(ProductError, match="no frames were given"):
+        read_timestep_series([], order="given")
