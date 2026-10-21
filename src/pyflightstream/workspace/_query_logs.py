@@ -136,7 +136,9 @@ def _problem(row: dict[str, Any]) -> bool:
     if any(row.get(key) for key in ("problems", "warnings", "error", "exception_type", "refused")):
         return True
     words = [str(row.get(key, "")) for key in ("event", "status", "outcome", "severity")]
-    words.extend(str(key) for key, count in (row.get("outcomes") or {}).items() if count)
+    outcomes = row.get("outcomes")
+    if isinstance(outcomes, dict):
+        words.extend(str(key) for key, count in outcomes.items() if count)
     failed = any(
         word.upper().startswith(("FAILED", "ERROR", "WARNING", "CANCELLED")) for word in words
     )

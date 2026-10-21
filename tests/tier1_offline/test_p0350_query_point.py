@@ -459,3 +459,12 @@ def test_query_errors_and_machine_csv(workspace, capsys):
     row = next(csv.DictReader(io.StringIO(out)))
     assert json.loads(row["outcome"])["status"] == "FAILED_MARKED"
     assert "\r" not in out
+
+
+def test_log_problems_tolerates_an_outcomes_list(workspace, capsys):
+    """F-1220: an event whose outcomes is a nonempty list does not abort the problems filter."""
+    log = workspace / "logs/activity.log.jsonl"
+    odd = _event("collect", "finished", "2026-01-01T14:00:00Z", outcomes=["FAILED_DIVERGED"])
+    log.write_text(log.read_text(encoding="utf-8") + json.dumps(odd) + "\n", encoding="utf-8")
+    code, _, err = _query(workspace, capsys, "log", "--problems")
+    assert code == 0, err
