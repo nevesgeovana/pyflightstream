@@ -243,10 +243,14 @@ def rotor_shaft_loads(
         if str(name).casefold() not in owned:
             continue
         used.append(str(name))
+        # A coefficient the export does not state is not a zero: it makes the sum
+        # NaN, so the thrust and every coefficient of the row read NA.
         for index, key in enumerate(("Cx", "Cy", "Cz")):
-            force[index] += float(row.get(key, 0.0) or 0.0)
+            stated = row.get(key)
+            force[index] += math.nan if stated is None else float(stated)
         for index, key in enumerate(("CMx", "CMy", "CMz")):
-            moment[index] += float(row.get(key, 0.0) or 0.0)
+            stated = row.get(key)
+            moment[index] += math.nan if stated is None else float(stated)
 
     # The dynamic pressure the export's own coefficients were taken against.
     # AT V = 0 IT IS ZERO, AND NOTHING IS RECOVERABLE. The export states
@@ -506,6 +510,10 @@ def rotor_coefficients(
         )
     if diameter_m <= 0:
         raise ProductError("diameter_m must be positive to define rotor coefficients")
+    if math.isinf(rps) or math.isinf(diameter_m):
+        # An infinite rate or diameter divides every coefficient to a finite zero
+        # that would pass for a measurement.
+        raise ProductError("rps and diameter_m must be finite to define rotor coefficients")
     # rps carries the rotation sense. Its magnitude normalises J, CT and CQ.
     # Power is Q times omega: reversing both torque and rotation preserves
     # shaft power, so CP = 2 pi CQ * sign(n), with magnitude-rate normalisation
