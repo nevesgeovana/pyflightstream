@@ -183,7 +183,7 @@ def test_f_742_a_planted_staging_link_is_unlinked_and_never_extracted_through(tm
     import os
     import zipfile
 
-    from pyflightstream.workspace._links import _make_dir_link
+    from pyflightstream.workspace import _make_dir_link
 
     workspace = _workspace(tmp_path)
     folder = workspace.sim_dir("7001")
@@ -194,6 +194,6 @@ def test_f_742_a_planted_staging_link_is_unlinked_and_never_extracted_through(tm
     outside.mkdir()
     staging = folder.with_name(folder.name + f".{os.getpid()}.restoring")
     _make_dir_link(outside, staging)
-    storage_module._expand_archive(workspace, folder, archive)
+    assert storage_module.ensure_sim_expanded(workspace, "7001", reason="the test")
     assert (folder / "x.txt").read_text(encoding="utf-8") == "restored"
     assert list(outside.iterdir()) == []

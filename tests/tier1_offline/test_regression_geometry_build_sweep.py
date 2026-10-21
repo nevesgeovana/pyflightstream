@@ -3673,39 +3673,41 @@ class TestF2Package0405:
 
     @staticmethod
     @pytest.mark.requirement("FR-1103")
-    def test_p0430_f302_unreadable_trailing_edges_refuse_a_marking_build(tmp_path, monkeypatch):
+    def test_p0430_f302_unreadable_trailing_edges_refuse_a_marking_build(tmp_path):
         """F-302 and X-F-0419: an unreadable edge readback is a refusal, not a skipped gate."""
         root = _geometry_build__workspace(tmp_path)
         folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
         plan = plan_geometry_build(folder, registry=_geometry_build__verified_registry())
-
-        def unreadable(path):
-            raise MeshReadError("no mesh block")
-
-        monkeypatch.setattr(build, "trailing_edge_midpoints", unreadable)
-        variant = plan.variants[0]
-        assert variant.instruction.marks_trailing_edges()
+        assert plan.variants[0].instruction.marks_trailing_edges()
+        unreadable = tmp_path / "unreadable.fsm"
+        whole = _GEOMETRY_BUILD__WING_FSM.read_bytes()
+        unreadable.write_bytes(whole[: len(whole) // 2])
         with pytest.raises(GeometryBuildError, match="cannot be read for them"):
-            build._read_back(variant, _GEOMETRY_BUILD__WING_FSM)
+            apply_geometry_build(plan, runner=_geometry_build__runner(saved=unreadable))
 
     @staticmethod
     @pytest.mark.requirement("FR-472")
-    def test_p0430_f1272_the_memory_floor_is_read_at_every_variant_start(monkeypatch):
+    def test_p0430_f1272_the_memory_floor_is_read_at_every_variant_start(tmp_path, monkeypatch):
         """F-1272: a queued variant starts beside another run only while the floor is free."""
+        _, folder = _geometry_complete___sweep(tmp_path)
+        plan = build.plan_geometry_build(
+            "wing", cwd=folder.parent, registry=_geometry_build__verified_registry()
+        )
         monkeypatch.setattr(build, "_room_for_a_second_run", lambda: False)
         lock = threading.Lock()
         state = {"active": 0, "peak": 0}
+        stand_in = _geometry_complete___body_runner()
 
-        def run(variant):
+        def run(script, work):
             with lock:
                 state["active"] += 1
                 state["peak"] = max(state["peak"], state["active"])
             threading.Event().wait(0.05)
             with lock:
                 state["active"] -= 1
-            return variant
+            return stand_in(script, work)
 
-        assert build._built_two_at_a_time([1, 2, 3], run, 2) == (1, 2, 3)
+        assert len(build.apply_geometry_build(plan, runner=run, parallel=2)) == 3
         assert state["peak"] == 1
 
     @staticmethod
@@ -3727,17 +3729,22 @@ class TestF2Package0405:
 
     @staticmethod
     @pytest.mark.requirement("FR-1135")
-    def test_p0430_f1503_a_quote_in_the_name_reads_back_unchanged():
-        """F-1503: the converter writes the name as a valid TOML string."""
+    def test_p0430_f1503_a_quote_in_the_name_reads_back_unchanged(tmp_path):
+        """F-1503: the converter writes each value as a valid TOML string."""
         import tomllib
 
-        from pyflightstream.workspace._geometry_convert import _instruction_text
+        from pyflightstream.workspace._geometry_convert import instruction_from_sidecar
 
-        source = ("mesh", {"file": "x.stl", "units": "METER"})
-        name = 'a"b\\c'
-        text = _instruction_text("s.toml", name, 'b"1', source, {"boundaries": ["Wing"]})
+        root = _geometry_build__workspace(tmp_path)
+        folder = root / "inputs" / "geometries" / "wing"
+        folder.mkdir()
+        (folder / "wing.stl").write_text("solid x\n", encoding="utf-8")
+        (folder / "wing.boundaries.toml").write_text(
+            'boundaries = ["Wing"]\n[import]\nunits = "METER"\n', encoding="utf-8"
+        )
+        text = instruction_from_sidecar("wing.stl", root=root, build='b"1').text
         parsed = tomllib.loads(text)
-        assert parsed["name"] == name and parsed["fs_build"] == 'b"1'
+        assert parsed["name"] == "wing_ops" and parsed["fs_build"] == 'b"1'
 
     @staticmethod
     @pytest.mark.requirement("FR-1135")
@@ -3774,18 +3781,22 @@ class TestF2Package0405:
     @pytest.mark.requirement("FR-1120")
     def test_p0430_f1214_a_wrong_shaped_manifest_is_skipped_not_fatal(tmp_path):
         """F-1214: apply never fails on a products.json after the exports were unlinked."""
-        from pyflightstream.workspace._free_space import _forget_pruned_listings
+        from pyflightstream.workspace import storage
+        from tests.tier1_offline.test_goal035_prune_step_exports import (
+            _recipe,
+            _submitted_workspace,
+        )
 
-        workspace = CampaignWorkspace(tmp_path / "camp")
-        workspace.init(workspace.root)
+        workspace = _submitted_workspace(tmp_path)
         post = workspace.root / "post" / "p"
         post.mkdir(parents=True)
-        gone = post / "x.vtk"
         (post / "products.json").write_text(json.dumps({"products": ["x.vtk"]}), encoding="utf-8")
         other = workspace.root / "post" / "q"
         other.mkdir()
         (other / "products.json").write_text("[]", encoding="utf-8")
-        assert _forget_pruned_listings(workspace, {gone.resolve()}) == {}
+        entry = storage.free_space(workspace.root, _recipe(workspace), apply=True)
+        assert entry["steps"][0]["points"][0]["deleted_steps"] == [3, 4]
+        assert entry["steps"][0]["products_json"] == {}
 
     @staticmethod
     @pytest.mark.requirement("FR-1120")

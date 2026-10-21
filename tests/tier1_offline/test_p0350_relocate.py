@@ -287,22 +287,25 @@ def test_f_1213_the_all_level_brings_the_files_of_a_job_subfolder(tmp_path):
     assert "descriptors/end.json" not in fewer
 
 
-def test_f_730_archiving_records_a_file_link_and_never_stores_its_target(tmp_path, monkeypatch):
-    """F2-0203: F-730, a file link in a simulation folder is noted in the archive, not followed
-    (the link test is replaced by a name, so the test needs no symlink privilege)."""
+def test_f_730_archiving_records_a_file_link_and_never_stores_its_target(tmp_path):
+    """F2-0203: F-730, a file link in a simulation folder is noted in the archive, not followed."""
+    import os
     import zipfile
 
-    from pyflightstream.workspace import _links
+    from tests.tier1_offline.test_goal035_storage import _record, _ws
 
-    sim = tmp_path / "sim_1"
-    sim.mkdir()
+    workspace = _ws(tmp_path)
+    workspace.append_record(_record("1", "sample/sim_1/A0"))
+    sim = workspace.sim_dir("1")
+    sim.mkdir(parents=True, exist_ok=True)
     (sim / "kept.txt").write_text("evidence", encoding="utf-8")
-    (sim / "linked.txt").write_text("external bytes", encoding="utf-8")
-    real = _links._is_link
-    monkeypatch.setattr(_links, "_is_link", lambda p: p.name == "linked.txt" or real(p))
-    archive = tmp_path / "sim_1.zip"
-    _links._write_sim_archive(sim, archive)
-    with zipfile.ZipFile(archive) as bundle:
+    outside = tmp_path / "external.txt"
+    outside.write_text("external bytes", encoding="utf-8")
+    try:
+        os.symlink(outside, sim / "linked.txt")
+    except (OSError, NotImplementedError) as error:
+        pytest.skip(f"this host cannot make a link to a file: {error}")
+    with zipfile.ZipFile(workspace.archive_sim("1")) as bundle:
         names = sorted(bundle.namelist())
         assert names == ["kept.txt", "linked.txt.LINK.txt"]
         assert b"external bytes" not in bundle.read("linked.txt.LINK.txt")

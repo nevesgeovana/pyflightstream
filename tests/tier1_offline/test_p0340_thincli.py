@@ -385,7 +385,18 @@ def test_f_317_an_offset_that_leaves_no_section_beyond_the_root_is_refused(tmp_p
     assert [p.name for p in tmp_path.iterdir()] == ["blade.obj"]
 
 
-def test_f_318_the_chord_ends_are_the_farthest_pair_of_the_loop():
+def _thin_grid(blade_path: Path, root_offset: float) -> numpy.ndarray:
+    """Derive the thin blade of an OBJ and read its vertices as (station, point, xyz)."""
+    result = derive_thin_blade(blade_path, root_offset=root_offset)
+    rows = [
+        [float(word) for word in line.split()[1:4]]
+        for line in result.mesh.read_text(encoding="utf-8").splitlines()
+        if line.startswith("v ")
+    ]
+    return numpy.asarray(rows).reshape(result.stations, -1, 3)
+
+
+def test_f_318_the_chord_ends_are_the_farthest_pair_of_the_loop(tmp_path):
     """F2-0203 (FR-629): F-318, three farthest-point sweeps can stop short of the pair."""
     points = numpy.asarray(
         [
@@ -397,25 +408,31 @@ def test_f_318_the_chord_ends_are_the_farthest_pair_of_the_loop():
             [-0.5856176638379975, 0.26018039957068595],
         ]
     )
-    distance = numpy.linalg.norm(points[:, None] - points[None], axis=2)
-    a, b = _degenerate._ends(points)
-    assert distance[a, b] == pytest.approx(distance.max(), abs=1e-15)
+    centre = points.mean(axis=0)
+    loop = points[numpy.argsort(numpy.arctan2(*(points - centre).T[::-1]))] * 0.1
+    spans = [0.2, 0.4, 0.6, 0.8, 1.0]
+    vertices = numpy.asarray([[x, y, z] for z in spans for x, y in loop])
+    count = len(loop)
+    faces = []
+    for k in range(len(spans) - 1):
+        for i in range(count):
+            a, b = k * count + i, k * count + (i + 1) % count
+            c, d = a + count, b + count
+            faces += [[a, b, d], [a, d, c]]
+    source = _write_obj(tmp_path / "blade.obj", vertices, numpy.asarray(faces))
+    grid = _thin_grid(source, 0.05)
+    farthest = numpy.linalg.norm(loop[:, None] - loop[None], axis=2).max()
+    assert numpy.linalg.norm(grid[0, 0] - grid[0, -1]) == pytest.approx(farthest, abs=1e-12)
 
 
-def test_f_319_distinct_stations_stay_distinct_in_the_obj_at_a_large_origin():
+def test_f_319_distinct_stations_stay_distinct_in_the_obj_at_a_large_origin(tmp_path):
     """F2-0203 (FR-629): F-319, the OBJ text reads back as the same doubles."""
-    base = 1234567.0
-    grid = numpy.asarray(
-        [[[base + 1e-9 * (i + 2 * j), 1.0, 2.0 + 1e-9 * i] for j in range(3)] for i in range(2)]
-    )
-    text = _degenerate._obj_text(Path("blade.obj"), grid, "Blade1", 0.1)
-    read = [
-        tuple(float(word) for word in line.split()[1:4])
-        for line in text.splitlines()
-        if line.startswith("v ")
-    ]
-    assert read == [tuple(row) for row in grid.reshape(-1, 3).tolist()]
-    assert len(set(read)) == 6
+    vertices, faces = _blade()
+    scale = 1e-6
+    far = vertices * scale + numpy.asarray([0.0, 0.0, 1234567.0])
+    source = _write_obj(tmp_path / "blade.obj", far, faces)
+    grid = _thin_grid(source, 0.05 * scale).reshape(-1, 3)
+    assert len({tuple(row) for row in grid.tolist()}) == len(grid)
 
 
 def test_f_948_the_same_call_writes_the_same_bytes(tmp_path):

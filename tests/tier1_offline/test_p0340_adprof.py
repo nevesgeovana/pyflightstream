@@ -545,7 +545,8 @@ def test_f_1493_a_record_that_cannot_be_serialised_leaves_no_profile_behind(tmp_
 
 def test_f_732_a_product_key_with_parent_segments_is_not_a_table_of_the_post_folder(tmp_path):
     """F2-0203: F-732, the automatic lookup reads only files inside the post folder."""
-    from pyflightstream.workspace.actuator_profiles import _recorded_tables
+    from pyflightstream.workspace import WorkspaceError
+    from pyflightstream.workspace.actuator_profiles import find_pol_sections
 
     folder = tmp_path / "post" / "m"
     (folder / "sections").mkdir(parents=True)
@@ -555,4 +556,5 @@ def test_f_732_a_product_key_with_parent_segments_is_not_a_table_of_the_post_fol
     assert (folder / key).is_file(), "the escaping path exists"
     record = {"products": {key: {"sim_id": "7", "families": ["Blade1"]}}}
     (folder / "products.json").write_text(json.dumps(record), encoding="utf-8")
-    assert _recorded_tables(folder, "7", "Blade1") == []
+    with pytest.raises(WorkspaceError, match="no sectional loads table of POL 7"):
+        find_pol_sections(tmp_path, "7")
