@@ -479,3 +479,47 @@ def test_mass_closure_sees_one_dead_station_among_live_ones():
     assert np.isnan(np.asarray(closure.relative_spread)), (
         "the closure judgment was taken over the surviving stations"
     )
+
+
+def _lateral_fixture():
+    from pyflightstream.farfield import lateral_flux  # noqa: F401  (import check)
+
+    lattice = build_lattice(tip_radius=1.0, stations=(-2.0, 0.5, 1.0, 2.0), lateral_radius=1.2)
+    n_lat = len(lattice.lateral_stations)
+    shape = (n_lat, lattice.n_psi)
+    lateral = {
+        "v": np.full(shape, 0.5),
+        "w": np.full(shape, 0.25),
+        "v_r": np.full(shape, 1.0),
+        "p_prime": np.full(shape, 2.0),
+    }
+    base = {name: np.zeros(_shape_of(lattice)) for name in ("u", "v", "w", "p_prime")}
+    return lattice_fields(lattice, fields=base, lateral=lateral)
+
+
+def _shape_of(lattice):
+    return (len(lattice.stations), lattice.n_r, lattice.n_psi)
+
+
+def test_lateral_flux_reversed_bounds_are_the_negated_forward_flux():
+    """F-100: swapping inlet and outlet negates the lateral flux; it is never a silent 0."""
+    from pyflightstream.farfield import lateral_flux
+
+    fields = _lateral_fixture()
+    first, last = float(fields.lateral_stations[0]), float(fields.lateral_stations[-1])
+    forward = lateral_flux(fields, rho=RHO, inlet=first, outlet=last)
+    backward = lateral_flux(fields, rho=RHO, inlet=last, outlet=first)
+    assert forward != 0.0
+    assert backward == pytest.approx(-forward, rel=1e-12)
+    assert lateral_flux(fields, rho=RHO, inlet=first, outlet=first) == 0.0
+
+
+def test_lateral_flux_accepts_bounds_within_roundoff_like_the_annular_lookup():
+    """F-1356: a station off by roundoff is found, as station_index finds it."""
+    from pyflightstream.farfield import lateral_flux
+
+    fields = _lateral_fixture()
+    first, last = float(fields.lateral_stations[0]), float(fields.lateral_stations[-1])
+    exact = lateral_flux(fields, rho=RHO, inlet=first, outlet=last)
+    nudged = lateral_flux(fields, rho=RHO, inlet=first, outlet=last * (1 + 4e-16) + 1e-15)
+    assert nudged == pytest.approx(exact, rel=1e-12)

@@ -250,6 +250,14 @@ def transverse_flux(
     return (rho * product_mean * ring_area).sum(axis=-1) * scale
 
 
+def _lateral_station(stations: np.ndarray, station: float) -> np.ndarray:
+    """Return the indices of the lateral ring at ``station``: exact first, then within roundoff."""
+    found = np.flatnonzero(stations == station)
+    if found.size == 0:
+        found = np.flatnonzero(np.isclose(stations, station, rtol=1e-12, atol=1e-12))
+    return found
+
+
 def lateral_flux(
     fields: LatticeFields,
     *,
@@ -265,7 +273,8 @@ def lateral_flux(
     its share of the outward normal (``cos psi`` for ``w``, ``sin psi`` for
     ``v``): the azimuthal rectangle rule around each lateral ring and the
     trapezoid rule along x over the lateral stations from ``inlet`` to
-    ``outlet``. NaN where a ring sample is missing.
+    ``outlet``. NaN where a ring sample is missing. Stations match within
+    ``1e-12`` as the annular planes do; reversed bounds give the negated flux.
 
     Raises
     ------
@@ -301,16 +310,17 @@ def lateral_flux(
         if name not in lateral:
             raise FarfieldInputError(f"the lateral rings carry no field {name!r}")
     stations = fields.lateral_stations
-    start = np.flatnonzero(stations == inlet)
-    stop = np.flatnonzero(stations == outlet)
+    start = _lateral_station(stations, inlet)
+    stop = _lateral_station(stations, outlet)
     if start.size != 1 or stop.size != 1:
         raise FarfieldInputError(
-            f"the lateral rings have no station at x/R = {inlet!r} or {outlet!r}; they are "
-            f"at {[float(s) for s in stations]}"
+            f"the lateral rings have no single station at x/R = {inlet!r} or {outlet!r} "
+            f"(within 1e-12); they are at {[float(s) for s in stations]}"
         )
     i0, i1 = int(start[0]), int(stop[0])
-    if i1 <= i0:
-        return 0.0
+    if i1 < i0:
+        # Reversed bounds give the oriented (negated) flux, as axial_force does.
+        return -lateral_flux(fields, rho=rho, inlet=outlet, outlet=inlet, component=component)
     normal = np.cos(fields.psi) if component == "w" else np.sin(fields.psi)
     integrand = rho * lateral["v_r"] * lateral[component] + lateral["p_prime"] * normal
     tip = float(fields.tip_radius)
