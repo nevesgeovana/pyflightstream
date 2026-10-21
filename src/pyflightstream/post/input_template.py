@@ -315,15 +315,15 @@ min_revolutions = 4.0
 last_revolutions_avg = 2.0
 
 # A coefficient the post stage derives into the unsteady polar, about ONE
-# alias: this one is the column CX_airframe.
+# plotted group: this one is the column CX_WING.
 [equations.CX]
 expression = "FX / (0.5 * RHO * VINF**2 * SREF)"
-meshes_alias = "airframe"
+meshes_alias = "WING"
 frame = "MRP"
 
 # What your own symbols mean, listed in pproc/VARIABLES.md beside the package's.
 [glossary]
-CX = "-. The axial force coefficient of the airframe, in the MRP frame"
+CX = "-. The axial force coefficient of the wing, in the MRP frame"
 
 # A plot column of the unsteady polar renamed for a downstream tool.
 [names]
@@ -1029,7 +1029,7 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "What each point defines before the solve, exports after it, and "
             "which products the campaign writes, shared by every row whose "
             "`PPROC` names it. One file per artifact in `inputs/pproc/`, beside "
-            "the three generated guides."
+            "the two generated guides. The input glossary is `inputs/INPUTS.md`."
         ),
         examples=(
             TemplateExample("inputs/pproc/p001.toml", "toml", _PPROC_EXAMPLE),
@@ -1407,9 +1407,9 @@ _TEMPLATE_SECTIONS: tuple[TemplateSection, ...] = (
             "reaches outside a conservative transformed-body and rotary-sweep envelope. "
             "Grid-bounds containment alone does not certify interior interpolation. "
             "Source/effective hashes bind an explicitly converted copy. "
-            "Both forms were run on FlightStream 26.124 "
-            f"(RPT-071, RPT-077, RPT-082). The row key is in {_GLOSSARY_LINK}, under the row "
-            "keys."
+            "Both forms were run on FlightStream 26.124 (RPT-082, 2026-09-27, "
+            "structured/unstructured comparison). "
+            f"The row key is in {_GLOSSARY_LINK}, under the row keys."
         ),
         pages=(_page("gui-to-pyfs", "From the GUI to pyfs"),),
     ),

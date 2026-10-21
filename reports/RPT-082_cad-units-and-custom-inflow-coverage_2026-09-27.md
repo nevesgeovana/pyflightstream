@@ -96,6 +96,23 @@ The reader verifies execution receipts, script/output hashes and printed build.
 Two earlier MM scripts put the unit command inside an incomplete OPEN block;
 their syntax failures are preserved and excluded from physical acceptance.
 
+## Retained structured/unstructured comparison
+
+Evidence locator supplement, 2026-10-21: the earlier measurements are recorded
+in RPT-071, "a custom free stream sets the flow's direction" (2026-09-24),
+and RPT-077, "what RPT-071 left open about the custom free stream" (2026-09-25).
+This summary makes the form comparison available in this checkout; no new
+solver execution was performed for the supplement.
+
+On FlightStream 26.124, build 8172026, the structured control was a uniform
+30 m/s global-X field on a 9 by 11 YZ grid. The unstructured control used the
+same coordinate and velocity rows without the structured grid-count line.
+Both ran at zero stated incidence and sea level. The recorded final totals
+matched at printed precision: Cx 0.0066, Cz 0.0023, CL 0.0023, CDi 0.0000,
+CMx 0.0011, CMy -0.0014 and CMz 0.0000. They also matched the constant-flow
+control. This establishes the two input forms on that build for this field;
+it does not establish arbitrary interpolation accuracy or other builds.
+
 ## Spatial bounds and offline coverage checks
 
 The workflow records emitted surface transforms and the final motion ledger.

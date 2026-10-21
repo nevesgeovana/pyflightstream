@@ -97,6 +97,24 @@ _BLOCK = re.compile(
 _LEFT_OUT = re.compile(r"^- \*\*(?P<table>.+?)\*\* \((?P<reason>[^()]+)\): (?P<keys>.+)\.$")
 
 
+def test_p0430_w012_example_equations_name_a_plotted_group(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "study")
+    text = (workspace.inputs_dir / TEMPLATE).read_text(encoding="utf-8")
+    body = next(body for _, path, body in examples(text) if path == "inputs/pproc/p001.toml")
+    spec = tomllib.loads(body)
+    groups = {group["name"] for group in spec["plots"]["groups"]}
+    for equation in spec["equations"].values():
+        assert equation["meshes_alias"] in groups
+
+
+def test_p0430_w012_template_locates_generated_guides(tmp_path):
+    workspace = CampaignWorkspace.init(tmp_path / "study")
+    text = (workspace.inputs_dir / TEMPLATE).read_text(encoding="utf-8")
+    assert "two generated guides" in text
+    assert (workspace.inputs_dir / "INPUTS.md").is_file()
+    assert not (workspace.inputs_dir / "pproc" / "INPUTS.md").exists()
+
+
 def sections(text: str) -> dict[str, str]:
     """The page's second-level sections, heading to body."""
     found: dict[str, str] = {}
