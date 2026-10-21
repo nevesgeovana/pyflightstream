@@ -1078,6 +1078,20 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
         changed = copy.deepcopy(data)
         changed["boundaries"] = names
         text = _rewrite(side, text, "boundaries", listed, changed)
+        data = changed
+    # F-1492: a detection selector (``detect = { surfaces = [...] }``) names families too,
+    # and a grouped level no longer holds the members it names.
+    for table_name in (_obj.TRAILING_EDGES_TABLE, "base_regions"):
+        table = data.get(table_name)
+        detect = table.get("detect") if isinstance(table, dict) else None
+        surfaces = detect.get("surfaces") if isinstance(detect, dict) else None
+        if owner and isinstance(surfaces, list) and all(isinstance(n, str) for n in surfaces):
+            names = list(dict.fromkeys(owner.get(n, n) for n in surfaces))
+            if names != surfaces:
+                changed = copy.deepcopy(data)
+                changed[table_name]["detect"]["surfaces"] = names
+                text = _rewrite(side, text, "surfaces", surfaces, changed, value=names)
+                data = changed
     return text
 
 
@@ -1184,7 +1198,15 @@ def _replace_key(
 _VALUE_ENDS = re.compile(r"[\"'\]]")
 
 
-def _rewrite(side: Path, text: str, key: str, old: object, wanted: dict[str, Any]) -> str:
+def _rewrite(
+    side: Path,
+    text: str,
+    key: str,
+    old: object,
+    wanted: dict[str, Any],
+    *,
+    value: object | None = None,
+) -> str:
     """Return ``text`` with the value of ``key`` replaced so that it parses to ``wanted``.
 
     Every spelling of the key (bare, quoted, the last part of a dotted key, a
@@ -1193,7 +1215,7 @@ def _rewrite(side: Path, text: str, key: str, old: object, wanted: dict[str, Any
     file parses to ``wanted`` is the one. The new value is written as JSON
     strings, which are TOML basic strings.
     """
-    new = json.dumps(_value_of(wanted, key), ensure_ascii=False)
+    new = json.dumps(_value_of(wanted, key) if value is None else value, ensure_ascii=False)
     spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
     for match in re.finditer(spelled, text):
         start = match.end()

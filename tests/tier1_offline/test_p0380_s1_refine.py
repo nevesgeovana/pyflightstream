@@ -750,6 +750,29 @@ SIDECARS = {
 }
 
 
+def test_p0430_f1492_detection_selectors_follow_the_component_grouping(tmp_path):
+    """F-1492: ``detect = { surfaces = [...] }`` names the components, never the removed members."""
+    import tomllib
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace._refine._level import _boundaries_text
+
+    src = _source(tmp_path, WITH_T, refine_toml='[components]\nWing = ["G", "T"]\n')
+    text = (
+        'boundaries = ["G", "T"]\n'
+        "[trailing_edges]\n"
+        'detect = { surfaces = ["G", "T"], sweep_angle = 20 }\n'
+        "[base_regions]\n"
+        'detect = { surfaces = ["T", "G"] }\n'
+    )
+    src.with_name("wing.boundaries.toml").write_text(text, encoding="utf-8")
+    work = SimpleNamespace(source=src, request=SimpleNamespace(components={"Wing": ["G", "T"]}))
+    written = tomllib.loads(_boundaries_text(work, "wing_R1"))
+    assert written["boundaries"] == ["Wing"]
+    assert written["trailing_edges"]["detect"] == {"surfaces": ["Wing"], "sweep_angle": 20}
+    assert written["base_regions"]["detect"] == {"surfaces": ["Wing"]}
+
+
 @pytest.mark.parametrize("spelling", list(SIDECARS))
 def test_r4_the_boundaries_file_is_rewritten_by_its_toml_values(tmp_path, spelling):
     """P0380-REFINE (FR-918; FR-935): the level's boundaries file is the source's, rewritten.
