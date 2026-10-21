@@ -25,7 +25,8 @@ and the time increment printed in the loads file itself:
    hold across consecutive revolutions: the tip elastic twist change
    below ``tip_twist_tolerance_deg``, and the relative change of the
    integrated normal force below ``thrust_tolerance_fraction``
-   (FSI-R09).
+   (FSI-R09). The applied tip twist must also be within the twist tolerance
+   of the structural solution before the relaxed phase can finish.
 4. Recording: instantaneous loads, no relaxation (lambda = 1 by
    design: relaxing here would low-pass exactly the 1P amplitude and
    phase being measured), twist distributions recorded per step.
@@ -1194,6 +1195,7 @@ def _record_the_revolution(
     tip_twist_deg: list[float],
     tip_flap_m: list[float],
     total_normal_force: float,
+    applied_twist_settled: bool = True,
 ) -> None:
     """Record a completed revolution and, in phase 3, judge convergence on it (FSI-R09)."""
     completed = math.floor(revolutions + 1e-9)
@@ -1219,7 +1221,9 @@ def _record_the_revolution(
     # not divide evenly, the sampled azimuth drifts and 1P content can appear
     # as unsettled thrust.
     verdict = _phase3_verdict(cfg, previous_rev, last)
-    if verdict.converged:
+    if not applied_twist_settled:
+        logger.info("revolution %d: the applied twist still lags the structural solve", completed)
+    elif verdict.converged:
         state.phase = 4
         state.phase4_start_step = state.step_count + 1
         logger.info(
@@ -1318,6 +1322,7 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
     }
     tip_twist_deg = [0.0] * cfg.blade_count
     tip_flap_m = [0.0] * cfg.blade_count
+    applied_twist_settled = True
     if solved is None or relaxation is None:
         written = np.zeros((call.layout.total_nodes, 3))
     else:
@@ -1332,6 +1337,16 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
         columns = _rotating_log_columns(solved)
         tip_twist_deg = [math.degrees(sol.elastic_twist_rad[-1]) for sol in solutions]
         tip_flap_m = [sol.flap_deflection_m[-1] for sol in solutions]
+        for translations, solution in zip(
+            nodes.unflatten_translations(call.layout, written), solutions, strict=True
+        ):
+            _, applied_twist = kinematics.decode_station_translations(
+                translations,
+                np.asarray(call.layout.le_offset_m),
+                np.asarray(call.layout.te_offset_m),
+            )
+            lag = abs(math.degrees(solution.elastic_twist_rad[-1] - applied_twist[-1]))
+            applied_twist_settled &= lag < cfg.phases.tip_twist_tolerance_deg
     _write_displacements(run_dir, state, written)
 
     _record_the_revolution(
@@ -1342,6 +1357,7 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
         tip_twist_deg=tip_twist_deg,
         tip_flap_m=tip_flap_m,
         total_normal_force=total_normal_force,
+        applied_twist_settled=applied_twist_settled,
     )
     _record_phase4_twist(cfg, state, phase, steps_per_rev, solutions)
     _commit_call(

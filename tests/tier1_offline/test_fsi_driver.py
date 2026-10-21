@@ -261,6 +261,27 @@ def run_sequence(run_dir: Path, calls: int, first_iteration: int = 100) -> list:
     return results
 
 
+def test_p0430_f6_04_stable_solve_does_not_hide_relaxation_lag(tmp_path):
+    cfg = driver_config()
+    cfg = cfg.model_copy(
+        update={
+            "phases": cfg.phases.model_copy(
+                update={"coupling_relaxation": 0.001, "tip_twist_tolerance_deg": 1e-6}
+            )
+        }
+    )
+    stage_run(tmp_path, cfg)
+    results = run_sequence(tmp_path, 8)
+    layout = nodes.generate_node_layout(cfg)
+    written = nodes.unflatten_translations(layout, results[-1].displacements)[0]
+    _, applied = kinematics.decode_station_translations(
+        written, np.asarray(layout.le_offset_m), np.asarray(layout.te_offset_m)
+    )
+    computed = results[-1].solutions[0].elastic_twist_rad[-1]
+    assert abs(np.degrees(computed - applied[-1])) > cfg.phases.tip_twist_tolerance_deg
+    assert load_state(tmp_path / driver.STATE_FILE).phase == 3
+
+
 def test_phase_progression_counters_and_log(tmp_path):
     cfg = stage_run(tmp_path)
     results = run_sequence(tmp_path, 11)
