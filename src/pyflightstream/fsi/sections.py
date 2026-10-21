@@ -830,6 +830,14 @@ def blade_properties_from_sections(
     )
 
 
+def _require_polygon_vertices(points: _Floats) -> None:
+    """Refuse too few vertices before reductions and after coincident points merge."""
+    if len(points) < 3:
+        raise FsiInputError(
+            f"a section contour needs at least 3 distinct vertices, got {len(points)}"
+        )
+
+
 def _as_polygon(contour_m: ArrayLike) -> _Floats:
     """Validate a contour and return it as a counter-clockwise vertex array.
 
@@ -844,10 +852,7 @@ def _as_polygon(contour_m: ArrayLike) -> _Floats:
             "a section contour is an (n, 2) array of (chordwise, normal) vertices in "
             f"meters, got shape {points.shape}"
         )
-    if len(points) < 3:
-        raise FsiInputError(
-            f"a section contour needs at least 3 distinct vertices, got {len(points)}"
-        )
+    _require_polygon_vertices(points)
     if not np.all(np.isfinite(points)):
         raise FsiInputError("a section contour carries a NaN or infinite coordinate")
     # Coincident within rounding, not only bit-equal: a closed airfoil
@@ -860,10 +865,7 @@ def _as_polygon(contour_m: ArrayLike) -> _Floats:
     points = points[keep]
     if len(points) > 1 and float(np.hypot(*(points[0] - points[-1]))) <= merge:
         points = points[:-1]
-    if len(points) < 3:
-        raise FsiInputError(
-            f"a section contour needs at least 3 distinct vertices, got {len(points)}"
-        )
+    _require_polygon_vertices(points)
     # Every test below reads the vertices about their mean, for the reason
     # polygon_area_moments sums them so: far from the origin a difference of
     # products loses its digits.
