@@ -590,6 +590,7 @@ def radius_from_the_hub(
     *,
     hub_m: Sequence[float] | None,
     axis_vector: Sequence[float] | None,
+    rotor_alias: str | None = None,
 ) -> float | None:
     """Return a station's ``Offset`` measured from the hub, or None where it cannot be placed.
 
@@ -613,6 +614,8 @@ def radius_from_the_hub(
         Rotor hub coordinates in the geometry frame, in m.
     axis_vector : sequence of float or None
         Rotor shaft direction in the geometry frame.
+    rotor_alias : str or None, optional
+        Alias identifying the rotor's hub frames. Other frames cannot place a station.
 
     Returns
     -------
@@ -624,8 +627,11 @@ def radius_from_the_hub(
     if clocked is not None:
         name = clocked.group("frame")
     normal = {"XZ": 1, "XY": 2}.get(str(plane).strip().upper())
-    if name not in GEOMETRY_SECTION_FRAMES or normal is None:
-        return offset
+    if name not in GEOMETRY_SECTION_FRAMES:
+        alias = re.escape(str(rotor_alias or "").upper())
+        return offset if alias and re.fullmatch(rf"{alias}_(?:SMRP|RMRP\d*)", name) else None
+    if normal is None:
+        return None
     if hub_m is None or axis_vector is None:
         return None
     hub = [float(value) for value in hub_m]
@@ -812,14 +818,20 @@ def add_reduced_frequency_to_sections(
             None
             if offset is None
             else radius_from_the_hub(
-                frame, plane, offset, hub_m=record.hub_m, axis_vector=record.axis_vector
+                frame,
+                plane,
+                offset,
+                hub_m=record.hub_m,
+                axis_vector=record.axis_vector,
+                rotor_alias=alias,
             )
         )
         if row[index["ROTOR"]] == alias and offset is not None and radius is None:
             unplaced.add(at)
             notes.append(
                 f"K_1P of rotor {alias} reads NA in block {family} {plane}: the cut is in the "
-                f"axes of frame {frame} and the hub sits off the plane's radial line, so "
+                f"axes of frame {frame}, whose origin is unknown or whose hub is off "
+                "the radial line; "
                 "Offset does not place the station on the blade"
             )
         radius_of_row.append(radius)

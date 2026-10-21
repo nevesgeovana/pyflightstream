@@ -577,7 +577,12 @@ def _station_radius(rotor: HarmonicRotor, row: Mapping[str, str]) -> float | Non
     if frame is None:
         return None
     radius = radius_from_the_hub(
-        frame, plane, offset, hub_m=rotor.hub_m, axis_vector=rotor.axis_vector
+        frame,
+        plane,
+        offset,
+        hub_m=rotor.hub_m,
+        axis_vector=rotor.axis_vector,
+        rotor_alias=rotor.alias,
     )
     return None if radius is None else abs(radius)
 

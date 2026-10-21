@@ -485,6 +485,24 @@ def test_p0430_unread_chord_refuses_incomplete_blade_shares(tmp_path):
     assert any("Chord" in note for note in validity.notes)
 
 
+@pytest.mark.parametrize("frame", [None, "CUSTOM", "OTHER_RMRP"])
+def test_p0430_unknown_section_frame_has_no_reduced_frequency(tmp_path, frame):
+    table = tmp_path / "sections.csv"
+    table.write_text(
+        "ROTOR,FAMILY,PLANE,Offset,Chord,Fx,Fz\n"
+        "PROP,Blade1,XZ,0.2,0.2,1,1\n"
+        "PROP,Blade1,XZ,0.8,0.2,1,1\n",
+        encoding="utf-8",
+    )
+    result = post_qsteady.add_reduced_frequency_to_sections(
+        table,
+        _record(1200),
+        velocity_m_per_s=10,
+        layout=[{"families": ["Blade1"], "plane": "XZ", "frame": frame}],
+    )
+    assert result is None or result.values.get("K_1P_MAX") is None
+
+
 def test_p0430_other_blade_unplaced_does_not_disable_selected_shares(tmp_path):
     from dataclasses import replace
 

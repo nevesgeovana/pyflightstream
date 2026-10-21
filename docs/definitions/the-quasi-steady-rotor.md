@@ -84,7 +84,7 @@ a sectional loads export (`K_1P_SOURCE` `sections`), `c` is the export's
 `Chord` and `r` the station's distance from the hub. In a rotor frame this is
 the absolute `Offset`; for an MRP cut, subtract the hub coordinate along the
 cut normal before taking the magnitude. If the hub sits off the cut's radial
-line, the radius and `K_1P` read `NA`, and the load shares are unavailable,
+line, or the recorded frame cannot locate the hub, the radius and `K_1P` read `NA`, and the load shares are unavailable,
 with a note. The torque lever arm is also measured from the hub.
 The summary is taken over the rotor's first blade present, so a wheel's
 blades do not count one station several times. Each station stands for a
