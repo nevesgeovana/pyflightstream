@@ -7973,3 +7973,20 @@ def test_p0430_f1317_f765_the_plan_record_says_when_it_is_unresolved_and_reads_t
     monkeypatch.setattr(_farfield.CommandRegistry, "load", staticmethod(broken))
     record = _farfield.plan_record(case, "26.124", script)
     assert "unresolved" in record and "no database" in record["unresolved"]
+
+
+class TestVocabularyStatesTheCode:
+    """F-1327, F-1328: the vocabulary's prose agrees with what the code does."""
+
+    @staticmethod
+    def test_f1327_geometry_is_documented_as_a_stem_everywhere():
+        meaning = workflows_module.ROW_KEY_MEANINGS[workflows_module.GEOMETRY_VARIABLE]
+        assert "stem" in meaning.values, meaning
+        assert "extension" not in meaning.values.replace("no extension", ""), meaning
+
+    @staticmethod
+    def test_f1328_cold_is_the_one_documented_default_of_cold_start():
+        key = workflows_module.ROW_KEY_MEANINGS[workflows_module.COLD_START_VARIABLE]
+        assert "absent is cold" in key.values, key
+        source = Path(workflows_module.__file__).with_name("_vocabulary.py").read_text("utf-8")
+        assert "WARM IS THE DEFAULT" not in source

@@ -355,13 +355,10 @@ JOB_END_SUFFIX = ".end.json"  # written by run under --local when a job ends
 #: polar file, and no emitted command reads it.
 CONFIGURATION_VARIABLE = "CONFIGURATION"
 
-#: FR-95: a steady row starts each point from the previous point's
-#: converged solution unless it says otherwise. WARM IS THE DEFAULT and
-#: this key is the opt-out, which follows the evidence rather than the
-#: safer-looking choice: the predecessor toolchain's steady recipe never cleared
-#: the solver between points and had no switch to, so warm is what a steady
-#: polar has always done. A default of cold would
-#: have been a change of behaviour wearing the clothes of a safe default.
+#: FR-95: a steady row starts each point of a sweep over the attitude from a
+#: cleared solution unless it says otherwise. COLD IS THE DEFAULT, and
+#: ``COLD_START = false`` opts into starting each point from the previous
+#: point's converged solution.
 COLD_START_VARIABLE = "COLD_START"
 
 #: FR-96: how to continue a run that stopped on the wall clock.
@@ -1002,7 +999,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         GEOMETRY_VARIABLE: InputKey(
             "The geometry the row opens, a file of inputs/geometries/; written in the "
             "GEOMETRY column.",
-            "a file name with its extension",
+            "a library id: the file's stem, with no extension",
             "OPEN, IMPORT",
         ),
         SYMMETRY_VARIABLE: InputKey(
