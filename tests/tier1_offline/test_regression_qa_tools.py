@@ -31,6 +31,7 @@ from pyflightstream.farfield import (
     transverse_flux,
     transverse_force,
 )
+from pyflightstream.farfield.quadrature import ring_sample_weights
 from pyflightstream.probes import (
     AxisSpec,
     FrameDefinition,
@@ -1832,7 +1833,11 @@ class TestReach2Routes:
         )
         fy = transverse_flux(fields, 1.2, component="v")
         fz = transverse_flux(fields, 1.2, component="w")
-        finite = np.isfinite(fields["u"]).mean(axis=(-2, -1))
+        weights = ring_sample_weights(fields)
+        finite_cells = np.isfinite(fields["u"])
+        finite = (finite_cells * weights[:, None]).sum(axis=(-2, -1)) / (
+            float(weights.sum()) * finite_cells.shape[-1]
+        )
         assert finite.min() < 1.0, "the fixture misses a sample"
         for index, row in enumerate(rows):
             assert row["COVERAGE"] == float(finite[index])
