@@ -195,3 +195,9 @@ def test_p0400_bgtests2_probe_execution_uses_the_timeout_option(tmp_path, explic
     assert seen == [expected]
     with pytest.raises(OptionError, match="no option is registered"):
         get_option("qa.case_timeout_s")
+
+
+def test_huge_int_is_an_option_error_not_an_overflow_error():
+    """F-012: math.isfinite(10**400) overflows; the registry reports OptionError."""
+    with pytest.raises(OptionError, match="rejects value"):
+        set_option("qa.probe_timeout_s", 10**400)

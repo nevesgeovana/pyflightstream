@@ -162,7 +162,7 @@ def _check_value(option: RegisteredOption, value: Any) -> None:
         return
     try:
         option.validator(value)
-    except ValueError as error:
+    except (ValueError, OverflowError) as error:
         raise OptionError(f"option {option.key!r} rejects value {value!r}: {error}") from error
 
 
