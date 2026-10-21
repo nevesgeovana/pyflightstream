@@ -69,7 +69,7 @@ from pyflightstream.cases.workflows import build_script, workflow_registry
 from pyflightstream.post.products import read_csv_table, write_campaign_products
 from pyflightstream.run import PlanStatus
 from pyflightstream.run import cli as matrix_cli
-from pyflightstream.run.matrix import plan_matrix, run_matrix
+from pyflightstream.run.matrix import AdditionalSkip, plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
@@ -1548,3 +1548,74 @@ def test_g12_the_pages_state_the_additional_post_and_cite_tests_on_disk():
     assert not re.findall(r"`(test_g12_\w+)`", workflows_page)
     proving = [name for name in globals() if name.startswith("test_g12_")]
     assert len(proving) >= 4, proving
+
+
+def _edit_records(workspace, edit):
+    raw = _read_record_rows(workspace.manifest_path)
+    for entry in raw:
+        edit(entry)
+    workspace.manifest_path.write_text(json.dumps(_encode_record_rows(raw), indent=2), "utf-8")
+
+
+def _run_with_main_sections(tmp_path):
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import run_matrix
+
+    workspace, matrix = a_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    (workspace.inputs_dir / "pproc" / "p010.toml").write_text(
+        MAIN_WITH_SECTIONS_TOML, encoding="utf-8"
+    )
+    run_matrix(
+        matrix,
+        workspace,
+        name="extracted",
+        default_fs_version=BUILD,
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=a_stub(tmp_path),
+    )
+    return workspace, matrix
+
+
+def test_p0420_a_run_that_cut_sections_with_no_recorded_layout_is_skipped(tmp_path):
+    """PFS-2130.051: the extraction's sections would be numbered from 1 over the run's own."""
+    workspace, matrix = _run_with_main_sections(tmp_path)
+    _edit_records(workspace, lambda entry: entry.pop("sections_layout", None))
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == [AdditionalSkip.NO_SECTIONS_LAYOUT.value] * 2, plans
+    assert all("no sections layout" in plan.message for plan in plans)
+    assert records == [] and stub.invocations == []
+
+
+def test_p0420_a_block_without_its_distribution_number_is_skipped(tmp_path):
+    """PFS-2130.051: an own block lacking an integer distribution is refused the same way."""
+    workspace, matrix = _run_with_main_sections(tmp_path)
+
+    def strip(entry):
+        for block in entry["sections_layout"]:
+            block.pop("distribution", None)
+
+    _edit_records(workspace, strip)
+    plans, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert [plan.reason for plan in plans] == [AdditionalSkip.NO_SECTIONS_LAYOUT.value] * 2
+    assert all("integer distribution number" in plan.message for plan in plans)
+    assert records == []
+
+
+def test_p0420_a_record_whose_script_proves_it_cut_none_is_still_ready(tmp_path):
+    """PFS-2130.051 control: the legacy empty layout is recovered from the hashed script."""
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    _edit_records(workspace, lambda entry: entry.pop("sections_layout", None))
+    plans, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert all(plan.reason is None for plan in plans), plans
+    assert len(records) == 2
+
+
+def test_p0420_the_unchanged_record_of_a_run_with_sections_is_ready(tmp_path):
+    """PFS-2130.051 control: a recorded layout with its distribution numbers extracts."""
+    workspace, matrix = _run_with_main_sections(tmp_path)
+    plans, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert not [plan for plan in plans if plan.reason == "NO_SECTIONS_LAYOUT"], plans
+    assert len(records) == 2

@@ -44,7 +44,7 @@ from typing import Any
 
 import pyflightstream
 from pyflightstream._deprecations import MATRIX_FS_VERSION
-from pyflightstream._digest import file_sha256, optional_file_sha256
+from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
 from pyflightstream._errors import (
     InputArtifactError,
     PyflightstreamDeprecationWarning,
@@ -74,6 +74,7 @@ from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
     additional_outputs,
     build_additional_script,
+    creates_surface_sections,
     frame_definitions,
     frames_of_the_run,
 )
@@ -1212,6 +1213,11 @@ class AdditionalSkip(enum.StrEnum):
     SURFACE_AVERAGED = "SURFACE_AVERAGED"
     #: The run's recorded script no longer matches the row's frames or boundaries.
     SCRIPT_DRIFT = "SCRIPT_DRIFT"
+    #: The extraction cuts sections and the record states which sections the run cut
+    #: (or the numbering of one of them) neither as a layout nor as a script that
+    #: provably cut none, so the extraction's distributions cannot be numbered after
+    #: the run's.
+    NO_SECTIONS_LAYOUT = "NO_SECTIONS_LAYOUT"
 
 
 @dataclass(frozen=True)
@@ -1359,13 +1365,40 @@ def _latest_extractions(records: list[AdditionalRecord]) -> dict[str, Additional
     return latest
 
 
-def _layout_of(point: RunRecord, script: Script, pproc: str) -> tuple[list[dict[str, object]], int]:
+def _own_sections_layout(
+    workspace: CampaignWorkspace, point: RunRecord
+) -> list[dict[str, Any]] | None:
+    """Return the sections the run cut, or None where nothing states them.
+
+    The record's own layout where it has one. A record that predates the layout is
+    answered by its script, as the sections post answers it: a script that is on disk,
+    hashes as the record says and creates no surface section cut none, and the empty
+    list is the whole layout. Anything else is unknown, and is never guessed.
+    """
+    if point.sections_layout is not None:
+        return [dict(block) for block in point.sections_layout]
+    if point.continues is not None or not point.script_path or not point.script_sha256:
+        return None
+    try:
+        text = (workspace.sim_dir(point.sim_id) / point.script_path).read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    if text_sha256(text) != point.script_sha256 or creates_surface_sections(text):
+        return None
+    return []
+
+
+def _layout_of(
+    point: RunRecord, script: Script, pproc: str, own: list[dict[str, Any]] | None = None
+) -> tuple[list[dict[str, object]], int]:
     """Return the run's own section blocks, then the extraction's, numbered on after the run's.
 
     RPT-062: a reopened export carries the distributions the run created first
     and the new ones after them, identical to the ones a run would have cut.
+    ``own`` is the run's blocks as :func:`_own_sections_layout` read them.
     """
-    own = [dict(block) for block in (point.sections_layout or [])]
+    if own is None:
+        own = [dict(block) for block in (point.sections_layout or [])]
     leading = sum(
         int(count)
         for block in own
@@ -1679,7 +1712,30 @@ def _plan_point(
     build_additional_script(
         extraction, script, saved=str(folder / f"{stem}{REOPENED_SUFFIX}"), shadow=shadow
     )
-    layout, leading = _layout_of(point, script, pid)
+    own = _own_sections_layout(workspace, point)
+    if script.section_blocks and (
+        own is None
+        or any(
+            not isinstance(block.get("distribution"), int)
+            or isinstance(block.get("distribution"), bool)
+            for block in own
+        )
+    ):
+        return _skipped(
+            point,
+            pid,
+            AdditionalSkip.NO_SECTIONS_LAYOUT,
+            f"{pid} cuts sections, and the record of this point states "
+            + (
+                "no sections layout, and its script is not on disk as recorded to prove it cut none"
+                if own is None
+                else "a section block with no integer distribution number"
+            )
+            + ", so the extraction's distributions cannot be numbered after the run's own and "
+            "its sections product would be refused afterwards. Run the point again to record its "
+            "layout.",
+        )
+    layout, leading = _layout_of(point, script, pid, own)
     return AdditionalPointPlan(
         run_id=point.run_id,
         sim_id=point.sim_id,

@@ -89,6 +89,12 @@ names today
 an index read off today's file would cut whichever surface holds that index in
 the saved one, under the name the pproc asked for.
 
+**The run's own sections.** An extraction that cuts sections numbers its distributions
+after the ones the run cut. A point whose record states no sections layout is skipped
+`NO_SECTIONS_LAYOUT`, and so is one whose layout has a block without an integer
+distribution number; a record that predates the layout counts as the empty layout only
+when its script is on disk, hashes as the record says and creates no surface section.
+
 **When an extraction stops counting.** Only a CURRENT extraction has products:
 its point is a record the post admits, the point's saved simulation still
 hashes as the one the extraction opened, in the point's record and as the file

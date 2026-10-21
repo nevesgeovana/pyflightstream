@@ -91,6 +91,10 @@ name, with the path or the hashes involved, when:
   a point whose names nothing on disk recovers, while the geometry declares
   names today, is skipped naming the file
 ;
+- the extraction cuts sections and the record of the run states no sections layout
+  (a record whose hashed script creates no surface section counts as the empty layout),
+  or a block of it has no integer distribution number (`NO_SECTIONS_LAYOUT`): the
+  extraction's distributions could not be numbered after the run's own;
 - the point is still in a scheduler's queue (`NOT_FINISHED`), a continuation replaced it (`SUPERSEDED`)
 ,
   or its row is no longer active (`ROW_NOT_ACTIVE`).
