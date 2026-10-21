@@ -1726,8 +1726,9 @@ def rotor_integration_groups(
         if group is not None:
             raise CampaignConfigError(
                 f"the pproc declares a group named {group!r}, which is a rotor's alias, "
-                f"and its members are {sorted(resolved[group])}; that rotor's own families "
-                f"are {sorted(members)}. The two disagree about what {alias!r} means, and a "
+                f"and its members are {sorted(resolved[group], key=str)}; that rotor's own "
+                f"families are {sorted(members)}. The two disagree about what {alias!r} means, "
+                "and a "
                 "rotor coefficient integrated over the wrong families is a number that looks "
                 "right and is wrong. Rename the group, or give it the rotor's families"
             )

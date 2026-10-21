@@ -258,3 +258,10 @@ def test_f2_0809_every_case_equivalent_group_is_checked_in_any_order(order):
     }
     with pytest.raises(CampaignConfigError):
         rotor_integration_groups(rotors, declared)
+
+
+def test_f2_0809_mixed_int_and_str_members_are_named_in_the_refusal():
+    """F-1530: a group of boundary numbers and names is refused by name, not by a TypeError."""
+    rotors = {"PUSHER": _rotor("PUSHER", ["Blade1", "Blade2"])}
+    with pytest.raises(CampaignConfigError, match="PUSHER"):
+        rotor_integration_groups(rotors, {"PUSHER": [3, "Wing"]})
