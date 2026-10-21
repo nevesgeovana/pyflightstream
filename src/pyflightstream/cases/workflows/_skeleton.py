@@ -291,6 +291,21 @@ def _vorticity_list_before_the_solve(script: Script) -> None:
     script.emit_deferred_vorticity_before_solve()
 
 
+def _refuse_a_free_body_off_the_unsteady_run(case: SimCase) -> None:
+    """Refuse a 6DOF body on a run type other than the unsteady one (FR-1087).
+
+    For a case built without the matrix: the matrix refuses it when the row
+    binds, and a case authored in Python meets it here, whether it is built one
+    point at a time or as a steady sweep (F-755).
+    """
+    if case.sixdof is not None and case.recipe != "unsteady":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a 6DOF body runs on the unsteady run type only, and this "
+            f"case runs {case.recipe}; a free body needs the time march, and a free body with "
+            "a rotor turning is outside this route."
+        )
+
+
 def _script_tail(
     conventions: WorkflowConventions,
     case: SimCase,
@@ -313,14 +328,7 @@ def _script_tail(
         # FR-1081, before the first line of the tail: a coupled steady row
         # never reaches the trace, and must not reach its exports either.
         refuse_streamlines_where_they_cannot_run(case, case.pproc.streamlines)
-    if case.sixdof is not None and case.recipe != "unsteady":
-        # FR-1087, for a case built without the matrix: the matrix refuses it
-        # when the row binds, and a case authored in Python meets it here.
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: a 6DOF body runs on the unsteady run type only, and this "
-            f"case runs {case.recipe}; a free body needs the time march, and a free body with "
-            "a rotor turning is outside this route."
-        )
+    _refuse_a_free_body_off_the_unsteady_run(case)
     _script_init(
         case,
         script,

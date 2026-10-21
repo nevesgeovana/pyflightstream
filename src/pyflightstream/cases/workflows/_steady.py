@@ -86,6 +86,7 @@ from ._rows import (
     continuation_of,
 )
 from ._skeleton import (
+    _refuse_a_free_body_off_the_unsteady_run,
     _script_init,
     _script_solve_and_export,
     _script_tail,
@@ -219,6 +220,7 @@ def build_steady_sweep(
             "ends at EXECUTE_AEROELASTIC_ANALYSIS, so one script cannot run a second point; "
             "each point of a coupled row is its own run."
         )
+    _refuse_a_free_body_off_the_unsteady_run(first)
     conventions = WorkflowConventions.for_case(first)
     _before_the_build(first, script, conventions=None, registry=None)
     _refuse_wake_termination_without_a_clock(first)
