@@ -260,8 +260,8 @@ three rows.
  `<ALIAS>_RMRP<k>` never double: they turn WITH the motion at every step
  of an unsteady run, so there is no single frame they turned from.
 
- `PROP_MRP<k>` and `RotorAxis<k>` are refused for an entry using the retired frame names, and a record that names no alias still emits them, so
- a workspace may migrate its rows before its post-processing. The
+ `PROP_MRP<k>` and `RotorAxis<k>` are refused for an entry using the retired frame names, and no record emits them: a rotor that names no alias
+ gets `ROTOR<k>_SMRP` and `ROTOR<k>_RMRP` by its position. The
  custom frames come from the REFERENCE now, not the preset, and a
  family of `families_general` gets no frame of its own: its local frame
  IS the rotor's, which is what makes the spinner ride the hub.
