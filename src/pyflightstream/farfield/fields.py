@@ -67,8 +67,18 @@ class LatticeFields:
     psi : numpy.ndarray
         Uniform azimuths in radians, shape ``(n_psi,)``.
     tip_radius : float
-        Reference radius R in metres for the SI balances. No unit conversion
-        is performed by this container or by :func:`lattice_fields`.
+        Reference radius R, in THE LENGTH UNIT OF THE SAMPLES' POSITIONS. No
+        unit conversion is performed by this container or by
+        :func:`lattice_fields`: every area the balances integrate over is
+        ``tip_radius`` squared times a dimensionless weight, so a ledger comes
+        out in the field's units times that length unit squared (N for a
+        momentum flux, W for an energy flux, kg/s for a mass flux, when the
+        fields are in SI) and is SI only when R is given in metres. The post
+        product path gives metres: it builds the lattice from the metre radius
+        the artifact states and turns the exported coordinates into metres by
+        the saved simulation's unit before it reads them. A caller of this
+        library holding R in the simulation's unit (millimetres, say) owns the
+        conversion: pass ``tip_radius`` in metres, with the fields in SI.
     values : mapping of str to numpy.ndarray
         Sampled fields, each shaped ``(n_stations, n_r, n_psi)``.
     lateral_radius : float or None

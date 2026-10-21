@@ -29,6 +29,7 @@ from pyflightstream.farfield.quadrature import (
     grid_integral,
     grid_weights,
     plane_integral,
+    sample_coverage,
     strip_edges,
 )
 
@@ -610,7 +611,8 @@ class PlaneDrag:
     quadrature_error : float
         ``induced_drag - coarse_drag``, N.
     coverage : float
-        The finite fraction of the crossflow samples.
+        The fraction of the plane's AREA whose crossflow samples are finite,
+        each sample weighted by the area its trapezoid weight integrates.
     """
 
     induced_drag: float
@@ -642,7 +644,7 @@ def plane_induced_drag(plane: PlaneFields, *, rho: float, v_inf: float) -> Plane
     """
     v, w = plane["v"], plane["w"]
     integrand = crossflow_integrand(rho, first=v, second=w, advecting=v_inf)
-    coverage = grid_coverage(integrand)
+    coverage = grid_coverage(integrand, y=plane.y, z=plane.z)
     if v_inf == 0.0:
         nan = float("nan")
         return PlaneDrag(nan, nan, nan, coverage)
@@ -841,7 +843,7 @@ def rotor_channels(
     useful = thrust * v_inf
     denominator = useful + losses
     eta = float("nan") if v_inf == 0.0 or denominator == 0.0 else useful / denominator
-    coverage = float(np.isfinite(u[index]).sum() / u[index].size)
+    coverage = float(sample_coverage(u[index], fields=fields))
     return RotorChannels(
         station=float(station),
         p_axial=float(p_axial),

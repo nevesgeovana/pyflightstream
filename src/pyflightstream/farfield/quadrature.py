@@ -131,26 +131,53 @@ def plane_integral(fields: LatticeFields, integrand: np.ndarray) -> np.ndarray:
     return (np.asarray(integrand) * weights).sum(axis=(-2, -1)) * scale
 
 
-def sample_coverage(integrand: np.ndarray) -> np.ndarray:
-    """Fraction of ``(r, psi)`` samples that are finite, per leading index.
+def sample_coverage(integrand: np.ndarray, *, fields: LatticeFields | None = None) -> np.ndarray:
+    """Fraction of the plane's area that was sampled, per leading index.
 
     The diagnostic half of PYFS-010: :func:`plane_integral` returns NaN when
     any sample is missing, which says THAT a plane is unusable and not how far
     off it is; this says how much of the plane was actually sampled.
 
+    THE FRACTION IS OF AREA, NOT OF SAMPLES, when ``fields`` is given: each
+    sample stands for the annular cell its quadrature weight
+    (:func:`ring_sample_weights`) integrates, so a missing sample at the rim,
+    which stands for far more of the disc than one at the hub, costs what the
+    integral loses by it. A count would report the same 0.99 for a hole at the
+    hub and for a hole at the rim whose cost in the integral is many times
+    larger. Without ``fields`` every sample is weighted equally, which is the
+    area fraction only for samples that stand for equal areas.
+
     Parameters
     ----------
     integrand : numpy.ndarray
         Any array whose two trailing axes are ``(n_r, n_psi)``.
+    fields : LatticeFields, optional
+        The survey whose ring edges give each ring's represented area. Its ring
+        count must be the integrand's ``n_r``.
 
     Returns
     -------
     numpy.ndarray
         Coverage in ``[0, 1]``; 1.0 means every sample is finite.
+
+    Raises
+    ------
+    FarfieldInputError
+        If ``fields`` has another number of rings than the integrand.
     """
     array = np.asarray(integrand)
-    total = array.shape[-2] * array.shape[-1]
-    return np.isfinite(array).sum(axis=(-2, -1)) / total
+    finite = np.isfinite(array)
+    if fields is None:
+        total = array.shape[-2] * array.shape[-1]
+        return finite.sum(axis=(-2, -1)) / total
+    weights = ring_sample_weights(fields)
+    if len(weights) != array.shape[-2]:
+        raise FarfieldInputError(
+            f"the lattice has {len(weights)} rings and the integrand {array.shape[-2]}, so the "
+            "area each sample stands for is not defined"
+        )
+    represented = (finite * weights[:, None]).sum(axis=(-2, -1))
+    return represented / (float(weights.sum()) * array.shape[-1])
 
 
 def grid_weights(y: np.ndarray, *, z: np.ndarray) -> np.ndarray:
@@ -199,21 +226,42 @@ def grid_integral(y: np.ndarray, *, z: np.ndarray, integrand: np.ndarray) -> flo
     return float((np.asarray(integrand) * grid_weights(y, z=z)).sum())
 
 
-def grid_coverage(integrand: np.ndarray) -> float:
-    """Fraction of the plane's samples that are finite.
+def grid_coverage(
+    integrand: np.ndarray, *, y: np.ndarray | None = None, z: np.ndarray | None = None
+) -> float:
+    """Fraction of the plane's area whose samples are finite.
+
+    With the grid axes ``y`` and ``z`` each sample is weighted by the area the
+    trapezoid rule of :func:`grid_integral` gives it (:func:`grid_weights`:
+    a quarter cell at a corner, half at an edge, a whole cell inside), so the
+    figure is the fraction of the INTEGRAL's area that was sampled. Without the
+    axes every sample counts equally, which is the area fraction only when the
+    samples stand for equal areas.
 
     Parameters
     ----------
     integrand : np.ndarray
         Sampled scalar integrand, with shape (len(y), len(z)) for a grid.
+    y, z : np.ndarray, optional
+        The grid axes, m; both or neither.
 
     Returns
     -------
     float
-        Fraction of grid samples carrying finite integrand values.
+        Fraction of the grid's represented area carrying finite integrand values.
+
+    Raises
+    ------
+    FarfieldInputError
+        If only one axis is given.
     """
     array = np.asarray(integrand)
-    return float(np.isfinite(array).sum() / array.size)
+    if y is None and z is None:
+        return float(np.isfinite(array).sum() / array.size)
+    if y is None or z is None:
+        raise FarfieldInputError("an area-weighted grid coverage needs both axes, y and z")
+    weights = grid_weights(y, z=z)
+    return float((np.isfinite(array) * weights).sum() / weights.sum())
 
 
 def strip_edges(

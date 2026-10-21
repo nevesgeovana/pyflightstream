@@ -43,7 +43,10 @@ class ProbeLattice(ProbeModel):
     ----------
     tip_radius : float
         Reference radius R in simulation length units; every stored
-        coordinate is nondimensionalized by it.
+        coordinate is nondimensionalized by it. The far-field ledgers integrate
+        over areas of ``tip_radius`` squared, so they are in the field's units
+        times this unit squared: SI only for R in metres (see
+        :class:`pyflightstream.farfield.fields.LatticeFields`).
     stations : tuple of float
         Axial positions x/R of the annular planes, strictly increasing,
         x positive downstream of the disk center.

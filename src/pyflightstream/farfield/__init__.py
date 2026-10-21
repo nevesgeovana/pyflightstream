@@ -12,6 +12,15 @@ step reads the exports, turns the vectors and calls this core.
 The equations are those of the definitions page, The far-field family. The
 names ``lattice_dataset``, ``rothalpy`` and ``irreversible_deficit`` were
 removed and refuse, naming what replaced them (FR-457, FR-458).
+
+UNITS. The core converts nothing. A ledger is the field's units times the square
+of the length unit of ``tip_radius`` (the areas it integrates over are
+``tip_radius**2`` times a dimensionless weight), so it is in SI (N, W, kg/s, N m)
+only when the fields are in SI and ``tip_radius`` is in METRES. The post step
+supplies metres. A caller holding R in the simulation's own unit converts it
+first; the survey's import csv is the other place a unit enters, stated by the
+caller of :func:`pyflightstream.probes.emit_probe_import` (the plan passes the
+setup's simulation length unit, METER when the setup states none).
 """
 
 from __future__ import annotations

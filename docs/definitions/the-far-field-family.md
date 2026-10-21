@@ -312,7 +312,7 @@ which a `qsteady_rotor` run always writes. It is signed by the rotor's hand
 
 **Quadrature.** The trapezoid rule on the grid (corners a quarter, edges a half
 of a cell); a missing sample makes the integral `NA` and `COVERAGE` states the
-finite fraction. The same samples integrated on every other grid point give a
+fraction of the plane's AREA whose samples are finite, each sample weighted by the area its weight integrates. The same samples integrated on every other grid point give a
 second value; `CDI_T_QERR` is the difference.
 
 **Assumptions and validity.**
@@ -341,7 +341,7 @@ on a lateral cylinder; cylindrical axes on the rotor shaft, `y = r sin(psi)`,
 
 A non-uniform azimuth grid is refused: uniform periodic sampling is what makes the
 azimuthal rectangle rule spectrally accurate. A missing sample makes `I[f]` `NA`;
-`COVERAGE` states the finite fraction (`pyflightstream.farfield.sample_coverage`).
+`COVERAGE` states the fraction of the plane's area that was sampled, a missing sample weighted by the annular cell it stands for (`pyflightstream.farfield.sample_coverage`).
 
 **Harmonics.** `c_m = (1 / N_psi) sum_k f_k exp(-i m psi_k)`, `m = 0 .. m_max`,
 `m_max < N_psi / 2`.

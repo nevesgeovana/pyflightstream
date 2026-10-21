@@ -51,7 +51,11 @@ from pyflightstream.farfield import (
     WakeTrace,
     azimuthal_harmonics,
     calibration_scale,
+    grid_coverage,
+    grid_integral,
     lattice_fields,
+    plane_integral,
+    sample_coverage,
     spurious_diagnostic,
     to_counts,
     trace_coefficients,
@@ -59,6 +63,7 @@ from pyflightstream.farfield import (
     wake_crossings,
 )
 from pyflightstream.farfield import strip_edges as _farfield_trefftz__strip_edges
+from pyflightstream.farfield.quadrature import ring_sample_weights
 from pyflightstream.farfield.quadrature import strip_edges as _rfixr5_quadrature__strip_edges
 from pyflightstream.fsi.cli import _build_parser as fsi_parser
 from pyflightstream.post import farfield_fields
@@ -2558,3 +2563,94 @@ def test_p0420_reference_lattice_accepts_fourteen_azimuths():
     from pyflightstream.probes import build_lattice
 
     assert build_lattice(tip_radius=1.0, n_psi=14).n_psi == 14
+
+
+def _fields(tip_radius=1.0, value=np.pi):
+    lattice = build_lattice(tip_radius=tip_radius, stations=(0.0,), lateral_radius=None)
+    field = np.full((1, lattice.n_r, lattice.n_psi), value)
+    return lattice, field, lattice_fields(lattice, fields={"u": field})
+
+
+def _holed(field, ring):
+    holed = field.copy()
+    holed[0, ring, :] = np.nan
+    return holed
+
+
+def test_p0420_a_hole_at_the_rim_costs_more_coverage_than_a_hole_at_the_hub():
+    """PFS-2019.01: one missing ring at either end of the same lattice, same sample count."""
+    lattice, field, ds = _fields()
+    hub = lattice_fields(lattice, fields={"u": _holed(field, 0)})
+    rim = lattice_fields(lattice, fields={"u": _holed(field, lattice.n_r - 1)})
+    by_count_hub = float(sample_coverage(hub["u"])[0])
+    by_count_rim = float(sample_coverage(rim["u"])[0])
+    assert by_count_hub == pytest.approx(by_count_rim), "the count cannot tell them apart"
+    area_hub = float(sample_coverage(hub["u"], fields=hub)[0])
+    area_rim = float(sample_coverage(rim["u"], fields=rim)[0])
+    assert area_rim < area_hub < 1.0
+    weights = ring_sample_weights(ds)
+    assert area_hub == pytest.approx(1.0 - weights[0] / weights.sum())
+    assert area_rim == pytest.approx(1.0 - weights[-1] / weights.sum())
+
+
+def test_p0420_the_area_coverage_is_the_share_of_the_integral_a_hole_removes():
+    """PFS-2019.01: for a constant field the coverage and the integral lose the same share."""
+    lattice, field, whole = _fields()
+    rim = lattice_fields(lattice, fields={"u": _holed(field, lattice.n_r - 1)})
+    coverage = float(sample_coverage(rim["u"], fields=rim)[0])
+    finite_integral = float(plane_integral(rim, np.nan_to_num(rim["u"], nan=0.0))[0])
+    assert finite_integral / float(plane_integral(whole, whole["u"])[0]) == pytest.approx(coverage)
+
+
+def test_p0420_a_complete_plane_has_coverage_one_both_ways():
+    """PFS-2019.01 control."""
+    _lattice, _field, ds = _fields()
+    assert float(sample_coverage(ds["u"], fields=ds)[0]) == pytest.approx(1.0)
+    assert float(sample_coverage(ds["u"])[0]) == 1.0
+
+
+def test_p0420_a_lattice_of_another_ring_count_is_refused():
+    """PFS-2019.01: the area each sample stands for is undefined for another lattice."""
+    _lattice, _field, ds = _fields()
+    with pytest.raises(FarfieldInputError, match="rings"):
+        sample_coverage(ds["u"][:, :-1, :], fields=ds)
+
+
+def test_p0420_the_grid_coverage_weights_a_corner_by_its_quarter_cell():
+    """PFS-2019.01: a missing corner stands for a quarter cell, an inner one for a cell."""
+    y = np.linspace(0.0, 4.0, 5)
+    z = np.linspace(0.0, 4.0, 5)
+    integrand = np.ones((5, 5))
+    corner = integrand.copy()
+    corner[0, 0] = np.nan
+    inner = integrand.copy()
+    inner[2, 2] = np.nan
+    assert grid_coverage(corner) == pytest.approx(grid_coverage(inner))
+    assert grid_coverage(corner, y=y, z=z) == pytest.approx(1.0 - 0.25 / 16.0)
+    assert grid_coverage(inner, y=y, z=z) == pytest.approx(1.0 - 1.0 / 16.0)
+    assert grid_coverage(integrand, y=y, z=z) == 1.0
+    lost = grid_integral(y, z=z, integrand=np.nan_to_num(inner, nan=0.0))
+    assert lost / grid_integral(y, z=z, integrand=integrand) == pytest.approx(
+        grid_coverage(inner, y=y, z=z)
+    )
+
+
+def test_p0420_one_grid_axis_alone_is_refused():
+    """PFS-2019.01: half an axis pair does not define the weights."""
+    with pytest.raises(FarfieldInputError, match="both axes"):
+        grid_coverage(np.ones((3, 3)), y=np.arange(3.0))
+
+
+def test_p0420_a_ledger_scales_with_the_square_of_the_length_unit_of_tip_radius():
+    """PFS-2110.017: the statement the docstrings make, pinned as the behaviour it describes."""
+    _lattice, _field, metres = _fields(tip_radius=1.0)
+    _lattice, _field, millimetres = _fields(tip_radius=1000.0)
+    in_metres = float(plane_integral(metres, metres["u"])[0])
+    in_millimetres = float(plane_integral(millimetres, millimetres["u"])[0])
+    assert in_millimetres == pytest.approx(in_metres * 1000.0**2)
+
+
+def test_p0420_the_units_are_stated_where_a_caller_reads_them():
+    """PFS-2110.017: the facade, the container and the lattice all say what R's unit does."""
+    assert "METRES" in (ff.__doc__ or "")
+    assert "SI only when R is given in metres" in " ".join((ff.LatticeFields.__doc__ or "").split())
