@@ -50,6 +50,14 @@ from pyflightstream.run._plan import _recorded_is_unsteady
 from pyflightstream.script import Script
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0430-F-020")])
+def test_p0430_glauert_requires_a_small_equation_residual():
+    ct = 0.01
+    climb = -math.sqrt(ct / 2.0) + 1e-12
+    induced = arithmetic.glauert_induced_inflow(ct, 0.0, climb)
+    assert induced is None or abs(induced - ct / (2 * abs(climb + induced))) <= 1e-10
+
+
 @pytest.mark.parametrize("count", [0, -1, 1.5, True, "2"])
 def test_p0420_blade_stations_refuses_invalid_count(count):
     """The band count is an integer of at least one, before any geometry work."""

@@ -260,7 +260,8 @@ def glauert_induced_inflow(
 
     solved by Newton's method on
     ``f(l) = l - ct / (2 sqrt(mu^2 + (lambda_c + l)^2))`` from the hover value
-    ``sign(ct) sqrt(|ct| / 2)``, until a step is no larger than ``tolerance``
+    ``sign(ct) sqrt(|ct| / 2)``, until both the step and the equation residual
+    at the updated iterate are no larger than ``tolerance``
     (:data:`INFLOW_TOLERANCE`). A thrust of zero induces nothing and is 0.
 
     None where it does not converge in ``iterations`` steps
@@ -278,7 +279,7 @@ def glauert_induced_inflow(
     lambda_c : float
         Climb inflow over the tip speed.
     tolerance : float, optional
-        The largest Newton step taken as converged, :data:`INFLOW_TOLERANCE` by default.
+        The largest step and residual taken as converged, :data:`INFLOW_TOLERANCE` by default.
     iterations : int, optional
         The most Newton steps taken, :data:`INFLOW_ITERATIONS` where not given.
 
@@ -322,7 +323,9 @@ def glauert_induced_inflow(
         if not math.isfinite(inflow):
             return None
         if abs(step) <= tolerance:
-            return inflow
+            speed = math.hypot(advance, climb + inflow)
+            if speed > 0.0 and abs(inflow - thrust / (2.0 * speed)) <= tolerance:
+                return inflow
     return None
 
 
