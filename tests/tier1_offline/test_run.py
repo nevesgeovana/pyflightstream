@@ -631,3 +631,44 @@ def test_f1255_tail_reads_the_last_lines_of_a_large_file(tmp_path):
     short = tmp_path / "y.o1"
     short.write_text("a\nb\n", encoding="utf-8")
     assert _tail_lines(short, 20) == ["a", "b"]
+
+
+def test_fr2329_an_unknown_status_word_is_refused_with_the_vocabulary():
+    # Verifies FR-2329: a status-filter typo fails, and a valid word or prefix is accepted.
+    import pytest
+
+    from pyflightstream.run._cli_query import _status_words
+
+    assert _status_words(["CONVERGED", "FAILED*"]) == ["CONVERGED", "FAILED*"]
+    with pytest.raises(ValueError, match="CONVERGED") as caught:
+        _status_words(["CONVERGD"])
+    assert "'CONVERGD'" in str(caught.value)
+    with pytest.raises(ValueError, match="ZZ"):
+        _status_words(["ZZ*"])
+
+
+def test_f1458_f1459_descriptor_strings_escape_quote_and_backslash():
+    # Verifies F-1458, F-1459, X-F-0560: a quoted descriptor value survives a quote and a backslash.
+    import json
+    import tomllib
+    from types import SimpleNamespace
+
+    from pyflightstream.run import render_descriptor
+
+    values = {"name": 'a "b" c\\d'}
+    toml = SimpleNamespace(fields={"job": "{name}"}, descriptor_format="toml", path="p.toml")
+    assert tomllib.loads(render_descriptor(toml, values))["job"] == values["name"]
+    yaml = SimpleNamespace(fields={"job": "{name}"}, descriptor_format="yaml", path="p.yaml")
+    text = render_descriptor(yaml, values)
+    assert json.loads(text.split(": ", 1)[1]) == values["name"]
+
+
+def test_f1460_a_relative_executable_is_made_absolute_before_the_check(tmp_path, monkeypatch):
+    # Verifies F-1460: the file checked is the file launched from another folder.
+    exe = tmp_path / "bin" / "fs.exe"
+    exe.parent.mkdir()
+    exe.write_text("x", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    executor = LocalExecutor("bin/fs.exe")
+    assert executor.fs_exe.is_absolute()
+    assert executor.fs_exe.is_file()

@@ -135,3 +135,78 @@ def test_native_windows_reads_no_windows_off_win32(monkeypatch):
 
     monkeypatch.setattr(solver_windows.sys, "platform", "linux")
     assert _native_windows(123) == []
+
+
+def test_f835_an_interrupt_kills_the_solver_it_started(tmp_path, monkeypatch):
+    # Verifies F-835 / X-F-0550: subprocess.run kills its child on KeyboardInterrupt; so does this.
+    class Process:
+        pid = 1
+        returncode = None
+        killed = False
+
+        def communicate(self, timeout=None):
+            if not self.killed:
+                raise KeyboardInterrupt
+            return "", ""
+
+        def kill(self):
+            self.killed = True
+
+    process = Process()
+    monkeypatch.setattr(run.subprocess, "Popen", lambda *_a, **_k: process)
+    try:
+        run._run_with_progress(["fake"], tmp_path, 5, tmp_path / "count", 2, 1)
+    except KeyboardInterrupt:
+        pass
+    else:
+        raise AssertionError("the interrupt must propagate")
+    assert process.killed
+
+
+def test_f836_a_killed_solver_that_never_closes_its_pipes_does_not_block(tmp_path, monkeypatch):
+    # Verifies F-836 / X-F-0551: the timeout return is not held up by communicate after the kill.
+    class Process:
+        pid = 1
+        returncode = None
+        killed = False
+
+        def communicate(self, timeout=None):
+            if self.killed and timeout is None:
+                raise AssertionError("communicate after the kill must carry a deadline")
+            raise subprocess.TimeoutExpired("fake", timeout)
+
+        def kill(self):
+            self.killed = True
+
+    monkeypatch.setattr(run.subprocess, "Popen", lambda *_a, **_k: Process())
+    result = run._run_with_progress(["fake"], tmp_path, 0.0, tmp_path / "count", 2, 1)
+    assert result[0] is None and result[3] is True
+
+
+def test_f834_an_interrupt_kills_the_steady_coupled_solver(tmp_path, monkeypatch):
+    # Verifies F-834: the steady coupled wait is as interruptible as subprocess.run.
+    class Process:
+        pid = 1
+        returncode = None
+        killed = False
+
+        def wait(self, timeout=None):
+            if not self.killed:
+                raise KeyboardInterrupt
+            return 0
+
+        def kill(self):
+            self.killed = True
+
+        def communicate(self, timeout=None):
+            return "", ""
+
+    process = Process()
+    monkeypatch.setattr(run.subprocess, "Popen", lambda *_a, **_k: process)
+    try:
+        run._run_until_the_analysis_ends(["fake"], tmp_path, 5)
+    except KeyboardInterrupt:
+        pass
+    else:
+        raise AssertionError("the interrupt must propagate")
+    assert process.killed

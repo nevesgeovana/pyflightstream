@@ -4116,3 +4116,35 @@ def test_f6_0102_naming_a_point_the_recorded_job_never_ran_does_not_redo_the_job
         _run(workspace, matrix, stub, force_rerun=["M100RE230AL+040BE+000"])
     assert [record.run_id for record in workspace.read_manifest()] == before
     assert not stub.invocations
+
+
+def test_f1461_a_one_point_row_does_not_run_as_one_job(monkeypatch):
+    # Verifies F-1461: runs_as_one_job states its documented two-or-more point condition.
+    from types import SimpleNamespace
+
+    from pyflightstream.run import _ids
+
+    monkeypatch.setattr(_ids, "_is_one_job", lambda campaign, case: True)
+
+    def case(count):
+        return SimpleNamespace(
+            sweep=SimpleNamespace(points=lambda: [{"a": n} for n in range(count)])
+        )
+
+    assert _ids.runs_as_one_job(None, case(2)) is True
+    assert _ids.runs_as_one_job(None, case(1)) is False
+
+
+def test_f1462_the_resume_count_sees_points_recorded_on_their_own(monkeypatch):
+    # Verifies F-1462: a point recorded individually counts beside the points of a job record.
+    from types import SimpleNamespace
+
+    from pyflightstream.run import _ids
+
+    points = [{"a": 0}, {"a": 1}, {"a": 2}]
+    case = SimpleNamespace(sweep=SimpleNamespace(points=lambda: points))
+    campaign = SimpleNamespace(sims=[case])
+    monkeypatch.setattr(_ids, "_points_the_recorded_job_ran", lambda *args: ("p0",))
+    monkeypatch.setattr(_ids, "point_name", lambda case, point: f"p{point['a']}")
+    monkeypatch.setattr(_ids, "_run_id", lambda campaign, case, point: f"r{point['a']}")
+    assert _ids._recorded_and_new(campaign, {"r1": object()}) == (2, 1)

@@ -309,6 +309,59 @@ class TestLast6Continuation:
         assert seen[0].first_step == 51
 
     @staticmethod
+    def test_f1457_an_undecodable_script_is_the_conservative_fallback(tmp_path):
+        # Verifies F-1457: UnicodeDecodeError ends in None, as a missing script does.
+        from pyflightstream.run._continuation_frame import _marched_steps
+        from tests.tier1_offline.test_restart_continuation import _stopped_record
+
+        record = _stopped_record()
+        script = tmp_path / str(record.script_path)
+        script.parent.mkdir(parents=True)
+        script.write_bytes(b"\xff\xfe\x00 not utf-8")
+        assert _marched_steps(tmp_path, record) is None
+
+    @staticmethod
+    def test_f840_a_max_iter_reached_run_recovers_its_step_counter(tmp_path):
+        # Verifies F-840: MAX_ITER_REACHED is continuable, so it may recover a missing counter.
+        from pyflightstream.run._continuation import _continued_step_offset
+        from tests.tier1_offline.test_restart_continuation import _stopped_record
+
+        workspace = CampaignWorkspace.init(tmp_path / "camp")
+        previous = _stopped_record().model_copy(
+            update={"status": RunStatus.MAX_ITER_REACHED, "stopped_at": None}
+        )
+        workspace.append_record(previous)
+        assert _continued_step_offset(workspace, previous) == 400
+
+    @staticmethod
+    def test_f601_a_replaced_saved_state_is_not_the_predecessor(tmp_path):
+        # Verifies F-601: the saved simulation's bytes are held to the digest the run recorded.
+        from pyflightstream.cases import Campaign
+        from pyflightstream.cases.workflows import build_script
+        from pyflightstream.run import plan_campaign
+        from tests.tier1_offline.test_restart_continuation import _stopped_record
+
+        def planned(body):
+            workspace = CampaignWorkspace.init(tmp_path / f"camp-{len(body)}")
+            previous = _stopped_record()
+            previous = previous.model_copy(
+                update={"outputs_sha256": {previous.outputs[0]: sha256(b"original").hexdigest()}}
+            )
+            workspace.append_record(previous)
+            saved = workspace.sim_dir("9001") / previous.outputs[0]
+            saved.parent.mkdir(parents=True)
+            saved.write_bytes(body)
+            case = _last6_continuation___continuing_case("{FINISH_PENDING}")
+            campaign = Campaign(name="camp", fs_version="26.124", fs_exe="solver.exe", sims=[case])
+            return plan_campaign(
+                campaign, workspace, recipes={"unsteady": build_script}, write_plan=False
+            )
+
+        assert not planned(b"original").blocked
+        blocked = planned(b"replaced-bytes").blocked
+        assert [entry.error for entry in blocked if "digest" in str(entry.error)], blocked
+
+    @staticmethod
     def test_p0400_last6_rebased_step_is_written_to_the_run_record(tmp_path):
         from pyflightstream.cases.workflows import build_script
         from pyflightstream.run._actions_counter import stage_counter
@@ -1292,3 +1345,60 @@ def test_p0430_f261_an_assembled_record_keeps_the_residual_note(tmp_path, monkey
     assembled, _refusals = records.assemble_records(workspace.root, "matriz")
     assert assembled
     assert {record.residual_note for record in assembled} == {"CAVEAT-F261"}
+
+
+def test_f611_an_output_of_the_same_name_does_not_stand_in_for_a_missing_input(tmp_path):
+    # Verifies F-611: a file the run wrote is not the input it read.
+    from pyflightstream.run._identity import _where_the_run_read
+
+    sim = tmp_path / "sim_9001"
+    work = sim / "datapoints" / "DP-1"
+    work.mkdir(parents=True)
+    (work / "probes.csv").write_text("written by the run", encoding="utf-8")
+    outputs = [sim / "datapoints" / "DP-1" / "probes.csv"]
+    where = _where_the_run_read("probes.csv", sim, work, [], outputs)
+    assert not where.is_file()
+    # Without that output recorded, the file beside the script is the input, as before.
+    assert _where_the_run_read("probes.csv", sim, work, [], []) == work / "probes.csv"
+
+
+def test_f831_a_queued_steady_job_is_seen_by_the_point_collision_guard(tmp_path):
+    # Verifies F-831: a SUBMITTED job record lists its points, and the guard reads that list.
+    from pyflightstream.run._continuation import _queued_record_of_point
+    from tests.tier1_offline.test_restart_continuation import _stopped_record
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    job = _stopped_record().model_copy(
+        update={
+            "run_id": "camp/sim_9001/sweep",
+            "status": RunStatus.SUBMITTED,
+            "points_ran": [{"tag": "AL+000", "point": {"alpha": 0.0}, "status": "SUBMITTED"}],
+        }
+    )
+    workspace.append_record(job)
+    assert _queued_record_of_point(workspace, "9001", "AL+000").run_id == job.run_id
+    assert _queued_record_of_point(workspace, "9001", "AL+005") is None
+
+
+def test_pfs_2130_071_reconstruct_expands_a_compacted_simulation(tmp_path):
+    # Verifies PFS-2130.071: reconstruct restores sims/sim_<id>.zip before it reads the script.
+    from pyflightstream.run import reconstruct
+    from tests.tier1_offline.test_restart_continuation import _stopped_record
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    from pyflightstream.workspace import KNOWN_MANIFEST_SCHEMAS
+
+    record = _stopped_record().model_copy(
+        update={
+            "argv": ["solver.exe", "-script", "x"],
+            "manifest_schema": sorted(KNOWN_MANIFEST_SCHEMAS)[-1],
+        }
+    )
+    workspace.append_record(record)
+    script = workspace.sim_dir("9001") / str(record.script_path)
+    script.parent.mkdir(parents=True)
+    script.write_text("CLOSE_FLIGHTSTREAM\n", encoding="utf-8")
+    _compact_sim(workspace, "9001")
+    assert not workspace.sim_dir("9001").exists()
+    rebuilt = reconstruct(record, workspace=workspace)
+    assert rebuilt.script_text == "CLOSE_FLIGHTSTREAM\n"

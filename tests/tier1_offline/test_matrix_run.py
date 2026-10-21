@@ -6169,3 +6169,25 @@ class TestFr310MatrixHomesAll:
         args = _build_parser().parse_args(["plan", given, "--workspace", str(ws)])
         assert resolve_matrix_arguments(args) is None
         assert Path(args.matrix) == Path(given)
+
+
+def test_f1569_an_effective_frequency_warning_names_the_effective_frequency():
+    # Verifies F-1569: a point flagged by k_eff is not blamed on the 1P frequency.
+    from pyflightstream.run._matrix_warnings import _sort_the_validity
+
+    above, unknown, too_few, effective = [], [], [], []
+    validity = {
+        "inflow_fft": {
+            "n_max": 4,
+            "suggested_passage_positions": 2,
+            "passage_positions": 2,
+            "span_pct_k_eff_gt_0_1": 25.0,
+            "k_eff_min": 0.02,
+            "k_eff_max": 0.3,
+            "k_eff_mean": 0.1,
+        },
+        "span_pct_k_gt_0_1": 0.0,
+    }
+    _sort_the_validity("POL 1 point p", None, validity, (above, unknown, too_few, effective))
+    assert not above and len(effective) == 1
+    assert "k_eff" in effective[0]
