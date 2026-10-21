@@ -239,6 +239,22 @@ def test_f1543_malformed_storage_register_raises_storage_error(tmp_path, documen
         storage_module.record_storage_call(workspace.root, {"action": "x"})
 
 
+def test_f1497_unmappable_source_link_is_not_reported_as_linked(tmp_path):
+    # A source link outside the other library, named like no folder of main's, must not
+    # fall back to linking main's whole geometry library.
+    main, other = _sync_pair(tmp_path, "stray")
+    stray = tmp_path / "stray_geometry"
+    _write(stray / "x.obj", "o x\n")
+    (main.inputs_dir / "geometries").mkdir(parents=True, exist_ok=True)
+    folder = other.sim_dir("8020")
+    _write(folder / "scripts" / "point.fs", "script")
+    storage_module._make_dir_link(stray.resolve(), folder / "inputs")
+    other.append_record(_storage_record("8020", "camp/sim_8020/AL+000"))
+    (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
+    assert not (main.sim_dir("8020") / "inputs").exists()
+    assert entry["inputs_links"]["sim_8020"].startswith("not linked")
+
+
 def test_f347_disk_estimate_ignores_empty_datapoint_folders(tmp_path):
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(workspace.root)

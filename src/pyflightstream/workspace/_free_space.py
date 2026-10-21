@@ -548,7 +548,9 @@ def _relink_inputs(main: CampaignWorkspace, other: Path, sim_name: str) -> str |
     except ValueError:
         # A link read through a share may not resolve on this machine: take
         # the geometry folder by name, the one component the layout allows.
-        relative = Path(pointed.name) if (library / pointed.name).is_dir() else Path(".")
+        if not (library / pointed.name).is_dir():
+            return f"not linked: {pointed.name} is not in main's inputs/geometries"
+        relative = Path(pointed.name)
     wanted = (library / relative).resolve()
     if not wanted.is_dir() or (wanted != library and wanted.parent != library):
         return f"not linked: {relative.as_posix()} is not in main's inputs/geometries"
