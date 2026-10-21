@@ -85,9 +85,9 @@ def _index_record_surfaces(
     surface_freeze: FrozenSolve | None = None
     averages = (record.surface_time_averaging, record.surface_average_window)
     if any(window is not None for window in averages) and "log" in output_kinds:
+        # a missing log is judged by freeze_of_log itself, as unjudgeable
         log_path = ctx.workspace.sim_dir(sim_id) / output_kinds["log"]
-        if log_path is not None:
-            surface_freeze = _stage.freeze_of_log(log_path)
+        surface_freeze = _stage.freeze_of_log(log_path)
     for kind, name in output_kinds.items():
         if kind not in ("tecplot", "vtk", "csv"):
             continue
