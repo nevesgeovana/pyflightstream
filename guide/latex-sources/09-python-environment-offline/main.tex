@@ -399,7 +399,7 @@ pip download "pyflightstream[fsi]==(*@\pkgversion@*)" \
   --only-binary=:all: \
   --platform manylinux_2_28_x86_64 \
   --platform manylinux2014_x86_64
-python3.12 -m venv --copies $FTS/py-venv/E
+$FTS/python/bin/python3.12 -m venv --copies $FTS/py-venv/E
 source $FTS/py-venv/E/bin/activate
 pip install --no-index --find-links L \
   "pyflightstream[fsi]"
