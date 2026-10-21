@@ -1194,8 +1194,7 @@ class CampaignWorkspace:
 
     def _link_inputs(self, inputs: Path, origins: Sequence[Path]) -> tuple[str, str | None]:
         """Make ``inputs`` a link to the geometry library, or say why not (``_links``)."""
-        library = (self.inputs_dir / "geometries").resolve()
-        return _stage_link(inputs, library, origins, _make_dir_link)
+        return _stage_link(inputs, self.inputs_dir / "geometries", origins, _make_dir_link)
 
     def staged_as(self, sim_id: str) -> tuple[str | None, str | None]:
         """Say how one simulation's inputs were staged: ``link`` or ``copy``, and why.

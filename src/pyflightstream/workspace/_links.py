@@ -241,7 +241,7 @@ def _stage_link(
             inputs.mkdir(exist_ok=True)
         except OSError as error:
             return "copy", f"the earlier link {inputs} could not be replaced: {error}"
-    reason = _why_not_a_link(target, renamed, library)
+    reason = _why_not_a_link(target, renamed, library.resolve())
     if reason is not None or target is None:
         return "copy", reason
     return _place_link(inputs, target, make_link)

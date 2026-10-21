@@ -69,21 +69,25 @@ from pyflightstream.workspace import (
     WorkspaceError,
     matrix_by_stem,
     matrix_files,
-    planned_points_without_record,
     post_stages,
 )
 from pyflightstream.workspace._free_space import (
     _PROTECTED_SUFFIXES,
     _both_refusal,
+    _brought_sim_ids,
     _check_selections,
     _check_step_values,
-    _library_target,
     _now,
+    _plan_points_without_record,
     _relink_inputs,
+    _restore_inputs_link,
     _run_recipe,
     _sha256,
     _sim_folder,
+    _sim_folders,
+    _sim_ids,
     _size,
+    _sync_existing,
     _version,
     _walk_files,
     _zip_path,
@@ -91,7 +95,7 @@ from pyflightstream.workspace._free_space import (
 from pyflightstream.workspace._free_space import COMPACTED_SUFFIX as COMPACTED_SUFFIX
 from pyflightstream.workspace._free_space import PRUNE_MODE as PRUNE_MODE
 from pyflightstream.workspace._free_space import human_bytes as human_bytes
-from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link, is_reparse
+from pyflightstream.workspace._links import _is_link, _remove_link, is_reparse
 from pyflightstream.workspace._verdicts import DELETED_SIM_KEY as DELETED_SIM_KEY
 from pyflightstream.workspace._verdicts import merge_runs as _merge_runs
 from pyflightstream.workspace.manifest import (
@@ -678,30 +682,6 @@ def _expand_archive(
     restored = _restore_inputs_link(workspace, folder, meta)
     archive.unlink()
     return restored
-
-
-def _restore_inputs_link(
-    workspace: CampaignWorkspace, folder: Path, meta: dict[str, Any]
-) -> dict[str, Any]:
-    """Link a restored simulation's ``inputs`` again, into this workspace's library."""
-    link = meta.get("inputs_link")
-    if link and not (folder / "inputs").exists():
-        wanted = _library_target(workspace, str(link))
-        try:
-            if wanted is None:
-                raise OSError(f"no folder of {workspace.inputs_dir / 'geometries'} matches it")
-            _make_dir_link(wanted, folder / "inputs")
-        except OSError as error:
-            (folder / "inputs").mkdir()
-            warn(
-                f"{folder}: the compacted simulation linked its inputs to {link}, and that "
-                f"link could not be made again in this workspace ({error}); inputs/ is an "
-                "empty folder. Stage the geometry under inputs/geometries and link it.",
-                PyflightstreamWarning,
-            )
-            return {"inputs_link_restored": False, "inputs_link_target": str(link)}
-        return {"inputs_link_restored": True, "inputs_link_target": str(wanted)}
-    return {}
 
 
 def compacted_sim_ids(workspace: CampaignWorkspace) -> list[str]:
@@ -1572,95 +1552,6 @@ def _sync_files(
     return brought, archived
 
 
-def _sim_ids(ws: Path) -> set[str]:
-    """Every simulation id with a folder, or a compacted zip, under ``ws/sims/``."""
-    found: set[str] = set()
-    sims = ws / "sims"
-    for path in sims.glob("sim_*") if sims.is_dir() else []:
-        if is_reparse(path):
-            continue
-        if path.is_dir():
-            found.add(path.name[len("sim_") :])
-        elif path.is_file() and path.name.endswith(COMPACTED_SUFFIX):
-            found.add(path.name[len("sim_") : -len(COMPACTED_SUFFIX)])
-    return found
-
-
-def _brought_sim_ids(files: list[Path]) -> set[str]:
-    """Return the simulation ids with a file among ``files``, the paths a sync brings."""
-    found: set[str] = set()
-    for relative in files:
-        parts = relative.parts
-        if len(parts) < 2 or parts[0] != "sims" or not parts[1].startswith("sim_"):
-            continue
-        name = parts[1]
-        if len(parts) == 2 and name.endswith(COMPACTED_SUFFIX):
-            name = name[: -len(COMPACTED_SUFFIX)]
-        found.add(name[len("sim_") :])
-    return found
-
-
-def _sim_folders(
-    main_ids: set[str], other_ids: set[str], brought: set[str], rows: list[dict[str, Any]]
-) -> dict[str, list[str]]:
-    """P0320-SYNC-ALL-FOLDERS: the simulation folders of both sides, compared.
-
-    ``without_record`` names every folder main holds, or holds once the sync is
-    applied (``brought``: the other's simulations with a file the level
-    copies), that no record of the merged manifest carries; a folder a
-    ``delete-sims`` note names is accounted for by that note and left out. A
-    simulation of the other workspace the level does not bring (a compacted
-    one below ``all``, a folder holding nothing the level copies) is in
-    ``other`` and never in ``without_record``, because the restore rebuilds in
-    main.
-    """
-    recorded = {
-        str(row.get("sim_id"))
-        for row in rows
-        if row.get(DELETED_SIM_KEY) is None and row.get("sim_id") is not None
-    }
-    noted = {str(row.get(DELETED_SIM_KEY)) for row in rows if row.get(DELETED_SIM_KEY) is not None}
-    return {
-        "main": sorted(main_ids),
-        "other": sorted(other_ids),
-        "only_main": sorted(main_ids - other_ids),
-        "only_other": sorted(other_ids - main_ids),
-        "both": sorted(main_ids & other_ids),
-        "without_record": sorted((main_ids | (other_ids & brought)) - recorded - noted),
-    }
-
-
-def _plan_points_without_record(
-    other: Path, rows: list[dict[str, Any]]
-) -> dict[str, dict[str, Any]]:
-    """Per matrix, the points the OTHER workspace planned that no merged record carries.
-
-    Each ``post/<stem>/plan.json`` of the other workspace lists the
-    points its plan called for; a point that no record of the merged
-    ``runs.json`` carries (:func:`planned_points_without_record`) was never
-    attempted there, or its record never reached main. A row of ten planned
-    points once recorded six on an HPC workspace and nothing said so; a sync
-    is where the two workspaces meet, so it says it here. A plan that cannot
-    be read is named with why.
-    """
-    found: dict[str, dict[str, Any]] = {}
-    post = other / "post"
-    for plan in sorted(post.glob("*/plan.json")) if post.is_dir() else []:
-        stem = plan.parent.name
-        try:
-            payload = json.loads(plan.read_text(encoding="utf-8"))
-            points = payload["points"]
-            planned = [str(point["run_id"]) for point in points]
-        except (OSError, ValueError, KeyError, TypeError) as error:
-            found[stem] = {"error": f"{plan} could not be read: {error}"}
-            continue
-        found[stem] = {
-            "planned": len(planned),
-            "without_record": planned_points_without_record(planned, rows),
-        }
-    return found
-
-
 def sync_summary_lines(entry: Mapping[str, Any]) -> list[str]:
     """Return the lines ``pyfs-matrix sync`` prints for a synchronization entry.
 
@@ -1815,31 +1706,6 @@ def _expand_compacted(
             ensure_sim_expanded(main, sim_id, reason=f"sync from {source}")
         expanded.append(sim_id)
     return sorted(found)
-
-
-def _sync_existing(main: CampaignWorkspace, relative: Path, source: Path) -> tuple[bool, bool]:
-    """Whether main has a file and the same bytes, including a compacted preview."""
-    target = main.root / relative
-    if target.exists():
-        return True, _size(source) == _size(target) and _sha256(source) == _sha256(target)
-    parts = relative.parts
-    if len(parts) > 2 and parts[0] == "sims" and parts[1].startswith("sim_"):
-        archive = _zip_path(main, parts[1][len("sim_") :])
-        if archive.is_file():
-            with zipfile.ZipFile(archive) as zf:
-                name = Path(*parts[2:]).as_posix()
-                try:
-                    info = zf.getinfo(name)
-                except KeyError:
-                    return False, False
-                if info.file_size != _size(source):
-                    return True, False
-                digest = hashlib.sha256()
-                with zf.open(info) as member:
-                    for chunk in iter(lambda: member.read(1 << 20), b""):
-                        digest.update(chunk)
-                return True, digest.hexdigest() == _sha256(source)
-    return False, False
 
 
 def _sync_one(
