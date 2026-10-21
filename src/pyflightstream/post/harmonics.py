@@ -110,6 +110,8 @@ AZIMUTH_TOLERANCE_DEG = 1e-6
 _LARGEST_GAP_DEG = 180.0
 #: How far a sample's station may sit from the first sample's, as a fraction
 #: of the largest radius of the first sample, before the station is refused.
+#: This relative matching tolerance allows export roundoff on repeated cuts;
+#: it does not merge stations or round their radii. A mismatch is a named skip.
 STATION_MATCH_TOLERANCE = 1e-6
 #: The sections columns that locate a station rather than load it.
 _GEOMETRY_COLUMNS = frozenset({"Offset", "Chord", "X_QC", "Z_QC"})
@@ -390,7 +392,10 @@ def load_quantities(columns: Sequence[str]) -> list[str]:
     Every column of the export after the condition that is not a station's
     place (``Offset``, ``Chord``, ``X_QC``, ``Z_QC``) nor one the post adds
     (the clocking, the reduced frequency, the validity, the integrated
-    strips): ``Fx``, ``Fz`` and ``Moment`` on today's export.
+    strips): ``Fx``, ``Fz`` and ``Moment`` in the sectional export measured by
+    RPT-005 finding 4 (26.120 build 7012026, WP1 dry run), retained in
+    ``tests/tier1_offline/fixtures/fsi/FS_SurfaceSection_Loads_call0002.txt``.
+    This names that measured schema, not a guarantee for every solver build.
 
     Parameters
     ----------
