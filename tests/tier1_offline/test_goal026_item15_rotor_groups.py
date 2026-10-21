@@ -265,3 +265,23 @@ def test_f2_0809_mixed_int_and_str_members_are_named_in_the_refusal():
     rotors = {"PUSHER": _rotor("PUSHER", ["Blade1", "Blade2"])}
     with pytest.raises(CampaignConfigError, match="PUSHER"):
         rotor_integration_groups(rotors, {"PUSHER": [3, "Wing"]})
+
+
+@pytest.mark.parametrize("scalar", ["5", '"Spinner"'])
+@pytest.mark.parametrize("key", ["families_general", "families_blades"])
+def test_f2_0809_a_scalar_rotor_family_list_is_an_input_error(tmp_path, key, scalar):
+    """F-1528: a scalar where the list belongs is the input error, not a raw TypeError."""
+    from pyflightstream._errors import InputArtifactError
+    from pyflightstream.workspace.inputs import resolve_reference
+
+    references = tmp_path / "references"
+    references.mkdir()
+    other = "families_blades" if key == "families_general" else "families_general"
+    (references / "r001.toml").write_text(
+        "area_m2 = 1.0\nchord_m = 1.0\nspan_m = 1.0\n"
+        '[PUSHER]\nkind = "rotor"\nalias = "PUSHER"\naxis = "X"\ndiameter_m = 1.0\n'
+        f'{key} = {scalar}\n{other} = ["B1"]\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(InputArtifactError, match=key):
+        resolve_reference(tmp_path, "r001")

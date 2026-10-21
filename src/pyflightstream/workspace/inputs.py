@@ -1137,6 +1137,14 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                 "frame makes two different things spell the same. Choose another name.",
                 kind="reference",
             )
+        for family_key in ("families_general", "families_blades"):
+            if family_key in block and not isinstance(block[family_key], list):
+                raise InputArtifactError(
+                    f"the reference artifact {path} declares the rotor {name!r} with "
+                    f"{family_key} = {block[family_key]!r}. A rotor's families are a list of "
+                    f'names, for example {family_key} = ["Blade_1", "Blade_2"].',
+                    kind="reference",
+                )
         block.setdefault("alias", name)
         rotors[name] = block
         members = [*block.get("families_general", []), *block.get("families_blades", [])]
