@@ -1530,7 +1530,7 @@ def test_f3_0203_f133_the_station_table_leads_with_pol_and_the_condition(tmp_pat
     with (tmp_path / "out" / "structure" / "P1_deflection.csv").open(encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert list(rows[0])[: 1 + len(CONTEXT_COLUMNS)] == ["POL", *CONTEXT_COLUMNS]
-    assert rows[0]["POL"] == "3207" and rows[0]["ALPHA"] == "4.0"
+    assert rows[0]["POL"] == "3207" and float(rows[0]["ALPHA"]) == 4.0
     assert float(rows[1]["deflection_m"]) == pytest.approx(0.002)
 
 
@@ -1624,3 +1624,75 @@ def test_f3_0203_f167_duplicate_tecplot_variable_names_are_refused(tmp_path):
         with pytest.raises(ValueError, match="more than once"):
             write_tecplot_points(tmp_path / "p.dat", points, fields, provenance=make_provenance())
     assert not list(tmp_path.iterdir())
+
+
+def _f3_0203_noise_ctx(tmp_path, monkeypatch):
+    """A recorded wheel point with three observers, the middle one unusable."""
+    import pyflightstream.post._noise_products as noise
+
+    quasi = SimpleNamespace(
+        case="wheel",
+        axis_vector=(1, 0, 0),
+        rpm=1200.0,
+        blades=2,
+        blade1_azimuth_deg=0.0,
+        hub_m=(0, 0, 0),
+    )
+    monkeypatch.setattr(noise, "read_qsteady_record", lambda _p: quasi)
+    monkeypatch.setattr(noise, "_recorded_density", lambda *_a: 1.2)
+    monkeypatch.setattr(noise, "clockings_of", lambda *_a, **_k: [])
+    monkeypatch.setattr(noise, "_blade_load_samples", lambda *_a: ([], [], []))
+    monkeypatch.setattr(noise, "reconstruct_blade_load", lambda *_a, **_k: None)
+    monkeypatch.setattr(noise, "RotorMotion", lambda **_k: None)
+
+    def fake(times, observer, *_a, **_k):
+        if observer == (0.0, 0.0, 0.0):
+            raise ValueError("the observer sits on the rotor hub")
+        return np.full(len(times), observer[0])
+
+    monkeypatch.setattr(noise, "rotor_loading_noise", fake)
+    spec = SimpleNamespace(
+        orders=3,
+        axial_radius_m=0.5,
+        inplane_radius_m=0.5,
+        hub_velocity_m_s=(0, 0, 0),
+        samples_per_revolution=4,
+        observers_m=[(1.0, 0.0, 0.0), (0.0, 0.0, 0.0), (2.0, 0.0, 0.0)],
+        sound_speed_m_s=340.0,
+        observer_velocity_m_s=(0, 0, 0),
+    )
+    added: list[tuple[Path, dict]] = []
+    ctx = SimpleNamespace(
+        pproc=SimpleNamespace(noise=spec),
+        points=[SimpleNamespace(name="P1", loads_path=tmp_path / "P1_loads.txt")],
+        record_of={"P1": SimpleNamespace(recipe="qsteady_rotor")},
+        skipped={},
+        out=tmp_path / "out",
+        sources={"P1": ["run-1"]},
+        sim_id="3207",
+        reference=SimpleNamespace(as_lengths=lambda: {}),
+        condition=lambda _p: {"alpha": 4.0},
+        target=lambda p: p,
+        add=lambda path, entry: added.append((path, entry)),
+    )
+    return noise, ctx, added
+
+
+def test_f3_0203_f788_one_unusable_observer_costs_only_its_own_file(tmp_path, monkeypatch):
+    """F-788: the other observers of the point are still written; the bad one is a named skip."""
+    noise, ctx, added = _f3_0203_noise_ctx(tmp_path, monkeypatch)
+    noise.noise_products(ctx)
+    assert sorted(p.name for p, _e in added) == ["P1_observer_1.csv", "P1_observer_3.csv"]
+    assert "hub" in ctx.skipped["noise/P1_observer_2.csv"] and "noise/P1" not in ctx.skipped
+
+
+def test_f3_0203_f486_the_noise_table_leads_with_pol_and_the_condition(tmp_path, monkeypatch):
+    """F-486 (X-F-1629): a noise CSV opens with POL and the condition block."""
+    from pyflightstream._tokens import CONTEXT_COLUMNS
+
+    noise, ctx, added = _f3_0203_noise_ctx(tmp_path, monkeypatch)
+    noise.noise_products(ctx)
+    with added[0][0].open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert list(rows[0]) == ["POL", *CONTEXT_COLUMNS, "time_s", "pressure_pa"]
+    assert rows[0]["POL"] == "3207" and float(rows[0]["ALPHA"]) == 4.0

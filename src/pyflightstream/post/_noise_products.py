@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
 from pyflightstream.cases.qsteady import QsteadyRecord, read_qsteady_record
-from pyflightstream.post._tables import write_csv_table
+from pyflightstream.post._tables import context_row, write_csv_table
 from pyflightstream.post.axes import clocked_blade_azimuth_deg
 from pyflightstream.post.polar import PolarPoint
 from pyflightstream.post.qsteady import Clocking, clockings_of
@@ -77,26 +78,40 @@ def noise_products(ctx: SimContext) -> None:
                 * (2 * math.pi / abs(omega))
                 / spec.samples_per_revolution
             )
-            signals = [
-                rotor_loading_noise(
-                    times,
-                    observer,
-                    motion,
-                    load,
-                    c0=spec.sound_speed_m_s,
-                    observer_velocity_m_s=spec.observer_velocity_m_s,
-                )
-                for observer in spec.observers_m
-            ]
-            if not all(np.isfinite(signal).all() for signal in signals):
-                raise ValueError("loading-noise pressure is not finite at the requested observer")
+            signals: list[tuple[int, np.ndarray]] = []
+            for index, observer in enumerate(spec.observers_m, start=1):
+                # ONE UNUSABLE OBSERVER COSTS ONLY ITS OWN FILE: the others are independent.
+                try:
+                    signal = rotor_loading_noise(
+                        times,
+                        observer,
+                        motion,
+                        load,
+                        c0=spec.sound_speed_m_s,
+                        observer_velocity_m_s=spec.observer_velocity_m_s,
+                    )
+                    if not np.isfinite(signal).all():
+                        raise ValueError(
+                            "loading-noise pressure is not finite at the requested observer"
+                        )
+                except (ValueError, PyflightstreamError) as error:
+                    ctx.skipped[f"{key}_observer_{index}.csv"] = str(error)
+                    continue
+                signals.append((index, signal))
         except (OSError, ValueError, PyflightstreamError) as error:
             ctx.skipped[key] = str(error)
             continue
-        for index, signal in enumerate(signals, start=1):
+        # POL AND THE CONDITION LEAD EVERY TABLE THE POST WRITES.
+        context = context_row(ctx.condition(point), ctx.reference.as_lengths())
+        for index, signal in signals:
             target = ctx.target(ctx.out / f"{key}_observer_{index}.csv")
             write_csv_table(
-                target, ("time_s", "pressure_pa"), list(zip(times, signal, strict=True))
+                target,
+                (POLAR_ID_COLUMN, *CONTEXT_COLUMNS, "time_s", "pressure_pa"),
+                [
+                    (ctx.sim_id, *context, time, pressure)
+                    for time, pressure in zip(times, signal, strict=True)
+                ],
             )
             ctx.add(
                 target,
