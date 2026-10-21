@@ -10,7 +10,7 @@ which re-exports the four public names.
 from __future__ import annotations
 
 import math
-from decimal import Decimal, localcontext
+from decimal import ROUND_FLOOR, Decimal, localcontext
 
 from pyflightstream._errors import ProductError
 
@@ -26,6 +26,22 @@ _GAMMA = Decimal(
 )
 #: Above this argument the functions are Hankel's asymptotic expansions.
 _ASYMPTOTIC_FROM = 30.0
+#: Above this argument the phase of the expansion cannot be held to the digits of
+#: the constant of pi that is kept, and the functions are refused.
+_PHASE_LIMIT = 1e40
+
+
+def _phase(order: int, x: float) -> float:
+    """Return ``x - (n / 2 + 1/4) pi`` reduced to one turn, summed in decimal arithmetic.
+
+    In floats, ``x`` swallows the constant once its spacing passes it, so the phases
+    of J0 and J1 coincide and the Theodorsen ratio is a wrong finite number.
+    """
+    with localcontext() as context:
+        context.prec = 160
+        shifted = Decimal(x) - (Decimal(order) / 2 + Decimal("0.25")) * _PI
+        turns = (shifted / (2 * _PI)).to_integral_value(rounding=ROUND_FLOOR)
+        return float(shifted - turns * 2 * _PI)
 
 
 def _series(order: int, x: float) -> tuple[float, float]:
@@ -84,7 +100,7 @@ def _asymptotic(order: int, x: float) -> tuple[float, float]:
         if abs(following) < 1e-18 or abs(following) >= abs(term):
             break
         term = following
-    chi = x - (order / 2.0 + 0.25) * math.pi
+    chi = _phase(order, x)
     scale = math.sqrt(2.0 / (math.pi * x))
     return (
         scale * (p * math.cos(chi) - q * math.sin(chi)),
@@ -97,6 +113,11 @@ def _bessel(order: int, x: float) -> tuple[float, float]:
         raise ProductError(f"only the orders 0 and 1 are implemented; asked {order}")
     if not math.isfinite(x) or x <= 0.0:
         raise ProductError(f"the argument must be a positive finite number; it is {x!r}")
+    if x > _PHASE_LIMIT:
+        raise ProductError(
+            f"the argument {x!r} is beyond {_PHASE_LIMIT:g}, where the phase of the "
+            "functions cannot be held to the constant of pi this module keeps"
+        )
     return _series(order, x) if x <= _ASYMPTOTIC_FROM else _asymptotic(order, x)
 
 
