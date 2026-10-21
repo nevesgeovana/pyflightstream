@@ -557,3 +557,26 @@ def test_g16_the_campaign_sweep_table_writes_no_comma_in_a_cell(tmp_path):
     assert len(second.split(",")) == len(first.split(",")) and '"' not in second, second
     assert "CONVERGED; twice" in second, second
     assert frame["status"].iloc[0] == "CONVERGED, twice", "the caller's frame keeps its text"
+
+
+def test_f251_a_declined_cell_of_the_sweep_table_writes_as_na(tmp_path):
+    """F-251: a NaN cell is the NA token, never an empty field a reader takes as missing data."""
+    import pandas as pd
+
+    from pyflightstream.results.tables import write_table
+
+    frame = pd.DataFrame(
+        {
+            "POL": ["0001"],
+            "CDI": [float("nan")],
+            "CL": [0.4],
+            "data_origin": ["raw"],
+            "reduction": ["none"],
+            "reduction_window": ["not_applicable"],
+        }
+    )
+    written = write_table(frame, tmp_path / "campaign_sweep.csv")
+    header, row = written.read_text(encoding="utf-8").splitlines()
+    cells = dict(zip(header.split(","), row.split(","), strict=True))
+    assert cells["CDI"] == "NA", row
+    assert cells["CL"] == "0.4", row

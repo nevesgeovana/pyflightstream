@@ -73,7 +73,7 @@ if TYPE_CHECKING:
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
+from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN, plain_cell
 from pyflightstream.extras import missing_extra
 from pyflightstream.results.conditions import bind_conditions
 from pyflightstream.results.core import (
@@ -463,7 +463,8 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = Fals
     # told otherwise, which is CRLF on Windows, so the line end is stated.
     plain = frame.rename(columns=lambda name: plain_cell(str(name)))
     plain = plain.map(lambda value: plain_cell(value) if isinstance(value, str) else value)
-    plain.to_csv(target, index=False, lineterminator=_textio.LINE_END)
+    # A declined value (NaN) is the NA token, as every other product writes it (F-251).
+    plain.to_csv(target, index=False, lineterminator=_textio.LINE_END, na_rep=NOT_APPLICABLE)
     return target
 
 

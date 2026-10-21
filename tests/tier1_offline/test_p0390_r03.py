@@ -961,6 +961,13 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b"(no default citation). Source: FSM-26.120 p.342. "
         b"reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml",
     )
+    # F-251: a declined cell of the sweep table is the NA token, no longer an empty field.
+    sweep_name = "tree/post/polars/campaign_sweep.csv"
+    captured[sweep_name] = b"".join(
+        b",".join(cell or b"NA" for cell in line.rstrip(b"\r\n").split(b","))
+        + line[len(line.rstrip(b"\r\n")) :]
+        for line in captured[sweep_name].splitlines(keepends=True)
+    )
     # Public command prose is also serialized into plan evidence. Keep the
     # historical fixture intact and specify the intended text changes;
     # command status, grammar, scientific values and every other byte still compare.
