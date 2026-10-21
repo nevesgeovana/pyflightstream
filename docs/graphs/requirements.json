@@ -272,14 +272,14 @@
       "parent": "FR-3006",
       "area": "DEXP",
       "hid": "DEXP-2.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-55",
       "parent": "FR-3008",
       "area": "DEXP",
       "hid": "DEXP-4.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-56",
@@ -2687,7 +2687,7 @@
       "parent": "FR-3019",
       "area": "SPCM",
       "hid": "SPCM-7.1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1610",
@@ -2722,7 +2722,7 @@
       "parent": "FR-3019",
       "area": "SPCM",
       "hid": "SPCM-7.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-1621",
@@ -2778,7 +2778,7 @@
       "parent": "FR-3091",
       "area": "WKSP",
       "hid": "WKSP-8.2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-2312",
@@ -2946,7 +2946,7 @@
       "parent": "",
       "area": "DEXP",
       "hid": "DEXP-2",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3007",
@@ -2960,7 +2960,7 @@
       "parent": "",
       "area": "DEXP",
       "hid": "DEXP-4",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3009",
@@ -3016,7 +3016,7 @@
       "parent": "",
       "area": "SPCM",
       "hid": "SPCM-7",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3020",
@@ -3387,7 +3387,7 @@
       "parent": "",
       "area": "WKSP",
       "hid": "WKSP-8",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3092",

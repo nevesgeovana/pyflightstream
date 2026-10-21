@@ -2304,6 +2304,11 @@
     },
     {
       "source": "pyflightstream.cases.fsi_workspace",
+      "target": "pyflightstream.cases.setup_surfaces",
+      "kind": "deferred"
+    },
+    {
+      "source": "pyflightstream.cases.fsi_workspace",
       "target": "pyflightstream.commands",
       "kind": "module"
     },
@@ -2454,7 +2459,7 @@
     },
     {
       "source": "pyflightstream.cases.qsteady",
-      "target": "pyflightstream.cases",
+      "target": "pyflightstream.cases.reference_blocks",
       "kind": "module"
     },
     {
@@ -5594,6 +5599,11 @@
     },
     {
       "source": "pyflightstream.post._rotor_products",
+      "target": "pyflightstream.post.farfield_fields",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post._rotor_products",
       "target": "pyflightstream.post.harmonics",
       "kind": "module"
     },
@@ -6221,6 +6231,11 @@
       "source": "pyflightstream.post.farfield_fields",
       "target": "pyflightstream.results.loads",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.farfield_fields",
+      "target": "pyflightstream.workspace",
+      "kind": "typing"
     },
     {
       "source": "pyflightstream.post.farfield_products",
@@ -7040,6 +7055,11 @@
     {
       "source": "pyflightstream.post.section_distributions",
       "target": "pyflightstream.post._tables",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.section_distributions",
+      "target": "pyflightstream.post.farfield_fields",
       "kind": "module"
     },
     {
@@ -8604,6 +8624,11 @@
     },
     {
       "source": "pyflightstream.run._additional",
+      "target": "pyflightstream.cases.workflows",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._additional",
       "target": "pyflightstream.results",
       "kind": "module"
     },
@@ -8614,8 +8639,18 @@
     },
     {
       "source": "pyflightstream.run._additional",
+      "target": "pyflightstream.script",
+      "kind": "typing"
+    },
+    {
+      "source": "pyflightstream.run._additional",
       "target": "pyflightstream.workspace",
       "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._additional",
+      "target": "pyflightstream.workspace",
+      "kind": "typing"
     },
     {
       "source": "pyflightstream.run._additional",
@@ -9865,6 +9900,11 @@
     {
       "source": "pyflightstream.run._ids",
       "target": "pyflightstream.workspace.matrix",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.run._mark_converged",
+      "target": "pyflightstream._digest",
       "kind": "module"
     },
     {
@@ -11693,6 +11733,11 @@
       "kind": "typing"
     },
     {
+      "source": "pyflightstream.workspace._batches",
+      "target": "pyflightstream.workspace.manifest",
+      "kind": "module"
+    },
+    {
       "source": "pyflightstream.workspace._degenerate",
       "target": "pyflightstream._digest",
       "kind": "module"
@@ -11739,6 +11784,11 @@
     },
     {
       "source": "pyflightstream.workspace._free_space",
+      "target": "pyflightstream._errors",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._free_space",
       "target": "pyflightstream._progress",
       "kind": "module"
     },
@@ -11765,6 +11815,11 @@
     {
       "source": "pyflightstream.workspace._free_space",
       "target": "pyflightstream.workspace._step_prune",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._free_space",
+      "target": "pyflightstream.workspace._verdicts",
       "kind": "module"
     },
     {
@@ -12045,6 +12100,11 @@
     {
       "source": "pyflightstream.workspace._ledger_history",
       "target": "pyflightstream.workspace._effective",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.workspace._ledger_history",
+      "target": "pyflightstream.workspace._links",
       "kind": "module"
     },
     {
