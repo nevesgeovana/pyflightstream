@@ -85,3 +85,14 @@ def test_p0360_gf_coupled_steady_stays_out(tmp_path, capsys, options, run_type):
         "rows point by point, without --batch or --polar-sweep"
     )
     assert "RPT-150" not in output
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_p0430_f313_non_finite_defaults_pin_is_refused(bad):
+    from pyflightstream.workspace.flight_condition import (
+        FlightConditionError,
+        canonical_condition_defaults,
+    )
+
+    with pytest.raises(FlightConditionError, match="finite"):
+        canonical_condition_defaults({"RHOkgm3": bad}, "setup 's001'")

@@ -270,6 +270,10 @@ def canonical_condition_defaults(
                 "case-insensitively, so two spellings of one pin are one pin. "
                 "State it once."
             )
+        if not math.isfinite(value):
+            raise FlightConditionError(
+                f"{origin} pins {canonical}:{value:g}, and {canonical} must be a finite number."
+            )
         if value <= 0.0:
             raise FlightConditionError(
                 f"{origin} pins {canonical}:{value:g}, and {canonical} is a positive quantity."
