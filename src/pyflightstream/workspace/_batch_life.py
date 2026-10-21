@@ -562,8 +562,10 @@ def batch_files(ws: Path, rank: int, skip_sims: set[str]) -> set[Path]:
             if entry.is_dir() and entry.name.startswith("sim_"):
                 if entry.name[len("sim_") :] not in skip_sims and not is_reparse(entry):
                     out |= sim_sync_files(entry, rank)
-            elif entry.is_file() and (
-                rank >= 3 or is_job_script(entry.name) or is_log_name(entry.name)
+            elif (
+                entry.is_file()
+                and not is_reparse(entry)
+                and (rank >= 3 or is_job_script(entry.name) or is_log_name(entry.name))
             ):
                 out.add(entry)
             elif entry.is_dir() and rank >= 3 and not is_reparse(entry):
