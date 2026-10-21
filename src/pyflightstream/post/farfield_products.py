@@ -113,6 +113,8 @@ TREFFTZ_COLUMNS: tuple[str, ...] = (
 #: The columns of a spanwise file ``sections/<point>_trefftz_<family>.csv`` (FR-1055).
 SPANWISE_COLUMNS: tuple[str, ...] = (
     "POL",
+    # The condition and reference block every product table carries.
+    *CONTEXT_COLUMNS,
     "VARIANT",
     "FAMILY",
     "Y_M",
@@ -373,6 +375,7 @@ def _spanwise(
         rows.append(
             (
                 ctx.sim_id,
+                *_context(ctx, point),
                 _VARIANT_NAMES[variant],
                 name,
                 float(result.y[keep][index]),
