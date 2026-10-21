@@ -143,26 +143,40 @@ def boundary_edges(faces: Faces) -> list[tuple[int, int]]:
 
 
 def boundary_loops(faces: Faces) -> list[list[int]]:
-    """Return the open boundary as chains of vertices, each closed loop listed once."""
+    """Return the open boundary as chains of vertices, each closed loop listed once.
+
+    The walk marks the boundary EDGES it has used, not the vertices: a vertex
+    two loops share (two holes touching at a node) belongs to both loops
+    (F-324), where a vertex mark gave it to the first and left the second loop
+    one node short.
+    """
     adjacency: dict[int, list[int]] = defaultdict(list)
     for a, b in boundary_edges(faces):
         adjacency[a].append(b)
         adjacency[b].append(a)
-    seen: set[int] = set()
+    used: set[tuple[int, int]] = set()
+
+    def step(cur: int) -> int | None:
+        return next((n for n in adjacency[cur] if (min(cur, n), max(cur, n)) not in used), None)
+
     loops: list[list[int]] = []
     for start in sorted(adjacency):
-        if start in seen:
-            continue
-        loop, prev, cur = [start], -1, start
-        seen.add(start)
-        while True:
-            nxt = next((n for n in adjacency[cur] if n != prev and n not in seen), None)
-            if nxt is None:
-                break
-            loop.append(nxt)
-            seen.add(nxt)
-            prev, cur = cur, nxt
-        loops.append(loop)
+        while (nxt := step(start)) is not None:
+            loop, cur = [start], start
+            while nxt is not None:
+                used.add((min(cur, nxt), max(cur, nxt)))
+                if nxt == start:
+                    break
+                if nxt in loop:
+                    # back at a node the walk passed: the nodes since then are a loop of their own
+                    at = loop.index(nxt)
+                    loops.append(loop[at:])
+                    del loop[at + 1 :]
+                else:
+                    loop.append(nxt)
+                cur = nxt
+                nxt = step(cur)
+            loops.append(loop)
     return loops
 
 

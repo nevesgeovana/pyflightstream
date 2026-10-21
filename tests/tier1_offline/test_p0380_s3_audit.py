@@ -652,3 +652,22 @@ def test_files_read_is_the_one_list_with_the_record_and_the_source(tmp_path):
     audit, _ = _audit(level, src)
     with pytest.raises(InputArtifactError, match="its refinement record"):
         audit.write_csv(level.with_name(level.stem + ".refine.json"))
+
+
+def test_f321_the_enclosed_volume_does_not_depend_on_where_the_mesh_sits():
+    """F-321 (FR-938): a closed family's volume is the same far from the origin."""
+    from pyflightstream.workspace._refine._audit import _volume
+
+    verts = numpy.array([[0.0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    faces = [[0, 2, 1], [0, 1, 3], [0, 3, 2], [1, 2, 3]]
+    assert _volume(verts, faces) == pytest.approx(1 / 6, rel=1e-12)
+    assert _volume(verts + 2.0**27, faces) == pytest.approx(1 / 6, rel=1e-9)
+
+
+def test_f324_two_loops_touching_at_a_node_both_hold_it():
+    """F-324 (FR-936): a node two boundary loops share is in both, so neither is one node short."""
+    from pyflightstream.workspace._refine._geometry import boundary_loops
+
+    loops = boundary_loops([[0, 1, 2, 3], [2, 4, 5, 6]])
+    assert sorted(sorted(loop) for loop in loops) == [[0, 1, 2, 3], [2, 4, 5, 6]]
+    assert boundary_loops([[0, 1, 2, 3], [4, 5, 6, 7]]) == [[0, 1, 2, 3], [4, 5, 6, 7]]

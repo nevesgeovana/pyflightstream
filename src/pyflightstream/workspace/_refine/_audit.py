@@ -851,7 +851,10 @@ def _volume(verts: Array, faces: Faces) -> float | None:
     """Return the volume a closed set of faces encloses (right-hand rule), None when open."""
     if boundary_edges(faces):
         return None
-    p = verts[triangles(faces)]
+    # Taken about the family's own centroid: the sum is the same at any offset, and the
+    # triple product of absolute coordinates loses it to rounding far from the origin (F-321).
+    used = numpy.unique(numpy.fromiter((v for f in faces for v in f), dtype=numpy.int64))
+    p = verts[triangles(faces)] - verts[used].mean(axis=0)
     return float(numpy.einsum("ij,ij->i", p[:, 0], numpy.cross(p[:, 1], p[:, 2])).sum() / 6.0)
 
 
