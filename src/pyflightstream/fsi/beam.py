@@ -245,26 +245,25 @@ def apply_station_loads(
     """
     radii = cfg.blade.station_radii_m
     n = len(radii)
-    for name, values, direction in (
-        ("flap_load_n_per_m", flap_load_n_per_m, "FY"),
-        ("axial_load_n_per_m", axial_load_n_per_m, "FX"),
+    for name, values in (
+        ("flap_load_n_per_m", flap_load_n_per_m),
+        ("axial_load_n_per_m", axial_load_n_per_m),
+        ("torsion_moment_n_m_per_m", torsion_moment_n_m_per_m),
     ):
-        if values is None:
-            continue
-        if len(values) != n:
+        if values is not None and len(values) != n:
             raise FsiInputError(
                 f"{name} has {len(values)} entries for {n} stations; sectional "
                 "loads must be sampled at the configuration stations"
             )
+    for values, direction in (
+        (flap_load_n_per_m, "FY"),
+        (axial_load_n_per_m, "FX"),
+    ):
+        if values is None:
+            continue
         for i in range(n - 1):
             model.add_member_dist_load(f"B{i:03d}", direction, values[i], values[i + 1])
     if torsion_moment_n_m_per_m is not None:
-        if len(torsion_moment_n_m_per_m) != n:
-            raise FsiInputError(
-                f"torsion_moment_n_m_per_m has {len(torsion_moment_n_m_per_m)} "
-                f"entries for {n} stations; sectional loads must be sampled at "
-                "the configuration stations"
-            )
         for i, torque in enumerate(tributary_lengths(radii)):
             lumped = torsion_moment_n_m_per_m[i] * torque
             if lumped != 0.0:

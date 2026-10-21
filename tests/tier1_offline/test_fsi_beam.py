@@ -116,3 +116,19 @@ def test_stiffness_scale_factor_scales_frequencies(cfg):
     f_stiff = beam.modal_frequencies(model_stiff, stiff, n_modes=1).frequencies_rad_per_s[0]
     # omega scales with sqrt(EI): factor 4 in stiffness doubles it.
     assert f_stiff == pytest.approx(2.0 * f_base, rel=1.0e-6)
+
+
+def test_bad_later_load_length_leaves_the_model_untouched(cfg):
+    """PFS-2130.036: every length is checked before the first load is added."""
+    from pyflightstream._errors import FsiInputError
+
+    model = beam.build_beam_model(cfg)
+    n = len(cfg.blade.station_radii_m)
+    with pytest.raises(FsiInputError, match="torsion_moment_n_m_per_m"):
+        beam.apply_station_loads(
+            model,
+            cfg,
+            flap_load_n_per_m=[1.0] * n,
+            torsion_moment_n_m_per_m=[1.0] * (n - 1),
+        )
+    assert all(not member.DistLoads for member in model.members.values())
