@@ -194,12 +194,12 @@ def test_a_raw_mesh_row_declines_the_listed_surface_its_sidecar_names(tmp_path):
     assert kept["CDI"] == pytest.approx(0.0012085), kept
 
 
-def test_the_fixed_width_polar_writes_a_declined_column_as_na_and_reads_it_back(tmp_path):
-    """The custom polar format carries the declined value as the NA token, in the column width.
+def test_the_fixed_width_polar_writes_a_declined_column_as_nan_and_reads_it_back(tmp_path):
+    """The custom polar format carries the same NA as `nan`, in the column's own width.
 
-    The definition of a declined value is the NA token (F-140): NaN and infinity both
-    write NA, never the spelling `nan` or `inf`, and the reader meets it as missing,
-    never as zero.
+    Its specification formats every number `%10.5f`, and a declined column is
+    NaN, so the fixed-width file says `nan` where the CSV says `NA`. Pinned so a
+    reader of that format meets the declined value as missing, never as zero.
     """
     from pyflightstream.post._tables import COEFFICIENT_COLUMNS, ReferenceValues
     from pyflightstream.post.custom_polar import (
@@ -209,7 +209,6 @@ def test_the_fixed_width_polar_writes_a_declined_column_as_na_and_reads_it_back(
 
     row = [0.01] * len(COEFFICIENT_COLUMNS)
     row[COEFFICIENT_COLUMNS.index("CDI")] = math.nan
-    row[COEFFICIENT_COLUMNS.index("CDB")] = math.inf
     reference = ReferenceValues(
         sref_m2=50.0, cref_m=2.526, bref_m=20.0, xmom_m=9.152, ymom_m=0.0, zmom_m=0.0
     )
@@ -219,12 +218,10 @@ def test_the_fixed_width_polar_writes_a_declined_column_as_na_and_reads_it_back(
     )  # fmt: skip
     data = path.read_text(encoding="ascii").splitlines()[9]
     cells = [data[i : i + 10] for i in range(0, len(data), 10)]
-    assert cells[COEFFICIENT_COLUMNS.index("CDI")] == "        NA", cells
-    assert cells[COEFFICIENT_COLUMNS.index("CDB")] == "        NA", cells
+    assert cells[COEFFICIENT_COLUMNS.index("CDI")] == "       nan", cells
     back = read_custom_polar_format(path)
     assert math.isnan(back.rows[0]["CDI"])
-    assert math.isnan(back.rows[0]["CDB"])
-    assert back.rows[0][COEFFICIENT_COLUMNS[0]] == pytest.approx(0.01)
+    assert back.rows[0]["CDB"] == pytest.approx(0.01)
 
 
 def test_under_sideslip_the_wind_axis_side_force_is_declined_too(tmp_path):

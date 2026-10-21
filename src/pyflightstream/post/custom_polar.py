@@ -7,7 +7,6 @@ available through :mod:`pyflightstream.post.products`.
 
 from __future__ import annotations
 
-import math
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -15,7 +14,6 @@ from datetime import datetime
 from pathlib import Path
 
 import pyflightstream._textio as _textio
-from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.post._tables import (
     _DECIMALS,
     _REFERENCE_COLUMNS,
@@ -138,11 +136,8 @@ def _bounded_field(value: float, decimals: int | None = None) -> str:
     line on blanks: text as wide as the field fuses with its left neighbour,
     and text wider overflows it. So a number keeps its own spelling (``repr``,
     or ``decimals`` fixed decimals) where that leaves a blank, and gives up
-    decimals, then significant digits, until it does. A declined value (NaN or
-    infinity) is the NA token, as every product states it (F-140).
+    decimals, then significant digits, until it does.
     """
-    if not math.isfinite(value):
-        return f"{NOT_APPLICABLE:>{CUSTOM_WIDTH}}"
     room = CUSTOM_WIDTH - 1
     if decimals is None:
         spellings = [str(value), *(f"{value:.{digits}g}" for digits in range(room, 0, -1))]
@@ -381,7 +376,7 @@ def custom_count(line: str, path: Path, number: int, what: str) -> int:
 def _numbers(cells: Sequence[str], path: Path, number: int) -> list[float]:
     """Read a line's cells as numbers, refusing a cell that is not one by its line."""
     try:
-        return [math.nan if cell == NOT_APPLICABLE else float(cell) for cell in cells]
+        return [float(cell) for cell in cells]
     except ValueError:
         raise ProductError(
             f"{path} line {number} should hold numbers; it reads {' '.join(cells)!r}"
