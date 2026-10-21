@@ -649,7 +649,10 @@ def _section_node_points(node_map: NodeOrderingMap) -> np.ndarray:
 def node_clearances(
     node_map: NodeOrderingMap, sections_m: Sequence[Sequence[Sequence[float]]]
 ) -> list[NodeClearance]:
-    """Measure every node of one blade against its station's section.
+    """Measure every serialized node of one blade against its station's section.
+
+    The six-decimal import coordinates are projected back to the section
+    plane so rounding cannot turn a passing clearance into an exterior node.
 
     Parameters
     ----------
@@ -677,6 +680,13 @@ def node_clearances(
             "station's nodes are measured against that station's own section"
         )
     points = _section_node_points(node_map)
+    positions = node_positions(node_map)
+    serialized = np.asarray(
+        [[float(_NODE_FORMAT.format(value)) for value in row] for row in positions]
+    )
+    rounding = (serialized - positions).reshape(node_map.station_count, len(node_map.roles), 3)
+    local_rounding = np.einsum("srm,skm->srk", rounding, station_triads(node_map))
+    points = points + local_rounding[:, :, :2]
     result = []
     for station, contour in enumerate(sections_m):
         polygon = _polygon(contour, station)

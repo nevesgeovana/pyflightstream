@@ -97,6 +97,22 @@ def test_every_generated_node_clears_its_skin():
     assert [item.role for item in report] == list(NODE_ROLES) * len(RADII)
 
 
+def test_p0430_f6_04_clearance_checks_the_serialized_nodes():
+    # Sub-micrometre thickness is lost by the six-decimal import format.
+    contour = [[-0.75e-4, 0.1e-6], [0.25e-4, 0.1e-6], [0.25e-4, 0.4e-6], [-0.75e-4, 0.4e-6]]
+    layout = nodes.NodeOrderingMap(
+        blade_count=1,
+        station_radii_m=[0.3, 0.6, 0.9],
+        roles=list(NODE_ROLES),
+        ea_offset_chordwise_m=[0.0] * 3,
+        ea_offset_normal_m=[0.25e-6] * 3,
+        le_offset_m=[0.15e-4] * 3,
+        te_offset_m=[-0.65e-4] * 3,
+    )
+    with pytest.raises(FsiInputError, match="clearance"):
+        nodes.refuse_nodes_outside_sections(layout, [contour] * 3)
+
+
 @pytest.mark.requirement("FR-1382")
 @pytest.mark.parametrize("chord", [0.05, 0.5])
 def test_p0420_p1_1d_clearance_scales_with_section(chord):
