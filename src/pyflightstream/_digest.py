@@ -133,6 +133,11 @@ CANONICAL_FORMS = {
         "grid counts, then space-separated .17g finite values, LF between rows "
         "and one final LF. Source/effective paths are provenance, not hash input."
     ),
+    "qa/_spec_ccs_noise.py": (
+        "the ASCII encoding of the repr of the sorted vertex tuples and sorted face "
+        "tuples of an OBJ loft, read as floats with negative zero normalized; the "
+        "first eight bytes of the SHA-256 are printed in the compat reports."
+    ),
     "run/_batch_exec.py": (
         "the UTF-8 encoding of the grouping receipt's JSON form, rendered with "
         "sorted keys and ASCII escaping, so the same receipt always hashes alike. "

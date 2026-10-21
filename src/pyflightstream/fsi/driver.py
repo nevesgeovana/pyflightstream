@@ -112,6 +112,7 @@ __all__ = [
     "QUASI_STEADY_ROTOR_PHASE",
     "STATE_FILE",
     "StepResult",
+    "VERDICT_FILE",
     "coupling_step",
     "relax_displacements",
     "revolutions_per_step",
