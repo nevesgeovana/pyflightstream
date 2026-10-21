@@ -238,10 +238,13 @@ def translated_surface(record: RunRecord | AdditionalRecord, path: Path) -> dict
         stated: dict[str, str] = {}
         try:
             with path.open(encoding="utf-8", errors="replace") as handle:
-                for _, line in zip(range(16), handle, strict=False):
-                    found = _AUXDATA.match(line.strip())
+                for line in handle:
+                    stripped = line.strip()
+                    found = _AUXDATA.match(stripped)
                     if found is not None:
                         stated[found.group("name")] = found.group("value")
+                    elif stripped and stripped[0] in "0123456789+-.":
+                        break  # the first row of numbers ends the header, however long
         except OSError:
             stated = {}
         metadata: dict[str, object] = {
@@ -278,6 +281,11 @@ def run_clock(record: RunRecord) -> tuple[float | None, float | None]:
     without a declared clock carries neither, and its azimuth step is still known
     from the reductions plan's steps per revolution, while its time step
     is not known at all and the column is left unstated rather than guessed.
+
+    THE AZIMUTH STEP IS UNSIGNED. The recorded ``step_deg`` of an export window and the
+    inferred ``360 / steps_per_revolution`` both carry the size of one step and not the
+    sense the rotor turns, so a series azimuth is the step times that size, degrees of turn
+    counted from step zero, and says nothing of which way the rotor spins (X-F-0355).
 
     UNSTATED HERE IS `NA` IN THE FILE, the same clause :func:`_lead` carries
     fifteen lines below: this returns a blank and the funnel renders it. The
@@ -556,6 +564,11 @@ def write_point_series(
     ------
     ProductError
         If a step of the window was deleted by ``free-space`` and no ``skipped`` is given.
+    PyflightstreamError
+        If a kind of series cannot be tabled (a step's export is malformed, or the
+        probe steps print other columns) and no ``skipped`` is given: the other kinds
+        are tried first, and the first refusal is raised after them. With ``skipped``
+        the reason is recorded under the table's name and the other kinds are written.
     ProductExistsError
         If a table exists, no ``target`` is given and ``overwrite`` is not set.
     """
@@ -592,6 +605,7 @@ def write_point_series(
                     **metadata,
                     **(translated_surface(record, path) if kind == "tecplot" else {}),
                 }
+    refusals: list[PyflightstreamError] = []
     for kind, suffix in SERIES_KINDS:
         files = stamped.get((suffix or "", "txt"), {})
         relative = f"{SERIES_DIR}/{stem}_{kind}_series.csv"
@@ -623,9 +637,20 @@ def write_point_series(
                     f"is in {looked}, so there is no row to table"
                 )
             continue
-        columns, rows = _ROWS[kind](
-            files, steps, delta, step_deg, context, layout=record.sections_layout, rotors=rotors
-        )
+        try:
+            columns, rows = _ROWS[kind](
+                files, steps, delta, step_deg, context, layout=record.sections_layout, rotors=rotors
+            )
+        except PyflightstreamError as error:
+            # ONE KIND THAT CANNOT BE TABLED DOES NOT TAKE THE OTHERS WITH IT (F-786): the
+            # tables already written stay in the manifest. A caller that receives the reasons
+            # gets this one under the table's name; one that does not gets the first refusal
+            # raised once every kind has been tried.
+            if skipped is None:
+                refusals.append(error)
+            else:
+                skipped[relative] = str(error)
+            continue
         path = out / relative
         # An explicit target owns the archive and overwrite policy. Skip the
         # separate overwrite gate when a target is provided so the series follows
@@ -666,4 +691,6 @@ def write_point_series(
         # redirected left products.json naming a file that does not exist.
         key = done.relative_to(out) if done.is_relative_to(out) else done
         names[key.as_posix()] = entry
+    if refusals:
+        raise refusals[0]
     return written, names

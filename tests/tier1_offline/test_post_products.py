@@ -2727,33 +2727,75 @@ def test_goal023_the_settings_table_writes_na_and_reads_it_back(tmp_path):
     assert all(isinstance(row, dict) for row in rows)
 
 
-def _write(workspace, arguments, **extra):
+def _write(workspace, arguments, *, collect=True, **extra):
     from pyflightstream.post.series import write_point_series
 
-    skipped: dict[str, str] = {}
-    written, _names = write_point_series(
+    skipped: dict[str, str] | None = {} if collect else None
+    written, names = write_point_series(
         workspace.root, skipped=skipped, overwrite=True, **arguments, **extra
     )
-    return written, skipped
+    return written, skipped, names
+
+
+def _other_probe_columns(arguments):
+    second = arguments["sim_dir"] / "AL-020_probes_iteration=4.txt"
+    text = second.read_text(encoding="utf-8")
+    assert " Cp_ref," in text
+    second.write_text(text.replace(" Cp_ref,", " Cp_other,", 1), encoding="utf-8")
 
 
 def test_p0420_a_probe_step_printing_other_columns_is_refused(tmp_path):
     """PFS-2130.046: the rows go under the first step's header, so a different header is refused."""
     workspace, arguments = _series_call(tmp_path)
-    sim = arguments["sim_dir"]
-    second = sim / "AL-020_probes_iteration=4.txt"
-    text = second.read_text(encoding="utf-8")
-    assert " Cp_ref," in text
-    second.write_text(text.replace(" Cp_ref,", " Cp_other,", 1), encoding="utf-8")
+    _other_probe_columns(arguments)
     with pytest.raises(ProductError, match=r"AL-020_probes_iteration=4\.txt prints the probe"):
-        _write(workspace, arguments)
+        _write(workspace, arguments, collect=False)
+
+
+def test_p0420_one_series_kind_that_cannot_be_tabled_does_not_take_the_others_with_it(tmp_path):
+    """F-786: the loads table and its manifest entry stay, the probes kind is named as skipped."""
+    workspace, arguments = _series_call(tmp_path)
+    _other_probe_columns(arguments)
+    written, skipped, names = _write(workspace, arguments)
+    assert any(path.name == "AL-020_loads_series.csv" for path in written)
+    assert any(key.endswith("AL-020_loads_series.csv") for key in names)
+    assert not any(path.name == "AL-020_probes_series.csv" for path in written)
+    assert any("probes_series" in key and "prints the probe" in why for key, why in skipped.items())
+
+
+def test_p0420_without_a_skipped_mapping_the_other_kinds_are_written_before_the_refusal(tmp_path):
+    """F-786: the refusal is raised once every kind has been tried, none is left unwritten."""
+    workspace, arguments = _series_call(tmp_path)
+    table = workspace.root / "post" / "products" / "series" / "AL-020_loads_series.csv"
+    table.unlink()
+    _other_probe_columns(arguments)
+    with pytest.raises(ProductError, match="prints the probe"):
+        _write(workspace, arguments, collect=False)
+    assert table.is_file()
 
 
 def test_p0420_probe_steps_with_one_header_are_one_series(tmp_path):
     """PFS-2130.046 control: equal headers still table, one row per probe and step."""
     workspace, arguments = _series_call(tmp_path)
-    written, skipped = _write(workspace, arguments)
+    written, skipped, _names = _write(workspace, arguments)
     table = next(path for path in written if path.name == "AL-020_probes_series.csv")
     columns, rows = read_csv_table(table)
     assert "Cp_ref" in columns and rows
     assert not [key for key in skipped if "probes_series" in key]
+
+
+def test_p0420_a_translated_tecplot_states_its_source_hash_after_a_long_header(tmp_path):
+    """F-793: the hash is read from the header records, however many records precede it."""
+    from types import SimpleNamespace
+
+    from pyflightstream.post.series import translated_surface
+
+    dat = tmp_path / "p.dat"
+    header = ['TITLE = "x"', 'VARIABLES = "X" "Y" "Z"']
+    header += [f'DATASETAUXDATA NOTE_{n} = "{n}"' for n in range(20)]
+    header.append('DATASETAUXDATA SOURCE_VTK_SHA256 = "abc123"')
+    dat.write_text("\n".join([*header, "ZONE T=a", "0 0 0", ""]), encoding="utf-8")
+    record = SimpleNamespace(
+        surface_translations=[{"dat": str(dat), "vtk": str(tmp_path / "p.vtk")}]
+    )
+    assert translated_surface(record, dat)["source_sha256"] == "abc123"
