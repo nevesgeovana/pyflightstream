@@ -2773,3 +2773,177 @@ def test_p0420_a_translated_tecplot_states_its_source_hash_after_a_long_header(t
         surface_translations=[{"dat": str(dat), "vtk": str(tmp_path / "p.vtk")}]
     )
     assert translated_surface(record, dat)["source_sha256"] == "abc123"
+
+
+# --------------------------------------------------------------------------- F4-0102 far field
+def _ff_helpers():
+    """The far-field regression helpers, imported late: that module imports this one."""
+    import tests.tier1_offline.test_regression_farfield_products as module
+
+    return module
+
+
+def _ff_posted(tmp_path, *, steps, record=None, pproc=None):
+    helpers = _ff_helpers()
+    count = len(helpers._FFPROOF_POST___POINTS_M)
+    workspace = helpers._ffproof_post___campaign(
+        tmp_path,
+        pproc=pproc or helpers._FFPROOF_POST___LEDGERS,
+        files={
+            f"{helpers._FFPROOF_POST___STEM}_plots.txt": helpers._ffproof_post___plots_export(
+                count, steps
+            )
+        },
+        recipe="unsteady",
+        reductions=helpers._FFPROOF_POST___WINDOW,
+        positions=True,
+    )
+    if record:
+        helpers._ffproof_post___set_record(workspace, **record)
+    helpers._ffproof_post___post(workspace)
+    return helpers, Path(workspace.root)
+
+
+def test_p0430_f124_an_average_never_reuses_the_final_near_field_force(tmp_path):
+    """F-124: only the final step has the near-field force; the instants before it say NA."""
+    helpers, root = _ff_posted(tmp_path, steps=8)
+    _c, now = helpers._ffproof_post___table(
+        helpers._ffproof_post___one(root, "farfield/*_ledgers_instant.csv")
+    )
+    _c, mean = helpers._ffproof_post___table(
+        helpers._ffproof_post___one(root, "farfield/*_ledgers_average.csv")
+    )
+    assert all(row["SPURIOUS_COUNTS"] != "NA" for row in now)
+    assert all(row["SPURIOUS_COUNTS"] == "NA" for row in mean)
+
+
+def test_p0430_f126_a_window_the_recorded_steps_only_partly_cover_writes_no_average(tmp_path):
+    """F-126: the window 5 to 8 over plots of steps 1 to 6 is not averaged over two steps."""
+    helpers, root = _ff_posted(tmp_path, steps=6)
+    assert list(root.rglob("farfield/*_ledgers_instant.csv"))
+    assert not list(root.rglob("farfield/*_ledgers_average.csv"))
+
+
+def test_p0430_f145_a_normal_probe_row_carries_the_recorded_stop(tmp_path):
+    """F-145: a run stopped at step 6 of 8 labels its normal-probe instant 6."""
+    helpers = _ff_helpers()
+    probes = (
+        '[[probes]]\nframe = "MRP"\nkind = "normal"\nparameters = ["VX"]\n'
+        '[[probes.lattices]]\nframe = "MRP"\ntip_radius_m = 1.0\nstations = [-1.0, 1.0]\n'
+        "n_r = 2\nn_psi = 16\n"
+    )
+    workspace = helpers._ffproof_post___campaign(
+        tmp_path,
+        pproc=probes + helpers._FFPROOF_POST___LEDGERS,
+        files={
+            f"{helpers._FFPROOF_POST___STEM}_probes.txt": helpers._ffproof_post___probe_export(
+                helpers._FFPROOF_POST___POINTS_M, helpers._ffproof_post___speed(6)
+            )
+        },
+        recipe="unsteady",
+        reductions=helpers._FFPROOF_POST___WINDOW,
+    )
+    helpers._ffproof_post___set_record(workspace, stopped_at={"step": 6})
+    helpers._ffproof_post___post(workspace)
+    _c, now = helpers._ffproof_post___table(
+        helpers._ffproof_post___one(Path(workspace.root), "farfield/*_ledgers_instant.csv")
+    )
+    assert {row["STEP"] for row in now} == {"6"}
+
+
+def test_p0430_f144_a_steady_row_that_spins_is_a_rotor_for_the_probe_point(tmp_path, monkeypatch):
+    """F-144: the probe stage is told the row is a rotor, as the product stage decided."""
+    helpers = _ff_helpers()
+    from pyflightstream.post import farfield_products as module
+
+    seen = []
+    original = module._locate
+
+    def spy(ctx, point, spec, rotor):
+        seen.append(rotor)
+        return original(ctx, point, spec, rotor)
+
+    monkeypatch.setattr(module, "_locate", spy)
+    workspace = helpers._ffproof_post___campaign(
+        tmp_path,
+        pproc=helpers._FFPROOF_POST___LEDGERS,
+        files={
+            f"{helpers._FFPROOF_POST___STEM}_probes.txt": helpers._ffproof_post___probe_export(
+                helpers._FFPROOF_POST___POINTS_M, 20.0
+            )
+        },
+    )
+    helpers._ffproof_post___set_record(workspace, point={"alpha": -2.0, "RPM": 1200.0})
+    helpers._ffproof_post___post(workspace)
+    assert seen == [True]
+
+
+def test_p0430_f1811_the_spanwise_table_carries_the_condition_and_reference_block(tmp_path):
+    """F-1811: the strips of a Trefftz section file begin with POL and the context block."""
+    helpers = _ff_helpers()
+    workspace = helpers._farfield_products___workspace(tmp_path, farfield=True)
+    helpers._farfield_products___post(workspace)
+    path = next(Path(workspace.root).rglob("sections/*_trefftz_*.csv"))
+    columns = path.read_text(encoding="utf-8").splitlines()[0].split(",")
+    assert columns[: 1 + len(CONTEXT_COLUMNS)] == ["POL", *CONTEXT_COLUMNS]
+    assert columns[-1] == "STATUS"
+
+
+def _ff_ctx_point(v_inf, v_ref):
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    loads = replace(
+        parse_loads(LOADS),
+        freestream_velocity_m_s=v_inf,
+        reference_velocity_m_s=v_ref,
+        angle_of_attack_deg=4.0,
+    )
+    loads.total["CL"] = 0.5
+    point = SimpleNamespace(
+        name="point",
+        loads=loads,
+        state=SimpleNamespace(density_kg_m3=1.2),
+        vorticity_selection=None,
+    )
+    ctx = SimpleNamespace(
+        sim_id="1",
+        reference=ReferenceValues(10.0, 1.0, 4.0),
+        record_of={"point": SimpleNamespace(status=None)},
+        condition=lambda point: {},
+    )
+    return ctx, point
+
+
+def test_p0430_f125_e_t_puts_the_native_cl_on_the_free_stream_dynamic_pressure():
+    """F-125: with VREF = 2 VINF, CL_native * 4 is the CL on the CDI_T basis."""
+    import math
+
+    from pyflightstream.post import farfield_products as module
+
+    ctx, point = _ff_ctx_point(30.0, 60.0)
+    qs = 0.5 * 1.2 * 30.0**2 * 10.0
+    plane = {
+        "D": 0.02 * qs,
+        "L": 0.5 * qs,
+        "N": 10,
+        "X_T_M": 1.0,
+        "COVERAGE": 1.0,
+        "D_QERR": 0.0,
+        "D_VORT": 0.0,
+        "RESIDUAL": 0.0,
+    }
+    row = module._c_row(ctx, point, {"plane": plane}, 1)
+    cells = dict(zip(("POL", "STEP", *CONTEXT_COLUMNS, *module.TREFFTZ_COLUMNS), row, strict=False))
+    aspect = 4.0**2 / 10.0
+    expected = (0.5 * 4.0) ** 2 / (math.pi * aspect * 0.02)
+    assert cells["E_T"] == pytest.approx(expected, rel=1e-9)
+
+
+def test_p0430_f123_the_wake_calibration_targets_the_reference_velocity_lift(tmp_path):
+    """F-123: the calibrated wake lift is CL * q_ref * SREF, so CL_T = CL * q_ref / q_inf."""
+    helpers = _ff_helpers()
+    row, _messages, skipped = helpers._litb_post__post_wake(tmp_path, "p0400_litB_wake_26125.vtk")
+    assert row["E_T"] != "NA", skipped
+    ratio = (68.058 / 34.03) ** 2
+    assert float(row["CL_T"]) == pytest.approx(0.3400367 * ratio, rel=1e-4)
