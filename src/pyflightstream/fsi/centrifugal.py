@@ -675,6 +675,11 @@ def southwell_fit(
     sxy = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, y, strict=True))
     slope = sxy / sxx
     intercept = y_mean - slope * x_mean
+    if intercept < 0.0:
+        # omega_0^2 cannot be negative: refit the line through the origin so the slope
+        # and R-squared describe the model that omega_0 = 0 reports.
+        slope = sum(xi * yi for xi, yi in zip(x, y, strict=True)) / sum(xi * xi for xi in x)
+        intercept = 0.0
     ss_res = sum((yi - (intercept + slope * xi)) ** 2 for xi, yi in zip(x, y, strict=True))
     ss_tot = sum((yi - y_mean) ** 2 for yi in y)
     r_squared = 1.0 - ss_res / ss_tot if ss_tot > 0.0 else 1.0

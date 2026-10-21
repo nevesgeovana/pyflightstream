@@ -173,3 +173,18 @@ def test_no_point_is_solved_when_a_later_sweep_value_is_invalid(monkeypatch):
     with pytest.raises(ValidationError):
         centrifugal.campbell_sweep(make_cfg(), [0.0, 10.0, 20.0, -1.0], n_modes=2)
     assert calls == [], "three valid points were solved before the fourth was refused"
+
+
+def test_f6_0102_southwell_negative_intercept_is_refitted_through_the_origin():
+    """F-107: omega_0 is clamped to 0, so slope and R-squared describe that model."""
+    omegas = [1.0, 2.0, 3.0]
+    squares = [0.5, 1.0, 9.0]  # least squares gives a negative intercept
+    omega_0, slope, r_squared = centrifugal.southwell_fit(omegas, [s**0.5 for s in squares])
+    x = [w**2 for w in omegas]
+    expected_slope = sum(a * b for a, b in zip(x, squares, strict=True)) / sum(a * a for a in x)
+    assert omega_0 == 0.0
+    assert slope == pytest.approx(expected_slope)
+    mean = sum(squares) / 3
+    residual = sum((b - expected_slope * a) ** 2 for a, b in zip(x, squares, strict=True))
+    total = sum((b - mean) ** 2 for b in squares)
+    assert r_squared == pytest.approx(1.0 - residual / total)
