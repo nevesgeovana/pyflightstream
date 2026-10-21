@@ -1271,6 +1271,7 @@ def _march_records(workspace: CampaignWorkspace, records: Sequence[RunRecord]) -
     held.clear()  # a march is computed once per post: every post begins here
     for record in records:
         march = _march_history(workspace.sim_dir(record.sim_id), record, manifest)
+        held[record.run_id] = march
         plan = march_end(record.reductions, last_step=march.last_step) if march else None
         moved.append(record.model_copy(update={"reductions": plan}) if plan else record)
     return moved
