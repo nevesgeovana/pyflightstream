@@ -4401,3 +4401,13 @@ def test_f2_0809_a_name_that_only_contains_a_device_word_stays_portable(text):
     from pyflightstream.workspace.naming import is_portable_name
 
     assert is_portable_name(text)
+
+
+@pytest.mark.parametrize("stem", ["NUL", "con", "COM3"])
+def test_f2_0809_a_reserved_device_name_is_not_an_archive_stem(stem):
+    """F-1537: an archive named NUL.zip cannot be written on Windows; it is refused early."""
+    from pyflightstream.workspace.naming import NamingTemplate, NamingTemplateError
+
+    with pytest.raises(NamingTemplateError, match="device"):
+        NamingTemplate(archive_name=stem).render_archive(sim="1")
+    assert NamingTemplate().render_archive(sim="1") == "sim_1"

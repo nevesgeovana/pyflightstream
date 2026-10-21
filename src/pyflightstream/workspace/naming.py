@@ -882,10 +882,13 @@ def _render(template: str, values: dict[str, object], role: str, check_name: boo
                 "stays a plain file name (no whitespace and none of the characters "
                 '<>:"/\\|?*).'
             )
-    if check_name and (_UNSAFE_CHARS.search(rendered) or not rendered):
+    if check_name and (
+        _UNSAFE_CHARS.search(rendered) or not rendered or is_reserved_device_name(rendered)
+    ):
         raise NamingTemplateError(
             f"the rendered {role} {rendered!r} is not a portable file name; avoid "
-            'path separators, whitespace, and the characters <>:"|?* in the '
+            'path separators, whitespace, the characters <>:"|?*, and the names Windows '
+            "reserves for devices (NUL, CON, COM1 and the like) in the "
             "template. Names are generated for human reading only; identity "
             "lives in the manifest."
         )
