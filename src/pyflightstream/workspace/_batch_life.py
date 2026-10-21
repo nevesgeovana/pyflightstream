@@ -223,7 +223,19 @@ def _end_files(folder: Path, job: Mapping[str, Any], globs: Sequence[str]) -> st
                 stacklevel=2,
             )
             return None
-        found = [p for p in folder.glob(formatted) if p.is_file()]
+        try:
+            found = [p for p in folder.glob(formatted) if p.is_file()]
+        except (NotImplementedError, ValueError) as error:
+            warn(
+                f"the job in {job['dir']} has the job_end_files glob {pattern!r}, which "
+                f"formats to {formatted!r}, a pattern the folder cannot be searched with "
+                f"({type(error).__name__}: {error}). The glob is not read for this job: "
+                "it counts as running until its end record, its log or a fired clock is "
+                "there. Write the glob relative to the job's folder.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            return None
         if not found:
             return None
         matched += found

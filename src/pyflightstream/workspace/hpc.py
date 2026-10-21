@@ -18,7 +18,7 @@ import re
 import string
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from pyflightstream._cli import _SELECTED_HPC
 from pyflightstream._digest import aliased_name_fault
@@ -575,10 +575,17 @@ def _log_pattern(target: Path, key: str, pattern: str) -> str:
 
 
 def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:
-    """Read ``[log] job_end_files`` (FR-311): a list of globs with native_log's placeholders."""
+    """Read ``[log] job_end_files`` (FR-311): a list of globs with native_log's placeholders.
+
+    A glob is read inside the job's own folder, so a pattern that starts at a
+    root or a drive is refused here, where it is written, and not at a glob
+    that cannot be run.
+    """
     try:
         valid = isinstance(ends, list) and all(
-            _log_pattern(target, "job_end_files", pattern) for pattern in ends
+            _log_pattern(target, "job_end_files", pattern)
+            and not (PureWindowsPath(pattern.strip()).anchor or pattern.strip().startswith("/"))
+            for pattern in ends
         )
     except (AttributeError, IndexError, KeyError, ValueError):
         valid = False

@@ -34,7 +34,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import InputArtifactError, PyflightstreamError
 from pyflightstream.cases import SolverSettings
 from pyflightstream.cases.matrix import _COLUMNS, read_matrix
 from pyflightstream.cases.workflows import (
@@ -969,3 +969,26 @@ def test_f_315_a_kind_key_on_the_moment_point_keeps_the_moment_point(tmp_path):
     assert (reference.moment_point.x_m, reference.moment_point.y_m) == (1.0, 2.0)
     assert reference.moment_point.z_m == 3.0 and reference.moment_point.kind == "airframe"
     assert reference.points == {}
+
+
+@pytest.mark.parametrize("pattern", ["/scratch/FTS*.o", "C:\\scratch\\FTS*.o", "\\\\srv\\share\\x"])
+def test_x_f0577_an_absolute_job_end_glob_is_refused_where_it_is_written(tmp_path, pattern):
+    path = tmp_path / "h001.toml"
+    path.write_text(
+        'application_id = "X"\n[descriptor.fields]\nwalltime = "1"\n'
+        '[submit]\ncommand = ["sbatch", "{descriptor}"]\n[log]\njob_end_files = ['
+        + repr(pattern).replace("'", '"')
+        + "]\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(InputArtifactError, match="job_end_files"):
+        read_hpc_profile(path)
+
+
+def test_x_f0577_a_glob_that_formats_to_an_absolute_path_is_warned_not_raised(tmp_path):
+    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream.workspace import _batch_life
+
+    job = {"dir": "sim_1", "values": {"work_dir": str(tmp_path)}}
+    with pytest.warns(PyflightstreamWarning, match="cannot be searched"):
+        assert _batch_life._end_files(tmp_path, job, ["{work_dir}/*.o"]) is None
