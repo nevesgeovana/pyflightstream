@@ -104,3 +104,15 @@ def test_f2_0809_a_native_log_that_is_not_a_string_is_refused(tmp_path, value):
     text = 'application_id = "app"\n' + _BASE_PROFILE.split("\n", 1)[1]
     with pytest.raises(InputArtifactError, match="native_log"):
         _read(tmp_path, text + f"[log]\nnative_log = {value}\n")
+
+
+@pytest.mark.parametrize("root", ["{work_dir:{foo}}", "{work_dir!z}", "{work_dir:{}}"])
+def test_f2_0809_a_job_root_placeholder_outside_the_set_is_refused(tmp_path, root):
+    """F-1527: a nested placeholder that cannot be filled is refused when the profile is read."""
+    with pytest.raises(InputArtifactError, match="job_root"):
+        _read(tmp_path, f'job_root = "{root}"\n' + _BASE_PROFILE)
+
+
+def test_f2_0809_a_nested_job_root_placeholder_in_the_set_is_read(tmp_path):
+    """The control: a specification that nests a supported placeholder still loads."""
+    assert _read(tmp_path, 'job_root = "{work_dir}/{sim}"\n' + _BASE_PROFILE).job_root

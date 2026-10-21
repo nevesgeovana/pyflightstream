@@ -554,14 +554,26 @@ def _max_walltime_s(target: Path, stated: object) -> float | None:
     return float(hours * 3600 + minutes * 60 + seconds)
 
 
+def _template_names(text: str) -> set[str]:
+    """Every field name a template uses, including those nested in a format specification."""
+    names: set[str] = set()
+    for _, name, spec, _ in string.Formatter().parse(text):
+        if name is not None:
+            names.add(name)
+        if spec:
+            names |= _template_names(spec)
+    return names
+
+
 def _job_root(target: Path, stated: object) -> str:
     """Read the top-level ``job_root`` template, refusing a placeholder it does not fill."""
     if stated is None:
         return "{work_dir}"
     text = str(stated).strip()
     try:
-        names = {name for _, name, _, _ in string.Formatter().parse(text) if name is not None}
-    except ValueError:
+        names = _template_names(text)
+        text.format(**dict.fromkeys(_JOB_ROOT_FIELDS, "value"))
+    except (AttributeError, IndexError, KeyError, ValueError):
         names = {"?"}
     if not text or not names <= _JOB_ROOT_FIELDS:
         raise InputArtifactError(
