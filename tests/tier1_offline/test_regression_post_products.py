@@ -1550,3 +1550,30 @@ def test_f3_0203_f782_an_unreadable_coupling_history_costs_only_itself(tmp_path,
     structure.structure_products(ctx)
     assert "cannot be read" in ctx.skipped["structure/P1_history.csv"]
     assert [entry["kind"] for _path, entry in added] == ["structure"]
+
+
+def test_f3_0203_f140_the_custom_polar_writes_na_for_a_value_that_is_not_a_number(tmp_path):
+    """F-140 (X-F-0337): nan and inf are written NA, and the reader reads NA back as nan."""
+    from pyflightstream.post.custom_polar import (
+        read_custom_polar_format,
+        write_custom_polar_format,
+    )
+    from pyflightstream.post.products import ReferenceValues
+
+    reference = ReferenceValues.from_mapping(
+        {"SREF": 1.0, "CREF": 1.0, "BREF": 1.0, "XMOM": 0, "YMOM": 0, "ZMOM": 0}
+    )
+    path = write_custom_polar_format(
+        tmp_path / "t.dat",
+        polar=1,
+        description="d",
+        group=1,
+        mach=0.1,
+        reference=reference,
+        rows=[(1.0, math.nan, math.inf, -math.inf)],
+        columns=("A", "B", "C", "D"),
+    )
+    last = path.read_text(encoding="ascii").splitlines()[-1]
+    assert last.split() == ["1.00000", "NA", "NA", "NA"]
+    table = read_custom_polar_format(path)
+    assert table.rows[0]["A"] == 1.0 and math.isnan(table.rows[0]["B"])

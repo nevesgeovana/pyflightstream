@@ -7,6 +7,7 @@ available through :mod:`pyflightstream.post.products`.
 
 from __future__ import annotations
 
+import math
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -139,6 +140,10 @@ def _bounded_field(value: float, decimals: int | None = None) -> str:
     decimals, then significant digits, until it does.
     """
     room = CUSTOM_WIDTH - 1
+    if not math.isfinite(value):
+        # A value that is not a number is NA, as in every other table: `nan` and `inf` are
+        # words the reference tooling does not read as missing.
+        return f"{'NA':>{CUSTOM_WIDTH}}"
     if decimals is None:
         spellings = [str(value), *(f"{value:.{digits}g}" for digits in range(room, 0, -1))]
     else:
@@ -248,7 +253,8 @@ def write_custom_polar_format(
       right-aligned to width 10; the default is :data:`COEFFICIENT_COLUMNS`;
     * then one line per data row, every number right-aligned to width 10
       with up to five decimals. Decimal places are reduced until a leading
-      blank fits; a value that cannot fit is refused. Values follow the order of
+      blank fits; a value that cannot fit is refused; a value that is not a number
+      (nan, inf) is written NA. Values follow the order of
       line 9, the rows in the order given (the stage gives them alpha
       ascending, as the polar table).
 
@@ -376,7 +382,7 @@ def custom_count(line: str, path: Path, number: int, what: str) -> int:
 def _numbers(cells: Sequence[str], path: Path, number: int) -> list[float]:
     """Read a line's cells as numbers, refusing a cell that is not one by its line."""
     try:
-        return [float(cell) for cell in cells]
+        return [math.nan if cell == "NA" else float(cell) for cell in cells]
     except ValueError:
         raise ProductError(
             f"{path} line {number} should hold numbers; it reads {' '.join(cells)!r}"
