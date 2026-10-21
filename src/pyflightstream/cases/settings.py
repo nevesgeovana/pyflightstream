@@ -129,6 +129,14 @@ class ReferenceData(BaseModel):
     @classmethod
     def _axes_are_three_named_axes(cls, value: dict[str, str]) -> dict[str, str]:
         """Refuse a table that names something other than one axis per rate."""
+        folded = [key.strip().lower() for key in value]
+        twice = sorted({key for key in folded if folded.count(key) > 1})
+        if twice:
+            raise ValueError(
+                f"body_axes writes {', '.join(twice)} more than once, differing only in "
+                "case, so which axis the rate turns about would depend on the order of "
+                "the table. Write each rate once."
+            )
         axes = {key.strip().lower(): str(item).strip().upper() for key, item in value.items()}
         unknown = sorted(set(axes) - {"roll", "pitch", "yaw"})
         if unknown:
@@ -748,15 +756,15 @@ class FluidState(BaseModel):
     does.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    velocity_m_per_s: float
-    density_kg_m3: float
-    pressure_pa: float
-    temperature_k: float
-    viscosity_pa_s: float
+    velocity_m_per_s: float = Field(ge=0.0)
+    density_kg_m3: float = Field(gt=0.0)
+    pressure_pa: float = Field(gt=0.0)
+    temperature_k: float = Field(gt=0.0)
+    viscosity_pa_s: float = Field(gt=0.0)
     #: Legacy explicit speed of sound, metres per second, on evidenced builds only.
-    sonic_velocity_m_per_s: float
+    sonic_velocity_m_per_s: float = Field(gt=0.0)
     #: The dimensionless ratio of specific heats, carried beside sonic
     #: velocity because the three pre-26.100 builds take sonic velocity and
     #: later builds take this ratio. The shared ISA constant supplies the
@@ -829,5 +837,7 @@ def point_state_key(point: Mapping[str, float]) -> str:
     --------
     >>> point_state_key({"beta": 0.0, "alpha": 2.0})
     'alpha=2|beta=0'
+    >>> point_state_key({"beta": -0.0})
+    'beta=0'
     """
-    return "|".join(f"{axis}={float(value):.10g}" for axis, value in sorted(point.items()))
+    return "|".join(f"{axis}={float(value) + 0.0:.10g}" for axis, value in sorted(point.items()))

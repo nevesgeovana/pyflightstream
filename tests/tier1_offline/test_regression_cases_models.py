@@ -794,3 +794,52 @@ def test_pfs_2126_008_read_qsteady_record_takes_a_string_path(tmp_path):
 
     with pytest.raises(QsteadyRecordError, match="not on disk"):
         read_qsteady_record(str(tmp_path / "p1_loads.csv"))
+
+
+def test_pfs_2119_019_point_state_key_treats_negative_zero_as_zero():
+    from pyflightstream.cases.settings import point_state_key
+
+    assert point_state_key({"alpha": -0.0, "beta": 2.0}) == point_state_key(
+        {"alpha": 0.0, "beta": 2.0}
+    )
+    assert point_state_key({"alpha": -0.0}) == "alpha=0"
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("density_kg_m3", 0.0),
+        ("pressure_pa", -1.0),
+        ("temperature_k", float("nan")),
+        ("viscosity_pa_s", float("inf")),
+        ("sonic_velocity_m_per_s", 0.0),
+        ("velocity_m_per_s", -1.0),
+    ],
+)
+def test_pfs_2119_020_fluid_state_refuses_a_non_physical_value(field, value):
+    from pyflightstream.cases.settings import FluidState
+
+    stated = {
+        "velocity_m_per_s": 10.0,
+        "density_kg_m3": 1.2,
+        "pressure_pa": 101325.0,
+        "temperature_k": 288.15,
+        "viscosity_pa_s": 1.8e-5,
+        "sonic_velocity_m_per_s": 340.0,
+        "source": "atmosphere",
+    }
+    FluidState(**stated)
+    stated[field] = value
+    with pytest.raises(ValidationError):
+        FluidState(**stated)
+
+
+def test_f059_body_rates_differing_only_in_case_are_refused():
+    from pyflightstream.cases.settings import ReferenceData
+
+    with pytest.raises(ValidationError, match="more than once"):
+        ReferenceData(area=1.0, length=1.0, body_axes={"roll": "X", "ROLL": "Y"})
+    assert ReferenceData(area=1.0, length=1.0, body_axes={"roll": "X", "yaw": "Z"}).body_axes == {
+        "roll": "X",
+        "yaw": "Z",
+    }
