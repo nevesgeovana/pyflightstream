@@ -12,9 +12,6 @@ from tests.tier1_offline._docs_site import REQUIREMENTS_DIR, requirement_rows, r
 SRS = Path(__file__).resolve().parents[2] / REQUIREMENTS_DIR
 
 
-PAGES = ("all-registers",)
-
-
 _QUOTE = re.compile(r'"([^"]*)"')
 
 
@@ -30,8 +27,8 @@ _DRIVE = re.compile(r"(?<![A-Za-z0-9_])[A-Za-z]:[\\/]")
 _PROFILE = re.compile(r"[\\/]Users[\\/]|/home/[A-Za-z]|%USER" + r"PROFILE%|~[\\/]")
 
 
-def read_page(name: str) -> str:
-    """Return a page of the SRS with CRLF line ends folded to LF."""
+def read_page() -> str:
+    """Return the SRS requirements text with CRLF line ends folded to LF."""
     return requirements_text(Path(__file__).resolve().parents[2])
 
 
@@ -47,12 +44,11 @@ def violation(origin: str) -> str | None:
     return None
 
 
-@pytest.mark.parametrize("page", PAGES)
-def test_p0380_origin_no_origin_line_quotes_four_words_or_speaks_in_the_first_person(page):
+def test_p0380_origin_no_origin_line_quotes_four_words_or_speaks_in_the_first_person():
     """P0380-ORIGIN (FR-1185): statements contain no long quotation or first-person pronoun."""
     seen = 0
     broken = []
-    for ident, row in requirement_rows(read_page(page)).items():
+    for ident, row in requirement_rows(read_page()).items():
         origin = row[4]
         seen += 1
         why = violation(origin)
@@ -102,7 +98,7 @@ def test_p0380_origin_no_line_of_the_public_srs_holds_a_drive_or_profile_path():
     """P0380-ORIGIN (FR-1187): no SRS page line holds a drive-letter or user-profile path."""
     found = []
     for page in sorted(SRS.glob("*.md")):
-        for number, line in enumerate(read_page(page.name).split("\n"), start=1):
+        for number, line in enumerate(page.read_text(encoding="utf-8").splitlines(), start=1):
             if _DRIVE.search(line) or _PROFILE.search(line):
                 found.append(f"{page.name}:{number}")
     assert not found, found
