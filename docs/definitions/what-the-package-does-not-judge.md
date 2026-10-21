@@ -132,7 +132,7 @@ either order, because the two consecutive steps might establish a freeze. A
 log can prove a freeze and carry unread steps; both facts are kept and logged.
 With `check_frozen=True`, either can refuse an affected average.
 
-The per-blade table states one window over its passages. In opt-in refusal
+The per-blade table states one window over its blades. In opt-in refusal
 mode, a refused passage between two kept ones refuses the whole table, because
 joining the survivors would bridge the unread data. Losing passages only from
 an end keeps a shorter contiguous product. In default warning mode all
