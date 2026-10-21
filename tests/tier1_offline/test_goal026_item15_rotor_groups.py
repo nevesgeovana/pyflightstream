@@ -246,3 +246,15 @@ def test_f1963_and_x_f1744_the_naming_refusals_state_the_real_prerequisites():
     assert "{mach} only when the case declares a Mach number" in text
     with pytest.raises(NamingTemplateError, match="no whitespace and none of the characters"):
         _render("{x}", {"x": "a b"}, "file")
+
+
+@pytest.mark.parametrize("order", [("pusher", "PUSHER"), ("PUSHER", "pusher")])
+def test_f2_0809_every_case_equivalent_group_is_checked_in_any_order(order):
+    """F-1529: a conflicting second spelling is refused whichever the pproc lists first."""
+    rotors = {"PUSHER": _rotor("PUSHER", ["Blade1", "Blade2"])}
+    declared = {
+        spelling: (["Blade1", "Blade2"] if spelling == order[0] else ["SomeoneElsesWing"])
+        for spelling in order
+    }
+    with pytest.raises(CampaignConfigError):
+        rotor_integration_groups(rotors, declared)

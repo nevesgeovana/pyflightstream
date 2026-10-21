@@ -1711,13 +1711,19 @@ def rotor_integration_groups(
         members = [str(name) for name in getattr(block, "members", [])]
         # Aliases compare case-folded, as everywhere in this file: a group
         # `pusher` IS rotor PUSHER's, checked against it, never a second group.
-        group = next((k for k in resolved if k.casefold() == str(alias).casefold()), None)
-        if group is None:
+        matching = [k for k in resolved if k.casefold() == str(alias).casefold()]
+        if not matching:
             resolved[alias] = list(members)
             continue
-        stated = {str(name).casefold() for name in resolved[group]}
         owned = {name.casefold() for name in members}
-        if stated != owned:
+        # EVERY group of the alias's name is checked, not the first one met: a
+        # second spelling that disagrees would otherwise pass or fail by the
+        # order the pproc listed them in.
+        group = next(
+            (k for k in matching if {str(name).casefold() for name in resolved[k]} != owned),
+            None,
+        )
+        if group is not None:
             raise CampaignConfigError(
                 f"the pproc declares a group named {group!r}, which is a rotor's alias, "
                 f"and its members are {sorted(resolved[group])}; that rotor's own families "
