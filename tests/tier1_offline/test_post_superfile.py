@@ -73,6 +73,24 @@ def test_p0430_recorded_rotor_speed_precedes_current_matrix():
     assert list(row).index("RPM") > list(row).index("VAR_NAMES_VALUES")
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0430-F-163")])
+def test_p0430_exact_rotor_alias_precedes_casefold_match():
+    from types import SimpleNamespace
+
+    from pyflightstream.post.superfile import superfile_row
+
+    columns = superfile_row(
+        polar_columns=[],
+        polar_values=[],
+        matrix_row=None,
+        record=SimpleNamespace(reductions={"rotors": {"PROP": {"rpm": 1200.0}}}),
+        sweep_row=None,
+        plots_row=None,
+        rotors={"prop": SimpleNamespace(diameter_m=9.0), "PROP": SimpleNamespace(diameter_m=2.0)},
+    )
+    assert float(columns["DIAMETER_PROP"]) == 2.0
+
+
 # ---------------------------------------------------------------------------
 # The workspace, in the shape of the one that ran.
 

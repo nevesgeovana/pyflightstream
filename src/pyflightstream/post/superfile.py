@@ -570,10 +570,12 @@ def _rotor_columns(
         out[key] = value
         if key != RPM_COLUMN:
             alias = key[len(RPM_COLUMN) + 1 :]
-            block = next(
-                (rotors[name] for name in rotors if str(name).casefold() == alias.casefold()),
-                None,
-            )
+            block = rotors.get(alias)
+            if block is None:
+                block = next(
+                    (rotors[name] for name in rotors if str(name).casefold() == alias.casefold()),
+                    None,
+                )
             span = getattr(block, "diameter_m", None)
             out[f"DIAMETER_{alias}"] = (
                 float(span)
