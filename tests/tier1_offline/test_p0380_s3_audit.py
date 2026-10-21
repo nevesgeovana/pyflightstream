@@ -579,3 +579,36 @@ def test_a_check_whose_source_fails_its_practice_is_reported_not_judged(tmp_path
     level, src = _pair(tmp_path / "even", _graded())
     audit, said = _audit(level, src)
     _assert_fails(audit, said, "growth", "A", "p95 ")
+
+
+def test_p0430_f1203_g5_fails_when_a_family_that_shared_nodes_is_gone(tmp_path):
+    """F-1203: a source pair whose family is absent from the level fails G5 (it was not judged)."""
+    gone = Mesh()
+    del gone.families["B"]
+    level, src = _pair(tmp_path, gone)
+    audit, _ = _audit(level, src)
+    assert _item(audit, "G5", "A and B").verdict == "fail"
+    assert not audit.passed
+
+
+def test_p0430_f303_a_duplicated_edge_does_not_erase_the_ends_of_the_line():
+    """F-303: edges listed twice are one edge; the line keeps its two ends and its length."""
+    from pyflightstream.workspace._refine._audit import _line
+
+    verts = numpy.array([[0.0, 0, 0], [1.0, 0, 0], [2.0, 0, 0]])
+    once = _line(verts, numpy.array([[0, 1], [1, 2]]))
+    twice = _line(verts, numpy.array([[0, 1], [1, 0], [0, 1], [1, 2]]))
+    assert len(once.ends) == 2 and len(twice.ends) == 2
+    assert twice.length == pytest.approx(once.length) == pytest.approx(2.0)
+
+
+def test_p0430_f304_g2_judges_a_closed_body_split_into_open_families(tmp_path):
+    """F-304: an inward closed body held by two open families fails G2 on the whole mesh; the
+    same body turned outward is the control."""
+    for flip, verdict in ((True, "fail"), (False, "pass")):
+        m = Mesh()
+        pod = [f[::-1] if flip else f for f in m.families.pop("Pod")]
+        m.families["P1"], m.families["P2"] = pod[:6], pod[6:]
+        level, _ = _pair(tmp_path / verdict, m)
+        audit, _said = _audit(level)
+        assert _item(audit, "G2").verdict == verdict, _item(audit, "G2").line()

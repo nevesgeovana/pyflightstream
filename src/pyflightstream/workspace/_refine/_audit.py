@@ -492,6 +492,9 @@ def _line(verts: Array, edges: Array) -> _Line:
     """
     if not len(edges):
         return _Line(numpy.zeros((0, 3)), 0.0)
+    # F-303: an edge listed twice (a duplicated row, or one both listed and detected)
+    # is one edge; counted twice it gave its ends degree 2 and erased them.
+    edges = numpy.unique(numpy.sort(edges, axis=1), axis=0)
     nodes, degree = numpy.unique(edges.reshape(-1), return_counts=True)
     length = float(numpy.linalg.norm(verts[edges[:, 0]] - verts[edges[:, 1]], axis=1).sum())
     return _Line(verts[nodes[degree == 1]], length)
@@ -844,10 +847,48 @@ def _volume(verts: Array, faces: Faces) -> float | None:
     return float(numpy.einsum("ij,ij->i", p[:, 0], numpy.cross(p[:, 1], p[:, 2])).sum() / 6.0)
 
 
+def _inward_shells(obj: ObjMesh) -> int:
+    """Return how many closed shells of the whole mesh enclose no positive volume (G2).
+
+    A shell is the faces joined through shared edges whatever family holds them, so a
+    closed body split into open families is judged as the one body it is (F-304).
+    """
+    faces = [face for family in obj.families.values() for face in family]
+    owner = [name for name, family in obj.families.items() for _ in family]
+    parent = list(range(len(faces)))
+
+    def root(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for owners in edge_faces(faces).values():
+        for other in owners[1:]:
+            parent[root(other)] = root(owners[0])
+    shells: dict[int, list[int]] = {}
+    for index in range(len(faces)):
+        shells.setdefault(root(index), []).append(index)
+    inward = 0
+    for members in shells.values():
+        held = {owner[i] for i in members}
+        # A closed family that is a shell by itself is judged on its own row.
+        if len(held) == 1 and len(members) == len(obj.families[next(iter(held))]):
+            continue
+        volume = _volume(obj.verts, [faces[i] for i in members])
+        inward += volume is not None and volume <= 0.0
+    return inward
+
+
 def _g2(m: _Mesh) -> Iterator[AuditItem]:
     """G2: no two neighbours of opposite orientation; a closed family encloses a positive volume."""
+    inward = _inward_shells(m.obj)
     yield _item(
-        "gate", "G2", WHOLE_MESH, {"neighbours_of_opposite_orientation": m.flipped}, m.flipped > 0
+        "gate",
+        "G2",
+        WHOLE_MESH,
+        {"neighbours_of_opposite_orientation": m.flipped, "inward_closed_shells": inward},
+        m.flipped > 0 or inward > 0,
     )
     for name, faces in m.obj.families.items():
         volume = _volume(m.obj.verts, faces)
@@ -991,8 +1032,10 @@ def _g5(level: _Mesh, source: _Mesh | None) -> Iterator[AuditItem]:
     for a, b, count in _sharing_pairs(source.obj):
         family = f"{a} and {b}"
         if a not in level.obj.families or b not in level.obj.families:
+            # F-1203: a family that shared nodes in the source and is gone from the level
+            # no longer shares them, so the gate fails rather than reporting nothing.
             values: dict[str, Value] = {"shared_nodes": None, "source_shared_nodes": count}
-            yield _reported("gate", "G5", family, values)
+            yield _item("gate", "G5", family, values, True)
             continue
         now = _shared(level.obj, a, b)
         values = {"shared_nodes": now, "source_shared_nodes": count}
