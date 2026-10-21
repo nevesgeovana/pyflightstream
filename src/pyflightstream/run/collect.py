@@ -618,7 +618,8 @@ def collect_once(
     interval
         Seconds between the two observations that decide "settled".
     sleep, observer, assessor
-        Injected so a test can run this with no clock, no filesystem delay
+        (``assessor`` as in :func:`collect_and_post`.) Injected so a test can run this with
+        no clock, no filesystem delay
         and no solver. A stage whose only entry point needs a scheduler is a
         stage nothing tests, which is the reason the injection exists rather
         than a preference for injection.
@@ -641,6 +642,10 @@ def collect_once(
     """
     _refuse_a_string(sims)
     _refuse_a_bad_interval(interval, "interval")
+    if assessor is assess_collected:
+        # PFS-2110.038: the package's own assessor passed by name is the default, with
+        # everything it read from the log stamped, not a caller's (status, error) assessor.
+        assessor = None
     report = CollectReport()
     try:
         recorded = workspace.read_manifest()
@@ -1500,7 +1505,10 @@ def collect_and_post(
     observer : callable, optional
         Stamps the paths, :func:`observe` by default.
     assessor : callable, optional
-        Judges a collected point, :func:`assess_collected` by default.
+        Judges a collected point. None, the default, and :func:`assess_collected` passed
+        explicitly are the package's own assessor, and everything it read from the log is
+        stamped on the record. Any other callable answers ``(status, error)`` only, and
+        no log field is stamped.
     sims : collection of str, optional
         Limit every sweep and the post to the SUBMITTED records of these simulations.
 

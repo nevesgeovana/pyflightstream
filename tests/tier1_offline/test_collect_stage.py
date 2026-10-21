@@ -599,3 +599,22 @@ def test_goal020_collect_a_watch_stops_at_exactly_the_rounds_it_was_given(tmp_pa
     assert len(sweeps) == 3 + 2, (
         f"{len(sweeps)} sleep(s) for a three-round watch; the bound is not exactly three"
     )
+
+
+def test_pfs_2110_038_the_package_assessor_passed_by_name_is_the_default(tmp_path, monkeypatch):
+    """PFS-2110.038: ``assessor=assess_collected`` stamps what ``assessor=None`` stamps."""
+    from pyflightstream.run import collect as collect_module
+
+    workspace, sim = _submitted_workspace(tmp_path)
+    (sim / "loads.txt").write_text("unreadable", encoding="utf-8")
+    (sim / "run_log.txt").write_text("unreadable", encoding="utf-8")
+    seen: list[str] = []
+    real = collect_module.assessment_of_collected
+
+    def watching(record, sim_dir):
+        seen.append(record.run_id)
+        return real(record, sim_dir)
+
+    monkeypatch.setattr(collect_module, "assessment_of_collected", watching)
+    collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=collect_module.assess_collected)
+    assert seen == ["camp/sim_9001/AL+000"], "the named package assessor was treated as a caller's"
