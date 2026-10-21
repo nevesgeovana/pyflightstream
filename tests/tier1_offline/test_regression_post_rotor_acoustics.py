@@ -884,3 +884,33 @@ class TestPost1RotorTable:
         assert "analysis frame 'BODY'" in left_out[0][1]
         assert written_runs == ["r2", "r3"]
         assert any("static points (r2)" in message for message in caught), caught
+
+
+def test_f139_a_harmonic_row_outside_the_grid_is_carried_as_na(tmp_path, monkeypatch):
+    """F-139: the log promises NA in both corrected files; the harmonic row stays, NA."""
+    from tests.tier1_offline.test_goal036_qsteady_corrections import (
+        _section_calibration,
+        _wheel_posted,
+    )
+
+    _, out, _, _ = _wheel_posted(
+        tmp_path,
+        monkeypatch,
+        correction={"route": "table", "file": "c001"},
+        calibration=_section_calibration(low=0.12),
+    )
+    _, raw = read_csv_table(out / "sections" / "DP_harmonics.csv")
+    _, corrected = read_csv_table(out / "sections" / "DP_harmonics_corrected.csv")
+    assert len(corrected) == len(raw)
+    na = [row for row in corrected if row["H0"] == "NA" and row["H1_AMP"] == "NA"]
+    assert na and len(na) < len(corrected)
+
+
+def test_f175_the_theodorsen_function_is_right_where_float_phases_coincide():
+    """F-175: C(k) tends to 1/2; a float phase gave 0.5 - 0.5j at k = 1e17."""
+    from pyflightstream.post.corrections import theodorsen
+
+    for k in (1e8, 1e12, 1e17, 1e30):
+        assert abs(theodorsen(k) - 0.5) < 1e-8, k
+    with pytest.raises(ProductError, match="beyond"):
+        theodorsen(1e41)

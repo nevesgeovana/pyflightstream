@@ -448,3 +448,13 @@ RPT099 = "RPT-099_qsteady-noise-route-a-against-round-3_2026-09-30"
 _DIMENSIONAL = re.compile(
     r"\d\s?(?:N m|N|m/s|kg/m3|rev/min|m|mm|Pa)\b|RPM\d|\"rpm\"|_Nm?\"|delta_time_s|velocity_m_s"
 )
+
+
+def test_f158_a_constant_record_is_refused_whatever_its_round_off():
+    """F-158: 0.1 repeated 7 times has a mean that is not exactly 0.1 and a nonzero wave."""
+    constant = np.full(7, 0.1)
+    varying = np.sin(np.linspace(0.0, 6.0, 7))
+    for first, second in ((constant, varying), (varying, constant), (constant, constant)):
+        with pytest.raises(ProductError, match="not constant"):
+            qn.compare_signals(first, second)
+    assert qn.compare_signals(varying, varying).rms_ratio == pytest.approx(1.0)

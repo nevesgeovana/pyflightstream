@@ -1102,3 +1102,157 @@ class TestPost1Tables:
         table.write_text("PUSHER\nPOL,CT\n1\n", encoding="utf-8")
         with pytest.raises(ProductError, match="line 3 carries 1 values"):
             _post_1_tables__read_csv_table(table, skip=1)
+
+
+# --------------------------------------------------------------------------- F4-0102 tables
+def _march_export(steps, values=None):
+    from pyflightstream.post._tables import _PlotsExport
+
+    values = np.asarray(
+        [[float(s), 0.1 * s] for s in steps] if values is None else values, dtype=float
+    )
+    rows = [f"{row[0]:.4f},{row[1]:.5f}," for row in values]
+    return _PlotsExport(
+        head=[],
+        rows=rows,
+        tail=[],
+        columns=("Time-step", "CL"),
+        values=values,
+        steps=np.asarray(steps, dtype=int),
+        scale=(None, None),
+    )
+
+
+def _march_history_of(export):
+    return (export.rows, export.values, export.steps)
+
+
+def test_f135_a_seam_with_missing_solver_steps_is_not_joined():
+    """F-135: steps 5 and 6 are in neither run, so the exports are not one history."""
+    from pyflightstream.post._tables import _join
+
+    assert _join(_march_history_of(_march_export([1, 2, 3, 4])), _march_export([7, 8, 9])) is None
+    joined = _join(_march_history_of(_march_export([1, 2, 3, 4])), _march_export([5, 6]))
+    assert joined is not None and list(joined[0][2]) == [1, 2, 3, 4, 5, 6]
+
+
+def test_f136_a_shorter_restatement_keeps_the_later_steps_and_the_march_end():
+    """F-136: a restatement of steps 1 to 4 leaves steps 5 to 8 of the history in place."""
+    from pyflightstream.post._tables import _join
+
+    joined = _join(_march_history_of(_march_export(range(1, 9))), _march_export(range(1, 5)))
+    assert joined is not None
+    (rows, values, steps), _how = joined
+    assert list(steps) == list(range(1, 9)) and len(rows) == 8 and len(values) == 8
+
+
+def test_f173_nan_cells_do_not_make_a_restated_march_a_new_one():
+    """F-173: a NaN the history and its restatement both carry is a match, not a difference."""
+    from pyflightstream.post._tables import _join
+
+    values = [[1.0, 0.1], [2.0, math.nan], [3.0, 0.3], [4.0, 0.4]]
+    joined = _join(
+        _march_history_of(_march_export([1, 2, 3, 4], values)),
+        _march_export([1, 2, 3, 4], values),
+    )
+    assert joined is not None
+    assert list(joined[0][2]) == [1, 2, 3, 4] and "restating" in joined[1]
+
+
+def test_f174_a_chain_with_an_older_run_missing_leaves_the_continuations_own_export(tmp_path):
+    """F-174: the history of the run before the middle one is gone, so no partial chain."""
+    from types import SimpleNamespace
+
+    from pyflightstream.post._tables import _march_history
+    from pyflightstream.results import parse_unsteady_plots
+    from tests.tier1_offline.test_restart_continuation import (
+        _fr96_converged_continuation___export as export,
+    )
+
+    out = ["outputs/AL-020_plots.txt"]
+    first = SimpleNamespace(continues=None, run_id="camp/sim_7001/AL-020", outputs=out)
+    middle = SimpleNamespace(
+        continues=first.run_id,
+        run_id="camp/sim_7001/r20261001-110000/AL-020",
+        outputs=out,
+        recipe="unsteady",
+    )
+    last = SimpleNamespace(
+        continues=middle.run_id,
+        run_id="camp/sim_7001/r20261001-120000/AL-020",
+        outputs=out,
+        recipe="unsteady",
+    )
+    (tmp_path / "outputs").mkdir()
+    (tmp_path / "outputs" / "AL-020_plots.txt").write_text(export(range(9, 13)), "utf-8")
+    archive = tmp_path / "outputs" / "archive" / "20261001-120000"
+    archive.mkdir(parents=True)
+    (archive / "AL-020_plots.txt").write_text(export(range(5, 9)), "utf-8")
+    manifest = {r.run_id: r for r in (first, middle, last)}
+    march = _march_history(tmp_path, last, manifest)
+    assert march is not None and "Not joined" in march.said
+    steps = [int(v) for v in parse_unsteady_plots(march.text).values[:, 0]]
+    assert steps == [9, 10, 11, 12]
+
+
+def test_f134_a_rotor_that_states_its_blade_count_spaces_a_sector_by_it():
+    """F-134: two blades of a four-blade rotor sit a quarter turn apart, not half."""
+    from pyflightstream.post._tables import _own_blade_azimuth
+
+    rotor = {"blade_families": [["B1"], ["B2"]], "blades": 4}
+    assert _own_blade_azimuth(["B2"], rotor, 0.0) == pytest.approx(90.0)
+    assert _own_blade_azimuth(["B2"], {"blade_families": [["B1"], ["B2"]]}, 0.0) == (
+        pytest.approx(180.0)
+    )
+
+
+def test_f170_the_shared_csv_funnel_writes_infinities_as_na(tmp_path):
+    """F-170: inf and -inf are not cells a table can state."""
+    path = write_csv_table(tmp_path / "t.csv", ("A", "B", "C"), [(math.inf, -math.inf, 1.5)])
+    assert path.read_text(encoding="utf-8").splitlines()[1] == "NA,NA,1.50000"
+
+
+def test_f1364_two_columns_cannot_receive_the_same_new_name():
+    """F-1364: renaming A and B to X would lose a value on reading."""
+    from pyflightstream.post._tables import renamed_columns
+
+    with pytest.raises(ProductError, match="two columns the name X"):
+        renamed_columns(("A", "B"), {"A": "X", "B": "X"}, printed=("A", "B"), where="w")
+
+
+def test_f1378_the_plots_reader_takes_the_historical_dash_as_na(tmp_path):
+    """F-1378: a table written by an earlier release states a dash, which readers accept."""
+    path = tmp_path / "p.csv"
+    path.write_text("POL,Time-step,CL\n1,1,-\n1,2,0.5\n", encoding="utf-8")
+    _columns, series = plots_table_series(path)
+    assert math.isnan(series.fields["CL"][0, 0]) and series.fields["CL"][1, 0] == 0.5
+
+
+def test_f1379_a_header_only_plots_table_is_a_named_product_error(tmp_path):
+    """F-1379: no incidental IndexError for a table with no time step."""
+    path = tmp_path / "p.csv"
+    path.write_text("POL,Time-step,CL\n", encoding="utf-8")
+    with pytest.raises(ProductError, match="no rows"):
+        plots_table_series(path)
+
+
+def test_pfs_2121_004_a_continued_points_march_is_joined_once_per_post(tmp_path, monkeypatch):
+    """PFS-2121.004: the records and the plots table read one march, not two."""
+    from pyflightstream.post import _tables
+    from tests.tier1_offline.test_restart_continuation import (
+        _fr96_converged_continuation___continued_workspace as continued,
+    )
+    from tests.tier1_offline.test_restart_continuation import (
+        _fr96_converged_continuation___posted as posted,
+    )
+
+    calls = []
+    original = _tables._march_history
+
+    def counting(*args, **kwargs):
+        calls.append(args[1].run_id)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(_tables, "_march_history", counting)
+    posted(continued(tmp_path, "numbered on"))
+    assert len(calls) == len(set(calls)) == 1, calls

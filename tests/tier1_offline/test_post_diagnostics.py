@@ -177,3 +177,23 @@ def test_cli_diagnostics_does_not_invoke_stages(tmp_path, monkeypatch, capsys):
         p: (p.read_bytes(), p.stat().st_mtime_ns) for p in workspace.root.rglob("*") if p.is_file()
     }
     assert before == after
+
+
+def test_fr_772_the_warning_totals_use_the_groups_of_log_post(monkeypatch, tmp_path, capsys):
+    """C-SRS-S07-034 (FR-772): category, family and shape, as ``log --post`` groups them."""
+    from pyflightstream.post import diagnostics
+    from pyflightstream.workspace.ledger import post_log_groups
+
+    monkeypatch.setattr(diagnostics, "post_warning_policy", lambda: True)
+    records = [
+        {"category": "missing-data", "product": "probes/a", "message": "point 1 has no data"},
+        {"category": "missing-data", "product": "probes/a", "message": "point 22 has no data"},
+        {"category": "missing-data", "product": "polars/b", "message": "point 3 has no data"},
+        {"category": "missing-data", "product": "polars/b", "message": "x", "severity": "info"},
+    ]
+    diagnostics.report_post_warnings(records, tmp_path / "post.log.json")
+    lines = capsys.readouterr().err.splitlines()
+    assert len(lines) == 2, lines
+    assert "[missing-data]: 1; polars; details" in lines[0]
+    assert "[missing-data]: 2; probes; details" in lines[1]
+    assert callable(post_log_groups)

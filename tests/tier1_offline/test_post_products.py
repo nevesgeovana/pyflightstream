@@ -2976,3 +2976,53 @@ def test_f475_a_stale_loading_noise_history_is_retired_with_the_other_optional_p
     previous = {"noise/history.csv": {"kind": "loading_noise"}, "polars/p.csv": {"kind": "polar"}}
     _retire_optional_products(skipped, previous, {})
     assert list(skipped) == ["noise/history.csv"]
+
+
+@pytest.mark.requirement("FR-2325")
+def test_fr_2325_a_mutated_codebook_never_reaches_another_caller():
+    """FR-2325 (PFS-2126.026): one caller changing its codebook leaves the next one's whole."""
+    import copy
+
+    from pyflightstream.post.settings_table import codebook
+
+    pristine = copy.deepcopy(codebook())
+    first = codebook()
+    first["flag_ids"]["INVENTED"] = 999
+    first["provenance_codes"].clear()
+    first["enumerations"].clear()
+    first["tidy_columns"].append("X")
+    first["lossy_kinds"].clear()
+    first["codebook_version"] = "changed"
+    assert codebook() == pristine
+    assert codebook() is not codebook()
+
+
+@pytest.mark.requirement("FR-491")
+@pytest.mark.requirement("FR-800")
+def test_fr_491_fr_800_a_shorter_restatement_keeps_the_march_end_and_says_the_idle_run(tmp_path):
+    """FR-491, FR-800: the window ends at the last step of the march, its length kept.
+
+    The continuation restates steps 1 to 4 of an eight-step march and adds none: the
+    history keeps steps 5 to 8, so the averaging window stays 5 to 8, and the warning
+    names both runs.
+    """
+    from tests.tier1_offline.test_restart_continuation import (
+        _fr96_converged_continuation___continued_workspace as continued,
+    )
+    from tests.tier1_offline.test_restart_continuation import (
+        _fr96_converged_continuation___export as export,
+    )
+    from tests.tier1_offline.test_restart_continuation import (
+        _fr96_converged_continuation___posted as posted,
+    )
+
+    workspace = continued(tmp_path, "numbered on")
+    (workspace.sim_dir("7001") / "outputs" / "AL-020_plots.txt").write_text(
+        export(range(1, 5)), encoding="utf-8"
+    )
+    manifest, _columns, series, said = posted(workspace)
+    assert list(series.steps) == list(range(1, 9))
+    assert manifest["products"]["probes/AL-020_time_average.csv"]["windows"] == [[5, 8]]
+    idle = [line for line in said if "adds no time step" in line]
+    assert len(idle) == 1
+    assert "camp/sim_7001/AL-020" in idle[0] and "camp/sim_7001/r20261001-120000/AL-020" in idle[0]

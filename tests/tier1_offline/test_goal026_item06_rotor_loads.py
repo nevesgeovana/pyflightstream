@@ -928,3 +928,35 @@ def test_p0400_bgtests2_small_coefficients_keep_six_significant_figures(tmp_path
     assert float(rows[0][column]) == pytest.approx(value, rel=5e-6, abs=0)
     assert rows[0][column + "_DRIFT_PCT"] == "0.00012"
     assert rows[0]["SETTING"] == "7.123456789"
+
+
+def test_f159_a_missing_surface_coefficient_is_not_a_zero():
+    """F-159: a surface that states no Cz leaves the thrust a NaN, not a finite 0.5 * ..."""
+    surfaces = {
+        "Blade1": {"Cx": 0.0, "Cy": 0.0, "CMx": 0.0, "CMy": 0.0, "CMz": 0.0},
+        "Blade2": {"Cx": 0.0, "Cy": 0.0, "Cz": 0.5, "CMx": 0.0, "CMy": 0.0, "CMz": 0.0},
+    }
+    loads = rotor_shaft_loads(
+        surfaces,
+        rotor=_rotor("Z"),
+        reference=_reference(),
+        density_kg_m3=1.225,
+        speed_m_s=40.0,
+    )
+    assert math.isnan(loads.thrust_n), loads
+
+
+def test_f160_an_infinite_rate_is_refused_not_read_as_zero_coefficients():
+    """F-160: rps = inf divided every coefficient to a finite zero."""
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.rotor_table import rotor_coefficients
+
+    with pytest.raises(ProductError, match="finite"):
+        rotor_coefficients(
+            thrust_n=1.0,
+            torque_nm=1.0,
+            rps=math.inf,
+            diameter_m=1.0,
+            density_kg_m3=1.2,
+            speed_m_s=10.0,
+        )
