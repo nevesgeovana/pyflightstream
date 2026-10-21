@@ -4458,3 +4458,28 @@ def test_p0420_solver_minimum_cp_is_accepted_between_initialization_and_start_on
         with pytest.raises(ScriptOrderError, match="exec phase"):
             script.emit("SOLVER_MINIMUM_CP", -5.0)
     assert "READ AFTER INITIALIZATION" in entry.notes and "8.2e-7" in entry.notes
+
+
+@pytest.mark.requirement("FR-05")
+def test_f5_0304_fr05_no_mutable_builder_state_is_shared_between_builders():
+    """FR-05: entities, phase, motion ledger and every container belong to one builder."""
+    first = Script(version="26.120")
+    second = Script(version="26.120")
+    shared = [
+        name
+        for name, value in vars(first).items()
+        if isinstance(value, (list, dict, set)) or hasattr(value, "__dict__")
+        if value is vars(second).get(name) and value is not None and not callable(value)
+    ]
+    # The command registry is read-only and loaded once; nothing else may be shared.
+    assert set(shared) <= {"_registry", "_view", "version"}, shared
+    assert first.entities is not second.entities
+    assert first._motion_ledger is not second._motion_ledger
+    solo = Script(version="26.120")
+    solo.emit("NEW_SIMULATION")
+    solo.emit("START_SOLVER")
+    first.emit("NEW_SIMULATION")
+    second.emit("NEW_SIMULATION")
+    second.emit("START_SOLVER")
+    first.emit("START_SOLVER")
+    assert first.render() == solo.render()

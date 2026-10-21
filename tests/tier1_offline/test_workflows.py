@@ -7783,3 +7783,39 @@ class TestFr320SkippedFamiliesWarn:
         assert len(plan.points) == 2, plan.points
         assert len(said) == 4, said
         assert all("the geometry of row '3301' does not carry it" in line for line in said), said
+
+
+@pytest.mark.requirement("FR-320")
+def test_f5_0304_fr320_two_rows_lacking_a_family_share_one_warning_per_family(tmp_path):
+    """FR-320: one warning per artifact and missing family, however many rows lack it."""
+    second = ("3303", "sector2.fsm", ["Hub", "Blade1"])
+    plan, said = _fr320_skipped_families_warn__planned(
+        tmp_path,
+        _FR320_SKIPPED_FAMILIES_WARN__FIVE,
+        [_FR320_SKIPPED_FAMILIES_WARN__SECTOR, second, _FR320_SKIPPED_FAMILIES_WARN__WHEEL],
+    )
+    assert len(said) == 4, said
+    for message in said:
+        assert repr(_FR320_SKIPPED_FAMILIES_WARN__SECTOR[0]) in message, message
+        assert repr(second[0]) in message, message
+    assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points)
+
+
+@pytest.mark.requirement("FR-578")
+def test_f5_0304_fr578_missing_family_warnings_leave_the_plan_unchanged(tmp_path):
+    """FR-578: a row that draws warnings plans as the same row that draws none."""
+    rows = [_FR320_SKIPPED_FAMILIES_WARN__SECTOR]
+
+    def shape(plan):
+        return [
+            (point.run_id, point.script_name, point.status, point.error) for point in plan.points
+        ]
+
+    plan_on, said = _fr320_skipped_families_warn__planned(
+        tmp_path / "on", _FR320_SKIPPED_FAMILIES_WARN__FIVE, rows
+    )
+    assert said, "the control warned nothing, so it proved nothing"
+    plan_off, silent = _fr320_skipped_families_warn__planned(tmp_path / "off", ["Blade1"], rows)
+    assert silent == []
+    assert shape(plan_on) == shape(plan_off)
+    assert all(point.status is PlanStatus.READY for point in plan_on.points)

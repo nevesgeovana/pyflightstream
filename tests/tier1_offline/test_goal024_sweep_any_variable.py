@@ -259,3 +259,24 @@ def test_goal024_sweep_any_variable_a_body_rate_sweeps_too(tmp_path):
     reference = workspace.inputs_dir / "references" / "r003.toml"
     reference.write_text(reference.read_text(encoding="utf-8") + AXES, encoding="utf-8")
     assert _names(workspace, matrix) == ["M200RE230AL+000Q+000", "M200RE230AL+000Q+040"]
+
+
+def test_f5_0304_fr104_each_point_state_follows_the_gas_law_and_its_own_mach(tmp_path):
+    """FR-104: per point, velocity = Mach x the state's own speed of sound, p = rho R T."""
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:sweep, REmi:2.3, ALPHA:0.0",
+        values="0.1,0.3",
+    )
+    (case,) = _resolved(workspace, matrix).campaign.sims
+    states = [case.point_states[key] for key in sorted(case.point_states)]
+    assert len(states) == 2
+    gas_constant = 287.05287
+    for state, mach in zip(states, (0.1, 0.3), strict=True):
+        fluid = state.fluid
+        assert fluid.velocity_m_per_s == pytest.approx(
+            mach * (1.4 * gas_constant * fluid.temperature_k) ** 0.5, rel=2e-3
+        )
+        assert fluid.pressure_pa == pytest.approx(
+            fluid.density_kg_m3 * gas_constant * fluid.temperature_k, rel=2e-3
+        )

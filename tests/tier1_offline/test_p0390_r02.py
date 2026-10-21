@@ -979,3 +979,26 @@ def test_the_flag_refuses_every_key_without_a_study(tmp_path, setup, pproc, key,
     assert v0380 in error, error
     assert "ignore_missing_families" not in error and "(FR-435)" not in error, error
     assert fr435_warnings(said) == []
+
+
+@pytest.mark.requirement("FR-980")
+def test_f5_0304_fr980_the_vocabulary_is_the_study_and_its_aliases_whatever_the_model_holds():
+    """FR-980: absent study is None; a declared one holds names and alias members, case folded."""
+    from pyflightstream.cases import ReferenceData, SimCase, SweepAxis
+    from pyflightstream.cases._skipped_families import held_by_the_study, study_vocabulary
+
+    def case(study_surfaces, aliases=None):
+        return SimCase(
+            sim_id="1",
+            aircraft="A",
+            recipe="steady",
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            reference=ReferenceData(area=1.0, length=1.0, study_surfaces=study_surfaces),
+            aliases=aliases or {},
+        )
+
+    assert study_vocabulary(case(None)) is None
+    vocabulary = study_vocabulary(case(("Wing", "wing", "Sting"), {"tail": ["HTail", "VTail"]}))
+    assert vocabulary == ("Wing", "Sting", "tail", "HTail", "VTail")
+    assert held_by_the_study("TAIL", vocabulary) and held_by_the_study("vtail", vocabulary)
+    assert not held_by_the_study("Stinng", vocabulary)
