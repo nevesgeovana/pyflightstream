@@ -53,7 +53,8 @@ def frame_axes_problem(
     >>> frame_axes_problem((1.0, 0.0, 0.0), (2.0, 0.0, 0.0))
     'x_axis and y_axis are parallel, so they define no plane'
     """
-    values = [float(v) for axis in (x_axis, y_axis) for v in axis]
+    axes = (x_axis, y_axis) if z_axis is None else (x_axis, y_axis, z_axis)
+    values = [float(v) for axis in axes for v in axis]
     if not all(math.isfinite(v) for v in values):
         return "an axis component is not a finite number"
     lengths = [math.sqrt(sum(float(v) ** 2 for v in axis)) for axis in (x_axis, y_axis)]

@@ -92,3 +92,20 @@ def test_p0420_coordinate_frame_refuses_a_z_axis_that_is_not_the_cross_product()
     helpers.coordinate_frame(
         script, name="RH", origin=(0, 0, 0), x_axis=X, y_axis=Y, z_axis=(0.0, 0.0, 1.0)
     )
+
+
+@pytest.mark.parametrize("component", range(3))
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_coordinate_frame_nonfinite_z_emits_nothing(component, value):
+    """W0-01: rejecting an invalid third axis must not leave a created frame."""
+    z = [0.0, 0.0, 1.0]
+    z[component] = value
+    script = Script("26.124")
+    with pytest.raises(CommandArgumentError):
+        helpers.coordinate_frame(script, name="BAD", origin=(0, 0, 0), x_axis=X, y_axis=Y, z_axis=z)
+    assert script.num_local_frames == 0 and script.render().strip() == ""
+    assert "finite" in (helpers.frame_axes_problem(X, Y, z) or "")
+    index = helpers.coordinate_frame(
+        script, name="GOOD", origin=(0, 0, 0), x_axis=X, y_axis=Y, z_axis=(0, 0, 1)
+    )
+    assert index == 2
