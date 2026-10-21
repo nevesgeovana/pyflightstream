@@ -649,6 +649,9 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     if (
         EXPANDING_FRAMES.get(probes.frame.strip().upper()) is None
         and _ROTOR_FRAME_SPELLING.search(probes.frame.strip().upper()) is not None
+        # ONLY A FRAME OF A ROTOR THE REFERENCE DECLARES is left out; a rotor-shaped
+        # name no declared rotor owns is refused below by `_pproc_frame`.
+        and _the_rotor_whose_frame_this_is(case, probes.frame) is not None
         and frames.get(probes.frame) is None
     ):
         warn(

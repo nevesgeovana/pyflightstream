@@ -300,3 +300,24 @@ def test_millimeter_volume_fluid_plot_vertex_is_si_but_record_is_native():
     assert layout["points_native"][0] == [2000.0, -1000.0, -2000.0]
     assert layout["native_to_m"] == 0.001
     assert layout["command_coordinate_units"] == "m"
+
+
+def test_f1292_a_rotor_shaped_probe_frame_no_declared_rotor_owns_is_refused(tmp_path):
+    from pyflightstream.cases import CampaignConfigError
+
+    spec = PprocSpec.model_validate(
+        {
+            "groups": {"1": "all"},
+            "probes": [
+                {
+                    "frame": "GHOST_SMRP",
+                    "lines": [{"start": [0, 0, 0], "end": [1, 0, 0]}],
+                    "points": 3,
+                    "parameters": ["VX"],
+                }
+            ],
+        }
+    )
+    case = _with_pproc(unsteady_case(), _wb_geometry(tmp_path), pproc=spec)
+    with pytest.raises(CampaignConfigError, match="GHOST_SMRP"):
+        build_script(case, Script("26.124"))
