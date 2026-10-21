@@ -1069,7 +1069,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
     if isinstance(named, str):
         changed = copy.deepcopy(data)
         changed["trailing_edges"]["file"] = f"{stem}{TE_SUFFIX}"
-        text = _rewrite(side, text, "file", named, changed)
+        text = _obj.rewrite_value(side, text, "file", named, changed)
         data = changed
     owner = {m: c for c, members in work.request.components.items() for m in members}
     listed = data.get("boundaries")
@@ -1077,7 +1077,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
         names = list(dict.fromkeys(owner.get(n, n) for n in listed))
         changed = copy.deepcopy(data)
         changed["boundaries"] = names
-        text = _rewrite(side, text, "boundaries", listed, changed)
+        text = _obj.rewrite_value(side, text, "boundaries", listed, changed)
         data = changed
     # F-1492: a detection selector (``detect = { surfaces = [...] }``) names families too,
     # and a grouped level no longer holds the members it names.
@@ -1090,7 +1090,7 @@ def _boundaries_text(work: _Work, stem: str) -> str | None:
             if names != surfaces:
                 changed = copy.deepcopy(data)
                 changed[table_name]["detect"]["surfaces"] = names
-                text = _rewrite(side, text, "surfaces", surfaces, changed, value=names)
+                text = _obj.rewrite_value(side, text, "surfaces", surfaces, changed, value=names)
                 data = changed
     return text
 
@@ -1163,7 +1163,7 @@ def _replace_key(
 ) -> str:
     """Return ``text`` with ``key = old`` replaced by ``new_key = new``, parsing to ``wanted``.
 
-    The same search as :func:`_rewrite`: every spelling of the key, the
+    The same search as :func:`._obj.rewrite_value`: every spelling of the key, the
     shortest value text that parses to ``old``, and the first replacement
     whose whole file parses to ``wanted``.
     """
@@ -1192,57 +1192,6 @@ def _replace_key(
         f"the trailing-edge route {key} cannot be rewritten to name the level's points file; "
         f"state it as {key} = {json.dumps(old, ensure_ascii=False)} and run again",
     )
-
-
-#: The places a value can be closed: a quote of a string or the bracket of an array.
-_VALUE_ENDS = re.compile(r"[\"'\]]")
-
-
-def _rewrite(
-    side: Path,
-    text: str,
-    key: str,
-    old: object,
-    wanted: dict[str, Any],
-    *,
-    value: object | None = None,
-) -> str:
-    """Return ``text`` with the value of ``key`` replaced so that it parses to ``wanted``.
-
-    Every spelling of the key (bare, quoted, the last part of a dotted key, a
-    member of an inline table) is a candidate; the value after it is the
-    shortest text that parses to ``old``; the first replacement whose whole
-    file parses to ``wanted`` is the one. The new value is written as JSON
-    strings, which are TOML basic strings.
-    """
-    new = json.dumps(_value_of(wanted, key) if value is None else value, ensure_ascii=False)
-    spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
-    for match in re.finditer(spelled, text):
-        start = match.end()
-        for end in (m.end() for m in _VALUE_ENDS.finditer(text, start)):
-            try:
-                value = tomllib.loads("v = " + text[start:end] + "\n")["v"]
-            except tomllib.TOMLDecodeError:
-                continue
-            if value != old:
-                continue
-            candidate = text[:start] + new + text[end:]
-            try:
-                if tomllib.loads(candidate) == wanted:
-                    return candidate
-            except tomllib.TOMLDecodeError:
-                pass
-            break
-    raise _refuse(
-        str(side),
-        f"the value of {key} cannot be rewritten for the level; state it as "
-        f"{key} = {json.dumps(old, ensure_ascii=False)} and run again",
-    )
-
-
-def _value_of(data: dict[str, Any], key: str) -> object:
-    """Return the value a rewrite writes: the ``boundaries`` list or the points file name."""
-    return data[key] if key == "boundaries" else data["trailing_edges"][key]
 
 
 def _record(work: _Work, stem: str, counts: Mapping[str, int]) -> dict[str, Any]:

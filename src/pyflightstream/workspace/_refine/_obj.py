@@ -9,7 +9,9 @@ package's one text route, so a level holds no carriage return (NFR-32).
 
 from __future__ import annotations
 
+import json
 import math
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -458,3 +460,54 @@ def edge_midpoints(
     edges = {(min(a, b), max(a, b)) for f in faces for a, b in zip(f, f[1:] + f[:1], strict=True)}
     e = numpy.array(sorted(edges), dtype=numpy.int64).reshape(-1, 2)
     return e, 0.5 * (verts[e[:, 0]] + verts[e[:, 1]])
+
+
+#: The places a value can be closed: a quote of a string or the bracket of an array.
+_VALUE_ENDS = re.compile(r"[\"'\]]")
+
+
+def rewrite_value(
+    side: Path,
+    text: str,
+    key: str,
+    old: object,
+    wanted: dict[str, Any],
+    *,
+    value: object | None = None,
+) -> str:
+    """Return ``text`` with the value of ``key`` replaced so that it parses to ``wanted``.
+
+    Every spelling of the key (bare, quoted, the last part of a dotted key, a
+    member of an inline table) is a candidate; the value after it is the
+    shortest text that parses to ``old``; the first replacement whose whole
+    file parses to ``wanted`` is the one. The new value is written as JSON
+    strings, which are TOML basic strings.
+    """
+    new = json.dumps(_value_of(wanted, key) if value is None else value, ensure_ascii=False)
+    spelled = rf"(?<![\w\-\"'])(?:{key}|\"{key}\"|'{key}')\s*=[ \t]*"
+    for match in re.finditer(spelled, text):
+        start = match.end()
+        for end in (m.end() for m in _VALUE_ENDS.finditer(text, start)):
+            try:
+                found = tomllib.loads("v = " + text[start:end] + "\n")["v"]
+            except tomllib.TOMLDecodeError:
+                continue
+            if found != old:
+                continue
+            candidate = text[:start] + new + text[end:]
+            try:
+                if tomllib.loads(candidate) == wanted:
+                    return candidate
+            except tomllib.TOMLDecodeError:
+                pass
+            break
+    raise _refuse(
+        side,
+        f"the value of {key} cannot be rewritten for the level; state it as "
+        f"{key} = {json.dumps(old, ensure_ascii=False)} and run again",
+    )
+
+
+def _value_of(data: dict[str, Any], key: str) -> object:
+    """Return the value a rewrite writes: the ``boundaries`` list or the points file name."""
+    return data[key] if key == "boundaries" else data["trailing_edges"][key]
