@@ -211,3 +211,14 @@ def test_a_negative_processor_count_in_the_curve_is_refused(tmp_path):
     path = _inputs(tmp_path, "c001", text=text) / "costs" / "c001.toml"
     with pytest.raises(InputArtifactError, match="positive"):
         read_cost_file(path)
+
+
+@pytest.mark.parametrize("bad", [-5, 0, float("nan"), float("inf"), 1 + 2j])
+@pytest.mark.parametrize("which", ["faces", "steps"])
+def test_an_undefined_size_gives_no_estimate(tmp_path, which, bad):
+    """F-337, F-338: a non-positive, NaN, infinite or complex size is not priced."""
+    cost = _cost(tmp_path)
+    figures = {"faces": 1000, "steps": 10, which: bad}
+    est = estimate_seconds(cost, ncpus=4, **figures)
+    assert est.seconds is None
+    assert which in est.basis

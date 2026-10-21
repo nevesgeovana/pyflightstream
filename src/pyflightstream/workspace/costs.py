@@ -365,6 +365,15 @@ def estimate_seconds(
     """
     ref = cost.reference
     ref_cpus = float(ref["ncpus"])
+    for label, figure in (("faces", faces), ("steps", steps)):
+        if figure is not None and not (
+            isinstance(figure, int | float) and math.isfinite(figure) and figure > 0
+        ):
+            return CostEstimate(
+                None,
+                f"cost file {cost.path.name}: the point's {label} count {figure!r} is not a "
+                "positive finite number; no estimate is offered for an undefined size",
+            )
     notes: list[str] = []
     seconds = float(ref["wall_time_s"])
     if faces is None:
