@@ -868,7 +868,7 @@ def _resolve_actuator_profile(
     """Give a row's ``PROFILE`` the absolute path of its file under ``inputs/profiles/`` (G06).
 
     THE PROBE SURVEY IS THE PRECEDENT (:func:`_resolve_cited_profiles`): the
-    file is imported where it lives, by the absolute path resolved here, and a
+    source file is resolved and validated here by its absolute path, and a
     name the folder does not hold is refused when the row is PLANNED, naming
     what the folder holds. The cell names the file by its STEM, which is how
     the profile library registers a file.

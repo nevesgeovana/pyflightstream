@@ -20,6 +20,20 @@ from pyflightstream.post.products import read_csv_table, rotor_shaft_loads
 from tests.tier1_offline.test_goal035_qsteady_rotor import LOADS, REFERENCE, ROTOR, _case, _lines
 
 
+def test_p0430_w012_profile_resolution_docstring_is_consistent():
+    import ast
+
+    source = Path(__file__).resolve().parents[2] / "src/pyflightstream/workspace/_matrix_phases.py"
+    node = next(
+        n
+        for n in ast.parse(source.read_text(encoding="utf-8")).body
+        if isinstance(n, ast.FunctionDef) and n.name == "_resolve_actuator_profile"
+    )
+    doc = ast.get_docstring(node)
+    assert "file is imported where it lives" not in doc
+    assert "resolved and validated" in doc
+
+
 def _wheel(tmp_path: Path, rpm_sign: int) -> tuple[arithmetic.QsteadyRecord, Path]:
     """A three-blade wheel at three clockings, as the builder records it, its exports on disk."""
     rotor = ROTOR.model_copy(update={"rpm_sign": rpm_sign})
