@@ -66,6 +66,18 @@ def _refusal(workspace, matrix) -> str:
     return str(raised.value)
 
 
+def test_p0430_rb2_renumber_refuses_unreadable_history(tmp_path):
+    from pyflightstream.workspace import WorkspaceError
+
+    workspace = _workspace(tmp_path)
+    matrix = _matrix(workspace.root, "repeated.fs", [row(8001), row(8001)])
+    before = matrix.read_bytes()
+    workspace.manifest_path.mkdir()
+    with pytest.raises(WorkspaceError, match="cannot read run records"):
+        renumber_repeated_pols(matrix, workspace, in_place=True)
+    assert matrix.read_bytes() == before
+
+
 # --- the census --------------------------------------------------------------
 
 

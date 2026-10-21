@@ -186,10 +186,10 @@ def _read_rows(path: Path) -> list[dict[str, Any]]:
     """Return the rows of a manifest as written; empty when the file does not exist."""
     from pyflightstream.workspace.record_document import read_rows
 
-    if not path.is_file():
-        return []
     if path.name != "additional.json":
         return read_rows(path)
+    if not path.is_file():
+        return []
     rows = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(rows, list):
         raise StorageError(f"{path} is not a list of run records")

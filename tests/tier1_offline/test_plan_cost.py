@@ -54,6 +54,17 @@ from pyflightstream.run import estimate_point_cost, format_cost_table
 ELEMENTS = 4321
 
 
+def test_p0430_rb2_cost_refuses_unreadable_history(tmp_path):
+    from pyflightstream.run._plan import _recorded_costs
+    from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
+
+    workspace = CampaignWorkspace(tmp_path)
+    assert _recorded_costs(workspace) == []
+    workspace.manifest_path.mkdir()
+    with pytest.raises(WorkspaceError, match="cannot read run records"):
+        _recorded_costs(workspace)
+
+
 def saved_simulation(path: Path, names: Sequence[str], elements: int = ELEMENTS) -> Path:
     """The smallest saved simulation carrying a mesh block, with a stated size.
 
@@ -615,12 +626,9 @@ def test_point_costs_fills_the_sweep_point_before_it_costs_it(tmp_path):
         ],
     )
 
-    class _NoRuns:
-        """A workspace that has recorded nothing, so only the columns are read."""
+    from pyflightstream.workspace import CampaignWorkspace
 
-        manifest_path = tmp_path / "runs.json"
-
-    rows = point_costs(plan, cases_by_sim_id={"6002": case}, workspace=_NoRuns())
+    rows = point_costs(plan, cases_by_sim_id={"6002": case}, workspace=CampaignWorkspace(tmp_path))
     assert len(rows) == 1
     assert rows[0].run_id == "camp/sim_6002/a+00.0_b+00.0_j+01.7"
     assert rows[0].time_iterations == 36
@@ -644,10 +652,9 @@ def test_point_costs_gives_no_row_to_a_point_whose_simulation_it_was_not_given(t
         ],
     )
 
-    class _NoRuns:
-        manifest_path = tmp_path / "runs.json"
+    from pyflightstream.workspace import CampaignWorkspace
 
-    assert point_costs(plan, cases_by_sim_id={}, workspace=_NoRuns()) == []
+    assert point_costs(plan, cases_by_sim_id={}, workspace=CampaignWorkspace(tmp_path)) == []
 
 
 # --------------------------------------------------------------------------

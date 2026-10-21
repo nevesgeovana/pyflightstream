@@ -1626,6 +1626,7 @@ def supersede_records(
     """
     superseded = set(run_ids)
     with workspace._manifest_lock():
+        raw = workspace.read_raw_manifest()
         if not workspace.manifest_path.is_file():
             return None
         (workspace.root / ARCHIVE_DIR).mkdir(parents=True, exist_ok=True)
@@ -1637,11 +1638,7 @@ def supersede_records(
             (stamp or datetime.now()).strftime(ARCHIVE_STAMP),
         )
         shutil.copy2(workspace.manifest_path, target)
-        kept = [
-            row
-            for row in workspace.read_raw_manifest()
-            if str(row.get("run_id", "")) not in superseded
-        ]
+        kept = [row for row in raw if str(row.get("run_id", "")) not in superseded]
         workspace._replace_manifest(kept)
     return target
 

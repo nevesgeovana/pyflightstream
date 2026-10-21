@@ -386,8 +386,6 @@ def _recorded_costs(workspace) -> list[dict]:
     """
     # Use the workspace's manifest reader. Only a missing file means no
     # recorded runs; other failures must remain visible to the estimator.
-    if not workspace.manifest_path.is_file():
-        return []
     records = workspace.read_manifest()
     out = []
     for record in records:

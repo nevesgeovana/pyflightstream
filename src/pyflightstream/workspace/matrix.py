@@ -485,7 +485,7 @@ def renumber_repeated_pols(
     matrix = Path(path)
     mine, siblings = _pol_claims(path, workspace)
     claimed_elsewhere = {row.pol for rows in siblings.values() for row in rows}
-    records = workspace.read_manifest() if workspace.manifest_path.is_file() else []
+    records = workspace.read_manifest()
     sims = Path(workspace.root) / "sims"
     # A compacted sims/sim_<id>.zip and a batch's sims/batch/<label>/sim_<id> claim their id
     # as a folder does (PFS-2085.020); '123.zip' failed the digit test and was dropped.

@@ -33,6 +33,14 @@ def _envelope(ws):
     return value
 
 
+def test_p0430_rb2_supersede_refuses_unreadable_history(tmp_path):
+    ws = CampaignWorkspace(tmp_path)
+    assert ws.supersede_records(["run-1"]) is None
+    ws.manifest_path.mkdir()
+    with pytest.raises(WorkspaceError, match="cannot read run records"):
+        ws.supersede_records(["run-1"])
+
+
 @pytest.mark.parametrize("damage", ["geometry", "run_id", "status", "deletion"])
 def test_p0430_w007_decoded_headers_cannot_be_bypassed(damage):
     """A digest-valid definition or omission must not invalidate a run header."""

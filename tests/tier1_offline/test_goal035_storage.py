@@ -393,6 +393,19 @@ def test_sync_adds_a_run_present_only_in_the_other_workspace(tmp_path):
     assert any(row["run_id"] == "campo/sim_7001/AL+000" for row in raw)
 
 
+@pytest.mark.parametrize("apply", [False, True])
+def test_p0430_rb2_sync_refuses_unreadable_source_history(tmp_path, apply):
+    from pyflightstream.workspace import WorkspaceError
+
+    main, other = _sync_pair(tmp_path, "unreadable")
+    main.append_record(_record("7001", "main/sim_7001/AL+000"))
+    before = main.manifest_path.read_bytes()
+    other.manifest_path.mkdir()
+    with pytest.raises(WorkspaceError, match="cannot read run records"):
+        storage_module.sync_workspaces(main.root, "runs", apply=apply)
+    assert main.manifest_path.read_bytes() == before
+
+
 def test_sync_a_submitted_main_record_is_replaced_by_the_others(tmp_path):
     main, other = _sync_pair(tmp_path, "subreplace")
     main.append_record(_record("7002", "campo/sim_7002/AL+000", status=RunStatus.SUBMITTED))

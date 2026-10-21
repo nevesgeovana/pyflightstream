@@ -41,6 +41,16 @@ def _records(root: Path) -> dict[str, dict]:
     return {row["run_id"]: row for row in _read_record_rows(root / "runs.json")}
 
 
+def test_p0430_rb2_rebuild_refuses_unreadable_history(tmp_path):
+    from pyflightstream.run.records import rebuild
+    from pyflightstream.workspace import WorkspaceError
+
+    (tmp_path / "sims").mkdir()
+    (tmp_path / "runs.json").mkdir()
+    with pytest.raises(WorkspaceError, match="cannot read run records"):
+        rebuild(tmp_path)
+
+
 def _posted(root: Path, capsys) -> tuple[dict, str]:
     """Post the matrix as she does and return its products manifest and its log."""
     code, said = pyfs(["post", MATRIX], root, capsys)

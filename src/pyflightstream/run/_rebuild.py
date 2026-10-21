@@ -953,8 +953,8 @@ def rebuild(
     if not (base / "sims").is_dir():
         raise RecordsError(f"rebuild: {base} holds no sims/ folder; run it at the workspace root")
     manifest = base / DEFAULT_MANIFEST
+    rows = _read_rows(manifest)
     manifest_bytes = manifest.read_bytes() if manifest.is_file() else None
-    rows = _read_rows(manifest) if manifest_bytes is not None else []
     if rows is None:
         raise RecordsError(f"rebuild: {manifest} is not a readable list of run records")
     live = [row for row in rows if "deleted_sim" not in row]

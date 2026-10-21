@@ -34,6 +34,21 @@ import pytest
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 
 
+def test_p0430_rb2_superfile_union_refuses_unreadable_history(tmp_path):
+    from pyflightstream.post.superfile import union_the_workspace_knows
+    from pyflightstream.workspace import WorkspaceError
+
+    (tmp_path / "runs.json").mkdir()
+    with pytest.raises(WorkspaceError, match="cannot read run records"):
+        union_the_workspace_knows(
+            tmp_path, tmp_path / "post", None, polars_dir="polars", probes_dir="probes"
+        )
+    # Explicit rows remain authoritative even when the default path is unusable.
+    assert union_the_workspace_knows(
+        tmp_path, tmp_path / "post", None, polars_dir="polars", probes_dir="probes", raw_records=[]
+    )
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-162")])
 def test_p0430_recorded_rotor_speed_precedes_current_matrix():
     from types import SimpleNamespace

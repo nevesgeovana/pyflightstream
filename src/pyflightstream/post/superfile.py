@@ -930,18 +930,14 @@ def union_the_workspace_knows(
     known.add(RPM_COLUMN)
     manifest = root / "runs.json"
     pols: set[str] = set()
-    if raw_records is not None or manifest.is_file():
-        try:
-            records = list(raw_records) if raw_records is not None else _read_run_rows(manifest)
-        except (OSError, json.JSONDecodeError):
-            records = []
-        for record in records if isinstance(records, list) else []:
-            if not isinstance(record, Mapping):
-                continue
-            if matrix_stem and record.get("matrix_stem") != matrix_stem:
-                continue
-            pols.add(str(record.get("sim_id")))
-            known |= _record_field_names(record)
+    records = list(raw_records) if raw_records is not None else _read_run_rows(manifest)
+    for record in records:
+        if not isinstance(record, Mapping):
+            continue
+        if matrix_stem and record.get("matrix_stem") != matrix_stem:
+            continue
+        pols.add(str(record.get("sim_id")))
+        known |= _record_field_names(record)
     if matrix_stem:
         known |= _matrix_names(root / f"{matrix_stem}{_MATRIX_SUFFIX}", pols)
     return known
