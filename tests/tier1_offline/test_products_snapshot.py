@@ -726,6 +726,17 @@ def without_the_fr348_column(data: bytes) -> bytes | None:
     return ("\n".join(kept) + "\n").encode("utf-8")
 
 
+def fr348_cells(files: dict[str, bytes]) -> dict[str, list[str]]:
+    """The MESH_FACES cells of each product that carries the column, which the digest never sees."""
+    cells: dict[str, list[str]] = {}
+    for name, data in files.items():
+        if any(fnmatch.fnmatch(name, pattern) for pattern in FR348_PRODUCTS):
+            lines = data.decode("utf-8", "replace").split("\n")
+            if lines[0].endswith(f",{FR348_COLUMN}"):
+                cells[name] = [line.rpartition(",")[2] for line in lines[1:-1]]
+    return cells
+
+
 def fr348_admitted(files: dict[str, bytes]) -> tuple[dict[str, bytes], list[str]]:
     """The files with the FR-348 column taken off each product it names, and those that lack it.
 
@@ -999,6 +1010,10 @@ def test_the_products_of_a_recorded_campaign_are_byte_for_byte_the_stored_ones(n
     assert files, f"{name}: the post wrote nothing"
     assert not differences(index, files), explain(index, texts, files)
     assert not text_differences(texts, files), explain(index, texts, files)
+    # F-876: the digest is taken with the MESH_FACES column off, so its values are read here;
+    # the recorded campaigns' inventories state no face count, so every cell is NA.
+    for product, cells in fr348_cells(files).items():
+        assert set(cells) == {"NA"}, (name, product, cells)
 
 
 def test_a_planted_difference_in_the_products_is_caught(monkeypatch):
