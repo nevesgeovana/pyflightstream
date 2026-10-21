@@ -2410,10 +2410,11 @@ def _disc_map_of(azimuth: str, value: str, tmp_path: Path) -> list[dict[str, str
         }
     ]
     mapped = disc_maps.disc_map_rows(columns, rows, {"PROP": rotor}, sample_column="CLOCKING")
-    (written,) = disc_maps.write_disc_maps(
+    written = disc_maps.write_disc_maps(
         mapped, point="P", pol="1", context=[None] * len(CONTEXT_COLUMNS), out_dir=tmp_path
     )
-    return read_csv_table(written)[1]
+    (fz,) = [path for path in written if path.name.endswith("_Fz.csv")]
+    return read_csv_table(fz)[1]
 
 
 def test_x_f_0339_a_tiny_negative_azimuth_stays_inside_the_documented_range(tmp_path):
@@ -2474,6 +2475,70 @@ def test_f1412_the_reference_velocity_warning_does_not_promise_the_plots_table_a
     report = SimpleNamespace(freestream_velocity_m_s=50.0, reference_velocity_m_s=100.0)
     with pytest.warns(PyflightstreamWarning, match="the plots table states none"):
         _warn_the_point_s_state("P", cast(Any, report), cast(Any, SimpleNamespace(state=None)))
+
+
+def test_x_f_0523_an_unreadable_fsi_history_is_a_named_skip_not_a_stage_abort(
+    tmp_path, monkeypatch
+):
+    """X-F-0523: a damaged history log aborted the stage; it is a named skip now."""
+    import pyflightstream.post._structure as structure
+
+    folder = tmp_path / "run"
+    folder.mkdir()
+    (folder / "fsi_convergence_log.csv").write_bytes(b"\xff\xfe\x00bad")
+    monkeypatch.setattr(structure, "file_sha256", lambda path: "h")
+    monkeypatch.setattr(
+        structure,
+        "load_config",
+        lambda path: SimpleNamespace(blade=SimpleNamespace(station_radii_m=[1.0])),
+    )
+    monkeypatch.setattr(
+        structure,
+        "generate_node_layout",
+        lambda config: SimpleNamespace(le_offset_m=[0.0], te_offset_m=[0.0]),
+    )
+    monkeypatch.setattr(structure, "_recorded_displacements", lambda *a: (folder / "src", None))
+    monkeypatch.setattr(structure, "unflatten_translations", lambda layout, flat: [None])
+    monkeypatch.setattr(
+        structure, "decode_station_translations", lambda *a: (np.array([0.0]), np.array([0.0]))
+    )
+    record = SimpleNamespace(
+        inputs_sha256={"fsi-provenance.json": "h", "config.json": "h"}, cwd=str(folder)
+    )
+    ctx = SimpleNamespace(
+        points=[SimpleNamespace(name="P")],
+        record_of={"P": record},
+        skipped={},
+        out=tmp_path / "out",
+        sources={"P": ["run/P"]},
+        structure_tips={},
+        target=lambda path: path,
+        add=lambda path, entry: None,
+    )
+    structure.structure_products(cast(Any, ctx))
+    assert list(ctx.skipped) == ["structure/P_history.csv"], ctx.skipped
+
+
+def test_f1414_x_f_1193_the_inflow_harmonics_table_is_rectangular_and_refuses_a_nan_axis(tmp_path):
+    """F-1414: a short shares tuple gave a ragged row; X-F-1193: a NaN axis passed the guard."""
+    station = inflow_tools.InflowStationHarmonics(
+        radius_m=0.5,
+        chord_m=0.1,
+        dalpha_rms_deg=1.0,
+        dalpha_half_ptp_deg=2.0,
+        n95=2,
+        shares=(0.5,),
+        k_1p=0.1,
+        k_eff=0.2,
+    )
+    built = inflow_tools.HarmonicsMap(
+        stations=((0.5, station),), diameter_m=1.0, v_inf_m_s=10.0, blades=2
+    )
+    full, _short = inflow_tools.write_inflow_harmonics(tmp_path, built)
+    rows = full.read_text(encoding="utf-8").splitlines()
+    assert {len(row.split(",")) for row in rows} == {len(rows[0].split(","))}
+    with pytest.raises(ProductError, match="rotor axis"):
+        inflow_tools._refuse_a_wrong_axis((float("nan"), 0.0, 0.0))
 
 
 def test_x_f_0327_an_infinite_clock_is_a_named_skip_not_an_overflow(tmp_path):

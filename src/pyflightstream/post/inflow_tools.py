@@ -344,7 +344,13 @@ def __getattr__(name: str) -> object:
 
 def _refuse_a_wrong_axis(axis: Sequence[float]) -> None:
     norm = math.sqrt(sum(a * a for a in axis))
-    if norm <= 0.0 or abs(axis[1]) > 1e-9 * norm or abs(axis[2]) > 1e-9 * norm:
+    # A NaN component makes every comparison False, so the guard needs the norm finite.
+    if (
+        not math.isfinite(norm)
+        or norm <= 0.0
+        or abs(axis[1]) > 1e-9 * norm
+        or abs(axis[2]) > 1e-9 * norm
+    ):
         raise ProductError(
             f"refused: the rotor axis is {tuple(axis)}; the inflow profile is a plane of the "
             "global YZ, so the blade-view harmonics need the axis along X."
@@ -627,7 +633,11 @@ def write_inflow_harmonics(
                     str(s.n95),
                     _cell(s.k_1p),
                     _cell(s.k_eff),
-                    *(_cell(v) for v in s.shares),
+                    # exactly HARMONIC_SHARES cells: a hand-built result with fewer is padded blank
+                    *(
+                        _cell(s.shares[i] if i < len(s.shares) else None)
+                        for i in range(HARMONIC_SHARES)
+                    ),
                 ]
             )
         )
