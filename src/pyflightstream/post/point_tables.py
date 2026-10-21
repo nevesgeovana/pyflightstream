@@ -38,7 +38,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases import classify_outputs
 from pyflightstream.results import parse_force_distributions, parse_solver_analysis_csv
@@ -1402,7 +1401,7 @@ def revolution_drift_pct(current: float, previous: float) -> float | None:
 
 
 def export_tables(ctx: SimContext) -> None:
-    """Table exported numbers without inferring an unstated scalar field."""
+    """Table exported numbers with POL and condition, without inferring an unstated scalar field."""
     for point in ctx.points:
         record = ctx.record_of[point.name]
         exports = classify_outputs(record.outputs, package_version=record.package_version)
@@ -1430,11 +1429,12 @@ def export_tables(ctx: SimContext) -> None:
                 ctx.skipped[relative] = f"{product}: {error}"
                 continue
             target = ctx.target(ctx.out / relative)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with _textio.open_text(target, "w") as handle:
-                writer = _textio.csv_writer(handle)
-                writer.writerow(columns)
-                writer.writerows(values)
+            context = context_row(ctx.condition(point), ctx.reference.as_lengths())
+            write_csv_table(
+                target,
+                (POLAR_ID_COLUMN, *CONTEXT_COLUMNS, *columns),
+                [(ctx.sim_id, *context, *(str(value) for value in row)) for row in values],
+            )
             ctx.add(
                 target,
                 {

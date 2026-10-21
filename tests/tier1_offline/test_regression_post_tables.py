@@ -886,6 +886,56 @@ def _post_1_superfile___measured(
     return case
 
 
+@pytest.mark.parametrize(
+    "kind", ["csv", "force_distributions"], ids=["P0430-F-1369-surface", "P0430-F-1369-force"]
+)
+def test_p0430_retabled_exports_state_polar_and_condition(tmp_path, kind):
+    from types import SimpleNamespace
+
+    from pyflightstream.post import point_tables
+    from pyflightstream.post._tables import CONTEXT_COLUMNS, ReferenceValues, read_csv_table
+    from tests.tier1_offline.test_results import read_fixture
+
+    fixture, output, native_columns = (
+        ("solver_analysis_26.123.csv", "DP.csv", ("x", "y", "z", "scalar"))
+        if kind == "csv"
+        else (
+            "force_distributions_26.123.txt",
+            "DP_force_distributions.txt",
+            ("Boundary", "X", "Y", "Z", "Cx", "Cy", "Cz", "Cxv", "Cyv", "Czv"),
+        )
+    )
+    (tmp_path / output).write_text(read_fixture(fixture), encoding="utf-8")
+    written = []
+    ctx = SimpleNamespace(
+        points=[SimpleNamespace(name="DP")],
+        sim_id="42",
+        record_of={
+            "DP": SimpleNamespace(
+                outputs=[output],
+                package_version="0.42.0",
+                sim_id="42",
+                fs_version_requested="26.123",
+            )
+        },
+        workspace=SimpleNamespace(sim_dir=lambda _: tmp_path),
+        out=tmp_path,
+        sources={"DP": ["run"]},
+        skipped={},
+        target=lambda path: path,
+        add=lambda path, entry: written.append(path),
+        condition=lambda point: {"ALPHA": 7.0},
+        reference=ReferenceValues(2.0, 3.0, 4.0),
+    )
+    point_tables.export_tables(ctx)
+    columns, rows = read_csv_table(written[0])
+    assert list(columns) == ["POL", *CONTEXT_COLUMNS, *native_columns]
+    assert rows[0]["POL"] == "42"
+    assert float(rows[0]["ALPHA"]) == 7.0
+    assert float(rows[0]["SREF"]) == 2.0
+    assert len(rows) > 1
+
+
 class TestPost1Superfile:
     """P0400-PERENTRYCOUNT (PFS-2105.021): measure_sections reads each entry's own count.
 
