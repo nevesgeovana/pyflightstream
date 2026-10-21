@@ -1100,3 +1100,28 @@ def test_a_vertex_that_is_not_a_finite_number_is_refused():
     mesh = trimesh.Trimesh(vertices=vertices, faces=numpy.array([[0, 1, 2]]), process=False)
     with pytest.raises(InputArtifactError, match="not a finite number"):
         extract_trailing_edge(mesh, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=2)
+
+
+def test_f1544_an_impossible_section_count_is_refused_before_any_allocation(tmp_path):
+    """A count no mesh could fill is the actionable refusal, never a huge allocation."""
+    path, _, _ = _blade_file(tmp_path)
+    with pytest.raises(InputArtifactError, match="ask for fewer sections"):
+        extract_trailing_edge(path, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=10**15)
+
+
+@pytest.mark.parametrize("magnitude", [1.0e200, 1.0e-200])
+def test_f348_an_axis_of_extreme_magnitude_keeps_its_direction(magnitude):
+    from pyflightstream.workspace.trailing_edges import _unit_axis
+
+    unit = _unit_axis((0.0, 0.0, magnitude))
+    assert numpy.allclose(unit, (0.0, 0.0, 1.0))
+    diagonal = _unit_axis((magnitude, magnitude, 0.0))
+    assert numpy.allclose(diagonal, (math.sqrt(0.5), math.sqrt(0.5), 0.0))
+
+
+def test_f325_a_stretch_axis_of_extreme_magnitude_keeps_its_direction():
+    from pyflightstream.workspace._refine._geometry import Stretch
+
+    for magnitude in (1.0e200, 1.0e-200):
+        stretch = Stretch((0.0, 0.0, magnitude), (0.0, 0.0, 0.0), 2.0, 3.0)
+        assert numpy.allclose(stretch.axis, (0.0, 0.0, 1.0))

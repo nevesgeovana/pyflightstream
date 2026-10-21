@@ -421,7 +421,10 @@ class Stretch:
         circumferential: float,
     ) -> None:
         direction = numpy.asarray(axis, dtype=float).reshape(3)
-        self.axis = direction / float(numpy.linalg.norm(direction))
+        # Scaled by the largest component first, so a finite axis of extreme magnitude
+        # keeps its direction instead of overflowing or underflowing its own length.
+        unit = direction / float(numpy.max(numpy.abs(direction)))
+        self.axis = unit / float(numpy.linalg.norm(unit))
         self.origin = numpy.asarray(origin, dtype=float).reshape(3)
         self.factors = (float(axial), float(circumferential))
 

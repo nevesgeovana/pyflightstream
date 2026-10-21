@@ -233,7 +233,11 @@ def _three_vector(value: Any, name: str) -> numpy.ndarray:
 def _unit_axis(value: Any) -> numpy.ndarray:
     """Read the rotor axis and normalise it, or refuse."""
     array = _three_vector(value, "rotor axis")
-    length = float(numpy.linalg.norm(array))
+    # Scaled by the largest component first, so a finite axis of extreme magnitude
+    # neither overflows nor underflows its own length (F-348).
+    peak = float(numpy.abs(array).max())
+    scaled = array / peak if peak > 0.0 else array
+    length = float(numpy.linalg.norm(scaled))
     if length == 0.0:
         raise InputArtifactError(
             "the rotor axis is the zero vector, which names no direction: with no "
@@ -243,7 +247,7 @@ def _unit_axis(value: Any) -> numpy.ndarray:
             "about it",
             kind=_KIND,
         )
-    return array / length
+    return scaled / length
 
 
 def _loaded(mesh: Any) -> Any:
@@ -528,6 +532,15 @@ def _sectioned(
             kind=_KIND,
         )
     sections = int(sections)
+    if sections > len(vertices):
+        # Refused before any array of that length is allocated.
+        raise InputArtifactError(
+            f"the extraction was asked for {sections} chordwise sections, and the mesh "
+            f"has only {len(vertices)} vertices, fewer than one for each section. "
+            "The span is being cut finer than the mesh resolves it: ask for fewer "
+            "sections, or extract from a mesh with more spanwise stations",
+            kind=_KIND,
+        )
 
     offset = vertices - hub_point
     radial_vectors = offset - numpy.outer(offset @ unit_axis, unit_axis)
