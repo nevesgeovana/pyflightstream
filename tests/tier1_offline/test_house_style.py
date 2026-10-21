@@ -455,6 +455,18 @@ def _provenance_admits(fsm_bytes, record_bytes):
     return record["sha256"].strip().lower() == hashlib.sha256(fsm_bytes).hexdigest()
 
 
+#: Compression wrappers: ``blade.stl.gz`` is a mesh, and so is ``blade.stl.zst``.
+COMPRESSION_SUFFIXES = frozenset({".gz", ".bz2", ".xz", ".zst", ".lz4", ".z"})
+
+
+def _geometry_suffix(path):
+    """The lowercased suffix of a path, looking through compression wrappers."""
+    suffixes = [suffix.lower() for suffix in Path(path).suffixes]
+    while len(suffixes) > 1 and suffixes[-1] in COMPRESSION_SUFFIXES:
+        suffixes.pop()
+    return suffixes[-1] if suffixes else ""
+
+
 def _geometry_offenses(relative_posix_paths, read=_read_tracked):
     """Tracked paths carrying a geometry extension without an allowlist entry.
 
@@ -488,7 +500,7 @@ def _geometry_offenses(relative_posix_paths, read=_read_tracked):
     return sorted(
         path
         for path in paths
-        if (path in RECORDED_WAKE_FIXTURES or Path(path).suffix.lower() in GEOMETRY_SUFFIXES)
+        if (path in RECORDED_WAKE_FIXTURES or _geometry_suffix(path) in GEOMETRY_SUFFIXES)
         and not provably_synthetic(path)
     )
 
@@ -524,6 +536,9 @@ def test_the_geometry_guard_fires_on_what_it_exists_to_catch():
     Runs the DETECTOR against the exact case measured red above, plus the
     live tree, so the proof is about the scan and not about ``str.endswith``.
     """
+    compressed = ["examples/blade.stl.gz", "examples/BLADE.OBJ.zst"]
+    assert _geometry_offenses(compressed) == sorted(compressed), "a compressed mesh slipped through"
+    assert _geometry_offenses(["docs/notes.txt.gz", "docs/archive.gz"]) == []
     leak = "examples/leaked_blade.stl"
     assert _geometry_offenses([leak]) == [leak], (
         "the detector does not fire on a mesh committed under examples/, which "
@@ -948,3 +963,13 @@ def test_no_tracked_text_file_carries_a_control_byte():
         "this workflow renders as nothing: " + "; ".join(offenders) + ". Write it as "
         r"an escape (\b, \x1f) so the character is visible to a reader"
     )
+
+
+def test_the_docs_deploy_tag_arm_is_bound_to_a_push_event():
+    """A manual dispatch started on a tag ref must not deploy unless it asked to, on main."""
+    import yaml
+
+    text = (REPO_ROOT / ".github" / "workflows" / "docs.yml").read_text(encoding="utf-8")
+    condition = yaml.safe_load(text)["jobs"]["deploy"]["if"]
+    tag_arm = condition.split("||")[0]
+    assert "github.event_name == 'push'" in tag_arm and "refs/tags/v" in tag_arm, condition
