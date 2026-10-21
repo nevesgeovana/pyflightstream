@@ -710,7 +710,7 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 \opt{--list}{every path each step touches, its size and what happens to it.}
 \opt{--runs NAME}{also read this manifest; \fl{--workspace DIR}.}
 \end{cmdblock}
-\begin{cmdblock}{pyfs-matrix delete-sims}{<ids>}{Delete simulations (\texttt{4001,2009}), their products and records; a note row keeps the ids retired.}
+\begin{cmdblock}{pyfs-matrix delete-sims}{--sims <ids>}{Delete simulations (\texttt{--sims 4001 2009}), their products and records; a note row keeps the ids retired.}
 \opt{--apply}{change files (default: preview).}
 \opt{--force}{also a simulation whose run is still SUBMITTED.}
 \opt{--matrix-products \{points-only,regenerate\}}{a product that also holds other points: leave it, marked stale, or post it again without the deleted ones.}

@@ -185,7 +185,7 @@ pyfs-matrix sync post --workspace . --apply
 \begin{lstlisting}[style=ftsbase]
 pyfs-matrix space-in-use --workspace .              # sizes; changes nothing
 pyfs-matrix free-space m001 --workspace . --apply   # inputs/management/m001.toml
-pyfs-matrix delete-sims 4001,2009 --workspace . --apply
+pyfs-matrix delete-sims --sims 4001 2009 --workspace . --apply
 \end{lstlisting}
 \begin{itemize}\small
   \item \code{space-in-use}: sizes by top folder, by \code{sims/sim\_*} and by
