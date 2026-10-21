@@ -407,6 +407,47 @@ def write_report(tmp_path, commands, version="26.120"):
     return path
 
 
+@pytest.mark.requirement("FR-1601")
+def test_p0430_compare_executable_evidence_with_equal_build_labels(tmp_path):
+    from pyflightstream.qa import compat
+
+    assert hasattr(compat, "compare_compat_reports"), "no attributed executable comparison"
+    paths = []
+    for side, digest, effect in (("a", "a" * 64, "on"), ("b", "b" * 64, "off")):
+        path = tmp_path / f"{side}.yaml"
+        path.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": COMPAT_SCHEMA,
+                    "fs_version": "26.120",
+                    "fs_exe": "solver.exe",
+                    "fs_exe_sha256": digest,
+                    "commands": {"PRINT": {"outcome": "verified", "observation": effect}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        paths.append(path)
+    before = [path.read_bytes() for path in paths]
+    compared = compat.compare_compat_reports(*paths)
+    assert compared["a"]["fs_exe_sha256"] == "a" * 64
+    assert compared["b"]["fs_exe_sha256"] == "b" * 64
+    assert compared["a"]["fs_version"] == compared["b"]["fs_version"] == "26.120"
+    assert compared["commands"]["PRINT"] == {
+        "a": {"outcome": "verified", "observation": "on"},
+        "b": {"outcome": "verified", "observation": "off"},
+        "changed": True,
+    }
+    assert [path.read_bytes() for path in paths] == before
+    same = compat.compare_compat_reports(paths[0], paths[0])
+    assert same["commands"]["PRINT"]["changed"] is False
+    document = yaml.safe_load(paths[1].read_text(encoding="utf-8"))
+    document["fs_exe_sha256"] = "withheld; build 7012026"
+    paths[1].write_text(yaml.safe_dump(document), encoding="utf-8")
+    with pytest.raises(QaEvidenceError, match="recorded SHA-256"):
+        compat.compare_compat_reports(*paths)
+
+
 def test_apply_compat_promotes_citing_the_report(tmp_path):
     commands_dir = tmp_path / "commands"
     write_chapter_fixture(commands_dir)

@@ -58,6 +58,7 @@ __all__ = [
     "apply_reanalysis",
     "classify_executable",
     "compat_report_paths",
+    "compare_compat_reports",
     "contradicting_evidence",
     "licence_sensitive_candidates",
     "read_compat_report",
@@ -312,6 +313,69 @@ def read_compat_report(path: str | Path) -> dict:
                 f"{body!r}); nothing was written"
             )
     return document
+
+
+def compare_compat_reports(report_a: str | Path, report_b: str | Path) -> dict[str, Any]:
+    """Compare recorded command evidence while retaining each executable's identity.
+
+    Equal build labels do not merge the two sides. This is a read-only comparison
+    of reports, not a command-status promotion or a new solver measurement.
+
+    Parameters
+    ----------
+    report_a, report_b : str or Path
+        Baseline and comparison compatibility reports. Each must record its
+        executable name and SHA-256 identity.
+
+    Returns
+    -------
+    dict
+        Separate ``a`` and ``b`` identity blocks and a ``commands`` mapping.
+        Each command retains both evidence rows (None when absent); ``changed``
+        compares outcome, signals and observation, excluding execution timing.
+
+    Raises
+    ------
+    QaEvidenceError
+        A report is invalid or lacks a recorded executable identity.
+
+    Examples
+    --------
+    Compare retained reports without running either executable:
+
+    >>> comparison = compare_compat_reports("baseline.yaml", "candidate.yaml")  # doctest: +SKIP
+    >>> comparison["commands"]["PRINT"]["changed"]  # doctest: +SKIP
+    False
+    """
+    result: dict[str, Any] = {}
+    documents = []
+    for side, path in (("a", report_a), ("b", report_b)):
+        document = read_compat_report(path)
+        for key in ("fs_exe", "fs_exe_sha256"):
+            if not isinstance(document.get(key), str) or not document[key].strip():
+                raise QaEvidenceError(
+                    f"{path}: {key} is missing; compare reports with recorded executable "
+                    "identities instead of inferring identity from a build label"
+                )
+        if re.fullmatch(r"[0-9a-fA-F]{64}", document["fs_exe_sha256"]) is None:
+            raise QaEvidenceError(
+                f"{path}: fs_exe_sha256 is not a recorded SHA-256 digest; use private "
+                "evidence with executable digests, not a withheld build-only identity"
+            )
+        result[side] = {key: document[key] for key in ("fs_version", "fs_exe", "fs_exe_sha256")}
+        result[side]["report"] = Path(path).as_posix()
+        documents.append(document["commands"])
+    before, after = documents
+    result["commands"] = {}
+    for command in sorted(before.keys() | after.keys()):
+        a, b = before.get(command), after.get(command)
+        changed = (
+            a is None
+            or b is None
+            or any(a.get(key) != b.get(key) for key in ("outcome", "signals", "observation"))
+        )
+        result["commands"][command] = {"a": a, "b": b, "changed": changed}
+    return result
 
 
 #: Outcomes ``apply_compat`` writes into the database. Only these carry
