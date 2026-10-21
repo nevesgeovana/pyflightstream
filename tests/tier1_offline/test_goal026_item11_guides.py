@@ -20,6 +20,23 @@ from pyflightstream.cases import PprocSpec
 from pyflightstream.post.guides import PPROC_GUIDE_NAMES, write_pproc_guides
 from pyflightstream.post.products import ROTOR_COEFFICIENT_COLUMNS
 
+
+def test_p0430_f1812_endpoint_strip_definition_is_extrapolated(tmp_path):
+    paths = write_pproc_guides(tmp_path)
+    assert "half strips" not in "".join(path.read_text(encoding="utf-8") for path in paths)
+
+
+def test_p0430_f1813_power_definition_keeps_rotation_sign(tmp_path):
+    paths = write_pproc_guides(tmp_path)
+    assert "sign(RPM)" in "".join(path.read_text(encoding="utf-8") for path in paths)
+
+
+def test_p0430_f1818_reference_template_distinguishes_project_normalization():
+    from pyflightstream.post.input_template import input_template_markdown
+
+    assert "project's own area and chord" in input_template_markdown()
+
+
 # ITEMS 10 AND 11 ARE 0.24.0 SCOPE, by the owner's decision of 2026-09-18:
 # "vamos colocar equations e VARIABLES.md e WRITING-EQUATIONS.md gerados para
 # a 24", and "deixa o super files no farmato legacy para 24 tb".

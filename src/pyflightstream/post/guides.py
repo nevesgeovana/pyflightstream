@@ -145,7 +145,10 @@ VARIABLE_DEFINITIONS: dict[str, str] = {
         "-. The polar a row comes from, the matrix row's POL; the first column of "
         "every table the post writes"
     ),
-    STRIP_LENGTH: "m. Midpoint-to-midpoint strip length; the endpoint stations get half strips",
+    STRIP_LENGTH: (
+        "m. Midpoint-to-midpoint strip length; endpoint lengths equal their adjacent spacing, "
+        "extending half that spacing beyond the endpoint station"
+    ),
     FX_INT: "N. Fx times Strip_length, in the recorded section axes at this row's STEP and azimuth",
     FZ_INT: "N. Fz times Strip_length, in the recorded section axes at this row's STEP and azimuth",
     MY_INT: (
@@ -192,7 +195,7 @@ VARIABLE_DEFINITIONS: dict[str, str] = {
     "REVOLUTIONS": "-. How many revolutions entered the mean at that azimuth",
     "CT": "-. Thrust coefficient, T / (rho n^2 D^4)",
     "CQ": "-. Torque coefficient, Q / (rho n^2 D^5)",
-    "CP": "-. Power coefficient, 2 pi CQ",
+    "CP": "-. Power coefficient, 2 pi CQ sign(RPM)",
     "ETA": "-. Propulsive efficiency, J CT / CP",
     "ETAW": "-. The efficiency with the wind-axis force in place of the thrust, J CTW / CP",
     "CN": (

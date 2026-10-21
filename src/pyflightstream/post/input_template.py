@@ -366,9 +366,9 @@ plots = true
 
 _REFERENCE_EXAMPLE = """\
 # A reference artifact: what a row's REF column names by id; the id begins with r, so this
-# file is r001. The lengths the coefficients are divided by, the moment point, the frames, your
-# names for groups of boundaries, the study's surfaces, and one block per rotor, actuator disc
-# and named point. Lengths are in metres, in the geometry's own frame.
+# file is r001. Reference lengths, moment point, frames, groups and rotor blocks follow.
+# Native coefficients use the project's own area and chord, which may differ from these
+# artifact values. Keep them consistent. Lengths are metres in the geometry's own frame.
 
 area_m2 = 8.0                     # S_ref, m^2
 chord_m = 1.0                     # c_ref, m
