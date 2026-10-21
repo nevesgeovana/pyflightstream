@@ -104,11 +104,14 @@ def test_a_run_recorded_before_this_release_reads_as_no_positions(tmp_path):
     assert read_probe_positions(tmp_path / "nothing-here.csv") == {}
 
 
-def test_a_file_that_is_not_a_positions_table_reads_as_none_of_them(tmp_path):
+def test_a_file_that_is_not_a_positions_table_is_refused(tmp_path):
     """A reader that guessed at a stranger's columns would place points wrongly."""
     stranger = tmp_path / "stranger.csv"
     stranger.write_text("A,B\n1,2\n", encoding="utf-8")
-    assert read_probe_positions(stranger) == {}
+    from pyflightstream._errors import ProductError
+
+    with pytest.raises(ProductError, match="complete positions table"):
+        read_probe_positions(stranger)
 
 
 # --------------------------------------------------------------------------
