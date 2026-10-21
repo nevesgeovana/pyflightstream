@@ -207,6 +207,60 @@ def test_nonfinite_native_strength_is_refused(tmp_path):
         read_native_tecplot_surface(_native(tmp_path / "native.dat", strength="nan 10 40 20"))
 
 
+def _vtk_with(**fields):
+    return VtkSurface(
+        points=_vtk().points,
+        offsets=_vtk().offsets,
+        connectivity=_vtk().connectivity,
+        point_data={name: np.arange(4.0) for name in fields},
+    )
+
+
+def test_f_1434_a_non_numeric_frame_record_is_a_malformed_output_not_a_bare_value_error():
+    from pyflightstream.results.surface import SurfaceFrame
+
+    record = {"origin": ["x", 0, 0], "axes": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "frame": 2}
+    with pytest.raises(MalformedOutputError, match="not a number"):
+        SurfaceFrame.from_record(record)
+
+
+def test_f_829_a_repeated_point_data_section_is_refused_not_merged_away(tmp_path):
+    from pyflightstream.results.surface import read_vtk_surface
+
+    path = write_vtk_surface(tmp_path / "a.vtk", _vtk_with(A=1), title="t")
+    second = "POINT_DATA 4" + chr(10) + "SCALARS B FLOAT" + chr(10) + "LOOKUP_TABLE default"
+    path.write_text(path.read_text() + second + chr(10) + "1 2 3 4" + chr(10), encoding="utf-8")
+    with pytest.raises(MalformedOutputError, match="more than one POINT_DATA"):
+        read_vtk_surface(path)
+
+
+def test_f_1441_a_field_name_the_vtk_reader_would_split_is_refused_by_the_writer(tmp_path):
+    from pyflightstream._errors import ProductError
+
+    with pytest.raises(ProductError, match="whitespace"):
+        write_vtk_surface(tmp_path / "a.vtk", _vtk_with(**{"my field": 1}), title="t")
+    assert not (tmp_path / "a.vtk").exists()
+
+
+def test_f_1440_names_that_collide_once_normalized_are_refused_by_the_tecplot_writer(tmp_path):
+    from pyflightstream._errors import ProductError
+    from pyflightstream.results.surface import write_tecplot_surface
+
+    surface = _vtk_with(**{"a b": 1, "a  b": 1})
+    with pytest.raises(ProductError, match="one Tecplot name"):
+        write_tecplot_surface(tmp_path / "a.dat", surface, title="t")
+
+
+def test_f_1442_stamped_exports_in_a_subdirectory_are_found_beside_their_vtk(tmp_path):
+    from pyflightstream.results.surface import _surface_pairs
+
+    (tmp_path / "sub").mkdir()
+    for name in ("P1.vtk", "P1_iteration=3.vtk"):
+        (tmp_path / "sub" / name).write_text("x", encoding="utf-8")
+    pairs = _surface_pairs(tmp_path, "sub/P1.vtk", "sub/P1.dat")
+    assert pairs[1] == ("sub/P1_iteration=3.vtk", "sub/P1_iteration=3.dat")
+
+
 def test_f_817_an_unparseable_varlocation_is_refused_not_read_as_absent(tmp_path):
     from pyflightstream.results.native_surface import read_native_tecplot_surface
 

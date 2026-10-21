@@ -220,8 +220,9 @@ class SurfaceFrame:
         Raises
         ------
         MalformedOutputError
-            If the mapping states no origin or no axes: a frame whose placement
-            the script did not know cannot undo anything.
+            If the mapping states no origin or no axes (a frame whose placement
+            the script did not know cannot undo anything), or a value of it is
+            not a number.
         """
         origin = stated.get("origin")
         axes = stated.get("axes")
@@ -232,11 +233,19 @@ class SurfaceFrame:
                 "as the loads frame did not place it, so where the VTK's points stand in "
                 "the reference frame is not known"
             )
-        return cls(
-            origin=tuple(float(value) for value in origin),  # type: ignore[arg-type]
-            axes=tuple(tuple(float(v) for v in axis) for axis in axes),  # type: ignore[arg-type,union-attr]
-            index=int(index) if isinstance(index, int) else 1,
-        )
+        try:
+            return cls(
+                origin=tuple(float(value) for value in origin),  # type: ignore[arg-type]
+                axes=tuple(tuple(float(v) for v in axis) for axis in axes),  # type: ignore[arg-type,union-attr]
+                index=int(index) if isinstance(index, int) else 1,
+            )
+        except (TypeError, ValueError) as error:
+            if isinstance(error, MalformedOutputError):
+                raise
+            raise MalformedOutputError(
+                f"the record's placement of frame {index} holds a value that is not a "
+                f"number ({error}); the origin and each axis are numbers"
+            ) from error
 
     def describe(self) -> str:
         """Return one line naming the frame, its origin and its axes."""
@@ -723,6 +732,14 @@ def write_tecplot_surface(
     names = [*_COORDINATE_SCALARS, *(name for name, _ in nodal), *surface.cell_data]
     if len(set(names)) != len(names):
         raise ProductError(f"the surface names a variable twice among {names}")
+    # The file holds the NORMALIZED names, so two names that differ only in
+    # whitespace or a quote collide there although they differ here.
+    written_names = [_plain(name) for name in names]
+    if len(set(written_names)) != len(written_names):
+        raise ProductError(
+            f"two variables of the surface are written under one Tecplot name after "
+            f"whitespace and quotes are normalized: {written_names}"
+        )
     lines = [
         f'TITLE = "{_plain(title)}"',
         "VARIABLES = " + ", ".join(f'"{_plain(name)}"' for name in names),
@@ -791,6 +808,13 @@ def write_vtk_surface(
     """
     destination = Path(path)
     _refuse_existing(destination, overwrite)
+    for name in (*surface.point_data, *surface.cell_data):
+        if not name or re.search(r"\s", name):
+            raise ProductError(
+                f"the field name {name!r} is empty or holds whitespace, which the VTK "
+                "SCALARS line cannot carry: its own reader would split the name and refuse "
+                "the file. Rename the field"
+            )
     lines = [
         "# vtk DataFile Version 3.0",
         _plain(title)[:256],
@@ -1118,8 +1142,10 @@ def _surface_pairs(where: Path, vtk: str, dat: str) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = [(vtk, dat)]
     source = Path(vtk)
     stamped: list[tuple[int, str, str]] = []
-    if where.is_dir():
-        for candidate in where.iterdir():
+    # The stamped exports sit beside the VTK, in the folder its own name states.
+    beside = where / source.parent
+    if beside.is_dir():
+        for candidate in beside.iterdir():
             if candidate.suffix != source.suffix:
                 continue
             matched = _STAMP.match(candidate.stem)
