@@ -395,3 +395,16 @@ def test_f_1411_an_empty_point_set_is_refused_by_the_writer_as_by_the_reader(
     with pytest.raises(ValueError, match="no probe"):
         writer(tmp_path / f"empty{suffix}", np.zeros((0, 3)), provenance=make_provenance())
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("name", ["total pressure", "cp\tx", ""])
+def test_f_1409_a_vtk_field_name_with_whitespace_is_refused(name, tmp_path):
+    """The VTK reader cuts a name at whitespace, so the writer refuses what it cannot round-trip."""
+    with pytest.raises(ValueError, match="field name"):
+        write_vtk_points(
+            tmp_path / "bad.vtk",
+            POINTS,
+            {name: np.array([1.0, 2.0])},
+            provenance=make_provenance(),
+        )
+    assert not list(tmp_path.iterdir())
