@@ -67,6 +67,11 @@ def _state(path: Path) -> str:
         return f"{path.name} absent"
     names = _names(path)
     faces = _faces(path)
+    if names is None:
+        # F-802. An unreadable boundary list is not an empty simulation: say it,
+        # so the compat report does not record "0 boundaries" as measured.
+        total = faces[0] if faces else "?"
+        return f"{path.name} boundary list unreadable, {total} faces"
     per = faces[1] if faces else None
     if names and per and len(per) == len(names):
         listed = ", ".join(f"{n}:{c}" for n, c in zip(names, per, strict=True))
@@ -97,8 +102,13 @@ def _obj(path: Path) -> tuple[list[tuple[float, float, float]], int] | None:
 def obj_summary(path: Path) -> str:
     """Name an OBJ export's size, bounding box and centroid azimuth about X."""
     read = _obj(path)
-    if read is None or not read[0]:
+    if not path.is_file():
         return f"{path.name} absent"
+    # X-F-0531. Present but unreadable and present but empty are not "absent".
+    if read is None:
+        return f"{path.name} present, unreadable"
+    if not read[0]:
+        return f"{path.name} present, no vertices"
     vertices, faces = read
     array = np.asarray(vertices)
     low, high = array.min(axis=0), array.max(axis=0)
@@ -156,10 +166,16 @@ def _ccs_sections(path: Path) -> list[list[tuple[float, ...]]]:
     """Return the cross sections of a CCS text file as point lists."""
     if not path.is_file():
         return []
-    sections = []
+    sections: list[list[tuple[float, ...]]] = []
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         if line.strip().lower().startswith("crosssection"):
-            values = [float(t) for t in line.split(";")[1:] if _NUMBER.match(t.strip())]
+            tokens = [t.strip() for t in line.split(";")[1:] if t.strip()]
+            if not all(_NUMBER.match(t) for t in tokens):
+                # F-229. Dropping a non-numeric token would shift every later
+                # triple; a section that does not read whole is kept as unread.
+                sections.append([])
+                continue
+            values = [float(t) for t in tokens]
             sections.append([tuple(values[i : i + 3]) for i in range(0, len(values) - 2, 3)])
     return sections
 

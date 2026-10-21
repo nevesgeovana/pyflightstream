@@ -374,3 +374,41 @@ class TestProbesJudges:
         )
         result = _judge(_probes_judges___spec(command), artifacts, DEFAULT_ERROR_PATTERNS, "x", 60)
         assert result.outcome is ProbeOutcome.REMOVED, result.detail
+
+
+def test_f229_a_malformed_ccs_section_is_kept_unread_not_shifted(tmp_path):
+    """F-229 a non-numeric token must not move the later triples of a section."""
+    from pyflightstream.qa import _spec_0400_gapbase as base
+
+    path = tmp_path / "w.ccs"
+    path.write_text(
+        "CrossSection;1;2;3;4;5;6\nCrossSection;1;x;3;4;5;6\n",
+        encoding="utf-8",
+    )
+    sections = base._ccs_sections(path)
+    assert sections[0] == [(1.0, 2.0, 3.0), (4.0, 5.0, 6.0)]
+    assert sections[1] == []
+
+
+def test_f802_and_x_f_0531_unreadable_is_not_empty_or_absent(tmp_path):
+    """F-802, X-F-0531 the observation text keeps unreadable, empty and absent apart."""
+    from pyflightstream.qa import _spec_0400_gapbase as base
+
+    bad = tmp_path / "bad.fsm"
+    bad.write_bytes(b"not a simulation")
+    assert "boundary list unreadable" in base._state(bad)
+    assert "0 boundaries" not in base._state(bad)
+    empty = tmp_path / "empty.obj"
+    empty.write_text("# nothing\n", encoding="utf-8")
+    assert base.obj_summary(empty) == "empty.obj present, no vertices"
+    assert base.obj_summary(tmp_path / "missing.obj") == "missing.obj absent"
+    broken = tmp_path / "broken.obj"
+    broken.write_text("v 1 2 x\n", encoding="utf-8")
+    assert base.obj_summary(broken) == "broken.obj present, unreadable"
+
+
+def test_f231_the_probe_section_has_a_closed_trailing_edge():
+    """F-231 the x^4 term closes the NACA 0012 trailing edge the comment names."""
+    points = kit._naca_points()
+    assert points[0][0] == pytest.approx(1.0)
+    assert abs(points[0][1]) < 1e-9

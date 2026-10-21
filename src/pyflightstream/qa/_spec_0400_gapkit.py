@@ -511,7 +511,11 @@ def _naca_points(count: int = 9) -> list[tuple[float, float]]:
     xs = [0.5 * (1.0 - math.cos(math.pi * i / (count - 1))) for i in range(count)]
 
     def half(x: float) -> float:
-        return 0.6 * (0.2969 * math.sqrt(x) - 0.126 * x - 0.3516 * x**2 + 0.2843 * x**3)
+        # F-231. The x^4 term of the closed-trailing-edge NACA four-digit
+        # thickness, so the section is the NACA 0012 the comment names.
+        return 0.6 * (
+            0.2969 * math.sqrt(x) - 0.126 * x - 0.3516 * x**2 + 0.2843 * x**3 - 0.1036 * x**4
+        )
 
     upper = [(x, half(x)) for x in reversed(xs)]
     lower = [(x, -half(x)) for x in xs[1:]]
