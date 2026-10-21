@@ -1886,3 +1886,12 @@ def test_p0420_unknown_snapshot_command_uses_package_error_hierarchy():
     with pytest.raises(PyflightstreamError, match="SOLVER_NEW_SETTING") as caught:
         helpers.solver_settings(Script("26.124", registry=custom))
     assert isinstance(caught.value, RuntimeError)
+
+
+def test_f5_0102_f268_start_solver_warns_that_the_deferred_selection_lands_after_it():
+    """F-268: the docstring tells a direct caller where the induced-drag selection lands."""
+    from pyflightstream.script import helpers
+
+    doc = helpers.start_solver.__doc__ or ""
+    assert "AFTER ``START_SOLVER``" in doc
+    assert "emit_deferred_vorticity_before_solve" in doc

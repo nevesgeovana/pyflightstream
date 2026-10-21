@@ -351,3 +351,41 @@ def test_f5_0102_f034_duplicate_named_boundaries_are_surfaces_the_rotor_does_not
     clean = Script("26.124")
     clean.declare_existing(boundaries={"Blade1": 1})
     assert _refuse_what_is_not_the_rotor(case, clean, rotor, "sector") == [1]
+
+
+def test_f5_0102_f036_the_sole_rotor_with_no_selector_keeps_its_hand():
+    """F-036: the one rotor the reference declares turns the way its block says."""
+    from pyflightstream.cases.workflows._rows import rotor_speed
+    from tests.tier1_offline.test_workflows import FIXTURE_ROTOR, rotor_case
+
+    left = FIXTURE_ROTOR.model_copy(update={"rpm_sign": -1})
+    case = rotor_case().model_copy(update={"rotors": {left.alias: left}})
+    assert rotor_speed(case).rpm == pytest.approx(-1200.0)
+    right = rotor_case()
+    assert rotor_speed(right).rpm == pytest.approx(1200.0)
+
+
+def test_f5_0102_f037_the_advance_ratio_uses_the_rotor_blocks_own_diameter():
+    """F-037: n = V / (J D) with D of the rotor block, not the reference's top-level diameter."""
+    from pyflightstream.cases.workflows._rows import rotor_speed
+    from tests.tier1_offline.test_workflows import FIXTURE_ROTOR, rotor_case
+
+    block = FIXTURE_ROTOR.model_copy(update={"diameter_m": 2.0})
+    case = rotor_case(RPM=None, ADVANCE_RATIO="0.5", VELOCITY="30.0")
+    case = case.model_copy(update={"rotors": {block.alias: block}})
+    assert rotor_speed(case).rpm == pytest.approx(round(60.0 * 30.0 / (0.5 * 2.0), 4))
+
+
+def test_f5_0102_f755_a_steady_sweep_refuses_a_free_body_like_a_single_point():
+    """F-755: a 6DOF body authored in Python on a steady case is refused by the sweep too."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.cases.workflows._steady import build_steady_sweep
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_workflows import steady_case
+
+    case = steady_case().model_copy(update={"sixdof": object()})
+    with pytest.raises(CampaignConfigError, match="6DOF body runs on the unsteady run type"):
+        build_script(case, Script("26.124"))
+    with pytest.raises(CampaignConfigError, match="6DOF body runs on the unsteady run type"):
+        build_steady_sweep([case], Script("26.124"))

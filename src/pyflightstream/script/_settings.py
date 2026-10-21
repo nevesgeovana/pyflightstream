@@ -1308,6 +1308,14 @@ def start_solver(script: Script) -> None:
     script : Script
         Script under construction.
 
+    Notes
+    -----
+    The selection lands AFTER ``START_SOLVER`` here, the placement a steady or
+    quasi-steady script uses. An unsteady workflow lands it before the solve
+    instead (:meth:`~pyflightstream.script.Script.emit_deferred_vorticity_before_solve`),
+    so a caller assembling an unsteady script by hand must call that method
+    before this function, or the selection reaches the script after the solve.
+
     Examples
     --------
     >>> from pyflightstream.script import Script, helpers
