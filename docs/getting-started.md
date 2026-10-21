@@ -186,9 +186,9 @@ git clone https://github.com/nevesgeovana/pyflightstream.git
 cd pyflightstream
 ```
 
-Select the release tag matching your installed package, such as `v0.42.0`
-for package version 0.42.0. Repository paths below are relative to that checkout
-root. The [solver-free first success](#first-success-without-a-solver) above
+Select the release tag matching your installed package. Repository paths below
+are relative to that checkout root. The
+[solver-free first success](#first-success-without-a-solver) above
 works with just the installed package. For your own study, supply your own
 geometry and follow the input guidance created by workspace initialization.
 
