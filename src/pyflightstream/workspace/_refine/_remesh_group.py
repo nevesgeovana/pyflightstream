@@ -168,7 +168,14 @@ def _targets(group: _Group, factors: Mapping[str, float]) -> Points:
     """
     total = numpy.zeros(len(group.verts))
     count = numpy.zeros(len(group.verts))
-    for a, b in edge_faces(group.faces):
+    # The sides of the source polygons: the diagonals a quad is fanned by are no side of it.
+    sides = {
+        _ek(f[i], f[(i + 1) % len(f)])
+        for fs in group.source.values()
+        for f in fs
+        for i in range(len(f))
+    }
+    for a, b in sorted(sides):
         d = float(numpy.linalg.norm(group.verts[a] - group.verts[b]))
         total[[a, b]] += d
         count[[a, b]] += 1
@@ -302,15 +309,12 @@ def _edge_kind(
     The trailing edge is named before an open boundary or an interface it may
     also be, so its new edges are the ones its points file is rewritten from.
     """
-    fixed, te = held
-    a, b = edge
-    # Named before FROZEN too: a trailing-edge edge between two interface nodes is
-    # still the trailing edge, and the level's points file is written from these
-    # keys. It stays frozen through the frozen set (:func:`_curves`).
+    _, te = held
+    # A trailing-edge edge between two interface nodes is still the trailing edge, and
+    # the level's points file is written from these keys. An edge frozen because both
+    # its nodes are fixed is a curve edge, never an interior one (:func:`_curves`).
     if edge in te:
         return TRAILING_EDGE
-    if a in fixed and b in fixed:
-        return FROZEN
     if len(fs) != 2:
         return BOUNDARY
     first, second = group.labels[fs[0]], group.labels[fs[1]]

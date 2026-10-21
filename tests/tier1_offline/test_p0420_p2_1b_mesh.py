@@ -171,6 +171,32 @@ def test_p0430_f330_fixed_side_nodes_follow_the_tolerance(monkeypatch):
     assert len(nodes([[-0.49 * _TOL] * 3, [0.49 * _TOL] * 3])) == 2
 
 
+# ---------------------------------------------------------------- F-331 X-F-0435
+
+
+def test_p0430_f331_an_interior_edge_between_two_fixed_nodes_stays_free():
+    """F-331: an interior edge is not frozen because both its nodes are shared outside."""
+    from pyflightstream.workspace._refine._remesh_group import _curves, _Group
+
+    verts = numpy.array([[0.0, 0, 0], [1, 0, 0], [0.5, 1, 0], [0.5, -1, 0]])
+    faces = [[0, 1, 2], [1, 0, 3]]
+    group = _Group([0, 1, 2, 3], verts, faces, ["W", "W"], {"W": faces})
+    curve, frozen = _curves(group, {0, 1}, set())
+    assert (0, 1) not in curve and (0, 1) not in frozen
+    assert curve[(0, 2)] == "boundary"  # the control: a boundary edge is still a curve
+
+
+def test_p0430_x_f0435_the_remesh_target_ignores_the_fan_diagonal_of_a_quad():
+    """X-F-0435: a unit square's target is its side, not an average with the diagonal."""
+    from pyflightstream.workspace._refine._obj import ObjMesh
+    from pyflightstream.workspace._refine._remesh_group import _group, _targets
+
+    square = numpy.array([[0.0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]])
+    group = _group(ObjMesh(square, {"W": [[0, 1, 2, 3]]}), ["W"])
+    assert _targets(group, {"W": 1.0}) == pytest.approx(numpy.ones(4))
+    assert _targets(group, {"W": 2.0}) == pytest.approx(numpy.full(4, 0.5))
+
+
 # ---------------------------------------------------------------- F-1517
 
 
