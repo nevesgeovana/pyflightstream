@@ -520,3 +520,34 @@ def test_x_f0582_a_non_iso_stamp_sorts_first_and_never_passes_a_since_cutoff():
     cutoff = datetime(2026, 1, 1, tzinfo=UTC) - timedelta(days=1)
     assert logs._at_or_after(rows[0], cutoff) is True
     assert logs._at_or_after(rows[1], cutoff) is False
+
+
+def test_f2_0809_the_python_queries_write_nothing_and_equal_the_console_rows(workspace, capsys):
+    """FR-383, FR-773, FR-388: each Python query reads only, and returns the console's rows."""
+    from pyflightstream.workspace.ledger import (
+        activity_rows,
+        additional_rows,
+        point_card,
+        point_rows,
+        post_log_groups,
+        status_rows,
+        trace_product,
+    )
+
+    (workspace / "runs.json.lock").write_text("held", encoding="utf-8")
+    before = _tree(workspace)
+    time.sleep(0.02)
+    results = [
+        status_rows(workspace),
+        point_rows(workspace),
+        point_card(workspace, RUN),
+        activity_rows(workspace),
+        post_log_groups(workspace, "demo"),
+        trace_product(workspace, PRODUCT),
+        additional_rows(workspace),
+    ]
+    assert _tree(workspace) == before, "a query wrote, locked or waited on a held lock"
+    assert all(json.loads(json.dumps(result)) == result for result in results)
+    assert results[0] and results[1] and results[2] is not None
+    assert _rows(workspace, capsys, "status") == results[0]
+    assert _rows(workspace, capsys, "status", "--points") == results[1]
