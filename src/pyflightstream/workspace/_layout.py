@@ -47,7 +47,10 @@ FILE_NAME_REGISTERED_KINDS = ("geometries",)
 REFERENCE_POINTS_FILE = "reference_points.toml"
 
 #: ``ERP`` alone, or ``ERP`` with a propulsor number.
-_ERP_PATTERN = re.compile(r"^ERP([0-9]*)$")
+_ERP_PATTERN = re.compile(r"ERP(0|[1-9][0-9]*)?")
+
+#: How many missing numbered points a gap refusal lists before it counts the rest.
+_LISTED_GAPS = 8
 
 #: The airframe reference point. Singular by construction.
 _AIRFRAME_POINT = "ARP"
@@ -422,7 +425,7 @@ def check_reference_point_names(names: Sequence[str]) -> None:
     for name in names:
         if name == _AIRFRAME_POINT:
             continue
-        match = _ERP_PATTERN.match(name)
+        match = _ERP_PATTERN.fullmatch(name)
         if match is None:
             raise InputArtifactError(
                 f"reference point {name!r} is not one of the standard names; declare "
@@ -431,7 +434,7 @@ def check_reference_point_names(names: Sequence[str]) -> None:
                 "names are the convention that says how many propulsors the campaign "
                 "describes, so a free name would leave that unreadable."
             )
-        if match.group(1) == "":
+        if match.group(1) is None:
             singular = True
         else:
             numbered.append(int(match.group(1)))
@@ -450,12 +453,21 @@ def check_reference_point_names(names: Sequence[str]) -> None:
             "reference point 'ERP0' numbers a propulsor from zero; rotor points are "
             "numbered from 1, as ERP1 through ERPn, because n is the propulsor count."
         )
-    expected = set(range(1, max(numbered) + 1))
-    missing = sorted(expected - set(numbered))
-    if missing:
-        listing = ", ".join(f"ERP{index}" for index in missing)
+    present = sorted(set(numbered))
+    missing_count = present[-1] - len(present)
+    if missing_count:
+        shown: list[int] = []
+        previous = 0
+        for value in present:
+            room = _LISTED_GAPS - len(shown)
+            if room > 0 and value - previous > 1:
+                shown.extend(range(previous + 1, min(value, previous + 1 + room)))
+            previous = value
+        listing = ", ".join(f"ERP{index}" for index in shown)
+        if missing_count > len(shown):
+            listing += f" and {missing_count - len(shown)} more"
         raise InputArtifactError(
-            f"reference points ERP1 through ERP{max(numbered)} are declared with a gap: "
+            f"reference points ERP1 through ERP{present[-1]} are declared with a gap: "
             f"{listing} is missing. The numbered rotor points run from 1 without a gap, "
             "because n is the propulsor count; declare the missing point or renumber."
         )

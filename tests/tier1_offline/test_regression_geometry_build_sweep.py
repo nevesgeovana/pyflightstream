@@ -3891,3 +3891,29 @@ class TestF2Package0607Geometry:
         assert tomllib.loads(f"key = {toml_value(text)}")["key"] == text
         body, _ = sidecar_text([text, "B"], "METER", None)
         assert tomllib.loads(body)["boundaries"] == [text, "B"]
+
+
+class TestF2Package0607Workspace:
+    """Tier 1, 0.43.0: workspace-layer defects of package F2-0607."""
+
+    @staticmethod
+    def test_f1509_a_zero_padded_propulsor_number_is_not_a_standard_name():
+        """F-1509: ERP01 is refused, so ERP1 and ERP01 can never both pass the naming check."""
+        from pyflightstream.workspace._layout import check_reference_point_names
+
+        with pytest.raises(InputArtifactError, match="not one of the standard names"):
+            check_reference_point_names(["ERP1", "ERP01"])
+        with pytest.raises(InputArtifactError, match="not one of the standard names"):
+            check_reference_point_names(["ERP1\n"])
+        check_reference_point_names(["ARP", "ERP1", "ERP2", "ERP3"])
+
+    @staticmethod
+    @pytest.mark.parametrize("number", [5_000_000, 2_147_483_647])
+    def test_f1510_a_huge_propulsor_number_gets_a_short_gap_diagnostic(number):
+        """F-1510: the gap refusal does not build a set of the numbers below the largest."""
+        from pyflightstream.workspace._layout import check_reference_point_names
+
+        with pytest.raises(InputArtifactError, match="declared with a gap") as raised:
+            check_reference_point_names(["ERP1", f"ERP{number}"])
+        assert len(str(raised.value)) < 600
+        assert "ERP2, ERP3" in str(raised.value) and "more" in str(raised.value)
