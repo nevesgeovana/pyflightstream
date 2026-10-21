@@ -86,16 +86,13 @@ WorkspaceError.__module__ = "pyflightstream.workspace"
 #: Layout identifier recorded on every manifest row. It changes when a field is removed or
 #: changes meaning, never for an addition. Schema "1" permits an absent ``source_version`` in
 #: ``broken_commands`` entries; schema "2" requires it. Schema "3" writes ``waived_commands``
-#: instead of ``broken_commands``. The old key remains readable with a deprecation warning.
+#: instead of ``broken_commands``. The old key requires explicit workspace migration.
 MANIFEST_SCHEMA = "pyfs-manifest/3"
 
-#: Every stamp this version can still READ, newest last. The bump above
-#: is a change of what may be WRITTEN, and a reader that refused every
-#: older stamp would make a bump equivalent to deleting the manifests
-#: that came before it: nothing in this package migrates a manifest, so
-#: there would be no route back. A stamp outside this tuple is refused,
-#: which is the "must refuse when the value is one it has never seen"
-#: half, and that includes a stamp from a LATER version.
+#: Row stamps understood by reconstruction, newest last. These stamps do not
+#: bypass the current document format or the refusal of retired field names.
+#: Older documents and ``broken_commands`` require ``pyfs-workspace migrate``.
+#: A row stamp outside this tuple, including one from a later version, is refused.
 KNOWN_MANIFEST_SCHEMAS = ("pyfs-manifest/1", "pyfs-manifest/2", "pyfs-manifest/3")
 
 #: Maximum wait for a held manifest, in seconds; a timeout is not proof of death.
@@ -377,9 +374,8 @@ class RunRecord(BaseModel):
         The key was ``broken_commands`` in legacy releases (PFS-2022.01.05,
         OPS-2009.02.08), and read as the commands that broke in the run,
         which is the opposite of a waiver the recipe registered on
-        purpose. A row written under the old key still reads, with a
-        DeprecationWarning built from the ledger entry that names the
-        release dropping it; no row is written under it. The rename
+        purpose. Reading a row with the old key is refused with an instruction
+        to run ``pyfs-workspace migrate``; no row is written under it. The rename
         moved :data:`MANIFEST_SCHEMA` to ``pyfs-manifest/3``, for the
         reason recorded on that constant.
         Empty for the ordinary run, which is the
