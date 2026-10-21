@@ -147,12 +147,12 @@ def _sort_the_validity(
     where: str,
     entry: Any,
     validity: Mapping[str, Any],
-    sorted_into: tuple[list[str], list[str], list[str]],
+    sorted_into: tuple[list[str], list[str], list[str], list[str]],
 ) -> None:
     """File one point's validity under above-the-limit, not-known and too-few-clockings."""
     from pyflightstream.cases.qsteady import summarise, summarise_inflow_harmonics
 
-    above, unknown, too_few = sorted_into
+    above, unknown, too_few, effective = sorted_into
     harmonics = validity.get("inflow_fft")
     if isinstance(harmonics, Mapping):
         suggested = harmonics.get("suggested_passage_positions")
@@ -167,7 +167,7 @@ def _sort_the_validity(
         if isinstance(effective_share, int | float):
             # THE VALIDITY WARNING READS k_eff WHEN IT IS KNOWN.
             if effective_share > 0.0:
-                above.append(f"{where}: {summarise_inflow_harmonics(harmonics)}")
+                effective.append(f"{where}: {summarise_inflow_harmonics(harmonics)}")
             return
     if validity.get("note"):
         unknown.append(f"{where}: {validity['note']}")
@@ -203,6 +203,7 @@ def _warn_when_a_quasi_steady_point_leaves_its_assumption(
     above: list[str] = []
     unknown: list[str] = []
     too_few: list[str] = []
+    effective: list[str] = []
     for entry in plan.points:
         validity = entry.qsteady_validity
         if not validity:
@@ -213,7 +214,10 @@ def _warn_when_a_quasi_steady_point_leaves_its_assumption(
         except CampaignConfigError:
             name = entry.run_id
         _sort_the_validity(
-            f"POL {entry.sim_id} point {name}", entry, validity, (above, unknown, too_few)
+            f"POL {entry.sim_id} point {name}",
+            entry,
+            validity,
+            (above, unknown, too_few, effective),
         )
     if above:
         warn(
@@ -222,6 +226,16 @@ def _warn_when_a_quasi_steady_point_leaves_its_assumption(
             f"{'; '.join(above)}. There the unsteady wake lags the once-per-revolution load "
             "and the quasi-steady load is an estimate. Nothing is refused; every product of "
             "these points carries the values.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if effective:
+        warn(
+            f"quasi-steady rotor: the effective reduced frequency k_eff = n95 k_1P of the "
+            f"inflow's harmonics exceeds {REDUCED_FREQUENCY_LIMIT:g} on part of the blade at "
+            f"{len(effective)} point(s): {'; '.join(effective)}. There the unsteady wake lags "
+            "the inflow's harmonic load and the quasi-steady load is an estimate. Nothing is "
+            "refused; every product of these points carries the values.",
             PyflightstreamWarning,
             stacklevel=3,
         )
