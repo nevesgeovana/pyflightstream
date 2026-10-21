@@ -535,6 +535,39 @@ def test_apply_compat_refuses_a_superseded_report_without_a_traceback(
     assert "Traceback" not in captured.err
 
 
+@pytest.mark.requirement("FR-1601")
+def test_compare_compat_reaches_the_attributed_comparison_from_the_command_line(tmp_path, capsys):
+    """``pyfs-qa compare-compat`` prints both identities and refuses a report without one."""
+    import json
+
+    import yaml
+
+    from pyflightstream.qa import COMPAT_SCHEMA
+
+    paths = []
+    for side, digest in (("a", "a" * 64), ("b", "b" * 64)):
+        path = tmp_path / f"{side}.yaml"
+        path.write_text(
+            yaml.safe_dump(
+                {
+                    "schema": COMPAT_SCHEMA,
+                    "fs_version": "26.120",
+                    "fs_exe": "solver.exe",
+                    "fs_exe_sha256": digest,
+                    "commands": {"PRINT": {"outcome": "verified", "observation": side}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        paths.append(str(path))
+    assert main(["compare-compat", *paths]) == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["a"]["fs_exe_sha256"] == "a" * 64 and printed["b"]["fs_exe_sha256"] == "b" * 64
+    assert printed["commands"]["PRINT"]["changed"] is True
+    assert main(["compare-compat", paths[0], str(tmp_path / "missing.yaml")]) == 2
+    assert "nothing compared" in capsys.readouterr().err
+
+
 def test_apply_compat_says_what_to_do_when_nothing_is_promotable(tmp_path, capsys):
     """The message names the promotable set and a next step, not a symptom."""
     import yaml

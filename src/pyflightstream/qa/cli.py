@@ -4,7 +4,8 @@ Pipeline role: drives the qa evidence workflow from a terminal on the
 licensed machine. ``pyfs-qa probe`` runs the Tier 2 command-validity
 probes for one FlightStream version and writes the compat report;
 ``pyfs-qa apply-compat`` promotes database statuses from a committed
-report. ``pyfs-qa physics`` runs the physics matrix of a campaign
+report; ``pyfs-qa compare-compat`` compares two such reports keeping each
+executable's identity. ``pyfs-qa physics`` runs the physics matrix of a campaign
 workspace through the run layer, reduces the records with the qa
 functions and writes the physics report (PFS-2031.17);
 ``pyfs-qa update-reference`` is the only write path into the stored
@@ -17,9 +18,9 @@ sweep point cost in wall-clock seconds, one column per solver build, so a
 build that got slower can be shown (FR-19 records the field, this reads
 it).
 
-Three of the seven subcommands need a licensed machine (``probe``,
-``physics``, ``drift``) and four do not: ``apply-compat``,
-``update-reference``, ``cases`` and ``cost`` read committed or recorded
+Three of the eight subcommands need a licensed machine (``probe``,
+``physics``, ``drift``) and five do not: ``apply-compat``,
+``compare-compat``, ``update-reference``, ``cases`` and ``cost`` read committed or recorded
 evidence and start no solver. ``physics --resume`` on a workspace whose
 matrix already ran is the fourth reader: it executes nothing and reports
 what the manifest holds.
@@ -28,6 +29,7 @@ what the manifest holds.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from importlib import resources
 from pathlib import Path
@@ -43,6 +45,7 @@ from pyflightstream.qa.compat import (
     CORROBORATED,
     PROMOTABLE_OUTCOMES,
     apply_compat,
+    compare_compat_reports,
     compat_report_paths,
     read_compat_report,
     resolve_commands_dir,
@@ -177,6 +180,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="chapter YAML directory to promote into, under --root; default "
         "<root>/src/pyflightstream/commands",
     )
+
+    compare_parser = subparsers.add_parser(
+        "compare-compat",
+        help="compare two compat reports command by command, keeping each executable's identity",
+    )
+    compare_parser.add_argument("report_a", help="the baseline compat report YAML file")
+    compare_parser.add_argument("report_b", help="the comparison compat report YAML file")
 
     physics = subparsers.add_parser(
         "physics",
@@ -360,6 +370,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_cases(args)
     if args.subcommand == "cost":
         return _cmd_cost(args)
+    if args.subcommand == "compare-compat":
+        return _cmd_compare_compat(args)
     return _cmd_apply_compat(args)
 
 
@@ -777,6 +789,17 @@ def _cmd_update_reference(args: argparse.Namespace) -> int:
         return 2
     print(f"reference written: {path}")
     print("commit it alone: a reference update never shares a commit with code changes")
+    return 0
+
+
+def _cmd_compare_compat(args: argparse.Namespace) -> int:
+    """Print the attributed comparison of two compat reports as JSON; read-only."""
+    try:
+        comparison = compare_compat_reports(args.report_a, args.report_b)
+    except QaEvidenceError as error:
+        print(f"nothing compared: {error}", file=sys.stderr)
+        return 2
+    print(json.dumps(comparison, indent=2, sort_keys=True, default=str))
     return 0
 
 
