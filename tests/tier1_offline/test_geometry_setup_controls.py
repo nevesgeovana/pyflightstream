@@ -162,3 +162,85 @@ def test_workspace_reference_si_is_explicit_and_converts_at_effective_unit(tmp_p
     assert emitted["SOLVER_SET_REF_LENGTH"] == pytest.approx(length * factor)
     assert emitted["SOLVER_SET_REF_AREA"] == pytest.approx(area * factor**2)
     assert (case.reference.area, case.reference.length) == (area, length)
+
+
+# --- F5-0304: the geometry instruction refuses what it cannot build ----------
+
+
+def _mesh_instruction(**extra):
+    from pyflightstream.cases._geometry_instruction import GeometryInstruction, MeshSource
+
+    fields = {
+        "name": "wing",
+        "outputs": ("fsm",),
+        "boundaries": ("Wing",),
+        "kind": "mesh",
+        "mesh": MeshSource(file="wing.obj", units="METER"),
+    }
+    fields.update(extra)
+    return GeometryInstruction(**fields)
+
+
+def test_f5_0304_instruction_refuses_no_source_and_two_sources():
+    """F-1296: a missing or doubled source table is a refusal, not a later assertion."""
+    from pyflightstream.cases._geometry_instruction import CadSource
+
+    with pytest.raises(ValueError, match="exactly one source table"):
+        _mesh_instruction(mesh=None)
+    with pytest.raises(ValueError, match="exactly one source table"):
+        _mesh_instruction(cad=CadSource(file="body.igs"))
+
+
+def test_f5_0304_sweep_angle_too_large_for_a_tag_is_a_refusal():
+    """F-1295: a finite angle whose tag overflows raises a validation error."""
+    from pyflightstream.cases._geometry_instruction import GeometrySweep
+
+    with pytest.raises(ValueError, match="too large"):
+        GeometrySweep(control_surface="AIL", angle_deg=(1e308,))
+
+
+def test_f5_0304_geometry_values_must_be_finite():
+    """F-039, F-040, F-041: infinite scale factors, coordinates and placements are refused."""
+    from pyflightstream.cases._geometry_instruction import (
+        CadBodyOperation,
+        CreateBody,
+        CreateSection,
+    )
+
+    inf = float("inf")
+    with pytest.raises(ValueError, match="finite"):
+        CadBodyOperation(op="scale", body=1, factor=inf)
+    with pytest.raises(ValueError, match="finite"):
+        CreateBody(shape="sphere", center_m=(inf, 0.0, 0.0), radius_m=1.0)
+    with pytest.raises(ValueError, match="finite"):
+        CreateSection(file="s.txt", units="METER", chord_m=inf)
+    with pytest.raises(ValueError, match="finite"):
+        CreateSection(file="s.txt", units="METER", chord_m=1.0, twist_deg=float("nan"))
+
+
+@pytest.mark.requirement("FR-1096")
+def test_f5_0304_fr1096_the_instruction_validates_boundaries_units_and_keys_before_building():
+    """FR-1096: ordered boundaries, output units and source keys are refused at the model."""
+    from pyflightstream._lengths import UNIT_THAT_NAMES_NO_LENGTH
+    from pyflightstream.cases._geometry_instruction import (
+        GeometryOperation,
+        MeshSource,
+    )
+
+    assert _mesh_instruction(boundaries=("Wing", "Tail")).boundaries == ("Wing", "Tail")
+    with pytest.raises(ValueError, match="empty"):
+        _mesh_instruction(boundaries=())
+    with pytest.raises(ValueError, match="twice"):
+        _mesh_instruction(boundaries=("Wing", "Wing"))
+    with pytest.raises(ValueError, match="whitespace"):
+        _mesh_instruction(boundaries=("Wing Left",))
+    with pytest.raises(ValueError, match="names no length"):
+        _mesh_instruction(mesh=MeshSource(file="wing.obj", units=UNIT_THAT_NAMES_NO_LENGTH))
+    with pytest.raises(ValueError, match="outputs"):
+        _mesh_instruction(outputs=("fsm", "fsm"))
+    with pytest.raises(ValueError, match="does not read"):
+        GeometryOperation(op="scale", factors=(1.0, 1.0, 1.0), surface="Wing", plane="XY")
+    # The boundaries are ORDERED: operations that leave a different order are refused.
+    renamed = GeometryOperation(op="rename", surface="Wing", to="Blade")
+    with pytest.raises(ValueError, match="names the surface"):
+        _mesh_instruction(operations=(renamed,))

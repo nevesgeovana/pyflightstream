@@ -154,6 +154,14 @@ def rewrite_codes(
             f"column(s) {', '.join(unknown)} carry no input-library id; the columns "
             f"this rewrite touches are {', '.join(CODE_COLUMNS)}."
         )
+    for column, ids in mapping.items():
+        for old_id, new_id in ids.items():
+            if not new_id or new_id != new_id.strip() or re.search(r"[\s|]", new_id):
+                raise MatrixError(
+                    f"the replacement id {new_id!r} for {old_id!r} in column {column} is "
+                    "empty or holds whitespace or the cell separator, so writing it would "
+                    "corrupt the matrix; nothing was rewritten."
+                )
     source = str(path)
     data = Path(path).read_bytes()
     indices = {name: _COLUMNS.index(name) for name in CODE_COLUMNS if name in mapping}

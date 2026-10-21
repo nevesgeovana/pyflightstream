@@ -354,7 +354,11 @@ class CadBodyOperation(BaseModel):
         _finite(
             [
                 *(self.vector_m or ()),
-                *(v for v in (self.angle_deg, self.above_m, self.below_m) if v is not None),
+                *(
+                    v
+                    for v in (self.angle_deg, self.above_m, self.below_m, self.factor)
+                    if v is not None
+                ),
             ],
             "a CAD operation",
         )
@@ -418,6 +422,16 @@ class CreateBody(BaseModel):
             raise ValueError(f"a {self.shape} states {wanted} lengths, each above zero")
         if self.radii_m is not None and min(self.radii_m) <= 0:
             raise ValueError("a cylinder's two radii are each above zero")
+        _finite(
+            [
+                *(self.center_m or ()),
+                *(self.corner_m or ()),
+                *(self.lengths_m or ()),
+                *(self.radii_m or ()),
+                *(v for v in (self.radius_m, self.length_m, self.offset_m) if v is not None),
+            ],
+            f"a {self.shape}",
+        )
         return self
 
 
@@ -433,6 +447,11 @@ class CreateSection(BaseModel):
     twist_deg: float = 0.0
     leading_edge_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
     plane: Literal["XY", "XZ", "YZ"] = "XZ"
+
+    @model_validator(mode="after")
+    def _placement_is_finite(self) -> CreateSection:
+        _finite([self.chord_m, self.twist_deg, *self.leading_edge_m], "a section placement")
+        return self
 
 
 class CreateLoft(BaseModel):
@@ -497,6 +516,8 @@ class GeometrySweep(BaseModel):
         if not self.angle_deg:
             raise ValueError("angle_deg lists the angles to build, at least one")
         _finite(self.angle_deg, "[sweep]")
+        if any(not math.isfinite(angle * 10) for angle in self.angle_deg):
+            raise ValueError("angle_deg states an angle too large to name a tag")
         tags = [variant_tag(self.control_surface, angle) for angle in self.angle_deg]
         if len(set(tags)) != len(tags):
             raise ValueError(
@@ -565,6 +586,7 @@ class GeometryInstruction(BaseModel):
             _one_word(name, "the boundary name")
         if len(set(self.boundaries)) != len(self.boundaries):
             raise ValueError("boundaries names one surface twice")
+        self._check_one_source()
         self._check_units()
         self._check_trailing_edges()
         self._check_sweep()
@@ -575,6 +597,19 @@ class GeometryInstruction(BaseModel):
         names = source_names(self)
         names_after(self, names)
         return self
+
+    def _check_one_source(self) -> None:
+        stated = [key for key in ("ccs", "cad", "create", "mesh") if getattr(self, key) is not None]
+        if len(stated) != 1:
+            found = ", ".join(f"[{key}]" for key in stated) or "none"
+            raise ValueError(
+                f"an instruction states exactly one source table, [ccs], [cad], [create] or "
+                f"[mesh]; this one states {found}"
+            )
+        if stated[0] != self.kind:
+            raise ValueError(
+                f"kind = {self.kind!r} but the source table is [{stated[0]}]; write both alike"
+            )
 
     def _check_units(self) -> None:
         for unit in (

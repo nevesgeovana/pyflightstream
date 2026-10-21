@@ -1598,3 +1598,16 @@ def test_p0400_bgtests2_collect_files_the_wake_sidecar(tmp_path, ran_in_datapoin
     ]
     assert (sim / collected[1]).read_bytes() == wake_bytes
     assert not (sim / "surface_wakes.vtk").exists()
+
+
+def test_f5_0304_rewrite_codes_refuses_a_malformed_replacement_id(tmp_path):
+    """F-1297: a replacement id that breaks the cell grammar never reaches the file."""
+    from pyflightstream.cases.matrix import MatrixError, rewrite_codes
+
+    target = tmp_path / "f5_0304_rewrite.fs"
+    target.write_bytes(FIXTURE.read_bytes())
+    before = target.read_bytes()
+    for bad in ("", "a b", "a|b", " x003"):
+        with pytest.raises(MatrixError, match="replacement id"):
+            rewrite_codes(target, {"REF": {"r003": bad}}, in_place=True)
+    assert target.read_bytes() == before
