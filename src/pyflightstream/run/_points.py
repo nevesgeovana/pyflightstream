@@ -9,6 +9,7 @@ path above reuses those helpers.
 
 from __future__ import annotations
 
+import hashlib
 import time
 import warnings
 from collections.abc import Mapping, Sequence
@@ -736,11 +737,33 @@ def _retain_point_translations(job: _PointJob) -> RunRecord | None:
     return None
 
 
+def _write_script_keeping_replaced(
+    workspace: Any, sim_id: str, name: str, text: str
+) -> tuple[Path, str]:
+    """Write a script, first keeping the bytes of a different script it replaces.
+
+    A re-run of a point rewrites the script under the same name; a manifest row
+    that recorded the old script's digest would then name bytes that no longer
+    exist. The replaced script is copied to ``scripts/archive/`` under its
+    digest before the new one is written (FR-3060).
+    """
+    target = workspace.sim_dir(sim_id) / "scripts" / name
+    previous = target.read_bytes() if target.is_file() else None
+    written = workspace.write_script(sim_id, name, text)
+    if previous is not None and previous != written[0].read_bytes():
+        digest = hashlib.sha256(previous).hexdigest()
+        kept = target.parent / "archive" / f"{target.stem}.{digest[:16]}{target.suffix}"
+        if not kept.exists():
+            kept.parent.mkdir(parents=True, exist_ok=True)
+            kept.write_bytes(previous)
+    return written
+
+
 def _write_point_script(job: _PointJob) -> RunRecord | None:
     """Write point script."""
     job.rendered = job.script.render()
-    job.script_path, job.script_sha = job.workspace.write_script(
-        job.case.sim_id, f"{job.stem}.txt", job.rendered
+    job.script_path, job.script_sha = _write_script_keeping_replaced(
+        job.workspace, job.case.sim_id, f"{job.stem}.txt", job.rendered
     )
     # FR-91: write probe-point positions beside the script that places them.
     # An unsteady plots table names columns such as MACH7 and VELOCITY7 but does

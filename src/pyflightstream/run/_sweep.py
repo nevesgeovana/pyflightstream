@@ -81,6 +81,7 @@ from pyflightstream.run._points import (
     _reference_block,
     _sections_layout,
     _translation_problems,
+    _write_script_keeping_replaced,
     staging_provenance,
     waived_record,
 )
@@ -395,8 +396,8 @@ def _write_sweep_script(job: _SweepJob) -> RunRecord | None:
     # P5001-M090AL+sweepBE+000.
     job_stem = sweep_file_stem(job.case.sim_id, sweep_name(job.case))
     job.rendered = job.script.render()
-    job.script_path, script_sha = job.workspace.write_script(
-        job.case.sim_id, f"{job_stem}.txt", job.rendered
+    job.script_path, script_sha = _write_script_keeping_replaced(
+        job.workspace, job.case.sim_id, f"{job_stem}.txt", job.rendered
     )
     job.base["script_path"] = str(Path(job.script_path).relative_to(job.sim_dir).as_posix())
     job.base["script_sha256"] = script_sha

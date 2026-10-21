@@ -575,3 +575,19 @@ class TestFr311CollectJobEnded:
         report = collect_once(workspace, interval=0.0, sleep=_fr311_collect_job_ended___no_sleep)
         assert [outcome.state for outcome in report.collected] == ["COLLECTED"], report.lines()
         assert workspace.read_manifest()[0].status is RunStatus.CONVERGED
+
+
+def test_f6_0102_rewriting_a_point_script_keeps_the_replaced_bytes(tmp_path):
+    """FR-3060: a rerun that changes a script keeps the old bytes under their digest."""
+    import hashlib
+
+    from pyflightstream.run._points import _write_script_keeping_replaced
+    from pyflightstream.workspace import CampaignWorkspace
+
+    workspace = CampaignWorkspace(tmp_path / "ws")
+    first, first_sha = _write_script_keeping_replaced(workspace, "S1", "p.txt", "one\n")
+    old_bytes = first.read_bytes()
+    _write_script_keeping_replaced(workspace, "S1", "p.txt", "two\n")
+    kept = list((first.parent / "archive").glob("p.*.txt"))
+    assert [path.read_bytes() for path in kept] == [old_bytes]
+    assert hashlib.sha256(old_bytes).hexdigest() == first_sha
