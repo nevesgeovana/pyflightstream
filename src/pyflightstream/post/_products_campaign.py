@@ -194,10 +194,10 @@ def carry_marks(
     for entry in products_index.values():
         # An additional product names its points under ``derives_from`` (its
         # ``runs`` would read as run ids to the retirement), so the mark follows both.
-        runs = [
-            *(entry.get("runs") if isinstance(entry.get("runs"), list) else []),
-            *(entry.get("derives_from") if isinstance(entry.get("derives_from"), list) else []),
-        ]
+        runs: list[object] = []
+        for key in ("runs", "derives_from"):
+            named = entry.get(key)
+            runs.extend(named if isinstance(named, list) else [])
         held = {run: marks[run] for run in runs if run in marks}
         if held:
             entry["marked"] = held
