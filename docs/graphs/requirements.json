@@ -3569,7 +3569,7 @@
       "parent": "",
       "area": "QCOMP",
       "hid": "QCOMP-1",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "FR-3141",
@@ -3835,7 +3835,7 @@
       "parent": "FR-3139",
       "area": "QCOMP",
       "hid": "QCOMP-1.4",
-      "status": "pending"
+      "status": "implemented"
     },
     {
       "id": "NFR-21",

@@ -6549,11 +6549,6 @@
     },
     {
       "source": "pyflightstream.post.point_tables",
-      "target": "pyflightstream._textio",
-      "kind": "module"
-    },
-    {
-      "source": "pyflightstream.post.point_tables",
       "target": "pyflightstream._tokens",
       "kind": "module"
     },
@@ -7140,6 +7135,11 @@
     {
       "source": "pyflightstream.post.streamlines",
       "target": "pyflightstream.results",
+      "kind": "module"
+    },
+    {
+      "source": "pyflightstream.post.superfile",
+      "target": "pyflightstream._digest",
       "kind": "module"
     },
     {

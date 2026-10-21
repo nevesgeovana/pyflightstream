@@ -526,12 +526,6 @@
    "statements": 51,
    "positional": 1
   },
-  "post/superfile.py:measure_sections": {
-   "complexity": 14,
-   "branches": 14,
-   "statements": 46,
-   "positional": 2
-  },
   "post/superfile.py:superfile_row": {
    "complexity": 14,
    "branches": 13,

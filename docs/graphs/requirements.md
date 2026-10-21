@@ -46,7 +46,7 @@ Generated from the SRS registry. [Machine-readable tree](requirements.json).
 
 ## QCOMP
 
-<ul><li id="FR-3139"><details><summary>QCOMP-1 / FR-3139 (pending)</summary><ul><li id="NFR-04">QCOMP-1.1 / NFR-04 (implemented)</li><li id="NFR-19">QCOMP-1.3 / NFR-19 (implemented)</li><li id="NFR-20">QCOMP-1.4 / NFR-20 (pending)</li><li id="NFR-21">QCOMP-1.2 / NFR-21 (implemented)</li></ul></details></li></ul>
+<ul><li id="FR-3139"><details><summary>QCOMP-1 / FR-3139 (implemented)</summary><ul><li id="NFR-04">QCOMP-1.1 / NFR-04 (implemented)</li><li id="NFR-19">QCOMP-1.3 / NFR-19 (implemented)</li><li id="NFR-20">QCOMP-1.4 / NFR-20 (implemented)</li><li id="NFR-21">QCOMP-1.2 / NFR-21 (implemented)</li></ul></details></li></ul>
 
 ## QUSA
 
