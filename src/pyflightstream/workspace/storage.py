@@ -1888,7 +1888,7 @@ def _sync_one(
             # geometry library, the way the other workspace's simulation had it.
             other_sims = other / "sims"
             for sim in sorted(other_sims.glob("sim_*")) if other_sims.is_dir() else []:
-                if not sim.is_dir() or is_reparse(sim):
+                if not sim.is_dir() or is_reparse(sim) or sim.name[len("sim_") :] in submitted:
                     continue
                 if apply:
                     done = _relink_inputs(main, other, sim.name)

@@ -23,6 +23,8 @@ from pyflightstream.workspace import storage as storage_module
 from pyflightstream.workspace.naming import ARCHIVE_DIR
 from pyflightstream.workspace.record_document import read_rows as _read_record_rows
 from pyflightstream.workspace.storage import StorageError
+from tests.tier1_offline.test_goal035_storage import _linked_sim, _sync_pair, _write
+from tests.tier1_offline.test_goal035_storage import _record as _storage_record
 
 REFUSAL = "have a run still SUBMITTED; collect it first"
 
@@ -235,3 +237,14 @@ def test_f1543_malformed_storage_register_raises_storage_error(tmp_path, documen
         storage_module.read_storage_calls(workspace.root)
     with pytest.raises(StorageError, match="is not a"):
         storage_module.record_storage_call(workspace.root, {"action": "x"})
+
+
+def test_f1236_sync_does_not_relink_a_submitted_record_only_simulation(tmp_path):
+    main, other = _sync_pair(tmp_path, "submitted")
+    _linked_sim(other, "8010")
+    _write(main.inputs_dir / "geometries" / "wing" / "wing.obj", "o wing\n")
+    other.append_record(_storage_record("8010", "camp/sim_8010/AL+000", status=RunStatus.SUBMITTED))
+    (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
+    assert entry["runs"]["submitted_sims_record_only"] == ["8010"]
+    assert "sim_8010" not in entry["inputs_links"]
+    assert not (main.sim_dir("8010") / "inputs").exists()
