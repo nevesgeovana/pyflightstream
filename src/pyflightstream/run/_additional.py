@@ -327,11 +327,20 @@ def _archive_extraction_folder(folder: Path, stamp: str) -> None:
 
 
 def _write_extraction_script(workspace, sim_id, name, text, *, stamp):
-    """Archive a previous script before the workspace writes its replacement."""
-    target = workspace.sim_dir(sim_id) / "scripts" / name
+    """Archive a previous script before the workspace writes its replacement.
+
+    The script lives in a folder of its own under ``scripts`` (``additional/<pproc>/``), which
+    ``write_script`` refuses by design (a plain file name only), so it is written here and the
+    name is checked to stay inside the simulation's scripts folder (F-727).
+    """
+    scripts = workspace.create_sim(sim_id) / "scripts"
+    target = scripts / name
+    if not target.resolve().is_relative_to(scripts.resolve()):
+        raise WorkspaceError(f"script name {name!r} leaves the simulation's scripts folder.")
     target.parent.mkdir(parents=True, exist_ok=True)
     _archive_extraction_script(target, stamp)
-    return workspace.write_script(sim_id, name, text)
+    _textio.write_text(target, text)
+    return target, file_sha256(target)
 
 
 #: The suffix of a declared solver log, the log export kind's own.
