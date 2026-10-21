@@ -478,6 +478,11 @@ run, so admitting one would make the manifest report two identical runs as
 different. They are absent by construction rather than by filtering: the
 digest reads bytes and reads nothing else.
 
+**Metadata embedded in those bytes is included.** A timestamp, path or user
+name saved inside a mesh or other input changes the digest when it changes.
+Hashing does not parse, filter or normalize that content. The exclusions
+above concern external filesystem and process metadata only.
+
 Read the consequence for a text mesh, because it is the one that surprises. An
 OBJ is bytes like anything else, so the same mesh checked out with CRLF line
 endings on one machine and LF on another is two different files carrying two

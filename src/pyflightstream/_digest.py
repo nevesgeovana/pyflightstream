@@ -44,15 +44,13 @@ missing:
   package that computes one, and ``tests/tier1_offline/test_digest.py`` fails when a
   module hashes without declaring one. A rule written only as prose
   cannot notice a fourth site appearing.
-* THE EXCLUSIONS, :data:`EXCLUDED_FROM_EVERY_DIGEST`, hold for all of
-  them: no wall-clock time, no elapsed time, no absolute path, nothing
-  about the machine or the user. Those are the fields that differ
-  between two runs which are otherwise the same run, so admitting one
-  would make the digest answer a question nobody asked. They are absent
-  by CONSTRUCTION rather than by filtering: every canonical form below
-  is either the raw bytes of a file or a text this package renders from
-  validated data, and none of them reads a clock, a path or an
-  environment. Each entry is SPENT rather than declared:
+* EXTERNAL METADATA, :data:`EXCLUDED_EXTERNAL_METADATA`, is not added by
+  this module's file and text hash functions. They do not incorporate a
+  filesystem timestamp, source location, clock reading or environment.
+  Metadata embedded in the supplied bytes or text IS hashed unchanged,
+  including timestamps, absolute paths and machine or user names. Other
+  digest kinds follow their own canonical forms below; this is not a
+  universal content-filtering promise. Each external exclusion is tested:
   ``tests/tier1_offline/test_digest.py`` requires one demonstration per entry, three
   of them by hashing (a modification time that moves, the same bytes
   under two names, two files hashed in both orders) and two by scanning
@@ -96,16 +94,14 @@ _BLOCK = 65536
 #: changelog entry, never an edit.
 ALGORITHM = "sha256"
 
-#: What is kept OUT of every digest, whatever its canonical form. These
-#: are precisely the fields that differ between two runs which are the
-#: same run, so admitting one would make the digest disagree about runs
-#: that agree. Stated as data so the rule has one home.
-EXCLUDED_FROM_EVERY_DIGEST = (
-    "wall-clock timestamps",
-    "elapsed and wall time",
-    "absolute paths, and any path at all",
-    "the machine, the user and the environment the run happened on",
-    "the order in which files were staged",
+#: External metadata not added by file_sha256 and text_sha256. Metadata
+#: already embedded in their input remains part of the digest.
+EXCLUDED_EXTERNAL_METADATA = (
+    "filesystem modification timestamps",
+    "the clock at hashing time",
+    "the source file's location and name",
+    "the hashing process's machine, user and environment",
+    "the order of independent hash calls",
 )
 
 #: The canonical form each digest-computing module of this package feeds
@@ -126,7 +122,8 @@ CANONICAL_FORMS = {
     "_digest.py": (
         "the raw bytes of a file, read in blocks and never decoded; or the "
         "UTF-8 encoding of a string. Nothing else is read: not the path, not "
-        "the size, not any timestamp. This is the manifest checksum, the one "
+        "the size, not filesystem timestamps. Embedded metadata is included "
+        "unchanged. This is the manifest checksum, the one "
         "every input, output, staged script and solver executable is recorded "
         "under."
     ),

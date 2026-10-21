@@ -41,6 +41,26 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC = REPO_ROOT / "src" / "pyflightstream"
 
 
+@pytest.mark.requirement("NFR-15")
+def test_p0430_embedded_metadata_remains_part_of_raw_digests(tmp_path):
+    """P0430-DIGEST: embedded metadata is content, not external metadata."""
+    import hashlib
+
+    path = tmp_path / "metadata.txt"
+    payloads = [b"timestamp=1\npath=/one\n", b"timestamp=2\npath=/two\n"]
+    digests = []
+    for payload in payloads:
+        path.write_bytes(payload)
+        expected = hashlib.sha256(payload).hexdigest()
+        assert file_sha256(path) == expected
+        assert text_sha256(payload.decode("utf-8")) == expected
+        digests.append(expected)
+    assert digests[0] != digests[1]
+    assert not hasattr(digest_module, "EXCLUDED_FROM_EVERY_DIGEST"), (
+        "an unconditional metadata exclusion contradicts raw-byte hashing"
+    )
+
+
 def test_one_file_hashes_to_one_value_through_every_former_call_path(tmp_path):
     """The value must not move when the owner does.
 
@@ -143,8 +163,7 @@ def test_every_digest_the_package_computes_declares_its_canonical_form():
     noticing, which is the failure NFR-07 rests on not happening.
 
     So the rule is DATA. A module that computes a digest declares the
-    canonical form it hashes, here, beside the exclusions that hold for
-    all of them; a module that appears with no declaration fails.
+    canonical form it hashes; a module that appears with no declaration fails.
     """
     measured = set(_modules_that_compute_a_digest())
     declared = set(getattr(digest_module, "CANONICAL_FORMS", {}))
@@ -220,7 +239,7 @@ def test_a_digest_is_a_statement_about_content_and_nothing_around_it(tmp_path):
 # identical inputs cannot disagree about what was hashed.
 #
 # The algorithm half was already spent above. The exclusion half was not:
-# `EXCLUDED_FROM_EVERY_DIGEST` was a tuple of five sentences that nothing
+# `EXCLUDED_EXTERNAL_METADATA` was a tuple of five sentences that nothing
 # read, so it could be edited, narrowed or deleted with this suite green,
 # and a rule nothing spends is a rule the next reader may reasonably doubt.
 # What follows makes each named exclusion cost a demonstration.
@@ -365,16 +384,14 @@ def _the_order_files_are_hashed_in_does_not_move_a_digest(
     )
 
 
-#: One demonstration per entry of ``EXCLUDED_FROM_EVERY_DIGEST``, keyed by the
+#: One demonstration per entry of ``EXCLUDED_EXTERNAL_METADATA``, keyed by the
 #: exact declared wording so the two cannot drift apart silently.
 DEMONSTRATED_EXCLUSIONS = {
-    "wall-clock timestamps": _a_modification_time_does_not_move_a_digest,
-    "elapsed and wall time": _no_clock_is_read_at_all,
-    "absolute paths, and any path at all": _neither_the_path_nor_the_name_moves_a_digest,
-    "the machine, the user and the environment the run happened on": (
-        _no_machine_or_user_is_read_at_all
-    ),
-    "the order in which files were staged": _the_order_files_are_hashed_in_does_not_move_a_digest,
+    "filesystem modification timestamps": _a_modification_time_does_not_move_a_digest,
+    "the clock at hashing time": _no_clock_is_read_at_all,
+    "the source file's location and name": _neither_the_path_nor_the_name_moves_a_digest,
+    "the hashing process's machine, user and environment": (_no_machine_or_user_is_read_at_all),
+    "the order of independent hash calls": _the_order_files_are_hashed_in_does_not_move_a_digest,
 }
 
 
@@ -382,8 +399,8 @@ DEMONSTRATED_EXCLUSIONS = {
 def test_every_exclusion_the_rule_names_is_demonstrated(tmp_path):
     """The exclusion half of the rule, spent rather than declared.
 
-    ``EXCLUDED_FROM_EVERY_DIGEST`` is what the package promises it does NOT
-    hash. Until this test it was prose in a tuple: an entry could be added
+    ``EXCLUDED_EXTERNAL_METADATA`` names metadata the raw hash functions do
+    not add to the supplied content. An entry could otherwise be added
     that nothing held, or removed while the promise stayed in the module
     docstring, and no run would notice either way.
 
@@ -392,7 +409,7 @@ def test_every_exclusion_the_rule_names_is_demonstrated(tmp_path):
     demonstration; deleting one costs deleting its demonstration, which is
     a deliberate act rather than an edit that passes.
     """
-    declared = tuple(getattr(digest_module, "EXCLUDED_FROM_EVERY_DIGEST", ()))
+    declared = tuple(getattr(digest_module, "EXCLUDED_EXTERNAL_METADATA", ()))
     assert declared, "the rule names no exclusion at all, so it says only 'sha256'"
     assert all(isinstance(entry, str) and entry.strip() for entry in declared), declared
 
