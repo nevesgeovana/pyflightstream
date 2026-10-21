@@ -74,6 +74,20 @@ def test_p0430_w007_deletion_metadata_preserved():
     assert decode_document(encode_rows([row])) == [row]
 
 
+def test_p0430_w007_optional_additions_omit_only_unrecorded_values():
+    keys = (
+        "probe_field_layout",
+        "surface_probe_layout",
+        "frame_motions",
+        "custom_field_coverage",
+        "freestream_units",
+    )
+    assert not set(keys) & _record(frame_motions=None).model_dump(mode="json").keys()
+    values = dict(zip(keys, [[], [], {}, {}, "METER"], strict=True))
+    dumped = _record(**values).model_dump(mode="json")
+    assert {key: dumped[key] for key in keys} == values
+
+
 @pytest.mark.parametrize("indices", [(2,), (2, 10)])
 @pytest.mark.parametrize("indexed", [False, True])
 def test_p0430_w007_integer_frame_keys_survive_json(indexed, indices):

@@ -763,6 +763,8 @@ class RunRecord(BaseModel):
 
         ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``,
         FR-435's ``skipped_names``, FR-436's ``settings_sources`` and FR-455's ``farfield_layout``.
+        Also omit unrecorded probe layouts, frame motions, custom-field coverage
+        and freestream units.
 
         R03 and G01, M1 and the L1 fixes, FR-999 of FR-436
         and FR-1047 of FR-455.
@@ -777,6 +779,8 @@ class RunRecord(BaseModel):
         keys = (
             "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by"
             " iterations_requested skipped_names settings_sources farfield_layout"
+            " probe_field_layout surface_probe_layout frame_motions custom_field_coverage"
+            " freestream_units"
         ).split()
         return {key: v for key, v in handler(self).items() if v is not None or key not in keys}
 
