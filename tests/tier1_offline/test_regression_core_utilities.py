@@ -404,7 +404,9 @@ class TestCoreSmallReviewQa:
 
         results, _ = _core_small_review_qa__run_pilot(tmp_path, MissingEnd(), commands=["PRINT"])
         result = results["PRINT"]
-        assert result.outcome is ProbeOutcome.BROKEN
+        # RB4-10: F-535 records a log without its END sentinel as UNPROBED (inconclusive,
+        # never promotable), as its own detail tells the reader to inspect the grammar.
+        assert result.outcome is ProbeOutcome.UNPROBED
         assert "END sentinel" in result.detail
 
     @staticmethod
