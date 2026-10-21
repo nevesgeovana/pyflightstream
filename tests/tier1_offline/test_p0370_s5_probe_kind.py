@@ -261,7 +261,7 @@ def test_p0370_s5_post_writes_the_normal_table_at_the_last_step(
     assert columns[:7] == ("POL", "PROBE", "X", "Y", "Z", "FRAME", "STEP"), columns
     assert [int(row["PROBE"]) for row in rows] == [1, 2, 3]
     assert {row["STEP"] for row in rows} == {step}, "STEP is the run's last time step"
-    assert {row["FRAME"] for row in rows} == {"MRP"}
+    assert {row["FRAME"] for row in rows} == {"REFERENCE"}
     assert [float(row["vx"]) for row in rows] == [31.0, 32.0, 33.0]
     manifest = _products_manifest(workspace)
     assert "probes/AL-020_probes.csv" in manifest["products"]
