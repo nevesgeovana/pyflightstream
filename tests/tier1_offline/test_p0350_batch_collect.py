@@ -589,3 +589,21 @@ def test_p0350_batch_records_fr366_the_logged_solver_time_is_the_wall_time_witho
     basis = record.submission["job"]["wall_time_basis"]
     assert "solver_run_time_s" in basis, basis
     assert "clock file" not in basis, basis
+
+
+def test_f6_0102_two_executions_of_one_job_folder_and_name_are_not_merged():
+    """F-260: points of different executions (receipts) are never collected as one job."""
+    from pyflightstream.run._batch_collect import _jobs_of
+    from pyflightstream.workspace import RunRecord
+
+    def record(run_id, receipt):
+        job = {"dir": "jobs/FTS1", "name": "FTS1", "receipt_sha256": receipt, "order": 1}
+        return RunRecord.model_construct(run_id=run_id, submission={"job": job})
+
+    one, two, three = record("a", "1" * 64), record("b", "2" * 64), record("c", "1" * 64)
+    jobs = _jobs_of([one, two, three])
+    assert sorted(len(members) for members in jobs.values()) == [1, 2]
+    assert {r.run_id for members in jobs.values() for r in members if len(members) == 2} == {
+        "a",
+        "c",
+    }

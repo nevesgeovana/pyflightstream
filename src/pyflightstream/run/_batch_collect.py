@@ -498,13 +498,14 @@ def _sweep_job(workspace: CampaignWorkspace, job: _Job, submitted: list[RunRecor
             _sweep_point(workspace, point, job, ended=verdict.ended)
 
 
-def _jobs_of(records: list[RunRecord]) -> dict[tuple[str, str], list[RunRecord]]:
-    """Every record that carries a job entry, by its job (folder and name)."""
-    jobs: dict[tuple[str, str], list[RunRecord]] = {}
+def _jobs_of(records: list[RunRecord]) -> dict[tuple[str, str, str], list[RunRecord]]:
+    """Every record that carries a job entry, by its execution (folder, name and receipt)."""
+    jobs: dict[tuple[str, str, str], list[RunRecord]] = {}
     for record in records:
         entry = job_of(record)
         if entry is not None:
-            jobs.setdefault((entry["dir"], entry["name"]), []).append(record)
+            key = (entry["dir"], entry["name"], str(entry.get("receipt_sha256") or ""))
+            jobs.setdefault(key, []).append(record)
     return jobs
 
 
