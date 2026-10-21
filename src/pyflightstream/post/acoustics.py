@@ -86,6 +86,8 @@ MINIMUM_ARC_OBSERVERS = 4
 #: extent and the radius; the export prints sixteen digits, so this is far
 #: above its rounding.
 _TOLERANCE = 1e-3
+#: Below this ratio of its two in-plane extents a set of observers is one line, not a short arc.
+_COLLINEAR = 1e-9
 
 _Harmonic = tuple[int, float | None, float | None, float | None, float | None]
 
@@ -96,6 +98,11 @@ _COLUMNS = re.compile(r"^\s*Columns\s*:\s*(.*?)\s*$")
 
 def _refuse(path: object, line: int, why: str) -> ProductError:
     return ProductError(f"acoustic signals {path}, line {line}: {why}")
+
+
+def _is_po_column(name: str) -> bool:
+    """Whether a Columns entry is the observer pressure ``PO``, not a longer name it starts."""
+    return re.match(r"PO(?![A-Za-z0-9_])", name) is not None
 
 
 def read_acoustic_signals(path: str | Path) -> tuple[AcousticSignal, ...]:
@@ -160,7 +167,7 @@ def read_acoustic_signals(path: str | Path) -> tuple[AcousticSignal, ...]:
             columns = [part.strip() for part in found.group(1).split(",")]
             if not columns[0].lower().startswith("observer time"):
                 raise _refuse(path, number, "the first column is not the observer time")
-            if not any(part.startswith("PO") for part in columns):
+            if not any(_is_po_column(part) for part in columns):
                 raise _refuse(path, number, "the Columns line states no PO column")
         elif columns is None:
             raise _refuse(path, number, "a sample before the Columns line")
@@ -173,7 +180,7 @@ def read_acoustic_signals(path: str | Path) -> tuple[AcousticSignal, ...]:
                 raise _refuse(
                     path, number, f"a sample row holds {len(values)} values for {len(columns)}"
                 )
-            column = next(i for i, part in enumerate(columns) if part.startswith("PO"))
+            column = next(i for i, part in enumerate(columns) if _is_po_column(part))
             times.append(values[0])
             pressures.append(values[column])
     close()
@@ -374,7 +381,7 @@ def arc_of(signals: Sequence[AcousticSignal]) -> ArcFit | None:
     points = np.array([[s.x_m, s.y_m, s.z_m] for s in signals], dtype=float)
     centroid = points.mean(axis=0)
     _, singular, axes = np.linalg.svd(points - centroid)
-    if not singular[1] > _TOLERANCE * singular[0] or singular[2] > _TOLERANCE * singular[0]:
+    if not singular[1] > _COLLINEAR * singular[0] or singular[2] > _TOLERANCE * singular[0]:
         return None
     plane = (points - centroid) @ axes[:2].T
     design = np.column_stack([2.0 * plane, np.ones(len(plane))])

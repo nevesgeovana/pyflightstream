@@ -1850,3 +1850,66 @@ def test_f3_0203_f178_f1365_a_rotor_without_a_usable_frequency_is_na_with_a_note
         with (tmp_path / f"r{number}" / "P1_acoustics_bpf.csv").open(encoding="utf-8") as handle:
             assert {row["FREQUENCY_HZ"] for row in csv.DictReader(handle)} == {"NA"}
         assert (tmp_path / f"r{number}" / "P1_acoustics_summary.csv").is_file()
+
+
+def test_f3_0203_f179_a_short_arc_of_observers_is_an_arc():
+    """F-179: five observers over a twentieth of a degree lie on a circle: an arc."""
+    from pyflightstream.cases.acoustics import AcousticSignal
+    from pyflightstream.post import acoustics
+
+    def at(angle: float) -> AcousticSignal:
+        a = math.radians(angle)
+        return AcousticSignal(
+            f"a{angle}", 1.0, 10.0 * math.cos(a), 10.0 * math.sin(a), (0.0,), (0.0,)
+        )
+
+    fit = acoustics.arc_of([at(0.0125 * n) for n in range(5)])
+    assert fit is not None and fit.radius_m == pytest.approx(10.0, rel=1e-3)
+    line = [AcousticSignal(f"l{n}", float(n), 0.0, 0.0, (0.0,), (0.0,)) for n in range(5)]
+    assert acoustics.arc_of(line) is None
+
+
+def test_f3_0203_f792_the_pressure_column_is_po_not_a_longer_name(tmp_path):
+    """F-792: a column named POTENTIAL before PO is not the pressure."""
+    from pyflightstream.post import acoustics
+
+    export = tmp_path / "x_acoustic_signals.txt"
+    export.write_text(
+        "Observer: O\nPosition: 1.0,0.0,0.0\n"
+        "Columns: Observer time (sec), POTENTIAL (Pa), PO (Pa)\n"
+        "0.0 111.0 1.0\n0.1 222.0 2.0\n",
+        encoding="utf-8",
+    )
+    (signal,) = acoustics.read_acoustic_signals(export)
+    assert signal.pressure_pa == (1.0, 2.0)
+    bad = tmp_path / "y_acoustic_signals.txt"
+    bad.write_text(
+        "Observer: O\nPosition: 1.0,0.0,0.0\n"
+        "Columns: Observer time (sec), POTENTIAL (Pa)\n0.0 1.0\n",
+        encoding="utf-8",
+    )
+    from pyflightstream._errors import ProductError
+
+    with pytest.raises(ProductError, match="no PO column"):
+        acoustics.read_acoustic_signals(bad)
+
+
+def test_f3_0203_f138_a_nan_speed_states_no_azimuth():
+    """F-138: a NaN rpm is no sense of rotation, so no azimuth, never the 270 degrees of -1."""
+    from pyflightstream.post.axes import blade_azimuth_deg
+
+    assert blade_azimuth_deg(0.0, step=18, steps_per_revolution=72, rpm=math.nan) is None
+    assert blade_azimuth_deg(0.0, step=18, steps_per_revolution=72, rpm=math.inf) is None
+    assert blade_azimuth_deg(0.0, step=18, steps_per_revolution=72, rpm=-5.0) == 270.0
+
+
+def test_f3_0203_f180_a_large_finite_axis_still_gives_a_rotation():
+    """F-180: the norm of (1e200, 1e200, 0) overflows; the matrix must still be a rotation."""
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.axes import dcm
+
+    turned = dcm((1e200, 1e200, 0.0), math.pi / 3)
+    assert np.allclose(turned @ turned.T, np.eye(3))
+    assert np.allclose(turned, dcm((1.0, 1.0, 0.0), math.pi / 3))
+    with pytest.raises(ProductError):
+        dcm((math.nan, 0.0, 1.0), 0.1)

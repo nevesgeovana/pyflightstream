@@ -114,6 +114,9 @@ def blade_azimuth_deg(
     stated = (datum_deg, step, steps_per_revolution, rpm)
     if any(isinstance(value, bool) or not isinstance(value, int | float) for value in stated):
         return None
+    # A NaN or infinite value states nothing: a NaN speed would read as the negative sense.
+    if not all(math.isfinite(float(value)) for value in stated):  # type: ignore[arg-type]
+        return None
     if not steps_per_revolution > 0 or not rpm:  # type: ignore[operator]
         return None
     sense = 1.0 if rpm > 0 else -1.0  # type: ignore[operator]
@@ -278,10 +281,15 @@ def dcm(axis: Sequence[float], angle_rad: float) -> Matrix:
     [1.0, 0.0, 0.0]
     """
     n = np.asarray(axis, dtype=float)
-    length = float(np.linalg.norm(n))
-    if length == 0.0:
+    if not np.isfinite(n).all():
+        raise ProductError(f"a rotation axis {n.tolist()} is not finite and names no direction")
+    # SCALED BY ITS LARGEST COMPONENT FIRST: the norm of a large finite axis overflows to
+    # infinity, and dividing by it left a zero vector and a scaling matrix, not a rotation.
+    largest = float(np.max(np.abs(n)))
+    if largest == 0.0:
         raise ProductError("a rotation axis of zero length names no direction to turn about")
-    n = n / length
+    n = n / largest
+    n = n / float(np.linalg.norm(n))
     mu = float(angle_rad)
     tilde = np.array([[0.0, -n[2], n[1]], [n[2], 0.0, -n[0]], [-n[1], n[0], 0.0]])
     return (1.0 - math.cos(mu)) * np.outer(n, n) + math.cos(mu) * np.eye(3) - math.sin(mu) * tilde
