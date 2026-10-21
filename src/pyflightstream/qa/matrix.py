@@ -79,7 +79,7 @@ from pyflightstream.qa.physics import (
 )
 from pyflightstream.results.tables import parse_run_loads
 from pyflightstream.run import CampaignErrors, LoadsAssessor
-from pyflightstream.run.matrix import run_matrix
+from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -333,8 +333,35 @@ def run_physics_matrix(
         point is in the manifest by then, so a caller reducing the
         records reports the failed case beside the others rather than
         losing them (:func:`physics_from_workspace` does).
+    PhysicsEnvironmentError
+        A required command is unavailable or recorded broken on the selected
+        build. The affected physics case is reported as inapplicable before
+        any point is executed.
     """
     campaign, name_from = _campaign_name(Path(workspace.root), name)
+    recipes = workflow_registry()
+    plan = plan_matrix(
+        matrix,
+        workspace,
+        name=campaign,
+        name_from=name_from,
+        recipes={},
+        recipe_registry=recipes,
+        write_plan=False,
+    )
+    cases = {row.pol: case_of_row(row) for row in read_matrix(matrix)}
+    inapplicable = [
+        f"{cases.get(point.sim_id) or point.sim_id} ({point.run_id}): {point.error}"
+        for point in plan.blocked
+        if (point.error or "").startswith(
+            ("CommandNotInVersionError:", "BrokenCommandError:", "WorkflowCoverageError:")
+        )
+    ]
+    if inapplicable:
+        raise PhysicsEnvironmentError(
+            "physics cases inapplicable to the selected build; no execution was started: "
+            + "; ".join(inapplicable)
+        )
     return run_matrix(
         matrix,
         workspace,
@@ -342,7 +369,7 @@ def run_physics_matrix(
         name_from=name_from,
         recipes={},
         assess=LoadsAssessor(),
-        recipe_registry=workflow_registry(),
+        recipe_registry=recipes,
         resume=resume,
     )
 

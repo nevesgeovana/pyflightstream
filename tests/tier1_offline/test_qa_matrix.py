@@ -34,6 +34,42 @@ GOLDENS = HERE / "goldens" / "qa_matrix"
 LOADS_FIXTURE = HERE / "fixtures" / "loads_steady_26.120.txt"
 SRC = Path(pyflightstream.__file__).resolve().parent
 
+
+@pytest.mark.requirement("FR-2316")
+@pytest.mark.parametrize("supported", [False, True])
+def test_p0430_physics_reports_build_inapplicability_before_execution(
+    stub_workspace, monkeypatch, supported
+):
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.qa import matrix as driver
+    from pyflightstream.qa.physics import PhysicsEnvironmentError
+    from pyflightstream.workspace import CampaignWorkspace
+    from tests.tier1_offline._no_evidence import registry_without
+
+    path = stub_workspace / "matriz_physics.fs"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    path.write_text("\n".join(lines[:3]) + "\n", encoding="utf-8")
+    registry = CommandRegistry.load()
+    if not supported:
+        registry = registry_without("INITIALIZE_SOLVER", registry=registry)
+    monkeypatch.setattr(CommandRegistry, "load", classmethod(lambda cls, *a, **kw: registry))
+
+    executions = []
+    monkeypatch.setattr(driver, "run_matrix", lambda *args, **kwargs: executions.append(1) or [])
+    if supported:
+        assert driver.run_physics_matrix(CampaignWorkspace(stub_workspace), path) == []
+        assert executions == [1]
+    else:
+        error = None
+        try:
+            driver.run_physics_matrix(CampaignWorkspace(stub_workspace), path)
+        except PhysicsEnvironmentError as caught:
+            error = str(caught)
+        assert not executions, "unsupported physics case reached execution"
+        assert error and "inapplicable" in error and "PHY-01" in error
+        assert "INITIALIZE_SOLVER" in error
+
+
 #: The stand-in solver. It reads the point's script, takes the angle of
 #: attack, the sideslip and the velocity off the lines the workflow
 #: emitted, and writes the loads table the script exports. The wing's
