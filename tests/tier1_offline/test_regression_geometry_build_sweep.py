@@ -3564,3 +3564,89 @@ class TestRfixR6Sweep:
         }
         for record_path in records:
             _rfixr6_sweep___resolving(record_path)
+
+
+class TestF2Wave1GeometryBuildContracts:
+    """F2-0203 (0.43.0): the build's transaction, partial-folder and record contracts.
+
+    F-1197 (the overlay's last replace), F-1198 (a partial name with a trailing
+    separator), F-677 (the consumed sidecars are inputs), F-678 (one digest of
+    the instruction) and F-1199 (an unreadable retained sidecar). The solver is
+    the same stand-in runner as above.
+    """
+
+    @staticmethod
+    @pytest.mark.requirement("FR-472", "FR-1109")
+    def test_f_1197_a_failed_overlay_replace_is_a_build_error_and_leaves_no_pending_file(
+        tmp_path, monkeypatch
+    ):
+        _, folder = _geometry_complete___sweep(tmp_path)
+        _rfixr6_sweep___with_outputs(folder, '["fsm", "obj"]')
+        real = _geometry_build.os.replace
+
+        def failing(source, destination):
+            if str(destination).endswith(".sweep.vtk"):
+                raise PermissionError("the overlay is held open elsewhere")
+            return real(source, destination)
+
+        monkeypatch.setattr(_geometry_build.os, "replace", failing)
+        with pytest.raises(GeometryBuildError, match="overlay .* could not be published"):
+            apply_geometry_build(_rfixr6_sweep___plan(folder), runner=_rfixr6_sweep___runner())
+        assert not list(folder.parent.glob("**/*.pending*"))
+        assert not (folder / "wing.sweep.vtk").exists()
+
+    @staticmethod
+    @pytest.mark.requirement("FR-472", "FR-1120")
+    @pytest.mark.parametrize("suffix", ["/", "\\", "//"])
+    def test_f_1198_a_partial_folder_name_with_a_trailing_separator_is_still_refused(
+        tmp_path, suffix
+    ):
+        geometries = tmp_path / "geometries"
+        partial = geometries / "wing.partial"
+        partial.mkdir(parents=True)
+        (partial / "wing.partial.build.json").write_text("{}", encoding="utf-8")
+        with pytest.raises(InputArtifactError, match="is a partial folder"):
+            _geometry_build.accept_geometries(["wing.partial" + suffix], geometries=geometries)
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1108")
+    def test_f_677_and_f_678_the_sidecar_is_an_input_and_the_instruction_has_one_digest(tmp_path):
+        root = _geometry_build__workspace(tmp_path)
+        folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
+        (folder / "src.boundaries.toml").write_text('boundaries = ["Wing"]\n', encoding="utf-8")
+        plan = plan_geometry_build(folder, registry=_geometry_build__verified_registry())
+        assert {(item["file"], item["role"]) for item in plan.inputs} >= {
+            ("src.boundaries.toml", "sidecar")
+        }
+        instruction = folder / "wing.geometry.toml"
+        planned = file_sha256(instruction)
+        body = _geometry_build__runner()
+
+        def edits_the_instruction_while_it_runs(script, work):
+            instruction.write_text(instruction.read_text() + "# edited\n", encoding="utf-8")
+            return body(script, work)
+
+        apply_geometry_build(plan, runner=edits_the_instruction_while_it_runs)
+        record = json.loads((folder / "wing.build.json").read_text(encoding="utf-8"))
+        digests = {item["role"]: item["sha256"] for item in record["inputs"]}
+        assert "sidecar" in digests
+        assert record["instruction"]["sha256"] == digests["instruction"] == planned
+
+    @staticmethod
+    @pytest.mark.requirement("FR-1111")
+    def test_f_1199_an_unreadable_retained_sidecar_stops_the_rebuild(tmp_path):
+        root = _geometry_build__workspace(tmp_path)
+        folder = _geometry_build__geometry(root, "wing", _GEOMETRY_BUILD__MESH_INSTRUCTION)
+        registry = _geometry_build__verified_registry()
+        apply_geometry_build(
+            plan_geometry_build(folder, registry=registry), runner=_geometry_build__runner()
+        )
+        sidecar = folder.with_name("wing_obj") / "wing_obj.boundaries.toml"
+        sidecar.write_text("this is [not toml", encoding="utf-8")
+        with pytest.raises(GeometryBuildError, match="wing_obj.boundaries.toml.*cannot be read"):
+            apply_geometry_build(
+                plan_geometry_build(folder, registry=registry),
+                runner=_geometry_build__runner(),
+                overwrite=True,
+            )
+        assert sidecar.read_text(encoding="utf-8") == "this is [not toml"

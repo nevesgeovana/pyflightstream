@@ -21,13 +21,24 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-__all__ = ["CARRIED_OPERATIONS", "carried_tables", "sidecar_text", "toml_table", "toml_value"]
+__all__ = [
+    "CARRIED_OPERATIONS",
+    "UnreadableSidecarError",
+    "carried_tables",
+    "sidecar_text",
+    "toml_table",
+    "toml_value",
+]
 
 #: The sidecar operations a build never applies: they stay in the run.
 CARRIED_OPERATIONS = ("translate", "rotate")
 
 #: The sidecar tables of a mesh the run reads and the build does not make.
 _CARRIED_TABLES = ("wake_termination", "base_regions")
+
+
+class UnreadableSidecarError(ValueError):
+    """A sidecar that exists and cannot be read: a build must not carry nothing over it."""
 
 
 def toml_value(value: Any) -> str:
@@ -73,8 +84,12 @@ def carried_tables(candidates: Sequence[Path]) -> dict[str, Any]:
         try:
             with path.open("rb") as handle:
                 data = tomllib.load(handle)
-        except (OSError, tomllib.TOMLDecodeError):
-            continue
+        except (OSError, tomllib.TOMLDecodeError) as error:
+            # Skipping it would drop its translate, rotate, wake and base-region settings.
+            raise UnreadableSidecarError(
+                f"the sidecar {path} cannot be read ({error}); repair or remove it, "
+                "because a rebuild would drop what it carries"
+            ) from error
         carried: dict[str, Any] = {}
         operations = [
             dict(op)

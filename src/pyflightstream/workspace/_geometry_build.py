@@ -69,7 +69,11 @@ from pyflightstream.workspace._geometry_instruction import (
     refuse_foreign_source_names,
     refuse_moved_nodes,
 )
-from pyflightstream.workspace._geometry_sidecar import carried_tables, sidecar_text
+from pyflightstream.workspace._geometry_sidecar import (
+    UnreadableSidecarError,
+    carried_tables,
+    sidecar_text,
+)
 from pyflightstream.workspace._geometry_vtk import (
     PREVIEW_SUFFIX,
     SWEEP_SUFFIX,
@@ -339,9 +343,21 @@ def _variant_instruction(instruction: GeometryInstruction, angle: float) -> Geom
     )
 
 
-def _inputs(path: Path, instruction: GeometryInstruction) -> tuple[dict[str, str], ...]:
-    """Return every file the build reads, with its role and sha256."""
+def _inputs(
+    path: Path,
+    instruction: GeometryInstruction,
+    variants: Sequence[GeometryVariant] = (),
+) -> tuple[dict[str, str], ...]:
+    """Return every file the build reads, with its role and sha256 (FR-1108).
+
+    The sidecars a build carries tables from (:func:`_carried`) are read, so an
+    existing one is an input: a change to it is a stale input.
+    """
     found = [(path, "instruction")]
+    for variant in variants:
+        for sidecar in _sidecar_candidates(variant, _mesh_name_of(variant)):
+            if sidecar.is_file():
+                found.append((sidecar, "sidecar"))
     source = instruction.source_file()
     if source is not None:
         found.append((path.parent / source, instruction.kind))
@@ -441,7 +457,7 @@ def plan_geometry_build(
         build_id=build_id,
         version=version,
         variants=tuple(variants),
-        inputs=_inputs(path, instruction),
+        inputs=_inputs(path, instruction, variants),
     )
 
 
@@ -647,7 +663,15 @@ def apply_geometry_build(
         built = tuple(_promote(plan, item, overwrite) for item in staged)
         if pending is not None:
             # Published last: the overlay exists only over a sweep promoted whole.
-            os.replace(pending, _overlay_path(plan))
+            try:
+                os.replace(pending, _overlay_path(plan))
+            except OSError as error:
+                raise GeometryBuildError(
+                    f"the sweep overlay {_overlay_path(plan).name} could not be published: "
+                    f"{error}; the variants are promoted, no current overlay exists, and the "
+                    "previous overlay is kept beside it. Build again with overwrite "
+                    "(CLI: --overwrite) once the folder is writable."
+                ) from error
     finally:
         if pending is not None:
             pending.unlink(missing_ok=True)
@@ -879,6 +903,19 @@ def _read_back(variant: GeometryVariant, fsm: Path) -> dict[str, Any]:
 
 def _carried(variant: GeometryVariant, mesh_name: str) -> dict[str, Any]:
     """Return what the rebuilt mesh's sidecar, else the [mesh] source's, carries over (FR-1111)."""
+    try:
+        return carried_tables(_sidecar_candidates(variant, mesh_name))
+    except UnreadableSidecarError as error:
+        raise GeometryBuildError(f"{error}; nothing was promoted") from error
+
+
+def _mesh_name_of(variant: GeometryVariant) -> str:
+    name = variant.instruction.name
+    return name if variant.instruction.outputs == ("obj",) else f"{name}_obj"
+
+
+def _sidecar_candidates(variant: GeometryVariant, mesh_name: str) -> list[Path]:
+    """Return the sidecars a build reads, the rebuilt mesh's first."""
     instruction = variant.instruction
     folder = variant.folder
     built = folder / f"{mesh_name}.boundaries.toml"
@@ -887,7 +924,7 @@ def _carried(variant: GeometryVariant, mesh_name: str) -> dict[str, Any]:
     candidates = [built]
     if instruction.mesh is not None:
         candidates.append(folder / f"{Path(instruction.mesh.file).stem}.boundaries.toml")
-    return carried_tables(candidates)
+    return candidates
 
 
 def _audit(
@@ -991,7 +1028,8 @@ def _record(
                     else len(saved["midpoints"]),
                 }
             )
-    instruction: dict[str, Any] = {"file": rel(plan.path), "sha256": file_sha256(plan.path)}
+    # The digest taken when the build was planned, so the instruction and inputs digests agree.
+    instruction: dict[str, Any] = {"file": rel(plan.path), "sha256": plan.inputs[0]["sha256"]}
     if variant.tag is not None:
         assert plan.instruction.sweep is not None
         instruction["variant"] = {
@@ -1189,7 +1227,7 @@ def accept_geometries(
     """
     records = []
     for name in names:
-        if re.search(rf"{re.escape(PARTIAL_SUFFIX)}(\.previous(\.\d+)?)?$", name):
+        if re.search(rf"{re.escape(PARTIAL_SUFFIX)}(\.previous(\.\d+)?)?$", name.rstrip("/\\")):
             raise _refuse(
                 f"{name} is a partial folder: a build kept for diagnosis and never promoted, "
                 "so it is not a geometry a row can name. Correct what failed and build "
