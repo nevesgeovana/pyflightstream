@@ -649,3 +649,27 @@ def test_an_illegal_directory_name_is_refused_naming_the_option(tmp_path, capsys
     assert caught.value.code == 2, "a refusal of this command line exits 2, like every other"
     err = capsys.readouterr().err
     assert "--name" in err and "my campaign" in err
+
+
+def test_f1219_one_overlong_line_is_shown_and_flagged_not_dropped(tmp_path):
+    """F-1219: a file whose only line exceeds the tail window is present with its end shown."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace import _query_files
+
+    (tmp_path / "log.txt").write_text("x" * (_query_files._TAIL_BYTES * 2), encoding="utf-8")
+    shown = _query_files._evidence(SimpleNamespace(root=tmp_path), "log.txt")
+    assert shown["state"] == "present"
+    assert len(shown["last_lines"]) == 1 and shown["last_lines"][0].startswith("xxx")
+    assert shown["truncated"] is True
+
+
+def test_f1512_a_windows_form_matrix_path_gives_its_stem_with_posix_path_semantics(monkeypatch):
+    """F-1512: backslashes do not stay in the stem when pathlib.Path is the POSIX flavour."""
+    from pathlib import PurePosixPath
+
+    from pyflightstream.workspace import _query_files
+
+    monkeypatch.setattr(_query_files, "Path", PurePosixPath)
+    assert _query_files.matrix_stem("inputs\\matrices\\l1_g6.fs") == "l1_g6"
+    assert _query_files.matrix_stem("inputs/matrices/l1_g6.fs") == "l1_g6"

@@ -12,7 +12,7 @@ import os
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any
 from zipfile import ZipFile
 
@@ -152,6 +152,11 @@ def _evidence(ledger: Ledger, path: str | None, *, lines: int = 5) -> dict[str, 
         }
     found = decoded.splitlines()
     if len(tail) < size:
+        if len(found) == 1:
+            # F-1219: one line longer than the window. Dropping it as a partial first
+            # line left a present file that showed no lines and no sign of why. Its
+            # end is shown and the answer says it begins earlier.
+            return {"path": path, "state": "present", "last_lines": found, "truncated": True}
         found = found[1:]  # the first line read may begin inside a line
     return {"path": path, "state": "present", "last_lines": found[-lines:]}
 
@@ -252,5 +257,7 @@ def matrix_stem(value: str) -> str:
     >>> matrix_stem("inputs/matrices/l1_g6.fs")
     'l1_g6'
     """
-    name = Path(value).name
+    # F-1512: a Windows-form path names its file by the last of either separator, on any
+    # platform; a POSIX Path keeps the backslashes in the name.
+    name = PureWindowsPath(value).name
     return name[: -len(".fs")] if name.lower().endswith(".fs") else name
