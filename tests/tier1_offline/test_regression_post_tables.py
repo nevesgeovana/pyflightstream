@@ -158,6 +158,18 @@ def test_p0430_atomic_publish_replaces_symlink_not_referent(tmp_path):
     assert referent.read_bytes() == b"original\n"
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+@pytest.mark.parametrize("options", [{}, {"allow_nan": True}])
+def test_p0430_json_refuses_nonfinite_without_replacing_target(tmp_path, value, options):
+    """P0430-JSON: non-finite floats cannot produce a JSON record."""
+    target = tmp_path / "record.json"
+    target.write_bytes(b'{"previous": true}\n')
+    with pytest.raises(ValueError, match="JSON"):
+        _textio.write_json(target, {"nested": [value]}, **options)
+    assert target.read_bytes() == b'{"previous": true}\n'
+    assert list(tmp_path.iterdir()) == [target]
+
+
 _POST2_CUSTOM_POLAR___ACCENTED = "Asa em cruzeiro, " + chr(0xE2) + "ngulo m" + chr(0xE9) + "dio"
 
 

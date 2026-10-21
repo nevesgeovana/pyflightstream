@@ -200,8 +200,10 @@ def write_json(path: str | Path, payload: object, *, indent: int | None = 2, **d
 
     ``dump`` is passed to :func:`json.dumps` (``sort_keys``, ``ensure_ascii``,
     ``default``), and the text ends with exactly one LF, the form every JSON
-    record of the package has.
+    record of the package has. Non-finite floats are refused with ValueError
+    before the destination is touched; ``allow_nan`` is always False.
     """
+    dump["allow_nan"] = False
     return write_text(path, json.dumps(payload, indent=indent, **dump) + LINE_END)
 
 
