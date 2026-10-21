@@ -250,6 +250,19 @@ def test_f347_disk_estimate_ignores_empty_datapoint_folders(tmp_path):
     line, fits = storage_module.disk_estimate(workspace, 10)
     assert "(1 measured)" in line
     assert fits
+
+
+def test_f1235_a_submitted_compacted_simulation_is_not_brought(tmp_path):
+    other = tmp_path / "other"
+    (other / "sims").mkdir(parents=True)
+    (other / "sims" / "sim_6001.zip").write_bytes(b"zip")
+    (other / "sims" / "sim_6002.zip").write_bytes(b"zip")
+    brought, _ = storage_module._sync_files(other, "all", {"6001"})
+    names = {path.name for path in brought}
+    assert "sim_6001.zip" not in names
+    assert "sim_6002.zip" in names
+
+
 def test_f1236_sync_does_not_relink_a_submitted_record_only_simulation(tmp_path):
     main, other = _sync_pair(tmp_path, "submitted")
     _linked_sim(other, "8010")

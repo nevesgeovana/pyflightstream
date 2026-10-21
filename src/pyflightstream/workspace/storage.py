@@ -1495,7 +1495,10 @@ def _sync_files(
     out: set[Path] = set()
     sims = ws / "sims"
     for sim in sorted(sims.glob("sim_*")) if sims.is_dir() else []:
-        if is_reparse(sim) or sim.name[len("sim_") :] in skip_sims:
+        sim_id = sim.name[len("sim_") :]
+        if sim.is_file() and sim.name.endswith(COMPACTED_SUFFIX):
+            sim_id = sim.name[len("sim_") : -len(COMPACTED_SUFFIX)]
+        if is_reparse(sim) or sim_id in skip_sims:
             continue
         if sim.is_file():
             if rank >= 3 and sim.name.endswith(COMPACTED_SUFFIX):
