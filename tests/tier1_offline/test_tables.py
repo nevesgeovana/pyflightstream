@@ -1856,3 +1856,11 @@ def test_pfs_2117_002_results_refusals_sit_under_the_package_error_base():
     for refused in (unknown.value, wrong.value):
         assert isinstance(refused, PyflightstreamError)
         assert isinstance(refused, ValueError)
+
+
+def test_fr_16_values_are_found_by_their_anchors_not_by_line_offsets():
+    """FR-16: lines added ahead of every anchor move no value."""
+    text = _fixture("loads_steady_26.120.txt")
+    shifted = (chr(10) * 7) + "a preface line the solver may add" + chr(10) + text
+    assert parse_loads(shifted).total == parse_loads(text).total
+    assert parse_loads(shifted).surfaces == parse_loads(text).surfaces

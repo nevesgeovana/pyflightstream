@@ -242,6 +242,18 @@ def test_f_1441_a_field_name_the_vtk_reader_would_split_is_refused_by_the_writer
     assert not (tmp_path / "a.vtk").exists()
 
 
+def test_fr_113_the_tecplot_surface_keeps_cell_centered_fields_and_connectivity(tmp_path):
+    from pyflightstream.results.surface import write_tecplot_surface
+
+    path = write_tecplot_surface(tmp_path / "a.dat", _vtk(), title="t")
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert 'VARIABLES = "X", "Y", "Z", "Cp_reference"' in lines
+    assert any("VARLOCATION=([4-4]=CELLCENTERED)" in line for line in lines)
+    assert any(line.strip().startswith("-2.0000000000000001E-01") for line in lines)
+    faces = [line for line in lines if line in ("1 2", "2 3", "3 4", "4 1")]
+    assert faces == ["1 2", "2 3", "3 4", "4 1"]
+
+
 def test_f_1440_names_that_collide_once_normalized_are_refused_by_the_tecplot_writer(tmp_path):
     from pyflightstream._errors import ProductError
     from pyflightstream.results.surface import write_tecplot_surface

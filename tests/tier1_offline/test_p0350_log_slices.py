@@ -122,3 +122,22 @@ def test_p0350_log_fr368_nul_bytes_and_empty_text():
     segments = split_job_log(marked)
     assert len(segments) == 2 and segments[0].complete and not segments[1].complete
     assert point_log_text(marked, segments[1], polar_start=segments[1]) == "b\n"
+
+
+def test_fr_728_a_later_point_log_opens_with_the_polar_preamble_including_its_import_count():
+    """FR-728: the geometry-opening and import-count lines precede the point's own segment."""
+    lines = [
+        OPEN_ECHO,
+        "16 trailing edges imported for boundary Wing",
+        "Following geometry is being initialized",
+        "point one solve",
+        RESTART_MARKER,
+        "point two solve",
+    ]
+    text = chr(10).join(lines) + chr(10)
+    first, second = split_job_log(text)
+    sliced = point_log_text(text, second, polar_start=first)
+    assert sliced.splitlines() == [*lines[:2], "point two solve"]
+    assert imported_trailing_edges(sliced) == {"Wing": 16}
+    own = point_log_text(text, first, polar_start=first)
+    assert OPEN_ECHO in own and RESTART_MARKER not in own

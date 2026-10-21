@@ -1325,6 +1325,15 @@ class TestFarfieldWake:
 
     @staticmethod
     @pytest.mark.requirement("FR-452")
+    def test_fr_1023_topology_comes_from_node_indices_not_coordinate_equality():
+        """FR-1023: two lines through the same coordinates stay two lines."""
+        line = _farfield_wake___straight_wake(np.array([0.0]), np.array([1.0]))[0]
+        wake = parse_wake_export(_farfield_wake___vtk([line, line.copy()], [1.0, 2.0]))
+        assert len(wake.lines) == 2
+        assert sorted(np.asarray(wake.values).tolist()) == [1.0, 2.0]
+
+    @staticmethod
+    @pytest.mark.requirement("FR-452")
     def test_p0400_trefftzb_the_reader_refuses_what_is_no_wake():
         """P0400-TREFFTZB (FR-1023): counts, a varying value and polygons are each refused."""
         y = _farfield_wake___stations(2)
