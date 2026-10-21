@@ -804,8 +804,8 @@ def add_reduced_frequency_to_sections(
     # from its frame's origin, which is the hub for a frame of the rotor and
     # the moment point for MRP.
     radius_of_row: list[float | None] = []
-    unplaced = False
-    for row in rows:
+    unplaced: set[int] = set()
+    for at, row in enumerate(rows):
         offset = _number(row[index["Offset"]])
         frame, family, plane = frame_of_row(row)
         radius = (
@@ -816,7 +816,7 @@ def add_reduced_frequency_to_sections(
             )
         )
         if row[index["ROTOR"]] == alias and offset is not None and radius is None:
-            unplaced = True
+            unplaced.add(at)
             notes.append(
                 f"K_1P of rotor {alias} reads NA in block {family} {plane}: the cut is in the "
                 f"axes of frame {frame} and the hub sits off the plane's radial line, so "
@@ -866,7 +866,7 @@ def add_reduced_frequency_to_sections(
             + f", so the sectional loads of rotor {alias} are not all known and a gap is "
             "never read as a zero load"
         )
-    projected = not gaps and not unplaced
+    projected = not gaps and not _unplaced_selected(unplaced, rows, index, first)
     stations = list(zip(chosen, strips, strict=True)) if projected else []
     for at, w in stations:
         row = rows[at]
@@ -930,6 +930,15 @@ def add_reduced_frequency_to_sections(
         ],
     )
     return validity
+
+
+def _unplaced_selected(unplaced, rows, index, first) -> bool:
+    """Limit missing radii to the blade and clocking used by the summary."""
+    return any(
+        (first is None or rows[at][index["FAMILY"]] == first)
+        and (CLOCKING_COLUMN not in index or rows[at][index[CLOCKING_COLUMN]] == "0")
+        for at in unplaced
+    )
 
 
 def _unread_stations(

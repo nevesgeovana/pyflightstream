@@ -485,6 +485,29 @@ def test_p0430_unread_chord_refuses_incomplete_blade_shares(tmp_path):
     assert any("Chord" in note for note in validity.notes)
 
 
+def test_p0430_other_blade_unplaced_does_not_disable_selected_shares(tmp_path):
+    from dataclasses import replace
+
+    table = tmp_path / "sections.csv"
+    table.write_text(
+        "ROTOR,FAMILY,PLANE,Offset,Chord,Fx,Fz\n"
+        "PROP,Blade1,XZ,0.2,0.2,1,1\n"
+        "PROP,Blade1,XZ,0.8,0.2,1,1\n"
+        "PROP,Blade2,XZ,0.2,0.2,1,1\n",
+        encoding="utf-8",
+    )
+    result = post_qsteady.add_reduced_frequency_to_sections(
+        table,
+        replace(_record(1200), hub_m=(0, 0, 1)),
+        velocity_m_per_s=10,
+        layout=[
+            {"families": ["Blade1"], "plane": "XZ", "frame": "PROP_RMRP1"},
+            {"families": ["Blade2"], "plane": "XZ", "frame": "MRP"},
+        ],
+    )
+    assert result.values["THRUST_PCT_K_GT_0_1"] == 100.0
+
+
 @pytest.mark.parametrize((), [pytest.param(id="P0430-F-785")])
 def test_p0430_missing_clocking_zero_keeps_surviving_exports(tmp_path, monkeypatch):
     from pyflightstream.post.section_distributions import write_section_distributions
