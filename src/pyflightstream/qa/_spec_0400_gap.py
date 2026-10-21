@@ -149,10 +149,10 @@ from pyflightstream.qa._spec_0400_gapkit import (
     trajectory_read,
 )
 from pyflightstream.qa._spec_ccs_noise import (
+    _CAPTURED_REFERENCE_WING,
     _REFERENCE_WING,
     _ccs_assign,
     _ccs_select,
-    _export_obj,
     _mesh_differs,
     _mesh_read,
     _wing_loft,
@@ -702,11 +702,11 @@ def _p2() -> list[GapProbe]:
                 primary=True,
                 command=loft_setting,
                 build_target=_emit(loft_setting, *args),
-                prelude=_seq(_REFERENCE_WING, _export_obj(1, "reference.obj")),
+                prelude=_CAPTURED_REFERENCE_WING,
                 epilogue=_seq(
                     _ccs_select,
                     _ccs_assign(1),
-                    _loft_exported("PYFS_VARIANT", 2, "variant.obj"),
+                    _loft_exported("PYFS_VARIANT", 1, "variant.obj"),
                 ),
                 assert_effect=_mesh_differs,
                 observe=_mesh_read,

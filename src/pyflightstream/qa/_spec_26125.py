@@ -34,6 +34,7 @@ from pyflightstream.qa._spec_ccs_noise import (
     _ccs_import,
     _ccs_initialize,
     _ccs_select,
+    _clear_reference_loft,
     _export_obj,
     _fuselage_loft,
     _mesh_differs,
@@ -226,13 +227,17 @@ _spec(
 _spec(
     command="SET_CCS_TE_BLEND_LENGTH",
     build_target=_emit("SET_CCS_TE_BLEND_LENGTH", 40.0),
-    prelude=_seq(_ccs_curve(1), _blend_loft("PYFS_REFERENCE")),
+    prelude=_seq(
+        _ccs_curve(1),
+        _blend_loft("PYFS_REFERENCE"),
+        _export_obj(1, "reference.obj"),
+        _clear_reference_loft,
+    ),
     epilogue=_seq(
         _ccs_select,
         _ccs_assign(1),
         _blend_loft("PYFS_VARIANT"),
-        _export_obj(1, "reference.obj"),
-        _export_obj(2, "variant.obj"),
+        _export_obj(1, "variant.obj"),
     ),
     assert_effect=_mesh_differs,
     observe=_mesh_read,

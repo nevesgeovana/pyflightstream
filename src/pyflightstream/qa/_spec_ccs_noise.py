@@ -401,20 +401,35 @@ _spec(
     effect_note="the saved simulation names the body of revolution",
 )
 
+
 #: A second loft of the same curve, with the target between the two lofts.
+def _clear_reference_loft(script: Script, workdir: Path) -> None:
+    """Remove the captured reference before changing the loft definition."""
+    delete = (
+        "DELETE_SURFACES"
+        if "DELETE_SURFACES" in script.registry.for_version(script.version)
+        else "SURFACE_DELETE"
+    )
+    script.emit(delete, 1)
+
+
 _SECOND_WING_LOFT = _seq(
     _ccs_select,
     _ccs_assign(1),
     _wing_loft("PYFS_VARIANT"),
-    _export_obj(1, "reference.obj"),
-    _export_obj(2, "variant.obj"),
+    _export_obj(1, "variant.obj"),
 )
 _REFERENCE_WING = _seq(_ccs_curve(1), _wing_loft("PYFS_REFERENCE"))
+_CAPTURED_REFERENCE_WING = _seq(
+    _REFERENCE_WING,
+    _export_obj(1, "reference.obj"),
+    _clear_reference_loft,
+)
 
 _spec(
     command="CCS_WING_MESH_SUBDIVISIONS",
     build_target=_emit("CCS_WING_MESH_SUBDIVISIONS", "CHORD", 30),
-    prelude=_REFERENCE_WING,
+    prelude=_CAPTURED_REFERENCE_WING,
     epilogue=_SECOND_WING_LOFT,
     assert_effect=_mesh_differs,
     observe=_mesh_read,
@@ -441,7 +456,7 @@ _spec(
         "PARAMETRIC",
         "Y",
     ),
-    prelude=_REFERENCE_WING,
+    prelude=_CAPTURED_REFERENCE_WING,
     epilogue=_SECOND_WING_LOFT,
     assert_effect=_mesh_differs,
     observe=_mesh_read,

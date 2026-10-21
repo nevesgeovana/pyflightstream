@@ -26,6 +26,32 @@ from tests.tier1_offline._no_evidence import registry_without_version
 PILOT = ["PRINT", "STOP", "RUN_SCRIPT"]
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "SET_CCS_TE_BLEND_LENGTH",
+        "CCS_WING_MESH_SUBDIVISIONS",
+        "NEW_CCS_WING_CONTROL_SURFACE",
+        "SET_CAD_CREATE_SPLINE_SEGMENTS",
+        "SET_CAD_CREATE_SPLINE_LOFT",
+        "SET_CAD_CREATE_MERGE_TOLERANCE",
+    ],
+)
+def test_p0430_f6_04_blend_lofts_export_before_invalidation(tmp_path, command):
+    from pyflightstream.script import Script
+
+    script = Script("26.125")
+    spec = PROBE_SPECS[command]
+    spec.prelude(script, tmp_path)
+    spec.build_target(script, tmp_path)
+    spec.epilogue(script, tmp_path)
+    text = script.render()
+    assert text.index("reference.obj") < text.index(command)
+    assert "DELETE_SURFACES" in text
+    assert text.index("reference.obj") < text.index("DELETE_SURFACES")
+    assert text.index("DELETE_SURFACES") < text.index("PYFS_VARIANT")
+
+
 def test_p0430_f6_04_registered_external_probe_uses_working_frame(tmp_path):
     script = generate_probe_script(
         PROBE_SPECS["SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND"], "26.125", tmp_path
