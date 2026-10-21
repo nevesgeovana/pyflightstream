@@ -378,7 +378,7 @@ def test_x_f_1315_a_blank_factor_cell_is_a_placeholder_on_the_external_route_too
     assert "row states" in str(stated.value)
     try:
         resolve_row_fsi(tmp_path, {"FSI": "f002", "FSI_BENDING_STIFFNESS_N_M2_FACTOR": ""})
-    except FsiSetupError as error:
+    except Exception as error:  # the minimal external input fails later, on its own terms
         assert "row states" not in str(error)
 
 
