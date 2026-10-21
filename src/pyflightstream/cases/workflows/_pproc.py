@@ -482,7 +482,9 @@ def _declared_sections(case: SimCase, script: Script, frames: Frames) -> None:
             frame = _pproc_frame(case, frames, frame_name, "a section distribution", families)
             indices = [script.resolve_boundary(f, context="pproc section") for f in families]
             if not indices:
-                indices = list(range(1, len(inventory) + 1))
+                # EVERY BOUNDARY, THE DUPLICATE-NAMED ONES INCLUDED: the label inventory leaves
+                # out a name two boundaries share, so its length is not the file's count.
+                indices = list(range(1, (script.num_boundaries or len(inventory)) + 1))
             # THE SYMMETRY SWITCH IS WRITTEN ONLY WHERE THE BUILD HAS IT.
             # The builds before 26.120 take no INCLUDE_SYMMETRY, and writing
             # `DISABLE` there refused every section distribution on them even
@@ -591,8 +593,9 @@ def _cuts_a_section(case: SimCase, pproc: PprocSpec, inventory: Sequence[str]) -
     :func:`~pyflightstream.cases.select_families` with the same aliases, and
     cuts nothing where that selects none. An entry in a frame per rotor or per
     blade expands over the frames the run places, which are not known here, so
-    it counts as cutting wherever a rotor family is carried; an entry the
-    selector refuses counts too, so that the builder refuses it as before. The
+    it counts as cutting wherever a BLADE family is carried (the builder lays
+    sections over blades only, FR-75, so a hub family alone cuts none); an entry
+    the selector refuses counts too, so that the builder refuses it as before. The
     plot is left out only where no section can be cut.
     """
     names = _the_names_a_rotor_answers_to(case)
@@ -600,7 +603,7 @@ def _cuts_a_section(case: SimCase, pproc: PprocSpec, inventory: Sequence[str]) -
     on_a_rotor = any(
         family.casefold() in carried
         for block in case.rotors.values()
-        for family in (*block.families_general, *block.families_blades)
+        for family in block.families_blades
     )
     for entry in pproc.sections.distributions:
         if entry.frame.strip().upper() in EXPANDING_FRAMES:

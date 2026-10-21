@@ -299,6 +299,16 @@ def _refuse_what_is_not_the_rotor(
         ):
             blades_found.append(member)
     others = sorted(name for name, index in labels.items() if index not in owned)
+    # A NAME TWO BOUNDARIES SHARE IS NO LABEL, and the geometry still holds both: they select
+    # no rotor member, so none is the rotor's and each is a surface outside it.
+    named = set(labels.values())
+    held = script.boundary_inventory or ()
+    others += [
+        f"{held[index - 1] if index <= len(held) else 'a boundary'} (boundary {index}, "
+        "its name used more than once)"
+        for index in range(1, (script.num_boundaries or 0) + 1)
+        if index not in named
+    ]
     if others:
         raise CampaignConfigError(
             f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} and its geometry holds "
