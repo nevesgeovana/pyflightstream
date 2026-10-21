@@ -149,3 +149,14 @@ def test_p0410_pc_walltime_surface_average_explains_incomplete_window(tmp_path) 
     assert "native average" not in diagnostic.lower(), diagnostic
     assert "native averaging" not in diagnostic.lower(), diagnostic
     assert not (tmp_path / "out").exists()
+
+
+def test_p0430_f3_equal_dat_and_vtk_destinations_are_refused(tmp_path):
+    """F-1403: one file named for both writes is refused; nothing is written."""
+    from pyflightstream.post.surfaces import write_surface_average
+
+    vtk, _ = _pair(tmp_path)
+    result = average_surface_exports(vtk, window=(7, 8), frame=REFERENCE_FRAME)
+    with pytest.raises(ProductError, match="one file"):
+        write_surface_average(tmp_path / "same.out", result, vtk=tmp_path / "same.out")
+    assert not (tmp_path / "same.out").exists()

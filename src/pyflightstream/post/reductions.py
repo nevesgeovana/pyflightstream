@@ -54,10 +54,19 @@ def _refuse_existing(destination: Path, overwrite: bool) -> None:
         )
 
 
+def _same_file(first: Path, second: Path) -> bool:
+    """Say whether two paths are one file: the same resolved path, or a hard-link alias of it."""
+    if first.resolve() == second.resolve():
+        return True
+    try:
+        return first.samefile(second)
+    except OSError:
+        return False
+
+
 def _refuse_a_source(destination: Path, sources: tuple[Path, ...]) -> None:
     """Refuse a destination that is one of the files the series read."""
-    resolved = destination.resolve()
-    clash = [source for source in sources if Path(source).resolve() == resolved]
+    clash = [source for source in sources if _same_file(destination, Path(source))]
     if clash:
         raise WorkspaceError(
             f"{destination} is a file this reduction was READ from, so writing it would "

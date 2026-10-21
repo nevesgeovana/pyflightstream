@@ -23,7 +23,8 @@ itself is :func:`~pyflightstream.post.unsteady.blade_passage_average`, the
 package's one averaging routine: the panels are its samples and the steps its
 frames.
 
-``SOLVER_TIME_AVERAGING`` is never emitted: it hangs 26.124 (C01). The per-step
+``SOLVER_TIME_AVERAGING`` is never emitted: it hangs 26.124 (C01, measured
+2026-09-19, ``reports/compat/CMP-26124_2026-09-19_time-averaging.yaml``). The per-step
 instants stay on disk and in ``products.json`` as ``kind: instant``.
 """
 
@@ -310,6 +311,14 @@ def write_surface_average(
     """
     # BOTH DESTINATIONS BEFORE EITHER WRITE, as write_output_pair tests its
     # pair: the Tecplot was written and then the VTK refused, half a pair.
+    if vtk is not None and (
+        Path(dat).resolve() == Path(vtk).resolve()
+        or (Path(dat).exists() and Path(vtk).exists() and Path(dat).samefile(Path(vtk)))
+    ):
+        raise ProductError(
+            f"the Tecplot and the VTK destinations are one file, {dat}: the second write "
+            "would replace the first, so name two files"
+        )
     for target in (Path(dat), *(() if vtk is None else (Path(vtk),))):
         if target.exists() and not overwrite:
             raise ProductExistsError(

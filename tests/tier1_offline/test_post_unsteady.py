@@ -581,3 +581,21 @@ def test_p0430_f3_caller_argument_errors_are_product_errors(tmp_path):
         passage_windows(series, period_steps=99)
     with pytest.raises(ProductError, match="no frames were given"):
         read_timestep_series([], order="given")
+
+
+def test_p0430_f3_a_hard_link_alias_of_a_source_is_refused(tmp_path):
+    """F-1248: the source rule compares file identity, so a hard link to a frame is refused."""
+    import os
+
+    frames = write_frames(tmp_path / "anim", [1.0, 2.0])
+    series = read_timestep_series(frames, order="given")
+    average = blade_passage_average(series, window=(0, 1))
+    series_file = write_series(tmp_path / "anim" / "series.csv", series)
+    alias = tmp_path / "anim" / "alias.csv"
+    try:
+        os.link(frames[0], alias)
+    except OSError:
+        pytest.skip("this file system makes no hard links")
+    with pytest.raises(WorkspaceError, match="READ from"):
+        write_reduction(alias, average, series_file=series_file, sources=frames, overwrite=True)
+    assert frames[0].read_text(encoding="utf-8").startswith("TITLE")
