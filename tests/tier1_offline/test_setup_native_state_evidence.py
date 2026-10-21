@@ -134,3 +134,33 @@ def test_unobserved_rotor_blending_is_not_promoted_to_operational_evidence():
     assert _artifact("wake-state-rotor_induced_velocity_blending-0", ".fsm") == _artifact(
         "wake-state-rotor_induced_velocity_blending-1", ".fsm"
     )
+
+
+#: The command each recorded setter reaches, written from the claims of the markers above and
+#: not read from the package, so a routing that moves fails here without the private receipt.
+RECORDED_SETTER_COMMANDS = {
+    "laminar_separation": "LAMINAR_SEPARATION",
+    "additional_wake_relaxation": "ADDITIONAL_WAKE_RELAXATION_ITERATION",
+    "wake_on_wake_induction": "SET_WAKE_ON_WAKE_INDUCTION",
+    "mesh_induced_wake_velocity": "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY",
+    "unsteady_pressure_and_kutta": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA",
+    "wake_numerical_relaxation": "SET_WAKE_NUMERICAL_RELAXATION",
+    "wake_decay_constant_per_m": "SET_WAKE_DECAY_CONSTANT",
+}
+
+
+def test_recorded_setters_route_to_the_commands_the_receipt_names_without_the_receipt():
+    """The offline half of the opt-in replay above: it can fail in CI.
+
+    Every other test of this module skips unless the private receipt path is set, so no
+    run without it could notice a setup key that stopped reaching the command whose saved
+    effect the receipt records. Each recorded setter must still be a setup key of the
+    package and must still route to that command.
+    """
+    from pyflightstream.cases._setup_keys import SOLVER_SETTING_COMMANDS
+
+    assert {setting for setting, *_ in NATIVE_SETTERS} == set(RECORDED_SETTER_COMMANDS)
+    routed = {setting: SOLVER_SETTING_COMMANDS.get(setting) for setting in RECORDED_SETTER_COMMANDS}
+    assert routed == RECORDED_SETTER_COMMANDS
+    assert len(RECEIPT_SHA256) == 64
+    int(RECEIPT_SHA256, 16)
