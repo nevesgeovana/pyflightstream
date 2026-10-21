@@ -1007,7 +1007,9 @@ class TestLitBPost:
     def test_p0400_litb_real_mirror_wake_reaches_post(tmp_path, build):
         row, messages, skipped = _litb_post__post_wake(tmp_path, f"p0400_litB_wake_{build}.vtk")
         assert row["VARIANT"] == "B" and row["E_T"] != "NA", skipped
-        assert float(row["CL_T"]) == pytest.approx(0.3400367, abs=1e-5)
+        # The native CL stands on the reference velocity (68.058 m/s) and CL_T on the free
+        # stream's (34.03 m/s): the calibrated lift is CL q_ref SREF.
+        assert float(row["CL_T"]) == pytest.approx(0.3400367 * (68.058 / 34.03) ** 2, rel=1e-4)
         assert any("collapsed wake lines" in message for message in messages) == (build == "26124")
 
 

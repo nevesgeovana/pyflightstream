@@ -655,7 +655,7 @@ def _variant_b(ctx: SimContext, point: PolarPoint) -> list:
     k = calibration_scale(
         raw.lift * factor,
         cl_near=_near_field(point)[0],
-        q=0.5 * rho * speed * speed,
+        q=_q_ref(point, rho),
         s_ref=ctx.reference.sref_m2,
     )
     calibrated = math.isfinite(k)
