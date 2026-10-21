@@ -353,3 +353,41 @@ def test_p0430_f1562_a_job_of_separate_sims_lists_each_instead_of_a_range():
     assert _sims_text(["2006", "2008"]) == "2006,2008"
     assert _sims_text(["2006", "2007", "2008"]) == "2006-2008"
     assert _sims_text(["2006"]) == "2006"
+
+
+def test_plan_receipt_f603_digest_is_taken_before_the_dry_builds(tmp_path, monkeypatch):
+    """F-603: a matrix edited while the plan builds is pinned as it was read, not as it ended."""
+    import hashlib
+
+    from pyflightstream.run import _plan
+    from pyflightstream.run.cli import main
+
+    workspace, matrix = _fixture(tmp_path)
+    before = hashlib.sha256(matrix.read_bytes()).hexdigest()
+    real = _plan._warn_on_short_wakes
+
+    def edit_then_warn(points):
+        matrix.write_bytes(matrix.read_bytes() + b"\n# edited during the dry builds\n")
+        return real(points)
+
+    monkeypatch.setattr(_plan, "_warn_on_short_wakes", edit_then_warn)
+    main(["plan", str(matrix), "--workspace", str(workspace.root)])
+    plan = json.loads((workspace.plan_dir("rotor") / "plan.json").read_text("utf-8"))
+    assert plan["matrix_sha256"] == before
+    assert _plan.plan_receipt_error(workspace, matrix, "rotor")  # now stale: refused
+
+
+@pytest.mark.parametrize(
+    ("body", "needle"),
+    [("[1, 2]", "not a plan receipt"), ('{"matrix_sha256": 12345}', "not text")],
+)
+def test_plan_receipt_f1570_f1571_malformed_receipts_are_refused(tmp_path, body, needle):
+    """F-1570, F-1571 (X-F-0564): a non-object receipt and a non-text digest are refused."""
+    from pyflightstream.run import _plan
+
+    workspace, matrix = _fixture(tmp_path)
+    plan_file = workspace.plan_dir("rotor") / "plan.json"
+    plan_file.parent.mkdir(parents=True, exist_ok=True)
+    plan_file.write_text(body, encoding="utf-8")
+    message = _plan.plan_receipt_error(workspace, matrix, "rotor")
+    assert message is not None and needle in message

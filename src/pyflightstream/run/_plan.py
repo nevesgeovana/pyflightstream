@@ -1003,8 +1003,19 @@ def plan_receipt_error(
         payload = json.loads(plan_file.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         return f"the plan at {plan_file} cannot be read: {error}. {PLAN_REQUIRED_MESSAGE}"
+    if not isinstance(payload, dict):
+        return (
+            f"the plan at {plan_file} is not a plan receipt (it holds "
+            f"{type(payload).__name__}, not an object). {PLAN_REQUIRED_MESSAGE}"
+        )
     planned = payload.get("matrix_sha256")
     current = _file_digest(matrix_path)
+    if planned is not None and not isinstance(planned, str):
+        return (
+            f"the plan at {plan_file} records its matrix digest as "
+            f"{type(planned).__name__}, not text, so it cannot be shown to be about "
+            f"this matrix. {PLAN_REQUIRED_MESSAGE}"
+        )
     if planned is None:
         return (
             f"the plan at {plan_file} does not say which matrix it measured, so it "
@@ -1160,6 +1171,9 @@ def plan_campaign(
         such row (FR-987); the plan status is what it would be without it.
     """
     canonical = resolve(campaign.fs_version).canonical
+    # F-603: the matrix the plan is built from is pinned BEFORE the dry builds,
+    # so an edit made while they run is caught by the next run's comparison.
+    matrix_digest = _file_digest(matrix_path) if matrix_path else None
     # Before the first folder is allocated, for the reason run_campaign
     # states: a missing build is knowable up front, and discovering it
     # halfway leaves a plan that describes part of a campaign.
@@ -1238,7 +1252,7 @@ def plan_campaign(
             # a different study. None when the campaign was authored in
             # Python and has no matrix to pin to; `run` asks for a plan
             # only where a matrix exists.
-            "matrix_sha256": _file_digest(matrix_path) if matrix_path else None,
+            "matrix_sha256": matrix_digest,
             # Plan launches no solver, so the flag changes no check here;
             # it is recorded so the plan rehearses the command line run executes.
             "accept_unregistered_build": accept_unregistered_build,
