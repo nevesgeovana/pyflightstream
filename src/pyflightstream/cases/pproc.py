@@ -470,16 +470,16 @@ FLUID_PLOT_PARAMETERS = (
     "BL_TRANSITION_MARKER",
 )
 
-#: The family SELECTORS a pproc entry may write instead of a family name.
-#: ``all`` is every boundary (the command's own -1 form); ``airframe`` is
-#: every family that is not a blade; ``blades`` is every blade; ``each``
-#: expands the entry into one per family the geometry carries, and
-#: ``each_blade`` into one per blade, the entry's name carrying
-#: ``{family}`` for the expansion. They are what let ONE artifact serve
-#: the reference wing-body and isolated-rotor configurations: the
-#: reference driver kept
-#: one table of sections and plots and filtered it to the components the
-#: opened file carried, and the selectors are that filter written down.
+#: The family SELECTOR words the package knows, and what each does today.
+#: ``all`` is every boundary (the command's own -1 form); ``each`` expands
+#: the entry into one per family the geometry carries, the entry's name
+#: carrying ``{family}`` for the expansion. ``airframe`` and ``blades`` are
+#: ACCEPTED ONLY AS AN ALIAS THE REFERENCE DECLARES: written as a selector
+#: with no such alias they are refused, naming the alias to declare, and
+#: ``each_blade`` is refused in plots and section distributions, which name
+#: ``frame = "LOCAL_AXIS"`` instead. What lets ONE artifact serve a
+#: wing-body and an isolated-rotor configuration is a family the mesh lacks
+#: being left out of an entry rather than failing it.
 FAMILY_SELECTORS = ("all", "airframe", "blades", "each", "each_blade")
 
 #: The frames the package creates itself under a FIXED name, which a pproc
@@ -716,7 +716,11 @@ class VolumeSectionSpec(_LocatedSpec):
         stray = [
             key
             for key in _VOLUME_SECTION_SHAPE_KEYS[other]
-            if key != "points" and key in self.model_fields_set and getattr(self, key) is not None
+            if key != "points"
+            and key in self.model_fields_set
+            and getattr(self, key) is not None
+            # the default a default-inclusive dump writes is not a stated key
+            and not (key == "refinement_layers" and self.refinement_layers == 1)
         ]
         if stray:
             raise ValueError(
@@ -1273,7 +1277,9 @@ class ProbesSpec(_LocatedSpec):
                 "own, which is the survey written twice with nothing keeping the two "
                 "in agreement. State the shapes, or cite the file and delete them."
             )
-        if self.points_file and "/" in self.points_file.replace("\\", "/"):
+        if self.points_file and (
+            "/" in self.points_file.replace("\\", "/") or ":" in self.points_file
+        ):
             raise ValueError(
                 f"`points_file = {self.points_file!r}` names a path. It is the NAME of "
                 "a file under the workspace's `inputs/profiles/`, which is "
@@ -1476,7 +1482,7 @@ class PerRevolutionSpec(BaseModel):
 
     #: The change, in per cent of a force or moment column's scale, above which
     #: its last revolution is warned about. Positive.
-    drift_limit_pct: float = Field(default=DEFAULT_DRIFT_LIMIT_PCT, gt=0.0)
+    drift_limit_pct: float = Field(default=DEFAULT_DRIFT_LIMIT_PCT, gt=0.0, allow_inf_nan=False)
 
 
 class PhaseLockedSpec(BaseModel):
@@ -1506,9 +1512,9 @@ class PhaseLockedSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     #: Total revolutions the matrix must specify before this is generated.
-    min_revolutions: float = Field(gt=0.0)
+    min_revolutions: float = Field(gt=0.0, allow_inf_nan=False)
     #: How many of the LAST revolutions the average uses.
-    last_revolutions_avg: float = Field(gt=0.0)
+    last_revolutions_avg: float = Field(gt=0.0, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def _averages_no_more_than_it_required(self) -> PhaseLockedSpec:
@@ -1971,6 +1977,19 @@ class PprocSpec(BaseModel):
     groups: Annotated[dict[str, list[int | str]], BeforeValidator(_a_group_is_one_alias)] = Field(
         default_factory=dict
     )
+
+    @field_serializer("groups")
+    def _groups_as_written(self, value: dict[str, list[int | str]]) -> dict[str, object]:
+        """Dump each group as the one alias string it was written as.
+
+        The held list is the normalized selection; writing it back as a list
+        would be refused on reading, the member list being retired.
+        """
+        return {
+            name: members[0] if len(members) == 1 and isinstance(members[0], str) else members
+            for name, members in value.items()
+        }
+
     #: ``[phase_locked]``, OPTIONAL. Absent, the phase-locked reduction is the
     #: passage series it has always been and nothing gates it. Declared, it is
     #: generated when the matrix row turns AT LEAST ``min_revolutions``, as the

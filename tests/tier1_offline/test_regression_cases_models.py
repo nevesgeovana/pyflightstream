@@ -834,6 +834,51 @@ def test_pfs_2119_020_fluid_state_refuses_a_non_physical_value(field, value):
         FluidState(**stated)
 
 
+def test_f049_f050_an_infinite_pproc_gate_is_refused():
+    from pyflightstream.cases.pproc import PerRevolutionSpec
+
+    with pytest.raises(ValidationError):
+        PerRevolutionSpec(drift_limit_pct=float("inf"))
+    with pytest.raises(ValidationError):
+        PhaseLockedSpec(min_revolutions=float("inf"), last_revolutions_avg=1.0)
+    with pytest.raises(ValidationError):
+        PhaseLockedSpec(min_revolutions=float("inf"), last_revolutions_avg=float("inf"))
+
+
+def test_f1290_a_pproc_group_survives_its_own_dump():
+    spec_class = _CasesReviewPprocSpec
+    spec = spec_class(groups={"g1": "Wing"})
+    again = spec_class.model_validate(spec.model_dump())
+    assert again.groups == spec.groups == {"g1": ["Wing"]}
+    assert spec_class.model_validate(json.loads(spec.model_dump_json())).groups == spec.groups
+
+
+def test_f1308_a_circle_volume_section_survives_a_default_inclusive_dump():
+    from pyflightstream.cases.pproc import VolumeSectionSpec
+
+    circle = VolumeSectionSpec(shape="circle", plane="XY", radii_m=(0.1, 0.5), points=(3, 8))
+    again = VolumeSectionSpec.model_validate(circle.model_dump())
+    assert again == circle
+    with pytest.raises(ValidationError, match="rectangle"):
+        VolumeSectionSpec(
+            shape="circle", plane="XY", radii_m=(0.1, 0.5), points=(3, 8), refinement_layers=2
+        )
+
+
+def test_f1309_a_drive_relative_points_file_is_refused_like_a_path():
+    from pyflightstream.cases.pproc import ProbesSpec
+
+    with pytest.raises(ValidationError, match="names a path"):
+        ProbesSpec(
+            points_file="C:survey.csv", frame="REFERENCE", scale="m", parameters=["VELOCITY"]
+        )
+
+
+def test_f1307_the_selector_vocabulary_names_what_is_refused():
+    text = inspect.getsource(pproc).split("FAMILY_SELECTORS = ")[0].rsplit("\n\n", 1)[-1]
+    assert "ACCEPTED ONLY AS AN ALIAS" in text and "each_blade`` is refused" in text
+
+
 def test_f1310_aliases_differing_only_in_case_are_refused():
     from pyflightstream.cases.selection import _check_aliases
 
