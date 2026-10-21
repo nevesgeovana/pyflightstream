@@ -210,6 +210,17 @@ def test_fewer_zones_than_the_declared_copies_is_refused_naming_both(tmp_path):
         read_native_tecplot_zones(_native(tmp_path / "n.dat", zones=4), zones=6)
 
 
+def test_f_828_text_between_periodic_zones_is_refused_not_discarded(tmp_path):
+    from pyflightstream.results.native_surface import read_native_tecplot_zones
+
+    path = tmp_path / "n.dat"
+    path.write_text(
+        _zone_text(0) + "stray payload line 1 2 3" + chr(10) + _zone_text(1), encoding="utf-8"
+    )
+    with pytest.raises(MalformedOutputError, match="between zone 1 and zone 2"):
+        read_native_tecplot_zones(path, zones=2)
+
+
 def test_the_run_translates_by_the_copies_its_translation_records(tmp_path):
     """The batch the run calls: with the record's count it writes, without it it refuses."""
     write_vtk_surface(tmp_path / "p.vtk", _vtk(), title="test")

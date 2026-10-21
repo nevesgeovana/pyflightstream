@@ -38,6 +38,9 @@ from pyflightstream.results.core import IncompleteOutputError, MalformedOutputEr
 from pyflightstream.results.surface import VtkSurface
 
 _STRENGTH = "Singularity_strength"
+#: What a zone's header block may hold besides its ZONE line: the title, the variable list
+#: (which may continue on quoted lines) and auxiliary data.
+_ZONE_PREFACE = ("TITLE", "VARIABLES", "DATASETAUXDATA", "AUXDATA")
 
 
 def _values(tokens: Iterator[str], count: int, *, integer: bool, label: str) -> np.ndarray:
@@ -157,6 +160,13 @@ def _cell_centered_variables(zone: str, variable_count: int) -> set[int]:
     """Return the 1-based indices of the variables a zone's VARLOCATION declares cell centered."""
     cell_variables: set[int] = set()
     var_location = re.search(r"VARLOCATION\s*=\s*\(([^)]*)\)", zone, re.I)
+    if var_location is None and re.search(r"\bVARLOCATION\b", zone, re.I):
+        # A declaration this reader cannot parse is not an absent one: reading it as
+        # absent would return cell strengths as nodal.
+        raise MalformedOutputError(
+            "Native Tecplot VARLOCATION is declared but cannot be read; expected "
+            "VARLOCATION=([i,j-k]=CELLCENTERED, ...) in parentheses"
+        )
     if var_location:
         parts = re.findall(r"\[([\d,\-]+)\]\s*=\s*CELLCENTERED", var_location.group(1), re.I)
         if not parts:
@@ -284,6 +294,17 @@ def read_native_tecplot_zones(source: str | Path, *, zones: int = 1) -> list[Vtk
                     f"one per periodic copy the row declares: {path.name}"
                 )
             before = "".join(header)
+            stray = [
+                text
+                for text in (line.strip() for line in header)
+                if text and not text.upper().startswith(_ZONE_PREFACE) and text[0] not in '",'
+            ]
+            if surfaces and stray:
+                raise MalformedOutputError(
+                    f"Native Tecplot holds text between zone {len(surfaces)} and zone "
+                    f"{len(surfaces) + 1} that is neither payload nor a title or "
+                    f"VARIABLES declaration, and it would be discarded: {stray[0][:60]!r}"
+                )
             if "VARIABLES" in before.upper():
                 stated = _variable_names(before)
                 if names and stated != names:
@@ -673,8 +694,14 @@ def attach_native_strength(
         )
     if surface.n_points != native.n_points or surface.n_cells != native.n_cells:
         raise MalformedOutputError("Native/VTK counts cannot form a bijection")
-    if _STRENGTH not in native.point_data or len(native.point_data[_STRENGTH]) != native.n_points:
-        raise MalformedOutputError("Native nodal strength is missing or has inconsistent size")
+    if (
+        _STRENGTH not in native.point_data
+        or np.ndim(native.point_data[_STRENGTH]) != 1
+        or len(native.point_data[_STRENGTH]) != native.n_points
+    ):
+        raise MalformedOutputError(
+            "Native nodal strength is missing, is not one scalar per node, or has inconsistent size"
+        )
     if not np.isfinite(surface.points).all() or not np.isfinite(native.points).all():
         raise MalformedOutputError("Native/VTK coordinates must be finite")
     bins: dict[tuple[int, ...], list[int]] = defaultdict(list)

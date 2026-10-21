@@ -207,6 +207,36 @@ def test_nonfinite_native_strength_is_refused(tmp_path):
         read_native_tecplot_surface(_native(tmp_path / "native.dat", strength="nan 10 40 20"))
 
 
+def test_f_817_an_unparseable_varlocation_is_refused_not_read_as_absent(tmp_path):
+    from pyflightstream.results.native_surface import read_native_tecplot_surface
+
+    path = _native(tmp_path / "native.dat")
+    path.write_text(
+        path.read_text().replace(
+            "ZONETYPE=FEPolygon,", "ZONETYPE=FEPolygon, VARLOCATION=[4]=CELLCENTERED,"
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(MalformedOutputError, match="VARLOCATION"):
+        read_native_tecplot_surface(path)
+
+
+def test_f_1438_a_multicomponent_native_strength_is_not_a_scalar_strength(tmp_path):
+    import dataclasses
+
+    from pyflightstream.results.native_surface import (
+        attach_native_strength,
+        read_native_tecplot_surface,
+    )
+
+    native = read_native_tecplot_surface(_native(tmp_path / "native.dat"))
+    wide = dataclasses.replace(
+        native, point_data={"Singularity_strength": np.ones((native.n_points, 3))}
+    )
+    with pytest.raises(MalformedOutputError, match="one scalar per node"):
+        attach_native_strength(_vtk(), wide)
+
+
 def test_translation_carries_real_strength_and_both_source_hashes(tmp_path):
     """GOAL033:capability_ids:items:G53."""
     path = write_vtk_surface(tmp_path / "p.vtk", _vtk(), title="test")
