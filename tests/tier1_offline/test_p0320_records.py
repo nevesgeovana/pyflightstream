@@ -921,3 +921,32 @@ def test_f614_a_descriptor_in_a_batch_that_does_not_hold_the_scripts_is_not_this
     profile = SimpleNamespace(descriptor_name="descriptor.yaml")
     assert evidence.descriptor_folder(base, home, work, profile) is None
     assert evidence.descriptor_folder(base, stale, work, profile) == stale.parent
+
+
+def test_f607_a_plan_that_lists_the_point_in_another_batch_is_not_attached(tmp_path, monkeypatch):
+    """F-607: the plan's job is attached only if it is the batch the executed script names."""
+    from types import SimpleNamespace
+
+    from pyflightstream.run import _rebuild_grouped as grouped
+
+    run_id = "camp/sim_7/AL+000"
+    job = SimpleNamespace(points=(run_id,), label="m_b1", dir="sims/batch/m_b1/", batch_id=1)
+    monkeypatch.setattr(grouped, "_receipt", lambda _base, _stem: SimpleNamespace(jobs=(job,)))
+    monkeypatch.setattr(grouped, "_entry", lambda *_args, **_keywords: {"label": "m_b1"})
+    home = tmp_path / "sims" / "sim_7"
+
+    def point(batch):
+        executed = f"OPEN {tmp_path.as_posix()}/sims/batch/{batch}/sim_7/geometry.fsm"
+        return grouped.grouped_point(
+            tmp_path,
+            "m",
+            run_id,
+            executed=executed,
+            home=home,
+            run_root=None,
+            descriptor_name=None,
+        )
+
+    assert point("m_b1").entry == {"label": "m_b1"}
+    elsewhere = point("m_b2")
+    assert elsewhere.entry is None and elsewhere.label == "m_b2"

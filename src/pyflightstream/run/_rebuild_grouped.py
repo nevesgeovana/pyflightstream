@@ -176,6 +176,10 @@ def grouped_point(
     label = batch_label(executed, sim)
     receipt = _receipt(base, stem)
     job = next((item for item in (receipt.jobs if receipt else ()) if run_id in item.points), None)
+    if job is not None and label is not None and job.label != label:
+        # F-607: the executed script ran in another batch than the plan now lists for this
+        # point; the plan is not evidence of where it ran, so it is not attached.
+        job = None
     if job is None and label is None:
         return None
     job_dir = base / (job.dir if job is not None else f"sims/batch/{label}")
