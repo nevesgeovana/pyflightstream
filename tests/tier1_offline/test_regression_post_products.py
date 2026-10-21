@@ -1696,3 +1696,48 @@ def test_f3_0203_f486_the_noise_table_leads_with_pol_and_the_condition(tmp_path,
         rows = list(csv.DictReader(handle))
     assert list(rows[0]) == ["POL", *CONTEXT_COLUMNS, "time_s", "pressure_pa"]
     assert rows[0]["POL"] == "3207" and float(rows[0]["ALPHA"]) == 4.0
+
+
+def test_f3_0203_f169_an_infinite_step_cell_states_no_step():
+    """F-169 (X-F-0328): inf in the STEP column is no step, not an OverflowError."""
+    from pyflightstream.post._rotor_products import _step_of
+
+    assert _step_of("inf") is None and _step_of("-inf") is None and _step_of("nan") is None
+    assert _step_of("12.0") == 12
+
+
+def test_f3_0203_f1374_an_unreadable_loads_file_costs_only_the_condition(tmp_path, monkeypatch):
+    """F-1374: an OSError reading the loads table is no table, not an abort of the point."""
+    from pyflightstream.post import _rotor_products
+
+    loads = tmp_path / "P1.txt"
+    loads.write_text("x", encoding="utf-8")
+    original = Path.read_text
+
+    def refuse(self, *args, **kwargs):
+        if self == loads:
+            raise PermissionError("denied")
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", refuse)
+    assert _rotor_products._loads_report(loads) is None
+
+
+def test_f3_0203_f1373_an_acoustic_only_record_still_gets_its_acoustic_products(
+    tmp_path, monkeypatch
+):
+    """F-1373: a record listing no loads or sections table still writes its acoustics."""
+    from pyflightstream.post import _rotor_products
+
+    monkeypatch.setattr(
+        _rotor_products._acoustics, "read_acoustic_signals", lambda _s: [_f3_0203_signal(50.0)]
+    )
+    suffix = _rotor_products._acoustics.ACOUSTIC_SIGNALS_SUFFIX
+    record = SimpleNamespace(run_id="r1", outputs=[f"P1{suffix}"], reductions={})
+    workspace = SimpleNamespace(sim_dir=lambda _sim: tmp_path)
+    skipped: dict[str, str] = {}
+    written, names = _rotor_products._point_series(
+        workspace, "3207", record, tmp_path / "post", overwrite=True, skipped=skipped
+    )
+    assert any(path.name == "P1_acoustics_summary.csv" for path in written)
+    assert "acoustics/P1_acoustics_summary.csv" in names

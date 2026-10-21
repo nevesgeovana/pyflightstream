@@ -426,7 +426,7 @@ def _step_of(cell: object) -> int | None:
     """Return a table's ``STEP`` cell as a whole step, or None where it states none."""
     try:
         return int(float(str(cell)))
-    except ValueError:
+    except (ValueError, OverflowError):
         return None
 
 
@@ -972,6 +972,47 @@ def _qsteady_corrections(
     )
 
 
+def _acoustic_only(
+    workspace: CampaignWorkspace,
+    sim_id: str,
+    record: RunRecord,
+    out: Path,
+    skipped: dict[str, str] | None,
+    archive: bool,
+    archive_stamp: datetime | None,
+) -> tuple[list[Path], dict[str, dict[str, object]]]:
+    """Write the acoustic products of a record that lists no loads or sections table."""
+    suffix = _acoustics.ACOUSTIC_SIGNALS_SUFFIX
+    listed = next(
+        (Path(str(o)).name for o in record.outputs if str(o).lower().endswith(suffix)), None
+    )
+    if listed is None:
+        return [], {}
+    return _acoustic_products(
+        record,
+        sim_dir=workspace.sim_dir(sim_id),
+        stem=listed[: -len(suffix)],
+        out=out,
+        rotors={},
+        clocks={},
+        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
+        skipped=skipped if skipped is not None else {},
+    )
+
+
+def _loads_report(loads_path: Path):
+    """Read a point's loads table, or None where it cannot be read.
+
+    An unreadable file (a permission, a vanished share) leaves the condition cells ``NA``
+    like a missing one: the independent products of the point, written from the stamped
+    files, are not skipped for it.
+    """
+    try:
+        return parse_loads(loads_path.read_text(encoding="utf-8", errors="replace"))
+    except (PyflightstreamError, OSError):
+        return None
+
+
 def _point_series(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -1002,7 +1043,9 @@ def _point_series(
     if loads_name is None:
         sectional = kinds.get("sectional_loads") or kinds.get("sections")
         if sectional is None:
-            return [], {}
+            # A RECORD THAT LISTS ONLY AN ACOUSTIC EXPORT still gets its acoustic products:
+            # they read nothing of the loads, so the missing loads cost them nothing.
+            return _acoustic_only(workspace, sim_id, record, out, skipped, archive, archive_stamp)
         stem = sectional.rsplit("_", 1)[0]
         loads_name = f"{stem}.txt"
     else:
@@ -1020,10 +1063,7 @@ def _point_series(
         (o for o in record.outputs if Path(o).name == loads_name), loads_name
     )
     if loads_path.is_file():
-        try:
-            report = parse_loads(loads_path.read_text(encoding="utf-8", errors="replace"))
-        except PyflightstreamError:
-            report = None
+        report = _loads_report(loads_path)
         if report is not None:
             point = PolarPoint(
                 name=stem,
