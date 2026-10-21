@@ -206,3 +206,19 @@ def test_x_f_1317_a_document_of_another_schema_version_is_not_told_to_migrate(
     with pytest.raises(WorkspaceError, match=expected) as caught:
         migrate_workspace(tmp_path)
     assert "require `pyfs-workspace migrate`" not in str(caught.value)
+
+
+def test_x_f_0592_an_interrupted_backup_leaves_no_torn_bak(tmp_path, monkeypatch):
+    """The backup is published whole: a failure while writing it leaves no .bak behind."""
+    (tmp_path / "runs.json").write_text(json.dumps([_historical_row("v0.38.0")]), encoding="utf-8")
+    real = Path.replace
+
+    def fail_for_backup(self, target):
+        if str(target).endswith(".bak"):
+            raise OSError("disk full")
+        return real(self, target)
+
+    monkeypatch.setattr(Path, "replace", fail_for_backup)
+    with pytest.raises(OSError, match="disk full"):
+        migrate_workspace(tmp_path, apply=True)
+    assert not list(tmp_path.glob("*.bak*"))

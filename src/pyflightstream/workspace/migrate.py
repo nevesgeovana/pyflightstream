@@ -173,8 +173,14 @@ def _write_prepared(prepared: list):
     # All original bytes are secured before any live file changes.
     for _, backup, before, _ in prepared:
         if not backup.exists():
-            with backup.open("xb") as stream:
-                stream.write(before)
+            # Published whole from a sibling, so an interrupted write never leaves a torn .bak
+            # that the next migrate would refuse as a different backup.
+            partial = backup.with_name(f"{backup.name}.{os.getpid()}.tmp")
+            try:
+                partial.write_bytes(before)
+                partial.replace(backup)
+            finally:
+                partial.unlink(missing_ok=True)
     for path, _, _, after in prepared:
         temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         try:
