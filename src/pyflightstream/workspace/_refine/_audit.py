@@ -204,13 +204,17 @@ class MeshAudit:
         return lines
 
     @staticmethod
-    def files_read(mesh: str | os.PathLike[str]) -> list[tuple[str, Path]]:
+    def files_read(
+        mesh: str | os.PathLike[str], against: str | os.PathLike[str] | None = None
+    ) -> list[tuple[str, Path]]:
         """Return the files an audit of ``mesh`` reads, each with what it is (FR-937).
 
-        The OBJ, its boundaries file, ``<stem>.te.txt`` and the trailing-edge
-        points file the boundaries file names, read through the one reader
-        of the boundaries file the refinement and the audit use, so a command
-        that must not write over an input names the same files. A boundaries
+        The one list every caller uses (PFS-2117.027). The OBJ, its boundaries
+        file, its refinement record (``<stem>.refine.json``), ``<stem>.te.txt`` and the
+        trailing-edge points file the boundaries file names, read through the one
+        reader of the boundaries file the refinement and the audit use, so a command
+        that must not write over an input names the same files. With ``against``,
+        the source's OBJ, boundaries file and points files follow. A boundaries
         file that cannot be read names no points file here; the audit refuses
         it on its own.
 
@@ -218,6 +222,8 @@ class MeshAudit:
         ----------
         mesh : path-like
             The OBJ an audit would read.
+        against : path-like, optional
+            The source the audit would compare it with.
 
         Returns
         -------
@@ -230,7 +236,7 @@ class MeshAudit:
         >>> [what for what, _ in MeshAudit.files_read("W1/W1.obj")][:2]
         ['the OBJ', 'its boundaries file']
         """
-        return _inputs(Path(mesh), None)
+        return _inputs(Path(mesh), None if against is None else Path(against))
 
     def write_csv(self, path: str | Path) -> Path:
         """Write one row per family and figure (``--out``, alias ``--csv``) and return the path.
@@ -243,7 +249,7 @@ class MeshAudit:
             written (PFS-2123.004).
         """
         target = Path(path)
-        for what, read in [*_inputs(self.mesh, self.source), ("the audit JSON", self.path)]:
+        for what, read in [*self.files_read(self.mesh, self.source), ("the audit JSON", self.path)]:
             if _same_file(target, read):
                 raise _refusal(
                     target,

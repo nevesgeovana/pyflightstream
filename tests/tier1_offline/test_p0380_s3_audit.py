@@ -638,3 +638,17 @@ def test_a_record_of_another_source_does_not_group_this_sources_components(tmp_p
     record.write_text(json.dumps(named), encoding="utf-8")
     audit, _ = _audit(level, src)
     assert _item(audit, "skewness", "A").verdict == "not judged"
+
+
+def test_files_read_is_the_one_list_with_the_record_and_the_source(tmp_path):
+    """P0380-AUDIT (PFS-2117.027, F-1513): files_read(mesh, against) names the refinement record
+    and, with a source, the source's files; the CSV refusal reads the same list."""
+    level, src = _pair(tmp_path, Mesh())
+    alone = dict(MeshAudit.files_read(level))
+    assert alone["its refinement record"] == level.with_name(level.stem + ".refine.json")
+    both = MeshAudit.files_read(level, src)
+    assert ("the source", src) in both
+    assert ("the source's boundaries file", src.with_name(src.stem + ".boundaries.toml")) in both
+    audit, _ = _audit(level, src)
+    with pytest.raises(InputArtifactError, match="its refinement record"):
+        audit.write_csv(level.with_name(level.stem + ".refine.json"))
