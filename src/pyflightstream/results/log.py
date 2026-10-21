@@ -158,6 +158,53 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     return history
 
 
+_VELOCITY_COLUMN = re.compile(r"res\.?\s*vel", re.IGNORECASE)
+_PRESSURE_COLUMN = re.compile(r"res\.?\s*pres", re.IGNORECASE)
+
+
+def _page_rows(page: str) -> list[list[str]]:
+    """Read one residual page's rows as ``[iteration, velocity, pressure, ...]``.
+
+    The columns are found by the NAMES the page's header prints, never by
+    position alone: a header that lists the pressure residual before the
+    velocity one would otherwise swap the two. A header that names neither
+    column keeps the measured layout (iteration, velocity, pressure); one
+    that names only one of them is refused.
+    """
+    text = "Iteration" + page
+    table = delimited_table(text, "Iteration", delimiter=None)
+    names = [name for name in re.split(r"\t|\s{2,}", text.splitlines()[0].strip()) if name]
+    velocity = next((at for at, name in enumerate(names) if _VELOCITY_COLUMN.search(name)), None)
+    pressure = next((at for at, name in enumerate(names) if _PRESSURE_COLUMN.search(name)), None)
+    if velocity is None and pressure is None:
+        return table
+    if velocity is None or pressure is None:
+        raise MalformedOutputError(
+            f"the residual table's header {names!r} names only one of the velocity and "
+            "pressure residual columns, so the other cannot be told from its neighbours"
+        )
+    if velocity == pressure:
+        # Names separated by single spaces read as one cell: only their order in
+        # the line is known, and the two sit right after the iteration counter.
+        first_line = text.splitlines()[0]
+        vel_at = _VELOCITY_COLUMN.search(first_line)
+        pres_at = _PRESSURE_COLUMN.search(first_line)
+        if vel_at is None or pres_at is None or vel_at.start() < pres_at.start():
+            return table
+        velocity, pressure = 2, 1
+    if (velocity, pressure) == (1, 2):
+        return table
+    reordered = []
+    for row in table:
+        if len(row) <= max(velocity, pressure):
+            raise MalformedOutputError(
+                f"residual row {row!r} holds fewer values than the header {names!r} names"
+            )
+        rest = [cell for at, cell in enumerate(row) if at not in (0, velocity, pressure)]
+        reordered.append([row[0], row[velocity], row[pressure], *rest])
+    return reordered
+
+
 def _residual_rows(clean: str) -> list[tuple[list[str], bool]]:
     """Return every residual row with whether it opens a page.
 
@@ -172,7 +219,7 @@ def _residual_rows(clean: str) -> list[tuple[list[str], bool]]:
     for index, page in enumerate(pages):
         if index == 0:
             continue
-        table = delimited_table("Iteration" + page, "Iteration", delimiter=None)
+        table = _page_rows(page)
         rows.extend((row, at == 0) for at, row in enumerate(table))
     if not rows:
         # Use the table parser's diagnostic when no residual page is found.
@@ -428,11 +475,7 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
                         f"time step {step} holds no Iteration page while the log prints them "
                         "for other steps, so the step cannot be judged; recollect the log"
                     )
-            rows = [
-                row
-                for page in pages
-                for row in delimited_table("Iteration" + page, "Iteration", delimiter=None)
-            ]
+            rows = [row for page in pages for row in _page_rows(page)]
             for row in rows:
                 if len(row) < 3 or not all(_residual_cell_is_readable(cell) for cell in row[1:3]):
                     raise MalformedOutputError(

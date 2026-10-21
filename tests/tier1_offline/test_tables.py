@@ -1805,3 +1805,18 @@ def test_f_826_a_file_of_separators_is_not_a_one_step_history():
 
     with pytest.raises(MalformedOutputError, match="names no column"):
         parse_unsteady_plots("," + chr(10) + ",,," + chr(10))
+
+
+def test_f_256_residual_columns_follow_the_header_names_not_their_position():
+    text = _fixture("log_residuals_26.120.txt")
+    swapped = text.replace(
+        "Res. Vel.                 Res. Pres.", "Res. Pres.                 Res. Vel."
+    )
+    assert swapped != text
+    original = parse_residual_history(text)
+    reordered = parse_residual_history(swapped)
+    assert [s.velocity_residual for s in reordered] == [s.pressure_residual for s in original]
+    assert [s.pressure_residual for s in reordered] == [s.velocity_residual for s in original]
+    one_named = text.replace("Res. Pres.", "Other     ")
+    with pytest.raises(MalformedOutputError, match="only one"):
+        parse_residual_history(one_named)
