@@ -1329,6 +1329,15 @@ def _validate_lock_timeout(timeout_s: float) -> None:
         )
 
 
+def _read_manifest_owner(lock: Path) -> dict:
+    """Read a lease owner without treating unreadable metadata as ownership."""
+    try:
+        value = json.loads(lock.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 @contextmanager
 def manifest_lock(
     manifest: Path,
@@ -1432,13 +1441,6 @@ def manifest_lock(
                 else:
                     fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
-    def read_owner() -> dict:
-        try:
-            value = json.loads(lock.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return {}
-        return value if isinstance(value, dict) else {}
-
     def dead_local_holder(holder: dict) -> bool:
         pid = holder.get("pid")
         if holder.get("host") != owner["host"] or not isinstance(pid, int) or pid <= 0:
@@ -1484,7 +1486,7 @@ def manifest_lock(
     while True:
         with arbitrate():
             if lock.exists():
-                holder = read_owner()
+                holder = _read_manifest_owner(lock)
                 if dead_local_holder(holder) or time.time() - lock.stat().st_mtime > stale_s:
                     lock.unlink()
             try:
@@ -1510,7 +1512,7 @@ def manifest_lock(
             try:
                 # The writer holds the arbitration guard throughout this thread's
                 # lifetime; a contender cannot change ownership during renewal.
-                if read_owner() != owner:
+                if _read_manifest_owner(lock) != owner:
                     return
                 os.utime(lock, None)
             except (OSError, WorkspaceError):
@@ -1519,7 +1521,7 @@ def manifest_lock(
 
     heartbeat = threading.Thread(target=renew, name="pyfs-manifest-heartbeat", daemon=True)
     with arbitrate():
-        if read_owner() != owner:
+        if _read_manifest_owner(lock) != owner:
             raise WorkspaceError(
                 f"the manifest lease {lock} changed before writing; the record was NOT written. "
                 "Retry with a fresh manifest snapshot."
@@ -1531,7 +1533,7 @@ def manifest_lock(
             stopped.set()
             if heartbeat.ident is not None:
                 heartbeat.join()
-            if read_owner() == owner:
+            if _read_manifest_owner(lock) == owner:
                 lock.unlink()
 
 

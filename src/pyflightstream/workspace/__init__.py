@@ -1952,8 +1952,7 @@ class CampaignWorkspace:
         The OS releases this guard if its process dies. The filesystem must honour
         these locks across clients (SMB/NFS deployments must support locking), and
         hosts must synchronise clocks for the stale-heartbeat fallback. A live
-        writer retains the guard even if its heartbeat stalls, so a successor cannot
-        take over while the former writer can still publish its snapshot.
+        writer retains the guard even if its heartbeat stalls, preventing takeover.
 
         A release removes only its own token, including on a refused write.
 
