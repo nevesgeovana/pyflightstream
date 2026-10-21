@@ -139,6 +139,7 @@ def write_unsteady_polar(
     equations: Mapping[str, object] | None = None,
     equation_order: Sequence[str] | None = None,
     equation_notes: list[str] | None = None,
+    equation_columns: dict[str, dict[str, str]] | None = None,
     frozen: Mapping[str, FrozenSolve] | None = None,
     contributor_path: Callable[[Sequence[str]], Path] | None = None,
     pol: str | int | None = None,
@@ -262,6 +263,8 @@ def write_unsteady_polar(
     equation_order : sequence of str, optional
         The order the equations are evaluated in; the mapping's own order
         where omitted.
+    equation_columns : dict, optional
+        Receives the resolved input columns of every equation, by symbol.
     equation_notes : list of str, optional
         Receives the refusal of the equation block instead of raising it.
     frozen : mapping of str to FrozenSolve, optional
@@ -434,6 +437,7 @@ def write_unsteady_polar(
                 columns=header,
                 where=f"{POLARS_DIR}/{path.name}",
                 notes=equation_notes,
+                resolved_columns=equation_columns,
             )
         except ProductError as refused:
             if equation_notes is None:

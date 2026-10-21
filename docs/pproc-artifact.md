@@ -165,8 +165,12 @@ minus, parentheses and `abs, sqrt, sin, cos, tan, radians, degrees, min, max`.
 It is parsed and walked, never executed, and a construct outside that list is
 refused when the artifact is read. A symbol `S` of an equation about alias `A`
 in frame `F` is, first match wins: another equation named `S`; the column
-`S_A_F`, then `S_F_A`, where a frame is stated; `S_A`; the column `S` exactly
-as the file spells it. Above, `FZ` reads `FZ_LIFT_SMRP` and `RHO` reads `RHO`.
+`S_A_F`, then `S_F_A`, where a frame is stated; condition and reference
+scalars such as `RHO`, `VINF` and `SREF`. Only without a frame may it use
+`S_A` then the exact column `S`. Native setup coefficient columns are never
+read. Above, `FZ` reads `FZ_LIFT_SMRP` and `RHO` reads `RHO`.
+The successful `polars/<file>#equations` manifest entry records
+`resolved_columns`, mapping each equation's symbols to their source columns.
 A symbol none of them answers refuses the WHOLE block: the polar is written
 without derived columns, `products.json` says why under
 `polars/<file>#equations` naming the equation, the symbol, the spellings tried

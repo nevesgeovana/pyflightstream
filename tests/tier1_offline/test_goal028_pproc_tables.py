@@ -154,6 +154,48 @@ def test_p0430_probe_spine_export_coordinates_use_reference_frame(tmp_path):
     assert rows[0]["FRAME"] == "REFERENCE"
 
 
+@pytest.mark.requirement("FR-2323")
+def test_p0430_frame_qualified_equation_refuses_missing_frame():
+    from types import SimpleNamespace
+
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.equations import apply_equations
+
+    with pytest.raises(ProductError):
+        apply_equations(
+            [{"FX": 999, "FX_WING": 888}],
+            {"F": SimpleNamespace(expression="FX", meshes_alias="WING", frame="MRP")},
+            ["F"],
+            columns=["FX", "FX_WING"],
+            where="polar.csv",
+        )
+
+
+@pytest.mark.requirement("FR-2323")
+def test_p0430_equations_read_asymmetric_vector_in_each_declared_frame():
+    from types import SimpleNamespace
+
+    from pyflightstream.post.equations import apply_equations
+
+    # A quarter turn about z maps (2, 3, 5) to (-3, 2, 5).
+    row = {"FX_WING_MRP": 2, "FY_WING_MRP": 3, "FX_LOCAL_WING": -3, "FY_LOCAL_WING": 2}
+    equations = {
+        frame: SimpleNamespace(expression="FX + 2 * FY", meshes_alias="WING", frame=frame)
+        for frame in ("MRP", "LOCAL")
+    }
+    _, values = apply_equations([row], equations, list(equations), columns=list(row), where="p")
+    assert values == [{"MRP_WING": 8, "LOCAL_WING": 1}]
+
+
+def test_p0430_equation_manifest_records_symbol_columns(tmp_path):
+    workspace = _workspace(tmp_path, EQUATIONS)
+    assert _post(workspace) == 0
+    entries = _products_manifest(workspace)["products"]
+    assert "polars/P7001_AL-020_uns_avg.csv#equations" in entries
+    entry = entries["polars/P7001_AL-020_uns_avg.csv#equations"]
+    assert entry["resolved_columns"]["THRUST"]["FX"] == "FX_MRP_TOTAL"
+
+
 TOTAL = [3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0, 5.0, 3.0, 5.0, 8.0]
 BLADE1 = [2.0, 7.0, 1.0, 8.0, 2.0, 8.0, 1.0, 8.0, 2.0, 8.0, 4.0, 5.0]
 BLADE2 = [1.0, 4.0, 1.0, 4.0, 2.0, 1.0, 3.0, 5.0, 6.0, 2.0, 3.0, 7.0]
@@ -587,8 +629,8 @@ def test_a_symbol_is_about_the_alias_before_it_is_an_exact_name():
     held = ["RHO", "CL", "CL_WING", "CL_WING_MRP", "CL_MRP_WING"]
     assert resolve_symbol("CL", alias="WING", frame=None, columns=held) == "CL_WING"
     assert resolve_symbol("CL", alias="WING", frame="MRP", columns=held) == "CL_WING_MRP"
-    assert resolve_symbol("CL", alias="WING", frame="MRP", columns=held[:3]) == "CL_WING"
-    assert resolve_symbol("CL", alias="TAIL", frame=None, columns=held) == "CL"
+    assert resolve_symbol("CL", alias="WING", frame="MRP", columns=held[:3]) is None
+    assert resolve_symbol("CL", alias="TAIL", frame=None, columns=held) is None
     assert resolve_symbol("RHO", alias="WING", frame="MRP", columns=held) == "RHO"
     assert resolve_symbol("CQ", alias="WING", frame="MRP", columns=held) is None
 

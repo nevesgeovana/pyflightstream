@@ -1263,6 +1263,7 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
     notes: list[str] = []
     name_notes: list[str] = []
     equation_notes: list[str] = []
+    equation_columns: dict[str, dict[str, str]] = {}
     unsteady_name = unsteady_polar_file_name(ctx.sim_id, name=ctx.table_name)
     contributing_runs: list[str] = []
 
@@ -1316,12 +1317,18 @@ def _unsteady_polar_products(ctx: SimContext) -> None:
         equations=getattr(pproc, "equations", None) or None,
         equation_order=pproc.equation_order() if getattr(pproc, "equations", None) else None,
         equation_notes=equation_notes,
+        equation_columns=equation_columns,
         names=getattr(pproc, "names", None) or None,
         name_notes=name_notes,
         contributor_path=unsteady_destination,
         pol=ctx.sim_id,
     )
     if done is not None:
+        if equation_columns:
+            ctx.written_names[f"{POLARS_DIR}/{unsteady_name}#equations"] = {
+                "resolved_columns": equation_columns,
+                "runs": sorted(contributing_runs),
+            }
         _say_what_the_unsteady_polar_left(
             ctx, f"{POLARS_DIR}/{unsteady_name}", name_notes, equation_notes, notes
         )

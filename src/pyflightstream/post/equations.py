@@ -13,8 +13,11 @@ rotor is named by the pproc, usually for the alias and the frame. So a symbol
 
 1. another equation named ``S``: its value on that row;
 2. ``S_A_F``, then ``S_F_A``, where the equation states a frame;
-3. ``S_A``;
-4. the column ``S``, exactly as the file spells it (``RHO``, ``FX_MRP_TOTAL``).
+3. condition and reference scalars such as ``RHO`` and ``SREF``;
+4. only without a frame, ``S_A`` then the exact column ``S``.
+
+Native setup coefficient columns are never equation inputs. A stated frame
+never falls back to an unqualified plotted column.
 
 THE ALIAS COMES BEFORE THE EXACT NAME because the equation is ABOUT the alias:
 the setup of a row carries the native export's own ``CL`` and ``Cx``, one instant
@@ -33,6 +36,7 @@ from collections.abc import Mapping, Sequence
 
 from pyflightstream._errors import ProductError
 from pyflightstream._expressions import evaluate_expression, expression_symbols
+from pyflightstream._tokens import CONTEXT_COLUMNS
 
 __all__ = ["apply_equations", "derived_column", "resolve_symbol"]
 
@@ -62,7 +66,10 @@ def derived_column(name: str, alias: str) -> str:
 
 def _spellings(symbol: str, alias: str, frame: str | None) -> list[str]:
     tried = [f"{symbol}_{alias}_{frame}", f"{symbol}_{frame}_{alias}"] if frame else []
-    return [*tried, f"{symbol}_{alias}", symbol]
+    if frame:
+        return [*tried, *([symbol] if symbol in CONTEXT_COLUMNS else [])]
+    native = {"cl", "cd", "cdi", "cdo", "cdp", "cdv", "cx", "cy", "cz", "cmx", "cmy", "cmz"}
+    return [f"{symbol}_{alias}", *([] if symbol.casefold() in native else [symbol])]
 
 
 def resolve_symbol(
@@ -71,8 +78,9 @@ def resolve_symbol(
     """Return the column ``symbol`` reads, or None where no spelling of it is a column.
 
     The order is the module's: ``<symbol>_<alias>_<frame>`` and
-    ``<symbol>_<frame>_<alias>`` where a frame is stated, then
-    ``<symbol>_<alias>``, then the exact name.
+    ``<symbol>_<frame>_<alias>`` where a frame is stated, plus condition and
+    reference scalars. Without a frame, try ``<symbol>_<alias>`` then the exact
+    name. Native setup coefficients are excluded from exact-name fallback.
 
     Parameters
     ----------
@@ -133,6 +141,14 @@ class _Known:
         return number
 
 
+def _record_columns(
+    target: dict[str, dict[str, str]] | None, reads: dict[str, dict[str, str]]
+) -> None:
+    """Publish the successful resolution without changing the evaluator's return shape."""
+    if target is not None:
+        target.update(reads)
+
+
 def apply_equations(
     rows: Sequence[Mapping[str, object]],
     equations: Mapping[str, object],
@@ -141,6 +157,7 @@ def apply_equations(
     columns: Sequence[str],
     where: str,
     notes: list[str] | None = None,
+    resolved_columns: dict[str, dict[str, str]] | None = None,
 ) -> tuple[list[str], list[dict[str, float | None]]]:
     """Evaluate every equation on every row; return the columns added and their values.
 
@@ -169,6 +186,8 @@ def apply_equations(
         The file, named in the refusal.
     notes : list of str, optional
         Receives one sentence per equation a row got no number from.
+    resolved_columns : dict, optional
+        Receives the column each symbol reads, by equation, after resolution succeeds.
 
     Returns
     -------
@@ -212,6 +231,9 @@ def apply_equations(
         reads[name] = {}
         for symbol in expression_symbols(str(getattr(spec, "expression", ""))):
             if symbol in equations:
+                reads[name][symbol] = derived_column(
+                    symbol, str(getattr(equations[symbol], "meshes_alias", ""))
+                )
                 continue
             column = resolve_symbol(
                 symbol, alias=alias, frame=None if frame is None else str(frame), columns=held
@@ -227,6 +249,8 @@ def apply_equations(
                 )
             reads[name][symbol] = column
         added.append(target)
+
+    _record_columns(resolved_columns, reads)
 
     values: list[dict[str, float | None]] = []
     unanswered: dict[str, list[str]] = {}
