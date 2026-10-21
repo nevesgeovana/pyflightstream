@@ -90,8 +90,13 @@ def test_goal026_force_rerun_redoes_the_named_point(tmp_path):
     )
 
     assert again, "force_rerun executed nothing, which is what --resume does"
-    after = workspace.read_manifest()
-    assert target in {str(r.run_id) for r in after}, [str(r.run_id) for r in after]
+    after = {str(r.run_id): r for r in workspace.read_manifest()}
+    assert target in after, sorted(after)
+    # The id was already recorded before the rerun, so its presence proves nothing: the
+    # record must be the NEW run, which the solver process start time tells apart.
+    assert before[0].started_at, "the first run recorded no start time"
+    assert after[target].started_at, "the rerun recorded no start time"
+    assert after[target].started_at != before[0].started_at, "the record is the old run's"
 
 
 def test_goal026_force_rerun_leaves_the_points_it_was_not_given(tmp_path):
