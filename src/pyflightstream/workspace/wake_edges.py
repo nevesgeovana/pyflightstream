@@ -706,6 +706,19 @@ def _mesh_edge_midpoints(mesh: Any) -> numpy.ndarray:
             f"{tuple(faces.shape)}), so it has no edges for a trailing-edge point to lie on",
             kind="wake_edges",
         )
+    if vertices.shape[1] != 3:
+        raise InputArtifactError(
+            f"the mesh vertices have shape {tuple(vertices.shape)}, and a vertex array is "
+            "n by 3 (x, y, z); a trailing-edge point cannot be checked against anything else",
+            kind="wake_edges",
+        )
+    if faces.min() < 0 or faces.max() >= len(vertices):
+        raise InputArtifactError(
+            f"the mesh faces name vertex indices from {int(faces.min())} to "
+            f"{int(faces.max())}, and the mesh has {len(vertices)} vertices, indexed 0 to "
+            f"{len(vertices) - 1}; a face outside that range is not a face of this mesh",
+            kind="wake_edges",
+        )
     edges = numpy.unique(numpy.sort(faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1), axis=0)
     return (vertices[edges[:, 0]] + vertices[edges[:, 1]]) / 2.0
 

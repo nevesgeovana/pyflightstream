@@ -612,3 +612,23 @@ def test_the_vertex_file_import_is_removed_on_26124_by_the_run_that_asked():
     assert "removed in FlightStream 26.124" in message
     assert "RPT-061" in message and "Use IMPORT_WAKE_EDGES_FROM_FILE instead" in message
     assert "26.123" not in registry.commands["TRAILING_EDGES_IMPORT"].versions
+
+
+@pytest.mark.parametrize(
+    ("vertices", "faces", "words"),
+    [
+        ([[0, 0, 0], [1, 0, 0], [0, 1, 0]], [[0, 1, -1]], "from -1 to 1"),
+        ([[0, 0, 0], [1, 0, 0], [0, 1, 0]], [[0, 1, 7]], "from 0 to 7"),
+        ([[0], [1], [2]], [[0, 1, 2]], "n by 3"),
+    ],
+)
+def test_f1237_f350_a_malformed_mesh_is_refused_as_an_input_artifact(vertices, faces, words):
+    """A negative or out-of-range face index and a one-column vertex array are refused
+    with the documented class, not aliased onto other vertices or broadcast."""
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace.wake_edges import _mesh_edge_midpoints
+
+    mesh = SimpleNamespace(vertices=numpy.asarray(vertices, float), faces=numpy.asarray(faces))
+    with pytest.raises(InputArtifactError, match=words):
+        _mesh_edge_midpoints(mesh)
