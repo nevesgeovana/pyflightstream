@@ -51,7 +51,24 @@ FlightStream versions.
 - `free-space` no longer fails an apply after files were deleted when `products.json` has the
   wrong shape, and its preview lists each file once.
 - `delete-sims` treats a single id given as a string as one simulation, refuses product paths
-  that leave the post folder, and restore never extracts through a planted staging link.
+  that leave the post folder (also through a linked folder), and restore never extracts
+  through a planted staging link.
+- Batch relocation refuses overlapping source and destination folders and a destination
+  reached through a link, and a failed copy or move keeps the published file whole.
+- `sync` at the `all` level brings the files of a job folder's subfolders.
+- `free-space` keeps the staged inputs a record names by digest, and compacting a post archive
+  never overwrites an existing archive.
+- `history` and the product trace name the record that made an indexed product, not a later
+  continuation of its point.
+- The thin blade mesh and its sidecar are both prepared before either is written.
+- A geometry rebuild stops on an unreadable retained sidecar instead of dropping its settings,
+  and every string of the instruction `geometry from-sidecar` writes reads back unchanged.
+- A `kind` key inside `[moment_point]` no longer reroutes the table.
+- FSI refuses a revolution increment that is not positive and finite and non-finite inputs to
+  the force closure and the load cross-check; the dummy step reports an unreadable
+  `node_count` in its error log.
+- `pyfs-qa probe` records a token the dump held before the target as unobservable, and a log
+  without its BEGIN or END sentinel as unprobed rather than broken.
 - Reading compatibility evidence (`read_compat_reports`, `apply_reanalysis`,
   `record_unprobed_build`, `cost_view`, `WingSpec`) refuses malformed input with
   `QaEvidenceError` instead of `AttributeError` or `KeyError`, and `WingSpec` refuses nan and
