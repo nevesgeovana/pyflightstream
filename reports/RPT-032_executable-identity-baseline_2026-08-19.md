@@ -121,7 +121,7 @@ under two licence tiers produce the same digest and can behave
 differently, and this report says nothing about that; what a licence tier
 may refuse is the separate question recorded against the version rows in
 `src/pyflightstream/commands/_meta.yaml` and in
-`reports/compat/README.md`.
+the compatibility reports under `reports/compat/`.
 
 The eleven rows are the executables in hand on the date in the title. The
 replacement is not among them, and nothing here is a measurement of a
