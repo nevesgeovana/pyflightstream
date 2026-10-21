@@ -346,3 +346,14 @@ def test_p0430_sidecar_build_failure_preserves_published_mesh(tmp_path, monkeypa
     if existing:
         assert mesh.read_bytes() == b"old mesh"
         assert sidecar.read_bytes() == b"old inventory"
+
+
+def test_p0430_swept_sections_keep_their_chord_direction(tmp_path):
+    """P0430-THIN: spanwise translation cannot swap leading and trailing edges."""
+    vertices, faces = _blade()
+    vertices[:, 2] *= 100.0
+    vertices[vertices[:, 2] > 60.0, 0] += 0.4
+    source = _write_obj(tmp_path / "swept.obj", vertices, faces)
+    result = derive_thin_blade(source, root_offset=5.0)
+    grid = _read_obj(result.mesh).reshape(result.stations, -1, 3)
+    assert numpy.all(grid[:, -1, 0] - grid[:, 0, 0] > 0.0)

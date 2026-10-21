@@ -740,9 +740,8 @@ def _mean_surface(source: Path, blade: _Blade, frame: _Frame, stations: Points) 
             )
         # EVERY ROW RUNS THE WAY THE ONE BELOW IT RUNS (PFS-2099.001): a row from the
         # other edge joined each leading edge to a trailing edge and folded the sheet.
-        if rows and numpy.linalg.norm(line[0] - rows[-1][-1, :2]) < numpy.linalg.norm(
-            line[0] - rows[-1][0, :2]
-        ):
+        # Compare chord directions, independent of the section's spanwise sweep.
+        if rows and numpy.dot(line[-1] - line[0], rows[-1][-1, :2] - rows[-1][0, :2]) < 0:
             line = line[::-1]
         rows.append(numpy.column_stack([line, numpy.full(len(line), station)]))
     return frame.glob(numpy.asarray(rows))
