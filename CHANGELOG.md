@@ -73,6 +73,58 @@ FlightStream versions.
   `record_unprobed_build`, `cost_view`, `WingSpec`) refuses malformed input with
   `QaEvidenceError` instead of `AttributeError` or `KeyError`, and `WingSpec` refuses nan and
   inf lengths.
+- `read_timestep_series` refuses irregular or duplicated solution times, non-finite times or
+  coordinates, frames whose sample moves and a VTK POINTS record without a count, and refuses a
+  frequency below 1 or an unknown order with `ProductError`. `per_blade` and `phase_locked`
+  assign each column to its longest matching family suffix, and `phase_locked` takes
+  REVOLUTIONS as the fewest samples of any column of the row.
+- Far-field coverage in the ledger and the Trefftz plane is a fraction of area
+  (`sample_area_coverage`); `sample_coverage` still counts samples.
+- Sectional products of a point whose saved simulation is not in metres are not written, and a
+  named skip says so; the additional post gains the skip reason `NO_SECTIONS_LAYOUT`.
+- The probe points reader refuses a table with more rows than declared and reports fewer as
+  incomplete, a sectional loads export printed twice is refused, and the residual history
+  table gains `velocity_overflowed` and `pressure_overflowed`.
+- A declined value is the NA token in every table: the sweep table and the fixed-width custom
+  polar write NA for NaN and infinity, and the custom polar reader reads NA back as missing.
+- `show` lists the outcome first and the record last; `diff` names the input a changed script
+  line comes from; a rebuild refusal names every changed line; `history` reports an unreadable
+  zip as an error row; `trace` refuses provenance outside the workspace.
+- Reference point names such as `ERP01` and zero padded names are refused, and the point gap
+  message lists at most 8 points; a fractional `STEP`, a non-positive CT tip radius and a
+  two-station Betz-Prandtl profile are refused, the last with its remedy.
+- The workspace reads a Windows reparse point that is not a symbolic link or a junction (a
+  cloud-backed file) as the regular file it is.
+- Output and manifest names with a drive, a colon, a control character or a reserved Windows
+  device name are refused where names are rendered; a dangling link is not a free archive
+  path. `Ledger.status` and `Ledger.points` refuse a status word no status takes.
+- Storage TOML and JSON files that cannot be read are refused by path, a malformed storage
+  register raises `StorageError`, `delete-sims` archives `products.json` before rewriting it,
+  and restoring an archive whose hash table names a missing member raises `StorageError`; an
+  archive without a hash table warns that nothing is verified.
+- A `job_end_files` glob that starts at a root or a drive is refused where it is written, a
+  dotted HPC profile name can be selected, a limit written under `[submit]` is an error
+  instead of being dropped, and a string for `outputs` or `boundaries` of a geometry
+  instruction is refused.
+- Cost files: a NaN or non-positive processor count and an undefined size no longer give a
+  finite or negative estimate, and a repeated flag multiplies once.
+- Reference artifacts refuse NaN and infinite coordinates and divisors, and two folders that
+  derive one mesh file name are refused by name.
+- `write_script` refuses a name that is not a plain file name, `read_manifest` and
+  `GroupingReceipt.from_json` raise `WorkspaceError`, `Preview` refuses a path that holds a
+  file that is not a preview, and a recorded-only key is never applied.
+- The mesh audit judges warp and growth against the larger of the source's value and the
+  floor, a closed shell split over several families is judged on the whole mesh, a missing
+  family fails G5, and the last line of the summary states how many checks were not judged.
+- `refine` refuses an OBJ that is not UTF-8 and a file in the place of the level folder, and
+  its refusals offer valid TOML for a value they cannot rewrite.
+- `field time-mean --vinf` refuses non-finite and non-positive values, field provenance holds
+  workspace-relative paths with sorted keys, a sidecar suffix is a dot and a plain name, and a
+  pinned pressure beside a Reynolds number earns the `p = rho R T` warning.
+- A corrupt `additional.json` raises `WorkspaceError`; `pyfs-workspace migrate` converts an
+  empty named manifest and refuses a symbolic-link backup; the Excel workbook reader reads
+  boolean cells as TRUE and FALSE and refuses an error cell by address; a workbook digest
+  ignores save time stamps.
 
 ## [0.42.0] - 2026-10-16
 

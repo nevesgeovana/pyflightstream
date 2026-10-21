@@ -932,8 +932,11 @@ FIGURE is reported and never judged.
 | size growth (the area ratio of two neighbours, across edges whose dihedral is below 30 degrees) | the larger of the source's and 2 |
 
 Each check is made per family and on the whole mesh. A check is relative
-because the source is the accepted mesh: a source that fails a practice is
-reported, not judged. Reported and never judged, per family and on the whole
+because the source is the accepted mesh: where a source already exceeds a
+practice, the limit is the source's own value (the larger of the source's and
+the practice's, as the table says), so the level is judged not to be worse than
+its source, and the audit still reports that the source is beyond the practice.
+Reported and never judged, per family and on the whole
 mesh: the face, triangle and quadrilateral counts, the aspect ratio (95th
 percentile and largest), the faces beyond the pre-processor's quality
 thresholds (aspect ratio above 8 and above 20, skewness above 0.5, warp above
