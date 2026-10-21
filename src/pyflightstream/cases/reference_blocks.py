@@ -237,7 +237,7 @@ class RotorBlock(BaseModel):
                 raise ValueError(f"axis = {value!r} is not three numbers: {error}") from error
             if not all(math.isfinite(component) for component in components):
                 raise ValueError(f"axis = {value!r} must have three finite components")
-            length = math.sqrt(sum(component * component for component in components))
+            length = math.hypot(*components)
             if length <= _AXIS_TOLERANCE:
                 raise ValueError(
                     f"axis = {value!r} has no length, so it names no direction, and a rotor "
@@ -258,7 +258,7 @@ class RotorBlock(BaseModel):
         if isinstance(stated, str):
             return AXIS_UNIT_VECTORS[stated]
         components = tuple(float(component) for component in stated)
-        length = math.sqrt(sum(component * component for component in components))
+        length = math.hypot(*components)
         return (components[0] / length, components[1] / length, components[2] / length)
 
     @field_validator("rpm_sign")
