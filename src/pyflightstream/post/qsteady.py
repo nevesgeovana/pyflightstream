@@ -736,6 +736,63 @@ def _share_above(
     return value
 
 
+def _row_frame(
+    row: Sequence[str],
+    index: Mapping[str, int],
+    alias: str,
+    frame_of: Mapping[tuple[str, str], str | None] | None,
+) -> tuple[str | None, str, str]:
+    """Return a sections row's (frame, family, plane); no layout means the rotor's own frame."""
+    family = row[index["FAMILY"]] if "FAMILY" in index else ""
+    plane = row[index["PLANE"]] if "PLANE" in index else ""
+    frame = f"{alias}_RMRP" if frame_of is None else frame_of.get((family, plane))
+    return frame, family, plane
+
+
+def _station_radii(
+    rows: Sequence[Sequence[str]],
+    index: Mapping[str, int],
+    record: QsteadyRecord,
+    frame_of: Mapping[tuple[str, str], str | None] | None,
+    notes: list[str],
+) -> tuple[list[float | None], set[int]]:
+    """Return each row's station radius from the hub and the rows of the rotor it cannot place.
+
+    THE STATION'S RADIUS IS FROM THE HUB (PFS-2105.035): Offset is measured
+    from its frame's origin, which is the hub for a frame of the rotor and
+    the moment point for MRP. A rotor row whose Offset is read but not placed
+    is named in ``notes``.
+    """
+    alias = record.rotor_alias
+    radius_of_row: list[float | None] = []
+    unplaced: set[int] = set()
+    for at, row in enumerate(rows):
+        offset = _number(row[index["Offset"]])
+        frame, family, plane = _row_frame(row, index, alias, frame_of)
+        radius = (
+            None
+            if offset is None
+            else radius_from_the_hub(
+                frame,
+                plane,
+                offset,
+                hub_m=record.hub_m,
+                axis_vector=record.axis_vector,
+                rotor_alias=alias,
+            )
+        )
+        if row[index["ROTOR"]] == alias and offset is not None and radius is None:
+            unplaced.add(at)
+            notes.append(
+                f"K_1P of rotor {alias} reads NA in block {family} {plane}: the cut is in the "
+                f"axes of frame {frame}, whose origin is unknown or whose hub is off "
+                "the radial line; "
+                "Offset does not place the station on the blade"
+            )
+        radius_of_row.append(radius)
+    return radius_of_row, unplaced
+
+
 def add_reduced_frequency_to_sections(
     path: Path,
     record: QsteadyRecord,
@@ -801,41 +858,7 @@ def add_reduced_frequency_to_sections(
     notes: list[str] = []
     frame_of = _section_frames(layout) if layout is not None else None
 
-    def frame_of_row(row: Sequence[str]) -> tuple[str | None, str, str]:
-        family = row[index["FAMILY"]] if "FAMILY" in index else ""
-        plane = row[index["PLANE"]] if "PLANE" in index else ""
-        frame = f"{alias}_RMRP" if frame_of is None else frame_of.get((family, plane))
-        return frame, family, plane
-
-    # THE STATION'S RADIUS IS FROM THE HUB (PFS-2105.035): Offset is measured
-    # from its frame's origin, which is the hub for a frame of the rotor and
-    # the moment point for MRP.
-    radius_of_row: list[float | None] = []
-    unplaced: set[int] = set()
-    for at, row in enumerate(rows):
-        offset = _number(row[index["Offset"]])
-        frame, family, plane = frame_of_row(row)
-        radius = (
-            None
-            if offset is None
-            else radius_from_the_hub(
-                frame,
-                plane,
-                offset,
-                hub_m=record.hub_m,
-                axis_vector=record.axis_vector,
-                rotor_alias=alias,
-            )
-        )
-        if row[index["ROTOR"]] == alias and offset is not None and radius is None:
-            unplaced.add(at)
-            notes.append(
-                f"K_1P of rotor {alias} reads NA in block {family} {plane}: the cut is in the "
-                f"axes of frame {frame}, whose origin is unknown or whose hub is off "
-                "the radial line; "
-                "Offset does not place the station on the blade"
-            )
-        radius_of_row.append(radius)
+    radius_of_row, unplaced = _station_radii(rows, index, record, frame_of, notes)
     k_of_row: list[float | None] = []
     for row, radius in zip(rows, radius_of_row, strict=True):
         chord = _number(row[index["Chord"]])
@@ -898,7 +921,7 @@ def add_reduced_frequency_to_sections(
     stations = list(zip(chosen, strips, strict=True)) if projected else []
     for at, w in stations:
         row = rows[at]
-        frame, family, plane = frame_of_row(row)
+        frame, family, plane = _row_frame(row, index, alias, frame_of)
         shaft = shaft_in_section_frame(record, frame) if frame is not None else None
         station = (
             section_station_shaft_loads(

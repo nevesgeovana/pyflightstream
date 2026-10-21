@@ -29,7 +29,7 @@ import pyflightstream.workspace._batch_life as batch_life
 import pyflightstream.workspace._step_prune as step_prune
 from pyflightstream._progress import tracked
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
-from pyflightstream.workspace._links import is_reparse
+from pyflightstream.workspace._links import _is_link, _make_dir_link, is_reparse
 from pyflightstream.workspace.naming import ARCHIVE_DIR
 
 COMPACTED_SUFFIX = ".zip"
@@ -520,3 +520,69 @@ def human_bytes(count: float) -> str:
             return f"{count:.0f} {unit}" if unit == "B" else f"{count:.1f} {unit}"
         count /= 1024
     return f"{count:.1f} TB"  # pragma: no cover - the loop returns
+
+
+def _relink_inputs(main: CampaignWorkspace, other: Path, sim_name: str) -> str | None:
+    """Make main's ``sims/<sim>/inputs`` a link into MAIN's geometry library.
+
+    The other workspace's simulation links its ``inputs`` into ITS library;
+    the same geometry folder (the library itself or one geometry's folder
+    under it) is linked in main, so a synced simulation reads main's mesh and
+    no copy of it is made. Returns what happened, or None when there was
+    nothing to do.
+    """
+    target_inputs = main.root / "sims" / sim_name / "inputs"
+    if not target_inputs.parent.is_dir() or _is_link(target_inputs):
+        return None
+    if target_inputs.is_dir() and any(target_inputs.iterdir()):
+        return None
+    source_inputs = other / "sims" / sim_name / "inputs"
+    if not is_reparse(source_inputs):
+        return (
+            "not linked: the other workspace staged a copy of its inputs, which sync never copies"
+        )
+    library = (main.inputs_dir / "geometries").resolve()
+    pointed = Path(os.path.realpath(source_inputs))
+    try:
+        relative = pointed.relative_to((other / "inputs" / "geometries").resolve())
+    except ValueError:
+        # A link read through a share may not resolve on this machine: take
+        # the geometry folder by name, the one component the layout allows.
+        relative = Path(pointed.name) if (library / pointed.name).is_dir() else Path(".")
+    wanted = (library / relative).resolve()
+    if not wanted.is_dir() or (wanted != library and wanted.parent != library):
+        return f"not linked: {relative.as_posix()} is not in main's inputs/geometries"
+    if target_inputs.is_dir():
+        target_inputs.rmdir()
+    _make_dir_link(wanted, target_inputs)
+    return f"linked to inputs/geometries/{relative.as_posix()}".rstrip("/.")
+
+
+def _library_target(workspace: CampaignWorkspace, recorded: str) -> Path | None:
+    """Map a compacted simulation's recorded ``inputs`` link onto THIS workspace's library.
+
+    The record is an absolute path on the machine that compacted it, possibly
+    into another workspace's library when the archive came by sync
+    (PFS-2096.015). The part after ``inputs/geometries`` names the geometry
+    folder, as :func:`_relink_inputs` takes it; None when this library has
+    no such folder.
+    """
+    library = (workspace.inputs_dir / "geometries").resolve()
+    parts = Path(recorded).parts
+    relative: Path | None = None
+    for index in range(len(parts) - 1, 0, -1):
+        if (parts[index - 1].lower(), parts[index].lower()) == ("inputs", "geometries"):
+            relative = Path(*parts[index + 1 :]) if index + 1 < len(parts) else Path(".")
+            break
+    if relative is None:
+        name = Path(recorded).name
+        relative = Path(name) if name and (library / name).is_dir() else None
+    if relative is not None:
+        wanted = (library / relative).resolve()
+        if wanted.is_dir() and (wanted == library or wanted.parent == library):
+            return wanted
+    # A link outside any geometry library is kept only inside this workspace.
+    own = Path(recorded)
+    if own.is_dir() and workspace.root.resolve() in own.resolve().parents:
+        return own
+    return None

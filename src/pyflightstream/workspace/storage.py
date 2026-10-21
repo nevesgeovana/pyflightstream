@@ -77,7 +77,9 @@ from pyflightstream.workspace._free_space import (
     _both_refusal,
     _check_selections,
     _check_step_values,
+    _library_target,
     _now,
+    _relink_inputs,
     _run_recipe,
     _sha256,
     _sim_folder,
@@ -477,42 +479,6 @@ def _remove_sim_folder(folder: Path) -> list[str]:
     return undone
 
 
-def _relink_inputs(main: CampaignWorkspace, other: Path, sim_name: str) -> str | None:
-    """Make main's ``sims/<sim>/inputs`` a link into MAIN's geometry library.
-
-    The other workspace's simulation links its ``inputs`` into ITS library;
-    the same geometry folder (the library itself or one geometry's folder
-    under it) is linked in main, so a synced simulation reads main's mesh and
-    no copy of it is made. Returns what happened, or None when there was
-    nothing to do.
-    """
-    target_inputs = main.root / "sims" / sim_name / "inputs"
-    if not target_inputs.parent.is_dir() or _is_link(target_inputs):
-        return None
-    if target_inputs.is_dir() and any(target_inputs.iterdir()):
-        return None
-    source_inputs = other / "sims" / sim_name / "inputs"
-    if not is_reparse(source_inputs):
-        return (
-            "not linked: the other workspace staged a copy of its inputs, which sync never copies"
-        )
-    library = (main.inputs_dir / "geometries").resolve()
-    pointed = Path(os.path.realpath(source_inputs))
-    try:
-        relative = pointed.relative_to((other / "inputs" / "geometries").resolve())
-    except ValueError:
-        # A link read through a share may not resolve on this machine: take
-        # the geometry folder by name, the one component the layout allows.
-        relative = Path(pointed.name) if (library / pointed.name).is_dir() else Path(".")
-    wanted = (library / relative).resolve()
-    if not wanted.is_dir() or (wanted != library and wanted.parent != library):
-        return f"not linked: {relative.as_posix()} is not in main's inputs/geometries"
-    if target_inputs.is_dir():
-        target_inputs.rmdir()
-    _make_dir_link(wanted, target_inputs)
-    return f"linked to inputs/geometries/{relative.as_posix()}".rstrip("/.")
-
-
 def _compact_sim(workspace: CampaignWorkspace, sim_id: str) -> dict[str, Any]:
     """Zip one simulation folder, verify every member, then remove the folder."""
     folder = workspace.sim_dir(sim_id)
@@ -614,34 +580,26 @@ def ensure_sim_expanded(workspace: CampaignWorkspace, sim_id: str, *, reason: st
     return True
 
 
-def _library_target(workspace: CampaignWorkspace, recorded: str) -> Path | None:
-    """Map a compacted simulation's recorded ``inputs`` link onto THIS workspace's library.
+def _extract_verified(archive: Path, temporary: Path) -> dict[str, Any]:
+    """Extract a compacted simulation into ``temporary`` and return its recorded meta.
 
-    The record is an absolute path on the machine that compacted it, possibly
-    into another workspace's library when the archive came by sync
-    (PFS-2096.015). The part after ``inputs/geometries`` names the geometry
-    folder, as :func:`_relink_inputs` takes it; None when this library has
-    no such folder.
+    A member that leaves the folder, or whose hash differs from the recorded
+    one, refuses the restore (the second after removing the extracted copy).
     """
-    library = (workspace.inputs_dir / "geometries").resolve()
-    parts = Path(recorded).parts
-    relative: Path | None = None
-    for index in range(len(parts) - 1, 0, -1):
-        if (parts[index - 1].lower(), parts[index].lower()) == ("inputs", "geometries"):
-            relative = Path(*parts[index + 1 :]) if index + 1 < len(parts) else Path(".")
-            break
-    if relative is None:
-        name = Path(recorded).name
-        relative = Path(name) if name and (library / name).is_dir() else None
-    if relative is not None:
-        wanted = (library / relative).resolve()
-        if wanted.is_dir() and (wanted == library or wanted.parent == library):
-            return wanted
-    # A link outside any geometry library is kept only inside this workspace.
-    own = Path(recorded)
-    if own.is_dir() and workspace.root.resolve() in own.resolve().parents:
-        return own
-    return None
+    with zipfile.ZipFile(archive) as zf:
+        meta = json.loads(zf.read(_COMPACT_META)) if _COMPACT_META in zf.namelist() else {}
+        for info in zf.infolist():
+            if info.filename == _COMPACT_META:
+                continue
+            target = (temporary / info.filename).resolve()
+            if temporary.resolve() not in target.parents:
+                raise StorageError(f"{archive}: member {info.filename} leaves the folder")
+            zf.extract(info, temporary)
+    for name, digest in dict(meta.get("members", {})).items():
+        if _sha256(temporary / name) != digest:
+            shutil.rmtree(temporary)
+            raise StorageError(f"{archive}: {name} does not match its recorded hash; not restored")
+    return meta
 
 
 def _expand_archive(
@@ -668,19 +626,7 @@ def _expand_archive(
             f"{temporary} is in the way of restoring {archive} and cannot be removed; "
             "remove it by hand, then restore again"
         )
-    with zipfile.ZipFile(archive) as zf:
-        meta = json.loads(zf.read(_COMPACT_META)) if _COMPACT_META in zf.namelist() else {}
-        for info in zf.infolist():
-            if info.filename == _COMPACT_META:
-                continue
-            target = (temporary / info.filename).resolve()
-            if temporary.resolve() not in target.parents:
-                raise StorageError(f"{archive}: member {info.filename} leaves the folder")
-            zf.extract(info, temporary)
-    for name, digest in dict(meta.get("members", {})).items():
-        if _sha256(temporary / name) != digest:
-            shutil.rmtree(temporary)
-            raise StorageError(f"{archive}: {name} does not match its recorded hash; not restored")
+    meta = _extract_verified(archive, temporary)
     try:
         temporary.replace(folder)
     except OSError:

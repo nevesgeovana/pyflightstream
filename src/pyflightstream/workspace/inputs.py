@@ -1040,6 +1040,34 @@ def _lifted_table(path: Path, table: str, value: Any) -> Any:
     return value
 
 
+def _refuse_a_kindless_block(name: str, value: dict[str, Any], path: Path) -> None:
+    """Refuse a block that states a rotor's or a disc's own keys and no ``kind``."""
+    # Identify a missing rotor kind from rotor-only keys and give a rotor
+    # remedy instead of the generic extra-inputs refusal.
+    wanted = sorted(key for key in _ROTOR_ONLY_KEYS if key in value)
+    if wanted:
+        raise InputArtifactError(
+            f"the reference artifact {path} declares [{name}] with "
+            f"{', '.join(wanted)} and no kind. A block that states a rotor's "
+            'own keys is a rotor, and a rotor says so: add kind = "rotor" to '
+            "it. Every other top-level table of this file is a reference "
+            "quantity.",
+            kind="reference",
+        )
+    # Likewise identify an actuator disc missing kind (G06), excluding the
+    # model's own tables: hub_radius_m is also valid under [rotor]. Let the
+    # model validate those tables (G47).
+    disc = sorted(key for key in _ACTUATOR_ONLY_KEYS if key in value)
+    if disc and name not in ReferenceArtifact.model_fields:
+        raise InputArtifactError(
+            f"the reference artifact {path} declares [{name}] with "
+            f"{', '.join(disc)} and no kind. A block that states an actuator "
+            'disc\'s own keys is a disc, and a disc says so: add kind = "actuator" '
+            "to it.",
+            kind="reference",
+        )
+
+
 def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     """Sort a reference file's top-level tables into the model's fields (FR-59, FR-60, FR-72).
 
@@ -1073,30 +1101,7 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
         if not isinstance(value, dict):
             continue
         if "kind" not in value:
-            # Identify a missing rotor kind from rotor-only keys and give a rotor
-            # remedy instead of the generic extra-inputs refusal.
-            wanted = sorted(key for key in _ROTOR_ONLY_KEYS if key in value)
-            if wanted:
-                raise InputArtifactError(
-                    f"the reference artifact {path} declares [{name}] with "
-                    f"{', '.join(wanted)} and no kind. A block that states a rotor's "
-                    'own keys is a rotor, and a rotor says so: add kind = "rotor" to '
-                    "it. Every other top-level table of this file is a reference "
-                    "quantity.",
-                    kind="reference",
-                )
-            # Likewise identify an actuator disc missing kind (G06), excluding the
-            # model's own tables: hub_radius_m is also valid under [rotor]. Let the
-            # model validate those tables (G47).
-            disc = sorted(key for key in _ACTUATOR_ONLY_KEYS if key in value)
-            if disc and name not in ReferenceArtifact.model_fields:
-                raise InputArtifactError(
-                    f"the reference artifact {path} declares [{name}] with "
-                    f"{', '.join(disc)} and no kind. A block that states an actuator "
-                    'disc\'s own keys is a disc, and a disc says so: add kind = "actuator" '
-                    "to it.",
-                    kind="reference",
-                )
+            _refuse_a_kindless_block(name, value, path)
             continue
         if name == "moment_point":
             # The moment reference is a fixed table of the model, and its own kind key

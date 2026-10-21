@@ -622,6 +622,72 @@ def _the_sections_writer(**arguments: Any) -> Callable[[Path, str], Path | None]
     return tabled
 
 
+def _wheel_rotor_state(
+    sim_id: str,
+    point: PolarPoint,
+    quasi: Any,
+    clockings: object,
+    density: float | None,
+) -> _qsteady.RotorState | None:
+    """Return a wheel point's rotor state, from the mean thrust over its clockings.
+
+    It serves the average table and the validity file; what cannot be taken is
+    NA and a WARNING line of the post's log. None for a point that is not a
+    wheel, or whose clockings or density are not known.
+    """
+    if quasi.case != "wheel" or not isinstance(clockings, list) or density is None:
+        return None
+    loads = point.loads
+    state = _qsteady.rotor_state(
+        quasi,
+        clockings,
+        density_kg_m3=float(density),
+        velocity_m_s=getattr(loads, "freestream_velocity_m_s", None),
+        alpha_deg=float(getattr(loads, "angle_of_attack_deg", None) or 0.0),
+        beta_deg=float(getattr(loads, "sideslip_deg", None) or 0.0),
+    )
+    product = (
+        f"{POLARS_DIR}/{sweep_file_stem(sim_id, _a_name_a_file_may_carry(quasi.rotor_alias))}"
+        f"{_qsteady.AVERAGE_SUFFIX}"
+    )
+    for note in state.notes:
+        warn(
+            f"point={point.name} product={product}: {note}",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    return state
+
+
+def _write_wheel_validity(
+    point: PolarPoint,
+    record: RunRecord,
+    quasi: Any,
+    *,
+    validity: _qsteady.PointValidity,
+    state: _qsteady.RotorState | None,
+    out: Path,
+    skipped: dict[str, str],
+    validity_files: dict[str, dict[str, str]],
+) -> None:
+    """Write a wheel point's validity after the run, in its datapoint folder beside its record.
+
+    The shares of thrust and torque from the stations above k = 0.1 are included,
+    and so is its rotor state. A file that cannot be written is a skip, never a
+    traceback.
+    """
+    try:
+        written_file = _qsteady.write_point_validity_file(point.loads_path, quasi, validity, state)
+    except OSError as error:
+        skipped[f"runs/{record.run_id}#qsteady_validity"] = (
+            f"the per-point validity file of {point.name} could not be written: {error}"
+        )
+    else:
+        validity_files.setdefault(quasi.rotor_alias, {})[point.name] = Path(
+            os.path.relpath(written_file, out)
+        ).as_posix()
+
+
 def _qsteady_super_cells(
     point: PolarPoint,
     record: RunRecord | None,
@@ -704,47 +770,18 @@ def _qsteady_products(
             if density is not None
             else None
         )
-        # A WHEEL POINT'S ROTOR STATE, from the mean thrust over its
-        # clockings, for the average table and the validity file; what cannot
-        # be taken is NA and a WARNING line of the post's log.
-        state: _qsteady.RotorState | None = None
-        if quasi.case == "wheel" and isinstance(clockings, list) and density is not None:
-            loads = point.loads
-            state = _qsteady.rotor_state(
-                quasi,
-                clockings,
-                density_kg_m3=float(density),
-                velocity_m_s=getattr(loads, "freestream_velocity_m_s", None),
-                alpha_deg=float(getattr(loads, "angle_of_attack_deg", None) or 0.0),
-                beta_deg=float(getattr(loads, "sideslip_deg", None) or 0.0),
-            )
-            product = (
-                f"{POLARS_DIR}/{sweep_file_stem(sim_id, _a_name_a_file_may_carry(alias))}"
-                f"{_qsteady.AVERAGE_SUFFIX}"
-            )
-            for note in state.notes:
-                warn(
-                    f"point={point.name} product={product}: {note}",
-                    PyflightstreamWarning,
-                    stacklevel=2,
-                )
+        state = _wheel_rotor_state(sim_id, point, quasi, clockings, density)
         if quasi.case == "wheel":
-            # THE WHEEL POINT'S VALIDITY AFTER THE RUN, in its datapoint
-            # folder beside the run's record, the shares of thrust and torque
-            # from the stations above k = 0.1 included, and its rotor
-            # state.
-            try:
-                written_file = _qsteady.write_point_validity_file(
-                    point.loads_path, quasi, validity, state
-                )
-            except OSError as error:
-                skipped[f"runs/{record.run_id}#qsteady_validity"] = (
-                    f"the per-point validity file of {point.name} could not be written: {error}"
-                )
-            else:
-                validity_files.setdefault(alias, {})[point.name] = Path(
-                    os.path.relpath(written_file, out)
-                ).as_posix()
+            _write_wheel_validity(
+                point,
+                record,
+                quasi,
+                validity=validity,
+                state=state,
+                out=out,
+                skipped=skipped,
+                validity_files=validity_files,
+            )
         if density is None:
             left_out.setdefault(alias, []).append(f"{point.name}: the point states no density")
             continue

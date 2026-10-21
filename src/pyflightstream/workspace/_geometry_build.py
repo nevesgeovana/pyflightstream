@@ -595,6 +595,23 @@ MAX_PARALLEL = 2
 _MEMORY_FLOOR_GB = 0.5
 
 
+def _keep_the_previous_overlay(plan: GeometryBuildPlan) -> None:
+    """Rename a sweep's existing overlay to ``.previous``, keeping the old bytes as evidence.
+
+    This holds including after a failed run. A plan without a sweep has no overlay.
+    """
+    if plan.instruction.sweep is None:
+        return
+    target = _overlay_path(plan)
+    if target.exists():
+        archive = target.with_name(target.name + ".previous")
+        number = 1
+        while archive.exists():
+            archive = target.with_name(f"{target.name}.previous.{number}")
+            number += 1
+        target.rename(archive)
+
+
 def apply_geometry_build(
     plan: GeometryBuildPlan,
     *,
@@ -630,16 +647,7 @@ def apply_geometry_build(
             "the native-run limit"
         )
     refuse_before_running(plan, overwrite=overwrite, png=png)
-    if plan.instruction.sweep is not None:
-        # Keep the old bytes as noncurrent evidence, including after a failed run.
-        target = _overlay_path(plan)
-        if target.exists():
-            archive = target.with_name(target.name + ".previous")
-            number = 1
-            while archive.exists():
-                archive = target.with_name(f"{target.name}.previous.{number}")
-                number += 1
-            target.rename(archive)
+    _keep_the_previous_overlay(plan)
 
     def build(variant: GeometryVariant) -> _Staged:
         return _build_one(

@@ -412,6 +412,20 @@ def polygon_area_moments(contour_m: ArrayLike) -> PolygonMoments:
     )
 
 
+def _checked_grid_cells(grid_cells: object) -> int:
+    """Return ``grid_cells`` as an int, or refuse it (X-F-1185: a numpy integer is an integer)."""
+    if (
+        isinstance(grid_cells, (bool, np.bool_))
+        or not isinstance(grid_cells, (int, np.integer))
+        or grid_cells < 8
+    ):
+        raise FsiInputError(
+            "grid_cells is the number of cells across the shorter side of the "
+            f"section and must be an integer of at least 8, got {grid_cells!r}"
+        )
+    return int(grid_cells)
+
+
 def torsion_constant(
     contour_m: ArrayLike, grid_cells: int = DEFAULT_TORSION_GRID_CELLS
 ) -> TorsionConstant:
@@ -461,17 +475,7 @@ def torsion_constant(
         If ``grid_cells`` is not an integer of at least 8, or the grid places no node inside the
         section.
     """
-    # X-F-1185. A numpy integer is an integer: it is accepted, as an int.
-    if (
-        isinstance(grid_cells, (bool, np.bool_))
-        or not isinstance(grid_cells, (int, np.integer))
-        or grid_cells < 8
-    ):
-        raise FsiInputError(
-            "grid_cells is the number of cells across the shorter side of the "
-            f"section and must be an integer of at least 8, got {grid_cells!r}"
-        )
-    grid_cells = int(grid_cells)
+    grid_cells = _checked_grid_cells(grid_cells)
     polygon = _as_polygon(contour_m)
     polygon = polygon - polygon.min(axis=0)
     extent = polygon.max(axis=0)
