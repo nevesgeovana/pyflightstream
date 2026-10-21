@@ -2057,3 +2057,44 @@ def test_f3_0203_pfs2119_030_a_refusing_product_of_a_point_costs_only_itself():
         assert _contained(skipped, "section_distributions/run-1", refuse, ([], {})) == ([], {})
     assert skipped == {"section_distributions/run-1": "no section"}
     assert _contained(skipped, "k", lambda: (["x"], {}), ([], {})) == (["x"], {})
+
+
+def _f3_0203_swept_record(run_id: str, mach: float):
+    return SimpleNamespace(
+        run_id=run_id,
+        sim_id="3207",
+        flight_condition={"ALTFT": 0.0},
+        point={"MACH": mach},
+        reference_length_m=1.0,
+        flight_condition_defaults=None,
+        flight_condition_defaults_from=None,
+        mach=0.1,
+        density_kg_m3=1.2,
+        temperature_k=288.0,
+        viscosity_pa_s=1.8e-5,
+        density_source="isa",
+    )
+
+
+def test_f3_0203_pfs2119_031_a_swept_cell_that_cannot_resolve_is_warned_once_per_point():
+    """PFS-2119.031: the silent fall back to the first-point state is said, once per point."""
+    from pyflightstream.post import _condition
+
+    record = _f3_0203_swept_record("f3-0203-pfs2119031", -1.0)
+    _condition._UNRESOLVED_WARNED.discard(record.run_id)
+    with pytest.warns(Warning, match="cannot be re-resolved") as caught:
+        first = _condition.point_state(record)
+        again = _condition.point_state(record)
+    assert first.mach == 0.1 and again.mach == 0.1
+    assert len([w for w in caught if "re-resolved" in str(w.message)]) == 1
+
+
+def test_f3_0203_pfs2119_031_the_state_and_the_speeds_come_from_one_resolver():
+    """PFS-2119.031: _free_stream_and_sound resolves the same cell point_state does."""
+    from pyflightstream.post import _condition
+
+    record = _f3_0203_swept_record("f3-0203-one-resolver", 0.2)
+    state = _condition.point_state(record)
+    speed, sound = _condition._free_stream_and_sound(record)
+    assert state.mach == pytest.approx(0.2)
+    assert speed / sound == pytest.approx(state.mach)

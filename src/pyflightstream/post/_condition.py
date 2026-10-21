@@ -350,18 +350,11 @@ def point_state(record: RunRecord) -> PointState:
     swept = {key: value for key, value in (record.point or {}).items() if key in _FLOW_KEYS}
     if not swept:
         return recorded
-    cell = {**stated, **swept}
-    try:
-        resolved = resolve_flight_condition(
-            cell,
-            pol=str(record.sim_id),
-            reference_length_m=record.reference_length_m,
-            defaults=record.flight_condition_defaults or None,
-            defaults_origin=record.flight_condition_defaults_from,
-        )
-    except PyflightstreamError:
+    cell, resolved, error = _resolve_point_cell(record)
+    if resolved is None:
         # An unresolvable cell skips the correction, not the product: retain
-        # the state recorded for the point.
+        # the state recorded for the point, and say so once for the point.
+        _warn_once_unresolved(record, error)
         return PointState(**{**recorded.__dict__, "cell": cell})
     differs = tuple(
         f"{label} {was:g} is {now:g}"
@@ -398,6 +391,51 @@ def _free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
     return resolved.velocity_m_per_s, resolved.sonic_velocity_m_per_s
 
 
+def _resolve_point_cell(
+    record: RunRecord,
+) -> tuple[dict[str, object], ResolvedCondition | None, PyflightstreamError | None]:
+    """Resolve the record's own cell (the swept value in place): the ONE resolver of a point.
+
+    :func:`point_state` and :func:`_free_stream_and_sound` both read it, so the state a table
+    states and the speeds the rotor table's Mach numbers are taken at cannot drift apart.
+    Returns the cell, the resolution, and the refusal when there is one.
+    """
+    stated = dict(record.flight_condition or {})
+    swept = {key: value for key, value in (record.point or {}).items() if key in _FLOW_KEYS}
+    cell = {**stated, **swept}
+    if not cell:
+        return cell, None, None
+    try:
+        resolved = resolve_flight_condition(
+            cell,
+            pol=str(record.sim_id),
+            reference_length_m=record.reference_length_m,
+            defaults=record.flight_condition_defaults or None,
+            defaults_origin=record.flight_condition_defaults_from,
+        )
+    except PyflightstreamError as error:
+        return cell, None, error
+    return cell, resolved, None
+
+
+#: The points whose failed re-resolution has been warned of: once per point, not per product.
+_UNRESOLVED_WARNED: set[str] = set()
+
+
+def _warn_once_unresolved(record: RunRecord, error: PyflightstreamError | None) -> None:
+    """Warn that a swept cell could not be re-resolved, once per point (PFS-2119.031)."""
+    run_id = str(record.run_id)
+    if error is None or run_id in _UNRESOLVED_WARNED:
+        return
+    _UNRESOLVED_WARNED.add(run_id)
+    warn(
+        f"point={run_id}: its swept flight condition cannot be re-resolved ({error}); the state "
+        "recorded for the point is kept, and a swept value that moved the flow is not applied",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
 def _resolved_point(record: RunRecord) -> ResolvedCondition | None:
     """Return the record's own point resolved, the swept value in place, else None.
 
@@ -405,21 +443,7 @@ def _resolved_point(record: RunRecord) -> ResolvedCondition | None:
     resolve: an unresolvable cell costs the check, never the
     product.
     """
-    stated = dict(record.flight_condition or {})
-    swept = {key: value for key, value in (record.point or {}).items() if key in _FLOW_KEYS}
-    cell = {**stated, **swept}
-    if not cell:
-        return None
-    try:
-        return resolve_flight_condition(
-            cell,
-            pol=str(record.sim_id),
-            reference_length_m=record.reference_length_m,
-            defaults=record.flight_condition_defaults or None,
-            defaults_origin=record.flight_condition_defaults_from,
-        )
-    except PyflightstreamError:
-        return None
+    return _resolve_point_cell(record)[1]
 
 
 def warn_pinned_states(points: Iterable[RunRecord]) -> None:
