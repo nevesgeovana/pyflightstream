@@ -159,8 +159,10 @@ swept = [key for key, value in condition.items() if value == SWEEP_WORD]
 ```
 
 **Reading a matrix back is a different question and has a different
-answer.** Ask the row: `row.sweep.type` is `alpha`, `beta` or
-`advance_ratio`, and `row.flight_condition` holds the flow state with the
+answer.** Ask the row: `row.sweep.type` is the swept axis: `alpha`, `beta`, `alpha_beta`,
+`advance_ratio` or any other point-axis key (`MACH`, `TASmps`, `REmi`, `ALTFT`,
+`dISA`, `RHOkgm3`, `MUPas`, `ASMPS`, `TK`, `PPA`, `RPM` and the three body
+rates), and `row.flight_condition` holds the flow state with the
 swept key ALREADY TAKEN OUT, because a resolver has no use for a word
 where it expects a number. The mapping above, with the word still in it,
 is what the cell parser hands the reader internally and is not something
