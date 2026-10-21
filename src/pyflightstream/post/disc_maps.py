@@ -33,6 +33,7 @@ from pathlib import Path
 
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
+from pyflightstream.post._stage import _a_name_a_file_may_carry
 from pyflightstream.post._tables import write_csv_table
 from pyflightstream.post.axes import placed_blade_azimuth_deg
 from pyflightstream.post.harmonics import HarmonicRotor, blade_of, load_quantities, sample_blocks
@@ -119,7 +120,11 @@ def disc_map_name(point: str, rotor: str, quantity: str) -> str:
     >>> disc_map_name("DP_AL+000", "PROP", "Fz")
     'DP_AL+000_disc_PROP_Fz.csv'
     """
-    return f"{point}{DISC_MAP_MARK}{_UNSAFE.sub('_', rotor)}_{_UNSAFE.sub('_', quantity)}.csv"
+    # THE ROTOR'S ALIAS GOES THROUGH THE ONE SANITISER every rotor product uses, so the
+    # collision refusal of the stage and this name agree on what two aliases are.
+    return (
+        f"{point}{DISC_MAP_MARK}{_a_name_a_file_may_carry(rotor)}_{_UNSAFE.sub('_', quantity)}.csv"
+    )
 
 
 def _place(entry: _Row) -> tuple[float, float]:
@@ -259,6 +264,18 @@ def write_disc_maps(
     """
     folder = Path(out_dir)
     place = target if target is not None else (lambda path: path)
+    # EVERY ALIAS SET THAT REACHES A FILE NAME IS CHECKED BEFORE ANY WRITE: two rotors
+    # whose names sanitise to one file would write the second over the first.
+    named: dict[str, tuple[str, str]] = {}
+    for alias, quantity in sorted(rows_of.maps):
+        file_name = disc_map_name(point, alias, quantity).casefold()
+        if file_name in named and named[file_name] != (alias, quantity):
+            raise ProductError(
+                f"the rotors {named[file_name][0]!r} and {alias!r} both write the disc map "
+                f"file {disc_map_name(point, alias, quantity)!r}; rename one so the names "
+                "differ in letters, digits, hyphens, underscores or dots"
+            )
+        named[file_name] = (alias, quantity)
     return tuple(
         write_csv_table(
             place(folder / disc_map_name(point, alias, quantity)),

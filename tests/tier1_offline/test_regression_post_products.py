@@ -2114,3 +2114,17 @@ def test_f3_0203_pfs2124_028_a_records_outputs_are_classified_by_its_own_release
         ["P_vsec.vtk"], package_version="0.42.0"
     )
     assert classify_record_outputs(old) != classify_record_outputs(new)
+
+
+def test_f3_0203_pfs2126_017_every_alias_that_reaches_a_file_goes_through_one_sanitiser(tmp_path):
+    """PFS-2126.017: disc map names and observer slugs share one sanitiser; clashes refuse."""
+    from pyflightstream.post.acoustics import _slug
+    from pyflightstream.post.disc_maps import DiscMaps, disc_map_name, write_disc_maps
+
+    assert disc_map_name("P1", "..Rotor.", "Fz") == "P1_disc_Rotor_Fz.csv"
+    assert disc_map_name("P1", "", "Fz") == "P1_disc_rotor_Fz.csv"
+    assert _slug("obs/1:a") == "obs_1_a" and _slug("///") == "observer"
+    clash = DiscMaps(maps={("A/B", "Fz"): [], ("A:B", "Fz"): []})
+    with pytest.raises(ProductError, match="both write the disc map"):
+        write_disc_maps(clash, point="P1", pol="3207", context=(), out_dir=tmp_path)
+    assert not list(tmp_path.iterdir())

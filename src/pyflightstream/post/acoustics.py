@@ -52,6 +52,7 @@ from pyflightstream.cases.acoustics import (
     ACOUSTICS_DIR,
     AcousticSignal,
 )
+from pyflightstream.post._stage import _a_name_a_file_may_carry
 from pyflightstream.post._tables import write_csv_table
 
 __all__ = [
@@ -422,7 +423,8 @@ def _round_trip(cell: object) -> object:
 
 
 def _slug(name: str) -> str:
-    return re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_") or "observer"
+    """Return an observer name as a file name may carry it (the one sanitiser of the post)."""
+    return _a_name_a_file_may_carry(name) if any(c.isalnum() for c in name) else "observer"
 
 
 def _states_a_frequency(blades: object, rpm: object) -> bool:
