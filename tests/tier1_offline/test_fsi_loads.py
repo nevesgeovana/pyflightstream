@@ -24,6 +24,30 @@ from tests.tier1_offline.conftest import make_uniform_blade_config
 FIXTURES = Path(__file__).parent / "fixtures" / "fsi"
 CALL2 = (FIXTURES / "FS_SurfaceSection_Loads_call0002.txt").read_text(encoding="utf-8")
 CALL18 = (FIXTURES / "FS_SurfaceSection_Loads_call0018.txt").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("field", ["fx", "fz", "tolerance", "density"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_p0430_f6_04_force_closure_requires_finite_values(field, value):
+    from pyflightstream.fsi.errors import FsiInputError
+
+    block = parse_sectional_loads(CALL2).split(TWO_FAMILIES)["blade_1"]
+    loads = to_elastic_axis(block, fixture_covering_config())
+    fx = float((block.fx_n_per_m * loads.tributary_width_m).sum())
+    fz = float((block.fz_n_per_m * loads.tributary_width_m).sum())
+    tolerance = 0.05
+    if field == "fx":
+        fx = value
+    elif field == "fz":
+        fz = value
+    elif field == "tolerance":
+        tolerance = value
+    else:
+        block.fx_n_per_m[0] = value
+    with pytest.raises(FsiInputError, match="finite"):
+        cross_check_totals(block, fx, fz, rel_tol=tolerance)
+
+
 # The dry run's export concatenates two families of 50 sections
 # (RPT-005 finding 6): the meshed blade first, then a non-blade family,
 # which is zero-load in call0002 and loaded in call0018.

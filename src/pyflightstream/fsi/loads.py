@@ -609,6 +609,10 @@ def cross_check_totals(
     FsiInputError
         If a component's integrated density disagrees with the export's total beyond ``rel_tol``.
     """
+    if not np.isfinite(rel_tol) or rel_tol < 0.0:
+        raise FsiInputError(
+            f"force-closure tolerance must be finite and nonnegative, got {rel_tol}"
+        )
     ascending = np.sort(block.offset_m)
     widths = _tributary_widths(ascending)
     order = np.argsort(block.offset_m)
@@ -618,6 +622,11 @@ def cross_check_totals(
         ("fz", block.fz_n_per_m, integrated_fz_n),
     ):
         total = float((density[order] * widths).sum())
+        if not (np.isfinite(total) and np.isfinite(integrated)):
+            raise FsiInputError(
+                f"force closure for {block.family!r} {name} needs finite totals; "
+                f"got sectional {total} N and integrated {integrated} N; check the load exports"
+            )
         scale = max(abs(total), abs(integrated), 1e-9)
         deltas[name] = abs(total - integrated) / scale
         if deltas[name] > rel_tol:
