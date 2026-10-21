@@ -471,7 +471,7 @@ A correction that does not change a point's name (a pproc, a geometry, a solver 
 \wf{archive/runs-<stamp>.json}{the manifest before a forced re-run; each redone point's outputs go to its own \file{archive/<stamp>/}.}
 
 \hd{Common errors}
-\err{\textit{no plan for this matrix, and since v0.17.0 a run needs one}.}{run \cmd{pyfs-matrix plan} with the same matrix first.}
+\err{\textit{no plan for this matrix, and a run needs one}.}{run \cmd{pyfs-matrix plan} with the same matrix first.}
 \err{The matrix was edited after the plan.}{refused until planned again: the receipt is pinned to the matrix digest.}
 \err{A point is already recorded and refuses.}{the refusal counts the points recorded and those \fl{--resume} would run, and prints the command that continues; \fl{--force-rerun} redoes a point. \fl{--resume} and \fl{--force-rerun} together are refused.}
 \err{\fl{--sims} names an id, or \fl{--points} a point, the matrix does not carry; or \fl{--points} comes without \fl{--sims}.}{refused before anything runs, naming the ids or points that exist.}
