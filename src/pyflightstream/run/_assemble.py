@@ -644,6 +644,7 @@ def _assembled_record(
             "status": judged.status,
             "iterations": judged.iterations,
             "residual": judged.residual,
+            "residual_note": judged.residual_note,
             "error": judged.error,
             "fs_version_reported": judged.fs_version_reported,
             "fs_build": judged.fs_build,

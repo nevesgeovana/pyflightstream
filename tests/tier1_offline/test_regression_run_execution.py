@@ -1273,3 +1273,22 @@ def test_f6_0102_a_stale_surface_mesh_is_not_returned_as_the_fresh_export(tmp_pa
     (work / "surface_mesh.obj").write_text("v 0 0 0\n", encoding="utf-8")
     with pytest.raises(SurfaceMeshExportError, match="was not written"):
         export_surface_mesh(tmp_path / "case.fsm", work, version="26.120", executor=_Succeeds())
+
+
+def test_p0430_f261_an_assembled_record_keeps_the_residual_note(tmp_path, monkeypatch):
+    """F-261: the judged residual_note travels with the recovered residual into the record."""
+    import dataclasses
+
+    import pyflightstream.run as run_package
+
+    real = run_package.LoadsAssessor
+
+    class Noted:
+        def __call__(self, *args, **kwargs):
+            return dataclasses.replace(real()(*args, **kwargs), residual_note="CAVEAT-F261")
+
+    monkeypatch.setattr(run_package, "LoadsAssessor", Noted)
+    workspace = _run_1_assemble___from_sims_workspace(tmp_path)
+    assembled, _refusals = records.assemble_records(workspace.root, "matriz")
+    assert assembled
+    assert {record.residual_note for record in assembled} == {"CAVEAT-F261"}
