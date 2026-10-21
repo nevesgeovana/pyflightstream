@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-10-21T00:00:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [git, pytest]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: Enforce the fixed GOAL-056 tracked repository caps with controls.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Retained runtime, privacy and link checks, with shared test support."""
 
 from __future__ import annotations
