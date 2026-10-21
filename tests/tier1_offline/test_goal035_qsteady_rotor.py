@@ -58,6 +58,20 @@ def test_p0430_glauert_requires_a_small_equation_residual():
     assert induced is None or abs(induced - ct / (2 * abs(climb + induced))) <= 1e-10
 
 
+@pytest.mark.parametrize(
+    "bad", [float("nan"), float("inf")], ids=["P0430-F-021-nan", "P0430-F-021-inf"]
+)
+def test_p0430_axisymmetry_refuses_nonfinite_components(bad):
+    rows = [(0, 1, 0, bad, 0, 0), (0, -1, 0, bad, 0, 0)]
+    assert arithmetic.azimuthal_variation(rows, hub=(0, 0, 0), axis=(1, 0, 0)) is not None
+
+
+@pytest.mark.parametrize((), [pytest.param(id="P0430-F-054")])
+def test_p0430_duplicate_spoke_is_not_azimuthal_coverage():
+    rows = [(0, 1, 0, 5, 0, 0)] * 3 + [(0, 2, 0, 5, 0, 0)] * 3
+    assert arithmetic.azimuthal_variation(rows, hub=(0, 0, 0), axis=(1, 0, 0)) is not None
+
+
 @pytest.mark.parametrize("count", [0, -1, 1.5, True, "2"])
 def test_p0420_blade_stations_refuses_invalid_count(count):
     """The band count is an integer of at least one, before any geometry work."""

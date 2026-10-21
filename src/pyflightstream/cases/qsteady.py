@@ -651,8 +651,13 @@ def azimuthal_variation(
         The reason, naming the two rows' radius and components and the
         tolerance, or None.
     """
+    if not all(math.isfinite(value) for vector in (hub, axis, *rows) for value in vector):
+        return (
+            "the inflow coordinates, velocities, hub and axis must be finite; "
+            "replace NaN or infinity"
+        )
     n = _unit(axis)
-    placed: list[tuple[float, Vector]] = []
+    placed: list[tuple[float, Vector, Vector]] = []
     largest_speed = 0.0
     for row in rows:
         p = _sub(row[:3], hub)
@@ -669,17 +674,17 @@ def azimuthal_variation(
             e_r = (q[0] / r, q[1] / r, q[2] / r)
             e_t = _cross(n, e_r)
             components = (_dot(v, n), _dot(v, e_r), _dot(v, e_t))
-        placed.append((r, components))
-    largest_radius = max((r for r, _ in placed), default=0.0)
+        placed.append((r, components, q))
+    largest_radius = max((r for r, _, _ in placed), default=0.0)
     radius_tolerance = radius_relative * max(largest_radius, 1e-12)
     speed_tolerance = relative * max(largest_speed, 1e-12)
     placed.sort(key=lambda entry: entry[0])
     shared = False
-    for index, (r, components) in enumerate(placed):
-        for other_r, other in placed[index + 1 :]:
+    for index, (r, components, q) in enumerate(placed):
+        for other_r, other, other_q in placed[index + 1 :]:
             if other_r - r > radius_tolerance:
                 break
-            shared = True
+            shared |= r > radius_tolerance and math.dist(q, other_q) > radius_tolerance
             if any(abs(a - b) > speed_tolerance for a, b in zip(components, other, strict=True)):
                 return (
                     f"two rows at radius {r:.6g} m state axial, radial and swirl velocities "
@@ -689,7 +694,8 @@ def azimuthal_variation(
                 )
     if not shared:
         return (
-            "no two of its rows lie at the same radius from the shaft, so nothing in it shows "
+            "no two of its rows lie at distinct azimuths on the same ring about the shaft, "
+            "so nothing in it shows "
             "that it varies with the radius alone; write it on rings about the hub"
         )
     return None
