@@ -43,8 +43,8 @@ class _ExternalTable(BaseModel):
     executable: str = Field(min_length=1)
     arguments: list[str] = Field(default_factory=list)
     structural_nodes: str = Field(min_length=1)
-    #: Kept for the use case's spelling; on route B the solver writes the section
-    #: loads file every call, and the flag is recorded, never emitted.
+    #: Kept for the use case's spelling: the flag is recorded with the input and
+    #: never emitted as a solver command.
     export_load_distributions: bool = False
     inputs: list[str] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
