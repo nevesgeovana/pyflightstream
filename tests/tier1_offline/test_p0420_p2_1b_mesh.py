@@ -136,3 +136,17 @@ def test_p0420_a_sheet_with_no_trailing_edge_is_refused_for_that_reason():
     assert "only a smooth tube is recovered without one" in said
     # the control: with its trailing edge the same sheet is a grid
     assert not isinstance(recover_grid(sheet.verts, sheet.faces, sheet.te), str)
+
+
+# ---------------------------------------------------------------- F-1517
+
+
+def test_p0430_f1517_an_obj_that_is_not_utf8_is_refused_not_merged_by_replacement(tmp_path):
+    """F-1517: family labels differing only in a non-UTF-8 byte are not merged into one."""
+    bad = tmp_path / "bad.obj"
+    bad.write_bytes(b"v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\ng W\xe9a\nf 1 2 3\ng W\xe9b\nf 1 3 4\n")
+    with pytest.raises(InputArtifactError, match=r"bad\.obj.*not UTF-8"):
+        read_obj(bad)
+    good = tmp_path / "good.obj"
+    good.write_bytes(bad.read_bytes().replace(b"\xe9", "é".encode()))
+    assert sorted(read_obj(good).families) == ["Wéa", "Wéb"]

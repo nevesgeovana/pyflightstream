@@ -101,7 +101,14 @@ def read_obj(path: str | Path) -> ObjMesh:
     mesh = ObjMesh(numpy.zeros((0, 3)), {})
     verts: list[tuple[float, float, float]] = []
     current = DEFAULT_FAMILY
-    text = source.read_text(encoding="utf-8", errors="replace")
+    try:
+        text = source.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        raise _refuse(
+            source,
+            f"not UTF-8 text (byte {error.start}); a replacement character would merge distinct "
+            "family names, so save the OBJ as UTF-8",
+        ) from error
     for number, line in enumerate(text.splitlines(), start=1):
         s = line.strip()
         if s.startswith("#") and not verts:
