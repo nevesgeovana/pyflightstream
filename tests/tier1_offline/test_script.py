@@ -4295,7 +4295,9 @@ def test_p0420_inline_strings_keep_one_token(value):
     assert not script.render().strip()
 
 
-@pytest.mark.parametrize("path", ["../escape", "/absolute", "C:relative", "C:/absolute"])
+@pytest.mark.parametrize(
+    "path", ["../escape", "/absolute", "C:relative", "C:/absolute", "folder/", "NUL", "con.txt"]
+)
 def test_p0420_parked_inputs_stay_in_point_folder(path):
     script = Script("26.124")
     with pytest.raises(CommandArgumentError):
@@ -4483,3 +4485,209 @@ def test_f5_0304_fr05_no_mutable_builder_state_is_shared_between_builders():
     second.emit("START_SOLVER")
     first.emit("START_SOLVER")
     assert first.render() == solo.render()
+
+
+_F5_INIT = {"solver_model": "INCOMPRESSIBLE", "surfaces": -1, "wake_termination_x": "DEFAULT"}
+
+
+class TestDirectInitializationAndScriptGuards:
+    """F5-1314: the direct emission is held to what the helper enforces."""
+
+    @staticmethod
+    def test_f1467_copies_are_present_exactly_for_periodic():
+        script = Script("26.124")
+        with pytest.raises(CommandArgumentError, match="symmetry_copies"):
+            script.emit("INITIALIZE_SOLVER", **_F5_INIT, symmetry="PERIODIC")
+        with pytest.raises(CommandArgumentError, match="symmetry_copies"):
+            script.emit("INITIALIZE_SOLVER", **_F5_INIT, symmetry="NONE", symmetry_copies=3)
+        assert script.render().strip() == ""
+        script.emit("INITIALIZE_SOLVER", **_F5_INIT, symmetry="PERIODIC", symmetry_copies=3)
+        assert script.periodic_copies == 3
+
+    @staticmethod
+    @pytest.mark.parametrize("copies", [0, -2])
+    def test_f269_a_non_positive_copy_count_is_refused(copies):
+        script = Script("26.124")
+        with pytest.raises(CommandArgumentError, match="positive count"):
+            script.emit(
+                "INITIALIZE_SOLVER", **_F5_INIT, symmetry="PERIODIC", symmetry_copies=copies
+            )
+
+    @staticmethod
+    @pytest.mark.parametrize("token", ["nan", "inf", "somewhere"])
+    def test_f267_wake_termination_is_default_or_a_finite_number(token):
+        script = Script("26.124")
+        init = {**_F5_INIT, "wake_termination_x": token}
+        with pytest.raises(CommandArgumentError, match="wake_termination_x"):
+            script.emit("INITIALIZE_SOLVER", **init, symmetry="NONE")
+        script.emit(
+            "INITIALIZE_SOLVER", **{**_F5_INIT, "wake_termination_x": "-1.5"}, symmetry="NONE"
+        )
+
+    @staticmethod
+    def test_f1468_surface_toggle_rows_are_checked_like_references():
+        script = Script("26.124")
+        script.declare_existing(boundaries=2)
+        init = {**_F5_INIT, "surfaces": 1, "symmetry": "NONE"}
+        for row in ("9,ENABLE", "ghost,ENABLE", "1,MAYBE", "-1,ENABLE", "1"):
+            with pytest.raises((CommandArgumentError, ScriptReferenceError)):
+                script.emit("INITIALIZE_SOLVER", **init, surface_toggles=[row])
+        assert script.render().strip() == ""
+        script.emit("INITIALIZE_SOLVER", **init, surface_toggles=["2, enable"])
+        assert "2,ENABLE" in script.render()
+
+    @staticmethod
+    def test_f844_a_declared_volume_section_blocks_a_model_replacement():
+        script = Script("26.124")
+        script.declare_existing(volume_sections=1)
+        with pytest.raises(CommandArgumentError, match="cannot replace a model"):
+            script.emit("NEW_SIMULATION")
+
+    @staticmethod
+    def test_f270_raw_text_that_sets_the_unit_leaves_no_known_unit():
+        script = Script("26.124")
+        script.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
+        script.raw("PRINT harmless")
+        assert script.simulation_length_unit == "MILLIMETER"
+        script.raw("SET_SIMULATION_LENGTH_UNITS INCH")
+        assert script.simulation_length_unit is None
+
+    @staticmethod
+    def test_f1470_a_pathlike_renders_as_its_path_not_its_repr():
+        class Located:
+            def __fspath__(self) -> str:
+                return "C:/runs/wing.fsm"
+
+            def __str__(self) -> str:
+                return "<Located wing>"
+
+        script = Script("26.124")
+        script.emit("OPEN", Located())
+        assert "C:/runs/wing.fsm" in script.render()
+        assert "<Located" not in script.render()
+
+    @staticmethod
+    def test_f1469_a_freestream_form_refuses_the_arguments_of_another():
+        script = Script("26.124")
+        with pytest.raises(CommandArgumentError, match="does not take"):
+            script.emit("SET_FREESTREAM", "CONSTANT", frame=1, axis="X", angular_velocity=2.0)
+        assert script.render().strip() == ""
+        script.emit("SET_FREESTREAM", "ROTATION", frame=1, axis="X", angular_velocity=2.0)
+
+    @staticmethod
+    def test_f718_a_line_break_in_a_relaxed_te_field_is_refused():
+        from pyflightstream.script._relaxed_te import RelaxedTrailingEdge
+
+        with pytest.raises(CommandArgumentError, match="line break"):
+            RelaxedTrailingEdge(("0.5" + chr(10) + "START_SOLVER", "0", "1"))
+
+    @staticmethod
+    def test_f271_f272_a_set_selection_is_written_in_a_fixed_order():
+        from pyflightstream.script._settings import _in_a_fixed_order
+
+        assert _in_a_fixed_order({3, 1, 2}) == [1, 2, 3]
+        assert _in_a_fixed_order(frozenset({"tip", "root", 4})) == [4, "root", "tip"]
+        assert _in_a_fixed_order((3, 1, 2)) == [3, 1, 2]
+        script = Script("26.124")
+        script.declare_existing(boundaries=3)
+        helpers.solver_settings(script, vorticity_drag_boundaries={3, 1, 2})
+        helpers.start_solver(script)
+        assert "1,2,3" in script.render().splitlines()
+
+    @staticmethod
+    def test_f845_the_settings_preflight_refuses_incidence_under_periodic_symmetry():
+        script = Script("26.124")
+        helpers.initialize_solver(script, symmetry="PERIODIC", periodic_copies=3)
+        before = script.render()
+        with pytest.raises(CommandArgumentError, match="PERIODIC refuses"):
+            helpers.solver_settings(script, mode="STEADY", aoa=5.0)
+        assert script.render() == before
+
+
+class TestSelectionTokensAndExportRegister:
+    """F5-1314: PFS-2130.052 and PFS-2130.054."""
+
+    @staticmethod
+    @pytest.mark.parametrize("word", ["all", "ALL", "All"])
+    def test_pfs2130_052_all_is_read_in_any_case(word):
+        script = Script("26.124")
+        script.declare_existing(boundaries=2)
+        helpers.initialize_solver(script, surfaces=word)
+        helpers.solver_settings(script, vorticity_drag_boundaries=word)
+        helpers.start_solver(script)
+        lines = script.render().splitlines()
+        assert "SET_VORTICITY_DRAG_BOUNDARIES -1" in lines
+        assert "SURFACES -1" in lines
+
+    @staticmethod
+    def test_pfs2130_054_every_export_command_meets_the_one_register():
+        script = Script("26.124")
+        helpers.initialize_solver(script, symmetry="NONE")
+        script.emit("SWEEPER_EXPORT_SPREADSHEET", "a.csv")
+        with pytest.raises(CommandArgumentError, match="already exports"):
+            script.emit("SWEEPER_EXPORT_SPREADSHEET", "A.csv")
+        script2 = Script("26.124")
+        helpers.initialize_solver(script2, symmetry="NONE")
+        helpers.start_solver(script2)
+        helpers.export_results(script2, spreadsheet="r.csv")
+        with pytest.raises(CommandArgumentError, match="already exports"):
+            helpers.export_results(script2, tecplot="R.csv")
+
+
+class TestAirfoilSeparationByBuild:
+    """PFS-2119.053: the airfoil separation model follows the build's grammar."""
+
+    @staticmethod
+    def test_26125_writes_leading_edge_type_and_refuses_the_old_field():
+        from pyflightstream.script.solver_setup import AirfoilSeparation
+
+        script = Script("26.125")
+        script.declare_existing(boundaries=2)
+        helpers.solver_settings(
+            script,
+            airfoil_separation=[
+                AirfoilSeparation(name="W", leading_edge_type="SHARP", boundaries=[1])
+            ],
+        )
+        assert "CREATE_AIRFOIL_SEPARATION W 1 SHARP" in script.render().splitlines()
+        for model in (
+            AirfoilSeparation(name="W", boundaries=[1]),
+            AirfoilSeparation(name="W", valarezo_criterion=True, boundaries=[1]),
+        ):
+            fresh = Script("26.125")
+            fresh.declare_existing(boundaries=2)
+            with pytest.raises(CommandArgumentError, match="leading_edge_type"):
+                helpers.solver_settings(fresh, airfoil_separation=[model])
+            assert fresh.render().strip() == ""
+
+    @staticmethod
+    def test_26124_keeps_valarezo_and_refuses_leading_edge_type():
+        from pyflightstream.script.solver_setup import AirfoilSeparation
+
+        script = Script("26.124")
+        script.declare_existing(boundaries=2)
+        helpers.solver_settings(
+            script,
+            airfoil_separation=[
+                AirfoilSeparation(name="W", valarezo_criterion=True, boundaries=[1])
+            ],
+        )
+        assert "CREATE_AIRFOIL_SEPARATION W 1 ENABLE" in script.render().splitlines()
+        fresh = Script("26.124")
+        fresh.declare_existing(boundaries=2)
+        with pytest.raises(CommandArgumentError, match="does not take"):
+            helpers.solver_settings(
+                fresh,
+                airfoil_separation=[
+                    AirfoilSeparation(name="W", leading_edge_type="SHARP", boundaries=[1])
+                ],
+            )
+
+
+def test_fr2308_a_second_input_to_one_destination_with_other_bytes_is_refused():
+    script = Script("26.124")
+    script.park_input_file("data/a.txt", "one")
+    script.park_input_file("DATA/A.txt", "one")
+    with pytest.raises(CommandArgumentError, match="collides"):
+        script.park_input_file("data/a.txt", "two")
+    assert list(script.pending_input_files.values()) == ["one"]

@@ -217,13 +217,13 @@ class RelaxedTrailingEdge:
         unwritable = [
             position
             for position, field in enumerate(self.fields, start=1)
-            if not field or _SEPARATOR in field
+            if not field or _SEPARATOR in field or len(field.splitlines()) > 1
         ]
         if unwritable:
             raise CommandArgumentError(
                 f"RelaxedTrailingEdge fields {self.fields!r}: value(s) "
                 f"{', '.join(str(position) for position in unwritable)} are blank or hold "
-                f"the separator {_SEPARATOR!r}. Every value is written, and the "
+                f"the separator {_SEPARATOR!r} or a line break. Every value is written, and the "
                 "specification separates them with that character, so a blank value is "
                 "a separator too many and one holding it renders as two values, which "
                 "reads back as another specification (FSM-26.124 p.85)"

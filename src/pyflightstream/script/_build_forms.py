@@ -13,7 +13,7 @@ stops printing ``AUTO_DETECT_TRAILING_EDGES``, ``AUTO_DETECT_BASE_REGIONS`` and
 (every boundary) form of the three ``DETECT_*_BY_SURFACE`` commands
 (FSM-26.125 pp.327, 329, 331). A build that carries the automatic command
 emits it. On 26.125 trailing-edge detection uses a counted inventory:
-the solver has been measured to mark zero edges with the -1 form.
+the solver has been measured to mark zero edges with the -1 form (PFS-2104.051).
 
 THE WAKE-EDGE IMPORT TOKEN. 26.124 was measured to require a third token on
 ``IMPORT_WAKE_EDGES_FROM_FILE`` and to read the node list from the next line
@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.commands import ArgSpec, ArgType, CommandEntry, Layout
 from pyflightstream.script import CommandArgumentError
-from pyflightstream.script._arg_checks import _bind_line_tokens, _check_scalar
+from pyflightstream.script._arg_checks import _bind_line_tokens, _check_scalar, _is_all
 from pyflightstream.script._ledger_tables import _COUNT_REFERENCE_ARGS, _reference_kind
 
 if TYPE_CHECKING:
@@ -358,7 +358,7 @@ def _check_motion_creation(
     if not euclidean:
         _checked_helper_value(script, "SET_MOTION_ROTOR_AXIS", "axis", axis)
     for kind, selection in (("boundaries", boundaries), ("frames", moving_frames)):
-        if selection is not None and selection != "all":
+        if selection is not None and not _is_all(selection):
             for value in selection:
                 resolved = script.entities.resolve(kind, value, context="rotary_motion")
                 script.entities.check_index(kind, resolved, context="rotary_motion")
@@ -377,6 +377,14 @@ def _check_blade_labels(script: Script, labels: Sequence[str] | None) -> None:
             script.entities.assert_label_free("frames", label)
 
 
+#: The arguments each SET_FREESTREAM form takes.
+_FREESTREAM_MODE_ARGUMENTS: dict[str, set[str]] = {
+    "CONSTANT": {"type"},
+    "ROTATION": {"type", "frame", "axis", "angular_velocity"},
+    "CUSTOM": {"type", "filetype", "filename"},
+}
+
+
 def _positional_form(
     entry: CommandEntry, specs: tuple[ArgSpec, ...], checked: Mapping[str, object]
 ) -> list[ArgSpec]:
@@ -384,11 +392,7 @@ def _positional_form(
     positional = [spec for spec in specs if not spec.own_line]
     # These grammars select alternative positional forms by a leading mode.
     if entry.name == "SET_FREESTREAM":
-        selected = {
-            "CONSTANT": {"type"},
-            "ROTATION": {"type", "frame", "axis", "angular_velocity"},
-            "CUSTOM": {"type", "filetype", "filename"},
-        }.get(str(checked.get("type")), set())
+        selected = _FREESTREAM_MODE_ARGUMENTS.get(str(checked.get("type")), set())
         positional = [spec for spec in positional if spec.name in selected]
     elif entry.name.startswith("SWEEPER_SET_") and "filename" in checked:
         positional = [spec for spec in positional if spec.name != "values"]
@@ -406,6 +410,16 @@ def _check_bound_form(
                 f"{entry.name}: export_folder is required exactly when "
                 "export_surface_data_per_step is enabled; provide the folder for "
                 f"TXT, CSV, DAT or VTK, and omit it for DISABLE ({entry.citation})"
+            )
+    if entry.name == "SET_FREESTREAM":
+        mode = str(checked.get("type"))
+        allowed = _FREESTREAM_MODE_ARGUMENTS.get(mode, {"type"})
+        stray = [name for name in checked if name not in allowed]
+        if stray:
+            raise CommandArgumentError(
+                f"{entry.name}: the {mode} form does not take {', '.join(stray)}; it takes "
+                f"{', '.join(sorted(allowed))}, and the others would be written into the "
+                f"line as if they belonged to it ({entry.citation})"
             )
     if entry.layout in (Layout.INLINE, Layout.MIXED_INLINE):
         positional = _positional_form(entry, specs, checked)
@@ -436,6 +450,14 @@ def _check_inline_token(entry: CommandEntry, spec: ArgSpec, value: object) -> No
         )
 
 
+#: Names Windows reads as devices, whatever the extension: never a staged file.
+_DEVICE_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{number}" for number in range(1, 10)}
+    | {f"LPT{number}" for number in range(1, 10)}
+)
+
+
 def _park_input_file(script: Script, path: str, payload: str | bytes) -> None:
     """Check the relative input destination and both parked-file registers."""
     destination = PureWindowsPath(path)
@@ -445,10 +467,13 @@ def _park_input_file(script: Script, path: str, payload: str | bytes) -> None:
         or destination.root
         or ".." in destination.parts
         or not destination.name
+        or path.endswith(("/", "\\"))
+        or destination.name.split(".")[0].upper() in _DEVICE_NAMES
     ):
         raise CommandArgumentError(
             f"input file {path!r} must be a relative file path inside the point folder; "
-            "use a filename or a subfolder without parent traversal"
+            "use a filename (not a folder, and not a device name such as NUL) or a "
+            "subfolder without parent traversal"
         )
     parked = script._parked_file(path)
     if parked is not None:

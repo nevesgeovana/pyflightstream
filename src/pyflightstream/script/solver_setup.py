@@ -366,7 +366,14 @@ class AirfoilSeparation(BaseModel):
     name : str
         Display name of the assignment in the interface.
     valarezo_criterion : bool
-        Apply the Valarezo maximum-lift criterion to this assignment.
+        Apply the Valarezo maximum-lift criterion to this assignment, on the
+        builds whose grammar carries it. FlightStream 26.125 replaced it with
+        ``leading_edge_type``; a build refuses the field of the other grammar.
+    leading_edge_type : str, optional
+        The leading-edge type of the assignment on FlightStream 26.125 and later:
+        ``ROUNDED_UNSWEPT``, ``ROUNDED_SWEPT``, ``HIGH_LIFT`` or ``SHARP``
+        (FSM-26.125 p.353). Required there, refused on a build that takes
+        ``valarezo_criterion``.
     boundaries : list of int or str, or ``"all"``
         Mesh boundaries carrying the model, by 1-based index in
         geometry-tree order or by declared boundary label; ``"all"``
@@ -386,6 +393,9 @@ class AirfoilSeparation(BaseModel):
 
     name: str
     valarezo_criterion: bool = False
+    leading_edge_type: Literal["ROUNDED_UNSWEPT", "ROUNDED_SWEPT", "HIGH_LIFT", "SHARP"] | None = (
+        None
+    )
     boundaries: list[int | str] | Literal["all"] = "all"
 
 

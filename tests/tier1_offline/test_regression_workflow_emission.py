@@ -2360,3 +2360,20 @@ class TestRfixr3Azimuths:
         assert _rfixr3_azimuths___states(plan_record(case, "26.124", script), "ledgers") == {
             "reused"
         }
+
+
+class TestSixdofRefusesNonMetreUnits:
+    """FR-1087: a simulation in another length unit than the metre is refused at plan."""
+
+    @staticmethod
+    def test_fr1087_a_millimetre_simulation_is_refused_and_a_metre_one_is_not():
+        from pyflightstream.cases.workflows._sixdof import _refuse_what_the_motion_cannot_place
+
+        case = _gaps_rt_sixdof___case_for("unsteady")
+        metres = Script(_GAPS_RT_SIXDOF__BUILD)
+        metres.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+        _refuse_what_the_motion_cannot_place(case, metres)
+        millimetres = Script(_GAPS_RT_SIXDOF__BUILD)
+        millimetres.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
+        with pytest.raises(CampaignConfigError, match="metres"):
+            _refuse_what_the_motion_cannot_place(case, millimetres)

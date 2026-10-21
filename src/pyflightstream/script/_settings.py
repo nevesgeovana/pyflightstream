@@ -49,8 +49,9 @@ from typing import Any, Literal, NamedTuple
 from pydantic import BaseModel, ValidationError
 
 from pyflightstream._decimal import plain_decimal
-from pyflightstream.commands import CommandNotInVersionError
+from pyflightstream.commands import CommandEntry, CommandNotInVersionError
 from pyflightstream.script import CommandArgumentError, Script
+from pyflightstream.script._arg_checks import _is_all
 from pyflightstream.script.solver_setup import (
     FLAG_SPECS,
     LIBRARY_MINIMUM_CP,
@@ -278,7 +279,7 @@ def _flush_pending_vorticity(script: Script) -> None:
     pending = script._pending_vorticity
     if pending is None:
         return
-    if pending == "all":
+    if _is_all(pending):
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
     else:
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", len(pending), list(pending))
@@ -298,7 +299,7 @@ def _reject_bare_label(helper: str, argument: str, value: object, *, allows_all:
     """
     if not isinstance(value, str):
         return
-    if allows_all and value == "all":
+    if allows_all and _is_all(value):
         return
     accepted = "a sequence of indices or labels"
     if allows_all:
@@ -330,10 +331,26 @@ def _as_selection(value: object) -> object:
     """
     if value is None or isinstance(value, str):
         return value
+    return _in_a_fixed_order(value)
+
+
+def _in_a_fixed_order(value: object) -> list[Any]:
+    """Materialise a selection; a set is sorted, so its script text is the same every run.
+
+    A set has no order of its own and a string's hash changes from one process to
+    the next, so listing a set of labels would write the same selection in a
+    different order on every run. Indices come first, ascending, then labels
+    alphabetically. A sequence keeps the order the caller wrote.
+    """
+    if isinstance(value, (set, frozenset)):
+        return sorted(
+            value,
+            key=lambda item: (1, 0, item) if isinstance(item, str) else (0, item, ""),
+        )
     return list(value)  # type: ignore[call-overload]
 
 
-def _separation_arguments(model: object) -> dict[str, Any]:
+def _separation_arguments(model: object, script: Script | None = None) -> dict[str, Any]:
     """Return one separation assignment as emitter keyword arguments.
 
     The four assignment models share a shape the database records the
@@ -351,6 +368,9 @@ def _separation_arguments(model: object) -> dict[str, Any]:
         :class:`~pyflightstream.script.solver_setup.CylindricalBulkSeparation`
         or
         :class:`~pyflightstream.script.solver_setup.StratfordBulkSeparation`.
+    script : Script, optional
+        The script the assignment is for; its build decides which airfoil
+        separation field is written.
 
     Returns
     -------
@@ -370,10 +390,11 @@ def _separation_arguments(model: object) -> dict[str, Any]:
     fields = model.model_dump()  # type: ignore[attr-defined]
     boundaries = fields.pop("boundaries")
     name = fields.get("name", "?")
+    _choose_airfoil_grammar(script, fields, name)
     arguments: dict[str, Any] = {}
     for field_name, value in fields.items():
         arguments[field_name] = _toggle(value) if isinstance(value, bool) else value
-    if boundaries == "all":
+    if _is_all(boundaries):
         arguments["num_boundaries"] = -1
     else:
         if len(boundaries) == 0:
@@ -387,6 +408,44 @@ def _separation_arguments(model: object) -> dict[str, Any]:
         arguments["num_boundaries"] = len(boundaries)
         arguments["boundary_indices"] = list(boundaries)
     return arguments
+
+
+def _choose_airfoil_grammar(script: Script | None, fields: dict[str, Any], name: object) -> None:
+    """Keep the field of the airfoil-separation grammar the build takes, refuse the other.
+
+    26.125 replaced ``valarezo_criterion`` of CREATE_AIRFOIL_SEPARATION with
+    ``leading_edge_type`` (FSM-26.125 p.353). The model carries both; the build's own
+    entry says which one is written, before any line is emitted.
+    """
+    if "leading_edge_type" not in fields:
+        return
+    leading = fields.pop("leading_edge_type")
+    if script is None:
+        if leading is not None:
+            fields["leading_edge_type"] = leading
+        return
+    try:
+        entry = script._view["CREATE_AIRFOIL_SEPARATION"]
+    except CommandNotInVersionError:
+        return
+    build = script.version.canonical
+    if any(arg.name == "leading_edge_type" for arg in entry.args):
+        if leading is None or fields.get("valarezo_criterion"):
+            raise CommandArgumentError(
+                f"solver_settings: airfoil separation {name!r} on FlightStream {build} "
+                "takes leading_edge_type (ROUNDED_UNSWEPT, ROUNDED_SWEPT, HIGH_LIFT or "
+                "SHARP) in place of valarezo_criterion, which this build's grammar no "
+                "longer has (FSM-26.125 p.353). State leading_edge_type and leave "
+                "valarezo_criterion unset"
+            )
+        fields.pop("valarezo_criterion", None)
+        fields["leading_edge_type"] = leading
+    elif leading is not None:
+        raise CommandArgumentError(
+            f"solver_settings: airfoil separation {name!r} states leading_edge_type, "
+            f"which FlightStream {build} does not take: its CREATE_AIRFOIL_SEPARATION "
+            "carries valarezo_criterion instead (FSM-26.120 p.341)"
+        )
 
 
 def _reject_empty_selection(helper: str, argument: str, value: list[object]) -> None:
@@ -455,6 +514,59 @@ def _wake_termination_token(value: object) -> str:
         "termination in the reference frame (FSM-26.120 p.337). NaN, an infinity or "
         "any other word would reach the solver as text it cannot read"
     )
+
+
+def _check_direct_initialization(
+    script: Script, entry: CommandEntry, bound: dict[str, object]
+) -> None:
+    """Hold a direct ``INITIALIZE_SOLVER`` emission to what the helper enforces.
+
+    The helper :func:`initialize_solver` refuses these before it emits; a
+    caller reaching the command through ``emit`` or ``emit_compact`` meets
+    the same rules here: the copy count is present exactly for PERIODIC
+    symmetry and is positive, ``wake_termination_x`` is DEFAULT or a finite
+    number, and each ``surface_toggles`` row names an existing boundary and
+    a toggle (FSM-26.120 p.337).
+    """
+    names = {arg.name for arg in entry.args}
+    symmetry = str(bound.get("symmetry", bound.get("symmetry_type", ""))).upper()
+    copies = bound.get("symmetry_copies", bound.get("symmetry_periodicity"))
+    if "symmetry_copies" in names and (symmetry == "PERIODIC") != (copies is not None):
+        raise CommandArgumentError(
+            "INITIALIZE_SOLVER: PERIODIC symmetry appends the number of copies, so "
+            "symmetry_copies is required with PERIODIC and forbidden otherwise "
+            f"({entry.citation})"
+        )
+    if symmetry == "PERIODIC" and copies is not None and int(copies) < 1:  # type: ignore[call-overload]
+        raise CommandArgumentError(
+            f"INITIALIZE_SOLVER: the number of periodic copies must be a positive count, "
+            f"got {copies} ({entry.citation})"
+        )
+    if "wake_termination_x" in bound:
+        _wake_termination_token(bound["wake_termination_x"])
+    rows = bound.get("surface_toggles")
+    if rows is None:
+        return
+    resolved: list[str] = []
+    for row in rows:  # type: ignore[attr-defined]
+        parts = [part.strip() for part in str(row).split(",")]
+        if len(parts) != 2 or parts[1].upper() not in {"ENABLE", "DISABLE"}:
+            raise CommandArgumentError(
+                f"INITIALIZE_SOLVER: surface_toggles row {row!r} must read "
+                f"'<surface>,ENABLE' or '<surface>,DISABLE' ({entry.citation})"
+            )
+        surface: int | str = int(parts[0]) if parts[0].lstrip("-").isdigit() else parts[0]
+        index = script.resolve_boundary(
+            surface, context="INITIALIZE_SOLVER: argument 'surface_toggles'"
+        )
+        if index == -1:
+            raise CommandArgumentError(
+                f"INITIALIZE_SOLVER: surface_toggles row {row!r} names -1, which selects "
+                "every boundary and is no one surface of the per-surface list "
+                f"({entry.citation})"
+            )
+        resolved.append(f"{index},{parts[1].upper()}")
+    bound["surface_toggles"] = resolved
 
 
 # --- The flow conditions: the free stream and the fluid properties.
@@ -929,11 +1041,11 @@ def _read_arguments(script: Script, values: dict[str, Any]) -> _Prepared:
     # on an untouched script. The command bindings below also check scalar
     # types, enum members, finiteness and version availability before emission.
     models = {
-        argument: [_separation_arguments(model) for model in values[argument]]
+        argument: [_separation_arguments(model, script) for model in values[argument]]
         for argument in SEPARATION_MODELS
     }
     bulk = values["bulk_separation"]
-    rendered_bulk = _separation_arguments(bulk) if bulk is not None else None
+    rendered_bulk = _separation_arguments(bulk, script) if bulk is not None else None
     _refuse_bulk_form_the_build_lacks(script, rendered_bulk)
     selection = _read_vorticity_selection(script, values["vorticity_drag_boundaries"])
     prepared = _Prepared(models=models, bulk=rendered_bulk, selection=selection)
@@ -947,7 +1059,8 @@ def _preflight_settings(script: Script, values: Mapping[str, Any], prepared: _Pr
     def check(command: str, *args: Any, **kwargs: Any) -> None:
         entry = script._view[command]
         script._check_not_broken(entry)
-        script._bind(entry, args, kwargs)
+        bound = script._bind(entry, args, kwargs)
+        script._refuse_periodic_incidence(entry, bound)
 
     if values["mode"] == "STEADY":
         check("SET_SOLVER_STEADY")
@@ -974,7 +1087,7 @@ def _preflight_models(
     """Validate separation erasures and model assignments without emitting."""
     deleted = values["delete_separations"]
     if deleted is not None:
-        check("DELETE_SEPARATION", -1 if deleted == "all" else deleted)
+        check("DELETE_SEPARATION", -1 if _is_all(deleted) else deleted)
     if prepared.bulk is not None:
         check("CREATE_BULK_SEPARATION", **prepared.bulk)
     for argument, command in ASSIGNMENT_COMMANDS:
@@ -986,7 +1099,7 @@ def _preflight_vorticity(
     check: Callable[..., None], selection: list[int] | Literal["all"] | None
 ) -> None:
     """Validate the deferred selection in its eventual command form."""
-    if selection == "all":
+    if _is_all(selection):
         check("SET_VORTICITY_DRAG_BOUNDARIES", -1)
     elif selection is not None:
         check("SET_VORTICITY_DRAG_BOUNDARIES", len(selection), list(selection))
@@ -1017,7 +1130,7 @@ def _read_boundary_lists(values: dict[str, Any]) -> None:
     for row in SEPARATION_LISTS:
         _reject_bare_label("solver_settings", row.argument, values[row.argument], allows_all=True)
     values["viscous_excluded"] = _as_selection(values["viscous_excluded"])
-    if values["thin_boundaries"] != "all":
+    if not _is_all(values["thin_boundaries"]):
         values["thin_boundaries"] = _as_selection(values["thin_boundaries"])
     for row in SEPARATION_LISTS:
         values[row.argument] = _as_selection(values[row.argument])
@@ -1198,11 +1311,11 @@ def _read_vorticity_selection(script: Script, value: Any) -> list[int] | Literal
     """
     if value is None:
         return script._vorticity_selection
-    if value == "all":
+    if _is_all(value):
         return "all"
     # Materialize once: a computed selection may arrive as any iterable,
     # and the emptiness check must not consume it.
-    items = list(value)
+    items = _in_a_fixed_order(value)
     _reject_empty_selection("solver_settings", "vorticity_drag_boundaries", items)
     return [
         script.resolve_boundary(
@@ -1241,7 +1354,7 @@ def _family_calls(
             yield row.command, (_toggle(value),)
         elif row.form != "list":
             yield row.command, (value,)
-        elif value == "all":
+        elif _is_all(value):
             # -1 names every mesh boundary and takes no index line
             # (FSM-26.120 p.343).
             yield row.command, (-1,)
@@ -1261,7 +1374,7 @@ def _emit_separation_models(script: Script, values: Mapping[str, Any], prepared:
     """
     delete_separations = values["delete_separations"]
     if delete_separations is not None:
-        script.emit("DELETE_SEPARATION", -1 if delete_separations == "all" else delete_separations)
+        script.emit("DELETE_SEPARATION", -1 if _is_all(delete_separations) else delete_separations)
     if prepared.bulk is not None:
         # Use the assignment-model renderer so the no-boundary refusal applies.
         script.emit("CREATE_BULK_SEPARATION", **prepared.bulk)
@@ -1424,7 +1537,12 @@ def initialize_solver(
         "wake_termination_x": _wake_termination_token(wake_termination_x),
         "symmetry": symmetry,
     }
-    if surfaces == "all":
+    if isinstance(surfaces, str):
+        if not _is_all(surfaces):
+            raise CommandArgumentError(
+                f"initialize_solver: surfaces is {surfaces!r}; it takes 'all' or a sequence "
+                "of (surface, quad_mesher) pairs (FSM-26.120 p.337)"
+            )
         arguments["surfaces"] = -1
     else:
         # The per-surface toggles render as strings, so boundary labels

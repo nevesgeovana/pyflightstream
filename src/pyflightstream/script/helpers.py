@@ -77,6 +77,7 @@ from pyflightstream.script import (
     ScriptReferenceError,
     UnsteadyActionUse,
 )
+from pyflightstream.script._arg_checks import _is_all
 from pyflightstream.script._build_forms import (  # noqa: F401  (this module is the public path)
     _check_actuator_creation,
     _check_blade_labels,
@@ -363,7 +364,7 @@ def _listed_selection(
     argument: str, value: Sequence[int | str] | Literal["all"]
 ) -> Sequence[int | str] | Literal["all"]:
     """Copy a selection of a rotary motion to a list, refusing an empty one."""
-    if value == "all":
+    if _is_all(value):
         return value
     listed = list(value)
     _refuse_empty("rotary_motion", argument, listed, every="'all'")
@@ -537,11 +538,11 @@ def _emit_motion_selections(
     moving_frames: Sequence[int | str] | Literal["all"] | None,
 ) -> None:
     """Emit the boundaries and moving frames assigned to one motion."""
-    if boundaries == "all":
+    if _is_all(boundaries):
         script.emit("SET_MOTION_BOUNDARIES", motion_id, -1)
     else:
         script.emit("SET_MOTION_BOUNDARIES", motion_id, len(boundaries), list(boundaries))
-    if moving_frames == "all":
+    if _is_all(moving_frames):
         script.emit("SET_MOTION_MOVING_FRAMES", motion_id, -1)
     elif moving_frames is not None:
         script.emit("SET_MOTION_MOVING_FRAMES", motion_id, len(moving_frames), list(moving_frames))
@@ -1263,7 +1264,7 @@ def analysis_setup(
         script.emit("SET_SOLVER_ANALYSIS_BOUNDARIES", len(boundaries), list(boundaries))
     if inviscid_only is not None:
         script.emit("SET_INVISCID_LOADS", _toggle(inviscid_only))
-    if chosen == "all":
+    if _is_all(chosen):
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", -1)
     elif chosen is not None:
         script.emit("SET_VORTICITY_DRAG_BOUNDARIES", len(chosen), list(chosen))
@@ -1284,7 +1285,7 @@ def _deprecated_vorticity_selection(
     if selection is None:
         return None
     chosen: list[int] | Literal["all"]
-    if selection == "all":
+    if _is_all(selection):
         chosen = "all"
     else:
         items = list(selection)
@@ -1378,7 +1379,7 @@ def export_results(
         script.emit("EXPORT_SOLVER_ANALYSIS_TECPLOT", tecplot)
     _emit_vtk_variables(script, vtk_variables, vtk_wake)
     if vtk is not None:
-        if vtk_boundaries == "all":
+        if _is_all(vtk_boundaries):
             script.emit("EXPORT_SOLVER_ANALYSIS_VTK", vtk, -1)
         else:
             script.emit(
@@ -1410,7 +1411,7 @@ def _emit_vtk_variables(
     script: Script, vtk_variables: Sequence[str] | Literal["all"] | None, vtk_wake: bool
 ) -> None:
     """Emit the VTK variable selection, warning at export_results' caller about CP."""
-    if vtk_variables == "all":
+    if _is_all(vtk_variables):
         script.emit("SET_VTK_EXPORT_VARIABLES", -1, _toggle(vtk_wake))
     elif vtk_variables is not None:
         if any(variable.upper() == "CP" for variable in vtk_variables):
@@ -2073,7 +2074,7 @@ def rotate_surfaces(
     adaptive_on = _read("rotate_surfaces", "adaptive_mesh", adaptive_mesh)
 
     _reject_bare_label("rotate_surfaces", "boundaries", boundaries, allows_all=True)
-    if component is not None and boundaries != "all":
+    if component is not None and not _is_all(boundaries):
         raise CommandArgumentError(
             f"rotate_surfaces: component={component!r} and an explicit boundaries "
             "selection were both given, and they are two answers to one question. "
@@ -2112,13 +2113,13 @@ def rotate_surfaces(
                 "Declare the geometry's boundary names with declare_existing("
                 "boundaries={...}) before rotating by component"
             )
-    elif boundaries == "all":
+    elif _is_all(boundaries):
         selection = []
     else:
         selection = list(boundaries)
         _reject_empty_selection("rotate_surfaces", "boundaries", list(selection))
 
-    count = -1 if (component is None and boundaries == "all") else len(selection)
+    count = -1 if (component is None and _is_all(boundaries)) else len(selection)
     arguments: dict[str, object] = {
         "frame": frame,
         "axis": axis,

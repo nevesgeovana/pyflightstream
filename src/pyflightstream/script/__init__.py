@@ -65,9 +65,9 @@ proof. Command validation alone does not establish a native physical effect.
 
 Length conventions are command-specific: frame coordinates use the native
 simulation unit, while the measured unsteady fluid-plot VERTEX boundary
-uses metres. The workflow converts at that boundary and retains declared
-local sample coordinates for later interpretation. Existing action-based
-exports remain the route for per-step surface sequences.
+uses metres (reports/RPT-083, measured on 26.124). The workflow converts at
+that boundary and retains declared local sample coordinates for later
+interpretation. Existing action-based exports remain the route for per-step surface sequences.
 """
 
 from __future__ import annotations
@@ -847,20 +847,10 @@ class Script:
         self._check_label_applies(entry, label)
         bound = self._bind(entry, args, kwargs)
         if entry.name == _INITIALIZATION_COMMAND:
-            periodic = (
-                str(bound.get("symmetry", bound.get("symmetry_type", ""))).upper() == "PERIODIC"
-            )
-            if periodic and any(self._incidence.values()):
-                raise CommandArgumentError(
-                    "SYMMETRY PERIODIC refuses nonzero angle of attack or sideslip: "
-                    "incidence is incompatible with rotational periodicity"
-                )
-        elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
-            if self._periodic_symmetry and float(bound["angle"]) != 0:
-                raise CommandArgumentError(
-                    f"SYMMETRY PERIODIC refuses nonzero {entry.name}: incidence is "
-                    "incompatible with rotational periodicity"
-                )
+            from pyflightstream.script._settings import _check_direct_initialization
+
+            _check_direct_initialization(self, entry, bound)
+        self._refuse_periodic_incidence(entry, bound)
         phase = self._check_phase(entry)
         self._check_references(entry, bound)
         block, multiline = self._render_command(entry, bound)
@@ -905,6 +895,24 @@ class Script:
                 self._emitting_line,
             )
 
+    def _refuse_periodic_incidence(self, entry: CommandEntry, bound: Mapping[str, object]) -> None:
+        """Refuse incidence under PERIODIC symmetry, from either command that meets it."""
+        if entry.name == _INITIALIZATION_COMMAND:
+            periodic = (
+                str(bound.get("symmetry", bound.get("symmetry_type", ""))).upper() == "PERIODIC"
+            )
+            if periodic and any(self._incidence.values()):
+                raise CommandArgumentError(
+                    "SYMMETRY PERIODIC refuses nonzero angle of attack or sideslip: "
+                    "incidence is incompatible with rotational periodicity"
+                )
+        elif entry.name in {"SOLVER_SET_AOA", "SOLVER_SET_SIDESLIP"}:
+            if self._periodic_symmetry and float(bound["angle"]) != 0:  # type: ignore[arg-type]
+                raise CommandArgumentError(
+                    f"SYMMETRY PERIODIC refuses nonzero {entry.name}: incidence is "
+                    "incompatible with rotational periodicity"
+                )
+
     def _check_not_a_model_replacement(self, entry: CommandEntry) -> None:
         """Refuse a command that discards a model this script already tracks."""
         if entry.name in _NEW_MODEL_COMMANDS and (
@@ -912,6 +920,7 @@ class Script:
             or self.num_actuators
             or self.num_motions
             or self.num_boundaries is not None
+            or self.volume_sections
         ):
             raise CommandArgumentError(
                 f"{entry.name}: cannot replace a model whose entities this Script already "
@@ -1132,7 +1141,7 @@ class Script:
 
         None until the script initializes, and for any other symmetry. The
         solver writes a periodic row's native Tecplot surface as one zone per
-        copy, the modelled sector first (measured on 26.124), so the run reads
+        copy, the modelled sector first (measured on 26.124, reports/RPT-087), so the run reads
         that file by this count.
 
         Examples
@@ -1320,6 +1329,16 @@ class Script:
             if frame != _REFERENCE_PLACEMENT_INDEX:
                 self._frame_placements[frame] = FramePlacement(origin=None, axes=None)
         self._lines.extend(text.splitlines())
+        if any(
+            line.split()[0] in _NEW_MODEL_COMMANDS | {LENGTH_UNIT_COMMAND}
+            for line in text.splitlines()
+            if line.split()
+        ):
+            # Unvalidated text that opens a model or sets the unit leaves no
+            # unit this script can vouch for; a later frame origin then
+            # refuses rather than converting with a stale one.
+            self._simulation_length_unit = None
+            self._opened_length_unit = None
 
     def allow_broken(self, name: str, /, *, reason: str) -> None:
         """Permit one command recorded ``broken`` to be emitted (FR-48).
