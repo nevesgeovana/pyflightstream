@@ -417,7 +417,10 @@ def _measure(root: Path) -> SpaceReport:
 
 
 def space_in_use(root: str | Path) -> SpaceReport:
-    """Measure the workspace and record the call (the report changes no file).
+    """Measure the workspace and record the call in ``storage_management.json``.
+
+    No simulation, result or input file changes; the register is rewritten with the call
+    appended, and its previous copy is archived.
 
     Parameters
     ----------
@@ -878,7 +881,8 @@ def free_space(
     recipe : str
         The recipe's name, ``m<id>``, under ``inputs/management/``.
     apply : bool, optional
-        Write the files; without it nothing is written and the same refusals fire.
+        Write the files; without it no simulation, result or input file is written (the call
+        is still recorded in ``storage_management.json``) and the same refusals fire.
     runs : str, optional
         Another manifest in the root whose records are read as well as ``runs.json``'s.
 
@@ -1065,7 +1069,8 @@ def delete_sims(
     archive : bool, optional
         Keep replaced matrix products during regeneration. False overwrites in place (FR-397).
     apply : bool, optional
-        Write the files; without it nothing is written and the same refusals fire.
+        Write the files; without it no simulation, result or input file is written (the call
+        is still recorded in ``storage_management.json``) and the same refusals fire.
     caller : str, optional
         Who asked, recorded in the entry; the operating-system user when None.
     runs : str, optional
@@ -2026,7 +2031,8 @@ def sync_workspaces(
     source : str, optional
         The one workspace of ``sync-workspaces.toml`` to bring from; every other one when None.
     apply : bool, optional
-        Write the files; without it nothing is written and the same refusals fire.
+        Write the files; without it no simulation, result or input file is written (the call
+        is still recorded in ``storage_management.json``) and the same refusals fire.
     prefer_other : bool, optional
         Where a record differs, keep the other workspace's; main's is kept otherwise, unless it is
         SUBMITTED.
