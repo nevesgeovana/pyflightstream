@@ -313,10 +313,11 @@ def blade_passage_harmonics(
     ProductError
         If ``blades`` and ``rpm`` state no blade-passage frequency.
     """
-    if blades < 1 or not abs(rpm) > 0.0:
+    if blades < 1 or not math.isfinite(rpm) or not abs(rpm) > 0.0:
         raise ProductError(f"blades={blades} and rpm={rpm} state no blade-passage frequency")
     base = blades * abs(rpm) / 60.0
-    nyquist = spectrum.frequency_hz[-1]
+    # HALF THE SAMPLE RATE: the last bin of an odd-length record sits below it.
+    nyquist = spectrum.sample_rate_hz / 2.0
     rows: list[_Harmonic] = []
     for order in range(1, harmonics + 1):
         frequency = order * base
@@ -415,6 +416,20 @@ def _slug(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_") or "observer"
 
 
+def _states_a_frequency(blades: object, rpm: object) -> bool:
+    """Whether a rotor's blade count and speed give a blade-passage frequency."""
+    return (
+        isinstance(blades, int | float)
+        and not isinstance(blades, bool)
+        and math.isfinite(blades)
+        and blades >= 1
+        and isinstance(rpm, int | float)
+        and not isinstance(rpm, bool)
+        and math.isfinite(rpm)
+        and rpm != 0.0
+    )
+
+
 def write_acoustic_products(
     signals: Sequence[AcousticSignal],
     out_dir: str | Path,
@@ -476,7 +491,7 @@ def write_acoustic_products(
     summary: list[Sequence[object]] = []
     bpf: list[Sequence[object]] = []
     stated = dict(rotors or {})
-    usable = {a: (b, abs(r)) for a, (b, r) in stated.items() if b and r}
+    usable = {a: (b, abs(r)) for a, (b, r) in stated.items() if _states_a_frequency(b, r)}
     if not stated:
         result.notes.append(
             "the record states no rotor with blades and speed: the blade-passage harmonics are NA"

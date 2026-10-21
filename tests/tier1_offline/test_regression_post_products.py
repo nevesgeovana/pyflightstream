@@ -1811,3 +1811,42 @@ def test_f3_0203_f1376_polars_false_writes_no_unsteady_polar(tmp_path):
     )
     # Any read of the rest of the context would raise: the switch returns first.
     assert _sim._unsteady_polar_products(ctx) is None
+
+
+def _f3_0203_signal_of(count: int, frequency: float, rate: float = 1000.0):
+    from pyflightstream.cases.acoustics import AcousticSignal
+
+    times = tuple(0.05 + n / rate for n in range(count))
+    pressure = tuple(math.cos(2 * math.pi * frequency * (t - 0.05)) for t in times)
+    return AcousticSignal("o1", 1.0, 0.0, 0.0, times, pressure)
+
+
+def test_f3_0203_f137_an_odd_length_record_resolves_up_to_half_its_sample_rate():
+    """F-137: the last bin of an odd count is below Nyquist; a harmonic above it is still read."""
+    from pyflightstream.post import acoustics
+
+    spectrum = acoustics.spectrum_of(_f3_0203_signal_of(201, 499.0))
+    assert spectrum.frequency_hz[-1] < 499.0 < spectrum.sample_rate_hz / 2.0
+    row = acoustics.blade_passage_harmonics(spectrum, blades=1, rpm=499.0 * 60.0, harmonics=1)[0]
+    assert row[3] is not None and row[3] > 0.5
+
+
+def test_f3_0203_f178_f1365_a_rotor_without_a_usable_frequency_is_na_with_a_note(tmp_path):
+    """F-178, F-1365: inf or NaN speed, zero or negative blades are NA harmonics, never a raise."""
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post import acoustics
+
+    spectrum = acoustics.spectrum_of(_f3_0203_signal_of(200, 50.0))
+    with pytest.raises(ProductError):
+        acoustics.blade_passage_harmonics(spectrum, blades=2, rpm=math.inf)
+    for number, stated in enumerate(((2, math.inf), (2, math.nan), (0, 900.0), (-1, 900.0))):
+        made = acoustics.write_acoustic_products(
+            [_f3_0203_signal_of(200, 50.0)],
+            tmp_path / f"r{number}",
+            stem="P1",
+            rotors={"r": stated},
+        )
+        assert any("blade-passage harmonics are NA" in note for note in made.notes)
+        with (tmp_path / f"r{number}" / "P1_acoustics_bpf.csv").open(encoding="utf-8") as handle:
+            assert {row["FREQUENCY_HZ"] for row in csv.DictReader(handle)} == {"NA"}
+        assert (tmp_path / f"r{number}" / "P1_acoustics_summary.csv").is_file()
