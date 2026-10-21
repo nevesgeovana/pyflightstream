@@ -119,6 +119,17 @@ def test_write_script_returns_path_and_hash(tmp_path):
     assert digest == hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+@pytest.mark.parametrize("name", ["../escape.txt", "sub/x.txt", "..", "", "a\\b.txt", "C:evil.txt"])
+def test_p0430_f727_write_script_refuses_names_that_leave_scripts(tmp_path, name):
+    workspace = CampaignWorkspace(tmp_path)
+    with pytest.raises(WorkspaceError, match="plain file name"):
+        workspace.write_script("9001", name, "START_SOLVER\n")
+    absolute = str(tmp_path / "abs.txt")
+    with pytest.raises(WorkspaceError, match="plain file name"):
+        workspace.write_script("9001", absolute, "x")
+    assert not (tmp_path / "abs.txt").exists()
+
+
 def test_collect_outputs_moves_declared_files_into_outputs(tmp_path):
     produced = tmp_path / "loads.txt"
     produced.write_text("data", encoding="utf-8")
@@ -869,6 +880,20 @@ def test_an_ordinary_output_name_still_passes_through(tmp_path):
         template.render_output("sub/loads.txt", campaign="c", sim="1", point={"alpha": 0.0})
         == "sub/loads.txt"
     )
+
+
+def test_p0430_f1192_outputs_differing_only_by_case_are_refused(tmp_path):
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    for folder, name in (("a", "Loads.txt"), ("b", "loads.TXT")):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / name).write_text(folder, encoding="utf-8")
+    with pytest.raises(WorkspaceError, match="same name"):
+        workspace.collect_outputs(
+            "1",
+            [tmp_path / "a" / "Loads.txt", tmp_path / "b" / "loads.TXT"],
+            datapoint=PointName("AL+000"),
+        )
+    assert (tmp_path / "a" / "Loads.txt").exists() and (tmp_path / "b" / "loads.TXT").exists()
 
 
 def test_two_outputs_colliding_on_one_name_are_refused_before_any_move(tmp_path):

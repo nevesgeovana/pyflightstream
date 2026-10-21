@@ -140,7 +140,7 @@ import uuid as uuid
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 # Use typing.TypedDict directly: the supported Python floor is 3.12
 # (SPEC 0, PFS-2024.07), where pydantic can build its schema.
@@ -1320,6 +1320,17 @@ class CampaignWorkspace:
             sha256 of the written text, for
             :attr:`RunRecord.script_sha256`.
         """
+        if (
+            not name
+            or name in {".", ".."}
+            or Path(name).name != name
+            or PureWindowsPath(name).name != name
+            or PureWindowsPath(name).drive
+        ):
+            raise WorkspaceError(
+                f"script name {name!r} must be a plain file name: a path, an absolute "
+                "name or a parent segment would leave the simulation's scripts folder."
+            )
         sim = self.create_sim(sim_id)
         target = sim / "scripts" / name
         _textio.write_text(target, text)
@@ -1581,8 +1592,14 @@ class CampaignWorkspace:
         # one filename twice as separate evidence.
         destinations: dict[str, list[str]] = {}
         for path in produced:
-            destinations.setdefault(collection_name(path), []).append(str(path))
-        clashing = {name: sources for name, sources in destinations.items() if len(sources) > 1}
+            # F-1192: the key folds case, so on a case-insensitive destination two
+            # outputs differing only by case cannot target one file unnoticed.
+            destinations.setdefault(collection_name(path).casefold(), []).append(str(path))
+        clashing = {
+            collection_name(sources[0]): sources
+            for sources in destinations.values()
+            if len(sources) > 1
+        }
         if clashing:
             detail = "; ".join(
                 f"{folder}/{name} from {' and '.join(sources)}"
