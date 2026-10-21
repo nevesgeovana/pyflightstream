@@ -888,12 +888,23 @@ def _the_copies_the_sector_stands_for(case: SimCase, script: Script) -> tuple[in
     if not aliases:
         alias = _variable(case, MOVING_BC_ALIAS_VARIABLE)
         aliases = [str(alias)] if alias else []
+    if not aliases and case.recipe == QSTEADY_ROTOR:
+        # A QUASI-STEADY ROW HAS NO MOTION RECORD TO NAME ITS ROTOR: its rotor is the
+        # reference's one isolated rotor, which is what the run type already solves.
+        try:
+            aliases = [_the_isolated_rotor(case).alias]
+        except CampaignConfigError:
+            aliases = []
     named = {str(alias).strip().casefold() for alias in aliases}
     if not named:
-        return None, (
-            f"Add it to the row's variables, or name the rotor by alias "
-            f"({MOVING_BC_ALIAS_VARIABLE}) and let its block's blades say it."
-        )
+        if case.recipe == "unsteady_rotor":
+            return None, (
+                f"Add it to the row's variables, or name the rotor by alias "
+                f"({MOVING_BC_ALIAS_VARIABLE}) and let its block's blades say it."
+            )
+        # The other run types register no MOVING_BC_ALIAS key, so naming it would
+        # send the row to a second refusal.
+        return None, f"Add {PERIODIC_COPIES_VARIABLE} to the row's variables."
     if len(named) != 1:
         return None, (
             f"This row turns {len(named)} rotors, so there is no single wheel for the "
