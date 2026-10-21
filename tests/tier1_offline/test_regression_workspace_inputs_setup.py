@@ -278,7 +278,7 @@ class TestIntegfixStateConsistency:
     plan and the post warn when ``|p - rho R T| / p`` exceeds half a percent,
     naming the three values, the gas constant the package uses for air and the
     relative mismatch. Nothing is refused or withheld: the pins are emitted as
-    written. A state with any of the three derived satisfies the law by
+    written. A state with any of the three derived from the others satisfies the law by
     construction and is never checked. The plan and the post call one function,
     :func:`pyflightstream.workspace.flight_condition.pinned_state_mismatch`.
 
@@ -338,7 +338,6 @@ class TestIntegfixStateConsistency:
             {"MACH": 0.2, "RHOkgm3": 1.0, "TK": 288.15},  # pressure derived
             {"MACH": 0.2, "RHOkgm3": 1.0, "PPA": 101325.0},  # temperature from the atmosphere
             {"MACH": 0.2, "TK": 250.0, "PPA": 101325.0},  # density derived
-            {"MACH": 0.2, "REmi": 4.38, "TK": 250.0, "PPA": 101325.0},  # density solved
         ],
     )
     def test_p0400_statecons_a_state_with_one_of_the_three_derived_is_not_checked(cell):
@@ -371,18 +370,26 @@ class TestIntegfixStateConsistency:
             )
             == []
         )
+        # A pressure pinned beside a density solved from REmi is checked (F-314): the
+        # Reynolds number, not the pressure, fixed the density.
         assert (
-            _integfix_state_consistency___planned(
-                tmp_path / "b", "MACH:0.1441, REmi:4.38, TK:250, PPA:101325"
-            )
+            _integfix_state_consistency___planned(tmp_path / "b", "MACH:0.1441, REmi:4.38, TK:250")
             == []
         )
+        warned = _integfix_state_consistency___planned(
+            tmp_path / "c", "MACH:0.1441, REmi:4.38, TK:250, PPA:101325"
+        )
+        assert warned and all("solves RHOkgm3" in w and "PPA:101325" in w for w in warned)
 
     @staticmethod
     def test_p0400_statecons_the_post_logs_an_inconsistent_pinned_point(tmp_path):
         """P0400-STATECONS: post.log names it once; TK and PPA come from the setup's defaults."""
         log = _integfix_state_consistency___posted(tmp_path, {"MACH": 0.2, "RHOkgm3": 1.0})
-        lines = [line for line in log.splitlines() if _INTEGFIX_STATE_CONSISTENCY__LAW in line]
+        lines = [
+            line
+            for line in log.splitlines()
+            if _INTEGFIX_STATE_CONSISTENCY__LAW in line and "POL 6001" in line
+        ]
         # Two recorded points of one simulation, one state: said ONCE.
         assert len(lines) == 1, lines
         (line,) = lines
@@ -400,12 +407,18 @@ class TestIntegfixStateConsistency:
 
     @staticmethod
     def test_p0400_statecons_the_post_is_quiet_for_a_consistent_or_derived_state(tmp_path):
-        """P0400-STATECONS: the fixture's solved density, and a consistent triple, log nothing."""
-        assert _INTEGFIX_STATE_CONSISTENCY__LAW not in _integfix_state_consistency___posted(
-            tmp_path / "a", None
+        """P0400-STATECONS: a consistent triple logs nothing; a solved density is named (F-314)."""
+        # The fixture solves the density of its other simulations from REmi beside the
+        # setup's TK and PPA defaults: the post names each such state, and never POL 6001.
+        solved = _integfix_state_consistency___posted(tmp_path / "a", None)
+        assert "POL 6001" not in "".join(
+            line for line in solved.splitlines() if _INTEGFIX_STATE_CONSISTENCY__LAW in line
         )
-        assert _INTEGFIX_STATE_CONSISTENCY__LAW not in _integfix_state_consistency___posted(
+        consistent = _integfix_state_consistency___posted(
             tmp_path / "b", {"MACH": 0.2, "RHOkgm3": 1.225}
+        )
+        assert "POL 6001" not in "".join(
+            line for line in consistent.splitlines() if _INTEGFIX_STATE_CONSISTENCY__LAW in line
         )
 
 
@@ -1786,3 +1799,48 @@ class TestWorkspace3Setup:
         assert again == {"SETUP_GUIDELINES.md": "created"}
         twice = write_setup_library(tmp_path / "fresh", fs_version="26.124", guidelines=True)
         assert twice == {"SETUP_GUIDELINES.md": "unchanged"}
+
+
+def test_f314_a_pressure_pinned_beside_a_reynolds_solved_density_is_checked():
+    # REmi solves the density from speed, viscosity and length; a pinned pressure that
+    # disagrees with p = rho R T at that density used to go unwarned.
+    state = resolve_flight_condition(
+        {"MACH": 0.2, "REmi": 4.38, "TK": 250.0, "PPA": 101325.0}, pol="P1", reference_length_m=1.0
+    )
+    assert state.density_source == "solved-from-reynolds"
+    message = pinned_state_mismatch(state, pol="P1")
+    assert message is not None and "solves RHOkgm3" in message and "PPA:101325" in message
+    # The same Reynolds condition with a consistent pressure, and without a pin, is quiet.
+    consistent = resolve_flight_condition(
+        {"MACH": 0.2, "REmi": 4.38, "TK": 250.0}, pol="P1", reference_length_m=1.0
+    )
+    assert pinned_state_mismatch(consistent, pol="P1") is None
+    agreeing = resolve_flight_condition(
+        {"MACH": 0.2, "REmi": 4.38, "TK": 250.0, "PPA": consistent.pressure_pa},
+        pol="P1",
+        reference_length_m=1.0,
+    )
+    assert pinned_state_mismatch(agreeing, pol="P1") is None
+
+
+@pytest.mark.parametrize("length", [0.0, -1.0, float("inf"), float("nan")])
+def test_f342_a_reference_length_that_is_not_positive_and_finite_is_a_flight_condition_error(
+    length,
+):
+    from pyflightstream.workspace.flight_condition import FlightConditionError
+
+    with pytest.raises(FlightConditionError, match="reference length"):
+        resolve_flight_condition({"MACH": 0.2, "REmi": 4.38}, pol="P1", reference_length_m=length)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_f343_a_pin_that_is_not_a_finite_number_is_refused_on_a_row_and_in_defaults(value):
+    from pyflightstream.workspace.flight_condition import (
+        FlightConditionError,
+        canonical_condition_defaults,
+    )
+
+    with pytest.raises(FlightConditionError, match="positive, finite"):
+        resolve_flight_condition({"MACH": 0.2, "TK": value}, pol="P1")
+    with pytest.raises(FlightConditionError, match="positive, finite"):
+        canonical_condition_defaults({"RHOkgm3": value}, "the defaults")

@@ -270,13 +270,10 @@ def canonical_condition_defaults(
                 "case-insensitively, so two spellings of one pin are one pin. "
                 "State it once."
             )
-        if not math.isfinite(value):
+        if not math.isfinite(value) or value <= 0.0:
             raise FlightConditionError(
-                f"{origin} pins {canonical}:{value:g}, and {canonical} must be a finite number."
-            )
-        if value <= 0.0:
-            raise FlightConditionError(
-                f"{origin} pins {canonical}:{value:g}, and {canonical} is a positive quantity."
+                f"{origin} pins {canonical}:{value:g}, and {canonical} is a positive, finite "
+                "quantity."
             )
         supplied[canonical] = float(value)
     return supplied
@@ -366,9 +363,11 @@ _STATE_PINS = ("RHOkgm3", "TK", "PPA")
 def pinned_state_mismatch(resolved: ResolvedCondition, *, pol: str) -> str | None:
     """Return the warning a fully pinned, inconsistent state earns, else None.
 
-    Checked only when density, temperature and pressure are ALL pinned (by the
-    row or by its setup's defaults); a state with any of the three derived
-    satisfies ``p = rho R T`` by construction and is never checked. The one
+    Checked when density, temperature and pressure are ALL pinned (by the
+    row or by its setup's defaults), and when the pressure is pinned beside a
+    density solved from a Reynolds number; a state with any of the three
+    derived from the others satisfies ``p = rho R T`` by construction and is
+    never checked. The one
     check the plan and the post both call, so the two cannot disagree. Nothing
     is refused: the pins are emitted as written.
 
@@ -386,19 +385,40 @@ def pinned_state_mismatch(resolved: ResolvedCondition, *, pol: str) -> str | Non
         relative mismatch, or None when the state is not fully pinned or
         agrees within :data:`PINNED_STATE_TOLERANCE`.
     """
-    if not all(key in resolved.pinned for key in _STATE_PINS):
+    # A density solved from a Reynolds number is derived from the speed, the viscosity and the
+    # length, not from the pressure, so a pinned pressure can disagree with it as a pinned
+    # density can: the pressure pin alone makes that state checkable.
+    solved = resolved.density_source == "solved-from-reynolds"
+    if not all(key in resolved.pinned for key in (("PPA",) if solved else _STATE_PINS)):
         return None
     implied = _ideal_gas_pressure(resolved.density_kg_m3, resolved.temperature_k)
     mismatch = abs(resolved.pressure_pa - implied) / resolved.pressure_pa
     if mismatch <= PINNED_STATE_TOLERANCE:
         return None
+    if solved:
+        temperature = "pins" if "TK" in resolved.pinned else "takes from the atmosphere"
+        subject = (
+            f"solves RHOkgm3:{resolved.density_kg_m3:g} from its Reynolds number, "
+            f"{temperature} TK:{resolved.temperature_k:g} and pins PPA:{resolved.pressure_pa:g}"
+        )
+        remedy = (
+            "The pins are emitted as written; drop the pressure pin and let it be derived, "
+            "or correct the one that is wrong."
+        )
+    else:
+        subject = (
+            f"pins RHOkgm3:{resolved.density_kg_m3:g}, TK:{resolved.temperature_k:g} "
+            f"and PPA:{resolved.pressure_pa:g}"
+        )
+        remedy = (
+            "The pins are emitted as written; pin two of the three and let the third be "
+            "derived, or correct the one that is wrong."
+        )
     return (
-        f"the flight condition of POL {pol} pins RHOkgm3:{resolved.density_kg_m3:g}, "
-        f"TK:{resolved.temperature_k:g} and PPA:{resolved.pressure_pa:g}, which disagree "
+        f"the flight condition of POL {pol} {subject}, which disagree "
         f"with p = rho R T (R = {ISA.gas_constant_j_per_kg_k} J/(kg K), rho R T = "
         f"{implied:g} Pa) by a relative mismatch of {mismatch:.2%}, above "
-        f"{PINNED_STATE_TOLERANCE:.1%}. The pins are emitted as written; pin two of the "
-        "three and let the third be derived, or correct the one that is wrong."
+        f"{PINNED_STATE_TOLERANCE:.1%}. {remedy}"
     )
 
 
@@ -640,6 +660,14 @@ def resolve_flight_condition(
             "would solve a condition nobody asked for; state one and delete the "
             "other."
         )
+    if reference_length_m is not None and not (
+        math.isfinite(reference_length_m) and reference_length_m > 0.0
+    ):
+        raise FlightConditionError(
+            f"the flight condition of POL {pol} is resolved against the reference length "
+            f"{reference_length_m:g} m, and a reference length is a positive, finite length: "
+            "a Reynolds number divides by it. Correct the reference the row's REF cell names."
+        )
     _refuse_signs(effective, given_velocity[0], pol)
 
     altitude_ft = effective.get("ALTFT", 0.0)
@@ -701,10 +729,10 @@ def resolve_flight_condition(
             "own: the first pins it and the second solves it. State one."
         )
     for key in pinned:
-        if effective[key] <= 0.0:
+        if not math.isfinite(effective[key]) or effective[key] <= 0.0:
             raise FlightConditionError(
                 f"the flight condition of POL {pol} pins {key}:{effective[key]:g}, and "
-                f"{key} is a positive quantity."
+                f"{key} is a positive, finite quantity."
             )
     # THE STATE'S TEMPERATURE GOVERNS EVERYTHING DERIVED FROM IT (PFS-2081.23).
     # A TK pin is the temperature of the state, so the speed of sound and the
