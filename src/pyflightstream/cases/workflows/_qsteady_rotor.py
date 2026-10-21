@@ -285,6 +285,8 @@ def _refuse_what_is_not_the_rotor(
     # selects nothing; the wheel and sector checks below determine what that
     # absence means for this run type.
     members = [str(member) for member in rotor.members]
+    claimed: dict[frozenset[int], str] = {}
+    shared: list[tuple[str, str]] = []
     owned.update(labels[name] for name in select_group_members(members, ordered, case.aliases))
     for member in members:
         # A BLADE IS PRESENT BY ITS OWN NAME, OR BY THE ALIAS THE ROW GIVES IT.
@@ -297,6 +299,23 @@ def _refuse_what_is_not_the_rotor(
         if member in rotor.families_blades and (
             (member.casefold() in exact or aliased) if numbered else bool(found)
         ):
+            # TWO BLADES ARE TWO ONLY IF THEY ARE TWO SURFACES: aliases that
+            # resolve to one boundary are one blade in the mesh, so the second
+            # is not counted and the wheel check below names it.
+            if numbered and aliased and member.casefold() not in exact:
+                surface = frozenset(
+                    labels[name] for name in resolve_alias(member, ordered, case.aliases) or ()
+                )
+            elif numbered:
+                surface = frozenset(
+                    index for name, index in labels.items() if name.casefold() == member.casefold()
+                )
+            else:
+                surface = frozenset(found)
+            if surface in claimed:
+                shared.append((member, claimed[surface]))
+                continue
+            claimed[surface] = member
             blades_found.append(member)
     others = sorted(name for name, index in labels.items() if index not in owned)
     # A NAME TWO BOUNDARIES SHARE IS NO LABEL, and the geometry still holds both: they select
@@ -316,6 +335,14 @@ def _refuse_what_is_not_the_rotor(
             f"{', '.join(rotor.members)}). {_ONLY_AN_ISOLATED_ROTOR}"
         )
     missing = [blade for blade in rotor.families_blades if blade not in blades_found]
+    if kind == "wheel" and shared:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} solves the whole wheel of rotor {rotor.alias} (no "
+            f"{SYMMETRY_VARIABLE}), and "
+            + "; ".join(f"{later} names the same boundary as {first}" for later, first in shared)
+            + ". A wheel meshes one surface per blade, so two names for one surface are "
+            "one blade and not two."
+        )
     if kind == "wheel" and missing:
         raise CampaignConfigError(
             f"case {case.sim_id!r} solves the whole wheel of rotor {rotor.alias} (no "
@@ -472,10 +499,19 @@ def _blade_stations_from_the_mesh(
             groups = _qsteady.obj_group_vertices(path, metres_per_unit=factor)
     except (OSError, UnicodeError, ValueError) as error:
         return f"{path.name} could not be read: {error}"
+    # THE IMPORT'S RENAMES, in the order written: the rotor's blade names are the
+    # names the solver sees after them, so a blade the import renamed is found
+    # under its new name and the chords are not read off another surface.
+    for operation in operations:
+        if operation.op == "rename" and operation.surface in groups and operation.to:
+            groups[operation.to] = groups.pop(operation.surface)
     blade = rotor.families_blades[0] if rotor.families_blades else None
     if blade is None:
         return f"rotor {rotor.alias} lists no blade"
-    chosen = select_group_members([blade], list(groups), case.aliases)
+    try:
+        chosen = select_group_members([blade], list(groups), case.aliases)
+    except CampaignConfigError as error:
+        return f"{path.name} holds no face of blade {blade} ({error})"
     vertices = [vertex for name in chosen for vertex in groups[name]]
     if not vertices:
         return f"{path.name} holds no face of blade {blade}"
@@ -915,10 +951,12 @@ def _qsteady_blade_frames(
     hub = _placement_of(case, script, rotor_frame, f"{rotor.alias}_SMRP")
     assert hub.origin is not None and hub.axes is not None
     shaft = hub.axes["XYZ".index(_the_shaft_letter(rotor))]
-    inventory = set(_inventory(script))
+    # CASE-FOLDED, as the presence check of the wheel is: a blade the check
+    # accepts under another letter case gets its frame.
+    inventory = {name.casefold() for name in _inventory(script)}
     created: dict[str, int] = {}
     for number, family in enumerate(rotor.families_blades, start=1):
-        if family not in inventory:
+        if family.casefold() not in inventory:
             continue
         angle = rotor.blade1.azimuth_deg + (number - 1) * 360.0 / rotor.blade_count
         x_axis, y_axis, z_axis = (_turned_about(each, shaft, angle) for each in hub.axes)
