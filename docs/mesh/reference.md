@@ -672,6 +672,7 @@ chordwise = 1.5
 spanwise = 2
 method = "grid"
 keep_first_row = true
+trailing_edge_direction = [1.0, 0.0, 0.0]
 
 [families.Tip]
 factor = 2
@@ -701,6 +702,7 @@ copies = 6
 | `[families.<name>]` | `factor` | number above zero | multiplies the intervals of each index direction of a grid; divides the target edge length of a remeshed family |
 | `[families.<name>]` | `chordwise`, `spanwise` | number above zero | the factor of one index direction of a grid, replacing `factor` there |
 | `[families.<name>]` | `keep_first_row` | `true` or `false` (default) | a grid with a trailing edge keeps the spanwise width of its row of panels at each end station that meets another component and refines that row chordwise only; the spanwise factor applies to the other rows. `--keep-first-row` on the command and the `keep_first_row` keyword of `refine_mesh` ask the same; when FACTOR, `--chordwise` or `--spanwise` give the factors the table is not read, this key included ([The row kept at an interface](#the-row-kept-at-an-interface)) |
+| `[families.<name>]` | `trailing_edge_direction` | three numbers, not all zero | the direction in the mesh's coordinate frame, from leading to trailing edge, that tells a family with two sharp chordwise extremes which one is the trailing edge; required then, because there is no assumed global aft axis ([The row kept at an interface](#the-row-kept-at-an-interface)) |
 | `[families.<name>]` | `method` | `"auto"` (default), `"grid"` or `"remesh"` | `"auto"` takes the grid when it is recovered and remeshes otherwise; `"grid"` refuses a family whose grid is not recovered, naming why; `"remesh"` remeshes it |
 | `[families.<name>]` of a body | `axial`, `circumferential` | number above zero | the target edge length divided by `axial` along the axis and by `circumferential` around it; the family is remeshed |
 | `[families.<name>]` of a body | `axis` | three numbers, not all zero | the body's axis; required with `axial` or `circumferential` |
