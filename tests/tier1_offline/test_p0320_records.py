@@ -818,3 +818,31 @@ def test_rebuild_refuses_another_version_even_when_its_script_matches(tmp_path, 
     _write(sweep, f"run_id,package_version\n{original['run_id']},0.29.0\n")
     reason = records.rebuild(workspace.root)["refused"]["5001"]
     assert "0.29.0" in reason and "campaign_sweep.csv" in reason, reason
+
+
+def test_pfs_2126_032_the_read_only_collect_is_a_write_policy_not_a_patch(tmp_path, monkeypatch):
+    """PFS-2126.032: collect_once gets the refusals as ``writes``; the module is left as it is."""
+    from pyflightstream.run import collect as collect_module
+
+    workspace, _matrix_path, _job = _submitted_campaign(tmp_path)
+    sim = workspace.root / "sims"
+    _quiet(sim)
+    names = ("_copy_native_log", "translate_surface_exports", "ensure_sim_expanded")
+    originals = {name: getattr(collect_module, name) for name in names}
+    real = collect_module.collect_once
+    given: list[object] = []
+
+    def spy(*args, **keywords):
+        given.append(keywords.get("writes"))
+        for name in names:
+            assert getattr(collect_module, name) is originals[name], f"{name} was patched"
+        return real(*args, **keywords)
+
+    monkeypatch.setattr(collect_module, "collect_once", spy)
+    before = _tree(workspace.root)
+    records.rebuild(workspace.root, all_sims=True, out="runs-all.json")
+    after = _tree(workspace.root)
+    (writes,) = given
+    assert isinstance(writes, collect_module.CollectWrites)
+    assert writes.copy_native_log is not originals["_copy_native_log"]
+    assert {key: after[key] for key in before} == before, "the rebuild changed a path"

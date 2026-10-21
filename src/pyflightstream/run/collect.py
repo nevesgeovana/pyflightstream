@@ -74,7 +74,7 @@ from pathlib import Path
 # Import exceptions from their defining modules. The public exception
 # catalog also imports post-processing modules above run in the layer order;
 # using it here would introduce an upward dependency.
-from typing import TYPE_CHECKING, Protocol, TypeGuard
+from typing import TYPE_CHECKING, Any, Protocol, TypeGuard
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
@@ -454,10 +454,13 @@ def _copy_native_log(native: NativeLog) -> None:
         shutil.copy2(native.source, native.target)
 
 
-def _collect_additional(workspace, report, *, interval, sleep, observer, sims=None) -> None:
+def _collect_additional(
+    workspace, report, *, interval, sleep, observer, sims=None, writes=None
+) -> None:
     """Complete stable submitted extractions; retain pending jobs and native logs."""
     from pyflightstream.workspace import ExtractionStatus
 
+    expand = (writes or CollectWrites()).ensure_sim_expanded
     latest = {record.extraction_id: record for record in workspace.read_additional()}
     for record in latest.values():
         if record.status is not ExtractionStatus.SUBMITTED:
@@ -468,7 +471,7 @@ def _collect_additional(workspace, report, *, interval, sleep, observer, sims=No
             # A COMPACTED SIMULATION IS EXPANDED FIRST, as the point path does
             # (PFS-2103.006): read zipped, its original and private copy were
             # "changed or missing" and the extraction failed for good.
-            ensure_sim_expanded(workspace, record.sim_id, reason="collect")
+            expand(workspace, record.sim_id, reason="collect")
             context = extraction_context(workspace, record)
             folder = context[1]
             generated = {str(item.get("dat")) for item in record.surface_translations or []}
@@ -543,6 +546,29 @@ def _of_the_simulations(records: list[RunRecord], sims: frozenset[str] | None) -
     return records if sims is None else [record for record in records if record.sim_id in sims]
 
 
+@dataclass(frozen=True)
+class CollectWrites:
+    """The three writes of the collect stage outside the manifest, injected (PFS-2126.032).
+
+    ``collect_once`` makes them through this object, so a caller that must collect
+    without writing (the rebuild) passes refusals here instead of replacing module
+    attributes for the whole process. The default is the real writes.
+
+    Attributes
+    ----------
+    copy_native_log : callable
+        Copies the settled scheduler log to the declared name.
+    translate_surface_exports : callable
+        Writes each Tecplot export from its VTK.
+    ensure_sim_expanded : callable
+        Expands a compressed simulation before it is read.
+    """
+
+    copy_native_log: Callable[[NativeLog], None] = _copy_native_log
+    translate_surface_exports: Callable[..., Any] = translate_surface_exports
+    ensure_sim_expanded: Callable[..., Any] = ensure_sim_expanded
+
+
 def _records_after_grouped_jobs(
     workspace: CampaignWorkspace,
     report: CollectReport,
@@ -604,6 +630,7 @@ def collect_once(
     observer: Callable[[Iterable[Path]], dict[str, Stamp | None]] = observe,
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None = None,
     sims: Collection[str] | None = None,
+    writes: CollectWrites | None = None,
 ) -> CollectReport:
     """Sweep every SUBMITTED record once and collect the ones that settled.
 
@@ -628,6 +655,10 @@ def collect_once(
         of these simulations; every other record is left untouched and is not
         counted as outstanding. A simulation no record holds is refused by
         name before anything is swept. None sweeps every record.
+    writes
+        The scheduler-log copy, the surface translation and the expansion of a
+        compressed simulation, as :class:`CollectWrites`; None makes the real
+        writes. A read-only collection passes refusals.
 
     Returns
     -------
@@ -642,6 +673,7 @@ def collect_once(
     """
     _refuse_a_string(sims)
     _refuse_a_bad_interval(interval, "interval")
+    writes = writes or CollectWrites()
     if assessor is assess_collected:
         # PFS-2110.038: the package's own assessor passed by name is the default, with
         # everything it read from the log stamped, not a caller's (status, error) assessor.
@@ -663,7 +695,13 @@ def collect_once(
         r for r in _of_the_simulations(records, selected) if r.status is RunStatus.SUBMITTED
     ]
     _collect_additional(
-        workspace, report, interval=interval, sleep=sleep, observer=observer, sims=selected
+        workspace,
+        report,
+        interval=interval,
+        sleep=sleep,
+        observer=observer,
+        sims=selected,
+        writes=writes,
     )
 
     for record in tracked("collect: points", submitted, label=_run_label):
@@ -680,7 +718,7 @@ def collect_once(
                 )
             )
             continue
-        ensure_sim_expanded(workspace, record.sim_id, reason="collect")
+        writes.ensure_sim_expanded(workspace, record.sim_id, reason="collect")
         sim_dir = _sim_dir(workspace, record)
         try:
             work_dir = _working_dir(workspace, record)
@@ -731,13 +769,13 @@ def collect_once(
             )
             continue
         # SETTLED, so this is the log of a job that has stopped writing it.
-        _copy_native_log(native)
+        writes.copy_native_log(native)
         # G45: each Tecplot from its VTK, where the job wrote them, before the
         # outputs are collected; the record keeps what was written and why not.
         if record.surface_translations:
             record = record.model_copy(
                 update={
-                    "surface_translations": translate_surface_exports(
+                    "surface_translations": writes.translate_surface_exports(
                         work_dir, record.surface_translations
                     )
                 }

@@ -14,16 +14,14 @@ The public names are re-exported by :mod:`pyflightstream.run.records` (AD-11).
 
 from __future__ import annotations
 
-import contextlib
 import csv
 import dataclasses
 import json
 import os
 import re
 import shutil
-import threading
 import warnings
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -49,22 +47,17 @@ class _WouldWriteError(RuntimeError):
     """A collection that would write in the workspace, left to ``pyfs-matrix collect``."""
 
 
-_READ_ONLY = threading.Lock()
-
-
-@contextlib.contextmanager
-def _collect_read_only() -> Iterator[None]:
-    """Make the collect stage's three writes into refusals, for this block only.
+def _read_only_writes() -> Any:
+    """Return the collect stage's three writes as refusals (PFS-2126.032).
 
     The stage copies a scheduler's log to its declared name, writes a surface
     export translated from the VTK, and expands a compressed simulation. Each
     is replaced by a check that raises :class:`_WouldWriteError` where the write
-    would happen, and restored when the block ends, under a lock so two
-    rebuilds in one process do not interleave.
+    would happen. They are handed to ``collect_once`` as its write policy, so
+    nothing in the process is patched and two rebuilds cannot interleave.
     """
-    from pyflightstream.run import collect as collect_module
-
-    original_translate = collect_module.translate_surface_exports
+    from pyflightstream.results import translate_surface_exports as original_translate
+    from pyflightstream.run.collect import CollectWrites
 
     def refuse_copy(native: Any) -> None:
         if native.source is not None and native.target is not None:
@@ -87,20 +80,11 @@ def _collect_read_only() -> Iterator[None]:
             raise _WouldWriteError(f"collection would expand sims/sim_{sim_id}.zip")
         return False
 
-    patches = {
-        "_copy_native_log": refuse_copy,
-        "translate_surface_exports": refuse_translation,
-        "ensure_sim_expanded": refuse_expand,
-    }
-    with _READ_ONLY:
-        saved = {name: getattr(collect_module, name) for name in patches}
-        try:
-            for name, value in patches.items():
-                setattr(collect_module, name, value)
-            yield
-        finally:
-            for name, value in saved.items():
-                setattr(collect_module, name, value)
+    return CollectWrites(
+        copy_native_log=refuse_copy,
+        translate_surface_exports=refuse_translation,
+        ensure_sim_expanded=refuse_expand,
+    )
 
 
 def collect_without_writing(
@@ -189,12 +173,16 @@ def collect_without_writing(
     @workspace_activity("rebuild collection")
     def collect_in(workspace: Path) -> Any:
         return collect_module.collect_once(
-            staged, interval=0.0, sleep=lambda _seconds: None, observer=settled_observer
+            staged,
+            interval=0.0,
+            sleep=lambda _seconds: None,
+            observer=settled_observer,
+            writes=_read_only_writes(),
         )
 
     staged = workspace
     try:
-        with _collect_read_only(), warnings.catch_warnings():
+        with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             report = collect_in(folder)
     except _WouldWriteError as error:
