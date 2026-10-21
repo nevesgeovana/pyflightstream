@@ -39,7 +39,7 @@ from pyflightstream.farfield import (
     trace_forces,
     wake_crossings,
 )
-from pyflightstream.post._condition import _recorded_speeds, row_rotor_speeds
+from pyflightstream.post._condition import _last_time_step, _recorded_speeds, row_rotor_speeds
 from pyflightstream.post._tables import CONTEXT_COLUMNS, _cell, context_row, write_csv_table
 from pyflightstream.post.axes import EXPORT_TO_BODY, body_to_wind, wind_force_coefficients
 from pyflightstream.post.farfield_fields import (
@@ -943,14 +943,22 @@ def _ledger_rows(ctx: SimContext, point: PolarPoint, values: Mapping[str, Any], 
     return rows
 
 
-def _probe_point(ctx: SimContext, point: PolarPoint, analyses: Sequence[str], tables: _Tables):
+def _probe_point(
+    ctx: SimContext,
+    point: PolarPoint,
+    analyses: Sequence[str],
+    tables: _Tables,
+    *,
+    rotor: bool | None = None,
+):
     """C and the ledgers of one point: steady, or instant and average (FR-484, FR-1053)."""
     spec = _spec(ctx)
     record = ctx.record_of[point.name]
     run_type = str(record.recipe or "steady")
     unsteady = run_type in UNSTEADY_RUN_TYPES
     key = f"{FARFIELD_DIR}/probes#point={point.name}"
-    rotor = run_type in ROTOR_RUN_TYPES
+    if rotor is None:
+        rotor = run_type in ROTOR_RUN_TYPES or (run_type == "steady" and _spins(ctx, record))
     # FR-1052: an unsteady row whose [[probes]] entries are of kind normal
     # holds its probes at the last time step only, in the probe export.
     normal = unsteady and _normal_probes(ctx)
@@ -1016,9 +1024,8 @@ def _normal_probes(ctx: SimContext) -> bool:
 
 def _last_step(record: object) -> object:
     """Return the run's last time step, the instant a normal probe holds, or NA."""
-    plan = getattr(record, "reductions", None) or {}
-    last = plan.get("time_iterations") if isinstance(plan, Mapping) else None
-    return int(last) if isinstance(last, int | float) and not isinstance(last, bool) else _NA
+    last = _last_time_step(cast("Any", record))
+    return _NA if last is None else last
 
 
 def _flag_a_plane_short_of_the_lift(
@@ -1157,7 +1164,7 @@ def farfield_products(ctx: SimContext) -> None:
             steady_rows += _variant_b(ctx, point)
         tables.extend("trefftz", point.name, runs, steady_rows)
         if "trefftz:plane" in analyses or "ledgers" in analyses:
-            _probe_point(ctx, point, analyses, tables)
+            _probe_point(ctx, point, analyses, tables, rotor=rotor)
     _write(ctx, spec, tables)
     ctx.farfield_super.update(_super_cells(tables.super_rows()))
 
