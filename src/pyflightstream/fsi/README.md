@@ -94,10 +94,17 @@ from pyflightstream.fsi.materials import material
 from pyflightstream.fsi.sections import airfoil_section_contour, blade_properties_from_sections
 from pyflightstream.qa.geometry import naca4_contour
 
-sections = [airfoil_section_contour(naca4_contour("2412", 120), c) for c in chords]
+sections = [
+    airfoil_section_contour(naca4_contour("2412", 120), chord_m=c) for c in chords
+]
 blade = blade_properties_from_sections(
-    radii, sections, chords, pitches, material("ti-6al-4v-grade5-annealed"),
-    geometry_source="what the contours were built from", geometry_file=None,)
+    radii,
+    sections_m=sections,
+    chord_m=chords,
+    geometric_pitch_deg=pitches,
+    material=material("ti-6al-4v-grade5-annealed"),
+    geometry_source="what the contours were built from",
+)
 ```
 
 `airfoil_section_contour` is the one conversion from airfoil
