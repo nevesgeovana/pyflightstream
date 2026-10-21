@@ -1041,9 +1041,19 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
                 json.dumps(_read_record_rows(root / "runs.json"), indent=2), root, digests
             )
             before = captured[name].decode("utf-8")
-            assert json.loads(resolved.replace(": <S>", ': "<S>"')) == json.loads(
-                before.replace(": <S>", ': "<S>"')
-            ), name
+            expected = json.loads(before.replace(": <S>", ': "<S>"'))
+            # Omit only optional additions the historical fixture did not record.
+            for row in expected:
+                for field in (
+                    "probe_field_layout",
+                    "surface_probe_layout",
+                    "frame_motions",
+                    "custom_field_coverage",
+                    "freestream_units",
+                ):
+                    if field in row and row[field] is None:
+                        del row[field]
+            assert json.loads(resolved.replace(": <S>", ': "<S>"')) == expected, name
             continue
         if name.endswith(SETTINGS_TABLE_SUFFIX) or (
             name.startswith("tree/post/") and name.endswith(".csv")
