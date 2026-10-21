@@ -40,6 +40,11 @@ from pyflightstream.workspace._refine._remesh import (
 )
 from tests.p0380_mesh_fixtures import cube, holed_plate, plate_nodes, sphere, two_families
 
+# The remesh and its measurements query trimesh's spatial index, which needs the geom extra:
+# on a dev-only install this module skips instead of failing.
+pytest.importorskip("scipy")
+pytest.importorskip("rtree")
+
 # ---- measurements
 
 
