@@ -151,6 +151,10 @@ CONFIG_FILE = "config.json"
 STATE_FILE = "state.json"
 FAMILY_MAP_FILE = "fsi_family_map.json"
 LOG_FILE = "fsi_convergence_log.csv"
+# X-F-0513. The settling verdicts, one line per revolution judged. The library
+# logger is unconfigured under the solver's bare call, so the evidence that a
+# run settled (or did not) is kept here and not only in a log nobody reads.
+VERDICT_FILE = "fsi_convergence_verdicts.log"
 FROZEN_FILE = "fsi_frozen_displacements.txt"
 # Presence carries the operator's decision to resume across a changed
 # configuration (REV010-009). A marker rather than a flag, because the
@@ -1186,12 +1190,20 @@ def _solve_the_phase(
     return relaxation, solved
 
 
+def _say_the_verdict(run_dir: Path, message: str, *args: object) -> None:
+    """Log a settling verdict and keep it, with its numbers, in the run folder (X-F-0513)."""
+    logger.info(message, *args)
+    with _textio.open_text(run_dir / VERDICT_FILE, "a") as handle:
+        handle.write((message % args) + "\n")
+
+
 def _record_the_revolution(
     cfg: FsiConfig,
     state: FsiState,
     phase: int,
     revolutions: float,
     *,
+    run_dir: Path,
     tip_twist_deg: list[float],
     tip_flap_m: list[float],
     total_normal_force: float,
@@ -1226,7 +1238,8 @@ def _record_the_revolution(
     elif verdict.converged:
         state.phase = 4
         state.phase4_start_step = state.step_count + 1
-        logger.info(
+        _say_the_verdict(
+            run_dir,
             "convergence declared at revolution %d (tip twist change "
             "%.4f deg < %.4f deg; thrust change %.4f < %.4f); phase 4 "
             "recording starts next step",
@@ -1237,7 +1250,8 @@ def _record_the_revolution(
             cfg.phases.thrust_tolerance_fraction,
         )
     elif verdict.twist_ok:
-        logger.info(
+        _say_the_verdict(
+            run_dir,
             "revolution %d: tip twist has settled (%.4f deg < %.4f deg) but "
             "thrust has not (%s); phase 3 continues",
             completed,
@@ -1354,6 +1368,7 @@ def _unsteady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> Step
         state,
         phase,
         revolutions,
+        run_dir=run_dir,
         tip_twist_deg=tip_twist_deg,
         tip_flap_m=tip_flap_m,
         total_normal_force=total_normal_force,

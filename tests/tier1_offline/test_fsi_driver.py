@@ -307,6 +307,11 @@ def test_phase_progression_counters_and_log(tmp_path):
     assert [s.revolution for s in state.revolution_history] == [1, 2]
     assert [r.step for r in state.recorded_twist] == [9, 10]
     assert state.phase == 4
+    # X-F-0513. The verdict and its numbers are kept in the run folder, not
+    # only sent to a logger the solver's bare call never configures.
+    verdicts = (tmp_path / driver.VERDICT_FILE).read_text(encoding="utf-8")
+    assert "convergence declared at revolution 2" in verdicts
+    assert "tip twist change" in verdicts
 
 
 def test_relaxation_follows_the_formula(tmp_path):
