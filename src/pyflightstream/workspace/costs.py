@@ -120,6 +120,8 @@ class CostFile:
             ``ncpus``; None when ``ncpus`` lies outside the stated range.
         """
         points = list(zip(self.ncpus, self.speedup, strict=True))
+        if math.isnan(ncpus):
+            return None
         if not points or ncpus < points[0][0] or ncpus > points[-1][0]:
             return None
         for (n0, s0), (n1, s1) in zip(points, points[1:], strict=False):
@@ -268,10 +270,10 @@ def _curve(parallel: Mapping, path: Path) -> tuple[tuple[float, ...], tuple[floa
             f"the cost file {path} needs every [parallel] ncpus and speedup entry to be a number."
         )
     xs = tuple(float(x) for x in ncpus)
-    if list(xs) != sorted(set(xs)) or any(s <= 0 for s in speedup):
+    if list(xs) != sorted(set(xs)) or any(x <= 0 for x in xs) or any(s <= 0 for s in speedup):
         raise InputArtifactError(
-            f"the cost file {path} needs [parallel] ncpus ascending and distinct and every "
-            "speedup positive."
+            f"the cost file {path} needs [parallel] ncpus positive, ascending and distinct and "
+            "every speedup positive."
         )
     return xs, tuple(float(s) for s in speedup)
 

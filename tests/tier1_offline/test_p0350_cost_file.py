@@ -195,3 +195,19 @@ def test_flag_multipliers_come_only_from_the_cost_file_in_use(tmp_path):
         cost = resolve_cost_file(_inputs(tmp_path / name, "c001", text=text))
         assert cost is not None
         assert estimate_seconds(cost, **base).seconds == pytest.approx(expected)
+
+
+def test_a_nan_processor_count_has_no_speedup(tmp_path):
+    """F-335: an undefined processor count is not the first sample of the curve."""
+    cost = _cost(tmp_path)
+    assert cost.speedup_at(float("nan")) is None
+    est = estimate_seconds(cost, faces=1000, steps=10, ncpus=float("nan"))
+    assert est.seconds is None
+
+
+def test_a_negative_processor_count_in_the_curve_is_refused(tmp_path):
+    """F-336: a curve with a negative or zero processor count is refused by name."""
+    text = _FILE.replace("ncpus = [2, 4, 8]", "ncpus = [-2, 4, 8]")
+    path = _inputs(tmp_path, "c001", text=text) / "costs" / "c001.toml"
+    with pytest.raises(InputArtifactError, match="positive"):
+        read_cost_file(path)
