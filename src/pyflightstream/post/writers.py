@@ -333,7 +333,7 @@ def _refuse_non_finite(what: str, values: np.ndarray) -> None:
     bad = ~np.isfinite(values)
     if bad.any():
         first = int(np.argwhere(bad)[0][0])
-        raise ValueError(
+        raise ProductError(
             f"{what} holds a non-finite value (first at probe {first}); a VTK or Tecplot file "
             "has no token for a value that is unavailable, so a NaN or infinity would be "
             "written as the text 'nan' or 'inf' that readers take as a number or reject. "
