@@ -242,13 +242,14 @@ class GroupedJob:
             raise WorkspaceError(f"the grouped job states unknown key(s): {', '.join(unknown)}")
         if missing := sorted(known - set(data)):
             raise WorkspaceError(f"the grouped job lacks key(s): {', '.join(missing)}")
-        try:
-            for key in ("sims", "points", "fallback_points", "unestimated_points"):
-                data[key] = tuple(data[key])
-        except TypeError as error:
-            raise WorkspaceError(
-                f"the grouped job holds a value that is no list: {error}"
-            ) from error
+        for key in ("sims", "points", "fallback_points", "unestimated_points"):
+            if not isinstance(data[key], (list, tuple)):
+                # F-1501: a bare string would be split into characters and accepted.
+                raise WorkspaceError(
+                    f"the job's {key!r} is a {type(data[key]).__name__}, not a list: "
+                    "a receipt written by this package holds a list there."
+                )
+            data[key] = tuple(data[key])
         return cls(**data)
 
 

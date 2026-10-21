@@ -111,6 +111,14 @@ def test_p0430_pfs_2119_054_a_malformed_receipt_is_a_workspace_error() -> None:
             GroupingReceipt.from_json(broken)
 
 
+def test_f1501_a_scalar_sims_string_is_refused_not_split_into_characters() -> None:
+    """F-1501: a job whose sims is a bare string is refused by the receipt reader."""
+    payload = json.loads(json.dumps(_receipt().to_json()))
+    payload["batches"][0]["sims"] = "2006"
+    with pytest.raises(WorkspaceError, match="'sims' is a str"):
+        GroupingReceipt.from_json(payload)
+
+
 def _planned(tmp_path: Path, receipt: GroupingReceipt | None) -> tuple[CampaignWorkspace, Path]:
     workspace = CampaignWorkspace(tmp_path / "camp")
     workspace.init(tmp_path / "camp")
