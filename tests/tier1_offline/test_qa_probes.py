@@ -1974,6 +1974,30 @@ def test_f6_15_the_prelude_detects_edges_by_what_the_grammar_offers(tmp_path, bu
     assert [line.split()[0] for line in detected] == [expected]
 
 
+def test_rb4_the_prelude_follows_the_grammar_not_the_build_name(tmp_path):
+    """RB4-05: X-F-1069, a build whose grammar offers only the by-surface form gets it.
+
+    Every registered build agrees with the former name rule (only 26.125 is by-surface),
+    so a registry gives 26.124 the grammar of 26.125: the prelude names its one
+    constructed wing boundary, where the name rule wrote the every-boundary -1.
+    """
+    from pyflightstream.commands import CommandRegistry
+    from pyflightstream.qa._spec_0400_gap import declined_surface_probes
+
+    commands = dict(CommandRegistry.load().commands)
+    auto, by_surface = "AUTO_DETECT_TRAILING_EDGES", "DETECT_TRAILING_EDGES_BY_SURFACE"
+    kept = {k: v for k, v in commands[auto].versions.items() if k != "26.124"}
+    commands[auto] = commands[auto].model_copy(update={"versions": kept})
+    surface = dict(commands[by_surface].versions)
+    surface["26.124"] = surface["26.125"]
+    commands[by_surface] = commands[by_surface].model_copy(update={"versions": surface})
+    spec = declined_surface_probes()[0].spec
+    script = generate_probe_script(spec, "26.124", tmp_path, registry=CommandRegistry(commands))
+    lines = script.render().splitlines()
+    at = next(i for i, line in enumerate(lines) if "TRAILING_EDGES" in line)
+    assert lines[at : at + 3] == [by_surface, "SURFACES 1", "1"]
+
+
 def test_f6_15_a_zero_byte_file_is_not_an_added_export(tmp_path):
     """F-552: the lax judge ignores the name, not the content."""
     from types import SimpleNamespace
