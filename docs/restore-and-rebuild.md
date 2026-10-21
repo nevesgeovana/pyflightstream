@@ -263,6 +263,12 @@ and leaves it.
 `pyflightstream.run.records.mark_converged` take the same options as the commands and return what they did, or would do,
 as a dictionary; `summary_lines` gives the lines the commands print.
 `collect_without_writing` is the read-only collection on its own, and
+The manifest's OS guard remains held throughout each writer's read-modify-replace
+interval. A stalled heartbeat cannot displace a live writer while it can still
+publish a snapshot. A process exit releases the OS guard; the next writer can
+then recover the abandoned lease. Filesystems shared across hosts must support
+the OS locking protocol.
+
 `manifest_lock` holds the lease the workspace's writers hold around a
 manifest.
 

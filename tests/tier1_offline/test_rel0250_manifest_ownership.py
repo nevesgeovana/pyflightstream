@@ -74,3 +74,23 @@ def test_live_holder_renews_its_timestamp(tmp_path, monkeypatch):
         assert owner["pid"] == os.getpid()
         assert owner["host"] == socket.gethostname()
         assert owner["token"]
+
+
+def test_p0430_live_writer_retains_exclusive_publication_after_heartbeat_expiry(
+    tmp_path, monkeypatch
+):
+    workspace = CampaignWorkspace(tmp_path)
+    monkeypatch.setattr(workspace_mod, "MANIFEST_LOCK_TIMEOUT_S", 0.03)
+    monkeypatch.setattr(workspace_mod, "MANIFEST_LOCK_RENEW_S", 60)
+    lock = tmp_path / "runs.json.lock"
+    with workspace._manifest_lock():
+        owner = lock.read_bytes()
+        os.utime(lock, (0, 0))
+        displaced = False
+        try:
+            with CampaignWorkspace(tmp_path)._manifest_lock():
+                displaced = True
+        except WorkspaceError:
+            pass
+        assert not displaced, "a live writer can still publish after its lease was taken over"
+        assert lock.read_bytes() == owner

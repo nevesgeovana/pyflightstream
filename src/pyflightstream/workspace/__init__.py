@@ -1946,13 +1946,14 @@ class CampaignWorkspace:
         no renewal; elapsed time since acquisition alone never expires a lease.
         Legacy PID-only files have no verifiable host and use the same stale bound.
 
-        A persistent ``.runs.json.lock.guard`` serialises the brief ownership
-        checks, renewal and removal using an OS byte/file lock. It is never
+        A persistent ``.runs.json.lock.guard`` serialises ownership changes and
+        the entire read-modify-replace interval using an OS byte/file lock. It is never
         deleted: replacing its inode would split the arbitration between waiters.
         The OS releases this guard if its process dies. The filesystem must honour
         these locks across clients (SMB/NFS deployments must support locking), and
-        hosts must synchronise clocks for the stale-heartbeat fallback. No guard
-        is held while the manifest is being read or rewritten.
+        hosts must synchronise clocks for the stale-heartbeat fallback. A live
+        writer retains the guard even if its heartbeat stalls, so a successor cannot
+        take over while the former writer can still publish its snapshot.
 
         A release removes only its own token, including on a refused write.
 
