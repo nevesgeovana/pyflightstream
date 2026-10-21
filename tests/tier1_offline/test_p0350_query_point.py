@@ -178,6 +178,12 @@ def test_show_outcome_evidence_identity_inputs_and_polar(workspace, capsys):
         "line6",
         "last solver line",
     ]
+    # The record's solver log leads, and the point's other export follows it (FR-763).
+    assert [item["path"] for item in row["evidence"]] == [
+        "sims/sim_9101/datapoints/DP-A0/solver.log",
+        "sims/sim_9101/datapoints/DP-A0/loads.csv",
+    ]
+    assert row["evidence"][1]["last_lines"] == ["CL", "0.4"]
     assert len(row["activity"]) == 4 and len(row["post"]) == 2
     assert row["identity"]["run_id"] == RUN and row["identity"]["run_id_alias"] == "9101_1"
     assert row["identity"]["recipe_sha256"] == "c" * 64
@@ -317,6 +323,7 @@ def test_trace_product_identity_sidecar_and_provenance_tree(workspace, capsys):
     assert run["identity"]["fs_build"] == "synthetic-build"
     assert run["identity"]["inputs_sha256"]["mesh.obj"] == "d" * 64
     assert run["identity"]["script_sha256"] == "a" * 64
+    assert run["identity"]["recipe_sha256"] == "c" * 64 and run["identity"]["pproc"] == "p001"
     assert _rows(workspace, capsys, "trace", "--run", "9101_1") == [run]
     code, out, _ = _query(workspace, capsys, "trace", "--run", RUN)
     assert code == 0 and "entity:" in out and "d" * 64 in out
