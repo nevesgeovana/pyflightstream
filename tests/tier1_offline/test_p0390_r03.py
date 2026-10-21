@@ -669,8 +669,42 @@ def _docs_clean_plan_evidence(captured: bytes) -> bytes:
             b"before correcting it.",
             b"Check the page before replacing an individual citation with an average offset.",
         ),
+        (
+            b"SET_CROSSFLOW_SEPARATION_BOUNDARIES and its delete, are on every "
+            b"build; this one scalar is what stops being printed.",
+            b"SET_CROSSFLOW_SEPARATION_BOUNDARIES and its delete, have direct "
+            b"documented rows through 26.100. From 26.101 the named separation "
+            b"models provide the selection route. This scalar stops being printed "
+            b"at 26.100.",
+        ),
+        (
+            b"NEW IN THE 26.12 HOTFIX AND DOCUMENTED NOWHERE ELSE, so it carries "
+            b"one version row and its manual_ref cites FSM-26.121 rather than the "
+            b"flagship edition, which is the citation form for a command the "
+            b"flagship does not document.",
+            b"First documented in 26.121 and also documented in 26.122, 26.123, "
+            b"26.124 and 26.125. Its manual_ref cites FSM-26.121, the first "
+            b"edition documenting it; FSM-26.120 does not document the command.",
+        ),
     )
-    for before, after in replacements:
+    for before, after in replacements + (
+        (
+            b"each carrying version rows for the three editions that document it "
+            b"and none after; no removal is recorded against either, because a "
+            b"removal in this database is a manual STATING one and no edition states it.",
+            b"each carrying version rows for the editions that document each. "
+            b"Their missing later rows do not establish runtime removal. A removed "
+            b"row may record an explicit withdrawal, an edition ceasing to print "
+            b"a command, or a measured solver refusal; its note distinguishes "
+            b"those evidence routes.",
+        ),
+        (
+            b"SET_AEROELASTIC_CONVERGENCE_THRESHOLD; build 26.120: no recorded "
+            b"evidence; documented default: unknown (no default citation).",
+            b"SET_AEROELASTIC_CONVERGENCE_THRESHOLD; build 26.120: no recorded "
+            b"evidence; documented default: 0.001 (FSM-26.125 p.390).",
+        ),
+    ):
         assert captured.count(before) == 1, before
         captured = captured.replace(before, after)
     return captured
@@ -770,7 +804,7 @@ def test_p0390_r03_without_the_files_every_output_is_that_of_0380(tmp_path):
         b"reports/compat/CMP-26120_2026-10-12_pfs2135-items.yaml",
     )
     # Public command prose is also serialized into plan evidence. Keep the
-    # historical fixture intact and specify the five intended text changes;
+    # historical fixture intact and specify the intended text changes;
     # command status, grammar, scientific values and every other byte still compare.
     captured[plan_name] = _docs_clean_plan_evidence(captured[plan_name])
     # The committed rotor-effect reanalysis withdraws only these inherited
