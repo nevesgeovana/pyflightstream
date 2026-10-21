@@ -557,13 +557,23 @@ def march_end(plan: Mapping[str, object] | None, *, last_step: int) -> dict[str,
 
 def _move_windows(block: dict[str, object], by: int) -> None:
     """Move every ``windows`` list under ``block`` by ``by`` steps, in place."""
-    for key, value in block.items():
+    for key, value in list(block.items()):
         if key == "windows" and isinstance(value, list):
-            block[key] = [
+            moved = [
                 [max(int(first) + by, 1), int(end) + by]
                 for first, end in value
                 if int(end) + by >= 1
             ]
+            # THE TEXT THAT NAMES THE INTERVAL MOVES WITH IT: a record whose
+            # window_from still said the old steps would contradict its windows.
+            said = block.get("window_from")
+            if isinstance(said, str) and len(value) == len(moved):
+                for (first, end), (new_first, new_end) in zip(value, moved, strict=True):
+                    said = said.replace(
+                        f"steps {int(first)} to {int(end)}", f"steps {new_first} to {new_end}"
+                    )
+                block["window_from"] = said
+            block[key] = moved
         elif isinstance(value, dict):
             _move_windows(value, by)
 
@@ -780,6 +790,12 @@ def _regate_block(
     period = _passage_period(block)
     if entry is None or clock is None or clock <= 0:
         return False
+    # THE PASSAGE PERIOD IS DERIVABLE when the block records its blade count: a
+    # table removed from the pproc must not leave its azimuthal reduction standing
+    # only because the record did not also store the period.
+    recorded_blades = _number(block.get("blades"))
+    if period is None and recorded_blades is not None and recorded_blades > 0:
+        period = clock / recorded_blades
     # A SKIP NO TABLE CURES STANDS: no blade count, no rotor speed. What moves
     # is an entry that has windows, one a table planned, or a block that at
     # least knows its passage length.

@@ -851,3 +851,68 @@ def test_f059_body_rates_differing_only_in_case_are_refused():
         "roll": "X",
         "yaw": "Z",
     }
+
+
+def test_f061_a_moved_window_keeps_its_text_in_step_with_its_interval():
+    from pyflightstream.cases.windows import march_end
+
+    plan = {
+        "time_iterations": 720,
+        "time_average": {"windows": [[596, 720]], "window_from": "stated, steps 596 to 720"},
+    }
+    moved = march_end(plan, last_step=1220)["time_average"]
+    assert moved["windows"] == [[1096, 1220]]
+    assert moved["window_from"] == "stated, steps 1096 to 1220"
+
+
+def test_f062_regate_without_a_table_uses_the_passage_period_the_blades_give():
+    from pyflightstream.cases.windows import regate
+
+    plan = {
+        "time_iterations": 12,
+        "steps_per_revolution": 4.0,
+        "blades": 2,
+        "time_average": {"windows": [[9, 12]]},
+        "phase_locked": {
+            "windows": [[9, 12]],
+            "shape": "azimuthal",
+            "revolutions": 1.0,
+            "steps_per_revolution": 4.0,
+            "window_from": "the last 1 revolution(s) of the rotor, which the pproc's "
+            "[phase_locked] table states",
+        },
+    }
+    fresh = regate(plan, None)
+    assert fresh is not None
+    assert fresh["phase_locked"]["windows"] == [[9, 10], [11, 12]]
+    assert "shape" not in fresh["phase_locked"]
+
+
+def test_fr3206_each_rotors_passage_window_names_the_rotor_and_its_span():
+    from pyflightstream.cases.windows import regate
+
+    def block(blades):
+        return {
+            "steps_per_revolution": 8.0,
+            "blades": blades,
+            "phase_locked": {
+                "windows": [[5, 12]],
+                "shape": "azimuthal",
+                "revolutions": 1.0,
+                "steps_per_revolution": 8.0,
+                "window_from": "the last 1 revolution(s) of the rotor, which the pproc's "
+                "[phase_locked] table states",
+            },
+        }
+
+    plan = {
+        "time_iterations": 12,
+        "time_average": {"windows": [[5, 12]]},
+        "rotors": {"LIFT": block(2), "PUSHER": block(4)},
+    }
+    fresh = regate(plan, None)
+    assert fresh is not None
+    for alias, period in (("LIFT", 4), ("PUSHER", 2)):
+        entry = fresh["rotors"][alias]["phase_locked"]
+        assert entry["period_steps"] == period
+        assert alias in entry["window_from"] and "steps 5 to 12" in entry["window_from"]
