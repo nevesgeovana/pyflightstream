@@ -195,3 +195,14 @@ def test_flow_scalar_writes_numbers_and_booleans_as_themselves():
     assert flow_scalar(3) == "3"
     assert flow_scalar(2.5) == "2.5"
     assert flow_scalar(["a", "b"]) == '["a", "b"]'
+
+
+def test_f_011_astral_character_and_non_finite_float_round_trip():
+    """F-010 F-011 X-F-0277 X-F-0278: what the writer emits is what YAML reads back."""
+    note = "plane \U0001f6e9 and é"
+    assert yaml.safe_load("v: " + flow_scalar(note)) == {"v": note}
+    assert "\\ud83d" not in flow_scalar(note)
+    nan = yaml.safe_load("v: " + flow_scalar(float("nan")))["v"]
+    assert nan != nan
+    assert yaml.safe_load("v: " + flow_scalar(float("inf"))) == {"v": float("inf")}
+    assert yaml.safe_load("v: " + flow_scalar(float("-inf"))) == {"v": float("-inf")}

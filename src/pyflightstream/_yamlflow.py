@@ -22,6 +22,7 @@ the concatenated form and requires a deny.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
 
 __all__ = ["RAW_KEYS", "flow_mapping", "flow_scalar"]
@@ -91,8 +92,24 @@ def flow_scalar(value: object) -> str:
     """
     if isinstance(value, bool):
         return "true" if value else "false"
+    if isinstance(value, float) and not math.isfinite(value):
+        # json.dumps writes NaN and Infinity, which YAML reads back as strings.
+        return ".nan" if math.isnan(value) else (".inf" if value > 0 else "-.inf")
     if isinstance(value, (int, float)) or value is None:
         return json.dumps(value)
     if isinstance(value, (list, dict)):
         return json.dumps(value)
-    return json.dumps(str(value))
+    return _quoted(str(value))
+
+
+def _quoted(text: str) -> str:
+    """Return ``text`` as a double-quoted scalar that YAML reads back unchanged.
+
+    JSON writes a character beyond the basic plane as a surrogate pair of
+    four-digit escapes, which YAML decodes as two lone surrogates; the
+    eight-digit escape of YAML carries the whole code point.
+    """
+    parts = [
+        f"\\U{ord(char):08x}" if ord(char) > 0xFFFF else json.dumps(char)[1:-1] for char in text
+    ]
+    return '"' + "".join(parts) + '"'
