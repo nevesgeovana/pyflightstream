@@ -457,9 +457,14 @@ def write_point_surface_average(
         (entry for entry in record.surface_translations or [] if isinstance(entry, Mapping)),
         None,
     )
-    name = (
-        f"{SURFACES_DIR}/{record.point_name or record.run_id.rsplit('/', 1)[-1]}_time_average.dat"
+    # ONE KEY FOR THE PRODUCT, whichever branch skips it: the translation's stem names the
+    # file written, so an early skip used a different key from a later one for the same file.
+    stem = (
+        Path(str(translation["dat"])).stem
+        if translation is not None and "dat" in translation
+        else record.point_name or record.run_id.rsplit("/", 1)[-1]
     )
+    name = f"{SURFACES_DIR}/{stem}_time_average.dat"
     if getattr(record, "stopped_at", None):
         if skipped is not None:
             skipped[name] = (
@@ -476,7 +481,6 @@ def write_point_surface_average(
             )
         return [], {}
     source, dat = Path(str(translation["vtk"])), Path(str(translation["dat"]))
-    name = f"{SURFACES_DIR}/{dat.stem}_time_average.dat"
     frame_record = translation.get("frame")
     ran_in = [sim_dir / Path(output).parent for output in record.outputs]
     files = stamped_exports(sim_dir, source.stem, *ran_in).get(("", source.suffix.lstrip(".")), {})

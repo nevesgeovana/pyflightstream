@@ -172,3 +172,28 @@ def test_p0430_f3_a_surface_field_name_the_format_cannot_carry_is_refused_before
     with pytest.raises(ProductError, match="field name"):
         write_surface_average(tmp_path / "bad.dat", result, vtk=tmp_path / "bad.vtk")
     assert not (tmp_path / "bad.dat").exists() and not (tmp_path / "bad.vtk").exists()
+
+
+def test_x_f_1196_an_early_skip_and_the_file_written_share_one_product_key(tmp_path) -> None:
+    """X-F-1196: the walltime skip keyed the point name where the file is named by its stem."""
+    from types import SimpleNamespace
+
+    from pyflightstream.post.surfaces import write_point_surface_average
+
+    record = SimpleNamespace(
+        surface_average_window={"iterations": [2, 8]},
+        surface_translations=[{"vtk": "a/surf.vtk", "dat": "a/Wing_surface.dat"}],
+        point_name="P",
+        run_id="run/P",
+        stopped_at={"step": 5},
+    )
+    skipped: dict[str, str] = {}
+    write_point_surface_average(
+        tmp_path,
+        sim_dir=tmp_path,
+        record=record,
+        out=tmp_path / "out",
+        target=lambda p: p,
+        skipped=skipped,
+    )
+    assert list(skipped) == ["surfaces/Wing_surface_time_average.dat"]
