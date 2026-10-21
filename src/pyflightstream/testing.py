@@ -73,6 +73,13 @@ def assert_records_close(
     ...     rtol=1.0e-5,
     ... )
     """
+    if math.isnan(rtol) or math.isnan(atol):
+        # Every comparison against a NaN band is False, so a NaN tolerance
+        # would pass every finite pair: a check that cannot fail.
+        raise AssertionError(
+            f"{label}: rtol={rtol} and atol={atol} include a NaN, so no value could "
+            "violate the tolerance and every finite pair would pass. Pass numbers."
+        )
     missing = sorted(set(expected) - set(actual))
     extra = sorted(set(actual) - set(expected))
     if missing or extra:

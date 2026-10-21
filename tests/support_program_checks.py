@@ -30,18 +30,33 @@ def within(gap: float, band: float) -> bool:
     return gap <= band * (1.0 + 1e-9)
 
 
+def worst_gap(gaps: dict[str, float]) -> float:
+    """The largest gap, or NaN when any gap is NaN.
+
+    ``max`` over values holding a NaN returns whichever comes first, so a failed
+    measurement was hidden or shown depending on the order of the mapping.
+    """
+    values = list(gaps.values())
+    if any(value != value for value in values):
+        return float("nan")
+    return max(values)
+
+
 def outside(table: dict[str, Any], band: float) -> dict[str, dict[str, float]]:
-    """The banded rows whose worst gap exceeds the band, with their gaps."""
+    """The banded rows whose worst gap exceeds the band, with their gaps.
+
+    A NaN gap is outside every band: a failed measurement is not a pass.
+    """
     return {
         pol: entry["gaps"]
         for pol, entry in table["routes"].items()
-        if entry["banded"] and not within(max(entry["gaps"].values()), band)
+        if entry["banded"] and not within(worst_gap(entry["gaps"]), band)
     }
 
 
 def unit_answer(table: dict[str, Any], band: float) -> str:
     """Whether the MILLIMETER import gave the METER body's coefficients, in words."""
-    worst = max(table["units"]["gaps"].values())
+    worst = worst_gap(table["units"]["gaps"])
     if within(worst, band):
         return (
             f"IMPORT CONVERTS: the body written in millimetres gives the METER row's "

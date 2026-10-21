@@ -56,6 +56,12 @@ def test_records_close_treats_nan_pairs_as_agreeing_and_mixed_as_violating():
         assert_records_close({"x": math.nan}, {"x": 1.0})
 
 
+def test_f_001_a_nan_tolerance_is_refused_instead_of_passing_every_finite_pair():
+    for kwargs in ({"rtol": math.nan}, {"atol": math.nan}):
+        with pytest.raises(AssertionError, match="NaN"):
+            assert_records_close({"x": 1.0}, {"x": 2.0}, **kwargs)
+
+
 # --- assert_scripts_equal ---------------------------------------------------
 
 

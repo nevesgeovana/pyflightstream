@@ -314,6 +314,18 @@ class TestDecidedDocs2Tier3:
         )
 
     @staticmethod
+    def test_x_f_0438_a_nan_gap_is_outside_the_band_whatever_the_order_of_the_gaps():
+        """X-F-0438: ``max`` over a NaN returned whichever value came first."""
+        mesh_routes = _decided_docs_2_tier3__support_program_checks
+
+        nan = float("nan")
+        for gaps in ({"CL": nan, "CD": 0.0}, {"CD": 0.0, "CL": nan}):
+            assert mesh_routes.outside({"routes": {"r": {"banded": True, "gaps": gaps}}}, 1e-4)
+            assert mesh_routes.unit_answer({"units": {"gaps": gaps}}, 1e-4).startswith(
+                "IMPORT DOES NOT CONVERT"
+            )
+
+    @staticmethod
     def test_p0400_the_rotation_null_reads_the_simulation_id_a_point_name_leads_with():
         """P0400-TIER3-ROTATION-NULL-SIM: both turned points resolve to a row of the sweep table."""
         rotation_null = _decided_docs_2_tier3__support_program_checks
