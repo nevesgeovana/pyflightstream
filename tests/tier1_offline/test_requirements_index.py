@@ -61,6 +61,15 @@ def test_p0430_f7_04_rate_measurements_have_evidence_locators():
         assert citations and all(report in line for line in citations)
 
 
+def test_p0430_f7_04_attitude_sweep_documents_cold_default():
+    """Job grouping must not be described as an implicit warm start."""
+    page = (REPO / "docs/flight-conditions.md").read_text(encoding="utf-8")
+    paragraph = page.split("**A swept FLOW variable", 1)[1].split("\n\n", 1)[0]
+    assert "cold by default" in paragraph
+    assert "COLD_START: false" in paragraph
+    assert "one warm job it has always been" not in paragraph
+
+
 def historical_requirements():
     """Read the frozen migration population through the shared table parser."""
     from scripts._requirements_paths import requirement_rows

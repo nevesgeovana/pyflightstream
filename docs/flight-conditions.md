@@ -179,8 +179,9 @@ do, rather than accepted and quietly run as a single point.
 over `0.1,0.2,0.3` is three points at three velocities and three densities,
 each resolved from the cell as that point states it. Such a row is one solver
 job PER POINT: the air state is a setup command the solver takes before it is
-initialised, so one process cannot hold two of them. A row that sweeps an
-attitude is the one warm job it has always been.
+initialised, so one process cannot hold two of them. An eligible steady attitude
+sweep can share one solver job, but each point starts cold by default.
+Set `COLD_START: false` explicitly to opt into warm steady starts.
 
 **An angle the row HOLDS still names the point.** `ALPHA:sweep, BETA:0.0`
 over `-4,0,4` plans three runs named `AL-040BE+000`, `AL+000BE+000` and
