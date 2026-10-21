@@ -28,14 +28,18 @@ import numpy as np
 import pytest
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import Campaign, CampaignConfigError, PprocSpec
 from pyflightstream.cases.workflows import build_script, unsteady_export_threshold
+from pyflightstream.post.surfaces import write_point_surface_average
+from pyflightstream.results import MalformedOutputError, SurfaceFrame, translate_vtk_surface
 from pyflightstream.run import run_campaign
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from tests.tier1_offline.test_g45_tecplot_from_vtk import (
     CELL_NAMES,
     MRP,
+    TURNED_MRP,
     VELOCITY,
     _body,
     _read_dat,
@@ -353,3 +357,107 @@ def test_g25_a_run_records_its_window_and_the_post_averages_what_it_exported(tmp
         if e.get("format") in ("tecplot", "vtk") and "time_average" not in name
     ]
     assert natives and all(e["kind"] == "instant" for e in natives)
+
+
+IDENTITY = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+TILTED = ((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, -1.0, 0.0))
+LEFT_HANDED = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, -1.0))
+
+
+def test_p0420_a_left_handed_frame_is_refused_where_it_is_built():
+    """PFS-2119.047: orthonormal axes with det R < 0 mirror the reference frame."""
+    with pytest.raises(MalformedOutputError, match="left-handed"):
+        SurfaceFrame(origin=(0.0, 0.0, 0.0), axes=LEFT_HANDED, index=2)
+
+
+def test_p0420_a_right_handed_frame_is_still_accepted():
+    """PFS-2119.047 control."""
+    assert SurfaceFrame(origin=(1.0, 0.0, 0.0), axes=IDENTITY, index=2).case == "translation"
+
+
+@pytest.mark.parametrize(
+    ("origin", "axes", "case", "verified"),
+    [
+        ((0.0, 0.0, 0.0), IDENTITY, "reference", True),
+        ((9.152, 0.0, 0.0), IDENTITY, "translation", True),
+        ((0.0, 0.0, 0.0), ((0.0, 1.0, 0.0), (-1.0, 0.0, 0.0), (0.0, 0.0, 1.0)), "z-turn", True),
+        (
+            (9.152, 0.0, 0.0),
+            ((0.0, 1.0, 0.0), (-1.0, 0.0, 0.0), (0.0, 0.0, 1.0)),
+            "z-turn and translation",
+            True,
+        ),
+        ((0.0, 0.0, 0.0), TILTED, "tilted", False),
+    ],
+)
+def test_p0420_the_frame_case_is_named_and_only_a_tilted_one_is_unverified(
+    origin, axes, case, verified
+):
+    """PFS-2119.047: RPT-074 measured a z-turn and a translation, and nothing that tilts z."""
+    frame = SurfaceFrame(origin=origin, axes=axes, index=2)
+    assert (frame.case, frame.verified) == (case, verified)
+
+
+def _translated_in_frame(tmp_path, stated):
+    points, polygons, values = _body()
+    vtk = tmp_path / "p.vtk"
+    _write_solver_vtk(vtk, points, polygons, values, stated)
+    frame = SurfaceFrame.from_record(stated)
+    record = translate_vtk_surface(vtk, tmp_path / "p.dat", frame=frame)
+    return record, _read_dat(tmp_path / "p.dat")["auxdata"]
+
+
+def test_p0420_the_translation_records_the_verified_frame_case_in_record_and_auxdata(tmp_path):
+    """PFS-2119.047: a z-turn and a translation, the RPT-074 case, is stated as measured."""
+    record, auxdata = _translated_in_frame(tmp_path, TURNED_MRP)
+    assert record["frame_verification"] == {
+        "case": "z-turn and translation",
+        "verified": True,
+        "verified_cases": "a turn about z and a translation (RPT-074, 26.124)",
+    }
+    assert auxdata["FRAME_VERIFICATION"].startswith("z-turn and translation; measured;")
+
+
+def test_p0420_a_tilted_frame_is_translated_but_stated_unmeasured(tmp_path):
+    """PFS-2119.047: the file says its frame is not one RPT-074 measured."""
+    tilted = {"frame": 2, "origin": [9.152, 0.0, 0.0], "axes": [list(row) for row in TILTED]}
+    record, auxdata = _translated_in_frame(tmp_path, tilted)
+    assert record["frame_verification"]["verified"] is False
+    assert "NOT MEASURED" in auxdata["FRAME_VERIFICATION"]
+
+
+def _moving(kind):
+    return {2: {"frame_index": 2, "trajectory": {"kind": kind}}}
+
+
+def test_p0420_the_average_warns_that_a_loads_frame_a_motion_moves_is_not_measured(tmp_path):
+    """PFS-2119.047: the recorded placement is the first step's; the standard rotor path still
+    averages, and the warning says the moving frame is not a measured case."""
+    sim = tmp_path / "sims" / "sim_7003"
+    sim.mkdir(parents=True)
+    _exports(sim, range(3, 7))
+    with pytest.warns(PyflightstreamWarning, match="constant_rotation trajectory.*NOT MEASURED"):
+        files, _names = write_point_surface_average(
+            tmp_path,
+            sim_dir=sim,
+            record=_averaged_record(frame_motions=_moving("constant_rotation")),
+            out=tmp_path / "post",
+            target=lambda path: path,
+        )
+    assert [path.name for path in files] == ["p_time_average.dat"]
+
+
+@pytest.mark.parametrize("ledger", [_moving("fixed"), None])
+def test_p0420_a_fixed_frame_and_a_record_without_a_ledger_still_average(tmp_path, ledger):
+    """PFS-2119.047 control: nothing is refused that was averaged before."""
+    sim = tmp_path / "sims" / "sim_7003"
+    sim.mkdir(parents=True)
+    _exports(sim, range(3, 7))
+    files, _names = write_point_surface_average(
+        tmp_path,
+        sim_dir=sim,
+        record=_averaged_record(frame_motions=ledger),
+        out=tmp_path / "post",
+        target=lambda path: path,
+    )
+    assert [path.name for path in files] == ["p_time_average.dat"]
