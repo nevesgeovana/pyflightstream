@@ -1010,7 +1010,9 @@ def refine_group(
         a stretch, whose targets are measured in its own space (FR-428).
     te_edges : set of tuple of int, optional
         Exact source trailing-edge edges, in mesh numbering. When supplied,
-        only these edges and their splits shed a wake; vertex membership
+        only these edges and their splits are returned as shedding a wake (the
+        solver's reading of that is not measured by a dated report; this
+        function returns geometry only); vertex membership
         alone is retained for callers that do not supply an edge list.
 
     Returns

@@ -467,8 +467,9 @@ def _first_rows(work: _Work, name: str, grid: _grid.Grid) -> tuple[bool, bool]:
 
     An end station is an interface when two consecutive nodes of it, an edge
     of the source, are nodes of a family of another component: there the
-    row's spanwise width sets the distance of the last wake filament shed by
-    the trailing edge from that component. Two nodes it shares that are not
+    row's spanwise width sets (the stated reason for FR-430; no dated
+    report measures the distance) the distance of the last wake filament
+    shed by the trailing edge from that component. Two nodes it shares that are not
     consecutive make no interface. A grid with no end at another component,
     and one whose kept rows leave no spanwise interval, are refused before
     any work (FR-955).
