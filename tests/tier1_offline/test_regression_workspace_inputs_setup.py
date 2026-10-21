@@ -1206,13 +1206,17 @@ class TestWorkspace2Fields:
     def test_p0400_subtractmatch_the_same_outcome_under_python_o():
         """P0400-SUBTRACTMATCH (PFS-2086.001): under python -O, where an assert does not run, the
         pairing is the same and no row is subtracted from the wrong partner."""
-        src = Path(__file__).resolve().parents[2] / "src"
+        # The child imports the package this run imported (the checkout's src, or the wheel's
+        # site-packages), never the checkout's src when a wheel is under test.
+        installed = Path(workspace_module.__file__).resolve().parents[2]
         done = subprocess.run(
             [
                 sys.executable,
                 "-O",
                 "-c",
-                f"import sys; sys.path.insert(0, {str(src)!r})\n{_WORKSPACE_2_FIELDS___CHECK}",
+                f"import sys; sys.path.insert(0, {str(installed)!r})\n"
+                f"{_WORKSPACE_2_FIELDS___CHECK}\n"
+                "import pyflightstream.workspace as w; sys.stderr.write(w.__file__)",
             ],
             capture_output=True,
             text=True,
@@ -1220,6 +1224,7 @@ class TestWorkspace2Fields:
             env=os.environ.copy(),
         )
         assert done.stdout.strip() == "[-9.0, -18.0]", done.stdout + done.stderr
+        assert Path(done.stderr.strip()).resolve() == Path(workspace_module.__file__).resolve()
 
 
 def _workspace_2_hpc___profile(tmp_path: Path, text: str, stem: str = "h001") -> Path:
