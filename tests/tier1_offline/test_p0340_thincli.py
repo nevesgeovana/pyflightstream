@@ -448,3 +448,8 @@ def test_f_948_the_same_call_writes_the_same_bytes(tmp_path):
         )
         written.append((result.mesh.read_bytes(), result.sidecar.read_bytes()))
     assert written[0] == written[1]
+
+
+def test_f1502_an_oversized_root_offset_is_refused_as_an_input_artifact(tmp_path):
+    with pytest.raises(InputArtifactError, match="not a number"):
+        _degenerate._checked_offset(tmp_path / "blade.obj", 10**400)

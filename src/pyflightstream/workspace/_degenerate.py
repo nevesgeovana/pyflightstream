@@ -870,7 +870,7 @@ def _checked_offset(source: Path, root_offset: float) -> float:
         raise _refuse(source, f"the root offset {root_offset!r} is not a number")
     try:
         offset = float(root_offset)
-    except (TypeError, ValueError) as error:
+    except (TypeError, ValueError, OverflowError) as error:
         raise _refuse(source, f"the root offset {root_offset!r} is not a number") from error
     if not math.isfinite(offset) or offset <= 0.0:
         raise _refuse(
