@@ -1464,7 +1464,10 @@ ENTRY_FILE = "executables.local.toml"
 #: accept_unregistered_build, None where it names none). None states nothing; the matrix
 #: rows name 26.120 (entry 26.120) unless the builds say another. A refused row still
 #: names the file whose false it took (FR-999 maps every value taken from a file).
-TRUTH = [
+#: THE TWO COLUMNS ARE ONLY MEANINGFUL FOR A ROW WHOSE FILES STATE NOTHING: a settings file
+#: that states the key is refused (_check_default), whatever else the row says, so TRUTH
+#: below replaces the accepted and source columns of such a row by "file" and None.
+_TRUTH_ROWS = [
     ("nothing-stated", None, None, None, None, ("26.120",), False, None),
     ("all-false", False, False, False, None, ("26.120",), False, LOCAL_FILE),
     ("workspace-true", True, None, None, None, ("26.120",), True, WORKSPACE_FILE),
@@ -1560,6 +1563,11 @@ TRUTH = [
     ),
 ]
 
+TRUTH = [
+    (*row[:6], "file", None) if (row[1] is not None or row[2] is not None) else row
+    for row in _TRUTH_ROWS
+]
+
 
 @pytest.mark.parametrize(
     ("workspace", "local", "entry", "typed", "builds", "accepted", "source"),
@@ -1598,8 +1606,15 @@ def test_p0390_r03_the_acceptance_truth_table_end_to_end(
         warnings.simplefilter("always")
         code, _out, err = plan_then_run(capsys, root, *extra)
     warned = [w for w in caught if issubclass(w.category, VersionMismatchWarning)]
-    if workspace is not None or local is not None:
+    if accepted == "file":
+        stated = [
+            name
+            for name, value in ((WORKSPACE_FILE, workspace), (LOCAL_FILE, local))
+            if value is not None
+        ]
         assert code == 2 and "executables.local.toml" in err
+        assert "[defaults] sets 'accept_unregistered_build'" in err
+        assert any(str(root / name) in err for name in stated), (stated, err)
         assert not (root / "post" / "polars" / "plan.json").exists()
         assert records(root) == []
         return
