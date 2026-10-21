@@ -67,6 +67,11 @@ from pyflightstream.qa.geometry import naca4_contour
 EXACT = 1.0e-9
 
 
+def test_p0430_f6_04_empty_contour_is_an_input_error():
+    with pytest.raises(FsiInputError, match="vertices"):
+        polygon_area_moments(np.empty((0, 2)))
+
+
 def _relative(value: float, expected: float) -> float:
     return abs(value / expected - 1.0)
 

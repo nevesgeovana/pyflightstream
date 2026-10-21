@@ -844,6 +844,10 @@ def _as_polygon(contour_m: ArrayLike) -> _Floats:
             "a section contour is an (n, 2) array of (chordwise, normal) vertices in "
             f"meters, got shape {points.shape}"
         )
+    if len(points) < 3:
+        raise FsiInputError(
+            f"a section contour needs at least 3 distinct vertices, got {len(points)}"
+        )
     if not np.all(np.isfinite(points)):
         raise FsiInputError("a section contour carries a NaN or infinite coordinate")
     # Coincident within rounding, not only bit-equal: a closed airfoil
