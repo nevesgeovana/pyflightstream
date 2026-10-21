@@ -112,6 +112,52 @@ def test_p0420_line_iterator_failure_preserves_published_text(tmp_path):
     assert list(tmp_path.iterdir()) == [target]
 
 
+def test_p0430_atomic_new_file_uses_normal_creation_permissions(tmp_path, monkeypatch):
+    """P0430-MODE: request ordinary file permissions, filtered by the OS umask."""
+    import os
+
+    real_open = os.open
+    modes = []
+
+    def recording_open(path, flags, mode=0o777, **kwargs):
+        modes.append(mode)
+        return real_open(path, flags, mode, **kwargs)
+
+    monkeypatch.setattr(os, "open", recording_open)
+    _textio.write_text(tmp_path / "new.txt", "complete\n")
+    assert modes == [0o666]
+
+
+def test_p0430_atomic_replacement_preserves_posix_permissions(tmp_path):
+    """P0430-MODE: replacement must retain group read/write access."""
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("POSIX permission bits require a POSIX filesystem")
+    target = tmp_path / "shared.txt"
+    target.write_bytes(b"old\n")
+    target.chmod(0o640)
+    _textio.write_text(target, "new\n")
+    assert stat.S_IMODE(target.stat().st_mode) == 0o640
+    assert target.read_bytes() == b"new\n"
+
+
+def test_p0430_atomic_publish_replaces_symlink_not_referent(tmp_path):
+    """P0430-SYMLINK: the documented publish replaces the directory entry."""
+    referent = tmp_path / "original.txt"
+    referent.write_bytes(b"original\n")
+    target = tmp_path / "link.txt"
+    try:
+        target.symlink_to(referent)
+    except OSError:
+        pytest.skip("creating symlinks requires host permission")
+    _textio.write_text(target, "published\n")
+    assert not target.is_symlink()
+    assert target.read_bytes() == b"published\n"
+    assert referent.read_bytes() == b"original\n"
+
+
 _POST2_CUSTOM_POLAR___ACCENTED = "Asa em cruzeiro, " + chr(0xE2) + "ngulo m" + chr(0xE9) + "dio"
 
 

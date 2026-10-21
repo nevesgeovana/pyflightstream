@@ -31,11 +31,12 @@ from __future__ import annotations
 import csv
 import json
 import os
-import tempfile
+import stat
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Any
+from uuid import uuid4
 
 LINE_END = "\n"
 """The line end of every text file the package writes."""
@@ -87,15 +88,26 @@ def atomic_text(
     A writer or close failure leaves the destination intact. Temporary files
     are removed on ordinary exceptions; abrupt process termination can leave
     a temporary sibling, but cannot publish its partial contents.
+
+    Existing regular-file permission bits are retained. New files use the
+    ordinary creation mode (0666 filtered by the process umask). Replacement
+    publishes a new inode; ownership, ACLs and extended attributes are not
+    copied. A destination symlink is replaced by a regular file, leaving its
+    referent untouched, rather than following the link for writing.
     """
     target = Path(path)
-    descriptor, name = tempfile.mkstemp(prefix=".pfs-", suffix=".tmp", dir=target.parent)
-    temporary = Path(name)
+    mode = None
+    if target.is_file() and not target.is_symlink():
+        mode = stat.S_IMODE(target.stat().st_mode)
+    temporary = target.with_name(f".pfs-{uuid4().hex}.tmp")
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
     try:
         with os.fdopen(
             descriptor, "w", encoding=encoding, errors=errors, newline=LINE_END
         ) as stream:
             yield stream
+        if mode is not None:
+            os.chmod(temporary, mode)
         os.replace(temporary, target)
     finally:
         temporary.unlink(missing_ok=True)
