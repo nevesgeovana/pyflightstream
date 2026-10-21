@@ -471,6 +471,16 @@ def _correct_wheel_point(
             f"the sections or harmonics of point {point.name} cannot be read back: {error}",
         )
         return written
+    missing = [c for c in ("H0", "H1_AMP", "H1_PHASE_DEG") if c not in harmonic_columns]
+    if missing:
+        _say(
+            skipped,
+            sections_out,
+            point.name,
+            sections_out,
+            f"the harmonics of point {point.name} lack the column(s) {', '.join(missing)}",
+        )
+        return written
     stations, largest = _station_k(section_rows, point.rotor_alias)
     radii = [radius for radius, _ in stations]
     fits: dict[tuple[str, int], _Station] = {}
@@ -1202,7 +1212,9 @@ def sector_offset_calibration(
                 f"the {name} point is at ALPHA {values['ALPHA']:g} and BETA "
                 f"{values['BETA']:g}; a sector offset is taken in axial flow, at zero of both"
             )
-    if abs(wheel["J"] - sector["J"]) > j_tolerance:
+    if not (math.isfinite(j_tolerance) and j_tolerance >= 0.0):
+        raise CalibrationError(f"j_tolerance must be a finite number >= 0; it is {j_tolerance!r}")
+    if not abs(wheel["J"] - sector["J"]) <= j_tolerance:
         raise CalibrationError(
             f"the wheel point is at J {wheel['J']:.6g} and the sector point at J "
             f"{sector['J']:.6g}; a sector offset is taken at the same J (within {j_tolerance:g})"

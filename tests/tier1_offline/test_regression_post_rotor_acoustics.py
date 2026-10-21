@@ -929,3 +929,34 @@ def test_f4_0304_transfer_functions_survive_the_float_extremes():
         assert value.real == 1.0
         assert math.isfinite(value.imag) and abs(value.imag) < 1e-100
         assert math.isfinite(abs(sears(k)))
+
+
+def test_f4_0304_a_harmonic_product_without_a_phase_column_is_a_named_skip(tmp_path):
+    """F-1380: a missing H1_PHASE_DEG column is a nonblocking skip, not a ValueError."""
+    (tmp_path / "s.csv").write_text("ROTOR,Offset\nP,0.5\n", encoding="utf-8")
+    (tmp_path / "h.csv").write_text("ROTOR,QUANTITY,H0,H1_AMP\nP,CT,1,1\n", encoding="utf-8")
+    component = corrections.SECTION_COMPONENTS[0]
+    skipped: dict[str, str] = {}
+    with pytest.warns(Warning, match="H1_PHASE_DEG"):
+        written = corrections._correct_wheel_point(
+            corrections.WheelPointRef("p", "r", "P"),
+            calibration=cast(Any, SimpleNamespace(grids={component: None})),
+            coordinates={},
+            sections_rel="s.csv",
+            harmonics_rel="h.csv",
+            out=tmp_path,
+            target=lambda path: path,
+            written_names={},
+            inputs_dir=tmp_path,
+            skipped=skipped,
+        )
+    assert written == [] and any("H1_PHASE_DEG" in why for why in skipped.values())
+
+
+def test_f4_0304_a_nan_j_tolerance_is_refused(tmp_path, monkeypatch):
+    """F-181: NaN would pass every J comparison, so offsets at different J were written."""
+    workspace = _post2_corrections___workspace(tmp_path, monkeypatch)
+    calls = iter([{**_POST2_CORRECTIONS___LOADS, "J": 0.9}, dict(_POST2_CORRECTIONS___LOADS)])
+    monkeypatch.setattr(corrections, "_loads_of", lambda *_args: next(calls))
+    with pytest.raises(CalibrationError, match="j_tolerance"):
+        _post2_corrections___call(workspace, j_tolerance=float("nan"))
