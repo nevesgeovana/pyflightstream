@@ -466,11 +466,23 @@ class SweepAxis(BaseModel):
                     f"run_id, so it is one of {', '.join(sorted(axes))}. A quantity the "
                     "case holds and does not vary belongs in its variables."
                 )
-        if self.type in self.held:
+        swept = ("alpha", "beta") if self.type == "alpha_beta" else (self.type,)
+        for name in swept:
+            if name in self.held:
+                raise CampaignConfigError(
+                    f"this sweep varies {name} and also HOLDS it at "
+                    f"{self.held[name]!r}: the same variable cannot both vary and be "
+                    "held. Drop it from held, or sweep the other one."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _values_not_empty(self) -> SweepAxis:
+        """Refuse a sweep with no values, as the matrix grammar refuses one."""
+        if not self.values:
             raise CampaignConfigError(
-                f"this sweep varies {self.type} and also HOLDS it at "
-                f"{self.held[self.type]!r}: the same variable cannot both vary and be "
-                "held. Drop it from held, or sweep the other one."
+                f"a {self.type} sweep holds no values, so it has no points. Write at least "
+                "one value, for example [0.0, 2.0, 4.0]."
             )
         return self
 
@@ -1387,15 +1399,18 @@ def check_recipe(reference: str, recipe: Callable) -> None:
         if parameter.kind
         in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD, Parameter.VAR_POSITIONAL)
     ]
-    if any(parameter.kind is Parameter.VAR_POSITIONAL for parameter in positional):
-        return
-    required = [parameter for parameter in positional if parameter.default is Parameter.empty]
+    has_varargs = any(parameter.kind is Parameter.VAR_POSITIONAL for parameter in positional)
+    required = [
+        parameter
+        for parameter in positional
+        if parameter.default is Parameter.empty and parameter.kind is not Parameter.VAR_POSITIONAL
+    ]
     unfillable = [
         parameter.name
         for parameter in parameters
         if parameter.kind is Parameter.KEYWORD_ONLY and parameter.default is Parameter.empty
     ]
-    if len(positional) >= 2 and len(required) <= 2 and not unfillable:
+    if (has_varargs or len(positional) >= 2) and len(required) <= 2 and not unfillable:
         return
     found = ", ".join(parameter.name for parameter in parameters) or "no arguments"
     raise CampaignConfigError(

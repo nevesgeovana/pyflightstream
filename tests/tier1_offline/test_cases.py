@@ -95,6 +95,7 @@ def loose_recipe(workdir):
         (lambda case, script, extra=None: None, True),
         (lambda workdir: None, False),  # the loose builder
         (lambda a, b, c: None, False),
+        (lambda a, b, c, *rest: None, False),  # varargs cannot fill a third required name
         (lambda **kwargs: None, False),
         (lambda case, script, *, tol: None, False),  # unfillable keyword
     ],
@@ -449,3 +450,49 @@ def test_f5_0102_f017_a_ccs_copy_vector_keeps_its_source_unit() -> None:
     assert _operation_unit(mm) == "MILLIMETER"  # type: ignore[arg-type]
     file_units = SimpleNamespace(mesh=None, ccs=SimpleNamespace(units="FILE"))
     assert _operation_unit(file_units) == "METER"  # type: ignore[arg-type]
+
+
+# --- F5-0304: the sweep refuses what the matrix grammar refuses ---------------
+
+
+def test_f5_0304_empty_sweep_is_refused():
+    """F-1293, PFS-2130.022: values = [] has no points and is refused."""
+    with pytest.raises(ValueError, match="holds no values"):
+        SweepAxis(type="alpha", values=[])
+
+
+@pytest.mark.parametrize("held", ["alpha", "beta"])
+def test_f5_0304_alpha_beta_sweep_refuses_a_held_angle(held):
+    """F-1294: a paired sweep varies both angles, so holding either is refused."""
+    with pytest.raises(ValueError, match="cannot both vary and be held"):
+        SweepAxis(type="alpha_beta", values=[(0.0, 1.0)], held={held: 3.0})
+
+
+@pytest.mark.requirement("FR-09")
+def test_f5_0304_fr09_a_campaign_is_typed_cases_with_identifier_build_and_executable():
+    """FR-09: typed cases carry an identifier; the campaign carries the build and executable."""
+    case = SimCase(
+        sim_id="wing-1",
+        aircraft="w",
+        sweep=SweepAxis(type="alpha", values=[0.0, 2.0]),
+        recipe="m:f",
+    )
+    campaign = Campaign(name="c", fs_version="26.124", fs_exe="C:/fs.exe", sims=[case])
+    assert campaign.sims[0].sim_id == "wing-1"
+    assert campaign.fs_version == "26.124"
+    assert campaign.fs_exe == "C:/fs.exe"
+    assert isinstance(campaign.sims[0], SimCase)
+    with pytest.raises(ValidationError, match="sim_id"):
+        SimCase(aircraft="w", sweep=SweepAxis(type="alpha", values=[0.0]), recipe="m:f")
+    with pytest.raises(ValidationError, match="fs_exe"):
+        Campaign(name="c", fs_version="26.124", sims=[case])
+    with pytest.raises(ValidationError, match="sims"):
+        Campaign(name="c", fs_version="26.124", fs_exe="C:/fs.exe", sims=["not a case"])
+
+
+@pytest.mark.requirement("FR-12")
+def test_f5_0304_fr12_a_protocol_recipe_resolves_to_the_imported_function():
+    """FR-12: the success path returns the very function the reference names."""
+    resolved = resolve_recipe("tests.tier1_offline.test_cases:protocol_recipe")
+    assert resolved is protocol_recipe
+    assert resolved(None, None) is None
