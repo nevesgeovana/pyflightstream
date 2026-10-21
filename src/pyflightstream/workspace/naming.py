@@ -231,7 +231,10 @@ def resolve_manifest(root: str | Path, runs: str | None = None) -> Path:
         )
     candidate = base / runs
     inside = Path(os.path.abspath(candidate)).parent == Path(os.path.abspath(base))
-    if Path(runs).drive or Path(runs).anchor or not inside:
+    # Read as a Windows path on every platform: C:x.json names a drive there, and a file
+    # name a Windows machine cannot open is not one this package should accept anywhere.
+    windows = PureWindowsPath(runs)
+    if windows.drive or windows.anchor or ":" in runs or not inside:
         raise RunsManifestError(
             f"the manifest name {runs!r} resolves outside the workspace root {base}; name a "
             "file directly in it"

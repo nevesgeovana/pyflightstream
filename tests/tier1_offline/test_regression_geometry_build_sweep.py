@@ -4345,3 +4345,26 @@ def test_f2_0809_a_drive_relative_output_name_is_refused(name):
     with pytest.raises(NamingTemplateError, match="drive"):
         template.render_output(name, campaign="camp", sim="1", point={"alpha": 0.0})
     assert template.render_output("sub/ok.txt", campaign="camp", sim="1", point={"alpha": 0.0})
+
+
+def test_f2_0809_a_drive_qualified_manifest_name_is_refused_on_every_platform(
+    tmp_path, monkeypatch
+):
+    """F-1533: C:x.json passes on a POSIX host unless the name is read as a Windows path."""
+    from pathlib import PurePosixPath
+
+    from pyflightstream.workspace import naming
+    from pyflightstream.workspace.naming import RunsManifestError, resolve_manifest
+
+    real_path = naming.Path
+
+    def as_on_posix(argument):
+        # The name under test is read as a POSIX host reads it; the workspace root stays real.
+        return PurePosixPath(argument) if argument in names else real_path(argument)
+
+    names = ("C:rebuilt.json", "d:runs.json")
+    monkeypatch.setattr(naming, "Path", as_on_posix)
+    for name in names:
+        with pytest.raises(RunsManifestError):
+            resolve_manifest(tmp_path, name)
+    assert resolve_manifest(tmp_path, "runs-rebuilt.json").name == "runs-rebuilt.json"
