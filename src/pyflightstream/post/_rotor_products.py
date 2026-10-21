@@ -1122,6 +1122,8 @@ def _point_series(
         skipped=split_skips,
         step=_last_time_step(record),
         pproc=pproc or recorded_pproc,
+        condition=condition,
+        reference=reference,
     )
     split_files, split_names = _contained(
         split_skips,

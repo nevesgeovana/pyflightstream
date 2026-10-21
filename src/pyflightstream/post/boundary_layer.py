@@ -14,10 +14,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-import pyflightstream._textio as _textio
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.post._tables import ProductError
+from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
+from pyflightstream.post._tables import ProductError, context_row, write_csv_table
 from pyflightstream.results import SurfaceSection, parse_surface_sections
 from pyflightstream.results.surface import (
     REFERENCE_FRAME,
@@ -262,8 +262,17 @@ def sample_boundary_layer(
     return BoundaryLayerSamples(tuple(rows), available, missing, distance)
 
 
-def write_boundary_layer_table(path: str | Path, samples: BoundaryLayerSamples) -> Path:
+def write_boundary_layer_table(
+    path: str | Path,
+    samples: BoundaryLayerSamples,
+    *,
+    pol: str,
+    context: Sequence[object] | None = None,
+) -> Path:
     """Write raw cell values with round-trip float precision and explicit NA fields.
+
+    The table opens with ``POL`` and the point's condition block, as every table the
+    post writes does, through the shared CSV writer.
 
     The caller applies its archive/overwrite policy before invoking this writer.
 
@@ -273,27 +282,37 @@ def write_boundary_layer_table(path: str | Path, samples: BoundaryLayerSamples) 
         The table to write.
     samples : BoundaryLayerSamples
         The samples of :func:`sample_boundary_layer`.
+    pol : str
+        The polar of the point, written in the first column of every row.
+    context : sequence of object, optional
+        The point's condition values, in the order of the condition columns;
+        ``NA`` for every one where not given.
 
     Returns
     -------
     Path
         The written table.
     """
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with _textio.open_text(target, "w") as handle:
-        writer = _textio.csv_writer(handle)
-        writer.writerow(BL_COLUMNS)
-        for row in samples.rows:
-            writer.writerow(
-                "NA"
-                if row[key] is None
-                else format(row[key], ".17g")
-                if isinstance(row[key], float)
-                else row[key]
-                for key in BL_COLUMNS
+    lead = tuple(context) if context is not None else context_row()
+    return write_csv_table(
+        Path(path),
+        (POLAR_ID_COLUMN, *CONTEXT_COLUMNS, *BL_COLUMNS),
+        [
+            (
+                pol,
+                *lead,
+                *(
+                    None
+                    if row[key] is None
+                    else format(row[key], ".17g")
+                    if isinstance(row[key], float)
+                    else row[key]
+                    for key in BL_COLUMNS
+                ),
             )
-    return target
+            for row in samples.rows
+        ],
+    )
 
 
 def _recorded_frame(record: RunRecord, index: object, step: int | None) -> SurfaceFrame:
@@ -362,6 +381,8 @@ def write_boundary_layer_products(
     skipped: dict[str, str],
     step: int | None,
     pproc: PprocSpec | None,
+    condition: Mapping[str, object] | None = None,
+    reference: Mapping[str, object] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write a final-state point product from its exact VTK and section exports.
 
@@ -388,6 +409,9 @@ def write_boundary_layer_products(
     pproc : PprocSpec or None
         The recorded post-processing specification; a point that declares no boundary-layer product
         writes nothing.
+    condition, reference : mapping, optional
+        The point's condition and reference values, written in the condition block
+        after ``POL``; ``NA`` where not given.
 
     Returns
     -------
@@ -472,7 +496,12 @@ def write_boundary_layer_products(
             section_frames=frames,
             section_normals=normals,
         )
-        path = write_boundary_layer_table(target(out / relative), sampled)
+        path = write_boundary_layer_table(
+            target(out / relative),
+            sampled,
+            pol=record.sim_id,
+            context=context_row(condition, reference),
+        )
     except (OSError, ValueError, KeyError, TypeError, PyflightstreamError) as error:
         skipped[relative] = f"boundary_layer_integrals unavailable: {error}"
         return [], {}
