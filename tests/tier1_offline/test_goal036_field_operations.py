@@ -744,3 +744,11 @@ def test_f334_vinf_that_is_not_a_speed_is_refused_before_anything_is_read(tmp_pa
     )
     assert code == 2
     assert "--vinf" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("stem", ["inflow.", "inflow~1", "a~2b"])
+def test_p0430_a_stem_that_windows_reads_as_another_file_is_refused(tmp_path, stem):
+    """X-F-1359: the stem check refuses the alias forms the HPC reader refuses."""
+    report = wfields.FluctuationReport(rows=(), steps=(1.0, 2.0), sources=())
+    with pytest.raises(WorkspaceError, match="output stem"):
+        wfields.write_fluctuation(tmp_path, stem, report, parameters={}, inputs=())

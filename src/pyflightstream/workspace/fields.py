@@ -61,7 +61,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pyflightstream._textio as _textio
-from pyflightstream._digest import file_sha256, text_sha256
+from pyflightstream._digest import aliased_name_fault, file_sha256, text_sha256
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.freestream import read_field_rows
 from pyflightstream.cases.workflows import FREESTREAM_DIR, FREESTREAM_FORMS
@@ -990,6 +990,7 @@ def _check_stem(stem: str) -> str:
         or any(ch in text for ch in '/\\:*?"<>|')
         or text.startswith(".")
         or Path(text).suffix.lower() in FREESTREAM_FORMS
+        or aliased_name_fault(text) is not None
     ):
         raise WorkspaceError(
             f"output stem {stem!r}: name the field by its stem, a plain file name with no "
