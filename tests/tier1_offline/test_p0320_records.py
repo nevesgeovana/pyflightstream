@@ -846,3 +846,14 @@ def test_pfs_2126_032_the_read_only_collect_is_a_write_policy_not_a_patch(tmp_pa
     assert isinstance(writes, collect_module.CollectWrites)
     assert writes.copy_native_log is not originals["_copy_native_log"]
     assert {key: after[key] for key in before} == before, "the rebuild changed a path"
+
+
+def test_f716_the_temporary_file_is_not_a_name_another_process_can_plant(tmp_path):
+    """F-716: a file at the predictable PID name is left alone, never written through."""
+    target = tmp_path / "runs.json"
+    planted = tmp_path / f"runs.json.{os.getpid()}.tmp"
+    planted.write_text("victim", encoding="utf-8")
+    record_files._replace_bytes(target, b"[]")
+    assert target.read_bytes() == b"[]"
+    assert planted.read_text(encoding="utf-8") == "victim"
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted([planted.name, "runs.json"])

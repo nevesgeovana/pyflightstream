@@ -20,6 +20,7 @@ import datetime as dt
 import os
 import re
 import shutil
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -121,11 +122,21 @@ def _now_stamp() -> str:
 
 
 def _replace_bytes(target: Path, payload: bytes) -> None:
-    """Write ``payload`` to ``target`` through a temporary file of this process."""
+    """Write ``payload`` to ``target`` through a temporary file created for this write.
+
+    F-716: the file is created exclusively under a name nobody can predict, so a link
+    planted at a guessable name cannot redirect the write onto another file.
+    """
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(f"{target.name}.{os.getpid()}.tmp")
-    temporary.write_bytes(payload)
-    temporary.replace(target)
+    descriptor, name = tempfile.mkstemp(dir=target.parent, prefix=f"{target.name}.", suffix=".tmp")
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+        temporary.replace(target)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _leases(base: Path, target: Path) -> contextlib.ExitStack:
