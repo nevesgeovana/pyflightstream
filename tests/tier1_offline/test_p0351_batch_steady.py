@@ -402,8 +402,11 @@ def test_p0351_steady_fr403_a_mixed_matrix_splits_by_kind(tmp_path):
         )
 
     mixed = [JobPolar("1", (point("1", False),)), JobPolar("2", (point("2", True),))]
-    with pytest.raises(CampaignConfigError, match="never both"):
+    with pytest.raises(CampaignConfigError, match="never both") as refused:
         assemble_job(mixed, kind="batch", version=BUILD, job_log=None, job_dir=tmp_path)
+    # FR-826: the refusal names the simulations of each kind
+    assert "steady simulation(s) ['2']" in str(refused.value)
+    assert "unsteady simulation(s) ['1']" in str(refused.value)
 
 
 def test_p0351_steady_fr403_what_stays_out_is_named(tmp_path):

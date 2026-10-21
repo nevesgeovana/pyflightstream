@@ -1068,10 +1068,16 @@ def _job_block(
     """Return the job's registration block: none for a steady job, refusing a mix (FR-403)."""
     kinds = {point.steady for polar in polars for point in polar.points}
     if len(kinds) > 1:
+        steady = sorted({polar.sim_id for polar in polars if any(p.steady for p in polar.points)})
+        unsteady = sorted(
+            {polar.sim_id for polar in polars if any(not p.steady for p in polar.points)}
+        )
         raise CampaignConfigError(
-            "a job holds steady polars or unsteady ones, never both: a steady point after an "
-            "unsteady one in one solver instance is not measured, and the plan splits the two "
-            "kinds into jobs of their own (FR-403); the job is not assembled."
+            f"a job holds steady polars or unsteady ones, never both, and this one holds "
+            f"steady simulation(s) {steady} with unsteady simulation(s) {unsteady}: a steady "
+            "point after an unsteady one in one solver instance is not measured, and the "
+            "plan splits the two kinds into jobs of their own (FR-403, FR-826); the job is "
+            "not assembled."
         )
     if kinds == {True}:
         return ""
