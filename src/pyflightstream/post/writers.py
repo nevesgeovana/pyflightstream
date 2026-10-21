@@ -36,6 +36,8 @@ able to tell which one the file means (FR-22c, FR-31).
 from __future__ import annotations
 
 import json
+import math
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -44,7 +46,7 @@ from pydantic import BaseModel, ConfigDict
 
 import pyflightstream._textio as _textio
 from pyflightstream._deprecations import removed_names_hook as _removed_names_hook
-from pyflightstream._errors import ProductError, PyflightstreamError
+from pyflightstream._errors import ProductError, ProductExistsError
 from pyflightstream.script.solver_setup import FLAG_SPECS, FlagRecord, SolverSetup
 
 __getattr__ = _removed_names_hook(__name__)
@@ -83,7 +85,7 @@ PROVENANCE_SCHEMA = "pyfs-output-provenance/1"
 PROVENANCE_SUFFIX = ".provenance.json"
 
 
-class OutputExistsError(PyflightstreamError, FileExistsError):
+class OutputExistsError(ProductExistsError, FileExistsError):
     """A flow-visualization file would be overwritten (PFS-2011.02).
 
     Both writers ended in an unconditional ``write_text``, so a second
@@ -103,6 +105,10 @@ class OutputExistsError(PyflightstreamError, FileExistsError):
     The evidence writers under ``qa`` raise the BUILTIN for the same
     situation, deliberately, because that predates the catalogue's reach;
     a new raise site takes the catalogued type.
+
+    It is also a :class:`~pyflightstream._errors.ProductExistsError`, the class the
+    product writers raise for the same situation, so one handler catches both
+    (the decision of PFS-2124.037: the two classes signal one condition).
     """
 
 
@@ -216,6 +222,20 @@ def provenance_path(destination: str | Path) -> Path:
     return destination.with_name(destination.name + PROVENANCE_SUFFIX)
 
 
+def _portable(value: object) -> object:
+    """Return ``value`` with every non-finite float as None, which JSON writes ``null``.
+
+    ``NaN`` and ``Infinity`` are not JSON: a strict reader refuses the whole record.
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _portable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_portable(item) for item in value]
+    return value
+
+
 def _provenance_payload(provenance: OutputProvenance, destination: Path) -> str:
     """Render the sidecar text for one written file."""
     payload = {
@@ -228,7 +248,7 @@ def _provenance_payload(provenance: OutputProvenance, destination: Path) -> str:
     }
     if provenance.sampling is not None:
         payload["sampling"] = provenance.sampling
-    return json.dumps(payload, indent=2, sort_keys=False) + "\n"
+    return json.dumps(_portable(payload), indent=2, sort_keys=False, allow_nan=False) + "\n"
 
 
 def _refuse_existing(destination: Path, overwrite: bool) -> None:
@@ -252,7 +272,8 @@ def write_output_pair(
 
     Both destinations are tested BEFORE either is written, so a refusal
     never leaves half a pair behind: a data file whose record belongs to
-    a different run is worse than no file at all.
+    a different run is worse than no file at all. The folders of both are
+    created after those checks, as every writer of this package does.
 
     Parameters
     ----------
@@ -281,6 +302,9 @@ def write_output_pair(
     # THE RECORD IS RENDERED BEFORE THE DATA IS WRITTEN: a record that cannot be serialized
     # must leave no data file behind, or the pair-or-neither promise is broken.
     payload = _provenance_payload(provenance, destination)
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    record.parent.mkdir(parents=True, exist_ok=True)
     _textio.write_text(destination, text)
     _textio.write_text(record, payload)
     return destination, record
@@ -290,12 +314,27 @@ def _fmt(value: float) -> str:
     return f"{value:.9e}"
 
 
+_TOKEN_REFUSED = re.compile(r'[\s"]')
+
+
+def _refuse_a_token(what: str, text: str, *, quotes: bool = True) -> None:
+    """Refuse a name or title the VTK and Tecplot grammars cannot carry as written."""
+    refused = _TOKEN_REFUSED if quotes else re.compile(r"[\r\n]")
+    if not text or refused.search(text):
+        raise ProductError(
+            f"{what} {text!r} cannot be written: a name is not empty and holds no "
+            "whitespace or double quote, which the format would read as the end of the "
+            "token"
+        )
+
+
 def _checked(points: np.ndarray, fields: Mapping[str, np.ndarray] | None):
     points = np.asarray(points, dtype=float)
     if points.ndim != 2 or points.shape[1] != 3:
         raise ValueError(f"points must have shape (n, 3), got {points.shape}")
     checked: dict[str, np.ndarray] = {}
     for name, values in (fields or {}).items():
+        _refuse_a_token("field name", str(name))
         array = np.asarray(values, dtype=float)
         if array.shape not in ((len(points),), (len(points), 3)):
             raise ValueError(
@@ -380,6 +419,7 @@ def write_vtk_points(
     'probes.vtk.provenance.json'
     """
     points, checked = _checked(points, fields)
+    _refuse_a_token("title", title, quotes=False)
     n = len(points)
     lines = [
         "# vtk DataFile Version 3.0",
@@ -463,6 +503,8 @@ def write_tecplot_points(
         If two variables would carry the same name. It is a ``ValueError`` too.
     """
     points, checked = _checked(points, fields)
+    _refuse_a_token("title", title.replace(" ", "_"))
+    _refuse_a_token("zone", zone.replace(" ", "_"))
     columns: list[tuple[str, np.ndarray]] = [
         ("X", points[:, 0]),
         ("Y", points[:, 1]),

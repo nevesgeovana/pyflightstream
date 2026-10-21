@@ -307,3 +307,53 @@ def test_overwrite_true_is_the_way_through_and_replaces_the_whole_pair(writer, s
         "overwrite=True replaced the data and kept the previous record, so the file "
         "is now described by the settings of a run that did not produce it"
     )
+
+
+def test_p0430_f3_a_field_name_the_grammar_cannot_carry_is_refused_before_writing(tmp_path):
+    """FR-2328 PFS-2130.045: whitespace or a quote in a name, title or zone writes nothing."""
+    from pyflightstream._errors import ProductError
+
+    for field in ("my cp", 'cp"', ""):
+        for writer, suffix in ((write_vtk_points, ".vtk"), (write_tecplot_points, ".dat")):
+            target = tmp_path / f"f{suffix}"
+            with pytest.raises(ProductError, match="field name"):
+                writer(target, POINTS, {field: np.array([1.0, 2.0])}, provenance=make_provenance())
+            assert not target.exists()
+    with pytest.raises(ProductError, match="title"):
+        write_tecplot_points(
+            tmp_path / "t.dat", POINTS, title='a "b"', provenance=make_provenance()
+        )
+    with pytest.raises(ProductError, match="zone"):
+        write_tecplot_points(tmp_path / "z.dat", POINTS, zone='z"', provenance=make_provenance())
+    assert not list(tmp_path.glob("*.dat"))
+
+
+def test_p0430_f3_the_probe_writers_create_the_destination_folder(tmp_path):
+    """PFS-2119.038: the folder is created after the refusal checks, like every sibling writer."""
+    out, record = write_vtk_points(
+        tmp_path / "new" / "deeper" / "p.vtk", POINTS, provenance=make_provenance()
+    )
+    assert out.is_file() and record.is_file()
+
+
+def test_p0430_f3_sampling_provenance_with_nan_is_portable_json(tmp_path):
+    """F-1249: NaN and Infinity are written null, so a strict JSON reader reads the record."""
+    provenance = make_provenance().model_copy(
+        update={"sampling": {"spacing": float("nan"), "reach": [float("inf"), 1.0]}}
+    )
+    _, record = write_vtk_points(tmp_path / "p.vtk", POINTS, provenance=provenance)
+
+    def strict(token):
+        raise ValueError(token)
+
+    loaded = json.loads(record.read_text(encoding="utf-8"), parse_constant=strict)
+    assert loaded["sampling"] == {"spacing": None, "reach": [None, 1.0]}
+
+
+def test_p0430_f3_one_handler_catches_both_destination_exists_errors():
+    """PFS-2124.037: OutputExistsError is a ProductExistsError and still a FileExistsError."""
+    from pyflightstream._errors import ProductExistsError
+    from pyflightstream.post.writers import OutputExistsError
+
+    assert issubclass(OutputExistsError, ProductExistsError)
+    assert issubclass(OutputExistsError, FileExistsError)
