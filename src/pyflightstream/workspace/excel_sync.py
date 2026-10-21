@@ -155,8 +155,17 @@ def _matrix_path(workspace: Path, name: str, direction: str) -> Path:
     name held in both homes is refused, since writing one would leave the
     other stale. Different bytes in both homes are refused either way.
     """
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_. -]*\.fs", name) or ".." in name:
-        raise ExcelSyncError(f"MATRIX {name!r}: use an .fs filename, without directories or '..'.")
+    if not re.fullmatch(r"[^\W_][\w. -]*\.fs", name) or ".." in name:
+        if not name.endswith(".fs") or "/" in name or "\\" in name or ".." in name:
+            raise ExcelSyncError(
+                f"MATRIX {name!r}: use an .fs filename, without directories or '..'."
+            )
+        odd = sorted({ch for ch in name if not (ch.isalnum() or ch in "_. -")})
+        shown = ", ".join(map(repr, odd)) or "its first character"
+        raise ExcelSyncError(
+            f"MATRIX {name!r}: a matrix file name holds letters, digits, '_', '.', '-' and "
+            f"spaces, and starts with a letter or digit; {shown} is not allowed."
+        )
     from pyflightstream.workspace import WorkspaceError
     from pyflightstream.workspace._matrix_homes import matrix_path, matrix_to_write
 
