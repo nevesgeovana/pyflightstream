@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -979,12 +980,29 @@ def write_setup_library(
     result: dict[str, str] = {}
     for name, body in payloads.items():
         path = destination / name
+        # Whole or not at all: the body is written to a sibling and linked into place, which
+        # fails if the file exists, so an interrupted write never leaves a truncated file that
+        # a later call would report as preserved.
+        partial = path.with_name(f".{name}.{os.getpid()}.tmp")
         try:
-            with _textio.open_text(path, "x") as stream:
+            with _textio.open_text(partial, "x") as stream:
                 stream.write(body)
-            result[name] = "created"
-        except FileExistsError:
-            # Bytes, not text: a user's file in another encoding is preserved, not decoded.
-            same = path.read_bytes() == body.encode("utf-8")
-            result[name] = "unchanged" if same else "preserved"
+            try:
+                os.link(partial, path)
+                result[name] = "created"
+            except FileExistsError:
+                # Bytes, not text: a user's file in another encoding is preserved, not decoded.
+                same = path.read_bytes() == body.encode("utf-8")
+                result[name] = "unchanged" if same else "preserved"
+            except OSError:
+                # A file system without hard links: exclusive creation in place.
+                try:
+                    with _textio.open_text(path, "x") as stream:
+                        stream.write(body)
+                    result[name] = "created"
+                except FileExistsError:
+                    same = path.read_bytes() == body.encode("utf-8")
+                    result[name] = "unchanged" if same else "preserved"
+        finally:
+            partial.unlink(missing_ok=True)
     return result

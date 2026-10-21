@@ -155,3 +155,34 @@ def test_f1540_presets_do_not_share_nested_settings():
     assert second["s945"].settings["stratford_bulk_separation"][0]["boundaries"] == ["Body"]
     assert second["s907"].settings["airfoil_separation"][0]["boundaries"] == ["Wing"]
     assert second["s948"].settings["valarezo_separation_boundaries"] == ["Wing"]
+
+
+def test_x_f_0594_an_interrupted_write_leaves_no_truncated_setup_file(tmp_path, monkeypatch):
+    """A write that stops half way leaves no file that a later call would call preserved."""
+    from pyflightstream.workspace import setup_standards as module
+
+    real = module._textio.open_text
+
+    class Torn:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.stream.close()
+
+        def write(self, text):
+            self.stream.write(text[: len(text) // 2])
+            raise OSError("disk full")
+
+    monkeypatch.setattr(module._textio, "open_text", lambda *a, **k: Torn(real(*a, **k)))
+    with pytest.raises(OSError, match="disk full"):
+        write_setup_library(tmp_path, fs_version="26.124", guidelines=True)
+    monkeypatch.undo()
+    folder = tmp_path / "inputs" / "setups"
+    assert not (folder / "SETUP_GUIDELINES.md").exists()
+    assert not list(folder.glob(".*.tmp"))
+    again = write_setup_library(tmp_path, fs_version="26.124", guidelines=True)
+    assert again == {"SETUP_GUIDELINES.md": "created"}
