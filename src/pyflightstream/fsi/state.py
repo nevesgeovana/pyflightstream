@@ -311,6 +311,20 @@ def load_state(path: str | Path) -> FsiState:
     return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8-sig"))
 
 
+def _revolution_shape_problems(state: FsiState, blade_count: int) -> list[str]:
+    """Name per-blade tip arrays that cannot belong to the resumed configuration."""
+    problems = []
+    for sample in state.revolution_history:
+        for field in ("tip_twist_deg", "tip_flap_m"):
+            count = len(getattr(sample, field))
+            if count != blade_count:
+                problems.append(
+                    f"revolution_history revolution {sample.revolution} {field} holds "
+                    f"{count} blade(s) but the configuration declares {blade_count}"
+                )
+    return problems
+
+
 def check_state_matches_config(
     state: FsiState,
     *,
@@ -404,6 +418,7 @@ def check_state_matches_config(
     # belongs with the layout verification that already reads the node map,
     # and not having it here is a gap rather than a decision.
     check("previous_twist_rad", state.previous_twist_rad)
+    problems.extend(_revolution_shape_problems(state, blade_count))
     for record in state.recorded_twist:
         check(f"recorded_twist step {record.step}", record.elastic_twist_rad)
     for sample in state.load_history:

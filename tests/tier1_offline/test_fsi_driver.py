@@ -44,6 +44,18 @@ def test_p0430_f6_04_revolutions_must_be_representable(omega, dt):
         driver.revolutions_per_step(omega, dt)
 
 
+@pytest.mark.parametrize("field", ["tip_twist_deg", "tip_flap_m"])
+def test_p0430_f6_04_resume_checks_revolution_blade_count(field):
+    from pyflightstream.fsi.state import RevolutionSample, check_state_matches_config
+
+    sample = {"revolution": 1, "tip_twist_deg": [0.0], "tip_flap_m": [0.0]}
+    sample[field] = [0.0, 0.0]
+    state = initial_state()
+    state.revolution_history = [RevolutionSample.model_validate(sample)]
+    with pytest.raises(FsiInputError, match=field):
+        check_state_matches_config(state, blade_count=1, station_count=3)
+
+
 CALL2 = (FIXTURES / "FS_SurfaceSection_Loads_call0002.txt").read_text(encoding="utf-8")
 # A second REAL export from the same run. Integrated over the printed
 # offsets, the raw Fz column gives 665.1 N against call0002's 801.7 N.
