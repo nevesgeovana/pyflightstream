@@ -974,6 +974,25 @@ class TestGapsRtFsiext:
         assert external_step(folder) == 1
 
 
+def test_p0430_f6_04_external_archives_invalid_encoding(tmp_path):
+    import hashlib
+
+    folder = _gaps_rt_fsiext___point(tmp_path)
+    program = folder / "stand_in.py"
+    program.write_text(
+        "from pathlib import Path\nPath('FSIDisp.txt').write_bytes('0,0,0'.encode('utf-16'))\n",
+        encoding="utf-8",
+    )
+    manifest_path = folder / EXTERNAL_MANIFEST
+    manifest = json.loads(manifest_path.read_text())
+    manifest["inputs_sha256"]["stand_in.py"] = hashlib.sha256(program.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    assert external_step(folder) == 1
+    record = json.loads((folder / "fsi_archive/call_0001/call.json").read_text())
+    assert record["verdict"] == "failed"
+    assert "UTF-8" in record["reason"]
+
+
 class TestIntegfixFsi:
     """Tier 1, 0.40.0 integration fixes of the FSI lane."""
 

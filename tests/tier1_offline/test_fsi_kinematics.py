@@ -19,6 +19,25 @@ from tests.tier1_offline.conftest import make_uniform_blade_config
 FIXTURES = Path(__file__).parent / "fixtures" / "fsi"
 
 
+@pytest.mark.parametrize("token", ["nan", "inf", "-inf"])
+def test_p0430_f6_04_displacements_must_be_finite(tmp_path, token):
+    from pyflightstream.fsi.errors import FsiInputError
+
+    path = tmp_path / "FSIDisp.txt"
+    path.write_text(f"0,{token},0\n", encoding="utf-8")
+    with pytest.raises(FsiInputError, match="finite"):
+        nodes.read_fsidisp(path)
+
+
+def test_p0430_f6_04_displacements_require_utf8(tmp_path):
+    from pyflightstream.fsi.errors import FsiInputError
+
+    path = tmp_path / "FSIDisp.txt"
+    path.write_bytes("0,0,0\n".encode("utf-16"))
+    with pytest.raises(FsiInputError, match="UTF-8"):
+        nodes.read_fsidisp(path)
+
+
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
 def test_p0430_f6_04_node_offsets_must_be_finite(value):
     from pydantic import ValidationError

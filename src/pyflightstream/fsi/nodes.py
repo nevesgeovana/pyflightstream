@@ -1096,11 +1096,18 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
     Raises
     ------
     FsiInputError
-        If a line does not hold three values, a field is empty or not a number, or
+        If the file is not UTF-8, a line does not hold three values, a field is
+        empty, not a number or not finite, or
         ``expected_rows`` is given and the row count differs.
     """
     rows = []
-    for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise FsiInputError(
+            f"{path}: displacement rows must be UTF-8 text; save the file as UTF-8"
+        ) from exc
+    for line_number, line in enumerate(text.splitlines(), 1):
         if not line.strip():
             continue
         # PYFS-009. Dropping empty cells BEFORE counting them made the count
@@ -1129,12 +1136,19 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
                 "displacement to the wrong axis"
             )
         try:
-            rows.append([float(cell) for cell in cells])
+            row = [float(cell) for cell in cells]
         except ValueError as exc:
             raise FsiInputError(
                 f"FSIDisp line {line_number} of {Path(path).name} holds a value that is not a "
                 f"number ({line.strip()!r}); every field is one of dx, dy, dz in metres"
             ) from exc
+        if not np.all(np.isfinite(row)):
+            raise FsiInputError(
+                f"FSIDisp line {line_number} of {Path(path).name} "
+                "holds a value that is not finite; "
+                "supply finite dx, dy, dz translations in metres"
+            )
+        rows.append(row)
     if expected_rows is not None and len(rows) != expected_rows:
         raise FsiInputError(
             f"FSIDisp holds {len(rows)} rows but the node map orders "
