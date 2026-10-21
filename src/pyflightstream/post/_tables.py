@@ -1080,25 +1080,32 @@ def _join(before: _History, after: _PlotsExport) -> tuple[_History, str] | None:
     """
     rows, values, steps = before
     last, first = int(steps[-1]), int(after.steps[0])
+    if first > last + 1:
+        return None  # steps are missing at the seam: no step may be missing there
     if first > last:
-        gap = "" if first == last + 1 else f" (steps {last + 1} to {first - 1} in neither)"
         stacked = np.vstack([values, after.values])
         return (rows + after.rows, stacked, np.concatenate([steps, after.steps])), (
-            f"numbered on from step {first}{gap}"
+            f"numbered on from step {first}"
         )
     where = {int(step): index for index, step in enumerate(steps)}
     shared = [
         (index, where.get(int(step))) for index, step in enumerate(after.steps) if step <= last
     ]
     if all(
-        mine is not None and np.allclose(after.values[index], values[mine], rtol=1e-6, atol=1e-12)
+        mine is not None
+        and np.allclose(after.values[index], values[mine], rtol=1e-6, atol=1e-12, equal_nan=True)
         for index, mine in shared
     ):
         keep = int(np.searchsorted(steps, first))
-        stacked = np.vstack([values[:keep], after.values])
-        return (rows[:keep] + after.rows, stacked, np.concatenate([steps[:keep], after.steps])), (
-            f"restating the march from step {first}"
-        )
+        # A restatement that ends before the history does leaves the later
+        # steps in place: they are the march's, and so is its end.
+        rest = int(np.searchsorted(steps, int(after.steps[-1]), side="right"))
+        stacked = np.vstack([values[:keep], after.values, values[rest:]])
+        return (
+            rows[:keep] + after.rows + rows[rest:],
+            stacked,
+            np.concatenate([steps[:keep], after.steps, steps[rest:]]),
+        ), f"restating the march from step {first}"
     if first != 1:
         return None
     columns = list(after.columns)
