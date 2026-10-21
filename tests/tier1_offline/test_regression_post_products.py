@@ -894,7 +894,7 @@ class TestPost2Unsteady:
     )
     def test_p0400_frames_passages_of_unequal_phases_are_refused(steps):
         """P0400-FRAMES: a stride that does not divide the passage, or uneven frames, is refused."""
-        with pytest.raises(MalformedOutputError, match="different phases"):
+        with pytest.raises(ProductError, match="different phases"):
             passage_windows(_post2_unsteady___series(steps), period_steps=4)
 
     @staticmethod
@@ -2356,3 +2356,34 @@ def test_p0430_f3_disc_maps_skip_a_rotor_in_two_planes(tmp_path):
         columns, rows, {"PROP": _f3_rotor("PROP")}, sample_column="STEP"
     )
     assert not result.maps and "multiple planes" in result.skipped["#rotor=PROP"]
+
+
+def test_p0430_f3_the_boundary_layer_table_opens_with_pol_and_the_condition_block(tmp_path):
+    """X-F-1631: the table is written by the shared writer, POL first, no SECTION first."""
+    from pyflightstream._tokens import CONTEXT_COLUMNS, POLAR_ID_COLUMN
+    from pyflightstream.post.boundary_layer import (
+        BL_COLUMNS,
+        BoundaryLayerSamples,
+        write_boundary_layer_table,
+    )
+
+    row = {name: None for name in BL_COLUMNS}
+    row.update(SECTION=1, CUT_POINT=0, CELL_ID=7, INCIDENT_CELLS=1, X=0.5, Y=0.0, Z=0.0)
+    samples = BoundaryLayerSamples((row,), (), (), 1e-6)
+    path = write_boundary_layer_table(tmp_path / "bl.csv", samples, pol="3207")
+    header, (cells,) = read_csv_table(path)
+    assert header == (POLAR_ID_COLUMN, *CONTEXT_COLUMNS, *BL_COLUMNS)
+    assert cells[POLAR_ID_COLUMN] == "3207" and cells["SECTION"] == "1"
+    assert cells["BL_Thickness"] == "NA"
+
+
+def test_p0430_f3_the_equation_order_is_derived_when_none_is_given():
+    """PFS-2130.040: an equation naming another is evaluated after it, with no order stated."""
+    from pyflightstream.cases import EquationSpec as Equation
+    from pyflightstream.post.unsteady_polar import _dependency_order
+
+    equations = {
+        "B": Equation(expression="A * 2", meshes_alias="P", frame=None),
+        "A": Equation(expression="CT * 2", meshes_alias="P", frame=None),
+    }
+    assert _dependency_order(equations) == ["A", "B"]

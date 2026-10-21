@@ -122,6 +122,36 @@ def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     return f"P{sim_id}_{name}_uns_avg.csv"
 
 
+def _dependency_order(equations: Mapping[str, object]) -> list[str]:
+    """Return the equations ordered so each follows every equation it names.
+
+    The order :meth:`pyflightstream.cases.PprocSpec.equation_order` gives, derived
+    here from the equations alone when the caller states none; ties keep
+    declaration order. A circular set is returned in declaration order, which
+    the evaluation then refuses by name.
+    """
+    names = list(equations)
+    depends = {
+        name: [
+            token
+            for token in getattr(equations[name], "symbols", lambda: [])()
+            if token in equations
+        ]
+        for name in names
+    }
+    order: list[str] = []
+    while len(order) < len(names):
+        ready = [
+            name
+            for name in names
+            if name not in order and all(dep in order for dep in depends[name])
+        ]
+        if not ready:
+            return names
+        order.extend(ready)
+    return order
+
+
 def write_unsteady_polar(
     path: str | Path,
     *,
@@ -433,7 +463,9 @@ def write_unsteady_polar(
             derived_columns, derived = apply_equations(
                 [dict(zip(header, cells, strict=True)) for cells in table],
                 equations,
-                list(equation_order if equation_order is not None else equations),
+                list(
+                    equation_order if equation_order is not None else _dependency_order(equations)
+                ),
                 columns=header,
                 where=f"{POLARS_DIR}/{path.name}",
                 notes=equation_notes,
