@@ -1064,27 +1064,43 @@ def _clocking_exports(
     relatives: Mapping[int, str],
     skipped: dict[str, str],
 ) -> dict[Path, int]:
-    """Append a wheel's further clocking exports to ``files``; return the clocking of each."""
+    """Drop a missing clocking-zero candidate, append surviving clockings and identify each."""
     clocking_of: dict[Path, int] = {}
     if wheel is None or not files:
         return clocking_of
     own = files[0][1]
+    folder = own.parent
+    missing: dict[str, str] = {}
+    if not own.is_file():
+        files.pop(0)
+        for relative in relatives.values():
+            missing[f"{relative}#clocking=0"] = f"no {stem}_{kind} export of clocking 0"
     for position in wheel.positions:
         clocking = position.index
         if clocking == 0:
             continue
         name = clocking_section_export(position, _RECORDED_KIND[kind])
-        export = None if name is None else own.parent / Path(name).name
+        export = None if name is None else folder / Path(name).name
         if export is None or not export.is_file():
             for relative in relatives.values():
-                skipped[f"{relative}#clocking={clocking}"] = (
+                missing[f"{relative}#clocking={clocking}"] = (
                     f"no {stem}_{kind} export of clocking {clocking}"
                     + ("" if export is None else f": {export.name} is not on disk")
                 )
             continue
         files.append((step, export))
         clocking_of[export] = clocking
+    if files:
+        skipped.update(missing)
     return clocking_of
+
+
+def _end_distribution_export(sim_dir: Path, record: RunRecord, stem: str, kind: str) -> Path:
+    """Locate the declared end export even when the file itself is missing."""
+    return next(
+        (sim_dir / o for o in record.outputs if Path(o).name == f"{stem}_{kind}.txt"),
+        sim_dir / f"{stem}_{kind}.txt",
+    )
 
 
 def write_section_distributions(
@@ -1296,11 +1312,8 @@ def write_section_distributions(
                             f"missing {stem}_{kind}_iteration={missing}.txt"
                         )
         else:
-            end = next(
-                (sim_dir / o for o in record.outputs if Path(o).name == f"{stem}_{kind}.txt"),
-                sim_dir / f"{stem}_{kind}.txt",
-            )
-            files = [(step, end)] if end.is_file() else []
+            end = _end_distribution_export(sim_dir, record, stem, kind)
+            files = [(step, end)] if end.is_file() or wheel is not None else []
         # A WHEEL'S FURTHER CLOCKINGS, named by the point's record, after
         # clocking 0 and in their order; the clocking each file is of.
         clocking_of = _clocking_exports(

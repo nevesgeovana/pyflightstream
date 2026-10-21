@@ -398,6 +398,31 @@ def _record(rpm: float) -> arithmetic.QsteadyRecord:
     )
 
 
+@pytest.mark.parametrize((), [pytest.param(id="P0430-F-785")])
+def test_p0430_missing_clocking_zero_keeps_surviving_exports(tmp_path, monkeypatch):
+    from pyflightstream.post.section_distributions import write_section_distributions
+
+    workspace, _ = _campaign(tmp_path, monkeypatch)
+    sim = workspace.sim_dir("7001")
+    (sim / "DP_sloads.txt").unlink()
+    (sim / "DP_cp.txt").unlink()
+    skipped = {}
+    written, _ = write_section_distributions(
+        sim_dir=sim,
+        record=workspace.read_manifest()[0],
+        stem="DP",
+        out=tmp_path / "reposted",
+        target=lambda path: path,
+        skipped=skipped,
+        step=None,
+    )
+    assert len(written) == 4
+    for path in written:
+        _, rows = read_csv_table(path)
+        assert {row["CLOCKING"] for row in rows} == {"1", "2"}
+    assert any("clocking=0" in key for key in skipped)
+
+
 def _tabled(path: Path, text: str) -> Path | None:
     return write_sections_table(path, text, mach=0.1, layout=_LAYOUT, pol="9001")
 
