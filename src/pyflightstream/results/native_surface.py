@@ -192,6 +192,12 @@ def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSu
         raise IncompleteOutputError(
             "Native Tecplot ends before the payload required by its declared counts"
         )
+    if 3 * elements > 2 * faces:
+        raise MalformedOutputError(
+            f"Native Tecplot declares {elements} ELEMENTS for {faces} FACES: a polygon "
+            "needs at least three faces and a face bounds at most two polygons, so the "
+            "counts contradict each other"
+        )
     cell_variables = _cell_centered_variables(zone, len(names))
     for key in ("X", "Y", "Z", _STRENGTH):
         if names.index(key) + 1 in cell_variables:
@@ -357,8 +363,9 @@ def native_match_tolerance(points: np.ndarray, *, printed_digits: int | None = N
     A native far from the origin also carries the rounding of its own
     printing. When the caller states ``printed_digits``, the significant
     digits the native was printed at (:func:`native_printed_digits`), a fourth
-    term joins: half a unit of the last printed digit, ``0.5 * 10**(1 -
-    printed_digits)`` of the magnitude, plus half a single-precision spacing.
+    term joins: half a unit of the last printed digit of the largest coordinate,
+    ``0.5 * 10**(e + 1 - printed_digits)`` with ``e`` the decade of that
+    magnitude, plus half a single-precision spacing.
     Absent, the rule is the one it always was, and a native printed at full
     precision (the measured 26.124 export prints sixteen digits) adds nothing.
 
@@ -392,8 +399,12 @@ def native_match_tolerance(points: np.ndarray, *, printed_digits: int | None = N
             raise MalformedOutputError(
                 f"Printed significant digits must be at least 1, got {printed_digits}"
             )
-        relative = 0.5 * 10.0 ** (1 - printed_digits) + 0.5 * float(np.finfo(np.float32).eps)
-        rounding = np.maximum(rounding, relative * magnitude)
+        with np.errstate(divide="ignore"):
+            decade = np.where(magnitude > 0.0, np.floor(np.log10(magnitude)), 0.0)
+        half_unit = 0.5 * 10.0 ** (decade + 1 - printed_digits)
+        rounding = np.maximum(
+            rounding, half_unit + 0.5 * float(np.finfo(np.float32).eps) * magnitude
+        )
     return np.maximum(max(1e-10, extent * 1e-6), rounding)
 
 
@@ -435,21 +446,37 @@ def native_printed_digits(source: str | Path) -> int | None:
     """
     try:
         with Path(source).open(encoding="utf-8-sig") as stream:
-            nodes = 0
+            header: list[str] = []
+            zone = ""
             for line in stream:
-                found = re.search(r"NODES\s*=\s*(\d+)", line, re.IGNORECASE)
-                if line.lstrip().upper().startswith("ZONE ") and found:
-                    nodes = int(found.group(1))
+                if line.lstrip().upper().startswith("ZONE "):
+                    zone = line.strip()
                     break
-            if not nodes:
+                header.append(line)
+            if not zone or "VARIABLES" not in "".join(header).upper():
                 return None
-            best, seen = 0, 0
+            names = _variable_names("".join(header))
+            nodes = _count(zone, "NODES")
+            cell_variables = _cell_centered_variables(zone, len(names))
+            if not {"X", "Y", "Z"}.issubset(names):
+                return None
+            last = max(names.index(key) for key in ("X", "Y", "Z"))
+            elements = _count(zone, "ELEMENTS") if cell_variables else nodes
+            lengths = [
+                elements if index in cell_variables else nodes for index in range(1, last + 2)
+            ]
+            best = 0
+            block, left = 0, lengths[0]
             for line in stream:
                 for token in line.split():
-                    best = max(best, _significant_digits(token))
-                    seen += 1
-                    if seen >= 3 * nodes:
-                        return best if best >= _MIN_PRINTED_DIGITS else None
+                    if names[block] in ("X", "Y", "Z"):
+                        best = max(best, _significant_digits(token))
+                    left -= 1
+                    while left == 0:
+                        block += 1
+                        if block > last:
+                            return best if best >= _MIN_PRINTED_DIGITS else None
+                        left = lengths[block]
     except (OSError, ValueError):
         return None
     return None

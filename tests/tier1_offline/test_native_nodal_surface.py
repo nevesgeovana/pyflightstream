@@ -702,3 +702,45 @@ def test_measured_native_export_truncation_is_incomplete(tmp_path, cut):
     incomplete.write_bytes(data[: limits[cut]])
     with pytest.raises(IncompleteOutputError, match="Native Tecplot ends"):
         read_native_tecplot_surface(incomplete)
+
+
+def test_f7_0203_declared_elements_are_bounded_by_the_declared_faces(tmp_path):
+    """F-712: a ELEMENTS count the declared FACES cannot bound is refused before any allocation."""
+    from pyflightstream.results.native_surface import read_native_tecplot_surface
+
+    path = _native(tmp_path / "native.dat")
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("ELEMENTS=1", "ELEMENTS=50"),
+        encoding="utf-8",
+    )
+    with pytest.raises(MalformedOutputError, match="declares 50 ELEMENTS for 4 FACES"):
+        read_native_tecplot_surface(path)
+
+
+def test_f7_0203_the_printed_digits_come_from_the_xyz_blocks_by_name(tmp_path):
+    """F-248: strength printed at sixteen digits ahead of coordinates at five states five."""
+    from pyflightstream.results.native_surface import native_printed_digits
+
+    path = tmp_path / "named.dat"
+    path.write_text(
+        'TITLE="Native"\nVARIABLES="Singularity_strength","X","Y","Z"\n'
+        "ZONE T=Solver, NODES=4, ELEMENTS=1, FACES=4, DATAPACKING=BLOCK, "
+        "ZONETYPE=FEPolygon, NumConnectedBoundaryFaces=0, TotalNumBoundaryConnections=0\n"
+        "3.1415926535898E+01 1.0000000000000E+01 4.0000000000000E+01 2.0000000000000E+01\n"
+        "1.2345E+05 1.0000E+05 1.2346E+05 1.0001E+05\n"
+        "1.1111E+05 1.0000E+05 1.0000E+05 1.2222E+05\n"
+        "1.0000E+05 1.0000E+05 1.0000E+05 1.0000E+05\n"
+        "2 4 4 1 1 3 3 2\n1 1 1 1\n0 0 0 0\n",
+        encoding="utf-8",
+    )
+    assert native_printed_digits(path) == 5
+
+
+def test_f7_0203_the_printing_allowance_is_half_a_unit_of_the_last_printed_digit():
+    """F-247: at 9.9e4 and five digits the allowance is 0.5, not the 5 of a decade up."""
+    from pyflightstream.results.native_surface import native_match_tolerance
+
+    points = np.array([[99000.0, 0.0, 0.0], [98000.0, 1.0, 1.0], [99500.0, 2.0, 0.0]])
+    limits = native_match_tolerance(points, printed_digits=5)
+    eps32 = float(np.finfo(np.float32).eps)
+    assert limits[0] == pytest.approx(0.5 + 0.5 * eps32 * 99500.0, rel=1e-6)
