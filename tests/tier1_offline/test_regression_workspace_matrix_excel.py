@@ -463,3 +463,16 @@ def test_x_f_1743_the_module_docstring_names_no_script_import_the_module_lacks()
     if not script_imports:
         assert "imports no module of the script layer" in doc
         assert "THE SCRIPT IMPORT" not in doc
+
+
+def test_x_f_0433_a_folder_named_with_a_superscript_digit_does_not_stop_the_renumbering(tmp_path):
+    """sims/sim_<id> with a superscript digit passed isdigit and int() raised ValueError."""
+    workspace = _workspace_1_matrix___workspace(tmp_path)
+    matrix = _workspace_1_matrix___matrix(
+        workspace.root,
+        "planned.fs",
+        [_workspace_1_matrix__row(8001), _workspace_1_matrix__row(8001, run=0)],
+    )
+    (workspace.root / "sims" / "sim_²").mkdir(parents=True)
+    changes = renumber_repeated_pols(matrix, workspace)
+    assert [change.old for change in changes] == ["8001"]

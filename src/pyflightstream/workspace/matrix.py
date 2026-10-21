@@ -500,7 +500,8 @@ def renumber_repeated_pols(
         *(record.sim_id for record in records),
         *folders,
     ]
-    ceiling = max((int(pol) for pol in every if str(pol).isdigit()), default=0)
+    # isdecimal, not isdigit: a superscript digit passes isdigit and int() then raises.
+    ceiling = max((int(pol) for pol in every if str(pol).isdecimal()), default=0)
     stem = matrix.stem
     seen: set[str] = set()
     changes: list[PolChange] = []
