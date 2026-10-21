@@ -125,6 +125,18 @@ def test_p0390_collect_one_reading_of_a_script_serves_workspace_and_run():
     assert declared_log_names(kept, None) == ["a_log.txt"]
 
 
+def test_c_srs_s09_037_a_present_non_list_declared_logs_never_falls_back_to_the_script(tmp_path):
+    """C-SRS-S09-037 (FR-867): the field is exclusive when present, whatever its type."""
+    (tmp_path / "s.txt").write_text("EXPORT_LOG\nC:\\job\\P1_log.txt\n", encoding="utf-8")
+    for value in ("a_log.txt", {"a": 1}, 7):
+        record = RunRecord.model_construct(
+            run_id="r", submission={"declared_logs": value}, script_path="s.txt"
+        )
+        assert declared_log_names(record, tmp_path) == [], value
+    absent = RunRecord.model_construct(run_id="r", submission={}, script_path="s.txt")
+    assert declared_log_names(absent, tmp_path) == ["P1_log.txt"]
+
+
 @pytest.mark.parametrize(
     ("field", "read"),
     [([], False), (["field_log.txt"], False), (["log_AL+000.h5"], True)],

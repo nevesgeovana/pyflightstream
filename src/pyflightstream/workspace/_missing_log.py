@@ -109,11 +109,16 @@ def declared_log_names(record: RunRecord, sim_dir: Path | None) -> list[str]:
     A record that carries the field keeps the field's names. A record without
     it is read from the job's own script on
     disk, ``sim_dir / script_path``. Empty when there is neither the field nor
-    a readable script, which is a point with no declared log.
+    a readable script, which is a point with no declared log. The field is
+    exclusive when it is present: a present value that is not a list names no
+    log and never falls back to the script.
     """
-    recorded = (record.submission or {}).get("declared_logs")
+    submission = record.submission or {}
+    recorded = submission.get("declared_logs")
     if isinstance(recorded, list | tuple):
         return [str(name) for name in recorded]
+    if "declared_logs" in submission and recorded is not None:
+        return []
     if sim_dir is None or not record.script_path:
         return []
     try:
