@@ -200,7 +200,7 @@ def mark_runs_failed(
     workspace : CampaignWorkspace
         Workspace whose current manifest is updated under its own lease.
     run_ids : sequence of str
-        Run identities to mark; absent and already marked runs are left alone.
+        Run identities to mark; already marked runs are left alone.
     reason : str, optional
         Explanation recorded with the previous status and timestamp.
     discarded_by : str, optional
@@ -211,10 +211,23 @@ def mark_runs_failed(
     list of RunRecord
         The updated records. Each identity keeps one current manifest row,
         as with ``mark_failed``; its previous row remains in the archive.
+
+    Raises
+    ------
+    RecordsError
+        When a run id names no record; the message names every such id and
+        nothing is marked.
     """
     chosen = set(run_ids)
     with manifest_lock(workspace.root, workspace.manifest_path):
         rows = workspace.read_raw_manifest()
+        known = {row.get("run_id") for row in rows if row.get("deleted_sim") is None}
+        if absent := sorted(str(run_id) for run_id in chosen - known):
+            # PFS-2126.033: as mark_failed refuses a simulation it does not know.
+            raise RecordsError(
+                f"mark failed: no record has the run id(s) {', '.join(absent)} in "
+                f"{workspace.manifest_path.name}; nothing was marked."
+            )
         todo = [
             row
             for row in rows

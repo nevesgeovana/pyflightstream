@@ -237,3 +237,15 @@ def test_mutant_leaving_the_status_turns_the_check_red_fr_309(tmp_path):
         assert statuses == {"FAILED_MARKED"}
     finally:
         sys.modules.pop("records_mutant_mark", None)
+
+
+def test_pfs_2126_033_mark_runs_failed_refuses_an_unknown_run_id_naming_it(tmp_path):
+    """PFS-2126.033: as mark_failed refuses a simulation it does not know, nothing is marked."""
+    from pyflightstream.run._record_files import RecordsError, mark_runs_failed
+
+    workspace = _workspace(tmp_path)
+    known = _rows(workspace)[0]["run_id"]
+    before = workspace.manifest_path.read_bytes()
+    with pytest.raises(RecordsError, match=r"camp/sim_nope/AL\+000"):
+        mark_runs_failed(workspace, [known, "camp/sim_nope/AL+000"])
+    assert workspace.manifest_path.read_bytes() == before
