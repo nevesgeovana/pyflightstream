@@ -261,6 +261,11 @@ def write_disc_maps(
     -------
     tuple of Path
         The written maps.
+
+    Raises
+    ------
+    ProductError
+        If two rotors' maps would be written to one file name.
     """
     folder = Path(out_dir)
     place = target if target is not None else (lambda path: path)

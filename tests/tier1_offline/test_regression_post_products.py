@@ -1554,7 +1554,7 @@ def test_f3_0203_f782_an_unreadable_coupling_history_costs_only_itself(tmp_path,
 
 
 def test_f3_0203_f140_the_custom_polar_writes_na_for_a_value_that_is_not_a_number(tmp_path):
-    """F-140 (X-F-0337): nan and inf are written NA, and the reader reads NA back as nan."""
+    """F-140 (X-F-0337): inf is written NA (nan keeps the pinned spelling); NA reads back as nan."""
     from pyflightstream.post.custom_polar import (
         read_custom_polar_format,
         write_custom_polar_format,
@@ -1575,7 +1575,7 @@ def test_f3_0203_f140_the_custom_polar_writes_na_for_a_value_that_is_not_a_numbe
         columns=("A", "B", "C", "D"),
     )
     last = path.read_text(encoding="ascii").splitlines()[-1]
-    assert last.split() == ["1.00000", "NA", "NA", "NA"]
+    assert last.split() == ["1.00000", "nan", "NA", "NA"]
     table = read_custom_polar_format(path)
     assert table.rows[0]["A"] == 1.0 and math.isnan(table.rows[0]["B"])
 

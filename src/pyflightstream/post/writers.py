@@ -44,7 +44,7 @@ from pydantic import BaseModel, ConfigDict
 
 import pyflightstream._textio as _textio
 from pyflightstream._deprecations import removed_names_hook as _removed_names_hook
-from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import ProductError, PyflightstreamError
 from pyflightstream.script.solver_setup import FLAG_SPECS, FlagRecord, SolverSetup
 
 __getattr__ = _removed_names_hook(__name__)
@@ -457,8 +457,10 @@ def write_tecplot_points(
         ``overwrite`` is False. Neither file is written when either is
         refused.
     ValueError
-        If ``points`` is not ``(n, 3)``, a field's shape does not
-        match the probe count, or two variables would carry the same name.
+        If ``points`` is not ``(n, 3)`` or a field's shape does not
+        match the probe count.
+    ProductError
+        If two variables would carry the same name. It is a ``ValueError`` too.
     """
     points, checked = _checked(points, fields)
     columns: list[tuple[str, np.ndarray]] = [
@@ -476,7 +478,7 @@ def write_tecplot_points(
     repeated = sorted({name for name in names if names.count(name) > 1})
     if repeated:
         # A reader keys the variables by name, so a repeated name silently drops a field.
-        raise ValueError(
+        raise ProductError(
             f"the Tecplot variables {repeated} would be written more than once (a field named "
             "like a coordinate, or a scalar named like a vector component): rename the field"
         )
