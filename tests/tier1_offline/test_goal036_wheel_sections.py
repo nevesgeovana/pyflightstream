@@ -485,6 +485,32 @@ def test_p0430_unread_chord_refuses_incomplete_blade_shares(tmp_path):
     assert any("Chord" in note for note in validity.notes)
 
 
+def test_p0430_rb3_no_readable_chord_is_said_and_never_the_mesh_estimate(tmp_path):
+    """RB3-03 (F-154): a sections export with no readable chord says so and reads NA.
+
+    At d1d08f51 the function returned None with the table untouched and nothing
+    said, so the point's validity fell back to the plan's mesh estimate although
+    the point has a sectional loads export (the-quasi-steady-rotor.md).
+    """
+    table = tmp_path / "sections.csv"
+    table.write_text(
+        "ROTOR,FAMILY,PLANE,Offset,Chord,Fx,Fz\n"
+        "PROP,Blade1,XZ,0.2,NA,1,1\n"
+        "PROP,Blade1,XZ,0.8,NA,1,1\n",
+        encoding="utf-8",
+    )
+    validity = post_qsteady.add_reduced_frequency_to_sections(
+        table, _record(1200), velocity_m_per_s=10
+    )
+    assert validity is not None
+    assert validity.values["K_1P_SOURCE"] == "sections"
+    assert validity.values["K_1P_MAX"] is None
+    assert validity.values["THRUST_PCT_K_GT_0_1"] is None
+    assert any("Chord NA" in note and "line 2" in note for note in validity.notes)
+    header = table.read_text(encoding="utf-8").splitlines()[0]
+    assert "K_1P_SOURCE" in header
+
+
 @pytest.mark.parametrize("frame", [None, "CUSTOM", "OTHER_RMRP"])
 def test_p0430_unknown_section_frame_has_no_reduced_frequency(tmp_path, frame):
     table = tmp_path / "sections.csv"

@@ -854,6 +854,21 @@ def add_reduced_frequency_to_sections(
     if CLOCKING_COLUMN in index:
         candidates = [at for at in candidates if rows[at][index[CLOCKING_COLUMN]] == "0"]
     if not candidates:
+        # No station of the export reduces: an unread Offset or Chord is named,
+        # never answered with the plan's mesh estimate (RB3-03).
+        rotor_families = {
+            rows[at][index["FAMILY"]]
+            for at, row in enumerate(rows)
+            if "FAMILY" in index and row[index["ROTOR"]] == alias
+        }
+        blade = next((f for f in record.families_blades if f in rotor_families), None)
+        unread = _unread_stations(path.name, columns, rows, alias, blade)
+        if unread:
+            notes.append(
+                f"K_1P, THRUST_PCT_K_GT_0_1 and TORQUE_PCT_K_GT_0_1 of rotor {alias} read NA: "
+                + "; ".join(unread)
+                + ", so no station of the sectional loads export can be reduced"
+            )
         return _all_unplaced_validity(path, columns, rows, notes)
     families = list(record.families_blades)
     present = {rows[at][index["FAMILY"]] for at in candidates} if "FAMILY" in index else set()
@@ -948,7 +963,7 @@ def add_reduced_frequency_to_sections(
 def _all_unplaced_validity(
     path: Path, columns: Sequence[str], rows: Sequence[Sequence[str]], notes: Sequence[str]
 ) -> PointValidity | None:
-    """Return the NA validity of a rotor none of whose stations is placed, or None without a note.
+    """Return the NA validity of a rotor none of whose stations reduces, or None without a note.
 
     The post says why in its log instead of writing nothing (a product not
     written is explained).
