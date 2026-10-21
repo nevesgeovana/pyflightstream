@@ -81,6 +81,10 @@ MATRIX_STEM_ARGUMENTS: frozenset[tuple[str, str]] = frozenset({("restore", "matr
 def names_its_folder(given: str | Path) -> bool:
     """Whether ``given`` names a folder (``inputs/m.fs``, an absolute path) or is a bare name."""
     path = Path(given)
+    # F-1580: Path() drops a leading "./", so an explicit ./m.fs read as a bare name;
+    # the text the user typed is what says it named a folder (FR-854).
+    if isinstance(given, str) and ("/" in given or "\\" in given):
+        return True
     return path.is_absolute() or path.parent != Path(".")
 
 

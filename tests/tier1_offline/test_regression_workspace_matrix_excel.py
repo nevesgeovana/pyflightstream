@@ -406,3 +406,27 @@ class TestWorkspace2Matrix:
         moved = renumber_repeated_pols(other, workspace, in_place=True)
         assert [change.old for change in moved] == ["8001"]
         assert renumber_repeated_pols(planned, workspace, in_place=True) == []
+
+
+def test_p0430_f1491_recognized_setting_named_recorded_only_is_not_applied():
+    from pyflightstream.workspace._matrix_binding import _match_settings
+
+    matched, refused, recorded = _match_settings(
+        {"iterations": 400, "NITER": 7}, "s1", {"iterations"}
+    )
+    assert "iterations" not in matched
+    assert recorded == ["iterations", "NITER"]
+    assert refused == []
+    # an alias resolving to the declared field is recorded too, never applied
+    assert "iterations" not in matched and "NITER" in recorded
+
+
+def test_p0430_f1580_explicit_dot_slash_matrix_is_not_redirected(tmp_path):
+    from pyflightstream.workspace._matrix_homes import matrix_path, names_its_folder
+
+    root = tmp_path / "ws"
+    (root / "inputs" / "matrices").mkdir(parents=True)
+    (root / "inputs" / "matrices" / "m.fs").write_text("a", encoding="utf-8")
+    assert names_its_folder("./m.fs")
+    assert matrix_path(root, "./m.fs") == Path("./m.fs")
+    assert matrix_path(root, "m.fs") == root / "inputs" / "matrices" / "m.fs"

@@ -396,7 +396,11 @@ def _match_settings(
     spelled: dict[str, str] = {}
     for key, value in settings.items():
         field = _PRESET_ALIASES.get(key, key)
-        if field in known:
+        if key in declared_names or field in declared_names:
+            # F-1491: a key the preset NAMES in recorded_only is kept and emitted
+            # nowhere, even when it is also a recognized setting.
+            recorded.append(key)
+        elif field in known:
             # TWO SPELLINGS OF ONE SETTING ARE REFUSED. They are distinct TOML
             # keys, so the file parses, and both map onto one field: assigning
             # let the one the file lists LAST win, and reordering two lines of a
