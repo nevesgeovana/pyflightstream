@@ -212,3 +212,9 @@ def test_f6_0102_the_softening_follows_the_elastic_twist(monkeypatch):
     monkeypatch.setattr(centrifugal, "in_plane_softening_coefficients", spy)
     centrifugal.solve_rotating_static(cfg)
     assert any(twist is not None and any(abs(t) > 0.0 for t in twist) for twist in seen), seen
+
+
+def test_southwell_refuses_a_non_finite_frequency():
+    """F-106: NaN is refused rather than reported with R-squared 1.0."""
+    with pytest.raises(centrifugal.FsiInputError, match="finite"):
+        centrifugal.southwell_fit([0.0, 1.0, 2.0], [10.0, float("nan"), 11.0])

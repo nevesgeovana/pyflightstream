@@ -668,7 +668,8 @@ def southwell_fit(
     ------
     FsiInputError
         If the sweep has fewer than three points, or not one frequency per rotor speed, or
-        fewer than two distinct values of Omega^2 (the slope is then undefined).
+        a non-finite value, or fewer than two distinct values of Omega^2 (the slope is then
+        undefined).
 
     Examples
     --------
@@ -681,6 +682,15 @@ def southwell_fit(
         raise FsiInputError(
             "the Southwell fit needs at least three sweep points with one frequency per rotor speed"
         )
+    for name, values in (
+        ("rotor speeds", omegas_rad_per_s),
+        ("frequencies", frequencies_rad_per_s),
+    ):
+        if not all(math.isfinite(v) for v in values):
+            raise FsiInputError(
+                f"the Southwell fit needs finite {name}; a NaN or infinite entry would "
+                "otherwise give a fit reported with a perfect R-squared"
+            )
     x = [w**2 for w in omegas_rad_per_s]
     if len(set(x)) < 2:
         raise FsiInputError(
