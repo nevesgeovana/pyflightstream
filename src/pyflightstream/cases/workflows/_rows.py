@@ -562,6 +562,19 @@ def _own_speed(case: SimCase, speed: RotorSpeed | None) -> RotorSpeed:
             "cannot happen quietly: the run would emit a rotor speed and a clock that "
             "agree with each other and with no row."
         )
+    if not case.motions:
+        # The identity alone does not make a handed speed the row's: resolve
+        # the row's own and refuse one that differs, which also applies every
+        # refusal `rotor_speed` makes. A row with MOTIONS takes the clock
+        # motion's speed, which no flat read reproduces.
+        own = rotor_speed(case)
+        if own != speed:
+            raise CampaignConfigError(
+                f"a rotor speed of {speed.rpm:g} rev/min was passed for case "
+                f"{case.sim_id!r}, whose row states {own.rpm:g} rev/min "
+                f"({own.stated_form}: {own.stated_value:g}). A handed speed must be the "
+                "one the row itself resolves to."
+            )
     return speed
 
 
@@ -644,6 +657,11 @@ def rotor_mach_numbers(
         raise CampaignConfigError(
             f"rotor_mach_numbers: sonic_velocity_m_per_s = {sonic_velocity_m_per_s!r}; "
             "a speed of sound is positive"
+        )
+    if velocity_m_per_s < 0.0:
+        raise CampaignConfigError(
+            f"rotor_mach_numbers: velocity_m_per_s = {velocity_m_per_s!r}; a free-stream "
+            "speed is a magnitude, zero or more (the direction is the flow direction's)"
         )
     tip_speed = abs(rpm) * RAD_PER_S_PER_REV_PER_MIN * diameter_m / 2.0
     return (

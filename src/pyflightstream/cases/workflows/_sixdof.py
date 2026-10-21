@@ -124,7 +124,7 @@ def _sixdof_motion(
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the SIXDOF input's frame {spec.frame!r} is not a frame this "
             f"run creates (created: {', '.join(created) or 'none'}); the body frame at the "
-            "pivot is declared in the reference's or the setup's [[frames]]."
+            "pivot is declared in the reference artifact's [[frames]]."
         )
     boundaries = [
         script.resolve_boundary(family, context="the SIXDOF families") for family in spec.families

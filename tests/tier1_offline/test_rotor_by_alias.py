@@ -1125,3 +1125,65 @@ def test_a_rotation_of_a_non_rotor_alias_keeps_no_frame(tmp_path):
     text = rendered(case)
     originals = [name for name in frame_names(text).values() if name.endswith("_ORIGINAL")]
     assert originals == [], originals
+
+
+# --- F5-1112: refusals that leave the script alone, and exact frame ownership ----
+
+
+def test_a_bad_blade_count_is_refused_before_the_rotary_motion_is_emitted():
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows._rotor import emit_rotor_motion
+
+    def flat(blades):
+        return SimCase(
+            sim_id="9301",
+            aircraft="WORK",
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            recipe="unsteady_rotor",
+            variables={"RPM": "1200", "ROTOR_AXIS": "Z", "BLADES": blades},
+        )
+
+    script = Script(version="26.123")
+    before = script.render()
+    with pytest.raises(CampaignConfigError, match="BLADES"):
+        emit_rotor_motion(flat("two"), script, frame=1)
+    assert script.render() == before
+    # THE CONTROL: a valid count emits the motion.
+    emit_rotor_motion(flat("2"), script, frame=1)
+    assert script.render() != before
+
+
+def test_a_motion_turns_only_the_blade_frames_of_its_own_rotor_alias():
+    from pyflightstream.cases.workflows._rotor import _frames_a_motion_turns
+
+    frames = {"A_RMRP1": 5, "A_RMRP2": 6, "A_RMRPX_RMRP1": 7}
+    assert _frames_a_motion_turns(4, "A", frames) == [4, 5, 6]
+
+
+def test_a_handed_rotor_speed_that_the_row_does_not_state_is_refused():
+    from dataclasses import replace
+
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows._rows import _own_speed
+
+    case = SimCase(
+        sim_id="9302",
+        aircraft="WORK",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="unsteady_rotor",
+        variables={"RPM": "1200"},
+    )
+    own = rotor_speed(case)
+    assert _own_speed(case, own) == own
+    with pytest.raises(CampaignConfigError, match="handed speed"):
+        _own_speed(case, replace(own, rpm=own.rpm * 2.0))
+
+
+def test_a_negative_free_stream_speed_is_refused_by_the_mach_numbers():
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows._rows import advancing_tip_mach_number
+
+    with pytest.raises(CampaignConfigError, match="velocity_m_per_s"):
+        advancing_tip_mach_number(
+            rpm=3000.0, diameter_m=2.0, velocity_m_per_s=-100.0, sonic_velocity_m_per_s=340.0
+        )

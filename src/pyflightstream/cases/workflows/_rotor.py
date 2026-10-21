@@ -239,6 +239,9 @@ def emit_rotor_motion(
     # refusal lands before the first emission, like every other read
     # above it.
     rotor_shedding_direction(case)
+    # READ BEFORE THE FIRST EMISSION: the blade count refuses a bad BLADES or
+    # PERIODIC_COPIES cell, and a refusal must leave the script unchanged.
+    blade_count = _blade_count(case)
     motion_id = helpers.rotary_motion(
         script,
         frame=frame,
@@ -247,7 +250,7 @@ def emit_rotor_motion(
         boundaries=boundaries,
         moving_frames=moving_frames,
     )
-    _setup_surfaces.emit_wake_stabilization(script, case, motion_id, _blade_count(case))
+    _setup_surfaces.emit_wake_stabilization(script, case, motion_id, blade_count)
     return motion_id
 
 
@@ -263,7 +266,7 @@ def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | s
 
     1. an exact boundary label of the opened geometry, so a row can
        always name one surface;
-    2. otherwise an ALIAS the row's setup defines in its ``[aliases]``
+    2. otherwise an ALIAS the reference artifact declares in its ``[aliases]``
        table, whose members resolve as names
        do, a member the file lacks ignored;
     3. otherwise a FAMILY, which is a label with its trailing index
@@ -725,8 +728,15 @@ def _frames_a_motion_turns(
     """Return the rotor's moving frame, then the frames of its blades, which turn with it."""
     turning = [moving_frame]
     if radical:
+        stem = f"{radical}_RMRP"
+        # THE BLADE NUMBER ONLY: a bare prefix would also take the blade
+        # frames of another rotor whose alias begins with this stem.
         turning += sorted(
-            {index for name, index in blade_frames.items() if name.startswith(f"{radical}_RMRP")}
+            {
+                index
+                for name, index in blade_frames.items()
+                if name.startswith(stem) and name[len(stem) :].isdigit()
+            }
         )
     return turning
 
@@ -760,8 +770,7 @@ def _rotor_motions(
     A refusal names the alias-based shape to write.
 
     There is no package-level rotor frame. The time step follows the motion
-    ``CLOCK_MOTION`` names, and the fastest rotor when a row names none
-    (FR-64).
+    ``CLOCK_MOTION`` names; a ``MOTIONS`` row must name it (FR-64).
     """
     views = [_motion_view(case, record) for record in case.motions]
     rotors = [_rotor_of(case, record) for record in case.motions]
