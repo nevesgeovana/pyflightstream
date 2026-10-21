@@ -511,7 +511,7 @@ class ReferenceArtifact(BaseModel):
         One named point per top-level table stating another point ``kind``.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     area_m2: float = Field(gt=0.0)
     chord_m: float = Field(gt=0.0)

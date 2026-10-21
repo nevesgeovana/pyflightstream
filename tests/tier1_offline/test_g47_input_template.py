@@ -1085,3 +1085,17 @@ def test_f2_0809_a_named_point_refuses_a_non_finite_coordinate(axis, bad):
     assert PointXyz(**{axis: 1.5}).model_dump()[axis] == 1.5
     with pytest.raises(ValidationError):
         PointXyz(**{axis: bad})
+
+
+@pytest.mark.parametrize("field", ["area_m2", "chord_m", "span_m", "rotor_diameter_m"])
+def test_f2_0809_a_coefficient_divisor_refuses_infinity(field):
+    """F-345: positive infinity passes gt=0 but divides every coefficient to zero."""
+    from pydantic import ValidationError
+
+    from pyflightstream.workspace.inputs import ReferenceArtifact
+
+    good = {"area_m2": 1.0, "chord_m": 1.0, "span_m": 1.0, "rotor_diameter_m": 1.0}
+    assert ReferenceArtifact.model_validate(good).area_m2 == 1.0
+    for bad in (float("inf"), float("nan")):
+        with pytest.raises(ValidationError):
+            ReferenceArtifact.model_validate({**good, field: bad})
