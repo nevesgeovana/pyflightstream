@@ -555,3 +555,14 @@ def test_f2_0809_a_plan_point_that_is_not_numbers_reads_as_unreadable(workspace,
     freshness = {row["matrix"]: row for row in ledger.freshness()}
     assert freshness[MATRIX]["plan"] == "unreadable"
     assert ledger.status()
+
+
+@pytest.mark.parametrize("provenance", [5, "x", ["a"], 1.5])
+def test_f2_0809_a_product_index_with_non_mapping_provenance_reads_as_incomplete(
+    workspace, provenance
+):
+    """F-1226: the freshness of a post whose provenance is not a mapping is `incomplete`."""
+    path = workspace / "post" / MATRIX / "products.json"
+    path.write_text(json.dumps({"complete": True, "provenance": provenance}), encoding="utf-8")
+    freshness = {row["matrix"]: row for row in read_ledger(workspace).freshness()}
+    assert freshness[MATRIX]["post"] == "incomplete"

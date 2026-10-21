@@ -743,7 +743,7 @@ def _read_products(path: Path) -> dict[str, Any]:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         payload = None
-    if not isinstance(payload, dict):
+    if not isinstance(payload, dict) or not isinstance(payload.get("provenance", {}), dict):
         payload = {"complete": None, "provenance": {}}
     return {**payload, "_mtime": _mtime(path)}
 
