@@ -186,7 +186,9 @@ def propeller_moment_distribution(
     ]
 
 
-def in_plane_softening_coefficients(cfg: FsiConfig) -> list[float]:
+def in_plane_softening_coefficients(
+    cfg: FsiConfig, elastic_twist_rad: Sequence[float] | None = None
+) -> list[float]:
     """In-plane centrifugal softening of the flap at every station [N/m per m].
 
     k(r) = mu(r) Omega^2 sin^2(beta(r)), so the distributed flap load
@@ -212,6 +214,11 @@ def in_plane_softening_coefficients(cfg: FsiConfig) -> list[float]:
     ----------
     cfg : FsiConfig
         Configuration with mu(r), the geometric pitch and Omega.
+    elastic_twist_rad : sequence of float, optional
+        The current elastic twist per station [rad]. The flap direction turns
+        with the section, so beta is the TOTAL pitch (geometric plus elastic,
+        :func:`total_pitch_rad`); None is the untwisted blade, the geometric
+        pitch alone.
 
     Returns
     -------
@@ -219,11 +226,10 @@ def in_plane_softening_coefficients(cfg: FsiConfig) -> list[float]:
         k(r_i) at every station [N/m per m of flap].
     """
     omega_sq = cfg.omega_rad_per_s**2
+    pitch = total_pitch_rad(cfg, elastic_twist_rad or [0.0] * len(cfg.blade.station_radii_m))
     return [
-        mu * omega_sq * math.sin(math.radians(beta)) ** 2
-        for mu, beta in zip(
-            cfg.blade.mass_per_length_kg_per_m, cfg.blade.geometric_pitch_deg, strict=True
-        )
+        mu * omega_sq * math.sin(beta) ** 2
+        for mu, beta in zip(cfg.blade.mass_per_length_kg_per_m, pitch, strict=True)
     ]
 
 
@@ -393,8 +399,20 @@ def solve_rotating_static(
                 "loads must be sampled at the configuration stations"
             )
     axial = axial_load_distribution(cfg)
-    softening = in_plane_softening_coefficients(cfg)
-    softens = any(k != 0.0 for k in softening)
+    # A blade of zero geometric pitch still softens once a twist turns its sections,
+    # and a twist can arise from the aerodynamic torsion or the propeller moment.
+    twistable = any(aero_torsion) or (
+        cfg.omega_rad_per_s != 0.0
+        and any(
+            major != minor
+            for major, minor in zip(
+                cfg.blade.inertia_major_kg_m, cfg.blade.inertia_minor_kg_m, strict=True
+            )
+        )
+    )
+    softens = any(k != 0.0 for k in in_plane_softening_coefficients(cfg)) or (
+        twistable and cfg.omega_rad_per_s != 0.0
+    )
     twist = [0.0] * n
     flap = [0.0] * n
     residual = math.inf
@@ -408,6 +426,9 @@ def solve_rotating_static(
         torsion = [aero + prop for aero, prop in zip(aero_torsion, propeller, strict=True)]
         flap_load = aero_flap
         if softens:
+            # THE SOFTENING FOLLOWS THE ITERATED TWIST: the flap direction is the
+            # section's, which the twist has turned (F-105).
+            softening = in_plane_softening_coefficients(cfg, twist)
             base = aero_flap if aero_flap is not None else [0.0] * n
             flap_load = [q + k * w for q, k, w in zip(base, softening, flap, strict=True)]
         beam.apply_station_loads(

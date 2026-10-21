@@ -188,3 +188,27 @@ def test_f6_0102_southwell_negative_intercept_is_refitted_through_the_origin():
     residual = sum((b - expected_slope * a) ** 2 for a, b in zip(x, squares, strict=True))
     total = sum((b - mean) ** 2 for b in squares)
     assert r_squared == pytest.approx(1.0 - residual / total)
+
+
+def test_f6_0102_the_softening_follows_the_elastic_twist(monkeypatch):
+    """F-105: the flap direction is the twisted section's, so beta is the total pitch."""
+    import math
+
+    cfg = make_cfg(omega_rad_per_s=50.0, n_stations=5)
+    cfg.blade.geometric_pitch_deg = [10.0] * 5
+    twisted = centrifugal.in_plane_softening_coefficients(cfg, [0.1] * 5)
+    for k in twisted:
+        expected = MU * 50.0**2 * math.sin(math.radians(10.0) + 0.1) ** 2
+        assert k == pytest.approx(expected, rel=1e-12)
+    assert twisted != centrifugal.in_plane_softening_coefficients(cfg)
+
+    seen = []
+    real = centrifugal.in_plane_softening_coefficients
+
+    def spy(config, twist=None):
+        seen.append(list(twist) if twist is not None else None)
+        return real(config, twist)
+
+    monkeypatch.setattr(centrifugal, "in_plane_softening_coefficients", spy)
+    centrifugal.solve_rotating_static(cfg)
+    assert any(twist is not None and any(abs(t) > 0.0 for t in twist) for twist in seen), seen

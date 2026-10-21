@@ -108,7 +108,7 @@ def test_softening_raises_the_tip_flap_as_the_hand_integration_does(hand, monkey
     monkeypatch.setattr(
         centrifugal,
         "in_plane_softening_coefficients",
-        lambda cfg: [0.0] * len(cfg.blade.station_radii_m),
+        lambda cfg, *twist: [0.0] * len(cfg.blade.station_radii_m),
     )
     tension_only = _package_tip_flap()
     expected = hand["softened"] / hand["tension"] - 1.0
@@ -132,7 +132,7 @@ def test_p0420_p1_1d_campbell_includes_flap_softening(monkeypatch):
     """PFS-2119.028: the pitched rotating modal problem includes the static softening."""
     softened = centrifugal.campbell_sweep(_config(), [0.0, OMEGA], n_modes=6)
     monkeypatch.setattr(
-        centrifugal, "in_plane_softening_coefficients", lambda cfg: [0.0] * len(STATIONS)
+        centrifugal, "in_plane_softening_coefficients", lambda cfg, *twist: [0.0] * len(STATIONS)
     )
     tension_only = centrifugal.campbell_sweep(_config(), [0.0, OMEGA], n_modes=6)
     soft = softened.family_track("flap")
