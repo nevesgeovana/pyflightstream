@@ -646,7 +646,7 @@ def settings_spelling_admitted(new: str, captured: str) -> bool:
 
 
 def _docs_clean_plan_evidence(captured: bytes) -> bytes:
-    """Admit only the owner's five prose replacements in serialized evidence."""
+    """Admit only the reviewed prose replacements in serialized evidence."""
     replacements = (
         (
             b"bounds in this database (design decision of 2026-08-08);",
@@ -706,6 +706,164 @@ def _docs_clean_plan_evidence(captured: bytes) -> bytes:
         ),
     ):
         assert captured.count(before) == 1, before
+        captured = captured.replace(before, after)
+    # FD-02: admit only the five reviewed command-note corrections.
+    for before, after, count in (
+        # SET_VERTEX_MERGE_TOLERANCE
+        (
+            b"Distance below which two mesh vertices are treated as one, which is what "
+            b"closes the gaps of an imported surface. The manual states only that the "
+            b"value is not negative./nIT IS A LENGTH AND THE SIMULATION LENGTH UNIT "
+            b"DECIDES WHAT IT MEANS. The manual's sample passes 1E-5, which is a "
+            b"reasonable tolerance in metres and a very large one in microns, so the same "
+            b"number does different things under SET_SIMULATION_LENGTH_UNITS. No edition "
+            b"mentions the interaction.",
+            b"Distance below which two mesh vertices are treated as one, which is what "
+            b"closes the gaps of an imported surface. The manual states only that the "
+            b"value is not negative./nIT IS A LENGTH AND THE SIMULATION LENGTH UNIT "
+            b"DECIDES WHAT IT MEANS. The manual's sample passes 1E-5: in metres this is 10"
+            b" microns, while in microns it is 1e-11 metres, a million times smaller. "
+            b"SET_SIMULATION_LENGTH_UNITS therefore changes the physical distance "
+            b"represented by the same numeric tolerance.",
+            1,
+        ),
+        # SET_TRAILING_EDGE_TYPE
+        (
+            b"STANDARD sheds the full net circulation (Kutta factor 1.0); RELAXED sheds "
+            b"half, approximating body carryover at non-lifting trailing edges such as "
+            b"wing-fuselage junctions (FSM-26.120 p.164)./nTHE RELAXED TRAILING EDGE IS "
+            b"ALSO SPECIFIED OUTSIDE THE SCRIPT, AND THE NEWEST EDITION ADDS A FIELD "
+            b"THERE. Paraphrasing FSM-26.123 p.85: relaxed-Kutta trailing edges can also "
+            b"be declared as a COMPONENT parameter, written where a component is defined "
+            b"rather than in a script, taking semicolon-separated fields; that edition "
+            b"gives it a fifth field where it had four, an integer direction of the "
+            b"relaxed wake shedding parameter line, 0 for the axial direction and the "
+            b"default, 1 for the azimuth direction. The first four fields are unchanged, a"
+            b" chordwise or radial location and two spanwise or axial bounds, so the "
+            b"four-field form stays valid and the change is additive. FSM-26.122 p.85 "
+            b"prints the four-field form, so this is a 26.123 addition. The azimuth value "
+            b"is new control over the direction the relaxed wake sheds, which is what "
+            b"makes it a rotor fact and not a compatibility footnote./nNO SCRIPTING "
+            b"COMMAND ON ANY REGISTERED BUILD TAKES THAT DIRECTION, and this paragraph "
+            b"exists so a reader does not go looking for a fourth argument here or for a "
+            b"new command elsewhere. This command takes two arguments on every build, an "
+            b"edge index and a type; IMPORT_WAKE_EDGES_FROM_FILE takes the same type "
+            b"vocabulary for a whole imported file; neither carries a direction. The "
+            b"direction is a field of the component specification, and this package writes"
+            b" no component file, so nothing here emits it. A writer for that "
+            b"specification is not implemented (PFS-2026.06)./nTHE CITATION SITS IN THESE "
+            b"FREE-TEXT NOTES ON PURPOSE. Page 85 lies outside the registered "
+            b"scripting-reference range, which is where an evidence citation must point, "
+            b"so a manual_ref or a per-version note carrying it would be wrong twice: "
+            b"wrong about where the fact is, and wrong about what kind of fact it is. No "
+            b"status, no manual_ref and no version row moved for this reading, because "
+            b"nothing in it is a claim about the solver.",
+            b"STANDARD sheds the full net circulation (Kutta factor 1.0); RELAXED sheds "
+            b"half, approximating body carryover at non-lifting trailing edges such as "
+            b"wing-fuselage junctions (FSM-26.120 p.164)./nTHE RELAXED TRAILING EDGE IS "
+            b"ALSO SPECIFIED OUTSIDE THE SCRIPT, AND FSM-26.123 ADDS A FIELD THERE. "
+            b"Paraphrasing FSM-26.123 p.85: relaxed-Kutta trailing edges can also be "
+            b"declared as a COMPONENT parameter, written where a component is defined "
+            b"rather than in a script, taking semicolon-separated fields; that edition "
+            b"gives it a fifth field where it had four, an integer direction of the "
+            b"relaxed wake shedding parameter line, 0 for the axial direction and the "
+            b"default, 1 for the azimuth direction. The first four fields are unchanged, a"
+            b" chordwise or radial location and two spanwise or axial bounds, so the "
+            b"four-field form stays valid and the change is additive. FSM-26.122 p.85 "
+            b"prints the four-field form, so this is a 26.123 addition. The azimuth value "
+            b"is new control over the direction the relaxed wake sheds, which is what "
+            b"makes it a rotor fact and not a compatibility footnote./nNO SCRIPTING "
+            b"COMMAND ON ANY REGISTERED BUILD TAKES THAT DIRECTION, and this paragraph "
+            b"exists so a reader does not go looking for a fourth argument here or for a "
+            b"new command elsewhere. This command takes two arguments on every build, an "
+            b"edge index and a type; IMPORT_WAKE_EDGES_FROM_FILE takes the same type "
+            b"vocabulary for a whole imported file; neither carries a direction. The "
+            b"direction is a field of the component specification, and this package writes"
+            b" no component file, so nothing here emits it. A writer for that "
+            b"specification is not implemented (PFS-2026.06)./nTHE CITATION SITS IN THESE "
+            b"FREE-TEXT NOTES ON PURPOSE. Page 85 lies outside the registered "
+            b"scripting-reference range, which is where an evidence citation must point, "
+            b"so a manual_ref or a per-version note carrying it would be wrong twice: "
+            b"wrong about where the fact is, and wrong about what kind of fact it is. No "
+            b"status, no manual_ref and no version row moved for this reading, because "
+            b"nothing in it is a claim about the solver.",
+            1,
+        ),
+        # INITIALIZE_SOLVER
+        (
+            b"SURFACES takes -1 for all boundaries or a count followed by one line per "
+            b"surface with the surface index and the quad mesher toggle (SURFACE_TOGGLES "
+            b"lines of the form index,ENABLE; the count check ties them to SURFACES). "
+            b"WAKE_TERMINATION_X takes an X location in the reference frame or DEFAULT for"
+            b" auto-computation. PERIODIC symmetry appends the number of copies on the "
+            b"SYMMETRY line (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver "
+            b"models 1 to 3. The initialize_solver helper builds both extended forms from "
+            b"typed arguments. Initializing MIRROR symmetry with a full (non-half) model "
+            b"diverges instantly (FSM-26.120 p.217); case metadata declaring a full model "
+            b"triggers a build-time warning when cases/ lands.",
+            b"SURFACES takes -1 for all boundaries or a count followed by one line per "
+            b"surface with the surface index and the quad mesher toggle (SURFACE_TOGGLES "
+            b"lines of the form index,ENABLE; the count check ties them to SURFACES). "
+            b"WAKE_TERMINATION_X takes an X location in the reference frame or DEFAULT for"
+            b" auto-computation. PERIODIC symmetry appends the number of copies on the "
+            b"SYMMETRY line (SYMMETRY_COPIES). WALL_COLLISION_AVOIDANCE applies to solver "
+            b"models 1 to 3. The initialize_solver helper builds both extended forms from "
+            b"typed arguments. Initializing MIRROR symmetry with a full (non-half) model "
+            b"diverges instantly (FSM-26.120 p.217). Use a half model with MIRROR "
+            b"symmetry.",
+            3,
+        ),
+        # DISABLE_SOLVER_REF_VELOCITY
+        (
+            b"Makes the solver reference velocity equal the free-stream velocity, which is"
+            b" what the manual's sample comment states, rather than holding whatever "
+            b"SOLVER_SET_REF_VELOCITY last set./nDOCUMENTED BY THE 26.12 HOTFIX EDITION "
+            b"ALONE, so one version row, a citation of FSM-26.121, and no probe. Both of "
+            b"those are worth weighing before relying on it, since it reaches a public "
+            b"keyword of solver_settings./nWhy it exists at all is legible from the "
+            b"contour vocabulary rather than from this page: SET_SCENE_CONTOUR offers "
+            b"pressure_coefficient_reference beside pressure_coefficient_freestream, so "
+            b"the two velocities normalise different reported quantities and a stale "
+            b"reference velocity would change one of them. That is a reading of two pages "
+            b"together and not a measurement of what the solver does.",
+            b"Makes the solver reference velocity equal the free-stream velocity, which is"
+            b" what the manual's sample comment states, rather than holding whatever "
+            b"SOLVER_SET_REF_VELOCITY last set./nDocumented from 26.121 through 26.125, "
+            b"with FSM-26.121 as the first citation. These rows are documented, not "
+            b"measured, including when reached through the public solver_settings "
+            b"helper./nWhy it exists at all is legible from the contour vocabulary rather "
+            b"than from this page: SET_SCENE_CONTOUR offers pressure_coefficient_reference"
+            b" beside pressure_coefficient_freestream, so the two velocities normalise "
+            b"different reported quantities and a stale reference velocity would change "
+            b"one of them. That is a reading of two pages together and not a measurement "
+            b"of what the solver does.",
+            1,
+        ),
+        # ENABLE_SOLVER_TIME_AVERAGING
+        (
+            b"Turns on the time averaging of the surface flow properties over a window of "
+            b"unsteady time iterations, from the first iteration of the window to its "
+            b"last, both counted in the solver's own time steps. First documented by the "
+            b"26.125 edition, where it stands in the place SOLVER_TIME_AVERAGING held in "
+            b"FSM-26.124 (p.353): that command took the toggle and the window together, "
+            b"and FSM-26.125 no longer prints it./nWARNED WHERE NO RUN VERIFIED IT. Its "
+            b"predecessor hung 26.124 (C01, recorded on that command's own 26.124 row). "
+            b"This is another command of another build and nothing has measured it, so the"
+            b" setup key that reaches it (solver_time_averaging) writes the line and warns"
+            b" on a build where it is only documented.",
+            b"Turns on the time averaging of the surface flow properties over a window of "
+            b"unsteady time iterations, from the first iteration of the window to its "
+            b"last, both counted in the solver's own time steps. First documented by the "
+            b"26.125 edition, where it stands in the place SOLVER_TIME_AVERAGING held in "
+            b"FSM-26.124 (p.353): that command took the toggle and the window together, "
+            b"and FSM-26.125 no longer prints it./nThe 26.125 row is verified by the "
+            b"committed probe campaign of 2026-10-05. Its predecessor hung 26.124, as "
+            b"recorded on that command's own row; that outcome does not apply to this "
+            b"replacement on another build.",
+            1,
+        ),
+    ):
+        assert captured.count(before) == count, before
         captured = captured.replace(before, after)
     return captured
 
