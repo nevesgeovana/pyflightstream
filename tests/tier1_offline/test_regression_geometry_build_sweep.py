@@ -3917,3 +3917,22 @@ class TestF2Package0607Workspace:
             check_reference_point_names(["ERP1", f"ERP{number}"])
         assert len(str(raised.value)) < 600
         assert "ERP2, ERP3" in str(raised.value) and "more" in str(raised.value)
+
+    @staticmethod
+    def test_pfs_2117_023_f1511_one_link_predicate_reads_the_reparse_tag(tmp_path, monkeypatch):
+        """PFS-2117.023 F-1511: a cloud-file reparse tag is a regular file, a junction is a link."""
+        import stat
+
+        from pyflightstream.workspace import _ledger_history
+        from pyflightstream.workspace._links import _is_link, is_reparse
+
+        target = tmp_path / "archive.zip"
+        target.write_bytes(b"x")
+        for tag, expected in ((0x9000701A, False), (0xA000000C, True), (0xA0000003, True)):
+            info = SimpleNamespace(
+                st_mode=stat.S_IFREG, st_file_attributes=0x400, st_reparse_tag=tag
+            )
+            monkeypatch.setattr(Path, "lstat", lambda self, info=info: info)
+            assert is_reparse(target) is expected
+            assert _is_link(target) is expected
+            assert _ledger_history._linked(target) is expected

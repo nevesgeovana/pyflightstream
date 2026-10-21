@@ -57,16 +57,31 @@ def _write_sim_archive(sim: Path, temporary: Path) -> None:
             bundle.writestr("inputs/STAGED_AS_LINK.txt", os.path.realpath(link) + "\n")
 
 
+#: The reparse tags that make a path a link the workspace never follows: a symbolic link
+#: and a mount-point junction. Every other tag (a cloud placeholder, a deduplicated or
+#: compressed file) is an ordinary file whose bytes the layer reads and archives.
+_LINK_TAGS = frozenset({0xA000000C, 0xA0000003})
+
+
 def is_reparse(path: Path) -> bool:
-    """Say whether ``path`` is a symbolic link or a Windows junction (never followed)."""
-    # Only a symbolic link or a mount-point junction: another reparse point (a cloud-backed
-    # placeholder, a deduplicated file) reads as the ordinary file it is.
-    return _is_link(path)
+    """Say whether ``path`` is a symbolic link or a mount-point junction (never followed).
+
+    This is the workspace layer's one definition of a link, read off the reparse tag: a
+    reparse point of another kind, such as a cloud-backed file, is a regular file.
+    """
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    if stat.S_ISLNK(info.st_mode):
+        return True
+    reparse = bool(getattr(info, "st_file_attributes", 0) & 0x400)
+    return reparse and getattr(info, "st_reparse_tag", 0) in _LINK_TAGS
 
 
 def _is_link(path: Path) -> bool:
     """Whether ``path`` is a symbolic link or, on Windows, a directory junction."""
-    return path.is_symlink() or (sys.platform == "win32" and _is_junction(path))
+    return is_reparse(path)
 
 
 def _is_junction(path: Path) -> bool:

@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 import re
-import stat
 import zipfile
 from collections.abc import Iterator, Mapping
 from pathlib import Path
@@ -21,6 +20,7 @@ from pydantic import ValidationError
 
 from pyflightstream.workspace import RunRecord, WorkspaceError
 from pyflightstream.workspace._effective import _points_of
+from pyflightstream.workspace._links import is_reparse
 from pyflightstream.workspace._script_comparison import (
     _INTERPRETER,
     _changed_commands,
@@ -46,10 +46,8 @@ def _files(folder: Path) -> Iterator[Path]:
 
 
 def _linked(path: Path) -> bool:
-    info = path.lstat()
-    return path.is_symlink() or bool(
-        getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
-    )
+    """Say whether path is a link by tag: a symbolic link or junction, not a cloud file."""
+    return is_reparse(path)
 
 
 def _stamp(name: str) -> str | None:
