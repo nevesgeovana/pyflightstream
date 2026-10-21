@@ -2570,8 +2570,9 @@ def test_x_f_0327_an_infinite_clock_is_a_named_skip_not_an_overflow(tmp_path):
 
 def test_f168_a_large_reference_area_is_held_to_the_printed_precision(tmp_path):
     """F-168: a part relative to the area let 1.0e-3 pass at 1000 m2 where 5e-4 is the print."""
-    from pyflightstream._errors import PyflightstreamWarning
+    from pyflightstream._errors import collecting_warnings
     from pyflightstream.post._condition import _refuse_a_reference_the_solver_did_not_use
+    from pyflightstream.post._stage import _POST_REFUSES
     from pyflightstream.post.products import ReferenceValues
 
     reference = ReferenceValues.from_mapping(
@@ -2582,11 +2583,19 @@ def test_f168_a_large_reference_area_is_held_to_the_printed_precision(tmp_path):
         loads = SimpleNamespace(reference_area=area, reference_length=1.0)
         return SimpleNamespace(name="P1", loads=loads)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
+    token = _POST_REFUSES.set(True)
+    try:
+        # half a unit of the last printed digit is the same number ...
         _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0004)], reference)
-    with pytest.warns(PyflightstreamWarning, match="loads export of P1 states a reference area"):
-        _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0008)], reference)
+        # ... and 8e-4 is not, however large the area (the relative part allowed 1.5e-3).
+        with pytest.raises(ProductError, match="loads export of P1 states a reference area"):
+            _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0008)], reference)
+        _POST_REFUSES.set(False)
+        with collecting_warnings() as sink:
+            _refuse_a_reference_the_solver_did_not_use("1", [point(1000.0008)], reference)
+        assert len(sink) == 1
+    finally:
+        _POST_REFUSES.reset(token)
 
 
 def test_x_f_1637_the_unsteady_polar_states_no_window_for_a_point_it_left_out(tmp_path):
