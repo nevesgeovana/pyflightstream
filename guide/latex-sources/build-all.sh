@@ -23,6 +23,7 @@ docs="$(dirname "$(dirname "$here")")/build/guides"
 mkdir -p "$docs"
 only=$1
 status=0
+built=0
 case "02-workspaces" in "$only"*)
     python "$here/02-workspaces/figures/qsteady_reduced_frequency.py" || exit 1 ;;
 esac
@@ -57,6 +58,12 @@ for deck in "$here"/0*/; do
     over=$(grep -c '^Overfull' "$out/$job.log")
     cp -f "$out/$job.pdf" "$docs/$job.pdf"
     echo "built $docs/$job.pdf (Overfull boxes: $over)"
+    built=$((built + 1))
 done
+
+if [ "$built" = 0 ] && [ "$status" = 0 ]; then
+    echo "no guide matches '$only'; nothing was built"
+    exit 1
+fi
 
 exit $status

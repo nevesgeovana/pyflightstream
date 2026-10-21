@@ -38,6 +38,7 @@ $dash = Get-ChildItem $here -Recurse -Include *.tex |
 if ($dash) { $dash | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }; throw "em or en dash found" }
 
 $failed = 0
+$built = 0
 foreach ($deck in Get-ChildItem $here -Directory | Where-Object { $_.Name -match '^0\d-' } | Sort-Object Name) {
     if ($Only -and -not $deck.Name.StartsWith($Only)) { continue }
     $job = "pyfts-guide-$($deck.Name)"
@@ -64,6 +65,11 @@ foreach ($deck in Get-ChildItem $here -Directory | Where-Object { $_.Name -match
     $over = ([regex]::Matches($log, '(?m)^Overfull')).Count
     Copy-Item (Join-Path $out "$job.pdf") (Join-Path $docs "$job.pdf") -Force
     Write-Host "built $docs\$job.pdf (Overfull boxes: $over)" -ForegroundColor Green
+    $built++
 }
 
+if (-not $failed -and $built -eq 0) {
+    Write-Host "no guide matches '$Only'; nothing was built" -ForegroundColor Red
+    exit 1
+}
 if ($failed) { exit 1 }
