@@ -65,7 +65,14 @@ ARCHIVE_DIR = "fsi_archive"
 # Interface files worth archiving on every call. The exact export set
 # and cadence are WP1 open questions; the directory listing recorded in
 # every archive folder catches anything not matched here.
-ARCHIVE_PATTERNS = ("FS_*.txt", "FSLoad*", "FSI_output.txt", "FSIDisp.txt", "*.sldl")
+ARCHIVE_PATTERNS = (
+    "FS_*.txt",
+    "FSLoad*",
+    "FSI_output.txt",
+    "FSIDisp.txt",
+    "FSInodes.txt",
+    "*.sldl",
+)
 
 
 def init_dummy(directory: Path, node_count: int) -> None:
@@ -80,6 +87,13 @@ def init_dummy(directory: Path, node_count: int) -> None:
         Number of structural nodes of the imported node list; the
         dummy writes one zero translation per node, in list order.
     """
+    if isinstance(node_count, bool) or not isinstance(node_count, int) or node_count < 1:
+        from pyflightstream._errors import FsiInputError
+
+        raise FsiInputError(
+            f"node_count must be an integer of at least 1, got {node_count!r}; a dummy "
+            "run with no nodes would report success on an empty displacement file"
+        )
     directory.mkdir(parents=True, exist_ok=True)
     config = {"node_count": node_count}
     _textio.write_text(directory / DUMMY_CONFIG, json.dumps(config, indent=2) + "\n")
@@ -160,7 +174,17 @@ def coupled_step(
         if echo_failure:
             _echo_failure(cwd, f"{type(exc).__name__}: {exc}")
         return 1
-    _archive_call_files(cwd, cwd / ARCHIVE_DIR / f"call_{result.call:04d}")
+    try:
+        _archive_call_files(cwd, cwd / ARCHIVE_DIR / f"call_{result.call:04d}")
+    except OSError as archive_error:
+        with _textio.open_text(cwd / ERROR_LOG, "a") as log:
+            log.write(
+                f"{stamp} coupled step solved in {cwd} ({argv_note}) but its call archive "
+                f"failed: {archive_error}\n"
+            )
+        if echo_failure:
+            _echo_failure(cwd, f"call archive failed: {archive_error}")
+        return 1
     with _textio.open_text(cwd / CALL_LOG, "a") as log:
         log.write(
             f"{stamp} coupled call {result.call} (step {result.step}, phase "
@@ -208,10 +232,13 @@ def dummy_step(
             _echo_failure(cwd, f"no {COUPLED_CONFIG} and no {DUMMY_CONFIG} in {cwd}")
         return 1
     try:
-        node_count = int(json.loads(config_path.read_text(encoding="utf-8"))["node_count"])
+        node_count = json.loads(config_path.read_text(encoding="utf-8"))["node_count"]
+        if isinstance(node_count, bool) or not isinstance(node_count, int) or node_count < 1:
+            raise ValueError(f"node_count {node_count!r} must be an integer of at least 1")
     except (OSError, ValueError, KeyError, TypeError) as error:
-        # X-F-0516. A hand-written dummy config is trusted no further than it
-        # reads: a failure lands in the error log, as the other refusals do.
+        # X-F-0516, F-1360, F-1361. A hand-written dummy config is trusted no
+        # further than it reads: a failure lands in the error log, as the
+        # other refusals do.
         with _textio.open_text(cwd / ERROR_LOG, "a") as log:
             log.write(
                 f"{stamp} pyfs-fsi cannot read node_count from {config_path} "

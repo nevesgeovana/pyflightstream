@@ -120,3 +120,38 @@ def test_x_f_0516_a_dummy_config_without_node_count_lands_in_the_error_log(tmp_p
     assert "node_count" in error and "KeyError" in error
     (tmp_path / cli.DUMMY_CONFIG).write_text("{not json", encoding="utf-8")
     assert cli.dummy_step(tmp_path) == 1
+
+
+@pytest.mark.parametrize("count", [0, -3])
+def test_dummy_refuses_a_non_positive_node_count(tmp_path, count):
+    """F-1360, F-1361: no empty displacement file is reported as success."""
+    from pyflightstream._errors import FsiInputError
+
+    with pytest.raises(FsiInputError, match="node_count"):
+        cli.init_dummy(tmp_path, count)
+    cli.init_dummy(tmp_path, 2)
+    (tmp_path / cli.DUMMY_CONFIG).write_text(json.dumps({"node_count": count}), encoding="utf-8")
+    assert cli.main(["step", "--out", str(tmp_path)]) == 1
+    assert not (tmp_path / cli.DISPLACEMENT_FILE).exists()
+    assert "node_count" in (tmp_path / cli.ERROR_LOG).read_text(encoding="utf-8")
+
+
+def test_dummy_archive_keeps_the_node_list(tmp_path):
+    """F-461: the solver's FSInodes.txt is archived with the call."""
+    cli.init_dummy(tmp_path, 2)
+    (tmp_path / "FSInodes.txt").write_text("1,2,3", encoding="utf-8")
+    assert cli.main(["step", "--out", str(tmp_path)]) == 0
+    assert (tmp_path / cli.ARCHIVE_DIR / "call_0001" / "FSInodes.txt").is_file()
+
+
+def test_archive_failure_after_a_solve_logs_and_fails(tmp_path, monkeypatch):
+    """F-777, X-F-0515: a failed archive is an error-logged failure, not a traceback."""
+    stage_run(tmp_path)
+    write_loads(tmp_path, 100)
+
+    def broken(cwd, archive):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(cli, "_archive_call_files", broken)
+    assert cli.main(["step", "--out", str(tmp_path)]) == 1
+    assert "call archive" in (tmp_path / cli.ERROR_LOG).read_text(encoding="utf-8")
