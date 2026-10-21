@@ -226,12 +226,16 @@ def _rotor_the_row_names(case: SimCase) -> RotorBlock | None:
     # A flat row whose moving boundary belongs to a declared rotor block
     # takes that block's hand, just as a MOTIONS row does. If the reference
     # declares no matching block, the row's own RPM_SIGN supplies the hand.
+    # WITH NO SELECTOR AT ALL, THE SOLE BLOCK THE REFERENCE DECLARES IS THE ROTOR THE ROW
+    # TURNS (the same answer :func:`_the_rotor_a_flat_row_turns` gives every run type): its
+    # hand and its diameter are the row's, not a default of 1 and the reference's top-level
+    # diameter (F-036, F-037).
     moving = case.variables.get(MOVING_BOUNDARIES_VARIABLE)
     if moving is None:
-        return None
+        return _the_rotor_a_flat_row_turns(case)
     named = [part.strip() for part in str(moving).replace(",", " ").split() if part.strip()]
     if not named:
-        return None
+        return _the_rotor_a_flat_row_turns(case)
     # THE SELECTOR IS RESOLVED, NOT SPELT-MATCHED. A row may name the families
     # themselves, the rotor's own alias, or a SETUP ALIAS that stands for them,
     # and the three are the same selection. Comparing the raw tokens matched the
@@ -497,7 +501,14 @@ def rotor_speed(case: SimCase) -> RotorSpeed:
             f"{RPM_SIGN_VARIABLE}, which is where a negative sign belongs."
         )
     reference = case.reference
-    diameter = None if reference is None else reference.rotor_diameter
+    # THE NAMED ROTOR'S OWN DIAMETER where the row names (or the reference declares) one
+    # rotor block; the reference's single top-level diameter only where no block answers.
+    block = _rotor_the_row_names(case)
+    diameter = (
+        block.diameter_m
+        if block is not None and block.diameter_m
+        else (None if reference is None else reference.rotor_diameter)
+    )
     if diameter is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {ADVANCE_RATIO_VARIABLE} as {ratio} and its "
