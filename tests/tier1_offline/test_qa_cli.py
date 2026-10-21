@@ -577,10 +577,13 @@ def test_apply_compat_says_what_to_do_when_nothing_is_promotable(tmp_path, capsy
 
 
 def test_x_f_1208_timeout_help_states_the_solved_probe_limit(capsys):
-    """X-F-1208: the --timeout help says solved probes carry their own 180 s limit."""
+    """X-F-1208, RB4-12: the --timeout help says each solved probe keeps its own limit."""
     with pytest.raises(SystemExit) as exit_info:
         main(["probe", "--help"])
     assert exit_info.value.code == 0
     text = " ".join(capsys.readouterr().out.split())
     assert "--timeout" in text
-    assert "solves carries its own 180 s limit" in text
+    assert "each solved probe keeps its own limit" in text
+    assert "180 s for a solving probe of the gap catalog" in text
+    assert "240 s for a solving probe that carries it" in text
+    assert "60 s for the hang guards of build 26.125" in text

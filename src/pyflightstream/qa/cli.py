@@ -149,8 +149,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--timeout",
         type=float,
         default=get_option("qa.probe_timeout_s"),
-        help="per-probe wall-clock limit, seconds (default from the qa.probe_timeout_s option); "
-        "a probe that solves carries its own 180 s limit, which this option does not change",
+        help="per-probe wall-clock limit, seconds (default from the qa.probe_timeout_s option, "
+        "120 s); each solved probe keeps its own limit, which this option does not change: 180 s "
+        "for a solving probe of the gap catalog, 240 s for a solving probe that carries it, "
+        "and 60 s for the hang guards of build 26.125",
     )
     probe.add_argument(
         "--report-dir",
