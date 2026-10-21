@@ -58,7 +58,6 @@ __all__ = [
     "apply_reanalysis",
     "classify_executable",
     "compat_report_paths",
-    "compare_compat_reports",
     "contradicting_evidence",
     "licence_sensitive_candidates",
     "read_compat_report",
